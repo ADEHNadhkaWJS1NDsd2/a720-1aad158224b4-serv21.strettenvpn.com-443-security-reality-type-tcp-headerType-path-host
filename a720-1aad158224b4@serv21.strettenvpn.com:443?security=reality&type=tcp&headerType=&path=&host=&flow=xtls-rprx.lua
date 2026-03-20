@@ -1732,9 +1732,7 @@ Task_Spawn(function()
 
                 if type(Configuration.Manual_Spam_Keybind) == "number" and Configuration.Manual_Spam_Keybind > 0 and iskeypressed(Configuration.Manual_Spam_Keybind) then
                     if not Interface_Manager.Manual_Spam_Keybind_Held then
-                        if Configuration.Manual_Spam_Ui and Player_State.Is_Alive then
-                            Player_State.Manual_Spam_Active = not Player_State.Manual_Spam_Active
-                        end
+                        Player_State.Manual_Spam_Active = not Player_State.Manual_Spam_Active
                         Interface_Manager.Manual_Spam_Keybind_Held = true
                     end
                 else
@@ -2024,13 +2022,39 @@ local function Execute_Parry_Action(Is_Lobby_Parry_Call)
     end
 end
 
-local Thread_Offsets = {0, 0.004, 0.008, 0.012, 0.016}
-for Index_I = 1, 5 do
+local Auto_Thread_Offsets = {0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.014, 0.016, 0.018}
+for Index_I = 1, 10 do
     Task_Spawn(function()
-        local Stagger_Offset = Thread_Offsets[Index_I]
+        local Stagger_Offset = Auto_Thread_Offsets[Index_I]
         while _G.Nightfall_Active do
-            local Is_Spamming = Player_State.Is_Alive and (Parry_State.Ball.Auto_Spam or (Player_State.Manual_Spam_Active and Configuration.Manual_Spam_Ui))
+            local Is_Spamming = Player_State.Is_Alive and Parry_State.Ball.Auto_Spam
             if Is_Spamming and isrbxactive() then
+                if Stagger_Offset > 0 then
+                    local Start_Tick = tick()
+                    while tick() - Start_Tick < Stagger_Offset do
+                        Task_Wait()
+                    end
+                end
+                if Configuration.Parry_Method == 1 then
+                    mouse1press()
+                    mouse1release()
+                else
+                    keypress(0x46)
+                    keyrelease(0x46)
+                end
+            end
+            Task_Wait()
+        end
+    end)
+end
+
+local Manual_Thread_Offsets = {0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.014, 0.016, 0.018}
+for Index_I = 1, 10 do
+    Task_Spawn(function()
+        local Stagger_Offset = Manual_Thread_Offsets[Index_I]
+        while _G.Nightfall_Active do
+            local Is_Manual_Spamming = Player_State.Manual_Spam_Active
+            if Is_Manual_Spamming and isrbxactive() then
                 if Stagger_Offset > 0 then
                     local Start_Tick = tick()
                     while tick() - Start_Tick < Stagger_Offset do
@@ -2166,7 +2190,6 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         if not Is_Entity_Alive then
             Parry_State.Ball.Auto_Spam = false
-            Player_State.Manual_Spam_Active = false
         end
 
         local Application_Tick = Time_Tick()
