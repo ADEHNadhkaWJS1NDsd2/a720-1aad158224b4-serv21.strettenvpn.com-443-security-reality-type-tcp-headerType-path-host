@@ -431,12 +431,16 @@ local Player_State = {
         Velocity = V3_Zero,
         Speed = 0,
         Ping = 60,
+        Smoothed_Ping = 60,
         Ping_History = {},
-        Jitter = 0
+        Jitter = 0,
+        Jitter_Smoothed = 0
     },
     Is_Alive = false,
     Is_Dead = false,
     Manual_Spam_Active = false,
+    Aero_Effect_Active = false,
+    Aero_Effect_Start_Time = 0,
     Tracked_Speed = 0,
     Tracked_Distance = 0,
     Tracked_Dot_Product = 0,
@@ -457,15 +461,15 @@ local Parry_State = {
         Last_Target_Change = Time_Tick(),
         Last_Targeted_Me = 0,
         Last_Hit = 0,
-        Aero_Dynamic_Time = Time_Tick(),
         Aero_Effect_Active = false,
         Smoothed_Accel = 0,
         Dot = 0,
+        Smoothed_Dot = 1,
+        Dot_Velocity = 0,
         Distance = 0,
         Parries = 0,
         Auto_Spam = false,
         Cooldown = false,
-        Block_End_Time = 0,
         Cached_Target = nil
     },
     Target = {
@@ -476,9 +480,7 @@ local Parry_State = {
 }
 
 local Watcher_State = {
-    Has_Singularity = false,
     Ball_Conn = nil,
-    Cape_Conn = nil,
     Current_Ball = nil,
 }
 
@@ -707,64 +709,101 @@ local function Get_Optimal_Parry_Threshold(Ball_Instance, Ball_Speed, Player_Pos
     local Dot_Product, Is_Curving, Curve_Start_Time = Analyze_Trajectory(Ball_Instance, Player_Position, Parry_State.Ball.Velocity, Capped_Speed)
     Player_State.Tracked_Dot_Product = Dot_Product
 
-    local Scaled_Ping = Current_Ping / 10
-    local Scaled_Jitter = (Player_State.Entity.Jitter or 0) / 10
-    local Capped_Speed_Difference = Math_Min(Math_Max(Ball_Speed - 9.5, 0), Configuration.Capped_Speed)
-    local Dynamic_Divisor = Configuration.Speed_Divisor_Base + (Capped_Speed_Difference * Configuration.Speed_Divisor_Multiplier)
+    -- Smooth dot and track its rate of change (dot velocity = how fast ball turns toward us)
+    local Prev_Smoothed_Dot = Parry_State.Ball.Smoothed_Dot
+    Parry_State.Ball.Smoothed_Dot = Parry_State.Ball.Smoothed_Dot + (Dot_Product - Parry_State.Ball.Smoothed_Dot) * 0.2
+    if Delta_Time and Delta_Time > 0 then
+        local Raw_Dot_Vel = (Parry_State.Ball.Smoothed_Dot - Prev_Smoothed_Dot) / Delta_Time
+        Parry_State.Ball.Dot_Velocity = Parry_State.Ball.Dot_Velocity + (Raw_Dot_Vel - Parry_State.Ball.Dot_Velocity) * 0.15
+    end
+
+    local Smoothed_Dot = Parry_State.Ball.Smoothed_Dot
+    local Dot_Vel = Parry_State.Ball.Dot_Velocity
+
+    -- Ping compensation: use smoothed ping + jitter
+    local Effective_Ping = Player_State.Entity.Smoothed_Ping or Current_Ping
+    local Jitter_Smoothed = Player_State.Entity.Jitter_Smoothed or 0
+    local Ping_Seconds = Effective_Ping / 1000
+    -- Approaching ball needs more ping buffer, departing ball needs less
+    local Approach_Factor = Math_Clamp((Smoothed_Dot + 1) / 2, 0.5, 1.0)
+    local Ping_Buffer = (Effective_Ping * 0.09 + Math_Max(0, Jitter_Smoothed - 10) * 0.4) * Approach_Factor
+
+    local Capped_Speed_Diff = Math_Min(Math_Max(Ball_Speed - 9.5, 0), Configuration.Capped_Speed)
+    local Dynamic_Divisor = Configuration.Speed_Divisor_Base + (Capped_Speed_Diff * Configuration.Speed_Divisor_Multiplier)
     Dynamic_Divisor = Dynamic_Divisor * Configuration.Parry_Accuracy_Multiplier
 
-    local Base_Threshold = Scaled_Ping + Scaled_Jitter + Math_Max(Ball_Speed / Math_Max(Dynamic_Divisor, 0.01), 9.5)
+    local Base_Threshold = Ping_Buffer + Math_Max(Ball_Speed / Math_Max(Dynamic_Divisor, 0.01), 9.5)
     local Accuracy_Offset = (Configuration.Parry_Accuracy_Multiplier - 1) * 15
     Base_Threshold = Base_Threshold - Accuracy_Offset
 
+    -- Warp detection boost
     local Now = Time_Tick()
-    local Is_Warping = false
     if Delta_Time and Delta_Time > 0 then
-        Is_Warping = Detect_Position_Warp(Ball_Instance, Parry_State.Ball.Last_Position, Parry_State.Ball.Velocity, Delta_Time)
+        if Detect_Position_Warp(Ball_Instance, Parry_State.Ball.Last_Position, Parry_State.Ball.Velocity, Delta_Time) then
+            Parry_State.Ball.Warp_Detected_Time = Now
+        end
     end
-    if Is_Warping then
-        Parry_State.Ball.Warp_Detected_Time = Now
-    end
-
-    local Time_Since_Warp = Now - Parry_State.Ball.Warp_Detected_Time
     local Warp_Boost = 0
+    local Time_Since_Warp = Now - Parry_State.Ball.Warp_Detected_Time
     if Time_Since_Warp < Configuration.Warp_Boost_Duration then
-        local Warp_Fade = 1 - (Time_Since_Warp / Configuration.Warp_Boost_Duration)
-        Warp_Boost = Configuration.Warp_Boost_Amount * Warp_Fade
+        Warp_Boost = Configuration.Warp_Boost_Amount * (1 - Time_Since_Warp / Configuration.Warp_Boost_Duration)
     end
 
     local Parry_Threshold = Base_Threshold + Warp_Boost
 
+    -- Curve handling
     if Is_Curving and Capped_Speed >= Configuration.Curve_Min_Speed_Threshold then
         local Speed_Factor = Capped_Speed / Configuration.Curve_Speed_Threshold_Divisor
         local Dist_Factor = Distance_To_Ball / Configuration.Curve_Ball_Distance_Threshold_Divisor
         local Active_Curve_Time = Now - Curve_Start_Time
-        local Warning_State = Active_Curve_Time < Configuration.Curve_Warning_Duration
-        local Curve_State = Active_Curve_Time < Configuration.Curve_Curving_Duration
         local Warp_Dur_Factor = Parry_Threshold / Configuration.Curve_Warping_Duration_Divisor
         local Curve_Dur_Factor = Parry_Threshold / Configuration.Curve_Curving_Duration_Divisor
 
-        local Curve_Deduction = (15.0 * Speed_Factor) * Math_Clamp(1 - Dot_Product, 0.1, 1)
-
-        if Warning_State or Curve_State then
-            Curve_Deduction = Curve_Deduction * (1 + Warp_Dur_Factor + Curve_Dur_Factor)
+        if Smoothed_Dot < -0.1 then
+            -- Backwards curving ball: predict if it will reach us within ping window
+            local Predicted_Dot = Smoothed_Dot + Dot_Vel * Ping_Seconds * 2.5
+            if Dot_Vel > 0.8 and Predicted_Dot > -0.05 then
+                -- Ball is actively turning back toward us, open threshold to catch it
+                local Turn_Urgency = Math_Clamp(Dot_Vel / 5.0, 0, 1)
+                Parry_Threshold = Math_Max(Parry_Threshold, Base_Threshold + Ping_Buffer * 1.8 + Turn_Urgency * 10)
+            else
+                -- Ball going away and not turning back, tight cap
+                local Back_Cap = Math_Max(Base_Threshold * 0.6, Ping_Buffer * 1.2 + Distance_To_Ball * 0.1)
+                Parry_Threshold = Math_Min(Parry_Threshold, Math_Max(Back_Cap, 14))
+            end
+        else
+            local Curve_Deduction = (15.0 * Speed_Factor) * Math_Clamp(1 - Dot_Product, 0.1, 1)
+            if Active_Curve_Time < Configuration.Curve_Warning_Duration or Active_Curve_Time < Configuration.Curve_Curving_Duration then
+                Curve_Deduction = Curve_Deduction * (1 + Warp_Dur_Factor + Curve_Dur_Factor)
+            end
+            Parry_Threshold = Math_Max(Parry_Threshold - Curve_Deduction - (Dist_Factor * 5), 18)
         end
-
-        Parry_Threshold = Math_Max(Parry_Threshold - Curve_Deduction - (Dist_Factor * 5), 18)
     else
         Parry_Threshold = Math_Max(Parry_Threshold, 5.5)
     end
 
+    -- Dot protect: only restrict when ball is genuinely going away at high speed
     if Configuration.Dot_Protect then
-        if Dot_Product < 0 then
-            if Distance_To_Ball > Configuration.Dot_Back_Distance_Gate then
-                local Back_Limit = Math_Max(12, 16 + Scaled_Ping * 0.4 + Distance_To_Ball * 0.15)
-                Parry_Threshold = Math_Min(Parry_Threshold, Back_Limit)
+        if Smoothed_Dot < -0.2 and Ball_Speed >= 30 then
+            local Predicted_Dot = Smoothed_Dot + Dot_Vel * Ping_Seconds * 2.5
+            if Dot_Vel > 0.8 and Predicted_Dot > -0.05 then
+                -- Turning back toward us, ensure threshold is open enough
+                local Turn_Urgency = Math_Clamp(Dot_Vel / 5.0, 0, 1)
+                Parry_Threshold = Math_Max(Parry_Threshold, Ping_Buffer * 2.0 + Turn_Urgency * 12)
+            else
+                -- Genuinely going away
+                if Distance_To_Ball > Configuration.Dot_Back_Distance_Gate then
+                    local Back_Limit = Math_Max(16, Ping_Buffer * 1.6 + Distance_To_Ball * 0.12)
+                    Parry_Threshold = Math_Min(Parry_Threshold, Back_Limit)
+                else
+                    local Close_Back_Limit = Math_Max(20, Ping_Buffer * 2.0 + Distance_To_Ball * 0.2)
+                    Parry_Threshold = Math_Min(Parry_Threshold, Close_Back_Limit)
+                end
             end
-        elseif Dot_Product <= Configuration.Dot_Threshold then
+        elseif Smoothed_Dot > -0.2 and Smoothed_Dot <= Configuration.Dot_Threshold then
             if Capped_Speed >= Configuration.Dot_Min_Speed and Distance_To_Ball <= Configuration.Dot_Distance_Threshold then
-                local Angle_Factor = 1 - (Dot_Product / Configuration.Dot_Threshold)
-                local Dot_Limit = Scaled_Ping + Distance_To_Ball * 0.8 + (Angle_Factor * 10)
+                local Angle_Factor = 1 - (Smoothed_Dot / Configuration.Dot_Threshold)
+                local Dot_Limit = Ping_Buffer + Distance_To_Ball * 0.8 + (Angle_Factor * 10)
                 Parry_Threshold = Math_Min(Parry_Threshold, Math_Max(Dot_Limit, Configuration.Dot_Limit_Threshold))
             end
         end
@@ -2074,28 +2113,6 @@ for Index_I = 1, 10 do
     end)
 end
 
-local function Setup_Cape_Watcher(Character)
-    if Watcher_State.Cape_Conn then
-        Watcher_State.Cape_Conn:Disconnect()
-        Watcher_State.Cape_Conn = nil
-    end
-    Watcher_State.Has_Singularity = false
-    if not Character then return end
-
-    Watcher_State.Has_Singularity = (Character:FindFirstChild("SingularityCape") ~= nil)
-
-    Watcher_State.Cape_Conn = Cvm:OnChildAdded(Character, function(Child)
-        if Child.Name == "SingularityCape" then
-            Watcher_State.Has_Singularity = true
-            Cvm:OnceChildRemoved(Character, function(Removed)
-                if Removed.Name == "SingularityCape" then
-                    Watcher_State.Has_Singularity = false
-                end
-            end)
-        end
-    end)
-end
-
 local function Setup_Ball_Watcher(Ball_Instance)
     if Watcher_State.Ball_Conn then
         Watcher_State.Ball_Conn:Disconnect()
@@ -2112,21 +2129,8 @@ local function Setup_Ball_Watcher(Ball_Instance)
     end)
 end
 
-local Last_Watched_Character = nil
-
-if Local_Player.Character then
-    Last_Watched_Character = Local_Player.Character
-    Setup_Cape_Watcher(Local_Player.Character)
-end
-
 Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
     Delta_Time = Delta_Time or 0.016
-
-    local Current_Character = Local_Player.Character
-    if Current_Character ~= Last_Watched_Character then
-        Last_Watched_Character = Current_Character
-        Setup_Cape_Watcher(Current_Character)
-    end
 
     local Active_Ball_Instances = {}
     local Ball_Folder_Check = Workspace_Service:FindFirstChild("Balls")
@@ -2204,15 +2208,21 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
             Table_Remove(Player_State.Entity.Ping_History, 1)
         end
         local Ping_Sum = 0
+        local Ping_Max = 0
         for _, P_Val in ipairs(Player_State.Entity.Ping_History) do
             Ping_Sum = Ping_Sum + P_Val
+            if P_Val > Ping_Max then Ping_Max = P_Val end
         end
         local Ping_Mean = Ping_Sum / #Player_State.Entity.Ping_History
         local Variance_Sum = 0
         for _, P_Val in ipairs(Player_State.Entity.Ping_History) do
             Variance_Sum = Variance_Sum + (P_Val - Ping_Mean)^2
         end
-        Player_State.Entity.Jitter = Math_Sqrt(Variance_Sum / #Player_State.Entity.Ping_History)
+        local Raw_Jitter = Math_Sqrt(Variance_Sum / #Player_State.Entity.Ping_History)
+        Player_State.Entity.Jitter = Raw_Jitter
+        Player_State.Entity.Jitter_Smoothed = Player_State.Entity.Jitter_Smoothed + (Raw_Jitter - Player_State.Entity.Jitter_Smoothed) * 0.1
+        local Spike_Offset = Math_Max(0, Ping_Max - Ping_Mean - Raw_Jitter)
+        Player_State.Entity.Smoothed_Ping = Ping_Mean + (Raw_Jitter * 0.5) + (Spike_Offset * 0.3)
 
         local Ball_Entity_Found = false
 
@@ -2305,28 +2315,27 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                             Player_State.Tracked_Distance = Parry_State.Ball.Distance
                         end
 
+                        local Singularity_Cape = Root_Part:FindFirstChild("SingularityCape")
+                        if Singularity_Cape then
+                            Parry_State.Ball.Cooldown = true
+                        else
+
                         local Awaiting_Aero_Effect = false
-                        if Ball_Instance:FindFirstChild("AeroDynamicSlashVFX") then
-                            if not Parry_State.Ball.Aero_Effect_Active then
-                                Parry_State.Ball.Aero_Effect_Active = true
-                                Parry_State.Ball.Aero_Dynamic_Time = Application_Tick
+                        local Aero_Visual_Effect = Ball_Instance:FindFirstChild("AeroDynamicSlashVFX")
+                        if Aero_Visual_Effect then
+                            if not Player_State.Aero_Effect_Active then
+                                Player_State.Aero_Effect_Active = true
+                                Player_State.Aero_Effect_Start_Time = Application_Tick
                             end
-                            if (Application_Tick - Parry_State.Ball.Aero_Dynamic_Time) < 0.2 or Parry_State.Ball.Velocity.Y > 10 then
+                            local Time_Since_Aero = Application_Tick - Player_State.Aero_Effect_Start_Time
+                            if Time_Since_Aero < 0.2 or Ball_Instance.AssemblyLinearVelocity.Y > 10 then
                                 Awaiting_Aero_Effect = true
                             end
                         else
-                            Parry_State.Ball.Aero_Effect_Active = false
+                            Player_State.Aero_Effect_Active = false
                         end
 
-                        local Has_Singularity = Watcher_State.Has_Singularity
-                        local Block_All = Has_Singularity or Awaiting_Aero_Effect
-
-                        if Block_All then
-                            Parry_State.Ball.Cooldown = true
-                            Parry_State.Ball.Block_End_Time = Application_Tick
-                        elseif Parry_State.Ball.Block_End_Time and (Application_Tick - Parry_State.Ball.Block_End_Time) < 0.1 then
-                            Parry_State.Ball.Cooldown = true
-                        end
+                        local Block_All = Awaiting_Aero_Effect
 
                         if Configuration.Triggerbot_Enabled and Is_Targeting_Local_Player and not Block_All and Player_State.Scheduled_Trigger_Time > 0 then
                             if Application_Tick >= Player_State.Scheduled_Trigger_Time then
@@ -2363,25 +2372,33 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
 
                         local Parry_Threshold_Range = Player_State.Current_Parry_Threshold
 
-                        local Ping_Delay = Player_State.Entity.Ping / 1000
-                        local Predict_Time = Ping_Delay * Configuration.Ping_Multiplier + Configuration.Predict_Extra
+                        local Effective_Ping = Player_State.Entity.Smoothed_Ping or Player_State.Entity.Ping
+                        local Jitter_Comp = (Player_State.Entity.Jitter_Smoothed or 0) * 0.5
+                        local Ping_Seconds = (Effective_Ping + Jitter_Comp) / 1000
+                        local Predict_Time = Ping_Seconds * Configuration.Ping_Multiplier + Configuration.Predict_Extra
 
                         local Predicted_Speed = Math_Max(Parry_State.Ball.Speed + (Parry_State.Ball.Smoothed_Accel * Predict_Time), Parry_State.Ball.Speed)
-                        local Predicted_Velocity_Vec = Normalize_Vector(Parry_State.Ball.Velocity) * Predicted_Speed
-                        local Predicted_Ball_Pos = Parry_State.Ball.Position + (Predicted_Velocity_Vec * Predict_Time)
+                        local Predicted_Ball_Pos = Parry_State.Ball.Position + (Parry_State.Ball.Velocity * (Predicted_Speed / Math_Max(Parry_State.Ball.Speed, 0.01)) * Predict_Time)
 
-                        local Predicted_Distance = Get_Distance_Between(Predicted_Position, Predicted_Ball_Pos)
-                        local Upclose_Predict_Hit = Predicted_Distance <= 15 and Trajectory_Dot_Product > 0.4
+                        local Player_Vel = Player_State.Entity.Velocity
+                        local Predicted_Player_Pos = Player_State.Entity.Server_Position + V3_New(
+                            Player_Vel.X * Predict_Time,
+                            Player_Vel.Y * Predict_Time,
+                            Player_Vel.Z * Predict_Time
+                        )
+
+                        local Predicted_Distance = Get_Distance_Between(Predicted_Player_Pos, Predicted_Ball_Pos)
 
                         if Is_Targeting_Local_Player and Configuration.Auto_Parry and not Block_All and Parry_State.Ball.Speed >= Configuration.Min_Threat_Speed then
                             if Configuration.Auto_Curve and ismouse2pressed() then
                                 Parry_Threshold_Range = Parry_Threshold_Range + (Parry_State.Ball.Speed * 0.015)
                             end
 
-                            if not Parry_State.Ball.Cooldown and (Parry_State.Ball.Distance <= Parry_Threshold_Range or Upclose_Predict_Hit) then
+                            if not Parry_State.Ball.Cooldown and Predicted_Distance <= Parry_Threshold_Range then
                                 Execute_Parry_Action(false)
                                 Parry_State.Ball.Cooldown = true
                             end
+                        end
                         end
                     end
                 end
@@ -2400,6 +2417,8 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                 Parry_State.Ball.Smoothed_Accel = 0
                 Parry_State.Ball.Last_Position = V3_Zero
                 Parry_State.Ball.Warp_Detected_Time = 0
+                Parry_State.Ball.Smoothed_Dot = 1
+                Parry_State.Ball.Dot_Velocity = 0
             end
         elseif Is_Entity_Dead and Configuration.Lobby_Parry then
             local Training_Folder = Workspace_Service:FindFirstChild("TrainingBalls")
@@ -2425,25 +2444,39 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                         local Is_Targeting_Local_Player = Check_Is_Target(Training_Target_Name)
                         local Training_Ball_Velocity = Training_Ball.AssemblyLinearVelocity
                         local Training_Ball_Speed = Get_Vector_Magnitude(Training_Ball_Velocity)
-                        local Distance_To_Training_Ball = Get_Distance_Between(Player_State.Entity.Server_Position, Training_Ball.Position)
 
-                        local Ping_Offset = Player_State.Entity.Ping / 10
-                        local Capped_Speed_Diff = Math_Min(Math_Max(Training_Ball_Speed - 9.5, 0), Configuration.Capped_Speed)
-                        local Speed_Divisor = Configuration.Speed_Divisor_Base + (Capped_Speed_Diff * Configuration.Speed_Divisor_Multiplier)
-                        Speed_Divisor = Speed_Divisor * Configuration.Parry_Accuracy_Multiplier
-
-                        local Training_Parry_Threshold = Ping_Offset + Math_Max(Training_Ball_Speed / Speed_Divisor, 9.5)
-                        local Accuracy_Offset = (Configuration.Parry_Accuracy_Multiplier - 1) * 15
-                        Training_Parry_Threshold = Training_Parry_Threshold - Accuracy_Offset
+                        local Training_Threshold = Get_Optimal_Parry_Threshold(
+                            Training_Ball,
+                            Training_Ball_Speed,
+                            Player_State.Entity.Server_Position,
+                            Player_State.Entity.Ping,
+                            Get_Distance_Between(Player_State.Entity.Server_Position, Training_Ball.Position),
+                            Delta_Time
+                        )
+                        Player_State.Current_Parry_Threshold = Training_Threshold
 
                         if Configuration.Auto_Curve and ismouse2pressed() then
-                            Training_Parry_Threshold = Training_Parry_Threshold + (Training_Ball_Speed * 0.015)
+                            Training_Threshold = Training_Threshold + (Training_Ball_Speed * 0.015)
                         end
 
-                        Player_State.Current_Parry_Threshold = Training_Parry_Threshold
-
                         if Is_Targeting_Local_Player then
-                            if not Parry_State.Ball.Cooldown and Distance_To_Training_Ball <= Training_Parry_Threshold then
+                            local Ping_Seconds = Player_State.Entity.Ping / 1000
+                            local Predict_Time = Ping_Seconds * Configuration.Ping_Multiplier + Configuration.Predict_Extra
+
+                            local Predicted_Train_Speed = Math_Max(Training_Ball_Speed, Training_Ball_Speed)
+                            local Predicted_Train_Dir = Normalize_Vector(Training_Ball_Velocity)
+                            local Predicted_Train_Pos = Training_Ball.Position + (Predicted_Train_Dir * (Predicted_Train_Speed * Predict_Time))
+
+                            local Player_Vel = Player_State.Entity.Velocity
+                            local Predicted_Player_Pos = Player_State.Entity.Server_Position + V3_New(
+                                Player_Vel.X * Predict_Time,
+                                Player_Vel.Y * Predict_Time,
+                                Player_Vel.Z * Predict_Time
+                            )
+
+                            local Predicted_Train_Distance = Get_Distance_Between(Predicted_Player_Pos, Predicted_Train_Pos)
+
+                            if not Parry_State.Ball.Cooldown and Predicted_Train_Distance <= Training_Threshold then
                                 Execute_Parry_Action(true)
                                 Parry_State.Ball.Cooldown = true
                             end
