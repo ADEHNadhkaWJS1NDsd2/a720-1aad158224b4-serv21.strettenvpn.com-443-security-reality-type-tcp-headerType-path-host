@@ -372,6 +372,9 @@ local Configuration = {
     Render_Keybinds = true,
     Manual_Spam_Ui = false,
     Manual_Spam_Keybind = 0,
+    Force_Parry = false,
+    Force_Parry_Keybind = 0,
+    Bind_Mode = {},
     Auto_Curve = false,
     Auto_Curve_Mode = 1,
     Camera_Sens = 0.50,
@@ -399,9 +402,22 @@ local function Save_Config()
             Math_Floor(Interface_Manager.Palette.Accent_Color.G * 255),
             Math_Floor(Interface_Manager.Palette.Accent_Color.B * 255))
 
-        local Json_Data = Http_Service:JSONEncode(Configuration)
+        local Save_Data = Http_Service:JSONEncode(Configuration)
+        local Layout_Data = Http_Service:JSONEncode({
+            Window_X = Interface_Manager.Base_Position.X,
+            Window_Y = Interface_Manager.Base_Position.Y,
+            Window_W = Interface_Manager.Dimensions.X,
+            Window_H = Interface_Manager.Dimensions.Y,
+            Indicator_X = Interface_Manager.Indicator_Position.X,
+            Indicator_Y = Interface_Manager.Indicator_Position.Y,
+            Stats_X = Interface_Manager.Stats_Panel_Position.X,
+            Stats_Y = Interface_Manager.Stats_Panel_Position.Y,
+            Manual_Spam_X = Interface_Manager.Manual_Spam_Panel_Position.X,
+            Manual_Spam_Y = Interface_Manager.Manual_Spam_Panel_Position.Y,
+        })
         if writefile then
-            writefile(Save_File_Name, Json_Data)
+            writefile(Save_File_Name, Save_Data)
+            writefile(Save_File_Name:gsub("%.json", "_layout.json"), Layout_Data)
         end
     end)
 end
@@ -424,6 +440,17 @@ local function Load_Config()
                 Interface_Manager.Palette.Accent_Color = C3_Hex(Configuration.Custom_Accent_Color)
                 Update_Colors()
             end
+        end
+
+        local Layout_File = Save_File_Name:gsub("%.json", "_layout.json")
+        if isfile and isfile(Layout_File) and readfile then
+            local Layout_Json = readfile(Layout_File)
+            local L = Http_Service:JSONDecode(Layout_Json)
+            if L.Window_X then Interface_Manager.Base_Position = V2_New(L.Window_X, L.Window_Y) end
+            if L.Window_W then Interface_Manager.Dimensions = V2_New(L.Window_W, L.Window_H) end
+            if L.Indicator_X then Interface_Manager.Indicator_Position = V2_New(L.Indicator_X, L.Indicator_Y) end
+            if L.Stats_X then Interface_Manager.Stats_Panel_Position = V2_New(L.Stats_X, L.Stats_Y) end
+            if L.Manual_Spam_X then Interface_Manager.Manual_Spam_Panel_Position = V2_New(L.Manual_Spam_X, L.Manual_Spam_Y) end
         end
     end)
 end
@@ -832,6 +859,7 @@ Interface_Manager = {
     Active_Slider_Element = nil,
     Active_Dropdown_Element = nil,
     Active_Picker_Element = nil,
+    Context_Menu = {Visible = false, Bind_Key = nil, Position = V2_Zero},
     Hide_Key_Held = false,
     Resize_Corners = {},
     Themes = {
@@ -887,6 +915,245 @@ local function Instantiate_Drawing(Class_Name, Properties_Table, Color_Key)
     end
     Table_Insert(_G.Nightfall_Drawings, Drawing_Object)
     return Drawing_Object
+end
+
+local function Do_Click()
+    if not isrbxactive() then return end
+    if Configuration.Parry_Method == 1 then
+        mouse1press()
+        Task_Wait()
+        mouse1release()
+    else
+        keypress(0x46)
+        Task_Wait()
+        keyrelease(0x46)
+    end
+end
+
+local function Execute_Parry_Action(Is_Lobby_Parry_Call)
+    local Did_Curve = false
+    if not Is_Lobby_Parry_Call and Configuration.Auto_Curve and ismouse2pressed() then
+        local Curve_Mode = Configuration.Auto_Curve_Mode
+        local Sensitivity_Val = Configuration.Camera_Sens
+        local Delta_X, Delta_Y = 0, 0
+        if Curve_Mode == 1 then
+            Delta_Y = -(600 * Sensitivity_Val)
+        elseif Curve_Mode == 2 then
+            Delta_X = 8000 * Sensitivity_Val
+        end
+        if Delta_X ~= 0 or Delta_Y ~= 0 then
+            Did_Curve = true
+            Task_Spawn(function()
+                if mousemoverel then mousemoverel(Delta_X, Delta_Y) end
+                Task_Spawn(Do_Click)
+                Task_Wait(0.01)
+                if mousemoverel then mousemoverel(-Delta_X, -Delta_Y) end
+            end)
+        end
+    end
+
+    if not Did_Curve then
+        Task_Spawn(Do_Click)
+    end
+end
+
+local function Run_Loader()
+    local Screen_Size = Workspace_Service.CurrentCamera.ViewportSize
+    local Cx = Screen_Size.X / 2
+    local Cy = Screen_Size.Y / 2
+
+    local function ND(Type, Props)
+        local Obj = Drawing.new(Type)
+        for K, V in pairs(Props) do Safe_Call(function() Obj[K] = V end) end
+        return Obj
+    end
+
+    local Panel_W, Panel_H = 340, 200
+    local Panel_X = Cx - Panel_W / 2
+    local Panel_Y = Cy - Panel_H / 2
+
+    local BG = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#0A0B10"), Transparency=0, Position=Vector2.new(0,0), Size=Screen_Size, ZIndex=1})
+    local P_Shadow = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#000000"), Transparency=0, Position=Vector2.new(Panel_X+8,Panel_Y+8), Size=Vector2.new(Panel_W,Panel_H), Rounding=14, ZIndex=2})
+    local P_Outline = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#000000"), Transparency=0, Position=Vector2.new(Panel_X-1,Panel_Y-1), Size=Vector2.new(Panel_W+2,Panel_H+2), Rounding=15, ZIndex=3})
+    local P_BG = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#0A0B10"), Transparency=0, Position=Vector2.new(Panel_X,Panel_Y), Size=Vector2.new(Panel_W,Panel_H), Rounding=14, ZIndex=4})
+    local P_Inner = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#0D0E15"), Transparency=0, Position=Vector2.new(Panel_X+1,Panel_Y+1), Size=Vector2.new(Panel_W-2,Panel_H-2), Rounding=13, ZIndex=4})
+    local Acc_Line = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0, Position=Vector2.new(Panel_X,Panel_Y), Size=Vector2.new(Panel_W,2), ZIndex=5})
+
+    local Title = ND("Text", {Text="NIGHTFALL", Font=Drawing.Fonts.SystemBold, Size=24, Color=Color3.fromHex("#FFFFFF"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Panel_Y+22), ZIndex=6})
+    local Sub = ND("Text", {Text="initializing", Font=Drawing.Fonts.System, Size=12, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Panel_Y+52), ZIndex=6})
+    local Exp = ND("Text", {Text="Expires: Never", Font=Drawing.Fonts.System, Size=11, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Panel_Y+72), ZIndex=6})
+
+    -- Progress bar
+    local Bar_W = Panel_W - 60
+    local Bar_X = Panel_X + 30
+    local Bar_Y = Panel_Y + Panel_H - 52
+    local Bar_H = 3
+
+    local Bar_Shadow = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#000000"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y+1), Size=Vector2.new(Bar_W,Bar_H), Rounding=2, ZIndex=5})
+    local Bar_Track = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#000000"), Transparency=0, Position=Vector2.new(Bar_X-1,Bar_Y-1), Size=Vector2.new(Bar_W+2,Bar_H+2), Rounding=3, ZIndex=6})
+    local Bar_BG = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#14151E"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(Bar_W,Bar_H), Rounding=2, ZIndex=7})
+    local Bar_Fill = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(0,Bar_H), Rounding=2, ZIndex=8})
+    local Bar_Fill2 = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#C89FFF"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(0,1), Rounding=2, ZIndex=9})
+    local Bar_Glow = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(0,Bar_H), Rounding=2, ZIndex=10})
+    local Bar_Shine = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#FFFFFF"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(20,Bar_H), Rounding=2, ZIndex=11})
+    local Pct = ND("Text", {Text="0%", Font=Drawing.Fonts.Monospace, Size=11, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Bar_Y+10), ZIndex=6})
+
+    -- Arc spinner
+    local Arc_R = 20
+    local Arc_Cx = Cx
+    local Arc_Cy = Panel_Y + 110
+    local Arc_N = 40
+    local Arc_Lines = {}
+    for i = 1, Arc_N do
+        Arc_Lines[i] = ND("Line", {Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0, Thickness=2, From=Vector2.new(Arc_Cx,Arc_Cy), To=Vector2.new(Arc_Cx,Arc_Cy), ZIndex=7})
+    end
+    local Dot_N = 3
+    local Dots = {}
+    for i = 1, Dot_N do
+        Dots[i] = ND("Circle", {Filled=true, Visible=true, Color=Color3.fromHex("#D4AAFF"), Transparency=0, Radius=2.5, NumSides=16, Position=Vector2.new(Arc_Cx,Arc_Cy), ZIndex=9})
+    end
+
+    local function All_Objs()
+        return {BG, P_Shadow, P_Outline, P_BG, P_Inner, Acc_Line, Title, Sub, Exp, Bar_Shadow, Bar_Track, Bar_BG, Bar_Fill, Bar_Fill2, Bar_Glow, Bar_Shine, Pct}
+    end
+
+    local function Cleanup()
+        for _, O in ipairs(All_Objs()) do O:Remove() end
+        for _, L in ipairs(Arc_Lines) do L:Remove() end
+        for _, D in ipairs(Dots) do D:Remove() end
+    end
+
+    local function Set_Alpha(A)
+        BG.Transparency = A * 0.97
+        P_Shadow.Transparency = A * 0.12
+        P_Outline.Transparency = A * 0.25
+        P_BG.Transparency = A * 0.96
+        P_Inner.Transparency = A * 0.94
+        Acc_Line.Transparency = A
+        Title.Transparency = A
+        Sub.Transparency = A * 0.9
+        Exp.Transparency = A * 0.5
+        Bar_Shadow.Transparency = A * 0.8
+        Bar_Track.Transparency = A
+        Bar_BG.Transparency = A
+        Bar_Fill.Transparency = A
+        Bar_Fill2.Transparency = A * 0.6
+        Pct.Transparency = A * 0.7
+    end
+
+    local function Render_Arc(T, A, Stopped)
+        local Angle = T * 2.6
+        local Span = Stopped and 0 or (math.pi * 1.4 + math.sin(T * 1.1) * 0.35)
+        for i = 1, Arc_N do
+            local t1 = (i-1)/Arc_N
+            local t2 = i/Arc_N
+            local A1 = Angle + t1 * Span
+            local A2 = Angle + t2 * Span
+            local Fade = math.sin(t1 * math.pi)
+            Arc_Lines[i].From = Vector2.new(Arc_Cx + math.cos(A1)*Arc_R, Arc_Cy + math.sin(A1)*Arc_R)
+            Arc_Lines[i].To   = Vector2.new(Arc_Cx + math.cos(A2)*Arc_R, Arc_Cy + math.sin(A2)*Arc_R)
+            Arc_Lines[i].Transparency = A * Fade * 0.92
+            local H = (T*0.07 + t1*0.2) % 1
+            Arc_Lines[i].Color = Color3.fromHSV(0.74 + H*0.07, 0.55 + Fade*0.45, 0.88 + Fade*0.12)
+        end
+        for i = 1, Dot_N do
+            local Da = Angle + Span*(i/Dot_N) - 0.06
+            Dots[i].Position = Vector2.new(Arc_Cx + math.cos(Da)*Arc_R, Arc_Cy + math.sin(Da)*Arc_R)
+            Dots[i].Transparency = A * (0.75 + 0.25*math.sin(T*4 + i*2))
+        end
+    end
+
+    local Progress = 0
+    local Target_Progress = 0
+    local Fade_In = 0
+    local Done = false
+
+    local Steps = {
+        {label="loading modules",    pct=0.18, wait=1.3},
+        {label="building interface", pct=0.42, wait=1.5},
+        {label="connecting", pct=0.66, wait=1.1},
+        {label="checking",  pct=0.88, wait=1.3},
+        {label="ready",              pct=1.00, wait=0.9},
+    }
+
+    task.spawn(function()
+        for _, S in ipairs(Steps) do
+            Sub.Text = S.label
+            Target_Progress = S.pct
+            task.wait(S.wait)
+        end
+        task.wait(0.3)
+        Done = true
+    end)
+
+    -- Phase 1: loading
+    local T0 = tick()
+    while not Done or Progress < 0.999 do
+        task.wait()
+        local T = tick() - T0
+        Fade_In = math.min(Fade_In + 0.05, 1)
+        Progress = Progress + (Target_Progress - Progress) * 0.045
+        Set_Alpha(Fade_In)
+        local Fill_W = math.max(0, Bar_W * Progress)
+        Bar_Fill.Size = Vector2.new(Fill_W, Bar_H)
+        Bar_Fill2.Size = Vector2.new(math.max(0, Fill_W - 4), Bar_H/2)
+        Bar_Fill2.Position = Vector2.new(Bar_X + 2, Bar_Y)
+        Bar_Fill2.Transparency = Fade_In * 0.55
+        local Glow_W = math.min(Fill_W, 28)
+        Bar_Glow.Position = Vector2.new(Bar_X + Fill_W - Glow_W, Bar_Y)
+        Bar_Glow.Size = Vector2.new(Glow_W, Bar_H)
+        Bar_Glow.Transparency = Fade_In * 0.5
+        local Shine_Pos = Bar_X + Fill_W * (0.5 + 0.5*math.sin(T*2.5)) - 25
+        Bar_Shine.Position = Vector2.new(math.clamp(Shine_Pos, Bar_X, Bar_X+math.max(0,Fill_W-2)), Bar_Y)
+        Bar_Shine.Size = Vector2.new(math.min(50, math.max(0, Fill_W)), Bar_H)
+        Bar_Shine.Transparency = Fade_In * 0.14 * (0.5 + 0.5*math.sin(T*4.5))
+        Pct.Text = math.floor(Progress * 100) .. "%"
+        Acc_Line.Color = Color3.fromHSV(0.75 + math.sin(T*0.5)*0.04, 0.7, 1)
+        Render_Arc(T, Fade_In, false)
+    end
+
+    -- Phase 2: sweep + slide out
+    local Sweep = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0.9, Position=Vector2.new(0,0), Size=Vector2.new(0, Screen_Size.Y), ZIndex=20})
+    local Sweep_T = 0
+    while Sweep_T < 1 do
+        task.wait()
+        Sweep_T = math.min(Sweep_T + 0.07, 1)
+        local Ease = 1 - (1 - Sweep_T)^3
+        Sweep.Size = Vector2.new(Screen_Size.X * Ease, Screen_Size.Y)
+        Sweep.Transparency = 0.9 - Ease * 0.4
+    end
+    task.wait(0.05)
+
+    local FO = 1
+    while FO > 0 do
+        task.wait()
+        FO = FO - 0.06
+        local A = math.max(0, FO)
+        local SlideY = (1 - A) * 30
+        local PY = Panel_Y - SlideY
+        P_BG.Position = Vector2.new(Panel_X, PY)
+        P_BG.Size = Vector2.new(Panel_W, Panel_H)
+        P_Inner.Position = Vector2.new(Panel_X+1, PY+1)
+        P_Inner.Size = Vector2.new(Panel_W-2, Panel_H-2)
+        P_Outline.Position = Vector2.new(Panel_X-1, PY-1)
+        P_Outline.Size = Vector2.new(Panel_W+2, Panel_H+2)
+        P_Shadow.Position = Vector2.new(Panel_X+8, PY+8)
+        Acc_Line.Position = Vector2.new(Panel_X, PY)
+        Acc_Line.Size = Vector2.new(Panel_W, 2)
+        BG.Transparency = A * 0.97
+        Sweep.Transparency = 0.5 + A * 0.4
+        P_Shadow.Transparency = A * 0.12
+        P_Outline.Transparency = A * 0.25
+        P_BG.Transparency = A * 0.96
+        P_Inner.Transparency = A * 0.94
+        Acc_Line.Transparency = A
+        Title.Transparency = A
+        Sub.Transparency = A * 0.9
+        Exp.Transparency = A * 0.5
+    end
+
+    Sweep:Remove()
+    Cleanup()
 end
 
 local function Construct_User_Interface()
@@ -1065,6 +1332,7 @@ local function Construct_User_Interface()
     Create_Toggle_Element(Combat_Offensive_Section, "Auto Spam", "Auto_Spam", "Spam_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Triggerbot", "Triggerbot_Enabled", "Triggerbot_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Manual Spam", "Manual_Spam_Ui", "Manual_Spam_Keybind")
+    Create_Toggle_Element(Combat_Offensive_Section, "Force Parry", "Force_Parry", "Force_Parry_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Anti Curve", "Dot_Protect", nil)
     Create_Toggle_Element(Combat_Offensive_Section, "Ball Stats", "Render_Ball_Stats", nil)
     Create_Toggle_Element(Combat_Offensive_Section, "Auto Curve", "Auto_Curve", "Auto_Curve_Keybind")
@@ -1092,7 +1360,7 @@ local function Construct_User_Interface()
         Title_Text = Instantiate_Drawing("Text", {Text = "keybinds", Size = 13, Font = Drawing.Fonts.System, Outline = true, Visible = true, Transparency = 1}, "Primary_Text"),
         Render_Rows = {}
     }
-    for _ = 1, 4 do
+    for _ = 1, 6 do
         Table_Insert(Interface_Manager.Overlay_Indicator.Render_Rows, {
             Name_Text = Instantiate_Drawing("Text", {Text = "", Size = 13, Font = Drawing.Fonts.System, Outline = true, Visible = true, Transparency = 1}, "Primary_Text"),
             State_Text = Instantiate_Drawing("Text", {Text = "", Size = 13, Font = Drawing.Fonts.System, Outline = true, Visible = true, Transparency = 1})
@@ -1123,6 +1391,21 @@ local function Construct_User_Interface()
         Accent_Line = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 1}, "Accent_Color"),
         Title_Text = Instantiate_Drawing("Text", {Text = "MANUAL SPAM", Size = 13, Font = Drawing.Fonts.System, Outline = true, Visible = false, Transparency = 1}, "Primary_Text"),
         State_Text = Instantiate_Drawing("Text", {Text = "OFF", Size = 16, Font = Drawing.Fonts.System, Outline = true, Visible = false, Transparency = 1, Center = true}, "Secondary_Text"),
+    }
+
+    Interface_Manager.Context_Menu_Panel = {
+        Shadow = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0.15, Rounding = 8}),
+        Outline_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0.25, Rounding = 7}, "Outline"),
+        Background_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0.92, Rounding = 7}, "Background"),
+        Accent_Line = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 1, Rounding = 0}, "Accent_Color"),
+        Title_Text = Instantiate_Drawing("Text", {Text = "BIND MODE", Size = 11, Font = Drawing.Fonts.System, Outline = false, Visible = false, Transparency = 1}, "Secondary_Text"),
+        Divider = Instantiate_Drawing("Line", {Thickness = 1, Visible = false, Transparency = 0.15}, "Outline"),
+        Option1_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0, Rounding = 5}, "Toggle_Background"),
+        Option1_Dot = Instantiate_Drawing("Circle", {Filled = true, Visible = false, Radius = 3, Transparency = 1}, "Accent_Color"),
+        Option1_Text = Instantiate_Drawing("Text", {Text = "Toggle", Size = 13, Font = Drawing.Fonts.System, Outline = false, Visible = false, Transparency = 1}, "Primary_Text"),
+        Option2_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0, Rounding = 5}, "Toggle_Background"),
+        Option2_Dot = Instantiate_Drawing("Circle", {Filled = true, Visible = false, Radius = 3, Transparency = 1}, "Accent_Color"),
+        Option2_Text = Instantiate_Drawing("Text", {Text = "Hold", Size = 13, Font = Drawing.Fonts.System, Outline = false, Visible = false, Transparency = 1}, "Primary_Text"),
     }
 
     for _, Dropdown_Data in ipairs(Uninitialized_Dropdowns) do
@@ -1363,11 +1646,11 @@ local function Refresh_Layout_Coordinates()
 
     local Indicator_Pos = Interface_Manager.Indicator_Position
     Interface_Manager.Overlay_Indicator.Outline_Box.Position = Indicator_Pos - V2_New(1, 1)
-    Interface_Manager.Overlay_Indicator.Outline_Box.Size = V2_New(182, 105)
+    Interface_Manager.Overlay_Indicator.Outline_Box.Size = V2_New(182, 141)
     Interface_Manager.Overlay_Indicator.Inline_Box.Position = Indicator_Pos
-    Interface_Manager.Overlay_Indicator.Inline_Box.Size = V2_New(180, 103)
+    Interface_Manager.Overlay_Indicator.Inline_Box.Size = V2_New(180, 139)
     Interface_Manager.Overlay_Indicator.Background_Box.Position = Indicator_Pos + V2_New(1, 1)
-    Interface_Manager.Overlay_Indicator.Background_Box.Size = V2_New(178, 101)
+    Interface_Manager.Overlay_Indicator.Background_Box.Size = V2_New(178, 137)
     Interface_Manager.Overlay_Indicator.Accent_Line.Position = Indicator_Pos + V2_New(1, 1)
     Interface_Manager.Overlay_Indicator.Accent_Line.Size = V2_New(178, 2)
     Interface_Manager.Overlay_Indicator.Title_Text.Position = Indicator_Pos + V2_New(10, 6)
@@ -1407,6 +1690,30 @@ local function Refresh_Layout_Coordinates()
     Interface_Manager.Manual_Spam_Panel.Accent_Line.Size = V2_New(138, 2)
     Interface_Manager.Manual_Spam_Panel.Title_Text.Position = Ms_Pos + V2_New(10, 6)
     Interface_Manager.Manual_Spam_Panel.State_Text.Position = Ms_Pos + V2_New(70, 30)
+
+    local Ctx = Interface_Manager.Context_Menu
+    if Ctx.Visible then
+        local Cp = Ctx.Position
+        local W, H = 110, 56
+        local Cm = Interface_Manager.Context_Menu_Panel
+        Cm.Shadow.Position = Cp + V2_New(3, 3)
+        Cm.Shadow.Size = V2_New(W, H)
+        Cm.Shadow.Color = C3_New(0, 0, 0)
+        Cm.Outline_Box.Position = Cp - V2_New(1, 1)
+        Cm.Outline_Box.Size = V2_New(W + 2, H + 2)
+        Cm.Background_Box.Position = Cp
+        Cm.Background_Box.Size = V2_New(W, H)
+        Cm.Accent_Line.Position = Cp
+        Cm.Accent_Line.Size = V2_New(W, 2)
+        Cm.Option1_Box.Position = Cp + V2_New(4, 6)
+        Cm.Option1_Box.Size = V2_New(W - 8, 20)
+        Cm.Option1_Dot.Position = Cp + V2_New(13, 16)
+        Cm.Option1_Text.Position = Cp + V2_New(22, 8)
+        Cm.Option2_Box.Position = Cp + V2_New(4, 30)
+        Cm.Option2_Box.Size = V2_New(W - 8, 20)
+        Cm.Option2_Dot.Position = Cp + V2_New(13, 40)
+        Cm.Option2_Text.Position = Cp + V2_New(22, 32)
+    end
 end
 
 local function Change_Active_Tab(Tab_Identifier)
@@ -1522,6 +1829,7 @@ local function Set_Interface_Visibility(Visibility_State)
     Change_Active_Tab(Interface_Manager.Current_Tab)
 end
 
+Run_Loader()
 Construct_User_Interface()
 Apply_Theme(Configuration.Theme_Preset)
 Refresh_Layout_Coordinates()
@@ -1533,10 +1841,44 @@ Task_Spawn(function()
         Task_Wait()
 
         local Is_Mouse_Pressed = ismouse1pressed()
+        local Is_Right_Click = ismouse2pressed()
+        local Was_Right_Click = Interface_Manager.Was_Right_Click or false
+        Interface_Manager.Was_Right_Click = Is_Right_Click
 
         local Mouse_Position = V2_New(Player_Mouse.X, Player_Mouse.Y)
         local function Is_Location_In_Bounds(Position_Vector, Dimensions_Vector)
             return Mouse_Position.X >= Position_Vector.X and Mouse_Position.X <= Position_Vector.X + Dimensions_Vector.X and Mouse_Position.Y >= Position_Vector.Y and Mouse_Position.Y <= Position_Vector.Y + Dimensions_Vector.Y
+        end
+
+        local Ctx = Interface_Manager.Context_Menu
+        local Ctx_Panel = Interface_Manager.Context_Menu_Panel
+        local Ctx_Visible = Ctx.Visible
+        Ctx_Panel.Shadow.Visible = Ctx_Visible
+        Ctx_Panel.Outline_Box.Visible = Ctx_Visible
+        Ctx_Panel.Background_Box.Visible = Ctx_Visible
+        Ctx_Panel.Accent_Line.Visible = Ctx_Visible
+        Ctx_Panel.Title_Text.Visible = false
+        Ctx_Panel.Divider.Visible = false
+        Ctx_Panel.Option1_Box.Visible = Ctx_Visible
+        Ctx_Panel.Option1_Dot.Visible = Ctx_Visible
+        Ctx_Panel.Option1_Text.Visible = Ctx_Visible
+        Ctx_Panel.Option2_Box.Visible = Ctx_Visible
+        Ctx_Panel.Option2_Dot.Visible = Ctx_Visible
+        Ctx_Panel.Option2_Text.Visible = Ctx_Visible
+        if Ctx_Visible then
+            local Current_Mode = (Configuration.Bind_Mode and Configuration.Bind_Mode[Ctx.Bind_Key]) or "toggle"
+            local Is_Hover1 = Is_Location_In_Bounds(Ctx_Panel.Option1_Box.Position, Ctx_Panel.Option1_Box.Size)
+            local Is_Hover2 = Is_Location_In_Bounds(Ctx_Panel.Option2_Box.Position, Ctx_Panel.Option2_Box.Size)
+            local Is_Toggle = Current_Mode == "toggle"
+            local Is_Hold = Current_Mode == "hold"
+            Ctx_Panel.Option1_Box.Color = (Is_Toggle or Is_Hover1) and Interface_Manager.Palette.Hover_State or Interface_Manager.Palette.Toggle_Background
+            Ctx_Panel.Option1_Box.Transparency = (Is_Toggle or Is_Hover1) and 0.85 or 0.5
+            Ctx_Panel.Option1_Dot.Visible = Is_Toggle
+            Ctx_Panel.Option1_Text.Color = Is_Toggle and Interface_Manager.Palette.Accent_Color or (Is_Hover1 and Interface_Manager.Palette.Primary_Text or Interface_Manager.Palette.Secondary_Text)
+            Ctx_Panel.Option2_Box.Color = (Is_Hold or Is_Hover2) and Interface_Manager.Palette.Hover_State or Interface_Manager.Palette.Toggle_Background
+            Ctx_Panel.Option2_Box.Transparency = (Is_Hold or Is_Hover2) and 0.85 or 0.5
+            Ctx_Panel.Option2_Dot.Visible = Is_Hold
+            Ctx_Panel.Option2_Text.Color = Is_Hold and Interface_Manager.Palette.Accent_Color or (Is_Hover2 and Interface_Manager.Palette.Primary_Text or Interface_Manager.Palette.Secondary_Text)
         end
 
         local Should_Render_Keybinds = Configuration.Render_Keybinds
@@ -1566,6 +1908,14 @@ Task_Spawn(function()
             Interface_Manager.Overlay_Indicator.Render_Rows[4].Name_Text.Text = String_Format("[%s] Curve", Format_Keycode_Name(Configuration.Auto_Curve_Keybind))
             Interface_Manager.Overlay_Indicator.Render_Rows[4].State_Text.Text = Configuration.Auto_Curve and "[ON]" or "[OFF]"
             Interface_Manager.Overlay_Indicator.Render_Rows[4].State_Text.Color = Configuration.Auto_Curve and Interface_Manager.Palette.Accent_Color or Interface_Manager.Palette.Secondary_Text
+
+            Interface_Manager.Overlay_Indicator.Render_Rows[5].Name_Text.Text = String_Format("[%s] Force", Format_Keycode_Name(Configuration.Force_Parry_Keybind))
+            Interface_Manager.Overlay_Indicator.Render_Rows[5].State_Text.Text = Configuration.Force_Parry and "[ON]" or "[OFF]"
+            Interface_Manager.Overlay_Indicator.Render_Rows[5].State_Text.Color = Configuration.Force_Parry and Interface_Manager.Palette.Accent_Color or Interface_Manager.Palette.Secondary_Text
+
+            Interface_Manager.Overlay_Indicator.Render_Rows[6].Name_Text.Text = String_Format("[%s] Manual", Format_Keycode_Name(Configuration.Manual_Spam_Keybind))
+            Interface_Manager.Overlay_Indicator.Render_Rows[6].State_Text.Text = Player_State.Manual_Spam_Active and "[ON]" or "[OFF]"
+            Interface_Manager.Overlay_Indicator.Render_Rows[6].State_Text.Color = Player_State.Manual_Spam_Active and Interface_Manager.Palette.Accent_Color or Interface_Manager.Palette.Secondary_Text
         end
 
         local Should_Render_Stats = Configuration.Render_Ball_Stats and Player_State.Is_Alive
@@ -1588,7 +1938,7 @@ Task_Spawn(function()
         end
 
         local Should_Render_Manual_Spam = Configuration.Manual_Spam_Ui
-        if not Should_Render_Manual_Spam or not Player_State.Is_Alive then
+        if not Should_Render_Manual_Spam then
             Player_State.Manual_Spam_Active = false
         end
 
@@ -1724,6 +2074,12 @@ Task_Spawn(function()
                             Configuration[Interface_Manager.Active_Keybind_Listener] = Current_Key_Code
                         end
                         Interface_Manager.Hide_Key_Held = true
+                        Interface_Manager.Auto_Parry_Held = true
+                        Interface_Manager.Auto_Spam_Held = true
+                        Interface_Manager.Triggerbot_Enabled_Held = true
+                        Interface_Manager.Auto_Curve_Held = true
+                        Interface_Manager.Manual_Spam_Keybind_Held = true
+                        Interface_Manager.Force_Parry_Was_Pressed = true
                         Interface_Manager.Active_Keybind_Listener = nil
                         Refresh_Layout_Coordinates()
                         break
@@ -1741,33 +2097,97 @@ Task_Spawn(function()
                     Interface_Manager.Hide_Key_Held = false
                 end
 
-                if type(Configuration.Manual_Spam_Keybind) == "number" and Configuration.Manual_Spam_Keybind > 0 and iskeypressed(Configuration.Manual_Spam_Keybind) then
-                    if not Interface_Manager.Manual_Spam_Keybind_Held then
-                        Player_State.Manual_Spam_Active = not Player_State.Manual_Spam_Active
-                        Interface_Manager.Manual_Spam_Keybind_Held = true
+                if type(Configuration.Manual_Spam_Keybind) == "number" and Configuration.Manual_Spam_Keybind > 0 then
+                    local Manual_Mode = (Configuration.Bind_Mode and Configuration.Bind_Mode["Manual_Spam_Keybind"]) or "toggle"
+                    local Is_Pressed = iskeypressed(Configuration.Manual_Spam_Keybind)
+                    if Manual_Mode == "hold" then
+                        Player_State.Manual_Spam_Active = Is_Pressed
+                        Interface_Manager.Manual_Spam_Keybind_Held = Is_Pressed
+                    else
+                        if Is_Pressed then
+                            if not Interface_Manager.Manual_Spam_Keybind_Held then
+                                Player_State.Manual_Spam_Active = not Player_State.Manual_Spam_Active
+                                Interface_Manager.Manual_Spam_Keybind_Held = true
+                            end
+                        else
+                            Interface_Manager.Manual_Spam_Keybind_Held = false
+                        end
                     end
-                else
-                    Interface_Manager.Manual_Spam_Keybind_Held = false
                 end
             end)
 
-            local function Process_Keybind_Action(Keycode_Value, Config_Reference)
+            local function Process_Keybind_Action(Config_Key_Name, Config_Reference)
                 Safe_Call(function()
-                    if type(Keycode_Value) == "number" and Keycode_Value > 0 and iskeypressed(Keycode_Value) then
-                        if not Interface_Manager[Config_Reference.."_Held"] then
-                            Configuration[Config_Reference] = not Configuration[Config_Reference]
-                            Interface_Manager[Config_Reference.."_Held"] = true
-                        end
+                    local Keycode_Value = Configuration[Config_Key_Name]
+                    if type(Keycode_Value) ~= "number" or Keycode_Value <= 0 then return end
+                    local Bind_Mode_Val = (Configuration.Bind_Mode and Configuration.Bind_Mode[Config_Key_Name]) or "toggle"
+                    local Is_Pressed = iskeypressed(Keycode_Value)
+                    if Bind_Mode_Val == "hold" then
+                        Configuration[Config_Reference] = Is_Pressed
+                        Interface_Manager[Config_Reference.."_Held"] = Is_Pressed
                     else
-                        Interface_Manager[Config_Reference.."_Held"] = false
+                        if Is_Pressed then
+                            if not Interface_Manager[Config_Reference.."_Held"] then
+                                Configuration[Config_Reference] = not Configuration[Config_Reference]
+                                Interface_Manager[Config_Reference.."_Held"] = true
+                            end
+                        else
+                            Interface_Manager[Config_Reference.."_Held"] = false
+                        end
                     end
                 end)
             end
 
-            Process_Keybind_Action(Configuration.Parry_Keybind, "Auto_Parry")
-            Process_Keybind_Action(Configuration.Spam_Keybind, "Auto_Spam")
-            Process_Keybind_Action(Configuration.Triggerbot_Keybind, "Triggerbot_Enabled")
-            Process_Keybind_Action(Configuration.Auto_Curve_Keybind, "Auto_Curve")
+            Process_Keybind_Action("Parry_Keybind", "Auto_Parry")
+            Process_Keybind_Action("Spam_Keybind", "Auto_Spam")
+            Process_Keybind_Action("Triggerbot_Keybind", "Triggerbot_Enabled")
+            Process_Keybind_Action("Auto_Curve_Keybind", "Auto_Curve")
+
+            Safe_Call(function()
+                if type(Configuration.Force_Parry_Keybind) == "number" and Configuration.Force_Parry_Keybind > 0 and Configuration.Force_Parry then
+                    local Force_Mode = (Configuration.Bind_Mode and Configuration.Bind_Mode["Force_Parry_Keybind"]) or "toggle"
+                    local Is_Pressed = iskeypressed(Configuration.Force_Parry_Keybind)
+                    if Is_Pressed then
+                        if not Interface_Manager.Force_Parry_Was_Pressed then
+                            Execute_Parry_Action(false)
+                            if Force_Mode == "toggle" then
+                                Interface_Manager.Force_Parry_Was_Pressed = true
+                            end
+                        end
+                    else
+                        Interface_Manager.Force_Parry_Was_Pressed = false
+                    end
+                else
+                    Interface_Manager.Force_Parry_Was_Pressed = false
+                end
+            end)
+        end
+
+        if Is_Right_Click and not Was_Right_Click and Interface_Manager.Is_Visible then
+            if not Interface_Manager.Active_Keybind_Listener then
+                local Found_Bind = false
+                for _, Bind_Data in ipairs(Interface_Manager.Binds) do
+                    if Bind_Data.Parent_Group.Parent_Tab == Interface_Manager.Current_Tab and Bind_Data.Action_Key ~= "Hide_Keybind" and Is_Location_In_Bounds(Bind_Data.Outline_Box.Position, Bind_Data.Outline_Box.Size) then
+                        Interface_Manager.Context_Menu.Visible = true
+                        Interface_Manager.Context_Menu.Bind_Key = Bind_Data.Action_Key
+                        Interface_Manager.Context_Menu.Position = Mouse_Position
+                        Refresh_Layout_Coordinates()
+                        Found_Bind = true
+                        break
+                    end
+                end
+                if not Found_Bind then
+                    for _, Toggle_Data in ipairs(Interface_Manager.Toggles) do
+                        if Toggle_Data.Keybind_Data and Toggle_Data.Parent_Group.Parent_Tab == Interface_Manager.Current_Tab and Toggle_Data.Config_Key ~= "Hide_Keybind" and Is_Location_In_Bounds(Toggle_Data.Keybind_Data.Outline_Box.Position, Toggle_Data.Keybind_Data.Outline_Box.Size) then
+                            Interface_Manager.Context_Menu.Visible = true
+                            Interface_Manager.Context_Menu.Bind_Key = Toggle_Data.Keybind_Data.Action_Key
+                            Interface_Manager.Context_Menu.Position = Mouse_Position
+                            Refresh_Layout_Coordinates()
+                            break
+                        end
+                    end
+                end
+            end
         end
 
         if Is_Mouse_Pressed and not Was_Mouse_Pressed then
@@ -1789,9 +2209,7 @@ Task_Spawn(function()
                     Interface_Manager.Manual_Spam_Drag_Start = Mouse_Position
                     Interface_Manager.Initial_Manual_Spam_Position = Interface_Manager.Manual_Spam_Panel_Position
                 else
-                    if Player_State.Is_Alive then
-                        Player_State.Manual_Spam_Active = not Player_State.Manual_Spam_Active
-                    end
+                    Player_State.Manual_Spam_Active = not Player_State.Manual_Spam_Active
                 end
             end
 
@@ -1878,7 +2296,9 @@ Task_Spawn(function()
                                 Is_Bind_Interaction = true
                             end
                             if not Is_Bind_Interaction then
+                                if Toggle_Data.Config_Key then
                                 Configuration[Toggle_Data.Config_Key] = not Configuration[Toggle_Data.Config_Key]
+                            end
                             end
                         end
                     end
@@ -1886,6 +2306,22 @@ Task_Spawn(function()
                         if Bind_Data.Parent_Group.Parent_Tab == Interface_Manager.Current_Tab and Is_Location_In_Bounds(Bind_Data.Outline_Box.Position, Bind_Data.Outline_Box.Size) then
                             Interface_Manager.Active_Keybind_Listener = Bind_Data.Action_Key
                         end
+                    end
+
+                    if Interface_Manager.Context_Menu.Visible then
+                        local Ctx2 = Interface_Manager.Context_Menu
+                        if Is_Location_In_Bounds(Interface_Manager.Context_Menu_Panel.Option1_Box.Position, Interface_Manager.Context_Menu_Panel.Option1_Box.Size) then
+                            if not Configuration.Bind_Mode then Configuration.Bind_Mode = {} end
+                            Configuration.Bind_Mode[Ctx2.Bind_Key] = "toggle"
+                            Interface_Manager.Context_Menu.Visible = false
+                        elseif Is_Location_In_Bounds(Interface_Manager.Context_Menu_Panel.Option2_Box.Position, Interface_Manager.Context_Menu_Panel.Option2_Box.Size) then
+                            if not Configuration.Bind_Mode then Configuration.Bind_Mode = {} end
+                            Configuration.Bind_Mode[Ctx2.Bind_Key] = "hold"
+                            Interface_Manager.Context_Menu.Visible = false
+                        else
+                            Interface_Manager.Context_Menu.Visible = false
+                        end
+                        Refresh_Layout_Coordinates()
                     end
                     for _, Slider_Data in ipairs(Interface_Manager.Sliders) do
                         if Slider_Data.Parent_Group.Parent_Tab == Interface_Manager.Current_Tab and Is_Location_In_Bounds(Slider_Data.Outline_Box.Position - V2_New(0, 5), Slider_Data.Outline_Box.Size + V2_New(0, 10)) then
@@ -1992,46 +2428,6 @@ Task_Spawn(function()
         Was_Mouse_Pressed = Is_Mouse_Pressed
     end
 end)
-
-local function Do_Click()
-    if not isrbxactive() then return end
-    if Configuration.Parry_Method == 1 then
-        mouse1press()
-        Task_Wait()
-        mouse1release()
-    else
-        keypress(0x46)
-        Task_Wait()
-        keyrelease(0x46)
-    end
-end
-
-local function Execute_Parry_Action(Is_Lobby_Parry_Call)
-    local Did_Curve = false
-    if not Is_Lobby_Parry_Call and Configuration.Auto_Curve and ismouse2pressed() then
-        local Curve_Mode = Configuration.Auto_Curve_Mode
-        local Sensitivity_Val = Configuration.Camera_Sens
-        local Delta_X, Delta_Y = 0, 0
-        if Curve_Mode == 1 then
-            Delta_Y = -(600 * Sensitivity_Val)
-        elseif Curve_Mode == 2 then
-            Delta_X = 8000 * Sensitivity_Val
-        end
-        if Delta_X ~= 0 or Delta_Y ~= 0 then
-            Did_Curve = true
-            Task_Spawn(function()
-                if mousemoverel then mousemoverel(Delta_X, Delta_Y) end
-                Task_Spawn(Do_Click)
-                Task_Wait(0.01)
-                if mousemoverel then mousemoverel(-Delta_X, -Delta_Y) end
-            end)
-        end
-    end
-
-    if not Did_Curve then
-        Task_Spawn(Do_Click)
-    end
-end
 
 local Auto_Thread_Offsets = {0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.014, 0.016, 0.018}
 for Index_I = 1, 10 do
@@ -2338,7 +2734,7 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                             Parry_State.Ball.Auto_Spam = false
                         end
 
-                        local Parry_Threshold_Range = Player_State.Current_Parry_Threshold
+                        Parry_Threshold_Range = Player_State.Current_Parry_Threshold
 
                         local Ping_Delay = Player_State.Entity.Ping / 1000
                         local Predict_Time = Ping_Delay * Configuration.Ping_Multiplier + Configuration.Predict_Extra
