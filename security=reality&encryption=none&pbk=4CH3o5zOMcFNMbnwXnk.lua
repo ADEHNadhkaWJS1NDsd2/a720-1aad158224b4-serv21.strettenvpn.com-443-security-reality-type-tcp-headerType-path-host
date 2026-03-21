@@ -1195,12 +1195,18 @@ local function Construct_User_Interface()
     }
 
     Interface_Manager.Context_Menu_Panel = {
-        Outline_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0.3, Rounding = 6}, "Outline"),
-        Background_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0.85, Rounding = 6}, "Background"),
-        Option1_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0, Rounding = 4}, "Toggle_Background"),
-        Option1_Text = Instantiate_Drawing("Text", {Text = "Toggle", Size = 13, Font = Drawing.Fonts.System, Outline = true, Visible = false, Transparency = 1}, "Primary_Text"),
-        Option2_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0, Rounding = 4}, "Toggle_Background"),
-        Option2_Text = Instantiate_Drawing("Text", {Text = "Hold", Size = 13, Font = Drawing.Fonts.System, Outline = true, Visible = false, Transparency = 1}, "Primary_Text"),
+        Shadow = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0.15, Rounding = 8}),
+        Outline_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0.25, Rounding = 7}, "Outline"),
+        Background_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0.92, Rounding = 7}, "Background"),
+        Accent_Line = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 1, Rounding = 0}, "Accent_Color"),
+        Title_Text = Instantiate_Drawing("Text", {Text = "BIND MODE", Size = 11, Font = Drawing.Fonts.System, Outline = false, Visible = false, Transparency = 1}, "Secondary_Text"),
+        Divider = Instantiate_Drawing("Line", {Thickness = 1, Visible = false, Transparency = 0.15}, "Outline"),
+        Option1_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0, Rounding = 5}, "Toggle_Background"),
+        Option1_Dot = Instantiate_Drawing("Circle", {Filled = true, Visible = false, Radius = 3, Transparency = 1}, "Accent_Color"),
+        Option1_Text = Instantiate_Drawing("Text", {Text = "Toggle", Size = 13, Font = Drawing.Fonts.System, Outline = false, Visible = false, Transparency = 1}, "Primary_Text"),
+        Option2_Box = Instantiate_Drawing("Square", {Filled = true, Visible = false, Transparency = 0, Rounding = 5}, "Toggle_Background"),
+        Option2_Dot = Instantiate_Drawing("Circle", {Filled = true, Visible = false, Radius = 3, Transparency = 1}, "Accent_Color"),
+        Option2_Text = Instantiate_Drawing("Text", {Text = "Hold", Size = 13, Font = Drawing.Fonts.System, Outline = false, Visible = false, Transparency = 1}, "Primary_Text"),
     }
 
     for _, Dropdown_Data in ipairs(Uninitialized_Dropdowns) do
@@ -1489,16 +1495,25 @@ local function Refresh_Layout_Coordinates()
     local Ctx = Interface_Manager.Context_Menu
     if Ctx.Visible then
         local Cp = Ctx.Position
-        Interface_Manager.Context_Menu_Panel.Outline_Box.Position = Cp - V2_New(1, 1)
-        Interface_Manager.Context_Menu_Panel.Outline_Box.Size = V2_New(102, 52)
-        Interface_Manager.Context_Menu_Panel.Background_Box.Position = Cp
-        Interface_Manager.Context_Menu_Panel.Background_Box.Size = V2_New(100, 50)
-        Interface_Manager.Context_Menu_Panel.Option1_Box.Position = Cp + V2_New(2, 2)
-        Interface_Manager.Context_Menu_Panel.Option1_Box.Size = V2_New(96, 20)
-        Interface_Manager.Context_Menu_Panel.Option1_Text.Position = Cp + V2_New(8, 4)
-        Interface_Manager.Context_Menu_Panel.Option2_Box.Position = Cp + V2_New(2, 26)
-        Interface_Manager.Context_Menu_Panel.Option2_Box.Size = V2_New(96, 20)
-        Interface_Manager.Context_Menu_Panel.Option2_Text.Position = Cp + V2_New(8, 28)
+        local W, H = 110, 56
+        local Cm = Interface_Manager.Context_Menu_Panel
+        Cm.Shadow.Position = Cp + V2_New(3, 3)
+        Cm.Shadow.Size = V2_New(W, H)
+        Cm.Shadow.Color = C3_New(0, 0, 0)
+        Cm.Outline_Box.Position = Cp - V2_New(1, 1)
+        Cm.Outline_Box.Size = V2_New(W + 2, H + 2)
+        Cm.Background_Box.Position = Cp
+        Cm.Background_Box.Size = V2_New(W, H)
+        Cm.Accent_Line.Position = Cp
+        Cm.Accent_Line.Size = V2_New(W, 2)
+        Cm.Option1_Box.Position = Cp + V2_New(4, 6)
+        Cm.Option1_Box.Size = V2_New(W - 8, 20)
+        Cm.Option1_Dot.Position = Cp + V2_New(13, 16)
+        Cm.Option1_Text.Position = Cp + V2_New(22, 8)
+        Cm.Option2_Box.Position = Cp + V2_New(4, 30)
+        Cm.Option2_Box.Size = V2_New(W - 8, 20)
+        Cm.Option2_Dot.Position = Cp + V2_New(13, 40)
+        Cm.Option2_Text.Position = Cp + V2_New(22, 32)
     end
 end
 
@@ -1638,20 +1653,32 @@ Task_Spawn(function()
         local Ctx = Interface_Manager.Context_Menu
         local Ctx_Panel = Interface_Manager.Context_Menu_Panel
         local Ctx_Visible = Ctx.Visible
+        Ctx_Panel.Shadow.Visible = Ctx_Visible
         Ctx_Panel.Outline_Box.Visible = Ctx_Visible
         Ctx_Panel.Background_Box.Visible = Ctx_Visible
+        Ctx_Panel.Accent_Line.Visible = Ctx_Visible
+        Ctx_Panel.Title_Text.Visible = false
+        Ctx_Panel.Divider.Visible = false
         Ctx_Panel.Option1_Box.Visible = Ctx_Visible
+        Ctx_Panel.Option1_Dot.Visible = Ctx_Visible
         Ctx_Panel.Option1_Text.Visible = Ctx_Visible
         Ctx_Panel.Option2_Box.Visible = Ctx_Visible
+        Ctx_Panel.Option2_Dot.Visible = Ctx_Visible
         Ctx_Panel.Option2_Text.Visible = Ctx_Visible
         if Ctx_Visible then
             local Current_Mode = (Configuration.Bind_Mode and Configuration.Bind_Mode[Ctx.Bind_Key]) or "toggle"
             local Is_Hover1 = Is_Location_In_Bounds(Ctx_Panel.Option1_Box.Position, Ctx_Panel.Option1_Box.Size)
             local Is_Hover2 = Is_Location_In_Bounds(Ctx_Panel.Option2_Box.Position, Ctx_Panel.Option2_Box.Size)
-            Ctx_Panel.Option1_Box.Color = (Current_Mode == "toggle" or Is_Hover1) and Interface_Manager.Palette.Hover_State or Interface_Manager.Palette.Toggle_Background
-            Ctx_Panel.Option2_Box.Color = (Current_Mode == "hold" or Is_Hover2) and Interface_Manager.Palette.Hover_State or Interface_Manager.Palette.Toggle_Background
-            Ctx_Panel.Option1_Text.Color = Current_Mode == "toggle" and Interface_Manager.Palette.Accent_Color or Interface_Manager.Palette.Primary_Text
-            Ctx_Panel.Option2_Text.Color = Current_Mode == "hold" and Interface_Manager.Palette.Accent_Color or Interface_Manager.Palette.Primary_Text
+            local Is_Toggle = Current_Mode == "toggle"
+            local Is_Hold = Current_Mode == "hold"
+            Ctx_Panel.Option1_Box.Color = (Is_Toggle or Is_Hover1) and Interface_Manager.Palette.Hover_State or Interface_Manager.Palette.Toggle_Background
+            Ctx_Panel.Option1_Box.Transparency = (Is_Toggle or Is_Hover1) and 0.85 or 0.5
+            Ctx_Panel.Option1_Dot.Visible = Is_Toggle
+            Ctx_Panel.Option1_Text.Color = Is_Toggle and Interface_Manager.Palette.Accent_Color or (Is_Hover1 and Interface_Manager.Palette.Primary_Text or Interface_Manager.Palette.Secondary_Text)
+            Ctx_Panel.Option2_Box.Color = (Is_Hold or Is_Hover2) and Interface_Manager.Palette.Hover_State or Interface_Manager.Palette.Toggle_Background
+            Ctx_Panel.Option2_Box.Transparency = (Is_Hold or Is_Hover2) and 0.85 or 0.5
+            Ctx_Panel.Option2_Dot.Visible = Is_Hold
+            Ctx_Panel.Option2_Text.Color = Is_Hold and Interface_Manager.Palette.Accent_Color or (Is_Hover2 and Interface_Manager.Palette.Primary_Text or Interface_Manager.Palette.Secondary_Text)
         end
 
         local Should_Render_Keybinds = Configuration.Render_Keybinds
@@ -1847,6 +1874,12 @@ Task_Spawn(function()
                             Configuration[Interface_Manager.Active_Keybind_Listener] = Current_Key_Code
                         end
                         Interface_Manager.Hide_Key_Held = true
+                        Interface_Manager.Auto_Parry_Held = true
+                        Interface_Manager.Auto_Spam_Held = true
+                        Interface_Manager.Triggerbot_Enabled_Held = true
+                        Interface_Manager.Auto_Curve_Held = true
+                        Interface_Manager.Manual_Spam_Keybind_Held = true
+                        Interface_Manager.Force_Parry_Was_Pressed = true
                         Interface_Manager.Active_Keybind_Listener = nil
                         Refresh_Layout_Coordinates()
                         break
@@ -1883,10 +1916,11 @@ Task_Spawn(function()
                 end
             end)
 
-            local function Process_Keybind_Action(Keycode_Value, Config_Reference)
+            local function Process_Keybind_Action(Config_Key_Name, Config_Reference)
                 Safe_Call(function()
+                    local Keycode_Value = Configuration[Config_Key_Name]
                     if type(Keycode_Value) ~= "number" or Keycode_Value <= 0 then return end
-                    local Bind_Mode_Val = (Configuration.Bind_Mode and Configuration.Bind_Mode[Config_Reference.."_Keybind"]) or "toggle"
+                    local Bind_Mode_Val = (Configuration.Bind_Mode and Configuration.Bind_Mode[Config_Key_Name]) or "toggle"
                     local Is_Pressed = iskeypressed(Keycode_Value)
                     if Bind_Mode_Val == "hold" then
                         Configuration[Config_Reference] = Is_Pressed
@@ -1904,10 +1938,10 @@ Task_Spawn(function()
                 end)
             end
 
-            Process_Keybind_Action(Configuration.Parry_Keybind, "Auto_Parry")
-            Process_Keybind_Action(Configuration.Spam_Keybind, "Auto_Spam")
-            Process_Keybind_Action(Configuration.Triggerbot_Keybind, "Triggerbot_Enabled")
-            Process_Keybind_Action(Configuration.Auto_Curve_Keybind, "Auto_Curve")
+            Process_Keybind_Action("Parry_Keybind", "Auto_Parry")
+            Process_Keybind_Action("Spam_Keybind", "Auto_Spam")
+            Process_Keybind_Action("Triggerbot_Keybind", "Triggerbot_Enabled")
+            Process_Keybind_Action("Auto_Curve_Keybind", "Auto_Curve")
 
             Safe_Call(function()
                 if type(Configuration.Force_Parry_Keybind) == "number" and Configuration.Force_Parry_Keybind > 0 and Configuration.Force_Parry then
@@ -2076,11 +2110,11 @@ Task_Spawn(function()
 
                     if Interface_Manager.Context_Menu.Visible then
                         local Ctx2 = Interface_Manager.Context_Menu
-                        if Is_Location_In_Bounds(Ctx_Panel.Option1_Box.Position, Ctx_Panel.Option1_Box.Size) then
+                        if Is_Location_In_Bounds(Interface_Manager.Context_Menu_Panel.Option1_Box.Position, Interface_Manager.Context_Menu_Panel.Option1_Box.Size) then
                             if not Configuration.Bind_Mode then Configuration.Bind_Mode = {} end
                             Configuration.Bind_Mode[Ctx2.Bind_Key] = "toggle"
                             Interface_Manager.Context_Menu.Visible = false
-                        elseif Is_Location_In_Bounds(Ctx_Panel.Option2_Box.Position, Ctx_Panel.Option2_Box.Size) then
+                        elseif Is_Location_In_Bounds(Interface_Manager.Context_Menu_Panel.Option2_Box.Position, Interface_Manager.Context_Menu_Panel.Option2_Box.Size) then
                             if not Configuration.Bind_Mode then Configuration.Bind_Mode = {} end
                             Configuration.Bind_Mode[Ctx2.Bind_Key] = "hold"
                             Interface_Manager.Context_Menu.Visible = false
@@ -2500,7 +2534,7 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                             Parry_State.Ball.Auto_Spam = false
                         end
 
-                        local Parry_Threshold_Range = Player_State.Current_Parry_Threshold
+                        Parry_Threshold_Range = Player_State.Current_Parry_Threshold
 
                         local Ping_Delay = Player_State.Entity.Ping / 1000
                         local Predict_Time = Ping_Delay * Configuration.Ping_Multiplier + Configuration.Predict_Extra
