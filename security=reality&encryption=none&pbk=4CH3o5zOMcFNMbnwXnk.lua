@@ -402,9 +402,22 @@ local function Save_Config()
             Math_Floor(Interface_Manager.Palette.Accent_Color.G * 255),
             Math_Floor(Interface_Manager.Palette.Accent_Color.B * 255))
 
-        local Json_Data = Http_Service:JSONEncode(Configuration)
+        local Save_Data = Http_Service:JSONEncode(Configuration)
+        local Layout_Data = Http_Service:JSONEncode({
+            Window_X = Interface_Manager.Base_Position.X,
+            Window_Y = Interface_Manager.Base_Position.Y,
+            Window_W = Interface_Manager.Dimensions.X,
+            Window_H = Interface_Manager.Dimensions.Y,
+            Indicator_X = Interface_Manager.Indicator_Position.X,
+            Indicator_Y = Interface_Manager.Indicator_Position.Y,
+            Stats_X = Interface_Manager.Stats_Panel_Position.X,
+            Stats_Y = Interface_Manager.Stats_Panel_Position.Y,
+            Manual_Spam_X = Interface_Manager.Manual_Spam_Panel_Position.X,
+            Manual_Spam_Y = Interface_Manager.Manual_Spam_Panel_Position.Y,
+        })
         if writefile then
-            writefile(Save_File_Name, Json_Data)
+            writefile(Save_File_Name, Save_Data)
+            writefile(Save_File_Name:gsub("%.json", "_layout.json"), Layout_Data)
         end
     end)
 end
@@ -427,6 +440,17 @@ local function Load_Config()
                 Interface_Manager.Palette.Accent_Color = C3_Hex(Configuration.Custom_Accent_Color)
                 Update_Colors()
             end
+        end
+
+        local Layout_File = Save_File_Name:gsub("%.json", "_layout.json")
+        if isfile and isfile(Layout_File) and readfile then
+            local Layout_Json = readfile(Layout_File)
+            local L = Http_Service:JSONDecode(Layout_Json)
+            if L.Window_X then Interface_Manager.Base_Position = V2_New(L.Window_X, L.Window_Y) end
+            if L.Window_W then Interface_Manager.Dimensions = V2_New(L.Window_W, L.Window_H) end
+            if L.Indicator_X then Interface_Manager.Indicator_Position = V2_New(L.Indicator_X, L.Indicator_Y) end
+            if L.Stats_X then Interface_Manager.Stats_Panel_Position = V2_New(L.Stats_X, L.Stats_Y) end
+            if L.Manual_Spam_X then Interface_Manager.Manual_Spam_Panel_Position = V2_New(L.Manual_Spam_X, L.Manual_Spam_Y) end
         end
     end)
 end
