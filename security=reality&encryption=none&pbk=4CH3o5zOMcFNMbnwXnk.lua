@@ -342,22 +342,22 @@ local Configuration = {
     Ping_Multiplier = 1.200,
     Speed_Divisor_Base = 2.200,
     Speed_Divisor_Multiplier = 0.0020,
-    Capped_Speed = 9500.0,
+    Capped_Speed = 950.0,
     Curve_Min_Speed_Threshold = 40.0,
     Curve_Speed_Threshold_Divisor = 100.0,
     Curve_Ball_Distance_Threshold_Divisor = 1000.0,
     Curve_Dot_Threshold = 0.500,
     Curve_Warping_Duration_Divisor = 1000.0,
-    Curve_Warning_Duration = 1.500,
+    Curve_Warning_Duration = 1.50,
     Curve_Curving_Duration_Divisor = 1000.0,
-    Curve_Curving_Duration = 1.500,
+    Curve_Curving_Duration = 1.50,
     Ping_Sample_Count = 50,
-    Capped_Ping = 650.0,
+    Capped_Ping = 300.0,
     Dot_Min_Speed = 100.0,
     Dot_Threshold = 0.820,
     Dot_Distance_Threshold = 30.0,
     Dot_Limit_Threshold = 55.0,
-    Spam_Threshold = 5,
+    Spam_Threshold = 3,
     Spam_Min_Distance_Speed_Divisor = 6.5,
     Spam_Max_Speed_Divisor = 5.0,
     Spam_Min_Distance = 95.0,
@@ -2455,20 +2455,10 @@ Task_Spawn(function()
     end
 end)
 
-local Auto_Thread_Offsets = {}
-for i = 1, 50 do Auto_Thread_Offsets[i] = (i-1) * 0.01 end
 for Index_I = 1, 50 do
     Task_Spawn(function()
-        local Stagger_Offset = Auto_Thread_Offsets[Index_I]
         while _G.Nightfall_Active do
-            local Is_Spamming = Player_State.Is_Alive and Parry_State.Ball.Auto_Spam
-            if Is_Spamming and isrbxactive() then
-                if Stagger_Offset > 0 then
-                    local Start_Tick = tick()
-                    while tick() - Start_Tick < Stagger_Offset do
-                        Task_Wait()
-                    end
-                end
+            if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive() then
                 if Configuration.Parry_Method == 1 then
                     mouse1press()
                     mouse1release()
@@ -2495,18 +2485,21 @@ for Index_I = 1, 15 do
                         Task_Wait()
                     end
                 end
-                if Configuration.Parry_Method == 1 then
-                    mouse1press()
-                    mouse1release()
-                else
-                    keypress(0x46)
-                    keyrelease(0x46)
-                end
-                local Speed_Val = Math_Clamp(Configuration.Manual_Spam_Speed or 10, 5, 20)
-                local Speed_Wait = 0.03 + (20 - Speed_Val) / 15 * 0.17
-                local Speed_Tick = tick()
-                while tick() - Speed_Tick < Speed_Wait do
-                    Task_Wait()
+                if Player_State.Manual_Spam_Active and isrbxactive() then
+                    if Configuration.Parry_Method == 1 then
+                        mouse1press()
+                        mouse1release()
+                    else
+                        keypress(0x46)
+                        keyrelease(0x46)
+                    end
+                    local Speed_Val = Math_Clamp(Configuration.Manual_Spam_Speed or 10, 5, 20)
+                    local Speed_Wait = 0.03 + (20 - Speed_Val) / 15 * 0.17
+                    local Speed_Tick = tick()
+                    while tick() - Speed_Tick < Speed_Wait do
+                        if not Player_State.Manual_Spam_Active then break end
+                        Task_Wait()
+                    end
                 end
             end
             Task_Wait()
