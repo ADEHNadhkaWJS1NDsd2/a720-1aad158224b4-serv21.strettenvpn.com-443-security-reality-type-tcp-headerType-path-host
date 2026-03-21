@@ -342,7 +342,7 @@ local Configuration = {
     Ping_Multiplier = 1.200,
     Speed_Divisor_Base = 2.200,
     Speed_Divisor_Multiplier = 0.0020,
-    Capped_Speed = 950.0,
+    Capped_Speed = 9509.0,
     Curve_Min_Speed_Threshold = 40.0,
     Curve_Speed_Threshold_Divisor = 100.0,
     Curve_Ball_Distance_Threshold_Divisor = 1000.0,
@@ -352,11 +352,11 @@ local Configuration = {
     Curve_Curving_Duration_Divisor = 1000.0,
     Curve_Curving_Duration = 1.50,
     Ping_Sample_Count = 50,
-    Capped_Ping = 300.0,
+    Capped_Ping = 650.0,
     Dot_Min_Speed = 100.0,
     Dot_Threshold = 0.820,
     Dot_Distance_Threshold = 30.0,
-    Dot_Limit_Threshold = 55.0,
+    Dot_Limit_Threshold = 45.0,
     Spam_Threshold = 3,
     Spam_Min_Distance_Speed_Divisor = 6.5,
     Spam_Max_Speed_Divisor = 5.0,
@@ -738,19 +738,22 @@ local function Get_Optimal_Parry_Threshold(Ball_Instance, Ball_Speed, Player_Pos
 
     local Scaled_Ping = Current_Ping / 10
     local Scaled_Jitter = (Player_State.Entity.Jitter or 0) / 10
+    local Speed_Factor_Val = Configuration.Speed_Factor or 1.0
+    local Grip_Factor_Val = Configuration.Grip_Factor or 2.0
+    local Steer_Factor_Val = Configuration.Steer_Factor or 1.0
+
     local Capped_Speed_Difference = Math_Min(Math_Max(Ball_Speed - 9.5, 0), Configuration.Capped_Speed)
     local Dynamic_Divisor = Configuration.Speed_Divisor_Base + (Capped_Speed_Difference * Configuration.Speed_Divisor_Multiplier)
     Dynamic_Divisor = Dynamic_Divisor * Configuration.Parry_Accuracy_Multiplier
 
-    local Speed_Contribution = Math_Max(Ball_Speed / Math_Max(Dynamic_Divisor, 0.01), 9.5)
-    local Upclose_Scale = Math_Clamp(1 - (Distance_To_Ball / 40), 0, 1)
-    local Speed_Factor_Val = Configuration.Speed_Factor or 1.0
-    local Grip_Factor_Val = Configuration.Grip_Factor or 2.0
-    local Steer_Factor_Val = Configuration.Steer_Factor or 1.0
-    Speed_Contribution = Speed_Contribution * (1 + (Speed_Factor_Val - 1) * Upclose_Scale)
+    local Speed_Contribution = Math_Max(Ball_Speed / Math_Max(Dynamic_Divisor, 0.01), 9.5) * Speed_Factor_Val
     local Base_Threshold = Scaled_Ping + Scaled_Jitter + Speed_Contribution
     local Accuracy_Offset = (Configuration.Parry_Accuracy_Multiplier - 1) * 15
     Base_Threshold = Base_Threshold - Accuracy_Offset
+
+    local Closing_Rate = Math_Max(Dot_Product, 0) * Ball_Speed
+    local Closing_Comp = Math_Clamp((Closing_Rate / 100) * (Scaled_Ping * 0.3), 0, Scaled_Ping * 1.5)
+    Base_Threshold = Base_Threshold + Closing_Comp
 
     local Now = Time_Tick()
     local Is_Warping = false
@@ -780,14 +783,13 @@ local function Get_Optimal_Parry_Threshold(Ball_Instance, Ball_Speed, Player_Pos
         local Curve_Dur_Factor = Parry_Threshold / Configuration.Curve_Curving_Duration_Divisor
 
         local Grip_Scale = Math_Clamp(1.0 / Math_Max(Grip_Factor_Val, 0.1), 0.3, 2.0)
-        local Grip_Upclose = 1 - (Upclose_Scale * (1 - Grip_Scale))
-        local Curve_Deduction = (15.0 * Speed_Factor) * Math_Clamp(1 - Dot_Product, 0.1, 1) * Grip_Upclose
+        local Far_Scale_Inv = 1 - Math_Clamp(1 - (Distance_To_Ball / 40), 0, 1)
+        local Curve_Deduction = (15.0 * Speed_Factor) * Math_Clamp(1 - Dot_Product, 0.1, 1) * Grip_Scale
 
         if Warning_State or Curve_State then
             Curve_Deduction = Curve_Deduction * (1 + Warp_Dur_Factor + Curve_Dur_Factor)
         end
 
-        local Far_Scale_Inv = 1 - Upclose_Scale
         Parry_Threshold = Math_Max(Parry_Threshold - Curve_Deduction - (Dist_Factor * 5 * (1 - Far_Scale_Inv * (Steer_Factor_Val - 1) * 0.5)), 18)
     else
         Parry_Threshold = Math_Max(Parry_Threshold, 5.5)
@@ -983,7 +985,6 @@ local function Run_Loader()
     local Sub = ND("Text", {Text="initializing", Font=Drawing.Fonts.System, Size=12, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Panel_Y+52), ZIndex=6})
     local Exp = ND("Text", {Text="Expires: Never", Font=Drawing.Fonts.System, Size=11, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Panel_Y+72), ZIndex=6})
 
-    -- Progress bar
     local Bar_W = Panel_W - 60
     local Bar_X = Panel_X + 30
     local Bar_Y = Panel_Y + Panel_H - 52
@@ -998,7 +999,6 @@ local function Run_Loader()
     local Bar_Shine = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#FFFFFF"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(20,Bar_H), Rounding=2, ZIndex=11})
     local Pct = ND("Text", {Text="0%", Font=Drawing.Fonts.Monospace, Size=11, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Bar_Y+10), ZIndex=6})
 
-    -- Arc spinner
     local Arc_R = 20
     local Arc_Cx = Cx
     local Arc_Cy = Panel_Y + 110
@@ -1086,7 +1086,6 @@ local function Run_Loader()
         Done = true
     end)
 
-    -- Phase 1: loading
     local T0 = tick()
     while not Done or Progress < 0.999 do
         task.wait()
@@ -1112,7 +1111,6 @@ local function Run_Loader()
         Render_Arc(T, Fade_In, false)
     end
 
-    -- Phase 2: sweep + slide out
     local Sweep = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0.9, Position=Vector2.new(0,0), Size=Vector2.new(0, Screen_Size.Y), ZIndex=20})
     local Sweep_T = 0
     while Sweep_T < 1 do
@@ -2150,9 +2148,7 @@ Task_Spawn(function()
                     if Is_Pressed then
                         if not Interface_Manager.Force_Parry_Was_Pressed then
                             Execute_Parry_Action(false)
-                            if Force_Mode == "toggle" then
-                                Interface_Manager.Force_Parry_Was_Pressed = true
-                            end
+                            Interface_Manager.Force_Parry_Was_Pressed = true
                         end
                     else
                         Interface_Manager.Force_Parry_Was_Pressed = false
@@ -2429,8 +2425,8 @@ Task_Spawn(function()
     end
 end)
 
-local Auto_Thread_Offsets = {0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.014, 0.016, 0.018}
-for Index_I = 1, 10 do
+local Auto_Thread_Offsets = {0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.014, 0.016, 0.018, 0.022, 0.024}
+for Index_I = 1, 12 do
     Task_Spawn(function()
         local Stagger_Offset = Auto_Thread_Offsets[Index_I]
         while _G.Nightfall_Active do
@@ -2616,7 +2612,7 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
 
                             local Time_Since_Change = Application_Tick - (Parry_State.Ball.Last_Target_Change or 0)
 
-                            if Time_Since_Change <= 0.6 then
+                            if Time_Since_Change <= 0.5 then
                                 Parry_State.Ball.Parries = Parry_State.Ball.Parries + 1
                             else
                                 Parry_State.Ball.Parries = 1
@@ -2743,15 +2739,12 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                         local Predicted_Velocity_Vec = Normalize_Vector(Parry_State.Ball.Velocity) * Predicted_Speed
                         local Predicted_Ball_Pos = Parry_State.Ball.Position + (Predicted_Velocity_Vec * Predict_Time)
 
-                        local Predicted_Distance = Get_Distance_Between(Predicted_Position, Predicted_Ball_Pos)
-                        local Upclose_Predict_Hit = Predicted_Distance <= 15 and Trajectory_Dot_Product > 0.4
-
                         if Is_Targeting_Local_Player and Configuration.Auto_Parry and not Block_All and Parry_State.Ball.Speed >= Configuration.Min_Threat_Speed then
                             if Configuration.Auto_Curve and ismouse2pressed() then
                                 Parry_Threshold_Range = Parry_Threshold_Range + (Parry_State.Ball.Speed * 0.015)
                             end
 
-                            if not Parry_State.Ball.Cooldown and (Parry_State.Ball.Distance <= Parry_Threshold_Range or Upclose_Predict_Hit) then
+                            if not Parry_State.Ball.Cooldown and Parry_State.Ball.Distance <= Parry_Threshold_Range then
                                 Execute_Parry_Action(false)
                                 Parry_State.Ball.Cooldown = true
                             end
