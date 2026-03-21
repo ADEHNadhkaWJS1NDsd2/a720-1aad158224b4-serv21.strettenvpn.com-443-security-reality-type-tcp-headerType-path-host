@@ -957,6 +957,205 @@ local function Execute_Parry_Action(Is_Lobby_Parry_Call)
     end
 end
 
+local function Run_Loader()
+    local Screen_Size = Workspace_Service.CurrentCamera.ViewportSize
+    local Cx = Screen_Size.X / 2
+    local Cy = Screen_Size.Y / 2
+
+    local function ND(Type, Props)
+        local Obj = Drawing.new(Type)
+        for K, V in pairs(Props) do Safe_Call(function() Obj[K] = V end) end
+        return Obj
+    end
+
+    local Panel_W, Panel_H = 340, 200
+    local Panel_X = Cx - Panel_W / 2
+    local Panel_Y = Cy - Panel_H / 2
+
+    local BG = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#0A0B10"), Transparency=0, Position=Vector2.new(0,0), Size=Screen_Size, ZIndex=1})
+    local P_Shadow = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#000000"), Transparency=0, Position=Vector2.new(Panel_X+8,Panel_Y+8), Size=Vector2.new(Panel_W,Panel_H), Rounding=14, ZIndex=2})
+    local P_Outline = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#000000"), Transparency=0, Position=Vector2.new(Panel_X-1,Panel_Y-1), Size=Vector2.new(Panel_W+2,Panel_H+2), Rounding=15, ZIndex=3})
+    local P_BG = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#0A0B10"), Transparency=0, Position=Vector2.new(Panel_X,Panel_Y), Size=Vector2.new(Panel_W,Panel_H), Rounding=14, ZIndex=4})
+    local P_Inner = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#0D0E15"), Transparency=0, Position=Vector2.new(Panel_X+1,Panel_Y+1), Size=Vector2.new(Panel_W-2,Panel_H-2), Rounding=13, ZIndex=4})
+    local Acc_Line = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0, Position=Vector2.new(Panel_X,Panel_Y), Size=Vector2.new(Panel_W,2), ZIndex=5})
+
+    local Title = ND("Text", {Text="NIGHTFALL", Font=Drawing.Fonts.SystemBold, Size=24, Color=Color3.fromHex("#FFFFFF"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Panel_Y+22), ZIndex=6})
+    local Sub = ND("Text", {Text="initializing", Font=Drawing.Fonts.System, Size=12, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Panel_Y+52), ZIndex=6})
+    local Exp = ND("Text", {Text="Expires: Never", Font=Drawing.Fonts.System, Size=11, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Panel_Y+72), ZIndex=6})
+
+    -- Progress bar
+    local Bar_W = Panel_W - 60
+    local Bar_X = Panel_X + 30
+    local Bar_Y = Panel_Y + Panel_H - 52
+    local Bar_H = 3
+
+    local Bar_Shadow = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#000000"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y+1), Size=Vector2.new(Bar_W,Bar_H), Rounding=2, ZIndex=5})
+    local Bar_Track = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#000000"), Transparency=0, Position=Vector2.new(Bar_X-1,Bar_Y-1), Size=Vector2.new(Bar_W+2,Bar_H+2), Rounding=3, ZIndex=6})
+    local Bar_BG = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#14151E"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(Bar_W,Bar_H), Rounding=2, ZIndex=7})
+    local Bar_Fill = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(0,Bar_H), Rounding=2, ZIndex=8})
+    local Bar_Fill2 = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#C89FFF"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(0,1), Rounding=2, ZIndex=9})
+    local Bar_Glow = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(0,Bar_H), Rounding=2, ZIndex=10})
+    local Bar_Shine = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#FFFFFF"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(20,Bar_H), Rounding=2, ZIndex=11})
+    local Pct = ND("Text", {Text="0%", Font=Drawing.Fonts.Monospace, Size=11, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Bar_Y+10), ZIndex=6})
+
+    -- Arc spinner
+    local Arc_R = 20
+    local Arc_Cx = Cx
+    local Arc_Cy = Panel_Y + 110
+    local Arc_N = 40
+    local Arc_Lines = {}
+    for i = 1, Arc_N do
+        Arc_Lines[i] = ND("Line", {Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0, Thickness=2, From=Vector2.new(Arc_Cx,Arc_Cy), To=Vector2.new(Arc_Cx,Arc_Cy), ZIndex=7})
+    end
+    local Dot_N = 3
+    local Dots = {}
+    for i = 1, Dot_N do
+        Dots[i] = ND("Circle", {Filled=true, Visible=true, Color=Color3.fromHex("#D4AAFF"), Transparency=0, Radius=2.5, NumSides=16, Position=Vector2.new(Arc_Cx,Arc_Cy), ZIndex=9})
+    end
+
+    local function All_Objs()
+        return {BG, P_Shadow, P_Outline, P_BG, P_Inner, Acc_Line, Title, Sub, Exp, Bar_Shadow, Bar_Track, Bar_BG, Bar_Fill, Bar_Fill2, Bar_Glow, Bar_Shine, Pct}
+    end
+
+    local function Cleanup()
+        for _, O in ipairs(All_Objs()) do O:Remove() end
+        for _, L in ipairs(Arc_Lines) do L:Remove() end
+        for _, D in ipairs(Dots) do D:Remove() end
+    end
+
+    local function Set_Alpha(A)
+        BG.Transparency = A * 0.97
+        P_Shadow.Transparency = A * 0.12
+        P_Outline.Transparency = A * 0.25
+        P_BG.Transparency = A * 0.96
+        P_Inner.Transparency = A * 0.94
+        Acc_Line.Transparency = A
+        Title.Transparency = A
+        Sub.Transparency = A * 0.9
+        Exp.Transparency = A * 0.5
+        Bar_Shadow.Transparency = A * 0.8
+        Bar_Track.Transparency = A
+        Bar_BG.Transparency = A
+        Bar_Fill.Transparency = A
+        Bar_Fill2.Transparency = A * 0.6
+        Pct.Transparency = A * 0.7
+    end
+
+    local function Render_Arc(T, A, Stopped)
+        local Angle = T * 2.6
+        local Span = Stopped and 0 or (math.pi * 1.4 + math.sin(T * 1.1) * 0.35)
+        for i = 1, Arc_N do
+            local t1 = (i-1)/Arc_N
+            local t2 = i/Arc_N
+            local A1 = Angle + t1 * Span
+            local A2 = Angle + t2 * Span
+            local Fade = math.sin(t1 * math.pi)
+            Arc_Lines[i].From = Vector2.new(Arc_Cx + math.cos(A1)*Arc_R, Arc_Cy + math.sin(A1)*Arc_R)
+            Arc_Lines[i].To   = Vector2.new(Arc_Cx + math.cos(A2)*Arc_R, Arc_Cy + math.sin(A2)*Arc_R)
+            Arc_Lines[i].Transparency = A * Fade * 0.92
+            local H = (T*0.07 + t1*0.2) % 1
+            Arc_Lines[i].Color = Color3.fromHSV(0.74 + H*0.07, 0.55 + Fade*0.45, 0.88 + Fade*0.12)
+        end
+        for i = 1, Dot_N do
+            local Da = Angle + Span*(i/Dot_N) - 0.06
+            Dots[i].Position = Vector2.new(Arc_Cx + math.cos(Da)*Arc_R, Arc_Cy + math.sin(Da)*Arc_R)
+            Dots[i].Transparency = A * (0.75 + 0.25*math.sin(T*4 + i*2))
+        end
+    end
+
+    local Progress = 0
+    local Target_Progress = 0
+    local Fade_In = 0
+    local Done = false
+
+    local Steps = {
+        {label="loading modules",    pct=0.18, wait=1.3},
+        {label="building interface", pct=0.42, wait=1.5},
+        {label="connecting", pct=0.66, wait=1.1},
+        {label="checking",  pct=0.88, wait=1.3},
+        {label="ready",              pct=1.00, wait=0.9},
+    }
+
+    task.spawn(function()
+        for _, S in ipairs(Steps) do
+            Sub.Text = S.label
+            Target_Progress = S.pct
+            task.wait(S.wait)
+        end
+        task.wait(0.3)
+        Done = true
+    end)
+
+    -- Phase 1: loading
+    local T0 = tick()
+    while not Done or Progress < 0.999 do
+        task.wait()
+        local T = tick() - T0
+        Fade_In = math.min(Fade_In + 0.05, 1)
+        Progress = Progress + (Target_Progress - Progress) * 0.045
+        Set_Alpha(Fade_In)
+        local Fill_W = math.max(0, Bar_W * Progress)
+        Bar_Fill.Size = Vector2.new(Fill_W, Bar_H)
+        Bar_Fill2.Size = Vector2.new(math.max(0, Fill_W - 4), Bar_H/2)
+        Bar_Fill2.Position = Vector2.new(Bar_X + 2, Bar_Y)
+        Bar_Fill2.Transparency = Fade_In * 0.55
+        local Glow_W = math.min(Fill_W, 28)
+        Bar_Glow.Position = Vector2.new(Bar_X + Fill_W - Glow_W, Bar_Y)
+        Bar_Glow.Size = Vector2.new(Glow_W, Bar_H)
+        Bar_Glow.Transparency = Fade_In * 0.5
+        local Shine_Pos = Bar_X + Fill_W * (0.5 + 0.5*math.sin(T*2.5)) - 25
+        Bar_Shine.Position = Vector2.new(math.clamp(Shine_Pos, Bar_X, Bar_X+math.max(0,Fill_W-2)), Bar_Y)
+        Bar_Shine.Size = Vector2.new(math.min(50, math.max(0, Fill_W)), Bar_H)
+        Bar_Shine.Transparency = Fade_In * 0.14 * (0.5 + 0.5*math.sin(T*4.5))
+        Pct.Text = math.floor(Progress * 100) .. "%"
+        Acc_Line.Color = Color3.fromHSV(0.75 + math.sin(T*0.5)*0.04, 0.7, 1)
+        Render_Arc(T, Fade_In, false)
+    end
+
+    -- Phase 2: sweep + slide out
+    local Sweep = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0.9, Position=Vector2.new(0,0), Size=Vector2.new(0, Screen_Size.Y), ZIndex=20})
+    local Sweep_T = 0
+    while Sweep_T < 1 do
+        task.wait()
+        Sweep_T = math.min(Sweep_T + 0.07, 1)
+        local Ease = 1 - (1 - Sweep_T)^3
+        Sweep.Size = Vector2.new(Screen_Size.X * Ease, Screen_Size.Y)
+        Sweep.Transparency = 0.9 - Ease * 0.4
+    end
+    task.wait(0.05)
+
+    local FO = 1
+    while FO > 0 do
+        task.wait()
+        FO = FO - 0.06
+        local A = math.max(0, FO)
+        local SlideY = (1 - A) * 30
+        local PY = Panel_Y - SlideY
+        P_BG.Position = Vector2.new(Panel_X, PY)
+        P_BG.Size = Vector2.new(Panel_W, Panel_H)
+        P_Inner.Position = Vector2.new(Panel_X+1, PY+1)
+        P_Inner.Size = Vector2.new(Panel_W-2, Panel_H-2)
+        P_Outline.Position = Vector2.new(Panel_X-1, PY-1)
+        P_Outline.Size = Vector2.new(Panel_W+2, Panel_H+2)
+        P_Shadow.Position = Vector2.new(Panel_X+8, PY+8)
+        Acc_Line.Position = Vector2.new(Panel_X, PY)
+        Acc_Line.Size = Vector2.new(Panel_W, 2)
+        BG.Transparency = A * 0.97
+        Sweep.Transparency = 0.5 + A * 0.4
+        P_Shadow.Transparency = A * 0.12
+        P_Outline.Transparency = A * 0.25
+        P_BG.Transparency = A * 0.96
+        P_Inner.Transparency = A * 0.94
+        Acc_Line.Transparency = A
+        Title.Transparency = A
+        Sub.Transparency = A * 0.9
+        Exp.Transparency = A * 0.5
+    end
+
+    Sweep:Remove()
+    Cleanup()
+end
+
 local function Construct_User_Interface()
     Interface_Manager.Main_Outline = Instantiate_Drawing("Square", {Filled = true, Visible = true, Transparency = 0.3, Rounding = 12}, "Outline")
     Interface_Manager.Main_Background = Instantiate_Drawing("Square", {Filled = true, Visible = true, Transparency = 0.7, Rounding = 12}, "Background")
@@ -1630,6 +1829,7 @@ local function Set_Interface_Visibility(Visibility_State)
     Change_Active_Tab(Interface_Manager.Current_Tab)
 end
 
+Run_Loader()
 Construct_User_Interface()
 Apply_Theme(Configuration.Theme_Preset)
 Refresh_Layout_Coordinates()
