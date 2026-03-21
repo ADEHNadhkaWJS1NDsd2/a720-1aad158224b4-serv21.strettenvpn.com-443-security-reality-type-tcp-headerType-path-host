@@ -2425,7 +2425,7 @@ Task_Spawn(function()
     end
 end)
 
-local Auto_Thread_Offsets = {0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.014, 0.016, 0.018, 0.022, 0.024}
+local Auto_Thread_Offsets = {0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.014, 0.016, 0.018}
 for Index_I = 1, 12 do
     Task_Spawn(function()
         local Stagger_Offset = Auto_Thread_Offsets[Index_I]
