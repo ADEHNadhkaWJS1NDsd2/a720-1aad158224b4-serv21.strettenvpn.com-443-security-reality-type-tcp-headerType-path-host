@@ -372,6 +372,7 @@ local Configuration = {
     Render_Keybinds = true,
     Manual_Spam_Ui = false,
     Manual_Spam_Speed = 50,
+    Auto_Spam_Threads = 150,
     Manual_Spam_Keybind = 0,
     Force_Parry = false,
     Force_Parry_Keybind = 0,
@@ -1325,6 +1326,7 @@ local function Construct_User_Interface()
     Create_Toggle_Element(Combat_Offensive_Section, "Auto Spam", "Auto_Spam", "Spam_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Triggerbot", "Triggerbot_Enabled", "Triggerbot_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Manual Spam", "Manual_Spam_Ui", "Manual_Spam_Keybind")
+    Create_Slider_Element(Combat_Offensive_Section, "Auto Spam Speed", "Auto_Spam_Threads", 150, 1000, 0, "")
     Create_Slider_Element(Combat_Offensive_Section, "Manual Spam Speed", "Manual_Spam_Speed", 10, 100, 0, "")
     Create_Toggle_Element(Combat_Offensive_Section, "Force Parry", "Force_Parry", "Force_Parry_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Anti Curve", "Dot_Protect", nil)
@@ -2455,30 +2457,40 @@ Task_Spawn(function()
     end
 end)
 
-local Auto_Thread_Offsets = {}
-for i = 1, 100 do Auto_Thread_Offsets[i] = (i - 1) * 0.01 end
-for Index_I = 1, 100 do
+local Auto_Spam_Active_Threads = {}
+local function Spawn_Auto_Spam_Thread(Index)
     Task_Spawn(function()
-        local Stagger_Offset = Auto_Thread_Offsets[Index_I]
+        local Stagger_Offset = (Index - 1) * 0.01
+        if Stagger_Offset > 0 then
+            local T = tick()
+            while tick() - T < Stagger_Offset do Task_Wait() end
+        end
         while _G.Nightfall_Active do
             if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive() then
-                if Stagger_Offset > 0 then
-                    local Start_Tick = tick()
-                    while tick() - Start_Tick < Stagger_Offset do
-                        Task_Wait()
+                local My_Index = Index
+                local Current_Max = Math_Clamp(Configuration.Auto_Spam_Threads or 150, 150, 1000)
+                if My_Index <= Current_Max then
+                    if Stagger_Offset > 0 then
+                        local Start_Tick = tick()
+                        while tick() - Start_Tick < Stagger_Offset do
+                            Task_Wait()
+                        end
                     end
-                end
-                if Configuration.Parry_Method == 1 then
-                    mouse1press()
-                    mouse1release()
-                else
-                    keypress(0x46)
-                    keyrelease(0x46)
+                    if Configuration.Parry_Method == 1 then
+                        mouse1press()
+                        mouse1release()
+                    else
+                        keypress(0x46)
+                        keyrelease(0x46)
+                    end
                 end
             end
             Task_Wait()
         end
     end)
+end
+for i = 1, 1000 do
+    Spawn_Auto_Spam_Thread(i)
 end
 
 local Manual_Thread_Offsets = {0, 0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.010, 0.011, 0.012, 0.013, 0.014}
