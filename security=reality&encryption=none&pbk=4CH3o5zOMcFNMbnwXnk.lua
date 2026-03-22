@@ -980,7 +980,6 @@ local function Run_Loader()
     local Sub = ND("Text", {Text="initializing", Font=Drawing.Fonts.System, Size=12, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Panel_Y+52), ZIndex=6})
     local Exp = ND("Text", {Text="Expires: Never", Font=Drawing.Fonts.System, Size=11, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Panel_Y+72), ZIndex=6})
 
-    -- Progress bar
     local Bar_W = Panel_W - 60
     local Bar_X = Panel_X + 30
     local Bar_Y = Panel_Y + Panel_H - 52
@@ -995,7 +994,6 @@ local function Run_Loader()
     local Bar_Shine = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#FFFFFF"), Transparency=0, Position=Vector2.new(Bar_X,Bar_Y), Size=Vector2.new(20,Bar_H), Rounding=2, ZIndex=11})
     local Pct = ND("Text", {Text="0%", Font=Drawing.Fonts.Monospace, Size=11, Color=Color3.fromHex("#8A8D9E"), Outline=false, Center=true, Visible=true, Transparency=0, Position=Vector2.new(Cx, Bar_Y+10), ZIndex=6})
 
-    -- Arc spinner
     local Arc_R = 20
     local Arc_Cx = Cx
     local Arc_Cy = Panel_Y + 110
@@ -1083,7 +1081,6 @@ local function Run_Loader()
         Done = true
     end)
 
-    -- Phase 1: loading
     local T0 = tick()
     while not Done or Progress < 0.999 do
         task.wait()
@@ -1109,7 +1106,6 @@ local function Run_Loader()
         Render_Arc(T, Fade_In, false)
     end
 
-    -- Phase 2: sweep + slide out
     local Sweep = ND("Square", {Filled=true, Visible=true, Color=Color3.fromHex("#A75CFF"), Transparency=0.9, Position=Vector2.new(0,0), Size=Vector2.new(0, Screen_Size.Y), ZIndex=20})
     local Sweep_T = 0
     while Sweep_T < 1 do
@@ -2455,10 +2451,19 @@ Task_Spawn(function()
     end
 end)
 
-for Index_I = 1, 50 do
+local Auto_Thread_Offsets = {}
+for i = 1, 100 do Auto_Thread_Offsets[i] = (i - 1) * 0.01 end
+for Index_I = 1, 100 do
     Task_Spawn(function()
+        local Stagger_Offset = Auto_Thread_Offsets[Index_I]
         while _G.Nightfall_Active do
             if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive() then
+                if Stagger_Offset > 0 then
+                    local Start_Tick = tick()
+                    while tick() - Start_Tick < Stagger_Offset do
+                        Task_Wait()
+                    end
+                end
                 if Configuration.Parry_Method == 1 then
                     mouse1press()
                     mouse1release()
@@ -2493,8 +2498,8 @@ for Index_I = 1, 15 do
                         keypress(0x46)
                         keyrelease(0x46)
                     end
-                    local Speed_Val = Math_Clamp(Configuration.Manual_Spam_Speed or 10, 5, 20)
-                    local Speed_Wait = 0.03 + (20 - Speed_Val) / 15 * 0.17
+                    local Speed_Val = Math_Clamp(Configuration.Manual_Spam_Speed or 50, 10, 100)
+                    local Speed_Wait = 0.20 - (Speed_Val - 10) / 90 * 0.17
                     local Speed_Tick = tick()
                     while tick() - Speed_Tick < Speed_Wait do
                         if not Player_State.Manual_Spam_Active then break end
@@ -2682,7 +2687,6 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                         Parry_State.Ball.Smoothed_Accel = Parry_State.Ball.Smoothed_Accel + (Raw_Accel - Parry_State.Ball.Smoothed_Accel) * Configuration.Accel_Smooth_Alpha
                         Parry_State.Ball.Last_Speed_Tick = Parry_State.Ball.Speed
 
-
                         if Prev_Ball_Position.X ~= 0 or Prev_Ball_Position.Y ~= 0 or Prev_Ball_Position.Z ~= 0 then
                             Parry_State.Ball.Last_Position = Prev_Ball_Position
                         end
@@ -2748,12 +2752,8 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                         if Configuration.Auto_Spam and not Block_All then
                             if Is_Targeting_Local_Player then
                                 Parry_State.Ball.Auto_Spam, Parry_State.Ball.Parries = Check_Is_Spam(Spam_Params)
-                            elseif Parry_State.Ball.Auto_Spam then
-                                if Trajectory_Dot_Product < 0.2 or Parry_State.Ball.Distance > 35 then
-                                    Parry_State.Ball.Auto_Spam = false
-                                else
-                                    Parry_State.Ball.Auto_Spam, Parry_State.Ball.Parries = Check_Is_Spam(Spam_Params)
-                                end
+                            else
+                                Parry_State.Ball.Auto_Spam = false
                             end
                         else
                             Parry_State.Ball.Auto_Spam = false
