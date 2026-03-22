@@ -356,7 +356,7 @@ local Configuration = {
     Dot_Min_Speed = 100.0,
     Dot_Threshold = 0.820,
     Dot_Distance_Threshold = 30.0,
-    Dot_Limit_Threshold = 45.0,
+    Dot_Limit_Threshold = 55.0,
     Spam_Threshold = 5,
     Spam_Min_Distance_Speed_Divisor = 6.5,
     Spam_Max_Speed_Divisor = 5.0,
@@ -373,7 +373,6 @@ local Configuration = {
     Manual_Spam_Ui = false,
     Manual_Spam_Speed = 50,
     Auto_Spam_Threads = 100,
-    Manual_Spam_Threads = 100,
     Manual_Spam_Keybind = 0,
     Force_Parry = false,
     Force_Parry_Keybind = 0,
@@ -1330,7 +1329,6 @@ local function Construct_User_Interface()
     Create_Toggle_Element(Combat_Offensive_Section, "Manual Spam", "Manual_Spam_Ui", "Manual_Spam_Keybind")
     Create_Slider_Element(Combat_Offensive_Section, "Auto Spam Speed", "Auto_Spam_Threads", 100, 1000, 0, "")
     Create_Slider_Element(Combat_Offensive_Section, "Manual Spam Speed", "Manual_Spam_Speed", 10, 100, 0, "")
-    Create_Slider_Element(Combat_Offensive_Section, "Manual Spam Threads", "Manual_Spam_Threads", 100, 1000, 0, "")
     Create_Toggle_Element(Combat_Offensive_Section, "Force Parry", "Force_Parry", "Force_Parry_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Anti Curve", "Dot_Protect", nil)
     Create_Toggle_Element(Combat_Offensive_Section, "Ball Stats", "Render_Ball_Stats", nil)
