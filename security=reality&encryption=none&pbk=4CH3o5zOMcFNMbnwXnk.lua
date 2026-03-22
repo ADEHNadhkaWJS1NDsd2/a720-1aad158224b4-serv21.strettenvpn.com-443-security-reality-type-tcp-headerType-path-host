@@ -2378,6 +2378,9 @@ Task_Spawn(function()
             local Calculated_Value = Slider_Instance.Min_Bound + (Fill_Percentage * (Slider_Instance.Max_Bound - Slider_Instance.Min_Bound))
             if Slider_Instance.Precision == 0 then Calculated_Value = Math_Floor(Calculated_Value) end
             Configuration[Slider_Instance.Config_Key] = Calculated_Value
+            if Slider_Instance.Config_Key == "Auto_Spam_Threads" then
+                Rebuild_Auto_Spam_Threads()
+            end
             Refresh_Layout_Coordinates()
         end
 
@@ -2457,37 +2460,40 @@ Task_Spawn(function()
     end
 end)
 
-local Auto_Spam_Active_Threads = {}
-local function Spawn_Auto_Spam_Thread(Index)
-    Task_Spawn(function()
-        local Stagger_Offset = (Index - 1) * 0.01
-        while _G.Nightfall_Active do
-            if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive()
-            and Index <= Math_Clamp(Configuration.Auto_Spam_Threads or 150, 150, 1000) then
-                if Stagger_Offset > 0 then
-                    local Start_Tick = tick()
-                    while tick() - Start_Tick < Stagger_Offset do
-                        if not (Player_State.Is_Alive and Parry_State.Ball.Auto_Spam) then break end
-                        Task_Wait()
+local Auto_Spam_Thread_Count = 0
+local function Rebuild_Auto_Spam_Threads()
+    local Count = Math_Clamp(Configuration.Auto_Spam_Threads or 150, 150, 1000)
+    if Count == Auto_Spam_Thread_Count then return end
+    Auto_Spam_Thread_Count = Count
+    for Index_I = 1, Count do
+        Task_Spawn(function()
+            local Stagger_Offset = ((Index_I - 1) % 100) * 0.002
+            while _G.Nightfall_Active do
+                if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive()
+                and Index_I <= Math_Clamp(Configuration.Auto_Spam_Threads or 150, 150, 1000) then
+                    if Stagger_Offset > 0 then
+                        local Start_Tick = tick()
+                        while tick() - Start_Tick < Stagger_Offset do
+                            if not (Player_State.Is_Alive and Parry_State.Ball.Auto_Spam) then break end
+                            Task_Wait()
+                        end
+                    end
+                    if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive() then
+                        if Configuration.Parry_Method == 1 then
+                            mouse1press()
+                            mouse1release()
+                        else
+                            keypress(0x46)
+                            keyrelease(0x46)
+                        end
                     end
                 end
-                if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive() then
-                    if Configuration.Parry_Method == 1 then
-                        mouse1press()
-                        mouse1release()
-                    else
-                        keypress(0x46)
-                        keyrelease(0x46)
-                    end
-                end
+                Task_Wait()
             end
-            Task_Wait()
-        end
-    end)
+        end)
+    end
 end
-for i = 1, 1000 do
-    Spawn_Auto_Spam_Thread(i)
-end
+Rebuild_Auto_Spam_Threads()
 
 local Manual_Thread_Offsets = {0, 0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.010, 0.011, 0.012, 0.013, 0.014}
 for Index_I = 1, 15 do
