@@ -372,7 +372,8 @@ local Configuration = {
     Render_Keybinds = true,
     Manual_Spam_Ui = false,
     Manual_Spam_Speed = 50,
-    Auto_Spam_Threads = 150,
+    Auto_Spam_Threads = 100,
+    Manual_Spam_Threads = 100,
     Manual_Spam_Keybind = 0,
     Force_Parry = false,
     Force_Parry_Keybind = 0,
@@ -1326,8 +1327,9 @@ local function Construct_User_Interface()
     Create_Toggle_Element(Combat_Offensive_Section, "Auto Spam", "Auto_Spam", "Spam_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Triggerbot", "Triggerbot_Enabled", "Triggerbot_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Manual Spam", "Manual_Spam_Ui", "Manual_Spam_Keybind")
-    Create_Slider_Element(Combat_Offensive_Section, "Auto Spam Speed", "Auto_Spam_Threads", 150, 1000, 0, "")
+    Create_Slider_Element(Combat_Offensive_Section, "Auto Spam Speed", "Auto_Spam_Threads", 100, 1000, 0, "")
     Create_Slider_Element(Combat_Offensive_Section, "Manual Spam Speed", "Manual_Spam_Speed", 10, 100, 0, "")
+    Create_Slider_Element(Combat_Offensive_Section, "Manual Spam Threads", "Manual_Spam_Threads", 100, 1000, 0, "")
     Create_Toggle_Element(Combat_Offensive_Section, "Force Parry", "Force_Parry", "Force_Parry_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Anti Curve", "Dot_Protect", nil)
     Create_Toggle_Element(Combat_Offensive_Section, "Ball Stats", "Render_Ball_Stats", nil)
@@ -2378,9 +2380,6 @@ Task_Spawn(function()
             local Calculated_Value = Slider_Instance.Min_Bound + (Fill_Percentage * (Slider_Instance.Max_Bound - Slider_Instance.Min_Bound))
             if Slider_Instance.Precision == 0 then Calculated_Value = Math_Floor(Calculated_Value) end
             Configuration[Slider_Instance.Config_Key] = Calculated_Value
-            if Slider_Instance.Config_Key == "Auto_Spam_Threads" then
-                Rebuild_Auto_Spam_Threads()
-            end
             Refresh_Layout_Coordinates()
         end
 
@@ -2460,51 +2459,44 @@ Task_Spawn(function()
     end
 end)
 
-local Auto_Spam_Thread_Count = 0
-local function Rebuild_Auto_Spam_Threads()
-    local Count = Math_Clamp(Configuration.Auto_Spam_Threads or 150, 150, 1000)
-    if Count == Auto_Spam_Thread_Count then return end
-    Auto_Spam_Thread_Count = Count
-    for Index_I = 1, Count do
-        Task_Spawn(function()
-            local Stagger_Offset = ((Index_I - 1) % 100) * 0.002
-            while _G.Nightfall_Active do
-                if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive()
-                and Index_I <= Math_Clamp(Configuration.Auto_Spam_Threads or 150, 150, 1000) then
-                    if Stagger_Offset > 0 then
-                        local Start_Tick = tick()
-                        while tick() - Start_Tick < Stagger_Offset do
-                            if not (Player_State.Is_Alive and Parry_State.Ball.Auto_Spam) then break end
-                            Task_Wait()
-                        end
-                    end
-                    if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive() then
-                        if Configuration.Parry_Method == 1 then
-                            mouse1press()
-                            mouse1release()
-                        else
-                            keypress(0x46)
-                            keyrelease(0x46)
-                        end
-                    end
-                end
-                Task_Wait()
-            end
-        end)
-    end
-end
-Rebuild_Auto_Spam_Threads()
-
-local Manual_Thread_Offsets = {0, 0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.010, 0.011, 0.012, 0.013, 0.014}
-for Index_I = 1, 15 do
+for Index_I = 1, 1000 do
     Task_Spawn(function()
-        local Stagger_Offset = Manual_Thread_Offsets[Index_I]
+        local Stagger_Offset = ((Index_I - 1) % 100) * 0.01
         while _G.Nightfall_Active do
-            local Is_Manual_Spamming = Player_State.Manual_Spam_Active
-            if Is_Manual_Spamming and isrbxactive() then
+            if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive()
+            and Index_I <= (Configuration.Auto_Spam_Threads or 100) then
                 if Stagger_Offset > 0 then
                     local Start_Tick = tick()
                     while tick() - Start_Tick < Stagger_Offset do
+                        if not (Player_State.Is_Alive and Parry_State.Ball.Auto_Spam) then break end
+                        Task_Wait()
+                    end
+                end
+                if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive() then
+                    if Configuration.Parry_Method == 1 then
+                        mouse1press()
+                        mouse1release()
+                    else
+                        keypress(0x46)
+                        keyrelease(0x46)
+                    end
+                end
+            end
+            Task_Wait()
+        end
+    end)
+end
+
+for Index_I = 1, 1000 do
+    Task_Spawn(function()
+        local Stagger_Offset = ((Index_I - 1) % 100) * 0.01
+        while _G.Nightfall_Active do
+            if Player_State.Manual_Spam_Active and isrbxactive()
+            and Index_I <= (Configuration.Manual_Spam_Threads or 100) then
+                if Stagger_Offset > 0 then
+                    local Start_Tick = tick()
+                    while tick() - Start_Tick < Stagger_Offset do
+                        if not Player_State.Manual_Spam_Active then break end
                         Task_Wait()
                     end
                 end
