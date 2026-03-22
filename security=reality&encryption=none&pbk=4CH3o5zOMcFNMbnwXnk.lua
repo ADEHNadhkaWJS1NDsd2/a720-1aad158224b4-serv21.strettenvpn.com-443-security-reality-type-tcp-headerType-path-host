@@ -2466,23 +2466,14 @@ local function Spawn_Auto_Spam_Thread(Index)
             while tick() - T < Stagger_Offset do Task_Wait() end
         end
         while _G.Nightfall_Active do
-            if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive() then
-                local My_Index = Index
-                local Current_Max = Math_Clamp(Configuration.Auto_Spam_Threads or 150, 150, 1000)
-                if My_Index <= Current_Max then
-                    if Stagger_Offset > 0 then
-                        local Start_Tick = tick()
-                        while tick() - Start_Tick < Stagger_Offset do
-                            Task_Wait()
-                        end
-                    end
-                    if Configuration.Parry_Method == 1 then
-                        mouse1press()
-                        mouse1release()
-                    else
-                        keypress(0x46)
-                        keyrelease(0x46)
-                    end
+            if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive()
+            and Index <= Math_Clamp(Configuration.Auto_Spam_Threads or 150, 150, 1000) then
+                if Configuration.Parry_Method == 1 then
+                    mouse1press()
+                    mouse1release()
+                else
+                    keypress(0x46)
+                    keyrelease(0x46)
                 end
             end
             Task_Wait()
