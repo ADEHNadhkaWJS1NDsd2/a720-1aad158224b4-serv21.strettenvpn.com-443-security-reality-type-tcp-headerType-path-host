@@ -1840,15 +1840,7 @@ Safe_Call(function()
                 Interface_Manager.Palette.Accent_Color = C3_Hex(Configuration.Custom_Accent_Color)
                 Update_Colors()
             end
-            local Layout_File = Save_File_Name:gsub("%.json", "_layout.json")
-            if isfile and isfile(Layout_File) and readfile then
-                local L = Http_Service:JSONDecode(readfile(Layout_File))
-                if L.Window_X then Interface_Manager.Base_Position = V2_New(L.Window_X, L.Window_Y) end
-                if L.Window_W then Interface_Manager.Dimensions = V2_New(L.Window_W, L.Window_H) end
-                if L.Indicator_X then Interface_Manager.Indicator_Position = V2_New(L.Indicator_X, L.Indicator_Y) end
-                if L.Stats_X then Interface_Manager.Stats_Panel_Position = V2_New(L.Stats_X, L.Stats_Y) end
-                if L.Manual_Spam_X then Interface_Manager.Manual_Spam_Panel_Position = V2_New(L.Manual_Spam_X, L.Manual_Spam_Y) end
-            end
+
         end
     end
 end)
@@ -1857,6 +1849,18 @@ Run_Loader()
 Construct_User_Interface()
 Apply_Theme(Configuration.Theme_Preset)
 Refresh_Layout_Coordinates()
+Safe_Call(function()
+    local Layout_File = Save_File_Name:gsub("%.json", "_layout.json")
+    if isfile and isfile(Layout_File) and readfile then
+        local L = Http_Service:JSONDecode(readfile(Layout_File))
+        if L.Window_X then Interface_Manager.Base_Position = V2_New(L.Window_X, L.Window_Y) end
+        if L.Window_W then Interface_Manager.Dimensions = V2_New(L.Window_W, L.Window_H) end
+        if L.Indicator_X then Interface_Manager.Indicator_Position = V2_New(L.Indicator_X, L.Indicator_Y) end
+        if L.Stats_X then Interface_Manager.Stats_Panel_Position = V2_New(L.Stats_X, L.Stats_Y) end
+        if L.Manual_Spam_X then Interface_Manager.Manual_Spam_Panel_Position = V2_New(L.Manual_Spam_X, L.Manual_Spam_Y) end
+        Refresh_Layout_Coordinates()
+    end
+end)
 Set_Interface_Visibility(true)
 
 Task_Spawn(function()
@@ -1942,7 +1946,7 @@ Task_Spawn(function()
             Interface_Manager.Overlay_Indicator.Render_Rows[6].State_Text.Color = Player_State.Manual_Spam_Active and Interface_Manager.Palette.Accent_Color or Interface_Manager.Palette.Secondary_Text
         end
 
-        local Should_Render_Stats = Configuration.Render_Ball_Stats and Player_State.Is_Alive
+        local Should_Render_Stats = Configuration.Render_Ball_Stats
         Interface_Manager.Stats_Panel.Outline_Box.Visible = Should_Render_Stats
         Interface_Manager.Stats_Panel.Inline_Box.Visible = Should_Render_Stats
         Interface_Manager.Stats_Panel.Background_Box.Visible = Should_Render_Stats
@@ -2647,7 +2651,7 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
 
                             local Time_Since_Change = Application_Tick - (Parry_State.Ball.Last_Target_Change or 0)
 
-                            if Time_Since_Change <= 0.3 then
+                            if Time_Since_Change <= 0.35 then
                                 Parry_State.Ball.Parries = Parry_State.Ball.Parries + 1
                             else
                                 Parry_State.Ball.Parries = 1
@@ -2784,6 +2788,7 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                 Parry_State.Target.Current_Name = nil
                 Parry_State.Ball.Auto_Spam = false
                 Parry_State.Ball.Parries = 0
+                Parry_State.Ball.Last_Target_Change = 0
                 Parry_State.Ball.Cooldown = false
                 Player_State.Scheduled_Trigger_Time = 0
                 Parry_State.Trajectory_Cache = {}
