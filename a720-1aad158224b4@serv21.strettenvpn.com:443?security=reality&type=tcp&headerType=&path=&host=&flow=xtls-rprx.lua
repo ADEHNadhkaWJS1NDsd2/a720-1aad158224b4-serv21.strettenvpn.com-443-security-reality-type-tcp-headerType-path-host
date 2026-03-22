@@ -342,22 +342,22 @@ local Configuration = {
     Ping_Multiplier = 1.200,
     Speed_Divisor_Base = 2.200,
     Speed_Divisor_Multiplier = 0.0020,
-    Capped_Speed = 9509.0,
+    Capped_Speed = 9500.0,
     Curve_Min_Speed_Threshold = 40.0,
     Curve_Speed_Threshold_Divisor = 100.0,
     Curve_Ball_Distance_Threshold_Divisor = 1000.0,
     Curve_Dot_Threshold = 0.500,
     Curve_Warping_Duration_Divisor = 1000.0,
-    Curve_Warning_Duration = 1.50,
+    Curve_Warning_Duration = 1.500,
     Curve_Curving_Duration_Divisor = 1000.0,
-    Curve_Curving_Duration = 1.50,
+    Curve_Curving_Duration = 1.500,
     Ping_Sample_Count = 50,
     Capped_Ping = 650.0,
     Dot_Min_Speed = 100.0,
     Dot_Threshold = 0.820,
     Dot_Distance_Threshold = 30.0,
     Dot_Limit_Threshold = 45.0,
-    Spam_Threshold = 3,
+    Spam_Threshold = 5,
     Spam_Min_Distance_Speed_Divisor = 6.5,
     Spam_Max_Speed_Divisor = 5.0,
     Spam_Min_Distance = 95.0,
@@ -371,6 +371,9 @@ local Configuration = {
     Render_Ball_Stats = false,
     Render_Keybinds = true,
     Manual_Spam_Ui = false,
+    Manual_Spam_Speed = 50,
+    Auto_Spam_Threads = 100,
+    Manual_Spam_Threads = 100,
     Manual_Spam_Keybind = 0,
     Force_Parry = false,
     Force_Parry_Keybind = 0,
@@ -378,6 +381,7 @@ local Configuration = {
     Auto_Curve = false,
     Auto_Curve_Mode = 1,
     Camera_Sens = 0.50,
+    Auto_Load_Config = true,
     Theme_Preset = 1,
     Custom_Accent_Color = "#A75CFF",
     Warp_Detect_Threshold = 3.0,
@@ -394,6 +398,7 @@ local Configuration = {
 }
 
 local Save_File_Name = "Nightfall_Config.json"
+local Auto_Load_Flag_File = "Nightfall_AutoLoad.json"
 
 local function Save_Config()
     Safe_Call(function()
@@ -432,6 +437,7 @@ local function Load_Config()
                     Configuration[Key_Name] = Value_Data
                 end
             end
+            if Configuration.Bind_Mode == nil then Configuration.Bind_Mode = {} end
 
             if Configuration.Theme_Preset then
                 Apply_Theme(Configuration.Theme_Preset)
@@ -462,7 +468,6 @@ local Player_State = {
         Speed = 0,
         Ping = 60,
             Ping_History = {},
-        Jitter = 0,
         Jitter = 0
     },
     Is_Alive = false,
@@ -498,6 +503,7 @@ local Parry_State = {
         Auto_Spam = false,
         Cooldown = false,
         Cached_Target = nil,
+        Old_Speed = 0,
     },
     Target = {
         Current = nil,
@@ -606,11 +612,6 @@ local function Get_Raw_Ping()
 end
 
 local function Check_Is_Spam(Spam_Params)
-    local Target_Obj = Parry_State.Target.Current
-    if not Target_Obj then
-        return false, Spam_Params.Parries
-    end
-
     local Scaled_Ping = Spam_Params.Ping / 10
     local Range_Val = Scaled_Ping + Math_Min(Spam_Params.Speed / Configuration.Spam_Min_Distance_Speed_Divisor, Configuration.Spam_Min_Distance)
 
@@ -750,10 +751,6 @@ local function Get_Optimal_Parry_Threshold(Ball_Instance, Ball_Speed, Player_Pos
     local Base_Threshold = Scaled_Ping + Scaled_Jitter + Speed_Contribution
     local Accuracy_Offset = (Configuration.Parry_Accuracy_Multiplier - 1) * 15
     Base_Threshold = Base_Threshold - Accuracy_Offset
-
-    local Closing_Rate = Math_Max(Dot_Product, 0) * Ball_Speed
-    local Closing_Comp = Math_Clamp((Closing_Rate / 100) * (Scaled_Ping * 0.3), 0, Scaled_Ping * 1.5)
-    Base_Threshold = Base_Threshold + Closing_Comp
 
     local Now = Time_Tick()
     local Is_Warping = false
@@ -1069,11 +1066,11 @@ local function Run_Loader()
     local Done = false
 
     local Steps = {
-        {label="loading modules",    pct=0.18, wait=1.3},
-        {label="building interface", pct=0.42, wait=1.5},
-        {label="connecting", pct=0.66, wait=1.1},
-        {label="checking",  pct=0.88, wait=1.3},
-        {label="ready",              pct=1.00, wait=0.9},
+        {label="loading modules",    pct=0.20, wait=0.6},
+        {label="building interface", pct=0.45, wait=0.7},
+        {label="connecting",         pct=0.68, wait=0.5},
+        {label="checking",           pct=0.88, wait=0.6},
+        {label="ready",              pct=1.00, wait=0.4},
     }
 
     task.spawn(function()
@@ -1082,7 +1079,7 @@ local function Run_Loader()
             Target_Progress = S.pct
             task.wait(S.wait)
         end
-        task.wait(0.3)
+        task.wait(0.1)
         Done = true
     end)
 
@@ -1090,24 +1087,25 @@ local function Run_Loader()
     while not Done or Progress < 0.999 do
         task.wait()
         local T = tick() - T0
-        Fade_In = math.min(Fade_In + 0.05, 1)
-        Progress = Progress + (Target_Progress - Progress) * 0.045
+        local DT = math.min(task.wait and 0.016 or 0.016, 0.05)
+        Fade_In = math.min(Fade_In + 0.08, 1)
+        Progress = Progress + (Target_Progress - Progress) * 0.12
         Set_Alpha(Fade_In)
         local Fill_W = math.max(0, Bar_W * Progress)
         Bar_Fill.Size = Vector2.new(Fill_W, Bar_H)
-        Bar_Fill2.Size = Vector2.new(math.max(0, Fill_W - 4), Bar_H/2)
+        Bar_Fill2.Size = Vector2.new(math.max(0, Fill_W - 4), math.ceil(Bar_H / 2))
         Bar_Fill2.Position = Vector2.new(Bar_X + 2, Bar_Y)
-        Bar_Fill2.Transparency = Fade_In * 0.55
-        local Glow_W = math.min(Fill_W, 28)
+        Bar_Fill2.Transparency = Fade_In * 0.5
+        local Glow_W = math.min(math.max(Fill_W * 0.15, 8), 28)
         Bar_Glow.Position = Vector2.new(Bar_X + Fill_W - Glow_W, Bar_Y)
         Bar_Glow.Size = Vector2.new(Glow_W, Bar_H)
-        Bar_Glow.Transparency = Fade_In * 0.5
-        local Shine_Pos = Bar_X + Fill_W * (0.5 + 0.5*math.sin(T*2.5)) - 25
-        Bar_Shine.Position = Vector2.new(math.clamp(Shine_Pos, Bar_X, Bar_X+math.max(0,Fill_W-2)), Bar_Y)
-        Bar_Shine.Size = Vector2.new(math.min(50, math.max(0, Fill_W)), Bar_H)
-        Bar_Shine.Transparency = Fade_In * 0.14 * (0.5 + 0.5*math.sin(T*4.5))
-        Pct.Text = math.floor(Progress * 100) .. "%"
-        Acc_Line.Color = Color3.fromHSV(0.75 + math.sin(T*0.5)*0.04, 0.7, 1)
+        Bar_Glow.Transparency = Fill_W > 0 and Fade_In * 0.55 or 0
+        local Shine_X = Bar_X + Fill_W - 18 + math.sin(T * 3) * 10
+        Bar_Shine.Position = Vector2.new(math.clamp(Shine_X, Bar_X, Bar_X + math.max(0, Fill_W - 4)), Bar_Y)
+        Bar_Shine.Size = Vector2.new(math.min(18, math.max(0, Fill_W)), Bar_H)
+        Bar_Shine.Transparency = Fill_W > 4 and Fade_In * 0.18 * (0.6 + 0.4 * math.sin(T * 5)) or 0
+        Pct.Text = (Done and Progress >= 0.999) and "100%" or math.floor(Progress * 100) .. "%"
+        Acc_Line.Color = Color3.fromHSV(0.75 + math.sin(T * 0.4) * 0.03, 0.7, 1)
         Render_Arc(T, Fade_In, false)
     end
 
@@ -1330,6 +1328,9 @@ local function Construct_User_Interface()
     Create_Toggle_Element(Combat_Offensive_Section, "Auto Spam", "Auto_Spam", "Spam_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Triggerbot", "Triggerbot_Enabled", "Triggerbot_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Manual Spam", "Manual_Spam_Ui", "Manual_Spam_Keybind")
+    Create_Slider_Element(Combat_Offensive_Section, "Auto Spam Speed", "Auto_Spam_Threads", 100, 1000, 0, "")
+    Create_Slider_Element(Combat_Offensive_Section, "Manual Spam Speed", "Manual_Spam_Speed", 10, 100, 0, "")
+    Create_Slider_Element(Combat_Offensive_Section, "Manual Spam Threads", "Manual_Spam_Threads", 100, 1000, 0, "")
     Create_Toggle_Element(Combat_Offensive_Section, "Force Parry", "Force_Parry", "Force_Parry_Keybind")
     Create_Toggle_Element(Combat_Offensive_Section, "Anti Curve", "Dot_Protect", nil)
     Create_Toggle_Element(Combat_Offensive_Section, "Ball Stats", "Render_Ball_Stats", nil)
@@ -1347,6 +1348,7 @@ local function Construct_User_Interface()
     Create_Dropdown_Element(Theme_Main_Section, "Preset", "Theme_Preset", Theme_Names, true)
     Create_Color_Picker(Theme_Picker_Section, "Accent_Color")
 
+    Create_Toggle_Element(Configs_Main_Section, "Auto Load Saved Cfg", "Auto_Load_Config", nil)
     Create_Button(Configs_Main_Section, "Save Config", Save_Config)
     Create_Button(Configs_Main_Section, "Load Config", Load_Config)
 
@@ -1827,10 +1829,43 @@ local function Set_Interface_Visibility(Visibility_State)
     Change_Active_Tab(Interface_Manager.Current_Tab)
 end
 
+Safe_Call(function()
+    if isfile and isfile(Save_File_Name) and readfile then
+        local Json_Data = readfile(Save_File_Name)
+        local Decoded_Data = Http_Service:JSONDecode(Json_Data)
+        if Decoded_Data and Decoded_Data.Auto_Load_Config then
+            for Key_Name, Value_Data in pairs(Decoded_Data) do
+                if Configuration[Key_Name] ~= nil then
+                    Configuration[Key_Name] = Value_Data
+                end
+            end
+            if Configuration.Bind_Mode == nil then Configuration.Bind_Mode = {} end
+            if Configuration.Theme_Preset then Apply_Theme(Configuration.Theme_Preset) end
+            if Configuration.Custom_Accent_Color then
+                Interface_Manager.Palette.Accent_Color = C3_Hex(Configuration.Custom_Accent_Color)
+                Update_Colors()
+            end
+
+        end
+    end
+end)
+
 Run_Loader()
 Construct_User_Interface()
 Apply_Theme(Configuration.Theme_Preset)
 Refresh_Layout_Coordinates()
+Safe_Call(function()
+    local Layout_File = Save_File_Name:gsub("%.json", "_layout.json")
+    if isfile and isfile(Layout_File) and readfile then
+        local L = Http_Service:JSONDecode(readfile(Layout_File))
+        if L.Window_X then Interface_Manager.Base_Position = V2_New(L.Window_X, L.Window_Y) end
+        if L.Window_W then Interface_Manager.Dimensions = V2_New(L.Window_W, L.Window_H) end
+        if L.Indicator_X then Interface_Manager.Indicator_Position = V2_New(L.Indicator_X, L.Indicator_Y) end
+        if L.Stats_X then Interface_Manager.Stats_Panel_Position = V2_New(L.Stats_X, L.Stats_Y) end
+        if L.Manual_Spam_X then Interface_Manager.Manual_Spam_Panel_Position = V2_New(L.Manual_Spam_X, L.Manual_Spam_Y) end
+        Refresh_Layout_Coordinates()
+    end
+end)
 Set_Interface_Visibility(true)
 
 Task_Spawn(function()
@@ -1916,7 +1951,7 @@ Task_Spawn(function()
             Interface_Manager.Overlay_Indicator.Render_Rows[6].State_Text.Color = Player_State.Manual_Spam_Active and Interface_Manager.Palette.Accent_Color or Interface_Manager.Palette.Secondary_Text
         end
 
-        local Should_Render_Stats = Configuration.Render_Ball_Stats and Player_State.Is_Alive
+        local Should_Render_Stats = Configuration.Render_Ball_Stats
         Interface_Manager.Stats_Panel.Outline_Box.Visible = Should_Render_Stats
         Interface_Manager.Stats_Panel.Inline_Box.Visible = Should_Render_Stats
         Interface_Manager.Stats_Panel.Background_Box.Visible = Should_Render_Stats
@@ -2425,25 +2460,27 @@ Task_Spawn(function()
     end
 end)
 
-local Auto_Thread_Offsets = {0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.014, 0.016, 0.018}
-for Index_I = 1, 12 do
+for Index_I = 1, 1000 do
     Task_Spawn(function()
-        local Stagger_Offset = Auto_Thread_Offsets[Index_I]
+        local Stagger_Offset = ((Index_I - 1) % 100) * 0.01
         while _G.Nightfall_Active do
-            local Is_Spamming = Player_State.Is_Alive and Parry_State.Ball.Auto_Spam
-            if Is_Spamming and isrbxactive() then
+            if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive()
+            and Index_I <= (Configuration.Auto_Spam_Threads or 100) then
                 if Stagger_Offset > 0 then
                     local Start_Tick = tick()
                     while tick() - Start_Tick < Stagger_Offset do
+                        if not (Player_State.Is_Alive and Parry_State.Ball.Auto_Spam) then break end
                         Task_Wait()
                     end
                 end
-                if Configuration.Parry_Method == 1 then
-                    mouse1press()
-                    mouse1release()
-                else
-                    keypress(0x46)
-                    keyrelease(0x46)
+                if Player_State.Is_Alive and Parry_State.Ball.Auto_Spam and isrbxactive() then
+                    if Configuration.Parry_Method == 1 then
+                        mouse1press()
+                        mouse1release()
+                    else
+                        keypress(0x46)
+                        keyrelease(0x46)
+                    end
                 end
             end
             Task_Wait()
@@ -2451,25 +2488,34 @@ for Index_I = 1, 12 do
     end)
 end
 
-local Manual_Thread_Offsets = {0, 0.002, 0.004, 0.006, 0.008, 0.010, 0.012, 0.014, 0.016, 0.018}
-for Index_I = 1, 10 do
+for Index_I = 1, 1000 do
     Task_Spawn(function()
-        local Stagger_Offset = Manual_Thread_Offsets[Index_I]
+        local Stagger_Offset = ((Index_I - 1) % 100) * 0.01
         while _G.Nightfall_Active do
-            local Is_Manual_Spamming = Player_State.Manual_Spam_Active
-            if Is_Manual_Spamming and isrbxactive() then
+            if Player_State.Manual_Spam_Active and isrbxactive()
+            and Index_I <= (Configuration.Manual_Spam_Threads or 100) then
                 if Stagger_Offset > 0 then
                     local Start_Tick = tick()
                     while tick() - Start_Tick < Stagger_Offset do
+                        if not Player_State.Manual_Spam_Active then break end
                         Task_Wait()
                     end
                 end
-                if Configuration.Parry_Method == 1 then
-                    mouse1press()
-                    mouse1release()
-                else
-                    keypress(0x46)
-                    keyrelease(0x46)
+                if Player_State.Manual_Spam_Active and isrbxactive() then
+                    if Configuration.Parry_Method == 1 then
+                        mouse1press()
+                        mouse1release()
+                    else
+                        keypress(0x46)
+                        keyrelease(0x46)
+                    end
+                    local Speed_Val = Math_Clamp(Configuration.Manual_Spam_Speed or 50, 10, 100)
+                    local Speed_Wait = 0.20 - (Speed_Val - 10) / 90 * 0.17
+                    local Speed_Tick = tick()
+                    while tick() - Speed_Tick < Speed_Wait do
+                        if not Player_State.Manual_Spam_Active then break end
+                        Task_Wait()
+                    end
                 end
             end
             Task_Wait()
@@ -2612,7 +2658,7 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
 
                             local Time_Since_Change = Application_Tick - (Parry_State.Ball.Last_Target_Change or 0)
 
-                            if Time_Since_Change <= 0.5 then
+                            if Time_Since_Change <= 0.35 then
                                 Parry_State.Ball.Parries = Parry_State.Ball.Parries + 1
                             else
                                 Parry_State.Ball.Parries = 1
@@ -2620,7 +2666,6 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                             end
 
                             Parry_State.Target.Current_Name = Target_Attribute_Name
-                            Parry_State.Ball.Last_Target_Change = Application_Tick
 
                             if Parry_State.Trajectory_Cache[Ball_Instance] then
                                 Parry_State.Trajectory_Cache[Ball_Instance].History = {}
@@ -2629,11 +2674,11 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                             end
 
                             if Is_Targeting_Local_Player and Configuration.Triggerbot_Enabled then
-                                local Elapsed_Since_Change = Application_Tick - Parry_State.Ball.Last_Target_Change
                                 local Raw_Delay = Math_Random(Configuration.Min_Tb_Delay, Configuration.Max_Tb_Delay) / 1000
-                                local Compensated_Delay = Math_Max(0, Raw_Delay - Elapsed_Since_Change)
-                                Player_State.Scheduled_Trigger_Time = Application_Tick + Compensated_Delay
+                                Player_State.Scheduled_Trigger_Time = Application_Tick + Raw_Delay
                             end
+
+                            Parry_State.Ball.Last_Target_Change = Application_Tick
                         end
 
                         if Is_Targeting_Local_Player then
@@ -2652,7 +2697,6 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                         end
                         Parry_State.Ball.Smoothed_Accel = Parry_State.Ball.Smoothed_Accel + (Raw_Accel - Parry_State.Ball.Smoothed_Accel) * Configuration.Accel_Smooth_Alpha
                         Parry_State.Ball.Last_Speed_Tick = Parry_State.Ball.Speed
-
 
                         if Prev_Ball_Position.X ~= 0 or Prev_Ball_Position.Y ~= 0 or Prev_Ball_Position.Z ~= 0 then
                             Parry_State.Ball.Last_Position = Prev_Ball_Position
@@ -2719,12 +2763,8 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                         if Configuration.Auto_Spam and not Block_All then
                             if Is_Targeting_Local_Player then
                                 Parry_State.Ball.Auto_Spam, Parry_State.Ball.Parries = Check_Is_Spam(Spam_Params)
-                            elseif Parry_State.Ball.Auto_Spam then
-                                if Trajectory_Dot_Product < 0.2 or Parry_State.Ball.Distance > 35 then
-                                    Parry_State.Ball.Auto_Spam = false
-                                else
-                                    Parry_State.Ball.Auto_Spam, Parry_State.Ball.Parries = Check_Is_Spam(Spam_Params)
-                                end
+                            else
+                                Parry_State.Ball.Auto_Spam = false
                             end
                         else
                             Parry_State.Ball.Auto_Spam = false
@@ -2734,10 +2774,6 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
 
                         local Ping_Delay = Player_State.Entity.Ping / 1000
                         local Predict_Time = Ping_Delay * Configuration.Ping_Multiplier + Configuration.Predict_Extra
-
-                        local Predicted_Speed = Math_Max(Parry_State.Ball.Speed + (Parry_State.Ball.Smoothed_Accel * Predict_Time), Parry_State.Ball.Speed)
-                        local Predicted_Velocity_Vec = Normalize_Vector(Parry_State.Ball.Velocity) * Predicted_Speed
-                        local Predicted_Ball_Pos = Parry_State.Ball.Position + (Predicted_Velocity_Vec * Predict_Time)
 
                         if Is_Targeting_Local_Player and Configuration.Auto_Parry and not Block_All and Parry_State.Ball.Speed >= Configuration.Min_Threat_Speed then
                             if Configuration.Auto_Curve and ismouse2pressed() then
@@ -2759,6 +2795,7 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                 Parry_State.Target.Current_Name = nil
                 Parry_State.Ball.Auto_Spam = false
                 Parry_State.Ball.Parries = 0
+                Parry_State.Ball.Last_Target_Change = 0
                 Parry_State.Ball.Cooldown = false
                 Player_State.Scheduled_Trigger_Time = 0
                 Parry_State.Trajectory_Cache = {}
@@ -2792,39 +2829,25 @@ Custom_Run_Service.Heartbeat:Connect(function(Delta_Time)
                         local Is_Targeting_Local_Player = Check_Is_Target(Training_Target_Name)
                         local Training_Ball_Velocity = Training_Ball.AssemblyLinearVelocity
                         local Training_Ball_Speed = Get_Vector_Magnitude(Training_Ball_Velocity)
+                        local Distance_To_Training_Ball = Get_Distance_Between(Player_State.Entity.Server_Position, Training_Ball.Position)
 
-                        local Training_Threshold = Get_Optimal_Parry_Threshold(
-                            Training_Ball,
-                            Training_Ball_Speed,
-                            Player_State.Entity.Server_Position,
-                            Player_State.Entity.Ping,
-                            Get_Distance_Between(Player_State.Entity.Server_Position, Training_Ball.Position),
-                            Delta_Time
-                        )
-                        Player_State.Current_Parry_Threshold = Training_Threshold
+                        local Ping_Offset = Player_State.Entity.Ping / 10
+                        local Capped_Speed_Diff = Math_Min(Math_Max(Training_Ball_Speed - 9.5, 0), Configuration.Capped_Speed)
+                        local Speed_Divisor = Configuration.Speed_Divisor_Base + (Capped_Speed_Diff * Configuration.Speed_Divisor_Multiplier)
+                        Speed_Divisor = Speed_Divisor * Configuration.Parry_Accuracy_Multiplier
+
+                        local Training_Parry_Threshold = Ping_Offset + Math_Max(Training_Ball_Speed / Speed_Divisor, 9.5)
+                        local Accuracy_Offset = (Configuration.Parry_Accuracy_Multiplier - 1) * 15
+                        Training_Parry_Threshold = Training_Parry_Threshold - Accuracy_Offset
 
                         if Configuration.Auto_Curve and ismouse2pressed() then
-                            Training_Threshold = Training_Threshold + (Training_Ball_Speed * 0.015)
+                            Training_Parry_Threshold = Training_Parry_Threshold + (Training_Ball_Speed * 0.015)
                         end
 
+                        Player_State.Current_Parry_Threshold = Training_Parry_Threshold
+
                         if Is_Targeting_Local_Player then
-                            local Ping_Seconds = Player_State.Entity.Ping / 1000
-                            local Predict_Time = Ping_Seconds * Configuration.Ping_Multiplier + Configuration.Predict_Extra
-
-                            local Predicted_Train_Speed = Math_Max(Training_Ball_Speed, Training_Ball_Speed)
-                            local Predicted_Train_Dir = Normalize_Vector(Training_Ball_Velocity)
-                            local Predicted_Train_Pos = Training_Ball.Position + (Predicted_Train_Dir * (Predicted_Train_Speed * Predict_Time))
-
-                            local Player_Vel = Player_State.Entity.Velocity
-                            local Predicted_Player_Pos = Player_State.Entity.Server_Position + V3_New(
-                                Player_Vel.X * Predict_Time,
-                                Player_Vel.Y * Predict_Time,
-                                Player_Vel.Z * Predict_Time
-                            )
-
-                            local Predicted_Train_Distance = Get_Distance_Between(Predicted_Player_Pos, Predicted_Train_Pos)
-
-                            if not Parry_State.Ball.Cooldown and Predicted_Train_Distance <= Training_Threshold then
+                            if not Parry_State.Ball.Cooldown and Distance_To_Training_Ball <= Training_Parry_Threshold then
                                 Execute_Parry_Action(true)
                                 Parry_State.Ball.Cooldown = true
                             end
