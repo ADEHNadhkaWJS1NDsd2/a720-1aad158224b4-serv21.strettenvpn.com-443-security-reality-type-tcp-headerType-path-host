@@ -349,6 +349,9 @@ local Configuration = {
     Grip_Factor = 2.000,
     Speed_Factor = 1.000,
     Steer_Factor = 1.000,
+    Dot_Side_Threshold = 0.65,
+    Dot_Side_Distance = 45.0,
+    Dot_Side_Penalty = 28.0,
 }
 local Save_File_Name = "Nightfall_Config.json"
 local function Save_Config()
@@ -602,16 +605,44 @@ local function Analyze_Trajectory(Ball_Instance, Player_Position, Ball_Velocity_
     if not Current_Dot_Product or Current_Dot_Product ~= Current_Dot_Product then
         Current_Dot_Product = 1
     end
-    Table_Insert(Trajectory_Data.History, {Velocity = Ball_Velocity_Vector})
+    Table_Insert(Trajectory_Data.History, {Velocity = Ball_Velocity_Vector, Time = tick()})
     if #Trajectory_Data.History > 20 then
         Table_Remove(Trajectory_Data.History, 1)
     end
-    local Window = Configuration.Curve_History_Window
     local History_Count = #Trajectory_Data.History
     local Is_Pull = false
+    if History_Count >= 5 then
+        local Pull_Count = 0
+        for i = 3, History_Count do
+            local Prev = Trajectory_Data.History[i-1]
+            local Curr = Trajectory_Data.History[i]
+            local Prev_Dir = Normalize_Vector(Flatten_Vector(Prev.Velocity))
+            local Curr_Dir = Normalize_Vector(Flatten_Vector(Curr.Velocity))
+            local Dot_Change = Get_Dot_Product(Prev_Dir, Curr_Dir)
+            if Dot_Change < 0.6 then
+                local Angle_To_Player = Math_Deg(Math_Acos(Math_Clamp(Get_Dot_Product(Curr_Dir, Direction_To_Player), -1, 1)))
+                if Angle_To_Player < 40 then
+                    Pull_Count = Pull_Count + 1
+                end
+            end
+        end
+        if Pull_Count >= 2 then
+            Is_Pull = true
+        end
+        local Accel_To_Player = 0
+        if History_Count >= 3 then
+            local V1 = Trajectory_Data.History[History_Count-2].Velocity
+            local V2 = Trajectory_Data.History[History_Count-1].Velocity
+            local Accel = V2 - V1
+            Accel_To_Player = Get_Dot_Product(Accel, Direction_To_Player)
+            if Accel_To_Player > 220 then
+                Is_Pull = true
+            end
+        end
+    end
+    local Window = Configuration.Curve_History_Window
     if History_Count >= 4 then
         local Angular_Deviation = 0
-        local Pull_Turns = 0
         local Start_Index = Math_Max(History_Count - Window + 1, 2)
         for Index_I = Start_Index, History_Count do
             local Previous_Sample = Trajectory_Data.History[Index_I - 1]
@@ -625,14 +656,8 @@ local function Analyze_Trajectory(Ball_Instance, Player_Position, Ball_Velocity_
             if Deviation_Angle > Dynamic_Threshold then
                 Angular_Deviation = Angular_Deviation + (Deviation_Angle / Dynamic_Threshold)
             end
-            local Dir_To_Player_Prev = Normalize_Vector(Flatten_Vector(Vector_To_Player))
-            local Angle_To_Player = Math_Deg(Math_Acos(Math_Clamp(Get_Dot_Product(Current_Direction, Dir_To_Player_Prev), -1, 1)))
-            if Angle_To_Player < 35 and Deviation_Angle > 25 then
-                Pull_Turns = Pull_Turns + 1
-            end
         end
         Trajectory_Data.Is_Curving = Angular_Deviation > 3 and Current_Dot_Product < Configuration.Curve_Dot_Threshold
-        Is_Pull = Pull_Turns >= 2
     end
     if Trajectory_Data.Is_Curving then
         if Trajectory_Data.Curve_Start_Time == 0 then
@@ -644,19 +669,6 @@ local function Analyze_Trajectory(Ball_Instance, Player_Position, Ball_Velocity_
     Trajectory_Data.Pull_Detected = Is_Pull
     Trajectory_Data.Last_Dot = Current_Dot_Product
     return Current_Dot_Product, Trajectory_Data.Is_Curving, Trajectory_Data.Curve_Start_Time, Is_Pull
-end
-local function Detect_Position_Warp(Ball_Instance, Last_Known_Pos, Last_Known_Vel, Dt)
-    local Lp = Last_Known_Pos
-    if Lp.X == 0 and Lp.Y == 0 and Lp.Z == 0 then return false end
-    local Vel_Mag = Get_Vector_Magnitude(Last_Known_Vel)
-    if Vel_Mag < 3 then return false end
-    local Expected_Pos = V3_New(
-        Lp.X + Last_Known_Vel.X * Dt,
-        Lp.Y + Last_Known_Vel.Y * Dt,
-        Lp.Z + Last_Known_Vel.Z * Dt
-    )
-    local Actual_Deviation = Get_Distance_Between(Ball_Instance.Position, Expected_Pos)
-    return Actual_Deviation > Configuration.Warp_Detect_Threshold
 end
 local function Get_Optimal_Parry_Threshold(Ball_Instance, Ball_Speed, Player_Position, Current_Ping, Distance_To_Ball, Delta_Time)
     local Capped_Speed = Math_Min(Ball_Speed, Configuration.Capped_Speed)
@@ -676,15 +688,8 @@ local function Get_Optimal_Parry_Threshold(Ball_Instance, Ball_Speed, Player_Pos
     local Accuracy_Offset = (Configuration.Parry_Accuracy_Multiplier - 1) * 15
     Base_Threshold = Base_Threshold - Accuracy_Offset
     local Now = Time_Tick()
-    local Is_Warping = false
-    if Delta_Time and Delta_Time > 0 then
-        Is_Warping = Detect_Position_Warp(Ball_Instance, Parry_State.Ball.Last_Position, Parry_State.Ball.Velocity, Delta_Time)
-    end
-    if Is_Warping then
-        Parry_State.Ball.Warp_Detected_Time = Now
-    end
-    local Time_Since_Warp = Now - Parry_State.Ball.Warp_Detected_Time
     local Warp_Boost = 0
+    local Time_Since_Warp = Now - Parry_State.Ball.Warp_Detected_Time
     if Time_Since_Warp < Configuration.Warp_Boost_Duration then
         local Warp_Fade = 1 - (Time_Since_Warp / Configuration.Warp_Boost_Duration)
         Warp_Boost = Configuration.Warp_Boost_Amount * Warp_Fade
@@ -709,19 +714,26 @@ local function Get_Optimal_Parry_Threshold(Ball_Instance, Ball_Speed, Player_Pos
         Parry_Threshold = Math_Max(Parry_Threshold, 5.5)
     end
     if Is_Pull then
-        Parry_Threshold = Parry_Threshold + 42
+        Parry_Threshold = Parry_Threshold + 58
     end
     if Configuration.Dot_Protect then
+        local Abs_Dot = Math_Abs(Dot_Product)
         if Dot_Product < 0 then
             if Distance_To_Ball > Configuration.Dot_Back_Distance_Gate then
                 local Back_Limit = Math_Max(12, 16 + Scaled_Ping * 0.4 + Distance_To_Ball * 0.15)
                 Parry_Threshold = Math_Min(Parry_Threshold, Back_Limit)
             end
-        elseif Dot_Product <= Configuration.Dot_Threshold then
-            if Capped_Speed >= Configuration.Dot_Min_Speed and Distance_To_Ball <= Configuration.Dot_Distance_Threshold then
-                local Angle_Factor = 1 - (Dot_Product / Configuration.Dot_Threshold)
-                local Dot_Limit = Scaled_Ping + Distance_To_Ball * 0.8 + (Angle_Factor * 10)
-                Parry_Threshold = Math_Min(Parry_Threshold, Math_Max(Dot_Limit, Configuration.Dot_Limit_Threshold))
+        else
+            if Abs_Dot <= Configuration.Dot_Threshold then
+                if Capped_Speed >= Configuration.Dot_Min_Speed and Distance_To_Ball <= Configuration.Dot_Distance_Threshold then
+                    local Angle_Factor = 1 - (Dot_Product / Configuration.Dot_Threshold)
+                    local Dot_Limit = Scaled_Ping + Distance_To_Ball * 0.8 + (Angle_Factor * 10)
+                    Parry_Threshold = Math_Min(Parry_Threshold, Math_Max(Dot_Limit, Configuration.Dot_Limit_Threshold))
+                end
+            elseif Abs_Dot <= Configuration.Dot_Side_Threshold then
+                if Distance_To_Ball <= Configuration.Dot_Side_Distance then
+                    Parry_Threshold = Parry_Threshold + Configuration.Dot_Side_Penalty
+                end
             end
         end
     end
@@ -2190,7 +2202,7 @@ Task_Spawn(function()
         Was_Mouse_Pressed = Is_Mouse_Pressed
     end
 end)
-for Index_I = 1, 300 do
+for Index_I = 1, 500 do
     Task_Spawn(function()
         local Stagger_Offset = (Index_I - 1) * 0.01
         while _G.Nightfall_Active do
