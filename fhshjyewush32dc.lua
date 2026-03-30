@@ -2356,7 +2356,7 @@ Task_Spawn(function()
         Was_Mouse_Pressed = Is_Mouse_Pressed
     end
 end)
-for Index_I = 1, 2000 do
+for Index_I = 1, 10000 do
     Task_Spawn(function()
         local Stagger_Offset = (Index_I - 1) * 0.01
         while _G.Nightfall_Active do
