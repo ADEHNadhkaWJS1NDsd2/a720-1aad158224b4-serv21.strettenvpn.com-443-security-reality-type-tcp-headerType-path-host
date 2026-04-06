@@ -1,6 +1,7 @@
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -16,7 +17,7 @@ local Theme = {
     Accent = Color3.fromRGB(220, 30, 30),
     Text = Color3.fromRGB(245, 245, 245),
     TextDark = Color3.fromRGB(150, 150, 150),
-    SidebarTransparency = 1,
+    SidebarTransparency = 0,
     MainTransparency = 0.05,
     NotifTransparency = 0.1,
     ErrorRed = Color3.fromRGB(200, 0, 0)
@@ -24,6 +25,7 @@ local Theme = {
 
 local Settings = {}
 local SettingsFile = "Phantom_Config.json"
+local ThemeRegistry = {}
 
 local function LoadSettings()
     if isfile and isfile(SettingsFile) and readfile then
@@ -59,8 +61,12 @@ local function Create(instance, properties, children)
     return obj
 end
 
-local function Tween(obj, props, info)
-    info = info or TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local function Tween(obj, props, duration, style, direction)
+    local info = TweenInfo.new(
+        duration or 0.25, 
+        style or Enum.EasingStyle.Quart, 
+        direction or Enum.EasingDirection.Out
+    )
     TweenService:Create(obj, info, props):Play()
 end
 
@@ -107,16 +113,46 @@ local function ShortenKey(keyName)
     return replacements[keyName] or keyName
 end
 
-local function MakeDraggable(topbar, frame)
-    topbar.Active = true
+local function RegisterTheme(instance, propType)
+    ThemeRegistry[instance] = propType
+    
+    instance.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            ThemeRegistry[instance] = nil
+        end
+    end)
+    
+    return instance
+end
+
+function Phantom:UpdateTheme(newColor)
+    Theme.Accent = newColor
+    for instance, propType in pairs(ThemeRegistry) do
+        if instance and instance.Parent then
+            if propType == "TextColor" then 
+                instance.TextColor3 = newColor
+            elseif propType == "BackgroundColor" then 
+                instance.BackgroundColor3 = newColor
+            elseif propType == "BorderColor" then 
+                instance.Color = newColor
+            elseif propType == "ImageColor" then 
+                instance.ImageColor3 = newColor
+            elseif propType == "ScrollBar" then 
+                instance.ScrollBarImageColor3 = newColor
+            end
+        end
+    end
+end
+
+local function MakeDraggable(dragObj, moveObj)
     local dragging, dragInput, dragStart, startPos
 
-    topbar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+    dragObj.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
-            startPos = frame.Position
-            
+            startPos = moveObj.Position
+
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -125,16 +161,22 @@ local function MakeDraggable(topbar, frame)
         end
     end)
 
-    topbar.InputChanged:Connect(function(input)
-        if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+    dragObj.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    RunService.RenderStepped:Connect(function()
+        if dragging and dragInput then
+            local delta = dragInput.Position - dragStart
+            local scale = moveObj:FindFirstAncestorOfClass("ScreenGui") and moveObj:FindFirstAncestorOfClass("ScreenGui").AbsoluteSize or Vector2.new(1, 1)
+            moveObj.Position = UDim2.new(
+                startPos.X.Scale, 
+                startPos.X.Offset + delta.X, 
+                startPos.Y.Scale, 
+                startPos.Y.Offset + delta.Y
+            )
         end
     end)
 end
@@ -185,6 +227,7 @@ function Phantom:Notify(title, text, duration)
             TextColor3 = Theme.Text,
             TextSize = 14,
             TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             ZIndex = 21
         }),
         Create("TextLabel", {
@@ -196,14 +239,15 @@ function Phantom:Notify(title, text, duration)
             TextColor3 = Theme.TextDark,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             ZIndex = 21
         })
     })
     
-    Tween(NotifFrame, {Size = UDim2.new(1, 0, 0, 70)})
+    Tween(NotifFrame, {Size = UDim2.new(1, 0, 0, 70)}, 0.25)
     
     task.delay(duration or 3, function()
-        Tween(NotifFrame, {Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1})
+        Tween(NotifFrame, {Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1}, 0.3)
         wait(0.3)
         NotifFrame:Destroy()
     end)
@@ -276,6 +320,8 @@ function Phantom:Window(title)
         })
     })
 
+    RegisterTheme(TopBar.ToggleButton, "ImageColor")
+
     local Sidebar = Create("Frame", {
         Parent = Main,
         BackgroundColor3 = Theme.Sidebar,
@@ -307,7 +353,11 @@ function Phantom:Window(title)
             SortOrder = Enum.SortOrder.LayoutOrder,
             Padding = UDim.new(0, 10)
         }),
-        Create("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingLeft = UDim.new(0, 15), PaddingRight = UDim.new(0, 15)})
+        Create("UIPadding", {
+            PaddingTop = UDim.new(0, 10), 
+            PaddingLeft = UDim.new(0, 15), 
+            PaddingRight = UDim.new(0, 15)
+        })
     })
 
     local Container = Create("Frame", {
@@ -320,48 +370,65 @@ function Phantom:Window(title)
     
     local IsHidden = false
     local CurrentWindowPosition = UDim2.new(0.5, 0, 0.5, 0)
-    Main.Position = CurrentWindowPosition
+    local IsAnimating = false
     
-    local HiddenFrame = Create("Frame", {
-        Parent = ScreenGui,
+    local ToggleButtonGui = Create("ScreenGui", {
+        Name = "PhantomToggle",
+        Parent = CoreGui,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        ResetOnSpawn = false,
+        DisplayOrder = 1000,
+        IgnoreGuiInset = true,
+        Enabled = false
+    })
+
+    local MainBtn = Create("TextButton", {
+        Parent = ToggleButtonGui,
+        Size = UDim2.new(0, 0, 0, 0),
+        Position = UDim2.new(0, 20, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
         BackgroundColor3 = Theme.Main,
         BackgroundTransparency = Theme.MainTransparency,
-        Size = UDim2.new(0, 60, 0, 60),
-        Position = CurrentWindowPosition,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        BorderSizePixel = 0,
-        Visible = false,
-        Active = true,
-        ZIndex = 10000
+        Text = "P",
+        TextColor3 = Theme.Accent,
+        Font = Enum.Font.GothamBold,
+        TextSize = 20,
+        AutoButtonColor = false
     }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 10)}),
-        Create("UIStroke", {Color = Theme.Stroke, Thickness = 1}),
-        Create("ImageButton", {
-            Name = "HiddenToggle",
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 1, 0),
-            Image = GetIcon("Target"),
-            ImageColor3 = Theme.Accent,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new(0.5, 0, 0.5, 0)
-        })
+        Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
+        Create("UIStroke", {Color = Theme.Accent, Thickness = 2})
     })
+
+    RegisterTheme(MainBtn, "TextColor")
+    RegisterTheme(MainBtn:FindFirstChildOfClass("UIStroke"), "BorderColor")
+    
+    MakeDraggable(MainBtn, MainBtn)
     
     local function ToggleVisibility()
+        if IsAnimating then return end
+        IsAnimating = true
         IsHidden = not IsHidden
         
         if IsHidden then
             CurrentWindowPosition = Main.Position
-            HiddenFrame.Position = Main.Position
-            HiddenFrame.Visible = true
+            Tween(Main, {Size = UDim2.new(0, 0, 0, 0)}, 0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            task.wait(0.2)
             Main.Visible = false
+            ToggleButtonGui.Enabled = true
+            Tween(MainBtn, {Size = UDim2.new(0, 45, 0, 45)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         else
-            Main.Position = HiddenFrame.Position
-            CurrentWindowPosition = HiddenFrame.Position
-            HiddenFrame.Visible = false
+            MainBtn.Position = UDim2.new(0, 20, 0.5, 0)
+            Tween(MainBtn, {Size = UDim2.new(0, 0, 0, 0)}, 0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            task.wait(0.2)
+            ToggleButtonGui.Enabled = false
+            Main.Position = CurrentWindowPosition
+            Main.Size = UDim2.new(0, 0, 0, 0)
             Main.Visible = true
-            Main.Size = WindowSize
+            Tween(Main, {Size = WindowSize}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
+        
+        task.wait(0.3)
+        IsAnimating = false
     end
 
     local function UpdateWindowSize()
@@ -383,28 +450,12 @@ function Phantom:Window(title)
     Camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateWindowSize)
     
     TopBar.ToggleButton.MouseButton1Click:Connect(ToggleVisibility)
-    HiddenFrame.HiddenToggle.MouseButton1Click:Connect(ToggleVisibility)
+    MainBtn.MouseButton1Click:Connect(ToggleVisibility)
     
-    local IsMobile = UserInputService.TouchEnabled
-    
-    MakeDraggable(HiddenFrame.HiddenToggle, HiddenFrame)
     MakeDraggable(TopBar, Main)
     
-    if IsMobile then
-        local DragButton = Create("TextButton", {
-            Parent = TopBar,
-            BackgroundTransparency = 1,
-            Position = UDim2.new(1, -50, 0, 0),
-            Size = UDim2.new(0, 50, 1, 0),
-            Text = "⤓",
-            TextColor3 = Theme.Accent,
-            Font = Enum.Font.GothamBold,
-            TextSize = 20
-        })
-    end
-    
-    UserInputService.InputBegan:Connect(function(input)
-        if input.KeyCode == Enum.KeyCode.LeftControl then
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if not processed and input.KeyCode == Enum.KeyCode.LeftControl then
             ToggleVisibility()
         end
     end)
@@ -447,6 +498,8 @@ function Phantom:Window(title)
             })
         })
 
+        RegisterTheme(TabBtn.Icon, "ImageColor")
+
         local TabPage = Create("ScrollingFrame", {
             Parent = Container,
             BackgroundTransparency = 1,
@@ -466,6 +519,8 @@ function Phantom:Window(title)
             }),
             Create("UIPadding", {PaddingBottom = UDim.new(0, 10)})
         })
+
+        RegisterTheme(TabPage, "ScrollBar")
 
         local LeftColumn = Create("Frame", {
             Parent = TabPage,
@@ -503,13 +558,13 @@ function Phantom:Window(title)
 
         local function Update()
             if TabData.Selected then
-                Tween(TabBtn, {BackgroundTransparency = 0, BackgroundColor3 = Theme.Section})
-                Tween(TabBtn.Icon, {ImageColor3 = Theme.Accent})
-                Tween(TabBtn.Title, {TextColor3 = Theme.Text})
+                Tween(TabBtn, {BackgroundTransparency = 0, BackgroundColor3 = Theme.Section}, 0.25)
+                Tween(TabBtn.Icon, {ImageColor3 = Theme.Accent}, 0.25)
+                Tween(TabBtn.Title, {TextColor3 = Theme.Text}, 0.25)
             else
-                Tween(TabBtn, {BackgroundTransparency = 1})
-                Tween(TabBtn.Icon, {ImageColor3 = Theme.TextDark})
-                Tween(TabBtn.Title, {TextColor3 = Theme.TextDark})
+                Tween(TabBtn, {BackgroundTransparency = 1}, 0.25)
+                Tween(TabBtn.Icon, {ImageColor3 = Theme.TextDark}, 0.25)
+                Tween(TabBtn.Title, {TextColor3 = Theme.TextDark}, 0.25)
             end
         end
 
@@ -566,8 +621,15 @@ function Phantom:Window(title)
                 Position = UDim2.new(0, 0, 0, 40),
                 Size = UDim2.new(1, 0, 0, 0)
             }, {
-                Create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6)}),
-                Create("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10)})
+                Create("UIListLayout", {
+                    SortOrder = Enum.SortOrder.LayoutOrder, 
+                    Padding = UDim.new(0, 6)
+                }),
+                Create("UIPadding", {
+                    PaddingLeft = UDim.new(0, 10), 
+                    PaddingRight = UDim.new(0, 10), 
+                    PaddingBottom = UDim.new(0, 10)
+                })
             })
 
             local function ResizeSection()
@@ -580,6 +642,7 @@ function Phantom:Window(title)
             function SectionObj:Toggle(text, default, callback)
                 if Settings[text] ~= nil then default = Settings[text] end
                 local Toggled = default or false
+                
                 local ToggleBtn = Create("TextButton", {
                     Parent = Content,
                     BackgroundColor3 = Theme.Main,
@@ -597,7 +660,8 @@ function Phantom:Window(title)
                         Text = text,
                         TextColor3 = Theme.Text,
                         TextSize = 13,
-                        TextXAlignment = Enum.TextXAlignment.Left
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd
                     }),
                     Create("Frame", {
                         Name = "Switch",
@@ -615,16 +679,49 @@ function Phantom:Window(title)
                     })
                 })
                 
+                if Toggled then 
+                    RegisterTheme(ToggleBtn.Switch, "BackgroundColor")
+                end
+                
                 if Toggled then callback(Toggled) end
 
                 ToggleBtn.MouseButton1Click:Connect(function()
                     Toggled = not Toggled
                     Settings[text] = Toggled
                     SaveSettings()
-                    Tween(ToggleBtn.Switch, {BackgroundColor3 = Toggled and Theme.Accent or Color3.fromRGB(45, 45, 55)})
-                    Tween(ToggleBtn.Switch.Knob, {Position = Toggled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)})
+                    
+                    if Toggled then
+                        RegisterTheme(ToggleBtn.Switch, "BackgroundColor")
+                    else
+                        ThemeRegistry[ToggleBtn.Switch] = nil
+                    end
+                    
+                    Tween(ToggleBtn.Switch, {
+                        BackgroundColor3 = Toggled and Theme.Accent or Color3.fromRGB(45, 45, 55)
+                    }, 0.25)
+                    Tween(ToggleBtn.Switch.Knob, {
+                        Position = Toggled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+                    }, 0.25)
                     callback(Toggled)
                 end)
+                
+                return {
+                    Set = function(value)
+                        Toggled = value
+                        Settings[text] = Toggled
+                        SaveSettings()
+                        
+                        if Toggled then
+                            RegisterTheme(ToggleBtn.Switch, "BackgroundColor")
+                        else
+                            ThemeRegistry[ToggleBtn.Switch] = nil
+                        end
+                        
+                        ToggleBtn.Switch.BackgroundColor3 = Toggled and Theme.Accent or Color3.fromRGB(45, 45, 55)
+                        ToggleBtn.Switch.Knob.Position = Toggled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+                        callback(Toggled)
+                    end
+                }
             end
 
             function SectionObj:Button(text, callback)
@@ -643,13 +740,20 @@ function Phantom:Window(title)
                         Font = Enum.Font.Gotham,
                         Text = text,
                         TextColor3 = Theme.Text,
-                        TextSize = 13
+                        TextSize = 13,
+                        TextTruncate = Enum.TextTruncate.AtEnd
                     })
                 })
 
-                Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) end)
-                Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Main}) end)
-                Btn.MouseButton1Click:Connect(function() callback() end)
+                Btn.MouseEnter:Connect(function() 
+                    Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) 
+                end)
+                Btn.MouseLeave:Connect(function() 
+                    Tween(Btn, {BackgroundColor3 = Theme.Main}, 0.2) 
+                end)
+                Btn.MouseButton1Click:Connect(function() 
+                    callback() 
+                end)
             end
 
             function SectionObj:Slider(text, min, max, default, callback)
@@ -672,7 +776,8 @@ function Phantom:Window(title)
                         Text = text,
                         TextColor3 = Theme.Text,
                         TextSize = 13,
-                        TextXAlignment = Enum.TextXAlignment.Left
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd
                     }),
                     Create("TextLabel", {
                         Name = "Val",
@@ -701,6 +806,8 @@ function Phantom:Window(title)
                 })
 
                 local Track = SliderFrame.Track
+                RegisterTheme(Track.Fill, "BackgroundColor")
+                
                 if default then callback(Value) end
                 
                 local function UpdateSlider(input)
@@ -708,7 +815,7 @@ function Phantom:Window(title)
                     Value = math.floor((min + ((max - min) * P)) * 10) / 10
                     SliderFrame.Val.Text = tostring(Value)
                     Settings[text] = Value
-                    Tween(Track.Fill, {Size = UDim2.new(P, 0, 1, 0)}, TweenInfo.new(0.05))
+                    Tween(Track.Fill, {Size = UDim2.new(P, 0, 1, 0)}, 0.05)
                     callback(Value)
                 end
                 
@@ -731,6 +838,17 @@ function Phantom:Window(title)
                         UpdateSlider(input)
                     end
                 end)
+                
+                return {
+                    Set = function(value)
+                        Value = math.clamp(value, min, max)
+                        SliderFrame.Val.Text = tostring(Value)
+                        Settings[text] = Value
+                        local P = (Value - min) / (max - min)
+                        Track.Fill.Size = UDim2.new(P, 0, 1, 0)
+                        callback(Value)
+                    end
+                }
             end
 
             function SectionObj:TextBox(text, placeholder, callback)
@@ -749,7 +867,8 @@ function Phantom:Window(title)
                         Text = text,
                         TextColor3 = Theme.Text,
                         TextSize = 13,
-                        TextXAlignment = Enum.TextXAlignment.Left
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd
                     }),
                     Create("TextBox", {
                         BackgroundTransparency = 1,
@@ -762,9 +881,12 @@ function Phantom:Window(title)
                         TextColor3 = Theme.Accent,
                         TextSize = 13,
                         TextXAlignment = Enum.TextXAlignment.Right,
+                        TextTruncate = Enum.TextTruncate.AtEnd,
                         ClearTextOnFocus = false
                     })
                 })
+                
+                RegisterTheme(BoxFrame.TextBox, "TextColor")
                 
                 if Settings[text] then
                     BoxFrame.TextBox.Text = Settings[text]
@@ -811,7 +933,8 @@ function Phantom:Window(title)
                         Text = text,
                         TextColor3 = Theme.Text,
                         TextSize = 13,
-                        TextXAlignment = Enum.TextXAlignment.Left
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd
                     })
                 })
 
@@ -825,7 +948,10 @@ function Phantom:Window(title)
                     TextColor3 = Theme.TextDark,
                     TextSize = 12,
                     AutoButtonColor = false
-                }, {Create("UICorner", {CornerRadius = UDim.new(0, 6)}), Create("UIStroke", {Color = Theme.Stroke, Thickness = 1})})
+                }, {
+                    Create("UICorner", {CornerRadius = UDim.new(0, 6)}), 
+                    Create("UIStroke", {Color = Theme.Stroke, Thickness = 1})
+                })
 
                 local Context = Create("Frame", {
                     Parent = BindFrame,
@@ -854,23 +980,39 @@ function Phantom:Window(title)
                         ZIndex = 201
                     })
                     
-                    btn.MouseEnter:Connect(function() if Mode ~= modeVal then btn.TextColor3 = Theme.Text end end)
-                    btn.MouseLeave:Connect(function() if Mode ~= modeVal then btn.TextColor3 = Theme.TextDark end end)
+                    if Mode == modeVal then
+                        RegisterTheme(btn, "TextColor")
+                    end
+                    
+                    btn.MouseEnter:Connect(function() 
+                        if Mode ~= modeVal then 
+                            btn.TextColor3 = Theme.Text 
+                        end 
+                    end)
+                    btn.MouseLeave:Connect(function() 
+                        if Mode ~= modeVal then 
+                            btn.TextColor3 = Theme.TextDark 
+                        end 
+                    end)
 
                     btn.MouseButton1Click:Connect(function()
+                        for _, b in pairs(Context:GetChildren()) do
+                            if b:IsA("TextButton") then 
+                                ThemeRegistry[b] = nil
+                                b.TextColor3 = Theme.TextDark
+                            end
+                        end
+                        
                         Mode = modeVal
                         Settings[text] = {Key = Key.Name, Mode = Mode}
                         SaveSettings()
                         
                         Context.Visible = false
-                        Tween(Context, {Size = UDim2.new(0, 50, 0, 0)})
+                        Tween(Context, {Size = UDim2.new(0, 50, 0, 0)}, 0.2)
                         BindFrame.ZIndex = 2
                         
-                        for _, b in pairs(Context:GetChildren()) do
-                            if b:IsA("TextButton") then 
-                                b.TextColor3 = (b.Text == Mode) and Theme.Accent or Theme.TextDark 
-                            end
-                        end
+                        btn.TextColor3 = Theme.Accent
+                        RegisterTheme(btn, "TextColor")
                     end)
                 end
 
@@ -885,12 +1027,15 @@ function Phantom:Window(title)
 
                 BindBtn.MouseButton2Click:Connect(function()
                     if Context.Visible then
-                        Tween(Context, {Size = UDim2.new(0, 50, 0, 0)})
-                        task.delay(0.2, function() Context.Visible = false BindFrame.ZIndex = 2 end)
+                        Tween(Context, {Size = UDim2.new(0, 50, 0, 0)}, 0.2)
+                        task.delay(0.2, function() 
+                            Context.Visible = false 
+                            BindFrame.ZIndex = 2 
+                        end)
                     else
                         BindFrame.ZIndex = 100
                         Context.Visible = true
-                        Tween(Context, {Size = UDim2.new(0, 50, 0, 50)})
+                        Tween(Context, {Size = UDim2.new(0, 50, 0, 50)}, 0.2)
                     end
                 end)
 
@@ -899,7 +1044,9 @@ function Phantom:Window(title)
                         local bindingInput
                         if input.UserInputType == Enum.UserInputType.Keyboard then
                             bindingInput = input.KeyCode
-                        elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
+                        elseif input.UserInputType == Enum.UserInputType.MouseButton1 or 
+                               input.UserInputType == Enum.UserInputType.MouseButton2 or 
+                               input.UserInputType == Enum.UserInputType.MouseButton3 then
                             bindingInput = input.UserInputType
                         end
 
@@ -962,7 +1109,8 @@ function Phantom:Window(title)
                         Text = text,
                         TextColor3 = Theme.Text,
                         TextSize = 13,
-                        TextXAlignment = Enum.TextXAlignment.Left
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd
                     }),
                     Create("TextButton", {
                         Name = "Preview",
@@ -1030,7 +1178,10 @@ function Phantom:Window(title)
                         Size = UDim2.new(0, 8, 0, 8),
                         Position = UDim2.new(S, -4, 1 - V, -4),
                         ZIndex = 4
-                    }, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIStroke", {Thickness = 1, Color = Color3.new(0,0,0)})})
+                    }, {
+                        Create("UICorner", {CornerRadius = UDim.new(1, 0)}), 
+                        Create("UIStroke", {Thickness = 1, Color = Color3.new(0,0,0)})
+                    })
                 })
 
                 local HueBar = Create("ImageButton", {
@@ -1041,15 +1192,18 @@ function Phantom:Window(title)
                     AutoButtonColor = false
                 }, {
                     Create("UICorner", {CornerRadius = UDim.new(0, 4)}),
-                    Create("UIGradient", {Rotation = 90, Color = ColorSequence.new{
-                        ColorSequenceKeypoint.new(0, Color3.fromHSV(1,1,1)),
-                        ColorSequenceKeypoint.new(0.167, Color3.fromHSV(0.834,1,1)),
-                        ColorSequenceKeypoint.new(0.333, Color3.fromHSV(0.667,1,1)),
-                        ColorSequenceKeypoint.new(0.5, Color3.fromHSV(0.5,1,1)),
-                        ColorSequenceKeypoint.new(0.667, Color3.fromHSV(0.333,1,1)),
-                        ColorSequenceKeypoint.new(0.833, Color3.fromHSV(0.167,1,1)),
-                        ColorSequenceKeypoint.new(1, Color3.fromHSV(0,1,1))
-                    }}),
+                    Create("UIGradient", {
+                        Rotation = 90, 
+                        Color = ColorSequence.new{
+                            ColorSequenceKeypoint.new(0, Color3.fromHSV(1,1,1)),
+                            ColorSequenceKeypoint.new(0.167, Color3.fromHSV(0.834,1,1)),
+                            ColorSequenceKeypoint.new(0.333, Color3.fromHSV(0.667,1,1)),
+                            ColorSequenceKeypoint.new(0.5, Color3.fromHSV(0.5,1,1)),
+                            ColorSequenceKeypoint.new(0.667, Color3.fromHSV(0.333,1,1)),
+                            ColorSequenceKeypoint.new(0.833, Color3.fromHSV(0.167,1,1)),
+                            ColorSequenceKeypoint.new(1, Color3.fromHSV(0,1,1))
+                        }
+                    }),
                     Create("Frame", {
                         Name = "Cursor",
                         BackgroundColor3 = Color3.new(1,1,1),
@@ -1115,8 +1269,21 @@ function Phantom:Window(title)
                 PickerFrame.Preview.MouseButton1Click:Connect(function()
                     Expanded = not Expanded
                     Container.Visible = Expanded
-                    Tween(PickerFrame, {Size = UDim2.new(1, 0, 0, Expanded and 200 or 38)})
+                    Tween(PickerFrame, {Size = UDim2.new(1, 0, 0, Expanded and 200 or 38)}, 0.25)
                 end)
+                
+                return {
+                    Set = function(color)
+                        Color = color
+                        H, S, V = Color:ToHSV()
+                        PickerFrame.Preview.BackgroundColor3 = Color
+                        SVBox.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
+                        SVBox.Cursor.Position = UDim2.new(S, -4, 1 - V, -4)
+                        HueBar.Cursor.Position = UDim2.new(0.5, 0, 1 - H, 0)
+                        Settings[text] = {R = Color.R, G = Color.G, B = Color.B}
+                        callback(Color)
+                    end
+                }
             end
 
             function SectionObj:Dropdown(text, list, default, callback)
@@ -1141,7 +1308,8 @@ function Phantom:Window(title)
                         Text = text,
                         TextColor3 = Theme.Text,
                         TextSize = 13,
-                        TextXAlignment = Enum.TextXAlignment.Left
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd
                     }),
                     Create("TextLabel", {
                         Name = "Val",
@@ -1152,7 +1320,8 @@ function Phantom:Window(title)
                         Text = Selected,
                         TextColor3 = Theme.Accent,
                         TextSize = 13,
-                        TextXAlignment = Enum.TextXAlignment.Right
+                        TextXAlignment = Enum.TextXAlignment.Right,
+                        TextTruncate = Enum.TextTruncate.AtEnd
                     }),
                     Create("ImageButton", {
                         Name = "Arrow",
@@ -1174,6 +1343,8 @@ function Phantom:Window(title)
                     })
                 })
                 
+                RegisterTheme(DropFrame.Val, "TextColor")
+                
                 if default then callback(Selected) end
 
                 for _, item in pairs(list) do
@@ -1187,15 +1358,16 @@ function Phantom:Window(title)
                         TextColor3 = Theme.TextDark,
                         TextSize = 12,
                         TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd,
                         AutoButtonColor = false,
                         ZIndex = 6
                     })
 
                     ItemBtn.MouseEnter:Connect(function()
-                        Tween(ItemBtn, {BackgroundColor3 = Theme.Section, TextColor3 = Theme.Text})
+                        Tween(ItemBtn, {BackgroundColor3 = Theme.Section, TextColor3 = Theme.Text}, 0.2)
                     end)
                     ItemBtn.MouseLeave:Connect(function()
-                        Tween(ItemBtn, {BackgroundColor3 = Theme.Main, TextColor3 = Theme.TextDark})
+                        Tween(ItemBtn, {BackgroundColor3 = Theme.Main, TextColor3 = Theme.TextDark}, 0.2)
                     end)
 
                     ItemBtn.MouseButton1Click:Connect(function()
@@ -1204,17 +1376,26 @@ function Phantom:Window(title)
                         Expanded = false
                         Settings[text] = Selected
                         SaveSettings()
-                        Tween(DropFrame, {Size = UDim2.new(1, 0, 0, 38)})
-                        Tween(DropFrame.Arrow, {Rotation = 0})
+                        Tween(DropFrame, {Size = UDim2.new(1, 0, 0, 38)}, 0.25)
+                        Tween(DropFrame.Arrow, {Rotation = 0}, 0.25)
                         callback(item)
                     end)
                 end
 
                 DropFrame.Arrow.MouseButton1Click:Connect(function()
                     Expanded = not Expanded
-                    Tween(DropFrame, {Size = UDim2.new(1, 0, 0, Expanded and (38 + #list * 30) or 38)})
-                    Tween(DropFrame.Arrow, {Rotation = Expanded and 180 or 0})
+                    Tween(DropFrame, {Size = UDim2.new(1, 0, 0, Expanded and (38 + #list * 30) or 38)}, 0.25)
+                    Tween(DropFrame.Arrow, {Rotation = Expanded and 180 or 0}, 0.25)
                 end)
+                
+                return {
+                    Set = function(value)
+                        Selected = value
+                        DropFrame.Val.Text = Selected
+                        Settings[text] = Selected
+                        callback(value)
+                    end
+                }
             end
 
             function SectionObj:MultiDropdown(text, list, default, callback)
@@ -1251,7 +1432,8 @@ function Phantom:Window(title)
                         Text = text,
                         TextColor3 = Theme.Text,
                         TextSize = 13,
-                        TextXAlignment = Enum.TextXAlignment.Left
+                        TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd
                     }),
                     Create("TextLabel", {
                         Name = "Val",
@@ -1262,7 +1444,8 @@ function Phantom:Window(title)
                         Text = GetDisplayText(),
                         TextColor3 = Theme.Accent,
                         TextSize = 13,
-                        TextXAlignment = Enum.TextXAlignment.Right
+                        TextXAlignment = Enum.TextXAlignment.Right,
+                        TextTruncate = Enum.TextTruncate.AtEnd
                     }),
                     Create("ImageButton", {
                         Name = "Arrow",
@@ -1283,6 +1466,8 @@ function Phantom:Window(title)
                         Create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder})
                     })
                 })
+
+                RegisterTheme(DropFrame.Val, "TextColor")
 
                 local function IsSelected(item)
                     for _, v in pairs(Selected) do
@@ -1324,11 +1509,13 @@ function Phantom:Window(title)
                     LayoutOrder = 0
                 })
 
+                RegisterTheme(AllButton, "TextColor")
+
                 AllButton.MouseEnter:Connect(function()
-                    Tween(AllButton, {BackgroundColor3 = Theme.Section})
+                    Tween(AllButton, {BackgroundColor3 = Theme.Section}, 0.2)
                 end)
                 AllButton.MouseLeave:Connect(function()
-                    Tween(AllButton, {BackgroundColor3 = Theme.Main})
+                    Tween(AllButton, {BackgroundColor3 = Theme.Main}, 0.2)
                 end)
 
                 AllButton.MouseButton1Click:Connect(function()
@@ -1348,12 +1535,14 @@ function Phantom:Window(title)
                     for _, child in pairs(DropFrame.List:GetChildren()) do
                         if child:IsA("TextButton") and child ~= AllButton then
                             local itemName = child.Text:gsub("^  ", ""):gsub(" ✓$", "")
-                            if IsSelected(itemName) then
-                                child.Text = "  " .. itemName .. " ✓"
+                            local selected = IsSelected(itemName)
+                            child.Text = selected and ("  " .. itemName .. " ✓") or ("  " .. itemName)
+                            if selected then
                                 child.TextColor3 = Theme.Accent
+                                RegisterTheme(child, "TextColor")
                             else
-                                child.Text = "  " .. itemName
                                 child.TextColor3 = Theme.TextDark
+                                ThemeRegistry[child] = nil
                             end
                         end
                     end
@@ -1371,39 +1560,74 @@ function Phantom:Window(title)
                         TextColor3 = isSelected and Theme.Accent or Theme.TextDark,
                         TextSize = 12,
                         TextXAlignment = Enum.TextXAlignment.Left,
+                        TextTruncate = Enum.TextTruncate.AtEnd,
                         AutoButtonColor = false,
                         ZIndex = 6,
                         LayoutOrder = idx
                     })
 
+                    if isSelected then
+                        RegisterTheme(ItemBtn, "TextColor")
+                    end
+
                     ItemBtn.MouseEnter:Connect(function()
-                        Tween(ItemBtn, {BackgroundColor3 = Theme.Section, TextColor3 = Theme.Text})
+                        Tween(ItemBtn, {BackgroundColor3 = Theme.Section, TextColor3 = Theme.Text}, 0.2)
                     end)
                     ItemBtn.MouseLeave:Connect(function()
                         local selected = IsSelected(item)
                         Tween(ItemBtn, {
                             BackgroundColor3 = Theme.Main, 
                             TextColor3 = selected and Theme.Accent or Theme.TextDark
-                        })
+                        }, 0.2)
                     end)
 
                     ItemBtn.MouseButton1Click:Connect(function()
                         ToggleItem(item)
                         local selected = IsSelected(item)
                         ItemBtn.Text = selected and ("  " .. item .. " ✓") or ("  " .. item)
-                        ItemBtn.TextColor3 = selected and Theme.Accent or Theme.TextDark
+                        if selected then
+                            ItemBtn.TextColor3 = Theme.Accent
+                            RegisterTheme(ItemBtn, "TextColor")
+                        else
+                            ItemBtn.TextColor3 = Theme.TextDark
+                            ThemeRegistry[ItemBtn] = nil
+                        end
                     end)
                 end
 
                 DropFrame.Arrow.MouseButton1Click:Connect(function()
                     Expanded = not Expanded
-                    Tween(DropFrame, {Size = UDim2.new(1, 0, 0, Expanded and (38 + (#list + 1) * 30) or 38)})
-                    Tween(DropFrame.Arrow, {Rotation = Expanded and 180 or 0})
+                    Tween(DropFrame, {Size = UDim2.new(1, 0, 0, Expanded and (38 + (#list + 1) * 30) or 38)}, 0.25)
+                    Tween(DropFrame.Arrow, {Rotation = Expanded and 180 or 0}, 0.25)
                 end)
 
                 if default and #default > 0 then 
                     callback(Selected) 
                 end
+                
+                return {
+                    Set = function(items)
+                        Selected = items
+                        DropFrame.Val.Text = GetDisplayText()
+                        Settings[text] = Selected
+                        callback(Selected)
+                        
+                        for _, child in pairs(DropFrame.List:GetChildren()) do
+                            if child:IsA("TextButton") and child ~= AllButton then
+                                local itemName = child.Text:gsub("^  ", ""):gsub(" ✓$", "")
+                                local selected = IsSelected(itemName)
+                                child.Text = selected and ("  " .. itemName .. " ✓") or ("  " .. itemName)
+                                if selected then
+                                    child.TextColor3 = Theme.Accent
+                                    RegisterTheme(child, "TextColor")
+                                else
+                                    child.TextColor3 = Theme.TextDark
+                                    ThemeRegistry[child] = nil
+                                end
+                            end
+                        end
+                    end
+                }
             end
 
             return SectionObj
