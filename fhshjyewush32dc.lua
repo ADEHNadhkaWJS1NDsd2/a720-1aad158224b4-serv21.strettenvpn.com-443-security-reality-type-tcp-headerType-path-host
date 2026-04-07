@@ -3,7 +3,6 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
-local MarketplaceService = game:GetService("MarketplaceService")
 local Stats = game:GetService("Stats")
 
 local isfolder = isfolder or function() return false end
@@ -16,7 +15,6 @@ local CoreGui
 pcall(function() CoreGui = game:GetService("CoreGui") end)
 
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 
 local Library = {
     Flags = {},
@@ -861,7 +859,7 @@ function Library:CreateWindow(options)
         end)
 
         local MenuSec = WindowObj:CreateRawSection("Menu Settings", SetPage)
-        MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), nil, function()
+        MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), function()
             MenuSec.ButtonLabel.Text = "Press any key..."
             local conn
             conn = UserInputService.InputBegan:Connect(function(input)
@@ -874,21 +872,21 @@ function Library:CreateWindow(options)
                 end
             end)
         end)
-        MenuSec:Toggle("Show Keybind List", "KeybindListToggle", true, nil, function(state)
+        MenuSec:Toggle("Show Keybind List", "KeybindListToggle", true, function(state)
             Library.ShowKeybinds = state
             if Library.KeybindList then Library.KeybindList.Frame.Visible = state and (#Library.KeybindList.Container:GetChildren() > 1) end
         end)
 
         local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
         local ConfigName = ""
-        ConfigSec:TextBox("Config Name", "ConfigNameInput", "e.g. Legit", nil, function(val) ConfigName = val end)
-        ConfigSec:Button("Save Config", nil, function()
+        ConfigSec:TextBox("Config Name", "e.g. Legit", function(val) ConfigName = val end)
+        ConfigSec:Button("Save Config", function()
             if ConfigName ~= "" then
                 Library:SaveConfig(ConfigName)
                 Library:Notify("Config Saved", "Successfully saved config: " .. ConfigName, 3)
             end
         end)
-        ConfigSec:Button("Load Config", nil, function()
+        ConfigSec:Button("Load Config", function()
             if ConfigName ~= "" then
                 Library:LoadConfig(ConfigName)
                 Library:Notify("Config Loaded", "Successfully loaded config: " .. ConfigName, 3)
@@ -932,7 +930,7 @@ function Library:CreateWindow(options)
             Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 40)
         end)
 
-        function Section:Button(text, tooltipText, callback)
+        function Section:Button(text, callback)
             local Btn = Instance.new("TextButton")
             Btn.Size = UDim2.new(1, 0, 0, 32)
             Btn.BackgroundColor3 = Theme.Container
@@ -945,12 +943,11 @@ function Library:CreateWindow(options)
             Corner(Btn, 4)
             Stroke(Btn, Theme.Stroke, 1, 0.5)
             Btn.MouseButton1Click:Connect(callback)
-            ApplyTooltip(Btn, tooltipText)
             Section.ButtonLabel = Btn
             return Btn
         end
 
-        function Section:Toggle(text, flag, default, tooltipText, callback)
+        function Section:Toggle(text, flag, default, callback)
             local toggled = default or false
             Library.Flags[flag] = toggled
             local Btn = Instance.new("TextButton")
@@ -998,10 +995,9 @@ function Library:CreateWindow(options)
                 Tween(Fill, {BackgroundTransparency = toggled and 0 or 1}, 0.2)
                 callback(toggled)
             end
-            ApplyTooltip(Btn, tooltipText)
         end
 
-        function Section:TextBox(text, flag, placeholder, tooltipText, callback)
+        function Section:TextBox(text, placeholder, callback)
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, 0, 0, 50)
             Frame.BackgroundTransparency = 1
@@ -1035,17 +1031,8 @@ function Library:CreateWindow(options)
             Input.ClearTextOnFocus = false
             Input.Parent = BoxCont
             Input.FocusLost:Connect(function(enter)
-                if enter then
-                    Library.Flags[flag] = Input.Text
-                    callback(Input.Text)
-                end
+                if enter then callback(Input.Text) end
             end)
-            Library.Flags[flag] = ""
-            Library.Signals[flag] = function(val)
-                Input.Text = val
-                callback(val)
-            end
-            ApplyTooltip(Frame, tooltipText)
         end
         return Section
     end
@@ -1237,7 +1224,7 @@ function Library:CreateWindow(options)
                 Fill.Position = UDim2.new(0.5, 0, 0.5, 0)
                 Fill.AnchorPoint = Vector2.new(0.5, 0.5)
                 Fill.BackgroundColor3 = Theme.Accent
-                Fill.BackgroundTransparency = 1
+                Fill.BackgroundTransparency = toggled and 0 or 1
                 Fill.Parent = Box
                 Corner(Fill, 3)
                 RegisterTheme(Fill, "BackgroundColor")
@@ -1246,7 +1233,7 @@ function Library:CreateWindow(options)
                 SubContainer.Name = "Sub_" .. text
                 SubContainer.Size = UDim2.new(1, 0, 0, 0)
                 SubContainer.BackgroundTransparency = 1
-                SubContainer.ClipsDescendants = false
+                SubContainer.ClipsDescendants = true
                 SubContainer.Visible = false
                 SubContainer.Parent = Content
 
@@ -1438,7 +1425,7 @@ function Library:CreateWindow(options)
                     ModeGui.Size = UDim2.new(0, 80, 0, 60)
                     ModeGui.BackgroundColor3 = Theme.Sidebar
                     ModeGui.Visible = false
-                    ModeGui.ZIndex = 50
+                    ModeGui.ZIndex = 100
                     ModeGui.Parent = Btn
                     Corner(ModeGui, 4)
                     Stroke(ModeGui, Theme.Stroke, 1)
@@ -1455,7 +1442,7 @@ function Library:CreateWindow(options)
                         mBtn.Font = Config.FontMain
                         mBtn.TextSize = 11
                         mBtn.Parent = ModeGui
-                        mBtn.ZIndex = 51
+                        mBtn.ZIndex = 101
                         mBtn.MouseButton1Click:Connect(function()
                             ToggleObj.KeybindMode = md
                             ModeGui.Visible = false
@@ -1471,6 +1458,7 @@ function Library:CreateWindow(options)
                     KeyBtn.MouseButton2Click:Connect(function()
                         ModeGui.Position = UDim2.new(1, -110, 0, 20)
                         ModeGui.Visible = not ModeGui.Visible
+                        if ModeGui.Visible then SubContainer.ClipsDescendants = false end
                     end)
 
                     if ToggleObj.BindConnection then ToggleObj.BindConnection:Disconnect() end
@@ -1755,6 +1743,7 @@ function Library:CreateWindow(options)
                     isDropped = false
                     Section.Container.ZIndex = 1
                     DropFrame.ZIndex = 5
+                    if customParent then customParent.ZIndex = 1 end
                     Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
                     Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
                     Tween(Arrow, {Rotation = 0}, 0.2)
@@ -1764,7 +1753,7 @@ function Library:CreateWindow(options)
 
                 local optionBtns = {}
                 local function UpdateVisuals()
-                    SelectedText.Text = isMulti and (table.getn(selected) > 0 and table.concat(selected, ", ") or "None") or selected
+                    SelectedText.Text = isMulti and (#selected > 0 and table.concat(selected, ", ") or "None") or selected
                     if isMulti then
                         for opt, btn in pairs(optionBtns) do
                             local sel = false
@@ -1824,6 +1813,7 @@ function Library:CreateWindow(options)
                     isDropped = not isDropped
                     Section.Container.ZIndex = isDropped and 10 or 1
                     DropFrame.ZIndex = isDropped and 10 or 5
+                    if customParent then customParent.ZIndex = isDropped and 10 or 1 customParent.ClipsDescendants = false end
                     if isDropped then
                         ListFrame.Visible = true
                         local listH = math.min(#options * 24, 200)
@@ -1950,7 +1940,7 @@ function Library:CreateWindow(options)
 
                 HexInput.FocusLost:Connect(function()
                     local t = HexInput.Text:gsub("#", "")
-                    if #t == 6 then
+                    if t:match("^[0-9a-fA-F]{6}$") then
                         pcall(function()
                             local nc = Color3.fromHex(t)
                             h, s, v = nc:ToHSV()
