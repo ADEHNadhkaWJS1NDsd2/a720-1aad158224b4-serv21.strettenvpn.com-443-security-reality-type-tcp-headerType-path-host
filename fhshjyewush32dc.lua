@@ -21,6 +21,7 @@ local LocalPlayer = Players.LocalPlayer
 local Library = {
     Flags = {},
     Signals = {},
+    Defaults = {},
     Open = true,
     KeybindList = nil,
     ShowKeybinds = true,
@@ -904,6 +905,7 @@ function Library:CreateWindow(options)
 
         function Section:Toggle(text, flag, default, tooltipText, callback)
             local toggled = default or false
+            Library.Defaults[flag] = default or false
             Library.Flags[flag] = toggled
             local Btn = Instance.new("TextButton")
             Btn.Size = UDim2.new(1, 0, 0, 32)
@@ -954,6 +956,7 @@ function Library:CreateWindow(options)
         end
 
         function Section:TextBox(text, flag, placeholder, tooltipText, callback)
+            Library.Defaults[flag] = ""
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, 0, 0, 50)
             Frame.BackgroundTransparency = 1
@@ -1007,6 +1010,7 @@ function Library:CreateWindow(options)
             else
                 selected = default or options[1]
             end
+            Library.Defaults[flag] = selected
             Library.Flags[flag] = selected
 
             local isDropped = false
@@ -1190,6 +1194,202 @@ function Library:CreateWindow(options)
             return DropdownObj
         end
 
+        function Section:ColorPicker(text, flag, default, tooltipText, callback)
+            local color = default or Color3.fromRGB(255, 255, 255)
+            Library.Defaults[flag] = default or Color3.fromRGB(255, 255, 255)
+            Library.Flags[flag] = color
+            local h, s, v = color:ToHSV()
+            local isOpen = false
+
+            local Frame = Instance.new("Frame")
+            Frame.Size = UDim2.new(1, 0, 0, 30)
+            Frame.BackgroundTransparency = 1
+            Frame.Parent = Content
+            Frame.ZIndex = 5
+
+            local Label = Instance.new("TextLabel")
+            Label.Text = text
+            Label.Font = Config.FontMain
+            Label.TextSize = 13
+            Label.TextColor3 = Theme.Text
+            Label.Size = UDim2.new(0.6, 0, 1, 0)
+            Label.Position = UDim2.new(0, 5, 0, 0)
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+            Label.BackgroundTransparency = 1
+            Label.Parent = Frame
+
+            local Preview = Instance.new("TextButton")
+            Preview.Size = UDim2.new(0, 40, 0, 20)
+            Preview.Position = UDim2.new(1, -5, 0.5, 0)
+            Preview.AnchorPoint = Vector2.new(1, 0.5)
+            Preview.BackgroundColor3 = color
+            Preview.AutoButtonColor = false
+            Preview.Text = ""
+            Preview.Parent = Frame
+            Corner(Preview, 4)
+            Stroke(Preview, Theme.Stroke, 1, 0.5)
+
+            local PickerCont = Instance.new("Frame")
+            PickerCont.Size = UDim2.new(1, 0, 0, 0)
+            PickerCont.BackgroundColor3 = Theme.Background
+            PickerCont.Parent = Content
+            PickerCont.ClipsDescendants = true
+            PickerCont.ZIndex = 10
+            Corner(PickerCont, 4)
+
+            local SVMap = Instance.new("ImageLabel")
+            SVMap.Size = UDim2.new(0, 140, 0, 120)
+            SVMap.Position = UDim2.new(0, 10, 0, 10)
+            SVMap.Image = "rbxassetid://4155801252"
+            SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+            SVMap.Parent = PickerCont
+            SVMap.ZIndex = 11
+            Corner(SVMap, 4)
+
+            local SVCursor = Instance.new("Frame")
+            SVCursor.Size = UDim2.new(0, 8, 0, 8)
+            SVCursor.AnchorPoint = Vector2.new(0.5, 0.5)
+            SVCursor.BackgroundColor3 = Color3.new(1, 1, 1)
+            SVCursor.Parent = SVMap
+            SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
+            SVCursor.ZIndex = 12
+            Corner(SVCursor, 4)
+
+            local HueBar = Instance.new("ImageLabel")
+            HueBar.Size = UDim2.new(0, 20, 0, 120)
+            HueBar.Position = UDim2.new(0, 160, 0, 10)
+            HueBar.Image = "rbxassetid://4155801252"
+            HueBar.Parent = PickerCont
+            HueBar.ZIndex = 11
+            Corner(HueBar, 4)
+            local UIGradient = Instance.new("UIGradient")
+            UIGradient.Rotation = 90
+            UIGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+                ColorSequenceKeypoint.new(0.167, Color3.fromRGB(255, 255, 0)),
+                ColorSequenceKeypoint.new(0.333, Color3.fromRGB(0, 255, 0)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
+                ColorSequenceKeypoint.new(0.667, Color3.fromRGB(0, 0, 255)),
+                ColorSequenceKeypoint.new(0.833, Color3.fromRGB(255, 0, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+            })
+            UIGradient.Parent = HueBar
+
+            local HCursor = Instance.new("Frame")
+            HCursor.Size = UDim2.new(1, 0, 0, 2)
+            HCursor.BackgroundColor3 = Color3.new(1, 1, 1)
+            HCursor.Parent = HueBar
+            HCursor.Position = UDim2.new(0, 0, h, 0)
+            HCursor.ZIndex = 12
+
+            local HexInput = Instance.new("TextBox")
+            HexInput.Size = UDim2.new(0, 170, 0, 20)
+            HexInput.Position = UDim2.new(0, 10, 0, 140)
+            HexInput.BackgroundColor3 = Theme.Container
+            HexInput.TextColor3 = Theme.Text
+            HexInput.Font = Config.FontMain
+            HexInput.TextSize = 12
+            HexInput.Text = "#" .. color:ToHex()
+            HexInput.Parent = PickerCont
+            HexInput.ZIndex = 11
+            Corner(HexInput, 4)
+            Stroke(HexInput, Theme.Stroke, 1)
+
+            local function Update()
+                color = Color3.fromHSV(h, s, v)
+                Preview.BackgroundColor3 = color
+                SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+                HexInput.Text = "#" .. color:ToHex()
+                Library.Flags[flag] = color
+                callback(color)
+            end
+
+            HexInput.FocusLost:Connect(function()
+                local t = HexInput.Text:gsub("#", "")
+                if t:match("^[0-9a-fA-F]{6}$") then
+                    pcall(function()
+                        local nc = Color3.fromHex(t)
+                        h, s, v = nc:ToHSV()
+                        HCursor.Position = UDim2.new(0, 0, h, 0)
+                        SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
+                        Update()
+                    end)
+                else
+                    HexInput.Text = "#" .. color:ToHex()
+                end
+            end)
+
+            Library.Signals[flag] = function(val)
+                if type(val) == "userdata" then
+                    color = val
+                    h, s, v = color:ToHSV()
+                    HCursor.Position = UDim2.new(0, 0, h, 0)
+                    SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
+                    Update()
+                end
+            end
+
+            local function SetSV(input)
+                local rX = math.clamp((input.Position.X - SVMap.AbsolutePosition.X) / SVMap.AbsoluteSize.X, 0, 1)
+                local rY = math.clamp((input.Position.Y - SVMap.AbsolutePosition.Y) / SVMap.AbsoluteSize.Y, 0, 1)
+                s = rX
+                v = 1 - rY
+                SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
+                Update()
+            end
+
+            local function SetH(input)
+                local rY = math.clamp((input.Position.Y - HueBar.AbsolutePosition.Y) / HueBar.AbsoluteSize.Y, 0, 1)
+                h = rY
+                HCursor.Position = UDim2.new(0, 0, h, 0)
+                Update()
+            end
+
+            local dragSV, dragH = false, false
+            local svChangedConn, hChangedConn, svEndedConn, hEndedConn
+
+            SVMap.InputBegan:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    dragSV = true
+                    SetSV(i)
+                    svChangedConn = UserInputService.InputChanged:Connect(function(inp)
+                        if (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragSV then SetSV(inp) end
+                    end)
+                    svEndedConn = UserInputService.InputEnded:Connect(function(inp)
+                        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+                            dragSV = false
+                            if svChangedConn then svChangedConn:Disconnect() svChangedConn = nil end
+                            if svEndedConn then svEndedConn:Disconnect() svEndedConn = nil end
+                        end
+                    end)
+                end
+            end)
+
+            HueBar.InputBegan:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                    dragH = true
+                    SetH(i)
+                    hChangedConn = UserInputService.InputChanged:Connect(function(inp)
+                        if (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragH then SetH(inp) end
+                    end)
+                    hEndedConn = UserInputService.InputEnded:Connect(function(inp)
+                        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+                            dragH = false
+                            if hChangedConn then hChangedConn:Disconnect() hChangedConn = nil end
+                            if hEndedConn then hEndedConn:Disconnect() hEndedConn = nil end
+                        end
+                    end)
+                end
+            end)
+
+            Preview.MouseButton1Click:Connect(function()
+                isOpen = not isOpen
+                Section.Container.ZIndex = isOpen and 10 or 1
+                Tween(PickerCont, {Size = UDim2.new(1, 0, 0, isOpen and 170 or 0)}, 0.2)
+            end)
+            ApplyTooltip(Frame, tooltipText)
+        end
+
         return Section
     end
 
@@ -1229,6 +1429,9 @@ function Library:CreateWindow(options)
             Library.ShowKeybinds = state
             if Library.KeybindList then Library.KeybindList.Frame.Visible = state and (#Library.KeybindList.Container:GetChildren() > 1) end
         end)
+        MenuSec:ColorPicker("Accent Color", "MenuAccentColor", Theme.Accent, nil, function(col)
+            Library:UpdateTheme(col)
+        end)
 
         local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
         local ConfigName = ""
@@ -1238,18 +1441,12 @@ function Library:CreateWindow(options)
 
         ConfigSec:TextBox("New Config Name", "ConfigNameInput", "Type name...", nil, function(val) ConfigName = val end)
 
-        ConfigSec:Button("Refresh Configs", nil, function()
-            local newList = Library:GetConfigs()
-            ConfigDropdown:Refresh(newList, newList[1])
-            Library:Notify("Config", "List Refreshed", 2)
-        end)
-
-        ConfigSec:Button("Save Config", nil, function()
+        ConfigSec:Button("Save / Rewrite Config", nil, function()
             if ConfigName ~= "" and ConfigName ~= "None" then
                 Library:SaveConfig(ConfigName)
                 local newList = Library:GetConfigs()
                 ConfigDropdown:Refresh(newList, ConfigName)
-                Library:Notify("Config Saved", "Successfully saved: " .. ConfigName, 3)
+                Library:Notify("Config Saved", "Successfully saved/rewrote: " .. ConfigName, 3)
             else
                 Library:Notify("Error", "Invalid Config Name", 3)
             end
@@ -1269,6 +1466,20 @@ function Library:CreateWindow(options)
                 ConfigDropdown:Refresh(newList, newList[1])
                 Library:Notify("Config Deleted", "Removed: " .. ConfigName, 3)
             end
+        end)
+
+        ConfigSec:Button("Refresh Config List", nil, function()
+            local newList = Library:GetConfigs()
+            ConfigDropdown:Refresh(newList, newList[1])
+            Library:Notify("Config", "List Refreshed", 2)
+        end)
+
+        ConfigSec:Button("Reset Settings", nil, function()
+            for flag, val in pairs(Library.Defaults) do
+                if Library.Signals[flag] then Library.Signals[flag](val) end
+                Library.Flags[flag] = val
+            end
+            Library:Notify("Settings", "Reset to defaults", 3)
         end)
     end
 
@@ -1415,6 +1626,7 @@ function Library:CreateWindow(options)
 
             function Section:Toggle(text, flag, default, tooltipText, callback)
                 local toggled = default or false
+                Library.Defaults[flag] = default or false
                 Library.Flags[flag] = toggled
                 local ToggleObj = {}
                 Library.Signals[flag] = function(val)
@@ -1542,6 +1754,7 @@ function Library:CreateWindow(options)
 
                 function ToggleObj:AddSlider(txt, sflag, min, max, def, cb)
                     local val = def or min
+                    Library.Defaults[sflag] = val
                     Library.Flags[sflag] = val
                     local SFrame = Instance.new("Frame")
                     SFrame.Size = UDim2.new(1, -20, 0, 36)
@@ -1752,6 +1965,7 @@ function Library:CreateWindow(options)
 
             function Section:Slider(text, flag, min, max, default, tooltipText, callback)
                 local val = default or min
+                Library.Defaults[flag] = val
                 Library.Flags[flag] = val
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 42)
@@ -1833,6 +2047,7 @@ function Library:CreateWindow(options)
             end
 
             function Section:TextBox(text, flag, placeholder, tooltipText, callback)
+                Library.Defaults[flag] = ""
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 46)
                 Frame.BackgroundTransparency = 1
@@ -1896,6 +2111,7 @@ function Library:CreateWindow(options)
                 else
                     selected = default or options[1]
                 end
+                Library.Defaults[flag] = selected
                 Library.Flags[flag] = selected
 
                 local isDropped = false
@@ -2082,6 +2298,7 @@ function Library:CreateWindow(options)
 
             function Section:ColorPicker(text, flag, default, tooltipText, callback)
                 local color = default or Color3.fromRGB(255, 255, 255)
+                Library.Defaults[flag] = default or Color3.fromRGB(255, 255, 255)
                 Library.Flags[flag] = color
                 local h, s, v = color:ToHSV()
                 local isOpen = false
