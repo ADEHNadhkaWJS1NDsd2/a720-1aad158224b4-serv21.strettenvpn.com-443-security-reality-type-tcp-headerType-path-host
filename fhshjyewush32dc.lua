@@ -122,8 +122,8 @@ local function MakeDraggable(dragObj, moveObj)
             end)
             inputEndedConn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
-                    inputChangedConn:Disconnect()
-                    inputEndedConn:Disconnect()
+                    if inputChangedConn then inputChangedConn:Disconnect() end
+                    if inputEndedConn then inputEndedConn:Disconnect() end
                 end
             end)
         end
@@ -134,20 +134,20 @@ local function MakeResizable(resizeBtn, frame, minSize)
     resizeBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             local dragStart = input.Position
-            local startSize = frame.Size
+            local startSize = frame.AbsoluteSize
             local inputChangedConn, inputEndedConn
             inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
                 if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
                     local delta = inp.Position - dragStart
-                    local newX = math.max(minSize.X, startSize.X.Offset + delta.X)
-                    local newY = math.max(minSize.Y, startSize.Y.Offset + delta.Y)
+                    local newX = math.max(minSize.X, startSize.X + delta.X)
+                    local newY = math.max(minSize.Y, startSize.Y + delta.Y)
                     frame.Size = UDim2.new(0, newX, 0, newY)
                 end
             end)
             inputEndedConn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
-                    inputChangedConn:Disconnect()
-                    inputEndedConn:Disconnect()
+                    if inputChangedConn then inputChangedConn:Disconnect() end
+                    if inputEndedConn then inputEndedConn:Disconnect() end
                 end
             end)
         end
@@ -285,7 +285,7 @@ function Library:Notify(title, text, duration)
     local NotifFrame = Instance.new("Frame")
     NotifFrame.Size = UDim2.new(1, 0, 0, 60)
     NotifFrame.BackgroundColor3 = Theme.Background
-    NotifFrame.BackgroundTransparency = 0.05
+    NotifFrame.BackgroundTransparency = 0.1
     NotifFrame.Position = UDim2.new(1, 300, 0, 0)
     NotifFrame.Parent = NotifGui.Container
     Corner(NotifFrame, 6)
@@ -295,7 +295,7 @@ function Library:Notify(title, text, duration)
     NNoise.Size = UDim2.new(1, 0, 1, 0)
     NNoise.BackgroundTransparency = 1
     NNoise.Image = "rbxassetid://9968344105"
-    NNoise.ImageTransparency = 0.92
+    NNoise.ImageTransparency = 0.9
     NNoise.ScaleType = Enum.ScaleType.Tile
     NNoise.TileSize = UDim2.new(0, 100, 0, 100)
     NNoise.Parent = NotifFrame
@@ -358,7 +358,7 @@ function Library:InitWatermark()
     Frame.Size = UDim2.new(0, 250, 0, 25)
     Frame.Position = UDim2.new(1, -260, 0, 10)
     Frame.BackgroundColor3 = Theme.Background
-    Frame.BackgroundTransparency = 0.05
+    Frame.BackgroundTransparency = 0.1
     Frame.Parent = WatermarkGui
     Corner(Frame, 4)
     Stroke(Frame, Theme.Stroke, 1)
@@ -367,7 +367,7 @@ function Library:InitWatermark()
     WNoise.Size = UDim2.new(1, 0, 1, 0)
     WNoise.BackgroundTransparency = 1
     WNoise.Image = "rbxassetid://9968344105"
-    WNoise.ImageTransparency = 0.92
+    WNoise.ImageTransparency = 0.9
     WNoise.ScaleType = Enum.ScaleType.Tile
     WNoise.TileSize = UDim2.new(0, 100, 0, 100)
     WNoise.Parent = Frame
@@ -416,7 +416,7 @@ function Library:CreateKeybindList()
     Frame.Size = UDim2.new(0, 180, 0, 30)
     Frame.Position = UDim2.new(0.01, 0, 0.4, 0)
     Frame.BackgroundColor3 = Theme.Background
-    Frame.BackgroundTransparency = 0.05
+    Frame.BackgroundTransparency = 0.1
     Frame.Parent = Screen
     Frame.Active = true
     Corner(Frame, 4)
@@ -427,7 +427,7 @@ function Library:CreateKeybindList()
     KNoise.Size = UDim2.new(1, 0, 1, 0)
     KNoise.BackgroundTransparency = 1
     KNoise.Image = "rbxassetid://9968344105"
-    KNoise.ImageTransparency = 0.92
+    KNoise.ImageTransparency = 0.9
     KNoise.ScaleType = Enum.ScaleType.Tile
     KNoise.TileSize = UDim2.new(0, 100, 0, 100)
     KNoise.Parent = Frame
@@ -539,7 +539,7 @@ function Library:CreateWindow(options)
     MiniFrame.Position = UDim2.new(0.5, 0, 0, 10)
     MiniFrame.AnchorPoint = Vector2.new(0.5, 0)
     MiniFrame.BackgroundColor3 = Theme.Background
-    MiniFrame.BackgroundTransparency = 0.05
+    MiniFrame.BackgroundTransparency = 0.1
     MiniFrame.Text = Config.Name
     MiniFrame.TextColor3 = Theme.Accent
     MiniFrame.Font = Config.FontBold
@@ -554,7 +554,7 @@ function Library:CreateWindow(options)
     MNoise.Size = UDim2.new(1, 0, 1, 0)
     MNoise.BackgroundTransparency = 1
     MNoise.Image = "rbxassetid://9968344105"
-    MNoise.ImageTransparency = 0.92
+    MNoise.ImageTransparency = 0.9
     MNoise.ScaleType = Enum.ScaleType.Tile
     MNoise.TileSize = UDim2.new(0, 100, 0, 100)
     MNoise.Parent = MiniFrame
@@ -567,7 +567,7 @@ function Library:CreateWindow(options)
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
-        Frame.BackgroundTransparency = 0.05
+        Frame.BackgroundTransparency = 0.1
         Frame.BorderSizePixel = 0
         Frame.ClipsDescendants = false
         Frame.Visible = false
@@ -575,7 +575,7 @@ function Library:CreateWindow(options)
         Frame.Active = true
 
         local SizeConstraint = Instance.new("UISizeConstraint")
-        SizeConstraint.MaxSize = Vector2.new(700, 450)
+        SizeConstraint.MaxSize = Vector2.new(2000, 2000)
         SizeConstraint.MinSize = Vector2.new(400, 250)
         SizeConstraint.Parent = Frame
 
@@ -586,7 +586,7 @@ function Library:CreateWindow(options)
         BgNoise.Size = UDim2.new(1, 0, 1, 0)
         BgNoise.BackgroundTransparency = 1
         BgNoise.Image = "rbxassetid://9968344105"
-        BgNoise.ImageTransparency = 0.92
+        BgNoise.ImageTransparency = 0.9
         BgNoise.ScaleType = Enum.ScaleType.Tile
         BgNoise.TileSize = UDim2.new(0, 100, 0, 100)
         BgNoise.Parent = Frame
@@ -686,30 +686,9 @@ function Library:CreateWindow(options)
             Logo.Parent = Bar
             RegisterTheme(Logo, "TextColor")
 
-            local SearchBoxCont = Instance.new("Frame")
-            SearchBoxCont.Size = UDim2.new(1, -20, 0, 30)
-            SearchBoxCont.Position = UDim2.new(0, 10, 0, 55)
-            SearchBoxCont.BackgroundColor3 = Theme.Container
-            SearchBoxCont.Parent = Bar
-            Corner(SearchBoxCont, 4)
-            Stroke(SearchBoxCont, Theme.Stroke, 1)
-
-            local SearchInput = Instance.new("TextBox")
-            SearchInput.Size = UDim2.new(1, -10, 1, 0)
-            SearchInput.Position = UDim2.new(0, 5, 0, 0)
-            SearchInput.BackgroundTransparency = 1
-            SearchInput.TextColor3 = Theme.Text
-            SearchInput.PlaceholderText = "Search..."
-            SearchInput.PlaceholderColor3 = Theme.TextDark
-            SearchInput.Font = Config.FontMain
-            SearchInput.TextSize = 12
-            SearchInput.TextXAlignment = Enum.TextXAlignment.Left
-            SearchInput.Text = ""
-            SearchInput.Parent = SearchBoxCont
-
             local Container = Instance.new("Frame")
-            Container.Size = UDim2.new(1, 0, 1, -180)
-            Container.Position = UDim2.new(0, 0, 0, 95)
+            Container.Size = UDim2.new(1, 0, 1, -130)
+            Container.Position = UDim2.new(0, 0, 0, 60)
             Container.BackgroundTransparency = 1
             Container.Parent = Bar
             local List = Instance.new("UIListLayout")
@@ -717,24 +696,6 @@ function Library:CreateWindow(options)
             List.HorizontalAlignment = Enum.HorizontalAlignment.Center
             List.SortOrder = Enum.SortOrder.LayoutOrder
             List.Parent = Container
-
-            SearchInput.Changed:Connect(function(prop)
-                if prop == "Text" then
-                    local term = string.lower(SearchInput.Text)
-                    for _, sectionData in pairs(Library.Elements) do
-                        local hasVisible = false
-                        for _, itemData in pairs(sectionData.Items) do
-                            if term == "" or string.find(string.lower(itemData.Name), term) then
-                                itemData.Instance.Visible = true
-                                hasVisible = true
-                            else
-                                itemData.Instance.Visible = false
-                            end
-                        end
-                        sectionData.Instance.Visible = hasVisible
-                    end
-                end
-            end)
 
             return Bar, Container, nil
         end
@@ -830,7 +791,7 @@ function Library:CreateWindow(options)
         Library.Open = true
         MiniGui.Enabled = false
         MainWindow.Visible = true
-        Tween(MainWindow, {BackgroundTransparency = 0.05}, 0.2)
+        Tween(MainWindow, {BackgroundTransparency = 0.1}, 0.2)
         Tween(MainScale, {Scale = 1}, 0.25)
     end
 
