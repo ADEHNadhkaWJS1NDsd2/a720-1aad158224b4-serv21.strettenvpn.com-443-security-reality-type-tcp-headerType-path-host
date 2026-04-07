@@ -608,6 +608,29 @@ function Library:CreateWindow(options)
     local MainWindow, MainScale = CreateBaseFrame("MainWindow")
     local SettingsWindow, SetScale = CreateBaseFrame("SettingsWindow")
 
+    local Resizer = Instance.new("Frame")
+    Resizer.Size = UDim2.new(0, 20, 0, 20)
+    Resizer.Position = UDim2.new(1, 0, 1, 0)
+    Resizer.AnchorPoint = Vector2.new(1, 1)
+    Resizer.BackgroundTransparency = 1
+    Resizer.Parent = MainWindow
+    Resizer.ZIndex = 20
+    Resizer.Active = true
+    local ResizerIcon = Instance.new("TextLabel")
+    ResizerIcon.Size = UDim2.new(1, 0, 1, 0)
+    ResizerIcon.BackgroundTransparency = 1
+    ResizerIcon.Text = "◢"
+    ResizerIcon.TextColor3 = Theme.TextDark
+    ResizerIcon.TextSize = 16
+    ResizerIcon.Parent = Resizer
+    Resizer.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.Accent}) end
+    end)
+    Resizer.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
+    end)
+    MakeResizable(Resizer, MainWindow, Vector2.new(500, 350))
+
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
         Bar.Size = UDim2.new(0, 180, 1, 0)
@@ -1412,7 +1435,12 @@ function Library:CreateWindow(options)
         end)
 
         local MenuSec = WindowObj:CreateRawSection("Menu Settings", SetPage)
-        MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), nil, function()
+
+        MenuSec:Button("Unload UI", "Destroys the Hub", function()
+            Library:Unload()
+        end)
+
+        MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), "Change the open/close key", function()
             MenuSec.ButtonLabel.Text = "Press any key..."
             local conn
             conn = UserInputService.InputBegan:Connect(function(input)
@@ -1425,11 +1453,13 @@ function Library:CreateWindow(options)
                 end
             end)
         end)
-        MenuSec:Toggle("Show Keybind List", "KeybindListToggle", true, nil, function(state)
+
+        MenuSec:Toggle("Show Keybind List", "KeybindListToggle", true, "Show the active keybinds widget", function(state)
             Library.ShowKeybinds = state
             if Library.KeybindList then Library.KeybindList.Frame.Visible = state and (#Library.KeybindList.Container:GetChildren() > 1) end
         end)
-        MenuSec:ColorPicker("Accent Color", "MenuAccentColor", Theme.Accent, nil, function(col)
+
+        MenuSec:ColorPicker("Accent Color", "MenuAccentColor", Theme.Accent, "Change the theme color", function(col)
             Library:UpdateTheme(col)
         end)
 
@@ -1437,11 +1467,11 @@ function Library:CreateWindow(options)
         local ConfigName = ""
         local ConfigList = Library:GetConfigs()
 
-        local ConfigDropdown = ConfigSec:Dropdown("Select Config", "ConfigSelectorFlag", ConfigList, ConfigList[1], nil, function(val) ConfigName = val end, nil, false)
+        local ConfigDropdown = ConfigSec:Dropdown("Select Config", "ConfigSelectorFlag", ConfigList, ConfigList[1], "Choose a config to manage", function(val) ConfigName = val end, nil, false)
 
-        ConfigSec:TextBox("New Config Name", "ConfigNameInput", "Type name...", nil, function(val) ConfigName = val end)
+        ConfigSec:TextBox("New Config Name", "ConfigNameInput", "Type name...", "Enter a name to save a new config", function(val) ConfigName = val end)
 
-        ConfigSec:Button("Save / Rewrite Config", nil, function()
+        ConfigSec:Button("Save / Rewrite Config", "Save current settings", function()
             if ConfigName ~= "" and ConfigName ~= "None" then
                 Library:SaveConfig(ConfigName)
                 local newList = Library:GetConfigs()
@@ -1452,14 +1482,14 @@ function Library:CreateWindow(options)
             end
         end)
 
-        ConfigSec:Button("Load Config", nil, function()
+        ConfigSec:Button("Load Config", "Load the selected config", function()
             if ConfigName ~= "" and ConfigName ~= "None" then
                 Library:LoadConfig(ConfigName)
                 Library:Notify("Config Loaded", "Successfully loaded: " .. ConfigName, 3)
             end
         end)
 
-        ConfigSec:Button("Delete Config", nil, function()
+        ConfigSec:Button("Delete Config", "Delete the selected config", function()
             if ConfigName ~= "" and ConfigName ~= "None" then
                 Library:DeleteConfig(ConfigName)
                 local newList = Library:GetConfigs()
@@ -1468,13 +1498,13 @@ function Library:CreateWindow(options)
             end
         end)
 
-        ConfigSec:Button("Refresh Config List", nil, function()
+        ConfigSec:Button("Refresh Config List", "Update the dropdown list", function()
             local newList = Library:GetConfigs()
             ConfigDropdown:Refresh(newList, newList[1])
             Library:Notify("Config", "List Refreshed", 2)
         end)
 
-        ConfigSec:Button("Reset Settings", nil, function()
+        ConfigSec:Button("Reset Settings", "Reset all flags to default", function()
             for flag, val in pairs(Library.Defaults) do
                 if Library.Signals[flag] then Library.Signals[flag](val) end
                 Library.Flags[flag] = val
