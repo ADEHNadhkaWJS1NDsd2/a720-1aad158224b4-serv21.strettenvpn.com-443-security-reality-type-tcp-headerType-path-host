@@ -744,6 +744,8 @@ function Library:CreateWindow(options)
         if Library.ActiveWidget then pcall(Library.ActiveWidget) Library.ActiveWidget = nil end
         Tween(MainScale, {Scale = 0.9}, 0.2)
         task.wait(0.1)
+        SettingsWindow.Position = MainWindow.Position
+        SettingsWindow.Size = MainWindow.Size
         MainWindow.Visible = false
         SettingsWindow.Visible = true
         SetScale.Scale = 0.9
@@ -754,6 +756,8 @@ function Library:CreateWindow(options)
         if Library.ActiveWidget then pcall(Library.ActiveWidget) Library.ActiveWidget = nil end
         Tween(SetScale, {Scale = 0.9}, 0.2)
         task.wait(0.1)
+        MainWindow.Position = SettingsWindow.Position
+        MainWindow.Size = SettingsWindow.Size
         SettingsWindow.Visible = false
         MainWindow.Visible = true
         MainScale.Scale = 0.9
@@ -1571,7 +1575,7 @@ function Library:CreateWindow(options)
         ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             SetPage.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
         end)
-        local MenuSec = WindowObj:CreateRawSection("Menu Settings", SetPage)
+        local MenuSec = CreateRawSection("Menu Settings", SetPage)
         MenuSec:Button("Unload UI", "Destroys the Hub", function()
             Library:Unload()
         end)
@@ -1595,7 +1599,7 @@ function Library:CreateWindow(options)
         MenuSec:ColorPicker("Accent Color", "MenuAccentColor", Theme.Accent, "Change the theme color", function(col)
             Library:UpdateTheme(col)
         end)
-        local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
+        local ConfigSec = CreateRawSection("Configuration", SetPage)
         local ConfigName = ""
         local ConfigList = Library:GetConfigs()
         local ConfigDropdown = ConfigSec:Dropdown("Select Config", "ConfigSelectorFlag", ConfigList, ConfigList[1], "Choose a config to manage", function(val) ConfigName = val end, nil, false)
