@@ -182,7 +182,7 @@ function Library:Unload()
     if Library.ScreenGui then pcall(function() Library.ScreenGui:Destroy() end) Library.ScreenGui = nil end
     if Library.KeybindList then pcall(function() Library.KeybindList.Screen:Destroy() end) Library.KeybindList = nil end
     for _, g in pairs(GetParent():GetChildren()) do
-        if g.Name == "PrismaMini" or g.Name == Config.Name or g.Name == "PrismaKeybinds" or g.Name == "PrismaLoader" or g.Name == "PhantomNotifications" or g.Name == "PhantomWatermark" or g.Name == "PhantomTooltip" then
+        if g.Name == "PhantomToggle" or g.Name == Config.Name or g.Name == "PrismaKeybinds" or g.Name == "PrismaLoader" or g.Name == "PhantomNotifications" or g.Name == "PhantomWatermark" or g.Name == "PhantomTooltip" then
             pcall(function() g:Destroy() end)
         end
     end
@@ -587,37 +587,22 @@ function Library:CreateWindow(options)
     end)
     table.insert(Library.Connections, clickConn)
 
-    local MiniGui = Instance.new("ScreenGui")
-    MiniGui.Name = "PrismaMini"
-    MiniGui.Parent = GetParent()
-    MiniGui.Enabled = false
-    MiniGui.IgnoreGuiInset = true
+    local ToggleGui = Instance.new("ScreenGui")
+    ToggleGui.Name = "PhantomToggle"
+    ToggleGui.Parent = GetParent()
+    ToggleGui.IgnoreGuiInset = true
 
-    local MiniFrame = Instance.new("TextButton")
-    MiniFrame.Size = UDim2.new(0, 150, 0, 30)
-    MiniFrame.Position = UDim2.new(0.5, 0, 0, 10)
-    MiniFrame.AnchorPoint = Vector2.new(0.5, 0)
-    MiniFrame.BackgroundColor3 = Theme.Background
-    MiniFrame.BackgroundTransparency = 0.4
-    MiniFrame.Text = Config.Name
-    MiniFrame.TextColor3 = Theme.Accent
-    MiniFrame.Font = Config.FontBold
-    MiniFrame.TextSize = 14
-    MiniFrame.Parent = MiniGui
-    MiniFrame.Active = true
-    Corner(MiniFrame, 6)
-    Stroke(MiniFrame, Theme.Stroke, 1, 0)
-    MakeDraggable(MiniFrame, MiniFrame)
-
-    local MNoise = Instance.new("ImageLabel")
-    MNoise.Size = UDim2.new(1, 0, 1, 0)
-    MNoise.BackgroundTransparency = 1
-    MNoise.Image = "rbxassetid://9968344105"
-    MNoise.ImageTransparency = 0.9
-    MNoise.ScaleType = Enum.ScaleType.Tile
-    MNoise.TileSize = UDim2.new(0, 100, 0, 100)
-    MNoise.Parent = MiniFrame
-    Corner(MNoise, 6)
+    local ToggleBtn = Instance.new("ImageButton")
+    ToggleBtn.Size = UDim2.new(0, 46, 0, 46)
+    ToggleBtn.Position = UDim2.new(0.5, -23, 0, 15)
+    ToggleBtn.BackgroundColor3 = Theme.Container
+    local s3, av3 = pcall(function() return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
+    ToggleBtn.Image = s3 and av3 or "rbxassetid://0"
+    ToggleBtn.Parent = ToggleGui
+    Corner(ToggleBtn, 23)
+    local ToggleStroke = Stroke(ToggleBtn, Theme.Accent, 2)
+    RegisterTheme(ToggleStroke, "BorderColor")
+    MakeDraggable(ToggleBtn, ToggleBtn)
 
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
@@ -726,7 +711,6 @@ function Library:CreateWindow(options)
                 Tween(BackBtn, {TextColor3 = Theme.TextDark}, 0.2) 
                 Tween(s, {Color = Theme.Stroke}, 0.2)
             end)
-            RegisterTheme(BackBtn, "TextColor")
             local Title = Instance.new("TextLabel")
             Title.Text = "Settings"
             Title.Size = UDim2.new(1, 0, 0, 30)
@@ -741,7 +725,7 @@ function Library:CreateWindow(options)
             local Logo = Instance.new("TextLabel")
             Logo.Text = Config.Name
             Logo.RichText = true
-            Logo.Position = UDim2.new(0, 15, 0, 20)
+            Logo.Position = UDim2.new(0, 15, 0, 15)
             Logo.Size = UDim2.new(1, -30, 0, 30)
             Logo.Font = Config.FontBold
             Logo.TextSize = 20
@@ -751,30 +735,9 @@ function Library:CreateWindow(options)
             Logo.Parent = Bar
             RegisterTheme(Logo, "TextColor")
 
-            local SearchBoxCont = Instance.new("Frame")
-            SearchBoxCont.Size = UDim2.new(1, -20, 0, 30)
-            SearchBoxCont.Position = UDim2.new(0, 10, 0, 55)
-            SearchBoxCont.BackgroundColor3 = Theme.Container
-            SearchBoxCont.Parent = Bar
-            Corner(SearchBoxCont, 4)
-            Stroke(SearchBoxCont, Theme.Stroke, 1)
-
-            local SearchInput = Instance.new("TextBox")
-            SearchInput.Size = UDim2.new(1, -10, 1, 0)
-            SearchInput.Position = UDim2.new(0, 5, 0, 0)
-            SearchInput.BackgroundTransparency = 1
-            SearchInput.TextColor3 = Theme.Text
-            SearchInput.PlaceholderText = "Search..."
-            SearchInput.PlaceholderColor3 = Theme.TextDark
-            SearchInput.Font = Config.FontMain
-            SearchInput.TextSize = 12
-            SearchInput.TextXAlignment = Enum.TextXAlignment.Left
-            SearchInput.Text = ""
-            SearchInput.Parent = SearchBoxCont
-
             local Container = Instance.new("Frame")
-            Container.Size = UDim2.new(1, 0, 1, -180)
-            Container.Position = UDim2.new(0, 0, 0, 95)
+            Container.Size = UDim2.new(1, 0, 1, -125)
+            Container.Position = UDim2.new(0, 0, 0, 60)
             Container.BackgroundTransparency = 1
             Container.Parent = Bar
             local List = Instance.new("UIListLayout")
@@ -783,24 +746,6 @@ function Library:CreateWindow(options)
             List.SortOrder = Enum.SortOrder.LayoutOrder
             List.Parent = Container
 
-            SearchInput.Changed:Connect(function(prop)
-                if prop == "Text" then
-                    local term = string.lower(SearchInput.Text)
-                    for _, sectionData in pairs(Library.Elements) do
-                        local hasVisible = false
-                        for _, itemData in pairs(sectionData.Items) do
-                            if term == "" or string.find(string.lower(itemData.Name), term) then
-                                itemData.Instance.Visible = true
-                                hasVisible = true
-                            else
-                                itemData.Instance.Visible = false
-                            end
-                        end
-                        sectionData.Instance.Visible = hasVisible
-                    end
-                end
-            end)
-
             return Bar, Container, nil
         end
     end
@@ -808,17 +753,71 @@ function Library:CreateWindow(options)
     local MainBar, TabContainer, _ = CreateSidebar(MainWindow, false)
     local SetBar, SetContainer, BackBtn = CreateSidebar(SettingsWindow, true)
 
-    local MinimizeBtn = Instance.new("TextButton")
-    MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
-    MinimizeBtn.Position = UDim2.new(1, -5, 0, 5)
-    MinimizeBtn.AnchorPoint = Vector2.new(1, 0)
-    MinimizeBtn.BackgroundTransparency = 1
-    MinimizeBtn.Text = "-"
-    MinimizeBtn.Font = Config.FontBold
-    MinimizeBtn.TextSize = 24
-    MinimizeBtn.TextColor3 = Theme.Text
-    MinimizeBtn.ZIndex = 100
-    MinimizeBtn.Parent = MainWindow
+    local SearchBtn = Instance.new("ImageButton")
+    SearchBtn.Size = UDim2.new(0, 20, 0, 20)
+    SearchBtn.Position = UDim2.new(1, -15, 0, 10)
+    SearchBtn.AnchorPoint = Vector2.new(1, 0)
+    SearchBtn.BackgroundTransparency = 1
+    SearchBtn.Image = "rbxassetid://116057163916442"
+    SearchBtn.ImageColor3 = Theme.TextDark
+    SearchBtn.ZIndex = 100
+    SearchBtn.Parent = MainWindow
+
+    local SearchBarFrame = Instance.new("Frame")
+    SearchBarFrame.Size = UDim2.new(0, 0, 0, 30)
+    SearchBarFrame.Position = UDim2.new(1, -45, 0, 5)
+    SearchBarFrame.AnchorPoint = Vector2.new(1, 0)
+    SearchBarFrame.BackgroundColor3 = Theme.Container
+    SearchBarFrame.ClipsDescendants = true
+    SearchBarFrame.ZIndex = 99
+    SearchBarFrame.Parent = MainWindow
+    Corner(SearchBarFrame, 4)
+    Stroke(SearchBarFrame, Theme.Stroke, 1)
+
+    local SearchInput = Instance.new("TextBox")
+    SearchInput.Size = UDim2.new(1, -10, 1, 0)
+    SearchInput.Position = UDim2.new(0, 5, 0, 0)
+    SearchInput.BackgroundTransparency = 1
+    SearchInput.TextColor3 = Theme.Text
+    SearchInput.PlaceholderText = "Search..."
+    SearchInput.PlaceholderColor3 = Theme.TextDark
+    SearchInput.Font = Config.FontMain
+    SearchInput.TextSize = 12
+    SearchInput.TextXAlignment = Enum.TextXAlignment.Left
+    SearchInput.Text = ""
+    SearchInput.Parent = SearchBarFrame
+
+    local searchOpen = false
+    SearchBtn.MouseButton1Click:Connect(function()
+        searchOpen = not searchOpen
+        if searchOpen then
+            Tween(SearchBtn, {ImageColor3 = Theme.Accent}, 0.2)
+            Tween(SearchBarFrame, {Size = UDim2.new(0, 150, 0, 30)}, 0.2)
+            SearchInput:CaptureFocus()
+        else
+            Tween(SearchBtn, {ImageColor3 = Theme.TextDark}, 0.2)
+            Tween(SearchBarFrame, {Size = UDim2.new(0, 0, 0, 30)}, 0.2)
+            SearchInput.Text = ""
+        end
+    end)
+
+    SearchInput.Changed:Connect(function(prop)
+        if prop == "Text" then
+            local term = string.lower(SearchInput.Text)
+            for _, sectionData in pairs(Library.Elements) do
+                local hasVisible = false
+                for _, itemData in pairs(sectionData.Items) do
+                    if term == "" or string.find(string.lower(itemData.Name), term) then
+                        itemData.Instance.Visible = true
+                        hasVisible = true
+                    else
+                        itemData.Instance.Visible = false
+                    end
+                end
+                sectionData.Instance.Visible = hasVisible
+            end
+        end
+    end)
 
     local ProfileBtn = Instance.new("TextButton")
     ProfileBtn.Size = UDim2.new(1, 0, 0, 60)
@@ -850,6 +849,7 @@ function Library:CreateWindow(options)
     SideName.Font = Config.FontBold
     SideName.TextSize = 13
     SideName.TextXAlignment = Enum.TextXAlignment.Left
+    SideName.TextTruncate = Enum.TextTruncate.AtEnd
     SideName.Parent = ProfileBtn
     local SideSub = Instance.new("TextLabel")
     SideSub.Size = UDim2.new(0, 100, 0, 14)
@@ -868,12 +868,11 @@ function Library:CreateWindow(options)
     local function ToggleMain()
         Library.Open = not Library.Open
         if Library.Open then
-            if IsSettings then SettingsWindow.Visible = true SetScale.Scale = 0 Tween(SetScale, {Scale = 1}, 0.25)
-            else MainWindow.Visible = true MainScale.Scale = 0 Tween(MainScale, {Scale = 1}, 0.25) end
-            MiniGui.Enabled = false
+            if IsSettings then SettingsWindow.Visible = true SetScale.Scale = 0.8 Tween(SetScale, {Scale = 1}, 0.25)
+            else MainWindow.Visible = true MainScale.Scale = 0.8 Tween(MainScale, {Scale = 1}, 0.25) end
         else
-            Tween(MainScale, {Scale = 0}, 0.2)
-            Tween(SetScale, {Scale = 0}, 0.2)
+            Tween(MainScale, {Scale = 0.8}, 0.2)
+            Tween(SetScale, {Scale = 0.8}, 0.2)
             task.wait(0.2)
             MainWindow.Visible = false
             SettingsWindow.Visible = false
@@ -881,26 +880,7 @@ function Library:CreateWindow(options)
         end
     end
 
-    local function Minimize()
-        Library.Open = false
-        Tween(MainScale, {Scale = 0.8}, 0.2)
-        Tween(MainWindow, {BackgroundTransparency = 1}, 0.2)
-        task.wait(0.2)
-        MainWindow.Visible = false
-        MiniGui.Enabled = true
-        TooltipLabel.Visible = false
-    end
-
-    local function Restore()
-        Library.Open = true
-        MiniGui.Enabled = false
-        MainWindow.Visible = true
-        Tween(MainWindow, {BackgroundTransparency = 0.4}, 0.2)
-        Tween(MainScale, {Scale = 1}, 0.25)
-    end
-
-    MinimizeBtn.MouseButton1Click:Connect(Minimize)
-    MiniFrame.MouseButton1Click:Connect(Restore)
+    ToggleBtn.MouseButton1Click:Connect(ToggleMain)
 
     local function SwitchToSettings()
         if Library.ActiveWidget then pcall(Library.ActiveWidget) Library.ActiveWidget = nil end
@@ -1094,12 +1074,10 @@ function Library:CreateWindow(options)
             Input.Parent = BoxCont
 
             Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}, 0.2) end)
-            Input.FocusLost:Connect(function(enter)
+            Input.FocusLost:Connect(function()
                 Tween(s, {Color = Theme.Stroke}, 0.2)
-                if enter then
-                    Library.Flags[flag] = Input.Text
-                    callback(Input.Text)
-                end
+                Library.Flags[flag] = Input.Text
+                callback(Input.Text)
             end)
             Input.Changed:Connect(function(prop)
                 if prop == "Text" then Library.Flags[flag] = Input.Text end
@@ -1246,7 +1224,6 @@ function Library:CreateWindow(options)
                     OptBtn.MouseLeave:Connect(function()
                         if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}, 0.2) end
                     end)
-                    RegisterTheme(OptBtn, "TextColor")
 
                     OptBtn.MouseButton1Click:Connect(function()
                         if isMulti then
@@ -2106,7 +2083,6 @@ function Library:CreateWindow(options)
                 local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
                 Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(s, {Color = Theme.Accent}, 0.2) end)
                 Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
-                RegisterTheme(s, "BorderColor")
                 Btn.MouseButton1Click:Connect(callback)
                 ApplyTooltip(Btn, tooltipText)
             end
@@ -2236,12 +2212,10 @@ function Library:CreateWindow(options)
                 Input.Parent = BoxCont
 
                 Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}, 0.2) end)
-                Input.FocusLost:Connect(function(enter)
+                Input.FocusLost:Connect(function()
                     Tween(s, {Color = Theme.Stroke}, 0.2)
-                    if enter then
-                        Library.Flags[flag] = Input.Text
-                        callback(Input.Text)
-                    end
+                    Library.Flags[flag] = Input.Text
+                    callback(Input.Text)
                 end)
                 Input.Changed:Connect(function(prop)
                     if prop == "Text" then Library.Flags[flag] = Input.Text end
@@ -2389,7 +2363,6 @@ function Library:CreateWindow(options)
                         OptBtn.MouseLeave:Connect(function()
                             if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}, 0.2) end
                         end)
-                        RegisterTheme(OptBtn, "TextColor")
 
                         OptBtn.MouseButton1Click:Connect(function()
                             if isMulti then
