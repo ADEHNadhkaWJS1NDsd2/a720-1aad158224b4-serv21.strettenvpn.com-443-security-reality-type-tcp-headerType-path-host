@@ -14,6 +14,7 @@ local delfile = delfile or function() end
 local CoreGui
 pcall(function() CoreGui = game:GetService("CoreGui") end)
 local LocalPlayer = Players.LocalPlayer
+
 local Library = {
     Flags = {},
     Signals = {},
@@ -25,6 +26,7 @@ local Library = {
     Connections = {},
     ActiveWidget = nil
 }
+
 local Config = {
     Name = "PHANTOM HUB",
     Keybind = Enum.KeyCode.RightShift,
@@ -33,7 +35,9 @@ local Config = {
     FontBold = Enum.Font.GothamBold,
     ConfigFolder = "PhantomConfigs"
 }
+
 if not isfolder(Config.ConfigFolder) then makefolder(Config.ConfigFolder) end
+
 local Theme = {
     Background = Color3.fromHex("#080505"),
     Sidebar    = Color3.fromHex("#0c0707"),
@@ -46,12 +50,15 @@ local Theme = {
     Success    = Color3.fromHex("#00ff88"),
     Danger     = Color3.fromHex("#ff4444")
 }
+
 local ThemeRegistry = {}
 setmetatable(ThemeRegistry, { __mode = "k" })
+
 local function RegisterTheme(instance, propType)
     ThemeRegistry[instance] = propType
     return instance
 end
+
 function Library:UpdateTheme(newColor)
     Theme.Accent = newColor
     for instance, propType in pairs(ThemeRegistry) do
@@ -66,10 +73,12 @@ function Library:UpdateTheme(newColor)
         end
     end
 end
+
 local function GetParent()
     if CoreGui then return CoreGui end
     return LocalPlayer:WaitForChild("PlayerGui")
 end
+
 local function Tween(obj, props, time, style, dir)
     time = time or Config.Duration
     style = style or Enum.EasingStyle.Quart
@@ -78,12 +87,14 @@ local function Tween(obj, props, time, style, dir)
     t:Play()
     return t
 end
+
 local function Corner(parent, radius)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, radius)
     c.Parent = parent
     return c
 end
+
 local function Stroke(parent, color, thickness, transparency)
     local s = Instance.new("UIStroke")
     s.Color = color or Theme.Stroke
@@ -93,6 +104,7 @@ local function Stroke(parent, color, thickness, transparency)
     s.Parent = parent
     return s
 end
+
 local function MakeDraggable(dragObj, moveObj)
     local dragging = false
     local dragInput, dragStart, startPos
@@ -122,6 +134,7 @@ local function MakeDraggable(dragObj, moveObj)
     end)
     table.insert(Library.Connections, conn)
 end
+
 local function MakeResizable(resizeBtn, frame, minSize)
     local dragging = false
     local dragInput, dragStart, startSize
@@ -152,6 +165,7 @@ local function MakeResizable(resizeBtn, frame, minSize)
     end)
     table.insert(Library.Connections, conn)
 end
+
 function Library:Unload()
     for _, conn in ipairs(Library.Connections) do pcall(function() conn:Disconnect() end) end
     Library.Connections = {}
@@ -163,6 +177,7 @@ function Library:Unload()
         end
     end
 end
+
 function Library:GetConfigs()
     local configs = {}
     if isfolder(Config.ConfigFolder) then
@@ -177,6 +192,7 @@ function Library:GetConfigs()
     if #configs == 0 then table.insert(configs, "None") end
     return configs
 end
+
 function Library:SaveConfig(name)
     if not name or name == "" or name == "None" then return end
     local saveFlags = {}
@@ -188,6 +204,7 @@ function Library:SaveConfig(name)
     local ok, json = pcall(HttpService.JSONEncode, HttpService, saveFlags)
     if ok then writefile(Config.ConfigFolder .. "/" .. name .. ".json", json) end
 end
+
 function Library:LoadConfig(name)
     if not name or name == "" or name == "None" then return end
     if isfile(Config.ConfigFolder .. "/" .. name .. ".json") then
@@ -211,12 +228,14 @@ function Library:LoadConfig(name)
         end
     end
 end
+
 function Library:DeleteConfig(name)
     if not name or name == "" or name == "None" then return end
     if isfile(Config.ConfigFolder .. "/" .. name .. ".json") then
         pcall(function() delfile(Config.ConfigFolder .. "/" .. name .. ".json") end)
     end
 end
+
 local TooltipGui = Instance.new("ScreenGui")
 TooltipGui.Name = "PhantomTooltip"
 TooltipGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -232,6 +251,7 @@ TooltipLabel.Parent = TooltipGui
 TooltipLabel.ZIndex = 1000
 Corner(TooltipLabel, 4)
 Stroke(TooltipLabel, Theme.Stroke, 1)
+
 local function ApplyTooltip(guiObj, text)
     if not text or text == "" then return end
     local hovered = false
@@ -266,6 +286,7 @@ local function ApplyTooltip(guiObj, text)
         TooltipLabel.Visible = false
     end)
 end
+
 function Library:Notify(title, text, duration)
     local NotifGui = GetParent():FindFirstChild("PhantomNotifications")
     if not NotifGui then
@@ -288,7 +309,6 @@ function Library:Notify(title, text, duration)
     for _, child in ipairs(NotifGui.Container:GetChildren()) do
         if child:IsA("Frame") then count = count + 1 end
     end
-    
     if count >= 6 then
         for _, child in ipairs(NotifGui.Container:GetChildren()) do
             if child:IsA("Frame") then
@@ -356,6 +376,7 @@ function Library:Notify(title, text, duration)
         NotifFrame:Destroy()
     end)
 end
+
 function Library:InitWatermark()
     local WatermarkGui = Instance.new("ScreenGui")
     WatermarkGui.Name = "PhantomWatermark"
@@ -408,6 +429,7 @@ function Library:InitWatermark()
     end)
     table.insert(Library.Connections, conn)
 end
+
 function Library:CreateKeybindList()
     if Library.KeybindList then return end
     local Screen = Instance.new("ScreenGui")
@@ -462,6 +484,7 @@ function Library:CreateKeybindList()
     Library.KeybindList = {Frame = Frame, Container = Container, Screen = Screen}
     Frame.Visible = false
 end
+
 function Library:UpdateKeybindList(name, key, active, mode)
     if not Library.KeybindList then Library:CreateKeybindList() end
     local existing = Library.KeybindList.Container:FindFirstChild(name)
@@ -508,6 +531,7 @@ function Library:UpdateKeybindList(name, key, active, mode)
         end
     end
 end
+
 function Library:CreateWindow(options)
     if options and options.Name then Config.Name = options.Name end
     Library:Unload()
@@ -544,6 +568,7 @@ function Library:CreateWindow(options)
     local ToggleStroke = Stroke(ToggleBtn, Theme.Accent, 2)
     RegisterTheme(ToggleStroke, "BorderColor")
     MakeDraggable(ToggleBtn, ToggleBtn)
+    
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
@@ -583,8 +608,10 @@ function Library:CreateWindow(options)
         MakeDraggable(DragHeader, Frame)
         return Frame, Scale, DragHeader
     end
+
     local MainWindow, MainScale, MainDrag = CreateBaseFrame("MainWindow")
     local SettingsWindow, SetScale, SetDrag = CreateBaseFrame("SettingsWindow")
+    
     local Resizer = Instance.new("Frame")
     Resizer.Size = UDim2.new(0, 20, 0, 20)
     Resizer.Position = UDim2.new(1, 0, 1, 0)
@@ -607,6 +634,7 @@ function Library:CreateWindow(options)
         if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
     end)
     MakeResizable(Resizer, MainWindow, Vector2.new(500, 350))
+
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
         Bar.Size = UDim2.new(0, 180, 1, 0)
@@ -679,8 +707,10 @@ function Library:CreateWindow(options)
             return Bar, Container, nil
         end
     end
+
     local MainBar, TabContainer, _ = CreateSidebar(MainWindow, false)
     local SetBar, SetContainer, BackBtn = CreateSidebar(SettingsWindow, true)
+    
     local ProfileBtn = Instance.new("TextButton")
     ProfileBtn.Size = UDim2.new(1, 0, 0, 60)
     ProfileBtn.Position = UDim2.new(0, 0, 1, 0)
@@ -724,6 +754,7 @@ function Library:CreateWindow(options)
     SideSub.TextSize = 11
     SideSub.TextXAlignment = Enum.TextXAlignment.Left
     SideSub.Parent = ProfileBtn
+    
     local IsSettings = false
     local function ToggleMain()
         Library.Open = not Library.Open
@@ -740,6 +771,7 @@ function Library:CreateWindow(options)
         end
     end
     ToggleBtn.MouseButton1Click:Connect(ToggleMain)
+    
     local function SwitchToSettings()
         if Library.ActiveWidget then pcall(Library.ActiveWidget) Library.ActiveWidget = nil end
         Tween(MainScale, {Scale = 0.9}, 0.2)
@@ -752,6 +784,7 @@ function Library:CreateWindow(options)
         Tween(SetScale, {Scale = 1}, 0.25)
         IsSettings = true
     end
+    
     local function SwitchToMain()
         if Library.ActiveWidget then pcall(Library.ActiveWidget) Library.ActiveWidget = nil end
         Tween(SetScale, {Scale = 0.9}, 0.2)
@@ -764,12 +797,14 @@ function Library:CreateWindow(options)
         Tween(MainScale, {Scale = 1}, 0.25)
         IsSettings = false
     end
+    
     ProfileBtn.MouseButton1Click:Connect(SwitchToSettings)
     BackBtn.MouseButton1Click:Connect(SwitchToMain)
     local MenuBindConnection = UserInputService.InputBegan:Connect(function(input, gp)
         if not gp and input.KeyCode == Config.Keybind then ToggleMain() end
     end)
     table.insert(Library.Connections, MenuBindConnection)
+    
     local WindowObj = {}
     local MainPages = Instance.new("Frame")
     MainPages.Size = UDim2.new(1, -181, 1, 0)
@@ -777,6 +812,7 @@ function Library:CreateWindow(options)
     MainPages.BackgroundTransparency = 1
     MainPages.Parent = MainWindow
     local ActiveTabFrame = nil
+
     local function CreateRawSection(text, parent)
         local Section = {}
         local Container = Instance.new("Frame")
@@ -809,6 +845,66 @@ function Library:CreateWindow(options)
         List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 40)
         end)
+
+        function Section:Keybind(text, defaultKey, callback)
+            local KeyObj = {Value = defaultKey or Enum.KeyCode.Unknown}
+            local Btn = Instance.new("TextButton")
+            Btn.Size = UDim2.new(1, 0, 0, 32)
+            Btn.BackgroundColor3 = Theme.Container
+            Btn.Text = ""
+            Btn.AutoButtonColor = false
+            Btn.Parent = Content
+            Corner(Btn, 4)
+            local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
+            Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(s, {Color = Theme.Accent}, 0.2) end)
+            Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
+            local Label = Instance.new("TextLabel")
+            Label.Text = text
+            Label.Font = Config.FontMain
+            Label.TextSize = 13
+            Label.TextColor3 = Theme.Text
+            Label.Size = UDim2.new(0.65, 0, 1, 0)
+            Label.Position = UDim2.new(0, 10, 0, 0)
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+            Label.BackgroundTransparency = 1
+            Label.Parent = Btn
+            local KeyBtn = Instance.new("TextButton")
+            KeyBtn.Size = UDim2.new(0, 60, 0, 18)
+            KeyBtn.Position = UDim2.new(1, -10, 0.5, 0)
+            KeyBtn.AnchorPoint = Vector2.new(1, 0.5)
+            KeyBtn.BackgroundTransparency = 1
+            KeyBtn.Text = "[" .. (KeyObj.Value.Name) .. "]"
+            KeyBtn.TextColor3 = Theme.TextDark
+            KeyBtn.Font = Config.FontMain
+            KeyBtn.TextSize = 11
+            KeyBtn.TextXAlignment = Enum.TextXAlignment.Right
+            KeyBtn.Parent = Btn
+            local binding = false
+            Btn.MouseButton1Click:Connect(function()
+                if binding then return end
+                binding = true
+                KeyBtn.Text = "[...]"
+                KeyBtn.TextColor3 = Theme.Accent
+                local conn
+                conn = UserInputService.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.Keyboard then
+                        if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then KeyObj.Value = Enum.KeyCode.Unknown
+                        elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then KeyObj.Value = input.KeyCode end
+                        KeyBtn.Text = "[" .. (KeyObj.Value.Name) .. "]"
+                        KeyBtn.TextColor3 = Theme.TextDark
+                        binding = false
+                        conn:Disconnect()
+                    end
+                end)
+            end)
+            local bindConn = UserInputService.InputBegan:Connect(function(input, gp)
+                if not gp and input.KeyCode == KeyObj.Value and KeyObj.Value ~= Enum.KeyCode.Unknown then
+                    callback()
+                end
+            end)
+            table.insert(Library.Connections, bindConn)
+        end
+
         function Section:Button(text, tooltipText, callback)
             local Btn = Instance.new("TextButton")
             Btn.Size = UDim2.new(1, 0, 0, 32)
@@ -834,6 +930,7 @@ function Library:CreateWindow(options)
             ApplyTooltip(Btn, tooltipText)
             return Btn
         end
+
         function Section:Toggle(text, flag, default, tooltipText, callback)
             local toggled = default or false
             Library.Defaults[flag] = default or false
@@ -854,7 +951,6 @@ function Library:CreateWindow(options)
             Btn.Parent = Content
             Corner(Btn, 4)
             local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
-            
             Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(s, {Color = Theme.Accent}, 0.2) end)
             Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
             local Label = Instance.new("TextLabel")
@@ -938,6 +1034,7 @@ function Library:CreateWindow(options)
             end)
             if toggled then ToggleAnim() end
             ApplyTooltip(Btn, tooltipText)
+            
             function ToggleObj:AddButton(txt, cb)
                 local SBtn = Instance.new("TextButton")
                 SBtn.Size = UDim2.new(1, -20, 0, 26)
@@ -955,6 +1052,7 @@ function Library:CreateWindow(options)
                 SBtn.MouseLeave:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
                 SBtn.MouseButton1Click:Connect(cb)
             end
+            
             function ToggleObj:AddSlider(txt, sflag, min, max, def, cb)
                 local val = def or min
                 Library.Defaults[sflag] = val
@@ -1029,9 +1127,11 @@ function Library:CreateWindow(options)
                     cb(val)
                 end
             end
+            
             function ToggleObj:AddDropdown(txt, dflag, opts, def, cb, isMulti)
                 Section:Dropdown(txt, dflag, opts, def, nil, cb, SubContainer, isMulti)
             end
+            
             function ToggleObj:Keybind(defaultKey)
                 ToggleObj.KeybindValue = defaultKey or Enum.KeyCode.Unknown
                 ToggleObj.KeybindMode = "Toggle" 
@@ -1132,6 +1232,7 @@ function Library:CreateWindow(options)
             end
             return ToggleObj
         end
+
         function Section:TextBox(text, flag, placeholder, tooltipText, callback)
             Library.Defaults[flag] = ""
             local Frame = Instance.new("Frame")
@@ -1176,7 +1277,6 @@ function Library:CreateWindow(options)
             Input.Changed:Connect(function(prop)
                 if prop == "Text" then Library.Flags[flag] = Input.Text end
             end)
-            
             Library.Flags[flag] = ""
             Library.Signals[flag] = function(val)
                 Input.Text = val
@@ -1184,6 +1284,7 @@ function Library:CreateWindow(options)
             end
             ApplyTooltip(Frame, tooltipText)
         end
+
         function Section:Dropdown(text, flag, options, default, tooltipText, callback, customParent, isMulti)
             local selected = default
             if isMulti then
@@ -1368,6 +1469,7 @@ function Library:CreateWindow(options)
             end
             return DropdownObj
         end
+
         function Section:ColorPicker(text, flag, default, tooltipText, callback)
             local color = default or Color3.fromRGB(255, 255, 255)
             Library.Defaults[flag] = default or Color3.fromRGB(255, 255, 255)
@@ -1559,6 +1661,7 @@ function Library:CreateWindow(options)
         end
         return Section
     end
+
     local function PopulateSettings()
         local SetPage = Instance.new("ScrollingFrame")
         SetPage.Size = UDim2.new(1, -200, 1, -20)
@@ -1647,7 +1750,9 @@ function Library:CreateWindow(options)
             Library:Notify("Settings", "Reset to defaults", 3)
         end)
     end
+    
     PopulateSettings()
+
     function WindowObj:Tab(name, iconId)
         local Tab = {}
         local Page = Instance.new("ScrollingFrame")
@@ -1741,6 +1846,7 @@ function Library:CreateWindow(options)
         RightList.SortOrder = Enum.SortOrder.LayoutOrder
         RightList.Padding = UDim.new(0, 10)
         RightList.Parent = RightCol
+
         function Tab:Section(text, side)
             local Section = {}
             local ParentCol = (side == "Right" and RightCol or LeftCol)
@@ -1776,6 +1882,66 @@ function Library:CreateWindow(options)
                 Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
             end
             List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
+
+            function Section:Keybind(text, defaultKey, callback)
+                local KeyObj = {Value = defaultKey or Enum.KeyCode.Unknown}
+                local Btn = Instance.new("TextButton")
+                Btn.Size = UDim2.new(1, 0, 0, 32)
+                Btn.BackgroundColor3 = Theme.Container
+                Btn.Text = ""
+                Btn.AutoButtonColor = false
+                Btn.Parent = Content
+                Corner(Btn, 4)
+                local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
+                Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(s, {Color = Theme.Accent}, 0.2) end)
+                Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
+                local Label = Instance.new("TextLabel")
+                Label.Text = text
+                Label.Font = Config.FontMain
+                Label.TextSize = 13
+                Label.TextColor3 = Theme.Text
+                Label.Size = UDim2.new(0.65, 0, 1, 0)
+                Label.Position = UDim2.new(0, 10, 0, 0)
+                Label.TextXAlignment = Enum.TextXAlignment.Left
+                Label.BackgroundTransparency = 1
+                Label.Parent = Btn
+                local KeyBtn = Instance.new("TextButton")
+                KeyBtn.Size = UDim2.new(0, 60, 0, 18)
+                KeyBtn.Position = UDim2.new(1, -10, 0.5, 0)
+                KeyBtn.AnchorPoint = Vector2.new(1, 0.5)
+                KeyBtn.BackgroundTransparency = 1
+                KeyBtn.Text = "[" .. (KeyObj.Value.Name) .. "]"
+                KeyBtn.TextColor3 = Theme.TextDark
+                KeyBtn.Font = Config.FontMain
+                KeyBtn.TextSize = 11
+                KeyBtn.TextXAlignment = Enum.TextXAlignment.Right
+                KeyBtn.Parent = Btn
+                local binding = false
+                Btn.MouseButton1Click:Connect(function()
+                    if binding then return end
+                    binding = true
+                    KeyBtn.Text = "[...]"
+                    KeyBtn.TextColor3 = Theme.Accent
+                    local conn
+                    conn = UserInputService.InputBegan:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.Keyboard then
+                            if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then KeyObj.Value = Enum.KeyCode.Unknown
+                            elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then KeyObj.Value = input.KeyCode end
+                            KeyBtn.Text = "[" .. (KeyObj.Value.Name) .. "]"
+                            KeyBtn.TextColor3 = Theme.TextDark
+                            binding = false
+                            conn:Disconnect()
+                        end
+                    end)
+                end)
+                local bindConn = UserInputService.InputBegan:Connect(function(input, gp)
+                    if not gp and input.KeyCode == KeyObj.Value and KeyObj.Value ~= Enum.KeyCode.Unknown then
+                        callback()
+                    end
+                end)
+                table.insert(Library.Connections, bindConn)
+            end
+
             function Section:Toggle(text, flag, default, tooltipText, callback)
                 local toggled = default or false
                 Library.Defaults[flag] = default or false
@@ -1874,6 +2040,7 @@ function Library:CreateWindow(options)
                 end)
                 if toggled then ToggleAnim() end
                 ApplyTooltip(Btn, tooltipText)
+                
                 function ToggleObj:AddButton(txt, cb)
                     local SBtn = Instance.new("TextButton")
                     SBtn.Size = UDim2.new(1, -20, 0, 26)
@@ -1891,6 +2058,7 @@ function Library:CreateWindow(options)
                     SBtn.MouseLeave:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
                     SBtn.MouseButton1Click:Connect(cb)
                 end
+                
                 function ToggleObj:AddSlider(txt, sflag, min, max, def, cb)
                     local val = def or min
                     Library.Defaults[sflag] = val
@@ -1965,9 +2133,11 @@ function Library:CreateWindow(options)
                         cb(val)
                     end
                 end
+                
                 function ToggleObj:AddDropdown(txt, dflag, opts, def, cb, isMulti)
                     Section:Dropdown(txt, dflag, opts, def, nil, cb, SubContainer, isMulti)
                 end
+                
                 function ToggleObj:Keybind(defaultKey)
                     ToggleObj.KeybindValue = defaultKey or Enum.KeyCode.Unknown
                     ToggleObj.KeybindMode = "Toggle" 
@@ -2068,6 +2238,7 @@ function Library:CreateWindow(options)
                 end
                 return ToggleObj
             end
+
             function Section:Button(text, tooltipText, callback)
                 local Btn = Instance.new("TextButton")
                 Btn.Size = UDim2.new(1, 0, 0, 30)
@@ -2085,6 +2256,7 @@ function Library:CreateWindow(options)
                 Btn.MouseButton1Click:Connect(callback)
                 ApplyTooltip(Btn, tooltipText)
             end
+
             function Section:Slider(text, flag, min, max, default, tooltipText, callback)
                 local val = default or min
                 Library.Defaults[flag] = val
@@ -2162,6 +2334,7 @@ function Library:CreateWindow(options)
                 end
                 ApplyTooltip(Frame, tooltipText)
             end
+
             function Section:TextBox(text, flag, placeholder, tooltipText, callback)
                 Library.Defaults[flag] = ""
                 local Frame = Instance.new("Frame")
@@ -2214,6 +2387,7 @@ function Library:CreateWindow(options)
                 end
                 ApplyTooltip(Frame, tooltipText)
             end
+
             function Section:Dropdown(text, flag, options, default, tooltipText, callback, customParent, isMulti)
                 local selected = default
                 if isMulti then
@@ -2397,6 +2571,7 @@ function Library:CreateWindow(options)
                 end
                 return DropdownObj
             end
+
             function Section:ColorPicker(text, flag, default, tooltipText, callback)
                 local color = default or Color3.fromRGB(255, 255, 255)
                 Library.Defaults[flag] = default or Color3.fromRGB(255, 255, 255)
