@@ -285,7 +285,7 @@ function Library:Notify(title, text, duration)
     local NotifFrame = Instance.new("Frame")
     NotifFrame.Size = UDim2.new(1, 0, 0, 60)
     NotifFrame.BackgroundColor3 = Theme.Background
-    NotifFrame.BackgroundTransparency = 0.15
+    NotifFrame.BackgroundTransparency = 0.05
     NotifFrame.Position = UDim2.new(1, 300, 0, 0)
     NotifFrame.Parent = NotifGui.Container
     Corner(NotifFrame, 6)
@@ -295,7 +295,7 @@ function Library:Notify(title, text, duration)
     NNoise.Size = UDim2.new(1, 0, 1, 0)
     NNoise.BackgroundTransparency = 1
     NNoise.Image = "rbxassetid://9968344105"
-    NNoise.ImageTransparency = 0.9
+    NNoise.ImageTransparency = 0.92
     NNoise.ScaleType = Enum.ScaleType.Tile
     NNoise.TileSize = UDim2.new(0, 100, 0, 100)
     NNoise.Parent = NotifFrame
@@ -358,7 +358,7 @@ function Library:InitWatermark()
     Frame.Size = UDim2.new(0, 250, 0, 25)
     Frame.Position = UDim2.new(1, -260, 0, 10)
     Frame.BackgroundColor3 = Theme.Background
-    Frame.BackgroundTransparency = 0.15
+    Frame.BackgroundTransparency = 0.05
     Frame.Parent = WatermarkGui
     Corner(Frame, 4)
     Stroke(Frame, Theme.Stroke, 1)
@@ -367,7 +367,7 @@ function Library:InitWatermark()
     WNoise.Size = UDim2.new(1, 0, 1, 0)
     WNoise.BackgroundTransparency = 1
     WNoise.Image = "rbxassetid://9968344105"
-    WNoise.ImageTransparency = 0.9
+    WNoise.ImageTransparency = 0.92
     WNoise.ScaleType = Enum.ScaleType.Tile
     WNoise.TileSize = UDim2.new(0, 100, 0, 100)
     WNoise.Parent = Frame
@@ -416,7 +416,7 @@ function Library:CreateKeybindList()
     Frame.Size = UDim2.new(0, 180, 0, 30)
     Frame.Position = UDim2.new(0.01, 0, 0.4, 0)
     Frame.BackgroundColor3 = Theme.Background
-    Frame.BackgroundTransparency = 0.15
+    Frame.BackgroundTransparency = 0.05
     Frame.Parent = Screen
     Frame.Active = true
     Corner(Frame, 4)
@@ -427,7 +427,7 @@ function Library:CreateKeybindList()
     KNoise.Size = UDim2.new(1, 0, 1, 0)
     KNoise.BackgroundTransparency = 1
     KNoise.Image = "rbxassetid://9968344105"
-    KNoise.ImageTransparency = 0.9
+    KNoise.ImageTransparency = 0.92
     KNoise.ScaleType = Enum.ScaleType.Tile
     KNoise.TileSize = UDim2.new(0, 100, 0, 100)
     KNoise.Parent = Frame
@@ -539,7 +539,7 @@ function Library:CreateWindow(options)
     MiniFrame.Position = UDim2.new(0.5, 0, 0, 10)
     MiniFrame.AnchorPoint = Vector2.new(0.5, 0)
     MiniFrame.BackgroundColor3 = Theme.Background
-    MiniFrame.BackgroundTransparency = 0.15
+    MiniFrame.BackgroundTransparency = 0.05
     MiniFrame.Text = Config.Name
     MiniFrame.TextColor3 = Theme.Accent
     MiniFrame.Font = Config.FontBold
@@ -554,7 +554,7 @@ function Library:CreateWindow(options)
     MNoise.Size = UDim2.new(1, 0, 1, 0)
     MNoise.BackgroundTransparency = 1
     MNoise.Image = "rbxassetid://9968344105"
-    MNoise.ImageTransparency = 0.9
+    MNoise.ImageTransparency = 0.92
     MNoise.ScaleType = Enum.ScaleType.Tile
     MNoise.TileSize = UDim2.new(0, 100, 0, 100)
     MNoise.Parent = MiniFrame
@@ -567,7 +567,7 @@ function Library:CreateWindow(options)
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
-        Frame.BackgroundTransparency = 0.15
+        Frame.BackgroundTransparency = 0.05
         Frame.BorderSizePixel = 0
         Frame.ClipsDescendants = false
         Frame.Visible = false
@@ -586,7 +586,7 @@ function Library:CreateWindow(options)
         BgNoise.Size = UDim2.new(1, 0, 1, 0)
         BgNoise.BackgroundTransparency = 1
         BgNoise.Image = "rbxassetid://9968344105"
-        BgNoise.ImageTransparency = 0.9
+        BgNoise.ImageTransparency = 0.92
         BgNoise.ScaleType = Enum.ScaleType.Tile
         BgNoise.TileSize = UDim2.new(0, 100, 0, 100)
         BgNoise.Parent = Frame
@@ -830,7 +830,7 @@ function Library:CreateWindow(options)
         Library.Open = true
         MiniGui.Enabled = false
         MainWindow.Visible = true
-        Tween(MainWindow, {BackgroundTransparency = 0.15}, 0.2)
+        Tween(MainWindow, {BackgroundTransparency = 0.05}, 0.2)
         Tween(MainScale, {Scale = 1}, 0.25)
     end
 
@@ -1098,6 +1098,7 @@ function Library:CreateWindow(options)
             ListFrame.Parent = Interactive
             ListFrame.ZIndex = 10
             ListFrame.Visible = false
+            ListFrame.Active = true
             ListFrame.ScrollBarThickness = 2
             ListFrame.ScrollBarImageColor3 = Theme.Accent
             Corner(ListFrame, 4)
@@ -1115,10 +1116,11 @@ function Library:CreateWindow(options)
                 DropFrame.ZIndex = 5
                 if customParent then customParent.ZIndex = 1 end
                 Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
-                Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
+                local t = Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
                 Tween(Arrow, {Rotation = 0}, 0.2)
-                task.wait(0.2)
-                ListFrame.Visible = false
+                t.Completed:Connect(function()
+                    if not isDropped then ListFrame.Visible = false end
+                end)
             end
 
             local optionBtns = {}
@@ -1224,10 +1226,15 @@ function Library:CreateWindow(options)
             local h, s, v = color:ToHSV()
             local isOpen = false
 
+            local ContainerFrame = Instance.new("Frame")
+            ContainerFrame.Size = UDim2.new(1, 0, 0, 30)
+            ContainerFrame.BackgroundTransparency = 1
+            ContainerFrame.Parent = Content
+
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, 0, 0, 30)
             Frame.BackgroundTransparency = 1
-            Frame.Parent = Content
+            Frame.Parent = ContainerFrame
             Frame.ZIndex = 5
 
             local Label = Instance.new("TextLabel")
@@ -1254,9 +1261,11 @@ function Library:CreateWindow(options)
 
             local PickerCont = Instance.new("Frame")
             PickerCont.Size = UDim2.new(1, 0, 0, 0)
+            PickerCont.Position = UDim2.new(0, 0, 0, 30)
             PickerCont.BackgroundColor3 = Theme.Background
-            PickerCont.Parent = Content
+            PickerCont.Parent = ContainerFrame
             PickerCont.ClipsDescendants = true
+            PickerCont.Visible = false
             PickerCont.ZIndex = 10
             Corner(PickerCont, 4)
 
@@ -1267,6 +1276,7 @@ function Library:CreateWindow(options)
             SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
             SVMap.Parent = PickerCont
             SVMap.ZIndex = 11
+            SVMap.Active = true
             Corner(SVMap, 4)
 
             local SVCursor = Instance.new("Frame")
@@ -1284,6 +1294,7 @@ function Library:CreateWindow(options)
             HueBar.Image = "rbxassetid://4155801252"
             HueBar.Parent = PickerCont
             HueBar.ZIndex = 11
+            HueBar.Active = true
             Corner(HueBar, 4)
             local UIGradient = Instance.new("UIGradient")
             UIGradient.Rotation = 90
@@ -1408,9 +1419,20 @@ function Library:CreateWindow(options)
             Preview.MouseButton1Click:Connect(function()
                 isOpen = not isOpen
                 Section.Container.ZIndex = isOpen and 10 or 1
-                Tween(PickerCont, {Size = UDim2.new(1, 0, 0, isOpen and 170 or 0)}, 0.2)
+                ContainerFrame.ZIndex = isOpen and 10 or 5
+                if isOpen then
+                    PickerCont.Visible = true
+                    Tween(ContainerFrame, {Size = UDim2.new(1, 0, 0, 200)}, 0.2)
+                    Tween(PickerCont, {Size = UDim2.new(1, 0, 0, 170)}, 0.2)
+                else
+                    Tween(ContainerFrame, {Size = UDim2.new(1, 0, 0, 30)}, 0.2)
+                    local t = Tween(PickerCont, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
+                    t.Completed:Connect(function()
+                        if not isOpen then PickerCont.Visible = false end
+                    end)
+                end
             end)
-            ApplyTooltip(Frame, tooltipText)
+            ApplyTooltip(ContainerFrame, tooltipText)
         end
 
         return Section
@@ -1816,6 +1838,7 @@ function Library:CreateWindow(options)
                     SlideBg.Position = UDim2.new(0, 0, 0, 22)
                     SlideBg.BackgroundColor3 = Theme.Background
                     SlideBg.Parent = SFrame
+                    SlideBg.Active = true
                     Corner(SlideBg, 3)
                     local SlideFill = Instance.new("Frame")
                     SlideFill.Size = UDim2.new((def - min) / (max - min), 0, 1, 0)
@@ -2030,6 +2053,7 @@ function Library:CreateWindow(options)
                 Bar.Position = UDim2.new(0, 0, 0, 24)
                 Bar.BackgroundColor3 = Theme.Container
                 Bar.Parent = Frame
+                Bar.Active = true
                 Corner(Bar, 3)
                 Stroke(Bar, Theme.Stroke, 1, 0.5)
                 local Fill = Instance.new("Frame")
@@ -2209,6 +2233,7 @@ function Library:CreateWindow(options)
                 ListFrame.Parent = Interactive
                 ListFrame.ZIndex = 10
                 ListFrame.Visible = false
+                ListFrame.Active = true
                 ListFrame.ScrollBarThickness = 2
                 ListFrame.ScrollBarImageColor3 = Theme.Accent
                 Corner(ListFrame, 4)
@@ -2226,10 +2251,11 @@ function Library:CreateWindow(options)
                     DropFrame.ZIndex = 5
                     if customParent then customParent.ZIndex = 1 end
                     Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
-                    Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
+                    local t = Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
                     Tween(Arrow, {Rotation = 0}, 0.2)
-                    task.wait(0.2)
-                    ListFrame.Visible = false
+                    t.Completed:Connect(function()
+                        if not isDropped then ListFrame.Visible = false end
+                    end)
                 end
 
                 local optionBtns = {}
@@ -2335,12 +2361,17 @@ function Library:CreateWindow(options)
                 local h, s, v = color:ToHSV()
                 local isOpen = false
 
+                local ContainerFrame = Instance.new("Frame")
+                ContainerFrame.Size = UDim2.new(1, 0, 0, 30)
+                ContainerFrame.BackgroundTransparency = 1
+                ContainerFrame.Parent = Content
+                if secData then table.insert(secData.Items, {Name = text, Instance = ContainerFrame}) end
+
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 30)
                 Frame.BackgroundTransparency = 1
-                Frame.Parent = Content
+                Frame.Parent = ContainerFrame
                 Frame.ZIndex = 5
-                table.insert(secData.Items, {Name = text, Instance = Frame})
 
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
@@ -2366,9 +2397,11 @@ function Library:CreateWindow(options)
 
                 local PickerCont = Instance.new("Frame")
                 PickerCont.Size = UDim2.new(1, 0, 0, 0)
+                PickerCont.Position = UDim2.new(0, 0, 0, 30)
                 PickerCont.BackgroundColor3 = Theme.Background
-                PickerCont.Parent = Content
+                PickerCont.Parent = ContainerFrame
                 PickerCont.ClipsDescendants = true
+                PickerCont.Visible = false
                 PickerCont.ZIndex = 10
                 Corner(PickerCont, 4)
 
@@ -2379,6 +2412,7 @@ function Library:CreateWindow(options)
                 SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                 SVMap.Parent = PickerCont
                 SVMap.ZIndex = 11
+                SVMap.Active = true
                 Corner(SVMap, 4)
 
                 local SVCursor = Instance.new("Frame")
@@ -2396,6 +2430,7 @@ function Library:CreateWindow(options)
                 HueBar.Image = "rbxassetid://4155801252"
                 HueBar.Parent = PickerCont
                 HueBar.ZIndex = 11
+                HueBar.Active = true
                 Corner(HueBar, 4)
                 local UIGradient = Instance.new("UIGradient")
                 UIGradient.Rotation = 90
@@ -2520,9 +2555,20 @@ function Library:CreateWindow(options)
                 Preview.MouseButton1Click:Connect(function()
                     isOpen = not isOpen
                     Section.Container.ZIndex = isOpen and 10 or 1
-                    Tween(PickerCont, {Size = UDim2.new(1, 0, 0, isOpen and 170 or 0)}, 0.2)
+                    ContainerFrame.ZIndex = isOpen and 10 or 5
+                    if isOpen then
+                        PickerCont.Visible = true
+                        Tween(ContainerFrame, {Size = UDim2.new(1, 0, 0, 200)}, 0.2)
+                        Tween(PickerCont, {Size = UDim2.new(1, 0, 0, 170)}, 0.2)
+                    else
+                        Tween(ContainerFrame, {Size = UDim2.new(1, 0, 0, 30)}, 0.2)
+                        local t = Tween(PickerCont, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
+                        t.Completed:Connect(function()
+                            if not isOpen then PickerCont.Visible = false end
+                        end)
+                    end
                 end)
-                ApplyTooltip(Frame, tooltipText)
+                ApplyTooltip(ContainerFrame, tooltipText)
             end
 
             return Section
