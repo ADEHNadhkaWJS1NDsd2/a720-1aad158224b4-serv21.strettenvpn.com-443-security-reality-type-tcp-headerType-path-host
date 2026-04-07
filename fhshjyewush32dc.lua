@@ -21,12 +21,12 @@ local Library = {
 }
 
 local Config = {
-    Name = "PRISMALISTED",
+    Name = "PHANTOM HUB",
     Keybind = Enum.KeyCode.RightShift,
     Duration = 0.3, 
     FontMain = Enum.Font.GothamMedium,
     FontBold = Enum.Font.GothamBold,
-    ConfigFolder = "PrismaConfigs"
+    ConfigFolder = "PhantomConfigs"
 }
 
 if not isfolder(Config.ConfigFolder) then
@@ -34,14 +34,14 @@ if not isfolder(Config.ConfigFolder) then
 end
 
 local Theme = {
-    Background = Color3.fromHex("#05080d"), 
-    Sidebar    = Color3.fromHex("#080a10"), 
-    Container  = Color3.fromHex("#10141c"), 
-    Section    = Color3.fromHex("#151a24"), 
-    Accent     = Color3.fromHex("#00a8ff"), 
+    Background = Color3.fromHex("#080505"), 
+    Sidebar    = Color3.fromHex("#0c0707"), 
+    Container  = Color3.fromHex("#140b0b"), 
+    Section    = Color3.fromHex("#1a0e0e"), 
+    Accent     = Color3.fromHex("#ff1a1a"), 
     Text       = Color3.fromHex("#ffffff"),
-    TextDark   = Color3.fromHex("#8b93a3"),
-    Stroke     = Color3.fromHex("#252b3b"),
+    TextDark   = Color3.fromHex("#997373"),
+    Stroke     = Color3.fromHex("#2e1717"),
     Success    = Color3.fromHex("#00ff88"),
     Danger     = Color3.fromHex("#ff4444")
 }
@@ -184,6 +184,7 @@ local function MakeResizable(resizeBtn, frame, minSize)
 end
 
 function Library:SaveConfig(name)
+    if name == "" then return end
     local json = HttpService:JSONEncode(Library.Flags)
     writefile(Config.ConfigFolder .. "/" .. name .. ".json", json)
 end
@@ -191,12 +192,14 @@ end
 function Library:LoadConfig(name)
     if isfile(Config.ConfigFolder .. "/" .. name .. ".json") then
         local content = readfile(Config.ConfigFolder .. "/" .. name .. ".json")
-        local data = HttpService:JSONDecode(content)
-        for flag, value in pairs(data) do
-            if Library.Signals[flag] then
-                Library.Signals[flag](value)
+        local success, data = pcall(HttpService.JSONDecode, HttpService, content)
+        if success and type(data) == "table" then
+            for flag, value in pairs(data) do
+                if Library.Signals[flag] and type(value) == type(Library.Flags[flag]) then
+                    Library.Signals[flag](value)
+                end
+                Library.Flags[flag] = value
             end
-            Library.Flags[flag] = value
         end
     end
 end
@@ -347,7 +350,10 @@ function Library:Loader(callback)
     Avatar.Position = UDim2.new(0, 20, 0.5, 0)
     Avatar.AnchorPoint = Vector2.new(0, 0.5)
     Avatar.BackgroundColor3 = Theme.Container
-    Avatar.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+    
+    local s, av = pcall(function() return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
+    Avatar.Image = s and av or "rbxassetid://0"
+    
     Avatar.Parent = Header
     Avatar.ZIndex = 3
     Corner(Avatar, 30)
@@ -679,7 +685,10 @@ function Library:CreateWindow(options)
     SideAvatar.Position = UDim2.new(0, 15, 0.5, 0)
     SideAvatar.AnchorPoint = Vector2.new(0, 0.5)
     SideAvatar.BackgroundColor3 = Theme.Container
-    SideAvatar.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+    
+    local s, av = pcall(function() return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
+    SideAvatar.Image = s and av or "rbxassetid://0"
+    
     SideAvatar.Parent = ProfileBtn
     Corner(SideAvatar, 18)
     local AvS = Stroke(SideAvatar, Theme.Accent, 1)
@@ -859,8 +868,11 @@ function Library:CreateWindow(options)
         Container.Size = UDim2.new(1, 0, 0, 0)
         Container.BackgroundColor3 = Theme.Section
         Container.Parent = parent
+        Container.ZIndex = 1
         Corner(Container, 6)
         Stroke(Container, Theme.Stroke, 1, 0.5)
+        
+        Section.Container = Container
 
         local Title = Instance.new("TextLabel")
         Title.Text = text
@@ -984,6 +996,7 @@ function Library:CreateWindow(options)
             Input.TextSize = 13
             Input.TextXAlignment = Enum.TextXAlignment.Left
             Input.Text = ""
+            Input.ClearTextOnFocus = false
             Input.Parent = BoxCont
             Input.FocusLost:Connect(function(enter)
                 if enter then callback(Input.Text) end
@@ -1117,8 +1130,11 @@ function Library:CreateWindow(options)
             Container.Size = UDim2.new(1, 0, 0, 0)
             Container.BackgroundColor3 = Theme.Section
             Container.Parent = ParentCol
+            Container.ZIndex = 1
             Corner(Container, 6)
             Stroke(Container, Theme.Stroke, 1, 0.5)
+            
+            Section.Container = Container
 
             local Title = Instance.new("TextLabel")
             Title.Text = text
@@ -1216,6 +1232,7 @@ function Library:CreateWindow(options)
                         Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled)
                     end
                     
+                    local expectedToggle = toggled
                     if toggled then
                         SubContainer.Visible = true
                         local h = SubList.AbsoluteContentSize.Y
@@ -1224,7 +1241,7 @@ function Library:CreateWindow(options)
                     else
                         Tween(SubContainer, {Size = UDim2.new(1, 0, 0, 0)}, 0.3)
                         task.wait(0.3)
-                        if not toggled then SubContainer.Visible = false end
+                        if expectedToggle == toggled and not toggled then SubContainer.Visible = false end
                     end
                 end
                 
@@ -1232,7 +1249,7 @@ function Library:CreateWindow(options)
                     if toggled then
                         local h = SubList.AbsoluteContentSize.Y
                         if h > 0 then h = h + 6 end
-                        Tween(SubContainer, {Size = UDim2.new(1, 0, 0, h)}, 0.1)
+                        SubContainer.Size = UDim2.new(1, 0, 0, h)
                     end
                 end)
 
@@ -1313,7 +1330,15 @@ function Library:CreateWindow(options)
                     
                     SlideBg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true Set(i) end end)
                     UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-                    UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Set(i) end end)
+                    UserInputService.InputChanged:Connect(function(i) 
+                        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then 
+                            if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                                dragging = false
+                                return
+                            end
+                            Set(i) 
+                        end 
+                    end)
                 end
                 
                 function ToggleObj:AddDropdown(txt, opts, def, cb)
@@ -1455,7 +1480,15 @@ function Library:CreateWindow(options)
 
                 Bar.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true Set(i) end end)
                 UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-                UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then Set(i) end end)
+                UserInputService.InputChanged:Connect(function(i) 
+                    if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then 
+                        if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                            dragging = false
+                            return
+                        end
+                        Set(i) 
+                    end 
+                end)
             end
 
             function Section:TextBox(text, placeholder, callback)
@@ -1494,6 +1527,7 @@ function Library:CreateWindow(options)
                 Input.TextSize = 13
                 Input.TextXAlignment = Enum.TextXAlignment.Left
                 Input.Text = ""
+                Input.ClearTextOnFocus = false
                 Input.Parent = BoxCont
                 
                 Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}) end)
@@ -1605,6 +1639,7 @@ function Library:CreateWindow(options)
                         SelectedText.Text = selected
                         callback(selected)
                         isDropped = false
+                        Section.Container.ZIndex = 1
                         Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
                         Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
                         Tween(Arrow, {Rotation = 0}, 0.2)
@@ -1615,6 +1650,7 @@ function Library:CreateWindow(options)
                 
                 Interactive.MouseButton1Click:Connect(function()
                     isDropped = not isDropped
+                    Section.Container.ZIndex = isDropped and 10 or 1
                     if isDropped then
                         ListFrame.Visible = true
                         local listH = math.min(#options * 24, 200)
@@ -1749,6 +1785,11 @@ function Library:CreateWindow(options)
                 UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragSV = false dragH = false end end)
                 UserInputService.InputChanged:Connect(function(i)
                     if i.UserInputType == Enum.UserInputType.MouseMovement then
+                        if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                            dragSV = false
+                            dragH = false
+                            return
+                        end
                         if dragSV then SetSV(i) end
                         if dragH then SetH(i) end
                     end
@@ -1756,6 +1797,7 @@ function Library:CreateWindow(options)
                 
                 Preview.MouseButton1Click:Connect(function()
                     isOpen = not isOpen
+                    Section.Container.ZIndex = isOpen and 10 or 1
                     Tween(PickerCont, {Size = UDim2.new(1, 0, 0, isOpen and 140 or 0)}, 0.2)
                 end)
             end
