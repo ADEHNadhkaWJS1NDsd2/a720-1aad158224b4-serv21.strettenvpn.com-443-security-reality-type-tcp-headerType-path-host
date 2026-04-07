@@ -27,7 +27,8 @@ local Library = {
     ShowKeybinds = true,
     ScreenGui = nil,
     Connections = {},
-    Elements = {}
+    Elements = {},
+    ActiveWidget = nil
 }
 
 local Config = {
@@ -109,49 +110,70 @@ local function Stroke(parent, color, thickness, transparency)
 end
 
 local function MakeDraggable(dragObj, moveObj)
+    local dragging = false
+    local dragInput, dragStart, startPos
+
     dragObj.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local dragStart = input.Position
-            local startPos = moveObj.Position
-            local inputChangedConn, inputEndedConn
-            inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
-                    local delta = inp.Position - dragStart
-                    moveObj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-                end
-            end)
-            inputEndedConn = input.Changed:Connect(function()
+            dragging = true
+            dragStart = input.Position
+            startPos = moveObj.Position
+            input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
-                    inputChangedConn:Disconnect()
-                    inputEndedConn:Disconnect()
+                    dragging = false
                 end
             end)
         end
     end)
+
+    dragObj.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    local conn = RunService.RenderStepped:Connect(function()
+        if dragging and dragInput then
+            local delta = dragInput.Position - dragStart
+            local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            moveObj.Position = moveObj.Position:Lerp(targetPos, 0.16)
+        end
+    end)
+    table.insert(Library.Connections, conn)
 end
 
 local function MakeResizable(resizeBtn, frame, minSize)
+    local dragging = false
+    local dragInput, dragStart, startSize
+
     resizeBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local dragStart = input.Position
-            local startSize = frame.Size
-            local inputChangedConn, inputEndedConn
-            inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
-                    local delta = inp.Position - dragStart
-                    local newX = math.max(minSize.X, startSize.X.Offset + delta.X)
-                    local newY = math.max(minSize.Y, startSize.Y.Offset + delta.Y)
-                    frame.Size = UDim2.new(0, newX, 0, newY)
-                end
-            end)
-            inputEndedConn = input.Changed:Connect(function()
+            dragging = true
+            dragStart = input.Position
+            startSize = frame.Size
+            input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
-                    inputChangedConn:Disconnect()
-                    inputEndedConn:Disconnect()
+                    dragging = false
                 end
             end)
         end
     end)
+
+    resizeBtn.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    local conn = RunService.RenderStepped:Connect(function()
+        if dragging and dragInput then
+            local delta = dragInput.Position - dragStart
+            local newX = math.max(minSize.X, startSize.X.Offset + delta.X)
+            local newY = math.max(minSize.Y, startSize.Y.Offset + delta.Y)
+            frame.Size = frame.Size:Lerp(UDim2.new(0, newX, 0, newY), 0.16)
+        end
+    end)
+    table.insert(Library.Connections, conn)
 end
 
 function Library:Unload()
@@ -203,7 +225,12 @@ function Library:LoadConfig(name)
                 local parsedValue = value
                 if type(value) == "table" and value.Type then
                     if value.Type == "Color3" then parsedValue = Color3.fromHex(value.Hex)
-                    elseif value.Type == "EnumItem" then pcall(function() parsedValue = Enum[tostring(value.EnumType)][value.Name] end) end
+                    elseif value.Type == "EnumItem" then 
+                        pcall(function() 
+                            local enumName = tostring(value.EnumType):gsub("Enum%.", "")
+                            parsedValue = Enum[enumName][value.Name] 
+                        end)
+                    end
                 end
                 if Library.Signals[flag] then Library.Signals[flag](parsedValue) end
                 Library.Flags[flag] = parsedValue
@@ -246,7 +273,11 @@ local function ApplyTooltip(guiObj, text)
                 TooltipLabel.Text = " " .. text .. " "
                 TooltipLabel.Size = UDim2.new(0, TooltipLabel.TextBounds.X + 10, 0, 20)
                 local mPos = UserInputService:GetMouseLocation()
-                TooltipLabel.Position = UDim2.new(0, mPos.X + 10, 0, mPos.Y - 25)
+                local camera = workspace.CurrentCamera
+                local viewport = camera and camera.ViewportSize or Vector2.new(1920, 1080)
+                local x = math.clamp(mPos.X + 10, 0, viewport.X - TooltipLabel.AbsoluteSize.X - 10)
+                local y = math.clamp(mPos.Y - 25, 0, viewport.Y - TooltipLabel.AbsoluteSize.Y - 10)
+                TooltipLabel.Position = UDim2.new(0, x, 0, y)
                 TooltipLabel.Visible = true
             end
         end)
@@ -254,7 +285,11 @@ local function ApplyTooltip(guiObj, text)
     guiObj.MouseMoved:Connect(function()
         if TooltipLabel.Visible then
             local mPos = UserInputService:GetMouseLocation()
-            TooltipLabel.Position = UDim2.new(0, mPos.X + 10, 0, mPos.Y - 25)
+            local camera = workspace.CurrentCamera
+            local viewport = camera and camera.ViewportSize or Vector2.new(1920, 1080)
+            local x = math.clamp(mPos.X + 10, 0, viewport.X - TooltipLabel.AbsoluteSize.X - 10)
+            local y = math.clamp(mPos.Y - 25, 0, viewport.Y - TooltipLabel.AbsoluteSize.Y - 10)
+            TooltipLabel.Position = UDim2.new(0, x, 0, y)
         end
     end)
     guiObj.MouseLeave:Connect(function()
@@ -280,6 +315,20 @@ function Library:Notify(title, text, duration)
         Layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
         Layout.Padding = UDim.new(0, 10)
         Layout.Parent = Container
+    end
+
+    local count = 0
+    for _, child in ipairs(NotifGui.Container:GetChildren()) do
+        if child:IsA("Frame") then count = count + 1 end
+    end
+    
+    if count >= 6 then
+        for _, child in ipairs(NotifGui.Container:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+                break
+            end
+        end
     end
 
     local NotifFrame = Instance.new("Frame")
@@ -416,7 +465,7 @@ function Library:CreateKeybindList()
     Frame.Size = UDim2.new(0, 180, 0, 30)
     Frame.Position = UDim2.new(0.01, 0, 0.4, 0)
     Frame.BackgroundColor3 = Theme.Background
-    Frame.BackgroundTransparency = 0.15
+    Frame.BackgroundTransparency = 0.4
     Frame.Parent = Screen
     Frame.Active = true
     Corner(Frame, 4)
@@ -528,6 +577,16 @@ function Library:CreateWindow(options)
     ScreenGui.Parent = GetParent()
     Library.ScreenGui = ScreenGui
 
+    local clickConn = UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if Library.ActiveWidget then
+                pcall(Library.ActiveWidget)
+                Library.ActiveWidget = nil
+            end
+        end
+    end)
+    table.insert(Library.Connections, clickConn)
+
     local MiniGui = Instance.new("ScreenGui")
     MiniGui.Name = "PrismaMini"
     MiniGui.Parent = GetParent()
@@ -539,7 +598,7 @@ function Library:CreateWindow(options)
     MiniFrame.Position = UDim2.new(0.5, 0, 0, 10)
     MiniFrame.AnchorPoint = Vector2.new(0.5, 0)
     MiniFrame.BackgroundColor3 = Theme.Background
-    MiniFrame.BackgroundTransparency = 0.15
+    MiniFrame.BackgroundTransparency = 0.4
     MiniFrame.Text = Config.Name
     MiniFrame.TextColor3 = Theme.Accent
     MiniFrame.Font = Config.FontBold
@@ -567,7 +626,7 @@ function Library:CreateWindow(options)
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
-        Frame.BackgroundTransparency = 0.15
+        Frame.BackgroundTransparency = 0.4
         Frame.BorderSizePixel = 0
         Frame.ClipsDescendants = false
         Frame.Visible = false
@@ -658,9 +717,15 @@ function Library:CreateWindow(options)
             BackBtn.AutoButtonColor = false
             BackBtn.Parent = Bar
             Corner(BackBtn, 4)
-            Stroke(BackBtn, Theme.Stroke, 1, 0.5)
-            BackBtn.MouseEnter:Connect(function() Tween(BackBtn, {TextColor3 = Theme.Accent}) end)
-            BackBtn.MouseLeave:Connect(function() Tween(BackBtn, {TextColor3 = Theme.TextDark}) end)
+            local s = Stroke(BackBtn, Theme.Stroke, 1, 0.5)
+            BackBtn.MouseEnter:Connect(function() 
+                Tween(BackBtn, {TextColor3 = Theme.Accent}, 0.2) 
+                Tween(s, {Color = Theme.Accent}, 0.2)
+            end)
+            BackBtn.MouseLeave:Connect(function() 
+                Tween(BackBtn, {TextColor3 = Theme.TextDark}, 0.2) 
+                Tween(s, {Color = Theme.Stroke}, 0.2)
+            end)
             RegisterTheme(BackBtn, "TextColor")
             local Title = Instance.new("TextLabel")
             Title.Text = "Settings"
@@ -830,7 +895,7 @@ function Library:CreateWindow(options)
         Library.Open = true
         MiniGui.Enabled = false
         MainWindow.Visible = true
-        Tween(MainWindow, {BackgroundTransparency = 0.15}, 0.2)
+        Tween(MainWindow, {BackgroundTransparency = 0.4}, 0.2)
         Tween(MainScale, {Scale = 1}, 0.25)
     end
 
@@ -838,6 +903,7 @@ function Library:CreateWindow(options)
     MiniFrame.MouseButton1Click:Connect(Restore)
 
     local function SwitchToSettings()
+        if Library.ActiveWidget then pcall(Library.ActiveWidget) Library.ActiveWidget = nil end
         Tween(MainScale, {Scale = 0.9}, 0.2)
         task.wait(0.1)
         MainWindow.Visible = false
@@ -848,6 +914,7 @@ function Library:CreateWindow(options)
     end
 
     local function SwitchToMain()
+        if Library.ActiveWidget then pcall(Library.ActiveWidget) Library.ActiveWidget = nil end
         Tween(SetScale, {Scale = 0.9}, 0.2)
         task.wait(0.1)
         SettingsWindow.Visible = false
@@ -919,7 +986,15 @@ function Library:CreateWindow(options)
             Btn.AutoButtonColor = false
             Btn.Parent = Content
             Corner(Btn, 4)
-            Stroke(Btn, Theme.Stroke, 1, 0.5)
+            local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
+            Btn.MouseEnter:Connect(function() 
+                Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) 
+                Tween(s, {Color = Theme.Accent}, 0.2)
+            end)
+            Btn.MouseLeave:Connect(function() 
+                Tween(Btn, {BackgroundColor3 = Theme.Container}, 0.2) 
+                Tween(s, {Color = Theme.Stroke}, 0.2)
+            end)
             Btn.MouseButton1Click:Connect(callback)
             Section.ButtonLabel = Btn
             ApplyTooltip(Btn, tooltipText)
@@ -937,7 +1012,11 @@ function Library:CreateWindow(options)
             Btn.AutoButtonColor = false
             Btn.Parent = Content
             Corner(Btn, 4)
-            Stroke(Btn, Theme.Stroke, 1, 0.5)
+            local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
+            
+            Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(s, {Color = Theme.Accent}, 0.2) end)
+            Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
+
             local Label = Instance.new("TextLabel")
             Label.Text = text
             Label.Font = Config.FontMain
@@ -1000,6 +1079,7 @@ function Library:CreateWindow(options)
             BoxCont.BackgroundColor3 = Theme.Container
             BoxCont.Parent = Frame
             Corner(BoxCont, 4)
+            local s = Stroke(BoxCont, Theme.Stroke, 1, 0.5)
             local Input = Instance.new("TextBox")
             Input.Size = UDim2.new(1, -10, 1, 0)
             Input.Position = UDim2.new(0, 5, 0, 0)
@@ -1012,12 +1092,19 @@ function Library:CreateWindow(options)
             Input.Text = ""
             Input.ClearTextOnFocus = false
             Input.Parent = BoxCont
+
+            Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}, 0.2) end)
             Input.FocusLost:Connect(function(enter)
+                Tween(s, {Color = Theme.Stroke}, 0.2)
                 if enter then
                     Library.Flags[flag] = Input.Text
                     callback(Input.Text)
                 end
             end)
+            Input.Changed:Connect(function(prop)
+                if prop == "Text" then Library.Flags[flag] = Input.Text end
+            end)
+            
             Library.Flags[flag] = ""
             Library.Signals[flag] = function(val)
                 Input.Text = val
@@ -1065,7 +1152,10 @@ function Library:CreateWindow(options)
             Interactive.Parent = DropFrame
             Interactive.ZIndex = 5
             Corner(Interactive, 4)
-            Stroke(Interactive, Theme.Stroke, 1, 0.5)
+            local is = Stroke(Interactive, Theme.Stroke, 1, 0.5)
+
+            Interactive.MouseEnter:Connect(function() Tween(Interactive, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(is, {Color = Theme.Accent}, 0.2) end)
+            Interactive.MouseLeave:Connect(function() Tween(Interactive, {BackgroundColor3 = Theme.Container}, 0.2) Tween(is, {Color = Theme.Stroke}, 0.2) end)
 
             local SelectedText = Instance.new("TextLabel")
             SelectedText.Text = isMulti and table.concat(selected, ", ") or selected
@@ -1151,10 +1241,10 @@ function Library:CreateWindow(options)
                     optionBtns[opt] = OptBtn
 
                     OptBtn.MouseEnter:Connect(function()
-                        if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
+                        if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}, 0.2) end
                     end)
                     OptBtn.MouseLeave:Connect(function()
-                        if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
+                        if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}, 0.2) end
                     end)
                     RegisterTheme(OptBtn, "TextColor")
 
@@ -1171,6 +1261,7 @@ function Library:CreateWindow(options)
                             Library.Flags[flag] = selected
                             callback(selected)
                             CloseDropdown()
+                            Library.ActiveWidget = nil
                         end
                     end)
                 end
@@ -1186,6 +1277,12 @@ function Library:CreateWindow(options)
             end
 
             Interactive.MouseButton1Click:Connect(function()
+                if not isDropped then
+                    if Library.ActiveWidget and Library.ActiveWidget ~= CloseDropdown then pcall(Library.ActiveWidget) end
+                    Library.ActiveWidget = CloseDropdown
+                else
+                    Library.ActiveWidget = nil
+                end
                 isDropped = not isDropped
                 Section.Container.ZIndex = isDropped and 10 or 1
                 DropFrame.ZIndex = isDropped and 10 or 5
@@ -1405,7 +1502,19 @@ function Library:CreateWindow(options)
                 end
             end)
 
+            local function ClosePicker()
+                isOpen = false
+                Section.Container.ZIndex = 1
+                Tween(PickerCont, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
+            end
+
             Preview.MouseButton1Click:Connect(function()
+                if not isOpen then
+                    if Library.ActiveWidget and Library.ActiveWidget ~= ClosePicker then pcall(Library.ActiveWidget) end
+                    Library.ActiveWidget = ClosePicker
+                else
+                    Library.ActiveWidget = nil
+                end
                 isOpen = not isOpen
                 Section.Container.ZIndex = isOpen and 10 or 1
                 Tween(PickerCont, {Size = UDim2.new(1, 0, 0, isOpen and 170 or 0)}, 0.2)
@@ -1472,29 +1581,35 @@ function Library:CreateWindow(options)
         ConfigSec:TextBox("New Config Name", "ConfigNameInput", "Type name...", "Enter a name to save a new config", function(val) ConfigName = val end)
 
         ConfigSec:Button("Save / Rewrite Config", "Save current settings", function()
-            if ConfigName ~= "" and ConfigName ~= "None" then
-                Library:SaveConfig(ConfigName)
+            local cfgToSave = ConfigName
+            if cfgToSave == "" or cfgToSave == "None" then cfgToSave = Library.Flags["ConfigNameInput"] end
+            if cfgToSave and cfgToSave ~= "" and cfgToSave ~= "None" then
+                Library:SaveConfig(cfgToSave)
                 local newList = Library:GetConfigs()
-                ConfigDropdown:Refresh(newList, ConfigName)
-                Library:Notify("Config Saved", "Successfully saved/rewrote: " .. ConfigName, 3)
+                ConfigDropdown:Refresh(newList, cfgToSave)
+                Library:Notify("Config Saved", "Successfully saved/rewrote: " .. cfgToSave, 3)
             else
                 Library:Notify("Error", "Invalid Config Name", 3)
             end
         end)
 
         ConfigSec:Button("Load Config", "Load the selected config", function()
-            if ConfigName ~= "" and ConfigName ~= "None" then
-                Library:LoadConfig(ConfigName)
-                Library:Notify("Config Loaded", "Successfully loaded: " .. ConfigName, 3)
+            local cfgToLoad = ConfigName
+            if cfgToLoad == "" or cfgToLoad == "None" then cfgToLoad = Library.Flags["ConfigNameInput"] end
+            if cfgToLoad and cfgToLoad ~= "" and cfgToLoad ~= "None" then
+                Library:LoadConfig(cfgToLoad)
+                Library:Notify("Config Loaded", "Successfully loaded: " .. cfgToLoad, 3)
             end
         end)
 
         ConfigSec:Button("Delete Config", "Delete the selected config", function()
-            if ConfigName ~= "" and ConfigName ~= "None" then
-                Library:DeleteConfig(ConfigName)
+            local cfgToDelete = ConfigName
+            if cfgToDelete == "" or cfgToDelete == "None" then cfgToDelete = Library.Flags["ConfigNameInput"] end
+            if cfgToDelete and cfgToDelete ~= "" and cfgToDelete ~= "None" then
+                Library:DeleteConfig(cfgToDelete)
                 local newList = Library:GetConfigs()
                 ConfigDropdown:Refresh(newList, newList[1])
-                Library:Notify("Config Deleted", "Removed: " .. ConfigName, 3)
+                Library:Notify("Config Deleted", "Removed: " .. cfgToDelete, 3)
             end
         end)
 
@@ -1554,8 +1669,8 @@ function Library:CreateWindow(options)
             if tonumber(iconId) then Ico.Image = "rbxassetid://" .. iconId else Ico.Image = iconId end
             Ico.ImageColor3 = Theme.TextDark
             Ico.Parent = TabBtn
-            TabBtn.MouseEnter:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.Text}) end end)
-            TabBtn.MouseLeave:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.TextDark}) end end)
+            TabBtn.MouseEnter:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.Text}, 0.2) end end)
+            TabBtn.MouseLeave:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.TextDark}, 0.2) end end)
         end
 
         local Indicator = Instance.new("Frame")
@@ -1569,20 +1684,21 @@ function Library:CreateWindow(options)
         RegisterTheme(Indicator, "BackgroundColor")
 
         TabBtn.MouseButton1Click:Connect(function()
+            if Library.ActiveWidget then pcall(Library.ActiveWidget) Library.ActiveWidget = nil end
             for _, p in pairs(MainPages:GetChildren()) do if p:IsA("ScrollingFrame") then p.Visible = false end end
             for _, t in pairs(TabContainer:GetChildren()) do
                 if t:IsA("TextButton") then
-                    Tween(t.TextLabel, {TextColor3 = Theme.TextDark})
-                    Tween(t, {BackgroundTransparency = 1, BackgroundColor3 = Theme.Background})
-                    if t:FindFirstChild("ImageLabel") then Tween(t.ImageLabel, {ImageColor3 = Theme.TextDark}) end
-                    Tween(t.Frame, {BackgroundTransparency = 1})
+                    Tween(t.TextLabel, {TextColor3 = Theme.TextDark}, 0.2)
+                    Tween(t, {BackgroundTransparency = 1, BackgroundColor3 = Theme.Background}, 0.2)
+                    if t:FindFirstChild("ImageLabel") then Tween(t.ImageLabel, {ImageColor3 = Theme.TextDark}, 0.2) end
+                    Tween(t.Frame, {BackgroundTransparency = 1}, 0.2)
                 end
             end
             Page.Visible = true
-            Tween(Title, {TextColor3 = Theme.Text})
-            Tween(TabBtn, {BackgroundTransparency = 0.95, BackgroundColor3 = Theme.Text})
-            if TabBtn:FindFirstChild("ImageLabel") then Tween(TabBtn.ImageLabel, {ImageColor3 = Theme.Text}) end
-            Tween(Indicator, {BackgroundTransparency = 0})
+            Tween(Title, {TextColor3 = Theme.Text}, 0.2)
+            Tween(TabBtn, {BackgroundTransparency = 0.95, BackgroundColor3 = Theme.Text}, 0.2)
+            if TabBtn:FindFirstChild("ImageLabel") then Tween(TabBtn.ImageLabel, {ImageColor3 = Theme.Text}, 0.2) end
+            Tween(Indicator, {BackgroundTransparency = 0}, 0.2)
         end)
 
         if #TabContainer:GetChildren() == 1 then
@@ -1779,8 +1895,8 @@ function Library:CreateWindow(options)
                     SBtn.Parent = SubContainer
                     Corner(SBtn, 4)
                     local s = Stroke(SBtn, Theme.Stroke, 1, 0.5)
-                    SBtn.MouseEnter:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
-                    SBtn.MouseLeave:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+                    SBtn.MouseEnter:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(s, {Color = Theme.Accent}, 0.2) end)
+                    SBtn.MouseLeave:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
                     SBtn.MouseButton1Click:Connect(cb)
                 end
 
@@ -1988,8 +2104,8 @@ function Library:CreateWindow(options)
                 table.insert(secData.Items, {Name = text, Instance = Btn})
                 Corner(Btn, 4)
                 local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
-                Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
-                Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+                Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(s, {Color = Theme.Accent}, 0.2) end)
+                Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
                 RegisterTheme(s, "BorderColor")
                 Btn.MouseButton1Click:Connect(callback)
                 ApplyTooltip(Btn, tooltipText)
@@ -2119,13 +2235,16 @@ function Library:CreateWindow(options)
                 Input.ClearTextOnFocus = false
                 Input.Parent = BoxCont
 
-                Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}) end)
+                Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}, 0.2) end)
                 Input.FocusLost:Connect(function(enter)
-                    Tween(s, {Color = Theme.Stroke})
+                    Tween(s, {Color = Theme.Stroke}, 0.2)
                     if enter then
                         Library.Flags[flag] = Input.Text
                         callback(Input.Text)
                     end
+                end)
+                Input.Changed:Connect(function(prop)
+                    if prop == "Text" then Library.Flags[flag] = Input.Text end
                 end)
 
                 Library.Flags[flag] = ""
@@ -2176,7 +2295,10 @@ function Library:CreateWindow(options)
                 Interactive.Parent = DropFrame
                 Interactive.ZIndex = 5
                 Corner(Interactive, 4)
-                Stroke(Interactive, Theme.Stroke, 1, 0.5)
+                local is = Stroke(Interactive, Theme.Stroke, 1, 0.5)
+
+                Interactive.MouseEnter:Connect(function() Tween(Interactive, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(is, {Color = Theme.Accent}, 0.2) end)
+                Interactive.MouseLeave:Connect(function() Tween(Interactive, {BackgroundColor3 = Theme.Container}, 0.2) Tween(is, {Color = Theme.Stroke}, 0.2) end)
 
                 local SelectedText = Instance.new("TextLabel")
                 SelectedText.Text = isMulti and table.concat(selected, ", ") or selected
@@ -2262,10 +2384,10 @@ function Library:CreateWindow(options)
                         optionBtns[opt] = OptBtn
 
                         OptBtn.MouseEnter:Connect(function()
-                            if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
+                            if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}, 0.2) end
                         end)
                         OptBtn.MouseLeave:Connect(function()
-                            if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
+                            if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}, 0.2) end
                         end)
                         RegisterTheme(OptBtn, "TextColor")
 
@@ -2282,6 +2404,7 @@ function Library:CreateWindow(options)
                                 Library.Flags[flag] = selected
                                 callback(selected)
                                 CloseDropdown()
+                                Library.ActiveWidget = nil
                             end
                         end)
                     end
@@ -2297,6 +2420,12 @@ function Library:CreateWindow(options)
                 end
 
                 Interactive.MouseButton1Click:Connect(function()
+                    if not isDropped then
+                        if Library.ActiveWidget and Library.ActiveWidget ~= CloseDropdown then pcall(Library.ActiveWidget) end
+                        Library.ActiveWidget = CloseDropdown
+                    else
+                        Library.ActiveWidget = nil
+                    end
                     isDropped = not isDropped
                     Section.Container.ZIndex = isDropped and 10 or 1
                     DropFrame.ZIndex = isDropped and 10 or 5
@@ -2517,7 +2646,19 @@ function Library:CreateWindow(options)
                     end
                 end)
 
+                local function ClosePicker()
+                    isOpen = false
+                    Section.Container.ZIndex = 1
+                    Tween(PickerCont, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
+                end
+
                 Preview.MouseButton1Click:Connect(function()
+                    if not isOpen then
+                        if Library.ActiveWidget and Library.ActiveWidget ~= ClosePicker then pcall(Library.ActiveWidget) end
+                        Library.ActiveWidget = ClosePicker
+                    else
+                        Library.ActiveWidget = nil
+                    end
                     isOpen = not isOpen
                     Section.Container.ZIndex = isOpen and 10 or 1
                     Tween(PickerCont, {Size = UDim2.new(1, 0, 0, isOpen and 170 or 0)}, 0.2)
