@@ -1513,6 +1513,8 @@ function Library:CreateWindow(options)
         end)
     end
 
+    PopulateSettings()
+
     function WindowObj:Tab(name, iconId)
         local Tab = {}
         local Page = Instance.new("ScrollingFrame")
