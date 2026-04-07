@@ -78,6 +78,8 @@ function Library:UpdateTheme(newColor)
 end
 
 local function GetParent()
+    local s, hui = pcall(function() return gethui() end)
+    if s and hui then return hui end
     if CoreGui then return CoreGui end
     return LocalPlayer:WaitForChild("PlayerGui")
 end
@@ -111,68 +113,68 @@ end
 local function MakeDraggable(dragObj, moveObj)
     local dragging = false
     local dragInput, dragStart, startPos
-
+    local conn
     dragObj.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = moveObj.Position
-            input.Changed:Connect(function()
+            conn = RunService.RenderStepped:Connect(function()
+                if dragging and dragInput then
+                    local delta = dragInput.Position - dragStart
+                    local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                    moveObj.Position = moveObj.Position:Lerp(targetPos, 0.16)
+                end
+            end)
+            local endConn
+            endConn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
+                    if conn then conn:Disconnect() conn = nil end
+                    if endConn then endConn:Disconnect() endConn = nil end
                 end
             end)
         end
     end)
-
     dragObj.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
-
-    local conn = RunService.RenderStepped:Connect(function()
-        if dragging and dragInput then
-            local delta = dragInput.Position - dragStart
-            local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            moveObj.Position = moveObj.Position:Lerp(targetPos, 0.16)
-        end
-    end)
-    table.insert(Library.Connections, conn)
 end
 
 local function MakeResizable(resizeBtn, frame, minSize)
     local dragging = false
     local dragInput, dragStart, startSize
-
+    local conn
     resizeBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startSize = frame.Size
-            input.Changed:Connect(function()
+            conn = RunService.RenderStepped:Connect(function()
+                if dragging and dragInput then
+                    local delta = dragInput.Position - dragStart
+                    local newX = math.max(minSize.X, startSize.X.Offset + delta.X)
+                    local newY = math.max(minSize.Y, startSize.Y.Offset + delta.Y)
+                    frame.Size = frame.Size:Lerp(UDim2.new(0, newX, 0, newY), 0.16)
+                end
+            end)
+            local endConn
+            endConn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
+                    if conn then conn:Disconnect() conn = nil end
+                    if endConn then endConn:Disconnect() endConn = nil end
                 end
             end)
         end
     end)
-
     resizeBtn.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
-
-    local conn = RunService.RenderStepped:Connect(function()
-        if dragging and dragInput then
-            local delta = dragInput.Position - dragStart
-            local newX = math.max(minSize.X, startSize.X.Offset + delta.X)
-            local newY = math.max(minSize.Y, startSize.Y.Offset + delta.Y)
-            frame.Size = frame.Size:Lerp(UDim2.new(0, newX, 0, newY), 0.16)
-        end
-    end)
-    table.insert(Library.Connections, conn)
 end
 
 function Library:Unload()
@@ -211,7 +213,7 @@ function Library:SaveConfig(name)
         else saveFlags[k] = v end
     end
     local ok, json = pcall(HttpService.JSONEncode, HttpService, saveFlags)
-    if ok then writefile(Config.ConfigFolder .. "/" .. name .. ".json", json) end
+    if ok then pcall(function() writefile(Config.ConfigFolder .. "/" .. name .. ".json", json) end) end
 end
 
 function Library:LoadConfig(name)
@@ -225,10 +227,11 @@ function Library:LoadConfig(name)
                 if type(value) == "table" and value.Type then
                     if value.Type == "Color3" then parsedValue = Color3.fromHex(value.Hex)
                     elseif value.Type == "EnumItem" then 
-                        pcall(function() 
+                        local s = pcall(function() 
                             local enumName = tostring(value.EnumType):gsub("Enum%.", "")
                             parsedValue = Enum[enumName][value.Name] 
                         end)
+                        if not s then parsedValue = Library.Defaults[flag] end
                     end
                 end
                 if Library.Signals[flag] then Library.Signals[flag](parsedValue) end
@@ -245,55 +248,50 @@ function Library:DeleteConfig(name)
     end
 end
 
-local TooltipGui = Instance.new("ScreenGui")
-TooltipGui.Name = "PhantomTooltip"
-TooltipGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-TooltipGui.Parent = GetParent()
-
-local TooltipLabel = Instance.new("TextLabel")
-TooltipLabel.BackgroundTransparency = 0.05
-TooltipLabel.BackgroundColor3 = Theme.Container
-TooltipLabel.TextColor3 = Theme.Text
-TooltipLabel.Font = Config.FontMain
-TooltipLabel.TextSize = 12
-TooltipLabel.Visible = false
-TooltipLabel.Parent = TooltipGui
-TooltipLabel.ZIndex = 1000
-Corner(TooltipLabel, 4)
-Stroke(TooltipLabel, Theme.Stroke, 1)
-
 local function ApplyTooltip(guiObj, text)
     if not text or text == "" then return end
     local hovered = false
     guiObj.MouseEnter:Connect(function()
         hovered = true
         task.delay(0.5, function()
-            if hovered and Library.Open then
-                TooltipLabel.Text = " " .. text .. " "
-                TooltipLabel.Size = UDim2.new(0, TooltipLabel.TextBounds.X + 10, 0, 20)
+            local TooltipGui = GetParent():FindFirstChild("PhantomTooltip")
+            if hovered and Library.Open and TooltipGui then
+                local TooltipLabel = TooltipGui:FindFirstChild("TooltipLabel")
+                if TooltipLabel then
+                    TooltipLabel.Text = " " .. text .. " "
+                    TooltipLabel.Size = UDim2.new(0, TooltipLabel.TextBounds.X + 10, 0, 20)
+                    local mPos = UserInputService:GetMouseLocation()
+                    local camera = workspace.CurrentCamera
+                    local viewport = camera and camera.ViewportSize or Vector2.new(1920, 1080)
+                    local x = math.clamp(mPos.X + 10, 0, viewport.X - TooltipLabel.AbsoluteSize.X - 10)
+                    local y = math.clamp(mPos.Y - 25, 0, viewport.Y - TooltipLabel.AbsoluteSize.Y - 10)
+                    TooltipLabel.Position = UDim2.new(0, x, 0, y)
+                    TooltipLabel.Visible = true
+                end
+            end
+        end)
+    end)
+    guiObj.MouseMoved:Connect(function()
+        local TooltipGui = GetParent():FindFirstChild("PhantomTooltip")
+        if TooltipGui then
+            local TooltipLabel = TooltipGui:FindFirstChild("TooltipLabel")
+            if TooltipLabel and TooltipLabel.Visible then
                 local mPos = UserInputService:GetMouseLocation()
                 local camera = workspace.CurrentCamera
                 local viewport = camera and camera.ViewportSize or Vector2.new(1920, 1080)
                 local x = math.clamp(mPos.X + 10, 0, viewport.X - TooltipLabel.AbsoluteSize.X - 10)
                 local y = math.clamp(mPos.Y - 25, 0, viewport.Y - TooltipLabel.AbsoluteSize.Y - 10)
                 TooltipLabel.Position = UDim2.new(0, x, 0, y)
-                TooltipLabel.Visible = true
             end
-        end)
-    end)
-    guiObj.MouseMoved:Connect(function()
-        if TooltipLabel.Visible then
-            local mPos = UserInputService:GetMouseLocation()
-            local camera = workspace.CurrentCamera
-            local viewport = camera and camera.ViewportSize or Vector2.new(1920, 1080)
-            local x = math.clamp(mPos.X + 10, 0, viewport.X - TooltipLabel.AbsoluteSize.X - 10)
-            local y = math.clamp(mPos.Y - 25, 0, viewport.Y - TooltipLabel.AbsoluteSize.Y - 10)
-            TooltipLabel.Position = UDim2.new(0, x, 0, y)
         end
     end)
     guiObj.MouseLeave:Connect(function()
         hovered = false
-        TooltipLabel.Visible = false
+        local TooltipGui = GetParent():FindFirstChild("PhantomTooltip")
+        if TooltipGui then
+            local TooltipLabel = TooltipGui:FindFirstChild("TooltipLabel")
+            if TooltipLabel then TooltipLabel.Visible = false end
+        end
     end)
 end
 
@@ -568,6 +566,24 @@ function Library:CreateWindow(options)
     Library:Unload()
     Library:InitWatermark()
 
+    local TooltipGui = Instance.new("ScreenGui")
+    TooltipGui.Name = "PhantomTooltip"
+    TooltipGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    TooltipGui.Parent = GetParent()
+
+    local TooltipLabel = Instance.new("TextLabel")
+    TooltipLabel.Name = "TooltipLabel"
+    TooltipLabel.BackgroundTransparency = 0.05
+    TooltipLabel.BackgroundColor3 = Theme.Container
+    TooltipLabel.TextColor3 = Theme.Text
+    TooltipLabel.Font = Config.FontMain
+    TooltipLabel.TextSize = 12
+    TooltipLabel.Visible = false
+    TooltipLabel.Parent = TooltipGui
+    TooltipLabel.ZIndex = 1000
+    Corner(TooltipLabel, 4)
+    Stroke(TooltipLabel, Theme.Stroke, 1)
+
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = Config.Name
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -810,7 +826,10 @@ function Library:CreateWindow(options)
             task.wait(0.2)
             MainWindow.Visible = false
             SettingsWindow.Visible = false
-            TooltipLabel.Visible = false
+            if TooltipGui then
+                local TooltipLabel = TooltipGui:FindFirstChild("TooltipLabel")
+                if TooltipLabel then TooltipLabel.Visible = false end
+            end
         end
     end
 
@@ -1092,7 +1111,8 @@ function Library:CreateWindow(options)
                 local dragging = false
                 local inputChangedConn = nil
                 local function Set(input)
-                    local r = math.clamp((input.Position.X - SlideBg.AbsolutePosition.X) / SlideBg.AbsoluteSize.X, 0, 1)
+                    local absX = math.max(1, SlideBg.AbsoluteSize.X)
+                    local r = math.clamp((input.Position.X - SlideBg.AbsolutePosition.X) / absX, 0, 1)
                     val = math.floor(min + (max - min) * r)
                     SValue.Text = tostring(val)
                     Tween(SlideFill, {Size = UDim2.new(r, 0, 1, 0)}, 0.05)
@@ -1367,7 +1387,7 @@ function Library:CreateWindow(options)
             ListFrame.BackgroundColor3 = Theme.Container
             ListFrame.BorderSizePixel = 0
             ListFrame.Parent = Interactive
-            ListFrame.ZIndex = 10
+            ListFrame.ZIndex = 100
             ListFrame.Visible = false
             ListFrame.ScrollBarThickness = 2
             ListFrame.ScrollBarImageColor3 = Theme.Accent
@@ -1418,7 +1438,7 @@ function Library:CreateWindow(options)
                     OptBtn.Font = Config.FontMain
                     OptBtn.TextSize = 12
                     OptBtn.Parent = ListFrame
-                    OptBtn.ZIndex = 11
+                    OptBtn.ZIndex = 101
                     optionBtns[opt] = OptBtn
 
                     OptBtn.MouseEnter:Connect(function()
@@ -1465,9 +1485,9 @@ function Library:CreateWindow(options)
                     Library.ActiveWidget = nil
                 end
                 isDropped = not isDropped
-                Section.Container.ZIndex = isDropped and 10 or 1
-                DropFrame.ZIndex = isDropped and 10 or 5
-                if customParent then customParent.ZIndex = isDropped and 10 or 1 customParent.ClipsDescendants = false end
+                Section.Container.ZIndex = isDropped and 100 or 1
+                DropFrame.ZIndex = isDropped and 100 or 5
+                if customParent then customParent.ZIndex = isDropped and 100 or 1 customParent.ClipsDescendants = false end
                 if isDropped then
                     ListFrame.Visible = true
                     local listH = math.min(#options * 24, 200)
@@ -1536,7 +1556,7 @@ function Library:CreateWindow(options)
             PickerCont.BackgroundColor3 = Theme.Background
             PickerCont.Parent = Content
             PickerCont.ClipsDescendants = true
-            PickerCont.ZIndex = 10
+            PickerCont.ZIndex = 100
             Corner(PickerCont, 4)
 
             local SVMap = Instance.new("ImageLabel")
@@ -1545,7 +1565,7 @@ function Library:CreateWindow(options)
             SVMap.Image = "rbxassetid://4155801252"
             SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
             SVMap.Parent = PickerCont
-            SVMap.ZIndex = 11
+            SVMap.ZIndex = 101
             Corner(SVMap, 4)
 
             local SVCursor = Instance.new("Frame")
@@ -1554,7 +1574,7 @@ function Library:CreateWindow(options)
             SVCursor.BackgroundColor3 = Color3.new(1, 1, 1)
             SVCursor.Parent = SVMap
             SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
-            SVCursor.ZIndex = 12
+            SVCursor.ZIndex = 102
             Corner(SVCursor, 4)
 
             local HueBar = Instance.new("ImageLabel")
@@ -1562,7 +1582,7 @@ function Library:CreateWindow(options)
             HueBar.Position = UDim2.new(0, 160, 0, 10)
             HueBar.Image = "rbxassetid://4155801252"
             HueBar.Parent = PickerCont
-            HueBar.ZIndex = 11
+            HueBar.ZIndex = 101
             Corner(HueBar, 4)
             local UIGradient = Instance.new("UIGradient")
             UIGradient.Rotation = 90
@@ -1582,7 +1602,7 @@ function Library:CreateWindow(options)
             HCursor.BackgroundColor3 = Color3.new(1, 1, 1)
             HCursor.Parent = HueBar
             HCursor.Position = UDim2.new(0, 0, h, 0)
-            HCursor.ZIndex = 12
+            HCursor.ZIndex = 102
 
             local HexInput = Instance.new("TextBox")
             HexInput.Size = UDim2.new(0, 170, 0, 20)
@@ -1593,7 +1613,7 @@ function Library:CreateWindow(options)
             HexInput.TextSize = 12
             HexInput.Text = "#" .. color:ToHex()
             HexInput.Parent = PickerCont
-            HexInput.ZIndex = 11
+            HexInput.ZIndex = 101
             Corner(HexInput, 4)
             Stroke(HexInput, Theme.Stroke, 1)
 
@@ -1632,8 +1652,10 @@ function Library:CreateWindow(options)
             end
 
             local function SetSV(input)
-                local rX = math.clamp((input.Position.X - SVMap.AbsolutePosition.X) / SVMap.AbsoluteSize.X, 0, 1)
-                local rY = math.clamp((input.Position.Y - SVMap.AbsolutePosition.Y) / SVMap.AbsoluteSize.Y, 0, 1)
+                local absX = math.max(1, SVMap.AbsoluteSize.X)
+                local absY = math.max(1, SVMap.AbsoluteSize.Y)
+                local rX = math.clamp((input.Position.X - SVMap.AbsolutePosition.X) / absX, 0, 1)
+                local rY = math.clamp((input.Position.Y - SVMap.AbsolutePosition.Y) / absY, 0, 1)
                 s = rX
                 v = 1 - rY
                 SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
@@ -1641,7 +1663,8 @@ function Library:CreateWindow(options)
             end
 
             local function SetH(input)
-                local rY = math.clamp((input.Position.Y - HueBar.AbsolutePosition.Y) / HueBar.AbsoluteSize.Y, 0, 1)
+                local absY = math.max(1, HueBar.AbsoluteSize.Y)
+                local rY = math.clamp((input.Position.Y - HueBar.AbsolutePosition.Y) / absY, 0, 1)
                 h = rY
                 HCursor.Position = UDim2.new(0, 0, h, 0)
                 Update()
@@ -1698,7 +1721,7 @@ function Library:CreateWindow(options)
                     Library.ActiveWidget = nil
                 end
                 isOpen = not isOpen
-                Section.Container.ZIndex = isOpen and 10 or 1
+                Section.Container.ZIndex = isOpen and 100 or 1
                 Tween(PickerCont, {Size = UDim2.new(1, -20, 0, isOpen and 170 or 0)}, 0.2)
             end)
             ApplyTooltip(Frame, tooltipText)
@@ -1714,6 +1737,7 @@ function Library:CreateWindow(options)
         SetPage.BackgroundTransparency = 1
         SetPage.ScrollBarThickness = 2
         SetPage.ScrollBarImageColor3 = Theme.Accent
+        SetPage.ClipsDescendants = false
         SetPage.Parent = SettingsWindow
         RegisterTheme(SetPage, "ScrollBar")
 
@@ -1820,6 +1844,7 @@ function Library:CreateWindow(options)
         Page.BackgroundTransparency = 1
         Page.ScrollBarThickness = 0
         Page.Visible = false
+        Page.ClipsDescendants = false
         Page.Parent = MainPages
 
         local TabBtn = Instance.new("TextButton")
@@ -2125,7 +2150,8 @@ function Library:CreateWindow(options)
                     local dragging = false
                     local inputChangedConn = nil
                     local function Set(input)
-                        local r = math.clamp((input.Position.X - SlideBg.AbsolutePosition.X) / SlideBg.AbsoluteSize.X, 0, 1)
+                        local absX = math.max(1, SlideBg.AbsoluteSize.X)
+                        local r = math.clamp((input.Position.X - SlideBg.AbsolutePosition.X) / absX, 0, 1)
                         val = math.floor(min + (max - min) * r)
                         SValue.Text = tostring(val)
                         Tween(SlideFill, {Size = UDim2.new(r, 0, 1, 0)}, 0.05)
@@ -2337,7 +2363,8 @@ function Library:CreateWindow(options)
                 local dragging = false
                 local inputChangedConn = nil
                 local function Set(input)
-                    local ratio = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+                    local absX = math.max(1, Bar.AbsoluteSize.X)
+                    local ratio = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / absX, 0, 1)
                     val = math.floor(min + (max - min) * ratio)
                     ValLabel.Text = tostring(val)
                     Tween(Fill, {Size = UDim2.new(ratio, 0, 1, 0)}, 0.05)
@@ -2503,7 +2530,7 @@ function Library:CreateWindow(options)
                 ListFrame.BackgroundColor3 = Theme.Container
                 ListFrame.BorderSizePixel = 0
                 ListFrame.Parent = Interactive
-                ListFrame.ZIndex = 10
+                ListFrame.ZIndex = 100
                 ListFrame.Visible = false
                 ListFrame.ScrollBarThickness = 2
                 ListFrame.ScrollBarImageColor3 = Theme.Accent
@@ -2554,7 +2581,7 @@ function Library:CreateWindow(options)
                         OptBtn.Font = Config.FontMain
                         OptBtn.TextSize = 12
                         OptBtn.Parent = ListFrame
-                        OptBtn.ZIndex = 11
+                        OptBtn.ZIndex = 101
                         optionBtns[opt] = OptBtn
 
                         OptBtn.MouseEnter:Connect(function()
@@ -2600,9 +2627,9 @@ function Library:CreateWindow(options)
                         Library.ActiveWidget = nil
                     end
                     isDropped = not isDropped
-                    Section.Container.ZIndex = isDropped and 10 or 1
-                    DropFrame.ZIndex = isDropped and 10 or 5
-                    if customParent then customParent.ZIndex = isDropped and 10 or 1 customParent.ClipsDescendants = false end
+                    Section.Container.ZIndex = isDropped and 100 or 1
+                    DropFrame.ZIndex = isDropped and 100 or 5
+                    if customParent then customParent.ZIndex = isDropped and 100 or 1 customParent.ClipsDescendants = false end
                     if isDropped then
                         ListFrame.Visible = true
                         local listH = math.min(#options * 24, 200)
@@ -2671,7 +2698,7 @@ function Library:CreateWindow(options)
                 PickerCont.BackgroundColor3 = Theme.Background
                 PickerCont.Parent = Content
                 PickerCont.ClipsDescendants = true
-                PickerCont.ZIndex = 10
+                PickerCont.ZIndex = 100
                 Corner(PickerCont, 4)
 
                 local SVMap = Instance.new("ImageLabel")
@@ -2680,7 +2707,7 @@ function Library:CreateWindow(options)
                 SVMap.Image = "rbxassetid://4155801252"
                 SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                 SVMap.Parent = PickerCont
-                SVMap.ZIndex = 11
+                SVMap.ZIndex = 101
                 Corner(SVMap, 4)
 
                 local SVCursor = Instance.new("Frame")
@@ -2689,7 +2716,7 @@ function Library:CreateWindow(options)
                 SVCursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 SVCursor.Parent = SVMap
                 SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
-                SVCursor.ZIndex = 12
+                SVCursor.ZIndex = 102
                 Corner(SVCursor, 4)
 
                 local HueBar = Instance.new("ImageLabel")
@@ -2697,7 +2724,7 @@ function Library:CreateWindow(options)
                 HueBar.Position = UDim2.new(0, 160, 0, 10)
                 HueBar.Image = "rbxassetid://4155801252"
                 HueBar.Parent = PickerCont
-                HueBar.ZIndex = 11
+                HueBar.ZIndex = 101
                 Corner(HueBar, 4)
                 local UIGradient = Instance.new("UIGradient")
                 UIGradient.Rotation = 90
@@ -2717,7 +2744,7 @@ function Library:CreateWindow(options)
                 HCursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 HCursor.Parent = HueBar
                 HCursor.Position = UDim2.new(0, 0, h, 0)
-                HCursor.ZIndex = 12
+                HCursor.ZIndex = 102
 
                 local HexInput = Instance.new("TextBox")
                 HexInput.Size = UDim2.new(0, 170, 0, 20)
@@ -2728,7 +2755,7 @@ function Library:CreateWindow(options)
                 HexInput.TextSize = 12
                 HexInput.Text = "#" .. color:ToHex()
                 HexInput.Parent = PickerCont
-                HexInput.ZIndex = 11
+                HexInput.ZIndex = 101
                 Corner(HexInput, 4)
                 Stroke(HexInput, Theme.Stroke, 1)
 
@@ -2767,8 +2794,10 @@ function Library:CreateWindow(options)
                 end
 
                 local function SetSV(input)
-                    local rX = math.clamp((input.Position.X - SVMap.AbsolutePosition.X) / SVMap.AbsoluteSize.X, 0, 1)
-                    local rY = math.clamp((input.Position.Y - SVMap.AbsolutePosition.Y) / SVMap.AbsoluteSize.Y, 0, 1)
+                    local absX = math.max(1, SVMap.AbsoluteSize.X)
+                    local absY = math.max(1, SVMap.AbsoluteSize.Y)
+                    local rX = math.clamp((input.Position.X - SVMap.AbsolutePosition.X) / absX, 0, 1)
+                    local rY = math.clamp((input.Position.Y - SVMap.AbsolutePosition.Y) / absY, 0, 1)
                     s = rX
                     v = 1 - rY
                     SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
@@ -2776,7 +2805,8 @@ function Library:CreateWindow(options)
                 end
 
                 local function SetH(input)
-                    local rY = math.clamp((input.Position.Y - HueBar.AbsolutePosition.Y) / HueBar.AbsoluteSize.Y, 0, 1)
+                    local absY = math.max(1, HueBar.AbsoluteSize.Y)
+                    local rY = math.clamp((input.Position.Y - HueBar.AbsolutePosition.Y) / absY, 0, 1)
                     h = rY
                     HCursor.Position = UDim2.new(0, 0, h, 0)
                     Update()
@@ -2833,7 +2863,7 @@ function Library:CreateWindow(options)
                         Library.ActiveWidget = nil
                     end
                     isOpen = not isOpen
-                    Section.Container.ZIndex = isOpen and 10 or 1
+                    Section.Container.ZIndex = isOpen and 100 or 1
                     Tween(PickerCont, {Size = UDim2.new(1, -20, 0, isOpen and 170 or 0)}, 0.2)
                 end)
                 ApplyTooltip(Frame, tooltipText)
