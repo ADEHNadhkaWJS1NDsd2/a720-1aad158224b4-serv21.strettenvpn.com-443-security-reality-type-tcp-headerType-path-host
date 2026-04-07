@@ -344,7 +344,7 @@ function Library:Notify(title, text, duration)
     NNoise.Size = UDim2.new(1, 0, 1, 0)
     NNoise.BackgroundTransparency = 1
     NNoise.Image = "rbxassetid://9968344105"
-    NNoise.ImageTransparency = 0.9
+    NNoise.ImageTransparency = 0.95
     NNoise.ScaleType = Enum.ScaleType.Tile
     NNoise.TileSize = UDim2.new(0, 100, 0, 100)
     NNoise.Parent = NotifFrame
@@ -416,7 +416,7 @@ function Library:InitWatermark()
     WNoise.Size = UDim2.new(1, 0, 1, 0)
     WNoise.BackgroundTransparency = 1
     WNoise.Image = "rbxassetid://9968344105"
-    WNoise.ImageTransparency = 0.9
+    WNoise.ImageTransparency = 0.95
     WNoise.ScaleType = Enum.ScaleType.Tile
     WNoise.TileSize = UDim2.new(0, 100, 0, 100)
     WNoise.Parent = Frame
@@ -465,7 +465,7 @@ function Library:CreateKeybindList()
     Frame.Size = UDim2.new(0, 180, 0, 30)
     Frame.Position = UDim2.new(0.01, 0, 0.4, 0)
     Frame.BackgroundColor3 = Theme.Background
-    Frame.BackgroundTransparency = 0.4
+    Frame.BackgroundTransparency = 0.15
     Frame.Parent = Screen
     Frame.Active = true
     Corner(Frame, 4)
@@ -476,7 +476,7 @@ function Library:CreateKeybindList()
     KNoise.Size = UDim2.new(1, 0, 1, 0)
     KNoise.BackgroundTransparency = 1
     KNoise.Image = "rbxassetid://9968344105"
-    KNoise.ImageTransparency = 0.9
+    KNoise.ImageTransparency = 0.95
     KNoise.ScaleType = Enum.ScaleType.Tile
     KNoise.TileSize = UDim2.new(0, 100, 0, 100)
     KNoise.Parent = Frame
@@ -591,6 +591,7 @@ function Library:CreateWindow(options)
     ToggleGui.Name = "PhantomToggle"
     ToggleGui.Parent = GetParent()
     ToggleGui.IgnoreGuiInset = true
+    ToggleGui.ResetOnSpawn = false
 
     local ToggleBtn = Instance.new("ImageButton")
     ToggleBtn.Size = UDim2.new(0, 46, 0, 46)
@@ -611,7 +612,7 @@ function Library:CreateWindow(options)
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
-        Frame.BackgroundTransparency = 0.4
+        Frame.BackgroundTransparency = 0.15
         Frame.BorderSizePixel = 0
         Frame.ClipsDescendants = false
         Frame.Visible = false
@@ -630,7 +631,7 @@ function Library:CreateWindow(options)
         BgNoise.Size = UDim2.new(1, 0, 1, 0)
         BgNoise.BackgroundTransparency = 1
         BgNoise.Image = "rbxassetid://9968344105"
-        BgNoise.ImageTransparency = 0.9
+        BgNoise.ImageTransparency = 0.95
         BgNoise.ScaleType = Enum.ScaleType.Tile
         BgNoise.TileSize = UDim2.new(0, 100, 0, 100)
         BgNoise.Parent = Frame
@@ -646,11 +647,45 @@ function Library:CreateWindow(options)
         Scale.Scale = 1
         Scale.Parent = Frame
         MakeDraggable(DragHeader, Frame)
-        return Frame, Scale
+        return Frame, Scale, DragHeader
     end
 
-    local MainWindow, MainScale = CreateBaseFrame("MainWindow")
-    local SettingsWindow, SetScale = CreateBaseFrame("SettingsWindow")
+    local MainWindow, MainScale, MainDrag = CreateBaseFrame("MainWindow")
+    local SettingsWindow, SetScale, SetDrag = CreateBaseFrame("SettingsWindow")
+
+    local SearchBtn = Instance.new("ImageButton")
+    SearchBtn.Size = UDim2.new(0, 20, 0, 20)
+    SearchBtn.Position = UDim2.new(1, -15, 0.5, 0)
+    SearchBtn.AnchorPoint = Vector2.new(1, 0.5)
+    SearchBtn.BackgroundTransparency = 1
+    SearchBtn.Image = "rbxassetid://116057163916442"
+    SearchBtn.ImageColor3 = Theme.TextDark
+    SearchBtn.ZIndex = 100
+    SearchBtn.Parent = MainDrag
+
+    local SearchBarFrame = Instance.new("Frame")
+    SearchBarFrame.Size = UDim2.new(0, 0, 0, 24)
+    SearchBarFrame.Position = UDim2.new(1, -45, 0.5, 0)
+    SearchBarFrame.AnchorPoint = Vector2.new(1, 0.5)
+    SearchBarFrame.BackgroundColor3 = Theme.Container
+    SearchBarFrame.ClipsDescendants = true
+    SearchBarFrame.ZIndex = 99
+    SearchBarFrame.Parent = MainDrag
+    Corner(SearchBarFrame, 4)
+    Stroke(SearchBarFrame, Theme.Stroke, 1)
+
+    local SearchInput = Instance.new("TextBox")
+    SearchInput.Size = UDim2.new(1, -10, 1, 0)
+    SearchInput.Position = UDim2.new(0, 5, 0, 0)
+    SearchInput.BackgroundTransparency = 1
+    SearchInput.TextColor3 = Theme.Text
+    SearchInput.PlaceholderText = "Search functions..."
+    SearchInput.PlaceholderColor3 = Theme.TextDark
+    SearchInput.Font = Config.FontMain
+    SearchInput.TextSize = 12
+    SearchInput.TextXAlignment = Enum.TextXAlignment.Left
+    SearchInput.Text = ""
+    SearchInput.Parent = SearchBarFrame
 
     local Resizer = Instance.new("Frame")
     Resizer.Size = UDim2.new(0, 20, 0, 20)
@@ -753,50 +788,24 @@ function Library:CreateWindow(options)
     local MainBar, TabContainer, _ = CreateSidebar(MainWindow, false)
     local SetBar, SetContainer, BackBtn = CreateSidebar(SettingsWindow, true)
 
-    local SearchBtn = Instance.new("ImageButton")
-    SearchBtn.Size = UDim2.new(0, 20, 0, 20)
-    SearchBtn.Position = UDim2.new(1, -15, 0, 10)
-    SearchBtn.AnchorPoint = Vector2.new(1, 0)
-    SearchBtn.BackgroundTransparency = 1
-    SearchBtn.Image = "rbxassetid://116057163916442"
-    SearchBtn.ImageColor3 = Theme.TextDark
-    SearchBtn.ZIndex = 100
-    SearchBtn.Parent = MainWindow
+    local MainPages = Instance.new("Frame")
+    MainPages.Size = UDim2.new(1, -181, 1, 0)
+    MainPages.Position = UDim2.new(0, 181, 0, 0)
+    MainPages.BackgroundTransparency = 1
+    MainPages.Parent = MainWindow
 
-    local SearchBarFrame = Instance.new("Frame")
-    SearchBarFrame.Size = UDim2.new(0, 0, 0, 30)
-    SearchBarFrame.Position = UDim2.new(1, -45, 0, 5)
-    SearchBarFrame.AnchorPoint = Vector2.new(1, 0)
-    SearchBarFrame.BackgroundColor3 = Theme.Container
-    SearchBarFrame.ClipsDescendants = true
-    SearchBarFrame.ZIndex = 99
-    SearchBarFrame.Parent = MainWindow
-    Corner(SearchBarFrame, 4)
-    Stroke(SearchBarFrame, Theme.Stroke, 1)
-
-    local SearchInput = Instance.new("TextBox")
-    SearchInput.Size = UDim2.new(1, -10, 1, 0)
-    SearchInput.Position = UDim2.new(0, 5, 0, 0)
-    SearchInput.BackgroundTransparency = 1
-    SearchInput.TextColor3 = Theme.Text
-    SearchInput.PlaceholderText = "Search..."
-    SearchInput.PlaceholderColor3 = Theme.TextDark
-    SearchInput.Font = Config.FontMain
-    SearchInput.TextSize = 12
-    SearchInput.TextXAlignment = Enum.TextXAlignment.Left
-    SearchInput.Text = ""
-    SearchInput.Parent = SearchBarFrame
+    local ActiveTabFrame = nil
 
     local searchOpen = false
     SearchBtn.MouseButton1Click:Connect(function()
         searchOpen = not searchOpen
         if searchOpen then
             Tween(SearchBtn, {ImageColor3 = Theme.Accent}, 0.2)
-            Tween(SearchBarFrame, {Size = UDim2.new(0, 150, 0, 30)}, 0.2)
+            Tween(SearchBarFrame, {Size = UDim2.new(0, 150, 0, 24)}, 0.2)
             SearchInput:CaptureFocus()
         else
             Tween(SearchBtn, {ImageColor3 = Theme.TextDark}, 0.2)
-            Tween(SearchBarFrame, {Size = UDim2.new(0, 0, 0, 30)}, 0.2)
+            Tween(SearchBarFrame, {Size = UDim2.new(0, 0, 0, 24)}, 0.2)
             SearchInput.Text = ""
         end
     end)
@@ -804,17 +813,34 @@ function Library:CreateWindow(options)
     SearchInput.Changed:Connect(function(prop)
         if prop == "Text" then
             local term = string.lower(SearchInput.Text)
-            for _, sectionData in pairs(Library.Elements) do
-                local hasVisible = false
-                for _, itemData in pairs(sectionData.Items) do
-                    if term == "" or string.find(string.lower(itemData.Name), term) then
+            if term == "" then
+                TabContainer.Visible = true
+                for _, p in pairs(MainPages:GetChildren()) do
+                    if p:IsA("ScrollingFrame") then p.Visible = (p == ActiveTabFrame) end
+                end
+                for _, sectionData in pairs(Library.Elements) do
+                    sectionData.Instance.Visible = true
+                    for _, itemData in pairs(sectionData.Items) do
                         itemData.Instance.Visible = true
-                        hasVisible = true
-                    else
-                        itemData.Instance.Visible = false
                     end
                 end
-                sectionData.Instance.Visible = hasVisible
+            else
+                TabContainer.Visible = false
+                for _, p in pairs(MainPages:GetChildren()) do
+                    if p:IsA("ScrollingFrame") then p.Visible = true end
+                end
+                for _, sectionData in pairs(Library.Elements) do
+                    local hasVisible = false
+                    for _, itemData in pairs(sectionData.Items) do
+                        if string.find(string.lower(itemData.Name), term) then
+                            itemData.Instance.Visible = true
+                            hasVisible = true
+                        else
+                            itemData.Instance.Visible = false
+                        end
+                    end
+                    sectionData.Instance.Visible = hasVisible
+                end
             end
         end
     end)
@@ -912,13 +938,6 @@ function Library:CreateWindow(options)
     end)
     table.insert(Library.Connections, MenuBindConnection)
 
-    local WindowObj = {}
-    local MainPages = Instance.new("Frame")
-    MainPages.Size = UDim2.new(1, -181, 1, 0)
-    MainPages.Position = UDim2.new(0, 181, 0, 0)
-    MainPages.BackgroundTransparency = 1
-    MainPages.Parent = MainWindow
-
     function WindowObj:CreateRawSection(text, parent)
         local Section = {}
         local Container = Instance.new("Frame")
@@ -967,14 +986,8 @@ function Library:CreateWindow(options)
             Btn.Parent = Content
             Corner(Btn, 4)
             local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
-            Btn.MouseEnter:Connect(function() 
-                Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) 
-                Tween(s, {Color = Theme.Accent}, 0.2)
-            end)
-            Btn.MouseLeave:Connect(function() 
-                Tween(Btn, {BackgroundColor3 = Theme.Container}, 0.2) 
-                Tween(s, {Color = Theme.Stroke}, 0.2)
-            end)
+            Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(s, {Color = Theme.Accent}, 0.2) end)
+            Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
             Btn.MouseButton1Click:Connect(callback)
             Section.ButtonLabel = Btn
             ApplyTooltip(Btn, tooltipText)
@@ -1049,13 +1062,13 @@ function Library:CreateWindow(options)
             Label.TextSize = 13
             Label.TextColor3 = Theme.Text
             Label.Size = UDim2.new(1, 0, 0, 20)
-            Label.Position = UDim2.new(0, 5, 0, 0)
+            Label.Position = UDim2.new(0, 10, 0, 0)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.BackgroundTransparency = 1
             Label.Parent = Frame
             local BoxCont = Instance.new("Frame")
-            BoxCont.Size = UDim2.new(1, 0, 0, 28)
-            BoxCont.Position = UDim2.new(0, 0, 0, 22)
+            BoxCont.Size = UDim2.new(1, -20, 0, 26)
+            BoxCont.Position = UDim2.new(0, 10, 0, 20)
             BoxCont.BackgroundColor3 = Theme.Container
             BoxCont.Parent = Frame
             Corner(BoxCont, 4)
@@ -1104,8 +1117,8 @@ function Library:CreateWindow(options)
             local isDropped = false
             local parent = customParent or Content
             local DropFrame = Instance.new("Frame")
-            DropFrame.Size = UDim2.new(1, customParent and -20 or 0, 0, 46)
-            if customParent then DropFrame.Position = UDim2.new(0, 20, 0, 0) end
+            DropFrame.Size = UDim2.new(1, customParent and -10 or 0, 0, 46)
+            if customParent then DropFrame.Position = UDim2.new(0, 10, 0, 0) end
             DropFrame.BackgroundTransparency = 1
             DropFrame.Parent = parent
             DropFrame.ZIndex = 5
@@ -1116,14 +1129,14 @@ function Library:CreateWindow(options)
             DLabel.TextSize = 13
             DLabel.TextColor3 = customParent and Theme.TextDark or Theme.Text
             DLabel.Size = UDim2.new(1, 0, 0, 16)
-            DLabel.Position = UDim2.new(0, 5, 0, 0)
+            DLabel.Position = UDim2.new(0, 10, 0, 0)
             DLabel.TextXAlignment = Enum.TextXAlignment.Left
             DLabel.BackgroundTransparency = 1
             DLabel.Parent = DropFrame
 
             local Interactive = Instance.new("TextButton")
-            Interactive.Size = UDim2.new(1, 0, 0, 26)
-            Interactive.Position = UDim2.new(0, 0, 0, 20)
+            Interactive.Size = UDim2.new(1, -20, 0, 26)
+            Interactive.Position = UDim2.new(0, 10, 0, 20)
             Interactive.BackgroundColor3 = Theme.Container
             Interactive.Text = ""
             Interactive.AutoButtonColor = false
@@ -1151,8 +1164,8 @@ function Library:CreateWindow(options)
             local Arrow = Instance.new("ImageLabel")
             Arrow.Image = "rbxassetid://10709790948"
             Arrow.Size = UDim2.new(0, 18, 0, 18)
-            Arrow.Position = UDim2.new(1, -20, 0.5, 0)
-            Arrow.AnchorPoint = Vector2.new(0, 0.5)
+            Arrow.Position = UDim2.new(1, -5, 0.5, 0)
+            Arrow.AnchorPoint = Vector2.new(1, 0.5)
             Arrow.BackgroundTransparency = 1
             Arrow.ImageColor3 = Theme.TextDark
             Arrow.Parent = Interactive
@@ -1182,7 +1195,7 @@ function Library:CreateWindow(options)
                 Section.Container.ZIndex = 1
                 DropFrame.ZIndex = 5
                 if customParent then customParent.ZIndex = 1 end
-                Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
+                Tween(DropFrame, {Size = UDim2.new(1, customParent and -10 or 0, 0, 46)}, 0.2)
                 Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
                 Tween(Arrow, {Rotation = 0}, 0.2)
                 task.wait(0.2)
@@ -1268,7 +1281,7 @@ function Library:CreateWindow(options)
                     ListFrame.Visible = true
                     local listH = math.min(#options * 24, 200)
                     local totalH = 46 + listH + 5
-                    Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, totalH)}, 0.2)
+                    Tween(DropFrame, {Size = UDim2.new(1, customParent and -10 or 0, 0, totalH)}, 0.2)
                     Tween(ListFrame, {Size = UDim2.new(1, 0, 0, listH)}, 0.2)
                     Tween(Arrow, {Rotation = 180}, 0.2)
                 else
@@ -1310,14 +1323,14 @@ function Library:CreateWindow(options)
             Label.TextSize = 13
             Label.TextColor3 = Theme.Text
             Label.Size = UDim2.new(0.6, 0, 1, 0)
-            Label.Position = UDim2.new(0, 5, 0, 0)
+            Label.Position = UDim2.new(0, 10, 0, 0)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.BackgroundTransparency = 1
             Label.Parent = Frame
 
             local Preview = Instance.new("TextButton")
             Preview.Size = UDim2.new(0, 40, 0, 20)
-            Preview.Position = UDim2.new(1, -5, 0.5, 0)
+            Preview.Position = UDim2.new(1, -10, 0.5, 0)
             Preview.AnchorPoint = Vector2.new(1, 0.5)
             Preview.BackgroundColor3 = color
             Preview.AutoButtonColor = false
@@ -1662,6 +1675,7 @@ function Library:CreateWindow(options)
 
         TabBtn.MouseButton1Click:Connect(function()
             if Library.ActiveWidget then pcall(Library.ActiveWidget) Library.ActiveWidget = nil end
+            ActiveTabFrame = Page
             for _, p in pairs(MainPages:GetChildren()) do if p:IsA("ScrollingFrame") then p.Visible = false end end
             for _, t in pairs(TabContainer:GetChildren()) do
                 if t:IsA("TextButton") then
@@ -1679,6 +1693,7 @@ function Library:CreateWindow(options)
         end)
 
         if #TabContainer:GetChildren() == 1 then
+            ActiveTabFrame = Page
             Page.Visible = true
             Title.TextColor3 = Theme.Text
             TabBtn.BackgroundTransparency = 0.95
@@ -1775,14 +1790,14 @@ function Library:CreateWindow(options)
                 Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(0.65, 0, 1, 0)
-                Label.Position = UDim2.new(0, 5, 0, 0)
+                Label.Position = UDim2.new(0, 10, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Btn
 
                 local Box = Instance.new("Frame")
                 Box.Size = UDim2.new(0, 18, 0, 18)
-                Box.Position = UDim2.new(1, -5, 0.5, 0)
+                Box.Position = UDim2.new(1, -10, 0.5, 0)
                 Box.AnchorPoint = Vector2.new(1, 0.5)
                 Box.BackgroundColor3 = Theme.Background
                 Box.Parent = Btn
@@ -1862,7 +1877,7 @@ function Library:CreateWindow(options)
                 function ToggleObj:AddButton(txt, cb)
                     local SBtn = Instance.new("TextButton")
                     SBtn.Size = UDim2.new(1, -20, 0, 26)
-                    SBtn.Position = UDim2.new(0, 20, 0, 0)
+                    SBtn.Position = UDim2.new(0, 10, 0, 0)
                     SBtn.BackgroundColor3 = Theme.Container
                     SBtn.Text = txt
                     SBtn.Font = Config.FontMain
@@ -1883,7 +1898,7 @@ function Library:CreateWindow(options)
                     Library.Flags[sflag] = val
                     local SFrame = Instance.new("Frame")
                     SFrame.Size = UDim2.new(1, -20, 0, 36)
-                    SFrame.Position = UDim2.new(0, 20, 0, 0)
+                    SFrame.Position = UDim2.new(0, 10, 0, 0)
                     SFrame.BackgroundTransparency = 1
                     SFrame.Parent = SubContainer
                     local SLabel = Instance.new("TextLabel")
@@ -2103,7 +2118,7 @@ function Library:CreateWindow(options)
                 Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(0.6, 0, 0, 16)
-                Label.Position = UDim2.new(0, 5, 0, 0)
+                Label.Position = UDim2.new(0, 10, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
@@ -2112,14 +2127,14 @@ function Library:CreateWindow(options)
                 ValLabel.Font = Config.FontMain
                 ValLabel.TextSize = 13
                 ValLabel.TextColor3 = Theme.Text
-                ValLabel.Size = UDim2.new(0.4, -5, 0, 16)
+                ValLabel.Size = UDim2.new(0.4, -10, 0, 16)
                 ValLabel.Position = UDim2.new(0.6, 0, 0, 0)
                 ValLabel.TextXAlignment = Enum.TextXAlignment.Right
                 ValLabel.BackgroundTransparency = 1
                 ValLabel.Parent = Frame
                 local Bar = Instance.new("Frame")
-                Bar.Size = UDim2.new(1, 0, 0, 6)
-                Bar.Position = UDim2.new(0, 0, 0, 24)
+                Bar.Size = UDim2.new(1, -20, 0, 6)
+                Bar.Position = UDim2.new(0, 10, 0, 24)
                 Bar.BackgroundColor3 = Theme.Container
                 Bar.Parent = Frame
                 Corner(Bar, 3)
@@ -2184,14 +2199,14 @@ function Library:CreateWindow(options)
                 Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(1, 0, 0, 16)
-                Label.Position = UDim2.new(0, 5, 0, 0)
+                Label.Position = UDim2.new(0, 10, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
 
                 local BoxCont = Instance.new("Frame")
-                BoxCont.Size = UDim2.new(1, 0, 0, 26)
-                BoxCont.Position = UDim2.new(0, 0, 0, 20)
+                BoxCont.Size = UDim2.new(1, -20, 0, 26)
+                BoxCont.Position = UDim2.new(0, 10, 0, 20)
                 BoxCont.BackgroundColor3 = Theme.Container
                 BoxCont.Parent = Frame
                 Corner(BoxCont, 4)
@@ -2242,8 +2257,8 @@ function Library:CreateWindow(options)
                 local isDropped = false
                 local parent = customParent or Content
                 local DropFrame = Instance.new("Frame")
-                DropFrame.Size = UDim2.new(1, customParent and -20 or 0, 0, 46)
-                if customParent then DropFrame.Position = UDim2.new(0, 20, 0, 0) end
+                DropFrame.Size = UDim2.new(1, customParent and -10 or 0, 0, 46)
+                if customParent then DropFrame.Position = UDim2.new(0, 10, 0, 0) end
                 DropFrame.BackgroundTransparency = 1
                 DropFrame.Parent = parent
                 DropFrame.ZIndex = 5
@@ -2255,14 +2270,14 @@ function Library:CreateWindow(options)
                 DLabel.TextSize = 13
                 DLabel.TextColor3 = customParent and Theme.TextDark or Theme.Text
                 DLabel.Size = UDim2.new(1, 0, 0, 16)
-                DLabel.Position = UDim2.new(0, 5, 0, 0)
+                DLabel.Position = UDim2.new(0, 10, 0, 0)
                 DLabel.TextXAlignment = Enum.TextXAlignment.Left
                 DLabel.BackgroundTransparency = 1
                 DLabel.Parent = DropFrame
 
                 local Interactive = Instance.new("TextButton")
-                Interactive.Size = UDim2.new(1, 0, 0, 26)
-                Interactive.Position = UDim2.new(0, 0, 0, 20)
+                Interactive.Size = UDim2.new(1, -20, 0, 26)
+                Interactive.Position = UDim2.new(0, 10, 0, 20)
                 Interactive.BackgroundColor3 = Theme.Container
                 Interactive.Text = ""
                 Interactive.AutoButtonColor = false
@@ -2290,7 +2305,7 @@ function Library:CreateWindow(options)
                 local Arrow = Instance.new("ImageLabel")
                 Arrow.Image = "rbxassetid://10709790948"
                 Arrow.Size = UDim2.new(0, 18, 0, 18)
-                Arrow.Position = UDim2.new(1, -20, 0.5, 0)
+                Arrow.Position = UDim2.new(1, -5, 0.5, 0)
                 Arrow.AnchorPoint = Vector2.new(0, 0.5)
                 Arrow.BackgroundTransparency = 1
                 Arrow.ImageColor3 = Theme.TextDark
@@ -2321,7 +2336,7 @@ function Library:CreateWindow(options)
                     Section.Container.ZIndex = 1
                     DropFrame.ZIndex = 5
                     if customParent then customParent.ZIndex = 1 end
-                    Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
+                    Tween(DropFrame, {Size = UDim2.new(1, customParent and -10 or 0, 0, 46)}, 0.2)
                     Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
                     Tween(Arrow, {Rotation = 0}, 0.2)
                     task.wait(0.2)
@@ -2407,7 +2422,7 @@ function Library:CreateWindow(options)
                         ListFrame.Visible = true
                         local listH = math.min(#options * 24, 200)
                         local totalH = 46 + listH + 5
-                        Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, totalH)}, 0.2)
+                        Tween(DropFrame, {Size = UDim2.new(1, customParent and -10 or 0, 0, totalH)}, 0.2)
                         Tween(ListFrame, {Size = UDim2.new(1, 0, 0, listH)}, 0.2)
                         Tween(Arrow, {Rotation = 180}, 0.2)
                     else
@@ -2450,14 +2465,14 @@ function Library:CreateWindow(options)
                 Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(0.6, 0, 1, 0)
-                Label.Position = UDim2.new(0, 5, 0, 0)
+                Label.Position = UDim2.new(0, 10, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
 
                 local Preview = Instance.new("TextButton")
                 Preview.Size = UDim2.new(0, 40, 0, 20)
-                Preview.Position = UDim2.new(1, -5, 0.5, 0)
+                Preview.Position = UDim2.new(1, -10, 0.5, 0)
                 Preview.AnchorPoint = Vector2.new(1, 0.5)
                 Preview.BackgroundColor3 = color
                 Preview.AutoButtonColor = false
@@ -2467,7 +2482,8 @@ function Library:CreateWindow(options)
                 Stroke(Preview, Theme.Stroke, 1, 0.5)
 
                 local PickerCont = Instance.new("Frame")
-                PickerCont.Size = UDim2.new(1, 0, 0, 0)
+                PickerCont.Size = UDim2.new(1, -20, 0, 0)
+                PickerCont.Position = UDim2.new(0, 10, 0, 30)
                 PickerCont.BackgroundColor3 = Theme.Background
                 PickerCont.Parent = Content
                 PickerCont.ClipsDescendants = true
@@ -2622,7 +2638,7 @@ function Library:CreateWindow(options)
                 local function ClosePicker()
                     isOpen = false
                     Section.Container.ZIndex = 1
-                    Tween(PickerCont, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
+                    Tween(PickerCont, {Size = UDim2.new(1, -20, 0, 0)}, 0.2)
                 end
 
                 Preview.MouseButton1Click:Connect(function()
@@ -2634,7 +2650,7 @@ function Library:CreateWindow(options)
                     end
                     isOpen = not isOpen
                     Section.Container.ZIndex = isOpen and 10 or 1
-                    Tween(PickerCont, {Size = UDim2.new(1, 0, 0, isOpen and 170 or 0)}, 0.2)
+                    Tween(PickerCont, {Size = UDim2.new(1, -20, 0, isOpen and 170 or 0)}, 0.2)
                 end)
                 ApplyTooltip(Frame, tooltipText)
             end
