@@ -10,6 +10,8 @@ local makefolder = makefolder or function() end
 local isfile = isfile or function() return false end
 local readfile = readfile or function() return "" end
 local writefile = writefile or function() end
+local listfiles = listfiles or function() return {} end
+local delfile = delfile or function() end
 
 local CoreGui
 pcall(function() CoreGui = game:GetService("CoreGui") end)
@@ -163,8 +165,23 @@ function Library:Unload()
     end
 end
 
+function Library:GetConfigs()
+    local configs = {}
+    if isfolder(Config.ConfigFolder) then
+        local files = listfiles(Config.ConfigFolder)
+        for _, file in ipairs(files) do
+            if file:match(".json$") then
+                local name = file:match("([^/%\\]+)%.json$") or file
+                table.insert(configs, name)
+            end
+        end
+    end
+    if #configs == 0 then table.insert(configs, "None") end
+    return configs
+end
+
 function Library:SaveConfig(name)
-    if name == "" then return end
+    if not name or name == "" or name == "None" then return end
     local saveFlags = {}
     for k, v in pairs(Library.Flags) do
         if typeof(v) == "Color3" then saveFlags[k] = {Type = "Color3", Hex = v:ToHex()}
@@ -176,6 +193,7 @@ function Library:SaveConfig(name)
 end
 
 function Library:LoadConfig(name)
+    if not name or name == "" or name == "None" then return end
     if isfile(Config.ConfigFolder .. "/" .. name .. ".json") then
         local content = readfile(Config.ConfigFolder .. "/" .. name .. ".json")
         local success, data = pcall(HttpService.JSONDecode, HttpService, content)
@@ -190,6 +208,13 @@ function Library:LoadConfig(name)
                 Library.Flags[flag] = parsedValue
             end
         end
+    end
+end
+
+function Library:DeleteConfig(name)
+    if not name or name == "" or name == "None" then return end
+    if isfile(Config.ConfigFolder .. "/" .. name .. ".json") then
+        pcall(function() delfile(Config.ConfigFolder .. "/" .. name .. ".json") end)
     end
 end
 
@@ -537,7 +562,7 @@ function Library:CreateWindow(options)
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
-        Frame.Size = UDim2.new(0, 700, 0, 450)
+        Frame.Size = UDim2.new(0.9, 0, 0.9, 0)
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
@@ -547,6 +572,12 @@ function Library:CreateWindow(options)
         Frame.Visible = false
         Frame.Parent = ScreenGui
         Frame.Active = true
+
+        local SizeConstraint = Instance.new("UISizeConstraint")
+        SizeConstraint.MaxSize = Vector2.new(700, 450)
+        SizeConstraint.MinSize = Vector2.new(400, 250)
+        SizeConstraint.Parent = Frame
+
         Corner(Frame, 6)
         Stroke(Frame, Theme.Stroke, 1, 0)
 
@@ -575,29 +606,6 @@ function Library:CreateWindow(options)
 
     local MainWindow, MainScale = CreateBaseFrame("MainWindow")
     local SettingsWindow, SetScale = CreateBaseFrame("SettingsWindow")
-
-    local Resizer = Instance.new("Frame")
-    Resizer.Size = UDim2.new(0, 20, 0, 20)
-    Resizer.Position = UDim2.new(1, 0, 1, 0)
-    Resizer.AnchorPoint = Vector2.new(1, 1)
-    Resizer.BackgroundTransparency = 1
-    Resizer.Parent = MainWindow
-    Resizer.ZIndex = 20
-    Resizer.Active = true
-    local ResizerIcon = Instance.new("TextLabel")
-    ResizerIcon.Size = UDim2.new(1, 0, 1, 0)
-    ResizerIcon.BackgroundTransparency = 1
-    ResizerIcon.Text = "◢"
-    ResizerIcon.TextColor3 = Theme.TextDark
-    ResizerIcon.TextSize = 16
-    ResizerIcon.Parent = Resizer
-    Resizer.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.Accent}) end
-    end)
-    Resizer.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
-    end)
-    MakeResizable(Resizer, MainWindow, Vector2.new(500, 350))
 
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
@@ -840,60 +848,6 @@ function Library:CreateWindow(options)
     MainPages.BackgroundTransparency = 1
     MainPages.Parent = MainWindow
 
-    local function PopulateSettings()
-        local SetPage = Instance.new("ScrollingFrame")
-        SetPage.Size = UDim2.new(1, -200, 1, -20)
-        SetPage.Position = UDim2.new(0, 190, 0, 10)
-        SetPage.BackgroundTransparency = 1
-        SetPage.ScrollBarThickness = 2
-        SetPage.ScrollBarImageColor3 = Theme.Accent
-        SetPage.Parent = SettingsWindow
-        RegisterTheme(SetPage, "ScrollBar")
-
-        local ListLayout = Instance.new("UIListLayout")
-        ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        ListLayout.Padding = UDim.new(0, 10)
-        ListLayout.Parent = SetPage
-        ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            SetPage.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
-        end)
-
-        local MenuSec = WindowObj:CreateRawSection("Menu Settings", SetPage)
-        MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), function()
-            MenuSec.ButtonLabel.Text = "Press any key..."
-            local conn
-            conn = UserInputService.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.Keyboard then
-                    if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then Config.Keybind = Enum.KeyCode.RightShift
-                    elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then Config.Keybind = input.KeyCode end
-                    MenuSec.ButtonLabel.Text = "Menu Keybind: " .. tostring(Config.Keybind.Name)
-                    Library:Notify("Settings", "Menu keybind set to " .. tostring(Config.Keybind.Name), 2)
-                    conn:Disconnect()
-                end
-            end)
-        end)
-        MenuSec:Toggle("Show Keybind List", "KeybindListToggle", true, function(state)
-            Library.ShowKeybinds = state
-            if Library.KeybindList then Library.KeybindList.Frame.Visible = state and (#Library.KeybindList.Container:GetChildren() > 1) end
-        end)
-
-        local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
-        local ConfigName = ""
-        ConfigSec:TextBox("Config Name", "e.g. Legit", function(val) ConfigName = val end)
-        ConfigSec:Button("Save Config", function()
-            if ConfigName ~= "" then
-                Library:SaveConfig(ConfigName)
-                Library:Notify("Config Saved", "Successfully saved config: " .. ConfigName, 3)
-            end
-        end)
-        ConfigSec:Button("Load Config", function()
-            if ConfigName ~= "" then
-                Library:LoadConfig(ConfigName)
-                Library:Notify("Config Loaded", "Successfully loaded config: " .. ConfigName, 3)
-            end
-        end)
-    end
-
     function WindowObj:CreateRawSection(text, parent)
         local Section = {}
         local Container = Instance.new("Frame")
@@ -930,7 +884,7 @@ function Library:CreateWindow(options)
             Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 40)
         end)
 
-        function Section:Button(text, callback)
+        function Section:Button(text, tooltipText, callback)
             local Btn = Instance.new("TextButton")
             Btn.Size = UDim2.new(1, 0, 0, 32)
             Btn.BackgroundColor3 = Theme.Container
@@ -944,10 +898,11 @@ function Library:CreateWindow(options)
             Stroke(Btn, Theme.Stroke, 1, 0.5)
             Btn.MouseButton1Click:Connect(callback)
             Section.ButtonLabel = Btn
+            ApplyTooltip(Btn, tooltipText)
             return Btn
         end
 
-        function Section:Toggle(text, flag, default, callback)
+        function Section:Toggle(text, flag, default, tooltipText, callback)
             local toggled = default or false
             Library.Flags[flag] = toggled
             local Btn = Instance.new("TextButton")
@@ -995,9 +950,10 @@ function Library:CreateWindow(options)
                 Tween(Fill, {BackgroundTransparency = toggled and 0 or 1}, 0.2)
                 callback(toggled)
             end
+            ApplyTooltip(Btn, tooltipText)
         end
 
-        function Section:TextBox(text, placeholder, callback)
+        function Section:TextBox(text, flag, placeholder, tooltipText, callback)
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, 0, 0, 50)
             Frame.BackgroundTransparency = 1
@@ -1031,13 +987,290 @@ function Library:CreateWindow(options)
             Input.ClearTextOnFocus = false
             Input.Parent = BoxCont
             Input.FocusLost:Connect(function(enter)
-                if enter then callback(Input.Text) end
+                if enter then
+                    Library.Flags[flag] = Input.Text
+                    callback(Input.Text)
+                end
             end)
+            Library.Flags[flag] = ""
+            Library.Signals[flag] = function(val)
+                Input.Text = val
+                callback(val)
+            end
+            ApplyTooltip(Frame, tooltipText)
         end
+
+        function Section:Dropdown(text, flag, options, default, tooltipText, callback, customParent, isMulti)
+            local selected = default
+            if isMulti then
+                if type(default) ~= "table" then selected = {default} else selected = default end
+            else
+                selected = default or options[1]
+            end
+            Library.Flags[flag] = selected
+
+            local isDropped = false
+            local parent = customParent or Content
+            local DropFrame = Instance.new("Frame")
+            DropFrame.Size = UDim2.new(1, customParent and -20 or 0, 0, 46)
+            if customParent then DropFrame.Position = UDim2.new(0, 20, 0, 0) end
+            DropFrame.BackgroundTransparency = 1
+            DropFrame.Parent = parent
+            DropFrame.ZIndex = 5
+
+            local DLabel = Instance.new("TextLabel")
+            DLabel.Text = text
+            DLabel.Font = Config.FontMain
+            DLabel.TextSize = 13
+            DLabel.TextColor3 = customParent and Theme.TextDark or Theme.Text
+            DLabel.Size = UDim2.new(1, 0, 0, 16)
+            DLabel.Position = UDim2.new(0, 5, 0, 0)
+            DLabel.TextXAlignment = Enum.TextXAlignment.Left
+            DLabel.BackgroundTransparency = 1
+            DLabel.Parent = DropFrame
+
+            local Interactive = Instance.new("TextButton")
+            Interactive.Size = UDim2.new(1, 0, 0, 26)
+            Interactive.Position = UDim2.new(0, 0, 0, 20)
+            Interactive.BackgroundColor3 = Theme.Container
+            Interactive.Text = ""
+            Interactive.AutoButtonColor = false
+            Interactive.Parent = DropFrame
+            Interactive.ZIndex = 5
+            Corner(Interactive, 4)
+            Stroke(Interactive, Theme.Stroke, 1, 0.5)
+
+            local SelectedText = Instance.new("TextLabel")
+            SelectedText.Text = isMulti and table.concat(selected, ", ") or selected
+            SelectedText.Font = Config.FontMain
+            SelectedText.TextSize = 13
+            SelectedText.TextColor3 = Theme.Text
+            SelectedText.Size = UDim2.new(1, -25, 1, 0)
+            SelectedText.Position = UDim2.new(0, 8, 0, 0)
+            SelectedText.TextXAlignment = Enum.TextXAlignment.Left
+            SelectedText.BackgroundTransparency = 1
+            SelectedText.ZIndex = 6
+            SelectedText.ClipsDescendants = true
+            SelectedText.Parent = Interactive
+
+            local Arrow = Instance.new("ImageLabel")
+            Arrow.Image = "rbxassetid://10709790948"
+            Arrow.Size = UDim2.new(0, 18, 0, 18)
+            Arrow.Position = UDim2.new(1, -20, 0.5, 0)
+            Arrow.AnchorPoint = Vector2.new(0, 0.5)
+            Arrow.BackgroundTransparency = 1
+            Arrow.ImageColor3 = Theme.TextDark
+            Arrow.Parent = Interactive
+            Arrow.ZIndex = 6
+
+            local ListFrame = Instance.new("ScrollingFrame")
+            ListFrame.Size = UDim2.new(1, 0, 0, 0)
+            ListFrame.Position = UDim2.new(0, 0, 1, 5)
+            ListFrame.BackgroundColor3 = Theme.Container
+            ListFrame.BorderSizePixel = 0
+            ListFrame.Parent = Interactive
+            ListFrame.ZIndex = 10
+            ListFrame.Visible = false
+            ListFrame.ScrollBarThickness = 2
+            ListFrame.ScrollBarImageColor3 = Theme.Accent
+            Corner(ListFrame, 4)
+            Stroke(ListFrame, Theme.Stroke, 1, 0.5)
+            local IList = Instance.new("UIListLayout")
+            IList.SortOrder = Enum.SortOrder.LayoutOrder
+            IList.Parent = ListFrame
+            IList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                ListFrame.CanvasSize = UDim2.new(0, 0, 0, IList.AbsoluteContentSize.Y)
+            end)
+
+            local function CloseDropdown()
+                isDropped = false
+                Section.Container.ZIndex = 1
+                DropFrame.ZIndex = 5
+                if customParent then customParent.ZIndex = 1 end
+                Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
+                Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
+                Tween(Arrow, {Rotation = 0}, 0.2)
+                task.wait(0.2)
+                ListFrame.Visible = false
+            end
+
+            local optionBtns = {}
+            local function UpdateVisuals()
+                SelectedText.Text = isMulti and (#selected > 0 and table.concat(selected, ", ") or "None") or selected
+                if isMulti then
+                    for opt, btn in pairs(optionBtns) do
+                        local sel = false
+                        for _, v in pairs(selected) do if v == opt then sel = true break end end
+                        btn.TextColor3 = sel and Theme.Accent or Theme.TextDark
+                    end
+                end
+            end
+
+            local function BuildOptions(newOptions)
+                for _, btn in pairs(optionBtns) do btn:Destroy() end
+                table.clear(optionBtns)
+                options = newOptions
+                for _, opt in ipairs(options) do
+                    local OptBtn = Instance.new("TextButton")
+                    OptBtn.Size = UDim2.new(1, 0, 0, 24)
+                    OptBtn.BackgroundColor3 = Theme.Container
+                    OptBtn.BackgroundTransparency = 1
+                    OptBtn.Text = opt
+                    OptBtn.TextColor3 = Theme.TextDark
+                    OptBtn.Font = Config.FontMain
+                    OptBtn.TextSize = 12
+                    OptBtn.Parent = ListFrame
+                    OptBtn.ZIndex = 11
+                    optionBtns[opt] = OptBtn
+
+                    OptBtn.MouseEnter:Connect(function()
+                        if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
+                    end)
+                    OptBtn.MouseLeave:Connect(function()
+                        if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
+                    end)
+                    RegisterTheme(OptBtn, "TextColor")
+
+                    OptBtn.MouseButton1Click:Connect(function()
+                        if isMulti then
+                            local found = table.find(selected, opt)
+                            if found then table.remove(selected, found) else table.insert(selected, opt) end
+                            UpdateVisuals()
+                            Library.Flags[flag] = selected
+                            callback(selected)
+                        else
+                            selected = opt
+                            UpdateVisuals()
+                            Library.Flags[flag] = selected
+                            callback(selected)
+                            CloseDropdown()
+                        end
+                    end)
+                end
+            end
+
+            BuildOptions(options)
+            UpdateVisuals()
+
+            Library.Signals[flag] = function(val)
+                selected = val
+                UpdateVisuals()
+                callback(selected)
+            end
+
+            Interactive.MouseButton1Click:Connect(function()
+                isDropped = not isDropped
+                Section.Container.ZIndex = isDropped and 10 or 1
+                DropFrame.ZIndex = isDropped and 10 or 5
+                if customParent then customParent.ZIndex = isDropped and 10 or 1 customParent.ClipsDescendants = false end
+                if isDropped then
+                    ListFrame.Visible = true
+                    local listH = math.min(#options * 24, 200)
+                    local totalH = 46 + listH + 5
+                    Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, totalH)}, 0.2)
+                    Tween(ListFrame, {Size = UDim2.new(1, 0, 0, listH)}, 0.2)
+                    Tween(Arrow, {Rotation = 180}, 0.2)
+                else
+                    CloseDropdown()
+                end
+            end)
+            ApplyTooltip(DropFrame, tooltipText)
+
+            local DropdownObj = {}
+            function DropdownObj:Refresh(newOptions, newDefault)
+                if isMulti then
+                    if type(newDefault) ~= "table" then selected = {newDefault} else selected = newDefault end
+                else
+                    selected = newDefault or newOptions[1]
+                end
+                Library.Flags[flag] = selected
+                BuildOptions(newOptions)
+                UpdateVisuals()
+            end
+            return DropdownObj
+        end
+
         return Section
     end
 
-    PopulateSettings()
+    local function PopulateSettings()
+        local SetPage = Instance.new("ScrollingFrame")
+        SetPage.Size = UDim2.new(1, -200, 1, -20)
+        SetPage.Position = UDim2.new(0, 190, 0, 10)
+        SetPage.BackgroundTransparency = 1
+        SetPage.ScrollBarThickness = 2
+        SetPage.ScrollBarImageColor3 = Theme.Accent
+        SetPage.Parent = SettingsWindow
+        RegisterTheme(SetPage, "ScrollBar")
+
+        local ListLayout = Instance.new("UIListLayout")
+        ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        ListLayout.Padding = UDim.new(0, 10)
+        ListLayout.Parent = SetPage
+        ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            SetPage.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
+        end)
+
+        local MenuSec = WindowObj:CreateRawSection("Menu Settings", SetPage)
+        MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), nil, function()
+            MenuSec.ButtonLabel.Text = "Press any key..."
+            local conn
+            conn = UserInputService.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then Config.Keybind = Enum.KeyCode.RightShift
+                    elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then Config.Keybind = input.KeyCode end
+                    MenuSec.ButtonLabel.Text = "Menu Keybind: " .. tostring(Config.Keybind.Name)
+                    Library:Notify("Settings", "Menu keybind set to " .. tostring(Config.Keybind.Name), 2)
+                    conn:Disconnect()
+                end
+            end)
+        end)
+        MenuSec:Toggle("Show Keybind List", "KeybindListToggle", true, nil, function(state)
+            Library.ShowKeybinds = state
+            if Library.KeybindList then Library.KeybindList.Frame.Visible = state and (#Library.KeybindList.Container:GetChildren() > 1) end
+        end)
+
+        local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
+        local ConfigName = ""
+        local ConfigList = Library:GetConfigs()
+
+        local ConfigDropdown = ConfigSec:Dropdown("Select Config", "ConfigSelectorFlag", ConfigList, ConfigList[1], nil, function(val) ConfigName = val end, nil, false)
+
+        ConfigSec:TextBox("New Config Name", "ConfigNameInput", "Type name...", nil, function(val) ConfigName = val end)
+
+        ConfigSec:Button("Refresh Configs", nil, function()
+            local newList = Library:GetConfigs()
+            ConfigDropdown:Refresh(newList, newList[1])
+            Library:Notify("Config", "List Refreshed", 2)
+        end)
+
+        ConfigSec:Button("Save Config", nil, function()
+            if ConfigName ~= "" and ConfigName ~= "None" then
+                Library:SaveConfig(ConfigName)
+                local newList = Library:GetConfigs()
+                ConfigDropdown:Refresh(newList, ConfigName)
+                Library:Notify("Config Saved", "Successfully saved: " .. ConfigName, 3)
+            else
+                Library:Notify("Error", "Invalid Config Name", 3)
+            end
+        end)
+
+        ConfigSec:Button("Load Config", nil, function()
+            if ConfigName ~= "" and ConfigName ~= "None" then
+                Library:LoadConfig(ConfigName)
+                Library:Notify("Config Loaded", "Successfully loaded: " .. ConfigName, 3)
+            end
+        end)
+
+        ConfigSec:Button("Delete Config", nil, function()
+            if ConfigName ~= "" and ConfigName ~= "None" then
+                Library:DeleteConfig(ConfigName)
+                local newList = Library:GetConfigs()
+                ConfigDropdown:Refresh(newList, newList[1])
+                Library:Notify("Config Deleted", "Removed: " .. ConfigName, 3)
+            end
+        end)
+    end
 
     function WindowObj:Tab(name, iconId)
         local Tab = {}
@@ -1763,44 +1996,50 @@ function Library:CreateWindow(options)
                     end
                 end
 
-                for _, opt in ipairs(options) do
-                    local OptBtn = Instance.new("TextButton")
-                    OptBtn.Size = UDim2.new(1, 0, 0, 24)
-                    OptBtn.BackgroundColor3 = Theme.Container
-                    OptBtn.BackgroundTransparency = 1
-                    OptBtn.Text = opt
-                    OptBtn.TextColor3 = Theme.TextDark
-                    OptBtn.Font = Config.FontMain
-                    OptBtn.TextSize = 12
-                    OptBtn.Parent = ListFrame
-                    OptBtn.ZIndex = 11
-                    optionBtns[opt] = OptBtn
+                local function BuildOptions(newOptions)
+                    for _, btn in pairs(optionBtns) do btn:Destroy() end
+                    table.clear(optionBtns)
+                    options = newOptions
+                    for _, opt in ipairs(options) do
+                        local OptBtn = Instance.new("TextButton")
+                        OptBtn.Size = UDim2.new(1, 0, 0, 24)
+                        OptBtn.BackgroundColor3 = Theme.Container
+                        OptBtn.BackgroundTransparency = 1
+                        OptBtn.Text = opt
+                        OptBtn.TextColor3 = Theme.TextDark
+                        OptBtn.Font = Config.FontMain
+                        OptBtn.TextSize = 12
+                        OptBtn.Parent = ListFrame
+                        OptBtn.ZIndex = 11
+                        optionBtns[opt] = OptBtn
 
-                    OptBtn.MouseEnter:Connect(function()
-                        if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
-                    end)
-                    OptBtn.MouseLeave:Connect(function()
-                        if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
-                    end)
-                    RegisterTheme(OptBtn, "TextColor")
+                        OptBtn.MouseEnter:Connect(function()
+                            if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
+                        end)
+                        OptBtn.MouseLeave:Connect(function()
+                            if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
+                        end)
+                        RegisterTheme(OptBtn, "TextColor")
 
-                    OptBtn.MouseButton1Click:Connect(function()
-                        if isMulti then
-                            local found = table.find(selected, opt)
-                            if found then table.remove(selected, found) else table.insert(selected, opt) end
-                            UpdateVisuals()
-                            Library.Flags[flag] = selected
-                            callback(selected)
-                        else
-                            selected = opt
-                            UpdateVisuals()
-                            Library.Flags[flag] = selected
-                            callback(selected)
-                            CloseDropdown()
-                        end
-                    end)
+                        OptBtn.MouseButton1Click:Connect(function()
+                            if isMulti then
+                                local found = table.find(selected, opt)
+                                if found then table.remove(selected, found) else table.insert(selected, opt) end
+                                UpdateVisuals()
+                                Library.Flags[flag] = selected
+                                callback(selected)
+                            else
+                                selected = opt
+                                UpdateVisuals()
+                                Library.Flags[flag] = selected
+                                callback(selected)
+                                CloseDropdown()
+                            end
+                        end)
+                    end
                 end
 
+                BuildOptions(options)
                 UpdateVisuals()
 
                 Library.Signals[flag] = function(val)
@@ -1826,6 +2065,19 @@ function Library:CreateWindow(options)
                     end
                 end)
                 ApplyTooltip(DropFrame, tooltipText)
+
+                local DropdownObj = {}
+                function DropdownObj:Refresh(newOptions, newDefault)
+                    if isMulti then
+                        if type(newDefault) ~= "table" then selected = {newDefault} else selected = newDefault end
+                    else
+                        selected = newDefault or newOptions[1]
+                    end
+                    Library.Flags[flag] = selected
+                    BuildOptions(newOptions)
+                    UpdateVisuals()
+                end
+                return DropdownObj
             end
 
             function Section:ColorPicker(text, flag, default, tooltipText, callback)
