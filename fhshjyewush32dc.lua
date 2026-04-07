@@ -182,7 +182,7 @@ function Library:Unload()
     if Library.ScreenGui then pcall(function() Library.ScreenGui:Destroy() end) Library.ScreenGui = nil end
     if Library.KeybindList then pcall(function() Library.KeybindList.Screen:Destroy() end) Library.KeybindList = nil end
     for _, g in pairs(GetParent():GetChildren()) do
-        if g.Name == "PhantomToggle" or g.Name == Config.Name or g.Name == "PrismaKeybinds" or g.Name == "PrismaLoader" or g.Name == "PhantomNotifications" or g.Name == "PhantomWatermark" or g.Name == "PhantomTooltip" then
+        if g.Name == "PrismaMini" or g.Name == Config.Name or g.Name == "PrismaKeybinds" or g.Name == "PrismaLoader" or g.Name == "PhantomNotifications" or g.Name == "PhantomWatermark" or g.Name == "PhantomTooltip" then
             pcall(function() g:Destroy() end)
         end
     end
@@ -587,25 +587,37 @@ function Library:CreateWindow(options)
     end)
     table.insert(Library.Connections, clickConn)
 
-    local ToggleGui = Instance.new("ScreenGui")
-    ToggleGui.Name = "PhantomToggle"
-    ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ToggleGui.ResetOnSpawn = false
-    ToggleGui.Parent = GetParent()
+    local MiniGui = Instance.new("ScreenGui")
+    MiniGui.Name = "PrismaMini"
+    MiniGui.Parent = GetParent()
+    MiniGui.Enabled = false
+    MiniGui.IgnoreGuiInset = true
 
-    local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Size = UDim2.new(0, 46, 0, 46)
-    ToggleBtn.Position = UDim2.new(0, 20, 0.5, -23)
-    ToggleBtn.BackgroundColor3 = Theme.Sidebar
-    ToggleBtn.Text = string.sub(Config.Name, 1, 1)
-    ToggleBtn.TextColor3 = Theme.Accent
-    ToggleBtn.Font = Config.FontBold
-    ToggleBtn.TextSize = 20
-    ToggleBtn.Parent = ToggleGui
-    Corner(ToggleBtn, 8)
-    Stroke(ToggleBtn, Theme.Stroke, 1)
-    MakeDraggable(ToggleBtn, ToggleBtn)
-    RegisterTheme(ToggleBtn, "TextColor")
+    local MiniFrame = Instance.new("TextButton")
+    MiniFrame.Size = UDim2.new(0, 150, 0, 30)
+    MiniFrame.Position = UDim2.new(0.5, 0, 0, 10)
+    MiniFrame.AnchorPoint = Vector2.new(0.5, 0)
+    MiniFrame.BackgroundColor3 = Theme.Background
+    MiniFrame.BackgroundTransparency = 0.4
+    MiniFrame.Text = Config.Name
+    MiniFrame.TextColor3 = Theme.Accent
+    MiniFrame.Font = Config.FontBold
+    MiniFrame.TextSize = 14
+    MiniFrame.Parent = MiniGui
+    MiniFrame.Active = true
+    Corner(MiniFrame, 6)
+    Stroke(MiniFrame, Theme.Stroke, 1, 0)
+    MakeDraggable(MiniFrame, MiniFrame)
+
+    local MNoise = Instance.new("ImageLabel")
+    MNoise.Size = UDim2.new(1, 0, 1, 0)
+    MNoise.BackgroundTransparency = 1
+    MNoise.Image = "rbxassetid://9968344105"
+    MNoise.ImageTransparency = 0.9
+    MNoise.ScaleType = Enum.ScaleType.Tile
+    MNoise.TileSize = UDim2.new(0, 100, 0, 100)
+    MNoise.Parent = MiniFrame
+    Corner(MNoise, 6)
 
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
@@ -796,6 +808,18 @@ function Library:CreateWindow(options)
     local MainBar, TabContainer, _ = CreateSidebar(MainWindow, false)
     local SetBar, SetContainer, BackBtn = CreateSidebar(SettingsWindow, true)
 
+    local MinimizeBtn = Instance.new("TextButton")
+    MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+    MinimizeBtn.Position = UDim2.new(1, -5, 0, 5)
+    MinimizeBtn.AnchorPoint = Vector2.new(1, 0)
+    MinimizeBtn.BackgroundTransparency = 1
+    MinimizeBtn.Text = "-"
+    MinimizeBtn.Font = Config.FontBold
+    MinimizeBtn.TextSize = 24
+    MinimizeBtn.TextColor3 = Theme.Text
+    MinimizeBtn.ZIndex = 100
+    MinimizeBtn.Parent = MainWindow
+
     local ProfileBtn = Instance.new("TextButton")
     ProfileBtn.Size = UDim2.new(1, 0, 0, 60)
     ProfileBtn.Position = UDim2.new(0, 0, 1, 0)
@@ -804,7 +828,6 @@ function Library:CreateWindow(options)
     ProfileBtn.BorderSizePixel = 0
     ProfileBtn.Text = ""
     ProfileBtn.AutoButtonColor = false
-    ProfileBtn.ClipsDescendants = true
     ProfileBtn.Parent = MainBar
     local SideAvatar = Instance.new("ImageLabel")
     SideAvatar.Size = UDim2.new(0, 36, 0, 36)
@@ -827,7 +850,6 @@ function Library:CreateWindow(options)
     SideName.Font = Config.FontBold
     SideName.TextSize = 13
     SideName.TextXAlignment = Enum.TextXAlignment.Left
-    SideName.TextTruncate = Enum.TextTruncate.AtEnd
     SideName.Parent = ProfileBtn
     local SideSub = Instance.new("TextLabel")
     SideSub.Size = UDim2.new(0, 100, 0, 14)
@@ -839,7 +861,6 @@ function Library:CreateWindow(options)
     SideSub.Font = Config.FontMain
     SideSub.TextSize = 11
     SideSub.TextXAlignment = Enum.TextXAlignment.Left
-    SideSub.TextTruncate = Enum.TextTruncate.AtEnd
     SideSub.Parent = ProfileBtn
 
     local IsSettings = false
@@ -847,15 +868,9 @@ function Library:CreateWindow(options)
     local function ToggleMain()
         Library.Open = not Library.Open
         if Library.Open then
-            if IsSettings then 
-                SettingsWindow.Visible = true 
-                SetScale.Scale = 0 
-                Tween(SetScale, {Scale = 1}, 0.25)
-            else 
-                MainWindow.Visible = true 
-                MainScale.Scale = 0 
-                Tween(MainScale, {Scale = 1}, 0.25) 
-            end
+            if IsSettings then SettingsWindow.Visible = true SetScale.Scale = 0 Tween(SetScale, {Scale = 1}, 0.25)
+            else MainWindow.Visible = true MainScale.Scale = 0 Tween(MainScale, {Scale = 1}, 0.25) end
+            MiniGui.Enabled = false
         else
             Tween(MainScale, {Scale = 0}, 0.2)
             Tween(SetScale, {Scale = 0}, 0.2)
@@ -866,26 +881,26 @@ function Library:CreateWindow(options)
         end
     end
 
-    local toggleMoved = false
-    local dragStart = Vector3.new()
-    ToggleBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            toggleMoved = false
-            dragStart = input.Position
-        end
-    end)
-    ToggleBtn.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            if (input.Position - dragStart).Magnitude > 5 then
-                toggleMoved = true
-            end
-        end
-    end)
-    ToggleBtn.InputEnded:Connect(function(input)
-        if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not toggleMoved then
-            ToggleMain()
-        end
-    end)
+    local function Minimize()
+        Library.Open = false
+        Tween(MainScale, {Scale = 0.8}, 0.2)
+        Tween(MainWindow, {BackgroundTransparency = 1}, 0.2)
+        task.wait(0.2)
+        MainWindow.Visible = false
+        MiniGui.Enabled = true
+        TooltipLabel.Visible = false
+    end
+
+    local function Restore()
+        Library.Open = true
+        MiniGui.Enabled = false
+        MainWindow.Visible = true
+        Tween(MainWindow, {BackgroundTransparency = 0.4}, 0.2)
+        Tween(MainScale, {Scale = 1}, 0.25)
+    end
+
+    MinimizeBtn.MouseButton1Click:Connect(Minimize)
+    MiniFrame.MouseButton1Click:Connect(Restore)
 
     local function SwitchToSettings()
         if Library.ActiveWidget then pcall(Library.ActiveWidget) Library.ActiveWidget = nil end
@@ -1079,10 +1094,12 @@ function Library:CreateWindow(options)
             Input.Parent = BoxCont
 
             Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}, 0.2) end)
-            Input.FocusLost:Connect(function()
+            Input.FocusLost:Connect(function(enter)
                 Tween(s, {Color = Theme.Stroke}, 0.2)
-                Library.Flags[flag] = Input.Text
-                callback(Input.Text)
+                if enter then
+                    Library.Flags[flag] = Input.Text
+                    callback(Input.Text)
+                end
             end)
             Input.Changed:Connect(function(prop)
                 if prop == "Text" then Library.Flags[flag] = Input.Text end
@@ -1229,6 +1246,7 @@ function Library:CreateWindow(options)
                     OptBtn.MouseLeave:Connect(function()
                         if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}, 0.2) end
                     end)
+                    RegisterTheme(OptBtn, "TextColor")
 
                     OptBtn.MouseButton1Click:Connect(function()
                         if isMulti then
@@ -2088,6 +2106,7 @@ function Library:CreateWindow(options)
                 local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
                 Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}, 0.2) Tween(s, {Color = Theme.Accent}, 0.2) end)
                 Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}, 0.2) Tween(s, {Color = Theme.Stroke}, 0.2) end)
+                RegisterTheme(s, "BorderColor")
                 Btn.MouseButton1Click:Connect(callback)
                 ApplyTooltip(Btn, tooltipText)
             end
@@ -2217,10 +2236,12 @@ function Library:CreateWindow(options)
                 Input.Parent = BoxCont
 
                 Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}, 0.2) end)
-                Input.FocusLost:Connect(function()
+                Input.FocusLost:Connect(function(enter)
                     Tween(s, {Color = Theme.Stroke}, 0.2)
-                    Library.Flags[flag] = Input.Text
-                    callback(Input.Text)
+                    if enter then
+                        Library.Flags[flag] = Input.Text
+                        callback(Input.Text)
+                    end
                 end)
                 Input.Changed:Connect(function(prop)
                     if prop == "Text" then Library.Flags[flag] = Input.Text end
@@ -2368,6 +2389,7 @@ function Library:CreateWindow(options)
                         OptBtn.MouseLeave:Connect(function()
                             if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}, 0.2) end
                         end)
+                        RegisterTheme(OptBtn, "TextColor")
 
                         OptBtn.MouseButton1Click:Connect(function()
                             if isMulti then
