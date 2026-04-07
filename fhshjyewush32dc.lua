@@ -126,9 +126,11 @@ local function MakeDraggable(dragObj, moveObj)
             startPos = moveObj.Position
             
             local inputChanged
-            inputChanged = UserInputService.InputChanged:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseMovement then
-                    local delta = input.Position - dragStart
+            local inputEnded
+
+            inputChanged = UserInputService.InputChanged:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = i.Position - dragStart
                     moveObj.Position = UDim2.new(
                         startPos.X.Scale, 
                         startPos.X.Offset + delta.X, 
@@ -138,12 +140,11 @@ local function MakeDraggable(dragObj, moveObj)
                 end
             end)
             
-            local inputEnded
-            inputEnded = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
+            inputEnded = UserInputService.InputEnded:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 then
                     dragging = false
-                    inputChanged:Disconnect()
-                    inputEnded:Disconnect()
+                    if inputChanged then inputChanged:Disconnect() end
+                    if inputEnded then inputEnded:Disconnect() end
                 end
             end)
         end
@@ -162,21 +163,22 @@ local function MakeResizable(resizeBtn, frame, minSize)
             startSize = frame.Size
 
             local inputChanged
-            inputChanged = UserInputService.InputChanged:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseMovement then
-                    local delta = input.Position - dragStart
+            local inputEnded
+
+            inputChanged = UserInputService.InputChanged:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseMovement then
+                    local delta = i.Position - dragStart
                     local newX = math.max(minSize.X, startSize.X.Offset + delta.X)
                     local newY = math.max(minSize.Y, startSize.Y.Offset + delta.Y)
                     frame.Size = UDim2.new(0, newX, 0, newY)
                 end
             end)
 
-            local inputEnded
-            inputEnded = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
+            inputEnded = UserInputService.InputEnded:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 then
                     dragging = false
-                    inputChanged:Disconnect()
-                    inputEnded:Disconnect()
+                    if inputChanged then inputChanged:Disconnect() end
+                    if inputEnded then inputEnded:Disconnect() end
                 end
             end)
         end
@@ -185,7 +187,17 @@ end
 
 function Library:SaveConfig(name)
     if name == "" then return end
-    local json = HttpService:JSONEncode(Library.Flags)
+    local saveTable = {}
+    for i, v in pairs(Library.Flags) do
+        if type(v) == "userdata" and typeof(v) == "Color3" then
+            saveTable[i] = {v.R, v.G, v.B, "Color3"}
+        elseif type(v) == "userdata" and typeof(v) == "EnumItem" then
+            saveTable[i] = {v.Name, "EnumItem"}
+        else
+            saveTable[i] = v
+        end
+    end
+    local json = HttpService:JSONEncode(saveTable)
     writefile(Config.ConfigFolder .. "/" .. name .. ".json", json)
 end
 
@@ -195,10 +207,19 @@ function Library:LoadConfig(name)
         local success, data = pcall(HttpService.JSONDecode, HttpService, content)
         if success and type(data) == "table" then
             for flag, value in pairs(data) do
-                if Library.Signals[flag] and type(value) == type(Library.Flags[flag]) then
-                    Library.Signals[flag](value)
+                local parsedValue = value
+                if type(value) == "table" then
+                    if value[4] == "Color3" then
+                        parsedValue = Color3.new(value[1], value[2], value[3])
+                    elseif value[2] == "EnumItem" then
+                        pcall(function() parsedValue = Enum.KeyCode[value[1]] end)
+                    end
                 end
-                Library.Flags[flag] = value
+
+                Library.Flags[flag] = parsedValue
+                if Library.Signals[flag] then
+                    Library.Signals[flag](parsedValue)
+                end
             end
         end
     end
@@ -230,6 +251,7 @@ function Library:CreateKeybindList()
     Corner(Header, 4)
 
     local Title = Instance.new("TextLabel")
+    Title.Name = "TextLabel"
     Title.Size = UDim2.new(1, 0, 1, 0)
     Title.BackgroundTransparency = 1
     Title.Text = "Keybinds"
@@ -271,7 +293,7 @@ function Library:UpdateKeybindList(name, key, active)
         return
     end
     
-    if active and key ~= "None" then
+    if active and key ~= "None" and key ~= "Unknown" then
         Library.KeybindList.Frame.Visible = true
         if not existing then
             local Item = Instance.new("Frame")
@@ -301,6 +323,10 @@ function Library:UpdateKeybindList(name, key, active)
             LKey.TextSize = 12
             LKey.TextXAlignment = Enum.TextXAlignment.Right
             LKey.Parent = Item
+        else
+            if existing:FindFirstChild("TextLabel") then
+                existing:GetChildren()[2].Text = "["..key.."]"
+            end
         end
     else
         if existing then existing:Destroy() end
@@ -456,6 +482,7 @@ function Library:Loader(callback)
     end)
 
     StartBtn.MouseButton1Click:Connect(function()
+        if loading then return end 
         Tween(StartBtn, {BackgroundTransparency = 1, TextTransparency = 1}, 0.3)
         Tween(Main, {BackgroundTransparency = 1}, 0.5)
         Tween(Main:FindFirstChild("UIStroke"), {Transparency = 1}, 0.5)
@@ -787,7 +814,8 @@ function Library:CreateWindow(options)
     BackBtn.MouseButton1Click:Connect(SwitchToMain)
 
     UserInputService.InputBegan:Connect(function(input, gp)
-        if not gp and input.KeyCode == Config.Keybind then
+        if gp or UserInputService:GetFocusedTextBox() then return end
+        if input.KeyCode == Config.Keybind then
             ToggleMain()
         end
     end)
@@ -845,7 +873,7 @@ function Library:CreateWindow(options)
         local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
         local ConfigName = ""
         
-        ConfigSec:TextBox("Config Name", "e.g. Legit", function(val)
+        ConfigSec:TextBox("Config Name", "ConfigFileName", "e.g. Legit", function(val)
             ConfigName = val
         end)
         
@@ -854,7 +882,7 @@ function Library:CreateWindow(options)
                 Library:SaveConfig(ConfigName)
             end
         end)
-       
+        
         ConfigSec:Button("Load Config", function()
             if ConfigName ~= "" then
                 Library:LoadConfig(ConfigName)
@@ -958,18 +986,28 @@ function Library:CreateWindow(options)
             Fill.Parent = Box
             Corner(Fill, 3)
 
+            Library.Signals[flag] = function(val)
+                toggled = val
+                Tween(Fill, {BackgroundTransparency = toggled and 0 or 1}, 0.2)
+                callback(toggled)
+            end
+
             Btn.MouseButton1Click:Connect(function()
                 toggled = not toggled
+                Library.Flags[flag] = toggled
                 Tween(Fill, {BackgroundTransparency = toggled and 0 or 1}, 0.2)
                 callback(toggled)
             end)
         end
 
-        function Section:TextBox(text, placeholder, callback)
+        function Section:TextBox(text, flag, placeholder, callback)
+            Library.Flags[flag] = ""
+            
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, 0, 0, 50)
             Frame.BackgroundTransparency = 1
             Frame.Parent = Content
+            
             local Label = Instance.new("TextLabel")
             Label.Text = text
             Label.Font = Config.FontMain
@@ -980,12 +1018,14 @@ function Library:CreateWindow(options)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.BackgroundTransparency = 1
             Label.Parent = Frame
+            
             local BoxCont = Instance.new("Frame")
             BoxCont.Size = UDim2.new(1, 0, 0, 28)
             BoxCont.Position = UDim2.new(0, 0, 0, 22)
             BoxCont.BackgroundColor3 = Theme.Container
             BoxCont.Parent = Frame
             Corner(BoxCont, 4)
+            
             local Input = Instance.new("TextBox")
             Input.Size = UDim2.new(1, -10, 1, 0)
             Input.Position = UDim2.new(0, 5, 0, 0)
@@ -998,8 +1038,17 @@ function Library:CreateWindow(options)
             Input.Text = ""
             Input.ClearTextOnFocus = false
             Input.Parent = BoxCont
+            
+            Library.Signals[flag] = function(val)
+                Input.Text = val
+                callback(val)
+            end
+
             Input.FocusLost:Connect(function(enter)
-                if enter then callback(Input.Text) end
+                if enter and Input.Text ~= "" then 
+                    Library.Flags[flag] = Input.Text
+                    callback(Input.Text) 
+                end
             end)
         end
         
@@ -1029,6 +1078,7 @@ function Library:CreateWindow(options)
         Corner(TabBtn, 6)
 
         local Title = Instance.new("TextLabel")
+        Title.Name = "TextLabel" 
         Title.Text = name
         Title.Font = Config.FontMain
         Title.TextSize = 14
@@ -1041,6 +1091,7 @@ function Library:CreateWindow(options)
 
         if iconId then
             local Ico = Instance.new("ImageLabel")
+            Ico.Name = "ImageLabel"
             Ico.Size = UDim2.new(0, 20, 0, 20)
             Ico.Position = UDim2.new(0, 8, 0.5, 0)
             Ico.AnchorPoint = Vector2.new(0, 0.5)
@@ -1066,6 +1117,7 @@ function Library:CreateWindow(options)
         end
 
         local Indicator = Instance.new("Frame")
+        Indicator.Name = "Indicator"
         Indicator.Size = UDim2.new(0, 3, 0, 16)
         Indicator.Position = UDim2.new(0, 0, 0.5, -8)
         Indicator.BackgroundColor3 = Theme.Accent
@@ -1077,19 +1129,27 @@ function Library:CreateWindow(options)
 
         TabBtn.MouseButton1Click:Connect(function()
             for _, p in pairs(MainPages:GetChildren()) do if p:IsA("ScrollingFrame") then p.Visible = false end end
+            
             for _, t in pairs(TabContainer:GetChildren()) do
                 if t:IsA("TextButton") then
-                    Tween(t.TextLabel, {TextColor3 = Theme.TextDark})
+                    local lbl = t:FindFirstChild("TextLabel")
+                    if lbl then Tween(lbl, {TextColor3 = Theme.TextDark}) end
                     Tween(t, {BackgroundTransparency = 1, BackgroundColor3 = Theme.Background})
-                    if t:FindFirstChild("ImageLabel") then Tween(t.ImageLabel, {ImageColor3 = Theme.TextDark}) end
-                    Tween(t.Frame, {BackgroundTransparency = 1})
+                    
+                    local img = t:FindFirstChild("ImageLabel")
+                    if img then Tween(img, {ImageColor3 = Theme.TextDark}) end
+                    
+                    local ind = t:FindFirstChild("Indicator")
+                    if ind then Tween(ind, {BackgroundTransparency = 1}) end
                 end
             end
             
             Page.Visible = true
             Tween(Title, {TextColor3 = Theme.Text})
             Tween(TabBtn, {BackgroundTransparency = 0.95, BackgroundColor3 = Theme.Text})
-            if TabBtn:FindFirstChild("ImageLabel") then Tween(TabBtn.ImageLabel, {ImageColor3 = Theme.Text}) end
+            
+            local myImg = TabBtn:FindFirstChild("ImageLabel")
+            if myImg then Tween(myImg, {ImageColor3 = Theme.Text}) end
             Tween(Indicator, {BackgroundTransparency = 0})
         end)
         
@@ -1098,7 +1158,8 @@ function Library:CreateWindow(options)
            Title.TextColor3 = Theme.Text
            TabBtn.BackgroundTransparency = 0.95
            TabBtn.BackgroundColor3 = Theme.Text
-           if TabBtn:FindFirstChild("ImageLabel") then TabBtn.ImageLabel.ImageColor3 = Theme.Text end
+           local myImg = TabBtn:FindFirstChild("ImageLabel")
+           if myImg then myImg.ImageColor3 = Theme.Text end
            Indicator.BackgroundTransparency = 0
         end
 
@@ -1135,6 +1196,7 @@ function Library:CreateWindow(options)
             Stroke(Container, Theme.Stroke, 1, 0.5)
             
             Section.Container = Container
+            Section.ParentCol = ParentCol
 
             local Title = Instance.new("TextLabel")
             Title.Text = text
@@ -1164,15 +1226,78 @@ function Library:CreateWindow(options)
             end
             List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
 
+            function Section:Keybind(text, flag, default, callback)
+                local currentKey = default or Enum.KeyCode.None
+                Library.Flags[flag] = currentKey
+
+                local Frame = Instance.new("Frame")
+                Frame.Size = UDim2.new(1, 0, 0, 32)
+                Frame.BackgroundTransparency = 1
+                Frame.Parent = Content
+
+                local Label = Instance.new("TextLabel")
+                Label.Text = text
+                Label.Font = Config.FontMain
+                Label.TextSize = 13
+                Label.TextColor3 = Theme.Text
+                Label.Size = UDim2.new(0.6, 0, 1, 0)
+                Label.Position = UDim2.new(0, 5, 0, 0)
+                Label.TextXAlignment = Enum.TextXAlignment.Left
+                Label.BackgroundTransparency = 1
+                Label.Parent = Frame
+
+                local BindBtn = Instance.new("TextButton")
+                BindBtn.Size = UDim2.new(0, 80, 0, 24)
+                BindBtn.Position = UDim2.new(1, -5, 0.5, 0)
+                BindBtn.AnchorPoint = Vector2.new(1, 0.5)
+                BindBtn.BackgroundColor3 = Theme.Container
+                BindBtn.Text = "[" .. currentKey.Name .. "]"
+                BindBtn.Font = Config.FontMain
+                BindBtn.TextSize = 12
+                BindBtn.TextColor3 = Theme.TextDark
+                BindBtn.AutoButtonColor = false
+                BindBtn.Parent = Frame
+                Corner(BindBtn, 4)
+                Stroke(BindBtn, Theme.Stroke, 1, 0.5)
+
+                local binding = false
+
+                Library.Signals[flag] = function(val)
+                    currentKey = val
+                    BindBtn.Text = "[" .. currentKey.Name .. "]"
+                end
+
+                BindBtn.MouseButton1Click:Connect(function()
+                    if binding then return end
+                    binding = true
+                    BindBtn.Text = "[...]"
+                    BindBtn.TextColor3 = Theme.Accent
+                    
+                    local conn
+                    conn = UserInputService.InputBegan:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.Keyboard then
+                            if input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then
+                                currentKey = input.KeyCode
+                                Library.Flags[flag] = currentKey
+                            end
+                            BindBtn.Text = "[" .. currentKey.Name .. "]"
+                            BindBtn.TextColor3 = Theme.TextDark
+                            binding = false
+                            conn:Disconnect()
+                        end
+                    end)
+                end)
+
+                UserInputService.InputBegan:Connect(function(input, gp)
+                    if not gp and not UserInputService:GetFocusedTextBox() and input.KeyCode == currentKey and currentKey ~= Enum.KeyCode.None then
+                        callback()
+                    end
+                end)
+            end
+
             function Section:Toggle(text, flag, default, callback)
                 local toggled = default or false
                 Library.Flags[flag] = toggled
-                Library.Signals[flag] = function(val)
-                    if toggled ~= val then
-                        toggled = val
-                        callback(val)
-                    end
-                end
                 
                 local ToggleObj = {}
                 
@@ -1244,6 +1369,14 @@ function Library:CreateWindow(options)
                         if expectedToggle == toggled and not toggled then SubContainer.Visible = false end
                     end
                 end
+
+                Library.Signals[flag] = function(val)
+                    if toggled ~= val then
+                        toggled = val
+                        ToggleAnim()
+                        callback(val)
+                    end
+                end
                 
                 SubList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
                     if toggled then
@@ -1258,6 +1391,7 @@ function Library:CreateWindow(options)
                     ToggleAnim()
                     callback(toggled)
                 end)
+                
                 if toggled then ToggleAnim() end
 
                 function ToggleObj:AddButton(txt, cb)
@@ -1278,12 +1412,14 @@ function Library:CreateWindow(options)
                     SBtn.MouseButton1Click:Connect(cb)
                 end
 
-                function ToggleObj:AddSlider(txt, min, max, def, cb)
+                function ToggleObj:AddSlider(txt, subFlag, min, max, def, cb)
                     local SFrame = Instance.new("Frame")
                     SFrame.Size = UDim2.new(1, -20, 0, 36)
                     SFrame.BackgroundTransparency = 1
                     SFrame.Parent = SubContainer
                     
+                    Library.Flags[subFlag] = def
+
                     local SLabel = Instance.new("TextLabel")
                     SLabel.Text = txt
                     SLabel.Font = Config.FontMain
@@ -1318,31 +1454,46 @@ function Library:CreateWindow(options)
                     SlideFill.Parent = SlideBg
                     Corner(SlideFill, 3)
                     RegisterTheme(SlideFill, "BackgroundColor")
-                    
-                    local dragging = false
-                    local function Set(input)
-                        local r = math.clamp((input.Position.X - SlideBg.AbsolutePosition.X) / SlideBg.AbsoluteSize.X, 0, 1)
-                        local val = math.floor(min + (max - min) * r)
+
+                    local function UpdateSubUI(val)
                         SValue.Text = tostring(val)
+                        local r = (val - min) / (max - min)
                         Tween(SlideFill, {Size = UDim2.new(r, 0, 1, 0)}, 0.05)
-                        cb(val)
                     end
                     
-                    SlideBg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true Set(i) end end)
-                    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-                    UserInputService.InputChanged:Connect(function(i) 
-                        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then 
-                            if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-                                dragging = false
-                                return
+                    Library.Signals[subFlag] = function(val)
+                        val = math.clamp(val, min, max)
+                        UpdateSubUI(val)
+                        cb(val)
+                    end
+
+                    SlideBg.InputBegan:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            local function Set(inp)
+                                local r = math.clamp((inp.Position.X - SlideBg.AbsolutePosition.X) / SlideBg.AbsoluteSize.X, 0, 1)
+                                local val = math.floor(min + (max - min) * r)
+                                Library.Flags[subFlag] = val
+                                UpdateSubUI(val)
+                                cb(val)
                             end
-                            Set(i) 
-                        end 
+                            Set(input)
+                            
+                            local moveConn, releaseConn
+                            moveConn = UserInputService.InputChanged:Connect(function(i)
+                                if i.UserInputType == Enum.UserInputType.MouseMovement then Set(i) end
+                            end)
+                            releaseConn = UserInputService.InputEnded:Connect(function(i)
+                                if i.UserInputType == Enum.UserInputType.MouseButton1 then
+                                    moveConn:Disconnect()
+                                    releaseConn:Disconnect()
+                                end
+                            end)
+                        end
                     end)
                 end
                 
-                function ToggleObj:AddDropdown(txt, opts, def, cb)
-                    Section:Dropdown(txt, opts, def, cb, SubContainer)
+                function ToggleObj:AddDropdown(txt, subFlag, opts, def, cb)
+                    Section:Dropdown(txt, subFlag, opts, def, cb, SubContainer)
                 end
 
                 function ToggleObj:Keybind(defaultKey)
@@ -1377,13 +1528,17 @@ function Library:CreateWindow(options)
                                 KeyBtn.TextColor3 = Theme.TextDark
                                 binding = false
                                 conn:Disconnect()
+                                
+                                if toggled then
+                                    Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, true)
+                                end
                             end
                         end)
                     end)
                     
                     if ToggleObj.BindConnection then ToggleObj.BindConnection:Disconnect() end
                     ToggleObj.BindConnection = UserInputService.InputBegan:Connect(function(input, gp)
-                        if not gp and input.KeyCode == ToggleObj.KeybindValue and ToggleObj.KeybindValue ~= Enum.KeyCode.None then
+                        if not gp and not UserInputService:GetFocusedTextBox() and input.KeyCode == ToggleObj.KeybindValue and ToggleObj.KeybindValue ~= Enum.KeyCode.None then
                             toggled = not toggled
                             ToggleAnim()
                             callback(toggled)
@@ -1424,8 +1579,10 @@ function Library:CreateWindow(options)
                 end)
             end
 
-            function Section:Slider(text, min, max, default, callback)
+            function Section:Slider(text, flag, min, max, default, callback)
                 local val = default or min
+                Library.Flags[flag] = val
+
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 42)
                 Frame.BackgroundTransparency = 1
@@ -1469,29 +1626,46 @@ function Library:CreateWindow(options)
                 Corner(Fill, 3)
                 RegisterTheme(Fill, "BackgroundColor")
 
-                local dragging = false
-                local function Set(input)
-                    local ratio = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-                    local newValue = math.floor(min + (max - min) * ratio)
+                local function UpdateUI(newValue)
                     ValLabel.Text = tostring(newValue)
+                    local ratio = (newValue - min) / (max - min)
                     Tween(Fill, {Size = UDim2.new(ratio, 0, 1, 0)}, 0.05)
-                    callback(newValue)
                 end
 
-                Bar.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true Set(i) end end)
-                UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-                UserInputService.InputChanged:Connect(function(i) 
-                    if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then 
-                        if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-                            dragging = false
-                            return
+                Library.Signals[flag] = function(newVal)
+                    newVal = math.clamp(newVal, min, max)
+                    UpdateUI(newVal)
+                    callback(newVal)
+                end
+
+                Bar.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local function Set(inp)
+                            local ratio = math.clamp((inp.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+                            local newValue = math.floor(min + (max - min) * ratio)
+                            Library.Flags[flag] = newValue
+                            UpdateUI(newValue)
+                            callback(newValue)
                         end
-                        Set(i) 
-                    end 
+                        Set(input)
+
+                        local moveConn, releaseConn
+                        moveConn = UserInputService.InputChanged:Connect(function(i)
+                            if i.UserInputType == Enum.UserInputType.MouseMovement then Set(i) end
+                        end)
+                        releaseConn = UserInputService.InputEnded:Connect(function(i)
+                            if i.UserInputType == Enum.UserInputType.MouseButton1 then
+                                moveConn:Disconnect()
+                                releaseConn:Disconnect()
+                            end
+                        end)
+                    end
                 end)
             end
 
-            function Section:TextBox(text, placeholder, callback)
+            function Section:TextBox(text, flag, placeholder, callback)
+                Library.Flags[flag] = ""
+
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 46)
                 Frame.BackgroundTransparency = 1
@@ -1531,14 +1705,25 @@ function Library:CreateWindow(options)
                 Input.Parent = BoxCont
                 
                 Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}) end)
+                
+                Library.Signals[flag] = function(val)
+                    Input.Text = val
+                    callback(val)
+                end
+
                 Input.FocusLost:Connect(function(enter)
                     Tween(s, {Color = Theme.Stroke})
-                    if enter then callback(Input.Text) end
+                    if enter and Input.Text ~= "" then 
+                        Library.Flags[flag] = Input.Text
+                        callback(Input.Text) 
+                    end
                 end)
             end
 
-            function Section:Dropdown(text, options, default, callback, customParent)
+            function Section:Dropdown(text, flag, options, default, callback, customParent)
                 local selected = default or options[1]
+                Library.Flags[flag] = selected
+
                 local isDropped = false
                 local parent = customParent or Content
                 
@@ -1614,6 +1799,12 @@ function Library:CreateWindow(options)
                     ListFrame.CanvasSize = UDim2.new(0, 0, 0, IList.AbsoluteContentSize.Y)
                 end)
                 
+                Library.Signals[flag] = function(val)
+                    selected = val
+                    SelectedText.Text = selected
+                    callback(selected)
+                end
+
                 for _, opt in ipairs(options) do
                     local OptBtn = Instance.new("TextButton")
                     OptBtn.Size = UDim2.new(1, 0, 0, 24)
@@ -1636,10 +1827,13 @@ function Library:CreateWindow(options)
                     
                     OptBtn.MouseButton1Click:Connect(function()
                         selected = opt
+                        Library.Flags[flag] = selected
                         SelectedText.Text = selected
                         callback(selected)
                         isDropped = false
+                        
                         Section.Container.ZIndex = 1
+                        Section.ParentCol.ZIndex = 1
                         Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
                         Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
                         Tween(Arrow, {Rotation = 0}, 0.2)
@@ -1651,6 +1845,8 @@ function Library:CreateWindow(options)
                 Interactive.MouseButton1Click:Connect(function()
                     isDropped = not isDropped
                     Section.Container.ZIndex = isDropped and 10 or 1
+                    Section.ParentCol.ZIndex = isDropped and 10 or 1
+                    
                     if isDropped then
                         ListFrame.Visible = true
                         local listH = math.min(#options * 24, 200)
@@ -1668,8 +1864,10 @@ function Library:CreateWindow(options)
                 end)
             end
 
-            function Section:ColorPicker(text, default, callback)
+            function Section:ColorPicker(text, flag, default, callback)
                 local color = default or Color3.fromRGB(255, 255, 255)
+                Library.Flags[flag] = color
+
                 local h, s, v = color:ToHSV()
                 local isOpen = false
                 
@@ -1757,8 +1955,19 @@ function Library:CreateWindow(options)
                 
                 local function Update()
                     color = Color3.fromHSV(h, s, v)
+                    Library.Flags[flag] = color
                     Preview.BackgroundColor3 = color
                     SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+                    callback(color)
+                end
+
+                Library.Signals[flag] = function(val)
+                    color = val
+                    h, s, v = color:ToHSV()
+                    Preview.BackgroundColor3 = color
+                    SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+                    SVCursor.Position = UDim2.new(s, 0, 1-v, 0)
+                    HCursor.Position = UDim2.new(0, 0, h, 0)
                     callback(color)
                 end
                 
@@ -1778,26 +1987,42 @@ function Library:CreateWindow(options)
                     Update()
                 end
                 
-                local dragSV, dragH = false, false
-                
-                SVMap.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragSV = true SetSV(i) end end)
-                HueBar.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragH = true SetH(i) end end)
-                UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragSV = false dragH = false end end)
-                UserInputService.InputChanged:Connect(function(i)
-                    if i.UserInputType == Enum.UserInputType.MouseMovement then
-                        if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-                            dragSV = false
-                            dragH = false
-                            return
-                        end
-                        if dragSV then SetSV(i) end
-                        if dragH then SetH(i) end
+                SVMap.InputBegan:Connect(function(i)
+                    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+                        SetSV(i)
+                        local moveConn, releaseConn
+                        moveConn = UserInputService.InputChanged:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.MouseMovement then SetSV(input) end
+                        end)
+                        releaseConn = UserInputService.InputEnded:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                                moveConn:Disconnect()
+                                releaseConn:Disconnect()
+                            end
+                        end)
+                    end
+                end)
+
+                HueBar.InputBegan:Connect(function(i)
+                    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+                        SetH(i)
+                        local moveConn, releaseConn
+                        moveConn = UserInputService.InputChanged:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.MouseMovement then SetH(input) end
+                        end)
+                        releaseConn = UserInputService.InputEnded:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                                moveConn:Disconnect()
+                                releaseConn:Disconnect()
+                            end
+                        end)
                     end
                 end)
                 
                 Preview.MouseButton1Click:Connect(function()
                     isOpen = not isOpen
                     Section.Container.ZIndex = isOpen and 10 or 1
+                    Section.ParentCol.ZIndex = isOpen and 10 or 1
                     Tween(PickerCont, {Size = UDim2.new(1, 0, 0, isOpen and 140 or 0)}, 0.2)
                 end)
             end
