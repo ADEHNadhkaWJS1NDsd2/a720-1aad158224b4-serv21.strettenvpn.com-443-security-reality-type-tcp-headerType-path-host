@@ -109,23 +109,26 @@ local function Stroke(parent, color, thickness, transparency)
     return s
 end
 
-local DRAG_THRESHOLD = 6
+local function MakeDraggable(dragObj, moveObj, onDragCallback)
+    local dragging = false
+    local dragStart
+    local startPos
+    local inputChangedConn, inputEndedConn
 
-local function MakeDraggable(dragObj, moveObj)
-    local state = { dragged = false }
     dragObj.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local dragStart = input.Position
-            local startPos = moveObj.Position
-            state.dragged = false
-            local inputChangedConn, inputEndedConn
+            dragging = false
+            dragStart = input.Position
+            startPos = moveObj.Position
+            if inputChangedConn then inputChangedConn:Disconnect() end
+            if inputEndedConn then inputEndedConn:Disconnect() end
             inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
                 if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
                     local delta = inp.Position - dragStart
-                    if not state.dragged and (math.abs(delta.X) > DRAG_THRESHOLD or math.abs(delta.Y) > DRAG_THRESHOLD) then
-                        state.dragged = true
+                    if not dragging and delta.Magnitude > 5 then
+                        dragging = true
                     end
-                    if state.dragged then
+                    if dragging then
                         moveObj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
                     end
                 end
@@ -134,11 +137,18 @@ local function MakeDraggable(dragObj, moveObj)
                 if input.UserInputState == Enum.UserInputState.End then
                     if inputChangedConn then inputChangedConn:Disconnect() end
                     if inputEndedConn then inputEndedConn:Disconnect() end
+                    if onDragCallback then
+                        onDragCallback(dragging)
+                    end
+                    dragging = false
                 end
             end)
         end
     end)
-    return state
+
+    return function()
+        return dragging
+    end
 end
 
 local function MakeResizable(resizeBtn, frame, minSize)
@@ -190,7 +200,7 @@ function Library:Unload()
     if Library.ScreenGui then pcall(function() Library.ScreenGui:Destroy() end) Library.ScreenGui = nil end
     if Library.KeybindList then pcall(function() Library.KeybindList.Screen:Destroy() end) Library.KeybindList = nil end
     for _, g in pairs(GetParent():GetChildren()) do
-        if g.Name == "PrismaMini" or g.Name == Config.Name or g.Name == "PrismaKeybinds" or g.Name == "PrismaLoader" or g.Name == "PhantomNotifications" or g.Name == "PhantomWatermark" or g.Name == "PhantomTooltip" then
+        if g.Name == "PrismaMini" or g.Name == Config.Name or g.Name == "PrismaKeybinds" or g.Name == "PrismaLoader" or g.Name == "PhantomNotifications" or g.Name == "PhantomWatermark" or g.Name == "PhantomTooltip" or g.Name == "PhantomMiniButton" then
             pcall(function() g:Destroy() end)
         end
     end
@@ -575,58 +585,50 @@ function Library:CreateWindow(options)
     Library.ScreenGui = ScreenGui
 
     local MiniGui = Instance.new("ScreenGui")
-    MiniGui.Name = "PrismaMini"
+    MiniGui.Name = "PhantomMiniButton"
     MiniGui.Parent = GetParent()
     MiniGui.Enabled = false
     MiniGui.IgnoreGuiInset = true
-    MiniGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-    local MiniBtn = Instance.new("Frame")
-    MiniBtn.Size = UDim2.new(0, 48, 0, 48)
-    MiniBtn.Position = UDim2.new(0.5, -24, 0, 16)
-    MiniBtn.BackgroundColor3 = Theme.Sidebar
-    MiniBtn.BorderSizePixel = 0
-    MiniBtn.Parent = MiniGui
-    MiniBtn.Active = true
-    Corner(MiniBtn, 24)
+    local MiniButton = Instance.new("ImageButton")
+    MiniButton.Size = UDim2.new(0, 46, 0, 46)
+    MiniButton.Position = UDim2.new(0, 20, 0.5, -23)
+    MiniButton.BackgroundColor3 = Theme.Background
+    MiniButton.BackgroundTransparency = 0.1
+    MiniButton.Image = "rbxassetid://112964043447417"
+    MiniButton.ImageColor3 = Theme.Accent
+    MiniButton.ScaleType = Enum.ScaleType.Fit
+    MiniButton.AutoButtonColor = false
+    MiniButton.Active = true
+    MiniButton.Parent = MiniGui
+    Corner(MiniButton, 23)
+    Stroke(MiniButton, Theme.Accent, 2, 0.3)
+    RegisterTheme(MiniButton, "ImageColor")
 
-    local MiniBtnStroke = Stroke(MiniBtn, Theme.Accent, 2, 0)
-    RegisterTheme(MiniBtnStroke, "BorderColor")
+    local miniWasDragged = false
+    MakeDraggable(MiniButton, MiniButton, function(wasDrag)
+        miniWasDragged = wasDrag
+    end)
 
-    local MiniBtnGlow = Instance.new("Frame")
-    MiniBtnGlow.Size = UDim2.new(1, 8, 1, 8)
-    MiniBtnGlow.Position = UDim2.new(0, -4, 0, -4)
-    MiniBtnGlow.BackgroundColor3 = Theme.Accent
-    MiniBtnGlow.BackgroundTransparency = 0.85
-    MiniBtnGlow.BorderSizePixel = 0
-    MiniBtnGlow.ZIndex = 0
-    MiniBtnGlow.Parent = MiniBtn
-    Corner(MiniBtnGlow, 28)
-    RegisterTheme(MiniBtnGlow, "BackgroundColor")
-
-    local MiniBtnNoise = Instance.new("ImageLabel")
-    MiniBtnNoise.Size = UDim2.new(1, 0, 1, 0)
-    MiniBtnNoise.BackgroundTransparency = 1
-    MiniBtnNoise.Image = "rbxassetid://9968344105"
-    MiniBtnNoise.ImageTransparency = 0.9
-    MiniBtnNoise.ScaleType = Enum.ScaleType.Tile
-    MiniBtnNoise.TileSize = UDim2.new(0, 100, 0, 100)
-    MiniBtnNoise.ZIndex = 2
-    MiniBtnNoise.Parent = MiniBtn
-    Corner(MiniBtnNoise, 24)
-
-    local MiniIcon = Instance.new("ImageLabel")
-    MiniIcon.Size = UDim2.new(0, 28, 0, 28)
-    MiniIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-    MiniIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-    MiniIcon.BackgroundTransparency = 1
-    MiniIcon.Image = "rbxassetid://112964043447417"
-    MiniIcon.ImageColor3 = Theme.Accent
-    MiniIcon.ZIndex = 3
-    MiniIcon.Parent = MiniBtn
-    RegisterTheme(MiniIcon, "ImageColor")
-
-    local miniDragState = MakeDraggable(MiniBtn, MiniBtn)
+    MiniButton.MouseButton1Click:Connect(function()
+        if miniWasDragged then
+            miniWasDragged = false
+            return
+        end
+        Library.Open = true
+        MiniGui.Enabled = false
+        if Library._IsSettings then
+            Library._SettingsWindow.Visible = true
+            Library._SettingsWindow.BackgroundTransparency = 0.1
+            Library._SetScale.Scale = GetBaseScale() * 0.8
+            Tween(Library._SetScale, {Scale = GetBaseScale()}, 0.3)
+        else
+            Library._MainWindow.Visible = true
+            Library._MainWindow.BackgroundTransparency = 0.1
+            Library._MainScale.Scale = GetBaseScale() * 0.8
+            Tween(Library._MainScale, {Scale = GetBaseScale()}, 0.3)
+        end
+    end)
 
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
@@ -669,20 +671,18 @@ function Library:CreateWindow(options)
         local Scale = Instance.new("UIScale")
         Scale.Scale = 1
         Scale.Parent = Frame
-
-        local dragState = MakeDraggable(DragHeader, Frame)
-
-        DragHeader.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragState.dragged = false
-            end
-        end)
-
+        MakeDraggable(DragHeader, Frame)
         return Frame, Scale
     end
 
     local MainWindow, MainScale = CreateBaseFrame("MainWindow")
     local SettingsWindow, SetScale = CreateBaseFrame("SettingsWindow")
+
+    Library._MainWindow = MainWindow
+    Library._MainScale = MainScale
+    Library._SettingsWindow = SettingsWindow
+    Library._SetScale = SetScale
+    Library._IsSettings = false
 
     local Resizer = Instance.new("Frame")
     Resizer.Size = UDim2.new(0, 20, 0, 20)
@@ -761,7 +761,6 @@ function Library:CreateWindow(options)
             Logo.BackgroundTransparency = 1
             Logo.Parent = Bar
             RegisterTheme(Logo, "TextColor")
-
             local Container = Instance.new("Frame")
             Container.Size = UDim2.new(1, 0, 1, -130)
             Container.Position = UDim2.new(0, 0, 0, 60)
@@ -772,7 +771,6 @@ function Library:CreateWindow(options)
             List.HorizontalAlignment = Enum.HorizontalAlignment.Center
             List.SortOrder = Enum.SortOrder.LayoutOrder
             List.Parent = Container
-
             return Bar, Container, nil
         end
     end
@@ -825,108 +823,87 @@ function Library:CreateWindow(options)
 
     local IsSettings = false
 
-    local function GetActiveWindow()
-        return IsSettings and SettingsWindow or MainWindow
-    end
-    local function GetActiveScale()
-        return IsSettings and SetScale or MainScale
-    end
-
-    local function ShowWindow(win, scl)
-        win.BackgroundTransparency = 0.1
-        scl.Scale = 0
-        win.Visible = true
-        Tween(scl, {Scale = GetBaseScale()}, 0.25)
-    end
-
-    local function HideWindow(win, scl, cb)
-        Tween(scl, {Scale = 0}, 0.2)
-        task.delay(0.22, function()
-            win.Visible = false
-            win.BackgroundTransparency = 0.1
-            scl.Scale = GetBaseScale()
-            if cb then cb() end
-        end)
-    end
+    local animating = false
 
     local function ToggleMain()
+        if animating then return end
+        animating = true
         Library.Open = not Library.Open
-        TooltipLabel.Visible = false
         if Library.Open then
             MiniGui.Enabled = false
-            ShowWindow(GetActiveWindow(), GetActiveScale())
-        else
-            HideWindow(GetActiveWindow(), GetActiveScale(), function()
-                MiniGui.Enabled = true
-            end)
-        end
-    end
-
-    local function Minimize()
-        Library.Open = false
-        TooltipLabel.Visible = false
-        HideWindow(GetActiveWindow(), GetActiveScale(), function()
-            MiniGui.Enabled = true
-        end)
-    end
-
-    local function Restore()
-        Library.Open = true
-        MiniGui.Enabled = false
-        ShowWindow(GetActiveWindow(), GetActiveScale())
-    end
-
-    MiniBtn.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            if not miniDragState.dragged then
-                Restore()
+            if IsSettings then
+                SettingsWindow.Visible = true
+                SettingsWindow.BackgroundTransparency = 0.1
+                SetScale.Scale = GetBaseScale() * 0.8
+                Tween(SetScale, {Scale = GetBaseScale()}, 0.3).Completed:Wait()
+            else
+                MainWindow.Visible = true
+                MainWindow.BackgroundTransparency = 0.1
+                MainScale.Scale = GetBaseScale() * 0.8
+                Tween(MainScale, {Scale = GetBaseScale()}, 0.3).Completed:Wait()
             end
+        else
+            if IsSettings then
+                Tween(SetScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
+            else
+                Tween(MainScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
+            end
+            MainWindow.Visible = false
+            SettingsWindow.Visible = false
+            TooltipLabel.Visible = false
+            MiniGui.Enabled = true
         end
-    end)
+        animating = false
+    end
 
     local function SwitchToSettings()
+        if animating then return end
+        animating = true
         SettingsWindow.Position = MainWindow.Position
         SettingsWindow.Size = MainWindow.Size
-        Tween(MainScale, {Scale = GetBaseScale() * 0.9}, 0.15)
-        task.wait(0.1)
+        Tween(MainScale, {Scale = GetBaseScale() * 0.9}, 0.15).Completed:Wait()
         MainWindow.Visible = false
-        MainWindow.BackgroundTransparency = 0.1
-        MainScale.Scale = GetBaseScale()
-        SettingsWindow.BackgroundTransparency = 0.1
         SettingsWindow.Visible = true
+        SettingsWindow.BackgroundTransparency = 0.1
         SetScale.Scale = GetBaseScale() * 0.9
-        Tween(SetScale, {Scale = GetBaseScale()}, 0.2)
+        Tween(SetScale, {Scale = GetBaseScale()}, 0.2).Completed:Wait()
         IsSettings = true
+        Library._IsSettings = true
+        animating = false
     end
 
     local function SwitchToMain()
+        if animating then return end
+        animating = true
         MainWindow.Position = SettingsWindow.Position
         MainWindow.Size = SettingsWindow.Size
-        Tween(SetScale, {Scale = GetBaseScale() * 0.9}, 0.15)
-        task.wait(0.1)
+        Tween(SetScale, {Scale = GetBaseScale() * 0.9}, 0.15).Completed:Wait()
         SettingsWindow.Visible = false
-        SettingsWindow.BackgroundTransparency = 0.1
-        SetScale.Scale = GetBaseScale()
-        MainWindow.BackgroundTransparency = 0.1
         MainWindow.Visible = true
+        MainWindow.BackgroundTransparency = 0.1
         MainScale.Scale = GetBaseScale() * 0.9
-        Tween(MainScale, {Scale = GetBaseScale()}, 0.2)
+        Tween(MainScale, {Scale = GetBaseScale()}, 0.2).Completed:Wait()
         IsSettings = false
+        Library._IsSettings = false
+        animating = false
     end
 
-    ProfileBtn.MouseButton1Click:Connect(SwitchToSettings)
-    BackBtn.MouseButton1Click:Connect(SwitchToMain)
+    ProfileBtn.MouseButton1Click:Connect(function() task.spawn(SwitchToSettings) end)
+    BackBtn.MouseButton1Click:Connect(function() task.spawn(SwitchToMain) end)
 
     workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
         if Library.Open then
-            local scl = GetActiveScale()
-            scl.Scale = GetBaseScale()
+            if IsSettings and SettingsWindow.Visible then
+                SetScale.Scale = GetBaseScale()
+            elseif not IsSettings and MainWindow.Visible then
+                MainScale.Scale = GetBaseScale()
+            end
         end
     end)
 
     local MenuBindConnection = UserInputService.InputBegan:Connect(function(input, gp)
         if not gp and input.KeyCode == Config.Keybind then
-            ToggleMain()
+            task.spawn(ToggleMain)
         end
     end)
     table.insert(Library.Connections, MenuBindConnection)
@@ -1795,7 +1772,6 @@ function Library:CreateWindow(options)
         SetPage.BackgroundTransparency = 1
         SetPage.ScrollBarThickness = 2
         SetPage.ScrollBarImageColor3 = Theme.Accent
-        SetPage.Active = true
         SetPage.Parent = SettingsWindow
         RegisterTheme(SetPage, "ScrollBar")
 
@@ -1895,7 +1871,6 @@ function Library:CreateWindow(options)
         Page.Position = UDim2.new(0, 10, 0, 10)
         Page.BackgroundTransparency = 1
         Page.ScrollBarThickness = 0
-        Page.Active = true
         Page.Visible = false
         Page.Parent = MainPages
 
@@ -2448,7 +2423,9 @@ function Library:CreateWindow(options)
                         ModeGui.Visible = false
                         Library.Unsaved = true
                         Library:UpdateKeybindList(text, key.Name, true, kMode)
-                        if kMode == "Always" then callback(true) end
+                        if kMode == "Always" then
+                            callback(true)
+                        end
                     end)
                 end
 
