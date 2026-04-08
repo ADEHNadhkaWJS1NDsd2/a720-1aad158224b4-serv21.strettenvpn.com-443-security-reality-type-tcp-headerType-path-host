@@ -33,7 +33,7 @@ local Library = {
 
 local Config = {
     Name = "PHANTOM HUB",
-    Keybind = Enum.KeyCode.RightShift,
+    Keybind = Enum.KeyCode.LeftControl,
     Duration = 0.3,
     FontMain = Enum.Font.GothamMedium,
     FontBold = Enum.Font.GothamBold,
@@ -109,16 +109,25 @@ local function Stroke(parent, color, thickness, transparency)
     return s
 end
 
+local DRAG_THRESHOLD = 6
+
 local function MakeDraggable(dragObj, moveObj)
+    local state = { dragged = false }
     dragObj.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             local dragStart = input.Position
             local startPos = moveObj.Position
+            state.dragged = false
             local inputChangedConn, inputEndedConn
             inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
                 if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
                     local delta = inp.Position - dragStart
-                    moveObj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                    if not state.dragged and (math.abs(delta.X) > DRAG_THRESHOLD or math.abs(delta.Y) > DRAG_THRESHOLD) then
+                        state.dragged = true
+                    end
+                    if state.dragged then
+                        moveObj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                    end
                 end
             end)
             inputEndedConn = input.Changed:Connect(function()
@@ -129,6 +138,7 @@ local function MakeDraggable(dragObj, moveObj)
             end)
         end
     end)
+    return state
 end
 
 local function MakeResizable(resizeBtn, frame, minSize)
@@ -140,23 +150,18 @@ local function MakeResizable(resizeBtn, frame, minSize)
             local scaleObj = frame:FindFirstChildWhichIsA("UIScale")
             local scaleMult = scaleObj and scaleObj.Scale or 1
             if scaleMult <= 0 then scaleMult = 1 end
-
             local inputChangedConn, inputEndedConn
-            
             inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
                 if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
                     local delta = inp.Position - dragStart
                     local newX = math.max(minSize.X, startSizeOffset.X.Offset + (delta.X / scaleMult))
                     local newY = math.max(minSize.Y, startSizeOffset.Y.Offset + (delta.Y / scaleMult))
-                    
                     local diffX_visual = (newX - startSizeOffset.X.Offset) * scaleMult
                     local diffY_visual = (newY - startSizeOffset.Y.Offset) * scaleMult
-
                     frame.Size = UDim2.new(0, newX, 0, newY)
                     frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (diffX_visual / 2), startPos.Y.Scale, startPos.Y.Offset + (diffY_visual / 2))
                 end
             end)
-            
             inputEndedConn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     if inputChangedConn then inputChangedConn:Disconnect() end
@@ -197,7 +202,7 @@ function Library:GetConfigs()
         local files = listfiles(Config.ConfigFolder)
         for _, file in ipairs(files) do
             if file:match(".json$") then
-                local name = file:match("([^/%\\]+)%.json$") or file
+                local name = file:match("([^/%\$+)%.json$") or file
                 table.insert(configs, name)
             end
         end
@@ -574,32 +579,54 @@ function Library:CreateWindow(options)
     MiniGui.Parent = GetParent()
     MiniGui.Enabled = false
     MiniGui.IgnoreGuiInset = true
+    MiniGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-    local MiniFrame = Instance.new("TextButton")
-    MiniFrame.Size = UDim2.new(0, 150, 0, 30)
-    MiniFrame.Position = UDim2.new(0.5, 0, 0, 10)
-    MiniFrame.AnchorPoint = Vector2.new(0.5, 0)
-    MiniFrame.BackgroundColor3 = Theme.Background
-    MiniFrame.BackgroundTransparency = 0.1
-    MiniFrame.Text = Config.Name
-    MiniFrame.TextColor3 = Theme.Accent
-    MiniFrame.Font = Config.FontBold
-    MiniFrame.TextSize = 14
-    MiniFrame.Parent = MiniGui
-    MiniFrame.Active = true
-    Corner(MiniFrame, 6)
-    Stroke(MiniFrame, Theme.Stroke, 1, 0)
-    MakeDraggable(MiniFrame, MiniFrame)
+    local MiniBtn = Instance.new("Frame")
+    MiniBtn.Size = UDim2.new(0, 48, 0, 48)
+    MiniBtn.Position = UDim2.new(0.5, -24, 0, 16)
+    MiniBtn.BackgroundColor3 = Theme.Sidebar
+    MiniBtn.BorderSizePixel = 0
+    MiniBtn.Parent = MiniGui
+    MiniBtn.Active = true
+    Corner(MiniBtn, 24)
 
-    local MNoise = Instance.new("ImageLabel")
-    MNoise.Size = UDim2.new(1, 0, 1, 0)
-    MNoise.BackgroundTransparency = 1
-    MNoise.Image = "rbxassetid://9968344105"
-    MNoise.ImageTransparency = 0.9
-    MNoise.ScaleType = Enum.ScaleType.Tile
-    MNoise.TileSize = UDim2.new(0, 100, 0, 100)
-    MNoise.Parent = MiniFrame
-    Corner(MNoise, 6)
+    local MiniBtnStroke = Stroke(MiniBtn, Theme.Accent, 2, 0)
+    RegisterTheme(MiniBtnStroke, "BorderColor")
+
+    local MiniBtnGlow = Instance.new("Frame")
+    MiniBtnGlow.Size = UDim2.new(1, 8, 1, 8)
+    MiniBtnGlow.Position = UDim2.new(0, -4, 0, -4)
+    MiniBtnGlow.BackgroundColor3 = Theme.Accent
+    MiniBtnGlow.BackgroundTransparency = 0.85
+    MiniBtnGlow.BorderSizePixel = 0
+    MiniBtnGlow.ZIndex = 0
+    MiniBtnGlow.Parent = MiniBtn
+    Corner(MiniBtnGlow, 28)
+    RegisterTheme(MiniBtnGlow, "BackgroundColor")
+
+    local MiniBtnNoise = Instance.new("ImageLabel")
+    MiniBtnNoise.Size = UDim2.new(1, 0, 1, 0)
+    MiniBtnNoise.BackgroundTransparency = 1
+    MiniBtnNoise.Image = "rbxassetid://9968344105"
+    MiniBtnNoise.ImageTransparency = 0.9
+    MiniBtnNoise.ScaleType = Enum.ScaleType.Tile
+    MiniBtnNoise.TileSize = UDim2.new(0, 100, 0, 100)
+    MiniBtnNoise.ZIndex = 2
+    MiniBtnNoise.Parent = MiniBtn
+    Corner(MiniBtnNoise, 24)
+
+    local MiniIcon = Instance.new("ImageLabel")
+    MiniIcon.Size = UDim2.new(0, 28, 0, 28)
+    MiniIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
+    MiniIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+    MiniIcon.BackgroundTransparency = 1
+    MiniIcon.Image = "rbxassetid://112964043447417"
+    MiniIcon.ImageColor3 = Theme.Accent
+    MiniIcon.ZIndex = 3
+    MiniIcon.Parent = MiniBtn
+    RegisterTheme(MiniIcon, "ImageColor")
+
+    local miniDragState = MakeDraggable(MiniBtn, MiniBtn)
 
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
@@ -642,7 +669,15 @@ function Library:CreateWindow(options)
         local Scale = Instance.new("UIScale")
         Scale.Scale = 1
         Scale.Parent = Frame
-        MakeDraggable(DragHeader, Frame)
+
+        local dragState = MakeDraggable(DragHeader, Frame)
+
+        DragHeader.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragState.dragged = false
+            end
+        end)
+
         return Frame, Scale
     end
 
@@ -745,18 +780,6 @@ function Library:CreateWindow(options)
     local MainBar, TabContainer, _ = CreateSidebar(MainWindow, false)
     local SetBar, SetContainer, BackBtn = CreateSidebar(SettingsWindow, true)
 
-    local MinimizeBtn = Instance.new("TextButton")
-    MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
-    MinimizeBtn.Position = UDim2.new(1, -5, 0, 5)
-    MinimizeBtn.AnchorPoint = Vector2.new(1, 0)
-    MinimizeBtn.BackgroundTransparency = 1
-    MinimizeBtn.Text = "-"
-    MinimizeBtn.Font = Config.FontBold
-    MinimizeBtn.TextSize = 24
-    MinimizeBtn.TextColor3 = Theme.Text
-    MinimizeBtn.ZIndex = 100
-    MinimizeBtn.Parent = MainWindow
-
     local ProfileBtn = Instance.new("TextButton")
     ProfileBtn.Size = UDim2.new(1, 0, 0, 60)
     ProfileBtn.Position = UDim2.new(0, 0, 1, 0)
@@ -802,61 +825,64 @@ function Library:CreateWindow(options)
 
     local IsSettings = false
 
+    local function GetActiveWindow()
+        return IsSettings and SettingsWindow or MainWindow
+    end
+    local function GetActiveScale()
+        return IsSettings and SetScale or MainScale
+    end
+
+    local function ShowWindow(win, scl)
+        win.BackgroundTransparency = 0.1
+        scl.Scale = 0
+        win.Visible = true
+        Tween(scl, {Scale = GetBaseScale()}, 0.25)
+    end
+
+    local function HideWindow(win, scl, cb)
+        Tween(scl, {Scale = 0}, 0.2)
+        task.delay(0.22, function()
+            win.Visible = false
+            win.BackgroundTransparency = 0.1
+            scl.Scale = GetBaseScale()
+            if cb then cb() end
+        end)
+    end
+
     local function ToggleMain()
         Library.Open = not Library.Open
+        TooltipLabel.Visible = false
         if Library.Open then
-            if IsSettings then
-                SettingsWindow.Visible = true
-                SetScale.Scale = 0
-                Tween(SetScale, {Scale = GetBaseScale()}, 0.25)
-            else
-                MainWindow.Visible = true
-                MainScale.Scale = 0
-                Tween(MainScale, {Scale = GetBaseScale()}, 0.25)
-            end
             MiniGui.Enabled = false
+            ShowWindow(GetActiveWindow(), GetActiveScale())
         else
-            Tween(MainScale, {Scale = 0}, 0.2)
-            Tween(SetScale, {Scale = 0}, 0.2)
-            task.wait(0.2)
-            MainWindow.Visible = false
-            SettingsWindow.Visible = false
-            TooltipLabel.Visible = false
+            HideWindow(GetActiveWindow(), GetActiveScale(), function()
+                MiniGui.Enabled = true
+            end)
         end
     end
 
     local function Minimize()
         Library.Open = false
-        if IsSettings then
-            Tween(SetScale, {Scale = GetBaseScale() * 0.8}, 0.2)
-            Tween(SettingsWindow, {BackgroundTransparency = 1}, 0.2)
-        else
-            Tween(MainScale, {Scale = GetBaseScale() * 0.8}, 0.2)
-            Tween(MainWindow, {BackgroundTransparency = 1}, 0.2)
-        end
-        task.wait(0.2)
-        MainWindow.Visible = false
-        SettingsWindow.Visible = false
-        MiniGui.Enabled = true
         TooltipLabel.Visible = false
+        HideWindow(GetActiveWindow(), GetActiveScale(), function()
+            MiniGui.Enabled = true
+        end)
     end
 
     local function Restore()
         Library.Open = true
         MiniGui.Enabled = false
-        if IsSettings then
-            SettingsWindow.Visible = true
-            Tween(SettingsWindow, {BackgroundTransparency = 0.1}, 0.2)
-            Tween(SetScale, {Scale = GetBaseScale()}, 0.25)
-        else
-            MainWindow.Visible = true
-            Tween(MainWindow, {BackgroundTransparency = 0.1}, 0.2)
-            Tween(MainScale, {Scale = GetBaseScale()}, 0.25)
-        end
+        ShowWindow(GetActiveWindow(), GetActiveScale())
     end
 
-    MinimizeBtn.MouseButton1Click:Connect(Minimize)
-    MiniFrame.MouseButton1Click:Connect(Restore)
+    MiniBtn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            if not miniDragState.dragged then
+                Restore()
+            end
+        end
+    end)
 
     local function SwitchToSettings()
         SettingsWindow.Position = MainWindow.Position
@@ -864,6 +890,9 @@ function Library:CreateWindow(options)
         Tween(MainScale, {Scale = GetBaseScale() * 0.9}, 0.15)
         task.wait(0.1)
         MainWindow.Visible = false
+        MainWindow.BackgroundTransparency = 0.1
+        MainScale.Scale = GetBaseScale()
+        SettingsWindow.BackgroundTransparency = 0.1
         SettingsWindow.Visible = true
         SetScale.Scale = GetBaseScale() * 0.9
         Tween(SetScale, {Scale = GetBaseScale()}, 0.2)
@@ -876,6 +905,9 @@ function Library:CreateWindow(options)
         Tween(SetScale, {Scale = GetBaseScale() * 0.9}, 0.15)
         task.wait(0.1)
         SettingsWindow.Visible = false
+        SettingsWindow.BackgroundTransparency = 0.1
+        SetScale.Scale = GetBaseScale()
+        MainWindow.BackgroundTransparency = 0.1
         MainWindow.Visible = true
         MainScale.Scale = GetBaseScale() * 0.9
         Tween(MainScale, {Scale = GetBaseScale()}, 0.2)
@@ -887,16 +919,15 @@ function Library:CreateWindow(options)
 
     workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
         if Library.Open then
-            if IsSettings and SettingsWindow.Visible then
-                SetScale.Scale = GetBaseScale()
-            elseif not IsSettings and MainWindow.Visible then
-                MainScale.Scale = GetBaseScale()
-            end
+            local scl = GetActiveScale()
+            scl.Scale = GetBaseScale()
         end
     end)
 
     local MenuBindConnection = UserInputService.InputBegan:Connect(function(input, gp)
-        if not gp and input.KeyCode == Config.Keybind then ToggleMain() end
+        if not gp and input.KeyCode == Config.Keybind then
+            ToggleMain()
+        end
     end)
     table.insert(Library.Connections, MenuBindConnection)
 
@@ -1177,7 +1208,7 @@ function Library:CreateWindow(options)
 
             function ToggleObj:Keybind(defaultKey, mode)
                 ToggleObj.KeybindValue = defaultKey or Enum.KeyCode.Unknown
-                ToggleObj.KeybindMode = mode or "Toggle" 
+                ToggleObj.KeybindMode = mode or "Toggle"
                 local KeyBtn = Instance.new("TextButton")
                 KeyBtn.Size = UDim2.new(0, 60, 0, 18)
                 KeyBtn.Position = UDim2.new(1, -30, 0.5, 0)
@@ -1764,6 +1795,7 @@ function Library:CreateWindow(options)
         SetPage.BackgroundTransparency = 1
         SetPage.ScrollBarThickness = 2
         SetPage.ScrollBarImageColor3 = Theme.Accent
+        SetPage.Active = true
         SetPage.Parent = SettingsWindow
         RegisterTheme(SetPage, "ScrollBar")
 
@@ -1786,7 +1818,7 @@ function Library:CreateWindow(options)
             local conn
             conn = UserInputService.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Keyboard then
-                    if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then Config.Keybind = Enum.KeyCode.RightShift
+                    if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then Config.Keybind = Enum.KeyCode.LeftControl
                     elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then Config.Keybind = input.KeyCode end
                     MenuSec.ButtonLabel.Text = "Menu Keybind: " .. tostring(Config.Keybind.Name)
                     Library:Notify("Settings", "Menu keybind set to " .. tostring(Config.Keybind.Name), 2)
@@ -1863,6 +1895,7 @@ function Library:CreateWindow(options)
         Page.Position = UDim2.new(0, 10, 0, 10)
         Page.BackgroundTransparency = 1
         Page.ScrollBarThickness = 0
+        Page.Active = true
         Page.Visible = false
         Page.Parent = MainPages
 
@@ -2214,7 +2247,7 @@ function Library:CreateWindow(options)
 
                 function ToggleObj:Keybind(defaultKey, mode)
                     ToggleObj.KeybindValue = defaultKey or Enum.KeyCode.Unknown
-                    ToggleObj.KeybindMode = mode or "Toggle" 
+                    ToggleObj.KeybindMode = mode or "Toggle"
                     local KeyBtn = Instance.new("TextButton")
                     KeyBtn.Size = UDim2.new(0, 60, 0, 18)
                     KeyBtn.Position = UDim2.new(1, -30, 0.5, 0)
@@ -2330,12 +2363,12 @@ function Library:CreateWindow(options)
                 local kMode = mode or "Toggle"
                 Library.Defaults[flag] = {Key = key, Mode = kMode}
                 Library.Flags[flag] = {Key = key, Mode = kMode}
-                
+
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 30)
                 Frame.BackgroundTransparency = 1
                 Frame.Parent = Content
-                
+
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
                 Label.Font = Config.FontMain
@@ -2415,9 +2448,7 @@ function Library:CreateWindow(options)
                         ModeGui.Visible = false
                         Library.Unsaved = true
                         Library:UpdateKeybindList(text, key.Name, true, kMode)
-                        if kMode == "Always" then
-                            callback(true)
-                        end
+                        if kMode == "Always" then callback(true) end
                     end)
                 end
 
@@ -2450,7 +2481,7 @@ function Library:CreateWindow(options)
 
                 table.insert(Library.Connections, BindConnection)
                 table.insert(Library.Connections, BindConnectionEnded)
-                
+
                 Library:UpdateKeybindList(text, key.Name, true, kMode)
                 ApplyTooltip(Frame, tooltipText)
 
