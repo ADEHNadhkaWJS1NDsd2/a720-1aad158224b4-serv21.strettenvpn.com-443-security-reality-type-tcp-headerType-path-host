@@ -130,30 +130,6 @@ local function MakeDraggable(dragObj, moveObj)
     end)
 end
 
-local function MakeResizable(resizeBtn, frame, minSize)
-    resizeBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local dragStart = input.Position
-            local startSize = frame.AbsoluteSize
-            local inputChangedConn, inputEndedConn
-            inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
-                    local delta = inp.Position - dragStart
-                    local newX = math.max(minSize.X, startSize.X + delta.X)
-                    local newY = math.max(minSize.Y, startSize.Y + delta.Y)
-                    frame.Size = UDim2.new(0, newX, 0, newY)
-                end
-            end)
-            inputEndedConn = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    if inputChangedConn then inputChangedConn:Disconnect() end
-                    if inputEndedConn then inputEndedConn:Disconnect() end
-                end
-            end)
-        end
-    end)
-end
-
 function Library:Unload()
     for _, conn in ipairs(Library.Connections) do pcall(function() conn:Disconnect() end) end
     Library.Connections = {}
@@ -515,6 +491,12 @@ function Library:UpdateKeybindList(name, key, active, mode)
     end
 end
 
+local function GetBaseScale()
+    local vp = workspace.CurrentCamera.ViewportSize
+    if vp.X < 1 or vp.Y < 1 then return 1 end
+    return math.clamp(math.min(vp.X / 800, vp.Y / 500), 0.4, 1)
+end
+
 function Library:CreateWindow(options)
     if options and options.Name then Config.Name = options.Name end
     Library:Unload()
@@ -563,7 +545,7 @@ function Library:CreateWindow(options)
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
-        Frame.Size = UDim2.new(0.9, 0, 0.9, 0)
+        Frame.Size = UDim2.new(0, 550, 0, 350)
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
@@ -573,12 +555,6 @@ function Library:CreateWindow(options)
         Frame.Visible = false
         Frame.Parent = ScreenGui
         Frame.Active = true
-
-        local SizeConstraint = Instance.new("UISizeConstraint")
-        SizeConstraint.MaxSize = Vector2.new(2000, 2000)
-        SizeConstraint.MinSize = Vector2.new(400, 250)
-        SizeConstraint.Parent = Frame
-
         Corner(Frame, 6)
         Stroke(Frame, Theme.Stroke, 1, 0)
 
@@ -607,29 +583,6 @@ function Library:CreateWindow(options)
 
     local MainWindow, MainScale = CreateBaseFrame("MainWindow")
     local SettingsWindow, SetScale = CreateBaseFrame("SettingsWindow")
-
-    local Resizer = Instance.new("Frame")
-    Resizer.Size = UDim2.new(0, 20, 0, 20)
-    Resizer.Position = UDim2.new(1, 0, 1, 0)
-    Resizer.AnchorPoint = Vector2.new(1, 1)
-    Resizer.BackgroundTransparency = 1
-    Resizer.Parent = MainWindow
-    Resizer.ZIndex = 20
-    Resizer.Active = true
-    local ResizerIcon = Instance.new("TextLabel")
-    ResizerIcon.Size = UDim2.new(1, 0, 1, 0)
-    ResizerIcon.BackgroundTransparency = 1
-    ResizerIcon.Text = "◢"
-    ResizerIcon.TextColor3 = Theme.TextDark
-    ResizerIcon.TextSize = 16
-    ResizerIcon.Parent = Resizer
-    Resizer.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.Accent}) end
-    end)
-    Resizer.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
-    end)
-    MakeResizable(Resizer, MainWindow, Vector2.new(500, 350))
 
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
@@ -764,8 +717,15 @@ function Library:CreateWindow(options)
     local function ToggleMain()
         Library.Open = not Library.Open
         if Library.Open then
-            if IsSettings then SettingsWindow.Visible = true SetScale.Scale = 0 Tween(SetScale, {Scale = 1}, 0.25)
-            else MainWindow.Visible = true MainScale.Scale = 0 Tween(MainScale, {Scale = 1}, 0.25) end
+            if IsSettings then
+                SettingsWindow.Visible = true
+                SetScale.Scale = 0
+                Tween(SetScale, {Scale = GetBaseScale()}, 0.25)
+            else
+                MainWindow.Visible = true
+                MainScale.Scale = 0
+                Tween(MainScale, {Scale = GetBaseScale()}, 0.25)
+            end
             MiniGui.Enabled = false
         else
             Tween(MainScale, {Scale = 0}, 0.2)
@@ -779,7 +739,7 @@ function Library:CreateWindow(options)
 
     local function Minimize()
         Library.Open = false
-        Tween(MainScale, {Scale = 0.8}, 0.2)
+        Tween(MainScale, {Scale = GetBaseScale() * 0.8}, 0.2)
         Tween(MainWindow, {BackgroundTransparency = 1}, 0.2)
         task.wait(0.2)
         MainWindow.Visible = false
@@ -792,34 +752,46 @@ function Library:CreateWindow(options)
         MiniGui.Enabled = false
         MainWindow.Visible = true
         Tween(MainWindow, {BackgroundTransparency = 0.1}, 0.2)
-        Tween(MainScale, {Scale = 1}, 0.25)
+        Tween(MainScale, {Scale = GetBaseScale()}, 0.25)
     end
 
     MinimizeBtn.MouseButton1Click:Connect(Minimize)
     MiniFrame.MouseButton1Click:Connect(Restore)
 
     local function SwitchToSettings()
-        Tween(MainScale, {Scale = 0.9}, 0.2)
+        SettingsWindow.Position = MainWindow.Position
+        Tween(MainScale, {Scale = GetBaseScale() * 0.9}, 0.2)
         task.wait(0.1)
         MainWindow.Visible = false
         SettingsWindow.Visible = true
-        SetScale.Scale = 0.9
-        Tween(SetScale, {Scale = 1}, 0.25)
+        SetScale.Scale = GetBaseScale() * 0.9
+        Tween(SetScale, {Scale = GetBaseScale()}, 0.25)
         IsSettings = true
     end
 
     local function SwitchToMain()
-        Tween(SetScale, {Scale = 0.9}, 0.2)
+        MainWindow.Position = SettingsWindow.Position
+        Tween(SetScale, {Scale = GetBaseScale() * 0.9}, 0.2)
         task.wait(0.1)
         SettingsWindow.Visible = false
         MainWindow.Visible = true
-        MainScale.Scale = 0.9
-        Tween(MainScale, {Scale = 1}, 0.25)
+        MainScale.Scale = GetBaseScale() * 0.9
+        Tween(MainScale, {Scale = GetBaseScale()}, 0.25)
         IsSettings = false
     end
 
     ProfileBtn.MouseButton1Click:Connect(SwitchToSettings)
     BackBtn.MouseButton1Click:Connect(SwitchToMain)
+
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+        if Library.Open then
+            if IsSettings and SettingsWindow.Visible then
+                SetScale.Scale = GetBaseScale()
+            elseif not IsSettings and MainWindow.Visible then
+                MainScale.Scale = GetBaseScale()
+            end
+        end
+    end)
 
     local MenuBindConnection = UserInputService.InputBegan:Connect(function(input, gp)
         if not gp and input.KeyCode == Config.Keybind then ToggleMain() end
@@ -2537,7 +2509,7 @@ function Library:CreateWindow(options)
         return Tab
     end
 
-    MainScale.Scale = 1
+    MainScale.Scale = GetBaseScale()
     MainWindow.Visible = true
     return WindowObj
 end
