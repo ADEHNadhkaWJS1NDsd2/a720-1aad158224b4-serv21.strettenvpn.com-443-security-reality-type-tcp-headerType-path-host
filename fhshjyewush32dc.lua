@@ -211,8 +211,8 @@ function Library:GetConfigs()
     if isfolder(Config.ConfigFolder) then
         local files = listfiles(Config.ConfigFolder)
         for _, file in ipairs(files) do
-            if file:match(".json$") then
-                local name = file:match("([^/%\$+)%.json$") or file
+            if file:match("%.json$") then
+                local name = file:match("([^/\$+)%.json$") or file
                 table.insert(configs, name)
             end
         end
@@ -220,6 +220,7 @@ function Library:GetConfigs()
     if #configs == 0 then table.insert(configs, "None") end
     return configs
 end
+
 
 function Library:SaveConfig(name)
     if not name or name == "" or name == "None" then return end
