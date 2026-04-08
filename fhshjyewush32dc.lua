@@ -134,25 +134,24 @@ local function MakeResizable(resizeBtn, frame, minSize)
     resizeBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             local dragStart = input.Position
-            local startSize = frame.Size
+            local startSizeOffset = frame.Size
             local startPos = frame.Position
+            local scaleMult = frame:FindFirstChildWhichIsA("UIScale") and frame:FindFirstChildWhichIsA("UIScale").Scale or 1
+            
             local inputChangedConn, inputEndedConn
             
             inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
                 if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
                     local delta = inp.Position - dragStart
-                    local sc = frame:FindFirstChildWhichIsA("UIScale")
-                    local scaleMult = sc and sc.Scale or 1
-                    if scaleMult <= 0 then scaleMult = 1 end
                     
-                    local newX = math.max(minSize.X, startSize.X.Offset + (delta.X / scaleMult))
-                    local newY = math.max(minSize.Y, startSize.Y.Offset + (delta.Y / scaleMult))
+                    local newX = math.max(minSize.X, startSizeOffset.X.Offset + (delta.X / scaleMult))
+                    local newY = math.max(minSize.Y, startSizeOffset.Y.Offset + (delta.Y / scaleMult))
                     
-                    local diffX = newX - startSize.X.Offset
-                    local diffY = newY - startSize.Y.Offset
-                    
+                    local diffX_visual = (newX - startSizeOffset.X.Offset) * scaleMult
+                    local diffY_visual = (newY - startSizeOffset.Y.Offset) * scaleMult
+
                     frame.Size = UDim2.new(0, newX, 0, newY)
-                    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (diffX / 2), startPos.Y.Scale, startPos.Y.Offset + (diffY / 2))
+                    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (diffX_visual / 2), startPos.Y.Scale, startPos.Y.Offset + (diffY_visual / 2))
                 end
             end)
             
@@ -169,10 +168,13 @@ end
 local function GetBaseScale()
     local vp = workspace.CurrentCamera.ViewportSize
     if vp.X < 1 or vp.Y < 1 then return 1 end
-    if vp.X > 1200 then
-        return 1.15
-    elseif vp.X < 800 then
-        return math.clamp(vp.X / 800, 0.6, 1)
+    
+    local scaleX = vp.X / 650
+    local scaleY = vp.Y / 450
+    local scale = math.min(scaleX, scaleY)
+    
+    if scale < 1 then
+        return scale * 0.95
     end
     return 1
 end
@@ -602,7 +604,7 @@ function Library:CreateWindow(options)
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
-        Frame.Size = UDim2.new(0, 550, 0, 350)
+        Frame.Size = UDim2.new(0, 600, 0, 400)
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
@@ -615,7 +617,7 @@ function Library:CreateWindow(options)
 
         local SizeConstraint = Instance.new("UISizeConstraint")
         SizeConstraint.MaxSize = Vector2.new(1200, 800)
-        SizeConstraint.MinSize = Vector2.new(400, 250)
+        SizeConstraint.MinSize = Vector2.new(450, 300)
         SizeConstraint.Parent = Frame
 
         Corner(Frame, 6)
@@ -726,7 +728,7 @@ function Library:CreateWindow(options)
             RegisterTheme(Logo, "TextColor")
 
             local Container = Instance.new("Frame")
-            Container.Size = UDim2.new(1, 0, 1, -95)
+            Container.Size = UDim2.new(1, 0, 1, -130)
             Container.Position = UDim2.new(0, 0, 0, 60)
             Container.BackgroundTransparency = 1
             Container.Parent = Bar
@@ -825,10 +827,16 @@ function Library:CreateWindow(options)
 
     local function Minimize()
         Library.Open = false
-        Tween(MainScale, {Scale = GetBaseScale() * 0.8}, 0.2)
-        Tween(MainWindow, {BackgroundTransparency = 1}, 0.2)
+        if IsSettings then
+            Tween(SetScale, {Scale = GetBaseScale() * 0.8}, 0.2)
+            Tween(SettingsWindow, {BackgroundTransparency = 1}, 0.2)
+        else
+            Tween(MainScale, {Scale = GetBaseScale() * 0.8}, 0.2)
+            Tween(MainWindow, {BackgroundTransparency = 1}, 0.2)
+        end
         task.wait(0.2)
         MainWindow.Visible = false
+        SettingsWindow.Visible = false
         MiniGui.Enabled = true
         TooltipLabel.Visible = false
     end
@@ -836,9 +844,15 @@ function Library:CreateWindow(options)
     local function Restore()
         Library.Open = true
         MiniGui.Enabled = false
-        MainWindow.Visible = true
-        Tween(MainWindow, {BackgroundTransparency = 0.1}, 0.2)
-        Tween(MainScale, {Scale = GetBaseScale()}, 0.25)
+        if IsSettings then
+            SettingsWindow.Visible = true
+            Tween(SettingsWindow, {BackgroundTransparency = 0.1}, 0.2)
+            Tween(SetScale, {Scale = GetBaseScale()}, 0.25)
+        else
+            MainWindow.Visible = true
+            Tween(MainWindow, {BackgroundTransparency = 0.1}, 0.2)
+            Tween(MainScale, {Scale = GetBaseScale()}, 0.25)
+        end
     end
 
     MinimizeBtn.MouseButton1Click:Connect(Minimize)
@@ -847,24 +861,24 @@ function Library:CreateWindow(options)
     local function SwitchToSettings()
         SettingsWindow.Position = MainWindow.Position
         SettingsWindow.Size = MainWindow.Size
-        Tween(MainScale, {Scale = GetBaseScale() * 0.9}, 0.2)
+        Tween(MainScale, {Scale = GetBaseScale() * 0.9}, 0.15)
         task.wait(0.1)
         MainWindow.Visible = false
         SettingsWindow.Visible = true
         SetScale.Scale = GetBaseScale() * 0.9
-        Tween(SetScale, {Scale = GetBaseScale()}, 0.25)
+        Tween(SetScale, {Scale = GetBaseScale()}, 0.2)
         IsSettings = true
     end
 
     local function SwitchToMain()
         MainWindow.Position = SettingsWindow.Position
         MainWindow.Size = SettingsWindow.Size
-        Tween(SetScale, {Scale = GetBaseScale() * 0.9}, 0.2)
+        Tween(SetScale, {Scale = GetBaseScale() * 0.9}, 0.15)
         task.wait(0.1)
         SettingsWindow.Visible = false
         MainWindow.Visible = true
         MainScale.Scale = GetBaseScale() * 0.9
-        Tween(MainScale, {Scale = GetBaseScale()}, 0.25)
+        Tween(MainScale, {Scale = GetBaseScale()}, 0.2)
         IsSettings = false
     end
 
@@ -1251,6 +1265,7 @@ function Library:CreateWindow(options)
             ContainerFrame.Size = UDim2.new(1, 0, 0, 30)
             ContainerFrame.BackgroundTransparency = 1
             ContainerFrame.Parent = Content
+            if secData then table.insert(secData.Items, {Name = text, Instance = ContainerFrame}) end
 
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, 0, 0, 30)
