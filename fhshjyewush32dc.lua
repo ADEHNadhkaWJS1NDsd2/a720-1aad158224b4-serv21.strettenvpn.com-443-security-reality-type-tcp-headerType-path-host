@@ -212,7 +212,7 @@ function Library:GetConfigs()
         local files = listfiles(Config.ConfigFolder)
         for _, file in ipairs(files) do
             if string.sub(file, -5) == ".json" then
-                local name = string.match(file, "([^/\\]+)%.json$") or file
+                local name = string.match(string.gsub(file, "\\", "/"), "([^/]+)%.json$") or file
                 table.insert(configs, name)
             end
         end
