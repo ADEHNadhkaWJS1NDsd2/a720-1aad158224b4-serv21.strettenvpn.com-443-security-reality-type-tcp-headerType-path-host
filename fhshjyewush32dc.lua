@@ -221,8 +221,6 @@ function Library:GetConfigs()
     return configs
 end
 
-
-
 function Library:SaveConfig(name)
     if not name or name == "" or name == "None" then return end
     local saveFlags = {}
@@ -589,7 +587,7 @@ function Library:CreateWindow(options)
     local MiniGui = Instance.new("ScreenGui")
     MiniGui.Name = "PhantomMiniButton"
     MiniGui.Parent = GetParent()
-    MiniGui.Enabled = false
+    MiniGui.Enabled = true
     MiniGui.IgnoreGuiInset = true
 
     local MiniButton = Instance.new("ImageButton")
@@ -617,18 +615,29 @@ function Library:CreateWindow(options)
             miniWasDragged = false
             return
         end
-        Library.Open = true
-        MiniGui.Enabled = false
-        if Library._IsSettings then
-            Library._SettingsWindow.Visible = true
-            Library._SettingsWindow.BackgroundTransparency = 0.1
-            Library._SetScale.Scale = GetBaseScale() * 0.8
-            Tween(Library._SetScale, {Scale = GetBaseScale()}, 0.3)
+        if Library.Open then
+            Library.Open = false
+            if Library._IsSettings then
+                Tween(Library._SetScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
+            else
+                Tween(Library._MainScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
+            end
+            Library._MainWindow.Visible = false
+            Library._SettingsWindow.Visible = false
+            TooltipLabel.Visible = false
         else
-            Library._MainWindow.Visible = true
-            Library._MainWindow.BackgroundTransparency = 0.1
-            Library._MainScale.Scale = GetBaseScale() * 0.8
-            Tween(Library._MainScale, {Scale = GetBaseScale()}, 0.3)
+            Library.Open = true
+            if Library._IsSettings then
+                Library._SettingsWindow.Visible = true
+                Library._SettingsWindow.BackgroundTransparency = 0.1
+                Library._SetScale.Scale = GetBaseScale() * 0.8
+                Tween(Library._SetScale, {Scale = GetBaseScale()}, 0.3)
+            else
+                Library._MainWindow.Visible = true
+                Library._MainWindow.BackgroundTransparency = 0.1
+                Library._MainScale.Scale = GetBaseScale() * 0.8
+                Tween(Library._MainScale, {Scale = GetBaseScale()}, 0.3)
+            end
         end
     end)
 
@@ -832,7 +841,6 @@ function Library:CreateWindow(options)
         animating = true
         Library.Open = not Library.Open
         if Library.Open then
-            MiniGui.Enabled = false
             if IsSettings then
                 SettingsWindow.Visible = true
                 SettingsWindow.BackgroundTransparency = 0.1
@@ -853,7 +861,6 @@ function Library:CreateWindow(options)
             MainWindow.Visible = false
             SettingsWindow.Visible = false
             TooltipLabel.Visible = false
-            MiniGui.Enabled = true
         end
         animating = false
     end
