@@ -130,6 +130,50 @@ local function MakeDraggable(dragObj, moveObj)
     end)
 end
 
+local function MakeResizable(resizeBtn, frame, minSize)
+    resizeBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local dragStart = input.Position
+            local startSize = frame.Size
+            local startPos = frame.Position
+            local inputChangedConn, inputEndedConn
+            
+            inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
+                if inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch then
+                    local delta = inp.Position - dragStart
+                    local sc = frame:FindFirstChildWhichIsA("UIScale")
+                    local scaleMult = sc and sc.Scale or 1
+                    if scaleMult <= 0 then scaleMult = 1 end
+                    
+                    local newX = math.max(minSize.X, startSize.X.Offset + (delta.X / scaleMult))
+                    local newY = math.max(minSize.Y, startSize.Y.Offset + (delta.Y / scaleMult))
+                    
+                    local diffX = newX - startSize.X.Offset
+                    local diffY = newY - startSize.Y.Offset
+                    
+                    frame.Size = UDim2.new(0, newX, 0, newY)
+                    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (diffX / 2), startPos.Y.Scale, startPos.Y.Offset + (diffY / 2))
+                end
+            end)
+            
+            inputEndedConn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    if inputChangedConn then inputChangedConn:Disconnect() end
+                    if inputEndedConn then inputEndedConn:Disconnect() end
+                end
+            end)
+        end
+    end)
+end
+
+local function GetBaseScale()
+    local vp = workspace.CurrentCamera.ViewportSize
+    if vp.X < 800 or vp.Y < 600 then
+        return math.clamp(math.min(vp.X / 800, vp.Y / 600), 0.5, 1)
+    end
+    return 1
+end
+
 function Library:Unload()
     for _, conn in ipairs(Library.Connections) do pcall(function() conn:Disconnect() end) end
     Library.Connections = {}
@@ -329,21 +373,35 @@ function Library:InitWatermark()
     WatermarkGui.Name = "PhantomWatermark"
     WatermarkGui.Parent = GetParent()
     WatermarkGui.IgnoreGuiInset = true
+    WatermarkGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 250, 0, 25)
-    Frame.Position = UDim2.new(1, -260, 0, 10)
+    Frame.Size = UDim2.new(0, 0, 0, 26)
+    Frame.Position = UDim2.new(1, -20, 0, 10)
+    Frame.AnchorPoint = Vector2.new(1, 0)
     Frame.BackgroundColor3 = Theme.Background
-    Frame.BackgroundTransparency = 0.1
+    Frame.BackgroundTransparency = 0.05
     Frame.Parent = WatermarkGui
     Corner(Frame, 4)
     Stroke(Frame, Theme.Stroke, 1)
+
+    local Glow = Stroke(Frame, Theme.Accent, 2, 0.8)
+    RegisterTheme(Glow, "BorderColor")
+
+    local AccentLine = Instance.new("Frame")
+    AccentLine.Size = UDim2.new(1, 0, 0, 2)
+    AccentLine.Position = UDim2.new(0, 0, 0, 0)
+    AccentLine.BackgroundColor3 = Theme.Accent
+    AccentLine.BorderSizePixel = 0
+    AccentLine.Parent = Frame
+    Corner(AccentLine, 2)
+    RegisterTheme(AccentLine, "BackgroundColor")
 
     local WNoise = Instance.new("ImageLabel")
     WNoise.Size = UDim2.new(1, 0, 1, 0)
     WNoise.BackgroundTransparency = 1
     WNoise.Image = "rbxassetid://9968344105"
-    WNoise.ImageTransparency = 0.9
+    WNoise.ImageTransparency = 0.95
     WNoise.ScaleType = Enum.ScaleType.Tile
     WNoise.TileSize = UDim2.new(0, 100, 0, 100)
     WNoise.Parent = Frame
@@ -352,9 +410,10 @@ function Library:InitWatermark()
     local Label = Instance.new("TextLabel")
     Label.Size = UDim2.new(1, 0, 1, 0)
     Label.BackgroundTransparency = 1
-    Label.Font = Config.FontMain
+    Label.Font = Config.FontBold
     Label.TextSize = 12
     Label.TextColor3 = Theme.Text
+    Label.RichText = true
     Label.Parent = Frame
 
     local lastUpdate = 0
@@ -372,10 +431,11 @@ function Library:InitWatermark()
                 local s = Stats.Network.ServerStatsItem["Data Ping"]:GetValueString()
                 ping = s:match("%d+") or "0"
             end)
-            Label.Text = string.format(" %s | V1.0 | FPS: %d | Ping: %sms | %s ", Config.Name, fps, ping, os.date("%H:%M"))
+            local timeStr = os.date("%H:%M:%S")
+            local text = string.format(" <font color='#%s'>%s</font> | FPS: %d | Ping: %sms | %s ", Theme.Accent:ToHex(), Config.Name, fps, ping, timeStr)
+            Label.Text = text
             local bounds = Label.TextBounds.X + 20
-            Frame.Size = UDim2.new(0, bounds, 0, 25)
-            Frame.Position = UDim2.new(1, -bounds - 10, 0, 10)
+            Tween(Frame, {Size = UDim2.new(0, bounds, 0, 26)}, 0.1)
         end
     end)
     table.insert(Library.Connections, conn)
@@ -491,12 +551,6 @@ function Library:UpdateKeybindList(name, key, active, mode)
     end
 end
 
-local function GetBaseScale()
-    local vp = workspace.CurrentCamera.ViewportSize
-    if vp.X < 1 or vp.Y < 1 then return 1 end
-    return math.clamp(math.min(vp.X / 800, vp.Y / 500), 0.4, 1)
-end
-
 function Library:CreateWindow(options)
     if options and options.Name then Config.Name = options.Name end
     Library:Unload()
@@ -555,6 +609,12 @@ function Library:CreateWindow(options)
         Frame.Visible = false
         Frame.Parent = ScreenGui
         Frame.Active = true
+
+        local SizeConstraint = Instance.new("UISizeConstraint")
+        SizeConstraint.MaxSize = Vector2.new(1200, 800)
+        SizeConstraint.MinSize = Vector2.new(400, 250)
+        SizeConstraint.Parent = Frame
+
         Corner(Frame, 6)
         Stroke(Frame, Theme.Stroke, 1, 0)
 
@@ -583,6 +643,29 @@ function Library:CreateWindow(options)
 
     local MainWindow, MainScale = CreateBaseFrame("MainWindow")
     local SettingsWindow, SetScale = CreateBaseFrame("SettingsWindow")
+
+    local Resizer = Instance.new("Frame")
+    Resizer.Size = UDim2.new(0, 20, 0, 20)
+    Resizer.Position = UDim2.new(1, 0, 1, 0)
+    Resizer.AnchorPoint = Vector2.new(1, 1)
+    Resizer.BackgroundTransparency = 1
+    Resizer.Parent = MainWindow
+    Resizer.ZIndex = 20
+    Resizer.Active = true
+    local ResizerIcon = Instance.new("TextLabel")
+    ResizerIcon.Size = UDim2.new(1, 0, 1, 0)
+    ResizerIcon.BackgroundTransparency = 1
+    ResizerIcon.Text = "◢"
+    ResizerIcon.TextColor3 = Theme.TextDark
+    ResizerIcon.TextSize = 16
+    ResizerIcon.Parent = Resizer
+    Resizer.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.Accent}) end
+    end)
+    Resizer.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
+    end)
+    MakeResizable(Resizer, MainWindow, Vector2.new(450, 300))
 
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
@@ -640,7 +723,7 @@ function Library:CreateWindow(options)
             RegisterTheme(Logo, "TextColor")
 
             local Container = Instance.new("Frame")
-            Container.Size = UDim2.new(1, 0, 1, -130)
+            Container.Size = UDim2.new(1, 0, 1, -95)
             Container.Position = UDim2.new(0, 0, 0, 60)
             Container.BackgroundTransparency = 1
             Container.Parent = Bar
@@ -760,6 +843,7 @@ function Library:CreateWindow(options)
 
     local function SwitchToSettings()
         SettingsWindow.Position = MainWindow.Position
+        SettingsWindow.Size = MainWindow.Size
         Tween(MainScale, {Scale = GetBaseScale() * 0.9}, 0.2)
         task.wait(0.1)
         MainWindow.Visible = false
@@ -771,6 +855,7 @@ function Library:CreateWindow(options)
 
     local function SwitchToMain()
         MainWindow.Position = SettingsWindow.Position
+        MainWindow.Size = SettingsWindow.Size
         Tween(SetScale, {Scale = GetBaseScale() * 0.9}, 0.2)
         task.wait(0.1)
         SettingsWindow.Visible = false
