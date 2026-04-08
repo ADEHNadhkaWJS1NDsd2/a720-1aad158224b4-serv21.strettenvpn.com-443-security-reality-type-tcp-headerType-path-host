@@ -168,8 +168,11 @@ end
 
 local function GetBaseScale()
     local vp = workspace.CurrentCamera.ViewportSize
-    if vp.X < 800 or vp.Y < 600 then
-        return math.clamp(math.min(vp.X / 800, vp.Y / 600), 0.5, 1)
+    if vp.X < 1 or vp.Y < 1 then return 1 end
+    if vp.X > 1200 then
+        return 1.15
+    elseif vp.X < 800 then
+        return math.clamp(vp.X / 800, 0.6, 1)
     end
     return 1
 end
