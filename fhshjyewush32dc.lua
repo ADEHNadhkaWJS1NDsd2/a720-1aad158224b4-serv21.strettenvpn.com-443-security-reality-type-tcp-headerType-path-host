@@ -1531,6 +1531,11 @@ function Library:CreateWindow(options)
                     callback(Input.Text)
                 end
             end)
+            Input.Changed:Connect(function(prop)
+                if prop == "Text" then
+                    Library.Flags[flag] = Input.Text
+                end
+            end)
             Library.Flags[flag] = ""
             Library.Signals[flag] = function(val)
                 Input.Text = val
@@ -1538,7 +1543,6 @@ function Library:CreateWindow(options)
                 callback(val)
             end
             ApplyTooltip(Frame, tooltipText)
-            task.spawn(callback, "")
             return Input
         end
 
@@ -1820,10 +1824,68 @@ function Library:CreateWindow(options)
 
         local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
 
-        local selectedConfigName = ""
         local configNameInput = ""
+        local selectedConfigName = ""
 
         local ConfigList = Library:GetConfigs()
+
+        local ConfigNameBox = Instance.new("Frame")
+        ConfigNameBox.Size = UDim2.new(1, 0, 0, 50)
+        ConfigNameBox.BackgroundTransparency = 1
+        ConfigNameBox.Parent = ConfigSec.Container:FindFirstChild("Frame") or ConfigSec.Container
+
+        local configTextBox
+
+        do
+            local CFrame2 = Instance.new("Frame")
+            CFrame2.Size = UDim2.new(1, -10, 0, 50)
+            CFrame2.Position = UDim2.new(0, 5, 0, 30)
+            CFrame2.BackgroundTransparency = 1
+            CFrame2.Parent = ConfigSec.Container
+            CFrame2.LayoutOrder = -10
+
+            local CLabel = Instance.new("TextLabel")
+            CLabel.Text = "Config Name"
+            CLabel.Font = Config.FontMain
+            CLabel.TextSize = 13
+            CLabel.TextColor3 = Theme.Text
+            CLabel.Size = UDim2.new(1, 0, 0, 20)
+            CLabel.Position = UDim2.new(0, 5, 0, 0)
+            CLabel.TextXAlignment = Enum.TextXAlignment.Left
+            CLabel.BackgroundTransparency = 1
+            CLabel.Parent = CFrame2
+
+            local CBoxCont = Instance.new("Frame")
+            CBoxCont.Size = UDim2.new(1, 0, 0, 28)
+            CBoxCont.Position = UDim2.new(0, 0, 0, 22)
+            CBoxCont.BackgroundColor3 = Theme.Container
+            CBoxCont.Parent = CFrame2
+            Corner(CBoxCont, 4)
+            Stroke(CBoxCont, Theme.Stroke, 1, 0.5)
+
+            configTextBox = Instance.new("TextBox")
+            configTextBox.Size = UDim2.new(1, -10, 1, 0)
+            configTextBox.Position = UDim2.new(0, 5, 0, 0)
+            configTextBox.BackgroundTransparency = 1
+            configTextBox.TextColor3 = Theme.Text
+            configTextBox.PlaceholderText = "Type config name..."
+            configTextBox.PlaceholderColor3 = Theme.TextDark
+            configTextBox.Font = Config.FontMain
+            configTextBox.TextSize = 13
+            configTextBox.TextXAlignment = Enum.TextXAlignment.Left
+            configTextBox.Text = ""
+            configTextBox.ClearTextOnFocus = false
+            configTextBox.Parent = CBoxCont
+
+            configTextBox.Changed:Connect(function(prop)
+                if prop == "Text" then
+                    configNameInput = configTextBox.Text
+                end
+            end)
+        end
+
+        ConfigNameBox:Destroy()
+
         local ConfigDropdown = ConfigSec:Dropdown(
             "Select Config", "ConfigSelectorFlag",
             #ConfigList > 0 and ConfigList or {""},
@@ -1835,18 +1897,20 @@ function Library:CreateWindow(options)
             nil, false
         )
 
-        local ConfigNameInputBox = ConfigSec:TextBox("New Config Name", "ConfigNameInput", "Type name...", "Enter a name for a new config", function(val)
-            configNameInput = val
-        end)
-
         ConfigSec:Button("Create New Config", "Create a new config with the typed name", function()
             local name = configNameInput
+            if name == nil or name == "" or string.match(name, "^%s*$") then
+                Library:Notify("Error", "Please type a config name first", 3)
+                return
+            end
+            name = string.gsub(name, "^%s+", "")
+            name = string.gsub(name, "%s+$", "")
             if name == "" then
                 Library:Notify("Error", "Please type a config name first", 3)
                 return
             end
             if Library:ConfigExists(name) then
-                Library:Notify("Error", "Config '" .. name .. "' already exists. Use Rewrite to overwrite.", 3)
+                Library:Notify("Error", "Config '" .. name .. "' already exists", 3)
                 return
             end
             if Library:SaveConfig(name) then
@@ -1883,7 +1947,7 @@ function Library:CreateWindow(options)
                 return
             end
             if not Library:ConfigExists(name) then
-                Library:Notify("Error", "Config '" .. name .. "' does not exist. Use Create to make a new one.", 3)
+                Library:Notify("Error", "Config '" .. name .. "' does not exist", 3)
                 return
             end
             if Library:SaveConfig(name) then
