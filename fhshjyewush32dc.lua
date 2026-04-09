@@ -241,23 +241,42 @@ function Library:GetConfigs()
     return configs
 end
 
+local IgnoredFlags = {
+    ConfigSelectorFlag = true,
+    MenuAccentColor = true,
+    KeybindListToggle = true,
+}
+
 function Library:SaveConfig(name)
     if not name or name == "" then return false end
     local saveFlags = {}
     for k, v in pairs(Library.Flags) do
+        if IgnoredFlags[k] then continue end
         if typeof(v) == "Color3" then
             saveFlags[k] = {Type = "Color3", Hex = v:ToHex()}
         elseif typeof(v) == "EnumItem" then
             saveFlags[k] = {Type = "EnumItem", EnumType = tostring(v.EnumType), Name = v.Name}
         elseif type(v) == "table" then
-            saveFlags[k] = {Type = "Table", Value = v}
+            local serialized = {}
+            for tk, tv in pairs(v) do
+                if typeof(tv) == "EnumItem" then
+                    serialized[tk] = {Type = "EnumItem", EnumType = tostring(tv.EnumType), Name = tv.Name}
+                elseif typeof(tv) == "Color3" then
+                    serialized[tk] = {Type = "Color3", Hex = tv:ToHex()}
+                else
+                    serialized[tk] = tv
+                end
+            end
+            saveFlags[k] = {Type = "Table", Value = serialized}
         else
             saveFlags[k] = v
         end
     end
     local ok, json = pcall(HttpService.JSONEncode, HttpService, saveFlags)
     if ok then
-        writefile(Config.ConfigFolder .. "/" .. name .. ".json", json)
+        pcall(function()
+            writefile(Config.ConfigFolder .. "/" .. name .. ".json", json)
+        end)
         return true
     end
     return false
@@ -271,19 +290,39 @@ function Library:LoadConfig(name)
     local success, data = pcall(HttpService.JSONDecode, HttpService, content)
     if success and type(data) == "table" then
         for flag, value in pairs(data) do
+            if IgnoredFlags[flag] then continue end
             local parsedValue = value
             if type(value) == "table" and value.Type then
                 if value.Type == "Color3" then
-                    parsedValue = Color3.fromHex(value.Hex)
+                    pcall(function() parsedValue = Color3.fromHex(value.Hex) end)
                 elseif value.Type == "EnumItem" then
                     pcall(function() parsedValue = Enum[tostring(value.EnumType)][value.Name] end)
                 elseif value.Type == "Table" then
-                    parsedValue = value.Value
+                    local deserialized = {}
+                    if type(value.Value) == "table" then
+                        for tk, tv in pairs(value.Value) do
+                            if type(tv) == "table" and tv.Type then
+                                if tv.Type == "EnumItem" then
+                                    pcall(function() deserialized[tk] = Enum[tostring(tv.EnumType)][tv.Name] end)
+                                elseif tv.Type == "Color3" then
+                                    pcall(function() deserialized[tk] = Color3.fromHex(tv.Hex) end)
+                                else
+                                    deserialized[tk] = tv
+                                end
+                            else
+                                deserialized[tk] = tv
+                            end
+                        end
+                    end
+                    parsedValue = deserialized
                 end
             end
             Library.Flags[flag] = parsedValue
-            if Library.Signals[flag] then
-                Library.Signals[flag](parsedValue)
+        end
+        for flag, value in pairs(Library.Flags) do
+            if IgnoredFlags[flag] then continue end
+            if data[flag] ~= nil and Library.Signals[flag] then
+                task.spawn(Library.Signals[flag], value)
             end
         end
         return true
@@ -800,7 +839,17 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     UpdateVisuals()
 
     Library.Signals[flag] = function(val)
-        selected = val
+        if isMulti then
+            if type(val) == "table" then
+                selected = val
+            else
+                selected = {val}
+            end
+        else
+            selected = val
+        end
+        if not table.find(options, selected) and not isMulti then
+        end
         UpdateVisuals()
         Library.Unsaved = true
         callback(selected)
@@ -839,6 +888,16 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     end
     function DropdownObj:GetSelected()
         return selected
+    end
+    function DropdownObj:Set(val)
+        if isMulti then
+            if type(val) == "table" then selected = val else selected = {val} end
+        else
+            selected = val
+        end
+        Library.Flags[flag] = selected
+        UpdateVisuals()
+        callback(selected)
     end
     return DropdownObj
 end
@@ -1873,18 +1932,178 @@ function Library:CreateWindow(options)
             configNameInput = CNameInput.Text
         end)
 
-        local ConfigDropdown = ConfigSec:Dropdown(
-            "Select Config", "ConfigSelectorFlag",
-            #ConfigList > 0 and ConfigList or {""},
-            #ConfigList > 0 and ConfigList[1] or "",
-            "Choose a config to manage",
-            function(val)
-                selectedConfigName = val
-            end,
-            nil, false
-        )
+        local ConfigDropdownFrame = Instance.new("Frame")
+        ConfigDropdownFrame.Size = UDim2.new(1, 0, 0, 46)
+        ConfigDropdownFrame.BackgroundTransparency = 1
+        ConfigDropdownFrame.LayoutOrder = 2
+        ConfigDropdownFrame.Parent = ConfigContent
 
-        ConfigSec:Button("Create New Config", "Create a new config with the typed name", function()
+        local CDLabel = Instance.new("TextLabel")
+        CDLabel.Text = "Select Config"
+        CDLabel.Font = Config.FontMain
+        CDLabel.TextSize = 13
+        CDLabel.TextColor3 = Theme.Text
+        CDLabel.Size = UDim2.new(1, 0, 0, 16)
+        CDLabel.Position = UDim2.new(0, 5, 0, 0)
+        CDLabel.TextXAlignment = Enum.TextXAlignment.Left
+        CDLabel.BackgroundTransparency = 1
+        CDLabel.Parent = ConfigDropdownFrame
+
+        local CDInteractive = Instance.new("TextButton")
+        CDInteractive.Size = UDim2.new(1, 0, 0, 26)
+        CDInteractive.Position = UDim2.new(0, 0, 0, 20)
+        CDInteractive.BackgroundColor3 = Theme.Container
+        CDInteractive.Text = ""
+        CDInteractive.AutoButtonColor = false
+        CDInteractive.Parent = ConfigDropdownFrame
+        CDInteractive.ZIndex = 5
+        Corner(CDInteractive, 4)
+        Stroke(CDInteractive, Theme.Stroke, 1, 0.5)
+
+        local CDSelectedText = Instance.new("TextLabel")
+        CDSelectedText.Font = Config.FontMain
+        CDSelectedText.TextSize = 13
+        CDSelectedText.TextColor3 = Theme.Text
+        CDSelectedText.Size = UDim2.new(1, -25, 1, 0)
+        CDSelectedText.Position = UDim2.new(0, 8, 0, 0)
+        CDSelectedText.TextXAlignment = Enum.TextXAlignment.Left
+        CDSelectedText.BackgroundTransparency = 1
+        CDSelectedText.ZIndex = 6
+        CDSelectedText.ClipsDescendants = true
+        CDSelectedText.Parent = CDInteractive
+
+        local CDArrow = Instance.new("ImageLabel")
+        CDArrow.Image = "rbxassetid://10709790948"
+        CDArrow.Size = UDim2.new(0, 18, 0, 18)
+        CDArrow.Position = UDim2.new(1, -20, 0.5, 0)
+        CDArrow.AnchorPoint = Vector2.new(0, 0.5)
+        CDArrow.BackgroundTransparency = 1
+        CDArrow.ImageColor3 = Theme.TextDark
+        CDArrow.Parent = CDInteractive
+        CDArrow.ZIndex = 6
+
+        local CDListFrame = Instance.new("ScrollingFrame")
+        CDListFrame.Size = UDim2.new(1, 0, 0, 0)
+        CDListFrame.Position = UDim2.new(0, 0, 1, 5)
+        CDListFrame.BackgroundColor3 = Theme.Container
+        CDListFrame.BorderSizePixel = 0
+        CDListFrame.Parent = CDInteractive
+        CDListFrame.ZIndex = 10
+        CDListFrame.Visible = false
+        CDListFrame.Active = true
+        CDListFrame.ScrollBarThickness = 2
+        CDListFrame.ScrollBarImageColor3 = Theme.Accent
+        Corner(CDListFrame, 4)
+        Stroke(CDListFrame, Theme.Stroke, 1, 0.5)
+
+        local CDIList = Instance.new("UIListLayout")
+        CDIList.SortOrder = Enum.SortOrder.LayoutOrder
+        CDIList.Parent = CDListFrame
+        CDIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            CDListFrame.CanvasSize = UDim2.new(0, 0, 0, CDIList.AbsoluteContentSize.Y)
+        end)
+
+        local cdIsDropped = false
+        local cdOptionBtns = {}
+
+        selectedConfigName = #ConfigList > 0 and ConfigList[1] or ""
+        CDSelectedText.Text = selectedConfigName ~= "" and selectedConfigName or "No configs"
+
+        local function CDCloseDropdown()
+            cdIsDropped = false
+            ConfigSec.Container.ZIndex = 1
+            ConfigDropdownFrame.ZIndex = 5
+            Tween(ConfigDropdownFrame, {Size = UDim2.new(1, 0, 0, 46)}, 0.2)
+            local t = Tween(CDListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
+            Tween(CDArrow, {Rotation = 0}, 0.2)
+            t.Completed:Connect(function()
+                if not cdIsDropped then CDListFrame.Visible = false end
+            end)
+        end
+
+        local function CDBuildOptions(opts)
+            for _, btn in pairs(cdOptionBtns) do btn:Destroy() end
+            table.clear(cdOptionBtns)
+            for _, opt in ipairs(opts) do
+                local OptBtn = Instance.new("TextButton")
+                OptBtn.Size = UDim2.new(1, 0, 0, 24)
+                OptBtn.BackgroundColor3 = Theme.Container
+                OptBtn.BackgroundTransparency = 1
+                OptBtn.Text = opt
+                OptBtn.Font = Config.FontMain
+                OptBtn.TextSize = 12
+                OptBtn.Parent = CDListFrame
+                OptBtn.ZIndex = 11
+                OptBtn.TextColor3 = (selectedConfigName == opt) and Theme.Accent or Theme.TextDark
+                cdOptionBtns[opt] = OptBtn
+
+                OptBtn.MouseEnter:Connect(function()
+                    if selectedConfigName ~= opt then
+                        Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent})
+                    end
+                end)
+                OptBtn.MouseLeave:Connect(function()
+                    if selectedConfigName ~= opt then
+                        Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark})
+                    end
+                end)
+                OptBtn.MouseButton1Click:Connect(function()
+                    selectedConfigName = opt
+                    CDSelectedText.Text = opt
+                    for o, b in pairs(cdOptionBtns) do
+                        b.TextColor3 = (o == opt) and Theme.Accent or Theme.TextDark
+                    end
+                    CDCloseDropdown()
+                end)
+            end
+        end
+
+        CDBuildOptions(ConfigList)
+
+        CDInteractive.MouseButton1Click:Connect(function()
+            cdIsDropped = not cdIsDropped
+            ConfigSec.Container.ZIndex = cdIsDropped and 10 or 1
+            ConfigDropdownFrame.ZIndex = cdIsDropped and 10 or 5
+            if cdIsDropped then
+                CDListFrame.Visible = true
+                local currentList = Library:GetConfigs()
+                CDBuildOptions(currentList)
+                local listH = math.min(#currentList * 24, 200)
+                if listH < 24 then listH = 24 end
+                local totalH = 46 + listH + 5
+                Tween(ConfigDropdownFrame, {Size = UDim2.new(1, 0, 0, totalH)}, 0.2)
+                Tween(CDListFrame, {Size = UDim2.new(1, 0, 0, listH)}, 0.2)
+                Tween(CDArrow, {Rotation = 180}, 0.2)
+            else
+                CDCloseDropdown()
+            end
+        end)
+
+        local function RefreshConfigDropdown()
+            local newList = Library:GetConfigs()
+            ConfigList = newList
+            if not table.find(newList, selectedConfigName) then
+                selectedConfigName = #newList > 0 and newList[1] or ""
+            end
+            CDSelectedText.Text = selectedConfigName ~= "" and selectedConfigName or "No configs"
+            CDBuildOptions(newList)
+        end
+
+        local CreateBtn = Instance.new("TextButton")
+        CreateBtn.Size = UDim2.new(1, 0, 0, 32)
+        CreateBtn.BackgroundColor3 = Theme.Container
+        CreateBtn.Text = "Create New Config"
+        CreateBtn.Font = Config.FontMain
+        CreateBtn.TextSize = 13
+        CreateBtn.TextColor3 = Theme.Text
+        CreateBtn.AutoButtonColor = false
+        CreateBtn.LayoutOrder = 3
+        CreateBtn.Parent = ConfigContent
+        Corner(CreateBtn, 4)
+        local cs1 = Stroke(CreateBtn, Theme.Stroke, 1, 0.5)
+        CreateBtn.MouseEnter:Connect(function() Tween(CreateBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs1, {Color = Theme.Accent}) end)
+        CreateBtn.MouseLeave:Connect(function() Tween(CreateBtn, {BackgroundColor3 = Theme.Container}) Tween(cs1, {Color = Theme.Stroke}) end)
+        CreateBtn.MouseButton1Click:Connect(function()
             local name = configNameInput
             if not name or name == "" or string.match(name, "^%s*$") then
                 Library:Notify("Error", "Please type a config name first", 3)
@@ -1901,18 +2120,31 @@ function Library:CreateWindow(options)
                 return
             end
             if Library:SaveConfig(name) then
-                local newList = Library:GetConfigs()
-                ConfigDropdown:Refresh(newList, name)
                 selectedConfigName = name
                 CNameInput.Text = ""
                 configNameInput = ""
+                RefreshConfigDropdown()
                 Library:Notify("Config", "Created: " .. name, 3)
             else
                 Library:Notify("Error", "Failed to create config", 3)
             end
         end)
 
-        ConfigSec:Button("Load Config", "Load the selected config", function()
+        local LoadBtn = Instance.new("TextButton")
+        LoadBtn.Size = UDim2.new(1, 0, 0, 32)
+        LoadBtn.BackgroundColor3 = Theme.Container
+        LoadBtn.Text = "Load Config"
+        LoadBtn.Font = Config.FontMain
+        LoadBtn.TextSize = 13
+        LoadBtn.TextColor3 = Theme.Text
+        LoadBtn.AutoButtonColor = false
+        LoadBtn.LayoutOrder = 4
+        LoadBtn.Parent = ConfigContent
+        Corner(LoadBtn, 4)
+        local cs2 = Stroke(LoadBtn, Theme.Stroke, 1, 0.5)
+        LoadBtn.MouseEnter:Connect(function() Tween(LoadBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs2, {Color = Theme.Accent}) end)
+        LoadBtn.MouseLeave:Connect(function() Tween(LoadBtn, {BackgroundColor3 = Theme.Container}) Tween(cs2, {Color = Theme.Stroke}) end)
+        LoadBtn.MouseButton1Click:Connect(function()
             local name = selectedConfigName
             if not name or name == "" then
                 Library:Notify("Error", "No config selected", 3)
@@ -1929,7 +2161,21 @@ function Library:CreateWindow(options)
             end
         end)
 
-        ConfigSec:Button("Rewrite Config", "Overwrite the selected config with current settings", function()
+        local RewriteBtn = Instance.new("TextButton")
+        RewriteBtn.Size = UDim2.new(1, 0, 0, 32)
+        RewriteBtn.BackgroundColor3 = Theme.Container
+        RewriteBtn.Text = "Rewrite Config"
+        RewriteBtn.Font = Config.FontMain
+        RewriteBtn.TextSize = 13
+        RewriteBtn.TextColor3 = Theme.Text
+        RewriteBtn.AutoButtonColor = false
+        RewriteBtn.LayoutOrder = 5
+        RewriteBtn.Parent = ConfigContent
+        Corner(RewriteBtn, 4)
+        local cs3 = Stroke(RewriteBtn, Theme.Stroke, 1, 0.5)
+        RewriteBtn.MouseEnter:Connect(function() Tween(RewriteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs3, {Color = Theme.Accent}) end)
+        RewriteBtn.MouseLeave:Connect(function() Tween(RewriteBtn, {BackgroundColor3 = Theme.Container}) Tween(cs3, {Color = Theme.Stroke}) end)
+        RewriteBtn.MouseButton1Click:Connect(function()
             local name = selectedConfigName
             if not name or name == "" then
                 Library:Notify("Error", "No config selected", 3)
@@ -1946,7 +2192,21 @@ function Library:CreateWindow(options)
             end
         end)
 
-        ConfigSec:Button("Delete Config", "Delete the selected config", function()
+        local DeleteBtn = Instance.new("TextButton")
+        DeleteBtn.Size = UDim2.new(1, 0, 0, 32)
+        DeleteBtn.BackgroundColor3 = Theme.Container
+        DeleteBtn.Text = "Delete Config"
+        DeleteBtn.Font = Config.FontMain
+        DeleteBtn.TextSize = 13
+        DeleteBtn.TextColor3 = Theme.Text
+        DeleteBtn.AutoButtonColor = false
+        DeleteBtn.LayoutOrder = 6
+        DeleteBtn.Parent = ConfigContent
+        Corner(DeleteBtn, 4)
+        local cs4 = Stroke(DeleteBtn, Theme.Stroke, 1, 0.5)
+        DeleteBtn.MouseEnter:Connect(function() Tween(DeleteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs4, {Color = Theme.Accent}) end)
+        DeleteBtn.MouseLeave:Connect(function() Tween(DeleteBtn, {BackgroundColor3 = Theme.Container}) Tween(cs4, {Color = Theme.Stroke}) end)
+        DeleteBtn.MouseButton1Click:Connect(function()
             local name = selectedConfigName
             if not name or name == "" then
                 Library:Notify("Error", "No config selected", 3)
@@ -1957,31 +2217,52 @@ function Library:CreateWindow(options)
                 return
             end
             if Library:DeleteConfig(name) then
-                local newList = Library:GetConfigs()
-                ConfigDropdown:Refresh(newList, #newList > 0 and newList[1] or "")
-                selectedConfigName = #newList > 0 and newList[1] or ""
+                RefreshConfigDropdown()
                 Library:Notify("Config", "Deleted: " .. name, 3)
             else
                 Library:Notify("Error", "Failed to delete config", 3)
             end
         end)
 
-        ConfigSec:Button("Refresh Config List", "Update the dropdown list", function()
-            local newList = Library:GetConfigs()
-            local current = selectedConfigName
-            if not table.find(newList, current) then
-                current = #newList > 0 and newList[1] or ""
-            end
-            ConfigDropdown:Refresh(newList, current)
-            selectedConfigName = current
+        local RefreshBtn = Instance.new("TextButton")
+        RefreshBtn.Size = UDim2.new(1, 0, 0, 32)
+        RefreshBtn.BackgroundColor3 = Theme.Container
+        RefreshBtn.Text = "Refresh Config List"
+        RefreshBtn.Font = Config.FontMain
+        RefreshBtn.TextSize = 13
+        RefreshBtn.TextColor3 = Theme.Text
+        RefreshBtn.AutoButtonColor = false
+        RefreshBtn.LayoutOrder = 7
+        RefreshBtn.Parent = ConfigContent
+        Corner(RefreshBtn, 4)
+        local cs5 = Stroke(RefreshBtn, Theme.Stroke, 1, 0.5)
+        RefreshBtn.MouseEnter:Connect(function() Tween(RefreshBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs5, {Color = Theme.Accent}) end)
+        RefreshBtn.MouseLeave:Connect(function() Tween(RefreshBtn, {BackgroundColor3 = Theme.Container}) Tween(cs5, {Color = Theme.Stroke}) end)
+        RefreshBtn.MouseButton1Click:Connect(function()
+            RefreshConfigDropdown()
             Library:Notify("Config", "List Refreshed", 2)
         end)
 
-        ConfigSec:Button("Reset to Defaults", "Reset all flags to default values", function()
+        local ResetBtn = Instance.new("TextButton")
+        ResetBtn.Size = UDim2.new(1, 0, 0, 32)
+        ResetBtn.BackgroundColor3 = Theme.Container
+        ResetBtn.Text = "Reset to Defaults"
+        ResetBtn.Font = Config.FontMain
+        ResetBtn.TextSize = 13
+        ResetBtn.TextColor3 = Theme.Text
+        ResetBtn.AutoButtonColor = false
+        ResetBtn.LayoutOrder = 8
+        ResetBtn.Parent = ConfigContent
+        Corner(ResetBtn, 4)
+        local cs6 = Stroke(ResetBtn, Theme.Stroke, 1, 0.5)
+        ResetBtn.MouseEnter:Connect(function() Tween(ResetBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs6, {Color = Theme.Accent}) end)
+        ResetBtn.MouseLeave:Connect(function() Tween(ResetBtn, {BackgroundColor3 = Theme.Container}) Tween(cs6, {Color = Theme.Stroke}) end)
+        ResetBtn.MouseButton1Click:Connect(function()
             for flag, val in pairs(Library.Defaults) do
+                if IgnoredFlags[flag] then continue end
                 Library.Flags[flag] = val
                 if Library.Signals[flag] then
-                    Library.Signals[flag](val)
+                    task.spawn(Library.Signals[flag], val)
                 end
             end
             Library:Notify("Settings", "Reset to defaults", 3)
