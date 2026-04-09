@@ -28,7 +28,8 @@ local Library = {
     ScreenGui = nil,
     Connections = {},
     Elements = {},
-    Unsaved = false
+    Unsaved = false,
+    AutoSaveEnabled = true
 }
 
 local Config = {
@@ -213,50 +214,78 @@ function Library:GetConfigs()
         for _, file in ipairs(files) do
             if string.sub(file, -5) == ".json" then
                 local name = string.match(string.gsub(file, "\\", "/"), "([^/]+)%.json$") or file
-                table.insert(configs, name)
+                if name ~= "_autosave" then
+                    table.insert(configs, name)
+                end
             end
         end
     end
-    if #configs == 0 then table.insert(configs, "None") end
     return configs
 end
 
 function Library:SaveConfig(name)
-    if not name or name == "" or name == "None" then return end
+    if not name or name == "" then return false end
     local saveFlags = {}
     for k, v in pairs(Library.Flags) do
-        if typeof(v) == "Color3" then saveFlags[k] = {Type = "Color3", Hex = v:ToHex()}
-        elseif typeof(v) == "EnumItem" then saveFlags[k] = {Type = "EnumItem", EnumType = tostring(v.EnumType), Name = v.Name}
-        else saveFlags[k] = v end
+        if typeof(v) == "Color3" then
+            saveFlags[k] = {Type = "Color3", Hex = v:ToHex()}
+        elseif typeof(v) == "EnumItem" then
+            saveFlags[k] = {Type = "EnumItem", EnumType = tostring(v.EnumType), Name = v.Name}
+        elseif type(v) == "table" then
+            saveFlags[k] = {Type = "Table", Value = v}
+        else
+            saveFlags[k] = v
+        end
     end
     local ok, json = pcall(HttpService.JSONEncode, HttpService, saveFlags)
-    if ok then writefile(Config.ConfigFolder .. "/" .. name .. ".json", json) end
+    if ok then
+        writefile(Config.ConfigFolder .. "/" .. name .. ".json", json)
+        return true
+    end
+    return false
 end
 
 function Library:LoadConfig(name)
-    if not name or name == "" or name == "None" then return end
-    if isfile(Config.ConfigFolder .. "/" .. name .. ".json") then
-        local content = readfile(Config.ConfigFolder .. "/" .. name .. ".json")
-        local success, data = pcall(HttpService.JSONDecode, HttpService, content)
-        if success and type(data) == "table" then
-            for flag, value in pairs(data) do
-                local parsedValue = value
-                if type(value) == "table" and value.Type then
-                    if value.Type == "Color3" then parsedValue = Color3.fromHex(value.Hex)
-                    elseif value.Type == "EnumItem" then pcall(function() parsedValue = Enum[tostring(value.EnumType)][value.Name] end) end
+    if not name or name == "" then return false end
+    local path = Config.ConfigFolder .. "/" .. name .. ".json"
+    if not isfile(path) then return false end
+    local content = readfile(path)
+    local success, data = pcall(HttpService.JSONDecode, HttpService, content)
+    if success and type(data) == "table" then
+        for flag, value in pairs(data) do
+            local parsedValue = value
+            if type(value) == "table" and value.Type then
+                if value.Type == "Color3" then
+                    parsedValue = Color3.fromHex(value.Hex)
+                elseif value.Type == "EnumItem" then
+                    pcall(function() parsedValue = Enum[tostring(value.EnumType)][value.Name] end)
+                elseif value.Type == "Table" then
+                    parsedValue = value.Value
                 end
-                if Library.Signals[flag] then Library.Signals[flag](parsedValue) end
-                Library.Flags[flag] = parsedValue
+            end
+            Library.Flags[flag] = parsedValue
+            if Library.Signals[flag] then
+                Library.Signals[flag](parsedValue)
             end
         end
+        return true
     end
+    return false
 end
 
 function Library:DeleteConfig(name)
-    if not name or name == "" or name == "None" then return end
-    if isfile(Config.ConfigFolder .. "/" .. name .. ".json") then
-        pcall(function() delfile(Config.ConfigFolder .. "/" .. name .. ".json") end)
+    if not name or name == "" then return false end
+    local path = Config.ConfigFolder .. "/" .. name .. ".json"
+    if isfile(path) then
+        pcall(function() delfile(path) end)
+        return true
     end
+    return false
+end
+
+function Library:ConfigExists(name)
+    if not name or name == "" then return false end
+    return isfile(Config.ConfigFolder .. "/" .. name .. ".json")
 end
 
 local TooltipGui = Instance.new("ScreenGui")
@@ -784,17 +813,22 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         if isMulti then
             if type(newDefault) ~= "table" then selected = {newDefault} else selected = newDefault end
         else
-            selected = newDefault or newOptions[1]
+            selected = newDefault or (newOptions[1] or "")
         end
         Library.Flags[flag] = selected
         BuildOptions(newOptions)
         UpdateVisuals()
+    end
+    function DropdownObj:GetSelected()
+        return selected
     end
     return DropdownObj
 end
 
 function Library:CreateWindow(options)
     if options and options.Name then Config.Name = options.Name end
+    if options and options.ConfigFolder then Config.ConfigFolder = options.ConfigFolder end
+    if not isfolder(Config.ConfigFolder) then makefolder(Config.ConfigFolder) end
     Library:Unload()
     Library:InitWatermark()
 
@@ -1191,9 +1225,10 @@ function Library:CreateWindow(options)
             Btn.AutoButtonColor = false
             Btn.Parent = Content
             Corner(Btn, 4)
-            Stroke(Btn, Theme.Stroke, 1, 0.5)
+            local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
+            Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
+            Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
             Btn.MouseButton1Click:Connect(callback)
-            Section.ButtonLabel = Btn
             ApplyTooltip(Btn, tooltipText)
             return Btn
         end
@@ -1266,9 +1301,6 @@ function Library:CreateWindow(options)
                 if currentTween then currentTween:Cancel() end
                 Tween(Fill, {BackgroundTransparency = toggled and 0 or 1}, 0.2)
                 Library.Flags[flag] = toggled
-                if ToggleObj.KeybindValue then
-                    Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, ToggleObj.KeybindMode)
-                end
                 if toggled then
                     SubContainer.Visible = true
                     SubContainer.ClipsDescendants = true
@@ -1310,218 +1342,6 @@ function Library:CreateWindow(options)
             ApplyTooltip(Btn, tooltipText)
             task.spawn(callback, toggled)
 
-            function ToggleObj:AddButton(txt, cb)
-                local SBtn = Instance.new("TextButton")
-                SBtn.Size = UDim2.new(1, -20, 0, 26)
-                SBtn.Position = UDim2.new(0, 20, 0, 0)
-                SBtn.BackgroundColor3 = Theme.Container
-                SBtn.Text = txt
-                SBtn.Font = Config.FontMain
-                SBtn.TextSize = 12
-                SBtn.TextColor3 = Theme.Text
-                SBtn.AutoButtonColor = false
-                SBtn.Parent = SubContainer
-                Corner(SBtn, 4)
-                local s = Stroke(SBtn, Theme.Stroke, 1, 0.5)
-                SBtn.MouseEnter:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
-                SBtn.MouseLeave:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
-                SBtn.MouseButton1Click:Connect(cb)
-            end
-
-            function ToggleObj:AddSlider(txt, sflag, min, max, def, cb)
-                local val = def or min
-                Library.Defaults[sflag] = val
-                Library.Flags[sflag] = val
-                local SFrame = Instance.new("Frame")
-                SFrame.Size = UDim2.new(1, -20, 0, 36)
-                SFrame.Position = UDim2.new(0, 20, 0, 0)
-                SFrame.BackgroundTransparency = 1
-                SFrame.Parent = SubContainer
-                local SLabel = Instance.new("TextLabel")
-                SLabel.Text = txt
-                SLabel.Font = Config.FontMain
-                SLabel.TextSize = 12
-                SLabel.TextColor3 = Theme.TextDark
-                SLabel.Size = UDim2.new(1, 0, 0, 16)
-                SLabel.TextXAlignment = Enum.TextXAlignment.Left
-                SLabel.BackgroundTransparency = 1
-                SLabel.Parent = SFrame
-                local SValue = Instance.new("TextLabel")
-                SValue.Text = tostring(def)
-                SValue.Font = Config.FontMain
-                SValue.TextSize = 12
-                SValue.TextColor3 = Theme.Text
-                SValue.Size = UDim2.new(1, 0, 0, 16)
-                SValue.TextXAlignment = Enum.TextXAlignment.Right
-                SValue.BackgroundTransparency = 1
-                SValue.Parent = SFrame
-                local SlideBg = Instance.new("Frame")
-                SlideBg.Size = UDim2.new(1, 0, 0, 6)
-                SlideBg.Position = UDim2.new(0, 0, 0, 22)
-                SlideBg.BackgroundColor3 = Theme.Background
-                SlideBg.Parent = SFrame
-                SlideBg.Active = true
-                Corner(SlideBg, 3)
-                local SlideFill = Instance.new("Frame")
-                SlideFill.Size = UDim2.new((def - min) / (max - min), 0, 1, 0)
-                SlideFill.BackgroundColor3 = Theme.Accent
-                SlideFill.BorderSizePixel = 0
-                SlideFill.Parent = SlideBg
-                Corner(SlideFill, 3)
-                RegisterTheme(SlideFill, "BackgroundColor")
-
-                local dragging = false
-                local inputChangedConn = nil
-                local function Set(input)
-                    local r = math.clamp((input.Position.X - SlideBg.AbsolutePosition.X) / SlideBg.AbsoluteSize.X, 0, 1)
-                    val = math.floor(min + (max - min) * r)
-                    SValue.Text = tostring(val)
-                    Tween(SlideFill, {Size = UDim2.new(r, 0, 1, 0)}, 0.05)
-                    Library.Flags[sflag] = val
-                    Library.Unsaved = true
-                    cb(val)
-                end
-                SlideBg.InputBegan:Connect(function(i)
-                    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-                        dragging = true
-                        Set(i)
-                        inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                            if (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragging then Set(inp) end
-                        end)
-                        local inputEndedConn
-                        inputEndedConn = UserInputService.InputEnded:Connect(function(inp)
-                            if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-                                dragging = false
-                                if inputChangedConn then inputChangedConn:Disconnect() inputChangedConn = nil end
-                                if inputEndedConn then inputEndedConn:Disconnect() inputEndedConn = nil end
-                            end
-                        end)
-                    end
-                end)
-                Library.Signals[sflag] = function(loadedVal)
-                    val = loadedVal
-                    SValue.Text = tostring(val)
-                    Tween(SlideFill, {Size = UDim2.new((val - min) / (max - min), 0, 1, 0)}, 0.05)
-                    Library.Unsaved = true
-                    cb(val)
-                end
-                task.spawn(cb, val)
-            end
-
-            function ToggleObj:AddDropdown(txt, dflag, opts, def, cb, isMulti)
-                CreateDropdownElement(txt, dflag, opts, def, nil, cb, Content, Section, isMulti, SubContainer)
-            end
-
-            function ToggleObj:Keybind(defaultKey, mode)
-                ToggleObj.KeybindValue = defaultKey or Enum.KeyCode.Unknown
-                ToggleObj.KeybindMode = mode or "Toggle"
-                local KeyBtn = Instance.new("TextButton")
-                KeyBtn.Size = UDim2.new(0, 60, 0, 18)
-                KeyBtn.Position = UDim2.new(1, -30, 0.5, 0)
-                KeyBtn.AnchorPoint = Vector2.new(1, 0.5)
-                KeyBtn.BackgroundTransparency = 1
-                KeyBtn.Text = "[" .. (ToggleObj.KeybindValue.Name) .. "]"
-                KeyBtn.TextColor3 = Theme.TextDark
-                KeyBtn.Font = Config.FontMain
-                KeyBtn.TextSize = 11
-                KeyBtn.TextXAlignment = Enum.TextXAlignment.Right
-                KeyBtn.Parent = Btn
-
-                local binding = false
-                KeyBtn.MouseButton1Click:Connect(function()
-                    if binding then return end
-                    binding = true
-                    KeyBtn.Text = "[...]"
-                    KeyBtn.TextColor3 = Theme.Accent
-                    local conn
-                    conn = UserInputService.InputBegan:Connect(function(input)
-                        if input.UserInputType == Enum.UserInputType.Keyboard then
-                            if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then ToggleObj.KeybindValue = Enum.KeyCode.Unknown
-                            elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then ToggleObj.KeybindValue = input.KeyCode end
-                            KeyBtn.Text = "[" .. (ToggleObj.KeybindValue.Name) .. "]"
-                            KeyBtn.TextColor3 = Theme.TextDark
-                            binding = false
-                            Library.Unsaved = true
-                            conn:Disconnect()
-                            if toggled then Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, ToggleObj.KeybindMode) end
-                        end
-                    end)
-                end)
-
-                local ModeGui = Instance.new("Frame")
-                ModeGui.Size = UDim2.new(0, 80, 0, 60)
-                ModeGui.BackgroundColor3 = Theme.Sidebar
-                ModeGui.Visible = false
-                ModeGui.ZIndex = 100
-                ModeGui.Parent = Btn
-                Corner(ModeGui, 4)
-                Stroke(ModeGui, Theme.Stroke, 1)
-                local ModeList = Instance.new("UIListLayout")
-                ModeList.Parent = ModeGui
-
-                local modes = {"Toggle", "Hold", "Always"}
-                for _, md in ipairs(modes) do
-                    local mBtn = Instance.new("TextButton")
-                    mBtn.Size = UDim2.new(1, 0, 0, 20)
-                    mBtn.BackgroundTransparency = 1
-                    mBtn.Text = md
-                    mBtn.TextColor3 = Theme.TextDark
-                    mBtn.Font = Config.FontMain
-                    mBtn.TextSize = 11
-                    mBtn.Parent = ModeGui
-                    mBtn.ZIndex = 101
-                    mBtn.MouseButton1Click:Connect(function()
-                        ToggleObj.KeybindMode = md
-                        ModeGui.Visible = false
-                        Library.Unsaved = true
-                        if md == "Always" and not toggled then
-                            toggled = true
-                            ToggleAnim()
-                            callback(toggled)
-                        end
-                        if toggled then Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, md) end
-                    end)
-                end
-
-                KeyBtn.MouseButton2Click:Connect(function()
-                    ModeGui.Position = UDim2.new(1, -110, 0, 20)
-                    ModeGui.Visible = not ModeGui.Visible
-                    if ModeGui.Visible then SubContainer.ClipsDescendants = false end
-                end)
-
-                if ToggleObj.BindConnection then ToggleObj.BindConnection:Disconnect() end
-                if ToggleObj.BindConnectionEnded then ToggleObj.BindConnectionEnded:Disconnect() end
-
-                ToggleObj.BindConnection = UserInputService.InputBegan:Connect(function(input, gp)
-                    if not gp and input.KeyCode == ToggleObj.KeybindValue and ToggleObj.KeybindValue ~= Enum.KeyCode.Unknown then
-                        if ToggleObj.KeybindMode == "Toggle" then
-                            toggled = not toggled
-                            ToggleAnim()
-                            callback(toggled)
-                        elseif ToggleObj.KeybindMode == "Hold" then
-                            toggled = true
-                            ToggleAnim()
-                            callback(toggled)
-                        end
-                    end
-                end)
-
-                ToggleObj.BindConnectionEnded = UserInputService.InputEnded:Connect(function(input, gp)
-                    if not gp and input.KeyCode == ToggleObj.KeybindValue and ToggleObj.KeybindValue ~= Enum.KeyCode.Unknown then
-                        if ToggleObj.KeybindMode == "Hold" then
-                            toggled = false
-                            ToggleAnim()
-                            callback(toggled)
-                        end
-                    end
-                end)
-
-                table.insert(Library.Connections, ToggleObj.BindConnection)
-                table.insert(Library.Connections, ToggleObj.BindConnectionEnded)
-
-                return ToggleObj
-            end
-
             return ToggleObj
         end
 
@@ -1547,12 +1367,14 @@ function Library:CreateWindow(options)
             BoxCont.BackgroundColor3 = Theme.Container
             BoxCont.Parent = Frame
             Corner(BoxCont, 4)
+            Stroke(BoxCont, Theme.Stroke, 1, 0.5)
             local Input = Instance.new("TextBox")
             Input.Size = UDim2.new(1, -10, 1, 0)
             Input.Position = UDim2.new(0, 5, 0, 0)
             Input.BackgroundTransparency = 1
             Input.TextColor3 = Theme.Text
             Input.PlaceholderText = placeholder
+            Input.PlaceholderColor3 = Theme.TextDark
             Input.Font = Config.FontMain
             Input.TextSize = 13
             Input.TextXAlignment = Enum.TextXAlignment.Left
@@ -1574,6 +1396,7 @@ function Library:CreateWindow(options)
             end
             ApplyTooltip(Frame, tooltipText)
             task.spawn(callback, "")
+            return Input
         end
 
         function Section:Dropdown(text, flag, options, default, tooltipText, callback, customParent, isMulti)
@@ -1716,7 +1539,7 @@ function Library:CreateWindow(options)
             end)
 
             Library.Signals[flag] = function(val)
-                if type(val) == "userdata" then
+                if typeof(val) == "Color3" then
                     color = val
                     h, s, v = color:ToHSV()
                     HCursor.Position = UDim2.new(0, 0, h, 0)
@@ -1825,14 +1648,18 @@ function Library:CreateWindow(options)
             Library:Unload()
         end)
 
-        MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), "Change the open/close key", function()
-            MenuSec.ButtonLabel.Text = "Press any key..."
+        local keybindBtn
+        keybindBtn = MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), "Change the open/close key", function()
+            keybindBtn.Text = "Press any key..."
             local conn
             conn = UserInputService.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Keyboard then
-                    if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then Config.Keybind = Enum.KeyCode.LeftControl
-                    elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then Config.Keybind = input.KeyCode end
-                    MenuSec.ButtonLabel.Text = "Menu Keybind: " .. tostring(Config.Keybind.Name)
+                    if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then
+                        Config.Keybind = Enum.KeyCode.LeftControl
+                    elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then
+                        Config.Keybind = input.KeyCode
+                    end
+                    keybindBtn.Text = "Menu Keybind: " .. tostring(Config.Keybind.Name)
                     Library:Notify("Settings", "Menu keybind set to " .. tostring(Config.Keybind.Name), 2)
                     conn:Disconnect()
                 end
@@ -1849,50 +1676,117 @@ function Library:CreateWindow(options)
         end)
 
         local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
-        local ConfigName = ""
+
+        local selectedConfigName = ""
+        local configNameInput = ""
+
         local ConfigList = Library:GetConfigs()
+        local ConfigDropdown = ConfigSec:Dropdown(
+            "Select Config", "ConfigSelectorFlag",
+            #ConfigList > 0 and ConfigList or {""},
+            #ConfigList > 0 and ConfigList[1] or "",
+            "Choose a config to manage",
+            function(val)
+                selectedConfigName = val
+            end,
+            nil, false
+        )
 
-        local ConfigDropdown = ConfigSec:Dropdown("Select Config", "ConfigSelectorFlag", ConfigList, ConfigList[1], "Choose a config to manage", function(val) ConfigName = val end, nil, false)
+        local ConfigNameInputBox = ConfigSec:TextBox("New Config Name", "ConfigNameInput", "Type name...", "Enter a name for a new config", function(val)
+            configNameInput = val
+        end)
 
-        ConfigSec:TextBox("New Config Name", "ConfigNameInput", "Type name...", "Enter a name to save a new config", function(val) ConfigName = val end)
-
-        ConfigSec:Button("Save / Rewrite Config", "Save current settings", function()
-            if ConfigName ~= "" and ConfigName ~= "None" then
-                Library:SaveConfig(ConfigName)
+        ConfigSec:Button("Create New Config", "Create a new config with the typed name", function()
+            local name = configNameInput
+            if name == "" then
+                Library:Notify("Error", "Please type a config name first", 3)
+                return
+            end
+            if Library:ConfigExists(name) then
+                Library:Notify("Error", "Config '" .. name .. "' already exists. Use Rewrite to overwrite.", 3)
+                return
+            end
+            if Library:SaveConfig(name) then
                 local newList = Library:GetConfigs()
-                ConfigDropdown:Refresh(newList, ConfigName)
-                Library:Notify("Config Saved", "Successfully saved/rewrote: " .. ConfigName, 3)
+                ConfigDropdown:Refresh(newList, name)
+                selectedConfigName = name
+                Library:Notify("Config", "Created: " .. name, 3)
             else
-                Library:Notify("Error", "Invalid Config Name", 3)
+                Library:Notify("Error", "Failed to create config", 3)
             end
         end)
 
         ConfigSec:Button("Load Config", "Load the selected config", function()
-            if ConfigName ~= "" and ConfigName ~= "None" then
-                Library:LoadConfig(ConfigName)
-                Library:Notify("Config Loaded", "Successfully loaded: " .. ConfigName, 3)
+            local name = selectedConfigName
+            if name == "" then
+                Library:Notify("Error", "No config selected", 3)
+                return
+            end
+            if not Library:ConfigExists(name) then
+                Library:Notify("Error", "Config '" .. name .. "' does not exist", 3)
+                return
+            end
+            if Library:LoadConfig(name) then
+                Library:Notify("Config", "Loaded: " .. name, 3)
+            else
+                Library:Notify("Error", "Failed to load config", 3)
+            end
+        end)
+
+        ConfigSec:Button("Rewrite Config", "Overwrite the selected config with current settings", function()
+            local name = selectedConfigName
+            if name == "" then
+                Library:Notify("Error", "No config selected", 3)
+                return
+            end
+            if not Library:ConfigExists(name) then
+                Library:Notify("Error", "Config '" .. name .. "' does not exist. Use Create to make a new one.", 3)
+                return
+            end
+            if Library:SaveConfig(name) then
+                Library:Notify("Config", "Rewritten: " .. name, 3)
+            else
+                Library:Notify("Error", "Failed to rewrite config", 3)
             end
         end)
 
         ConfigSec:Button("Delete Config", "Delete the selected config", function()
-            if ConfigName ~= "" and ConfigName ~= "None" then
-                Library:DeleteConfig(ConfigName)
+            local name = selectedConfigName
+            if name == "" then
+                Library:Notify("Error", "No config selected", 3)
+                return
+            end
+            if not Library:ConfigExists(name) then
+                Library:Notify("Error", "Config '" .. name .. "' does not exist", 3)
+                return
+            end
+            if Library:DeleteConfig(name) then
                 local newList = Library:GetConfigs()
-                ConfigDropdown:Refresh(newList, newList[1])
-                Library:Notify("Config Deleted", "Removed: " .. ConfigName, 3)
+                ConfigDropdown:Refresh(newList, #newList > 0 and newList[1] or "")
+                selectedConfigName = #newList > 0 and newList[1] or ""
+                Library:Notify("Config", "Deleted: " .. name, 3)
+            else
+                Library:Notify("Error", "Failed to delete config", 3)
             end
         end)
 
         ConfigSec:Button("Refresh Config List", "Update the dropdown list", function()
             local newList = Library:GetConfigs()
-            ConfigDropdown:Refresh(newList, newList[1])
+            local current = selectedConfigName
+            if not table.find(newList, current) then
+                current = #newList > 0 and newList[1] or ""
+            end
+            ConfigDropdown:Refresh(newList, current)
+            selectedConfigName = current
             Library:Notify("Config", "List Refreshed", 2)
         end)
 
-        ConfigSec:Button("Reset Settings", "Reset all flags to default", function()
+        ConfigSec:Button("Reset to Defaults", "Reset all flags to default values", function()
             for flag, val in pairs(Library.Defaults) do
-                if Library.Signals[flag] then Library.Signals[flag](val) end
                 Library.Flags[flag] = val
+                if Library.Signals[flag] then
+                    Library.Signals[flag](val)
+                end
             end
             Library:Notify("Settings", "Reset to defaults", 3)
         end)
@@ -1970,7 +1864,11 @@ function Library:CreateWindow(options)
             Tween(Indicator, {BackgroundTransparency = 0})
         end)
 
-        if #TabContainer:GetChildren() == 1 then
+        local tabCount = 0
+        for _, c in pairs(TabContainer:GetChildren()) do
+            if c:IsA("TextButton") then tabCount = tabCount + 1 end
+        end
+        if tabCount <= 1 then
             Page.Visible = true
             Title.TextColor3 = Theme.Text
             TabBtn.BackgroundTransparency = 0.95
@@ -2524,7 +2422,6 @@ function Library:CreateWindow(options)
                 local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
                 Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
                 Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
-                RegisterTheme(s, "BorderColor")
                 Btn.MouseButton1Click:Connect(callback)
                 ApplyTooltip(Btn, tooltipText)
             end
@@ -2608,7 +2505,8 @@ function Library:CreateWindow(options)
                 Library.Signals[flag] = function(loadedVal)
                     val = loadedVal
                     ValLabel.Text = tostring(val)
-                    Tween(Fill, {Size = UDim2.new((val - min) / (max - min), 0, 1, 0)}, 0.05)
+                    local ratio = (val - min) / (max - min)
+                    Tween(Fill, {Size = UDim2.new(ratio, 0, 1, 0)}, 0.05)
                     Library.Unsaved = true
                     callback(val)
                 end
@@ -2694,7 +2592,7 @@ function Library:CreateWindow(options)
                 ContainerFrame.Size = UDim2.new(1, 0, 0, 30)
                 ContainerFrame.BackgroundTransparency = 1
                 ContainerFrame.Parent = Content
-                if secData then table.insert(secData.Items, {Name = text, Instance = ContainerFrame}) end
+                table.insert(secData.Items, {Name = text, Instance = ContainerFrame})
 
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 30)
@@ -2820,7 +2718,7 @@ function Library:CreateWindow(options)
                 end)
 
                 Library.Signals[flag] = function(val)
-                    if type(val) == "userdata" then
+                    if typeof(val) == "Color3" then
                         color = val
                         h, s, v = color:ToHSV()
                         HCursor.Position = UDim2.new(0, 0, h, 0)
@@ -2907,15 +2805,21 @@ function Library:CreateWindow(options)
         return Tab
     end
 
-    RunService.RenderStepped:Connect(function()
-        if Library.Unsaved then
-            Library.Unsaved = false
-            Library:SaveConfig("AutoSave")
+    local autoSaveTimer = 0
+    local autoSaveConn = RunService.Heartbeat:Connect(function(dt)
+        if Library.AutoSaveEnabled and Library.Unsaved then
+            autoSaveTimer = autoSaveTimer + dt
+            if autoSaveTimer >= 3 then
+                autoSaveTimer = 0
+                Library.Unsaved = false
+                Library:SaveConfig("_autosave")
+            end
         end
     end)
+    table.insert(Library.Connections, autoSaveConn)
 
     task.defer(function()
-        Library:LoadConfig("AutoSave")
+        Library:LoadConfig("_autosave")
     end)
 
     MainScale.Scale = GetBaseScale()
