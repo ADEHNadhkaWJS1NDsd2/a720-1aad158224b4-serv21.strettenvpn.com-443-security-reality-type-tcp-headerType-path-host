@@ -1344,6 +1344,7 @@ function Library:CreateWindow(options)
         Title.Parent = Container
 
         local Content = Instance.new("Frame")
+        Content.Name = "Content"
         Content.Size = UDim2.new(1, -10, 0, 0)
         Content.Position = UDim2.new(0, 5, 0, 30)
         Content.BackgroundTransparency = 1
@@ -1823,68 +1824,54 @@ function Library:CreateWindow(options)
         end)
 
         local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
+        local ConfigContent = ConfigSec.Container:FindFirstChild("Content")
 
         local configNameInput = ""
         local selectedConfigName = ""
-
         local ConfigList = Library:GetConfigs()
 
-        local ConfigNameBox = Instance.new("Frame")
-        ConfigNameBox.Size = UDim2.new(1, 0, 0, 50)
-        ConfigNameBox.BackgroundTransparency = 1
-        ConfigNameBox.Parent = ConfigSec.Container:FindFirstChild("Frame") or ConfigSec.Container
+        local CNameFrame = Instance.new("Frame")
+        CNameFrame.Size = UDim2.new(1, 0, 0, 50)
+        CNameFrame.BackgroundTransparency = 1
+        CNameFrame.LayoutOrder = 1
+        CNameFrame.Parent = ConfigContent
 
-        local configTextBox
+        local CNameLabel = Instance.new("TextLabel")
+        CNameLabel.Text = "Config Name"
+        CNameLabel.Font = Config.FontMain
+        CNameLabel.TextSize = 13
+        CNameLabel.TextColor3 = Theme.Text
+        CNameLabel.Size = UDim2.new(1, 0, 0, 20)
+        CNameLabel.Position = UDim2.new(0, 5, 0, 0)
+        CNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        CNameLabel.BackgroundTransparency = 1
+        CNameLabel.Parent = CNameFrame
 
-        do
-            local CFrame2 = Instance.new("Frame")
-            CFrame2.Size = UDim2.new(1, -10, 0, 50)
-            CFrame2.Position = UDim2.new(0, 5, 0, 30)
-            CFrame2.BackgroundTransparency = 1
-            CFrame2.Parent = ConfigSec.Container
-            CFrame2.LayoutOrder = -10
+        local CNameBoxCont = Instance.new("Frame")
+        CNameBoxCont.Size = UDim2.new(1, 0, 0, 28)
+        CNameBoxCont.Position = UDim2.new(0, 0, 0, 22)
+        CNameBoxCont.BackgroundColor3 = Theme.Container
+        CNameBoxCont.Parent = CNameFrame
+        Corner(CNameBoxCont, 4)
+        Stroke(CNameBoxCont, Theme.Stroke, 1, 0.5)
 
-            local CLabel = Instance.new("TextLabel")
-            CLabel.Text = "Config Name"
-            CLabel.Font = Config.FontMain
-            CLabel.TextSize = 13
-            CLabel.TextColor3 = Theme.Text
-            CLabel.Size = UDim2.new(1, 0, 0, 20)
-            CLabel.Position = UDim2.new(0, 5, 0, 0)
-            CLabel.TextXAlignment = Enum.TextXAlignment.Left
-            CLabel.BackgroundTransparency = 1
-            CLabel.Parent = CFrame2
+        local CNameInput = Instance.new("TextBox")
+        CNameInput.Size = UDim2.new(1, -10, 1, 0)
+        CNameInput.Position = UDim2.new(0, 5, 0, 0)
+        CNameInput.BackgroundTransparency = 1
+        CNameInput.TextColor3 = Theme.Text
+        CNameInput.PlaceholderText = "Type config name..."
+        CNameInput.PlaceholderColor3 = Theme.TextDark
+        CNameInput.Font = Config.FontMain
+        CNameInput.TextSize = 13
+        CNameInput.TextXAlignment = Enum.TextXAlignment.Left
+        CNameInput.Text = ""
+        CNameInput.ClearTextOnFocus = false
+        CNameInput.Parent = CNameBoxCont
 
-            local CBoxCont = Instance.new("Frame")
-            CBoxCont.Size = UDim2.new(1, 0, 0, 28)
-            CBoxCont.Position = UDim2.new(0, 0, 0, 22)
-            CBoxCont.BackgroundColor3 = Theme.Container
-            CBoxCont.Parent = CFrame2
-            Corner(CBoxCont, 4)
-            Stroke(CBoxCont, Theme.Stroke, 1, 0.5)
-
-            configTextBox = Instance.new("TextBox")
-            configTextBox.Size = UDim2.new(1, -10, 1, 0)
-            configTextBox.Position = UDim2.new(0, 5, 0, 0)
-            configTextBox.BackgroundTransparency = 1
-            configTextBox.TextColor3 = Theme.Text
-            configTextBox.PlaceholderText = "Type config name..."
-            configTextBox.PlaceholderColor3 = Theme.TextDark
-            configTextBox.Font = Config.FontMain
-            configTextBox.TextSize = 13
-            configTextBox.TextXAlignment = Enum.TextXAlignment.Left
-            configTextBox.Text = ""
-            configTextBox.ClearTextOnFocus = false
-            configTextBox.Parent = CBoxCont
-
-            configTextBox.Changed:Connect(function(prop)
-                if prop == "Text" then
-                    configNameInput = configTextBox.Text
-                end
-            end)
-        end
-
-        ConfigNameBox:Destroy()
+        CNameInput:GetPropertyChangedSignal("Text"):Connect(function()
+            configNameInput = CNameInput.Text
+        end)
 
         local ConfigDropdown = ConfigSec:Dropdown(
             "Select Config", "ConfigSelectorFlag",
@@ -1899,7 +1886,7 @@ function Library:CreateWindow(options)
 
         ConfigSec:Button("Create New Config", "Create a new config with the typed name", function()
             local name = configNameInput
-            if name == nil or name == "" or string.match(name, "^%s*$") then
+            if not name or name == "" or string.match(name, "^%s*$") then
                 Library:Notify("Error", "Please type a config name first", 3)
                 return
             end
@@ -1917,6 +1904,8 @@ function Library:CreateWindow(options)
                 local newList = Library:GetConfigs()
                 ConfigDropdown:Refresh(newList, name)
                 selectedConfigName = name
+                CNameInput.Text = ""
+                configNameInput = ""
                 Library:Notify("Config", "Created: " .. name, 3)
             else
                 Library:Notify("Error", "Failed to create config", 3)
@@ -1925,7 +1914,7 @@ function Library:CreateWindow(options)
 
         ConfigSec:Button("Load Config", "Load the selected config", function()
             local name = selectedConfigName
-            if name == "" then
+            if not name or name == "" then
                 Library:Notify("Error", "No config selected", 3)
                 return
             end
@@ -1942,7 +1931,7 @@ function Library:CreateWindow(options)
 
         ConfigSec:Button("Rewrite Config", "Overwrite the selected config with current settings", function()
             local name = selectedConfigName
-            if name == "" then
+            if not name or name == "" then
                 Library:Notify("Error", "No config selected", 3)
                 return
             end
@@ -1959,7 +1948,7 @@ function Library:CreateWindow(options)
 
         ConfigSec:Button("Delete Config", "Delete the selected config", function()
             local name = selectedConfigName
-            if name == "" then
+            if not name or name == "" then
                 Library:Notify("Error", "No config selected", 3)
                 return
             end
