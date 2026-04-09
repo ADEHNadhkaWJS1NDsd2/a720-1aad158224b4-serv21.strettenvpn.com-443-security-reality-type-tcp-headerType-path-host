@@ -571,6 +571,228 @@ function Library:UpdateKeybindList(name, key, active, mode)
     end
 end
 
+local function CreateDropdownElement(text, flag, options, default, tooltipText, callback, parentFrame, sectionRef, isMulti, customParent)
+    local selected = default
+    if isMulti then
+        if type(default) ~= "table" then selected = {default} else selected = default end
+    else
+        selected = default or options[1]
+    end
+    Library.Defaults[flag] = selected
+    Library.Flags[flag] = selected
+
+    local isDropped = false
+    local parent = customParent or parentFrame
+    local DropFrame = Instance.new("Frame")
+    DropFrame.Size = UDim2.new(1, customParent and -20 or 0, 0, 46)
+    if customParent then DropFrame.Position = UDim2.new(0, 20, 0, 0) end
+    DropFrame.BackgroundTransparency = 1
+    DropFrame.Parent = parent
+    DropFrame.ZIndex = 5
+
+    local DLabel = Instance.new("TextLabel")
+    DLabel.Text = text
+    DLabel.Font = Config.FontMain
+    DLabel.TextSize = 13
+    DLabel.TextColor3 = customParent and Theme.TextDark or Theme.Text
+    DLabel.Size = UDim2.new(1, 0, 0, 16)
+    DLabel.Position = UDim2.new(0, 5, 0, 0)
+    DLabel.TextXAlignment = Enum.TextXAlignment.Left
+    DLabel.BackgroundTransparency = 1
+    DLabel.Parent = DropFrame
+
+    local Interactive = Instance.new("TextButton")
+    Interactive.Size = UDim2.new(1, 0, 0, 26)
+    Interactive.Position = UDim2.new(0, 0, 0, 20)
+    Interactive.BackgroundColor3 = Theme.Container
+    Interactive.Text = ""
+    Interactive.AutoButtonColor = false
+    Interactive.Parent = DropFrame
+    Interactive.ZIndex = 5
+    Corner(Interactive, 4)
+    Stroke(Interactive, Theme.Stroke, 1, 0.5)
+
+    local SelectedText = Instance.new("TextLabel")
+    SelectedText.Font = Config.FontMain
+    SelectedText.TextSize = 13
+    SelectedText.TextColor3 = Theme.Text
+    SelectedText.Size = UDim2.new(1, -25, 1, 0)
+    SelectedText.Position = UDim2.new(0, 8, 0, 0)
+    SelectedText.TextXAlignment = Enum.TextXAlignment.Left
+    SelectedText.BackgroundTransparency = 1
+    SelectedText.ZIndex = 6
+    SelectedText.ClipsDescendants = true
+    SelectedText.Parent = Interactive
+
+    local Arrow = Instance.new("ImageLabel")
+    Arrow.Image = "rbxassetid://10709790948"
+    Arrow.Size = UDim2.new(0, 18, 0, 18)
+    Arrow.Position = UDim2.new(1, -20, 0.5, 0)
+    Arrow.AnchorPoint = Vector2.new(0, 0.5)
+    Arrow.BackgroundTransparency = 1
+    Arrow.ImageColor3 = Theme.TextDark
+    Arrow.Parent = Interactive
+    Arrow.ZIndex = 6
+
+    local ListFrame = Instance.new("ScrollingFrame")
+    ListFrame.Size = UDim2.new(1, 0, 0, 0)
+    ListFrame.Position = UDim2.new(0, 0, 1, 5)
+    ListFrame.BackgroundColor3 = Theme.Container
+    ListFrame.BorderSizePixel = 0
+    ListFrame.Parent = Interactive
+    ListFrame.ZIndex = 10
+    ListFrame.Visible = false
+    ListFrame.Active = true
+    ListFrame.ScrollBarThickness = 2
+    ListFrame.ScrollBarImageColor3 = Theme.Accent
+    Corner(ListFrame, 4)
+    Stroke(ListFrame, Theme.Stroke, 1, 0.5)
+    local IList = Instance.new("UIListLayout")
+    IList.SortOrder = Enum.SortOrder.LayoutOrder
+    IList.Parent = ListFrame
+    IList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ListFrame.CanvasSize = UDim2.new(0, 0, 0, IList.AbsoluteContentSize.Y)
+    end)
+
+    local function CloseDropdown()
+        isDropped = false
+        if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = 1 end
+        DropFrame.ZIndex = 5
+        if customParent then customParent.ZIndex = 1 end
+        Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
+        local t = Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
+        Tween(Arrow, {Rotation = 0}, 0.2)
+        t.Completed:Connect(function()
+            if not isDropped then ListFrame.Visible = false end
+        end)
+    end
+
+    local optionBtns = {}
+
+    local function IsSelected(opt)
+        if isMulti then
+            for _, v in ipairs(selected) do
+                if v == opt then return true end
+            end
+            return false
+        else
+            return selected == opt
+        end
+    end
+
+    local function UpdateVisuals()
+        if isMulti then
+            SelectedText.Text = (#selected > 0 and table.concat(selected, ", ") or "None")
+        else
+            SelectedText.Text = tostring(selected)
+        end
+        for opt, btn in pairs(optionBtns) do
+            if IsSelected(opt) then
+                btn.TextColor3 = Theme.Accent
+            else
+                btn.TextColor3 = Theme.TextDark
+            end
+        end
+    end
+
+    local function BuildOptions(newOptions)
+        for _, btn in pairs(optionBtns) do btn:Destroy() end
+        table.clear(optionBtns)
+        options = newOptions
+        for _, opt in ipairs(options) do
+            local OptBtn = Instance.new("TextButton")
+            OptBtn.Size = UDim2.new(1, 0, 0, 24)
+            OptBtn.BackgroundColor3 = Theme.Container
+            OptBtn.BackgroundTransparency = 1
+            OptBtn.Text = opt
+            OptBtn.Font = Config.FontMain
+            OptBtn.TextSize = 12
+            OptBtn.Parent = ListFrame
+            OptBtn.ZIndex = 11
+
+            if IsSelected(opt) then
+                OptBtn.TextColor3 = Theme.Accent
+            else
+                OptBtn.TextColor3 = Theme.TextDark
+            end
+
+            optionBtns[opt] = OptBtn
+
+            OptBtn.MouseEnter:Connect(function()
+                if not IsSelected(opt) then
+                    Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent})
+                end
+            end)
+            OptBtn.MouseLeave:Connect(function()
+                if not IsSelected(opt) then
+                    Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark})
+                end
+            end)
+
+            OptBtn.MouseButton1Click:Connect(function()
+                if isMulti then
+                    local found = table.find(selected, opt)
+                    if found then table.remove(selected, found) else table.insert(selected, opt) end
+                    UpdateVisuals()
+                    Library.Flags[flag] = selected
+                    Library.Unsaved = true
+                    callback(selected)
+                else
+                    selected = opt
+                    UpdateVisuals()
+                    Library.Flags[flag] = selected
+                    Library.Unsaved = true
+                    callback(selected)
+                    CloseDropdown()
+                end
+            end)
+        end
+    end
+
+    BuildOptions(options)
+    UpdateVisuals()
+
+    Library.Signals[flag] = function(val)
+        selected = val
+        UpdateVisuals()
+        Library.Unsaved = true
+        callback(selected)
+    end
+
+    Interactive.MouseButton1Click:Connect(function()
+        isDropped = not isDropped
+        if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = isDropped and 10 or 1 end
+        DropFrame.ZIndex = isDropped and 10 or 5
+        if customParent then customParent.ZIndex = isDropped and 10 or 1 customParent.ClipsDescendants = false end
+        if isDropped then
+            ListFrame.Visible = true
+            local listH = math.min(#options * 24, 200)
+            local totalH = 46 + listH + 5
+            Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, totalH)}, 0.2)
+            Tween(ListFrame, {Size = UDim2.new(1, 0, 0, listH)}, 0.2)
+            Tween(Arrow, {Rotation = 180}, 0.2)
+        else
+            CloseDropdown()
+        end
+    end)
+    ApplyTooltip(DropFrame, tooltipText)
+    task.spawn(callback, selected)
+
+    local DropdownObj = {}
+    DropdownObj.Frame = DropFrame
+    function DropdownObj:Refresh(newOptions, newDefault)
+        if isMulti then
+            if type(newDefault) ~= "table" then selected = {newDefault} else selected = newDefault end
+        else
+            selected = newDefault or newOptions[1]
+        end
+        Library.Flags[flag] = selected
+        BuildOptions(newOptions)
+        UpdateVisuals()
+    end
+    return DropdownObj
+end
+
 function Library:CreateWindow(options)
     if options and options.Name then Config.Name = options.Name end
     Library:Unload()
@@ -748,7 +970,6 @@ function Library:CreateWindow(options)
             Stroke(BackBtn, Theme.Stroke, 1, 0.5)
             BackBtn.MouseEnter:Connect(function() Tween(BackBtn, {TextColor3 = Theme.Accent}) end)
             BackBtn.MouseLeave:Connect(function() Tween(BackBtn, {TextColor3 = Theme.TextDark}) end)
-            RegisterTheme(BackBtn, "TextColor")
             local Title = Instance.new("TextLabel")
             Title.Text = "Settings"
             Title.Size = UDim2.new(1, 0, 0, 30)
@@ -833,7 +1054,6 @@ function Library:CreateWindow(options)
     SideSub.Parent = ProfileBtn
 
     local IsSettings = false
-
     local animating = false
 
     local function ToggleMain()
@@ -1189,7 +1409,7 @@ function Library:CreateWindow(options)
             end
 
             function ToggleObj:AddDropdown(txt, dflag, opts, def, cb, isMulti)
-                Section:Dropdown(txt, dflag, opts, def, nil, cb, SubContainer, isMulti)
+                CreateDropdownElement(txt, dflag, opts, def, nil, cb, Content, Section, isMulti, SubContainer)
             end
 
             function ToggleObj:Keybind(defaultKey, mode)
@@ -1357,200 +1577,7 @@ function Library:CreateWindow(options)
         end
 
         function Section:Dropdown(text, flag, options, default, tooltipText, callback, customParent, isMulti)
-            local selected = default
-            if isMulti then
-                if type(default) ~= "table" then selected = {default} else selected = default end
-            else
-                selected = default or options[1]
-            end
-            Library.Defaults[flag] = selected
-            Library.Flags[flag] = selected
-
-            local isDropped = false
-            local parent = customParent or Content
-            local DropFrame = Instance.new("Frame")
-            DropFrame.Size = UDim2.new(1, customParent and -20 or 0, 0, 46)
-            if customParent then DropFrame.Position = UDim2.new(0, 20, 0, 0) end
-            DropFrame.BackgroundTransparency = 1
-            DropFrame.Parent = parent
-            DropFrame.ZIndex = 5
-
-            local DLabel = Instance.new("TextLabel")
-            DLabel.Text = text
-            DLabel.Font = Config.FontMain
-            DLabel.TextSize = 13
-            DLabel.TextColor3 = customParent and Theme.TextDark or Theme.Text
-            DLabel.Size = UDim2.new(1, 0, 0, 16)
-            DLabel.Position = UDim2.new(0, 5, 0, 0)
-            DLabel.TextXAlignment = Enum.TextXAlignment.Left
-            DLabel.BackgroundTransparency = 1
-            DLabel.Parent = DropFrame
-
-            local Interactive = Instance.new("TextButton")
-            Interactive.Size = UDim2.new(1, 0, 0, 26)
-            Interactive.Position = UDim2.new(0, 0, 0, 20)
-            Interactive.BackgroundColor3 = Theme.Container
-            Interactive.Text = ""
-            Interactive.AutoButtonColor = false
-            Interactive.Parent = DropFrame
-            Interactive.ZIndex = 5
-            Corner(Interactive, 4)
-            Stroke(Interactive, Theme.Stroke, 1, 0.5)
-
-            local SelectedText = Instance.new("TextLabel")
-            SelectedText.Text = isMulti and table.concat(selected, ", ") or selected
-            SelectedText.Font = Config.FontMain
-            SelectedText.TextSize = 13
-            SelectedText.TextColor3 = Theme.Text
-            SelectedText.Size = UDim2.new(1, -25, 1, 0)
-            SelectedText.Position = UDim2.new(0, 8, 0, 0)
-            SelectedText.TextXAlignment = Enum.TextXAlignment.Left
-            SelectedText.BackgroundTransparency = 1
-            SelectedText.ZIndex = 6
-            SelectedText.ClipsDescendants = true
-            SelectedText.Parent = Interactive
-
-            local Arrow = Instance.new("ImageLabel")
-            Arrow.Image = "rbxassetid://10709790948"
-            Arrow.Size = UDim2.new(0, 18, 0, 18)
-            Arrow.Position = UDim2.new(1, -20, 0.5, 0)
-            Arrow.AnchorPoint = Vector2.new(0, 0.5)
-            Arrow.BackgroundTransparency = 1
-            Arrow.ImageColor3 = Theme.TextDark
-            Arrow.Parent = Interactive
-            Arrow.ZIndex = 6
-
-            local ListFrame = Instance.new("ScrollingFrame")
-            ListFrame.Size = UDim2.new(1, 0, 0, 0)
-            ListFrame.Position = UDim2.new(0, 0, 1, 5)
-            ListFrame.BackgroundColor3 = Theme.Container
-            ListFrame.BorderSizePixel = 0
-            ListFrame.Parent = Interactive
-            ListFrame.ZIndex = 10
-            ListFrame.Visible = false
-            ListFrame.Active = true
-            ListFrame.ScrollBarThickness = 2
-            ListFrame.ScrollBarImageColor3 = Theme.Accent
-            Corner(ListFrame, 4)
-            Stroke(ListFrame, Theme.Stroke, 1, 0.5)
-            local IList = Instance.new("UIListLayout")
-            IList.SortOrder = Enum.SortOrder.LayoutOrder
-            IList.Parent = ListFrame
-            IList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                ListFrame.CanvasSize = UDim2.new(0, 0, 0, IList.AbsoluteContentSize.Y)
-            end)
-
-            local function CloseDropdown()
-                isDropped = false
-                Section.Container.ZIndex = 1
-                DropFrame.ZIndex = 5
-                if customParent then customParent.ZIndex = 1 end
-                Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
-                local t = Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
-                Tween(Arrow, {Rotation = 0}, 0.2)
-                t.Completed:Connect(function()
-                    if not isDropped then ListFrame.Visible = false end
-                end)
-            end
-
-            local optionBtns = {}
-            local function UpdateVisuals()
-                SelectedText.Text = isMulti and (#selected > 0 and table.concat(selected, ", ") or "None") or selected
-                if isMulti then
-                    for opt, btn in pairs(optionBtns) do
-                        local sel = false
-                        for _, v in pairs(selected) do if v == opt then sel = true break end end
-                        btn.TextColor3 = sel and Theme.Accent or Theme.TextDark
-                    end
-                end
-            end
-
-            local function BuildOptions(newOptions)
-                for _, btn in pairs(optionBtns) do btn:Destroy() end
-                table.clear(optionBtns)
-                options = newOptions
-                for _, opt in ipairs(options) do
-                    local OptBtn = Instance.new("TextButton")
-                    OptBtn.Size = UDim2.new(1, 0, 0, 24)
-                    OptBtn.BackgroundColor3 = Theme.Container
-                    OptBtn.BackgroundTransparency = 1
-                    OptBtn.Text = opt
-                    OptBtn.TextColor3 = Theme.TextDark
-                    OptBtn.Font = Config.FontMain
-                    OptBtn.TextSize = 12
-                    OptBtn.Parent = ListFrame
-                    OptBtn.ZIndex = 11
-                    optionBtns[opt] = OptBtn
-
-                    OptBtn.MouseEnter:Connect(function()
-                        if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
-                    end)
-                    OptBtn.MouseLeave:Connect(function()
-                        if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
-                    end)
-                    RegisterTheme(OptBtn, "TextColor")
-
-                    OptBtn.MouseButton1Click:Connect(function()
-                        if isMulti then
-                            local found = table.find(selected, opt)
-                            if found then table.remove(selected, found) else table.insert(selected, opt) end
-                            UpdateVisuals()
-                            Library.Flags[flag] = selected
-                            Library.Unsaved = true
-                            callback(selected)
-                        else
-                            selected = opt
-                            UpdateVisuals()
-                            Library.Flags[flag] = selected
-                            Library.Unsaved = true
-                            callback(selected)
-                            CloseDropdown()
-                        end
-                    end)
-                end
-            end
-
-            BuildOptions(options)
-            UpdateVisuals()
-
-            Library.Signals[flag] = function(val)
-                selected = val
-                UpdateVisuals()
-                Library.Unsaved = true
-                callback(selected)
-            end
-
-            Interactive.MouseButton1Click:Connect(function()
-                isDropped = not isDropped
-                Section.Container.ZIndex = isDropped and 10 or 1
-                DropFrame.ZIndex = isDropped and 10 or 5
-                if customParent then customParent.ZIndex = isDropped and 10 or 1 customParent.ClipsDescendants = false end
-                if isDropped then
-                    ListFrame.Visible = true
-                    local listH = math.min(#options * 24, 200)
-                    local totalH = 46 + listH + 5
-                    Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, totalH)}, 0.2)
-                    Tween(ListFrame, {Size = UDim2.new(1, 0, 0, listH)}, 0.2)
-                    Tween(Arrow, {Rotation = 180}, 0.2)
-                else
-                    CloseDropdown()
-                end
-            end)
-            ApplyTooltip(DropFrame, tooltipText)
-            task.spawn(callback, selected)
-
-            local DropdownObj = {}
-            function DropdownObj:Refresh(newOptions, newDefault)
-                if isMulti then
-                    if type(newDefault) ~= "table" then selected = {newDefault} else selected = newDefault end
-                else
-                    selected = newDefault or newOptions[1]
-                end
-                Library.Flags[flag] = selected
-                BuildOptions(newOptions)
-                UpdateVisuals()
-            end
-            return DropdownObj
+            return CreateDropdownElement(text, flag, options, default, tooltipText, callback, Content, Section, isMulti, customParent)
         end
 
         function Section:ColorPicker(text, flag, default, tooltipText, callback)
@@ -1675,7 +1702,7 @@ function Library:CreateWindow(options)
 
             HexInput.FocusLost:Connect(function()
                 local t = HexInput.Text:gsub("#", "")
-                if t:match("^[0-9a-fA-F]{6}$") then
+                if t:match("^[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$") then
                     pcall(function()
                         local nc = Color3.fromHex(t)
                         h, s, v = nc:ToHSV()
@@ -2226,7 +2253,7 @@ function Library:CreateWindow(options)
                 end
 
                 function ToggleObj:AddDropdown(txt, dflag, opts, def, cb, isMulti)
-                    Section:Dropdown(txt, dflag, opts, def, nil, cb, SubContainer, isMulti)
+                    CreateDropdownElement(txt, dflag, opts, def, nil, cb, Content, Section, isMulti, SubContainer)
                 end
 
                 function ToggleObj:Keybind(defaultKey, mode)
@@ -2651,201 +2678,9 @@ function Library:CreateWindow(options)
             end
 
             function Section:Dropdown(text, flag, options, default, tooltipText, callback, customParent, isMulti)
-                local selected = default
-                if isMulti then
-                    if type(default) ~= "table" then selected = {default} else selected = default end
-                else
-                    selected = default or options[1]
-                end
-                Library.Defaults[flag] = selected
-                Library.Flags[flag] = selected
-
-                local isDropped = false
-                local parent = customParent or Content
-                local DropFrame = Instance.new("Frame")
-                DropFrame.Size = UDim2.new(1, customParent and -20 or 0, 0, 46)
-                if customParent then DropFrame.Position = UDim2.new(0, 20, 0, 0) end
-                DropFrame.BackgroundTransparency = 1
-                DropFrame.Parent = parent
-                DropFrame.ZIndex = 5
-                if not customParent then table.insert(secData.Items, {Name = text, Instance = DropFrame}) end
-
-                local DLabel = Instance.new("TextLabel")
-                DLabel.Text = text
-                DLabel.Font = Config.FontMain
-                DLabel.TextSize = 13
-                DLabel.TextColor3 = customParent and Theme.TextDark or Theme.Text
-                DLabel.Size = UDim2.new(1, 0, 0, 16)
-                DLabel.Position = UDim2.new(0, 5, 0, 0)
-                DLabel.TextXAlignment = Enum.TextXAlignment.Left
-                DLabel.BackgroundTransparency = 1
-                DLabel.Parent = DropFrame
-
-                local Interactive = Instance.new("TextButton")
-                Interactive.Size = UDim2.new(1, 0, 0, 26)
-                Interactive.Position = UDim2.new(0, 0, 0, 20)
-                Interactive.BackgroundColor3 = Theme.Container
-                Interactive.Text = ""
-                Interactive.AutoButtonColor = false
-                Interactive.Parent = DropFrame
-                Interactive.ZIndex = 5
-                Corner(Interactive, 4)
-                Stroke(Interactive, Theme.Stroke, 1, 0.5)
-
-                local SelectedText = Instance.new("TextLabel")
-                SelectedText.Text = isMulti and table.concat(selected, ", ") or selected
-                SelectedText.Font = Config.FontMain
-                SelectedText.TextSize = 13
-                SelectedText.TextColor3 = Theme.Text
-                SelectedText.Size = UDim2.new(1, -25, 1, 0)
-                SelectedText.Position = UDim2.new(0, 8, 0, 0)
-                SelectedText.TextXAlignment = Enum.TextXAlignment.Left
-                SelectedText.BackgroundTransparency = 1
-                SelectedText.ZIndex = 6
-                SelectedText.ClipsDescendants = true
-                SelectedText.Parent = Interactive
-
-                local Arrow = Instance.new("ImageLabel")
-                Arrow.Image = "rbxassetid://10709790948"
-                Arrow.Size = UDim2.new(0, 18, 0, 18)
-                Arrow.Position = UDim2.new(1, -20, 0.5, 0)
-                Arrow.AnchorPoint = Vector2.new(0, 0.5)
-                Arrow.BackgroundTransparency = 1
-                Arrow.ImageColor3 = Theme.TextDark
-                Arrow.Parent = Interactive
-                Arrow.ZIndex = 6
-
-                local ListFrame = Instance.new("ScrollingFrame")
-                ListFrame.Size = UDim2.new(1, 0, 0, 0)
-                ListFrame.Position = UDim2.new(0, 0, 1, 5)
-                ListFrame.BackgroundColor3 = Theme.Container
-                ListFrame.BorderSizePixel = 0
-                ListFrame.Parent = Interactive
-                ListFrame.ZIndex = 10
-                ListFrame.Visible = false
-                ListFrame.Active = true
-                ListFrame.ScrollBarThickness = 2
-                ListFrame.ScrollBarImageColor3 = Theme.Accent
-                Corner(ListFrame, 4)
-                Stroke(ListFrame, Theme.Stroke, 1, 0.5)
-                local IList = Instance.new("UIListLayout")
-                IList.SortOrder = Enum.SortOrder.LayoutOrder
-                IList.Parent = ListFrame
-                IList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                    ListFrame.CanvasSize = UDim2.new(0, 0, 0, IList.AbsoluteContentSize.Y)
-                end)
-
-                local function CloseDropdown()
-                    isDropped = false
-                    Section.Container.ZIndex = 1
-                    DropFrame.ZIndex = 5
-                    if customParent then customParent.ZIndex = 1 end
-                    Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
-                    local t = Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
-                    Tween(Arrow, {Rotation = 0}, 0.2)
-                    t.Completed:Connect(function()
-                        if not isDropped then ListFrame.Visible = false end
-                    end)
-                end
-
-                local optionBtns = {}
-                local function UpdateVisuals()
-                    SelectedText.Text = isMulti and (#selected > 0 and table.concat(selected, ", ") or "None") or selected
-                    if isMulti then
-                        for opt, btn in pairs(optionBtns) do
-                            local sel = false
-                            for _, v in pairs(selected) do if v == opt then sel = true break end end
-                            btn.TextColor3 = sel and Theme.Accent or Theme.TextDark
-                        end
-                    end
-                end
-
-                local function BuildOptions(newOptions)
-                    for _, btn in pairs(optionBtns) do btn:Destroy() end
-                    table.clear(optionBtns)
-                    options = newOptions
-                    for _, opt in ipairs(options) do
-                        local OptBtn = Instance.new("TextButton")
-                        OptBtn.Size = UDim2.new(1, 0, 0, 24)
-                        OptBtn.BackgroundColor3 = Theme.Container
-                        OptBtn.BackgroundTransparency = 1
-                        OptBtn.Text = opt
-                        OptBtn.TextColor3 = Theme.TextDark
-                        OptBtn.Font = Config.FontMain
-                        OptBtn.TextSize = 12
-                        OptBtn.Parent = ListFrame
-                        OptBtn.ZIndex = 11
-                        optionBtns[opt] = OptBtn
-
-                        OptBtn.MouseEnter:Connect(function()
-                            if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
-                        end)
-                        OptBtn.MouseLeave:Connect(function()
-                            if not (isMulti and table.find(selected, opt)) then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
-                        end)
-                        RegisterTheme(OptBtn, "TextColor")
-
-                        OptBtn.MouseButton1Click:Connect(function()
-                            if isMulti then
-                                local found = table.find(selected, opt)
-                                if found then table.remove(selected, found) else table.insert(selected, opt) end
-                                UpdateVisuals()
-                                Library.Flags[flag] = selected
-                                Library.Unsaved = true
-                                callback(selected)
-                            else
-                                selected = opt
-                                UpdateVisuals()
-                                Library.Flags[flag] = selected
-                                Library.Unsaved = true
-                                callback(selected)
-                                CloseDropdown()
-                            end
-                        end)
-                    end
-                end
-
-                BuildOptions(options)
-                UpdateVisuals()
-
-                Library.Signals[flag] = function(val)
-                    selected = val
-                    UpdateVisuals()
-                    Library.Unsaved = true
-                    callback(selected)
-                end
-
-                Interactive.MouseButton1Click:Connect(function()
-                    isDropped = not isDropped
-                    Section.Container.ZIndex = isDropped and 10 or 1
-                    DropFrame.ZIndex = isDropped and 10 or 5
-                    if customParent then customParent.ZIndex = isDropped and 10 or 1 customParent.ClipsDescendants = false end
-                    if isDropped then
-                        ListFrame.Visible = true
-                        local listH = math.min(#options * 24, 200)
-                        local totalH = 46 + listH + 5
-                        Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, totalH)}, 0.2)
-                        Tween(ListFrame, {Size = UDim2.new(1, 0, 0, listH)}, 0.2)
-                        Tween(Arrow, {Rotation = 180}, 0.2)
-                    else
-                        CloseDropdown()
-                    end
-                end)
-                ApplyTooltip(DropFrame, tooltipText)
-                task.spawn(callback, selected)
-
-                local DropdownObj = {}
-                function DropdownObj:Refresh(newOptions, newDefault)
-                    if isMulti then
-                        if type(newDefault) ~= "table" then selected = {newDefault} else selected = newDefault end
-                    else
-                        selected = newDefault or newOptions[1]
-                    end
-                    Library.Flags[flag] = selected
-                    BuildOptions(newOptions)
-                    UpdateVisuals()
-                end
-                return DropdownObj
+                local obj = CreateDropdownElement(text, flag, options, default, tooltipText, callback, Content, Section, isMulti, customParent)
+                if not customParent then table.insert(secData.Items, {Name = text, Instance = obj.Frame}) end
+                return obj
             end
 
             function Section:ColorPicker(text, flag, default, tooltipText, callback)
@@ -2971,7 +2806,7 @@ function Library:CreateWindow(options)
 
                 HexInput.FocusLost:Connect(function()
                     local t = HexInput.Text:gsub("#", "")
-                    if t:match("^[0-9a-fA-F]{6}$") then
+                    if t:match("^[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$") then
                         pcall(function()
                             local nc = Color3.fromHex(t)
                             h, s, v = nc:ToHSV()
