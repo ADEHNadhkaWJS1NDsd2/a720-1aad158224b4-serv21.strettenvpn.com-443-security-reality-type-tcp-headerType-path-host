@@ -110,6 +110,24 @@ local function Stroke(parent, color, thickness, transparency)
     return s
 end
 
+local function RoundToIncrement(value, increment)
+    if increment <= 0 then return value end
+    return math.round(value / increment) * increment
+end
+
+local function FormatNumber(value, increment)
+    if increment >= 1 then
+        return tostring(math.round(value))
+    end
+    local str = tostring(increment)
+    local dotPos = string.find(str, "%.")
+    if dotPos then
+        local decimals = #str - dotPos
+        return string.format("%." .. decimals .. "f", value)
+    end
+    return tostring(value)
+end
+
 local function MakeDraggable(dragObj, moveObj, onDragCallback)
     local dragging = false
     local dragStart
@@ -823,6 +841,131 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         return selected
     end
     return DropdownObj
+end
+
+local function CreateSliderElement(text, flag, min, max, default, increment, tooltipText, callback, parentFrame, secData)
+    increment = increment or 1
+    local val = RoundToIncrement(default or min, increment)
+    Library.Defaults[flag] = val
+    Library.Flags[flag] = val
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 42)
+    Frame.BackgroundTransparency = 1
+    Frame.Parent = parentFrame
+    if secData then table.insert(secData.Items, {Name = text, Instance = Frame}) end
+
+    local Label = Instance.new("TextLabel")
+    Label.Text = text
+    Label.Font = Config.FontMain
+    Label.TextSize = 13
+    Label.TextColor3 = Theme.Text
+    Label.Size = UDim2.new(0.6, 0, 0, 16)
+    Label.Position = UDim2.new(0, 5, 0, 0)
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.BackgroundTransparency = 1
+    Label.Parent = Frame
+
+    local ValLabel = Instance.new("TextBox")
+    ValLabel.Text = FormatNumber(val, increment)
+    ValLabel.Font = Config.FontMain
+    ValLabel.TextSize = 13
+    ValLabel.TextColor3 = Theme.Text
+    ValLabel.Size = UDim2.new(0.4, -5, 0, 16)
+    ValLabel.Position = UDim2.new(0.6, 0, 0, 0)
+    ValLabel.TextXAlignment = Enum.TextXAlignment.Right
+    ValLabel.BackgroundTransparency = 1
+    ValLabel.ClearTextOnFocus = true
+    ValLabel.Parent = Frame
+
+    local Bar = Instance.new("Frame")
+    Bar.Size = UDim2.new(1, 0, 0, 6)
+    Bar.Position = UDim2.new(0, 0, 0, 24)
+    Bar.BackgroundColor3 = Theme.Container
+    Bar.Parent = Frame
+    Bar.Active = true
+    Corner(Bar, 3)
+    Stroke(Bar, Theme.Stroke, 1, 0.5)
+
+    local Fill = Instance.new("Frame")
+    local range = max - min
+    local ratio = range > 0 and (val - min) / range or 0
+    Fill.Size = UDim2.new(ratio, 0, 1, 0)
+    Fill.BackgroundColor3 = Theme.Accent
+    Fill.BorderSizePixel = 0
+    Fill.Parent = Bar
+    Corner(Fill, 3)
+    RegisterTheme(Fill, "BackgroundColor")
+
+    local dragging = false
+    local inputChangedConn = nil
+
+    local function SetFromInput(input)
+        local r = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+        local raw = min + (max - min) * r
+        val = RoundToIncrement(raw, increment)
+        val = math.clamp(val, min, max)
+        local displayRatio = range > 0 and (val - min) / range or 0
+        ValLabel.Text = FormatNumber(val, increment)
+        Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
+        Library.Flags[flag] = val
+        Library.Unsaved = true
+        callback(val)
+    end
+
+    Bar.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            SetFromInput(i)
+            inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
+                if (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragging then SetFromInput(inp) end
+            end)
+            local inputEndedConn
+            inputEndedConn = UserInputService.InputEnded:Connect(function(inp)
+                if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+                    dragging = false
+                    if inputChangedConn then inputChangedConn:Disconnect() inputChangedConn = nil end
+                    if inputEndedConn then inputEndedConn:Disconnect() inputEndedConn = nil end
+                end
+            end)
+        end
+    end)
+
+    ValLabel.FocusLost:Connect(function(enter)
+        if enter then
+            local num = tonumber(ValLabel.Text)
+            if num then
+                num = RoundToIncrement(num, increment)
+                num = math.clamp(num, min, max)
+                val = num
+                local displayRatio = range > 0 and (val - min) / range or 0
+                ValLabel.Text = FormatNumber(val, increment)
+                Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
+                Library.Flags[flag] = val
+                Library.Unsaved = true
+                callback(val)
+            else
+                ValLabel.Text = FormatNumber(val, increment)
+            end
+        else
+            ValLabel.Text = FormatNumber(val, increment)
+        end
+    end)
+
+    Library.Signals[flag] = function(loadedVal)
+        val = RoundToIncrement(loadedVal, increment)
+        val = math.clamp(val, min, max)
+        local displayRatio = range > 0 and (val - min) / range or 0
+        ValLabel.Text = FormatNumber(val, increment)
+        Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
+        Library.Unsaved = true
+        callback(val)
+    end
+
+    ApplyTooltip(Frame, tooltipText)
+    task.spawn(callback, val)
+
+    return Frame
 end
 
 function Library:CreateWindow(options)
@@ -2070,15 +2213,19 @@ function Library:CreateWindow(options)
                     SBtn.MouseButton1Click:Connect(cb)
                 end
 
-                function ToggleObj:AddSlider(txt, sflag, min, max, def, cb)
-                    local val = def or min
+                function ToggleObj:AddSlider(txt, sflag, min, max, def, cb, inc)
+                    inc = inc or 1
+                    local val = RoundToIncrement(def or min, inc)
                     Library.Defaults[sflag] = val
                     Library.Flags[sflag] = val
+                    local range = max - min
+
                     local SFrame = Instance.new("Frame")
                     SFrame.Size = UDim2.new(1, -20, 0, 36)
                     SFrame.Position = UDim2.new(0, 20, 0, 0)
                     SFrame.BackgroundTransparency = 1
                     SFrame.Parent = SubContainer
+
                     local SLabel = Instance.new("TextLabel")
                     SLabel.Text = txt
                     SLabel.Font = Config.FontMain
@@ -2088,15 +2235,18 @@ function Library:CreateWindow(options)
                     SLabel.TextXAlignment = Enum.TextXAlignment.Left
                     SLabel.BackgroundTransparency = 1
                     SLabel.Parent = SFrame
-                    local SValue = Instance.new("TextLabel")
-                    SValue.Text = tostring(def)
+
+                    local SValue = Instance.new("TextBox")
+                    SValue.Text = FormatNumber(val, inc)
                     SValue.Font = Config.FontMain
                     SValue.TextSize = 12
                     SValue.TextColor3 = Theme.Text
                     SValue.Size = UDim2.new(1, 0, 0, 16)
                     SValue.TextXAlignment = Enum.TextXAlignment.Right
                     SValue.BackgroundTransparency = 1
+                    SValue.ClearTextOnFocus = true
                     SValue.Parent = SFrame
+
                     local SlideBg = Instance.new("Frame")
                     SlideBg.Size = UDim2.new(1, 0, 0, 6)
                     SlideBg.Position = UDim2.new(0, 0, 0, 22)
@@ -2104,8 +2254,10 @@ function Library:CreateWindow(options)
                     SlideBg.Parent = SFrame
                     SlideBg.Active = true
                     Corner(SlideBg, 3)
+
                     local SlideFill = Instance.new("Frame")
-                    SlideFill.Size = UDim2.new((def - min) / (max - min), 0, 1, 0)
+                    local ratio = range > 0 and (val - min) / range or 0
+                    SlideFill.Size = UDim2.new(ratio, 0, 1, 0)
                     SlideFill.BackgroundColor3 = Theme.Accent
                     SlideFill.BorderSizePixel = 0
                     SlideFill.Parent = SlideBg
@@ -2116,9 +2268,12 @@ function Library:CreateWindow(options)
                     local inputChangedConn = nil
                     local function Set(input)
                         local r = math.clamp((input.Position.X - SlideBg.AbsolutePosition.X) / SlideBg.AbsoluteSize.X, 0, 1)
-                        val = math.floor(min + (max - min) * r)
-                        SValue.Text = tostring(val)
-                        Tween(SlideFill, {Size = UDim2.new(r, 0, 1, 0)}, 0.05)
+                        local raw = min + (max - min) * r
+                        val = RoundToIncrement(raw, inc)
+                        val = math.clamp(val, min, max)
+                        local displayRatio = range > 0 and (val - min) / range or 0
+                        SValue.Text = FormatNumber(val, inc)
+                        Tween(SlideFill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
                         Library.Flags[sflag] = val
                         Library.Unsaved = true
                         cb(val)
@@ -2140,10 +2295,34 @@ function Library:CreateWindow(options)
                             end)
                         end
                     end)
+
+                    SValue.FocusLost:Connect(function(enter)
+                        if enter then
+                            local num = tonumber(SValue.Text)
+                            if num then
+                                num = RoundToIncrement(num, inc)
+                                num = math.clamp(num, min, max)
+                                val = num
+                                local displayRatio = range > 0 and (val - min) / range or 0
+                                SValue.Text = FormatNumber(val, inc)
+                                Tween(SlideFill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
+                                Library.Flags[sflag] = val
+                                Library.Unsaved = true
+                                cb(val)
+                            else
+                                SValue.Text = FormatNumber(val, inc)
+                            end
+                        else
+                            SValue.Text = FormatNumber(val, inc)
+                        end
+                    end)
+
                     Library.Signals[sflag] = function(loadedVal)
-                        val = loadedVal
-                        SValue.Text = tostring(val)
-                        Tween(SlideFill, {Size = UDim2.new((val - min) / (max - min), 0, 1, 0)}, 0.05)
+                        val = RoundToIncrement(loadedVal, inc)
+                        val = math.clamp(val, min, max)
+                        local displayRatio = range > 0 and (val - min) / range or 0
+                        SValue.Text = FormatNumber(val, inc)
+                        Tween(SlideFill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
                         Library.Unsaved = true
                         cb(val)
                     end
@@ -2426,92 +2605,8 @@ function Library:CreateWindow(options)
                 ApplyTooltip(Btn, tooltipText)
             end
 
-            function Section:Slider(text, flag, min, max, default, tooltipText, callback)
-                local val = default or min
-                Library.Defaults[flag] = val
-                Library.Flags[flag] = val
-                local Frame = Instance.new("Frame")
-                Frame.Size = UDim2.new(1, 0, 0, 42)
-                Frame.BackgroundTransparency = 1
-                Frame.Parent = Content
-                table.insert(secData.Items, {Name = text, Instance = Frame})
-
-                local Label = Instance.new("TextLabel")
-                Label.Text = text
-                Label.Font = Config.FontMain
-                Label.TextSize = 13
-                Label.TextColor3 = Theme.Text
-                Label.Size = UDim2.new(0.6, 0, 0, 16)
-                Label.Position = UDim2.new(0, 5, 0, 0)
-                Label.TextXAlignment = Enum.TextXAlignment.Left
-                Label.BackgroundTransparency = 1
-                Label.Parent = Frame
-                local ValLabel = Instance.new("TextLabel")
-                ValLabel.Text = tostring(val)
-                ValLabel.Font = Config.FontMain
-                ValLabel.TextSize = 13
-                ValLabel.TextColor3 = Theme.Text
-                ValLabel.Size = UDim2.new(0.4, -5, 0, 16)
-                ValLabel.Position = UDim2.new(0.6, 0, 0, 0)
-                ValLabel.TextXAlignment = Enum.TextXAlignment.Right
-                ValLabel.BackgroundTransparency = 1
-                ValLabel.Parent = Frame
-                local Bar = Instance.new("Frame")
-                Bar.Size = UDim2.new(1, 0, 0, 6)
-                Bar.Position = UDim2.new(0, 0, 0, 24)
-                Bar.BackgroundColor3 = Theme.Container
-                Bar.Parent = Frame
-                Bar.Active = true
-                Corner(Bar, 3)
-                Stroke(Bar, Theme.Stroke, 1, 0.5)
-                local Fill = Instance.new("Frame")
-                Fill.Size = UDim2.new((val - min) / (max - min), 0, 1, 0)
-                Fill.BackgroundColor3 = Theme.Accent
-                Fill.BorderSizePixel = 0
-                Fill.Parent = Bar
-                Corner(Fill, 3)
-                RegisterTheme(Fill, "BackgroundColor")
-
-                local dragging = false
-                local inputChangedConn = nil
-                local function Set(input)
-                    local ratio = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-                    val = math.floor(min + (max - min) * ratio)
-                    ValLabel.Text = tostring(val)
-                    Tween(Fill, {Size = UDim2.new(ratio, 0, 1, 0)}, 0.05)
-                    Library.Flags[flag] = val
-                    Library.Unsaved = true
-                    callback(val)
-                end
-
-                Bar.InputBegan:Connect(function(i)
-                    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-                        dragging = true
-                        Set(i)
-                        inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                            if (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragging then Set(inp) end
-                        end)
-                        local inputEndedConn
-                        inputEndedConn = UserInputService.InputEnded:Connect(function(inp)
-                            if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-                                dragging = false
-                                if inputChangedConn then inputChangedConn:Disconnect() inputChangedConn = nil end
-                                if inputEndedConn then inputEndedConn:Disconnect() inputEndedConn = nil end
-                            end
-                        end)
-                    end
-                end)
-
-                Library.Signals[flag] = function(loadedVal)
-                    val = loadedVal
-                    ValLabel.Text = tostring(val)
-                    local ratio = (val - min) / (max - min)
-                    Tween(Fill, {Size = UDim2.new(ratio, 0, 1, 0)}, 0.05)
-                    Library.Unsaved = true
-                    callback(val)
-                end
-                ApplyTooltip(Frame, tooltipText)
-                task.spawn(callback, val)
+            function Section:Slider(text, flag, min, max, default, increment, tooltipText, callback)
+                CreateSliderElement(text, flag, min, max, default, increment, tooltipText, callback, Content, secData)
             end
 
             function Section:TextBox(text, flag, placeholder, tooltipText, callback)
