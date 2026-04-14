@@ -322,7 +322,7 @@ function Library:LoadConfig(name)
         for flag, value in pairs(Library.Flags) do
             if IgnoredFlags[flag] then continue end
             if data[flag] ~= nil and Library.Signals[flag] then
-                task.spawn(Library.Signals[flag], value)
+                pcall(Library.Signals[flag], value)
             end
         end
         return true
@@ -670,7 +670,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     local isDropped = false
     local parent = customParent or parentFrame
     local DropFrame = Instance.new("Frame")
-    DropFrame.Size = UDim2.new(1, customParent and -20 or 0, 0, 46)
+    DropFrame.Size = UDim2.new(1, customParent and -20 or 0, 46)
     if customParent then DropFrame.Position = UDim2.new(0, 20, 0, 0) end
     DropFrame.BackgroundTransparency = 1
     DropFrame.Parent = parent
@@ -822,13 +822,13 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
                     UpdateVisuals()
                     Library.Flags[flag] = selected
                     Library.Unsaved = true
-                    callback(selected)
+                    pcall(callback, selected)
                 else
                     selected = opt
                     UpdateVisuals()
                     Library.Flags[flag] = selected
                     Library.Unsaved = true
-                    callback(selected)
+                    pcall(callback, selected)
                     CloseDropdown()
                 end
             end)
@@ -848,11 +848,9 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         else
             selected = val
         end
-        if not table.find(options, selected) and not isMulti then
-        end
         UpdateVisuals()
         Library.Unsaved = true
-        callback(selected)
+        pcall(callback, selected)
     end
 
     Interactive.MouseButton1Click:Connect(function()
@@ -872,7 +870,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         end
     end)
     ApplyTooltip(DropFrame, tooltipText)
-    task.spawn(callback, selected)
+    pcall(callback, selected)
 
     local DropdownObj = {}
     DropdownObj.Frame = DropFrame
@@ -897,7 +895,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         end
         Library.Flags[flag] = selected
         UpdateVisuals()
-        callback(selected)
+        pcall(callback, selected)
     end
     return DropdownObj
 end
@@ -969,7 +967,7 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
         Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
         Library.Flags[flag] = val
         Library.Unsaved = true
-        callback(val)
+        pcall(callback, val)
     end
 
     Bar.InputBegan:Connect(function(i)
@@ -1002,7 +1000,7 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
                 Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
                 Library.Flags[flag] = val
                 Library.Unsaved = true
-                callback(val)
+                pcall(callback, val)
             else
                 ValLabel.Text = FormatNumber(val, increment)
             end
@@ -1018,11 +1016,11 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
         ValLabel.Text = FormatNumber(val, increment)
         Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
         Library.Unsaved = true
-        callback(val)
+        pcall(callback, val)
     end
 
     ApplyTooltip(Frame, tooltipText)
-    task.spawn(callback, val)
+    pcall(callback, val)
 
     return Frame
 end
@@ -1446,7 +1444,7 @@ function Library:CreateWindow(options)
                     toggled = val
                     if ToggleObj.UpdateAnim then ToggleObj.UpdateAnim() end
                     Library.Unsaved = true
-                    callback(val)
+                    pcall(callback, val)
                 end
             end
 
@@ -1538,12 +1536,12 @@ function Library:CreateWindow(options)
                 toggled = not toggled
                 Library.Unsaved = true
                 ToggleAnim()
-                callback(toggled)
+                pcall(callback, toggled)
             end)
 
             if toggled then ToggleAnim() end
             ApplyTooltip(Btn, tooltipText)
-            task.spawn(callback, toggled)
+            pcall(callback, toggled)
 
             return ToggleObj
         end
@@ -1588,7 +1586,7 @@ function Library:CreateWindow(options)
                 if enter then
                     Library.Flags[flag] = Input.Text
                     Library.Unsaved = true
-                    callback(Input.Text)
+                    pcall(callback, Input.Text)
                 end
             end)
             Input.Changed:Connect(function(prop)
@@ -1600,9 +1598,10 @@ function Library:CreateWindow(options)
             Library.Signals[flag] = function(val)
                 Input.Text = val
                 Library.Unsaved = true
-                callback(val)
+                pcall(callback, val)
             end
             ApplyTooltip(Frame, tooltipText)
+            pcall(callback, "")
             return Input
         end
 
@@ -1727,7 +1726,7 @@ function Library:CreateWindow(options)
                 HexInput.Text = "#" .. color:ToHex()
                 Library.Flags[flag] = color
                 Library.Unsaved = true
-                callback(color)
+                pcall(callback, color)
             end
 
             HexInput.FocusLost:Connect(function()
@@ -1825,7 +1824,7 @@ function Library:CreateWindow(options)
                 end
             end)
             ApplyTooltip(ContainerFrame, tooltipText)
-            task.spawn(callback, color)
+            pcall(callback, color)
         end
 
         return Section
@@ -2262,7 +2261,7 @@ function Library:CreateWindow(options)
                 if IgnoredFlags[flag] then continue end
                 Library.Flags[flag] = val
                 if Library.Signals[flag] then
-                    task.spawn(Library.Signals[flag], val)
+                    pcall(Library.Signals[flag], val)
                 end
             end
             Library:Notify("Settings", "Reset to defaults", 3)
@@ -2426,7 +2425,7 @@ function Library:CreateWindow(options)
                         toggled = val
                         if ToggleObj.UpdateAnim then ToggleObj.UpdateAnim() end
                         Library.Unsaved = true
-                        callback(val)
+                        pcall(callback, val)
                     end
                 end
 
@@ -2522,12 +2521,12 @@ function Library:CreateWindow(options)
                     toggled = not toggled
                     Library.Unsaved = true
                     ToggleAnim()
-                    callback(toggled)
+                    pcall(callback, toggled)
                 end)
 
                 if toggled then ToggleAnim() end
                 ApplyTooltip(Btn, tooltipText)
-                task.spawn(callback, toggled)
+                pcall(callback, toggled)
 
                 function ToggleObj:AddButton(txt, cb)
                     local SBtn = Instance.new("TextButton")
@@ -2660,7 +2659,7 @@ function Library:CreateWindow(options)
                         Library.Unsaved = true
                         cb(val)
                     end
-                    task.spawn(cb, val)
+                    pcall(cb, val)
                 end
 
                 function ToggleObj:AddDropdown(txt, dflag, opts, def, cb, isMulti)
@@ -2732,7 +2731,7 @@ function Library:CreateWindow(options)
                             if md == "Always" and not toggled then
                                 toggled = true
                                 ToggleAnim()
-                                callback(toggled)
+                                pcall(callback, toggled)
                             end
                             if toggled then Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, md) end
                         end)
@@ -2752,11 +2751,11 @@ function Library:CreateWindow(options)
                             if ToggleObj.KeybindMode == "Toggle" then
                                 toggled = not toggled
                                 ToggleAnim()
-                                callback(toggled)
+                                pcall(callback, toggled)
                             elseif ToggleObj.KeybindMode == "Hold" then
                                 toggled = true
                                 ToggleAnim()
-                                callback(toggled)
+                                pcall(callback, toggled)
                             end
                         end
                     end)
@@ -2766,7 +2765,7 @@ function Library:CreateWindow(options)
                             if ToggleObj.KeybindMode == "Hold" then
                                 toggled = false
                                 ToggleAnim()
-                                callback(toggled)
+                                pcall(callback, toggled)
                             end
                         end
                     end)
@@ -2871,7 +2870,7 @@ function Library:CreateWindow(options)
                         Library.Unsaved = true
                         Library:UpdateKeybindList(text, key.Name, true, kMode)
                         if kMode == "Always" then
-                            callback(true)
+                            pcall(callback, true)
                         end
                     end)
                 end
@@ -2886,10 +2885,10 @@ function Library:CreateWindow(options)
                     if not gp and input.KeyCode == key and key ~= Enum.KeyCode.Unknown then
                         if kMode == "Toggle" then
                             toggled = not toggled
-                            callback(toggled)
+                            pcall(callback, toggled)
                         elseif kMode == "Hold" then
                             toggled = true
-                            callback(toggled)
+                            pcall(callback, toggled)
                         end
                     end
                 end)
@@ -2898,7 +2897,7 @@ function Library:CreateWindow(options)
                     if not gp and input.KeyCode == key and key ~= Enum.KeyCode.Unknown then
                         if kMode == "Hold" then
                             toggled = false
-                            callback(toggled)
+                            pcall(callback, toggled)
                         end
                     end
                 end)
@@ -2990,7 +2989,7 @@ function Library:CreateWindow(options)
                     if enter then
                         Library.Flags[flag] = Input.Text
                         Library.Unsaved = true
-                        callback(Input.Text)
+                        pcall(callback, Input.Text)
                     end
                 end)
 
@@ -2998,10 +2997,10 @@ function Library:CreateWindow(options)
                 Library.Signals[flag] = function(val)
                     Input.Text = val
                     Library.Unsaved = true
-                    callback(val)
+                    pcall(callback, val)
                 end
                 ApplyTooltip(Frame, tooltipText)
-                task.spawn(callback, "")
+                pcall(callback, "")
             end
 
             function Section:Dropdown(text, flag, options, default, tooltipText, callback, customParent, isMulti)
@@ -3128,7 +3127,7 @@ function Library:CreateWindow(options)
                     HexInput.Text = "#" .. color:ToHex()
                     Library.Flags[flag] = color
                     Library.Unsaved = true
-                    callback(color)
+                    pcall(callback, color)
                 end
 
                 HexInput.FocusLost:Connect(function()
@@ -3226,7 +3225,7 @@ function Library:CreateWindow(options)
                     end
                 end)
                 ApplyTooltip(ContainerFrame, tooltipText)
-                task.spawn(callback, color)
+                pcall(callback, color)
             end
 
             return Section
