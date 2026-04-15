@@ -4,7 +4,6 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local Stats = game:GetService("Stats")
-
 local isfolder = isfolder or function() return false end
 local makefolder = makefolder or function() end
 local isfile = isfile or function() return false end
@@ -12,12 +11,9 @@ local readfile = readfile or function() return "" end
 local writefile = writefile or function() end
 local listfiles = listfiles or function() return {} end
 local delfile = delfile or function() end
-
 local CoreGui
 pcall(function() CoreGui = game:GetService("CoreGui") end)
-
 local LocalPlayer = Players.LocalPlayer
-
 local Library = {
     Flags = {},
     Signals = {},
@@ -31,7 +27,6 @@ local Library = {
     Unsaved = false,
     AutoSaveEnabled = true
 }
-
 local Config = {
     Name = "PHANTOM HUB",
     Keybind = Enum.KeyCode.LeftControl,
@@ -40,30 +35,25 @@ local Config = {
     FontBold = Enum.Font.GothamBold,
     ConfigFolder = "PhantomHub"
 }
-
 if not isfolder(Config.ConfigFolder) then makefolder(Config.ConfigFolder) end
-
 local Theme = {
     Background = Color3.fromHex("#080505"),
-    Sidebar    = Color3.fromHex("#0c0707"),
-    Container  = Color3.fromHex("#140b0b"),
-    Section    = Color3.fromHex("#1a0e0e"),
-    Accent     = Color3.fromHex("#ff1a1a"),
-    Text       = Color3.fromHex("#ffffff"),
-    TextDark   = Color3.fromHex("#997373"),
-    Stroke     = Color3.fromHex("#2e1717"),
-    Success    = Color3.fromHex("#00ff88"),
-    Danger     = Color3.fromHex("#ff4444")
+    Sidebar = Color3.fromHex("#0c0707"),
+    Container = Color3.fromHex("#140b0b"),
+    Section = Color3.fromHex("#1a0e0e"),
+    Accent = Color3.fromHex("#ff1a1a"),
+    Text = Color3.fromHex("#ffffff"),
+    TextDark = Color3.fromHex("#997373"),
+    Stroke = Color3.fromHex("#2e1717"),
+    Success = Color3.fromHex("#00ff88"),
+    Danger = Color3.fromHex("#ff4444")
 }
-
 local ThemeRegistry = {}
 setmetatable(ThemeRegistry, { __mode = "k" })
-
 local function RegisterTheme(instance, propType)
     ThemeRegistry[instance] = propType
     return instance
 end
-
 function Library:UpdateTheme(newColor)
     Theme.Accent = newColor
     for instance, propType in pairs(ThemeRegistry) do
@@ -78,12 +68,10 @@ function Library:UpdateTheme(newColor)
         end
     end
 end
-
 local function GetParent()
     if CoreGui then return CoreGui end
     return LocalPlayer:WaitForChild("PlayerGui")
 end
-
 local function Tween(obj, props, time, style, dir)
     time = time or Config.Duration
     style = style or Enum.EasingStyle.Quart
@@ -92,14 +80,12 @@ local function Tween(obj, props, time, style, dir)
     t:Play()
     return t
 end
-
 local function Corner(parent, radius)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, radius)
     c.Parent = parent
     return c
 end
-
 local function Stroke(parent, color, thickness, transparency)
     local s = Instance.new("UIStroke")
     s.Color = color or Theme.Stroke
@@ -109,12 +95,10 @@ local function Stroke(parent, color, thickness, transparency)
     s.Parent = parent
     return s
 end
-
 local function RoundToIncrement(value, increment)
     if increment <= 0 then return value end
     return math.round(value / increment) * increment
 end
-
 local function FormatNumber(value, increment)
     if increment >= 1 then
         return tostring(math.round(value))
@@ -127,13 +111,11 @@ local function FormatNumber(value, increment)
     end
     return tostring(value)
 end
-
 local function MakeDraggable(dragObj, moveObj, onDragCallback)
     local dragging = false
     local dragStart
     local startPos
     local inputChangedConn, inputEndedConn
-
     dragObj.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
@@ -164,12 +146,10 @@ local function MakeDraggable(dragObj, moveObj, onDragCallback)
             end)
         end
     end)
-
     return function()
         return dragging
     end
 end
-
 local function MakeResizable(resizeBtn, frame, minSize)
     resizeBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -200,7 +180,6 @@ local function MakeResizable(resizeBtn, frame, minSize)
         end
     end)
 end
-
 local function GetBaseScale()
     local vp = workspace.CurrentCamera.ViewportSize
     if vp.X < 1 or vp.Y < 1 then return 1 end
@@ -212,7 +191,6 @@ local function GetBaseScale()
     end
     return 1
 end
-
 function Library:Unload()
     for _, conn in ipairs(Library.Connections) do pcall(function() conn:Disconnect() end) end
     Library.Connections = {}
@@ -224,7 +202,6 @@ function Library:Unload()
         end
     end
 end
-
 function Library:GetConfigs()
     local configs = {}
     if isfolder(Config.ConfigFolder) then
@@ -240,13 +217,11 @@ function Library:GetConfigs()
     end
     return configs
 end
-
 local IgnoredFlags = {
     ConfigSelectorFlag = true,
     MenuAccentColor = true,
     KeybindListToggle = true,
 }
-
 function Library:SaveConfig(name)
     if not name or name == "" then return false end
     local saveFlags = {}
@@ -281,7 +256,6 @@ function Library:SaveConfig(name)
     end
     return false
 end
-
 function Library:LoadConfig(name)
     if not name or name == "" then return false end
     local path = Config.ConfigFolder .. "/" .. name .. ".json"
@@ -322,14 +296,13 @@ function Library:LoadConfig(name)
         for flag, value in pairs(Library.Flags) do
             if IgnoredFlags[flag] then continue end
             if data[flag] ~= nil and Library.Signals[flag] then
-                pcall(Library.Signals[flag], value)
+                task.spawn(Library.Signals[flag], value)
             end
         end
         return true
     end
     return false
 end
-
 function Library:DeleteConfig(name)
     if not name or name == "" then return false end
     local path = Config.ConfigFolder .. "/" .. name .. ".json"
@@ -339,17 +312,14 @@ function Library:DeleteConfig(name)
     end
     return false
 end
-
 function Library:ConfigExists(name)
     if not name or name == "" then return false end
     return isfile(Config.ConfigFolder .. "/" .. name .. ".json")
 end
-
 local TooltipGui = Instance.new("ScreenGui")
 TooltipGui.Name = "PhantomTooltip"
 TooltipGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 TooltipGui.Parent = GetParent()
-
 local TooltipLabel = Instance.new("TextLabel")
 TooltipLabel.BackgroundTransparency = 0.05
 TooltipLabel.BackgroundColor3 = Theme.Container
@@ -361,7 +331,6 @@ TooltipLabel.Parent = TooltipGui
 TooltipLabel.ZIndex = 1000
 Corner(TooltipLabel, 4)
 Stroke(TooltipLabel, Theme.Stroke, 1)
-
 local function ApplyTooltip(guiObj, text)
     if not text or text == "" then return end
     local hovered = false
@@ -388,7 +357,6 @@ local function ApplyTooltip(guiObj, text)
         TooltipLabel.Visible = false
     end)
 end
-
 function Library:Notify(title, text, duration)
     local NotifGui = GetParent():FindFirstChild("PhantomNotifications")
     if not NotifGui then
@@ -407,7 +375,6 @@ function Library:Notify(title, text, duration)
         Layout.Padding = UDim.new(0, 10)
         Layout.Parent = Container
     end
-
     local NotifFrame = Instance.new("Frame")
     NotifFrame.Size = UDim2.new(1, 0, 0, 60)
     NotifFrame.BackgroundColor3 = Theme.Background
@@ -416,7 +383,6 @@ function Library:Notify(title, text, duration)
     NotifFrame.Parent = NotifGui.Container
     Corner(NotifFrame, 6)
     Stroke(NotifFrame, Theme.Stroke, 1)
-
     local NNoise = Instance.new("ImageLabel")
     NNoise.Size = UDim2.new(1, 0, 1, 0)
     NNoise.BackgroundTransparency = 1
@@ -426,7 +392,6 @@ function Library:Notify(title, text, duration)
     NNoise.TileSize = UDim2.new(0, 100, 0, 100)
     NNoise.Parent = NotifFrame
     Corner(NNoise, 6)
-
     local NTitle = Instance.new("TextLabel")
     NTitle.Size = UDim2.new(1, -10, 0, 20)
     NTitle.Position = UDim2.new(0, 10, 0, 5)
@@ -438,7 +403,6 @@ function Library:Notify(title, text, duration)
     NTitle.TextXAlignment = Enum.TextXAlignment.Left
     NTitle.Parent = NotifFrame
     RegisterTheme(NTitle, "TextColor")
-
     local NText = Instance.new("TextLabel")
     NText.Size = UDim2.new(1, -20, 0, 20)
     NText.Position = UDim2.new(0, 10, 0, 25)
@@ -449,7 +413,6 @@ function Library:Notify(title, text, duration)
     NText.TextSize = 12
     NText.TextXAlignment = Enum.TextXAlignment.Left
     NText.Parent = NotifFrame
-
     local TimebarBg = Instance.new("Frame")
     TimebarBg.Size = UDim2.new(1, 0, 0, 2)
     TimebarBg.Position = UDim2.new(0, 0, 1, -2)
@@ -457,7 +420,6 @@ function Library:Notify(title, text, duration)
     TimebarBg.BorderSizePixel = 0
     TimebarBg.Parent = NotifFrame
     Corner(TimebarBg, 2)
-
     local Timebar = Instance.new("Frame")
     Timebar.Size = UDim2.new(1, 0, 1, 0)
     Timebar.BackgroundColor3 = Theme.Accent
@@ -465,7 +427,6 @@ function Library:Notify(title, text, duration)
     Timebar.Parent = TimebarBg
     Corner(Timebar, 2)
     RegisterTheme(Timebar, "BackgroundColor")
-
     Tween(NotifFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.4)
     Tween(Timebar, {Size = UDim2.new(0, 0, 1, 0)}, duration, Enum.EasingStyle.Linear)
     task.delay(duration, function()
@@ -473,14 +434,12 @@ function Library:Notify(title, text, duration)
         NotifFrame:Destroy()
     end)
 end
-
 function Library:InitWatermark()
     local WatermarkGui = Instance.new("ScreenGui")
     WatermarkGui.Name = "PhantomWatermark"
     WatermarkGui.Parent = GetParent()
     WatermarkGui.IgnoreGuiInset = true
     WatermarkGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(0, 0, 0, 26)
     Frame.Position = UDim2.new(1, -20, 0, 10)
@@ -490,10 +449,8 @@ function Library:InitWatermark()
     Frame.Parent = WatermarkGui
     Corner(Frame, 4)
     Stroke(Frame, Theme.Stroke, 1)
-
     local Glow = Stroke(Frame, Theme.Accent, 2, 0.8)
     RegisterTheme(Glow, "BorderColor")
-
     local AccentLine = Instance.new("Frame")
     AccentLine.Size = UDim2.new(1, 0, 0, 2)
     AccentLine.Position = UDim2.new(0, 0, 0, 0)
@@ -502,7 +459,6 @@ function Library:InitWatermark()
     AccentLine.Parent = Frame
     Corner(AccentLine, 2)
     RegisterTheme(AccentLine, "BackgroundColor")
-
     local WNoise = Instance.new("ImageLabel")
     WNoise.Size = UDim2.new(1, 0, 1, 0)
     WNoise.BackgroundTransparency = 1
@@ -512,7 +468,6 @@ function Library:InitWatermark()
     WNoise.TileSize = UDim2.new(0, 100, 0, 100)
     WNoise.Parent = Frame
     Corner(WNoise, 4)
-
     local Label = Instance.new("TextLabel")
     Label.Size = UDim2.new(1, 0, 1, 0)
     Label.BackgroundTransparency = 1
@@ -521,7 +476,6 @@ function Library:InitWatermark()
     Label.TextColor3 = Theme.Text
     Label.RichText = true
     Label.Parent = Frame
-
     local lastUpdate = 0
     local frames = 0
     local conn
@@ -546,14 +500,12 @@ function Library:InitWatermark()
     end)
     table.insert(Library.Connections, conn)
 end
-
 function Library:CreateKeybindList()
     if Library.KeybindList then return end
     local Screen = Instance.new("ScreenGui")
     Screen.Name = "PrismaKeybinds"
     Screen.Parent = GetParent()
     Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(0, 180, 0, 30)
     Frame.Position = UDim2.new(0.01, 0, 0.4, 0)
@@ -564,7 +516,6 @@ function Library:CreateKeybindList()
     Corner(Frame, 4)
     Stroke(Frame, Theme.Stroke, 1, 0)
     MakeDraggable(Frame, Frame)
-
     local KNoise = Instance.new("ImageLabel")
     KNoise.Size = UDim2.new(1, 0, 1, 0)
     KNoise.BackgroundTransparency = 1
@@ -574,14 +525,12 @@ function Library:CreateKeybindList()
     KNoise.TileSize = UDim2.new(0, 100, 0, 100)
     KNoise.Parent = Frame
     Corner(KNoise, 4)
-
     local Header = Instance.new("Frame")
     Frame.ClipsDescendants = true
     Header.Size = UDim2.new(1, 0, 0, 24)
     Header.BackgroundColor3 = Theme.Sidebar
     Header.Parent = Frame
     Corner(Header, 4)
-
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 1, 0)
     Title.BackgroundTransparency = 1
@@ -591,25 +540,20 @@ function Library:CreateKeybindList()
     Title.TextSize = 12
     Title.Parent = Header
     RegisterTheme(Title, "TextColor")
-
     local Container = Instance.new("Frame")
     Container.Size = UDim2.new(1, 0, 0, 0)
     Container.Position = UDim2.new(0, 0, 0, 26)
     Container.BackgroundTransparency = 1
     Container.Parent = Frame
-
     local List = Instance.new("UIListLayout")
     List.SortOrder = Enum.SortOrder.LayoutOrder
     List.Parent = Container
-
     List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         Frame.Size = UDim2.new(0, 180, 0, List.AbsoluteContentSize.Y + 30)
     end)
-
     Library.KeybindList = {Frame = Frame, Container = Container, Screen = Screen}
     Frame.Visible = false
 end
-
 function Library:UpdateKeybindList(name, key, active, mode)
     if not Library.KeybindList then Library:CreateKeybindList() end
     local existing = Library.KeybindList.Container:FindFirstChild(name)
@@ -656,7 +600,6 @@ function Library:UpdateKeybindList(name, key, active, mode)
         end
     end
 end
-
 local function CreateDropdownElement(text, flag, options, default, tooltipText, callback, parentFrame, sectionRef, isMulti, customParent)
     local selected = default
     if isMulti then
@@ -666,16 +609,14 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     end
     Library.Defaults[flag] = selected
     Library.Flags[flag] = selected
-
     local isDropped = false
     local parent = customParent or parentFrame
     local DropFrame = Instance.new("Frame")
-    DropFrame.Size = UDim2.new(1, customParent and -20 or 0, 46)
+    DropFrame.Size = UDim2.new(1, customParent and -20 or 0, 0, 46)
     if customParent then DropFrame.Position = UDim2.new(0, 20, 0, 0) end
     DropFrame.BackgroundTransparency = 1
     DropFrame.Parent = parent
     DropFrame.ZIndex = 5
-
     local DLabel = Instance.new("TextLabel")
     DLabel.Text = text
     DLabel.Font = Config.FontMain
@@ -686,7 +627,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     DLabel.TextXAlignment = Enum.TextXAlignment.Left
     DLabel.BackgroundTransparency = 1
     DLabel.Parent = DropFrame
-
     local Interactive = Instance.new("TextButton")
     Interactive.Size = UDim2.new(1, 0, 0, 26)
     Interactive.Position = UDim2.new(0, 0, 0, 20)
@@ -697,7 +637,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     Interactive.ZIndex = 5
     Corner(Interactive, 4)
     Stroke(Interactive, Theme.Stroke, 1, 0.5)
-
     local SelectedText = Instance.new("TextLabel")
     SelectedText.Font = Config.FontMain
     SelectedText.TextSize = 13
@@ -709,7 +648,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     SelectedText.ZIndex = 6
     SelectedText.ClipsDescendants = true
     SelectedText.Parent = Interactive
-
     local Arrow = Instance.new("ImageLabel")
     Arrow.Image = "rbxassetid://10709790948"
     Arrow.Size = UDim2.new(0, 18, 0, 18)
@@ -719,7 +657,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     Arrow.ImageColor3 = Theme.TextDark
     Arrow.Parent = Interactive
     Arrow.ZIndex = 6
-
     local ListFrame = Instance.new("ScrollingFrame")
     ListFrame.Size = UDim2.new(1, 0, 0, 0)
     ListFrame.Position = UDim2.new(0, 0, 1, 5)
@@ -739,7 +676,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     IList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         ListFrame.CanvasSize = UDim2.new(0, 0, 0, IList.AbsoluteContentSize.Y)
     end)
-
     local function CloseDropdown()
         isDropped = false
         if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = 1 end
@@ -752,9 +688,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
             if not isDropped then ListFrame.Visible = false end
         end)
     end
-
     local optionBtns = {}
-
     local function IsSelected(opt)
         if isMulti then
             for _, v in ipairs(selected) do
@@ -765,7 +699,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
             return selected == opt
         end
     end
-
     local function UpdateVisuals()
         if isMulti then
             SelectedText.Text = (#selected > 0 and table.concat(selected, ", ") or "None")
@@ -780,7 +713,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
             end
         end
     end
-
     local function BuildOptions(newOptions)
         for _, btn in pairs(optionBtns) do btn:Destroy() end
         table.clear(optionBtns)
@@ -795,15 +727,12 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
             OptBtn.TextSize = 12
             OptBtn.Parent = ListFrame
             OptBtn.ZIndex = 11
-
             if IsSelected(opt) then
                 OptBtn.TextColor3 = Theme.Accent
             else
                 OptBtn.TextColor3 = Theme.TextDark
             end
-
             optionBtns[opt] = OptBtn
-
             OptBtn.MouseEnter:Connect(function()
                 if not IsSelected(opt) then
                     Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent})
@@ -814,7 +743,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
                     Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark})
                 end
             end)
-
             OptBtn.MouseButton1Click:Connect(function()
                 if isMulti then
                     local found = table.find(selected, opt)
@@ -822,22 +750,20 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
                     UpdateVisuals()
                     Library.Flags[flag] = selected
                     Library.Unsaved = true
-                    pcall(callback, selected)
+                    callback(selected)
                 else
                     selected = opt
                     UpdateVisuals()
                     Library.Flags[flag] = selected
                     Library.Unsaved = true
-                    pcall(callback, selected)
+                    callback(selected)
                     CloseDropdown()
                 end
             end)
         end
     end
-
     BuildOptions(options)
     UpdateVisuals()
-
     Library.Signals[flag] = function(val)
         if isMulti then
             if type(val) == "table" then
@@ -848,11 +774,12 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         else
             selected = val
         end
+        if not table.find(options, selected) and not isMulti then
+        end
         UpdateVisuals()
         Library.Unsaved = true
-        pcall(callback, selected)
+        callback(selected)
     end
-
     Interactive.MouseButton1Click:Connect(function()
         isDropped = not isDropped
         if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = isDropped and 10 or 1 end
@@ -870,8 +797,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         end
     end)
     ApplyTooltip(DropFrame, tooltipText)
-    pcall(callback, selected)
-
+    task.spawn(callback, selected)
     local DropdownObj = {}
     DropdownObj.Frame = DropFrame
     function DropdownObj:Refresh(newOptions, newDefault)
@@ -895,23 +821,20 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         end
         Library.Flags[flag] = selected
         UpdateVisuals()
-        pcall(callback, selected)
+        callback(selected)
     end
     return DropdownObj
 end
-
 local function CreateSliderElement(text, flag, min, max, default, increment, tooltipText, callback, parentFrame, secData)
     increment = increment or 1
     local val = RoundToIncrement(default or min, increment)
     Library.Defaults[flag] = val
     Library.Flags[flag] = val
-
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(1, 0, 0, 42)
     Frame.BackgroundTransparency = 1
     Frame.Parent = parentFrame
     if secData then table.insert(secData.Items, {Name = text, Instance = Frame}) end
-
     local Label = Instance.new("TextLabel")
     Label.Text = text
     Label.Font = Config.FontMain
@@ -922,7 +845,6 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.BackgroundTransparency = 1
     Label.Parent = Frame
-
     local ValLabel = Instance.new("TextBox")
     ValLabel.Text = FormatNumber(val, increment)
     ValLabel.Font = Config.FontMain
@@ -934,7 +856,6 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     ValLabel.BackgroundTransparency = 1
     ValLabel.ClearTextOnFocus = true
     ValLabel.Parent = Frame
-
     local Bar = Instance.new("Frame")
     Bar.Size = UDim2.new(1, 0, 0, 6)
     Bar.Position = UDim2.new(0, 0, 0, 24)
@@ -943,7 +864,6 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     Bar.Active = true
     Corner(Bar, 3)
     Stroke(Bar, Theme.Stroke, 1, 0.5)
-
     local Fill = Instance.new("Frame")
     local range = max - min
     local ratio = range > 0 and (val - min) / range or 0
@@ -953,10 +873,8 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     Fill.Parent = Bar
     Corner(Fill, 3)
     RegisterTheme(Fill, "BackgroundColor")
-
     local dragging = false
     local inputChangedConn = nil
-
     local function SetFromInput(input)
         local r = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
         local raw = min + (max - min) * r
@@ -967,9 +885,8 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
         Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
         Library.Flags[flag] = val
         Library.Unsaved = true
-        pcall(callback, val)
+        callback(val)
     end
-
     Bar.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
             dragging = true
@@ -987,7 +904,6 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
             end)
         end
     end)
-
     ValLabel.FocusLost:Connect(function(enter)
         if enter then
             local num = tonumber(ValLabel.Text)
@@ -1000,7 +916,7 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
                 Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
                 Library.Flags[flag] = val
                 Library.Unsaved = true
-                pcall(callback, val)
+                callback(val)
             else
                 ValLabel.Text = FormatNumber(val, increment)
             end
@@ -1008,7 +924,6 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
             ValLabel.Text = FormatNumber(val, increment)
         end
     end)
-
     Library.Signals[flag] = function(loadedVal)
         val = RoundToIncrement(loadedVal, increment)
         val = math.clamp(val, min, max)
@@ -1016,22 +931,18 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
         ValLabel.Text = FormatNumber(val, increment)
         Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
         Library.Unsaved = true
-        pcall(callback, val)
+        callback(val)
     end
-
     ApplyTooltip(Frame, tooltipText)
-    pcall(callback, val)
-
+    task.spawn(callback, val)
     return Frame
 end
-
 function Library:CreateWindow(options)
     if options and options.Name then Config.Name = options.Name end
     if options and options.ConfigFolder then Config.ConfigFolder = options.ConfigFolder end
     if not isfolder(Config.ConfigFolder) then makefolder(Config.ConfigFolder) end
     Library:Unload()
     Library:InitWatermark()
-
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = Config.Name
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -1039,13 +950,11 @@ function Library:CreateWindow(options)
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = GetParent()
     Library.ScreenGui = ScreenGui
-
     local MiniGui = Instance.new("ScreenGui")
     MiniGui.Name = "PhantomMiniButton"
     MiniGui.Parent = GetParent()
     MiniGui.Enabled = true
     MiniGui.IgnoreGuiInset = true
-
     local MiniButton = Instance.new("ImageButton")
     MiniButton.Size = UDim2.new(0, 46, 0, 46)
     MiniButton.Position = UDim2.new(0, 20, 0.5, -23)
@@ -1060,12 +969,10 @@ function Library:CreateWindow(options)
     Corner(MiniButton, 23)
     Stroke(MiniButton, Theme.Accent, 2, 0.3)
     RegisterTheme(MiniButton, "ImageColor")
-
     local miniWasDragged = false
     MakeDraggable(MiniButton, MiniButton, function(wasDrag)
         miniWasDragged = wasDrag
     end)
-
     MiniButton.MouseButton1Click:Connect(function()
         if miniWasDragged then
             miniWasDragged = false
@@ -1096,7 +1003,6 @@ function Library:CreateWindow(options)
             end
         end
     end)
-
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
@@ -1110,15 +1016,12 @@ function Library:CreateWindow(options)
         Frame.Visible = false
         Frame.Parent = ScreenGui
         Frame.Active = true
-
         local SizeConstraint = Instance.new("UISizeConstraint")
         SizeConstraint.MaxSize = Vector2.new(1400, 900)
         SizeConstraint.MinSize = Vector2.new(450, 300)
         SizeConstraint.Parent = Frame
-
         Corner(Frame, 6)
         Stroke(Frame, Theme.Stroke, 1, 0)
-
         local BgNoise = Instance.new("ImageLabel")
         BgNoise.Size = UDim2.new(1, 0, 1, 0)
         BgNoise.BackgroundTransparency = 1
@@ -1128,29 +1031,24 @@ function Library:CreateWindow(options)
         BgNoise.TileSize = UDim2.new(0, 100, 0, 100)
         BgNoise.Parent = Frame
         Corner(BgNoise, 6)
-
         local DragHeader = Instance.new("Frame")
         DragHeader.Name = "DragHeader"
         DragHeader.Size = UDim2.new(1, 0, 0, 40)
         DragHeader.BackgroundTransparency = 1
         DragHeader.Parent = Frame
-
         local Scale = Instance.new("UIScale")
         Scale.Scale = 1
         Scale.Parent = Frame
         MakeDraggable(DragHeader, Frame)
         return Frame, Scale
     end
-
     local MainWindow, MainScale = CreateBaseFrame("MainWindow")
     local SettingsWindow, SetScale = CreateBaseFrame("SettingsWindow")
-
     Library._MainWindow = MainWindow
     Library._MainScale = MainScale
     Library._SettingsWindow = SettingsWindow
     Library._SetScale = SetScale
     Library._IsSettings = false
-
     local Resizer = Instance.new("Frame")
     Resizer.Size = UDim2.new(0, 20, 0, 20)
     Resizer.Position = UDim2.new(1, 0, 1, 0)
@@ -1173,7 +1071,6 @@ function Library:CreateWindow(options)
         if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
     end)
     MakeResizable(Resizer, MainWindow, Vector2.new(450, 300))
-
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
         Bar.Size = UDim2.new(0, 180, 1, 0)
@@ -1193,7 +1090,7 @@ function Library:CreateWindow(options)
             BackBtn.Size = UDim2.new(1, -20, 0, 30)
             BackBtn.Position = UDim2.new(0, 10, 0, 15)
             BackBtn.BackgroundColor3 = Theme.Container
-            BackBtn.Text = "  <  Back to Menu"
+            BackBtn.Text = " < Back to Menu"
             BackBtn.Font = Config.FontBold
             BackBtn.TextSize = 13
             BackBtn.TextColor3 = Theme.TextDark
@@ -1240,10 +1137,8 @@ function Library:CreateWindow(options)
             return Bar, Container, nil
         end
     end
-
     local MainBar, TabContainer, _ = CreateSidebar(MainWindow, false)
     local SetBar, SetContainer, BackBtn = CreateSidebar(SettingsWindow, true)
-
     local ProfileBtn = Instance.new("TextButton")
     ProfileBtn.Size = UDim2.new(1, 0, 0, 60)
     ProfileBtn.Position = UDim2.new(0, 0, 1, 0)
@@ -1286,10 +1181,8 @@ function Library:CreateWindow(options)
     SideSub.TextSize = 11
     SideSub.TextXAlignment = Enum.TextXAlignment.Left
     SideSub.Parent = ProfileBtn
-
     local IsSettings = false
     local animating = false
-
     local function ToggleMain()
         if animating then return end
         animating = true
@@ -1318,7 +1211,6 @@ function Library:CreateWindow(options)
         end
         animating = false
     end
-
     local function SwitchToSettings()
         if animating then return end
         animating = true
@@ -1334,7 +1226,6 @@ function Library:CreateWindow(options)
         Library._IsSettings = true
         animating = false
     end
-
     local function SwitchToMain()
         if animating then return end
         animating = true
@@ -1350,10 +1241,8 @@ function Library:CreateWindow(options)
         Library._IsSettings = false
         animating = false
     end
-
     ProfileBtn.MouseButton1Click:Connect(function() task.spawn(SwitchToSettings) end)
     BackBtn.MouseButton1Click:Connect(function() task.spawn(SwitchToMain) end)
-
     workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
         if Library.Open then
             if IsSettings and SettingsWindow.Visible then
@@ -1363,21 +1252,18 @@ function Library:CreateWindow(options)
             end
         end
     end)
-
     local MenuBindConnection = UserInputService.InputBegan:Connect(function(input, gp)
         if not gp and input.KeyCode == Config.Keybind then
             task.spawn(ToggleMain)
         end
     end)
     table.insert(Library.Connections, MenuBindConnection)
-
     local WindowObj = {}
     local MainPages = Instance.new("Frame")
     MainPages.Size = UDim2.new(1, -181, 1, 0)
     MainPages.Position = UDim2.new(0, 181, 0, 0)
     MainPages.BackgroundTransparency = 1
     MainPages.Parent = MainWindow
-
     function WindowObj:CreateRawSection(text, parent)
         local Section = {}
         local Container = Instance.new("Frame")
@@ -1388,7 +1274,6 @@ function Library:CreateWindow(options)
         Corner(Container, 6)
         Stroke(Container, Theme.Stroke, 1, 0.5)
         Section.Container = Container
-
         local Title = Instance.new("TextLabel")
         Title.Text = text
         Title.Font = Config.FontBold
@@ -1399,14 +1284,12 @@ function Library:CreateWindow(options)
         Title.BackgroundTransparency = 1
         Title.TextXAlignment = Enum.TextXAlignment.Left
         Title.Parent = Container
-
         local Content = Instance.new("Frame")
         Content.Name = "Content"
         Content.Size = UDim2.new(1, -10, 0, 0)
         Content.Position = UDim2.new(0, 5, 0, 30)
         Content.BackgroundTransparency = 1
         Content.Parent = Container
-
         local List = Instance.new("UIListLayout")
         List.Padding = UDim.new(0, 6)
         List.SortOrder = Enum.SortOrder.LayoutOrder
@@ -1414,7 +1297,6 @@ function Library:CreateWindow(options)
         List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 40)
         end)
-
         function Section:Button(text, tooltipText, callback)
             local Btn = Instance.new("TextButton")
             Btn.Size = UDim2.new(1, 0, 0, 32)
@@ -1433,7 +1315,6 @@ function Library:CreateWindow(options)
             ApplyTooltip(Btn, tooltipText)
             return Btn
         end
-
         function Section:Toggle(text, flag, default, tooltipText, callback)
             local toggled = default or false
             Library.Defaults[flag] = default or false
@@ -1444,10 +1325,9 @@ function Library:CreateWindow(options)
                     toggled = val
                     if ToggleObj.UpdateAnim then ToggleObj.UpdateAnim() end
                     Library.Unsaved = true
-                    pcall(callback, val)
+                    callback(val)
                 end
             end
-
             local Btn = Instance.new("TextButton")
             Btn.Size = UDim2.new(1, 0, 0, 32)
             Btn.BackgroundColor3 = Theme.Container
@@ -1483,7 +1363,6 @@ function Library:CreateWindow(options)
             Fill.Parent = Box
             Corner(Fill, 3)
             RegisterTheme(Fill, "BackgroundColor")
-
             local SubContainer = Instance.new("Frame")
             SubContainer.Name = "Sub_" .. text
             SubContainer.Size = UDim2.new(1, 0, 0, 0)
@@ -1491,12 +1370,10 @@ function Library:CreateWindow(options)
             SubContainer.ClipsDescendants = true
             SubContainer.Visible = false
             SubContainer.Parent = Content
-
             local SubList = Instance.new("UIListLayout")
             SubList.Padding = UDim.new(0, 6)
             SubList.SortOrder = Enum.SortOrder.LayoutOrder
             SubList.Parent = SubContainer
-
             local currentTween = nil
             local function ToggleAnim()
                 if currentTween then currentTween:Cancel() end
@@ -1522,7 +1399,6 @@ function Library:CreateWindow(options)
                     end)
                 end
             end
-
             ToggleObj.UpdateAnim = ToggleAnim
             SubList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
                 if toggled then
@@ -1531,21 +1407,17 @@ function Library:CreateWindow(options)
                     SubContainer.Size = UDim2.new(1, 0, 0, h)
                 end
             end)
-
             Btn.MouseButton1Click:Connect(function()
                 toggled = not toggled
                 Library.Unsaved = true
                 ToggleAnim()
-                pcall(callback, toggled)
+                callback(toggled)
             end)
-
             if toggled then ToggleAnim() end
             ApplyTooltip(Btn, tooltipText)
-            pcall(callback, toggled)
-
+            task.spawn(callback, toggled)
             return ToggleObj
         end
-
         function Section:TextBox(text, flag, placeholder, tooltipText, callback)
             Library.Defaults[flag] = ""
             local Frame = Instance.new("Frame")
@@ -1586,7 +1458,7 @@ function Library:CreateWindow(options)
                 if enter then
                     Library.Flags[flag] = Input.Text
                     Library.Unsaved = true
-                    pcall(callback, Input.Text)
+                    callback(Input.Text)
                 end
             end)
             Input.Changed:Connect(function(prop)
@@ -1598,35 +1470,29 @@ function Library:CreateWindow(options)
             Library.Signals[flag] = function(val)
                 Input.Text = val
                 Library.Unsaved = true
-                pcall(callback, val)
+                callback(val)
             end
             ApplyTooltip(Frame, tooltipText)
-            pcall(callback, "")
             return Input
         end
-
         function Section:Dropdown(text, flag, options, default, tooltipText, callback, customParent, isMulti)
             return CreateDropdownElement(text, flag, options, default, tooltipText, callback, Content, Section, isMulti, customParent)
         end
-
         function Section:ColorPicker(text, flag, default, tooltipText, callback)
             local color = default or Color3.fromRGB(255, 255, 255)
             Library.Defaults[flag] = default or Color3.fromRGB(255, 255, 255)
             Library.Flags[flag] = color
             local h, s, v = color:ToHSV()
             local isOpen = false
-
             local ContainerFrame = Instance.new("Frame")
             ContainerFrame.Size = UDim2.new(1, 0, 0, 30)
             ContainerFrame.BackgroundTransparency = 1
             ContainerFrame.Parent = Content
-
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, 0, 0, 30)
             Frame.BackgroundTransparency = 1
             Frame.Parent = ContainerFrame
             Frame.ZIndex = 5
-
             local Label = Instance.new("TextLabel")
             Label.Text = text
             Label.Font = Config.FontMain
@@ -1637,7 +1503,6 @@ function Library:CreateWindow(options)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.BackgroundTransparency = 1
             Label.Parent = Frame
-
             local Preview = Instance.new("TextButton")
             Preview.Size = UDim2.new(0, 40, 0, 20)
             Preview.Position = UDim2.new(1, -5, 0.5, 0)
@@ -1648,7 +1513,6 @@ function Library:CreateWindow(options)
             Preview.Parent = Frame
             Corner(Preview, 4)
             Stroke(Preview, Theme.Stroke, 1, 0.5)
-
             local PickerCont = Instance.new("Frame")
             PickerCont.Size = UDim2.new(1, 0, 0, 0)
             PickerCont.Position = UDim2.new(0, 0, 0, 30)
@@ -1658,7 +1522,6 @@ function Library:CreateWindow(options)
             PickerCont.Visible = false
             PickerCont.ZIndex = 10
             Corner(PickerCont, 4)
-
             local SVMap = Instance.new("ImageLabel")
             SVMap.Size = UDim2.new(0, 140, 0, 120)
             SVMap.Position = UDim2.new(0, 10, 0, 10)
@@ -1668,7 +1531,6 @@ function Library:CreateWindow(options)
             SVMap.ZIndex = 11
             SVMap.Active = true
             Corner(SVMap, 4)
-
             local SVCursor = Instance.new("Frame")
             SVCursor.Size = UDim2.new(0, 8, 0, 8)
             SVCursor.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1677,7 +1539,6 @@ function Library:CreateWindow(options)
             SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
             SVCursor.ZIndex = 12
             Corner(SVCursor, 4)
-
             local HueBar = Instance.new("ImageLabel")
             HueBar.Size = UDim2.new(0, 20, 0, 120)
             HueBar.Position = UDim2.new(0, 160, 0, 10)
@@ -1698,14 +1559,12 @@ function Library:CreateWindow(options)
                 ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
             })
             UIGradient.Parent = HueBar
-
             local HCursor = Instance.new("Frame")
             HCursor.Size = UDim2.new(1, 0, 0, 2)
             HCursor.BackgroundColor3 = Color3.new(1, 1, 1)
             HCursor.Parent = HueBar
             HCursor.Position = UDim2.new(0, 0, h, 0)
             HCursor.ZIndex = 12
-
             local HexInput = Instance.new("TextBox")
             HexInput.Size = UDim2.new(0, 170, 0, 20)
             HexInput.Position = UDim2.new(0, 10, 0, 140)
@@ -1718,7 +1577,6 @@ function Library:CreateWindow(options)
             HexInput.ZIndex = 11
             Corner(HexInput, 4)
             Stroke(HexInput, Theme.Stroke, 1)
-
             local function Update()
                 color = Color3.fromHSV(h, s, v)
                 Preview.BackgroundColor3 = color
@@ -1726,9 +1584,8 @@ function Library:CreateWindow(options)
                 HexInput.Text = "#" .. color:ToHex()
                 Library.Flags[flag] = color
                 Library.Unsaved = true
-                pcall(callback, color)
+                callback(color)
             end
-
             HexInput.FocusLost:Connect(function()
                 local t = HexInput.Text:gsub("#", "")
                 if t:match("^[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$") then
@@ -1743,7 +1600,6 @@ function Library:CreateWindow(options)
                     HexInput.Text = "#" .. color:ToHex()
                 end
             end)
-
             Library.Signals[flag] = function(val)
                 if typeof(val) == "Color3" then
                     color = val
@@ -1753,7 +1609,6 @@ function Library:CreateWindow(options)
                     Update()
                 end
             end
-
             local function SetSV(input)
                 local rX = math.clamp((input.Position.X - SVMap.AbsolutePosition.X) / SVMap.AbsoluteSize.X, 0, 1)
                 local rY = math.clamp((input.Position.Y - SVMap.AbsolutePosition.Y) / SVMap.AbsoluteSize.Y, 0, 1)
@@ -1762,17 +1617,14 @@ function Library:CreateWindow(options)
                 SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
                 Update()
             end
-
             local function SetH(input)
                 local rY = math.clamp((input.Position.Y - HueBar.AbsolutePosition.Y) / HueBar.AbsoluteSize.Y, 0, 1)
                 h = rY
                 HCursor.Position = UDim2.new(0, 0, h, 0)
                 Update()
             end
-
             local dragSV, dragH = false, false
             local svChangedConn, hChangedConn, svEndedConn, hEndedConn
-
             SVMap.InputBegan:Connect(function(i)
                 if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
                     dragSV = true
@@ -1789,7 +1641,6 @@ function Library:CreateWindow(options)
                     end)
                 end
             end)
-
             HueBar.InputBegan:Connect(function(i)
                 if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
                     dragH = true
@@ -1806,7 +1657,6 @@ function Library:CreateWindow(options)
                     end)
                 end
             end)
-
             Preview.MouseButton1Click:Connect(function()
                 isOpen = not isOpen
                 Section.Container.ZIndex = isOpen and 10 or 1
@@ -1824,12 +1674,10 @@ function Library:CreateWindow(options)
                 end
             end)
             ApplyTooltip(ContainerFrame, tooltipText)
-            pcall(callback, color)
+            task.spawn(callback, color)
         end
-
         return Section
     end
-
     local function PopulateSettings()
         local SetPage = Instance.new("ScrollingFrame")
         SetPage.Size = UDim2.new(1, -200, 1, -20)
@@ -1839,7 +1687,6 @@ function Library:CreateWindow(options)
         SetPage.ScrollBarImageColor3 = Theme.Accent
         SetPage.Parent = SettingsWindow
         RegisterTheme(SetPage, "ScrollBar")
-
         local ListLayout = Instance.new("UIListLayout")
         ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ListLayout.Padding = UDim.new(0, 10)
@@ -1847,13 +1694,10 @@ function Library:CreateWindow(options)
         ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             SetPage.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
         end)
-
         local MenuSec = WindowObj:CreateRawSection("Menu Settings", SetPage)
-
         MenuSec:Button("Unload UI", "Destroys the Hub", function()
             Library:Unload()
         end)
-
         local keybindBtn
         keybindBtn = MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), "Change the open/close key", function()
             keybindBtn.Text = "Press any key..."
@@ -1871,29 +1715,23 @@ function Library:CreateWindow(options)
                 end
             end)
         end)
-
         MenuSec:Toggle("Show Keybind List", "KeybindListToggle", true, "Show the active keybinds widget", function(state)
             Library.ShowKeybinds = state
             if Library.KeybindList then Library.KeybindList.Frame.Visible = state and (#Library.KeybindList.Container:GetChildren() > 1) end
         end)
-
         MenuSec:ColorPicker("Accent Color", "MenuAccentColor", Theme.Accent, "Change the theme color", function(col)
             Library:UpdateTheme(col)
         end)
-
         local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
         local ConfigContent = ConfigSec.Container:FindFirstChild("Content")
-
         local configNameInput = ""
         local selectedConfigName = ""
         local ConfigList = Library:GetConfigs()
-
         local CNameFrame = Instance.new("Frame")
         CNameFrame.Size = UDim2.new(1, 0, 0, 50)
         CNameFrame.BackgroundTransparency = 1
         CNameFrame.LayoutOrder = 1
         CNameFrame.Parent = ConfigContent
-
         local CNameLabel = Instance.new("TextLabel")
         CNameLabel.Text = "Config Name"
         CNameLabel.Font = Config.FontMain
@@ -1904,7 +1742,6 @@ function Library:CreateWindow(options)
         CNameLabel.TextXAlignment = Enum.TextXAlignment.Left
         CNameLabel.BackgroundTransparency = 1
         CNameLabel.Parent = CNameFrame
-
         local CNameBoxCont = Instance.new("Frame")
         CNameBoxCont.Size = UDim2.new(1, 0, 0, 28)
         CNameBoxCont.Position = UDim2.new(0, 0, 0, 22)
@@ -1912,7 +1749,6 @@ function Library:CreateWindow(options)
         CNameBoxCont.Parent = CNameFrame
         Corner(CNameBoxCont, 4)
         Stroke(CNameBoxCont, Theme.Stroke, 1, 0.5)
-
         local CNameInput = Instance.new("TextBox")
         CNameInput.Size = UDim2.new(1, -10, 1, 0)
         CNameInput.Position = UDim2.new(0, 5, 0, 0)
@@ -1926,17 +1762,14 @@ function Library:CreateWindow(options)
         CNameInput.Text = ""
         CNameInput.ClearTextOnFocus = false
         CNameInput.Parent = CNameBoxCont
-
         CNameInput:GetPropertyChangedSignal("Text"):Connect(function()
             configNameInput = CNameInput.Text
         end)
-
         local ConfigDropdownFrame = Instance.new("Frame")
         ConfigDropdownFrame.Size = UDim2.new(1, 0, 0, 46)
         ConfigDropdownFrame.BackgroundTransparency = 1
         ConfigDropdownFrame.LayoutOrder = 2
         ConfigDropdownFrame.Parent = ConfigContent
-
         local CDLabel = Instance.new("TextLabel")
         CDLabel.Text = "Select Config"
         CDLabel.Font = Config.FontMain
@@ -1947,7 +1780,6 @@ function Library:CreateWindow(options)
         CDLabel.TextXAlignment = Enum.TextXAlignment.Left
         CDLabel.BackgroundTransparency = 1
         CDLabel.Parent = ConfigDropdownFrame
-
         local CDInteractive = Instance.new("TextButton")
         CDInteractive.Size = UDim2.new(1, 0, 0, 26)
         CDInteractive.Position = UDim2.new(0, 0, 0, 20)
@@ -1958,7 +1790,6 @@ function Library:CreateWindow(options)
         CDInteractive.ZIndex = 5
         Corner(CDInteractive, 4)
         Stroke(CDInteractive, Theme.Stroke, 1, 0.5)
-
         local CDSelectedText = Instance.new("TextLabel")
         CDSelectedText.Font = Config.FontMain
         CDSelectedText.TextSize = 13
@@ -1970,7 +1801,6 @@ function Library:CreateWindow(options)
         CDSelectedText.ZIndex = 6
         CDSelectedText.ClipsDescendants = true
         CDSelectedText.Parent = CDInteractive
-
         local CDArrow = Instance.new("ImageLabel")
         CDArrow.Image = "rbxassetid://10709790948"
         CDArrow.Size = UDim2.new(0, 18, 0, 18)
@@ -1980,7 +1810,6 @@ function Library:CreateWindow(options)
         CDArrow.ImageColor3 = Theme.TextDark
         CDArrow.Parent = CDInteractive
         CDArrow.ZIndex = 6
-
         local CDListFrame = Instance.new("ScrollingFrame")
         CDListFrame.Size = UDim2.new(1, 0, 0, 0)
         CDListFrame.Position = UDim2.new(0, 0, 1, 5)
@@ -1994,20 +1823,16 @@ function Library:CreateWindow(options)
         CDListFrame.ScrollBarImageColor3 = Theme.Accent
         Corner(CDListFrame, 4)
         Stroke(CDListFrame, Theme.Stroke, 1, 0.5)
-
         local CDIList = Instance.new("UIListLayout")
         CDIList.SortOrder = Enum.SortOrder.LayoutOrder
         CDIList.Parent = CDListFrame
         CDIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             CDListFrame.CanvasSize = UDim2.new(0, 0, 0, CDIList.AbsoluteContentSize.Y)
         end)
-
         local cdIsDropped = false
         local cdOptionBtns = {}
-
         selectedConfigName = #ConfigList > 0 and ConfigList[1] or ""
         CDSelectedText.Text = selectedConfigName ~= "" and selectedConfigName or "No configs"
-
         local function CDCloseDropdown()
             cdIsDropped = false
             ConfigSec.Container.ZIndex = 1
@@ -2019,7 +1844,6 @@ function Library:CreateWindow(options)
                 if not cdIsDropped then CDListFrame.Visible = false end
             end)
         end
-
         local function CDBuildOptions(opts)
             for _, btn in pairs(cdOptionBtns) do btn:Destroy() end
             table.clear(cdOptionBtns)
@@ -2035,7 +1859,6 @@ function Library:CreateWindow(options)
                 OptBtn.ZIndex = 11
                 OptBtn.TextColor3 = (selectedConfigName == opt) and Theme.Accent or Theme.TextDark
                 cdOptionBtns[opt] = OptBtn
-
                 OptBtn.MouseEnter:Connect(function()
                     if selectedConfigName ~= opt then
                         Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent})
@@ -2056,9 +1879,7 @@ function Library:CreateWindow(options)
                 end)
             end
         end
-
         CDBuildOptions(ConfigList)
-
         CDInteractive.MouseButton1Click:Connect(function()
             cdIsDropped = not cdIsDropped
             ConfigSec.Container.ZIndex = cdIsDropped and 10 or 1
@@ -2077,7 +1898,6 @@ function Library:CreateWindow(options)
                 CDCloseDropdown()
             end
         end)
-
         local function RefreshConfigDropdown()
             local newList = Library:GetConfigs()
             ConfigList = newList
@@ -2087,7 +1907,6 @@ function Library:CreateWindow(options)
             CDSelectedText.Text = selectedConfigName ~= "" and selectedConfigName or "No configs"
             CDBuildOptions(newList)
         end
-
         local CreateBtn = Instance.new("TextButton")
         CreateBtn.Size = UDim2.new(1, 0, 0, 32)
         CreateBtn.BackgroundColor3 = Theme.Container
@@ -2128,7 +1947,6 @@ function Library:CreateWindow(options)
                 Library:Notify("Error", "Failed to create config", 3)
             end
         end)
-
         local LoadBtn = Instance.new("TextButton")
         LoadBtn.Size = UDim2.new(1, 0, 0, 32)
         LoadBtn.BackgroundColor3 = Theme.Container
@@ -2159,7 +1977,6 @@ function Library:CreateWindow(options)
                 Library:Notify("Error", "Failed to load config", 3)
             end
         end)
-
         local RewriteBtn = Instance.new("TextButton")
         RewriteBtn.Size = UDim2.new(1, 0, 0, 32)
         RewriteBtn.BackgroundColor3 = Theme.Container
@@ -2190,7 +2007,6 @@ function Library:CreateWindow(options)
                 Library:Notify("Error", "Failed to rewrite config", 3)
             end
         end)
-
         local DeleteBtn = Instance.new("TextButton")
         DeleteBtn.Size = UDim2.new(1, 0, 0, 32)
         DeleteBtn.BackgroundColor3 = Theme.Container
@@ -2222,7 +2038,6 @@ function Library:CreateWindow(options)
                 Library:Notify("Error", "Failed to delete config", 3)
             end
         end)
-
         local RefreshBtn = Instance.new("TextButton")
         RefreshBtn.Size = UDim2.new(1, 0, 0, 32)
         RefreshBtn.BackgroundColor3 = Theme.Container
@@ -2241,7 +2056,6 @@ function Library:CreateWindow(options)
             RefreshConfigDropdown()
             Library:Notify("Config", "List Refreshed", 2)
         end)
-
         local ResetBtn = Instance.new("TextButton")
         ResetBtn.Size = UDim2.new(1, 0, 0, 32)
         ResetBtn.BackgroundColor3 = Theme.Container
@@ -2261,15 +2075,13 @@ function Library:CreateWindow(options)
                 if IgnoredFlags[flag] then continue end
                 Library.Flags[flag] = val
                 if Library.Signals[flag] then
-                    pcall(Library.Signals[flag], val)
+                    task.spawn(Library.Signals[flag], val)
                 end
             end
             Library:Notify("Settings", "Reset to defaults", 3)
         end)
     end
-
     PopulateSettings()
-
     function WindowObj:Tab(name, iconId)
         local Tab = {}
         local Page = Instance.new("ScrollingFrame")
@@ -2279,7 +2091,6 @@ function Library:CreateWindow(options)
         Page.ScrollBarThickness = 0
         Page.Visible = false
         Page.Parent = MainPages
-
         local TabBtn = Instance.new("TextButton")
         TabBtn.Size = UDim2.new(0, 160, 0, 36)
         TabBtn.BackgroundColor3 = Theme.Background
@@ -2288,7 +2099,6 @@ function Library:CreateWindow(options)
         TabBtn.AutoButtonColor = false
         TabBtn.Parent = TabContainer
         Corner(TabBtn, 6)
-
         local Title = Instance.new("TextLabel")
         Title.Text = name
         Title.Font = Config.FontMain
@@ -2299,7 +2109,6 @@ function Library:CreateWindow(options)
         Title.TextXAlignment = Enum.TextXAlignment.Left
         Title.BackgroundTransparency = 1
         Title.Parent = TabBtn
-
         if iconId then
             local Ico = Instance.new("ImageLabel")
             Ico.Size = UDim2.new(0, 20, 0, 20)
@@ -2312,7 +2121,6 @@ function Library:CreateWindow(options)
             TabBtn.MouseEnter:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.Text}) end end)
             TabBtn.MouseLeave:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.TextDark}) end end)
         end
-
         local Indicator = Instance.new("Frame")
         Indicator.Size = UDim2.new(0, 3, 0, 16)
         Indicator.Position = UDim2.new(0, 0, 0.5, -8)
@@ -2322,7 +2130,6 @@ function Library:CreateWindow(options)
         Indicator.Parent = TabBtn
         Corner(Indicator, 2)
         RegisterTheme(Indicator, "BackgroundColor")
-
         TabBtn.MouseButton1Click:Connect(function()
             for _, p in pairs(MainPages:GetChildren()) do if p:IsA("ScrollingFrame") then p.Visible = false end end
             for _, t in pairs(TabContainer:GetChildren()) do
@@ -2339,7 +2146,6 @@ function Library:CreateWindow(options)
             if TabBtn:FindFirstChild("ImageLabel") then Tween(TabBtn.ImageLabel, {ImageColor3 = Theme.Text}) end
             Tween(Indicator, {BackgroundTransparency = 0})
         end)
-
         local tabCount = 0
         for _, c in pairs(TabContainer:GetChildren()) do
             if c:IsA("TextButton") then tabCount = tabCount + 1 end
@@ -2352,7 +2158,6 @@ function Library:CreateWindow(options)
             if TabBtn:FindFirstChild("ImageLabel") then TabBtn.ImageLabel.ImageColor3 = Theme.Text end
             Indicator.BackgroundTransparency = 0
         end
-
         local LeftCol = Instance.new("Frame")
         LeftCol.Size = UDim2.new(0.5, -5, 1, 0)
         LeftCol.Position = UDim2.new(0, 0, 0, 0)
@@ -2362,7 +2167,6 @@ function Library:CreateWindow(options)
         LeftList.SortOrder = Enum.SortOrder.LayoutOrder
         LeftList.Padding = UDim.new(0, 10)
         LeftList.Parent = LeftCol
-
         local RightCol = Instance.new("Frame")
         RightCol.Size = UDim2.new(0.5, -5, 1, 0)
         RightCol.Position = UDim2.new(0.5, 5, 0, 0)
@@ -2372,7 +2176,6 @@ function Library:CreateWindow(options)
         RightList.SortOrder = Enum.SortOrder.LayoutOrder
         RightList.Padding = UDim.new(0, 10)
         RightList.Parent = RightCol
-
         function Tab:Section(text, side)
             local Section = {}
             local ParentCol = (side == "Right" and RightCol or LeftCol)
@@ -2383,11 +2186,9 @@ function Library:CreateWindow(options)
             Container.ZIndex = 1
             Corner(Container, 6)
             Stroke(Container, Theme.Stroke, 1, 0.5)
-
             Section.Container = Container
             local secData = {Instance = Container, Items = {}}
             table.insert(Library.Elements, secData)
-
             local STitle = Instance.new("TextLabel")
             STitle.Text = text
             STitle.Font = Config.FontBold
@@ -2398,13 +2199,11 @@ function Library:CreateWindow(options)
             STitle.BackgroundTransparency = 1
             STitle.TextXAlignment = Enum.TextXAlignment.Left
             STitle.Parent = Container
-
             local Content = Instance.new("Frame")
             Content.Size = UDim2.new(1, -10, 0, 0)
             Content.Position = UDim2.new(0, 5, 0, 25)
             Content.BackgroundTransparency = 1
             Content.Parent = Container
-
             local List = Instance.new("UIListLayout")
             List.Padding = UDim.new(0, 6)
             List.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2414,7 +2213,6 @@ function Library:CreateWindow(options)
                 Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
             end
             List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
-
             function Section:Toggle(text, flag, default, tooltipText, callback)
                 local toggled = default or false
                 Library.Defaults[flag] = default or false
@@ -2425,17 +2223,15 @@ function Library:CreateWindow(options)
                         toggled = val
                         if ToggleObj.UpdateAnim then ToggleObj.UpdateAnim() end
                         Library.Unsaved = true
-                        pcall(callback, val)
+                        callback(val)
                     end
                 end
-
                 local Btn = Instance.new("TextButton")
                 Btn.Size = UDim2.new(1, 0, 0, 32)
                 Btn.BackgroundTransparency = 1
                 Btn.Text = ""
                 Btn.Parent = Content
                 table.insert(secData.Items, {Name = text, Instance = Btn})
-
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
                 Label.Font = Config.FontMain
@@ -2446,7 +2242,6 @@ function Library:CreateWindow(options)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Btn
-
                 local Box = Instance.new("Frame")
                 Box.Size = UDim2.new(0, 18, 0, 18)
                 Box.Position = UDim2.new(1, -5, 0.5, 0)
@@ -2455,7 +2250,6 @@ function Library:CreateWindow(options)
                 Box.Parent = Btn
                 Corner(Box, 4)
                 Stroke(Box, Theme.Stroke, 1, 0.5)
-
                 local Fill = Instance.new("Frame")
                 Fill.Size = UDim2.new(1, -4, 1, -4)
                 Fill.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -2465,7 +2259,6 @@ function Library:CreateWindow(options)
                 Fill.Parent = Box
                 Corner(Fill, 3)
                 RegisterTheme(Fill, "BackgroundColor")
-
                 local SubContainer = Instance.new("Frame")
                 SubContainer.Name = "Sub_" .. text
                 SubContainer.Size = UDim2.new(1, 0, 0, 0)
@@ -2473,12 +2266,10 @@ function Library:CreateWindow(options)
                 SubContainer.ClipsDescendants = true
                 SubContainer.Visible = false
                 SubContainer.Parent = Content
-
                 local SubList = Instance.new("UIListLayout")
                 SubList.Padding = UDim.new(0, 6)
                 SubList.SortOrder = Enum.SortOrder.LayoutOrder
                 SubList.Parent = SubContainer
-
                 local currentTween = nil
                 local function ToggleAnim()
                     if currentTween then currentTween:Cancel() end
@@ -2507,7 +2298,6 @@ function Library:CreateWindow(options)
                         end)
                     end
                 end
-
                 ToggleObj.UpdateAnim = ToggleAnim
                 SubList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
                     if toggled then
@@ -2516,18 +2306,15 @@ function Library:CreateWindow(options)
                         SubContainer.Size = UDim2.new(1, 0, 0, h)
                     end
                 end)
-
                 Btn.MouseButton1Click:Connect(function()
                     toggled = not toggled
                     Library.Unsaved = true
                     ToggleAnim()
-                    pcall(callback, toggled)
+                    callback(toggled)
                 end)
-
                 if toggled then ToggleAnim() end
                 ApplyTooltip(Btn, tooltipText)
-                pcall(callback, toggled)
-
+                task.spawn(callback, toggled)
                 function ToggleObj:AddButton(txt, cb)
                     local SBtn = Instance.new("TextButton")
                     SBtn.Size = UDim2.new(1, -20, 0, 26)
@@ -2545,20 +2332,17 @@ function Library:CreateWindow(options)
                     SBtn.MouseLeave:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
                     SBtn.MouseButton1Click:Connect(cb)
                 end
-
                 function ToggleObj:AddSlider(txt, sflag, min, max, def, cb, inc)
                     inc = inc or 1
                     local val = RoundToIncrement(def or min, inc)
                     Library.Defaults[sflag] = val
                     Library.Flags[sflag] = val
                     local range = max - min
-
                     local SFrame = Instance.new("Frame")
                     SFrame.Size = UDim2.new(1, -20, 0, 36)
                     SFrame.Position = UDim2.new(0, 20, 0, 0)
                     SFrame.BackgroundTransparency = 1
                     SFrame.Parent = SubContainer
-
                     local SLabel = Instance.new("TextLabel")
                     SLabel.Text = txt
                     SLabel.Font = Config.FontMain
@@ -2568,7 +2352,6 @@ function Library:CreateWindow(options)
                     SLabel.TextXAlignment = Enum.TextXAlignment.Left
                     SLabel.BackgroundTransparency = 1
                     SLabel.Parent = SFrame
-
                     local SValue = Instance.new("TextBox")
                     SValue.Text = FormatNumber(val, inc)
                     SValue.Font = Config.FontMain
@@ -2579,7 +2362,6 @@ function Library:CreateWindow(options)
                     SValue.BackgroundTransparency = 1
                     SValue.ClearTextOnFocus = true
                     SValue.Parent = SFrame
-
                     local SlideBg = Instance.new("Frame")
                     SlideBg.Size = UDim2.new(1, 0, 0, 6)
                     SlideBg.Position = UDim2.new(0, 0, 0, 22)
@@ -2587,7 +2369,6 @@ function Library:CreateWindow(options)
                     SlideBg.Parent = SFrame
                     SlideBg.Active = true
                     Corner(SlideBg, 3)
-
                     local SlideFill = Instance.new("Frame")
                     local ratio = range > 0 and (val - min) / range or 0
                     SlideFill.Size = UDim2.new(ratio, 0, 1, 0)
@@ -2596,7 +2377,6 @@ function Library:CreateWindow(options)
                     SlideFill.Parent = SlideBg
                     Corner(SlideFill, 3)
                     RegisterTheme(SlideFill, "BackgroundColor")
-
                     local dragging = false
                     local inputChangedConn = nil
                     local function Set(input)
@@ -2628,7 +2408,6 @@ function Library:CreateWindow(options)
                             end)
                         end
                     end)
-
                     SValue.FocusLost:Connect(function(enter)
                         if enter then
                             local num = tonumber(SValue.Text)
@@ -2649,7 +2428,6 @@ function Library:CreateWindow(options)
                             SValue.Text = FormatNumber(val, inc)
                         end
                     end)
-
                     Library.Signals[sflag] = function(loadedVal)
                         val = RoundToIncrement(loadedVal, inc)
                         val = math.clamp(val, min, max)
@@ -2659,13 +2437,11 @@ function Library:CreateWindow(options)
                         Library.Unsaved = true
                         cb(val)
                     end
-                    pcall(cb, val)
+                    task.spawn(cb, val)
                 end
-
                 function ToggleObj:AddDropdown(txt, dflag, opts, def, cb, isMulti)
                     CreateDropdownElement(txt, dflag, opts, def, nil, cb, Content, Section, isMulti, SubContainer)
                 end
-
                 function ToggleObj:Keybind(defaultKey, mode)
                     ToggleObj.KeybindValue = defaultKey or Enum.KeyCode.Unknown
                     ToggleObj.KeybindMode = mode or "Toggle"
@@ -2680,7 +2456,6 @@ function Library:CreateWindow(options)
                     KeyBtn.TextSize = 11
                     KeyBtn.TextXAlignment = Enum.TextXAlignment.Right
                     KeyBtn.Parent = Btn
-
                     local binding = false
                     KeyBtn.MouseButton1Click:Connect(function()
                         if binding then return end
@@ -2701,7 +2476,6 @@ function Library:CreateWindow(options)
                             end
                         end)
                     end)
-
                     local ModeGui = Instance.new("Frame")
                     ModeGui.Size = UDim2.new(0, 80, 0, 60)
                     ModeGui.BackgroundColor3 = Theme.Sidebar
@@ -2712,7 +2486,6 @@ function Library:CreateWindow(options)
                     Stroke(ModeGui, Theme.Stroke, 1)
                     local ModeList = Instance.new("UIListLayout")
                     ModeList.Parent = ModeGui
-
                     local modes = {"Toggle", "Hold", "Always"}
                     for _, md in ipairs(modes) do
                         local mBtn = Instance.new("TextButton")
@@ -2731,65 +2504,55 @@ function Library:CreateWindow(options)
                             if md == "Always" and not toggled then
                                 toggled = true
                                 ToggleAnim()
-                                pcall(callback, toggled)
+                                callback(toggled)
                             end
                             if toggled then Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, md) end
                         end)
                     end
-
                     KeyBtn.MouseButton2Click:Connect(function()
                         ModeGui.Position = UDim2.new(1, -110, 0, 20)
                         ModeGui.Visible = not ModeGui.Visible
                         if ModeGui.Visible then SubContainer.ClipsDescendants = false end
                     end)
-
                     if ToggleObj.BindConnection then ToggleObj.BindConnection:Disconnect() end
                     if ToggleObj.BindConnectionEnded then ToggleObj.BindConnectionEnded:Disconnect() end
-
                     ToggleObj.BindConnection = UserInputService.InputBegan:Connect(function(input, gp)
                         if not gp and input.KeyCode == ToggleObj.KeybindValue and ToggleObj.KeybindValue ~= Enum.KeyCode.Unknown then
                             if ToggleObj.KeybindMode == "Toggle" then
                                 toggled = not toggled
                                 ToggleAnim()
-                                pcall(callback, toggled)
+                                callback(toggled)
                             elseif ToggleObj.KeybindMode == "Hold" then
                                 toggled = true
                                 ToggleAnim()
-                                pcall(callback, toggled)
+                                callback(toggled)
                             end
                         end
                     end)
-
                     ToggleObj.BindConnectionEnded = UserInputService.InputEnded:Connect(function(input, gp)
                         if not gp and input.KeyCode == ToggleObj.KeybindValue and ToggleObj.KeybindValue ~= Enum.KeyCode.Unknown then
                             if ToggleObj.KeybindMode == "Hold" then
                                 toggled = false
                                 ToggleAnim()
-                                pcall(callback, toggled)
+                                callback(toggled)
                             end
                         end
                     end)
-
                     table.insert(Library.Connections, ToggleObj.BindConnection)
                     table.insert(Library.Connections, ToggleObj.BindConnectionEnded)
-
                     return ToggleObj
                 end
-
                 return ToggleObj
             end
-
             function Section:Keybind(text, flag, defaultKey, mode, tooltipText, callback)
                 local key = defaultKey or Enum.KeyCode.Unknown
                 local kMode = mode or "Toggle"
                 Library.Defaults[flag] = {Key = key, Mode = kMode}
                 Library.Flags[flag] = {Key = key, Mode = kMode}
-
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 30)
                 Frame.BackgroundTransparency = 1
                 Frame.Parent = Content
-
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
                 Label.Font = Config.FontMain
@@ -2800,7 +2563,6 @@ function Library:CreateWindow(options)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
-
                 local KeyBtn = Instance.new("TextButton")
                 KeyBtn.Size = UDim2.new(0, 80, 0, 20)
                 KeyBtn.Position = UDim2.new(1, -5, 0.5, 0)
@@ -2814,7 +2576,6 @@ function Library:CreateWindow(options)
                 KeyBtn.Parent = Frame
                 Corner(KeyBtn, 4)
                 Stroke(KeyBtn, Theme.Stroke, 1, 0.5)
-
                 local binding = false
                 KeyBtn.MouseButton1Click:Connect(function()
                     if binding then return end
@@ -2839,7 +2600,6 @@ function Library:CreateWindow(options)
                         end
                     end)
                 end)
-
                 local ModeGui = Instance.new("Frame")
                 ModeGui.Size = UDim2.new(0, 80, 0, 60)
                 ModeGui.Position = UDim2.new(1, -90, 0, 25)
@@ -2851,7 +2611,6 @@ function Library:CreateWindow(options)
                 Stroke(ModeGui, Theme.Stroke, 1)
                 local ModeList = Instance.new("UIListLayout")
                 ModeList.Parent = ModeGui
-
                 local modes = {"Toggle", "Hold", "Always"}
                 for _, md in ipairs(modes) do
                     local mBtn = Instance.new("TextButton")
@@ -2870,44 +2629,38 @@ function Library:CreateWindow(options)
                         Library.Unsaved = true
                         Library:UpdateKeybindList(text, key.Name, true, kMode)
                         if kMode == "Always" then
-                            pcall(callback, true)
+                            callback(true)
                         end
                     end)
                 end
-
                 KeyBtn.MouseButton2Click:Connect(function()
                     ModeGui.Visible = not ModeGui.Visible
                     if ModeGui.Visible then Content.ClipsDescendants = false end
                 end)
-
                 local toggled = false
                 local BindConnection = UserInputService.InputBegan:Connect(function(input, gp)
                     if not gp and input.KeyCode == key and key ~= Enum.KeyCode.Unknown then
                         if kMode == "Toggle" then
                             toggled = not toggled
-                            pcall(callback, toggled)
+                            callback(toggled)
                         elseif kMode == "Hold" then
                             toggled = true
-                            pcall(callback, toggled)
+                            callback(toggled)
                         end
                     end
                 end)
-
                 local BindConnectionEnded = UserInputService.InputEnded:Connect(function(input, gp)
                     if not gp and input.KeyCode == key and key ~= Enum.KeyCode.Unknown then
                         if kMode == "Hold" then
                             toggled = false
-                            pcall(callback, toggled)
+                            callback(toggled)
                         end
                     end
                 end)
-
                 table.insert(Library.Connections, BindConnection)
                 table.insert(Library.Connections, BindConnectionEnded)
-
                 Library:UpdateKeybindList(text, key.Name, true, kMode)
                 ApplyTooltip(Frame, tooltipText)
-
                 local BindObj = {}
                 function BindObj:SetKey(newKey)
                     key = newKey
@@ -2918,7 +2671,6 @@ function Library:CreateWindow(options)
                 end
                 return BindObj
             end
-
             function Section:Button(text, tooltipText, callback)
                 local Btn = Instance.new("TextButton")
                 Btn.Size = UDim2.new(1, 0, 0, 30)
@@ -2937,11 +2689,9 @@ function Library:CreateWindow(options)
                 Btn.MouseButton1Click:Connect(callback)
                 ApplyTooltip(Btn, tooltipText)
             end
-
             function Section:Slider(text, flag, min, max, default, increment, tooltipText, callback)
                 CreateSliderElement(text, flag, min, max, default, increment, tooltipText, callback, Content, secData)
             end
-
             function Section:TextBox(text, flag, placeholder, tooltipText, callback)
                 Library.Defaults[flag] = ""
                 local Frame = Instance.new("Frame")
@@ -2949,7 +2699,6 @@ function Library:CreateWindow(options)
                 Frame.BackgroundTransparency = 1
                 Frame.Parent = Content
                 table.insert(secData.Items, {Name = text, Instance = Frame})
-
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
                 Label.Font = Config.FontMain
@@ -2960,7 +2709,6 @@ function Library:CreateWindow(options)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
-
                 local BoxCont = Instance.new("Frame")
                 BoxCont.Size = UDim2.new(1, 0, 0, 26)
                 BoxCont.Position = UDim2.new(0, 0, 0, 20)
@@ -2968,7 +2716,6 @@ function Library:CreateWindow(options)
                 BoxCont.Parent = Frame
                 Corner(BoxCont, 4)
                 local s = Stroke(BoxCont, Theme.Stroke, 1, 0.5)
-
                 local Input = Instance.new("TextBox")
                 Input.Size = UDim2.new(1, -10, 1, 0)
                 Input.Position = UDim2.new(0, 5, 0, 0)
@@ -2982,52 +2729,45 @@ function Library:CreateWindow(options)
                 Input.Text = ""
                 Input.ClearTextOnFocus = false
                 Input.Parent = BoxCont
-
                 Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}) end)
                 Input.FocusLost:Connect(function(enter)
                     Tween(s, {Color = Theme.Stroke})
                     if enter then
                         Library.Flags[flag] = Input.Text
                         Library.Unsaved = true
-                        pcall(callback, Input.Text)
+                        callback(Input.Text)
                     end
                 end)
-
                 Library.Flags[flag] = ""
                 Library.Signals[flag] = function(val)
                     Input.Text = val
                     Library.Unsaved = true
-                    pcall(callback, val)
+                    callback(val)
                 end
                 ApplyTooltip(Frame, tooltipText)
-                pcall(callback, "")
+                task.spawn(callback, "")
             end
-
             function Section:Dropdown(text, flag, options, default, tooltipText, callback, customParent, isMulti)
                 local obj = CreateDropdownElement(text, flag, options, default, tooltipText, callback, Content, Section, isMulti, customParent)
                 if not customParent then table.insert(secData.Items, {Name = text, Instance = obj.Frame}) end
                 return obj
             end
-
             function Section:ColorPicker(text, flag, default, tooltipText, callback)
                 local color = default or Color3.fromRGB(255, 255, 255)
                 Library.Defaults[flag] = default or Color3.fromRGB(255, 255, 255)
                 Library.Flags[flag] = color
                 local h, s, v = color:ToHSV()
                 local isOpen = false
-
                 local ContainerFrame = Instance.new("Frame")
                 ContainerFrame.Size = UDim2.new(1, 0, 0, 30)
                 ContainerFrame.BackgroundTransparency = 1
                 ContainerFrame.Parent = Content
                 table.insert(secData.Items, {Name = text, Instance = ContainerFrame})
-
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 30)
                 Frame.BackgroundTransparency = 1
                 Frame.Parent = ContainerFrame
                 Frame.ZIndex = 5
-
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
                 Label.Font = Config.FontMain
@@ -3038,7 +2778,6 @@ function Library:CreateWindow(options)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
-
                 local Preview = Instance.new("TextButton")
                 Preview.Size = UDim2.new(0, 40, 0, 20)
                 Preview.Position = UDim2.new(1, -5, 0.5, 0)
@@ -3049,7 +2788,6 @@ function Library:CreateWindow(options)
                 Preview.Parent = Frame
                 Corner(Preview, 4)
                 Stroke(Preview, Theme.Stroke, 1, 0.5)
-
                 local PickerCont = Instance.new("Frame")
                 PickerCont.Size = UDim2.new(1, 0, 0, 0)
                 PickerCont.Position = UDim2.new(0, 0, 0, 30)
@@ -3059,7 +2797,6 @@ function Library:CreateWindow(options)
                 PickerCont.Visible = false
                 PickerCont.ZIndex = 10
                 Corner(PickerCont, 4)
-
                 local SVMap = Instance.new("ImageLabel")
                 SVMap.Size = UDim2.new(0, 140, 0, 120)
                 SVMap.Position = UDim2.new(0, 10, 0, 10)
@@ -3069,7 +2806,6 @@ function Library:CreateWindow(options)
                 SVMap.ZIndex = 11
                 SVMap.Active = true
                 Corner(SVMap, 4)
-
                 local SVCursor = Instance.new("Frame")
                 SVCursor.Size = UDim2.new(0, 8, 0, 8)
                 SVCursor.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -3078,7 +2814,6 @@ function Library:CreateWindow(options)
                 SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
                 SVCursor.ZIndex = 12
                 Corner(SVCursor, 4)
-
                 local HueBar = Instance.new("ImageLabel")
                 HueBar.Size = UDim2.new(0, 20, 0, 120)
                 HueBar.Position = UDim2.new(0, 160, 0, 10)
@@ -3099,14 +2834,12 @@ function Library:CreateWindow(options)
                     ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
                 })
                 UIGradient.Parent = HueBar
-
                 local HCursor = Instance.new("Frame")
                 HCursor.Size = UDim2.new(1, 0, 0, 2)
                 HCursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 HCursor.Parent = HueBar
                 HCursor.Position = UDim2.new(0, 0, h, 0)
                 HCursor.ZIndex = 12
-
                 local HexInput = Instance.new("TextBox")
                 HexInput.Size = UDim2.new(0, 170, 0, 20)
                 HexInput.Position = UDim2.new(0, 10, 0, 140)
@@ -3119,7 +2852,6 @@ function Library:CreateWindow(options)
                 HexInput.ZIndex = 11
                 Corner(HexInput, 4)
                 Stroke(HexInput, Theme.Stroke, 1)
-
                 local function Update()
                     color = Color3.fromHSV(h, s, v)
                     Preview.BackgroundColor3 = color
@@ -3127,9 +2859,8 @@ function Library:CreateWindow(options)
                     HexInput.Text = "#" .. color:ToHex()
                     Library.Flags[flag] = color
                     Library.Unsaved = true
-                    pcall(callback, color)
+                    callback(color)
                 end
-
                 HexInput.FocusLost:Connect(function()
                     local t = HexInput.Text:gsub("#", "")
                     if t:match("^[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$") then
@@ -3144,7 +2875,6 @@ function Library:CreateWindow(options)
                         HexInput.Text = "#" .. color:ToHex()
                     end
                 end)
-
                 Library.Signals[flag] = function(val)
                     if typeof(val) == "Color3" then
                         color = val
@@ -3154,7 +2884,6 @@ function Library:CreateWindow(options)
                         Update()
                     end
                 end
-
                 local function SetSV(input)
                     local rX = math.clamp((input.Position.X - SVMap.AbsolutePosition.X) / SVMap.AbsoluteSize.X, 0, 1)
                     local rY = math.clamp((input.Position.Y - SVMap.AbsolutePosition.Y) / SVMap.AbsoluteSize.Y, 0, 1)
@@ -3163,17 +2892,14 @@ function Library:CreateWindow(options)
                     SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
                     Update()
                 end
-
                 local function SetH(input)
                     local rY = math.clamp((input.Position.Y - HueBar.AbsolutePosition.Y) / HueBar.AbsoluteSize.Y, 0, 1)
                     h = rY
                     HCursor.Position = UDim2.new(0, 0, h, 0)
                     Update()
                 end
-
                 local dragSV, dragH = false, false
                 local svChangedConn, hChangedConn, svEndedConn, hEndedConn
-
                 SVMap.InputBegan:Connect(function(i)
                     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
                         dragSV = true
@@ -3190,7 +2916,6 @@ function Library:CreateWindow(options)
                         end)
                     end
                 end)
-
                 HueBar.InputBegan:Connect(function(i)
                     if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
                         dragH = true
@@ -3207,7 +2932,6 @@ function Library:CreateWindow(options)
                         end)
                     end
                 end)
-
                 Preview.MouseButton1Click:Connect(function()
                     isOpen = not isOpen
                     Section.Container.ZIndex = isOpen and 10 or 1
@@ -3225,14 +2949,12 @@ function Library:CreateWindow(options)
                     end
                 end)
                 ApplyTooltip(ContainerFrame, tooltipText)
-                pcall(callback, color)
+                task.spawn(callback, color)
             end
-
             return Section
         end
         return Tab
     end
-
     local autoSaveTimer = 0
     local autoSaveConn = RunService.Heartbeat:Connect(function(dt)
         if Library.AutoSaveEnabled and Library.Unsaved then
@@ -3245,14 +2967,11 @@ function Library:CreateWindow(options)
         end
     end)
     table.insert(Library.Connections, autoSaveConn)
-
     task.defer(function()
         Library:LoadConfig("_autosave")
     end)
-
     MainScale.Scale = GetBaseScale()
     MainWindow.Visible = true
     return WindowObj
 end
-
 return Library
