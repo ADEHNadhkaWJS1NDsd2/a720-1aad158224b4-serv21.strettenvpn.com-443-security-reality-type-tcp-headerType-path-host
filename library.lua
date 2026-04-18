@@ -532,6 +532,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 local Drop_Frame = Instance.new("Frame")
                 Drop_Frame.Size = UDim2.new(1, 0, 0, 46)
                 Drop_Frame.BackgroundTransparency = 1
+                Drop_Frame.ClipsDescendants = true
                 Drop_Frame.Parent = Target_Container
 
                 local Text = Instance.new("TextLabel")
@@ -562,7 +563,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Main_Stroke.Parent = Main_Btn
 
                 local Selected = Instance.new("TextLabel")
-                Selected.Size = UDim2.new(1, -20, 1, 0)
+                Selected.Size = UDim2.new(1, -30, 1, 0)
                 Selected.Position = UDim2.new(0, 8, 0, 0)
                 Selected.BackgroundTransparency = 1
                 Selected.Text = Nixware_Premium_Api.Flags[Flag]
@@ -572,12 +573,22 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Selected.TextXAlignment = Enum.TextXAlignment.Left
                 Selected.Parent = Main_Btn
 
-                local List = Instance.new("Frame")
+                local Icon = Instance.new("ImageLabel")
+                Icon.Size = UDim2.new(0, 14, 0, 14)
+                Icon.Position = UDim2.new(1, -22, 0.5, -7)
+                Icon.BackgroundTransparency = 1
+                Icon.Image = "rbxassetid://6031090656"
+                Icon.ImageColor3 = Colors.Text_Dark
+                Icon.Parent = Main_Btn
+
+                local List = Instance.new("ScrollingFrame")
                 List.Size = UDim2.new(1, -4, 0, 0)
                 List.Position = UDim2.new(0, 2, 0, 48)
                 List.BackgroundColor3 = Colors.Element_Bg
+                List.BorderSizePixel = 0
+                List.ScrollBarThickness = 2
+                List.ScrollBarImageColor3 = Colors.Accent
                 List.ClipsDescendants = true
-                List.ZIndex = 5
                 List.Parent = Drop_Frame
                 
                 local List_Corner = Instance.new("UICorner")
@@ -595,29 +606,32 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
 
                 local function Toggle()
                     Open = not Open
-                    local Target_Size = Open and (#Options * 24) or 0
-                    Animate(Main_Stroke, {Color = Open and Colors.Accent or Colors.Border}, 0.2562)
-                    Animate(List, {Size = UDim2.new(1, -4, 0, Target_Size)}, 0.2562)
-                    Animate(List_Stroke, {Transparency = Open and 0 or 1}, 0.2562)
-                    Animate(Drop_Frame, {Size = UDim2.new(1, 0, 0, 46 + Target_Size + (Open and 6 or 0))}, 0.2562)
+                    local Max_Height = math.min(#Options * 24, 120)
+                    local Target_Size = Open and Max_Height or 0
+                    Animate(Main_Stroke, {Color = Open and Colors.Accent or Colors.Border}, 0.25624)
+                    Animate(Icon, {Rotation = Open and 180 or 0}, 0.25624)
+                    Animate(Icon, {ImageColor3 = Open and Colors.Accent or Colors.Text_Dark}, 0.25624)
+                    Animate(List, {Size = UDim2.new(1, -4, 0, Target_Size)}, 0.25624)
+                    Animate(List_Stroke, {Transparency = Open and 0 or 1}, 0.25624)
+                    Animate(Drop_Frame, {Size = UDim2.new(1, 0, 0, 46 + Target_Size + (Open and 4 or 0))}, 0.25624)
                 end
 
                 Main_Btn.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    if not Open then Animate(Main_Stroke, {Color = Colors.Border_Light}, 0.1983) end
+                    if not Open then Animate(Main_Stroke, {Color = Colors.Border_Light}, 0.19837) end
                 end)
                 Main_Btn.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    if not Open then Animate(Main_Stroke, {Color = Colors.Border}, 0.1983) end
+                    if not Open then Animate(Main_Stroke, {Color = Colors.Border}, 0.19837) end
                 end)
                 Main_Btn.MouseButton1Click:Connect(Toggle)
 
                 for _, Opt in ipairs(Options) do
                     local Opt_Btn = Instance.new("TextButton")
                     Opt_Btn.Size = UDim2.new(1, 0, 0, 24)
+                    Opt_Btn.BackgroundColor3 = Colors.Element_Hover
                     Opt_Btn.BackgroundTransparency = 1
                     Opt_Btn.Text = ""
-                    Opt_Btn.ZIndex = 6
                     Opt_Btn.Parent = List
 
                     local Opt_Text = Instance.new("TextLabel")
@@ -625,19 +639,22 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                     Opt_Text.Position = UDim2.new(0, 8, 0, 0)
                     Opt_Text.BackgroundTransparency = 1
                     Opt_Text.Text = Opt
-                    Opt_Text.TextColor3 = Colors.Text_Dark
+                    Opt_Text.TextColor3 = Nixware_Premium_Api.Flags[Flag] == Opt and Colors.Accent or Colors.Text_Dark
                     Opt_Text.TextSize = 12
                     Opt_Text.Font = Main_Font
                     Opt_Text.TextXAlignment = Enum.TextXAlignment.Left
-                    Opt_Text.ZIndex = 6
                     Opt_Text.Parent = Opt_Btn
 
-                    Opt_Btn.MouseEnter:Connect(function() Animate(Opt_Text, {TextColor3 = Colors.Accent}, 0.1532) end)
-                    Opt_Btn.MouseLeave:Connect(function()
+                    Opt_Btn.MouseEnter:Connect(function() 
+                        Animate(Opt_Btn, {BackgroundTransparency = 0}, 0.15328)
                         if Nixware_Premium_Api.Flags[Flag] ~= Opt then
-                            Animate(Opt_Text, {TextColor3 = Colors.Text_Dark}, 0.1532)
-                        else
-                            Animate(Opt_Text, {TextColor3 = Colors.Text_White}, 0.1532)
+                            Animate(Opt_Text, {TextColor3 = Colors.Text_White}, 0.15328) 
+                        end
+                    end)
+                    Opt_Btn.MouseLeave:Connect(function()
+                        Animate(Opt_Btn, {BackgroundTransparency = 1}, 0.15328)
+                        if Nixware_Premium_Api.Flags[Flag] ~= Opt then
+                            Animate(Opt_Text, {TextColor3 = Colors.Text_Dark}, 0.15328)
                         end
                     end)
 
@@ -647,13 +664,14 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                         Toggle()
                         for _, Child in ipairs(List:GetChildren()) do
                             if Child:IsA("TextButton") then
-                                Child:FindFirstChildOfClass("TextLabel").TextColor3 = Colors.Text_Dark
+                                Animate(Child:FindFirstChildOfClass("TextLabel"), {TextColor3 = Colors.Text_Dark}, 0.15328)
                             end
                         end
-                        Opt_Text.TextColor3 = Colors.Text_White
+                        Animate(Opt_Text, {TextColor3 = Colors.Accent}, 0.15328)
                         if Callback then task.spawn(Callback, Opt) end
                     end)
                 end
+                List.CanvasSize = UDim2.new(0, 0, 0, #Options * 24)
             end
 
             function Elements:ColorPicker_Create(Name, Flag, Default, Tooltip, Callback)
@@ -812,16 +830,16 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
 
                 Prev_Btn.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    if not Open then Animate(Prev_Stroke, {Color = Colors.Border_Light}, 0.2184) end
+                    if not Open then Animate(Prev_Stroke, {Color = Colors.Border_Light}, 0.21841) end
                 end)
                 Prev_Btn.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    if not Open then Animate(Prev_Stroke, {Color = Colors.Border}, 0.2184) end
+                    if not Open then Animate(Prev_Stroke, {Color = Colors.Border}, 0.21841) end
                 end)
 
                 Prev_Btn.MouseButton1Click:Connect(function()
                     Open = not Open
-                    Animate(Prev_Stroke, {Color = Open and Colors.Accent or Colors.Border}, 0.263627)
+                    Animate(Prev_Stroke, {Color = Open and Colors.Accent or Colors.Border}, 0.26362)
                     Animate(Col_Frame, {Size = UDim2.new(1, 0, 0, Open and 224 or 24)}, 0.28135)
                 end)
             end
@@ -861,9 +879,9 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                     Animate(Btn, {BackgroundColor3 = Colors.Element_Bg}, 0.21983)
                     Animate(Btn_Stroke, {Color = Colors.Border}, 0.21983)
                 end)
-                Btn.MouseButton1Down:Connect(function() Animate(Btn, {Size = UDim2.new(0.96, 0, 0.9, 0), Position = UDim2.new(0.02, 0, 0.05, 0)}, 0.1245) end)
+                Btn.MouseButton1Down:Connect(function() Animate(Btn, {Size = UDim2.new(0.96, 0, 0.9, 0), Position = UDim2.new(0.02, 0, 0.05, 0)}, 0.12453) end)
                 Btn.MouseButton1Up:Connect(function()
-                    Animate(Btn, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.1245)
+                    Animate(Btn, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.12453)
                     if Callback then task.spawn(Callback) end
                 end)
             end
@@ -953,19 +971,19 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
 
                 Mod_Btn.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    if not Nixware_Premium_Api.Flags[Flag] then Animate(Btn_Stroke, {Color = Colors.Border_Light}, 0.2184) end
+                    if not Nixware_Premium_Api.Flags[Flag] then Animate(Btn_Stroke, {Color = Colors.Border_Light}, 0.21846) end
                 end)
                 Mod_Btn.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    if not Nixware_Premium_Api.Flags[Flag] then Animate(Btn_Stroke, {Color = Colors.Border}, 0.2184) end
+                    if not Nixware_Premium_Api.Flags[Flag] then Animate(Btn_Stroke, {Color = Colors.Border}, 0.21846) end
                 end)
 
                 Mod_Btn.MouseButton1Click:Connect(function()
                     Nixware_Premium_Api.Flags[Flag] = not Nixware_Premium_Api.Flags[Flag]
                     local S = Nixware_Premium_Api.Flags[Flag]
-                    Animate(Box, {BackgroundColor3 = S and Colors.Accent or Colors.Section_Bg}, 0.2184)
-                    Animate(Btn_Stroke, {Color = S and Colors.Accent or Colors.Border}, 0.2184)
-                    Animate(Text, {TextColor3 = S and Colors.Text_White or Colors.Text_Dark}, 0.2184)
+                    Animate(Box, {BackgroundColor3 = S and Colors.Accent or Colors.Section_Bg}, 0.21846)
+                    Animate(Btn_Stroke, {Color = S and Colors.Accent or Colors.Border}, 0.21846)
+                    Animate(Text, {TextColor3 = S and Colors.Text_White or Colors.Text_Dark}, 0.21846)
                     Sync_Size()
                     if Callback then task.spawn(Callback, S) end
                 end)
