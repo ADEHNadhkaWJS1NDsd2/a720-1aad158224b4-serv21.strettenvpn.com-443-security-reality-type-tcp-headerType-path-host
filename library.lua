@@ -480,11 +480,15 @@ function LibraryApi:CreateWindow(windowName)
     local function updateResponsiveScale()
         local currentViewport = workspaceService.CurrentCamera.ViewportSize
         local isMobileDevice = userInputService.TouchEnabled and not userInputService.MouseEnabled
-        local calculatedScale = 0.75
+        local calculatedScale = 1
         if isMobileDevice then
-            calculatedScale = math.clamp(currentViewport.X / 1000, 0.45, 0.75)
+            calculatedScale = math.clamp(currentViewport.Y / 500, 0.45, 0.85)
         else
-            calculatedScale = math.clamp(currentViewport.Y / 1080, 0.5, 0.8)
+            if currentViewport.Y < 768 then
+                calculatedScale = math.clamp(currentViewport.Y / 768, 0.5, 1)
+            else
+                calculatedScale = 1
+            end
         end
         uiScaleModifier.Scale = calculatedScale
     end
