@@ -1,1216 +1,1224 @@
-local Core_Gui = game:GetService("CoreGui")
-local User_Input_Service = game:GetService("UserInputService")
-local Run_Service = game:GetService("RunService")
-local Tween_Service = game:GetService("TweenService")
-local Text_Service = game:GetService("TextService")
-local Http_Service = game:GetService("HttpService")
-local Workspace = game:GetService("Workspace")
+local coreGuiService = game:GetService("CoreGui")
+local userInputService = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+local tweenService = game:GetService("TweenService")
+local textService = game:GetService("TextService")
+local httpService = game:GetService("HttpService")
+local workspaceService = game:GetService("Workspace")
 
-local Nixware_Premium_Api = {
+local LibraryApi = {
     Flags = {}
 }
 
-local Colors = {
-    Main_Bg = Color3.new(0.035294, 0.035294, 0.050980),
-    Sidebar_Bg = Color3.new(0.050980, 0.050980, 0.066666),
-    Section_Bg = Color3.new(0.066666, 0.066666, 0.082352),
-    Element_Bg = Color3.new(0.090196, 0.090196, 0.105882),
-    Element_Hover = Color3.new(0.121568, 0.121568, 0.145098),
-    Border = Color3.new(0.105882, 0.105882, 0.133333),
-    Border_Light = Color3.new(0.172549, 0.172549, 0.211764),
-    Accent = Color3.new(0.423529, 0.576470, 0.988235),
-    Accent_Grad_1 = Color3.new(0.423529, 0.576470, 0.988235),
-    Accent_Grad_2 = Color3.new(0.619607, 0.462745, 0.988235),
-    Text_White = Color3.new(0.952941, 0.952941, 0.972549),
-    Text_Dark = Color3.new(0.541176, 0.541176, 0.580392),
-    Tooltip_Bg = Color3.new(0.043137, 0.043137, 0.058823),
-    Notify_Info = Color3.new(0.247058, 0.635294, 0.980392),
-    Notify_Success = Color3.new(0.247058, 0.980392, 0.490196),
-    Notify_Warning = Color3.new(0.980392, 0.819607, 0.247058),
-    Notify_Error = Color3.new(0.980392, 0.247058, 0.247058)
+local colors = {
+    mainBackground = Color3.new(0.035294, 0.035294, 0.050980),
+    sidebarBackground = Color3.new(0.050980, 0.050980, 0.066666),
+    sectionBackground = Color3.new(0.066666, 0.066666, 0.082352),
+    elementBackground = Color3.new(0.090196, 0.090196, 0.105882),
+    elementHoverBackground = Color3.new(0.121568, 0.121568, 0.145098),
+    borderColor = Color3.new(0.105882, 0.105882, 0.133333),
+    borderLightColor = Color3.new(0.172549, 0.172549, 0.211764),
+    accentColor = Color3.new(0.423529, 0.576470, 0.988235),
+    accentGradientColor1 = Color3.new(0.423529, 0.576470, 0.988235),
+    accentGradientColor2 = Color3.new(0.619607, 0.462745, 0.988235),
+    textWhiteColor = Color3.new(0.952941, 0.952941, 0.972549),
+    textDarkColor = Color3.new(0.541176, 0.541176, 0.580392),
+    tooltipBackground = Color3.new(0.043137, 0.043137, 0.058823),
+    notificationInfoColor = Color3.new(0.247058, 0.635294, 0.980392),
+    notificationSuccessColor = Color3.new(0.247058, 0.980392, 0.490196),
+    notificationWarningColor = Color3.new(0.980392, 0.819607, 0.247058),
+    notificationErrorColor = Color3.new(0.980392, 0.247058, 0.247058)
 }
 
-local Main_Font = Enum.Font.GothamMedium
-local Bold_Font = Enum.Font.GothamBold
+local mainFont = Enum.Font.GothamMedium
+local boldFont = Enum.Font.GothamBold
 
-local Screen_Gui = Instance.new("ScreenGui")
-Screen_Gui.Name = Http_Service:GenerateGUID(false)
-Screen_Gui.Parent = Core_Gui
-Screen_Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Screen_Gui.DisplayOrder = 999 
-Screen_Gui.IgnoreGuiInset = true
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = httpService:GenerateGUID(false)
+screenGui.Parent = coreGuiService
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.DisplayOrder = 999
+screenGui.IgnoreGuiInset = true
 
-local Tooltip_Frame = Instance.new("Frame")
-Tooltip_Frame.BackgroundColor3 = Colors.Tooltip_Bg
-Tooltip_Frame.BackgroundTransparency = 0.158372
-Tooltip_Frame.Size = UDim2.new(0, 0, 0, 24)
-Tooltip_Frame.ZIndex = 2000
-Tooltip_Frame.Visible = false
-Tooltip_Frame.Parent = Screen_Gui
+local tooltipFrame = Instance.new("Frame")
+tooltipFrame.BackgroundColor3 = colors.tooltipBackground
+tooltipFrame.BackgroundTransparency = 0.158372
+tooltipFrame.Size = UDim2.new(0, 0, 0, 24)
+tooltipFrame.ZIndex = 2000
+tooltipFrame.Visible = false
+tooltipFrame.Parent = screenGui
 
-local Tooltip_Corner = Instance.new("UICorner")
-Tooltip_Corner.CornerRadius = UDim.new(0, 4)
-Tooltip_Corner.Parent = Tooltip_Frame
+local tooltipCorner = Instance.new("UICorner")
+tooltipCorner.CornerRadius = UDim.new(0, 4)
+tooltipCorner.Parent = tooltipFrame
 
-local Tooltip_Stroke = Instance.new("UIStroke")
-Tooltip_Stroke.Color = Colors.Border_Light
-Tooltip_Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-Tooltip_Stroke.Transparency = 1
-Tooltip_Stroke.Parent = Tooltip_Frame
+local tooltipStroke = Instance.new("UIStroke")
+tooltipStroke.Color = colors.borderLightColor
+tooltipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+tooltipStroke.Transparency = 1
+tooltipStroke.Parent = tooltipFrame
 
-local Tooltip_Text = Instance.new("TextLabel")
-Tooltip_Text.Size = UDim2.new(1, -16, 1, 0)
-Tooltip_Text.Position = UDim2.new(0, 8, 0, 0)
-Tooltip_Text.BackgroundTransparency = 1
-Tooltip_Text.TextColor3 = Colors.Text_White
-Tooltip_Text.TextTransparency = 1
-Tooltip_Text.TextSize = 12
-Tooltip_Text.Font = Main_Font
-Tooltip_Text.TextXAlignment = Enum.TextXAlignment.Left
-Tooltip_Text.ZIndex = 2001
-Tooltip_Text.Parent = Tooltip_Frame
+local tooltipText = Instance.new("TextLabel")
+tooltipText.Size = UDim2.new(1, -16, 1, 0)
+tooltipText.Position = UDim2.new(0, 8, 0, 0)
+tooltipText.BackgroundTransparency = 1
+tooltipText.TextColor3 = colors.textWhiteColor
+tooltipText.TextTransparency = 1
+tooltipText.TextSize = 12
+tooltipText.Font = mainFont
+tooltipText.TextXAlignment = Enum.TextXAlignment.Left
+tooltipText.ZIndex = 2001
+tooltipText.Parent = tooltipFrame
 
-local Notify_Container = Instance.new("Frame")
-Notify_Container.Size = UDim2.new(0, 300, 1, -40)
-Notify_Container.Position = UDim2.new(1, -320, 0, 20)
-Notify_Container.BackgroundTransparency = 1
-Notify_Container.ZIndex = 1500
-Notify_Container.Parent = Screen_Gui
+local notificationContainer = Instance.new("Frame")
+notificationContainer.Size = UDim2.new(0, 300, 1, -40)
+notificationContainer.Position = UDim2.new(1, -320, 0, 20)
+notificationContainer.BackgroundTransparency = 1
+notificationContainer.ZIndex = 1500
+notificationContainer.Parent = screenGui
 
-local Notify_Layout = Instance.new("UIListLayout")
-Notify_Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Notify_Layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-Notify_Layout.Padding = UDim.new(0, 10)
-Notify_Layout.Parent = Notify_Container
+local notificationLayout = Instance.new("UIListLayout")
+notificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
+notificationLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+notificationLayout.Padding = UDim.new(0, 10)
+notificationLayout.Parent = notificationContainer
 
-local Tooltip_Target = ""
+local tooltipTargetText = ""
 
-local function Animate(Object, Props, Speed)
-    local Tween = Tween_Service:Create(Object, TweenInfo.new(Speed or 0.21837482, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), Props)
-    Tween:Play()
-    return Tween
+local function animateElement(element, properties, speed)
+    local tween = tweenService:Create(element, TweenInfo.new(speed or 0.21837482, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), properties)
+    tween:Play()
+    return tween
 end
 
-local function Apply_Acrylic(Parent, Transparency, Corner_Radius)
-    local Blur = Instance.new("ImageLabel")
-    Blur.Size = UDim2.new(1, 0, 1, 0)
-    Blur.BackgroundTransparency = 1
-    Blur.Image = "rbxassetid://8992230113"
-    Blur.TileSize = UDim2.new(0, 256, 0, 256)
-    Blur.ScaleType = Enum.ScaleType.Tile
-    Blur.ImageTransparency = Transparency or 0.88732
-    Blur.ZIndex = Parent.ZIndex - 1
-    Blur.Parent = Parent
-    if Corner_Radius then
-        local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = Corner_Radius
-        Corner.Parent = Blur
+local function applyAcrylicEffect(parent, transparency, cornerRadius)
+    local blurImage = Instance.new("ImageLabel")
+    blurImage.Size = UDim2.new(1, 0, 1, 0)
+    blurImage.BackgroundTransparency = 1
+    blurImage.Image = "rbxassetid://8992230113"
+    blurImage.TileSize = UDim2.new(0, 256, 0, 256)
+    blurImage.ScaleType = Enum.ScaleType.Tile
+    blurImage.ImageTransparency = transparency or 0.88732
+    blurImage.ZIndex = parent.ZIndex - 1
+    blurImage.Parent = parent
+    if cornerRadius then
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = cornerRadius
+        corner.Parent = blurImage
     end
-    return Blur
+    return blurImage
 end
 
-local function Show_Tooltip(Text_Str)
-    if not Text_Str or Text_Str == "" then
-        Tooltip_Target = ""
+local function showTooltip(textString)
+    if not textString or textString == "" then
+        tooltipTargetText = ""
         return
     end
-    local Bounds = Text_Service:GetTextSize(Text_Str, 12, Main_Font, Vector2.new(500, 24))
-    Tooltip_Frame.Size = UDim2.new(0, Bounds.X + 16, 0, 24)
-    Tooltip_Text.Text = Text_Str
-    Tooltip_Target = Text_Str
+    local textBounds = textService:GetTextSize(textString, 12, mainFont, Vector2.new(500, 24))
+    tooltipFrame.Size = UDim2.new(0, textBounds.X + 16, 0, 24)
+    tooltipText.Text = textString
+    tooltipTargetText = textString
 end
 
-local function Snap_Value(Value, Step)
-    if not Step then return Value end
-    return math.floor((Value / Step) + 0.5) * Step
+local function snapValue(value, step)
+    if not step then return value end
+    return math.floor((value / step) + 0.5) * step
 end
 
-local function Format_Value(Value, Step)
-    if Step and Step < 1 then
-        local Decimals = tostring(Step):len() - 2
-        return string.format("%."..Decimals.."f", Value)
+local function formatValue(value, step)
+    if step and step < 1 then
+        local decimalPlaces = tostring(step):len() - 2
+        return string.format("%."..decimalPlaces.."f", value)
     end
-    return tostring(Value)
+    return tostring(value)
 end
 
-Run_Service.RenderStepped:Connect(function()
-    if Tooltip_Target ~= "" then
-        local Mouse = User_Input_Service:GetMouseLocation()
-        Tooltip_Frame.Position = UDim2.new(0, Mouse.X + 15, 0, Mouse.Y + 15)
-        if not Tooltip_Frame.Visible then
-            Tooltip_Frame.Visible = true
-            Animate(Tooltip_Frame, {BackgroundTransparency = 0.1837265}, 0.1837265)
-            Animate(Tooltip_Stroke, {Transparency = 0}, 0.1837265)
-            Animate(Tooltip_Text, {TextTransparency = 0}, 0.1837265)
+runService.RenderStepped:Connect(function()
+    if tooltipTargetText ~= "" then
+        local mouseLocation = userInputService:GetMouseLocation()
+        tooltipFrame.Position = UDim2.new(0, mouseLocation.X + 15, 0, mouseLocation.Y + 15)
+        if not tooltipFrame.Visible then
+            tooltipFrame.Visible = true
+            animateElement(tooltipFrame, {BackgroundTransparency = 0.1837265}, 0.1837265)
+            animateElement(tooltipStroke, {Transparency = 0}, 0.1837265)
+            animateElement(tooltipText, {TextTransparency = 0}, 0.1837265)
         end
     else
-        Animate(Tooltip_Frame, {BackgroundTransparency = 1}, 0.1284739)
-        Animate(Tooltip_Stroke, {Transparency = 1}, 0.1284739)
-        Animate(Tooltip_Text, {TextTransparency = 1}, 0.1284739)
+        animateElement(tooltipFrame, {BackgroundTransparency = 1}, 0.1284739)
+        animateElement(tooltipStroke, {Transparency = 1}, 0.1284739)
+        animateElement(tooltipText, {TextTransparency = 1}, 0.1284739)
         task.delay(0.1284739, function()
-            if Tooltip_Target == "" then
-                Tooltip_Frame.Visible = false
+            if tooltipTargetText == "" then
+                tooltipFrame.Visible = false
             end
         end)
     end
 end)
 
-function Nixware_Premium_Api:Notify(Config)
-    local Title = Config.Title or "Notification"
-    local Text = Config.Text or ""
-    local Duration = Config.Duration or 3
-    local Type = Config.Type or "Info"
-    local Accent_Color = Colors["Notify_" .. Type] or Colors.Accent
+function LibraryApi:Notify(config)
+    local title = config.Title or "Notification"
+    local text = config.Text or ""
+    local duration = config.Duration or 3
+    local notificationType = config.Type or "Info"
+    local accentColor = colors["notification" .. notificationType .. "Color"] or colors.accentColor
 
-    local Notif_Frame = Instance.new("Frame")
-    Notif_Frame.Size = UDim2.new(1, 0, 0, 60)
-    Notif_Frame.Position = UDim2.new(1, 320, 0, 0)
-    Notif_Frame.BackgroundColor3 = Colors.Main_Bg
-    Notif_Frame.BackgroundTransparency = 0.28547
-    Notif_Frame.ZIndex = 1501
-    Notif_Frame.Parent = Notify_Container
+    local notificationFrame = Instance.new("Frame")
+    notificationFrame.Size = UDim2.new(1, 0, 0, 60)
+    notificationFrame.Position = UDim2.new(1, 320, 0, 0)
+    notificationFrame.BackgroundColor3 = colors.mainBackground
+    notificationFrame.BackgroundTransparency = 0.28547
+    notificationFrame.ZIndex = 1501
+    notificationFrame.Parent = notificationContainer
 
-    local Notif_Corner = Instance.new("UICorner")
-    Notif_Corner.CornerRadius = UDim.new(0, 6)
-    Notif_Corner.Parent = Notif_Frame
+    local notificationCorner = Instance.new("UICorner")
+    notificationCorner.CornerRadius = UDim.new(0, 6)
+    notificationCorner.Parent = notificationFrame
 
-    local Notif_Stroke = Instance.new("UIStroke")
-    Notif_Stroke.Color = Colors.Border_Light
-    Notif_Stroke.Parent = Notif_Frame
+    local notificationStroke = Instance.new("UIStroke")
+    notificationStroke.Color = colors.borderLightColor
+    notificationStroke.Parent = notificationFrame
 
-    Apply_Acrylic(Notif_Frame, 0.91238, UDim.new(0, 6))
+    applyAcrylicEffect(notificationFrame, 0.91238, UDim.new(0, 6))
 
-    local Line = Instance.new("Frame")
-    Line.Size = UDim2.new(0, 3, 1, -12)
-    Line.Position = UDim2.new(0, 6, 0, 6)
-    Line.BackgroundColor3 = Accent_Color
-    Line.BorderSizePixel = 0
-    Line.ZIndex = 1502
-    Line.Parent = Notif_Frame
+    local lineFrame = Instance.new("Frame")
+    lineFrame.Size = UDim2.new(0, 3, 1, -12)
+    lineFrame.Position = UDim2.new(0, 6, 0, 6)
+    lineFrame.BackgroundColor3 = accentColor
+    lineFrame.BorderSizePixel = 0
+    lineFrame.ZIndex = 1502
+    lineFrame.Parent = notificationFrame
 
-    local Line_Corner = Instance.new("UICorner")
-    Line_Corner.CornerRadius = UDim.new(0, 3)
-    Line_Corner.Parent = Line
+    local lineCorner = Instance.new("UICorner")
+    lineCorner.CornerRadius = UDim.new(0, 3)
+    lineCorner.Parent = lineFrame
 
-    local Title_Lbl = Instance.new("TextLabel")
-    Title_Lbl.Size = UDim2.new(1, -24, 0, 16)
-    Title_Lbl.Position = UDim2.new(0, 16, 0, 8)
-    Title_Lbl.BackgroundTransparency = 1
-    Title_Lbl.Text = Title
-    Title_Lbl.TextColor3 = Colors.Text_White
-    Title_Lbl.TextSize = 13
-    Title_Lbl.Font = Bold_Font
-    Title_Lbl.TextXAlignment = Enum.TextXAlignment.Left
-    Title_Lbl.ZIndex = 1502
-    Title_Lbl.Parent = Notif_Frame
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -24, 0, 16)
+    titleLabel.Position = UDim2.new(0, 16, 0, 8)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title
+    titleLabel.TextColor3 = colors.textWhiteColor
+    titleLabel.TextSize = 13
+    titleLabel.Font = boldFont
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.ZIndex = 1502
+    titleLabel.Parent = notificationFrame
 
-    local Text_Lbl = Instance.new("TextLabel")
-    Text_Lbl.Size = UDim2.new(1, -24, 0, 24)
-    Text_Lbl.Position = UDim2.new(0, 16, 0, 26)
-    Text_Lbl.BackgroundTransparency = 1
-    Text_Lbl.Text = Text
-    Text_Lbl.TextColor3 = Colors.Text_Dark
-    Text_Lbl.TextSize = 12
-    Text_Lbl.Font = Main_Font
-    Text_Lbl.TextXAlignment = Enum.TextXAlignment.Left
-    Text_Lbl.TextWrapped = true
-    Text_Lbl.ZIndex = 1502
-    Text_Lbl.Parent = Notif_Frame
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -24, 0, 24)
+    textLabel.Position = UDim2.new(0, 16, 0, 26)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = text
+    textLabel.TextColor3 = colors.textDarkColor
+    textLabel.TextSize = 12
+    textLabel.Font = mainFont
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextWrapped = true
+    textLabel.ZIndex = 1502
+    textLabel.Parent = notificationFrame
 
-    Animate(Notif_Frame, {Position = UDim2.new(0, 0, 0, 0)}, 0.43857)
+    animateElement(notificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.43857)
 
-    task.delay(Duration, function()
-        local Out = Animate(Notif_Frame, {Position = UDim2.new(1, 320, 0, 0)}, 0.38472)
-        Out.Completed:Connect(function()
-            Notif_Frame:Destroy()
+    task.delay(duration, function()
+        local hideTween = animateElement(notificationFrame, {Position = UDim2.new(1, 320, 0, 0)}, 0.38472)
+        hideTween.Completed:Connect(function()
+            notificationFrame:Destroy()
         end)
     end)
 end
 
-function Nixware_Premium_Api:Window_Create(Window_Name)
-    local Main_Bg = Instance.new("Frame")
-    Main_Bg.Size = UDim2.new(0, 720, 0, 480)
-    Main_Bg.Position = UDim2.new(0.5, -360, 0.5, -240)
-    Main_Bg.BackgroundColor3 = Colors.Main_Bg
-    Main_Bg.BackgroundTransparency = 0.18374
-    Main_Bg.BorderSizePixel = 0
-    Main_Bg.Active = true
-    Main_Bg.Parent = Screen_Gui
+function LibraryApi:CreateWindow(windowName)
+    local mainBackground = Instance.new("Frame")
+    mainBackground.Size = UDim2.new(0, 720, 0, 480)
+    mainBackground.Position = UDim2.new(0.5, -360, 0.5, -240)
+    mainBackground.BackgroundColor3 = colors.mainBackground
+    mainBackground.BackgroundTransparency = 0.18374
+    mainBackground.BorderSizePixel = 0
+    mainBackground.Active = true
+    mainBackground.Parent = screenGui
     
-    local Main_Corner = Instance.new("UICorner")
-    Main_Corner.CornerRadius = UDim.new(0, 6)
-    Main_Corner.Parent = Main_Bg
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 6)
+    mainCorner.Parent = mainBackground
     
-    local Main_Stroke = Instance.new("UIStroke")
-    Main_Stroke.Color = Colors.Border
-    Main_Stroke.Parent = Main_Bg
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = colors.borderColor
+    mainStroke.Parent = mainBackground
 
-    Apply_Acrylic(Main_Bg, 0.88741, UDim.new(0, 6))
+    applyAcrylicEffect(mainBackground, 0.88741, UDim.new(0, 6))
 
-    local Top_Bar = Instance.new("Frame")
-    Top_Bar.Size = UDim2.new(1, 0, 0, 36)
-    Top_Bar.BackgroundColor3 = Colors.Sidebar_Bg
-    Top_Bar.BackgroundTransparency = 0.21847
-    Top_Bar.BorderSizePixel = 0
-    Top_Bar.Parent = Main_Bg
+    local topBar = Instance.new("Frame")
+    topBar.Size = UDim2.new(1, 0, 0, 36)
+    topBar.BackgroundColor3 = colors.sidebarBackground
+    topBar.BackgroundTransparency = 0.21847
+    topBar.BorderSizePixel = 0
+    topBar.Parent = mainBackground
     
-    local Top_Corner = Instance.new("UICorner")
-    Top_Corner.CornerRadius = UDim.new(0, 6)
-    Top_Corner.Parent = Top_Bar
+    local topCorner = Instance.new("UICorner")
+    topCorner.CornerRadius = UDim.new(0, 6)
+    topCorner.Parent = topBar
 
-    local Top_Hider = Instance.new("Frame")
-    Top_Hider.Size = UDim2.new(1, 0, 0, 6)
-    Top_Hider.Position = UDim2.new(0, 0, 1, -6)
-    Top_Hider.BackgroundColor3 = Colors.Sidebar_Bg
-    Top_Hider.BackgroundTransparency = 0.21847
-    Top_Hider.BorderSizePixel = 0
-    Top_Hider.Parent = Top_Bar
+    local topHider = Instance.new("Frame")
+    topHider.Size = UDim2.new(1, 0, 0, 6)
+    topHider.Position = UDim2.new(0, 0, 1, -6)
+    topHider.BackgroundColor3 = colors.sidebarBackground
+    topHider.BackgroundTransparency = 0.21847
+    topHider.BorderSizePixel = 0
+    topHider.Parent = topBar
 
-    local Accent_Line = Instance.new("Frame")
-    Accent_Line.Size = UDim2.new(1, 0, 0, 2)
-    Accent_Line.BackgroundColor3 = Color3.new(1, 1, 1)
-    Accent_Line.BorderSizePixel = 0
-    Accent_Line.Parent = Top_Bar
+    local accentLine = Instance.new("Frame")
+    accentLine.Size = UDim2.new(1, 0, 0, 2)
+    accentLine.BackgroundColor3 = Color3.new(1, 1, 1)
+    accentLine.BorderSizePixel = 0
+    accentLine.Parent = topBar
     
-    local Accent_Corner = Instance.new("UICorner")
-    Accent_Corner.CornerRadius = UDim.new(0, 6)
-    Accent_Corner.Parent = Accent_Line
+    local accentCorner = Instance.new("UICorner")
+    accentCorner.CornerRadius = UDim.new(0, 6)
+    accentCorner.Parent = accentLine
 
-    local Accent_Grad = Instance.new("UIGradient")
-    Accent_Grad.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Colors.Accent_Grad_1),
-        ColorSequenceKeypoint.new(1, Colors.Accent_Grad_2)
+    local accentGradient = Instance.new("UIGradient")
+    accentGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, colors.accentGradientColor1),
+        ColorSequenceKeypoint.new(1, colors.accentGradientColor2)
     }
-    Accent_Grad.Parent = Accent_Line
+    accentGradient.Parent = accentLine
 
-    local Top_Border = Instance.new("Frame")
-    Top_Border.Size = UDim2.new(1, 0, 0, 1)
-    Top_Border.Position = UDim2.new(0, 0, 1, 0)
-    Top_Border.BackgroundColor3 = Colors.Border
-    Top_Border.BorderSizePixel = 0
-    Top_Border.Parent = Top_Bar
+    local topBorder = Instance.new("Frame")
+    topBorder.Size = UDim2.new(1, 0, 0, 1)
+    topBorder.Position = UDim2.new(0, 0, 1, 0)
+    topBorder.BackgroundColor3 = colors.borderColor
+    topBorder.BorderSizePixel = 0
+    topBorder.Parent = topBar
 
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, -20, 1, -2)
-    Title.Position = UDim2.new(0, 15, 0, 2)
-    Title.BackgroundTransparency = 1
-    Title.Text = Window_Name
-    Title.TextColor3 = Colors.Text_White
-    Title.TextSize = 13
-    Title.Font = Bold_Font
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Parent = Top_Bar
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -20, 1, -2)
+    titleLabel.Position = UDim2.new(0, 15, 0, 2)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = windowName
+    titleLabel.TextColor3 = colors.textWhiteColor
+    titleLabel.TextSize = 13
+    titleLabel.Font = boldFont
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = topBar
 
-    local Sidebar = Instance.new("Frame")
-    Sidebar.Size = UDim2.new(0, 150, 1, -37)
-    Sidebar.Position = UDim2.new(0, 0, 0, 37)
-    Sidebar.BackgroundColor3 = Colors.Sidebar_Bg
-    Sidebar.BackgroundTransparency = 0.21847
-    Sidebar.BorderSizePixel = 0
-    Sidebar.Parent = Main_Bg
+    local sidebarFrame = Instance.new("Frame")
+    sidebarFrame.Size = UDim2.new(0, 150, 1, -37)
+    sidebarFrame.Position = UDim2.new(0, 0, 0, 37)
+    sidebarFrame.BackgroundColor3 = colors.sidebarBackground
+    sidebarFrame.BackgroundTransparency = 0.21847
+    sidebarFrame.BorderSizePixel = 0
+    sidebarFrame.Parent = mainBackground
     
-    local Sidebar_Corner = Instance.new("UICorner")
-    Sidebar_Corner.CornerRadius = UDim.new(0, 6)
-    Sidebar_Corner.Parent = Sidebar
+    local sidebarCorner = Instance.new("UICorner")
+    sidebarCorner.CornerRadius = UDim.new(0, 6)
+    sidebarCorner.Parent = sidebarFrame
 
-    local Sidebar_Hider_R = Instance.new("Frame")
-    Sidebar_Hider_R.Size = UDim2.new(0, 6, 1, 0)
-    Sidebar_Hider_R.Position = UDim2.new(1, -6, 0, 0)
-    Sidebar_Hider_R.BackgroundColor3 = Colors.Sidebar_Bg
-    Sidebar_Hider_R.BackgroundTransparency = 0.21847
-    Sidebar_Hider_R.BorderSizePixel = 0
-    Sidebar_Hider_R.Parent = Sidebar
+    local sidebarHiderRight = Instance.new("Frame")
+    sidebarHiderRight.Size = UDim2.new(0, 6, 1, 0)
+    sidebarHiderRight.Position = UDim2.new(1, -6, 0, 0)
+    sidebarHiderRight.BackgroundColor3 = colors.sidebarBackground
+    sidebarHiderRight.BackgroundTransparency = 0.21847
+    sidebarHiderRight.BorderSizePixel = 0
+    sidebarHiderRight.Parent = sidebarFrame
 
-    local Sidebar_Hider_T = Instance.new("Frame")
-    Sidebar_Hider_T.Size = UDim2.new(1, 0, 0, 6)
-    Sidebar_Hider_T.BackgroundColor3 = Colors.Sidebar_Bg
-    Sidebar_Hider_T.BackgroundTransparency = 0.21847
-    Sidebar_Hider_T.BorderSizePixel = 0
-    Sidebar_Hider_T.Parent = Sidebar
+    local sidebarHiderTop = Instance.new("Frame")
+    sidebarHiderTop.Size = UDim2.new(1, 0, 0, 6)
+    sidebarHiderTop.BackgroundColor3 = colors.sidebarBackground
+    sidebarHiderTop.BackgroundTransparency = 0.21847
+    sidebarHiderTop.BorderSizePixel = 0
+    sidebarHiderTop.Parent = sidebarFrame
 
-    local Sidebar_Border = Instance.new("Frame")
-    Sidebar_Border.Size = UDim2.new(0, 1, 1, 0)
-    Sidebar_Border.Position = UDim2.new(1, 0, 0, 0)
-    Sidebar_Border.BackgroundColor3 = Colors.Border
-    Sidebar_Border.BorderSizePixel = 0
-    Sidebar_Border.Parent = Sidebar
+    local sidebarBorder = Instance.new("Frame")
+    sidebarBorder.Size = UDim2.new(0, 1, 1, 0)
+    sidebarBorder.Position = UDim2.new(1, 0, 0, 0)
+    sidebarBorder.BackgroundColor3 = colors.borderColor
+    sidebarBorder.BorderSizePixel = 0
+    sidebarBorder.Parent = sidebarFrame
 
-    local Tab_Scroll = Instance.new("ScrollingFrame")
-    Tab_Scroll.Size = UDim2.new(1, -10, 1, -10)
-    Tab_Scroll.Position = UDim2.new(0, 5, 0, 5)
-    Tab_Scroll.BackgroundTransparency = 1
-    Tab_Scroll.BorderSizePixel = 0
-    Tab_Scroll.ScrollBarThickness = 0
-    Tab_Scroll.Parent = Sidebar
+    local tabScrollingFrame = Instance.new("ScrollingFrame")
+    tabScrollingFrame.Size = UDim2.new(1, -10, 1, -10)
+    tabScrollingFrame.Position = UDim2.new(0, 5, 0, 5)
+    tabScrollingFrame.BackgroundTransparency = 1
+    tabScrollingFrame.BorderSizePixel = 0
+    tabScrollingFrame.ScrollBarThickness = 0
+    tabScrollingFrame.Parent = sidebarFrame
 
-    local Tab_Layout = Instance.new("UIListLayout")
-    Tab_Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    Tab_Layout.Padding = UDim.new(0, 4)
-    Tab_Layout.Parent = Tab_Scroll
+    local tabLayout = Instance.new("UIListLayout")
+    tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabLayout.Padding = UDim.new(0, 4)
+    tabLayout.Parent = tabScrollingFrame
 
-    local Content_Area = Instance.new("Frame")
-    Content_Area.Size = UDim2.new(1, -151, 1, -37)
-    Content_Area.Position = UDim2.new(0, 151, 0, 37)
-    Content_Area.BackgroundTransparency = 1
-    Content_Area.Parent = Main_Bg
+    local contentAreaFrame = Instance.new("Frame")
+    contentAreaFrame.Size = UDim2.new(1, -151, 1, -37)
+    contentAreaFrame.Position = UDim2.new(0, 151, 0, 37)
+    contentAreaFrame.BackgroundTransparency = 1
+    contentAreaFrame.Parent = mainBackground
 
-    local Dragging = false
-    local Drag_Input = nil
-    local Drag_Start = nil
-    local Start_Pos = nil
-    local Target_Pos = Main_Bg.Position
+    local isDragging = false
+    local dragInput = nil
+    local dragStart = nil
+    local startPosition = nil
+    local targetPosition = mainBackground.Position
 
-    Top_Bar.InputBegan:Connect(function(Input)
-        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-            Dragging = true
-            Drag_Start = Input.Position
-            Start_Pos = Main_Bg.Position
+    topBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = true
+            dragStart = input.Position
+            startPosition = mainBackground.Position
         end
     end)
 
-    Top_Bar.InputChanged:Connect(function(Input)
-        if Input.UserInputType == Enum.UserInputType.MouseMovement then Drag_Input = Input end
+    topBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
     end)
 
-    User_Input_Service.InputEnded:Connect(function(Input)
-        if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end
+    userInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then isDragging = false end
     end)
 
-    Run_Service.RenderStepped:Connect(function()
-        if Dragging and Drag_Input then
-            local Delta = Drag_Input.Position - Drag_Start
-            Target_Pos = UDim2.new(Start_Pos.X.Scale, Start_Pos.X.Offset + Delta.X, Start_Pos.Y.Scale, Start_Pos.Y.Offset + Delta.Y)
+    runService.RenderStepped:Connect(function()
+        if isDragging and dragInput then
+            local Delta = dragInput.Position - dragStart
+            targetPosition = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + Delta.X, startPosition.Y.Scale, startPosition.Y.Offset + Delta.Y)
         end
-        Main_Bg.Position = Main_Bg.Position:Lerp(Target_Pos, 0.1743819)
+        mainBackground.Position = mainBackground.Position:Lerp(targetPosition, 0.1743819)
     end)
 
-    local Window_Context = { Tabs = {}, Active_Tab = nil }
+    local windowContext = { Tabs = {}, Active_Tab = nil }
 
-    function Window_Context:Tab_Create(Tab_Name, Icon_Id)
-        local Tab_Data = {}
+    function windowContext:Tab_Create(tabName, iconId)
+        local tabData = {}
 
-        local Tab_Btn = Instance.new("TextButton")
-        Tab_Btn.Size = UDim2.new(1, 0, 0, 32)
-        Tab_Btn.BackgroundColor3 = Colors.Element_Hover
-        Tab_Btn.BackgroundTransparency = 1
-        Tab_Btn.Text = ""
-        Tab_Btn.AutoButtonColor = false
-        Tab_Btn.Parent = Tab_Scroll
+        local tabButton = Instance.new("TextButton")
+        tabButton.Size = UDim2.new(1, 0, 0, 32)
+        tabButton.BackgroundColor3 = colors.elementHoverBackground
+        tabButton.BackgroundTransparency = 1
+        tabButton.Text = ""
+        tabButton.AutoButtonColor = false
+        tabButton.Parent = tabScrollingFrame
         
-        local Btn_Corner = Instance.new("UICorner")
-        Btn_Corner.CornerRadius = UDim.new(0, 4)
-        Btn_Corner.Parent = Tab_Btn
+        local buttonCorner = Instance.new("UICorner")
+        buttonCorner.CornerRadius = UDim.new(0, 4)
+        buttonCorner.Parent = tabButton
 
-        local Tab_Label = Instance.new("TextLabel")
-        Tab_Label.BackgroundTransparency = 1
-        Tab_Label.Text = Tab_Name
-        Tab_Label.TextColor3 = Colors.Text_Dark
-        Tab_Label.TextSize = 12
-        Tab_Label.Font = Main_Font
-        Tab_Label.TextXAlignment = Enum.TextXAlignment.Left
-        Tab_Label.Parent = Tab_Btn
+        local tabLabel = Instance.new("TextLabel")
+        tabLabel.BackgroundTransparency = 1
+        tabLabel.Text = tabName
+        tabLabel.TextColor3 = colors.textDarkColor
+        tabLabel.TextSize = 12
+        tabLabel.Font = mainFont
+        tabLabel.TextXAlignment = Enum.TextXAlignment.Left
+        tabLabel.Parent = tabButton
 
-        if Icon_Id and Icon_Id ~= "" then
-            local Tab_Icon = Instance.new("ImageLabel")
-            Tab_Icon.Size = UDim2.new(0, 14, 0, 14)
-            Tab_Icon.Position = UDim2.new(0, 12, 0.5, -7)
-            Tab_Icon.BackgroundTransparency = 1
-            Tab_Icon.Image = Icon_Id
-            Tab_Icon.ImageColor3 = Colors.Text_Dark
-            Tab_Icon.Parent = Tab_Btn
-            Tab_Data.Icon = Tab_Icon
-            Tab_Label.Position = UDim2.new(0, 34, 0, 0)
-            Tab_Label.Size = UDim2.new(1, -44, 1, 0)
+        if iconId and iconId ~= "" then
+            local tabIcon = Instance.new("ImageLabel")
+            tabIcon.Size = UDim2.new(0, 14, 0, 14)
+            tabIcon.Position = UDim2.new(0, 12, 0.5, -7)
+            tabIcon.BackgroundTransparency = 1
+            tabIcon.Image = iconId
+            tabIcon.ImageColor3 = colors.textDarkColor
+            tabIcon.Parent = tabButton
+            tabData.Icon = tabIcon
+            tabLabel.Position = UDim2.new(0, 34, 0, 0)
+            tabLabel.Size = UDim2.new(1, -44, 1, 0)
         else
-            Tab_Label.Position = UDim2.new(0, 12, 0, 0)
-            Tab_Label.Size = UDim2.new(1, -20, 1, 0)
+            tabLabel.Position = UDim2.new(0, 12, 0, 0)
+            tabLabel.Size = UDim2.new(1, -20, 1, 0)
         end
 
-        local Tab_Ind = Instance.new("Frame")
-        Tab_Ind.Size = UDim2.new(0, 2, 0, 0)
-        Tab_Ind.Position = UDim2.new(0, 0, 0.5, 0)
-        Tab_Ind.BackgroundColor3 = Colors.Accent
-        Tab_Ind.BorderSizePixel = 0
-        Tab_Ind.Parent = Tab_Btn
+        local tabIndicator = Instance.new("Frame")
+        tabIndicator.Size = UDim2.new(0, 2, 0, 0)
+        tabIndicator.Position = UDim2.new(0, 0, 0.5, 0)
+        tabIndicator.BackgroundColor3 = colors.accentColor
+        tabIndicator.BorderSizePixel = 0
+        tabIndicator.Parent = tabButton
         
-        local Ind_Corner = Instance.new("UICorner")
-        Ind_Corner.CornerRadius = UDim.new(0, 2)
-        Ind_Corner.Parent = Tab_Ind
+        local indicatorCorner = Instance.new("UICorner")
+        indicatorCorner.CornerRadius = UDim.new(0, 2)
+        indicatorCorner.Parent = tabIndicator
 
-        local Page = Instance.new("ScrollingFrame")
-        Page.Size = UDim2.new(1, 0, 1, 0)
-        Page.BackgroundTransparency = 1
-        Page.BorderSizePixel = 0
-        Page.ScrollBarThickness = 2
-        Page.ScrollBarImageColor3 = Colors.Accent
-        Page.Visible = false
-        Page.Parent = Content_Area
+        local pageScrollingFrame = Instance.new("ScrollingFrame")
+        pageScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+        pageScrollingFrame.BackgroundTransparency = 1
+        pageScrollingFrame.BorderSizePixel = 0
+        pageScrollingFrame.ScrollBarThickness = 2
+        pageScrollingFrame.ScrollBarImageColor3 = colors.accentColor
+        pageScrollingFrame.Visible = false
+        pageScrollingFrame.Parent = contentAreaFrame
 
-        local Left_Col = Instance.new("Frame")
-        Left_Col.Size = UDim2.new(0.5, -16, 1, 0)
-        Left_Col.Position = UDim2.new(0, 10, 0, 10)
-        Left_Col.BackgroundTransparency = 1
-        Left_Col.Parent = Page
+        local leftColumnFrame = Instance.new("Frame")
+        leftColumnFrame.Size = UDim2.new(0.5, -16, 1, 0)
+        leftColumnFrame.Position = UDim2.new(0, 10, 0, 10)
+        leftColumnFrame.BackgroundTransparency = 1
+        leftColumnFrame.Parent = pageScrollingFrame
 
-        local Right_Col = Instance.new("Frame")
-        Right_Col.Size = UDim2.new(0.5, -16, 1, 0)
-        Right_Col.Position = UDim2.new(0.5, 6, 0, 10)
-        Right_Col.BackgroundTransparency = 1
-        Right_Col.Parent = Page
+        local rightColumnFrame = Instance.new("Frame")
+        rightColumnFrame.Size = UDim2.new(0.5, -16, 1, 0)
+        rightColumnFrame.Position = UDim2.new(0.5, 6, 0, 10)
+        rightColumnFrame.BackgroundTransparency = 1
+        rightColumnFrame.Parent = pageScrollingFrame
 
-        local Left_Layout = Instance.new("UIListLayout")
-        Left_Layout.Padding = UDim.new(0, 10)
-        Left_Layout.Parent = Left_Col
+        local leftColumnLayout = Instance.new("UIListLayout")
+        leftColumnLayout.Padding = UDim.new(0, 10)
+        leftColumnLayout.Parent = leftColumnFrame
 
-        local Right_Layout = Instance.new("UIListLayout")
-        Right_Layout.Padding = UDim.new(0, 10)
-        Right_Layout.Parent = Right_Col
+        local rightColumnLayout = Instance.new("UIListLayout")
+        rightColumnLayout.Padding = UDim.new(0, 10)
+        rightColumnLayout.Parent = rightColumnFrame
 
-        Run_Service.RenderStepped:Connect(function()
-            local Max_Y = math.max(Left_Layout.AbsoluteContentSize.Y, Right_Layout.AbsoluteContentSize.Y)
-            Page.CanvasSize = UDim2.new(0, 0, 0, Max_Y + 20)
-            Tab_Scroll.CanvasSize = UDim2.new(0, 0, 0, Tab_Layout.AbsoluteContentSize.Y + 10)
+        runService.RenderStepped:Connect(function()
+            local maxColumnHeight = math.max(leftColumnLayout.AbsoluteContentSize.Y, rightColumnLayout.AbsoluteContentSize.Y)
+            pageScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, maxColumnHeight + 20)
+            tabScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, tabLayout.AbsoluteContentSize.Y + 10)
         end)
 
-        function Tab_Data:Activate()
-            if Window_Context.Active_Tab == Tab_Data then return end
-            if Window_Context.Active_Tab then
-                Animate(Window_Context.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.228197)
-                Animate(Window_Context.Active_Tab.Lbl, {TextColor3 = Colors.Text_Dark}, 0.228197)
-                if Window_Context.Active_Tab.Icon then Animate(Window_Context.Active_Tab.Icon, {ImageColor3 = Colors.Text_Dark}, 0.228197) end
-                Animate(Window_Context.Active_Tab.Ind, {Size = UDim2.new(0, 2, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.228197)
-                Window_Context.Active_Tab.Page.Visible = false
+        function tabData:Activate()
+            if windowContext.Active_Tab == tabData then return end
+            if windowContext.Active_Tab then
+                animateElement(windowContext.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.228197)
+                animateElement(windowContext.Active_Tab.Lbl, {TextColor3 = colors.textDarkColor}, 0.228197)
+                if windowContext.Active_Tab.Icon then animateElement(windowContext.Active_Tab.Icon, {ImageColor3 = colors.textDarkColor}, 0.228197) end
+                animateElement(windowContext.Active_Tab.Ind, {Size = UDim2.new(0, 2, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.228197)
+                windowContext.Active_Tab.Page.Visible = false
             end
-            Window_Context.Active_Tab = Tab_Data
-            Page.Visible = true
-            Animate(Tab_Btn, {BackgroundTransparency = 0.11847}, 0.228197)
-            Animate(Tab_Label, {TextColor3 = Colors.Text_White}, 0.228197)
-            if Tab_Data.Icon then Animate(Tab_Data.Icon, {ImageColor3 = Colors.Accent}, 0.228197) end
-            Animate(Tab_Ind, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.228197)
+            windowContext.Active_Tab = tabData
+            pageScrollingFrame.Visible = true
+            animateElement(tabButton, {BackgroundTransparency = 0.11847}, 0.228197)
+            animateElement(tabLabel, {TextColor3 = colors.textWhiteColor}, 0.228197)
+            if tabData.Icon then animateElement(tabData.Icon, {ImageColor3 = colors.accentColor}, 0.228197) end
+            animateElement(tabIndicator, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.228197)
         end
 
-        Tab_Btn.MouseButton1Click:Connect(function() Tab_Data:Activate() end)
+        tabButton.MouseButton1Click:Connect(function() tabData:Activate() end)
 
-        Tab_Data.Btn = Tab_Btn
-        Tab_Data.Lbl = Tab_Label
-        Tab_Data.Ind = Tab_Ind
-        Tab_Data.Page = Page
+        tabData.Btn = tabButton
+        tabData.Lbl = tabLabel
+        tabData.Ind = tabIndicator
+        tabData.Page = pageScrollingFrame
 
-        table.insert(Window_Context.Tabs, Tab_Data)
-        if #Window_Context.Tabs == 1 then Tab_Data:Activate() end
+        table.insert(windowContext.Tabs, tabData)
+        if #windowContext.Tabs == 1 then tabData:Activate() end
 
-        local function Element_Injector(Target_Container)
-            local Elements = {}
+        local function elementInjector(targetContainer)
+            local elements = {}
 
-            function Elements:Subtext_Create(Text)
-                local Lbl = Instance.new("TextLabel")
-                Lbl.Size = UDim2.new(1, -10, 0, 14)
-                Lbl.BackgroundTransparency = 1
-                Lbl.Text = Text
-                Lbl.TextColor3 = Colors.Text_Dark
-                Lbl.TextSize = 11
-                Lbl.Font = Main_Font
-                Lbl.TextXAlignment = Enum.TextXAlignment.Left
-                Lbl.Parent = Target_Container
+            function elements:Subtext_Create(text)
+                local subtextLabel = Instance.new("TextLabel")
+                subtextLabel.Size = UDim2.new(1, -10, 0, 14)
+                subtextLabel.BackgroundTransparency = 1
+                subtextLabel.Text = text
+                subtextLabel.TextColor3 = colors.textDarkColor
+                subtextLabel.TextSize = 11
+                subtextLabel.Font = mainFont
+                subtextLabel.TextXAlignment = Enum.TextXAlignment.Left
+                subtextLabel.Parent = targetContainer
             end
 
-            function Elements:Toggle_Create(Name, Flag, Default, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = Default or false
+            function elements:Toggle_Create(name, flag, default, tooltip, callback)
+                LibraryApi.Flags[flag] = default or false
 
-                local Tog_Btn = Instance.new("TextButton")
-                Tog_Btn.Size = UDim2.new(1, 0, 0, 16)
-                Tog_Btn.BackgroundTransparency = 1
-                Tog_Btn.Text = ""
-                Tog_Btn.Parent = Target_Container
+                local toggleButton = Instance.new("TextButton")
+                toggleButton.Size = UDim2.new(1, 0, 0, 16)
+                toggleButton.BackgroundTransparency = 1
+                toggleButton.Text = ""
+                toggleButton.Parent = targetContainer
 
-                local Box = Instance.new("Frame")
-                Box.Size = UDim2.new(0, 14, 0, 14)
-                Box.Position = UDim2.new(0, 2, 0.5, -7)
-                Box.BackgroundColor3 = Nixware_Premium_Api.Flags[Flag] and Colors.Accent or Colors.Element_Bg
-                Box.BackgroundTransparency = 0.21847
-                Box.Parent = Tog_Btn
+                local checkboxFrame = Instance.new("Frame")
+                checkboxFrame.Size = UDim2.new(0, 14, 0, 14)
+                checkboxFrame.Position = UDim2.new(0, 2, 0.5, -7)
+                checkboxFrame.BackgroundColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.elementBackground
+                checkboxFrame.BackgroundTransparency = 0.21847
+                checkboxFrame.Parent = toggleButton
                 
-                local Box_Corner = Instance.new("UICorner")
-                Box_Corner.CornerRadius = UDim.new(0, 3)
-                Box_Corner.Parent = Box
+                local checkboxCorner = Instance.new("UICorner")
+                checkboxCorner.CornerRadius = UDim.new(0, 3)
+                checkboxCorner.Parent = checkboxFrame
                 
-                local Box_Stroke = Instance.new("UIStroke")
-                Box_Stroke.Color = Nixware_Premium_Api.Flags[Flag] and Colors.Accent or Colors.Border
-                Box_Stroke.Parent = Box
+                local checkboxStroke = Instance.new("UIStroke")
+                checkboxStroke.Color = LibraryApi.Flags[flag] and colors.accentColor or colors.borderColor
+                checkboxStroke.Parent = checkboxFrame
 
-                local Text = Instance.new("TextLabel")
-                Text.Size = UDim2.new(1, -26, 1, 0)
-                Text.Position = UDim2.new(0, 24, 0, 0)
-                Text.BackgroundTransparency = 1
-                Text.Text = Name
-                Text.TextColor3 = Nixware_Premium_Api.Flags[Flag] and Colors.Text_White or Colors.Text_Dark
-                Text.TextSize = 12
-                Text.Font = Main_Font
-                Text.TextXAlignment = Enum.TextXAlignment.Left
-                Text.Parent = Tog_Btn
+                local toggleLabel = Instance.new("TextLabel")
+                toggleLabel.Size = UDim2.new(1, -26, 1, 0)
+                toggleLabel.Position = UDim2.new(0, 24, 0, 0)
+                toggleLabel.BackgroundTransparency = 1
+                toggleLabel.Text = name
+                toggleLabel.TextColor3 = LibraryApi.Flags[flag] and colors.textWhiteColor or colors.textDarkColor
+                toggleLabel.TextSize = 12
+                toggleLabel.Font = mainFont
+                toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                toggleLabel.Parent = toggleButton
 
-                Tog_Btn.MouseEnter:Connect(function()
-                    Show_Tooltip(Tooltip)
-                    if not Nixware_Premium_Api.Flags[Flag] then Animate(Box_Stroke, {Color = Colors.Border_Light}, 0.231948) end
+                toggleButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    if not LibraryApi.Flags[flag] then animateElement(checkboxStroke, {Color = colors.borderLightColor}, 0.231948) end
                 end)
-                Tog_Btn.MouseLeave:Connect(function()
-                    Show_Tooltip("")
-                    if not Nixware_Premium_Api.Flags[Flag] then Animate(Box_Stroke, {Color = Colors.Border}, 0.231948) end
+                toggleButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    if not LibraryApi.Flags[flag] then animateElement(checkboxStroke, {Color = colors.borderColor}, 0.231948) end
                 end)
 
-                Tog_Btn.MouseButton1Click:Connect(function()
-                    Nixware_Premium_Api.Flags[Flag] = not Nixware_Premium_Api.Flags[Flag]
-                    local S = Nixware_Premium_Api.Flags[Flag]
-                    Animate(Box, {BackgroundColor3 = S and Colors.Accent or Colors.Element_Bg}, 0.231948)
-                    Animate(Box_Stroke, {Color = S and Colors.Accent or Colors.Border}, 0.231948)
-                    Animate(Text, {TextColor3 = S and Colors.Text_White or Colors.Text_Dark}, 0.231948)
-                    if Callback then task.spawn(Callback, S) end
+                toggleButton.MouseButton1Click:Connect(function()
+                    LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
+                    local newState = LibraryApi.Flags[flag]
+                    animateElement(checkboxFrame, {BackgroundColor3 = newState and colors.accentColor or colors.elementBackground}, 0.231948)
+                    animateElement(checkboxStroke, {Color = newState and colors.accentColor or colors.borderColor}, 0.231948)
+                    animateElement(toggleLabel, {TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor}, 0.231948)
+                    if callback then task.spawn(callback, newState) end
                 end)
             end
 
-            function Elements:Slider_Create(Name, Flag, Min, Max, Default, Step, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = Snap_Value(Default or Min, Step)
+            function elements:Slider_Create(name, flag, min, max, default, step, tooltip, callback)
+                LibraryApi.Flags[flag] = snapValue(default or min, step)
 
-                local Sld_Frame = Instance.new("Frame")
-                Sld_Frame.Size = UDim2.new(1, 0, 0, 36)
-                Sld_Frame.BackgroundTransparency = 1
-                Sld_Frame.Parent = Target_Container
+                local sliderFrame = Instance.new("Frame")
+                sliderFrame.Size = UDim2.new(1, 0, 0, 36)
+                sliderFrame.BackgroundTransparency = 1
+                sliderFrame.Parent = targetContainer
 
-                local Text = Instance.new("TextLabel")
-                Text.Size = UDim2.new(1, -50, 0, 14)
-                Text.Position = UDim2.new(0, 2, 0, 0)
-                Text.BackgroundTransparency = 1
-                Text.Text = Name
-                Text.TextColor3 = Colors.Text_White
-                Text.TextSize = 12
-                Text.Font = Main_Font
-                Text.TextXAlignment = Enum.TextXAlignment.Left
-                Text.Parent = Sld_Frame
+                local sliderLabel = Instance.new("TextLabel")
+                sliderLabel.Size = UDim2.new(1, -50, 0, 14)
+                sliderLabel.Position = UDim2.new(0, 2, 0, 0)
+                sliderLabel.BackgroundTransparency = 1
+                sliderLabel.Text = name
+                sliderLabel.TextColor3 = colors.textWhiteColor
+                sliderLabel.TextSize = 12
+                sliderLabel.Font = mainFont
+                sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+                sliderLabel.Parent = sliderFrame
 
-                local Val_Box = Instance.new("TextBox")
-                Val_Box.Size = UDim2.new(0, 40, 0, 14)
-                Val_Box.Position = UDim2.new(1, -42, 0, 0)
-                Val_Box.BackgroundTransparency = 1
-                Val_Box.Text = Format_Value(Nixware_Premium_Api.Flags[Flag], Step)
-                Val_Box.TextColor3 = Colors.Text_White
-                Val_Box.TextSize = 12
-                Val_Box.Font = Main_Font
-                Val_Box.TextXAlignment = Enum.TextXAlignment.Right
-                Val_Box.ClearTextOnFocus = false
-                Val_Box.Parent = Sld_Frame
+                local valueTextBox = Instance.new("TextBox")
+                valueTextBox.Size = UDim2.new(0, 40, 0, 14)
+                valueTextBox.Position = UDim2.new(1, -42, 0, 0)
+                valueTextBox.BackgroundTransparency = 1
+                valueTextBox.Text = formatValue(LibraryApi.Flags[flag], step)
+                valueTextBox.TextColor3 = colors.textWhiteColor
+                valueTextBox.TextSize = 12
+                valueTextBox.Font = mainFont
+                valueTextBox.TextXAlignment = Enum.TextXAlignment.Right
+                valueTextBox.ClearTextOnFocus = false
+                valueTextBox.Parent = sliderFrame
 
-                local Bg = Instance.new("TextButton")
-                Bg.Size = UDim2.new(1, -4, 0, 6)
-                Bg.Position = UDim2.new(0, 2, 0, 24)
-                Bg.BackgroundColor3 = Colors.Element_Bg
-                Bg.BackgroundTransparency = 0.21847
-                Bg.Text = ""
-                Bg.AutoButtonColor = false
-                Bg.Parent = Sld_Frame
+                local sliderBackground = Instance.new("TextButton")
+                sliderBackground.Size = UDim2.new(1, -4, 0, 6)
+                sliderBackground.Position = UDim2.new(0, 2, 0, 24)
+                sliderBackground.BackgroundColor3 = colors.elementBackground
+                sliderBackground.BackgroundTransparency = 0.21847
+                sliderBackground.Text = ""
+                sliderBackground.AutoButtonColor = false
+                sliderBackground.Parent = sliderFrame
                 
-                local Bg_Corner = Instance.new("UICorner")
-                Bg_Corner.CornerRadius = UDim.new(0, 3)
-                Bg_Corner.Parent = Bg
+                local sliderBackgroundCorner = Instance.new("UICorner")
+                sliderBackgroundCorner.CornerRadius = UDim.new(0, 3)
+                sliderBackgroundCorner.Parent = sliderBackground
                 
-                local Bg_Stroke = Instance.new("UIStroke")
-                Bg_Stroke.Color = Colors.Border
-                Bg_Stroke.Parent = Bg
+                local sliderBackgroundStroke = Instance.new("UIStroke")
+                sliderBackgroundStroke.Color = colors.borderColor
+                sliderBackgroundStroke.Parent = sliderBackground
 
-                local Fill = Instance.new("Frame")
-                local Initial_Pct = (Nixware_Premium_Api.Flags[Flag] - Min) / (Max - Min)
-                Fill.Size = UDim2.new(Initial_Pct, 0, 1, 0)
-                Fill.BackgroundColor3 = Colors.Accent
-                Fill.Parent = Bg
+                local sliderFill = Instance.new("Frame")
+                local initialPercentage = (LibraryApi.Flags[flag] - min) / (max - min)
+                sliderFill.Size = UDim2.new(initialPercentage, 0, 1, 0)
+                sliderFill.BackgroundColor3 = colors.accentColor
+                sliderFill.Parent = sliderBackground
                 
-                local Fill_Corner = Instance.new("UICorner")
-                Fill_Corner.CornerRadius = UDim.new(0, 3)
-                Fill_Corner.Parent = Fill
+                local sliderFillCorner = Instance.new("UICorner")
+                sliderFillCorner.CornerRadius = UDim.new(0, 3)
+                sliderFillCorner.Parent = sliderFill
 
-                local Knob = Instance.new("Frame")
-                Knob.AnchorPoint = Vector2.new(0.5, 0.5)
-                Knob.Size = UDim2.new(0, 10, 0, 10)
-                Knob.Position = UDim2.new(Initial_Pct, 0, 0.5, 0)
-                Knob.BackgroundColor3 = Colors.Text_White
-                Knob.ZIndex = 2
-                Knob.Parent = Bg
-                local Knob_Corner = Instance.new("UICorner"); Knob_Corner.CornerRadius = UDim.new(1, 0); Knob_Corner.Parent = Knob
-                local Knob_Stroke = Instance.new("UIStroke"); Knob_Stroke.Color = Colors.Border; Knob_Stroke.Parent = Knob
+                local sliderKnob = Instance.new("Frame")
+                sliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+                sliderKnob.Size = UDim2.new(0, 10, 0, 10)
+                sliderKnob.Position = UDim2.new(initialPercentage, 0, 0.5, 0)
+                sliderKnob.BackgroundColor3 = colors.textWhiteColor
+                sliderKnob.ZIndex = 2
+                sliderKnob.Parent = sliderBackground
+                local sliderKnobCorner = Instance.new("UICorner"); sliderKnobCorner.CornerRadius = UDim.new(1, 0); sliderKnobCorner.Parent = sliderKnob
+                local sliderKnobStroke = Instance.new("UIStroke"); sliderKnobStroke.Color = colors.borderColor; sliderKnobStroke.Parent = sliderKnob
 
-                Bg.MouseEnter:Connect(function()
-                    Show_Tooltip(Tooltip)
-                    Animate(Bg_Stroke, {Color = Colors.Border_Light}, 0.24183)
+                sliderBackground.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    animateElement(sliderBackgroundStroke, {Color = colors.borderLightColor}, 0.24183)
                 end)
-                Bg.MouseLeave:Connect(function()
-                    Show_Tooltip("")
-                    Animate(Bg_Stroke, {Color = Colors.Border}, 0.24183)
+                sliderBackground.MouseLeave:Connect(function()
+                    showTooltip("")
+                    animateElement(sliderBackgroundStroke, {Color = colors.borderColor}, 0.24183)
                 end)
 
-                local Sliding = false
+                local isSliding = false
 
-                local function Set_Value(New_Val)
-                    local Clamped = math.clamp(New_Val, Min, Max)
-                    local Snapped = Snap_Value(Clamped, Step)
-                    if Nixware_Premium_Api.Flags[Flag] ~= Snapped then
-                        Nixware_Premium_Api.Flags[Flag] = Snapped
-                        local Pct = (Snapped - Min) / (Max - Min)
-                        Animate(Fill, {Size = UDim2.new(Pct, 0, 1, 0)}, 0.082739)
-                        Animate(Knob, {Position = UDim2.new(Pct, 0, 0.5, 0)}, 0.082739)
-                        Val_Box.Text = Format_Value(Snapped, Step)
-                        if Callback then task.spawn(Callback, Snapped) end
+                local function setSliderValue(newValue)
+                    local clampedValue = math.clamp(newValue, min, max)
+                    local snappedValue = snapValue(clampedValue, step)
+                    if LibraryApi.Flags[flag] ~= snappedValue then
+                        LibraryApi.Flags[flag] = snappedValue
+                        local percentage = (snappedValue - min) / (max - min)
+                        animateElement(sliderFill, {Size = UDim2.new(percentage, 0, 1, 0)}, 0.082739)
+                        animateElement(sliderKnob, {Position = UDim2.new(percentage, 0, 0.5, 0)}, 0.082739)
+                        valueTextBox.Text = formatValue(snappedValue, step)
+                        if callback then task.spawn(callback, snappedValue) end
                     end
                 end
 
-                Bg.InputBegan:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        Sliding = true
-                        local Pct = math.clamp((Input.Position.X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
-                        Set_Value(Min + ((Max - Min) * Pct))
+                sliderBackground.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        isSliding = true
+                        local percentage = math.clamp((input.Position.X - sliderBackground.AbsolutePosition.X) / sliderBackground.AbsoluteSize.X, 0, 1)
+                        setSliderValue(min + ((max - min) * percentage))
                     end
                 end)
 
-                User_Input_Service.InputEnded:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then Sliding = false end
+                userInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then isSliding = false end
                 end)
 
-                User_Input_Service.InputChanged:Connect(function(Input)
-                    if Sliding and Input.UserInputType == Enum.UserInputType.MouseMovement then 
-                        local Pct = math.clamp((Input.Position.X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
-                        Set_Value(Min + ((Max - Min) * Pct))
+                userInputService.InputChanged:Connect(function(input)
+                    if isSliding and input.UserInputType == Enum.UserInputType.MouseMovement then 
+                        local percentage = math.clamp((input.Position.X - sliderBackground.AbsolutePosition.X) / sliderBackground.AbsoluteSize.X, 0, 1)
+                        setSliderValue(min + ((max - min) * percentage))
                     end
                 end)
 
-                Val_Box.FocusLost:Connect(function()
-                    local Input_Val = tonumber(Val_Box.Text)
-                    if Input_Val then
-                        Set_Value(Input_Val)
+                valueTextBox.FocusLost:Connect(function()
+                    local inputValue = tonumber(valueTextBox.Text)
+                    if inputValue then
+                        setSliderValue(inputValue)
                     else
-                        Val_Box.Text = Format_Value(Nixware_Premium_Api.Flags[Flag], Step)
+                        valueTextBox.Text = formatValue(LibraryApi.Flags[flag], step)
                     end
                 end)
             end
 
-            function Elements:RangeSlider_Create(Name, Flag, Min, Max, DefMin, DefMax, Step, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = {Min = Snap_Value(DefMin or Min, Step), Max = Snap_Value(DefMax or Max, Step)}
+            function elements:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltip, callback)
+                LibraryApi.Flags[flag] = {Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step)}
 
-                local Sld_Frame = Instance.new("Frame")
-                Sld_Frame.Size = UDim2.new(1, 0, 0, 36)
-                Sld_Frame.BackgroundTransparency = 1
-                Sld_Frame.Parent = Target_Container
+                local rangeSliderFrame = Instance.new("Frame")
+                rangeSliderFrame.Size = UDim2.new(1, 0, 0, 36)
+                rangeSliderFrame.BackgroundTransparency = 1
+                rangeSliderFrame.Parent = targetContainer
 
-                local Text = Instance.new("TextLabel")
-                Text.Size = UDim2.new(1, -80, 0, 14)
-                Text.Position = UDim2.new(0, 2, 0, 0)
-                Text.BackgroundTransparency = 1
-                Text.Text = Name
-                Text.TextColor3 = Colors.Text_White
-                Text.TextSize = 12
-                Text.Font = Main_Font
-                Text.TextXAlignment = Enum.TextXAlignment.Left
-                Text.Parent = Sld_Frame
+                local rangeSliderLabel = Instance.new("TextLabel")
+                rangeSliderLabel.Size = UDim2.new(1, -80, 0, 14)
+                rangeSliderLabel.Position = UDim2.new(0, 2, 0, 0)
+                rangeSliderLabel.BackgroundTransparency = 1
+                rangeSliderLabel.Text = name
+                rangeSliderLabel.TextColor3 = colors.textWhiteColor
+                rangeSliderLabel.TextSize = 12
+                rangeSliderLabel.Font = mainFont
+                rangeSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+                rangeSliderLabel.Parent = rangeSliderFrame
 
-                local Val_Lbl = Instance.new("TextLabel")
-                Val_Lbl.Size = UDim2.new(0, 80, 0, 14)
-                Val_Lbl.Position = UDim2.new(1, -82, 0, 0)
-                Val_Lbl.BackgroundTransparency = 1
-                Val_Lbl.Text = Format_Value(Nixware_Premium_Api.Flags[Flag].Min, Step) .. " - " .. Format_Value(Nixware_Premium_Api.Flags[Flag].Max, Step)
-                Val_Lbl.TextColor3 = Colors.Text_White
-                Val_Lbl.TextSize = 12
-                Val_Lbl.Font = Main_Font
-                Val_Lbl.TextXAlignment = Enum.TextXAlignment.Right
-                Val_Lbl.Parent = Sld_Frame
+                local valueLabel = Instance.new("TextLabel")
+                valueLabel.Size = UDim2.new(0, 80, 0, 14)
+                valueLabel.Position = UDim2.new(1, -82, 0, 0)
+                valueLabel.BackgroundTransparency = 1
+                valueLabel.Text = formatValue(LibraryApi.Flags[flag].Min, step) .. " - " .. formatValue(LibraryApi.Flags[flag].Max, step)
+                valueLabel.TextColor3 = colors.textWhiteColor
+                valueLabel.TextSize = 12
+                valueLabel.Font = mainFont
+                valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+                valueLabel.Parent = rangeSliderFrame
 
-                local Bg = Instance.new("TextButton")
-                Bg.Size = UDim2.new(1, -4, 0, 6)
-                Bg.Position = UDim2.new(0, 2, 0, 24)
-                Bg.BackgroundColor3 = Colors.Element_Bg
-                Bg.BackgroundTransparency = 0.21847
-                Bg.Text = ""
-                Bg.AutoButtonColor = false
-                Bg.Parent = Sld_Frame
+                local rangeSliderBackground = Instance.new("TextButton")
+                rangeSliderBackground.Size = UDim2.new(1, -4, 0, 6)
+                rangeSliderBackground.Position = UDim2.new(0, 2, 0, 24)
+                rangeSliderBackground.BackgroundColor3 = colors.elementBackground
+                rangeSliderBackground.BackgroundTransparency = 0.21847
+                rangeSliderBackground.Text = ""
+                rangeSliderBackground.AutoButtonColor = false
+                rangeSliderBackground.Parent = rangeSliderFrame
                 
-                local Bg_Corner = Instance.new("UICorner")
-                Bg_Corner.CornerRadius = UDim.new(0, 3)
-                Bg_Corner.Parent = Bg
+                local rangeSliderBackgroundCorner = Instance.new("UICorner")
+                rangeSliderBackgroundCorner.CornerRadius = UDim.new(0, 3)
+                rangeSliderBackgroundCorner.Parent = rangeSliderBackground
                 
-                local Bg_Stroke = Instance.new("UIStroke")
-                Bg_Stroke.Color = Colors.Border
-                Bg_Stroke.Parent = Bg
+                local rangeSliderBackgroundStroke = Instance.new("UIStroke")
+                rangeSliderBackgroundStroke.Color = colors.borderColor
+                rangeSliderBackgroundStroke.Parent = rangeSliderBackground
 
-                local Fill = Instance.new("Frame")
-                Fill.BackgroundColor3 = Colors.Accent
-                Fill.Parent = Bg
+                local rangeSliderFill = Instance.new("Frame")
+                rangeSliderFill.BackgroundColor3 = colors.accentColor
+                rangeSliderFill.Parent = rangeSliderBackground
                 
-                local Fill_Corner = Instance.new("UICorner")
-                Fill_Corner.CornerRadius = UDim.new(0, 3)
-                Fill_Corner.Parent = Fill
+                local rangeSliderFillCorner = Instance.new("UICorner")
+                rangeSliderFillCorner.CornerRadius = UDim.new(0, 3)
+                rangeSliderFillCorner.Parent = rangeSliderFill
 
-                local Knob_Min = Instance.new("Frame")
-                Knob_Min.AnchorPoint = Vector2.new(0.5, 0.5)
-                Knob_Min.Size = UDim2.new(0, 10, 0, 10)
-                Knob_Min.BackgroundColor3 = Colors.Text_White
-                Knob_Min.ZIndex = 2
-                Knob_Min.Parent = Bg
-                local KMin_Corner = Instance.new("UICorner"); KMin_Corner.CornerRadius = UDim.new(1, 0); KMin_Corner.Parent = Knob_Min
-                local KMin_Stroke = Instance.new("UIStroke"); KMin_Stroke.Color = Colors.Border; KMin_Stroke.Parent = Knob_Min
+                local minRangeKnob = Instance.new("Frame")
+                minRangeKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+                minRangeKnob.Size = UDim2.new(0, 10, 0, 10)
+                minRangeKnob.BackgroundColor3 = colors.textWhiteColor
+                minRangeKnob.ZIndex = 2
+                minRangeKnob.Parent = rangeSliderBackground
+                local minRangeKnobCorner = Instance.new("UICorner"); minRangeKnobCorner.CornerRadius = UDim.new(1, 0); minRangeKnobCorner.Parent = minRangeKnob
+                local minRangeKnobStroke = Instance.new("UIStroke"); minRangeKnobStroke.Color = colors.borderColor; minRangeKnobStroke.Parent = minRangeKnob
 
-                local Knob_Max = Instance.new("Frame")
-                Knob_Max.AnchorPoint = Vector2.new(0.5, 0.5)
-                Knob_Max.Size = UDim2.new(0, 10, 0, 10)
-                Knob_Max.BackgroundColor3 = Colors.Text_White
-                Knob_Max.ZIndex = 2
-                Knob_Max.Parent = Bg
-                local KMax_Corner = Instance.new("UICorner"); KMax_Corner.CornerRadius = UDim.new(1, 0); KMax_Corner.Parent = Knob_Max
-                local KMax_Stroke = Instance.new("UIStroke"); KMax_Stroke.Color = Colors.Border; KMax_Stroke.Parent = Knob_Max
+                local maxRangeKnob = Instance.new("Frame")
+                maxRangeKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+                maxRangeKnob.Size = UDim2.new(0, 10, 0, 10)
+                maxRangeKnob.BackgroundColor3 = colors.textWhiteColor
+                maxRangeKnob.ZIndex = 2
+                maxRangeKnob.Parent = rangeSliderBackground
+                local maxRangeKnobCorner = Instance.new("UICorner"); maxRangeKnobCorner.CornerRadius = UDim.new(1, 0); maxRangeKnobCorner.Parent = maxRangeKnob
+                local maxRangeKnobStroke = Instance.new("UIStroke"); maxRangeKnobStroke.Color = colors.borderColor; maxRangeKnobStroke.Parent = maxRangeKnob
 
-                local function Update_Visuals()
-                    local Pct1 = (Nixware_Premium_Api.Flags[Flag].Min - Min) / (Max - Min)
-                    local Pct2 = (Nixware_Premium_Api.Flags[Flag].Max - Min) / (Max - Min)
-                    Animate(Fill, {Position = UDim2.new(Pct1, 0, 0, 0), Size = UDim2.new(Pct2 - Pct1, 0, 1, 0)}, 0.082736)
-                    Animate(Knob_Min, {Position = UDim2.new(Pct1, 0, 0.5, 0)}, 0.082736)
-                    Animate(Knob_Max, {Position = UDim2.new(Pct2, 0, 0.5, 0)}, 0.082736)
-                    Val_Lbl.Text = Format_Value(Nixware_Premium_Api.Flags[Flag].Min, Step) .. " - " .. Format_Value(Nixware_Premium_Api.Flags[Flag].Max, Step)
+                local function updateRangeSliderVisuals()
+                    local minPercentage = (LibraryApi.Flags[flag].Min - min) / (max - min)
+                    local maxPercentage = (LibraryApi.Flags[flag].Max - min) / (max - min)
+                    animateElement(rangeSliderFill, {Position = UDim2.new(minPercentage, 0, 0, 0), Size = UDim2.new(maxPercentage - minPercentage, 0, 1, 0)}, 0.082736)
+                    animateElement(minRangeKnob, {Position = UDim2.new(minPercentage, 0, 0.5, 0)}, 0.082736)
+                    animateElement(maxRangeKnob, {Position = UDim2.new(maxPercentage, 0, 0.5, 0)}, 0.082736)
+                    valueLabel.Text = formatValue(LibraryApi.Flags[flag].Min, step) .. " - " .. formatValue(LibraryApi.Flags[flag].Max, step)
                 end
-                Update_Visuals()
+                updateRangeSliderVisuals()
 
-                Bg.MouseEnter:Connect(function()
-                    Show_Tooltip(Tooltip)
-                    Animate(Bg_Stroke, {Color = Colors.Border_Light}, 0.24183)
+                rangeSliderBackground.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    animateElement(rangeSliderBackgroundStroke, {Color = colors.borderLightColor}, 0.24183)
                 end)
-                Bg.MouseLeave:Connect(function()
-                    Show_Tooltip("")
-                    Animate(Bg_Stroke, {Color = Colors.Border}, 0.24183)
+                rangeSliderBackground.MouseLeave:Connect(function()
+                    showTooltip("")
+                    animateElement(rangeSliderBackgroundStroke, {Color = colors.borderColor}, 0.24183)
                 end)
 
-                local Sliding_Min = false
-                local Sliding_Max = false
+                local isSlidingMin = false
+                local isSlidingMax = false
 
-                Bg.InputBegan:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        local Mouse_X = Input.Position.X
-                        local Pct1 = (Nixware_Premium_Api.Flags[Flag].Min - Min) / (Max - Min)
-                        local Pct2 = (Nixware_Premium_Api.Flags[Flag].Max - Min) / (Max - Min)
-                        local Pos1 = Bg.AbsolutePosition.X + (Bg.AbsoluteSize.X * Pct1)
-                        local Pos2 = Bg.AbsolutePosition.X + (Bg.AbsoluteSize.X * Pct2)
+                rangeSliderBackground.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mouseX = input.Position.X
+                        local minPercentage = (LibraryApi.Flags[flag].Min - min) / (max - min)
+                        local maxPercentage = (LibraryApi.Flags[flag].Max - min) / (max - min)
+                        local minKnobPosition = rangeSliderBackground.AbsolutePosition.X + (rangeSliderBackground.AbsoluteSize.X * minPercentage)
+                        local maxKnobPosition = rangeSliderBackground.AbsolutePosition.X + (rangeSliderBackground.AbsoluteSize.X * maxPercentage)
                         
-                        if math.abs(Mouse_X - Pos1) < math.abs(Mouse_X - Pos2) then
-                            Sliding_Min = true
+                        if math.abs(mouseX - minKnobPosition) < math.abs(mouseX - maxKnobPosition) then
+                            isSlidingMin = true
                         else
-                            Sliding_Max = true
+                            isSlidingMax = true
                         end
                     end
                 end)
 
-                User_Input_Service.InputEnded:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then 
-                        Sliding_Min = false
-                        Sliding_Max = false
+                userInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then 
+                        isSlidingMin = false
+                        isSlidingMax = false
                     end
                 end)
 
-                User_Input_Service.InputChanged:Connect(function(Input)
-                    if (Sliding_Min or Sliding_Max) and Input.UserInputType == Enum.UserInputType.MouseMovement then 
-                        local Pct = math.clamp((Input.Position.X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
-                        local Calc_Val = Snap_Value(Min + ((Max - Min) * Pct), Step)
+                userInputService.InputChanged:Connect(function(input)
+                    if (isSlidingMin or isSlidingMax) and input.UserInputType == Enum.UserInputType.MouseMovement then 
+                        local percentage = math.clamp((input.Position.X - rangeSliderBackground.AbsolutePosition.X) / rangeSliderBackground.AbsoluteSize.X, 0, 1)
+                        local calculatedValue = snapValue(min + ((max - min) * percentage), step)
                         
-                        if Sliding_Min then
-                            if Calc_Val <= Nixware_Premium_Api.Flags[Flag].Max then
-                                Nixware_Premium_Api.Flags[Flag].Min = Calc_Val
+                        if isSlidingMin then
+                            if calculatedValue <= LibraryApi.Flags[flag].Max then
+                                LibraryApi.Flags[flag].Min = calculatedValue
                             else
-                                Nixware_Premium_Api.Flags[Flag].Min = Nixware_Premium_Api.Flags[Flag].Max
+                                LibraryApi.Flags[flag].Min = LibraryApi.Flags[flag].Max
                             end
-                        elseif Sliding_Max then
-                            if Calc_Val >= Nixware_Premium_Api.Flags[Flag].Min then
-                                Nixware_Premium_Api.Flags[Flag].Max = Calc_Val
+                        elseif isSlidingMax then
+                            if calculatedValue >= LibraryApi.Flags[flag].Min then
+                                LibraryApi.Flags[flag].Max = calculatedValue
                             else
-                                Nixware_Premium_Api.Flags[Flag].Max = Nixware_Premium_Api.Flags[Flag].Min
+                                LibraryApi.Flags[flag].Max = LibraryApi.Flags[flag].Min
                             end
                         end
-                        Update_Visuals()
-                        if Callback then task.spawn(Callback, Nixware_Premium_Api.Flags[Flag]) end
+                        updateRangeSliderVisuals()
+                        if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
                     end
                 end)
             end
 
-            function Elements:Textbox_Create(Name, Flag, Default, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = Default or ""
+            function elements:Textbox_Create(name, flag, default, tooltip, callback)
+                LibraryApi.Flags[flag] = default or ""
 
-                local Box_Frame = Instance.new("Frame")
-                Box_Frame.Size = UDim2.new(1, 0, 0, 36)
-                Box_Frame.BackgroundTransparency = 1
-                Box_Frame.Parent = Target_Container
+                local textboxFrame = Instance.new("Frame")
+                textboxFrame.Size = UDim2.new(1, 0, 0, 36)
+                textboxFrame.BackgroundTransparency = 1
+                textboxFrame.Parent = targetContainer
 
-                local Text = Instance.new("TextLabel")
-                Text.Size = UDim2.new(1, -120, 1, 0)
-                Text.Position = UDim2.new(0, 2, 0, 0)
-                Text.BackgroundTransparency = 1
-                Text.Text = Name
-                Text.TextColor3 = Colors.Text_White
-                Text.TextSize = 12
-                Text.Font = Main_Font
-                Text.TextXAlignment = Enum.TextXAlignment.Left
-                Text.Parent = Box_Frame
+                local textboxLabel = Instance.new("TextLabel")
+                textboxLabel.Size = UDim2.new(1, -120, 1, 0)
+                textboxLabel.Position = UDim2.new(0, 2, 0, 0)
+                textboxLabel.BackgroundTransparency = 1
+                textboxLabel.Text = name
+                textboxLabel.TextColor3 = colors.textWhiteColor
+                textboxLabel.TextSize = 12
+                textboxLabel.Font = mainFont
+                textboxLabel.TextXAlignment = Enum.TextXAlignment.Left
+                textboxLabel.Parent = textboxFrame
 
-                local Txt_Bg = Instance.new("Frame")
-                Txt_Bg.Size = UDim2.new(0, 110, 0, 24)
-                Txt_Bg.Position = UDim2.new(1, -112, 0.5, -12)
-                Txt_Bg.BackgroundColor3 = Colors.Element_Bg
-                Txt_Bg.BackgroundTransparency = 0.21847
-                Txt_Bg.Parent = Box_Frame
+                local textboxInputBackground = Instance.new("Frame")
+                textboxInputBackground.Size = UDim2.new(0, 110, 0, 24)
+                textboxInputBackground.Position = UDim2.new(1, -112, 0.5, -12)
+                textboxInputBackground.BackgroundColor3 = colors.elementBackground
+                textboxInputBackground.BackgroundTransparency = 0.21847
+                textboxInputBackground.Parent = textboxFrame
                 
-                local Bg_Corner = Instance.new("UICorner")
-                Bg_Corner.CornerRadius = UDim.new(0, 4)
-                Bg_Corner.Parent = Txt_Bg
+                local textboxInputBackgroundCorner = Instance.new("UICorner")
+                textboxInputBackgroundCorner.CornerRadius = UDim.new(0, 4)
+                textboxInputBackgroundCorner.Parent = textboxInputBackground
                 
-                local Bg_Stroke = Instance.new("UIStroke")
-                Bg_Stroke.Color = Colors.Border
-                Bg_Stroke.Parent = Txt_Bg
+                local textboxInputBackgroundStroke = Instance.new("UIStroke")
+                textboxInputBackgroundStroke.Color = colors.borderColor
+                textboxInputBackgroundStroke.Parent = textboxInputBackground
 
-                local Input_Box = Instance.new("TextBox")
-                Input_Box.Size = UDim2.new(1, -10, 1, 0)
-                Input_Box.Position = UDim2.new(0, 5, 0, 0)
-                Input_Box.BackgroundTransparency = 1
-                Input_Box.Text = Nixware_Premium_Api.Flags[Flag]
-                Input_Box.TextColor3 = Colors.Text_Dark
-                Input_Box.TextSize = 12
-                Input_Box.Font = Main_Font
-                Input_Box.ClearTextOnFocus = false
-                Input_Box.TextXAlignment = Enum.TextXAlignment.Left
-                Input_Box.ClipsDescendants = true
-                Input_Box.Parent = Txt_Bg
+                local inputTextBox = Instance.new("TextBox")
+                inputTextBox.Size = UDim2.new(1, -10, 1, 0)
+                inputTextBox.Position = UDim2.new(0, 5, 0, 0)
+                inputTextBox.BackgroundTransparency = 1
+                inputTextBox.Text = LibraryApi.Flags[flag]
+                inputTextBox.TextColor3 = colors.textDarkColor
+                inputTextBox.TextSize = 12
+                inputTextBox.Font = mainFont
+                inputTextBox.ClearTextOnFocus = false
+                inputTextBox.TextXAlignment = Enum.TextXAlignment.Left
+                inputTextBox.ClipsDescendants = true
+                inputTextBox.Parent = textboxInputBackground
 
-                Input_Box.MouseEnter:Connect(function()
-                    Show_Tooltip(Tooltip)
-                    Animate(Bg_Stroke, {Color = Colors.Border_Light}, 0.24182)
+                inputTextBox.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderLightColor}, 0.24182)
                 end)
-                Input_Box.MouseLeave:Connect(function()
-                    Show_Tooltip("")
-                    Animate(Bg_Stroke, {Color = Colors.Border}, 0.24182)
-                end)
-
-                Input_Box.Focused:Connect(function()
-                    Animate(Bg_Stroke, {Color = Colors.Accent}, 0.24182)
-                    Animate(Input_Box, {TextColor3 = Colors.Text_White}, 0.24182)
+                inputTextBox.MouseLeave:Connect(function()
+                    showTooltip("")
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderColor}, 0.24182)
                 end)
 
-                Input_Box.FocusLost:Connect(function()
-                    Animate(Bg_Stroke, {Color = Colors.Border}, 0.24182)
-                    Animate(Input_Box, {TextColor3 = Colors.Text_Dark}, 0.24182)
-                    Nixware_Premium_Api.Flags[Flag] = Input_Box.Text
-                    if Callback then task.spawn(Callback, Input_Box.Text) end
+                inputTextBox.Focused:Connect(function()
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.accentColor}, 0.24182)
+                    animateElement(inputTextBox, {TextColor3 = colors.textWhiteColor}, 0.24182)
+                end)
+
+                inputTextBox.FocusLost:Connect(function()
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderColor}, 0.24182)
+                    animateElement(inputTextBox, {TextColor3 = colors.textDarkColor}, 0.24182)
+                    LibraryApi.Flags[flag] = inputTextBox.Text
+                    if callback then task.spawn(callback, inputTextBox.Text) end
                 end)
             end
 
-            function Elements:Keybind_Create(Name, Flag, Default, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = Default or Enum.KeyCode.Unknown
-                local Listening = false
+            function elements:Keybind_Create(name, flag, default, tooltip, callback)
+                LibraryApi.Flags[flag] = default or Enum.KeyCode.Unknown
+                local isListening = false
 
-                local Bind_Frame = Instance.new("Frame")
-                Bind_Frame.Size = UDim2.new(1, 0, 0, 24)
-                Bind_Frame.BackgroundTransparency = 1
-                Bind_Frame.Parent = Target_Container
+                local keybindFrame = Instance.new("Frame")
+                keybindFrame.Size = UDim2.new(1, 0, 0, 30)
+                keybindFrame.BackgroundTransparency = 1
+                keybindFrame.Parent = targetContainer
 
-                local Text = Instance.new("TextLabel")
-                Text.Size = UDim2.new(1, -80, 1, 0)
-                Text.Position = UDim2.new(0, 2, 0, 0)
-                Text.BackgroundTransparency = 1
-                Text.Text = Name
-                Text.TextColor3 = Colors.Text_White
-                Text.TextSize = 12
-                Text.Font = Main_Font
-                Text.TextXAlignment = Enum.TextXAlignment.Left
-                Text.Parent = Bind_Frame
+                local keybindIcon = Instance.new("ImageLabel")
+                keybindIcon.Size = UDim2.new(0, 18, 0, 18)
+                keybindIcon.Position = UDim2.new(0, 6, 0.5, -9)
+                keybindIcon.BackgroundTransparency = 1
+                keybindIcon.Image = "rbxassetid://119296823312315"
+                keybindIcon.ImageColor3 = colors.textWhiteColor
+                keybindIcon.Parent = keybindFrame
 
-                local Bind_Btn = Instance.new("TextButton")
-                Bind_Btn.Size = UDim2.new(0, 70, 0, 20)
-                Bind_Btn.Position = UDim2.new(1, -72, 0.5, -10)
-                Bind_Btn.BackgroundColor3 = Colors.Element_Bg
-                Bind_Btn.BackgroundTransparency = 0.21847
-                Bind_Btn.Text = Nixware_Premium_Api.Flags[Flag] == Enum.KeyCode.Unknown and "[ None ]" or "[ " .. Nixware_Premium_Api.Flags[Flag].Name .. " ]"
-                Bind_Btn.TextColor3 = Colors.Text_Dark
-                Bind_Btn.TextSize = 11
-                Bind_Btn.Font = Bold_Font
-                Bind_Btn.AutoButtonColor = false
-                Bind_Btn.Parent = Bind_Frame
+                local keybindLabel = Instance.new("TextLabel")
+                keybindLabel.Size = UDim2.new(1, -100, 1, 0)
+                keybindLabel.Position = UDim2.new(0, 28, 0, 0)
+                keybindLabel.BackgroundTransparency = 1
+                keybindLabel.Text = name
+                keybindLabel.TextColor3 = colors.textWhiteColor
+                keybindLabel.TextSize = 12
+                keybindLabel.Font = mainFont
+                keybindLabel.TextXAlignment = Enum.TextXAlignment.Left
+                keybindLabel.Parent = keybindFrame
 
-                local Btn_Corner = Instance.new("UICorner")
-                Btn_Corner.CornerRadius = UDim.new(0, 4)
-                Btn_Corner.Parent = Bind_Btn
+                local keybindButton = Instance.new("TextButton")
+                keybindButton.Size = UDim2.new(0, 70, 0, 22)
+                keybindButton.Position = UDim2.new(1, -74, 0.5, -11)
+                keybindButton.BackgroundColor3 = colors.elementBackground
+                keybindButton.BackgroundTransparency = 0.21847
+                keybindButton.Text = LibraryApi.Flags[flag] == Enum.KeyCode.Unknown and "[ None ]" or "[ " .. LibraryApi.Flags[flag].Name .. " ]"
+                keybindButton.TextColor3 = colors.textDarkColor
+                keybindButton.TextSize = 11
+                keybindButton.Font = boldFont
+                keybindButton.AutoButtonColor = false
+                keybindButton.Parent = keybindFrame
 
-                local Btn_Stroke = Instance.new("UIStroke")
-                Btn_Stroke.Color = Colors.Border
-                Btn_Stroke.Parent = Bind_Btn
+                local keybindButtonCorner = Instance.new("UICorner")
+                keybindButtonCorner.CornerRadius = UDim.new(0, 4)
+                keybindButtonCorner.Parent = keybindButton
 
-                Bind_Btn.MouseEnter:Connect(function()
-                    Show_Tooltip(Tooltip)
-                    if not Listening then Animate(Btn_Stroke, {Color = Colors.Border_Light}, 0.20147) end
+                local keybindButtonStroke = Instance.new("UIStroke")
+                keybindButtonStroke.Color = colors.borderColor
+                keybindButtonStroke.Parent = keybindButton
+
+                keybindButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    if not isListening then animateElement(keybindButtonStroke, {Color = colors.borderLightColor}, 0.20147) end
                 end)
-                Bind_Btn.MouseLeave:Connect(function()
-                    Show_Tooltip("")
-                    if not Listening then Animate(Btn_Stroke, {Color = Colors.Border}, 0.20147) end
+                keybindButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    if not isListening then animateElement(keybindButtonStroke, {Color = colors.borderColor}, 0.20147) end
                 end)
 
-                Bind_Btn.MouseButton1Click:Connect(function()
-                    Listening = true
-                    Bind_Btn.Text = "[ ... ]"
-                    Animate(Btn_Stroke, {Color = Colors.Accent}, 0.20147)
-                    Animate(Bind_Btn, {TextColor3 = Colors.Text_White}, 0.20147)
+                keybindButton.MouseButton1Click:Connect(function()
+                    isListening = true
+                    keybindButton.Text = "[ ... ]"
+                    animateElement(keybindButtonStroke, {Color = colors.accentColor}, 0.20147)
+                    animateElement(keybindButton, {TextColor3 = colors.textWhiteColor}, 0.20147)
                 end)
 
-                User_Input_Service.InputBegan:Connect(function(Input)
-                    if Listening then
-                        if Input.KeyCode ~= Enum.KeyCode.Unknown and Input.KeyCode ~= Enum.KeyCode.Escape then
-                            Nixware_Premium_Api.Flags[Flag] = Input.KeyCode
-                            Bind_Btn.Text = "[ " .. Input.KeyCode.Name .. " ]"
-                        elseif Input.KeyCode == Enum.KeyCode.Escape then
-                            Nixware_Premium_Api.Flags[Flag] = Enum.KeyCode.Unknown
-                            Bind_Btn.Text = "[ None ]"
+                userInputService.InputBegan:Connect(function(input)
+                    if isListening then
+                        if input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode ~= Enum.KeyCode.Escape then
+                            LibraryApi.Flags[flag] = input.KeyCode
+                            keybindButton.Text = "[ " .. input.KeyCode.Name .. " ]"
+                        elseif input.KeyCode == Enum.KeyCode.Escape then
+                            LibraryApi.Flags[flag] = Enum.KeyCode.Unknown
+                            keybindButton.Text = "[ None ]"
                         end
-                        Listening = false
-                        Animate(Btn_Stroke, {Color = Colors.Border}, 0.20147)
-                        Animate(Bind_Btn, {TextColor3 = Colors.Text_Dark}, 0.20147)
-                        if Callback then task.spawn(Callback, Nixware_Premium_Api.Flags[Flag]) end
+                        isListening = false
+                        animateElement(keybindButtonStroke, {Color = colors.borderColor}, 0.20147)
+                        animateElement(keybindButton, {TextColor3 = colors.textDarkColor}, 0.20147)
+                        if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
                     else
-                        if Input.KeyCode == Nixware_Premium_Api.Flags[Flag] and Input.KeyCode ~= Enum.KeyCode.Unknown then
-                            if Callback then task.spawn(Callback, Nixware_Premium_Api.Flags[Flag]) end
+                        if input.KeyCode == LibraryApi.Flags[flag] and input.KeyCode ~= Enum.KeyCode.Unknown then
+                            if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
                         end
                     end
                 end)
             end
 
-            function Elements:Dropdown_Create(Name, Flag, Options, Default, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = Default or Options[1]
-                local Open = false
+            function elements:Dropdown_Create(name, flag, options, default, tooltip, callback)
+                LibraryApi.Flags[flag] = default or options[1]
+                local isDropdownOpen = false
 
-                local Drop_Frame = Instance.new("Frame")
-                Drop_Frame.Size = UDim2.new(1, 0, 0, 46)
-                Drop_Frame.BackgroundTransparency = 1
-                Drop_Frame.ClipsDescendants = true
-                Drop_Frame.Parent = Target_Container
+                local dropdownFrame = Instance.new("Frame")
+                dropdownFrame.Size = UDim2.new(1, 0, 0, 46)
+                dropdownFrame.BackgroundTransparency = 1
+                dropdownFrame.ClipsDescendants = true
+                dropdownFrame.Parent = targetContainer
 
-                local Text = Instance.new("TextLabel")
-                Text.Size = UDim2.new(1, -10, 0, 14)
-                Text.Position = UDim2.new(0, 2, 0, 0)
-                Text.BackgroundTransparency = 1
-                Text.Text = Name
-                Text.TextColor3 = Colors.Text_White
-                Text.TextSize = 12
-                Text.Font = Main_Font
-                Text.TextXAlignment = Enum.TextXAlignment.Left
-                Text.Parent = Drop_Frame
+                local dropdownLabel = Instance.new("TextLabel")
+                dropdownLabel.Size = UDim2.new(1, -10, 0, 14)
+                dropdownLabel.Position = UDim2.new(0, 2, 0, 0)
+                dropdownLabel.BackgroundTransparency = 1
+                dropdownLabel.Text = name
+                dropdownLabel.TextColor3 = colors.textWhiteColor
+                dropdownLabel.TextSize = 12
+                dropdownLabel.Font = mainFont
+                dropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+                dropdownLabel.Parent = dropdownFrame
 
-                local Main_Btn = Instance.new("TextButton")
-                Main_Btn.Size = UDim2.new(1, -4, 0, 24)
-                Main_Btn.Position = UDim2.new(0, 2, 0, 20)
-                Main_Btn.BackgroundColor3 = Colors.Element_Bg
-                Main_Btn.BackgroundTransparency = 0.21847
-                Main_Btn.Text = ""
-                Main_Btn.AutoButtonColor = false
-                Main_Btn.Parent = Drop_Frame
+                local dropdownMainButton = Instance.new("TextButton")
+                dropdownMainButton.Size = UDim2.new(1, -4, 0, 24)
+                dropdownMainButton.Position = UDim2.new(0, 2, 0, 20)
+                dropdownMainButton.BackgroundColor3 = colors.elementBackground
+                dropdownMainButton.BackgroundTransparency = 0.21847
+                dropdownMainButton.Text = ""
+                dropdownMainButton.AutoButtonColor = false
+                dropdownMainButton.Parent = dropdownFrame
                 
-                local Btn_Corner = Instance.new("UICorner")
-                Btn_Corner.CornerRadius = UDim.new(0, 4)
-                Btn_Corner.Parent = Main_Btn
+                local dropdownMainButtonCorner = Instance.new("UICorner")
+                dropdownMainButtonCorner.CornerRadius = UDim.new(0, 4)
+                dropdownMainButtonCorner.Parent = dropdownMainButton
                 
-                local Main_Stroke = Instance.new("UIStroke")
-                Main_Stroke.Color = Colors.Border
-                Main_Stroke.Parent = Main_Btn
+                local dropdownMainButtonStroke = Instance.new("UIStroke")
+                dropdownMainButtonStroke.Color = colors.borderColor
+                dropdownMainButtonStroke.Parent = dropdownMainButton
 
-                local Selected = Instance.new("TextLabel")
-                Selected.Size = UDim2.new(1, -30, 1, 0)
-                Selected.Position = UDim2.new(0, 8, 0, 0)
-                Selected.BackgroundTransparency = 1
-                Selected.Text = Nixware_Premium_Api.Flags[Flag]
-                Selected.TextColor3 = Colors.Text_Dark
-                Selected.TextSize = 12
-                Selected.Font = Main_Font
-                Selected.TextXAlignment = Enum.TextXAlignment.Left
-                Selected.Parent = Main_Btn
+                local selectedOptionLabel = Instance.new("TextLabel")
+                selectedOptionLabel.Size = UDim2.new(1, -30, 1, 0)
+                selectedOptionLabel.Position = UDim2.new(0, 8, 0, 0)
+                selectedOptionLabel.BackgroundTransparency = 1
+                selectedOptionLabel.Text = LibraryApi.Flags[flag]
+                selectedOptionLabel.TextColor3 = colors.textDarkColor
+                selectedOptionLabel.TextSize = 12
+                selectedOptionLabel.Font = mainFont
+                selectedOptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                selectedOptionLabel.Parent = dropdownMainButton
 
-                local Arrow_Icon = Instance.new("ImageLabel")
-                Arrow_Icon.Size = UDim2.new(0, 14, 0, 14)
-                Arrow_Icon.Position = UDim2.new(1, -22, 0.5, -7)
-                Arrow_Icon.BackgroundTransparency = 1
-                Arrow_Icon.Image = "rbxassetid://6031090656"
-                Arrow_Icon.ImageColor3 = Colors.Text_Dark
-                Arrow_Icon.Parent = Main_Btn
+                local dropdownArrowIcon = Instance.new("ImageLabel")
+                dropdownArrowIcon.Size = UDim2.new(0, 14, 0, 14)
+                dropdownArrowIcon.Position = UDim2.new(1, -22, 0.5, -7)
+                dropdownArrowIcon.BackgroundTransparency = 1
+                dropdownArrowIcon.Image = "rbxassetid://6031090656"
+                dropdownArrowIcon.ImageColor3 = colors.textDarkColor
+                dropdownArrowIcon.Parent = dropdownMainButton
 
-                local List = Instance.new("ScrollingFrame")
-                List.Size = UDim2.new(1, -4, 0, 0)
-                List.Position = UDim2.new(0, 2, 0, 48)
-                List.BackgroundColor3 = Colors.Element_Bg
-                List.BackgroundTransparency = 0.21847
-                List.BorderSizePixel = 0
-                List.ScrollBarThickness = 2
-                List.ScrollBarImageColor3 = Colors.Accent
-                List.ClipsDescendants = true
-                List.Parent = Drop_Frame
+                local dropdownOptionListFrame = Instance.new("ScrollingFrame")
+                dropdownOptionListFrame.Size = UDim2.new(1, -4, 0, 0)
+                dropdownOptionListFrame.Position = UDim2.new(0, 2, 0, 48)
+                dropdownOptionListFrame.BackgroundColor3 = colors.elementBackground
+                dropdownOptionListFrame.BackgroundTransparency = 0.21847
+                dropdownOptionListFrame.BorderSizePixel = 0
+                dropdownOptionListFrame.ScrollBarThickness = 2
+                dropdownOptionListFrame.ScrollBarImageColor3 = colors.accentColor
+                dropdownOptionListFrame.ClipsDescendants = true
+                dropdownOptionListFrame.Parent = dropdownFrame
                 
-                local List_Corner = Instance.new("UICorner")
-                List_Corner.CornerRadius = UDim.new(0, 4)
-                List_Corner.Parent = List
+                local dropdownOptionListCorner = Instance.new("UICorner")
+                dropdownOptionListCorner.CornerRadius = UDim.new(0, 4)
+                dropdownOptionListCorner.Parent = dropdownOptionListFrame
                 
-                local List_Stroke = Instance.new("UIStroke")
-                List_Stroke.Color = Colors.Border
-                List_Stroke.Transparency = 1
-                List_Stroke.Parent = List
+                local dropdownOptionListStroke = Instance.new("UIStroke")
+                dropdownOptionListStroke.Color = colors.borderColor
+                dropdownOptionListStroke.Transparency = 1
+                dropdownOptionListStroke.Parent = dropdownOptionListFrame
 
-                local List_Layout = Instance.new("UIListLayout")
-                List_Layout.SortOrder = Enum.SortOrder.LayoutOrder
-                List_Layout.Parent = List
+                local dropdownOptionListLayout = Instance.new("UIListLayout")
+                dropdownOptionListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                dropdownOptionListLayout.Parent = dropdownOptionListFrame
 
-                local function Toggle()
-                    Open = not Open
-                    local Max_Height = math.min(#Options * 24, 120)
-                    local Target_Size = Open and Max_Height or 0
-                    Animate(Main_Stroke, {Color = Open and Colors.Accent or Colors.Border}, 0.256247)
-                    Animate(Arrow_Icon, {Rotation = Open and 180 or 0, ImageColor3 = Open and Colors.Accent or Colors.Text_Dark}, 0.256247)
-                    Animate(List, {Size = UDim2.new(1, -4, 0, Target_Size)}, 0.256247)
-                    Animate(List_Stroke, {Transparency = Open and 0 or 1}, 0.256247)
-                    Animate(Drop_Frame, {Size = UDim2.new(1, 0, 0, 46 + Target_Size + (Open and 4 or 0))}, 0.256247)
+                local function toggleDropdownState()
+                    isDropdownOpen = not isDropdownOpen
+                    local maxListHeight = math.min(#options * 24, 120)
+                    local targetListHeight = isDropdownOpen and maxListHeight or 0
+                    animateElement(dropdownMainButtonStroke, {Color = isDropdownOpen and colors.accentColor or colors.borderColor}, 0.256247)
+                    animateElement(dropdownArrowIcon, {Rotation = isDropdownOpen and 180 or 0, ImageColor3 = isDropdownOpen and colors.accentColor or colors.textDarkColor}, 0.256247)
+                    animateElement(dropdownOptionListFrame, {Size = UDim2.new(1, -4, 0, targetListHeight)}, 0.256247)
+                    animateElement(dropdownOptionListStroke, {Transparency = isDropdownOpen and 0 or 1}, 0.256247)
+                    animateElement(dropdownFrame, {Size = UDim2.new(1, 0, 0, 46 + targetListHeight + (isDropdownOpen and 4 or 0))}, 0.256247)
                 end
 
-                Main_Btn.MouseEnter:Connect(function()
-                    Show_Tooltip(Tooltip)
-                    if not Open then Animate(Main_Stroke, {Color = Colors.Border_Light}, 0.198375) end
+                dropdownMainButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    if not isDropdownOpen then animateElement(dropdownMainButtonStroke, {Color = colors.borderLightColor}, 0.198375) end
                 end)
-                Main_Btn.MouseLeave:Connect(function()
-                    Show_Tooltip("")
-                    if not Open then Animate(Main_Stroke, {Color = Colors.Border}, 0.198375) end
+                dropdownMainButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    if not isDropdownOpen then animateElement(dropdownMainButtonStroke, {Color = colors.borderColor}, 0.198375) end
                 end)
-                Main_Btn.MouseButton1Click:Connect(Toggle)
+                dropdownMainButton.MouseButton1Click:Connect(toggleDropdownState)
 
-                for _, Opt in ipairs(Options) do
-                    local Opt_Btn = Instance.new("TextButton")
-                    Opt_Btn.Size = UDim2.new(1, 0, 0, 24)
-                    Opt_Btn.BackgroundColor3 = Colors.Element_Hover
-                    Opt_Btn.BackgroundTransparency = 1
-                    Opt_Btn.Text = ""
-                    Opt_Btn.Parent = List
+                for _, option in ipairs(options) do
+                    local optionButton = Instance.new("TextButton")
+                    optionButton.Size = UDim2.new(1, 0, 0, 24)
+                    optionButton.BackgroundColor3 = colors.elementHoverBackground
+                    optionButton.BackgroundTransparency = 1
+                    optionButton.Text = ""
+                    optionButton.Parent = dropdownOptionListFrame
 
-                    local Opt_Text = Instance.new("TextLabel")
-                    Opt_Text.Size = UDim2.new(1, -20, 1, 0)
-                    Opt_Text.Position = UDim2.new(0, 8, 0, 0)
-                    Opt_Text.BackgroundTransparency = 1
-                    Opt_Text.Text = Opt
-                    Opt_Text.TextColor3 = Nixware_Premium_Api.Flags[Flag] == Opt and Colors.Accent or Colors.Text_Dark
-                    Opt_Text.TextSize = 12
-                    Opt_Text.Font = Main_Font
-                    Opt_Text.TextXAlignment = Enum.TextXAlignment.Left
-                    Opt_Text.Parent = Opt_Btn
+                    local optionLabel = Instance.new("TextLabel")
+                    optionLabel.Size = UDim2.new(1, -20, 1, 0)
+                    optionLabel.Position = UDim2.new(0, 8, 0, 0)
+                    optionLabel.BackgroundTransparency = 1
+                    optionLabel.Text = option
+                    optionLabel.TextColor3 = LibraryApi.Flags[flag] == option and colors.accentColor or colors.textDarkColor
+                    optionLabel.TextSize = 12
+                    optionLabel.Font = mainFont
+                    optionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                    optionLabel.Parent = optionButton
 
-                    Opt_Btn.MouseEnter:Connect(function() 
-                        Animate(Opt_Btn, {BackgroundTransparency = 0.21847}, 0.153283)
-                        if Nixware_Premium_Api.Flags[Flag] ~= Opt then
-                            Animate(Opt_Text, {TextColor3 = Colors.Text_White}, 0.153283) 
+                    optionButton.MouseEnter:Connect(function() 
+                        animateElement(optionButton, {BackgroundTransparency = 0.21847}, 0.153283)
+                        if LibraryApi.Flags[flag] ~= option then
+                            animateElement(optionLabel, {TextColor3 = colors.textWhiteColor}, 0.153283) 
                         end
                     end)
-                    Opt_Btn.MouseLeave:Connect(function()
-                        Animate(Opt_Btn, {BackgroundTransparency = 1}, 0.153283)
-                        if Nixware_Premium_Api.Flags[Flag] ~= Opt then
-                            Animate(Opt_Text, {TextColor3 = Colors.Text_Dark}, 0.153283)
+                    optionButton.MouseLeave:Connect(function()
+                        animateElement(optionButton, {BackgroundTransparency = 1}, 0.153283)
+                        if LibraryApi.Flags[flag] ~= option then
+                            animateElement(optionLabel, {TextColor3 = colors.textDarkColor}, 0.153283)
                         end
                     end)
 
-                    Opt_Btn.MouseButton1Click:Connect(function()
-                        Nixware_Premium_Api.Flags[Flag] = Opt
-                        Selected.Text = Opt
-                        Toggle()
-                        for _, Child in ipairs(List:GetChildren()) do
-                            if Child:IsA("TextButton") then
-                                Animate(Child:FindFirstChildOfClass("TextLabel"), {TextColor3 = Colors.Text_Dark}, 0.153283)
+                    optionButton.MouseButton1Click:Connect(function()
+                        LibraryApi.Flags[flag] = option
+                        selectedOptionLabel.Text = option
+                        toggleDropdownState()
+                        for _, child in ipairs(dropdownOptionListFrame:GetChildren()) do
+                            if child:IsA("TextButton") then
+                                animateElement(child:FindFirstChildOfClass("TextLabel"), {TextColor3 = colors.textDarkColor}, 0.153283)
                             end
                         end
-                        Animate(Opt_Text, {TextColor3 = Colors.Accent}, 0.153283)
-                        if Callback then task.spawn(Callback, Opt) end
+                        animateElement(optionLabel, {TextColor3 = colors.accentColor}, 0.153283)
+                        if callback then task.spawn(callback, option) end
                     end)
                 end
-                List.CanvasSize = UDim2.new(0, 0, 0, #Options * 24)
+                dropdownOptionListFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 24)
             end
 
-            function Elements:ColorPicker_Create(Name, Flag, Default, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = Default or Color3.new(1, 1, 1)
-                local Open = false
-                local H, S, V = Nixware_Premium_Api.Flags[Flag]:ToHSV()
+            function elements:ColorPicker_Create(name, flag, default, tooltip, callback)
+                LibraryApi.Flags[flag] = default or Color3.new(1, 1, 1)
+                local isColorPickerOpen = false
+                local hue, saturation, value = LibraryApi.Flags[flag]:ToHSV()
 
-                local Col_Frame = Instance.new("Frame")
-                Col_Frame.Size = UDim2.new(1, 0, 0, 24)
-                Col_Frame.BackgroundTransparency = 1
-                Col_Frame.ClipsDescendants = true
-                Col_Frame.Parent = Target_Container
+                local colorPickerFrame = Instance.new("Frame")
+                colorPickerFrame.Size = UDim2.new(1, 0, 0, 24)
+                colorPickerFrame.BackgroundTransparency = 1
+                colorPickerFrame.ClipsDescendants = true
+                colorPickerFrame.Parent = targetContainer
 
-                local Text = Instance.new("TextLabel")
-                Text.Size = UDim2.new(1, -40, 0, 24)
-                Text.Position = UDim2.new(0, 2, 0, 0)
-                Text.BackgroundTransparency = 1
-                Text.Text = Name
-                Text.TextColor3 = Colors.Text_White
-                Text.TextSize = 12
-                Text.Font = Main_Font
-                Text.TextXAlignment = Enum.TextXAlignment.Left
-                Text.Parent = Col_Frame
+                local colorPickerLabel = Instance.new("TextLabel")
+                colorPickerLabel.Size = UDim2.new(1, -40, 0, 24)
+                colorPickerLabel.Position = UDim2.new(0, 2, 0, 0)
+                colorPickerLabel.BackgroundTransparency = 1
+                colorPickerLabel.Text = name
+                colorPickerLabel.TextColor3 = colors.textWhiteColor
+                colorPickerLabel.TextSize = 12
+                colorPickerLabel.Font = mainFont
+                colorPickerLabel.TextXAlignment = Enum.TextXAlignment.Left
+                colorPickerLabel.Parent = colorPickerFrame
 
-                local Prev_Btn = Instance.new("TextButton")
-                Prev_Btn.Size = UDim2.new(0, 24, 0, 14)
-                Prev_Btn.Position = UDim2.new(1, -28, 0, 5)
-                Prev_Btn.BackgroundColor3 = Nixware_Premium_Api.Flags[Flag]
-                Prev_Btn.Text = ""
-                Prev_Btn.AutoButtonColor = false
-                Prev_Btn.Parent = Col_Frame
+                local colorPreviewButton = Instance.new("TextButton")
+                colorPreviewButton.Size = UDim2.new(0, 24, 0, 14)
+                colorPreviewButton.Position = UDim2.new(1, -28, 0, 5)
+                colorPreviewButton.BackgroundColor3 = LibraryApi.Flags[flag]
+                colorPreviewButton.Text = ""
+                colorPreviewButton.AutoButtonColor = false
+                colorPreviewButton.Parent = colorPickerFrame
                 
-                local Prev_Corner = Instance.new("UICorner")
-                Prev_Corner.CornerRadius = UDim.new(0, 3)
-                Prev_Corner.Parent = Prev_Btn
+                local colorPreviewButtonCorner = Instance.new("UICorner")
+                colorPreviewButtonCorner.CornerRadius = UDim.new(0, 3)
+                colorPreviewButtonCorner.Parent = colorPreviewButton
                 
-                local Prev_Stroke = Instance.new("UIStroke")
-                Prev_Stroke.Color = Colors.Border
-                Prev_Stroke.Parent = Prev_Btn
+                local colorPreviewButtonStroke = Instance.new("UIStroke")
+                colorPreviewButtonStroke.Color = colors.borderColor
+                colorPreviewButtonStroke.Parent = colorPreviewButton
 
-                local Expand = Instance.new("Frame")
-                Expand.Size = UDim2.new(1, -4, 0, 190)
-                Expand.Position = UDim2.new(0, 2, 0, 28)
-                Expand.BackgroundColor3 = Colors.Element_Bg
-                Expand.BackgroundTransparency = 0.21847
-                Expand.Parent = Col_Frame
+                local expandedPickerFrame = Instance.new("Frame")
+                expandedPickerFrame.Size = UDim2.new(1, -4, 0, 190)
+                expandedPickerFrame.Position = UDim2.new(0, 2, 0, 28)
+                expandedPickerFrame.BackgroundColor3 = colors.elementBackground
+                expandedPickerFrame.BackgroundTransparency = 0.21847
+                expandedPickerFrame.Parent = colorPickerFrame
                 
-                local Expand_Corner = Instance.new("UICorner")
-                Expand_Corner.CornerRadius = UDim.new(0, 4)
-                Expand_Corner.Parent = Expand
+                local expandedPickerCorner = Instance.new("UICorner")
+                expandedPickerCorner.CornerRadius = UDim.new(0, 4)
+                expandedPickerCorner.Parent = expandedPickerFrame
                 
-                local Expand_Stroke = Instance.new("UIStroke")
-                Expand_Stroke.Color = Colors.Border
-                Expand_Stroke.Parent = Expand
+                local expandedPickerStroke = Instance.new("UIStroke")
+                expandedPickerStroke.Color = colors.borderColor
+                expandedPickerStroke.Parent = expandedPickerFrame
 
-                local SV_Map = Instance.new("ImageButton")
-                SV_Map.Size = UDim2.new(1, -16, 0, 150)
-                SV_Map.Position = UDim2.new(0, 8, 0, 8)
-                SV_Map.Image = "rbxassetid://4155801252"
-                SV_Map.ImageColor3 = Color3.fromHSV(H, 1, 1)
-                SV_Map.AutoButtonColor = false
-                SV_Map.Parent = Expand
-                local SV_Corner = Instance.new("UICorner"); SV_Corner.CornerRadius = UDim.new(0, 3); SV_Corner.Parent = SV_Map
-                local SV_Stroke = Instance.new("UIStroke"); SV_Stroke.Color = Colors.Border; SV_Stroke.Parent = SV_Map
+                local saturationValueMap = Instance.new("ImageButton")
+                saturationValueMap.Size = UDim2.new(1, -16, 0, 150)
+                saturationValueMap.Position = UDim2.new(0, 8, 0, 8)
+                saturationValueMap.Image = "rbxassetid://4155801252"
+                saturationValueMap.ImageColor3 = Color3.fromHSV(hue, 1, 1)
+                saturationValueMap.AutoButtonColor = false
+                saturationValueMap.Parent = expandedPickerFrame
+                local saturationValueMapCorner = Instance.new("UICorner"); saturationValueMapCorner.CornerRadius = UDim.new(0, 3); saturationValueMapCorner.Parent = saturationValueMap
+                local saturationValueMapStroke = Instance.new("UIStroke"); saturationValueMapStroke.Color = colors.borderColor; saturationValueMapStroke.Parent = saturationValueMap
 
-                local SV_Cursor = Instance.new("Frame")
-                SV_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
-                SV_Cursor.Size = UDim2.new(0, 6, 0, 6)
-                SV_Cursor.Position = UDim2.new(S, 0, 1 - V, 0)
-                SV_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
-                SV_Cursor.Parent = SV_Map
-                local Curs_Corner = Instance.new("UICorner"); Curs_Corner.CornerRadius = UDim.new(1, 0); Curs_Corner.Parent = SV_Cursor
-                local Curs_Stroke = Instance.new("UIStroke"); Curs_Stroke.Color = Color3.new(0, 0, 0); Curs_Stroke.Parent = SV_Cursor
+                local saturationValueMapCursor = Instance.new("Frame")
+                saturationValueMapCursor.AnchorPoint = Vector2.new(0.5, 0.5)
+                saturationValueMapCursor.Size = UDim2.new(0, 6, 0, 6)
+                saturationValueMapCursor.Position = UDim2.new(saturation, 0, 1 - value, 0)
+                saturationValueMapCursor.BackgroundColor3 = Color3.new(1, 1, 1)
+                saturationValueMapCursor.Parent = saturationValueMap
+                local saturationValueMapCursorCorner = Instance.new("UICorner"); saturationValueMapCursorCorner.CornerRadius = UDim.new(1, 0); saturationValueMapCursorCorner.Parent = saturationValueMapCursor
+                local saturationValueMapCursorStroke = Instance.new("UIStroke"); saturationValueMapCursorStroke.Color = Color3.new(0, 0, 0); saturationValueMapCursorStroke.Parent = saturationValueMapCursor
 
-                local Hue_Map = Instance.new("TextButton")
-                Hue_Map.Size = UDim2.new(1, -16, 0, 12)
-                Hue_Map.Position = UDim2.new(0, 8, 0, 168)
-                Hue_Map.Text = ""
-                Hue_Map.AutoButtonColor = false
-                Hue_Map.BackgroundColor3 = Color3.new(1, 1, 1)
-                Hue_Map.Parent = Expand
-                local Hue_Corner = Instance.new("UICorner"); Hue_Corner.CornerRadius = UDim.new(0, 3); Hue_Corner.Parent = Hue_Map
-                local Hue_Stroke = Instance.new("UIStroke"); Hue_Stroke.Color = Colors.Border; Hue_Stroke.Parent = Hue_Map
+                local hueMap = Instance.new("TextButton")
+                hueMap.Size = UDim2.new(1, -16, 0, 12)
+                hueMap.Position = UDim2.new(0, 8, 0, 168)
+                hueMap.Text = ""
+                hueMap.AutoButtonColor = false
+                hueMap.BackgroundColor3 = Color3.new(1, 1, 1)
+                hueMap.Parent = expandedPickerFrame
+                local hueMapCorner = Instance.new("UICorner"); hueMapCorner.CornerRadius = UDim.new(0, 3); hueMapCorner.Parent = hueMap
+                local hueMapStroke = Instance.new("UIStroke"); hueMapStroke.Color = colors.borderColor; hueMapStroke.Parent = hueMap
 
-                local Hue_Grad = Instance.new("UIGradient")
-                Hue_Grad.Color = ColorSequence.new{
+                local hueGradient = Instance.new("UIGradient")
+                hueGradient.Color = ColorSequence.new{
                     ColorSequenceKeypoint.new(0, Color3.new(1, 0, 0)),
                     ColorSequenceKeypoint.new(1/6, Color3.new(1, 1, 0)),
                     ColorSequenceKeypoint.new(2/6, Color3.new(0, 1, 0)),
@@ -1219,358 +1227,358 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                     ColorSequenceKeypoint.new(5/6, Color3.new(1, 0, 1)),
                     ColorSequenceKeypoint.new(1, Color3.new(1, 0, 0))
                 }
-                Hue_Grad.Parent = Hue_Map
+                hueGradient.Parent = hueMap
 
-                local Hue_Cursor = Instance.new("Frame")
-                Hue_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
-                Hue_Cursor.Size = UDim2.new(0, 4, 1, 4)
-                Hue_Cursor.Position = UDim2.new(H, 0, 0.5, 0)
-                Hue_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
-                Hue_Cursor.Parent = Hue_Map
-                local HC_Corner = Instance.new("UICorner"); HC_Corner.CornerRadius = UDim.new(0, 2); HC_Corner.Parent = Hue_Cursor
-                local HC_Stroke = Instance.new("UIStroke"); HC_Stroke.Color = Color3.new(0, 0, 0); HC_Stroke.Parent = Hue_Cursor
+                local hueMapCursor = Instance.new("Frame")
+                hueMapCursor.AnchorPoint = Vector2.new(0.5, 0.5)
+                hueMapCursor.Size = UDim2.new(0, 4, 1, 4)
+                hueMapCursor.Position = UDim2.new(hue, 0, 0.5, 0)
+                hueMapCursor.BackgroundColor3 = Color3.new(1, 1, 1)
+                hueMapCursor.Parent = hueMap
+                local hueMapCursorCorner = Instance.new("UICorner"); hueMapCursorCorner.CornerRadius = UDim.new(0, 2); hueMapCursorCorner.Parent = hueMapCursor
+                local hueMapCursorStroke = Instance.new("UIStroke"); hueMapCursorStroke.Color = Color3.new(0, 0, 0); hueMapCursorStroke.Parent = hueMapCursor
 
-                local function UpdateColor()
-                    local Col = Color3.fromHSV(H, S, V)
-                    Nixware_Premium_Api.Flags[Flag] = Col
-                    SV_Map.ImageColor3 = Color3.fromHSV(H, 1, 1)
-                    Prev_Btn.BackgroundColor3 = Col
-                    SV_Cursor.Position = UDim2.new(S, 0, 1 - V, 0)
-                    Hue_Cursor.Position = UDim2.new(H, 0, 0.5, 0)
-                    if Callback then task.spawn(Callback, Col) end
+                local function updateColorPickerState()
+                    local currentColor = Color3.fromHSV(hue, saturation, value)
+                    LibraryApi.Flags[flag] = currentColor
+                    saturationValueMap.ImageColor3 = Color3.fromHSV(hue, 1, 1)
+                    colorPreviewButton.BackgroundColor3 = currentColor
+                    saturationValueMapCursor.Position = UDim2.new(saturation, 0, 1 - value, 0)
+                    hueMapCursor.Position = UDim2.new(hue, 0, 0.5, 0)
+                    if callback then task.spawn(callback, currentColor) end
                 end
 
-                local SV_Sliding = false
-                local Hue_Sliding = false
+                local isSlidingSaturationValue = false
+                local isSlidingHue = false
 
-                local function Process_SV(Input)
-                    S = math.clamp((Input.Position.X - SV_Map.AbsolutePosition.X) / SV_Map.AbsoluteSize.X, 0, 1)
-                    V = 1 - math.clamp((Input.Position.Y - SV_Map.AbsolutePosition.Y) / SV_Map.AbsoluteSize.Y, 0, 1)
-                    UpdateColor()
+                local function processSaturationValueInput(input)
+                    saturation = math.clamp((input.Position.X - saturationValueMap.AbsolutePosition.X) / saturationValueMap.AbsoluteSize.X, 0, 1)
+                    value = 1 - math.clamp((input.Position.Y - saturationValueMap.AbsolutePosition.Y) / saturationValueMap.AbsoluteSize.Y, 0, 1)
+                    updateColorPickerState()
                 end
 
-                local function Process_Hue(Input)
-                    H = math.clamp((Input.Position.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
-                    UpdateColor()
+                local function processHueInput(input)
+                    hue = math.clamp((input.Position.X - hueMap.AbsolutePosition.X) / hueMap.AbsoluteSize.X, 0, 1)
+                    updateColorPickerState()
                 end
 
-                SV_Map.InputBegan:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        SV_Sliding = true
-                        Process_SV(Input)
+                saturationValueMap.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        isSlidingSaturationValue = true
+                        processSaturationValueInput(input)
                     end
                 end)
                 
-                Hue_Map.InputBegan:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        Hue_Sliding = true
-                        Process_Hue(Input)
+                hueMap.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        isSlidingHue = true
+                        processHueInput(input)
                     end
                 end)
 
-                User_Input_Service.InputEnded:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        SV_Sliding = false
-                        Hue_Sliding = false
+                userInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        isSlidingSaturationValue = false
+                        isSlidingHue = false
                     end
                 end)
 
-                User_Input_Service.InputChanged:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseMovement then
-                        if SV_Sliding then Process_SV(Input) end
-                        if Hue_Sliding then Process_Hue(Input) end
+                userInputService.InputChanged:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseMovement then
+                        if isSlidingSaturationValue then processSaturationValueInput(input) end
+                        if isSlidingHue then processHueInput(input) end
                     end
                 end)
 
-                Prev_Btn.MouseEnter:Connect(function()
-                    Show_Tooltip(Tooltip)
-                    if not Open then Animate(Prev_Stroke, {Color = Colors.Border_Light}, 0.218413) end
+                colorPreviewButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    if not isColorPickerOpen then animateElement(colorPreviewButtonStroke, {Color = colors.borderLightColor}, 0.218413) end
                 end)
-                Prev_Btn.MouseLeave:Connect(function()
-                    Show_Tooltip("")
-                    if not Open then Animate(Prev_Stroke, {Color = Colors.Border}, 0.218413) end
+                colorPreviewButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    if not isColorPickerOpen then animateElement(colorPreviewButtonStroke, {Color = colors.borderColor}, 0.218413) end
                 end)
 
-                Prev_Btn.MouseButton1Click:Connect(function()
-                    Open = not Open
-                    Animate(Prev_Stroke, {Color = Open and Colors.Accent or Colors.Border}, 0.263628)
-                    Animate(Col_Frame, {Size = UDim2.new(1, 0, 0, Open and 224 or 24)}, 0.281352)
+                colorPreviewButton.MouseButton1Click:Connect(function()
+                    isColorPickerOpen = not isColorPickerOpen
+                    animateElement(colorPreviewButtonStroke, {Color = isColorPickerOpen and colors.accentColor or colors.borderColor}, 0.263628)
+                    animateElement(colorPickerFrame, {Size = UDim2.new(1, 0, 0, isColorPickerOpen and 224 or 24)}, 0.281352)
                 end)
             end
 
-            function Elements:Button_Create(Name, Tooltip, Callback)
-                local Btn_Frame = Instance.new("Frame")
-                Btn_Frame.Size = UDim2.new(1, 0, 0, 30)
-                Btn_Frame.BackgroundTransparency = 1
-                Btn_Frame.Parent = Target_Container
+            function elements:Button_Create(name, tooltip, callback)
+                local buttonFrame = Instance.new("Frame")
+                buttonFrame.Size = UDim2.new(1, 0, 0, 30)
+                buttonFrame.BackgroundTransparency = 1
+                buttonFrame.Parent = targetContainer
 
-                local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1, -4, 1, 0)
-                Btn.Position = UDim2.new(0, 2, 0, 0)
-                Btn.BackgroundColor3 = Colors.Element_Bg
-                Btn.BackgroundTransparency = 0.21847
-                Btn.Text = Name
-                Btn.TextColor3 = Colors.Text_White
-                Btn.TextSize = 12
-                Btn.Font = Bold_Font
-                Btn.AutoButtonColor = false
-                Btn.Parent = Btn_Frame
+                local actionButton = Instance.new("TextButton")
+                actionButton.Size = UDim2.new(1, -4, 1, 0)
+                actionButton.Position = UDim2.new(0, 2, 0, 0)
+                actionButton.BackgroundColor3 = colors.elementBackground
+                actionButton.BackgroundTransparency = 0.21847
+                actionButton.Text = name
+                actionButton.TextColor3 = colors.textWhiteColor
+                actionButton.TextSize = 12
+                actionButton.Font = boldFont
+                actionButton.AutoButtonColor = false
+                actionButton.Parent = buttonFrame
                 
-                local Btn_Corner = Instance.new("UICorner")
-                Btn_Corner.CornerRadius = UDim.new(0, 4)
-                Btn_Corner.Parent = Btn
+                local actionButtonCorner = Instance.new("UICorner")
+                actionButtonCorner.CornerRadius = UDim.new(0, 4)
+                actionButtonCorner.Parent = actionButton
                 
-                local Btn_Stroke = Instance.new("UIStroke")
-                Btn_Stroke.Color = Colors.Border
-                Btn_Stroke.Parent = Btn
+                local actionButtonStroke = Instance.new("UIStroke")
+                actionButtonStroke.Color = colors.borderColor
+                actionButtonStroke.Parent = actionButton
 
-                Btn.MouseEnter:Connect(function()
-                    Show_Tooltip(Tooltip)
-                    Animate(Btn, {BackgroundColor3 = Colors.Element_Hover}, 0.219834)
-                    Animate(Btn_Stroke, {Color = Colors.Accent}, 0.219834)
-                    Animate(Btn, {TextColor3 = Colors.Accent}, 0.219834)
+                actionButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    animateElement(actionButton, {BackgroundColor3 = colors.elementHoverBackground}, 0.219834)
+                    animateElement(actionButtonStroke, {Color = colors.accentColor}, 0.219834)
+                    animateElement(actionButton, {TextColor3 = colors.accentColor}, 0.219834)
                 end)
-                Btn.MouseLeave:Connect(function()
-                    Show_Tooltip("")
-                    Animate(Btn, {BackgroundColor3 = Colors.Element_Bg}, 0.219834)
-                    Animate(Btn_Stroke, {Color = Colors.Border}, 0.219834)
-                    Animate(Btn, {TextColor3 = Colors.Text_White}, 0.219834)
+                actionButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    animateElement(actionButton, {BackgroundColor3 = colors.elementBackground}, 0.219834)
+                    animateElement(actionButtonStroke, {Color = colors.borderColor}, 0.219834)
+                    animateElement(actionButton, {TextColor3 = colors.textWhiteColor}, 0.219834)
                 end)
-                Btn.MouseButton1Down:Connect(function() Animate(Btn, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.124538) end)
-                Btn.MouseButton1Up:Connect(function()
-                    Animate(Btn, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.124538)
-                    if Callback then task.spawn(Callback) end
-                end)
-            end
-
-            function Elements:SubButton_Create(Name, Tooltip, Callback)
-                local Btn_Frame = Instance.new("Frame")
-                Btn_Frame.Size = UDim2.new(1, 0, 0, 22)
-                Btn_Frame.BackgroundTransparency = 1
-                Btn_Frame.Parent = Target_Container
-
-                local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1, -16, 1, 0)
-                Btn.Position = UDim2.new(0, 8, 0, 0)
-                Btn.BackgroundColor3 = Colors.Section_Bg
-                Btn.BackgroundTransparency = 0.21847
-                Btn.Text = Name
-                Btn.TextColor3 = Colors.Text_Dark
-                Btn.TextSize = 11
-                Btn.Font = Main_Font
-                Btn.AutoButtonColor = false
-                Btn.Parent = Btn_Frame
-                
-                local Btn_Corner = Instance.new("UICorner")
-                Btn_Corner.CornerRadius = UDim.new(0, 3)
-                Btn_Corner.Parent = Btn
-                
-                local Btn_Stroke = Instance.new("UIStroke")
-                Btn_Stroke.Color = Colors.Border
-                Btn_Stroke.Parent = Btn
-
-                Btn.MouseEnter:Connect(function()
-                    Show_Tooltip(Tooltip)
-                    Animate(Btn, {BackgroundColor3 = Colors.Element_Bg}, 0.219834)
-                    Animate(Btn_Stroke, {Color = Colors.Border_Light}, 0.219834)
-                    Animate(Btn, {TextColor3 = Colors.Text_White}, 0.219834)
-                end)
-                Btn.MouseLeave:Connect(function()
-                    Show_Tooltip("")
-                    Animate(Btn, {BackgroundColor3 = Colors.Section_Bg}, 0.219834)
-                    Animate(Btn_Stroke, {Color = Colors.Border}, 0.219834)
-                    Animate(Btn, {TextColor3 = Colors.Text_Dark}, 0.219834)
-                end)
-                Btn.MouseButton1Down:Connect(function() Animate(Btn, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.124538) end)
-                Btn.MouseButton1Up:Connect(function()
-                    Animate(Btn, {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0)}, 0.124538)
-                    if Callback then task.spawn(Callback) end
+                actionButton.MouseButton1Down:Connect(function() animateElement(actionButton, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.124538) end)
+                actionButton.MouseButton1Up:Connect(function()
+                    animateElement(actionButton, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.124538)
+                    if callback then task.spawn(callback) end
                 end)
             end
 
-            function Elements:Module_Create(Name, Flag, Desc, Default, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = Default or false
+            function elements:SubButton_Create(name, tooltip, callback)
+                local subButtonFrame = Instance.new("Frame")
+                subButtonFrame.Size = UDim2.new(1, 0, 0, 22)
+                subButtonFrame.BackgroundTransparency = 1
+                subButtonFrame.Parent = targetContainer
 
-                local Mod_Frame = Instance.new("Frame")
-                Mod_Frame.Size = UDim2.new(1, 0, 0, 46)
-                Mod_Frame.BackgroundTransparency = 1
-                Mod_Frame.ClipsDescendants = true
-                Mod_Frame.Parent = Target_Container
-
-                local Mod_Btn = Instance.new("TextButton")
-                Mod_Btn.Size = UDim2.new(1, -4, 0, 44)
-                Mod_Btn.Position = UDim2.new(0, 2, 0, 0)
-                Mod_Btn.BackgroundColor3 = Colors.Element_Bg
-                Mod_Btn.BackgroundTransparency = 0.21847
-                Mod_Btn.Text = ""
-                Mod_Btn.AutoButtonColor = false
-                Mod_Btn.Parent = Mod_Frame
+                local subButtonAction = Instance.new("TextButton")
+                subButtonAction.Size = UDim2.new(1, -16, 1, 0)
+                subButtonAction.Position = UDim2.new(0, 8, 0, 0)
+                subButtonAction.BackgroundColor3 = colors.sectionBackground
+                subButtonAction.BackgroundTransparency = 0.21847
+                subButtonAction.Text = name
+                subButtonAction.TextColor3 = colors.textDarkColor
+                subButtonAction.TextSize = 11
+                subButtonAction.Font = mainFont
+                subButtonAction.AutoButtonColor = false
+                subButtonAction.Parent = subButtonFrame
                 
-                local Btn_Corner = Instance.new("UICorner")
-                Btn_Corner.CornerRadius = UDim.new(0, 6)
-                Btn_Corner.Parent = Mod_Btn
+                local subButtonCorner = Instance.new("UICorner")
+                subButtonCorner.CornerRadius = UDim.new(0, 3)
+                subButtonCorner.Parent = subButtonAction
                 
-                local Btn_Stroke = Instance.new("UIStroke")
-                Btn_Stroke.Color = Nixware_Premium_Api.Flags[Flag] and Colors.Accent or Colors.Border
-                Btn_Stroke.Parent = Mod_Btn
+                local subButtonStroke = Instance.new("UIStroke")
+                subButtonStroke.Color = colors.borderColor
+                subButtonStroke.Parent = subButtonAction
 
-                local Box = Instance.new("Frame")
-                Box.Size = UDim2.new(0, 16, 0, 16)
-                Box.Position = UDim2.new(0, 14, 0.5, -8)
-                Box.BackgroundColor3 = Nixware_Premium_Api.Flags[Flag] and Colors.Accent or Colors.Section_Bg
-                Box.BackgroundTransparency = 0.21847
-                Box.Parent = Mod_Btn
+                subButtonAction.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    animateElement(subButtonAction, {BackgroundColor3 = colors.elementBackground}, 0.219834)
+                    animateElement(subButtonStroke, {Color = colors.borderLightColor}, 0.219834)
+                    animateElement(subButtonAction, {TextColor3 = colors.textWhiteColor}, 0.219834)
+                end)
+                subButtonAction.MouseLeave:Connect(function()
+                    showTooltip("")
+                    animateElement(subButtonAction, {BackgroundColor3 = colors.sectionBackground}, 0.219834)
+                    animateElement(subButtonStroke, {Color = colors.borderColor}, 0.219834)
+                    animateElement(subButtonAction, {TextColor3 = colors.textDarkColor}, 0.219834)
+                end)
+                subButtonAction.MouseButton1Down:Connect(function() animateElement(subButtonAction, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.124538) end)
+                subButtonAction.MouseButton1Up:Connect(function()
+                    animateElement(subButtonAction, {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0)}, 0.124538)
+                    if callback then task.spawn(callback) end
+                end)
+            end
+
+            function elements:Module_Create(name, flag, desc, default, tooltip, callback)
+                LibraryApi.Flags[flag] = default or false
+
+                local moduleFrame = Instance.new("Frame")
+                moduleFrame.Size = UDim2.new(1, 0, 0, 46)
+                moduleFrame.BackgroundTransparency = 1
+                moduleFrame.ClipsDescendants = true
+                moduleFrame.Parent = targetContainer
+
+                local moduleToggleButton = Instance.new("TextButton")
+                moduleToggleButton.Size = UDim2.new(1, -4, 0, 44)
+                moduleToggleButton.Position = UDim2.new(0, 2, 0, 0)
+                moduleToggleButton.BackgroundColor3 = colors.elementBackground
+                moduleToggleButton.BackgroundTransparency = 0.21847
+                moduleToggleButton.Text = ""
+                moduleToggleButton.AutoButtonColor = false
+                moduleToggleButton.Parent = moduleFrame
                 
-                local Box_Corner = Instance.new("UICorner")
-                Box_Corner.CornerRadius = UDim.new(0, 4)
-                Box_Corner.Parent = Box
+                local moduleToggleButtonCorner = Instance.new("UICorner")
+                moduleToggleButtonCorner.CornerRadius = UDim.new(0, 6)
+                moduleToggleButtonCorner.Parent = moduleToggleButton
                 
-                local Box_Stroke = Instance.new("UIStroke")
-                Box_Stroke.Color = Colors.Border
-                Box_Stroke.Parent = Box
+                local moduleToggleButtonStroke = Instance.new("UIStroke")
+                moduleToggleButtonStroke.Color = LibraryApi.Flags[flag] and colors.accentColor or colors.borderColor
+                moduleToggleButtonStroke.Parent = moduleToggleButton
 
-                local Text = Instance.new("TextLabel")
-                Text.Size = UDim2.new(1, -45, 0, 16)
-                Text.Position = UDim2.new(0, 40, 0, 6)
-                Text.BackgroundTransparency = 1
-                Text.Text = Name
-                Text.TextColor3 = Nixware_Premium_Api.Flags[Flag] and Colors.Text_White or Colors.Text_Dark
-                Text.TextSize = 13
-                Text.Font = Bold_Font
-                Text.TextXAlignment = Enum.TextXAlignment.Left
-                Text.Parent = Mod_Btn
+                local moduleCheckboxFrame = Instance.new("Frame")
+                moduleCheckboxFrame.Size = UDim2.new(0, 16, 0, 16)
+                moduleCheckboxFrame.Position = UDim2.new(0, 14, 0.5, -8)
+                moduleCheckboxFrame.BackgroundColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.sectionBackground
+                moduleCheckboxFrame.BackgroundTransparency = 0.21847
+                moduleCheckboxFrame.Parent = moduleToggleButton
+                
+                local moduleCheckboxCorner = Instance.new("UICorner")
+                moduleCheckboxCorner.CornerRadius = UDim.new(0, 4)
+                moduleCheckboxCorner.Parent = moduleCheckboxFrame
+                
+                local moduleCheckboxStroke = Instance.new("UIStroke")
+                moduleCheckboxStroke.Color = colors.borderColor
+                moduleCheckboxStroke.Parent = moduleCheckboxFrame
 
-                local Desc_Lbl = Instance.new("TextLabel")
-                Desc_Lbl.Size = UDim2.new(1, -45, 0, 14)
-                Desc_Lbl.Position = UDim2.new(0, 40, 0, 22)
-                Desc_Lbl.BackgroundTransparency = 1
-                Desc_Lbl.Text = Desc
-                Desc_Lbl.TextColor3 = Colors.Text_Dark
-                Desc_Lbl.TextSize = 11
-                Desc_Lbl.Font = Main_Font
-                Desc_Lbl.TextXAlignment = Enum.TextXAlignment.Left
-                Desc_Lbl.Parent = Mod_Btn
+                local moduleLabel = Instance.new("TextLabel")
+                moduleLabel.Size = UDim2.new(1, -45, 0, 16)
+                moduleLabel.Position = UDim2.new(0, 40, 0, 6)
+                moduleLabel.BackgroundTransparency = 1
+                moduleLabel.Text = name
+                moduleLabel.TextColor3 = LibraryApi.Flags[flag] and colors.textWhiteColor or colors.textDarkColor
+                moduleLabel.TextSize = 13
+                moduleLabel.Font = boldFont
+                moduleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                moduleLabel.Parent = moduleToggleButton
 
-                local Arrow_Icon = Instance.new("ImageLabel")
-                Arrow_Icon.Size = UDim2.new(0, 14, 0, 14)
-                Arrow_Icon.Position = UDim2.new(1, -22, 0, 14)
-                Arrow_Icon.BackgroundTransparency = 1
-                Arrow_Icon.Image = "rbxassetid://6031090656"
-                Arrow_Icon.ImageColor3 = Nixware_Premium_Api.Flags[Flag] and Colors.Accent or Colors.Text_Dark
-                Arrow_Icon.Rotation = Nixware_Premium_Api.Flags[Flag] and 180 or 0
-                Arrow_Icon.Parent = Mod_Btn
+                local moduleDescriptionLabel = Instance.new("TextLabel")
+                moduleDescriptionLabel.Size = UDim2.new(1, -45, 0, 14)
+                moduleDescriptionLabel.Position = UDim2.new(0, 40, 0, 22)
+                moduleDescriptionLabel.BackgroundTransparency = 1
+                moduleDescriptionLabel.Text = desc
+                moduleDescriptionLabel.TextColor3 = colors.textDarkColor
+                moduleDescriptionLabel.TextSize = 11
+                moduleDescriptionLabel.Font = mainFont
+                moduleDescriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                moduleDescriptionLabel.Parent = moduleToggleButton
 
-                local Mod_Content = Instance.new("Frame")
-                Mod_Content.Size = UDim2.new(1, -16, 0, 0)
-                Mod_Content.Position = UDim2.new(0, 12, 0, 48)
-                Mod_Content.BackgroundTransparency = 1
-                Mod_Content.Parent = Mod_Frame
+                local moduleArrowIcon = Instance.new("ImageLabel")
+                moduleArrowIcon.Size = UDim2.new(0, 14, 0, 14)
+                moduleArrowIcon.Position = UDim2.new(1, -22, 0, 14)
+                moduleArrowIcon.BackgroundTransparency = 1
+                moduleArrowIcon.Image = "rbxassetid://6031090656"
+                moduleArrowIcon.ImageColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.textDarkColor
+                moduleArrowIcon.Rotation = LibraryApi.Flags[flag] and 180 or 0
+                moduleArrowIcon.Parent = moduleToggleButton
 
-                local Layout = Instance.new("UIListLayout")
-                Layout.Padding = UDim.new(0, 8)
-                Layout.Parent = Mod_Content
+                local moduleContentFrame = Instance.new("Frame")
+                moduleContentFrame.Size = UDim2.new(1, -16, 0, 0)
+                moduleContentFrame.Position = UDim2.new(0, 12, 0, 48)
+                moduleContentFrame.BackgroundTransparency = 1
+                moduleContentFrame.Parent = moduleFrame
 
-                local function Sync_Size()
-                    if Nixware_Premium_Api.Flags[Flag] then
-                        Animate(Mod_Frame, {Size = UDim2.new(1, 0, 0, 46 + Layout.AbsoluteContentSize.Y + 8)}, 0.287413)
-                        Animate(Arrow_Icon, {Rotation = 180, ImageColor3 = Colors.Accent}, 0.287413)
+                local moduleContentLayout = Instance.new("UIListLayout")
+                moduleContentLayout.Padding = UDim.new(0, 8)
+                moduleContentLayout.Parent = moduleContentFrame
+
+                local function synchronizeModuleSize()
+                    if LibraryApi.Flags[flag] then
+                        animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46 + moduleContentLayout.AbsoluteContentSize.Y + 8)}, 0.287413)
+                        animateElement(moduleArrowIcon, {Rotation = 180, ImageColor3 = colors.accentColor}, 0.287413)
                     else
-                        Animate(Mod_Frame, {Size = UDim2.new(1, 0, 0, 46)}, 0.287413)
-                        Animate(Arrow_Icon, {Rotation = 0, ImageColor3 = Colors.Text_Dark}, 0.287413)
+                        animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46)}, 0.287413)
+                        animateElement(moduleArrowIcon, {Rotation = 0, ImageColor3 = colors.textDarkColor}, 0.287413)
                     end
                 end
 
-                Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                    if Nixware_Premium_Api.Flags[Flag] then Sync_Size() end
+                moduleContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                    if LibraryApi.Flags[flag] then synchronizeModuleSize() end
                 end)
 
-                Mod_Btn.MouseEnter:Connect(function()
-                    Show_Tooltip(Tooltip)
-                    if not Nixware_Premium_Api.Flags[Flag] then Animate(Btn_Stroke, {Color = Colors.Border_Light}, 0.218461) end
+                moduleToggleButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    if not LibraryApi.Flags[flag] then animateElement(moduleToggleButtonStroke, {Color = colors.borderLightColor}, 0.218461) end
                 end)
-                Mod_Btn.MouseLeave:Connect(function()
-                    Show_Tooltip("")
-                    if not Nixware_Premium_Api.Flags[Flag] then Animate(Btn_Stroke, {Color = Colors.Border}, 0.218461) end
-                end)
-
-                Mod_Btn.MouseButton1Click:Connect(function()
-                    Nixware_Premium_Api.Flags[Flag] = not Nixware_Premium_Api.Flags[Flag]
-                    local S = Nixware_Premium_Api.Flags[Flag]
-                    Animate(Box, {BackgroundColor3 = S and Colors.Accent or Colors.Section_Bg}, 0.218461)
-                    Animate(Btn_Stroke, {Color = S and Colors.Accent or Colors.Border}, 0.218461)
-                    Animate(Text, {TextColor3 = S and Colors.Text_White or Colors.Text_Dark}, 0.218461)
-                    Sync_Size()
-                    if Callback then task.spawn(Callback, S) end
+                moduleToggleButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    if not LibraryApi.Flags[flag] then animateElement(moduleToggleButtonStroke, {Color = colors.borderColor}, 0.218461) end
                 end)
 
-                return Element_Injector(Mod_Content)
+                moduleToggleButton.MouseButton1Click:Connect(function()
+                    LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
+                    local newState = LibraryApi.Flags[flag]
+                    animateElement(moduleCheckboxFrame, {BackgroundColor3 = newState and colors.accentColor or colors.sectionBackground}, 0.218461)
+                    animateElement(moduleToggleButtonStroke, {Color = newState and colors.accentColor or colors.borderColor}, 0.218461)
+                    animateElement(moduleLabel, {TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor}, 0.218461)
+                    synchronizeModuleSize()
+                    if callback then task.spawn(callback, newState) end
+                end)
+
+                return elementInjector(moduleContentFrame)
             end
 
-            return Elements
+            return elements
         end
 
-        local Section_Api = {}
+        local sectionApi = {}
 
-        function Section_Api:Section_Create(Side_Str, Section_Title_Str)
-            local Sect_Bg = Instance.new("Frame")
-            Sect_Bg.Size = UDim2.new(1, 0, 0, 40)
-            Sect_Bg.BackgroundColor3 = Colors.Section_Bg
-            Sect_Bg.BackgroundTransparency = 0.21847
-            Sect_Bg.Parent = (Side_Str == "Left") and Left_Col or Right_Col
+        function sectionApi:Section_Create(columnSide, sectionTitle)
+            local sectionBackgroundFrame = Instance.new("Frame")
+            sectionBackgroundFrame.Size = UDim2.new(1, 0, 0, 40)
+            sectionBackgroundFrame.BackgroundColor3 = colors.sectionBackground
+            sectionBackgroundFrame.BackgroundTransparency = 0.21847
+            sectionBackgroundFrame.Parent = (columnSide == "Left") and leftColumnFrame or rightColumnFrame
             
-            local Sect_Corner = Instance.new("UICorner")
-            Sect_Corner.CornerRadius = UDim.new(0, 6)
-            Sect_Corner.Parent = Sect_Bg
+            local sectionBackgroundCorner = Instance.new("UICorner")
+            sectionBackgroundCorner.CornerRadius = UDim.new(0, 6)
+            sectionBackgroundCorner.Parent = sectionBackgroundFrame
             
-            local Sect_Stroke = Instance.new("UIStroke")
-            Sect_Stroke.Color = Colors.Border
-            Sect_Stroke.Parent = Sect_Bg
+            local sectionBackgroundStroke = Instance.new("UIStroke")
+            sectionBackgroundStroke.Color = colors.borderColor
+            sectionBackgroundStroke.Parent = sectionBackgroundFrame
 
-            local Sect_Header = Instance.new("Frame")
-            Sect_Header.Size = UDim2.new(1, 0, 0, 26)
-            Sect_Header.BackgroundTransparency = 1
-            Sect_Header.Parent = Sect_Bg
+            local sectionHeaderFrame = Instance.new("Frame")
+            sectionHeaderFrame.Size = UDim2.new(1, 0, 0, 26)
+            sectionHeaderFrame.BackgroundTransparency = 1
+            sectionHeaderFrame.Parent = sectionBackgroundFrame
 
-            local Sect_Label = Instance.new("TextLabel")
-            Sect_Label.Size = UDim2.new(1, -20, 1, 0)
-            Sect_Label.Position = UDim2.new(0, 10, 0, 0)
-            Sect_Label.BackgroundTransparency = 1
-            Sect_Label.Text = Section_Title_Str
-            Sect_Label.TextColor3 = Colors.Text_White
-            Sect_Label.TextSize = 12
-            Sect_Label.Font = Bold_Font
-            Sect_Label.TextXAlignment = Enum.TextXAlignment.Left
-            Sect_Label.Parent = Sect_Header
+            local sectionLabel = Instance.new("TextLabel")
+            sectionLabel.Size = UDim2.new(1, -20, 1, 0)
+            sectionLabel.Position = UDim2.new(0, 10, 0, 0)
+            sectionLabel.BackgroundTransparency = 1
+            sectionLabel.Text = sectionTitle
+            sectionLabel.TextColor3 = colors.textWhiteColor
+            sectionLabel.TextSize = 12
+            sectionLabel.Font = boldFont
+            sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+            sectionLabel.Parent = sectionHeaderFrame
 
-            local Sect_Line = Instance.new("Frame")
-            Sect_Line.Size = UDim2.new(1, -20, 0, 1)
-            Sect_Line.Position = UDim2.new(0, 10, 1, 0)
-            Sect_Line.BackgroundColor3 = Colors.Border
-            Sect_Line.BorderSizePixel = 0
-            Sect_Line.Parent = Sect_Header
+            local sectionSeparatorLine = Instance.new("Frame")
+            sectionSeparatorLine.Size = UDim2.new(1, -20, 0, 1)
+            sectionSeparatorLine.Position = UDim2.new(0, 10, 1, 0)
+            sectionSeparatorLine.BackgroundColor3 = colors.borderColor
+            sectionSeparatorLine.BorderSizePixel = 0
+            sectionSeparatorLine.Parent = sectionHeaderFrame
 
-            local Sect_Content = Instance.new("Frame")
-            Sect_Content.Size = UDim2.new(1, -16, 1, -34)
-            Sect_Content.Position = UDim2.new(0, 8, 0, 32)
-            Sect_Content.BackgroundTransparency = 1
-            Sect_Content.Parent = Sect_Bg
+            local sectionContentFrame = Instance.new("Frame")
+            sectionContentFrame.Size = UDim2.new(1, -16, 1, -34)
+            sectionContentFrame.Position = UDim2.new(0, 8, 0, 32)
+            sectionContentFrame.BackgroundTransparency = 1
+            sectionContentFrame.Parent = sectionBackgroundFrame
 
-            local Layout = Instance.new("UIListLayout")
-            Layout.SortOrder = Enum.SortOrder.LayoutOrder
-            Layout.Padding = UDim.new(0, 8)
-            Layout.Parent = Sect_Content
+            local sectionContentLayout = Instance.new("UIListLayout")
+            sectionContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            sectionContentLayout.Padding = UDim.new(0, 8)
+            sectionContentLayout.Parent = sectionContentFrame
 
-            Run_Service.RenderStepped:Connect(function()
-                Sect_Bg.Size = UDim2.new(1, 0, 0, Layout.AbsoluteContentSize.Y + 44)
+            runService.RenderStepped:Connect(function()
+                sectionBackgroundFrame.Size = UDim2.new(1, 0, 0, sectionContentLayout.AbsoluteContentSize.Y + 44)
             end)
 
-            return Element_Injector(Sect_Content)
+            return elementInjector(sectionContentFrame)
         end
 
-        return Section_Api
+        return sectionApi
     end
 
-    return Window_Context
+    return windowContext
 end
 
-return Nixware_Premium_Api
+return LibraryApi
