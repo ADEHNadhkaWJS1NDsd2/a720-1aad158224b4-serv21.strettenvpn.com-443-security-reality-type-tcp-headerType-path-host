@@ -10,7 +10,7 @@ local playersService = game:GetService("Players")
 local LibraryApi = {
     Flags = {},
     FolderName = "Moonshade",
-    ConfigName = "Moonshade.json"
+    ConfigName = "AutoSaveConfig.json"
 }
 
 local colors = {
@@ -479,10 +479,10 @@ function LibraryApi:CreateWindow(windowName)
 
     local function updateResponsiveScale()
         local currentViewport = workspaceService.CurrentCamera.ViewportSize
-        local isMobileDevice = userInputService.TouchEnabled and not userInputService.MouseEnabled
-        local referenceHeight = isMobileDevice and 600 or 900
-        local calculatedScale = math.clamp(currentViewport.Y / referenceHeight, 0.6, 1.25)
-        uiScaleModifier.Scale = calculatedScale
+        local scaleX = currentViewport.X / 1280
+        local scaleY = currentViewport.Y / 720
+        local calculatedScale = math.min(scaleX, scaleY)
+        uiScaleModifier.Scale = math.clamp(calculatedScale, 0.4, 1.25)
     end
 
     workspaceService.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
