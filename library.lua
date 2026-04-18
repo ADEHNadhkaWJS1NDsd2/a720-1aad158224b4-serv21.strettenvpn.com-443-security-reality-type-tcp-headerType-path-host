@@ -84,6 +84,19 @@ local function Show_Tooltip(Text_Str)
     Tooltip_Target = Text_Str
 end
 
+local function Snap_Value(Value, Step)
+    if not Step then return Value end
+    return math.floor((Value / Step) + 0.5) * Step
+end
+
+local function Format_Value(Value, Step)
+    if Step and Step < 1 then
+        local Decimals = tostring(Step):len() - 2
+        return string.format("%."..Decimals.."f", Value)
+    end
+    return tostring(Value)
+end
+
 Run_Service.RenderStepped:Connect(function()
     if Tooltip_Target ~= "" then
         local Mouse = User_Input_Service:GetMouseLocation()
@@ -379,6 +392,18 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
         local function Element_Injector(Target_Container)
             local Elements = {}
 
+            function Elements:Subtext_Create(Text)
+                local Lbl = Instance.new("TextLabel")
+                Lbl.Size = UDim2.new(1, -10, 0, 14)
+                Lbl.BackgroundTransparency = 1
+                Lbl.Text = Text
+                Lbl.TextColor3 = Colors.Text_Dark
+                Lbl.TextSize = 11
+                Lbl.Font = Main_Font
+                Lbl.TextXAlignment = Enum.TextXAlignment.Left
+                Lbl.Parent = Target_Container
+            end
+
             function Elements:Toggle_Create(Name, Flag, Default, Tooltip, Callback)
                 Nixware_Premium_Api.Flags[Flag] = Default or false
 
@@ -432,8 +457,8 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 end)
             end
 
-            function Elements:Slider_Create(Name, Flag, Min, Max, Default, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = Default or Min
+            function Elements:Slider_Create(Name, Flag, Min, Max, Default, Step, Tooltip, Callback)
+                Nixware_Premium_Api.Flags[Flag] = Snap_Value(Default or Min, Step)
 
                 local Sld_Frame = Instance.new("Frame")
                 Sld_Frame.Size = UDim2.new(1, 0, 0, 36)
@@ -441,7 +466,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Sld_Frame.Parent = Target_Container
 
                 local Text = Instance.new("TextLabel")
-                Text.Size = UDim2.new(1, -10, 0, 14)
+                Text.Size = UDim2.new(1, -50, 0, 14)
                 Text.Position = UDim2.new(0, 2, 0, 0)
                 Text.BackgroundTransparency = 1
                 Text.Text = Name
@@ -451,16 +476,17 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Text.TextXAlignment = Enum.TextXAlignment.Left
                 Text.Parent = Sld_Frame
 
-                local Val = Instance.new("TextLabel")
-                Val.Size = UDim2.new(1, -10, 0, 14)
-                Val.Position = UDim2.new(0, 0, 0, 0)
-                Val.BackgroundTransparency = 1
-                Val.Text = tostring(Nixware_Premium_Api.Flags[Flag])
-                Val.TextColor3 = Colors.Text_White
-                Val.TextSize = 12
-                Val.Font = Main_Font
-                Val.TextXAlignment = Enum.TextXAlignment.Right
-                Val.Parent = Sld_Frame
+                local Val_Box = Instance.new("TextBox")
+                Val_Box.Size = UDim2.new(0, 40, 0, 14)
+                Val_Box.Position = UDim2.new(1, -42, 0, 0)
+                Val_Box.BackgroundTransparency = 1
+                Val_Box.Text = Format_Value(Nixware_Premium_Api.Flags[Flag], Step)
+                Val_Box.TextColor3 = Colors.Text_White
+                Val_Box.TextSize = 12
+                Val_Box.Font = Main_Font
+                Val_Box.TextXAlignment = Enum.TextXAlignment.Right
+                Val_Box.ClearTextOnFocus = false
+                Val_Box.Parent = Sld_Frame
 
                 local Bg = Instance.new("TextButton")
                 Bg.Size = UDim2.new(1, -4, 0, 6)
@@ -498,21 +524,23 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
 
                 local Sliding = false
 
-                local function Update_Value(Input)
-                    local Pct = math.clamp((Input.Position.X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
-                    local Calc_Val = math.floor(Min + ((Max - Min) * Pct))
-                    if Nixware_Premium_Api.Flags[Flag] ~= Calc_Val then
-                        Nixware_Premium_Api.Flags[Flag] = Calc_Val
+                local function Set_Value(New_Val)
+                    local Clamped = math.clamp(New_Val, Min, Max)
+                    local Snapped = Snap_Value(Clamped, Step)
+                    if Nixware_Premium_Api.Flags[Flag] ~= Snapped then
+                        Nixware_Premium_Api.Flags[Flag] = Snapped
+                        local Pct = (Snapped - Min) / (Max - Min)
                         Animate(Fill, {Size = UDim2.new(Pct, 0, 1, 0)}, 0.08273)
-                        Val.Text = tostring(Calc_Val)
-                        if Callback then task.spawn(Callback, Calc_Val) end
+                        Val_Box.Text = Format_Value(Snapped, Step)
+                        if Callback then task.spawn(Callback, Snapped) end
                     end
                 end
 
                 Bg.InputBegan:Connect(function(Input)
                     if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                         Sliding = true
-                        Update_Value(Input)
+                        local Pct = math.clamp((Input.Position.X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
+                        Set_Value(Min + ((Max - Min) * Pct))
                     end
                 end)
 
@@ -521,7 +549,284 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 end)
 
                 User_Input_Service.InputChanged:Connect(function(Input)
-                    if Sliding and Input.UserInputType == Enum.UserInputType.MouseMovement then Update_Value(Input) end
+                    if Sliding and Input.UserInputType == Enum.UserInputType.MouseMovement then 
+                        local Pct = math.clamp((Input.Position.X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
+                        Set_Value(Min + ((Max - Min) * Pct))
+                    end
+                end)
+
+                Val_Box.FocusLost:Connect(function()
+                    local Input_Val = tonumber(Val_Box.Text)
+                    if Input_Val then
+                        Set_Value(Input_Val)
+                    else
+                        Val_Box.Text = Format_Value(Nixware_Premium_Api.Flags[Flag], Step)
+                    end
+                end)
+            end
+
+            function Elements:RangeSlider_Create(Name, Flag, Min, Max, DefMin, DefMax, Step, Tooltip, Callback)
+                Nixware_Premium_Api.Flags[Flag] = {Min = Snap_Value(DefMin or Min, Step), Max = Snap_Value(DefMax or Max, Step)}
+
+                local Sld_Frame = Instance.new("Frame")
+                Sld_Frame.Size = UDim2.new(1, 0, 0, 36)
+                Sld_Frame.BackgroundTransparency = 1
+                Sld_Frame.Parent = Target_Container
+
+                local Text = Instance.new("TextLabel")
+                Text.Size = UDim2.new(1, -80, 0, 14)
+                Text.Position = UDim2.new(0, 2, 0, 0)
+                Text.BackgroundTransparency = 1
+                Text.Text = Name
+                Text.TextColor3 = Colors.Text_White
+                Text.TextSize = 12
+                Text.Font = Main_Font
+                Text.TextXAlignment = Enum.TextXAlignment.Left
+                Text.Parent = Sld_Frame
+
+                local Val_Lbl = Instance.new("TextLabel")
+                Val_Lbl.Size = UDim2.new(0, 80, 0, 14)
+                Val_Lbl.Position = UDim2.new(1, -82, 0, 0)
+                Val_Lbl.BackgroundTransparency = 1
+                Val_Lbl.Text = Format_Value(Nixware_Premium_Api.Flags[Flag].Min, Step) .. " - " .. Format_Value(Nixware_Premium_Api.Flags[Flag].Max, Step)
+                Val_Lbl.TextColor3 = Colors.Text_White
+                Val_Lbl.TextSize = 12
+                Val_Lbl.Font = Main_Font
+                Val_Lbl.TextXAlignment = Enum.TextXAlignment.Right
+                Val_Lbl.Parent = Sld_Frame
+
+                local Bg = Instance.new("TextButton")
+                Bg.Size = UDim2.new(1, -4, 0, 6)
+                Bg.Position = UDim2.new(0, 2, 0, 24)
+                Bg.BackgroundColor3 = Colors.Element_Bg
+                Bg.Text = ""
+                Bg.AutoButtonColor = false
+                Bg.Parent = Sld_Frame
+                
+                local Bg_Corner = Instance.new("UICorner")
+                Bg_Corner.CornerRadius = UDim.new(0, 3)
+                Bg_Corner.Parent = Bg
+                
+                local Bg_Stroke = Instance.new("UIStroke")
+                Bg_Stroke.Color = Colors.Border
+                Bg_Stroke.Parent = Bg
+
+                local Fill = Instance.new("Frame")
+                Fill.BackgroundColor3 = Colors.Accent
+                Fill.Parent = Bg
+                
+                local Fill_Corner = Instance.new("UICorner")
+                Fill_Corner.CornerRadius = UDim.new(0, 3)
+                Fill_Corner.Parent = Fill
+
+                local function Update_Visuals()
+                    local Pct1 = (Nixware_Premium_Api.Flags[Flag].Min - Min) / (Max - Min)
+                    local Pct2 = (Nixware_Premium_Api.Flags[Flag].Max - Min) / (Max - Min)
+                    Animate(Fill, {Position = UDim2.new(Pct1, 0, 0, 0), Size = UDim2.new(Pct2 - Pct1, 0, 1, 0)}, 0.08273)
+                    Val_Lbl.Text = Format_Value(Nixware_Premium_Api.Flags[Flag].Min, Step) .. " - " .. Format_Value(Nixware_Premium_Api.Flags[Flag].Max, Step)
+                end
+                Update_Visuals()
+
+                Bg.MouseEnter:Connect(function()
+                    Show_Tooltip(Tooltip)
+                    Animate(Bg_Stroke, {Color = Colors.Border_Light}, 0.2418)
+                end)
+                Bg.MouseLeave:Connect(function()
+                    Show_Tooltip("")
+                    Animate(Bg_Stroke, {Color = Colors.Border}, 0.2418)
+                end)
+
+                local Sliding_Min = false
+                local Sliding_Max = false
+
+                Bg.InputBegan:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local Mouse_X = Input.Position.X
+                        local Pct1 = (Nixware_Premium_Api.Flags[Flag].Min - Min) / (Max - Min)
+                        local Pct2 = (Nixware_Premium_Api.Flags[Flag].Max - Min) / (Max - Min)
+                        local Pos1 = Bg.AbsolutePosition.X + (Bg.AbsoluteSize.X * Pct1)
+                        local Pos2 = Bg.AbsolutePosition.X + (Bg.AbsoluteSize.X * Pct2)
+                        
+                        if math.abs(Mouse_X - Pos1) < math.abs(Mouse_X - Pos2) then
+                            Sliding_Min = true
+                        else
+                            Sliding_Max = true
+                        end
+                    end
+                end)
+
+                User_Input_Service.InputEnded:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then 
+                        Sliding_Min = false
+                        Sliding_Max = false
+                    end
+                end)
+
+                User_Input_Service.InputChanged:Connect(function(Input)
+                    if (Sliding_Min or Sliding_Max) and Input.UserInputType == Enum.UserInputType.MouseMovement then 
+                        local Pct = math.clamp((Input.Position.X - Bg.AbsolutePosition.X) / Bg.AbsoluteSize.X, 0, 1)
+                        local Calc_Val = Snap_Value(Min + ((Max - Min) * Pct), Step)
+                        
+                        if Sliding_Min then
+                            if Calc_Val <= Nixware_Premium_Api.Flags[Flag].Max then
+                                Nixware_Premium_Api.Flags[Flag].Min = Calc_Val
+                            else
+                                Nixware_Premium_Api.Flags[Flag].Min = Nixware_Premium_Api.Flags[Flag].Max
+                            end
+                        elseif Sliding_Max then
+                            if Calc_Val >= Nixware_Premium_Api.Flags[Flag].Min then
+                                Nixware_Premium_Api.Flags[Flag].Max = Calc_Val
+                            else
+                                Nixware_Premium_Api.Flags[Flag].Max = Nixware_Premium_Api.Flags[Flag].Min
+                            end
+                        end
+                        Update_Visuals()
+                        if Callback then task.spawn(Callback, Nixware_Premium_Api.Flags[Flag]) end
+                    end
+                end)
+            end
+
+            function Elements:Textbox_Create(Name, Flag, Default, Tooltip, Callback)
+                Nixware_Premium_Api.Flags[Flag] = Default or ""
+
+                local Box_Frame = Instance.new("Frame")
+                Box_Frame.Size = UDim2.new(1, 0, 0, 36)
+                Box_Frame.BackgroundTransparency = 1
+                Box_Frame.Parent = Target_Container
+
+                local Text = Instance.new("TextLabel")
+                Text.Size = UDim2.new(1, -120, 1, 0)
+                Text.Position = UDim2.new(0, 2, 0, 0)
+                Text.BackgroundTransparency = 1
+                Text.Text = Name
+                Text.TextColor3 = Colors.Text_White
+                Text.TextSize = 12
+                Text.Font = Main_Font
+                Text.TextXAlignment = Enum.TextXAlignment.Left
+                Text.Parent = Box_Frame
+
+                local Txt_Bg = Instance.new("Frame")
+                Txt_Bg.Size = UDim2.new(0, 110, 0, 24)
+                Txt_Bg.Position = UDim2.new(1, -112, 0.5, -12)
+                Txt_Bg.BackgroundColor3 = Colors.Element_Bg
+                Txt_Bg.Parent = Box_Frame
+                
+                local Bg_Corner = Instance.new("UICorner")
+                Bg_Corner.CornerRadius = UDim.new(0, 4)
+                Bg_Corner.Parent = Txt_Bg
+                
+                local Bg_Stroke = Instance.new("UIStroke")
+                Bg_Stroke.Color = Colors.Border
+                Bg_Stroke.Parent = Txt_Bg
+
+                local Input_Box = Instance.new("TextBox")
+                Input_Box.Size = UDim2.new(1, -10, 1, 0)
+                Input_Box.Position = UDim2.new(0, 5, 0, 0)
+                Input_Box.BackgroundTransparency = 1
+                Input_Box.Text = Nixware_Premium_Api.Flags[Flag]
+                Input_Box.TextColor3 = Colors.Text_Dark
+                Input_Box.TextSize = 12
+                Input_Box.Font = Main_Font
+                Input_Box.ClearTextOnFocus = false
+                Input_Box.TextXAlignment = Enum.TextXAlignment.Left
+                Input_Box.ClipsDescendants = true
+                Input_Box.Parent = Txt_Bg
+
+                Input_Box.MouseEnter:Connect(function()
+                    Show_Tooltip(Tooltip)
+                    Animate(Bg_Stroke, {Color = Colors.Border_Light}, 0.2418)
+                end)
+                Input_Box.MouseLeave:Connect(function()
+                    Show_Tooltip("")
+                    Animate(Bg_Stroke, {Color = Colors.Border}, 0.2418)
+                end)
+
+                Input_Box.Focused:Connect(function()
+                    Animate(Bg_Stroke, {Color = Colors.Accent}, 0.2418)
+                    Animate(Input_Box, {TextColor3 = Colors.Text_White}, 0.2418)
+                end)
+
+                Input_Box.FocusLost:Connect(function()
+                    Animate(Bg_Stroke, {Color = Colors.Border}, 0.2418)
+                    Animate(Input_Box, {TextColor3 = Colors.Text_Dark}, 0.2418)
+                    Nixware_Premium_Api.Flags[Flag] = Input_Box.Text
+                    if Callback then task.spawn(Callback, Input_Box.Text) end
+                end)
+            end
+
+            function Elements:Keybind_Create(Name, Flag, Default, Tooltip, Callback)
+                Nixware_Premium_Api.Flags[Flag] = Default or Enum.KeyCode.Unknown
+                local Listening = false
+
+                local Bind_Frame = Instance.new("Frame")
+                Bind_Frame.Size = UDim2.new(1, 0, 0, 24)
+                Bind_Frame.BackgroundTransparency = 1
+                Bind_Frame.Parent = Target_Container
+
+                local Text = Instance.new("TextLabel")
+                Text.Size = UDim2.new(1, -80, 1, 0)
+                Text.Position = UDim2.new(0, 2, 0, 0)
+                Text.BackgroundTransparency = 1
+                Text.Text = Name
+                Text.TextColor3 = Colors.Text_White
+                Text.TextSize = 12
+                Text.Font = Main_Font
+                Text.TextXAlignment = Enum.TextXAlignment.Left
+                Text.Parent = Bind_Frame
+
+                local Bind_Btn = Instance.new("TextButton")
+                Bind_Btn.Size = UDim2.new(0, 70, 0, 20)
+                Bind_Btn.Position = UDim2.new(1, -72, 0.5, -10)
+                Bind_Btn.BackgroundColor3 = Colors.Element_Bg
+                Bind_Btn.Text = Nixware_Premium_Api.Flags[Flag] == Enum.KeyCode.Unknown and "[ None ]" or "[ " .. Nixware_Premium_Api.Flags[Flag].Name .. " ]"
+                Bind_Btn.TextColor3 = Colors.Text_Dark
+                Bind_Btn.TextSize = 11
+                Bind_Btn.Font = Bold_Font
+                Bind_Btn.AutoButtonColor = false
+                Bind_Btn.Parent = Bind_Frame
+
+                local Btn_Corner = Instance.new("UICorner")
+                Btn_Corner.CornerRadius = UDim.new(0, 4)
+                Btn_Corner.Parent = Bind_Btn
+
+                local Btn_Stroke = Instance.new("UIStroke")
+                Btn_Stroke.Color = Colors.Border
+                Btn_Stroke.Parent = Bind_Btn
+
+                Bind_Btn.MouseEnter:Connect(function()
+                    Show_Tooltip(Tooltip)
+                    if not Listening then Animate(Btn_Stroke, {Color = Colors.Border_Light}, 0.2) end
+                end)
+                Bind_Btn.MouseLeave:Connect(function()
+                    Show_Tooltip("")
+                    if not Listening then Animate(Btn_Stroke, {Color = Colors.Border}, 0.2) end
+                end)
+
+                Bind_Btn.MouseButton1Click:Connect(function()
+                    Listening = true
+                    Bind_Btn.Text = "[ ... ]"
+                    Animate(Btn_Stroke, {Color = Colors.Accent}, 0.2)
+                    Animate(Bind_Btn, {TextColor3 = Colors.Text_White}, 0.2)
+                end)
+
+                User_Input_Service.InputBegan:Connect(function(Input)
+                    if Listening then
+                        if Input.KeyCode ~= Enum.KeyCode.Unknown and Input.KeyCode ~= Enum.KeyCode.Escape then
+                            Nixware_Premium_Api.Flags[Flag] = Input.KeyCode
+                            Bind_Btn.Text = "[ " .. Input.KeyCode.Name .. " ]"
+                        elseif Input.KeyCode == Enum.KeyCode.Escape then
+                            Nixware_Premium_Api.Flags[Flag] = Enum.KeyCode.Unknown
+                            Bind_Btn.Text = "[ None ]"
+                        end
+                        Listening = false
+                        Animate(Btn_Stroke, {Color = Colors.Border}, 0.2)
+                        Animate(Bind_Btn, {TextColor3 = Colors.Text_Dark}, 0.2)
+                        if Callback then task.spawn(Callback, Nixware_Premium_Api.Flags[Flag]) end
+                    else
+                        if Input.KeyCode == Nixware_Premium_Api.Flags[Flag] and Input.KeyCode ~= Enum.KeyCode.Unknown then
+                            if Callback then task.spawn(Callback, Nixware_Premium_Api.Flags[Flag]) end
+                        end
+                    end
                 end)
             end
 
