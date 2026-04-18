@@ -5,9 +5,12 @@ local tweenService = game:GetService("TweenService")
 local textService = game:GetService("TextService")
 local httpService = game:GetService("HttpService")
 local workspaceService = game:GetService("Workspace")
+local playersService = game:GetService("Players")
 
 local LibraryApi = {
-    Flags = {}
+    Flags = {},
+    FolderName = "Moonshade",
+    ConfigName = "Moonshade.json"
 }
 
 local colors = {
@@ -86,7 +89,7 @@ notificationLayout.Parent = notificationContainer
 local tooltipTargetText = ""
 
 local function animateElement(element, properties, speed)
-    local tween = tweenService:Create(element, TweenInfo.new(speed or 0.21837482, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), properties)
+    local tween = tweenService:Create(element, TweenInfo.new(speed or 0.35, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), properties)
     tween:Play()
     return tween
 end
@@ -133,21 +136,70 @@ local function formatValue(value, step)
     return tostring(value)
 end
 
+local function saveConfiguration()
+    pcall(function()
+        if not isfolder or not writefile then return end
+        if not isfolder(LibraryApi.FolderName) then
+            makefolder(LibraryApi.FolderName)
+        end
+        local serializedData = {}
+        for key, val in pairs(LibraryApi.Flags) do
+            if typeof(val) == "Color3" then
+                serializedData[key] = {Type = "Color3", R = val.R, G = val.G, B = val.B}
+            elseif typeof(val) == "EnumItem" then
+                serializedData[key] = {Type = "KeyCode", Name = val.Name}
+            elseif type(val) == "table" and val.Min and val.Max then
+                serializedData[key] = {Type = "Range", Min = val.Min, Max = val.Max}
+            else
+                serializedData[key] = val
+            end
+        end
+        writefile(LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName, httpService:JSONEncode(serializedData))
+    end)
+end
+
+local function loadConfiguration()
+    pcall(function()
+        if not isfolder or not isfile or not readfile then return end
+        local fullPath = LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName
+        if isfile(fullPath) then
+            local decodedData = httpService:JSONDecode(readfile(fullPath))
+            if type(decodedData) == "table" then
+                for key, val in pairs(decodedData) do
+                    if type(val) == "table" then
+                        if val.Type == "Color3" then
+                            LibraryApi.Flags[key] = Color3.new(val.R, val.G, val.B)
+                        elseif val.Type == "KeyCode" then
+                            LibraryApi.Flags[key] = Enum.KeyCode[val.Name] or Enum.KeyCode.Unknown
+                        elseif val.Type == "Range" then
+                            LibraryApi.Flags[key] = {Min = val.Min, Max = val.Max}
+                        end
+                    else
+                        LibraryApi.Flags[key] = val
+                    end
+                end
+            end
+        end
+    end)
+end
+
+loadConfiguration()
+
 runService.RenderStepped:Connect(function()
     if tooltipTargetText ~= "" then
         local mouseLocation = userInputService:GetMouseLocation()
         tooltipFrame.Position = UDim2.new(0, mouseLocation.X + 15, 0, mouseLocation.Y + 15)
         if not tooltipFrame.Visible then
             tooltipFrame.Visible = true
-            animateElement(tooltipFrame, {BackgroundTransparency = 0.1837265}, 0.1837265)
-            animateElement(tooltipStroke, {Transparency = 0}, 0.1837265)
-            animateElement(tooltipText, {TextTransparency = 0}, 0.1837265)
+            animateElement(tooltipFrame, {BackgroundTransparency = 0.1837265}, 0.25)
+            animateElement(tooltipStroke, {Transparency = 0}, 0.25)
+            animateElement(tooltipText, {TextTransparency = 0}, 0.25)
         end
     else
-        animateElement(tooltipFrame, {BackgroundTransparency = 1}, 0.1284739)
-        animateElement(tooltipStroke, {Transparency = 1}, 0.1284739)
-        animateElement(tooltipText, {TextTransparency = 1}, 0.1284739)
-        task.delay(0.1284739, function()
+        animateElement(tooltipFrame, {BackgroundTransparency = 1}, 0.15)
+        animateElement(tooltipStroke, {Transparency = 1}, 0.15)
+        animateElement(tooltipText, {TextTransparency = 1}, 0.15)
+        task.delay(0.15, function()
             if tooltipTargetText == "" then
                 tooltipFrame.Visible = false
             end
@@ -217,10 +269,10 @@ function LibraryApi:Notify(config)
     textLabel.ZIndex = 1502
     textLabel.Parent = notificationFrame
 
-    animateElement(notificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.43857)
+    animateElement(notificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.45)
 
     task.delay(duration, function()
-        local hideTween = animateElement(notificationFrame, {Position = UDim2.new(1, 320, 0, 0)}, 0.38472)
+        local hideTween = animateElement(notificationFrame, {Position = UDim2.new(1, 320, 0, 0)}, 0.45)
         hideTween.Completed:Connect(function()
             notificationFrame:Destroy()
         end)
@@ -236,6 +288,9 @@ function LibraryApi:CreateWindow(windowName)
     mainBackground.BorderSizePixel = 0
     mainBackground.Active = true
     mainBackground.Parent = screenGui
+
+    local uiScaleModifier = Instance.new("UIScale")
+    uiScaleModifier.Parent = mainBackground
     
     local mainCorner = Instance.new("UICorner")
     mainCorner.CornerRadius = UDim.new(0, 6)
@@ -354,6 +409,85 @@ function LibraryApi:CreateWindow(windowName)
     contentAreaFrame.BackgroundTransparency = 1
     contentAreaFrame.Parent = mainBackground
 
+    local mobileToggleButton = Instance.new("ImageButton")
+    mobileToggleButton.Size = UDim2.new(0, 50, 0, 50)
+    mobileToggleButton.Position = UDim2.new(0, 20, 0.5, -25)
+    mobileToggleButton.BackgroundColor3 = colors.mainBackground
+    mobileToggleButton.BorderSizePixel = 0
+    mobileToggleButton.ZIndex = 1000
+    mobileToggleButton.Visible = userInputService.TouchEnabled
+    mobileToggleButton.Parent = screenGui
+    
+    local success, avatarImage = pcall(function()
+        return playersService:GetUserThumbnailAsync(playersService.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+    end)
+    mobileToggleButton.Image = success and avatarImage or ""
+
+    local mobileToggleCorner = Instance.new("UICorner")
+    mobileToggleCorner.CornerRadius = UDim.new(1, 0)
+    mobileToggleCorner.Parent = mobileToggleButton
+
+    local mobileToggleStroke = Instance.new("UIStroke")
+    mobileToggleStroke.Color = colors.accentColor
+    mobileToggleStroke.Thickness = 2
+    mobileToggleStroke.Parent = mobileToggleButton
+
+    local isToggleDragging = false
+    local toggleDragInput = nil
+    local toggleDragStart = nil
+    local toggleStartPos = nil
+
+    mobileToggleButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isToggleDragging = true
+            toggleDragStart = input.Position
+            toggleStartPos = mobileToggleButton.Position
+        end
+    end)
+
+    mobileToggleButton.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            toggleDragInput = input
+        end
+    end)
+
+    userInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isToggleDragging = false
+        end
+    end)
+
+    runService.RenderStepped:Connect(function()
+        if isToggleDragging and toggleDragInput then
+            local delta = toggleDragInput.Position - toggleDragStart
+            mobileToggleButton.Position = UDim2.new(toggleStartPos.X.Scale, toggleStartPos.X.Offset + delta.X, toggleStartPos.Y.Scale, toggleStartPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    local toggleClickTime = 0
+    mobileToggleButton.MouseButton1Down:Connect(function()
+        toggleClickTime = tick()
+        animateElement(mobileToggleButton, {Size = UDim2.new(0, 45, 0, 45)}, 0.25)
+    end)
+    
+    mobileToggleButton.MouseButton1Up:Connect(function()
+        animateElement(mobileToggleButton, {Size = UDim2.new(0, 50, 0, 50)}, 0.25)
+        if tick() - toggleClickTime < 0.2 then
+            mainBackground.Visible = not mainBackground.Visible
+        end
+    end)
+
+    local function updateResponsiveScale()
+        local currentViewport = workspaceService.CurrentCamera.ViewportSize
+        local isMobileDevice = userInputService.TouchEnabled and not userInputService.MouseEnabled
+        local referenceHeight = isMobileDevice and 600 or 900
+        local calculatedScale = math.clamp(currentViewport.Y / referenceHeight, 0.6, 1.25)
+        uiScaleModifier.Scale = calculatedScale
+    end
+
+    workspaceService.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
+    updateResponsiveScale()
+
     local isDragging = false
     local dragInput = nil
     local dragStart = nil
@@ -361,7 +495,7 @@ function LibraryApi:CreateWindow(windowName)
     local targetPosition = mainBackground.Position
 
     topBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             isDragging = true
             dragStart = input.Position
             startPosition = mainBackground.Position
@@ -369,19 +503,23 @@ function LibraryApi:CreateWindow(windowName)
     end)
 
     topBar.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then 
+            dragInput = input 
+        end
     end)
 
     userInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then isDragging = false end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+            isDragging = false 
+        end
     end)
 
     runService.RenderStepped:Connect(function()
         if isDragging and dragInput then
-            local Delta = dragInput.Position - dragStart
-            targetPosition = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + Delta.X, startPosition.Y.Scale, startPosition.Y.Offset + Delta.Y)
+            local delta = dragInput.Position - dragStart
+            targetPosition = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + (delta.X / uiScaleModifier.Scale), startPosition.Y.Scale, startPosition.Y.Offset + (delta.Y / uiScaleModifier.Scale))
         end
-        mainBackground.Position = mainBackground.Position:Lerp(targetPosition, 0.1743819)
+        mainBackground.Position = mainBackground.Position:Lerp(targetPosition, 0.25)
     end)
 
     local windowContext = { Tabs = {}, Active_Tab = nil }
@@ -475,18 +613,18 @@ function LibraryApi:CreateWindow(windowName)
         function tabData:Activate()
             if windowContext.Active_Tab == tabData then return end
             if windowContext.Active_Tab then
-                animateElement(windowContext.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.228197)
-                animateElement(windowContext.Active_Tab.Lbl, {TextColor3 = colors.textDarkColor}, 0.228197)
-                if windowContext.Active_Tab.Icon then animateElement(windowContext.Active_Tab.Icon, {ImageColor3 = colors.textDarkColor}, 0.228197) end
-                animateElement(windowContext.Active_Tab.Ind, {Size = UDim2.new(0, 2, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.228197)
+                animateElement(windowContext.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.3)
+                animateElement(windowContext.Active_Tab.Lbl, {TextColor3 = colors.textDarkColor}, 0.3)
+                if windowContext.Active_Tab.Icon then animateElement(windowContext.Active_Tab.Icon, {ImageColor3 = colors.textDarkColor}, 0.3) end
+                animateElement(windowContext.Active_Tab.Ind, {Size = UDim2.new(0, 2, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.3)
                 windowContext.Active_Tab.Page.Visible = false
             end
             windowContext.Active_Tab = tabData
             pageScrollingFrame.Visible = true
-            animateElement(tabButton, {BackgroundTransparency = 0.11847}, 0.228197)
-            animateElement(tabLabel, {TextColor3 = colors.textWhiteColor}, 0.228197)
-            if tabData.Icon then animateElement(tabData.Icon, {ImageColor3 = colors.accentColor}, 0.228197) end
-            animateElement(tabIndicator, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.228197)
+            animateElement(tabButton, {BackgroundTransparency = 0.11847}, 0.3)
+            animateElement(tabLabel, {TextColor3 = colors.textWhiteColor}, 0.3)
+            if tabData.Icon then animateElement(tabData.Icon, {ImageColor3 = colors.accentColor}, 0.3) end
+            animateElement(tabIndicator, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.3)
         end
 
         tabButton.MouseButton1Click:Connect(function() tabData:Activate() end)
@@ -515,7 +653,7 @@ function LibraryApi:CreateWindow(windowName)
             end
 
             function elements:Toggle_Create(name, flag, default, tooltip, callback)
-                LibraryApi.Flags[flag] = default or false
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or false)
 
                 local toggleButton = Instance.new("TextButton")
                 toggleButton.Size = UDim2.new(1, 0, 0, 16)
@@ -551,25 +689,26 @@ function LibraryApi:CreateWindow(windowName)
 
                 toggleButton.MouseEnter:Connect(function()
                     showTooltip(tooltip)
-                    if not LibraryApi.Flags[flag] then animateElement(checkboxStroke, {Color = colors.borderLightColor}, 0.231948) end
+                    if not LibraryApi.Flags[flag] then animateElement(checkboxStroke, {Color = colors.borderLightColor}, 0.25) end
                 end)
                 toggleButton.MouseLeave:Connect(function()
                     showTooltip("")
-                    if not LibraryApi.Flags[flag] then animateElement(checkboxStroke, {Color = colors.borderColor}, 0.231948) end
+                    if not LibraryApi.Flags[flag] then animateElement(checkboxStroke, {Color = colors.borderColor}, 0.25) end
                 end)
 
                 toggleButton.MouseButton1Click:Connect(function()
                     LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
                     local newState = LibraryApi.Flags[flag]
-                    animateElement(checkboxFrame, {BackgroundColor3 = newState and colors.accentColor or colors.elementBackground}, 0.231948)
-                    animateElement(checkboxStroke, {Color = newState and colors.accentColor or colors.borderColor}, 0.231948)
-                    animateElement(toggleLabel, {TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor}, 0.231948)
+                    animateElement(checkboxFrame, {BackgroundColor3 = newState and colors.accentColor or colors.elementBackground}, 0.3)
+                    animateElement(checkboxStroke, {Color = newState and colors.accentColor or colors.borderColor}, 0.3)
+                    animateElement(toggleLabel, {TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor}, 0.3)
+                    saveConfiguration()
                     if callback then task.spawn(callback, newState) end
                 end)
             end
 
             function elements:Slider_Create(name, flag, min, max, default, step, tooltip, callback)
-                LibraryApi.Flags[flag] = snapValue(default or min, step)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or snapValue(default or min, step)
 
                 local sliderFrame = Instance.new("Frame")
                 sliderFrame.Size = UDim2.new(1, 0, 0, 36)
@@ -638,11 +777,11 @@ function LibraryApi:CreateWindow(windowName)
 
                 sliderBackground.MouseEnter:Connect(function()
                     showTooltip(tooltip)
-                    animateElement(sliderBackgroundStroke, {Color = colors.borderLightColor}, 0.24183)
+                    animateElement(sliderBackgroundStroke, {Color = colors.borderLightColor}, 0.25)
                 end)
                 sliderBackground.MouseLeave:Connect(function()
                     showTooltip("")
-                    animateElement(sliderBackgroundStroke, {Color = colors.borderColor}, 0.24183)
+                    animateElement(sliderBackgroundStroke, {Color = colors.borderColor}, 0.25)
                 end)
 
                 local isSliding = false
@@ -653,15 +792,16 @@ function LibraryApi:CreateWindow(windowName)
                     if LibraryApi.Flags[flag] ~= snappedValue then
                         LibraryApi.Flags[flag] = snappedValue
                         local percentage = (snappedValue - min) / (max - min)
-                        animateElement(sliderFill, {Size = UDim2.new(percentage, 0, 1, 0)}, 0.082739)
-                        animateElement(sliderKnob, {Position = UDim2.new(percentage, 0, 0.5, 0)}, 0.082739)
+                        animateElement(sliderFill, {Size = UDim2.new(percentage, 0, 1, 0)}, 0.15)
+                        animateElement(sliderKnob, {Position = UDim2.new(percentage, 0, 0.5, 0)}, 0.15)
                         valueTextBox.Text = formatValue(snappedValue, step)
+                        saveConfiguration()
                         if callback then task.spawn(callback, snappedValue) end
                     end
                 end
 
                 sliderBackground.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         isSliding = true
                         local percentage = math.clamp((input.Position.X - sliderBackground.AbsolutePosition.X) / sliderBackground.AbsoluteSize.X, 0, 1)
                         setSliderValue(min + ((max - min) * percentage))
@@ -669,11 +809,13 @@ function LibraryApi:CreateWindow(windowName)
                 end)
 
                 userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then isSliding = false end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+                        isSliding = false 
+                    end
                 end)
 
                 userInputService.InputChanged:Connect(function(input)
-                    if isSliding and input.UserInputType == Enum.UserInputType.MouseMovement then 
+                    if isSliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then 
                         local percentage = math.clamp((input.Position.X - sliderBackground.AbsolutePosition.X) / sliderBackground.AbsoluteSize.X, 0, 1)
                         setSliderValue(min + ((max - min) * percentage))
                     end
@@ -690,7 +832,9 @@ function LibraryApi:CreateWindow(windowName)
             end
 
             function elements:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltip, callback)
-                LibraryApi.Flags[flag] = {Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step)}
+                if not LibraryApi.Flags[flag] then
+                    LibraryApi.Flags[flag] = {Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step)}
+                end
 
                 local rangeSliderFrame = Instance.new("Frame")
                 rangeSliderFrame.Size = UDim2.new(1, 0, 0, 36)
@@ -765,27 +909,27 @@ function LibraryApi:CreateWindow(windowName)
                 local function updateRangeSliderVisuals()
                     local minPercentage = (LibraryApi.Flags[flag].Min - min) / (max - min)
                     local maxPercentage = (LibraryApi.Flags[flag].Max - min) / (max - min)
-                    animateElement(rangeSliderFill, {Position = UDim2.new(minPercentage, 0, 0, 0), Size = UDim2.new(maxPercentage - minPercentage, 0, 1, 0)}, 0.082736)
-                    animateElement(minRangeKnob, {Position = UDim2.new(minPercentage, 0, 0.5, 0)}, 0.082736)
-                    animateElement(maxRangeKnob, {Position = UDim2.new(maxPercentage, 0, 0.5, 0)}, 0.082736)
+                    animateElement(rangeSliderFill, {Position = UDim2.new(minPercentage, 0, 0, 0), Size = UDim2.new(maxPercentage - minPercentage, 0, 1, 0)}, 0.15)
+                    animateElement(minRangeKnob, {Position = UDim2.new(minPercentage, 0, 0.5, 0)}, 0.15)
+                    animateElement(maxRangeKnob, {Position = UDim2.new(maxPercentage, 0, 0.5, 0)}, 0.15)
                     valueLabel.Text = formatValue(LibraryApi.Flags[flag].Min, step) .. " - " .. formatValue(LibraryApi.Flags[flag].Max, step)
                 end
                 updateRangeSliderVisuals()
 
                 rangeSliderBackground.MouseEnter:Connect(function()
                     showTooltip(tooltip)
-                    animateElement(rangeSliderBackgroundStroke, {Color = colors.borderLightColor}, 0.24183)
+                    animateElement(rangeSliderBackgroundStroke, {Color = colors.borderLightColor}, 0.25)
                 end)
                 rangeSliderBackground.MouseLeave:Connect(function()
                     showTooltip("")
-                    animateElement(rangeSliderBackgroundStroke, {Color = colors.borderColor}, 0.24183)
+                    animateElement(rangeSliderBackgroundStroke, {Color = colors.borderColor}, 0.25)
                 end)
 
                 local isSlidingMin = false
                 local isSlidingMax = false
 
                 rangeSliderBackground.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         local mouseX = input.Position.X
                         local minPercentage = (LibraryApi.Flags[flag].Min - min) / (max - min)
                         local maxPercentage = (LibraryApi.Flags[flag].Max - min) / (max - min)
@@ -801,14 +945,14 @@ function LibraryApi:CreateWindow(windowName)
                 end)
 
                 userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then 
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
                         isSlidingMin = false
                         isSlidingMax = false
                     end
                 end)
 
                 userInputService.InputChanged:Connect(function(input)
-                    if (isSlidingMin or isSlidingMax) and input.UserInputType == Enum.UserInputType.MouseMovement then 
+                    if (isSlidingMin or isSlidingMax) and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then 
                         local percentage = math.clamp((input.Position.X - rangeSliderBackground.AbsolutePosition.X) / rangeSliderBackground.AbsoluteSize.X, 0, 1)
                         local calculatedValue = snapValue(min + ((max - min) * percentage), step)
                         
@@ -826,13 +970,14 @@ function LibraryApi:CreateWindow(windowName)
                             end
                         end
                         updateRangeSliderVisuals()
+                        saveConfiguration()
                         if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
                     end
                 end)
             end
 
             function elements:Textbox_Create(name, flag, default, tooltip, callback)
-                LibraryApi.Flags[flag] = default or ""
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or "")
 
                 local textboxFrame = Instance.new("Frame")
                 textboxFrame.Size = UDim2.new(1, 0, 0, 36)
@@ -880,28 +1025,29 @@ function LibraryApi:CreateWindow(windowName)
 
                 inputTextBox.MouseEnter:Connect(function()
                     showTooltip(tooltip)
-                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderLightColor}, 0.24182)
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderLightColor}, 0.25)
                 end)
                 inputTextBox.MouseLeave:Connect(function()
                     showTooltip("")
-                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderColor}, 0.24182)
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderColor}, 0.25)
                 end)
 
                 inputTextBox.Focused:Connect(function()
-                    animateElement(textboxInputBackgroundStroke, {Color = colors.accentColor}, 0.24182)
-                    animateElement(inputTextBox, {TextColor3 = colors.textWhiteColor}, 0.24182)
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.accentColor}, 0.25)
+                    animateElement(inputTextBox, {TextColor3 = colors.textWhiteColor}, 0.25)
                 end)
 
                 inputTextBox.FocusLost:Connect(function()
-                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderColor}, 0.24182)
-                    animateElement(inputTextBox, {TextColor3 = colors.textDarkColor}, 0.24182)
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderColor}, 0.25)
+                    animateElement(inputTextBox, {TextColor3 = colors.textDarkColor}, 0.25)
                     LibraryApi.Flags[flag] = inputTextBox.Text
+                    saveConfiguration()
                     if callback then task.spawn(callback, inputTextBox.Text) end
                 end)
             end
 
             function elements:Keybind_Create(name, flag, default, tooltip, callback)
-                LibraryApi.Flags[flag] = default or Enum.KeyCode.Unknown
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Enum.KeyCode.Unknown)
                 local isListening = false
 
                 local keybindFrame = Instance.new("Frame")
@@ -950,18 +1096,18 @@ function LibraryApi:CreateWindow(windowName)
 
                 keybindButton.MouseEnter:Connect(function()
                     showTooltip(tooltip)
-                    if not isListening then animateElement(keybindButtonStroke, {Color = colors.borderLightColor}, 0.20147) end
+                    if not isListening then animateElement(keybindButtonStroke, {Color = colors.borderLightColor}, 0.25) end
                 end)
                 keybindButton.MouseLeave:Connect(function()
                     showTooltip("")
-                    if not isListening then animateElement(keybindButtonStroke, {Color = colors.borderColor}, 0.20147) end
+                    if not isListening then animateElement(keybindButtonStroke, {Color = colors.borderColor}, 0.25) end
                 end)
 
                 keybindButton.MouseButton1Click:Connect(function()
                     isListening = true
                     keybindButton.Text = "[ ... ]"
-                    animateElement(keybindButtonStroke, {Color = colors.accentColor}, 0.20147)
-                    animateElement(keybindButton, {TextColor3 = colors.textWhiteColor}, 0.20147)
+                    animateElement(keybindButtonStroke, {Color = colors.accentColor}, 0.3)
+                    animateElement(keybindButton, {TextColor3 = colors.textWhiteColor}, 0.3)
                 end)
 
                 userInputService.InputBegan:Connect(function(input)
@@ -974,8 +1120,9 @@ function LibraryApi:CreateWindow(windowName)
                             keybindButton.Text = "[ None ]"
                         end
                         isListening = false
-                        animateElement(keybindButtonStroke, {Color = colors.borderColor}, 0.20147)
-                        animateElement(keybindButton, {TextColor3 = colors.textDarkColor}, 0.20147)
+                        animateElement(keybindButtonStroke, {Color = colors.borderColor}, 0.3)
+                        animateElement(keybindButton, {TextColor3 = colors.textDarkColor}, 0.3)
+                        saveConfiguration()
                         if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
                     else
                         if input.KeyCode == LibraryApi.Flags[flag] and input.KeyCode ~= Enum.KeyCode.Unknown then
@@ -986,7 +1133,7 @@ function LibraryApi:CreateWindow(windowName)
             end
 
             function elements:Dropdown_Create(name, flag, options, default, tooltip, callback)
-                LibraryApi.Flags[flag] = default or options[1]
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or options[1])
                 local isDropdownOpen = false
 
                 local dropdownFrame = Instance.new("Frame")
@@ -1070,20 +1217,20 @@ function LibraryApi:CreateWindow(windowName)
                     isDropdownOpen = not isDropdownOpen
                     local maxListHeight = math.min(#options * 24, 120)
                     local targetListHeight = isDropdownOpen and maxListHeight or 0
-                    animateElement(dropdownMainButtonStroke, {Color = isDropdownOpen and colors.accentColor or colors.borderColor}, 0.256247)
-                    animateElement(dropdownArrowIcon, {Rotation = isDropdownOpen and 180 or 0, ImageColor3 = isDropdownOpen and colors.accentColor or colors.textDarkColor}, 0.256247)
-                    animateElement(dropdownOptionListFrame, {Size = UDim2.new(1, -4, 0, targetListHeight)}, 0.256247)
-                    animateElement(dropdownOptionListStroke, {Transparency = isDropdownOpen and 0 or 1}, 0.256247)
-                    animateElement(dropdownFrame, {Size = UDim2.new(1, 0, 0, 46 + targetListHeight + (isDropdownOpen and 4 or 0))}, 0.256247)
+                    animateElement(dropdownMainButtonStroke, {Color = isDropdownOpen and colors.accentColor or colors.borderColor}, 0.3)
+                    animateElement(dropdownArrowIcon, {Rotation = isDropdownOpen and 180 or 0, ImageColor3 = isDropdownOpen and colors.accentColor or colors.textDarkColor}, 0.3)
+                    animateElement(dropdownOptionListFrame, {Size = UDim2.new(1, -4, 0, targetListHeight)}, 0.3)
+                    animateElement(dropdownOptionListStroke, {Transparency = isDropdownOpen and 0 or 1}, 0.3)
+                    animateElement(dropdownFrame, {Size = UDim2.new(1, 0, 0, 46 + targetListHeight + (isDropdownOpen and 4 or 0))}, 0.3)
                 end
 
                 dropdownMainButton.MouseEnter:Connect(function()
                     showTooltip(tooltip)
-                    if not isDropdownOpen then animateElement(dropdownMainButtonStroke, {Color = colors.borderLightColor}, 0.198375) end
+                    if not isDropdownOpen then animateElement(dropdownMainButtonStroke, {Color = colors.borderLightColor}, 0.25) end
                 end)
                 dropdownMainButton.MouseLeave:Connect(function()
                     showTooltip("")
-                    if not isDropdownOpen then animateElement(dropdownMainButtonStroke, {Color = colors.borderColor}, 0.198375) end
+                    if not isDropdownOpen then animateElement(dropdownMainButtonStroke, {Color = colors.borderColor}, 0.25) end
                 end)
                 dropdownMainButton.MouseButton1Click:Connect(toggleDropdownState)
 
@@ -1107,15 +1254,15 @@ function LibraryApi:CreateWindow(windowName)
                     optionLabel.Parent = optionButton
 
                     optionButton.MouseEnter:Connect(function() 
-                        animateElement(optionButton, {BackgroundTransparency = 0.21847}, 0.153283)
+                        animateElement(optionButton, {BackgroundTransparency = 0.21847}, 0.25)
                         if LibraryApi.Flags[flag] ~= option then
-                            animateElement(optionLabel, {TextColor3 = colors.textWhiteColor}, 0.153283) 
+                            animateElement(optionLabel, {TextColor3 = colors.textWhiteColor}, 0.25) 
                         end
                     end)
                     optionButton.MouseLeave:Connect(function()
-                        animateElement(optionButton, {BackgroundTransparency = 1}, 0.153283)
+                        animateElement(optionButton, {BackgroundTransparency = 1}, 0.25)
                         if LibraryApi.Flags[flag] ~= option then
-                            animateElement(optionLabel, {TextColor3 = colors.textDarkColor}, 0.153283)
+                            animateElement(optionLabel, {TextColor3 = colors.textDarkColor}, 0.25)
                         end
                     end)
 
@@ -1125,10 +1272,11 @@ function LibraryApi:CreateWindow(windowName)
                         toggleDropdownState()
                         for _, child in ipairs(dropdownOptionListFrame:GetChildren()) do
                             if child:IsA("TextButton") then
-                                animateElement(child:FindFirstChildOfClass("TextLabel"), {TextColor3 = colors.textDarkColor}, 0.153283)
+                                animateElement(child:FindFirstChildOfClass("TextLabel"), {TextColor3 = colors.textDarkColor}, 0.3)
                             end
                         end
-                        animateElement(optionLabel, {TextColor3 = colors.accentColor}, 0.153283)
+                        animateElement(optionLabel, {TextColor3 = colors.accentColor}, 0.3)
+                        saveConfiguration()
                         if callback then task.spawn(callback, option) end
                     end)
                 end
@@ -1136,7 +1284,7 @@ function LibraryApi:CreateWindow(windowName)
             end
 
             function elements:ColorPicker_Create(name, flag, default, tooltip, callback)
-                LibraryApi.Flags[flag] = default or Color3.new(1, 1, 1)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Color3.new(1, 1, 1))
                 local isColorPickerOpen = false
                 local hue, saturation, value = LibraryApi.Flags[flag]:ToHSV()
 
@@ -1245,6 +1393,7 @@ function LibraryApi:CreateWindow(windowName)
                     colorPreviewButton.BackgroundColor3 = currentColor
                     saturationValueMapCursor.Position = UDim2.new(saturation, 0, 1 - value, 0)
                     hueMapCursor.Position = UDim2.new(hue, 0, 0.5, 0)
+                    saveConfiguration()
                     if callback then task.spawn(callback, currentColor) end
                 end
 
@@ -1263,28 +1412,28 @@ function LibraryApi:CreateWindow(windowName)
                 end
 
                 saturationValueMap.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         isSlidingSaturationValue = true
                         processSaturationValueInput(input)
                     end
                 end)
                 
                 hueMap.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         isSlidingHue = true
                         processHueInput(input)
                     end
                 end)
 
                 userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         isSlidingSaturationValue = false
                         isSlidingHue = false
                     end
                 end)
 
                 userInputService.InputChanged:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseMovement then
+                    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                         if isSlidingSaturationValue then processSaturationValueInput(input) end
                         if isSlidingHue then processHueInput(input) end
                     end
@@ -1292,17 +1441,17 @@ function LibraryApi:CreateWindow(windowName)
 
                 colorPreviewButton.MouseEnter:Connect(function()
                     showTooltip(tooltip)
-                    if not isColorPickerOpen then animateElement(colorPreviewButtonStroke, {Color = colors.borderLightColor}, 0.218413) end
+                    if not isColorPickerOpen then animateElement(colorPreviewButtonStroke, {Color = colors.borderLightColor}, 0.25) end
                 end)
                 colorPreviewButton.MouseLeave:Connect(function()
                     showTooltip("")
-                    if not isColorPickerOpen then animateElement(colorPreviewButtonStroke, {Color = colors.borderColor}, 0.218413) end
+                    if not isColorPickerOpen then animateElement(colorPreviewButtonStroke, {Color = colors.borderColor}, 0.25) end
                 end)
 
                 colorPreviewButton.MouseButton1Click:Connect(function()
                     isColorPickerOpen = not isColorPickerOpen
-                    animateElement(colorPreviewButtonStroke, {Color = isColorPickerOpen and colors.accentColor or colors.borderColor}, 0.263628)
-                    animateElement(colorPickerFrame, {Size = UDim2.new(1, 0, 0, isColorPickerOpen and 224 or 24)}, 0.281352)
+                    animateElement(colorPreviewButtonStroke, {Color = isColorPickerOpen and colors.accentColor or colors.borderColor}, 0.3)
+                    animateElement(colorPickerFrame, {Size = UDim2.new(1, 0, 0, isColorPickerOpen and 224 or 24)}, 0.3)
                 end)
             end
 
@@ -1334,19 +1483,19 @@ function LibraryApi:CreateWindow(windowName)
 
                 actionButton.MouseEnter:Connect(function()
                     showTooltip(tooltip)
-                    animateElement(actionButton, {BackgroundColor3 = colors.elementHoverBackground}, 0.219834)
-                    animateElement(actionButtonStroke, {Color = colors.accentColor}, 0.219834)
-                    animateElement(actionButton, {TextColor3 = colors.accentColor}, 0.219834)
+                    animateElement(actionButton, {BackgroundColor3 = colors.elementHoverBackground}, 0.25)
+                    animateElement(actionButtonStroke, {Color = colors.accentColor}, 0.25)
+                    animateElement(actionButton, {TextColor3 = colors.accentColor}, 0.25)
                 end)
                 actionButton.MouseLeave:Connect(function()
                     showTooltip("")
-                    animateElement(actionButton, {BackgroundColor3 = colors.elementBackground}, 0.219834)
-                    animateElement(actionButtonStroke, {Color = colors.borderColor}, 0.219834)
-                    animateElement(actionButton, {TextColor3 = colors.textWhiteColor}, 0.219834)
+                    animateElement(actionButton, {BackgroundColor3 = colors.elementBackground}, 0.25)
+                    animateElement(actionButtonStroke, {Color = colors.borderColor}, 0.25)
+                    animateElement(actionButton, {TextColor3 = colors.textWhiteColor}, 0.25)
                 end)
-                actionButton.MouseButton1Down:Connect(function() animateElement(actionButton, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.124538) end)
+                actionButton.MouseButton1Down:Connect(function() animateElement(actionButton, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.15) end)
                 actionButton.MouseButton1Up:Connect(function()
-                    animateElement(actionButton, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.124538)
+                    animateElement(actionButton, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.15)
                     if callback then task.spawn(callback) end
                 end)
             end
@@ -1379,25 +1528,25 @@ function LibraryApi:CreateWindow(windowName)
 
                 subButtonAction.MouseEnter:Connect(function()
                     showTooltip(tooltip)
-                    animateElement(subButtonAction, {BackgroundColor3 = colors.elementBackground}, 0.219834)
-                    animateElement(subButtonStroke, {Color = colors.borderLightColor}, 0.219834)
-                    animateElement(subButtonAction, {TextColor3 = colors.textWhiteColor}, 0.219834)
+                    animateElement(subButtonAction, {BackgroundColor3 = colors.elementBackground}, 0.25)
+                    animateElement(subButtonStroke, {Color = colors.borderLightColor}, 0.25)
+                    animateElement(subButtonAction, {TextColor3 = colors.textWhiteColor}, 0.25)
                 end)
                 subButtonAction.MouseLeave:Connect(function()
                     showTooltip("")
-                    animateElement(subButtonAction, {BackgroundColor3 = colors.sectionBackground}, 0.219834)
-                    animateElement(subButtonStroke, {Color = colors.borderColor}, 0.219834)
-                    animateElement(subButtonAction, {TextColor3 = colors.textDarkColor}, 0.219834)
+                    animateElement(subButtonAction, {BackgroundColor3 = colors.sectionBackground}, 0.25)
+                    animateElement(subButtonStroke, {Color = colors.borderColor}, 0.25)
+                    animateElement(subButtonAction, {TextColor3 = colors.textDarkColor}, 0.25)
                 end)
-                subButtonAction.MouseButton1Down:Connect(function() animateElement(subButtonAction, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.124538) end)
+                subButtonAction.MouseButton1Down:Connect(function() animateElement(subButtonAction, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.15) end)
                 subButtonAction.MouseButton1Up:Connect(function()
-                    animateElement(subButtonAction, {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0)}, 0.124538)
+                    animateElement(subButtonAction, {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0)}, 0.15)
                     if callback then task.spawn(callback) end
                 end)
             end
 
-            function elements:Module_Create(name, flag, desc, default, tooltip, callback)
-                LibraryApi.Flags[flag] = default or false
+            function elements:Module_Create(name, flag, descriptionText, default, tooltip, callback)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or false)
 
                 local moduleFrame = Instance.new("Frame")
                 moduleFrame.Size = UDim2.new(1, 0, 0, 46)
@@ -1452,7 +1601,7 @@ function LibraryApi:CreateWindow(windowName)
                 moduleDescriptionLabel.Size = UDim2.new(1, -45, 0, 14)
                 moduleDescriptionLabel.Position = UDim2.new(0, 40, 0, 22)
                 moduleDescriptionLabel.BackgroundTransparency = 1
-                moduleDescriptionLabel.Text = desc
+                moduleDescriptionLabel.Text = descriptionText
                 moduleDescriptionLabel.TextColor3 = colors.textDarkColor
                 moduleDescriptionLabel.TextSize = 11
                 moduleDescriptionLabel.Font = mainFont
@@ -1480,11 +1629,11 @@ function LibraryApi:CreateWindow(windowName)
 
                 local function synchronizeModuleSize()
                     if LibraryApi.Flags[flag] then
-                        animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46 + moduleContentLayout.AbsoluteContentSize.Y + 8)}, 0.287413)
-                        animateElement(moduleArrowIcon, {Rotation = 180, ImageColor3 = colors.accentColor}, 0.287413)
+                        animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46 + moduleContentLayout.AbsoluteContentSize.Y + 8)}, 0.3)
+                        animateElement(moduleArrowIcon, {Rotation = 180, ImageColor3 = colors.accentColor}, 0.3)
                     else
-                        animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46)}, 0.287413)
-                        animateElement(moduleArrowIcon, {Rotation = 0, ImageColor3 = colors.textDarkColor}, 0.287413)
+                        animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46)}, 0.3)
+                        animateElement(moduleArrowIcon, {Rotation = 0, ImageColor3 = colors.textDarkColor}, 0.3)
                     end
                 end
 
@@ -1494,20 +1643,21 @@ function LibraryApi:CreateWindow(windowName)
 
                 moduleToggleButton.MouseEnter:Connect(function()
                     showTooltip(tooltip)
-                    if not LibraryApi.Flags[flag] then animateElement(moduleToggleButtonStroke, {Color = colors.borderLightColor}, 0.218461) end
+                    if not LibraryApi.Flags[flag] then animateElement(moduleToggleButtonStroke, {Color = colors.borderLightColor}, 0.25) end
                 end)
                 moduleToggleButton.MouseLeave:Connect(function()
                     showTooltip("")
-                    if not LibraryApi.Flags[flag] then animateElement(moduleToggleButtonStroke, {Color = colors.borderColor}, 0.218461) end
+                    if not LibraryApi.Flags[flag] then animateElement(moduleToggleButtonStroke, {Color = colors.borderColor}, 0.25) end
                 end)
 
                 moduleToggleButton.MouseButton1Click:Connect(function()
                     LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
                     local newState = LibraryApi.Flags[flag]
-                    animateElement(moduleCheckboxFrame, {BackgroundColor3 = newState and colors.accentColor or colors.sectionBackground}, 0.218461)
-                    animateElement(moduleToggleButtonStroke, {Color = newState and colors.accentColor or colors.borderColor}, 0.218461)
-                    animateElement(moduleLabel, {TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor}, 0.218461)
+                    animateElement(moduleCheckboxFrame, {BackgroundColor3 = newState and colors.accentColor or colors.sectionBackground}, 0.3)
+                    animateElement(moduleToggleButtonStroke, {Color = newState and colors.accentColor or colors.borderColor}, 0.3)
+                    animateElement(moduleLabel, {TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor}, 0.3)
                     synchronizeModuleSize()
+                    saveConfiguration()
                     if callback then task.spawn(callback, newState) end
                 end)
 
