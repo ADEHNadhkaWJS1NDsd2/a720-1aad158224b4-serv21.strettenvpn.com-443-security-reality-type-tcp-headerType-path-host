@@ -33,6 +33,7 @@ Cool_Tooltip_Gui.Name = Http_Service:GenerateGUID(false)
 Cool_Tooltip_Gui.Parent = Core_Gui
 Cool_Tooltip_Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Cool_Tooltip_Gui.DisplayOrder = 999 
+Cool_Tooltip_Gui.IgnoreGuiInset = true
 
 local Cool_Tooltip_Frame = Instance.new("Frame")
 Cool_Tooltip_Frame.BackgroundColor3 = Cool_Colors.Tooltip_Bg
@@ -110,6 +111,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
     Cool_Screen.Name = Http_Service:GenerateGUID(false)
     Cool_Screen.Parent = Core_Gui
     Cool_Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    Cool_Screen.IgnoreGuiInset = true
 
     local Cool_Main_Bg = Instance.new("Frame")
     Cool_Main_Bg.Size = UDim2.new(0, 720, 0, 480)
@@ -747,13 +749,31 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 end
 
                 local SV_Sliding = false
+                local Hue_Sliding = false
+
+                local function Update_SV(Input)
+                    S = math.clamp((Input.Position.X - SV_Map.AbsolutePosition.X) / SV_Map.AbsoluteSize.X, 0, 1)
+                    V = 1 - math.clamp((Input.Position.Y - SV_Map.AbsolutePosition.Y) / SV_Map.AbsoluteSize.Y, 0, 1)
+                    UpdateColor()
+                end
+
+                local function Update_Hue(Input)
+                    H = math.clamp((Input.Position.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
+                    UpdateColor()
+                end
+
                 SV_Map.InputBegan:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then SV_Sliding = true end
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        SV_Sliding = true
+                        Update_SV(Input)
+                    end
                 end)
                 
-                local Hue_Sliding = false
                 Hue_Map.InputBegan:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then Hue_Sliding = true end
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        Hue_Sliding = true
+                        Update_Hue(Input)
+                    end
                 end)
 
                 User_Input_Service.InputEnded:Connect(function(Input)
@@ -763,17 +783,10 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                     end
                 end)
 
-                Run_Service.RenderStepped:Connect(function()
-                    if SV_Sliding then
-                        local Mouse = User_Input_Service:GetMouseLocation()
-                        S = math.clamp((Mouse.X - SV_Map.AbsolutePosition.X) / SV_Map.AbsoluteSize.X, 0, 1)
-                        V = 1 - math.clamp((Mouse.Y - SV_Map.AbsolutePosition.Y) / SV_Map.AbsoluteSize.Y, 0, 1)
-                        UpdateColor()
-                    end
-                    if Hue_Sliding then
-                        local Mouse = User_Input_Service:GetMouseLocation()
-                        H = math.clamp((Mouse.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
-                        UpdateColor()
+                User_Input_Service.InputChanged:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseMovement then
+                        if SV_Sliding then Update_SV(Input) end
+                        if Hue_Sliding then Update_Hue(Input) end
                     end
                 end)
 
@@ -789,7 +802,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 Cool_Prev_Btn.MouseButton1Click:Connect(function()
                     Open = not Open
                     Cool_Animate(Prev_Stroke, {Color = Open and Cool_Colors.Accent or Cool_Colors.Border}, 0.2)
-                    Cool_Animate(Cool_Col_Frame, {Size = UDim2.new(1, 0, 0, Open and 224 or 24)}, 0.25)
+                    Cool_Animate(Cool_Col_Frame, {Size = UDim2.new(1, 0, 0, Open and 190 or 24)}, 0.25)
                 end)
             end
 
