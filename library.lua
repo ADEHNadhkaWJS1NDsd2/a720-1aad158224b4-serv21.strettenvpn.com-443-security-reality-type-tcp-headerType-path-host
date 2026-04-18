@@ -1,306 +1,362 @@
 local User_Input_Service = game:GetService("UserInputService")
 local Core_Gui = game:GetService("CoreGui")
 
-local Nixware_Library = {}
+local Nixware_Library_Core = {}
 
-local Cool_Accent_Color = Color3.fromRGB(120, 150, 255)
-local Background_Dark_Main = Color3.fromRGB(10, 10, 10)
-local Sidebar_Dark_Color = Color3.fromRGB(14, 14, 14)
-local Section_Dark_Color = Color3.fromRGB(18, 18, 18)
-local Border_Gray_Line = Color3.fromRGB(35, 35, 35)
-local Text_White_Main = Color3.fromRGB(215, 215, 215)
+local Accent_Theme_Color = Color3.fromRGB(90, 120, 220)
+local Main_Bg_Color = Color3.fromRGB(12, 12, 12)
+local Sidebar_Bg_Color = Color3.fromRGB(18, 18, 18)
+local Section_Bg_Color = Color3.fromRGB(16, 16, 16)
+local Stroke_Line_Color = Color3.fromRGB(35, 35, 35)
+local Text_White_Color = Color3.fromRGB(220, 220, 220)
 
-function Nixware_Library:Cool_Window_Create(Window_Title)
-    local Screen_Gui = Instance.new("ScreenGui")
-    Screen_Gui.Name = "Nixware_Project"
-    Screen_Gui.Parent = Core_Gui
-    Screen_Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+function Nixware_Library_Core:Cool_Window_Create(Window_Name_String)
+    local Core_Screen_Gui = Instance.new("ScreenGui")
+    Core_Screen_Gui.Name = "Nixware_UI_Root"
+    Core_Screen_Gui.Parent = Core_Gui
+    Core_Screen_Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-    local Main_Frame_Body = Instance.new("Frame")
-    Main_Frame_Body.Name = "Main_Frame"
-    Main_Frame_Body.Size = UDim2.new(0, 520, 0, 380)
-    Main_Frame_Body.Position = UDim2.new(0.5, -260, 0.5, -190)
-    Main_Frame_Body.BackgroundColor3 = Background_Dark_Main
-    Main_Frame_Body.BorderSizePixel = 0
-    Main_Frame_Body.Parent = Screen_Gui
+    local Main_Body_Frame = Instance.new("Frame")
+    Main_Body_Frame.Size = UDim2.new(0, 560, 0, 400)
+    Main_Body_Frame.Position = UDim2.new(0.5, -280, 0.5, -200)
+    Main_Body_Frame.BackgroundColor3 = Main_Bg_Color
+    Main_Body_Frame.BorderSizePixel = 0
+    Main_Body_Frame.Parent = Core_Screen_Gui
 
-    local Main_Stroke_Outline = Instance.new("UIStroke")
-    Main_Stroke_Outline.Color = Border_Gray_Line
-    Main_Stroke_Outline.Thickness = 1
-    Main_Stroke_Outline.Parent = Main_Frame_Body
+    local Main_Outline_Stroke = Instance.new("UIStroke")
+    Main_Outline_Stroke.Color = Stroke_Line_Color
+    Main_Outline_Stroke.Thickness = 1
+    Main_Outline_Stroke.Parent = Main_Body_Frame
 
-    local Top_Bar_Header = Instance.new("Frame")
-    Top_Bar_Header.Size = UDim2.new(1, 0, 0, 24)
-    Top_Bar_Header.BackgroundColor3 = Sidebar_Dark_Color
-    Top_Bar_Header.BorderSizePixel = 0
-    Top_Bar_Header.Parent = Main_Frame_Body
+    local Top_Header_Bar = Instance.new("Frame")
+    Top_Header_Bar.Size = UDim2.new(1, 0, 0, 22)
+    Top_Header_Bar.BackgroundColor3 = Sidebar_Bg_Color
+    Top_Header_Bar.BorderSizePixel = 0
+    Top_Header_Bar.Parent = Main_Body_Frame
 
-    local Accent_Line_Top = Instance.new("Frame")
-    Accent_Line_Top.Size = UDim2.new(1, 0, 0, 1)
-    Accent_Line_Top.Position = UDim2.new(0, 0, 0, 0)
-    Accent_Line_Top.BackgroundColor3 = Cool_Accent_Color
-    Accent_Line_Top.BorderSizePixel = 0
-    Accent_Line_Top.Parent = Top_Bar_Header
+    local Top_Accent_Line = Instance.new("Frame")
+    Top_Accent_Line.Size = UDim2.new(1, 0, 0, 2)
+    Top_Accent_Line.BackgroundColor3 = Accent_Theme_Color
+    Top_Accent_Line.BorderSizePixel = 0
+    Top_Accent_Line.Parent = Top_Header_Bar
 
-    local Title_Label_Text = Instance.new("TextLabel")
-    Title_Label_Text.Size = UDim2.new(1, -10, 1, 0)
-    Title_Label_Text.Position = UDim2.new(0, 10, 0, 0)
-    Title_Label_Text.BackgroundTransparency = 1
-    Title_Label_Text.Text = Window_Title
-    Title_Label_Text.TextColor3 = Text_White_Main
-    Title_Label_Text.TextSize = 13
-    Title_Label_Text.Font = Enum.Font.RobotoMono
-    Title_Label_Text.TextXAlignment = Enum.TextXAlignment.Left
-    Title_Label_Text.Parent = Top_Bar_Header
+    local Window_Title_Text = Instance.new("TextLabel")
+    Window_Title_Text.Size = UDim2.new(1, -12, 1, -2)
+    Window_Title_Text.Position = UDim2.new(0, 12, 0, 2)
+    Window_Title_Text.BackgroundTransparency = 1
+    Window_Title_Text.Text = Window_Name_String
+    Window_Title_Text.TextColor3 = Text_White_Color
+    Window_Title_Text.TextSize = 12
+    Window_Title_Text.Font = Enum.Font.RobotoMono
+    Window_Title_Text.TextXAlignment = Enum.TextXAlignment.Left
+    Window_Title_Text.Parent = Top_Header_Bar
 
-    local Tab_Holder_Left = Instance.new("Frame")
-    Tab_Holder_Left.Size = UDim2.new(0, 110, 1, -24)
-    Tab_Holder_Left.Position = UDim2.new(0, 0, 0, 24)
-    Tab_Holder_Left.BackgroundColor3 = Sidebar_Dark_Color
-    Tab_Holder_Left.BorderSizePixel = 0
-    Tab_Holder_Left.Parent = Main_Frame_Body
+    local Sidebar_Holder_Frame = Instance.new("Frame")
+    Sidebar_Holder_Frame.Size = UDim2.new(0, 120, 1, -22)
+    Sidebar_Holder_Frame.Position = UDim2.new(0, 0, 0, 22)
+    Sidebar_Holder_Frame.BackgroundColor3 = Sidebar_Bg_Color
+    Sidebar_Holder_Frame.BorderSizePixel = 0
+    Sidebar_Holder_Frame.Parent = Main_Body_Frame
 
-    local Tab_Layout_List = Instance.new("UIListLayout")
-    Tab_Layout_List.SortOrder = Enum.SortOrder.LayoutOrder
-    Tab_Layout_List.Parent = Tab_Holder_Left
+    local Sidebar_Outline_Stroke = Instance.new("UIStroke")
+    Sidebar_Outline_Stroke.Color = Stroke_Line_Color
+    Sidebar_Outline_Stroke.Thickness = 1
+    Sidebar_Outline_Stroke.Parent = Sidebar_Holder_Frame
 
-    local Content_Holder_Right = Instance.new("Frame")
-    Content_Holder_Right.Size = UDim2.new(1, -110, 1, -24)
-    Content_Holder_Right.Position = UDim2.new(0, 110, 0, 24)
-    Content_Holder_Right.BackgroundTransparency = 1
-    Content_Holder_Right.Parent = Main_Frame_Body
+    local Tab_List_Layout = Instance.new("UIListLayout")
+    Tab_List_Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Tab_List_Layout.Parent = Sidebar_Holder_Frame
 
-    local Dragging_Is_Active = false
-    local Drag_Origin_Point = nil
-    local Frame_Origin_Pos = nil
+    local Content_Area_Frame = Instance.new("Frame")
+    Content_Area_Frame.Size = UDim2.new(1, -120, 1, -22)
+    Content_Area_Frame.Position = UDim2.new(0, 120, 0, 22)
+    Content_Area_Frame.BackgroundTransparency = 1
+    Content_Area_Frame.Parent = Main_Body_Frame
 
-    Top_Bar_Header.InputBegan:Connect(function(Input_Obj)
-        if Input_Obj.UserInputType == Enum.UserInputType.MouseButton1 then
-            Dragging_Is_Active = true
-            Drag_Origin_Point = Input_Obj.Position
-            Frame_Origin_Pos = Main_Frame_Body.Position
+    task.spawn(function()
+        local Drag_Is_Active = false
+        local Drag_Start_Mouse = nil
+        local Window_Start_Cords = nil
+
+        while task.wait() do
+            local Mouse_Is_Down = User_Input_Service:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+            local Mouse_Cords_Current = User_Input_Service:GetMouseLocation()
+            
+            if Mouse_Is_Down then
+                local Header_X = Main_Body_Frame.AbsolutePosition.X
+                local Header_Y = Main_Body_Frame.AbsolutePosition.Y
+                local Header_W = Main_Body_Frame.AbsoluteSize.X
+                
+                if not Drag_Is_Active and Mouse_Cords_Current.X >= Header_X and Mouse_Cords_Current.X <= Header_X + Header_W and Mouse_Cords_Current.Y >= Header_Y and Mouse_Cords_Current.Y <= Header_Y + 22 then
+                    Drag_Is_Active = true
+                    Drag_Start_Mouse = Mouse_Cords_Current
+                    Window_Start_Cords = Main_Body_Frame.Position
+                end
+                
+                if Drag_Is_Active then
+                    local Offset_Delta_X = Mouse_Cords_Current.X - Drag_Start_Mouse.X
+                    local Offset_Delta_Y = Mouse_Cords_Current.Y - Drag_Start_Mouse.Y
+                    Main_Body_Frame.Position = UDim2.new(Window_Start_Cords.X.Scale, Window_Start_Cords.X.Offset + Offset_Delta_X, Window_Start_Cords.Y.Scale, Window_Start_Cords.Y.Offset + Offset_Delta_Y)
+                end
+            else
+                Drag_Is_Active = false
+            end
         end
     end)
 
-    User_Input_Service.InputChanged:Connect(function(Input_Obj)
-        if Dragging_Is_Active and Input_Obj.UserInputType == Enum.UserInputType.MouseMovement then
-            local Delta_V2 = Input_Obj.Position - Drag_Origin_Point
-            Main_Frame_Body.Position = UDim2.new(Frame_Origin_Pos.X.Scale, Frame_Origin_Pos.X.Offset + Delta_V2.X, Frame_Origin_Pos.Y.Scale, Frame_Origin_Pos.Y.Offset + Delta_V2.Y)
-        end
-    end)
-
-    User_Input_Service.InputEnded:Connect(function(Input_Obj)
-        if Input_Obj.UserInputType == Enum.UserInputType.MouseButton1 then
-            Dragging_Is_Active = false
-        end
-    end)
-
-    local Window_Control_Methods = {
-        Current_Active_Tab = nil,
-        Tabs_Internal_List = {}
+    local Tab_System_Logic = {
+        Active_Tab_String = nil,
+        All_Tabs_Table = {}
     }
 
-    function Window_Control_Methods:Cool_Tab_Create(Tab_Name)
-        local Tab_Button_Link = Instance.new("TextButton")
-        Tab_Button_Link.Size = UDim2.new(1, 0, 0, 32)
-        Tab_Button_Link.BackgroundTransparency = 1
-        Tab_Button_Link.Text = Tab_Name
-        Tab_Button_Link.TextColor3 = Text_White_Main
-        Tab_Button_Link.TextSize = 12
-        Tab_Button_Link.Font = Enum.Font.RobotoMono
-        Tab_Button_Link.Parent = Tab_Holder_Left
+    function Tab_System_Logic:Cool_Tab_Create(Tab_Name_String)
+        local Tab_Click_Button = Instance.new("TextLabel")
+        Tab_Click_Button.Size = UDim2.new(1, 0, 0, 30)
+        Tab_Click_Button.BackgroundTransparency = 1
+        Tab_Click_Button.Text = Tab_Name_String
+        Tab_Click_Button.TextColor3 = Text_White_Color
+        Tab_Click_Button.TextSize = 12
+        Tab_Click_Button.Font = Enum.Font.RobotoMono
+        Tab_Click_Button.Parent = Sidebar_Holder_Frame
 
-        local Tab_Page_Frame = Instance.new("ScrollingFrame")
-        Tab_Page_Frame.Size = UDim2.new(1, 0, 1, 0)
-        Tab_Page_Frame.BackgroundTransparency = 1
-        Tab_Page_Frame.BorderSizePixel = 0
-        Tab_Page_Frame.ScrollBarThickness = 1
-        Tab_Page_Frame.Visible = false
-        Tab_Page_Frame.Parent = Content_Holder_Right
+        local Tab_Page_Scroll = Instance.new("ScrollingFrame")
+        Tab_Page_Scroll.Size = UDim2.new(1, 0, 1, 0)
+        Tab_Page_Scroll.BackgroundTransparency = 1
+        Tab_Page_Scroll.BorderSizePixel = 0
+        Tab_Page_Scroll.ScrollBarThickness = 2
+        Tab_Page_Scroll.Visible = false
+        Tab_Page_Scroll.Parent = Content_Area_Frame
 
-        local Page_Layout_Settings = Instance.new("UIListLayout")
-        Page_Layout_Settings.Padding = UDim.new(0, 10)
-        Page_Layout_Settings.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        Page_Layout_Settings.Parent = Tab_Page_Frame
+        local Page_UI_Layout = Instance.new("UIListLayout")
+        Page_UI_Layout.Padding = UDim.new(0, 15)
+        Page_UI_Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        Page_UI_Layout.Parent = Tab_Page_Scroll
 
-        local Page_Padding_Outer = Instance.new("UIPadding")
-        Page_Padding_Outer.PaddingTop = UDim.new(0, 12)
-        Page_Padding_Outer.Parent = Tab_Page_Frame
+        local Page_UI_Padding = Instance.new("UIPadding")
+        Page_UI_Padding.PaddingTop = UDim.new(0, 15)
+        Page_UI_Padding.Parent = Tab_Page_Scroll
 
-        Tab_Button_Link.MouseButton1Click:Connect(function()
-            for _, Page_Item in pairs(Window_Control_Methods.Tabs_Internal_List) do
-                Page_Item.Visible = false
-            end
-            Tab_Page_Frame.Visible = true
-        end)
-
-        table.insert(Window_Control_Methods.Tabs_Internal_List, Tab_Page_Frame)
-        if #Window_Control_Methods.Tabs_Internal_List == 1 then
-            Tab_Page_Frame.Visible = true
+        table.insert(Tab_System_Logic.All_Tabs_Table, Tab_Page_Scroll)
+        
+        if #Tab_System_Logic.All_Tabs_Table == 1 then
+            Tab_System_Logic.Active_Tab_String = Tab_Name_String
+            Tab_Page_Scroll.Visible = true
+            Tab_Click_Button.TextColor3 = Accent_Theme_Color
         end
 
-        local Tab_Feature_Logic = {}
+        task.spawn(function()
+            local Btn_Was_Pressed = false
+            while task.wait() do
+                local Mouse_Is_Down = User_Input_Service:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+                local Mouse_Cords = User_Input_Service:GetMouseLocation()
+                
+                local Btn_X = Tab_Click_Button.AbsolutePosition.X
+                local Btn_Y = Tab_Click_Button.AbsolutePosition.Y
+                local Btn_W = Tab_Click_Button.AbsoluteSize.X
+                local Btn_H = Tab_Click_Button.AbsoluteSize.Y
+                
+                local Is_Hovered = Mouse_Cords.X >= Btn_X and Mouse_Cords.X <= Btn_X + Btn_W and Mouse_Cords.Y >= Btn_Y and Mouse_Cords.Y <= Btn_Y + Btn_H
+                
+                if Mouse_Is_Down and Is_Hovered and not Btn_Was_Pressed then
+                    Btn_Was_Pressed = true
+                    for _, Page in pairs(Tab_System_Logic.All_Tabs_Table) do
+                        Page.Visible = false
+                    end
+                    Tab_Page_Scroll.Visible = true
+                    Tab_System_Logic.Active_Tab_String = Tab_Name_String
+                elseif not Mouse_Is_Down then
+                    Btn_Was_Pressed = false
+                end
+                
+                if Tab_System_Logic.Active_Tab_String == Tab_Name_String then
+                    Tab_Click_Button.TextColor3 = Accent_Theme_Color
+                else
+                    Tab_Click_Button.TextColor3 = Text_White_Color
+                end
+            end
+        end)
 
-        function Tab_Feature_Logic:Cool_Section_Create(Section_Label)
-            local Section_Body_Frame = Instance.new("Frame")
-            Section_Body_Frame.Size = UDim2.new(0.94, 0, 0, 20)
-            Section_Body_Frame.BackgroundColor3 = Section_Dark_Color
-            Section_Body_Frame.BorderSizePixel = 0
-            Section_Body_Frame.Parent = Tab_Page_Frame
+        local Section_System_Logic = {}
 
-            local Section_Stroke_Line = Instance.new("UIStroke")
-            Section_Stroke_Line.Color = Border_Gray_Line
-            Section_Stroke_Line.Thickness = 1
-            Section_Stroke_Line.Parent = Section_Body_Frame
+        function Section_System_Logic:Cool_Section_Create(Section_Name_String)
+            local Section_Outer_Box = Instance.new("Frame")
+            Section_Outer_Box.Size = UDim2.new(0.92, 0, 0, 20)
+            Section_Outer_Box.BackgroundColor3 = Section_Bg_Color
+            Section_Outer_Box.BorderSizePixel = 0
+            Section_Outer_Box.Parent = Tab_Page_Scroll
 
-            local Section_Header_Text = Instance.new("TextLabel")
-            Section_Header_Text.Size = UDim2.new(1, -10, 0, 18)
-            Section_Header_Text.Position = UDim2.new(0, 10, 0, -10)
-            Section_Header_Text.BackgroundTransparency = 0
-            Section_Header_Text.BackgroundColor3 = Background_Dark_Main
-            Section_Header_Text.Text = " " .. Section_Label .. " "
-            Section_Header_Text.TextColor3 = Text_White_Main
-            Section_Header_Text.TextSize = 11
-            Section_Header_Text.Font = Enum.Font.RobotoMono
-            Section_Header_Text.AutomaticSize = Enum.AutomaticSize.X
-            Section_Header_Text.Parent = Section_Body_Frame
+            local Section_Box_Stroke = Instance.new("UIStroke")
+            Section_Box_Stroke.Color = Stroke_Line_Color
+            Section_Box_Stroke.Thickness = 1
+            Section_Box_Stroke.Parent = Section_Outer_Box
 
-            local Section_Layout_Stack = Instance.new("UIListLayout")
-            Section_Layout_Stack.Padding = UDim.new(0, 6)
-            Section_Layout_Stack.Parent = Section_Body_Frame
+            local Section_Title_Text = Instance.new("TextLabel")
+            Section_Title_Text.Position = UDim2.new(0, 12, 0, -7)
+            Section_Title_Text.Size = UDim2.new(0, 0, 0, 14)
+            Section_Title_Text.AutomaticSize = Enum.AutomaticSize.X
+            Section_Title_Text.BackgroundColor3 = Main_Bg_Color
+            Section_Title_Text.BorderSizePixel = 0
+            Section_Title_Text.Text = " " .. Section_Name_String .. " "
+            Section_Title_Text.TextColor3 = Text_White_Color
+            Section_Title_Text.TextSize = 11
+            Section_Title_Text.Font = Enum.Font.RobotoMono
+            Section_Title_Text.Parent = Section_Outer_Box
 
-            local Section_Padding_Inner = Instance.new("UIPadding")
-            Section_Padding_Inner.PaddingLeft = UDim.new(0, 10)
-            Section_Padding_Inner.PaddingTop = UDim.new(0, 14)
-            Section_Padding_Inner.PaddingBottom = UDim.new(0, 10)
-            Section_Padding_Inner.Parent = Section_Body_Frame
-            
-            Section_Layout_Stack:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                Section_Body_Frame.Size = UDim2.new(0.94, 0, 0, Section_Layout_Stack.AbsoluteContentSize.Y + 24)
+            local Section_Inner_Container = Instance.new("Frame")
+            Section_Inner_Container.Size = UDim2.new(1, 0, 1, -15)
+            Section_Inner_Container.Position = UDim2.new(0, 0, 0, 15)
+            Section_Inner_Container.BackgroundTransparency = 1
+            Section_Inner_Container.Parent = Section_Outer_Box
+
+            local Inner_Container_Layout = Instance.new("UIListLayout")
+            Inner_Container_Layout.Padding = UDim.new(0, 8)
+            Inner_Container_Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            Inner_Container_Layout.Parent = Section_Inner_Container
+
+            task.spawn(function()
+                local Prev_Height_Num = 0
+                while task.wait(0.1) do
+                    local Current_Height_Num = Inner_Container_Layout.AbsoluteContentSize.Y
+                    if Current_Height_Num ~= Prev_Height_Num then
+                        Prev_Height_Num = Current_Height_Num
+                        Section_Outer_Box.Size = UDim2.new(0.92, 0, 0, Current_Height_Num + 25)
+                    end
+                end
             end)
 
-            local Final_Element_Methods = {}
+            local Elements_System_Logic = {}
 
-            function Final_Element_Methods:Cool_Toggle_Create(Toggle_Label, Default_State, Toggle_Callback)
-                local Toggle_Status = Default_State or false
+            function Elements_System_Logic:Cool_Toggle_Create(Toggle_Name_String, Default_Bool_State, Toggle_Callback_Func)
+                local Current_Toggle_State = Default_Bool_State or false
                 
-                local Toggle_Click_Area = Instance.new("TextButton")
-                Toggle_Click_Area.Size = UDim2.new(1, -10, 0, 20)
-                Toggle_Click_Area.BackgroundTransparency = 1
-                Toggle_Click_Area.Text = ""
-                Toggle_Click_Area.Parent = Section_Body_Frame
+                local Toggle_Root_Area = Instance.new("Frame")
+                Toggle_Root_Area.Size = UDim2.new(1, -20, 0, 14)
+                Toggle_Root_Area.BackgroundTransparency = 1
+                Toggle_Root_Area.Parent = Section_Inner_Container
 
-                local Box_Check_Visual = Instance.new("Frame")
-                Box_Check_Visual.Size = UDim2.new(0, 12, 0, 12)
-                Box_Check_Visual.Position = UDim2.new(0, 0, 0.5, -6)
-                Box_Check_Visual.BackgroundColor3 = Toggle_Status and Cool_Accent_Color or Background_Dark_Main
-                Box_Check_Visual.BorderSizePixel = 0
-                Box_Check_Visual.Parent = Toggle_Click_Area
+                local Toggle_Visual_Box = Instance.new("Frame")
+                Toggle_Visual_Box.Size = UDim2.new(0, 12, 0, 12)
+                Toggle_Visual_Box.Position = UDim2.new(0, 0, 0.5, -6)
+                Toggle_Visual_Box.BackgroundColor3 = Current_Toggle_State and Accent_Theme_Color or Section_Bg_Color
+                Toggle_Visual_Box.BorderSizePixel = 0
+                Toggle_Visual_Box.Parent = Toggle_Root_Area
 
-                local Check_Stroke_Style = Instance.new("UIStroke")
-                Check_Stroke_Style.Color = Border_Gray_Line
-                Check_Stroke_Style.Thickness = 1
-                Check_Stroke_Style.Parent = Box_Check_Visual
+                local Toggle_Box_Stroke = Instance.new("UIStroke")
+                Toggle_Box_Stroke.Color = Stroke_Line_Color
+                Toggle_Box_Stroke.Thickness = 1
+                Toggle_Box_Stroke.Parent = Toggle_Visual_Box
 
-                local Label_Display_Text = Instance.new("TextLabel")
-                Label_Display_Text.Size = UDim2.new(1, -20, 1, 0)
-                Label_Display_Text.Position = UDim2.new(0, 20, 0, 0)
-                Label_Display_Text.BackgroundTransparency = 1
-                Label_Display_Text.Text = Toggle_Label
-                Label_Display_Text.TextColor3 = Text_White_Main
-                Label_Display_Text.TextSize = 12
-                Label_Display_Text.Font = Enum.Font.RobotoMono
-                Label_Display_Text.TextXAlignment = Enum.TextXAlignment.Left
-                Label_Display_Text.Parent = Toggle_Click_Area
+                local Toggle_Label_Text = Instance.new("TextLabel")
+                Toggle_Label_Text.Size = UDim2.new(1, -20, 1, 0)
+                Toggle_Label_Text.Position = UDim2.new(0, 20, 0, 0)
+                Toggle_Label_Text.BackgroundTransparency = 1
+                Toggle_Label_Text.Text = Toggle_Name_String
+                Toggle_Label_Text.TextColor3 = Text_White_Color
+                Toggle_Label_Text.TextSize = 11
+                Toggle_Label_Text.Font = Enum.Font.RobotoMono
+                Toggle_Label_Text.TextXAlignment = Enum.TextXAlignment.Left
+                Toggle_Label_Text.Parent = Toggle_Root_Area
 
-                Toggle_Click_Area.MouseButton1Click:Connect(function()
-                    Toggle_Status = not Toggle_Status
-                    Box_Check_Visual.BackgroundColor3 = Toggle_Status and Cool_Accent_Color or Background_Dark_Main
-                    Toggle_Callback(Toggle_Status)
-                end)
-            end
-
-            function Final_Element_Methods:Cool_Slider_Create(Slider_Label, Min_Boundary, Max_Boundary, Current_Pos, Slider_Callback)
-                local Slider_Val = Current_Pos or Min_Boundary
-
-                local Slider_Root_Box = Instance.new("Frame")
-                Slider_Root_Box.Size = UDim2.new(1, -10, 0, 32)
-                Slider_Root_Box.BackgroundTransparency = 1
-                Slider_Root_Box.Parent = Section_Body_Frame
-
-                local Label_Name_Tag = Instance.new("TextLabel")
-                Label_Name_Tag.Size = UDim2.new(1, 0, 0, 16)
-                Label_Name_Tag.BackgroundTransparency = 1
-                Label_Name_Tag.Text = Slider_Label
-                Label_Name_Tag.TextColor3 = Text_White_Main
-                Label_Name_Tag.TextSize = 11
-                Label_Name_Tag.Font = Enum.Font.RobotoMono
-                Label_Name_Tag.TextXAlignment = Enum.TextXAlignment.Left
-                Label_Name_Tag.Parent = Slider_Root_Box
-
-                local Label_Num_Display = Instance.new("TextLabel")
-                Label_Num_Display.Size = UDim2.new(1, 0, 0, 16)
-                Label_Num_Display.BackgroundTransparency = 1
-                Label_Num_Display.Text = tostring(Slider_Val)
-                Label_Num_Display.TextColor3 = Text_White_Main
-                Label_Num_Display.TextSize = 11
-                Label_Num_Display.Font = Enum.Font.RobotoMono
-                Label_Num_Display.TextXAlignment = Enum.TextXAlignment.Right
-                Label_Num_Display.Parent = Slider_Root_Box
-
-                local Bar_Bg_Area = Instance.new("Frame")
-                Bar_Bg_Area.Size = UDim2.new(1, -5, 0, 8)
-                Bar_Bg_Area.Position = UDim2.new(0, 0, 0, 20)
-                Bar_Bg_Area.BackgroundColor3 = Background_Dark_Main
-                Bar_Bg_Area.BorderSizePixel = 0
-                Bar_Bg_Area.Parent = Slider_Root_Box
-
-                local Bar_Stroke_Line = Instance.new("UIStroke")
-                Bar_Stroke_Line.Color = Border_Gray_Line
-                Bar_Stroke_Line.Thickness = 1
-                Bar_Stroke_Line.Parent = Bar_Bg_Area
-
-                local Bar_Fill_Progress = Instance.new("Frame")
-                Bar_Fill_Progress.Size = UDim2.new((Slider_Val - Min_Boundary) / (Max_Boundary - Min_Boundary), 0, 1, 0)
-                Bar_Fill_Progress.BackgroundColor3 = Cool_Accent_Color
-                Bar_Fill_Progress.BorderSizePixel = 0
-                Bar_Fill_Progress.Parent = Bar_Bg_Area
-
-                local function Cool_Update_Slider_Visual()
-                    local Mouse_Coord_Pos = User_Input_Service:GetMouseLocation()
-                    local Relative_Delta_X = math.clamp(Mouse_Coord_Pos.X - Bar_Bg_Area.AbsolutePosition.X, 0, Bar_Bg_Area.AbsoluteSize.X)
-                    local Fill_Ratio = Relative_Delta_X / Bar_Bg_Area.AbsoluteSize.X
-                    Slider_Val = math.floor(Min_Boundary + (Max_Boundary - Min_Boundary) * Fill_Ratio)
-                    Bar_Fill_Progress.Size = UDim2.new(Fill_Ratio, 0, 1, 0)
-                    Label_Num_Display.Text = tostring(Slider_Val)
-                    Slider_Callback(Slider_Val)
-                end
-
-                Bar_Bg_Area.InputBegan:Connect(function(Input_Signal)
-                    if Input_Signal.UserInputType == Enum.UserInputType.MouseButton1 then
-                        local Move_Input_Conn
-                        Move_Input_Conn = User_Input_Service.InputChanged:Connect(function(Move_Signal)
-                            if Move_Signal.UserInputType == Enum.UserInputType.MouseMovement then
-                                Cool_Update_Slider_Visual()
-                            end
-                        end)
-                        User_Input_Service.InputEnded:Connect(function(End_Signal)
-                            if End_Signal.UserInputType == Enum.UserInputType.MouseButton1 then
-                                Move_Input_Conn:Disconnect()
-                            end
-                        end)
-                        Cool_Update_Slider_Visual()
+                task.spawn(function()
+                    local Was_Clicked_Down = false
+                    while task.wait() do
+                        local Mouse_Is_Down = User_Input_Service:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+                        local Mouse_Cords = User_Input_Service:GetMouseLocation()
+                        
+                        local Area_X = Toggle_Root_Area.AbsolutePosition.X
+                        local Area_Y = Toggle_Root_Area.AbsolutePosition.Y
+                        local Area_W = Toggle_Root_Area.AbsoluteSize.X
+                        local Area_H = Toggle_Root_Area.AbsoluteSize.Y
+                        
+                        local Is_Hovered = Mouse_Cords.X >= Area_X and Mouse_Cords.X <= Area_X + Area_W and Mouse_Cords.Y >= Area_Y and Mouse_Cords.Y <= Area_Y + Area_H
+                        
+                        if Mouse_Is_Down and Is_Hovered and not Was_Clicked_Down then
+                            Was_Clicked_Down = true
+                            Current_Toggle_State = not Current_Toggle_State
+                            Toggle_Visual_Box.BackgroundColor3 = Current_Toggle_State and Accent_Theme_Color or Section_Bg_Color
+                            Toggle_Callback_Func(Current_Toggle_State)
+                        elseif not Mouse_Is_Down then
+                            Was_Clicked_Down = false
+                        end
                     end
                 end)
             end
 
-            return Final_Element_Methods
+            function Elements_System_Logic:Cool_Slider_Create(Slider_Name_String, Min_Num_Val, Max_Num_Val, Default_Num_Val, Slider_Callback_Func)
+                local Current_Slider_Val = Default_Num_Val or Min_Num_Val
+
+                local Slider_Root_Area = Instance.new("Frame")
+                Slider_Root_Area.Size = UDim2.new(1, -20, 0, 28)
+                Slider_Root_Area.BackgroundTransparency = 1
+                Slider_Root_Area.Parent = Section_Inner_Container
+
+                local Slider_Label_Text = Instance.new("TextLabel")
+                Slider_Label_Text.Size = UDim2.new(1, 0, 0, 14)
+                Slider_Label_Text.BackgroundTransparency = 1
+                Slider_Label_Text.Text = Slider_Name_String
+                Slider_Label_Text.TextColor3 = Text_White_Color
+                Slider_Label_Text.TextSize = 11
+                Slider_Label_Text.Font = Enum.Font.RobotoMono
+                Slider_Label_Text.TextXAlignment = Enum.TextXAlignment.Left
+                Slider_Label_Text.Parent = Slider_Root_Area
+
+                local Slider_Value_Text = Instance.new("TextLabel")
+                Slider_Value_Text.Size = UDim2.new(1, 0, 0, 14)
+                Slider_Value_Text.BackgroundTransparency = 1
+                Slider_Value_Text.Text = tostring(Current_Slider_Val)
+                Slider_Value_Text.TextColor3 = Text_White_Color
+                Slider_Value_Text.TextSize = 11
+                Slider_Value_Text.Font = Enum.Font.RobotoMono
+                Slider_Value_Text.TextXAlignment = Enum.TextXAlignment.Right
+                Slider_Value_Text.Parent = Slider_Root_Area
+
+                local Slider_Bg_Bar = Instance.new("Frame")
+                Slider_Bg_Bar.Size = UDim2.new(1, 0, 0, 6)
+                Slider_Bg_Bar.Position = UDim2.new(0, 0, 0, 18)
+                Slider_Bg_Bar.BackgroundColor3 = Main_Bg_Color
+                Slider_Bg_Bar.BorderSizePixel = 0
+                Slider_Bg_Bar.Parent = Slider_Root_Area
+
+                local Slider_Bar_Stroke = Instance.new("UIStroke")
+                Slider_Bar_Stroke.Color = Stroke_Line_Color
+                Slider_Bar_Stroke.Thickness = 1
+                Slider_Bar_Stroke.Parent = Slider_Bg_Bar
+
+                local Slider_Fill_Bar = Instance.new("Frame")
+                Slider_Fill_Bar.Size = UDim2.new((Current_Slider_Val - Min_Num_Val) / (Max_Num_Val - Min_Num_Val), 0, 1, 0)
+                Slider_Fill_Bar.BackgroundColor3 = Accent_Theme_Color
+                Slider_Fill_Bar.BorderSizePixel = 0
+                Slider_Fill_Bar.Parent = Slider_Bg_Bar
+
+                task.spawn(function()
+                    while task.wait() do
+                        local Mouse_Is_Down = User_Input_Service:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+                        local Mouse_Cords = User_Input_Service:GetMouseLocation()
+                        
+                        local Bar_X = Slider_Bg_Bar.AbsolutePosition.X
+                        local Bar_Y = Slider_Bg_Bar.AbsolutePosition.Y
+                        local Bar_W = Slider_Bg_Bar.AbsoluteSize.X
+                        local Bar_H = Slider_Bg_Bar.AbsoluteSize.Y
+                        
+                        if Mouse_Is_Down and Mouse_Cords.X >= Bar_X - 5 and Mouse_Cords.X <= Bar_X + Bar_W + 5 and Mouse_Cords.Y >= Bar_Y - 5 and Mouse_Cords.Y <= Bar_Y + Bar_H + 5 then
+                            local Offset_Delta_X = math.clamp(Mouse_Cords.X - Bar_X, 0, Bar_W)
+                            local Ratio_Percent = Offset_Delta_X / Bar_W
+                            Current_Slider_Val = math.floor(Min_Num_Val + (Max_Num_Val - Min_Num_Val) * Ratio_Percent)
+                            Slider_Fill_Bar.Size = UDim2.new(Ratio_Percent, 0, 1, 0)
+                            Slider_Value_Text.Text = tostring(Current_Slider_Val)
+                            Slider_Callback_Func(Current_Slider_Val)
+                        end
+                    end
+                end)
+            end
+
+            return Elements_System_Logic
         end
 
-        return Tab_Feature_Logic
+        return Section_System_Logic
     end
 
-    return Window_Control_Methods
+    return Tab_System_Logic
 end
 
-return Nixware_Library
+return Nixware_Library_Core
