@@ -64,7 +64,6 @@ Cool_Tooltip_Text.ZIndex = 1001
 Cool_Tooltip_Text.Parent = Cool_Tooltip_Frame
 
 local Tooltip_Target = ""
-local Tooltip_Conn = nil
 
 local function Cool_Animate(Object, Props, Speed)
     local Tween = Tween_Service:Create(Object, TweenInfo.new(Speed or 0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), Props)
@@ -263,6 +262,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
 
         local Cool_Tab_Btn = Instance.new("TextButton")
         Cool_Tab_Btn.Size = UDim2.new(1, 0, 0, 32)
+        Cool_Tab_Btn.BackgroundColor3 = Cool_Colors.Element_Hover
         Cool_Tab_Btn.BackgroundTransparency = 1
         Cool_Tab_Btn.Text = ""
         Cool_Tab_Btn.AutoButtonColor = false
@@ -339,7 +339,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
             end
             Cool_Window_Context.Active_Tab = Cool_Tab_Data
             Cool_Page.Visible = true
-            Cool_Animate(Cool_Tab_Btn, {BackgroundTransparency = 0.05}, 0.2)
+            Cool_Animate(Cool_Tab_Btn, {BackgroundTransparency = 0}, 0.2)
             Cool_Animate(Cool_Tab_Label, {TextColor3 = Cool_Colors.Text_White}, 0.2)
             Cool_Animate(Cool_Tab_Ind, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.2)
         end
@@ -634,10 +634,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
             function Cool_Elements:Cool_ColorPicker_Create(Name, Flag, Default, Tooltip, Callback)
                 Nixware_Premium_Api.Cool_Flags[Flag] = Default or Color3.fromRGB(255, 255, 255)
                 local Open = false
-
-                local R = math.floor(Nixware_Premium_Api.Cool_Flags[Flag].R * 255)
-                local G = math.floor(Nixware_Premium_Api.Cool_Flags[Flag].G * 255)
-                local B = math.floor(Nixware_Premium_Api.Cool_Flags[Flag].B * 255)
+                local H, S, V = Nixware_Premium_Api.Cool_Flags[Flag]:ToHSV()
 
                 local Cool_Col_Frame = Instance.new("Frame")
                 Cool_Col_Frame.Size = UDim2.new(1, 0, 0, 24)
@@ -673,7 +670,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 Prev_Stroke.Parent = Cool_Prev_Btn
 
                 local Cool_Expand = Instance.new("Frame")
-                Cool_Expand.Size = UDim2.new(1, -4, 0, 96)
+                Cool_Expand.Size = UDim2.new(1, -4, 0, 140)
                 Cool_Expand.Position = UDim2.new(0, 2, 0, 28)
                 Cool_Expand.BackgroundColor3 = Cool_Colors.Element_Bg
                 Cool_Expand.Parent = Cool_Col_Frame
@@ -685,6 +682,95 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 local Expand_Stroke = Instance.new("UIStroke")
                 Expand_Stroke.Color = Cool_Colors.Border
                 Expand_Stroke.Parent = Cool_Expand
+
+                local SV_Map = Instance.new("ImageButton")
+                SV_Map.Size = UDim2.new(1, -16, 0, 100)
+                SV_Map.Position = UDim2.new(0, 8, 0, 10)
+                SV_Map.Image = "rbxassetid://4155801252"
+                SV_Map.ImageColor3 = Color3.fromHSV(H, 1, 1)
+                SV_Map.AutoButtonColor = false
+                SV_Map.Parent = Cool_Expand
+                local SV_Corner = Instance.new("UICorner"); SV_Corner.CornerRadius = UDim.new(0, 3); SV_Corner.Parent = SV_Map
+                local SV_Stroke = Instance.new("UIStroke"); SV_Stroke.Color = Cool_Colors.Border; SV_Stroke.Parent = SV_Map
+
+                local SV_Cursor = Instance.new("Frame")
+                SV_Cursor.Size = UDim2.new(0, 4, 0, 4)
+                SV_Cursor.Position = UDim2.new(S, -2, 1 - V, -2)
+                SV_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
+                SV_Cursor.Parent = SV_Map
+                local Curs_Corner = Instance.new("UICorner"); Curs_Corner.CornerRadius = UDim.new(1, 0); Curs_Corner.Parent = SV_Cursor
+                local Curs_Stroke = Instance.new("UIStroke"); Curs_Stroke.Color = Color3.new(0, 0, 0); Curs_Stroke.Parent = SV_Cursor
+
+                local Hue_Map = Instance.new("TextButton")
+                Hue_Map.Size = UDim2.new(1, -16, 0, 12)
+                Hue_Map.Position = UDim2.new(0, 8, 0, 118)
+                Hue_Map.Text = ""
+                Hue_Map.AutoButtonColor = false
+                Hue_Map.BackgroundColor3 = Color3.new(1, 1, 1)
+                Hue_Map.Parent = Cool_Expand
+                local Hue_Corner = Instance.new("UICorner"); Hue_Corner.CornerRadius = UDim.new(0, 3); Hue_Corner.Parent = Hue_Map
+                local Hue_Stroke = Instance.new("UIStroke"); Hue_Stroke.Color = Cool_Colors.Border; Hue_Stroke.Parent = Hue_Map
+
+                local Hue_Grad = Instance.new("UIGradient")
+                Hue_Grad.Color = ColorSequence.new{
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+                    ColorSequenceKeypoint.new(1/6, Color3.fromRGB(255, 255, 0)),
+                    ColorSequenceKeypoint.new(2/6, Color3.fromRGB(0, 255, 0)),
+                    ColorSequenceKeypoint.new(3/6, Color3.fromRGB(0, 255, 255)),
+                    ColorSequenceKeypoint.new(4/6, Color3.fromRGB(0, 0, 255)),
+                    ColorSequenceKeypoint.new(5/6, Color3.fromRGB(255, 0, 255)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+                }
+                Hue_Grad.Parent = Hue_Map
+
+                local Hue_Cursor = Instance.new("Frame")
+                Hue_Cursor.Size = UDim2.new(0, 4, 1, 4)
+                Hue_Cursor.Position = UDim2.new(H, -2, 0, -2)
+                Hue_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
+                Hue_Cursor.Parent = Hue_Map
+                local HC_Corner = Instance.new("UICorner"); HC_Corner.CornerRadius = UDim.new(0, 2); HC_Corner.Parent = Hue_Cursor
+                local HC_Stroke = Instance.new("UIStroke"); HC_Stroke.Color = Color3.new(0, 0, 0); HC_Stroke.Parent = Hue_Cursor
+
+                local function UpdateColor()
+                    local Col = Color3.fromHSV(H, S, V)
+                    Nixware_Premium_Api.Cool_Flags[Flag] = Col
+                    SV_Map.ImageColor3 = Color3.fromHSV(H, 1, 1)
+                    Cool_Prev_Btn.BackgroundColor3 = Col
+                    SV_Cursor.Position = UDim2.new(S, -2, 1 - V, -2)
+                    Hue_Cursor.Position = UDim2.new(H, -2, 0, -2)
+                    if Callback then task.spawn(Callback, Col) end
+                end
+
+                local SV_Sliding = false
+                SV_Map.InputBegan:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then SV_Sliding = true end
+                end)
+                
+                local Hue_Sliding = false
+                Hue_Map.InputBegan:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then Hue_Sliding = true end
+                end)
+
+                User_Input_Service.InputEnded:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        SV_Sliding = false
+                        Hue_Sliding = false
+                    end
+                end)
+
+                Run_Service.RenderStepped:Connect(function()
+                    if SV_Sliding then
+                        local Mouse = User_Input_Service:GetMouseLocation()
+                        S = math.clamp((Mouse.X - SV_Map.AbsolutePosition.X) / SV_Map.AbsoluteSize.X, 0, 1)
+                        V = 1 - math.clamp((Mouse.Y - SV_Map.AbsolutePosition.Y) / SV_Map.AbsoluteSize.Y, 0, 1)
+                        UpdateColor()
+                    end
+                    if Hue_Sliding then
+                        local Mouse = User_Input_Service:GetMouseLocation()
+                        H = math.clamp((Mouse.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
+                        UpdateColor()
+                    end
+                end)
 
                 Cool_Prev_Btn.MouseEnter:Connect(function()
                     Cool_Show_Tooltip(Tooltip)
@@ -698,110 +784,8 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 Cool_Prev_Btn.MouseButton1Click:Connect(function()
                     Open = not Open
                     Cool_Animate(Prev_Stroke, {Color = Open and Cool_Colors.Accent or Cool_Colors.Border}, 0.2)
-                    Cool_Animate(Cool_Col_Frame, {Size = UDim2.new(1, 0, 0, Open and 128 or 24)}, 0.25)
+                    Cool_Animate(Cool_Col_Frame, {Size = UDim2.new(1, 0, 0, Open and 172 or 24)}, 0.25)
                 end)
-
-                local function CreateColorSlider(YPos, Label, InitialVal, UpdateFunc)
-                    local Sld_Label = Instance.new("TextLabel")
-                    Sld_Label.Size = UDim2.new(0, 15, 0, 12)
-                    Sld_Label.Position = UDim2.new(0, 8, 0, YPos)
-                    Sld_Label.BackgroundTransparency = 1
-                    Sld_Label.Text = Label
-                    Sld_Label.TextColor3 = Cool_Colors.Text_Dark
-                    Sld_Label.TextSize = 11
-                    Sld_Label.Font = Cool_Bold_Font
-                    Sld_Label.Parent = Cool_Expand
-
-                    local Sld_Bg = Instance.new("TextButton")
-                    Sld_Bg.Size = UDim2.new(1, -50, 0, 8)
-                    Sld_Bg.Position = UDim2.new(0, 25, 0, YPos + 2)
-                    Sld_Bg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                    Sld_Bg.Text = ""
-                    Sld_Bg.AutoButtonColor = false
-                    Sld_Bg.Parent = Cool_Expand
-                    
-                    local Bg_Corner = Instance.new("UICorner")
-                    Bg_Corner.CornerRadius = UDim.new(0, 3)
-                    Bg_Corner.Parent = Sld_Bg
-                    
-                    local Bg_Stroke = Instance.new("UIStroke")
-                    Bg_Stroke.Color = Cool_Colors.Border
-                    Bg_Stroke.Parent = Sld_Bg
-
-                    local Sld_Grad = Instance.new("UIGradient")
-                    Sld_Grad.Parent = Sld_Bg
-
-                    local Sld_Fill = Instance.new("Frame")
-                    Sld_Fill.Size = UDim2.new(InitialVal / 255, 0, 1, 0)
-                    Sld_Fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                    Sld_Fill.BackgroundTransparency = 1
-                    Sld_Fill.Parent = Sld_Bg
-
-                    local Sld_Marker = Instance.new("Frame")
-                    Sld_Marker.Size = UDim2.new(0, 4, 0, 12)
-                    Sld_Marker.Position = UDim2.new(1, -2, 0.5, -6)
-                    Sld_Marker.BackgroundColor3 = Cool_Colors.Text_White
-                    Sld_Marker.Parent = Sld_Fill
-                    
-                    local Marker_Corner = Instance.new("UICorner")
-                    Marker_Corner.CornerRadius = UDim.new(0, 2)
-                    Marker_Corner.Parent = Sld_Marker
-
-                    local Sld_Val = Instance.new("TextLabel")
-                    Sld_Val.Size = UDim2.new(0, 20, 0, 12)
-                    Sld_Val.Position = UDim2.new(1, -28, 0, YPos)
-                    Sld_Val.BackgroundTransparency = 1
-                    Sld_Val.Text = tostring(InitialVal)
-                    Sld_Val.TextColor3 = Cool_Colors.Text_White
-                    Sld_Val.TextSize = 11
-                    Sld_Val.Font = Cool_Font
-                    Sld_Val.TextXAlignment = Enum.TextXAlignment.Right
-                    Sld_Val.Parent = Cool_Expand
-
-                    local Sliding = false
-                    local function Update_Value(Input)
-                        local Pct = math.clamp((Input.Position.X - Sld_Bg.AbsolutePosition.X) / Sld_Bg.AbsoluteSize.X, 0, 1)
-                        local Val = math.floor(Pct * 255)
-                        Cool_Animate(Sld_Fill, {Size = UDim2.new(Pct, 0, 1, 0)}, 0.05)
-                        Sld_Val.Text = tostring(Val)
-                        UpdateFunc(Val)
-                    end
-
-                    Sld_Bg.InputBegan:Connect(function(Input)
-                        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                            Sliding = true
-                            Update_Value(Input)
-                        end
-                    end)
-                    User_Input_Service.InputEnded:Connect(function(Input)
-                        if Input.UserInputType == Enum.UserInputType.MouseButton1 then Sliding = false end
-                    end)
-                    User_Input_Service.InputChanged:Connect(function(Input)
-                        if Sliding and Input.UserInputType == Enum.UserInputType.MouseMovement then Update_Value(Input) end
-                    end)
-
-                    return Sld_Grad
-                end
-
-                local GradR, GradG, GradB
-
-                local function UpdateVisuals()
-                    local CurrentCol = Color3.fromRGB(R, G, B)
-                    Nixware_Premium_Api.Cool_Flags[Flag] = CurrentCol
-                    Cool_Prev_Btn.BackgroundColor3 = CurrentCol
-                    
-                    GradR.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(0, G, B)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, G, B))}
-                    GradG.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(R, 0, B)), ColorSequenceKeypoint.new(1, Color3.fromRGB(R, 255, B))}
-                    GradB.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(R, G, 0)), ColorSequenceKeypoint.new(1, Color3.fromRGB(R, G, 255))}
-                    
-                    if Callback then task.spawn(Callback, CurrentCol) end
-                end
-
-                GradR = CreateColorSlider(15, "R", R, function(Val) R = Val UpdateVisuals() end)
-                GradG = CreateColorSlider(40, "G", G, function(Val) G = Val UpdateVisuals() end)
-                GradB = CreateColorSlider(65, "B", B, function(Val) B = Val UpdateVisuals() end)
-
-                UpdateVisuals()
             end
 
             function Cool_Elements:Cool_Button_Create(Name, Tooltip, Callback)
