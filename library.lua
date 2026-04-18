@@ -1128,7 +1128,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
             end
 
             function Elements:ColorPicker_Create(Name, Flag, Default, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = Default or Color3.fromRGB(255, 255, 255)
+                Nixware_Premium_Api.Flags[Flag] = Default or Color3.new(1, 1, 1)
                 local Open = false
                 local H, S, V = Nixware_Premium_Api.Flags[Flag]:ToHSV()
 
@@ -1300,7 +1300,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
 
             function Elements:Button_Create(Name, Tooltip, Callback)
                 local Btn_Frame = Instance.new("Frame")
-                Btn_Frame.Size = UDim2.new(1, 0, 0, 28)
+                Btn_Frame.Size = UDim2.new(1, 0, 0, 30)
                 Btn_Frame.BackgroundTransparency = 1
                 Btn_Frame.Parent = Target_Container
 
@@ -1328,15 +1328,62 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                     Show_Tooltip(Tooltip)
                     Animate(Btn, {BackgroundColor3 = Colors.Element_Hover}, 0.219834)
                     Animate(Btn_Stroke, {Color = Colors.Accent}, 0.219834)
+                    Animate(Btn, {TextColor3 = Colors.Accent}, 0.219834)
                 end)
                 Btn.MouseLeave:Connect(function()
                     Show_Tooltip("")
                     Animate(Btn, {BackgroundColor3 = Colors.Element_Bg}, 0.219834)
                     Animate(Btn_Stroke, {Color = Colors.Border}, 0.219834)
+                    Animate(Btn, {TextColor3 = Colors.Text_White}, 0.219834)
                 end)
-                Btn.MouseButton1Down:Connect(function() Animate(Btn, {Size = UDim2.new(0.96, 0, 0.9, 0), Position = UDim2.new(0.02, 0, 0.05, 0)}, 0.124538) end)
+                Btn.MouseButton1Down:Connect(function() Animate(Btn, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.124538) end)
                 Btn.MouseButton1Up:Connect(function()
                     Animate(Btn, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.124538)
+                    if Callback then task.spawn(Callback) end
+                end)
+            end
+
+            function Elements:SubButton_Create(Name, Tooltip, Callback)
+                local Btn_Frame = Instance.new("Frame")
+                Btn_Frame.Size = UDim2.new(1, 0, 0, 22)
+                Btn_Frame.BackgroundTransparency = 1
+                Btn_Frame.Parent = Target_Container
+
+                local Btn = Instance.new("TextButton")
+                Btn.Size = UDim2.new(1, -16, 1, 0)
+                Btn.Position = UDim2.new(0, 8, 0, 0)
+                Btn.BackgroundColor3 = Colors.Section_Bg
+                Btn.BackgroundTransparency = 0.21847
+                Btn.Text = Name
+                Btn.TextColor3 = Colors.Text_Dark
+                Btn.TextSize = 11
+                Btn.Font = Main_Font
+                Btn.AutoButtonColor = false
+                Btn.Parent = Btn_Frame
+                
+                local Btn_Corner = Instance.new("UICorner")
+                Btn_Corner.CornerRadius = UDim.new(0, 3)
+                Btn_Corner.Parent = Btn
+                
+                local Btn_Stroke = Instance.new("UIStroke")
+                Btn_Stroke.Color = Colors.Border
+                Btn_Stroke.Parent = Btn
+
+                Btn.MouseEnter:Connect(function()
+                    Show_Tooltip(Tooltip)
+                    Animate(Btn, {BackgroundColor3 = Colors.Element_Bg}, 0.219834)
+                    Animate(Btn_Stroke, {Color = Colors.Border_Light}, 0.219834)
+                    Animate(Btn, {TextColor3 = Colors.Text_White}, 0.219834)
+                end)
+                Btn.MouseLeave:Connect(function()
+                    Show_Tooltip("")
+                    Animate(Btn, {BackgroundColor3 = Colors.Section_Bg}, 0.219834)
+                    Animate(Btn_Stroke, {Color = Colors.Border}, 0.219834)
+                    Animate(Btn, {TextColor3 = Colors.Text_Dark}, 0.219834)
+                end)
+                Btn.MouseButton1Down:Connect(function() Animate(Btn, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.124538) end)
+                Btn.MouseButton1Up:Connect(function()
+                    Animate(Btn, {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0)}, 0.124538)
                     if Callback then task.spawn(Callback) end
                 end)
             end
