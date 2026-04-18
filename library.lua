@@ -478,11 +478,19 @@ function LibraryApi:CreateWindow(windowName)
     end)
 
     local function updateResponsiveScale()
-        local currentViewport = workspaceService.CurrentCamera.ViewportSize
-        local scaleX = currentViewport.X / 1280
-        local scaleY = currentViewport.Y / 720
-        local calculatedScale = math.min(scaleX, scaleY)
-        uiScaleModifier.Scale = math.clamp(calculatedScale, 0.4, 1.25)
+        local vp = workspaceService.CurrentCamera.ViewportSize
+        if vp.X < 1 or vp.Y < 1 then 
+            uiScaleModifier.Scale = 1
+            return
+        end
+        local scaleX = vp.X / 800
+        local scaleY = vp.Y / 500
+        local scale = math.min(scaleX, scaleY)
+        if scale < 1 then
+            uiScaleModifier.Scale = math.clamp(scale * 0.95, 0.4, 1)
+        else
+            uiScaleModifier.Scale = 1
+        end
     end
 
     workspaceService.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
