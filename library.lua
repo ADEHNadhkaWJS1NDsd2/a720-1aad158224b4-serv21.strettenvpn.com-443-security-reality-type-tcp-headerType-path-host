@@ -1,1036 +1,1020 @@
-local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local TextService = game:GetService("TextService")
+local Core_Gui = game:GetService("CoreGui")
+local User_Input_Service = game:GetService("UserInputService")
+local Run_Service = game:GetService("RunService")
+local Tween_Service = game:GetService("TweenService")
+local Text_Service = game:GetService("TextService")
+local Http_Service = game:GetService("HttpService")
 
-local NixwareUI = {
-    Flags = {}
+local Nixware_Premium_Api = {
+    Cool_Flags = {}
 }
 
-local Theme = {
-    Background      = Color3.fromRGB(13, 13, 15),
-    Surface         = Color3.fromRGB(18, 18, 22),
-    SurfaceHigh     = Color3.fromRGB(24, 24, 30),
-    SurfaceHover    = Color3.fromRGB(30, 30, 38),
-    Border          = Color3.fromRGB(38, 38, 50),
-    BorderLight     = Color3.fromRGB(55, 55, 72),
-    Accent          = Color3.fromRGB(99, 120, 255),
-    AccentDim       = Color3.fromRGB(60, 75, 180),
-    AccentGlow      = Color3.fromRGB(130, 100, 255),
-    TextPrimary     = Color3.fromRGB(235, 235, 245),
-    TextSecondary   = Color3.fromRGB(130, 130, 155),
-    TextMuted       = Color3.fromRGB(70, 70, 90),
-    Success         = Color3.fromRGB(80, 210, 140),
-    TooltipBg       = Color3.fromRGB(8, 8, 12),
-    Shadow          = Color3.fromRGB(0, 0, 0),
-    AccentSequence  = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(99, 120, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 100, 255))
-    },
-    SidebarGrad     = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(18, 18, 24)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(13, 13, 17))
+local Cool_Colors = {
+    Main_Bg = Color3.fromRGB(12, 12, 12),
+    Sidebar_Bg = Color3.fromRGB(16, 16, 16),
+    Section_Bg = Color3.fromRGB(20, 20, 20),
+    Element_Bg = Color3.fromRGB(26, 26, 26),
+    Element_Hover = Color3.fromRGB(35, 35, 35),
+    Border = Color3.fromRGB(40, 40, 40),
+    Accent = Color3.fromRGB(105, 130, 255),
+    Accent_Grad_1 = Color3.fromRGB(105, 130, 255),
+    Accent_Grad_2 = Color3.fromRGB(150, 100, 255),
+    Text_White = Color3.fromRGB(240, 240, 240),
+    Text_Dark = Color3.fromRGB(150, 150, 150),
+    Tooltip_Bg = Color3.fromRGB(10, 10, 10)
+}
+
+local Cool_Font = Enum.Font.GothamMedium
+local Cool_Bold_Font = Enum.Font.GothamBold
+
+local Cool_Tooltip_Gui = Instance.new("ScreenGui")
+Cool_Tooltip_Gui.Name = Http_Service:GenerateGUID(false)
+Cool_Tooltip_Gui.Parent = Core_Gui
+Cool_Tooltip_Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Cool_Tooltip_Gui.DisplayOrder = 999 
+
+local Cool_Tooltip_Frame = Instance.new("Frame")
+Cool_Tooltip_Frame.BackgroundColor3 = Cool_Colors.Tooltip_Bg
+Cool_Tooltip_Frame.BackgroundTransparency = 1
+Cool_Tooltip_Frame.Size = UDim2.new(0, 0, 0, 24)
+Cool_Tooltip_Frame.ZIndex = 1000
+Cool_Tooltip_Frame.Visible = false
+Cool_Tooltip_Frame.Parent = Cool_Tooltip_Gui
+
+local Cool_Tooltip_Corner = Instance.new("UICorner")
+Cool_Tooltip_Corner.CornerRadius = UDim.new(0, 4)
+Cool_Tooltip_Corner.Parent = Cool_Tooltip_Frame
+
+local Cool_Tooltip_Stroke = Instance.new("UIStroke")
+Cool_Tooltip_Stroke.Color = Cool_Colors.Border
+Cool_Tooltip_Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+Cool_Tooltip_Stroke.Transparency = 1
+Cool_Tooltip_Stroke.Parent = Cool_Tooltip_Frame
+
+local Cool_Tooltip_Text = Instance.new("TextLabel")
+Cool_Tooltip_Text.Size = UDim2.new(1, -16, 1, 0)
+Cool_Tooltip_Text.Position = UDim2.new(0, 8, 0, 0)
+Cool_Tooltip_Text.BackgroundTransparency = 1
+Cool_Tooltip_Text.TextColor3 = Cool_Colors.Text_White
+Cool_Tooltip_Text.TextTransparency = 1
+Cool_Tooltip_Text.TextSize = 12
+Cool_Tooltip_Text.Font = Cool_Font
+Cool_Tooltip_Text.TextXAlignment = Enum.TextXAlignment.Left
+Cool_Tooltip_Text.ZIndex = 1001
+Cool_Tooltip_Text.Parent = Cool_Tooltip_Frame
+
+local Tooltip_Target = ""
+local Tooltip_Conn = nil
+
+local function Cool_Animate(Object, Props, Speed)
+    local Tween = Tween_Service:Create(Object, TweenInfo.new(Speed or 0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), Props)
+    Tween:Play()
+    return Tween
+end
+
+local function Cool_Show_Tooltip(Text_Str)
+    if not Text_Str or Text_Str == "" then
+        Tooltip_Target = ""
+        return
+    end
+    local Bounds = Text_Service:GetTextSize(Text_Str, 12, Cool_Font, Vector2.new(500, 24))
+    Cool_Tooltip_Frame.Size = UDim2.new(0, Bounds.X + 16, 0, 24)
+    Cool_Tooltip_Text.Text = Text_Str
+    Tooltip_Target = Text_Str
+end
+
+Run_Service.RenderStepped:Connect(function()
+    if Tooltip_Target ~= "" then
+        local Mouse = User_Input_Service:GetMouseLocation()
+        Cool_Tooltip_Frame.Position = UDim2.new(0, Mouse.X + 15, 0, Mouse.Y + 15)
+        if not Cool_Tooltip_Frame.Visible then
+            Cool_Tooltip_Frame.Visible = true
+            Cool_Animate(Cool_Tooltip_Frame, {BackgroundTransparency = 0.05}, 0.2)
+            Cool_Animate(Cool_Tooltip_Stroke, {Transparency = 0}, 0.2)
+            Cool_Animate(Cool_Tooltip_Text, {TextTransparency = 0}, 0.2)
+        end
+    else
+        Cool_Animate(Cool_Tooltip_Frame, {BackgroundTransparency = 1}, 0.1)
+        Cool_Animate(Cool_Tooltip_Stroke, {Transparency = 1}, 0.1)
+        Cool_Animate(Cool_Tooltip_Text, {TextTransparency = 1}, 0.1)
+        task.delay(0.1, function()
+            if Tooltip_Target == "" then
+                Cool_Tooltip_Frame.Visible = false
+            end
+        end)
+    end
+end)
+
+function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
+    local Cool_Screen = Instance.new("ScreenGui")
+    Cool_Screen.Name = Http_Service:GenerateGUID(false)
+    Cool_Screen.Parent = Core_Gui
+    Cool_Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local Cool_Main_Bg = Instance.new("Frame")
+    Cool_Main_Bg.Size = UDim2.new(0, 720, 0, 480)
+    Cool_Main_Bg.Position = UDim2.new(0.5, -360, 0.5, -240)
+    Cool_Main_Bg.BackgroundColor3 = Cool_Colors.Main_Bg
+    Cool_Main_Bg.BorderSizePixel = 0
+    Cool_Main_Bg.Active = true
+    Cool_Main_Bg.Parent = Cool_Screen
+    
+    local Main_Corner = Instance.new("UICorner")
+    Main_Corner.CornerRadius = UDim.new(0, 6)
+    Main_Corner.Parent = Cool_Main_Bg
+    
+    local Main_Stroke = Instance.new("UIStroke")
+    Main_Stroke.Color = Cool_Colors.Border
+    Main_Stroke.Parent = Cool_Main_Bg
+
+    local Cool_Top_Bar = Instance.new("Frame")
+    Cool_Top_Bar.Size = UDim2.new(1, 0, 0, 36)
+    Cool_Top_Bar.BackgroundColor3 = Cool_Colors.Sidebar_Bg
+    Cool_Top_Bar.BorderSizePixel = 0
+    Cool_Top_Bar.Parent = Cool_Main_Bg
+    
+    local Top_Corner = Instance.new("UICorner")
+    Top_Corner.CornerRadius = UDim.new(0, 6)
+    Top_Corner.Parent = Cool_Top_Bar
+
+    local Cool_Top_Hider = Instance.new("Frame")
+    Cool_Top_Hider.Size = UDim2.new(1, 0, 0, 6)
+    Cool_Top_Hider.Position = UDim2.new(0, 0, 1, -6)
+    Cool_Top_Hider.BackgroundColor3 = Cool_Colors.Sidebar_Bg
+    Cool_Top_Hider.BorderSizePixel = 0
+    Cool_Top_Hider.Parent = Cool_Top_Bar
+
+    local Cool_Accent_Line = Instance.new("Frame")
+    Cool_Accent_Line.Size = UDim2.new(1, 0, 0, 2)
+    Cool_Accent_Line.BackgroundColor3 = Color3.new(1, 1, 1)
+    Cool_Accent_Line.BorderSizePixel = 0
+    Cool_Accent_Line.Parent = Cool_Top_Bar
+    
+    local Accent_Corner = Instance.new("UICorner")
+    Accent_Corner.CornerRadius = UDim.new(0, 6)
+    Accent_Corner.Parent = Cool_Accent_Line
+
+    local Cool_Accent_Grad = Instance.new("UIGradient")
+    Cool_Accent_Grad.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Cool_Colors.Accent_Grad_1),
+        ColorSequenceKeypoint.new(1, Cool_Colors.Accent_Grad_2)
     }
-}
+    Cool_Accent_Grad.Parent = Cool_Accent_Line
 
-local Font = Enum.Font.GothamMedium
-local FontBold = Enum.Font.GothamBold
-local FontLight = Enum.Font.Gotham
+    local Cool_Top_Border = Instance.new("Frame")
+    Cool_Top_Border.Size = UDim2.new(1, 0, 0, 1)
+    Cool_Top_Border.Position = UDim2.new(0, 0, 1, 0)
+    Cool_Top_Border.BackgroundColor3 = Cool_Colors.Border
+    Cool_Top_Border.BorderSizePixel = 0
+    Cool_Top_Border.Parent = Cool_Top_Bar
 
-local TooltipGui = Instance.new("ScreenGui")
-TooltipGui.Name = "NW_Tooltip"
-TooltipGui.Parent = CoreGui
-TooltipGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-TooltipGui.DisplayOrder = 999
+    local Cool_Title = Instance.new("TextLabel")
+    Cool_Title.Size = UDim2.new(1, -20, 1, -2)
+    Cool_Title.Position = UDim2.new(0, 15, 0, 2)
+    Cool_Title.BackgroundTransparency = 1
+    Cool_Title.Text = Window_Name
+    Cool_Title.TextColor3 = Cool_Colors.Text_White
+    Cool_Title.TextSize = 13
+    Cool_Title.Font = Cool_Bold_Font
+    Cool_Title.TextXAlignment = Enum.TextXAlignment.Left
+    Cool_Title.Parent = Cool_Top_Bar
 
-local TooltipShadow = Instance.new("Frame")
-TooltipShadow.BackgroundColor3 = Theme.Shadow
-TooltipShadow.BackgroundTransparency = 0.5
-TooltipShadow.BorderSizePixel = 0
-TooltipShadow.Visible = false
-TooltipShadow.ZIndex = 98
-TooltipShadow.Parent = TooltipGui
+    local Cool_Sidebar = Instance.new("Frame")
+    Cool_Sidebar.Size = UDim2.new(0, 150, 1, -37)
+    Cool_Sidebar.Position = UDim2.new(0, 0, 0, 37)
+    Cool_Sidebar.BackgroundColor3 = Cool_Colors.Sidebar_Bg
+    Cool_Sidebar.BorderSizePixel = 0
+    Cool_Sidebar.Parent = Cool_Main_Bg
+    
+    local Sidebar_Corner = Instance.new("UICorner")
+    Sidebar_Corner.CornerRadius = UDim.new(0, 6)
+    Sidebar_Corner.Parent = Cool_Sidebar
 
-local TooltipShadowCorner = Instance.new("UICorner")
-TooltipShadowCorner.CornerRadius = UDim.new(0, 6)
-TooltipShadowCorner.Parent = TooltipShadow
+    local Cool_Sidebar_Hider_R = Instance.new("Frame")
+    Cool_Sidebar_Hider_R.Size = UDim2.new(0, 6, 1, 0)
+    Cool_Sidebar_Hider_R.Position = UDim2.new(1, -6, 0, 0)
+    Cool_Sidebar_Hider_R.BackgroundColor3 = Cool_Colors.Sidebar_Bg
+    Cool_Sidebar_Hider_R.BorderSizePixel = 0
+    Cool_Sidebar_Hider_R.Parent = Cool_Sidebar
 
-local TooltipFrame = Instance.new("Frame")
-TooltipFrame.BackgroundColor3 = Theme.TooltipBg
-TooltipFrame.BorderSizePixel = 0
-TooltipFrame.Visible = false
-TooltipFrame.ZIndex = 100
-TooltipFrame.Parent = TooltipGui
+    local Cool_Sidebar_Hider_T = Instance.new("Frame")
+    Cool_Sidebar_Hider_T.Size = UDim2.new(1, 0, 0, 6)
+    Cool_Sidebar_Hider_T.BackgroundColor3 = Cool_Colors.Sidebar_Bg
+    Cool_Sidebar_Hider_T.BorderSizePixel = 0
+    Cool_Sidebar_Hider_T.Parent = Cool_Sidebar
 
-local TooltipCorner = Instance.new("UICorner")
-TooltipCorner.CornerRadius = UDim.new(0, 5)
-TooltipCorner.Parent = TooltipFrame
+    local Cool_Sidebar_Border = Instance.new("Frame")
+    Cool_Sidebar_Border.Size = UDim2.new(0, 1, 1, 0)
+    Cool_Sidebar_Border.Position = UDim2.new(1, 0, 0, 0)
+    Cool_Sidebar_Border.BackgroundColor3 = Cool_Colors.Border
+    Cool_Sidebar_Border.BorderSizePixel = 0
+    Cool_Sidebar_Border.Parent = Cool_Sidebar
 
-local TooltipStroke = Instance.new("UIStroke")
-TooltipStroke.Color = Theme.Border
-TooltipStroke.Thickness = 1
-TooltipStroke.Parent = TooltipFrame
+    local Cool_Tab_Scroll = Instance.new("ScrollingFrame")
+    Cool_Tab_Scroll.Size = UDim2.new(1, -10, 1, -10)
+    Cool_Tab_Scroll.Position = UDim2.new(0, 5, 0, 5)
+    Cool_Tab_Scroll.BackgroundTransparency = 1
+    Cool_Tab_Scroll.BorderSizePixel = 0
+    Cool_Tab_Scroll.ScrollBarThickness = 0
+    Cool_Tab_Scroll.Parent = Cool_Sidebar
 
-local TooltipLabel = Instance.new("TextLabel")
-TooltipLabel.Size = UDim2.new(1, -16, 1, 0)
-TooltipLabel.Position = UDim2.new(0, 8, 0, 0)
-TooltipLabel.BackgroundTransparency = 1
-TooltipLabel.TextColor3 = Theme.TextSecondary
-TooltipLabel.TextSize = 11
-TooltipLabel.Font = FontLight
-TooltipLabel.TextXAlignment = Enum.TextXAlignment.Left
-TooltipLabel.ZIndex = 101
-TooltipLabel.Parent = TooltipFrame
+    local Cool_Tab_Layout = Instance.new("UIListLayout")
+    Cool_Tab_Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Cool_Tab_Layout.Padding = UDim.new(0, 4)
+    Cool_Tab_Layout.Parent = Cool_Tab_Scroll
 
-local TooltipConn = nil
+    local Cool_Content_Area = Instance.new("Frame")
+    Cool_Content_Area.Size = UDim2.new(1, -151, 1, -37)
+    Cool_Content_Area.Position = UDim2.new(0, 151, 0, 37)
+    Cool_Content_Area.BackgroundTransparency = 1
+    Cool_Content_Area.Parent = Cool_Main_Bg
 
-local function ShowTooltip(text)
-    if not text or text == "" then return end
-    local bounds = TextService:GetTextSize(text, 11, FontLight, Vector2.new(400, 20))
-    local w = bounds.X + 16
-    local h = 22
-    TooltipFrame.Size = UDim2.new(0, w, 0, h)
-    TooltipShadow.Size = UDim2.new(0, w + 4, 0, h + 4)
-    TooltipLabel.Text = text
-    TooltipFrame.Visible = true
-    TooltipShadow.Visible = true
-    if TooltipConn then TooltipConn:Disconnect() end
-    TooltipConn = RunService.RenderStepped:Connect(function()
-        local m = UserInputService:GetMouseLocation()
-        local px = m.X + 14
-        local py = m.Y - 28
-        TooltipFrame.Position = UDim2.fromOffset(px, py)
-        TooltipShadow.Position = UDim2.fromOffset(px - 2, py + 2)
-    end)
-end
+    local Dragging = false
+    local Drag_Input = nil
+    local Drag_Start = nil
+    local Start_Pos = nil
 
-local function HideTooltip()
-    TooltipFrame.Visible = false
-    TooltipShadow.Visible = false
-    if TooltipConn then
-        TooltipConn:Disconnect()
-        TooltipConn = nil
-    end
-end
-
-local function Tween(obj, props, t, style, dir)
-    local info = TweenInfo.new(t or 0.18, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out)
-    local tw = TweenService:Create(obj, info, props)
-    tw:Play()
-    return tw
-end
-
-local function MakeCorner(parent, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius or 6)
-    c.Parent = parent
-    return c
-end
-
-local function MakeStroke(parent, color, thickness)
-    local s = Instance.new("UIStroke")
-    s.Color = color or Theme.Border
-    s.Thickness = thickness or 1
-    s.LineJoinMode = Enum.LineJoinMode.Round
-    s.Parent = parent
-    return s
-end
-
-local function MakeShadow(parent, zindex)
-    local s = Instance.new("Frame")
-    s.Size = UDim2.new(1, 6, 1, 6)
-    s.Position = UDim2.new(0, -3, 0, 3)
-    s.BackgroundColor3 = Color3.new(0, 0, 0)
-    s.BackgroundTransparency = 0.7
-    s.BorderSizePixel = 0
-    s.ZIndex = (zindex or 1) - 1
-    s.Parent = parent
-    MakeCorner(s, 8)
-    return s
-end
-
-function NixwareUI:CreateWindow(title, subtitle)
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "NixwareEvolution"
-    ScreenGui.Parent = CoreGui
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.ResetOnSpawn = false
-
-    local MainShadow = Instance.new("Frame")
-    MainShadow.Size = UDim2.new(0, 720, 0, 500)
-    MainShadow.Position = UDim2.new(0.5, -360, 0.5, -250)
-    MainShadow.BackgroundColor3 = Color3.new(0, 0, 0)
-    MainShadow.BackgroundTransparency = 0.55
-    MainShadow.BorderSizePixel = 0
-    MainShadow.ZIndex = 1
-    MainShadow.Parent = ScreenGui
-    MakeCorner(MainShadow, 10)
-
-    local Main = Instance.new("Frame")
-    Main.Size = UDim2.new(0, 720, 0, 500)
-    Main.Position = UDim2.new(0.5, -360, 0.5, -250)
-    Main.BackgroundColor3 = Theme.Background
-    Main.BorderSizePixel = 0
-    Main.ZIndex = 2
-    Main.Parent = ScreenGui
-    MakeCorner(Main, 8)
-    MakeStroke(Main, Theme.Border, 1)
-
-    local TopBar = Instance.new("Frame")
-    TopBar.Size = UDim2.new(1, 0, 0, 38)
-    TopBar.BackgroundColor3 = Theme.Surface
-    TopBar.BorderSizePixel = 0
-    TopBar.ZIndex = 3
-    TopBar.Parent = Main
-    MakeCorner(TopBar, 8)
-
-    local TopBarBottomFix = Instance.new("Frame")
-    TopBarBottomFix.Size = UDim2.new(1, 0, 0, 8)
-    TopBarBottomFix.Position = UDim2.new(0, 0, 1, -8)
-    TopBarBottomFix.BackgroundColor3 = Theme.Surface
-    TopBarBottomFix.BorderSizePixel = 0
-    TopBarBottomFix.ZIndex = 3
-    TopBarBottomFix.Parent = TopBar
-
-    local TopBorder = Instance.new("Frame")
-    TopBorder.Size = UDim2.new(1, 0, 0, 1)
-    TopBorder.Position = UDim2.new(0, 0, 1, -1)
-    TopBorder.BackgroundColor3 = Theme.Border
-    TopBorder.BorderSizePixel = 0
-    TopBorder.ZIndex = 4
-    TopBorder.Parent = TopBar
-
-    local AccentLine = Instance.new("Frame")
-    AccentLine.Size = UDim2.new(1, 0, 0, 2)
-    AccentLine.BackgroundColor3 = Color3.new(1, 1, 1)
-    AccentLine.BorderSizePixel = 0
-    AccentLine.ZIndex = 4
-    AccentLine.Parent = TopBar
-    MakeCorner(AccentLine, 2)
-    local AccentGrad = Instance.new("UIGradient")
-    AccentGrad.Color = Theme.AccentSequence
-    AccentGrad.Parent = AccentLine
-
-    local TitleDot = Instance.new("Frame")
-    TitleDot.Size = UDim2.new(0, 6, 0, 6)
-    TitleDot.Position = UDim2.new(0, 14, 0.5, -3)
-    TitleDot.BackgroundColor3 = Theme.Accent
-    TitleDot.BorderSizePixel = 0
-    TitleDot.ZIndex = 5
-    TitleDot.Parent = TopBar
-    MakeCorner(TitleDot, 3)
-
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Size = UDim2.new(0.5, -30, 1, -2)
-    TitleLabel.Position = UDim2.new(0, 28, 0, 2)
-    TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Text = title or "Nixware"
-    TitleLabel.TextColor3 = Theme.TextPrimary
-    TitleLabel.TextSize = 13
-    TitleLabel.Font = FontBold
-    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TitleLabel.ZIndex = 5
-    TitleLabel.Parent = TopBar
-
-    if subtitle then
-        local SubLabel = Instance.new("TextLabel")
-        SubLabel.Size = UDim2.new(0.5, -10, 1, -2)
-        SubLabel.Position = UDim2.new(0.5, 0, 0, 2)
-        SubLabel.BackgroundTransparency = 1
-        SubLabel.Text = subtitle
-        SubLabel.TextColor3 = Theme.TextMuted
-        SubLabel.TextSize = 11
-        SubLabel.Font = FontLight
-        SubLabel.TextXAlignment = Enum.TextXAlignment.Right
-        SubLabel.ZIndex = 5
-        SubLabel.Parent = TopBar
-    end
-
-    local Sidebar = Instance.new("Frame")
-    Sidebar.Size = UDim2.new(0, 148, 1, -40)
-    Sidebar.Position = UDim2.new(0, 0, 0, 40)
-    Sidebar.BackgroundColor3 = Theme.Surface
-    Sidebar.BorderSizePixel = 0
-    Sidebar.ZIndex = 3
-    Sidebar.Parent = Main
-
-    local SidebarBottomFix = Instance.new("Frame")
-    SidebarBottomFix.Size = UDim2.new(1, 0, 0, 8)
-    SidebarBottomFix.BackgroundColor3 = Theme.Surface
-    SidebarBottomFix.BorderSizePixel = 0
-    SidebarBottomFix.ZIndex = 3
-    SidebarBottomFix.Parent = Sidebar
-
-    local SidebarGrad = Instance.new("UIGradient")
-    SidebarGrad.Color = Theme.SidebarGrad
-    SidebarGrad.Rotation = 90
-    SidebarGrad.Parent = Sidebar
-
-    local SidebarBorderRight = Instance.new("Frame")
-    SidebarBorderRight.Size = UDim2.new(0, 1, 1, 0)
-    SidebarBorderRight.Position = UDim2.new(1, -1, 0, 0)
-    SidebarBorderRight.BackgroundColor3 = Theme.Border
-    SidebarBorderRight.BorderSizePixel = 0
-    SidebarBorderRight.ZIndex = 4
-    SidebarBorderRight.Parent = Sidebar
-
-    local SidebarBottomRoundFix = Instance.new("Frame")
-    SidebarBottomRoundFix.Size = UDim2.new(0, 8, 0, 8)
-    SidebarBottomRoundFix.Position = UDim2.new(0, 0, 1, -8)
-    SidebarBottomRoundFix.BackgroundColor3 = Theme.Surface
-    SidebarBottomRoundFix.BorderSizePixel = 0
-    SidebarBottomRoundFix.ZIndex = 3
-    SidebarBottomRoundFix.Parent = Sidebar
-
-    local TabList = Instance.new("Frame")
-    TabList.Size = UDim2.new(1, 0, 1, 0)
-    TabList.BackgroundTransparency = 1
-    TabList.BorderSizePixel = 0
-    TabList.ZIndex = 3
-    TabList.Parent = Sidebar
-
-    local TabListLayout = Instance.new("UIListLayout")
-    TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    TabListLayout.Padding = UDim.new(0, 2)
-    TabListLayout.Parent = TabList
-
-    local TabListPad = Instance.new("UIPadding")
-    TabListPad.PaddingTop = UDim.new(0, 10)
-    TabListPad.PaddingLeft = UDim.new(0, 8)
-    TabListPad.PaddingRight = UDim.new(0, 8)
-    TabListPad.Parent = TabList
-
-    local ContentArea = Instance.new("Frame")
-    ContentArea.Size = UDim2.new(1, -150, 1, -40)
-    ContentArea.Position = UDim2.new(0, 150, 0, 40)
-    ContentArea.BackgroundTransparency = 1
-    ContentArea.BorderSizePixel = 0
-    ContentArea.ZIndex = 3
-    ContentArea.Parent = Main
-
-    local Dragging, DragStart, StartPos = false, nil, nil
-    TopBar.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+    Cool_Top_Bar.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
             Dragging = true
-            DragStart = inp.Position
-            StartPos = Main.Position
-        end
-    end)
-    RunService.RenderStepped:Connect(function()
-        if Dragging then
-            local pos = UserInputService:GetMouseLocation()
-            if DragStart then
-                local delta = Vector2.new(pos.X - DragStart.X, pos.Y - DragStart.Y)
-                Main.Position = UDim2.new(
-                    StartPos.X.Scale,
-                    StartPos.X.Offset + delta.X,
-                    StartPos.Y.Scale,
-                    StartPos.Y.Offset + delta.Y
-                )
-                MainShadow.Position = UDim2.new(
-                    StartPos.X.Scale,
-                    StartPos.X.Offset + delta.X + 4,
-                    StartPos.Y.Scale,
-                    StartPos.Y.Offset + delta.Y + 6
-                )
-            end
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-            Dragging = false
-        end
-    end)
-
-    local WindowAPI = { _tabs = {}, _btns = {} }
-
-    function WindowAPI:CreateTab(tabName, icon)
-        local TabBtn = Instance.new("TextButton")
-        TabBtn.Size = UDim2.new(1, 0, 0, 34)
-        TabBtn.BackgroundColor3 = Theme.SurfaceHigh
-        TabBtn.BackgroundTransparency = 1
-        TabBtn.BorderSizePixel = 0
-        TabBtn.Text = ""
-        TabBtn.AutoButtonColor = false
-        TabBtn.ZIndex = 4
-        TabBtn.Parent = TabList
-        MakeCorner(TabBtn, 6)
-
-        local TabBtnStroke = MakeStroke(TabBtn, Theme.Border, 1)
-        TabBtnStroke.Transparency = 1
-
-        local TabIndicator = Instance.new("Frame")
-        TabIndicator.Size = UDim2.new(0, 3, 0.5, 0)
-        TabIndicator.Position = UDim2.new(0, 0, 0.25, 0)
-        TabIndicator.BackgroundColor3 = Theme.Accent
-        TabIndicator.BackgroundTransparency = 1
-        TabIndicator.BorderSizePixel = 0
-        TabIndicator.ZIndex = 5
-        TabIndicator.Parent = TabBtn
-        MakeCorner(TabIndicator, 2)
-
-        local TabText = Instance.new("TextLabel")
-        TabText.Size = UDim2.new(1, -18, 1, 0)
-        TabText.Position = UDim2.new(0, 14, 0, 0)
-        TabText.BackgroundTransparency = 1
-        TabText.Text = (icon and icon .. "  " or "") .. tabName
-        TabText.TextColor3 = Theme.TextMuted
-        TabText.TextSize = 12
-        TabText.Font = Font
-        TabText.TextXAlignment = Enum.TextXAlignment.Left
-        TabText.ZIndex = 5
-        TabText.Parent = TabBtn
-
-        local Page = Instance.new("ScrollingFrame")
-        Page.Size = UDim2.new(1, 0, 1, 0)
-        Page.BackgroundTransparency = 1
-        Page.BorderSizePixel = 0
-        Page.ScrollBarThickness = 3
-        Page.ScrollBarImageColor3 = Theme.AccentDim
-        Page.ScrollBarImageTransparency = 0.4
-        Page.Visible = false
-        Page.ZIndex = 3
-        Page.Parent = ContentArea
-
-        local PagePad = Instance.new("UIPadding")
-        PagePad.PaddingLeft = UDim.new(0, 14)
-        PagePad.PaddingRight = UDim.new(0, 14)
-        PagePad.PaddingTop = UDim.new(0, 14)
-        PagePad.PaddingBottom = UDim.new(0, 14)
-        PagePad.Parent = Page
-
-        local LeftCol = Instance.new("Frame")
-        LeftCol.Size = UDim2.new(0.5, -7, 1, 0)
-        LeftCol.BackgroundTransparency = 1
-        LeftCol.BorderSizePixel = 0
-        LeftCol.ZIndex = 3
-        LeftCol.Parent = Page
-
-        local RightCol = Instance.new("Frame")
-        RightCol.Size = UDim2.new(0.5, -7, 1, 0)
-        RightCol.Position = UDim2.new(0.5, 7, 0, 0)
-        RightCol.BackgroundTransparency = 1
-        RightCol.BorderSizePixel = 0
-        RightCol.ZIndex = 3
-        RightCol.Parent = Page
-
-        local LeftLayout = Instance.new("UIListLayout")
-        LeftLayout.Padding = UDim.new(0, 10)
-        LeftLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        LeftLayout.Parent = LeftCol
-
-        local RightLayout = Instance.new("UIListLayout")
-        RightLayout.Padding = UDim.new(0, 10)
-        RightLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        RightLayout.Parent = RightCol
-
-        table.insert(WindowAPI._tabs, Page)
-        table.insert(WindowAPI._btns, { btn = TabBtn, ind = TabIndicator, txt = TabText, stroke = TabBtnStroke })
-
-        local function SyncCanvas()
-            local h = math.max(LeftLayout.AbsoluteContentSize.Y, RightLayout.AbsoluteContentSize.Y)
-            Page.CanvasSize = UDim2.new(0, 0, 0, h + 28)
-        end
-        LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(SyncCanvas)
-        RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(SyncCanvas)
-
-        local function ActivateTab()
-            for _, p in pairs(WindowAPI._tabs) do
-                p.Visible = false
-            end
-            for _, b in pairs(WindowAPI._btns) do
-                Tween(b.btn, { BackgroundTransparency = 1 })
-                Tween(b.stroke, { Transparency = 1 })
-                Tween(b.txt, { TextColor3 = Theme.TextMuted })
-                Tween(b.ind, { BackgroundTransparency = 1 })
-            end
-            Page.Visible = true
-            Tween(TabBtn, { BackgroundTransparency = 0 })
-            Tween(TabBtnStroke, { Transparency = 0 })
-            Tween(TabText, { TextColor3 = Theme.TextPrimary })
-            Tween(TabIndicator, { BackgroundTransparency = 0 })
-        end
-
-        if #WindowAPI._tabs == 1 then ActivateTab() end
-        TabBtn.MouseButton1Click:Connect(ActivateTab)
-
-        TabBtn.MouseEnter:Connect(function()
-            if Page.Visible then return end
-            Tween(TabBtn, { BackgroundTransparency = 0.6 })
-        end)
-        TabBtn.MouseLeave:Connect(function()
-            if Page.Visible then return end
-            Tween(TabBtn, { BackgroundTransparency = 1 })
-        end)
-
-        local TabAPI = {}
-
-        function TabAPI:CreateSection(side, sectionTitle)
-            local ParentCol = (side == "Right") and RightCol or LeftCol
-
-            local SectWrap = Instance.new("Frame")
-            SectWrap.Size = UDim2.new(1, 0, 0, 20)
-            SectWrap.BackgroundTransparency = 1
-            SectWrap.BorderSizePixel = 0
-            SectWrap.ZIndex = 3
-            SectWrap.Parent = ParentCol
-
-            local SectBg = Instance.new("Frame")
-            SectBg.Size = UDim2.new(1, 0, 1, 0)
-            SectBg.BackgroundColor3 = Theme.Surface
-            SectBg.BorderSizePixel = 0
-            SectBg.ZIndex = 3
-            SectBg.Parent = SectWrap
-            MakeCorner(SectBg, 8)
-            MakeStroke(SectBg, Theme.Border, 1)
-
-            local SectHeader = Instance.new("Frame")
-            SectHeader.Size = UDim2.new(1, 0, 0, 28)
-            SectHeader.BackgroundTransparency = 1
-            SectHeader.BorderSizePixel = 0
-            SectHeader.ZIndex = 4
-            SectHeader.Parent = SectBg
-
-            local SectDot = Instance.new("Frame")
-            SectDot.Size = UDim2.new(0, 4, 0, 4)
-            SectDot.Position = UDim2.new(0, 10, 0.5, -2)
-            SectDot.BackgroundColor3 = Theme.Accent
-            SectDot.BorderSizePixel = 0
-            SectDot.ZIndex = 5
-            SectDot.Parent = SectHeader
-            MakeCorner(SectDot, 2)
-
-            local SectTitle = Instance.new("TextLabel")
-            SectTitle.Size = UDim2.new(1, -24, 1, 0)
-            SectTitle.Position = UDim2.new(0, 22, 0, 0)
-            SectTitle.BackgroundTransparency = 1
-            SectTitle.Text = sectionTitle or "Section"
-            SectTitle.TextColor3 = Theme.TextSecondary
-            SectTitle.TextSize = 11
-            SectTitle.Font = FontBold
-            SectTitle.TextXAlignment = Enum.TextXAlignment.Left
-            SectTitle.ZIndex = 5
-            SectTitle.Parent = SectHeader
-
-            local SectDivider = Instance.new("Frame")
-            SectDivider.Size = UDim2.new(1, -20, 0, 1)
-            SectDivider.Position = UDim2.new(0, 10, 0, 27)
-            SectDivider.BackgroundColor3 = Theme.Border
-            SectDivider.BorderSizePixel = 0
-            SectDivider.ZIndex = 4
-            SectDivider.Parent = SectBg
-
-            local SectContent = Instance.new("Frame")
-            SectContent.Size = UDim2.new(1, 0, 1, -30)
-            SectContent.Position = UDim2.new(0, 0, 0, 30)
-            SectContent.BackgroundTransparency = 1
-            SectContent.BorderSizePixel = 0
-            SectContent.ZIndex = 4
-            SectContent.Parent = SectBg
-
-            local SectLayout = Instance.new("UIListLayout")
-            SectLayout.Padding = UDim.new(0, 6)
-            SectLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-            SectLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            SectLayout.Parent = SectContent
-
-            local SectPad = Instance.new("UIPadding")
-            SectPad.PaddingTop = UDim.new(0, 6)
-            SectPad.PaddingBottom = UDim.new(0, 10)
-            SectPad.Parent = SectContent
-
-            SectLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                local newH = SectLayout.AbsoluteContentSize.Y + 40
-                SectBg.Size = UDim2.new(1, 0, 0, newH)
-                SectWrap.Size = UDim2.new(1, 0, 0, newH)
+            Drag_Start = Input.Position
+            Start_Pos = Cool_Main_Bg.Position
+            Input.Changed:Connect(function()
+                if Input.UserInputState == Enum.UserInputState.End then Dragging = false end
             end)
+        end
+    end)
 
-            local function BuildElements(container)
-                local E = {}
+    Cool_Top_Bar.InputChanged:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseMovement then Drag_Input = Input end
+    end)
 
-                function E:Toggle(name, flag, default, tooltip, callback)
-                    NixwareUI.Flags[flag] = (default == true)
+    Run_Service.RenderStepped:Connect(function()
+        if Dragging and Drag_Input then
+            local Delta = Drag_Input.Position - Drag_Start
+            Cool_Main_Bg.Position = UDim2.new(Start_Pos.X.Scale, Start_Pos.X.Offset + Delta.X, Start_Pos.Y.Scale, Start_Pos.Y.Offset + Delta.Y)
+        end
+    end)
 
-                    local Row = Instance.new("TextButton")
-                    Row.Size = UDim2.new(1, -16, 0, 22)
-                    Row.BackgroundColor3 = Theme.SurfaceHigh
-                    Row.BackgroundTransparency = 1
-                    Row.BorderSizePixel = 0
-                    Row.Text = ""
-                    Row.AutoButtonColor = false
-                    Row.ZIndex = 5
-                    Row.Parent = container
-                    MakeCorner(Row, 4)
+    local Cool_Window_Context = { Tabs = {}, Active_Tab = nil }
 
-                    local Box = Instance.new("Frame")
-                    Box.Size = UDim2.new(0, 14, 0, 14)
-                    Box.Position = UDim2.new(0, 2, 0.5, -7)
-                    Box.BackgroundColor3 = NixwareUI.Flags[flag] and Theme.Accent or Theme.Background
-                    Box.BorderSizePixel = 0
-                    Box.ZIndex = 6
-                    Box.Parent = Row
-                    MakeCorner(Box, 3)
-                    MakeStroke(Box, NixwareUI.Flags[flag] and Theme.Accent or Theme.Border, 1)
+    function Cool_Window_Context:Cool_Tab_Create(Tab_Name)
+        local Cool_Tab_Data = {}
 
-                    local Check = Instance.new("TextLabel")
-                    Check.Size = UDim2.new(1, 0, 1, 0)
-                    Check.BackgroundTransparency = 1
-                    Check.Text = "✓"
-                    Check.TextColor3 = Color3.new(1, 1, 1)
-                    Check.TextSize = 10
-                    Check.Font = FontBold
-                    Check.TextTransparency = NixwareUI.Flags[flag] and 0 or 1
-                    Check.ZIndex = 7
-                    Check.Parent = Box
+        local Cool_Tab_Btn = Instance.new("TextButton")
+        Cool_Tab_Btn.Size = UDim2.new(1, 0, 0, 32)
+        Cool_Tab_Btn.BackgroundTransparency = 1
+        Cool_Tab_Btn.Text = ""
+        Cool_Tab_Btn.AutoButtonColor = false
+        Cool_Tab_Btn.Parent = Cool_Tab_Scroll
+        
+        local Btn_Corner = Instance.new("UICorner")
+        Btn_Corner.CornerRadius = UDim.new(0, 4)
+        Btn_Corner.Parent = Cool_Tab_Btn
 
-                    local Label = Instance.new("TextLabel")
-                    Label.Size = UDim2.new(1, -22, 1, 0)
-                    Label.Position = UDim2.new(0, 22, 0, 0)
-                    Label.BackgroundTransparency = 1
-                    Label.Text = name
-                    Label.TextColor3 = NixwareUI.Flags[flag] and Theme.TextPrimary or Theme.TextSecondary
-                    Label.TextSize = 12
-                    Label.Font = Font
-                    Label.TextXAlignment = Enum.TextXAlignment.Left
-                    Label.ZIndex = 6
-                    Label.Parent = Row
+        local Cool_Tab_Label = Instance.new("TextLabel")
+        Cool_Tab_Label.Size = UDim2.new(1, -20, 1, 0)
+        Cool_Tab_Label.Position = UDim2.new(0, 12, 0, 0)
+        Cool_Tab_Label.BackgroundTransparency = 1
+        Cool_Tab_Label.Text = Tab_Name
+        Cool_Tab_Label.TextColor3 = Cool_Colors.Text_Dark
+        Cool_Tab_Label.TextSize = 12
+        Cool_Tab_Label.Font = Cool_Font
+        Cool_Tab_Label.TextXAlignment = Enum.TextXAlignment.Left
+        Cool_Tab_Label.Parent = Cool_Tab_Btn
 
-                    Row.MouseEnter:Connect(function()
-                        ShowTooltip(tooltip)
-                        Tween(Row, { BackgroundTransparency = 0 })
-                    end)
-                    Row.MouseLeave:Connect(function()
-                        HideTooltip()
-                        Tween(Row, { BackgroundTransparency = 1 })
-                    end)
-                    Row.MouseButton1Click:Connect(function()
-                        NixwareUI.Flags[flag] = not NixwareUI.Flags[flag]
-                        local s = NixwareUI.Flags[flag]
-                        local boxStroke = Box:FindFirstChildOfClass("UIStroke")
-                        Tween(Box, { BackgroundColor3 = s and Theme.Accent or Theme.Background })
-                        if boxStroke then Tween(boxStroke, { Color = s and Theme.Accent or Theme.Border }) end
-                        Tween(Check, { TextTransparency = s and 0 or 1 })
-                        Tween(Label, { TextColor3 = s and Theme.TextPrimary or Theme.TextSecondary })
-                        if callback then callback(s) end
-                    end)
+        local Cool_Tab_Ind = Instance.new("Frame")
+        Cool_Tab_Ind.Size = UDim2.new(0, 2, 0, 0)
+        Cool_Tab_Ind.Position = UDim2.new(0, 0, 0.5, 0)
+        Cool_Tab_Ind.BackgroundColor3 = Cool_Colors.Accent
+        Cool_Tab_Ind.BorderSizePixel = 0
+        Cool_Tab_Ind.Parent = Cool_Tab_Btn
+        
+        local Ind_Corner = Instance.new("UICorner")
+        Ind_Corner.CornerRadius = UDim.new(0, 2)
+        Ind_Corner.Parent = Cool_Tab_Ind
+
+        local Cool_Page = Instance.new("ScrollingFrame")
+        Cool_Page.Size = UDim2.new(1, 0, 1, 0)
+        Cool_Page.BackgroundTransparency = 1
+        Cool_Page.BorderSizePixel = 0
+        Cool_Page.ScrollBarThickness = 2
+        Cool_Page.ScrollBarImageColor3 = Cool_Colors.Accent
+        Cool_Page.Visible = false
+        Cool_Page.Parent = Cool_Content_Area
+
+        local Cool_Left_Col = Instance.new("Frame")
+        Cool_Left_Col.Size = UDim2.new(0.5, -16, 1, 0)
+        Cool_Left_Col.Position = UDim2.new(0, 10, 0, 10)
+        Cool_Left_Col.BackgroundTransparency = 1
+        Cool_Left_Col.Parent = Cool_Page
+
+        local Cool_Right_Col = Instance.new("Frame")
+        Cool_Right_Col.Size = UDim2.new(0.5, -16, 1, 0)
+        Cool_Right_Col.Position = UDim2.new(0.5, 6, 0, 10)
+        Cool_Right_Col.BackgroundTransparency = 1
+        Cool_Right_Col.Parent = Cool_Page
+
+        local Cool_Left_Layout = Instance.new("UIListLayout")
+        Cool_Left_Layout.Padding = UDim.new(0, 10)
+        Cool_Left_Layout.Parent = Cool_Left_Col
+
+        local Cool_Right_Layout = Instance.new("UIListLayout")
+        Cool_Right_Layout.Padding = UDim.new(0, 10)
+        Cool_Right_Layout.Parent = Cool_Right_Col
+
+        Run_Service.RenderStepped:Connect(function()
+            local Max_Y = math.max(Cool_Left_Layout.AbsoluteContentSize.Y, Cool_Right_Layout.AbsoluteContentSize.Y)
+            Cool_Page.CanvasSize = UDim2.new(0, 0, 0, Max_Y + 20)
+            Cool_Tab_Scroll.CanvasSize = UDim2.new(0, 0, 0, Cool_Tab_Layout.AbsoluteContentSize.Y + 10)
+        end)
+
+        function Cool_Tab_Data:Activate()
+            if Cool_Window_Context.Active_Tab == Cool_Tab_Data then return end
+            if Cool_Window_Context.Active_Tab then
+                Cool_Animate(Cool_Window_Context.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.2)
+                Cool_Animate(Cool_Window_Context.Active_Tab.Lbl, {TextColor3 = Cool_Colors.Text_Dark}, 0.2)
+                Cool_Animate(Cool_Window_Context.Active_Tab.Ind, {Size = UDim2.new(0, 2, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.2)
+                Cool_Window_Context.Active_Tab.Page.Visible = false
+            end
+            Cool_Window_Context.Active_Tab = Cool_Tab_Data
+            Cool_Page.Visible = true
+            Cool_Animate(Cool_Tab_Btn, {BackgroundTransparency = 0.05}, 0.2)
+            Cool_Animate(Cool_Tab_Label, {TextColor3 = Cool_Colors.Text_White}, 0.2)
+            Cool_Animate(Cool_Tab_Ind, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.2)
+        end
+
+        Cool_Tab_Btn.MouseButton1Click:Connect(function() Cool_Tab_Data:Activate() end)
+
+        Cool_Tab_Data.Btn = Cool_Tab_Btn
+        Cool_Tab_Data.Lbl = Cool_Tab_Label
+        Cool_Tab_Data.Ind = Cool_Tab_Ind
+        Cool_Tab_Data.Page = Cool_Page
+
+        table.insert(Cool_Window_Context.Tabs, Cool_Tab_Data)
+        if #Cool_Window_Context.Tabs == 1 then Cool_Tab_Data:Activate() end
+
+        local function Cool_Element_Injector(Target_Container)
+            local Cool_Elements = {}
+
+            function Cool_Elements:Cool_Toggle_Create(Name, Flag, Default, Tooltip, Callback)
+                Nixware_Premium_Api.Cool_Flags[Flag] = Default or false
+
+                local Cool_Tog_Btn = Instance.new("TextButton")
+                Cool_Tog_Btn.Size = UDim2.new(1, 0, 0, 16)
+                Cool_Tog_Btn.BackgroundTransparency = 1
+                Cool_Tog_Btn.Text = ""
+                Cool_Tog_Btn.Parent = Target_Container
+
+                local Cool_Box = Instance.new("Frame")
+                Cool_Box.Size = UDim2.new(0, 14, 0, 14)
+                Cool_Box.Position = UDim2.new(0, 2, 0.5, -7)
+                Cool_Box.BackgroundColor3 = Nixware_Premium_Api.Cool_Flags[Flag] and Cool_Colors.Accent or Cool_Colors.Element_Bg
+                Cool_Box.Parent = Cool_Tog_Btn
+                
+                local Box_Corner = Instance.new("UICorner")
+                Box_Corner.CornerRadius = UDim.new(0, 3)
+                Box_Corner.Parent = Cool_Box
+                
+                local Box_Stroke = Instance.new("UIStroke")
+                Box_Stroke.Color = Nixware_Premium_Api.Cool_Flags[Flag] and Cool_Colors.Accent or Cool_Colors.Border
+                Box_Stroke.Parent = Cool_Box
+
+                local Cool_Text = Instance.new("TextLabel")
+                Cool_Text.Size = UDim2.new(1, -26, 1, 0)
+                Cool_Text.Position = UDim2.new(0, 24, 0, 0)
+                Cool_Text.BackgroundTransparency = 1
+                Cool_Text.Text = Name
+                Cool_Text.TextColor3 = Nixware_Premium_Api.Cool_Flags[Flag] and Cool_Colors.Text_White or Cool_Colors.Text_Dark
+                Cool_Text.TextSize = 12
+                Cool_Text.Font = Cool_Font
+                Cool_Text.TextXAlignment = Enum.TextXAlignment.Left
+                Cool_Text.Parent = Cool_Tog_Btn
+
+                Cool_Tog_Btn.MouseEnter:Connect(function()
+                    Cool_Show_Tooltip(Tooltip)
+                    if not Nixware_Premium_Api.Cool_Flags[Flag] then Cool_Animate(Box_Stroke, {Color = Cool_Colors.Text_Dark}, 0.2) end
+                end)
+                Cool_Tog_Btn.MouseLeave:Connect(function()
+                    Cool_Show_Tooltip("")
+                    if not Nixware_Premium_Api.Cool_Flags[Flag] then Cool_Animate(Box_Stroke, {Color = Cool_Colors.Border}, 0.2) end
+                end)
+
+                Cool_Tog_Btn.MouseButton1Click:Connect(function()
+                    Nixware_Premium_Api.Cool_Flags[Flag] = not Nixware_Premium_Api.Cool_Flags[Flag]
+                    local S = Nixware_Premium_Api.Cool_Flags[Flag]
+                    Cool_Animate(Cool_Box, {BackgroundColor3 = S and Cool_Colors.Accent or Cool_Colors.Element_Bg}, 0.2)
+                    Cool_Animate(Box_Stroke, {Color = S and Cool_Colors.Accent or Cool_Colors.Border}, 0.2)
+                    Cool_Animate(Cool_Text, {TextColor3 = S and Cool_Colors.Text_White or Cool_Colors.Text_Dark}, 0.2)
+                    if Callback then task.spawn(Callback, S) end
+                end)
+            end
+
+            function Cool_Elements:Cool_Slider_Create(Name, Flag, Min, Max, Default, Tooltip, Callback)
+                Nixware_Premium_Api.Cool_Flags[Flag] = Default or Min
+
+                local Cool_Sld_Frame = Instance.new("Frame")
+                Cool_Sld_Frame.Size = UDim2.new(1, 0, 0, 36)
+                Cool_Sld_Frame.BackgroundTransparency = 1
+                Cool_Sld_Frame.Parent = Target_Container
+
+                local Cool_Text = Instance.new("TextLabel")
+                Cool_Text.Size = UDim2.new(1, -10, 0, 14)
+                Cool_Text.Position = UDim2.new(0, 2, 0, 0)
+                Cool_Text.BackgroundTransparency = 1
+                Cool_Text.Text = Name
+                Cool_Text.TextColor3 = Cool_Colors.Text_White
+                Cool_Text.TextSize = 12
+                Cool_Text.Font = Cool_Font
+                Cool_Text.TextXAlignment = Enum.TextXAlignment.Left
+                Cool_Text.Parent = Cool_Sld_Frame
+
+                local Cool_Val = Instance.new("TextLabel")
+                Cool_Val.Size = UDim2.new(1, -10, 0, 14)
+                Cool_Val.Position = UDim2.new(0, 0, 0, 0)
+                Cool_Val.BackgroundTransparency = 1
+                Cool_Val.Text = tostring(Nixware_Premium_Api.Cool_Flags[Flag])
+                Cool_Val.TextColor3 = Cool_Colors.Text_White
+                Cool_Val.TextSize = 12
+                Cool_Val.Font = Cool_Font
+                Cool_Val.TextXAlignment = Enum.TextXAlignment.Right
+                Cool_Val.Parent = Cool_Sld_Frame
+
+                local Cool_Bg = Instance.new("TextButton")
+                Cool_Bg.Size = UDim2.new(1, -4, 0, 6)
+                Cool_Bg.Position = UDim2.new(0, 2, 0, 24)
+                Cool_Bg.BackgroundColor3 = Cool_Colors.Element_Bg
+                Cool_Bg.Text = ""
+                Cool_Bg.AutoButtonColor = false
+                Cool_Bg.Parent = Cool_Sld_Frame
+                
+                local Bg_Corner = Instance.new("UICorner")
+                Bg_Corner.CornerRadius = UDim.new(0, 3)
+                Bg_Corner.Parent = Cool_Bg
+                
+                local Bg_Stroke = Instance.new("UIStroke")
+                Bg_Stroke.Color = Cool_Colors.Border
+                Bg_Stroke.Parent = Cool_Bg
+
+                local Cool_Fill = Instance.new("Frame")
+                Cool_Fill.Size = UDim2.new((Nixware_Premium_Api.Cool_Flags[Flag] - Min) / (Max - Min), 0, 1, 0)
+                Cool_Fill.BackgroundColor3 = Cool_Colors.Accent
+                Cool_Fill.Parent = Cool_Bg
+                
+                local Fill_Corner = Instance.new("UICorner")
+                Fill_Corner.CornerRadius = UDim.new(0, 3)
+                Fill_Corner.Parent = Cool_Fill
+
+                Cool_Bg.MouseEnter:Connect(function()
+                    Cool_Show_Tooltip(Tooltip)
+                    Cool_Animate(Bg_Stroke, {Color = Cool_Colors.Text_Dark}, 0.2)
+                end)
+                Cool_Bg.MouseLeave:Connect(function()
+                    Cool_Show_Tooltip("")
+                    Cool_Animate(Bg_Stroke, {Color = Cool_Colors.Border}, 0.2)
+                end)
+
+                local Sliding = false
+                local function Update_Value(Input)
+                    local Pct = math.clamp((Input.Position.X - Cool_Bg.AbsolutePosition.X) / Cool_Bg.AbsoluteSize.X, 0, 1)
+                    local Val = math.floor(Min + ((Max - Min) * Pct))
+                    Nixware_Premium_Api.Cool_Flags[Flag] = Val
+                    Cool_Animate(Cool_Fill, {Size = UDim2.new(Pct, 0, 1, 0)}, 0.05)
+                    Cool_Val.Text = tostring(Val)
+                    if Callback then task.spawn(Callback, Val) end
                 end
 
-                function E:Slider(name, flag, min, max, default, suffix, tooltip, callback)
-                    NixwareUI.Flags[flag] = default or min
+                Cool_Bg.InputBegan:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        Sliding = true
+                        Update_Value(Input)
+                    end
+                end)
 
-                    local Wrap = Instance.new("Frame")
-                    Wrap.Size = UDim2.new(1, -16, 0, 38)
-                    Wrap.BackgroundTransparency = 1
-                    Wrap.BorderSizePixel = 0
-                    Wrap.ZIndex = 5
-                    Wrap.Parent = container
+                User_Input_Service.InputEnded:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 then Sliding = false end
+                end)
 
-                    local TopRow = Instance.new("Frame")
-                    TopRow.Size = UDim2.new(1, 0, 0, 16)
-                    TopRow.BackgroundTransparency = 1
-                    TopRow.BorderSizePixel = 0
-                    TopRow.ZIndex = 5
-                    TopRow.Parent = Wrap
+                User_Input_Service.InputChanged:Connect(function(Input)
+                    if Sliding and Input.UserInputType == Enum.UserInputType.MouseMovement then Update_Value(Input) end
+                end)
+            end
 
-                    local NameLabel = Instance.new("TextLabel")
-                    NameLabel.Size = UDim2.new(0.7, 0, 1, 0)
-                    NameLabel.BackgroundTransparency = 1
-                    NameLabel.Text = name
-                    NameLabel.TextColor3 = Theme.TextSecondary
-                    NameLabel.TextSize = 12
-                    NameLabel.Font = Font
-                    NameLabel.TextXAlignment = Enum.TextXAlignment.Left
-                    NameLabel.ZIndex = 6
-                    NameLabel.Parent = TopRow
+            function Cool_Elements:Cool_Dropdown_Create(Name, Flag, Options, Default, Tooltip, Callback)
+                Nixware_Premium_Api.Cool_Flags[Flag] = Default or Options[1]
+                local Open = false
 
-                    local ValLabel = Instance.new("TextLabel")
-                    ValLabel.Size = UDim2.new(0.3, 0, 1, 0)
-                    ValLabel.Position = UDim2.new(0.7, 0, 0, 0)
-                    ValLabel.BackgroundTransparency = 1
-                    ValLabel.Text = tostring(NixwareUI.Flags[flag]) .. (suffix or "")
-                    ValLabel.TextColor3 = Theme.Accent
-                    ValLabel.TextSize = 11
-                    ValLabel.Font = FontBold
-                    ValLabel.TextXAlignment = Enum.TextXAlignment.Right
-                    ValLabel.ZIndex = 6
-                    ValLabel.Parent = TopRow
+                local Cool_Drop_Frame = Instance.new("Frame")
+                Cool_Drop_Frame.Size = UDim2.new(1, 0, 0, 46)
+                Cool_Drop_Frame.BackgroundTransparency = 1
+                Cool_Drop_Frame.Parent = Target_Container
 
-                    local Track = Instance.new("Frame")
-                    Track.Size = UDim2.new(1, 0, 0, 6)
-                    Track.Position = UDim2.new(0, 0, 0, 22)
-                    Track.BackgroundColor3 = Theme.Background
-                    Track.BorderSizePixel = 0
-                    Track.ZIndex = 5
-                    Track.Parent = Wrap
-                    MakeCorner(Track, 3)
-                    MakeStroke(Track, Theme.Border, 1)
+                local Cool_Text = Instance.new("TextLabel")
+                Cool_Text.Size = UDim2.new(1, -10, 0, 14)
+                Cool_Text.Position = UDim2.new(0, 2, 0, 0)
+                Cool_Text.BackgroundTransparency = 1
+                Cool_Text.Text = Name
+                Cool_Text.TextColor3 = Cool_Colors.Text_White
+                Cool_Text.TextSize = 12
+                Cool_Text.Font = Cool_Font
+                Cool_Text.TextXAlignment = Enum.TextXAlignment.Left
+                Cool_Text.Parent = Cool_Drop_Frame
 
-                    local Fill = Instance.new("Frame")
-                    local initPct = (NixwareUI.Flags[flag] - min) / (max - min)
-                    Fill.Size = UDim2.new(initPct, 0, 1, 0)
-                    Fill.BackgroundColor3 = Theme.Accent
-                    Fill.BorderSizePixel = 0
-                    Fill.ZIndex = 6
-                    Fill.Parent = Track
-                    MakeCorner(Fill, 3)
+                local Cool_Main_Btn = Instance.new("TextButton")
+                Cool_Main_Btn.Size = UDim2.new(1, -4, 0, 24)
+                Cool_Main_Btn.Position = UDim2.new(0, 2, 0, 20)
+                Cool_Main_Btn.BackgroundColor3 = Cool_Colors.Element_Bg
+                Cool_Main_Btn.Text = ""
+                Cool_Main_Btn.AutoButtonColor = false
+                Cool_Main_Btn.Parent = Cool_Drop_Frame
+                
+                local Btn_Corner = Instance.new("UICorner")
+                Btn_Corner.CornerRadius = UDim.new(0, 4)
+                Btn_Corner.Parent = Cool_Main_Btn
+                
+                local Main_Stroke = Instance.new("UIStroke")
+                Main_Stroke.Color = Cool_Colors.Border
+                Main_Stroke.Parent = Cool_Main_Btn
 
-                    local FillGrad = Instance.new("UIGradient")
-                    FillGrad.Color = Theme.AccentSequence
-                    FillGrad.Parent = Fill
+                local Cool_Selected = Instance.new("TextLabel")
+                Cool_Selected.Size = UDim2.new(1, -20, 1, 0)
+                Cool_Selected.Position = UDim2.new(0, 8, 0, 0)
+                Cool_Selected.BackgroundTransparency = 1
+                Cool_Selected.Text = Nixware_Premium_Api.Cool_Flags[Flag]
+                Cool_Selected.TextColor3 = Cool_Colors.Text_Dark
+                Cool_Selected.TextSize = 12
+                Cool_Selected.Font = Cool_Font
+                Cool_Selected.TextXAlignment = Enum.TextXAlignment.Left
+                Cool_Selected.Parent = Cool_Main_Btn
 
-                    local Knob = Instance.new("Frame")
-                    Knob.Size = UDim2.new(0, 10, 0, 10)
-                    Knob.Position = UDim2.new(initPct, -5, 0.5, -5)
-                    Knob.BackgroundColor3 = Color3.new(1, 1, 1)
-                    Knob.BorderSizePixel = 0
-                    Knob.ZIndex = 7
-                    Knob.Parent = Track
-                    MakeCorner(Knob, 5)
+                local Cool_List = Instance.new("Frame")
+                Cool_List.Size = UDim2.new(1, -4, 0, 0)
+                Cool_List.Position = UDim2.new(0, 2, 0, 48)
+                Cool_List.BackgroundColor3 = Cool_Colors.Element_Bg
+                Cool_List.ClipsDescendants = true
+                Cool_List.ZIndex = 5
+                Cool_List.Parent = Cool_Drop_Frame
+                
+                local List_Corner = Instance.new("UICorner")
+                List_Corner.CornerRadius = UDim.new(0, 4)
+                List_Corner.Parent = Cool_List
+                
+                local List_Stroke = Instance.new("UIStroke")
+                List_Stroke.Color = Cool_Colors.Border
+                List_Stroke.Transparency = 1
+                List_Stroke.Parent = Cool_List
 
-                    Track.MouseEnter:Connect(function() ShowTooltip(tooltip) end)
-                    Track.MouseLeave:Connect(function() HideTooltip() end)
+                local Cool_List_Layout = Instance.new("UIListLayout")
+                Cool_List_Layout.SortOrder = Enum.SortOrder.LayoutOrder
+                Cool_List_Layout.Parent = Cool_List
 
-                    local sliding = false
-                    Track.InputBegan:Connect(function(inp)
-                        if inp.UserInputType == Enum.UserInputType.MouseButton1 then sliding = true end
-                    end)
-                    UserInputService.InputEnded:Connect(function(inp)
-                        if inp.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end
-                    end)
-                    RunService.RenderStepped:Connect(function()
-                        if sliding then
-                            local mx = UserInputService:GetMouseLocation().X
-                            local pct = math.clamp((mx - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-                            local val = math.floor(min + (max - min) * pct)
-                            NixwareUI.Flags[flag] = val
-                            Fill.Size = UDim2.new(pct, 0, 1, 0)
-                            Knob.Position = UDim2.new(pct, -5, 0.5, -5)
-                            ValLabel.Text = tostring(val) .. (suffix or "")
-                            if callback then callback(val) end
+                local function Toggle()
+                    Open = not Open
+                    local Target_Size = Open and (#Options * 24) or 0
+                    Cool_Animate(Main_Stroke, {Color = Open and Cool_Colors.Accent or Cool_Colors.Border}, 0.2)
+                    Cool_Animate(Cool_List, {Size = UDim2.new(1, -4, 0, Target_Size)}, 0.2)
+                    Cool_Animate(List_Stroke, {Transparency = Open and 0 or 1}, 0.2)
+                    Cool_Animate(Cool_Drop_Frame, {Size = UDim2.new(1, 0, 0, 46 + Target_Size + (Open and 6 or 0))}, 0.2)
+                end
+
+                Cool_Main_Btn.MouseEnter:Connect(function()
+                    Cool_Show_Tooltip(Tooltip)
+                    if not Open then Cool_Animate(Main_Stroke, {Color = Cool_Colors.Text_Dark}, 0.2) end
+                end)
+                Cool_Main_Btn.MouseLeave:Connect(function()
+                    Cool_Show_Tooltip("")
+                    if not Open then Cool_Animate(Main_Stroke, {Color = Cool_Colors.Border}, 0.2) end
+                end)
+                Cool_Main_Btn.MouseButton1Click:Connect(Toggle)
+
+                for _, Opt in ipairs(Options) do
+                    local Cool_Opt_Btn = Instance.new("TextButton")
+                    Cool_Opt_Btn.Size = UDim2.new(1, 0, 0, 24)
+                    Cool_Opt_Btn.BackgroundTransparency = 1
+                    Cool_Opt_Btn.Text = ""
+                    Cool_Opt_Btn.ZIndex = 6
+                    Cool_Opt_Btn.Parent = Cool_List
+
+                    local Cool_Opt_Text = Instance.new("TextLabel")
+                    Cool_Opt_Text.Size = UDim2.new(1, -20, 1, 0)
+                    Cool_Opt_Text.Position = UDim2.new(0, 8, 0, 0)
+                    Cool_Opt_Text.BackgroundTransparency = 1
+                    Cool_Opt_Text.Text = Opt
+                    Cool_Opt_Text.TextColor3 = Cool_Colors.Text_Dark
+                    Cool_Opt_Text.TextSize = 12
+                    Cool_Opt_Text.Font = Cool_Font
+                    Cool_Opt_Text.TextXAlignment = Enum.TextXAlignment.Left
+                    Cool_Opt_Text.ZIndex = 6
+                    Cool_Opt_Text.Parent = Cool_Opt_Btn
+
+                    Cool_Opt_Btn.MouseEnter:Connect(function() Cool_Animate(Cool_Opt_Text, {TextColor3 = Cool_Colors.Accent}, 0.15) end)
+                    Cool_Opt_Btn.MouseLeave:Connect(function()
+                        if Nixware_Premium_Api.Cool_Flags[Flag] ~= Opt then
+                            Cool_Animate(Cool_Opt_Text, {TextColor3 = Cool_Colors.Text_Dark}, 0.15)
+                        else
+                            Cool_Animate(Cool_Opt_Text, {TextColor3 = Cool_Colors.Text_White}, 0.15)
                         end
                     end)
-                end
 
-                function E:Dropdown(name, flag, options, default, tooltip, callback)
-                    NixwareUI.Flags[flag] = default or options[1]
-                    local open = false
-
-                    local Wrap = Instance.new("Frame")
-                    Wrap.Size = UDim2.new(1, -16, 0, 48)
-                    Wrap.BackgroundTransparency = 1
-                    Wrap.BorderSizePixel = 0
-                    Wrap.ClipsDescendants = true
-                    Wrap.ZIndex = 5
-                    Wrap.Parent = container
-
-                    local Label = Instance.new("TextLabel")
-                    Label.Size = UDim2.new(1, 0, 0, 14)
-                    Label.BackgroundTransparency = 1
-                    Label.Text = name
-                    Label.TextColor3 = Theme.TextSecondary
-                    Label.TextSize = 11
-                    Label.Font = Font
-                    Label.TextXAlignment = Enum.TextXAlignment.Left
-                    Label.ZIndex = 6
-                    Label.Parent = Wrap
-
-                    local MainBtn = Instance.new("TextButton")
-                    MainBtn.Size = UDim2.new(1, 0, 0, 26)
-                    MainBtn.Position = UDim2.new(0, 0, 0, 16)
-                    MainBtn.BackgroundColor3 = Theme.SurfaceHigh
-                    MainBtn.BorderSizePixel = 0
-                    MainBtn.Text = ""
-                    MainBtn.ZIndex = 6
-                    MainBtn.Parent = Wrap
-                    MakeCorner(MainBtn, 5)
-                    local MainStroke = MakeStroke(MainBtn, Theme.Border, 1)
-
-                    local MainText = Instance.new("TextLabel")
-                    MainText.Size = UDim2.new(1, -32, 1, 0)
-                    MainText.Position = UDim2.new(0, 10, 0, 0)
-                    MainText.BackgroundTransparency = 1
-                    MainText.Text = NixwareUI.Flags[flag]
-                    MainText.TextColor3 = Theme.TextPrimary
-                    MainText.TextSize = 12
-                    MainText.Font = Font
-                    MainText.TextXAlignment = Enum.TextXAlignment.Left
-                    MainText.ZIndex = 7
-                    MainText.Parent = MainBtn
-
-                    local Arrow = Instance.new("TextLabel")
-                    Arrow.Size = UDim2.new(0, 20, 1, 0)
-                    Arrow.Position = UDim2.new(1, -22, 0, 0)
-                    Arrow.BackgroundTransparency = 1
-                    Arrow.Text = "▾"
-                    Arrow.TextColor3 = Theme.TextMuted
-                    Arrow.TextSize = 12
-                    Arrow.Font = Font
-                    Arrow.ZIndex = 7
-                    Arrow.Parent = MainBtn
-
-                    local ListBg = Instance.new("Frame")
-                    ListBg.Size = UDim2.new(1, 0, 0, 0)
-                    ListBg.Position = UDim2.new(0, 0, 0, 44)
-                    ListBg.BackgroundColor3 = Theme.SurfaceHigh
-                    ListBg.BorderSizePixel = 0
-                    ListBg.ZIndex = 6
-                    ListBg.Parent = Wrap
-                    MakeCorner(ListBg, 5)
-                    MakeStroke(ListBg, Theme.Border, 1)
-
-                    local ListLayout = Instance.new("UIListLayout")
-                    ListLayout.Parent = ListBg
-
-                    for _, opt in ipairs(options) do
-                        local OptBtn = Instance.new("TextButton")
-                        OptBtn.Size = UDim2.new(1, 0, 0, 24)
-                        OptBtn.BackgroundTransparency = 1
-                        OptBtn.BorderSizePixel = 0
-                        OptBtn.Text = ""
-                        OptBtn.ZIndex = 7
-                        OptBtn.Parent = ListBg
-
-                        local OptText = Instance.new("TextLabel")
-                        OptText.Size = UDim2.new(1, -14, 1, 0)
-                        OptText.Position = UDim2.new(0, 10, 0, 0)
-                        OptText.BackgroundTransparency = 1
-                        OptText.Text = opt
-                        OptText.TextColor3 = Theme.TextSecondary
-                        OptText.TextSize = 12
-                        OptText.Font = Font
-                        OptText.TextXAlignment = Enum.TextXAlignment.Left
-                        OptText.ZIndex = 8
-                        OptText.Parent = OptBtn
-
-                        OptBtn.MouseEnter:Connect(function() Tween(OptText, { TextColor3 = Theme.Accent }) end)
-                        OptBtn.MouseLeave:Connect(function() Tween(OptText, { TextColor3 = Theme.TextSecondary }) end)
-                        OptBtn.MouseButton1Click:Connect(function()
-                            NixwareUI.Flags[flag] = opt
-                            MainText.Text = opt
-                            open = false
-                            Tween(Wrap, { Size = UDim2.new(1, -16, 0, 48) })
-                            Tween(ListBg, { Size = UDim2.new(1, 0, 0, 0) })
-                            Tween(MainStroke, { Color = Theme.Border })
-                            Tween(Arrow, { TextColor3 = Theme.TextMuted })
-                            if callback then callback(opt) end
-                        end)
-                    end
-
-                    MainBtn.MouseEnter:Connect(function() ShowTooltip(tooltip) end)
-                    MainBtn.MouseLeave:Connect(function() HideTooltip() end)
-                    MainBtn.MouseButton1Click:Connect(function()
-                        open = not open
-                        local targetH = open and (44 + #options * 24 + 2) or 48
-                        local listH = open and (#options * 24) or 0
-                        Tween(Wrap, { Size = UDim2.new(1, -16, 0, targetH) })
-                        Tween(ListBg, { Size = UDim2.new(1, 0, 0, listH) })
-                        Tween(MainStroke, { Color = open and Theme.Accent or Theme.Border })
-                        Tween(Arrow, { TextColor3 = open and Theme.Accent or Theme.TextMuted })
-                    end)
-                end
-
-                function E:Button(name, tooltip, callback)
-                    local Btn = Instance.new("TextButton")
-                    Btn.Size = UDim2.new(1, -16, 0, 28)
-                    Btn.BackgroundColor3 = Theme.SurfaceHigh
-                    Btn.BorderSizePixel = 0
-                    Btn.Text = name
-                    Btn.TextColor3 = Theme.TextSecondary
-                    Btn.TextSize = 12
-                    Btn.Font = Font
-                    Btn.AutoButtonColor = false
-                    Btn.ZIndex = 5
-                    Btn.Parent = container
-                    MakeCorner(Btn, 5)
-                    local BtnStroke = MakeStroke(Btn, Theme.Border, 1)
-
-                    Btn.MouseEnter:Connect(function()
-                        ShowTooltip(tooltip)
-                        Tween(Btn, { BackgroundColor3 = Theme.SurfaceHover })
-                        Tween(Btn, { TextColor3 = Theme.TextPrimary })
-                    end)
-                    Btn.MouseLeave:Connect(function()
-                        HideTooltip()
-                        Tween(Btn, { BackgroundColor3 = Theme.SurfaceHigh })
-                        Tween(Btn, { TextColor3 = Theme.TextSecondary })
-                    end)
-                    Btn.MouseButton1Down:Connect(function()
-                        Tween(BtnStroke, { Color = Theme.Accent })
-                        Tween(Btn, { TextColor3 = Theme.Accent })
-                    end)
-                    Btn.MouseButton1Up:Connect(function()
-                        Tween(BtnStroke, { Color = Theme.Border })
-                        Tween(Btn, { TextColor3 = Theme.TextPrimary })
-                        if callback then callback() end
-                    end)
-                end
-
-                function E:ColorPicker(name, flag, default, tooltip, callback)
-                    NixwareUI.Flags[flag] = default or Color3.new(1, 1, 1)
-                    local open = false
-
-                    local Wrap = Instance.new("Frame")
-                    Wrap.Size = UDim2.new(1, -16, 0, 26)
-                    Wrap.BackgroundTransparency = 1
-                    Wrap.BorderSizePixel = 0
-                    Wrap.ClipsDescendants = true
-                    Wrap.ZIndex = 5
-                    Wrap.Parent = container
-
-                    local Header = Instance.new("TextButton")
-                    Header.Size = UDim2.new(1, 0, 0, 26)
-                    Header.BackgroundTransparency = 1
-                    Header.BorderSizePixel = 0
-                    Header.Text = ""
-                    Header.ZIndex = 6
-                    Header.Parent = Wrap
-
-                    local NameLabel = Instance.new("TextLabel")
-                    NameLabel.Size = UDim2.new(1, -36, 1, 0)
-                    NameLabel.BackgroundTransparency = 1
-                    NameLabel.Text = name
-                    NameLabel.TextColor3 = Theme.TextSecondary
-                    NameLabel.TextSize = 12
-                    NameLabel.Font = Font
-                    NameLabel.TextXAlignment = Enum.TextXAlignment.Left
-                    NameLabel.ZIndex = 7
-                    NameLabel.Parent = Header
-
-                    local Preview = Instance.new("Frame")
-                    Preview.Size = UDim2.new(0, 24, 0, 12)
-                    Preview.Position = UDim2.new(1, -26, 0.5, -6)
-                    Preview.BackgroundColor3 = NixwareUI.Flags[flag]
-                    Preview.BorderSizePixel = 0
-                    Preview.ZIndex = 7
-                    Preview.Parent = Header
-                    MakeCorner(Preview, 3)
-                    MakeStroke(Preview, Theme.Border, 1)
-
-                    local Expand = Instance.new("Frame")
-                    Expand.Size = UDim2.new(1, 0, 0, 72)
-                    Expand.Position = UDim2.new(0, 0, 0, 28)
-                    Expand.BackgroundColor3 = Theme.SurfaceHigh
-                    Expand.BorderSizePixel = 0
-                    Expand.ZIndex = 6
-                    Expand.Parent = Wrap
-                    MakeCorner(Expand, 5)
-                    MakeStroke(Expand, Theme.Border, 1)
-
-                    Header.MouseEnter:Connect(function() ShowTooltip(tooltip) end)
-                    Header.MouseLeave:Connect(function() HideTooltip() end)
-                    Header.MouseButton1Click:Connect(function()
-                        open = not open
-                        Tween(Wrap, { Size = UDim2.new(1, -16, 0, open and 104 or 26) })
-                    end)
-
-                    local r = NixwareUI.Flags[flag].R
-                    local g = NixwareUI.Flags[flag].G
-                    local b = NixwareUI.Flags[flag].B
-
-                    local function SyncColor()
-                        local col = Color3.new(r, g, b)
-                        NixwareUI.Flags[flag] = col
-                        Preview.BackgroundColor3 = col
-                        if callback then callback(col) end
-                    end
-
-                    local function MakeRgbTrack(yOffset, val, onChange)
-                        local TrackBg = Instance.new("Frame")
-                        TrackBg.Size = UDim2.new(1, -16, 0, 8)
-                        TrackBg.Position = UDim2.new(0, 8, 0, yOffset)
-                        TrackBg.BackgroundColor3 = Theme.Background
-                        TrackBg.BorderSizePixel = 0
-                        TrackBg.ZIndex = 7
-                        TrackBg.Parent = Expand
-                        MakeCorner(TrackBg, 4)
-                        MakeStroke(TrackBg, Theme.Border, 1)
-
-                        local TrackFill = Instance.new("Frame")
-                        TrackFill.Size = UDim2.new(val, 0, 1, 0)
-                        TrackFill.BackgroundColor3 = Theme.Accent
-                        TrackFill.BorderSizePixel = 0
-                        TrackFill.ZIndex = 8
-                        TrackFill.Parent = TrackBg
-                        MakeCorner(TrackFill, 4)
-
-                        local sld = false
-                        TrackBg.InputBegan:Connect(function(inp)
-                            if inp.UserInputType == Enum.UserInputType.MouseButton1 then sld = true end
-                        end)
-                        UserInputService.InputEnded:Connect(function(inp)
-                            if inp.UserInputType == Enum.UserInputType.MouseButton1 then sld = false end
-                        end)
-                        RunService.RenderStepped:Connect(function()
-                            if sld then
-                                local pct = math.clamp((UserInputService:GetMouseLocation().X - TrackBg.AbsolutePosition.X) / TrackBg.AbsoluteSize.X, 0, 1)
-                                TrackFill.Size = UDim2.new(pct, 0, 1, 0)
-                                onChange(pct)
+                    Cool_Opt_Btn.MouseButton1Click:Connect(function()
+                        Nixware_Premium_Api.Cool_Flags[Flag] = Opt
+                        Cool_Selected.Text = Opt
+                        Toggle()
+                        for _, Child in ipairs(Cool_List:GetChildren()) do
+                            if Child:IsA("TextButton") then
+                                Child:FindFirstChildOfClass("TextLabel").TextColor3 = Cool_Colors.Text_Dark
                             end
-                        end)
-                    end
-
-                    MakeRgbTrack(8, r, function(v) r = v; SyncColor() end)
-                    MakeRgbTrack(28, g, function(v) g = v; SyncColor() end)
-                    MakeRgbTrack(48, b, function(v) b = v; SyncColor() end)
-
-                    local RLabel = Instance.new("TextLabel")
-                    RLabel.Size = UDim2.new(0, 8, 0, 8)
-                    RLabel.Position = UDim2.new(0, 0, 0, 8)
-                    RLabel.BackgroundTransparency = 1
-                    RLabel.Text = "R"
-                    RLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-                    RLabel.TextSize = 9
-                    RLabel.Font = FontBold
-                    RLabel.ZIndex = 9
-                    RLabel.Parent = Expand
-
-                    local GLabel = RLabel:Clone()
-                    GLabel.Position = UDim2.new(0, 0, 0, 28)
-                    GLabel.Text = "G"
-                    GLabel.TextColor3 = Color3.fromRGB(100, 210, 100)
-                    GLabel.Parent = Expand
-
-                    local BLabel = RLabel:Clone()
-                    BLabel.Position = UDim2.new(0, 0, 0, 48)
-                    BLabel.Text = "B"
-                    BLabel.TextColor3 = Color3.fromRGB(100, 140, 255)
-                    BLabel.Parent = Expand
+                        end
+                        Cool_Opt_Text.TextColor3 = Cool_Colors.Text_White
+                        if Callback then task.spawn(Callback, Opt) end
+                    end)
                 end
-
-                function E:Label(text, color)
-                    local L = Instance.new("TextLabel")
-                    L.Size = UDim2.new(1, -16, 0, 16)
-                    L.BackgroundTransparency = 1
-                    L.BorderSizePixel = 0
-                    L.Text = text
-                    L.TextColor3 = color or Theme.TextMuted
-                    L.TextSize = 11
-                    L.Font = FontLight
-                    L.TextXAlignment = Enum.TextXAlignment.Left
-                    L.ZIndex = 5
-                    L.Parent = container
-                end
-
-                function E:Separator()
-                    local Sep = Instance.new("Frame")
-                    Sep.Size = UDim2.new(1, -16, 0, 1)
-                    Sep.BackgroundColor3 = Theme.Border
-                    Sep.BorderSizePixel = 0
-                    Sep.ZIndex = 5
-                    Sep.Parent = container
-                end
-
-                return E
             end
 
-            return BuildElements(SectContent)
+            function Cool_Elements:Cool_ColorPicker_Create(Name, Flag, Default, Tooltip, Callback)
+                Nixware_Premium_Api.Cool_Flags[Flag] = Default or Color3.fromRGB(255, 255, 255)
+                local Open = false
+
+                local R = math.floor(Nixware_Premium_Api.Cool_Flags[Flag].R * 255)
+                local G = math.floor(Nixware_Premium_Api.Cool_Flags[Flag].G * 255)
+                local B = math.floor(Nixware_Premium_Api.Cool_Flags[Flag].B * 255)
+
+                local Cool_Col_Frame = Instance.new("Frame")
+                Cool_Col_Frame.Size = UDim2.new(1, 0, 0, 24)
+                Cool_Col_Frame.BackgroundTransparency = 1
+                Cool_Col_Frame.ClipsDescendants = true
+                Cool_Col_Frame.Parent = Target_Container
+
+                local Cool_Text = Instance.new("TextLabel")
+                Cool_Text.Size = UDim2.new(1, -40, 0, 24)
+                Cool_Text.Position = UDim2.new(0, 2, 0, 0)
+                Cool_Text.BackgroundTransparency = 1
+                Cool_Text.Text = Name
+                Cool_Text.TextColor3 = Cool_Colors.Text_White
+                Cool_Text.TextSize = 12
+                Cool_Text.Font = Cool_Font
+                Cool_Text.TextXAlignment = Enum.TextXAlignment.Left
+                Cool_Text.Parent = Cool_Col_Frame
+
+                local Cool_Prev_Btn = Instance.new("TextButton")
+                Cool_Prev_Btn.Size = UDim2.new(0, 24, 0, 14)
+                Cool_Prev_Btn.Position = UDim2.new(1, -28, 0, 5)
+                Cool_Prev_Btn.BackgroundColor3 = Nixware_Premium_Api.Cool_Flags[Flag]
+                Cool_Prev_Btn.Text = ""
+                Cool_Prev_Btn.AutoButtonColor = false
+                Cool_Prev_Btn.Parent = Cool_Col_Frame
+                
+                local Prev_Corner = Instance.new("UICorner")
+                Prev_Corner.CornerRadius = UDim.new(0, 3)
+                Prev_Corner.Parent = Cool_Prev_Btn
+                
+                local Prev_Stroke = Instance.new("UIStroke")
+                Prev_Stroke.Color = Cool_Colors.Border
+                Prev_Stroke.Parent = Cool_Prev_Btn
+
+                local Cool_Expand = Instance.new("Frame")
+                Cool_Expand.Size = UDim2.new(1, -4, 0, 96)
+                Cool_Expand.Position = UDim2.new(0, 2, 0, 28)
+                Cool_Expand.BackgroundColor3 = Cool_Colors.Element_Bg
+                Cool_Expand.Parent = Cool_Col_Frame
+                
+                local Expand_Corner = Instance.new("UICorner")
+                Expand_Corner.CornerRadius = UDim.new(0, 4)
+                Expand_Corner.Parent = Cool_Expand
+                
+                local Expand_Stroke = Instance.new("UIStroke")
+                Expand_Stroke.Color = Cool_Colors.Border
+                Expand_Stroke.Parent = Cool_Expand
+
+                Cool_Prev_Btn.MouseEnter:Connect(function()
+                    Cool_Show_Tooltip(Tooltip)
+                    if not Open then Cool_Animate(Prev_Stroke, {Color = Cool_Colors.Text_Dark}, 0.2) end
+                end)
+                Cool_Prev_Btn.MouseLeave:Connect(function()
+                    Cool_Show_Tooltip("")
+                    if not Open then Cool_Animate(Prev_Stroke, {Color = Cool_Colors.Border}, 0.2) end
+                end)
+
+                Cool_Prev_Btn.MouseButton1Click:Connect(function()
+                    Open = not Open
+                    Cool_Animate(Prev_Stroke, {Color = Open and Cool_Colors.Accent or Cool_Colors.Border}, 0.2)
+                    Cool_Animate(Cool_Col_Frame, {Size = UDim2.new(1, 0, 0, Open and 128 or 24)}, 0.25)
+                end)
+
+                local function CreateColorSlider(YPos, Label, InitialVal, UpdateFunc)
+                    local Sld_Label = Instance.new("TextLabel")
+                    Sld_Label.Size = UDim2.new(0, 15, 0, 12)
+                    Sld_Label.Position = UDim2.new(0, 8, 0, YPos)
+                    Sld_Label.BackgroundTransparency = 1
+                    Sld_Label.Text = Label
+                    Sld_Label.TextColor3 = Cool_Colors.Text_Dark
+                    Sld_Label.TextSize = 11
+                    Sld_Label.Font = Cool_Bold_Font
+                    Sld_Label.Parent = Cool_Expand
+
+                    local Sld_Bg = Instance.new("TextButton")
+                    Sld_Bg.Size = UDim2.new(1, -50, 0, 8)
+                    Sld_Bg.Position = UDim2.new(0, 25, 0, YPos + 2)
+                    Sld_Bg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                    Sld_Bg.Text = ""
+                    Sld_Bg.AutoButtonColor = false
+                    Sld_Bg.Parent = Cool_Expand
+                    
+                    local Bg_Corner = Instance.new("UICorner")
+                    Bg_Corner.CornerRadius = UDim.new(0, 3)
+                    Bg_Corner.Parent = Sld_Bg
+                    
+                    local Bg_Stroke = Instance.new("UIStroke")
+                    Bg_Stroke.Color = Cool_Colors.Border
+                    Bg_Stroke.Parent = Sld_Bg
+
+                    local Sld_Grad = Instance.new("UIGradient")
+                    Sld_Grad.Parent = Sld_Bg
+
+                    local Sld_Fill = Instance.new("Frame")
+                    Sld_Fill.Size = UDim2.new(InitialVal / 255, 0, 1, 0)
+                    Sld_Fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                    Sld_Fill.BackgroundTransparency = 1
+                    Sld_Fill.Parent = Sld_Bg
+
+                    local Sld_Marker = Instance.new("Frame")
+                    Sld_Marker.Size = UDim2.new(0, 4, 0, 12)
+                    Sld_Marker.Position = UDim2.new(1, -2, 0.5, -6)
+                    Sld_Marker.BackgroundColor3 = Cool_Colors.Text_White
+                    Sld_Marker.Parent = Sld_Fill
+                    
+                    local Marker_Corner = Instance.new("UICorner")
+                    Marker_Corner.CornerRadius = UDim.new(0, 2)
+                    Marker_Corner.Parent = Sld_Marker
+
+                    local Sld_Val = Instance.new("TextLabel")
+                    Sld_Val.Size = UDim2.new(0, 20, 0, 12)
+                    Sld_Val.Position = UDim2.new(1, -28, 0, YPos)
+                    Sld_Val.BackgroundTransparency = 1
+                    Sld_Val.Text = tostring(InitialVal)
+                    Sld_Val.TextColor3 = Cool_Colors.Text_White
+                    Sld_Val.TextSize = 11
+                    Sld_Val.Font = Cool_Font
+                    Sld_Val.TextXAlignment = Enum.TextXAlignment.Right
+                    Sld_Val.Parent = Cool_Expand
+
+                    local Sliding = false
+                    local function Update_Value(Input)
+                        local Pct = math.clamp((Input.Position.X - Sld_Bg.AbsolutePosition.X) / Sld_Bg.AbsoluteSize.X, 0, 1)
+                        local Val = math.floor(Pct * 255)
+                        Cool_Animate(Sld_Fill, {Size = UDim2.new(Pct, 0, 1, 0)}, 0.05)
+                        Sld_Val.Text = tostring(Val)
+                        UpdateFunc(Val)
+                    end
+
+                    Sld_Bg.InputBegan:Connect(function(Input)
+                        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                            Sliding = true
+                            Update_Value(Input)
+                        end
+                    end)
+                    User_Input_Service.InputEnded:Connect(function(Input)
+                        if Input.UserInputType == Enum.UserInputType.MouseButton1 then Sliding = false end
+                    end)
+                    User_Input_Service.InputChanged:Connect(function(Input)
+                        if Sliding and Input.UserInputType == Enum.UserInputType.MouseMovement then Update_Value(Input) end
+                    end)
+
+                    return Sld_Grad
+                end
+
+                local GradR, GradG, GradB
+
+                local function UpdateVisuals()
+                    local CurrentCol = Color3.fromRGB(R, G, B)
+                    Nixware_Premium_Api.Cool_Flags[Flag] = CurrentCol
+                    Cool_Prev_Btn.BackgroundColor3 = CurrentCol
+                    
+                    GradR.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(0, G, B)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, G, B))}
+                    GradG.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(R, 0, B)), ColorSequenceKeypoint.new(1, Color3.fromRGB(R, 255, B))}
+                    GradB.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(R, G, 0)), ColorSequenceKeypoint.new(1, Color3.fromRGB(R, G, 255))}
+                    
+                    if Callback then task.spawn(Callback, CurrentCol) end
+                end
+
+                GradR = CreateColorSlider(15, "R", R, function(Val) R = Val UpdateVisuals() end)
+                GradG = CreateColorSlider(40, "G", G, function(Val) G = Val UpdateVisuals() end)
+                GradB = CreateColorSlider(65, "B", B, function(Val) B = Val UpdateVisuals() end)
+
+                UpdateVisuals()
+            end
+
+            function Cool_Elements:Cool_Button_Create(Name, Tooltip, Callback)
+                local Cool_Btn_Frame = Instance.new("Frame")
+                Cool_Btn_Frame.Size = UDim2.new(1, 0, 0, 28)
+                Cool_Btn_Frame.BackgroundTransparency = 1
+                Cool_Btn_Frame.Parent = Target_Container
+
+                local Cool_Btn = Instance.new("TextButton")
+                Cool_Btn.Size = UDim2.new(1, -4, 1, 0)
+                Cool_Btn.Position = UDim2.new(0, 2, 0, 0)
+                Cool_Btn.BackgroundColor3 = Cool_Colors.Element_Bg
+                Cool_Btn.Text = Name
+                Cool_Btn.TextColor3 = Cool_Colors.Text_White
+                Cool_Btn.TextSize = 12
+                Cool_Btn.Font = Cool_Bold_Font
+                Cool_Btn.AutoButtonColor = false
+                Cool_Btn.Parent = Cool_Btn_Frame
+                
+                local Btn_Corner = Instance.new("UICorner")
+                Btn_Corner.CornerRadius = UDim.new(0, 4)
+                Btn_Corner.Parent = Cool_Btn
+                
+                local Btn_Stroke = Instance.new("UIStroke")
+                Btn_Stroke.Color = Cool_Colors.Border
+                Btn_Stroke.Parent = Cool_Btn
+
+                Cool_Btn.MouseEnter:Connect(function()
+                    Cool_Show_Tooltip(Tooltip)
+                    Cool_Animate(Cool_Btn, {BackgroundColor3 = Cool_Colors.Element_Hover}, 0.2)
+                    Cool_Animate(Btn_Stroke, {Color = Cool_Colors.Accent}, 0.2)
+                end)
+                Cool_Btn.MouseLeave:Connect(function()
+                    Cool_Show_Tooltip("")
+                    Cool_Animate(Cool_Btn, {BackgroundColor3 = Cool_Colors.Element_Bg}, 0.2)
+                    Cool_Animate(Btn_Stroke, {Color = Cool_Colors.Border}, 0.2)
+                end)
+                Cool_Btn.MouseButton1Down:Connect(function() Cool_Animate(Cool_Btn, {Size = UDim2.new(0.96, 0, 0.9, 0), Position = UDim2.new(0.02, 0, 0.05, 0)}, 0.1) end)
+                Cool_Btn.MouseButton1Up:Connect(function()
+                    Cool_Animate(Cool_Btn, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.1)
+                    if Callback then task.spawn(Callback) end
+                end)
+            end
+
+            function Cool_Elements:Cool_Module_Create(Name, Flag, Desc, Default, Tooltip, Callback)
+                Nixware_Premium_Api.Cool_Flags[Flag] = Default or false
+
+                local Cool_Mod_Frame = Instance.new("Frame")
+                Cool_Mod_Frame.Size = UDim2.new(1, 0, 0, 46)
+                Cool_Mod_Frame.BackgroundTransparency = 1
+                Cool_Mod_Frame.ClipsDescendants = true
+                Cool_Mod_Frame.Parent = Target_Container
+
+                local Cool_Mod_Btn = Instance.new("TextButton")
+                Cool_Mod_Btn.Size = UDim2.new(1, -4, 0, 44)
+                Cool_Mod_Btn.Position = UDim2.new(0, 2, 0, 0)
+                Cool_Mod_Btn.BackgroundColor3 = Cool_Colors.Element_Bg
+                Cool_Mod_Btn.Text = ""
+                Cool_Mod_Btn.AutoButtonColor = false
+                Cool_Mod_Btn.Parent = Cool_Mod_Frame
+                
+                local Btn_Corner = Instance.new("UICorner")
+                Btn_Corner.CornerRadius = UDim.new(0, 6)
+                Btn_Corner.Parent = Cool_Mod_Btn
+                
+                local Btn_Stroke = Instance.new("UIStroke")
+                Btn_Stroke.Color = Nixware_Premium_Api.Cool_Flags[Flag] and Cool_Colors.Accent or Cool_Colors.Border
+                Btn_Stroke.Parent = Cool_Mod_Btn
+
+                local Cool_Box = Instance.new("Frame")
+                Cool_Box.Size = UDim2.new(0, 16, 0, 16)
+                Cool_Box.Position = UDim2.new(0, 14, 0.5, -8)
+                Cool_Box.BackgroundColor3 = Nixware_Premium_Api.Cool_Flags[Flag] and Cool_Colors.Accent or Cool_Colors.Section_Bg
+                Cool_Box.Parent = Cool_Mod_Btn
+                
+                local Box_Corner = Instance.new("UICorner")
+                Box_Corner.CornerRadius = UDim.new(0, 4)
+                Box_Corner.Parent = Cool_Box
+                
+                local Box_Stroke = Instance.new("UIStroke")
+                Box_Stroke.Color = Cool_Colors.Border
+                Box_Stroke.Parent = Cool_Box
+
+                local Cool_Text = Instance.new("TextLabel")
+                Cool_Text.Size = UDim2.new(1, -45, 0, 16)
+                Cool_Text.Position = UDim2.new(0, 40, 0, 6)
+                Cool_Text.BackgroundTransparency = 1
+                Cool_Text.Text = Name
+                Cool_Text.TextColor3 = Nixware_Premium_Api.Cool_Flags[Flag] and Cool_Colors.Text_White or Cool_Colors.Text_Dark
+                Cool_Text.TextSize = 13
+                Cool_Text.Font = Cool_Bold_Font
+                Cool_Text.TextXAlignment = Enum.TextXAlignment.Left
+                Cool_Text.Parent = Cool_Mod_Btn
+
+                local Cool_Desc = Instance.new("TextLabel")
+                Cool_Desc.Size = UDim2.new(1, -45, 0, 14)
+                Cool_Desc.Position = UDim2.new(0, 40, 0, 22)
+                Cool_Desc.BackgroundTransparency = 1
+                Cool_Desc.Text = Desc
+                Cool_Desc.TextColor3 = Cool_Colors.Border
+                Cool_Desc.TextSize = 11
+                Cool_Desc.Font = Cool_Font
+                Cool_Desc.TextXAlignment = Enum.TextXAlignment.Left
+                Cool_Desc.Parent = Cool_Mod_Btn
+
+                local Cool_Mod_Content = Instance.new("Frame")
+                Cool_Mod_Content.Size = UDim2.new(1, -16, 0, 0)
+                Cool_Mod_Content.Position = UDim2.new(0, 12, 0, 48)
+                Cool_Mod_Content.BackgroundTransparency = 1
+                Cool_Mod_Content.Parent = Cool_Mod_Frame
+
+                local Cool_Layout = Instance.new("UIListLayout")
+                Cool_Layout.Padding = UDim.new(0, 8)
+                Cool_Layout.Parent = Cool_Mod_Content
+
+                local function Sync_Size()
+                    if Nixware_Premium_Api.Cool_Flags[Flag] then
+                        Cool_Animate(Cool_Mod_Frame, {Size = UDim2.new(1, 0, 0, 46 + Cool_Layout.AbsoluteContentSize.Y + 8)}, 0.25)
+                    else
+                        Cool_Animate(Cool_Mod_Frame, {Size = UDim2.new(1, 0, 0, 46)}, 0.25)
+                    end
+                end
+
+                Cool_Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                    if Nixware_Premium_Api.Cool_Flags[Flag] then Sync_Size() end
+                end)
+
+                Cool_Mod_Btn.MouseEnter:Connect(function()
+                    Cool_Show_Tooltip(Tooltip)
+                    if not Nixware_Premium_Api.Cool_Flags[Flag] then Cool_Animate(Btn_Stroke, {Color = Cool_Colors.Text_Dark}, 0.2) end
+                end)
+                Cool_Mod_Btn.MouseLeave:Connect(function()
+                    Cool_Show_Tooltip("")
+                    if not Nixware_Premium_Api.Cool_Flags[Flag] then Cool_Animate(Btn_Stroke, {Color = Cool_Colors.Border}, 0.2) end
+                end)
+
+                Cool_Mod_Btn.MouseButton1Click:Connect(function()
+                    Nixware_Premium_Api.Cool_Flags[Flag] = not Nixware_Premium_Api.Cool_Flags[Flag]
+                    local S = Nixware_Premium_Api.Cool_Flags[Flag]
+                    Cool_Animate(Cool_Box, {BackgroundColor3 = S and Cool_Colors.Accent or Cool_Colors.Section_Bg}, 0.2)
+                    Cool_Animate(Btn_Stroke, {Color = S and Cool_Colors.Accent or Cool_Colors.Border}, 0.2)
+                    Cool_Animate(Cool_Text, {TextColor3 = S and Cool_Colors.Text_White or Cool_Colors.Text_Dark}, 0.2)
+                    Sync_Size()
+                    if Callback then task.spawn(Callback, S) end
+                end)
+
+                return Cool_Element_Injector(Cool_Mod_Content)
+            end
+
+            return Cool_Elements
         end
 
-        return TabAPI
+        local Cool_Section_Api = {}
+
+        function Cool_Section_Api:Cool_Section_Create(Side_Str, Section_Title_Str)
+            local Cool_Sect_Bg = Instance.new("Frame")
+            Cool_Sect_Bg.Size = UDim2.new(1, 0, 0, 40)
+            Cool_Sect_Bg.BackgroundColor3 = Cool_Colors.Section_Bg
+            Cool_Sect_Bg.Parent = (Side_Str == "Left") and Cool_Left_Col or Cool_Right_Col
+            
+            local Sect_Corner = Instance.new("UICorner")
+            Sect_Corner.CornerRadius = UDim.new(0, 6)
+            Sect_Corner.Parent = Cool_Sect_Bg
+            
+            local Sect_Stroke = Instance.new("UIStroke")
+            Sect_Stroke.Color = Cool_Colors.Border
+            Sect_Stroke.Parent = Cool_Sect_Bg
+
+            local Cool_Sect_Header = Instance.new("Frame")
+            Cool_Sect_Header.Size = UDim2.new(1, 0, 0, 26)
+            Cool_Sect_Header.BackgroundTransparency = 1
+            Cool_Sect_Header.Parent = Cool_Sect_Bg
+
+            local Cool_Sect_Label = Instance.new("TextLabel")
+            Cool_Sect_Label.Size = UDim2.new(1, -20, 1, 0)
+            Cool_Sect_Label.Position = UDim2.new(0, 10, 0, 0)
+            Cool_Sect_Label.BackgroundTransparency = 1
+            Cool_Sect_Label.Text = Section_Title_Str
+            Cool_Sect_Label.TextColor3 = Cool_Colors.Text_White
+            Cool_Sect_Label.TextSize = 12
+            Cool_Sect_Label.Font = Cool_Bold_Font
+            Cool_Sect_Label.TextXAlignment = Enum.TextXAlignment.Left
+            Cool_Sect_Label.Parent = Cool_Sect_Header
+
+            local Cool_Sect_Line = Instance.new("Frame")
+            Cool_Sect_Line.Size = UDim2.new(1, -20, 0, 1)
+            Cool_Sect_Line.Position = UDim2.new(0, 10, 1, 0)
+            Cool_Sect_Line.BackgroundColor3 = Cool_Colors.Border
+            Cool_Sect_Line.BorderSizePixel = 0
+            Cool_Sect_Line.Parent = Cool_Sect_Header
+
+            local Cool_Sect_Content = Instance.new("Frame")
+            Cool_Sect_Content.Size = UDim2.new(1, -16, 1, -34)
+            Cool_Sect_Content.Position = UDim2.new(0, 8, 0, 32)
+            Cool_Sect_Content.BackgroundTransparency = 1
+            Cool_Sect_Content.Parent = Cool_Sect_Bg
+
+            local Cool_Layout = Instance.new("UIListLayout")
+            Cool_Layout.SortOrder = Enum.SortOrder.LayoutOrder
+            Cool_Layout.Padding = UDim.new(0, 8)
+            Cool_Layout.Parent = Cool_Sect_Content
+
+            Run_Service.RenderStepped:Connect(function()
+                Cool_Sect_Bg.Size = UDim2.new(1, 0, 0, Cool_Layout.AbsoluteContentSize.Y + 44)
+            end)
+
+            return Cool_Element_Injector(Cool_Sect_Content)
+        end
+
+        return Cool_Section_Api
     end
 
-    return WindowAPI
+    return Cool_Window_Context
 end
 
-return NixwareUI
+return Nixware_Premium_Api
