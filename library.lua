@@ -4,44 +4,49 @@ local Run_Service = game:GetService("RunService")
 local Tween_Service = game:GetService("TweenService")
 local Text_Service = game:GetService("TextService")
 local Http_Service = game:GetService("HttpService")
+local Workspace = game:GetService("Workspace")
 
 local Nixware_Premium_Api = {
     Flags = {}
 }
 
 local Colors = {
-    Main_Bg = Color3.new(0.03529411764, 0.03529411764, 0.05098039215),
-    Sidebar_Bg = Color3.new(0.05098039215, 0.05098039215, 0.06666666666),
-    Section_Bg = Color3.new(0.06666666666, 0.06666666666, 0.08235294117),
-    Element_Bg = Color3.new(0.09019607843, 0.09019607843, 0.10588235294),
-    Element_Hover = Color3.new(0.12156862745, 0.12156862745, 0.14509803921),
-    Border = Color3.new(0.10588235294, 0.10588235294, 0.13333333333),
-    Border_Light = Color3.new(0.1725490196, 0.1725490196, 0.21176470588),
-    Accent = Color3.new(0.42352941176, 0.57647058823, 0.98823529411),
-    Accent_Grad_1 = Color3.new(0.42352941176, 0.57647058823, 0.98823529411),
-    Accent_Grad_2 = Color3.new(0.61960784313, 0.46274509803, 0.98823529411),
-    Text_White = Color3.new(0.95294117647, 0.95294117647, 0.9725490196),
-    Text_Dark = Color3.new(0.54117647058, 0.54117647058, 0.58039215686),
-    Tooltip_Bg = Color3.new(0.0431372549, 0.0431372549, 0.05882352941)
+    Main_Bg = Color3.new(0.035294, 0.035294, 0.050980),
+    Sidebar_Bg = Color3.new(0.050980, 0.050980, 0.066666),
+    Section_Bg = Color3.new(0.066666, 0.066666, 0.082352),
+    Element_Bg = Color3.new(0.090196, 0.090196, 0.105882),
+    Element_Hover = Color3.new(0.121568, 0.121568, 0.145098),
+    Border = Color3.new(0.105882, 0.105882, 0.133333),
+    Border_Light = Color3.new(0.172549, 0.172549, 0.211764),
+    Accent = Color3.new(0.423529, 0.576470, 0.988235),
+    Accent_Grad_1 = Color3.new(0.423529, 0.576470, 0.988235),
+    Accent_Grad_2 = Color3.new(0.619607, 0.462745, 0.988235),
+    Text_White = Color3.new(0.952941, 0.952941, 0.972549),
+    Text_Dark = Color3.new(0.541176, 0.541176, 0.580392),
+    Tooltip_Bg = Color3.new(0.043137, 0.043137, 0.058823),
+    Notify_Info = Color3.new(0.247058, 0.635294, 0.980392),
+    Notify_Success = Color3.new(0.247058, 0.980392, 0.490196),
+    Notify_Warning = Color3.new(0.980392, 0.819607, 0.247058),
+    Notify_Error = Color3.new(0.980392, 0.247058, 0.247058)
 }
 
 local Main_Font = Enum.Font.GothamMedium
 local Bold_Font = Enum.Font.GothamBold
 
-local Tooltip_Gui = Instance.new("ScreenGui")
-Tooltip_Gui.Name = Http_Service:GenerateGUID(false)
-Tooltip_Gui.Parent = Core_Gui
-Tooltip_Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Tooltip_Gui.DisplayOrder = 999 
-Tooltip_Gui.IgnoreGuiInset = true
+local Screen_Gui = Instance.new("ScreenGui")
+Screen_Gui.Name = Http_Service:GenerateGUID(false)
+Screen_Gui.Parent = Core_Gui
+Screen_Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Screen_Gui.DisplayOrder = 999 
+Screen_Gui.IgnoreGuiInset = true
 
 local Tooltip_Frame = Instance.new("Frame")
 Tooltip_Frame.BackgroundColor3 = Colors.Tooltip_Bg
-Tooltip_Frame.BackgroundTransparency = 1
+Tooltip_Frame.BackgroundTransparency = 0.158372
 Tooltip_Frame.Size = UDim2.new(0, 0, 0, 24)
-Tooltip_Frame.ZIndex = 1000
+Tooltip_Frame.ZIndex = 2000
 Tooltip_Frame.Visible = false
-Tooltip_Frame.Parent = Tooltip_Gui
+Tooltip_Frame.Parent = Screen_Gui
 
 local Tooltip_Corner = Instance.new("UICorner")
 Tooltip_Corner.CornerRadius = UDim.new(0, 4)
@@ -62,8 +67,21 @@ Tooltip_Text.TextTransparency = 1
 Tooltip_Text.TextSize = 12
 Tooltip_Text.Font = Main_Font
 Tooltip_Text.TextXAlignment = Enum.TextXAlignment.Left
-Tooltip_Text.ZIndex = 1001
+Tooltip_Text.ZIndex = 2001
 Tooltip_Text.Parent = Tooltip_Frame
+
+local Notify_Container = Instance.new("Frame")
+Notify_Container.Size = UDim2.new(0, 300, 1, -40)
+Notify_Container.Position = UDim2.new(1, -320, 0, 20)
+Notify_Container.BackgroundTransparency = 1
+Notify_Container.ZIndex = 1500
+Notify_Container.Parent = Screen_Gui
+
+local Notify_Layout = Instance.new("UIListLayout")
+Notify_Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Notify_Layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+Notify_Layout.Padding = UDim.new(0, 10)
+Notify_Layout.Parent = Notify_Container
 
 local Tooltip_Target = ""
 
@@ -71,6 +89,24 @@ local function Animate(Object, Props, Speed)
     local Tween = Tween_Service:Create(Object, TweenInfo.new(Speed or 0.21837482, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), Props)
     Tween:Play()
     return Tween
+end
+
+local function Apply_Acrylic(Parent, Transparency, Corner_Radius)
+    local Blur = Instance.new("ImageLabel")
+    Blur.Size = UDim2.new(1, 0, 1, 0)
+    Blur.BackgroundTransparency = 1
+    Blur.Image = "rbxassetid://8992230113"
+    Blur.TileSize = UDim2.new(0, 256, 0, 256)
+    Blur.ScaleType = Enum.ScaleType.Tile
+    Blur.ImageTransparency = Transparency or 0.88732
+    Blur.ZIndex = Parent.ZIndex - 1
+    Blur.Parent = Parent
+    if Corner_Radius then
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = Corner_Radius
+        Corner.Parent = Blur
+    end
+    return Blur
 end
 
 local function Show_Tooltip(Text_Str)
@@ -103,7 +139,7 @@ Run_Service.RenderStepped:Connect(function()
         Tooltip_Frame.Position = UDim2.new(0, Mouse.X + 15, 0, Mouse.Y + 15)
         if not Tooltip_Frame.Visible then
             Tooltip_Frame.Visible = true
-            Animate(Tooltip_Frame, {BackgroundTransparency = 0.04183214}, 0.1837265)
+            Animate(Tooltip_Frame, {BackgroundTransparency = 0.1837265}, 0.1837265)
             Animate(Tooltip_Stroke, {Transparency = 0}, 0.1837265)
             Animate(Tooltip_Text, {TextTransparency = 0}, 0.1837265)
         end
@@ -119,20 +155,87 @@ Run_Service.RenderStepped:Connect(function()
     end
 end)
 
-function Nixware_Premium_Api:Window_Create(Window_Name)
-    local Screen = Instance.new("ScreenGui")
-    Screen.Name = Http_Service:GenerateGUID(false)
-    Screen.Parent = Core_Gui
-    Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    Screen.IgnoreGuiInset = true
+function Nixware_Premium_Api:Notify(Config)
+    local Title = Config.Title or "Notification"
+    local Text = Config.Text or ""
+    local Duration = Config.Duration or 3
+    local Type = Config.Type or "Info"
+    local Accent_Color = Colors["Notify_" .. Type] or Colors.Accent
 
+    local Notif_Frame = Instance.new("Frame")
+    Notif_Frame.Size = UDim2.new(1, 0, 0, 60)
+    Notif_Frame.Position = UDim2.new(1, 320, 0, 0)
+    Notif_Frame.BackgroundColor3 = Colors.Main_Bg
+    Notif_Frame.BackgroundTransparency = 0.28547
+    Notif_Frame.ZIndex = 1501
+    Notif_Frame.Parent = Notify_Container
+
+    local Notif_Corner = Instance.new("UICorner")
+    Notif_Corner.CornerRadius = UDim.new(0, 6)
+    Notif_Corner.Parent = Notif_Frame
+
+    local Notif_Stroke = Instance.new("UIStroke")
+    Notif_Stroke.Color = Colors.Border_Light
+    Notif_Stroke.Parent = Notif_Frame
+
+    Apply_Acrylic(Notif_Frame, 0.91238, UDim.new(0, 6))
+
+    local Line = Instance.new("Frame")
+    Line.Size = UDim2.new(0, 3, 1, -12)
+    Line.Position = UDim2.new(0, 6, 0, 6)
+    Line.BackgroundColor3 = Accent_Color
+    Line.BorderSizePixel = 0
+    Line.ZIndex = 1502
+    Line.Parent = Notif_Frame
+
+    local Line_Corner = Instance.new("UICorner")
+    Line_Corner.CornerRadius = UDim.new(0, 3)
+    Line_Corner.Parent = Line
+
+    local Title_Lbl = Instance.new("TextLabel")
+    Title_Lbl.Size = UDim2.new(1, -24, 0, 16)
+    Title_Lbl.Position = UDim2.new(0, 16, 0, 8)
+    Title_Lbl.BackgroundTransparency = 1
+    Title_Lbl.Text = Title
+    Title_Lbl.TextColor3 = Colors.Text_White
+    Title_Lbl.TextSize = 13
+    Title_Lbl.Font = Bold_Font
+    Title_Lbl.TextXAlignment = Enum.TextXAlignment.Left
+    Title_Lbl.ZIndex = 1502
+    Title_Lbl.Parent = Notif_Frame
+
+    local Text_Lbl = Instance.new("TextLabel")
+    Text_Lbl.Size = UDim2.new(1, -24, 0, 24)
+    Text_Lbl.Position = UDim2.new(0, 16, 0, 26)
+    Text_Lbl.BackgroundTransparency = 1
+    Text_Lbl.Text = Text
+    Text_Lbl.TextColor3 = Colors.Text_Dark
+    Text_Lbl.TextSize = 12
+    Text_Lbl.Font = Main_Font
+    Text_Lbl.TextXAlignment = Enum.TextXAlignment.Left
+    Text_Lbl.TextWrapped = true
+    Text_Lbl.ZIndex = 1502
+    Text_Lbl.Parent = Notif_Frame
+
+    Animate(Notif_Frame, {Position = UDim2.new(0, 0, 0, 0)}, 0.43857)
+
+    task.delay(Duration, function()
+        local Out = Animate(Notif_Frame, {Position = UDim2.new(1, 320, 0, 0)}, 0.38472)
+        Out.Completed:Connect(function()
+            Notif_Frame:Destroy()
+        end)
+    end)
+end
+
+function Nixware_Premium_Api:Window_Create(Window_Name)
     local Main_Bg = Instance.new("Frame")
     Main_Bg.Size = UDim2.new(0, 720, 0, 480)
     Main_Bg.Position = UDim2.new(0.5, -360, 0.5, -240)
     Main_Bg.BackgroundColor3 = Colors.Main_Bg
+    Main_Bg.BackgroundTransparency = 0.18374
     Main_Bg.BorderSizePixel = 0
     Main_Bg.Active = true
-    Main_Bg.Parent = Screen
+    Main_Bg.Parent = Screen_Gui
     
     local Main_Corner = Instance.new("UICorner")
     Main_Corner.CornerRadius = UDim.new(0, 6)
@@ -142,9 +245,12 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
     Main_Stroke.Color = Colors.Border
     Main_Stroke.Parent = Main_Bg
 
+    Apply_Acrylic(Main_Bg, 0.88741, UDim.new(0, 6))
+
     local Top_Bar = Instance.new("Frame")
     Top_Bar.Size = UDim2.new(1, 0, 0, 36)
     Top_Bar.BackgroundColor3 = Colors.Sidebar_Bg
+    Top_Bar.BackgroundTransparency = 0.21847
     Top_Bar.BorderSizePixel = 0
     Top_Bar.Parent = Main_Bg
     
@@ -156,6 +262,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
     Top_Hider.Size = UDim2.new(1, 0, 0, 6)
     Top_Hider.Position = UDim2.new(0, 0, 1, -6)
     Top_Hider.BackgroundColor3 = Colors.Sidebar_Bg
+    Top_Hider.BackgroundTransparency = 0.21847
     Top_Hider.BorderSizePixel = 0
     Top_Hider.Parent = Top_Bar
 
@@ -198,6 +305,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
     Sidebar.Size = UDim2.new(0, 150, 1, -37)
     Sidebar.Position = UDim2.new(0, 0, 0, 37)
     Sidebar.BackgroundColor3 = Colors.Sidebar_Bg
+    Sidebar.BackgroundTransparency = 0.21847
     Sidebar.BorderSizePixel = 0
     Sidebar.Parent = Main_Bg
     
@@ -209,12 +317,14 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
     Sidebar_Hider_R.Size = UDim2.new(0, 6, 1, 0)
     Sidebar_Hider_R.Position = UDim2.new(1, -6, 0, 0)
     Sidebar_Hider_R.BackgroundColor3 = Colors.Sidebar_Bg
+    Sidebar_Hider_R.BackgroundTransparency = 0.21847
     Sidebar_Hider_R.BorderSizePixel = 0
     Sidebar_Hider_R.Parent = Sidebar
 
     local Sidebar_Hider_T = Instance.new("Frame")
     Sidebar_Hider_T.Size = UDim2.new(1, 0, 0, 6)
     Sidebar_Hider_T.BackgroundColor3 = Colors.Sidebar_Bg
+    Sidebar_Hider_T.BackgroundTransparency = 0.21847
     Sidebar_Hider_T.BorderSizePixel = 0
     Sidebar_Hider_T.Parent = Sidebar
 
@@ -373,7 +483,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
             end
             Window_Context.Active_Tab = Tab_Data
             Page.Visible = true
-            Animate(Tab_Btn, {BackgroundTransparency = 0}, 0.228197)
+            Animate(Tab_Btn, {BackgroundTransparency = 0.11847}, 0.228197)
             Animate(Tab_Label, {TextColor3 = Colors.Text_White}, 0.228197)
             if Tab_Data.Icon then Animate(Tab_Data.Icon, {ImageColor3 = Colors.Accent}, 0.228197) end
             Animate(Tab_Ind, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.228197)
@@ -417,6 +527,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Box.Size = UDim2.new(0, 14, 0, 14)
                 Box.Position = UDim2.new(0, 2, 0.5, -7)
                 Box.BackgroundColor3 = Nixware_Premium_Api.Flags[Flag] and Colors.Accent or Colors.Element_Bg
+                Box.BackgroundTransparency = 0.21847
                 Box.Parent = Tog_Btn
                 
                 local Box_Corner = Instance.new("UICorner")
@@ -492,6 +603,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Bg.Size = UDim2.new(1, -4, 0, 6)
                 Bg.Position = UDim2.new(0, 2, 0, 24)
                 Bg.BackgroundColor3 = Colors.Element_Bg
+                Bg.BackgroundTransparency = 0.21847
                 Bg.Text = ""
                 Bg.AutoButtonColor = false
                 Bg.Parent = Sld_Frame
@@ -611,6 +723,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Bg.Size = UDim2.new(1, -4, 0, 6)
                 Bg.Position = UDim2.new(0, 2, 0, 24)
                 Bg.BackgroundColor3 = Colors.Element_Bg
+                Bg.BackgroundTransparency = 0.21847
                 Bg.Text = ""
                 Bg.AutoButtonColor = false
                 Bg.Parent = Sld_Frame
@@ -741,6 +854,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Txt_Bg.Size = UDim2.new(0, 110, 0, 24)
                 Txt_Bg.Position = UDim2.new(1, -112, 0.5, -12)
                 Txt_Bg.BackgroundColor3 = Colors.Element_Bg
+                Txt_Bg.BackgroundTransparency = 0.21847
                 Txt_Bg.Parent = Box_Frame
                 
                 local Bg_Corner = Instance.new("UICorner")
@@ -810,6 +924,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Bind_Btn.Size = UDim2.new(0, 70, 0, 20)
                 Bind_Btn.Position = UDim2.new(1, -72, 0.5, -10)
                 Bind_Btn.BackgroundColor3 = Colors.Element_Bg
+                Bind_Btn.BackgroundTransparency = 0.21847
                 Bind_Btn.Text = Nixware_Premium_Api.Flags[Flag] == Enum.KeyCode.Unknown and "[ None ]" or "[ " .. Nixware_Premium_Api.Flags[Flag].Name .. " ]"
                 Bind_Btn.TextColor3 = Colors.Text_Dark
                 Bind_Btn.TextSize = 11
@@ -887,6 +1002,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Main_Btn.Size = UDim2.new(1, -4, 0, 24)
                 Main_Btn.Position = UDim2.new(0, 2, 0, 20)
                 Main_Btn.BackgroundColor3 = Colors.Element_Bg
+                Main_Btn.BackgroundTransparency = 0.21847
                 Main_Btn.Text = ""
                 Main_Btn.AutoButtonColor = false
                 Main_Btn.Parent = Drop_Frame
@@ -910,18 +1026,19 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Selected.TextXAlignment = Enum.TextXAlignment.Left
                 Selected.Parent = Main_Btn
 
-                local Icon = Instance.new("ImageLabel")
-                Icon.Size = UDim2.new(0, 14, 0, 14)
-                Icon.Position = UDim2.new(1, -22, 0.5, -7)
-                Icon.BackgroundTransparency = 1
-                Icon.Image = "rbxassetid://6031090656"
-                Icon.ImageColor3 = Colors.Text_Dark
-                Icon.Parent = Main_Btn
+                local Arrow_Icon = Instance.new("ImageLabel")
+                Arrow_Icon.Size = UDim2.new(0, 14, 0, 14)
+                Arrow_Icon.Position = UDim2.new(1, -22, 0.5, -7)
+                Arrow_Icon.BackgroundTransparency = 1
+                Arrow_Icon.Image = "rbxassetid://6031090656"
+                Arrow_Icon.ImageColor3 = Colors.Text_Dark
+                Arrow_Icon.Parent = Main_Btn
 
                 local List = Instance.new("ScrollingFrame")
                 List.Size = UDim2.new(1, -4, 0, 0)
                 List.Position = UDim2.new(0, 2, 0, 48)
                 List.BackgroundColor3 = Colors.Element_Bg
+                List.BackgroundTransparency = 0.21847
                 List.BorderSizePixel = 0
                 List.ScrollBarThickness = 2
                 List.ScrollBarImageColor3 = Colors.Accent
@@ -946,8 +1063,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                     local Max_Height = math.min(#Options * 24, 120)
                     local Target_Size = Open and Max_Height or 0
                     Animate(Main_Stroke, {Color = Open and Colors.Accent or Colors.Border}, 0.256247)
-                    Animate(Icon, {Rotation = Open and 180 or 0}, 0.256247)
-                    Animate(Icon, {ImageColor3 = Open and Colors.Accent or Colors.Text_Dark}, 0.256247)
+                    Animate(Arrow_Icon, {Rotation = Open and 180 or 0, ImageColor3 = Open and Colors.Accent or Colors.Text_Dark}, 0.256247)
                     Animate(List, {Size = UDim2.new(1, -4, 0, Target_Size)}, 0.256247)
                     Animate(List_Stroke, {Transparency = Open and 0 or 1}, 0.256247)
                     Animate(Drop_Frame, {Size = UDim2.new(1, 0, 0, 46 + Target_Size + (Open and 4 or 0))}, 0.256247)
@@ -983,7 +1099,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                     Opt_Text.Parent = Opt_Btn
 
                     Opt_Btn.MouseEnter:Connect(function() 
-                        Animate(Opt_Btn, {BackgroundTransparency = 0}, 0.153283)
+                        Animate(Opt_Btn, {BackgroundTransparency = 0.21847}, 0.153283)
                         if Nixware_Premium_Api.Flags[Flag] ~= Opt then
                             Animate(Opt_Text, {TextColor3 = Colors.Text_White}, 0.153283) 
                         end
@@ -1012,7 +1128,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
             end
 
             function Elements:ColorPicker_Create(Name, Flag, Default, Tooltip, Callback)
-                Nixware_Premium_Api.Flags[Flag] = Default or Color3.new(1, 1, 1)
+                Nixware_Premium_Api.Flags[Flag] = Default or Color3.fromRGB(255, 255, 255)
                 local Open = false
                 local H, S, V = Nixware_Premium_Api.Flags[Flag]:ToHSV()
 
@@ -1053,6 +1169,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Expand.Size = UDim2.new(1, -4, 0, 190)
                 Expand.Position = UDim2.new(0, 2, 0, 28)
                 Expand.BackgroundColor3 = Colors.Element_Bg
+                Expand.BackgroundTransparency = 0.21847
                 Expand.Parent = Col_Frame
                 
                 local Expand_Corner = Instance.new("UICorner")
@@ -1191,6 +1308,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Btn.Size = UDim2.new(1, -4, 1, 0)
                 Btn.Position = UDim2.new(0, 2, 0, 0)
                 Btn.BackgroundColor3 = Colors.Element_Bg
+                Btn.BackgroundTransparency = 0.21847
                 Btn.Text = Name
                 Btn.TextColor3 = Colors.Text_White
                 Btn.TextSize = 12
@@ -1236,6 +1354,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Mod_Btn.Size = UDim2.new(1, -4, 0, 44)
                 Mod_Btn.Position = UDim2.new(0, 2, 0, 0)
                 Mod_Btn.BackgroundColor3 = Colors.Element_Bg
+                Mod_Btn.BackgroundTransparency = 0.21847
                 Mod_Btn.Text = ""
                 Mod_Btn.AutoButtonColor = false
                 Mod_Btn.Parent = Mod_Frame
@@ -1252,6 +1371,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Box.Size = UDim2.new(0, 16, 0, 16)
                 Box.Position = UDim2.new(0, 14, 0.5, -8)
                 Box.BackgroundColor3 = Nixware_Premium_Api.Flags[Flag] and Colors.Accent or Colors.Section_Bg
+                Box.BackgroundTransparency = 0.21847
                 Box.Parent = Mod_Btn
                 
                 local Box_Corner = Instance.new("UICorner")
@@ -1284,6 +1404,15 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 Desc_Lbl.TextXAlignment = Enum.TextXAlignment.Left
                 Desc_Lbl.Parent = Mod_Btn
 
+                local Arrow_Icon = Instance.new("ImageLabel")
+                Arrow_Icon.Size = UDim2.new(0, 14, 0, 14)
+                Arrow_Icon.Position = UDim2.new(1, -22, 0, 14)
+                Arrow_Icon.BackgroundTransparency = 1
+                Arrow_Icon.Image = "rbxassetid://6031090656"
+                Arrow_Icon.ImageColor3 = Nixware_Premium_Api.Flags[Flag] and Colors.Accent or Colors.Text_Dark
+                Arrow_Icon.Rotation = Nixware_Premium_Api.Flags[Flag] and 180 or 0
+                Arrow_Icon.Parent = Mod_Btn
+
                 local Mod_Content = Instance.new("Frame")
                 Mod_Content.Size = UDim2.new(1, -16, 0, 0)
                 Mod_Content.Position = UDim2.new(0, 12, 0, 48)
@@ -1297,8 +1426,10 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
                 local function Sync_Size()
                     if Nixware_Premium_Api.Flags[Flag] then
                         Animate(Mod_Frame, {Size = UDim2.new(1, 0, 0, 46 + Layout.AbsoluteContentSize.Y + 8)}, 0.287413)
+                        Animate(Arrow_Icon, {Rotation = 180, ImageColor3 = Colors.Accent}, 0.287413)
                     else
                         Animate(Mod_Frame, {Size = UDim2.new(1, 0, 0, 46)}, 0.287413)
+                        Animate(Arrow_Icon, {Rotation = 0, ImageColor3 = Colors.Text_Dark}, 0.287413)
                     end
                 end
 
@@ -1337,6 +1468,7 @@ function Nixware_Premium_Api:Window_Create(Window_Name)
             local Sect_Bg = Instance.new("Frame")
             Sect_Bg.Size = UDim2.new(1, 0, 0, 40)
             Sect_Bg.BackgroundColor3 = Colors.Section_Bg
+            Sect_Bg.BackgroundTransparency = 0.21847
             Sect_Bg.Parent = (Side_Str == "Left") and Left_Col or Right_Col
             
             local Sect_Corner = Instance.new("UICorner")
