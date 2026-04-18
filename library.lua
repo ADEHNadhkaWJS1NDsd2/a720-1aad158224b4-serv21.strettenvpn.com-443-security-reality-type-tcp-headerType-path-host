@@ -10,18 +10,19 @@ local Nixware_Premium_Api = {
 }
 
 local Cool_Colors = {
-    Main_Bg = Color3.fromRGB(12, 12, 12),
-    Sidebar_Bg = Color3.fromRGB(16, 16, 16),
-    Section_Bg = Color3.fromRGB(20, 20, 20),
-    Element_Bg = Color3.fromRGB(26, 26, 26),
-    Element_Hover = Color3.fromRGB(35, 35, 35),
-    Border = Color3.fromRGB(40, 40, 40),
-    Accent = Color3.fromRGB(105, 130, 255),
-    Accent_Grad_1 = Color3.fromRGB(105, 130, 255),
-    Accent_Grad_2 = Color3.fromRGB(150, 100, 255),
-    Text_White = Color3.fromRGB(240, 240, 240),
-    Text_Dark = Color3.fromRGB(150, 150, 150),
-    Tooltip_Bg = Color3.fromRGB(10, 10, 10)
+    Main_Bg = Color3.fromRGB(10, 10, 14),
+    Sidebar_Bg = Color3.fromRGB(14, 14, 18),
+    Section_Bg = Color3.fromRGB(18, 18, 22),
+    Element_Bg = Color3.fromRGB(24, 24, 28),
+    Element_Hover = Color3.fromRGB(32, 32, 38),
+    Border = Color3.fromRGB(28, 28, 35),
+    Border_Light = Color3.fromRGB(45, 45, 55),
+    Accent = Color3.fromRGB(110, 150, 255),
+    Accent_Grad_1 = Color3.fromRGB(110, 150, 255),
+    Accent_Grad_2 = Color3.fromRGB(160, 120, 255),
+    Text_White = Color3.fromRGB(245, 245, 250),
+    Text_Dark = Color3.fromRGB(140, 140, 150),
+    Tooltip_Bg = Color3.fromRGB(12, 12, 16)
 }
 
 local Cool_Font = Enum.Font.GothamMedium
@@ -46,7 +47,7 @@ Cool_Tooltip_Corner.CornerRadius = UDim.new(0, 4)
 Cool_Tooltip_Corner.Parent = Cool_Tooltip_Frame
 
 local Cool_Tooltip_Stroke = Instance.new("UIStroke")
-Cool_Tooltip_Stroke.Color = Cool_Colors.Border
+Cool_Tooltip_Stroke.Color = Cool_Colors.Border_Light
 Cool_Tooltip_Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 Cool_Tooltip_Stroke.Transparency = 1
 Cool_Tooltip_Stroke.Parent = Cool_Tooltip_Frame
@@ -232,6 +233,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
     local Drag_Input = nil
     local Drag_Start = nil
     local Start_Pos = nil
+    local Target_Pos = Cool_Main_Bg.Position
 
     Cool_Top_Bar.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -251,8 +253,9 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
     Run_Service.RenderStepped:Connect(function()
         if Dragging and Drag_Input then
             local Delta = Drag_Input.Position - Drag_Start
-            Cool_Main_Bg.Position = UDim2.new(Start_Pos.X.Scale, Start_Pos.X.Offset + Delta.X, Start_Pos.Y.Scale, Start_Pos.Y.Offset + Delta.Y)
+            Target_Pos = UDim2.new(Start_Pos.X.Scale, Start_Pos.X.Offset + Delta.X, Start_Pos.Y.Scale, Start_Pos.Y.Offset + Delta.Y)
         end
+        Cool_Main_Bg.Position = Cool_Main_Bg.Position:Lerp(Target_Pos, 0.18)
     end)
 
     local Cool_Window_Context = { Tabs = {}, Active_Tab = nil }
@@ -393,7 +396,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
 
                 Cool_Tog_Btn.MouseEnter:Connect(function()
                     Cool_Show_Tooltip(Tooltip)
-                    if not Nixware_Premium_Api.Cool_Flags[Flag] then Cool_Animate(Box_Stroke, {Color = Cool_Colors.Text_Dark}, 0.2) end
+                    if not Nixware_Premium_Api.Cool_Flags[Flag] then Cool_Animate(Box_Stroke, {Color = Cool_Colors.Border_Light}, 0.2) end
                 end)
                 Cool_Tog_Btn.MouseLeave:Connect(function()
                     Cool_Show_Tooltip("")
@@ -467,7 +470,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
 
                 Cool_Bg.MouseEnter:Connect(function()
                     Cool_Show_Tooltip(Tooltip)
-                    Cool_Animate(Bg_Stroke, {Color = Cool_Colors.Text_Dark}, 0.2)
+                    Cool_Animate(Bg_Stroke, {Color = Cool_Colors.Border_Light}, 0.2)
                 end)
                 Cool_Bg.MouseLeave:Connect(function()
                     Cool_Show_Tooltip("")
@@ -579,7 +582,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
 
                 Cool_Main_Btn.MouseEnter:Connect(function()
                     Cool_Show_Tooltip(Tooltip)
-                    if not Open then Cool_Animate(Main_Stroke, {Color = Cool_Colors.Text_Dark}, 0.2) end
+                    if not Open then Cool_Animate(Main_Stroke, {Color = Cool_Colors.Border_Light}, 0.2) end
                 end)
                 Cool_Main_Btn.MouseLeave:Connect(function()
                     Cool_Show_Tooltip("")
@@ -670,7 +673,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 Prev_Stroke.Parent = Cool_Prev_Btn
 
                 local Cool_Expand = Instance.new("Frame")
-                Cool_Expand.Size = UDim2.new(1, -4, 0, 140)
+                Cool_Expand.Size = UDim2.new(1, -4, 0, 190)
                 Cool_Expand.Position = UDim2.new(0, 2, 0, 28)
                 Cool_Expand.BackgroundColor3 = Cool_Colors.Element_Bg
                 Cool_Expand.Parent = Cool_Col_Frame
@@ -684,8 +687,8 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 Expand_Stroke.Parent = Cool_Expand
 
                 local SV_Map = Instance.new("ImageButton")
-                SV_Map.Size = UDim2.new(1, -16, 0, 100)
-                SV_Map.Position = UDim2.new(0, 8, 0, 10)
+                SV_Map.Size = UDim2.new(1, -16, 0, 150)
+                SV_Map.Position = UDim2.new(0, 8, 0, 8)
                 SV_Map.Image = "rbxassetid://4155801252"
                 SV_Map.ImageColor3 = Color3.fromHSV(H, 1, 1)
                 SV_Map.AutoButtonColor = false
@@ -694,8 +697,9 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 local SV_Stroke = Instance.new("UIStroke"); SV_Stroke.Color = Cool_Colors.Border; SV_Stroke.Parent = SV_Map
 
                 local SV_Cursor = Instance.new("Frame")
-                SV_Cursor.Size = UDim2.new(0, 4, 0, 4)
-                SV_Cursor.Position = UDim2.new(S, -2, 1 - V, -2)
+                SV_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
+                SV_Cursor.Size = UDim2.new(0, 6, 0, 6)
+                SV_Cursor.Position = UDim2.new(S, 0, 1 - V, 0)
                 SV_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 SV_Cursor.Parent = SV_Map
                 local Curs_Corner = Instance.new("UICorner"); Curs_Corner.CornerRadius = UDim.new(1, 0); Curs_Corner.Parent = SV_Cursor
@@ -703,7 +707,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
 
                 local Hue_Map = Instance.new("TextButton")
                 Hue_Map.Size = UDim2.new(1, -16, 0, 12)
-                Hue_Map.Position = UDim2.new(0, 8, 0, 118)
+                Hue_Map.Position = UDim2.new(0, 8, 0, 168)
                 Hue_Map.Text = ""
                 Hue_Map.AutoButtonColor = false
                 Hue_Map.BackgroundColor3 = Color3.new(1, 1, 1)
@@ -724,8 +728,9 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 Hue_Grad.Parent = Hue_Map
 
                 local Hue_Cursor = Instance.new("Frame")
+                Hue_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
                 Hue_Cursor.Size = UDim2.new(0, 4, 1, 4)
-                Hue_Cursor.Position = UDim2.new(H, -2, 0, -2)
+                Hue_Cursor.Position = UDim2.new(H, 0, 0.5, 0)
                 Hue_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 Hue_Cursor.Parent = Hue_Map
                 local HC_Corner = Instance.new("UICorner"); HC_Corner.CornerRadius = UDim.new(0, 2); HC_Corner.Parent = Hue_Cursor
@@ -736,8 +741,8 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                     Nixware_Premium_Api.Cool_Flags[Flag] = Col
                     SV_Map.ImageColor3 = Color3.fromHSV(H, 1, 1)
                     Cool_Prev_Btn.BackgroundColor3 = Col
-                    SV_Cursor.Position = UDim2.new(S, -2, 1 - V, -2)
-                    Hue_Cursor.Position = UDim2.new(H, -2, 0, -2)
+                    SV_Cursor.Position = UDim2.new(S, 0, 1 - V, 0)
+                    Hue_Cursor.Position = UDim2.new(H, 0, 0.5, 0)
                     if Callback then task.spawn(Callback, Col) end
                 end
 
@@ -774,7 +779,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
 
                 Cool_Prev_Btn.MouseEnter:Connect(function()
                     Cool_Show_Tooltip(Tooltip)
-                    if not Open then Cool_Animate(Prev_Stroke, {Color = Cool_Colors.Text_Dark}, 0.2) end
+                    if not Open then Cool_Animate(Prev_Stroke, {Color = Cool_Colors.Border_Light}, 0.2) end
                 end)
                 Cool_Prev_Btn.MouseLeave:Connect(function()
                     Cool_Show_Tooltip("")
@@ -784,7 +789,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 Cool_Prev_Btn.MouseButton1Click:Connect(function()
                     Open = not Open
                     Cool_Animate(Prev_Stroke, {Color = Open and Cool_Colors.Accent or Cool_Colors.Border}, 0.2)
-                    Cool_Animate(Cool_Col_Frame, {Size = UDim2.new(1, 0, 0, Open and 172 or 24)}, 0.25)
+                    Cool_Animate(Cool_Col_Frame, {Size = UDim2.new(1, 0, 0, Open and 224 or 24)}, 0.25)
                 end)
             end
 
@@ -885,7 +890,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
                 Cool_Desc.Position = UDim2.new(0, 40, 0, 22)
                 Cool_Desc.BackgroundTransparency = 1
                 Cool_Desc.Text = Desc
-                Cool_Desc.TextColor3 = Cool_Colors.Border
+                Cool_Desc.TextColor3 = Cool_Colors.Text_Dark
                 Cool_Desc.TextSize = 11
                 Cool_Desc.Font = Cool_Font
                 Cool_Desc.TextXAlignment = Enum.TextXAlignment.Left
@@ -915,7 +920,7 @@ function Nixware_Premium_Api:Cool_Window_Create(Window_Name)
 
                 Cool_Mod_Btn.MouseEnter:Connect(function()
                     Cool_Show_Tooltip(Tooltip)
-                    if not Nixware_Premium_Api.Cool_Flags[Flag] then Cool_Animate(Btn_Stroke, {Color = Cool_Colors.Text_Dark}, 0.2) end
+                    if not Nixware_Premium_Api.Cool_Flags[Flag] then Cool_Animate(Btn_Stroke, {Color = Cool_Colors.Border_Light}, 0.2) end
                 end)
                 Cool_Mod_Btn.MouseLeave:Connect(function()
                     Cool_Show_Tooltip("")
