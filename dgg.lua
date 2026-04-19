@@ -535,15 +535,15 @@ end
 
 local function layoutWindow(window)
     window.topHeight = 36
-    window.sidebarWidth = 151
-    window.contentPadding = 10
-    window.tabButtonHeight = 32
+    window.sidebarWidth = 150
+    window.contentPadding = 12
+    window.tabButtonHeight = 30
     window.tabButtonGap = 6
     window.sectionTitleHeight = 24
-    window.contentX = window.x + 151 + 10
-    window.contentY = window.y + window.topHeight + 10
-    window.contentW = window.w - 151 - 10
-    window.contentH = window.h - window.topHeight - 10
+    window.contentX = math.floor(window.x + window.sidebarWidth + window.contentPadding)
+    window.contentY = math.floor(window.y + window.topHeight + window.contentPadding)
+    window.contentW = math.floor(window.w - window.sidebarWidth - (window.contentPadding * 2))
+    window.contentH = math.floor(window.h - window.topHeight - (window.contentPadding * 2))
     window.columnGap = 12
     window.columnWidth = math.floor((window.contentW - window.columnGap) / 2)
 
@@ -556,16 +556,16 @@ local function layoutWindow(window)
     d.title.Position = Vector2.new(window.x + 15, window.y + 11)
 
     for index, tab in ipairs(window.tabs) do
-        tab.x = window.x + 5
+        tab.x = window.x + 6
         tab.y = window.y + 42 + (index - 1) * (window.tabButtonHeight + window.tabButtonGap)
-        tab.w = 140
+        tab.w = 138
         tab.h = window.tabButtonHeight
         local td = tab.drawings
         local active = tab == window.activeTab
         setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 4, active and colors.elementHoverBackground or colors.elementBackground, active and 0.98 or 0.92, active and colors.borderLightColor or colors.borderColor, active and 0.95 or 0.84, 1)
         setRoundedPrimitive(td.indicatorGlow, tab.x + 0, tab.y + 8, 2, 16, 1, colors.accentColor, active and 0.18 or 0.06, true)
         setRoundedPrimitive(td.indicator, tab.x + 0, tab.y + 8, 2, 16, 1, active and colors.accentColor or colors.borderLightColor, 1, true)
-        td.text.Position = Vector2.new(tab.x + 12, tab.y + 9)
+        td.text.Position = Vector2.new(tab.x + 12, tab.y + 8)
     end
 
     if not window.activeTab then return end
@@ -574,23 +574,23 @@ local function layoutWindow(window)
     local rightY = window.contentY
 
     for _, section in ipairs(window.activeTab.sections) do
-        local columnX = section.side == "Left" and window.contentX or (window.contentX + window.columnWidth + window.columnGap)
-        local contentWidth = window.columnWidth
-        local startY = section.side == "Left" and leftY or rightY
-        local currentY = startY + 30
+        local columnX = math.floor(section.side == "Left" and window.contentX or (window.contentX + window.columnWidth + window.columnGap))
+        local contentWidth = math.floor(window.columnWidth)
+        local startY = math.floor(section.side == "Left" and leftY or rightY)
+        local currentY = startY + 32
         section.x = columnX
         section.y = startY
         section.w = contentWidth
-        section.contentX = columnX + 10
-        section.contentY = startY + 30
-        section.contentW = contentWidth - 20
+        section.contentX = columnX + 12
+        section.contentY = startY + 32
+        section.contentW = contentWidth - 24
 
         for _, element in ipairs(section.elements) do
             local visibleInLayout = isElementVisibleInLayout(element)
             local indent = element.parentModule and 12 or 0
-            element.x = section.contentX + indent
-            element.y = currentY
-            element.w = section.contentW - indent
+            element.x = math.floor(section.contentX + indent)
+            element.y = math.floor(currentY)
+            element.w = math.floor(section.contentW - indent)
             if element.dynamicHeight then
                 element.height = element:dynamicHeight()
             end
@@ -599,17 +599,17 @@ local function layoutWindow(window)
             end
         end
 
-        section.h = math.max(34, currentY - startY + 6)
+        section.h = math.max(38, math.floor(currentY - startY + 8))
 
         local sd = section.drawings
         setSoftFrame(sd.frame, section.x, section.y, section.w, section.h, 4, colors.sectionBackground, 0.96, colors.borderColor, 0.82, 2)
-        sd.title.Position = Vector2.new(section.x + 10, section.y + 8)
-        setRoundedPrimitive(sd.sep, section.x + 10, section.y + 26, section.w - 20, 1, 0, colors.borderColor, 0.65, true)
+        sd.title.Position = Vector2.new(section.x + 12, section.y + 9)
+        setRoundedPrimitive(sd.sep, section.x + 12, section.y + 28, section.w - 24, 1, 0, colors.borderColor, 0.65, true)
 
         if section.side == "Left" then
-            leftY = currentY + 8
+            leftY = math.floor(section.y + section.h + 10)
         else
-            rightY = currentY + 8
+            rightY = math.floor(section.y + section.h + 10)
         end
     end
 end
@@ -1054,7 +1054,7 @@ local function makeSectionApi(section)
             self.label.Text = self.name
             self.valueText.Text = formatValue(valueNow, self.step)
             self.valueText.Position = Vector2.new(self.x + self.w - getTextSize(self.valueText.Text, 12) - 2, self.y + 1)
-            self.track.Position = Vector2.new(self.x + 2, self.y + 18)
+            self.track.Position = Vector2.new(self.x + 2, self.y + 19)
             self.track.Size = Vector2.new(trackW, 5)
             self.trackBorder.Position = self.track.Position
             self.trackBorder.Size = self.track.Size
@@ -1147,7 +1147,7 @@ local function makeSectionApi(section)
             self.label.Text = self.name
             self.valueText.Text = formatValue(range.Min, self.step) .. " - " .. formatValue(range.Max, self.step)
             self.valueText.Position = Vector2.new(self.x + self.w - getTextSize(self.valueText.Text, 12) - 2, self.y + 1)
-            self.track.Position = Vector2.new(self.x + 2, self.y + 18)
+            self.track.Position = Vector2.new(self.x + 2, self.y + 19)
             self.track.Size = Vector2.new(trackW, 5)
             self.trackBorder.Position = self.track.Position
             self.trackBorder.Size = self.track.Size
@@ -1201,7 +1201,7 @@ local function makeSectionApi(section)
             end
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
             setSoftFrame(self.box, self.x + 2, self.y + 20, self.w - 4, 24, 4, self.focused and colors.elementHoverBackground or colors.elementBackground, 0.96, self.focused and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
-            self.text.Position = Vector2.new(self.x + 10, self.y + 17)
+            self.text.Position = Vector2.new(self.x + 10, self.y + 27)
             self.text.Text = showText
             self.text.Color = (#self.value > 0 or self.focused) and colors.textWhiteColor or colors.textDarkColor
             self.label.Text = self.name
@@ -1239,10 +1239,11 @@ local function makeSectionApi(section)
         function element:draw()
             local hovered = UI.hovered == self
             local boxText = self:getText()
+            local bindW = math.max(72, getTextSize(boxText, 12) + 18)
             self.label.Position = Vector2.new(self.x + 2, self.y + 2)
-            setSoftFrame(self.box, self.x + self.w - math.max(72, getTextSize(boxText, 12) + 18), self.y - 1, math.max(72, getTextSize(boxText, 12) + 12), 20, 6, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.96, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.box, self.x + self.w - bindW, self.y - 1, bindW, 20, 4, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.96, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
             self.bindText.Text = boxText
-            self.bindText.Position = Vector2.new(self.x + self.w - math.max(72, getTextSize(boxText, 12) + 18) + 8, self.y + 2)
+            self.bindText.Position = Vector2.new(self.x + self.w - bindW + 8, self.y + 2)
             self.label.Text = self.name
             self.label.Color = hovered and colors.textWhiteColor or colors.textWhiteColor
             self.bindText.Color = self.waiting and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
@@ -1313,7 +1314,7 @@ local function makeSectionApi(section)
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
             setSoftFrame(self.box, self.x + 2, self.y + 20, self.w - 4, 24, 4, self.open and colors.elementHoverBackground or colors.elementBackground, 0.96, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
             self.valueText.Text = tostring(LibraryApi.Flags[self.flag])
-            self.valueText.Position = Vector2.new(self.x + 8, self.y + 27)
+            self.valueText.Position = Vector2.new(self.x + 10, self.y + 27)
             self.valueText.Color = hovered and colors.textWhiteColor or colors.textDarkColor
             self.arrow.Text = self.open and "^" or "v"
             self.arrow.Position = Vector2.new(self.x + self.w - 16, self.y + 25)
@@ -1324,7 +1325,7 @@ local function makeSectionApi(section)
             self.arrow.Visible = true
             if hovered then setTooltipText(self.tooltip) end
             self.popupX = self.x + 2
-            self.popupY = self.y + 28
+            self.popupY = self.y + 46
             self.popupW = self.w - 4
             self.popupH = math.max(24, #self.options * 24)
             if self.open then
@@ -1497,7 +1498,7 @@ local function makeSectionApi(section)
             self.popupW = 210
             self.popupH = 228
             self.popupX = self.x + self.w - self.popupW
-            self.popupY = self.y + 28
+            self.popupY = self.y + 46
             self.svX = self.popupX + 8
             self.svY = self.popupY + 8
             self.svW = self.popupW - 16
