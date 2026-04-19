@@ -477,8 +477,10 @@ local function hideGroup(group)
     for _, drawing in pairs(group) do
         if type(drawing) == "table" and drawing.__isGroup then
             hideGroup(drawing)
-        elseif drawing.Visible ~= nil then
-            drawing.Visible = false
+        elseif type(drawing) == "userdata" or type(drawing) == "table" then
+            if drawing.Visible ~= nil then
+                drawing.Visible = false
+            end
         end
     end
 end
@@ -487,8 +489,10 @@ local function setElementBaseVisible(element, visible)
     for _, drawing in pairs(element.drawings) do
         if type(drawing) == "table" and drawing.__isGroup then
             hideGroup(drawing)
-        elseif drawing.Visible ~= nil then
-            drawing.Visible = visible
+        elseif type(drawing) == "userdata" or type(drawing) == "table" then
+            if drawing.Visible ~= nil then
+                drawing.Visible = visible
+            end
         end
     end
 end
