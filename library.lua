@@ -276,7 +276,8 @@ local function createBaseElement(section, kind, height)
         hovered = false,
         pressable = false,
         tooltip = nil,
-        dynamicHeight = nil
+        dynamicHeight = nil,
+        parentModule = section.ownerModule
     }
     table.insert(section.elements, element)
     return element
@@ -427,13 +428,17 @@ local function layoutWindow(window)
         section.contentW = contentWidth - 16
 
         for _, element in ipairs(section.elements) do
-            element.x = section.contentX
+            local visibleInLayout = isElementVisibleInLayout(element)
+            element.layoutVisible = visibleInLayout
+            element.x = section.contentX + (element.parentModule and 10 or 0)
             element.y = currentY
-            element.w = section.contentW
-            if element.dynamicHeight then
-                element.height = element:dynamicHeight()
+            element.w = section.contentW - (element.parentModule and 10 or 0)
+            if visibleInLayout then
+                if element.dynamicHeight then
+                    element.height = element:dynamicHeight()
+                end
+                currentY = currentY + element.height + 6
             end
-            currentY = currentY + element.height + 6
         end
 
         section.h = math.max(32, currentY - startY + 6)
@@ -464,6 +469,21 @@ local function forEachElement(window, callback)
         end
     end
 end
+
+local function isElementVisibleInLayout(element)
+    if element.visible == false then
+        return false
+    end
+    local parentModule = element.parentModule
+    while parentModule do
+        if not LibraryApi.Flags[parentModule.flag] then
+            return false
+        end
+        parentModule = parentModule.parentModule
+    end
+    return true
+end
+
 
 local function drawTab(tab)
     local active = tab.window.activeTab == tab
@@ -498,7 +518,7 @@ local function setElementBaseVisible(element, visible)
 end
 
 local function renderElement(element)
-    if not element.window.visible or element.window.activeTab ~= element.tab then
+    if not element.window.visible or element.window.activeTab ~= element.tab or not isElementVisibleInLayout(element) then
         setElementBaseVisible(element, false)
         return
     end
@@ -571,7 +591,7 @@ local function hitTestElement(window)
             local section = window.activeTab.sections[si]
             for ei = #section.elements, 1, -1 do
                 local element = section.elements[ei]
-                if element.hitTest and element:hitTest(UI.mousePos) then
+                if isElementVisibleInLayout(element) and element.hitTest and element:hitTest(UI.mousePos) then
                     return element
                 end
             end
@@ -1449,7 +1469,12 @@ local function makeSectionApi(section)
             self.arrow.Visible = true
             if hovered then setTooltipText(self.tooltip) end
         end
-        local subSectionApi = makeSectionApi(section)
+        local subSectionApi = makeSectionApi({
+            window = section.window,
+            tab = section.tab,
+            elements = section.elements,
+            ownerModule = element
+        })
         return subSectionApi
     end
 
