@@ -11,24 +11,24 @@ local LibraryApi = {
 }
 
 local colors = {
-    mainBackground = Color3.fromRGB(13, 15, 24),
-    sidebarBackground = Color3.fromRGB(16, 19, 30),
-    sectionBackground = Color3.fromRGB(21, 25, 38),
-    elementBackground = Color3.fromRGB(28, 33, 48),
-    elementHoverBackground = Color3.fromRGB(36, 42, 61),
-    borderColor = Color3.fromRGB(39, 46, 67),
-    borderLightColor = Color3.fromRGB(79, 95, 134),
-    accentColor = Color3.fromRGB(116, 164, 255),
-    accentGradientColor1 = Color3.fromRGB(116, 164, 255),
-    accentGradientColor2 = Color3.fromRGB(180, 132, 255),
-    textWhiteColor = Color3.fromRGB(240, 244, 255),
-    textDarkColor = Color3.fromRGB(150, 160, 188),
-    tooltipBackground = Color3.fromRGB(11, 14, 22),
-    shadowColor = Color3.fromRGB(4, 6, 12),
-    notificationInfoColor = Color3.fromRGB(87, 174, 255),
-    notificationSuccessColor = Color3.fromRGB(90, 242, 156),
-    notificationWarningColor = Color3.fromRGB(255, 205, 93),
-    notificationErrorColor = Color3.fromRGB(255, 101, 101)
+    mainBackground = Color3.fromRGB(9, 9, 13),
+    sidebarBackground = Color3.fromRGB(12, 12, 18),
+    sectionBackground = Color3.fromRGB(16, 16, 24),
+    elementBackground = Color3.fromRGB(22, 22, 31),
+    elementHoverBackground = Color3.fromRGB(29, 29, 40),
+    borderColor = Color3.fromRGB(28, 28, 38),
+    borderLightColor = Color3.fromRGB(45, 45, 61),
+    accentColor = Color3.fromRGB(108, 147, 252),
+    accentGradientColor1 = Color3.fromRGB(108, 147, 252),
+    accentGradientColor2 = Color3.fromRGB(158, 118, 252),
+    textWhiteColor = Color3.fromRGB(243, 243, 248),
+    textDarkColor = Color3.fromRGB(138, 138, 148),
+    tooltipBackground = Color3.fromRGB(11, 11, 16),
+    shadowColor = Color3.fromRGB(0, 0, 0),
+    notificationInfoColor = Color3.fromRGB(63, 162, 250),
+    notificationSuccessColor = Color3.fromRGB(63, 250, 125),
+    notificationWarningColor = Color3.fromRGB(250, 209, 63),
+    notificationErrorColor = Color3.fromRGB(250, 63, 63)
 }
 
 local UI = {
@@ -93,13 +93,27 @@ local function freeDrawing(object)
     end)
 end
 
+local function trySetVisible(target, state)
+    if not target then
+        return
+    end
+    pcall(function()
+        if target.Visible ~= nil then
+            target.Visible = state
+        end
+    end)
+end
+
 local function setVisible(drawings, state)
-    for _, drawing in pairs(drawings) do
-        if typeof(drawing) == "table" and drawing.__isGroup then
-            setVisible(drawing, state)
-        elseif type(drawing) == "userdata" or type(drawing) == "table" then
-            if drawing.Visible ~= nil then
-                drawing.Visible = state
+    if type(drawings) ~= "table" then
+        return
+    end
+    for key, drawing in pairs(drawings) do
+        if key ~= "__isGroup" then
+            if type(drawing) == "table" and rawget(drawing, "__isGroup") then
+                setVisible(drawing, state)
+            else
+                trySetVisible(drawing, state)
             end
         end
     end
@@ -357,7 +371,8 @@ local function createBaseElement(section, kind, height)
         hovered = false,
         pressable = false,
         tooltip = nil,
-        dynamicHeight = nil
+        dynamicHeight = nil,
+        parentModule = section.parentModule
     }
     table.insert(section.elements, element)
     return element
@@ -369,6 +384,20 @@ local function ensureFlag(flag, default)
     end
     return LibraryApi.Flags[flag]
 end
+
+local function isElementVisibleInLayout(element)
+    if not element then
+        return false
+    end
+    if element.visible == false then
+        return false
+    end
+    if element.parentModule then
+        return LibraryApi.Flags[element.parentModule.flag] == true
+    end
+    return true
+end
+
 
 local function createWindowDrawings(window)
     local g = createGroup()
@@ -442,10 +471,10 @@ local function bringWindowToFront(window)
 end
 
 local function layoutWindow(window)
-    window.topHeight = 40
-    window.sidebarWidth = 164
+    window.topHeight = 38
+    window.sidebarWidth = 168
     window.contentPadding = 12
-    window.tabButtonHeight = 34
+    window.tabButtonHeight = 36
     window.tabButtonGap = 8
     window.sectionTitleHeight = 24
     window.contentX = window.x + window.sidebarWidth + 14
@@ -456,12 +485,12 @@ local function layoutWindow(window)
     window.columnWidth = math.floor((window.contentW - window.columnGap) / 2)
 
     local d = window.drawings
-    setSoftFrame(d.body, window.x, window.y, window.w, window.h, 14, colors.mainBackground, 0.94, colors.borderColor, 0.95, 3)
-    setSoftFrame(d.top, window.x + 1, window.y + 1, window.w - 2, window.topHeight + 8, 13, colors.sidebarBackground, 0.97, colors.borderColor, 0, 0)
-    setSoftFrame(d.sidebar, window.x + 8, window.y + window.topHeight + 8, window.sidebarWidth - 16, window.h - window.topHeight - 16, 12, colors.sidebarBackground, 0.95, colors.borderColor, 0.82, 1)
-    setRoundedPrimitive(d.accentGlow, window.x + 18, window.y + 10, 136, 8, 4, colors.accentGradientColor2, 0.18, true)
-    setRoundedPrimitive(d.accent, window.x + 18, window.y + 12, 120, 4, 2, colors.accentColor, 1, true)
-    d.title.Position = Vector2.new(window.x + 18, window.y + 13)
+    setSoftFrame(d.body, window.x, window.y, window.w, window.h, 12, colors.mainBackground, 0.96, colors.borderColor, 0.95, 3)
+    setSoftFrame(d.top, window.x + 1, window.y + 1, window.w - 2, window.topHeight, 11, colors.sidebarBackground, 0.98, colors.borderColor, 0.9, 0)
+    setSoftFrame(d.sidebar, window.x + 8, window.y + window.topHeight + 8, window.sidebarWidth - 16, window.h - window.topHeight - 16, 10, colors.sidebarBackground, 0.97, colors.borderColor, 0.82, 1)
+    setRoundedPrimitive(d.accentGlow, window.x + 18, window.y + 12, 128, 6, 3, colors.accentGradientColor2, 0.12, true)
+    setRoundedPrimitive(d.accent, window.x + 18, window.y + 13, 112, 2, 1, colors.accentColor, 1, true)
+    d.title.Position = Vector2.new(window.x + 18, window.y + 16)
 
     for index, tab in ipairs(window.tabs) do
         tab.x = window.x + 14
@@ -470,10 +499,10 @@ local function layoutWindow(window)
         tab.h = window.tabButtonHeight
         local td = tab.drawings
         local active = tab == window.activeTab
-        setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 10, active and colors.elementHoverBackground or colors.elementBackground, active and 0.98 or 0.88, active and colors.accentColor or colors.borderColor, active and 0.95 or 0.72, 1)
-        setRoundedPrimitive(td.indicatorGlow, tab.x + 10, tab.y + 9, 10, tab.h - 18, 5, colors.accentColor, active and 0.22 or 0, active)
-        setRoundedPrimitive(td.indicator, tab.x + 13, tab.y + 11, 4, tab.h - 22, 2, colors.accentColor, 1, active)
-        td.text.Position = Vector2.new(tab.x + 28, tab.y + 10)
+        setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 9, active and colors.elementHoverBackground or colors.elementBackground, active and 0.98 or 0.9, active and colors.borderLightColor or colors.borderColor, active and 0.95 or 0.82, 1)
+        setRoundedPrimitive(td.indicatorGlow, tab.x + 10, tab.y + 10, 6, tab.h - 20, 2, colors.accentColor, active and 0.08 or 0, active)
+        setRoundedPrimitive(td.indicator, tab.x + 12, tab.y + 12, 2, tab.h - 24, 1, colors.accentColor, 1, active)
+        td.text.Position = Vector2.new(tab.x + 24, tab.y + 11)
     end
 
     if not window.activeTab then return end
@@ -494,13 +523,17 @@ local function layoutWindow(window)
         section.contentW = contentWidth - 20
 
         for _, element in ipairs(section.elements) do
-            element.x = section.contentX
+            local visibleInLayout = isElementVisibleInLayout(element)
+            local indent = element.parentModule and 12 or 0
+            element.x = section.contentX + indent
             element.y = currentY
-            element.w = section.contentW
+            element.w = section.contentW - indent
             if element.dynamicHeight then
                 element.height = element:dynamicHeight()
             end
-            currentY = currentY + element.height + 8
+            if visibleInLayout then
+                currentY = currentY + element.height + 8
+            end
         end
 
         section.h = math.max(38, currentY - startY + 8)
@@ -535,31 +568,41 @@ local function drawTab(tab)
 end
 
 local function hideGroup(group)
-    for _, drawing in pairs(group) do
-        if type(drawing) == "table" and drawing.__isGroup then
-            hideGroup(drawing)
-        elseif (type(drawing) == "table" or type(drawing) == "userdata") and drawing.Visible ~= nil then
-            drawing.Visible = false
+    if type(group) ~= "table" then
+        return
+    end
+    for key, drawing in pairs(group) do
+        if key ~= "__isGroup" then
+            if type(drawing) == "table" and rawget(drawing, "__isGroup") then
+                hideGroup(drawing)
+            else
+                trySetVisible(drawing, false)
+            end
         end
     end
 end
 
 local function setElementBaseVisible(element, visible)
-    for _, drawing in pairs(element.drawings) do
-        if type(drawing) == "table" and drawing.__isGroup then
-            if visible then
-                setVisible(drawing, true)
+    if type(element) ~= "table" or type(element.drawings) ~= "table" then
+        return
+    end
+    for key, drawing in pairs(element.drawings) do
+        if key ~= "__isGroup" then
+            if type(drawing) == "table" and rawget(drawing, "__isGroup") then
+                if visible then
+                    setVisible(drawing, true)
+                else
+                    hideGroup(drawing)
+                end
             else
-                hideGroup(drawing)
+                trySetVisible(drawing, visible)
             end
-        elseif (type(drawing) == "table" or type(drawing) == "userdata") and drawing.Visible ~= nil then
-            drawing.Visible = visible
         end
     end
 end
 
 local function renderElement(element)
-    if not element.window.visible or element.window.activeTab ~= element.tab then
+    if not element.window.visible or element.window.activeTab ~= element.tab or not isElementVisibleInLayout(element) then
         setElementBaseVisible(element, false)
         return
     end
@@ -632,7 +675,7 @@ local function hitTestElement(window)
             local section = window.activeTab.sections[si]
             for ei = #section.elements, 1, -1 do
                 local element = section.elements[ei]
-                if element.hitTest and element:hitTest(UI.mousePos) then
+                if isElementVisibleInLayout(element) and element.hitTest and element:hitTest(UI.mousePos) then
                     return element
                 end
             end
@@ -1407,7 +1450,7 @@ local function makeSectionApi(section)
 
     function api:Module_Create(name, flag, descriptionText, default, tooltipText, callback)
         local state = ensureFlag(flag, default or false)
-        local element = createBaseElement(section, "module", 44)
+        local element = createBaseElement(section, "module", 42)
         element.name = tostring(name or "Module")
         element.descriptionText = tostring(descriptionText or "")
         element.flag = flag
@@ -1415,10 +1458,10 @@ local function makeSectionApi(section)
         element.callback = callback
         element.bg = addToGroup(element.drawings, createSoftFrame(60))
         element.check = addToGroup(element.drawings, createSoftFrame(64))
-        element.dot = addToGroup(element.drawings, createRoundedPrimitive(67, colors.accentColor, 1))
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 13, Font = Drawing.Fonts.UI, Transparency = 1, Color = state and colors.textWhiteColor or colors.textDarkColor, ZIndex = 68, Visible = false, Text = element.name }))
+        element.dot = addToGroup(element.drawings, createRoundedPrimitive(67, colors.textWhiteColor, 1))
+        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = state and colors.textWhiteColor or colors.textDarkColor, ZIndex = 68, Visible = false, Text = element.name }))
         element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textDarkColor, ZIndex = 68, Visible = false, Text = element.descriptionText }))
-        element.arrow = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = Drawing.Fonts.UI, Transparency = 1, Color = state and colors.accentColor or colors.textDarkColor, ZIndex = 68, Visible = false, Text = state and "^" or "v" }))
+        element.arrow = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = Drawing.Fonts.UI, Transparency = 1, Color = state and colors.accentColor or colors.textDarkColor, ZIndex = 68, Visible = false, Text = ">" }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x + 2, self.y, self.w - 4, self.height)
         end
@@ -1431,27 +1474,35 @@ local function makeSectionApi(section)
         function element:draw()
             local stateNow = LibraryApi.Flags[self.flag]
             local hovered = UI.hovered == self
-            setSoftFrame(self.bg, self.x + 2, self.y, self.w - 4, self.height, 12, stateNow and colors.elementHoverBackground or colors.elementBackground, 0.97, stateNow and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
-            setSoftFrame(self.check, self.x + 14, self.y + 12, 18, 18, 9, stateNow and colors.accentColor or colors.sectionBackground, 0.98, stateNow and colors.accentColor or colors.borderColor, 0.95, 1)
-            setRoundedPrimitive(self.dot, self.x + 19, self.y + 17, 8, 8, 4, colors.textWhiteColor, stateNow and 1 or 0, stateNow)
-            self.label.Position = Vector2.new(self.x + 40, self.y + 8)
+            setSoftFrame(self.bg, self.x + 2, self.y, self.w - 4, self.height, 10, stateNow and colors.elementHoverBackground or colors.elementBackground, 0.97, stateNow and colors.borderLightColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.check, self.x + 10, self.y + 11, 18, 18, 9, stateNow and colors.accentColor or colors.sectionBackground, 0.98, stateNow and colors.accentColor or colors.borderColor, 0.95, 1)
+            setRoundedPrimitive(self.dot, self.x + 15, self.y + 16, 8, 8, 4, colors.textWhiteColor, stateNow and 1 or 0, stateNow)
+            self.label.Position = Vector2.new(self.x + 36, self.y + 8)
             self.label.Text = self.name
             self.label.Color = stateNow and colors.textWhiteColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
-            self.desc.Position = Vector2.new(self.x + 38, self.y + 24)
+            self.desc.Position = Vector2.new(self.x + 36, self.y + 23)
             self.desc.Text = self.descriptionText
-            self.desc.Color = hovered and colors.textWhiteColor or colors.textDarkColor
-            self.arrow.Text = stateNow and "^" or "v"
-            self.arrow.Position = Vector2.new(self.x + self.w - 22, self.y + 15)
+            self.desc.Color = colors.textDarkColor
+            self.arrow.Text = stateNow and "v" or ">"
+            self.arrow.Position = Vector2.new(self.x + self.w - 18, self.y + 14)
             self.arrow.Color = stateNow and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
             self.bg.Visible = true
             self.check.Visible = true
             self.label.Visible = true
-            self.desc.Visible = true
+            self.desc.Visible = self.descriptionText ~= ""
             self.arrow.Visible = true
             if hovered then setTooltipText(self.tooltip) end
         end
-        local subSectionApi = makeSectionApi(section)
-        return subSectionApi
+
+        local moduleSection = {
+            title = section.title,
+            side = section.side,
+            elements = section.elements,
+            window = section.window,
+            tab = section.tab,
+            parentModule = element
+        }
+        return makeSectionApi(moduleSection)
     end
 
     return api
