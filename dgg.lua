@@ -931,8 +931,8 @@ local function makeSectionApi(section)
         function element:draw()
             local state = LibraryApi.Flags[self.flag]
             local hovered = UI.hovered == self
-            setSoftFrame(self.box, self.x + 2, self.y + 1, 32, 18, 9, state and colors.accentColor or colors.elementBackground, 0.98, state and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
-            setRoundedPrimitive(self.knob, self.x + (state and 18 or 4), self.y + 3, 12, 12, 6, colors.textWhiteColor, 1, true)
+            setSoftFrame(self.box, self.x + 2, self.y + 1, 32, 18, 6, state and colors.accentColor or colors.elementBackground, 0.98, state and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setRoundedPrimitive(self.knob, self.x + (state and 18 or 4), self.y + 4, 10, 10, 4, colors.textWhiteColor, 1, true)
             self.label.Position = Vector2.new(self.x + 42, self.y + 4)
             self.label.Text = self.name
             self.label.Color = state and colors.textWhiteColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
@@ -1140,7 +1140,7 @@ local function makeSectionApi(section)
                 showText = showText .. "|"
             end
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
-            setSoftFrame(self.box, self.x + 2, self.y + 14, self.w - 4, 18, 8, self.focused and colors.elementHoverBackground or colors.elementBackground, 0.96, self.focused and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.box, self.x + 2, self.y + 14, self.w - 4, 18, 6, self.focused and colors.elementHoverBackground or colors.elementBackground, 0.96, self.focused and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
             self.text.Position = Vector2.new(self.x + 10, self.y + 17)
             self.text.Text = showText
             self.text.Color = (#self.value > 0 or self.focused) and colors.textWhiteColor or colors.textDarkColor
@@ -1180,7 +1180,7 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self
             local boxText = self:getText()
             self.label.Position = Vector2.new(self.x + 2, self.y + 2)
-            setSoftFrame(self.box, self.x + self.w - math.max(72, getTextSize(boxText, 12) + 18), self.y - 1, math.max(72, getTextSize(boxText, 12) + 12), 20, 9, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.96, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.box, self.x + self.w - math.max(72, getTextSize(boxText, 12) + 18), self.y - 1, math.max(72, getTextSize(boxText, 12) + 12), 20, 6, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.96, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
             self.bindText.Text = boxText
             self.bindText.Position = Vector2.new(self.x + self.w - math.max(72, getTextSize(boxText, 12) + 18) + 8, self.y + 2)
             self.label.Text = self.name
@@ -1251,7 +1251,7 @@ local function makeSectionApi(section)
         function element:draw()
             local hovered = UI.hovered == self
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
-            setSoftFrame(self.box, self.x + 2, self.y + 14, self.w - 4, 18, 8, self.open and colors.elementHoverBackground or colors.elementBackground, 0.96, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.box, self.x + 2, self.y + 14, self.w - 4, 18, 6, self.open and colors.elementHoverBackground or colors.elementBackground, 0.96, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
             self.valueText.Text = tostring(LibraryApi.Flags[self.flag])
             self.valueText.Position = Vector2.new(self.x + 10, self.y + 17)
             self.valueText.Color = hovered and colors.textWhiteColor or colors.textDarkColor
@@ -1268,7 +1268,7 @@ local function makeSectionApi(section)
             self.popupW = self.w - 4
             self.popupH = math.max(18, #self.options * 18)
             if self.open then
-                setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 10, colors.sectionBackground, 0.97, colors.borderColor, 0.95, 1)
+                setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 8, colors.sectionBackground, 0.97, colors.borderColor, 0.95, 1)
                 for index, option in ipairs(self.options) do
                     local item = self.popupItems[index]
                     local y = self.popupY + (index - 1) * 18
@@ -1299,8 +1299,8 @@ local function makeSectionApi(section)
         element.v = vVal
         element.open = false
         element.dragMode = nil
-        element.gridCols = 12
-        element.gridRows = 12
+        element.gridCols = 28
+        element.gridRows = 20
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
         element.previewFrame = addToGroup(element.drawings, createSoftFrame(60))
         element.preview = addToGroup(element.drawings, createRoundedPrimitive(62, value, 1))
@@ -1308,6 +1308,10 @@ local function makeSectionApi(section)
         element.popup.frame = addToGroup(element.popup, createSoftFrame(130))
         element.popup.valueText = addToGroup(element.popup, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 136, Visible = false, Text = "" }))
         element.popup.hexText = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 136, Visible = false, Text = "" }))
+        element.popup.swatches = {}
+        for i = 1, 8 do
+            element.popup.swatches[i] = addToGroup(element.popup, createRoundedPrimitive(136, colors.accentColor, 1))
+        end
         element.popup.grid = {}
         for gy = 1, element.gridRows do
             element.popup.grid[gy] = {}
@@ -1319,7 +1323,7 @@ local function makeSectionApi(section)
         element.popup.cursorOuter = addToGroup(element.popup, newDrawing("Circle", { Filled = false, Thickness = 1, Transparency = 1, Radius = 5, Color = colors.textWhiteColor, ZIndex = 135, Visible = false }))
         element.popup.cursorInner = addToGroup(element.popup, newDrawing("Circle", { Filled = false, Thickness = 1, Transparency = 1, Radius = 3, Color = colors.mainBackground, ZIndex = 136, Visible = false }))
         element.popup.hueCells = {}
-        for i = 1, 24 do
+        for i = 1, 48 do
             element.popup.hueCells[i] = addToGroup(element.popup, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = value, ZIndex = 132, Visible = false }))
         end
         element.popup.hueBorder = addToGroup(element.popup, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderLightColor, ZIndex = 133, Visible = false }))
@@ -1362,6 +1366,23 @@ local function makeSectionApi(section)
                     self.dragMode = "hue"
                     UI.active = { type = "colorpicker", element = self, window = self.window }
                     self:applyHueFromMouse(pos)
+                elseif pointInRect(pos, self.popupX + 10, self.popupY + 153, 186, 12) then
+                    local index = math.floor((pos.X - (self.popupX + 10)) / 24) + 1
+                    local swatchColors = {
+                        Color3.fromRGB(255, 255, 255),
+                        Color3.fromRGB(0, 0, 0),
+                        Color3.fromRGB(255, 84, 84),
+                        Color3.fromRGB(255, 184, 77),
+                        Color3.fromRGB(81, 214, 119),
+                        Color3.fromRGB(72, 162, 255),
+                        Color3.fromRGB(163, 105, 255),
+                        LibraryApi.Flags[self.flag]
+                    }
+                    local picked = swatchColors[index]
+                    if picked then
+                        self.h, self.s, self.v = picked:ToHSV()
+                        self:updateColor(true)
+                    end
                 else
                     self.open = false
                     if UI.openColorPicker == self then UI.openColorPicker = nil end
@@ -1382,24 +1403,24 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self
             local color = LibraryApi.Flags[self.flag]
             self.label.Position = Vector2.new(self.x + 2, self.y + 3)
-            setSoftFrame(self.previewFrame, self.x + self.w - 28, self.y, 24, 24, 8, colors.elementBackground, 0.96, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
-            setRoundedPrimitive(self.preview, self.x + self.w - 25, self.y + 3, 18, 18, 6, color, 1, true)
+            setSoftFrame(self.previewFrame, self.x + self.w - 28, self.y + 1, 24, 22, 6, colors.elementBackground, 0.96, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setRoundedPrimitive(self.preview, self.x + self.w - 24, self.y + 4, 16, 16, 4, color, 1, true)
             self.label.Visible = true
             if hovered then setTooltipText(self.tooltip) end
-            self.popupX = self.x + self.w - 180
+            self.popupX = self.x + self.w - 220
             self.popupY = self.y + 30
-            self.popupW = 176
-            self.popupH = 164
+            self.popupW = 216
+            self.popupH = 196
             self.svX = self.popupX + 10
             self.svY = self.popupY + 10
-            self.svW = 108
-            self.svH = 108
-            self.hueX = self.popupX + 128
+            self.svW = 144
+            self.svH = 144
+            self.hueX = self.popupX + 164
             self.hueY = self.popupY + 10
-            self.hueW = 18
-            self.hueH = 108
+            self.hueW = 16
+            self.hueH = 144
             if self.open then
-                setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 10, colors.sectionBackground, 0.985, colors.borderColor, 0.95, 2)
+                setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 8, colors.sectionBackground, 0.985, colors.borderColor, 0.95, 2)
                 local cellW = self.svW / self.gridCols
                 local cellH = self.svH / self.gridRows
                 for gy = 1, self.gridRows do
@@ -1436,11 +1457,26 @@ local function makeSectionApi(section)
                 self.popup.hueLine.To = Vector2.new(self.hueX + self.hueW + 2, hy)
                 self.popup.hueLine.Visible = true
                 self.popup.valueText.Text = string.format("RGB  %d, %d, %d", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
-                self.popup.valueText.Position = Vector2.new(self.popupX + 10, self.popupY + 126)
+                self.popup.valueText.Position = Vector2.new(self.popupX + 10, self.popupY + 160)
                 self.popup.valueText.Visible = true
                 self.popup.hexText.Text = string.format("#%02X%02X%02X", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
-                self.popup.hexText.Position = Vector2.new(self.popupX + 10, self.popupY + 143)
+                self.popup.hexText.Position = Vector2.new(self.popupX + 10, self.popupY + 177)
                 self.popup.hexText.Visible = true
+                local swatchColors = {
+                    Color3.fromRGB(255, 255, 255),
+                    Color3.fromRGB(0, 0, 0),
+                    Color3.fromRGB(255, 84, 84),
+                    Color3.fromRGB(255, 184, 77),
+                    Color3.fromRGB(81, 214, 119),
+                    Color3.fromRGB(72, 162, 255),
+                    Color3.fromRGB(163, 105, 255),
+                    color
+                }
+                for i, swatch in ipairs(self.popup.swatches) do
+                    local sx = self.popupX + 10 + (i - 1) * 24
+                    local sy = self.popupY + 153
+                    setRoundedPrimitive(swatch, sx, sy, 18, 12, 4, swatchColors[i], 1, true)
+                end
             else
                 hideGroup(self.popup)
             end
@@ -1463,7 +1499,7 @@ local function makeSectionApi(section)
         end
         function element:draw()
             local hovered = UI.hovered == self
-            setSoftFrame(self.box, self.x + 2, self.y, self.w - 4, self.height, 10, hovered and colors.elementHoverBackground or colors.elementBackground, 0.97, hovered and colors.accentColor or colors.borderColor, 0.95, 1)
+            setSoftFrame(self.box, self.x + 2, self.y, self.w - 4, self.height, 7, hovered and colors.elementHoverBackground or colors.elementBackground, 0.97, hovered and colors.accentColor or colors.borderColor, 0.95, 1)
             self.label.Text = self.name
             self.label.Position = Vector2.new(self.x + self.w / 2, self.y + 8)
             self.label.Color = hovered and colors.accentColor or colors.textWhiteColor
@@ -1489,7 +1525,7 @@ local function makeSectionApi(section)
         end
         function element:draw()
             local hovered = UI.hovered == self
-            setSoftFrame(self.box, self.x + 8, self.y, self.w - 16, self.height, 9, hovered and colors.elementBackground or colors.sectionBackground, 0.95, hovered and colors.borderLightColor or colors.borderColor, 0.9, 1)
+            setSoftFrame(self.box, self.x + 8, self.y, self.w - 16, self.height, 6, hovered and colors.elementBackground or colors.sectionBackground, 0.95, hovered and colors.borderLightColor or colors.borderColor, 0.9, 1)
             self.label.Text = self.name
             self.label.Position = Vector2.new(self.x + self.w / 2, self.y + 4)
             self.label.Color = hovered and colors.textWhiteColor or colors.textDarkColor
@@ -1526,9 +1562,9 @@ local function makeSectionApi(section)
         function element:draw()
             local stateNow = LibraryApi.Flags[self.flag]
             local hovered = UI.hovered == self
-            setSoftFrame(self.bg, self.x + 2, self.y, self.w - 4, self.height, 10, stateNow and colors.elementHoverBackground or colors.elementBackground, 0.97, stateNow and colors.borderLightColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
-            setSoftFrame(self.check, self.x + 10, self.y + 11, 18, 18, 9, stateNow and colors.accentColor or colors.sectionBackground, 0.98, stateNow and colors.accentColor or colors.borderColor, 0.95, 1)
-            setRoundedPrimitive(self.dot, self.x + 15, self.y + 16, 8, 8, 4, colors.textWhiteColor, stateNow and 1 or 0, stateNow)
+            setSoftFrame(self.bg, self.x + 2, self.y, self.w - 4, self.height, 7, stateNow and colors.elementHoverBackground or colors.elementBackground, 0.97, stateNow and colors.borderLightColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.check, self.x + 10, self.y + 12, 18, 16, 5, stateNow and colors.accentColor or colors.sectionBackground, 0.98, stateNow and colors.accentColor or colors.borderColor, 0.95, 1)
+            setRoundedPrimitive(self.dot, self.x + 15, self.y + 16, 8, 8, 3, colors.textWhiteColor, stateNow and 1 or 0, stateNow)
             self.label.Position = Vector2.new(self.x + 36, self.y + 8)
             self.label.Text = self.name
             self.label.Color = stateNow and colors.textWhiteColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
