@@ -364,6 +364,8 @@ local function bringWindowToFront(window)
     table.insert(UI.windows, window)
 end
 
+local isElementVisibleInLayout
+
 local function layoutWindow(window)
     window.topHeight = 36
     window.sidebarWidth = 150
@@ -470,7 +472,7 @@ local function forEachElement(window, callback)
     end
 end
 
-local function isElementVisibleInLayout(element)
+isElementVisibleInLayout = function(element)
     if element.visible == false then
         return false
     end
