@@ -698,6 +698,26 @@ local function initialize()
             if UI.focusedTextbox.callback then
                 task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
             end
+        elseif UI.focusedTextbox and input.UserInputType == Enum.UserInputType.Keyboard then
+            local ok, keyString = pcall(function()
+                return userInputService:GetStringForKeyCode(input.KeyCode)
+            end)
+            if ok and keyString and keyString ~= "" then
+                local isShiftDown = userInputService:IsKeyDown(Enum.KeyCode.LeftShift) or userInputService:IsKeyDown(Enum.KeyCode.RightShift)
+                if #keyString == 1 then
+                    if isShiftDown then
+                        keyString = string.upper(keyString)
+                    else
+                        keyString = string.lower(keyString)
+                    end
+                end
+                UI.focusedTextbox.value = UI.focusedTextbox.value .. keyString
+                LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
+                saveConfiguration()
+                if UI.focusedTextbox.callback then
+                    task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
+                end
+            end
         end
     end)
 
@@ -714,17 +734,6 @@ local function initialize()
                 end
             end
             UI.active = nil
-        end
-    end)
-
-    UI.connections.textInput = userInputService.TextInput:Connect(function(text)
-        if UI.focusedTextbox and not UI.bindingKey and text and text ~= "" and text ~= "\r" and text ~= "\n" then
-            UI.focusedTextbox.value = UI.focusedTextbox.value .. text
-            LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
-            saveConfiguration()
-            if UI.focusedTextbox.callback then
-                task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
-            end
         end
     end)
 
