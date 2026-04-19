@@ -1,1485 +1,1100 @@
-local userInputService = game:GetService("UserInputService")
-local runService = game:GetService("RunService")
-local tweenService = game:GetService("TweenService")
-local textService = game:GetService("TextService")
-local httpService = game:GetService("HttpService")
-local workspaceService = game:GetService("Workspace")
-local playersService = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
-local LibraryApi = {
-    Flags = {},
-    FolderName = "Moonshade",
-    ConfigName = "AutoSaveConfig.json"
+local Library = {Flags = {}, Windows = {}}
+
+local theme = {
+    accent = Color3.fromRGB(108,147,252),
+    bg = Color3.fromRGB(10,12,18),
+    bg2 = Color3.fromRGB(14,16,24),
+    panel = Color3.fromRGB(18,21,31),
+    panel2 = Color3.fromRGB(22,25,37),
+    panel3 = Color3.fromRGB(28,31,46),
+    border = Color3.fromRGB(38,44,63),
+    border2 = Color3.fromRGB(58,67,94),
+    text = Color3.fromRGB(235,238,247),
+    text2 = Color3.fromRGB(170,176,194),
+    text3 = Color3.fromRGB(120,126,145),
+    success = Color3.fromRGB(100,214,141),
+    warning = Color3.fromRGB(255,199,93),
+    danger = Color3.fromRGB(255,112,112)
 }
 
-local colors = {
-    mainBackground = Color3.new(0.035294, 0.035294, 0.050980),
-    sidebarBackground = Color3.new(0.050980, 0.050980, 0.066666),
-    sectionBackground = Color3.new(0.066666, 0.066666, 0.082352),
-    elementBackground = Color3.new(0.090196, 0.090196, 0.105882),
-    elementHoverBackground = Color3.new(0.121568, 0.121568, 0.145098),
-    borderColor = Color3.new(0.105882, 0.105882, 0.133333),
-    borderLightColor = Color3.new(0.172549, 0.172549, 0.211764),
-    accentColor = Color3.new(0.423529, 0.576470, 0.988235),
-    accentGradientColor1 = Color3.new(0.423529, 0.576470, 0.988235),
-    accentGradientColor2 = Color3.new(0.619607, 0.462745, 0.988235),
-    textWhiteColor = Color3.new(0.952941, 0.952941, 0.972549),
-    textDarkColor = Color3.new(0.541176, 0.541176, 0.580392),
-    tooltipBackground = Color3.new(0.043137, 0.043137, 0.058823),
-    notificationInfoColor = Color3.new(0.247058, 0.635294, 0.980392),
-    notificationSuccessColor = Color3.new(0.247058, 0.980392, 0.490196),
-    notificationWarningColor = Color3.new(0.980392, 0.819607, 0.247058),
-    notificationErrorColor = Color3.new(0.980392, 0.247058, 0.247058)
-}
-
-local drawingObjects = {}
-local function newDrawing(class, props)
-    local obj = Drawing.new(class)
-    for k, v in pairs(props) do
-        obj[k] = v
-    end
-    table.insert(drawingObjects, obj)
-    return obj
+local function mousePos()
+    return UserInputService:GetMouseLocation()
 end
 
-local function removeDrawing(obj)
-    if obj then
-        for i, v in ipairs(drawingObjects) do
-            if v == obj then
-                table.remove(drawingObjects, i)
-                break
-            end
+local function clamp(v, a, b)
+    if v < a then return a end
+    if v > b then return b end
+    return v
+end
+
+local function round(v, step)
+    if not step or step == 0 then return v end
+    return math.floor(v / step + 0.5) * step
+end
+
+local function formatValue(v, step)
+    if typeof(v) == "number" then
+        if step and step < 1 then
+            local decimals = 0
+            local s = tostring(step)
+            local d = s:match("%.(%d+)")
+            if d then decimals = #d end
+            return string.format("%." .. tostring(decimals) .. "f", v)
         end
-        obj:Remove()
+        return tostring(math.floor(v + 0.5) == v and math.floor(v) or v)
     end
+    return tostring(v)
 end
 
-local function colorToDrawing(c3, alpha)
-    return Color3.new(c3.R, c3.G, c3.B), alpha or 1
+local function pointInRect(x, y, w, h, p)
+    return p.X >= x and p.X <= x + w and p.Y >= y and p.Y <= y + h
 end
 
-local function lerp(a, b, t)
-    return a + (b - a) * t
+local function draw(class)
+    return Drawing.new(class)
 end
 
-local function lerpColor(c1, c2, t)
-    return Color3.new(
-        lerp(c1.R, c2.R, t),
-        lerp(c1.G, c2.G, t),
-        lerp(c1.B, c2.B, t)
-    )
-end
-
-local tweens = {}
-local function animateDrawing(obj, props, duration)
-    duration = duration or 0.35
-    local startVals = {}
-    for k, v in pairs(props) do
-        startVals[k] = obj[k]
-    end
-    local startTime = tick()
-    local conn
-    conn = runService.RenderStepped:Connect(function()
-        local elapsed = tick() - startTime
-        local t = math.min(elapsed / duration, 1)
-        local ease = 1 - (1 - t)^3
-        for k, v in pairs(props) do
-            if type(v) == "number" then
-                obj[k] = lerp(startVals[k], v, ease)
-            elseif typeof(v) == "Color3" then
-                obj[k] = lerpColor(startVals[k], v, ease)
-            elseif typeof(v) == "Vector2" then
-                obj[k] = Vector2.new(
-                    lerp(startVals[k].X, v.X, ease),
-                    lerp(startVals[k].Y, v.Y, ease)
-                )
-            else
-                obj[k] = v
-            end
-        end
-        if t >= 1 then
-            conn:Disconnect()
-        end
-    end)
-    return conn
-end
-
-local function drawRect(x, y, w, h, color, alpha, zIndex, filled, thickness)
-    local rect = newDrawing("Square", {
-        Position = Vector2.new(x, y),
-        Size = Vector2.new(w, h),
-        Color = color,
-        Transparency = alpha or 1,
-        ZIndex = zIndex or 1,
-        Filled = filled ~= false,
-        Thickness = thickness or 1,
-        Visible = true
-    })
-    return rect
-end
-
-local function drawText(text, x, y, size, color, alpha, zIndex, font, center, outline)
-    local t = newDrawing("Text", {
-        Text = text,
-        Position = Vector2.new(x, y),
-        Size = size or 12,
-        Color = color,
-        Transparency = alpha or 1,
-        ZIndex = zIndex or 1,
-        Font = font or Drawing.Fonts.UI,
-        Center = center or false,
-        Outline = outline or false,
-        Visible = true
-    })
+local function makeText(size, center)
+    local t = draw("Text")
+    t.Size = size
+    t.Center = center or false
+    t.Outline = false
+    t.Font = 2
+    t.Visible = false
     return t
 end
 
-local function drawLine(x1, y1, x2, y2, color, alpha, thickness, zIndex)
-    local l = newDrawing("Line", {
-        From = Vector2.new(x1, y1),
-        To = Vector2.new(x2, y2),
-        Color = color,
-        Transparency = alpha or 1,
-        Thickness = thickness or 1,
-        ZIndex = zIndex or 1,
-        Visible = true
-    })
+local function makeSquare(filled)
+    local s = draw("Square")
+    s.Filled = filled
+    s.Visible = false
+    return s
+end
+
+local function makeLine()
+    local l = draw("Line")
+    l.Visible = false
     return l
 end
 
-local function drawCircle(x, y, r, color, alpha, zIndex, filled, thickness)
-    local c = newDrawing("Circle", {
-        Position = Vector2.new(x, y),
-        Radius = r,
-        Color = color,
-        Transparency = alpha or 1,
-        ZIndex = zIndex or 1,
-        Filled = filled ~= false,
-        Thickness = thickness or 1,
-        Visible = true
-    })
+local function makeCircle(filled)
+    local c = draw("Circle")
+    c.Filled = filled
+    c.NumSides = 24
+    c.Visible = false
     return c
-end
-
-local function getTextSize(text, size)
-    local b = textService:GetTextSize(text, size or 12, Enum.Font.GothamMedium, Vector2.new(500, 500))
-    return b.X, b.Y
-end
-
-local function isMouseOver(x, y, w, h)
-    local mouse = userInputService:GetMouseLocation()
-    return mouse.X >= x and mouse.X <= x + w and mouse.Y >= y and mouse.Y <= y + h
-end
-
-local function snapValue(value, step)
-    if not step then return value end
-    return math.floor((value / step) + 0.5) * step
-end
-
-local function formatValue(value, step)
-    if step and step < 1 then
-        local decimalPlaces = tostring(step):len() - 2
-        return string.format("%."..decimalPlaces.."f", value)
-    end
-    return tostring(value)
-end
-
-local function saveConfiguration()
-    pcall(function()
-        if not isfolder or not writefile then return end
-        if not isfolder(LibraryApi.FolderName) then makefolder(LibraryApi.FolderName) end
-        local serializedData = {}
-        for key, val in pairs(LibraryApi.Flags) do
-            if typeof(val) == "Color3" then
-                serializedData[key] = {Type = "Color3", R = val.R, G = val.G, B = val.B}
-            elseif typeof(val) == "EnumItem" then
-                serializedData[key] = {Type = "KeyCode", Name = val.Name}
-            elseif type(val) == "table" and val.Min and val.Max then
-                serializedData[key] = {Type = "Range", Min = val.Min, Max = val.Max}
-            else
-                serializedData[key] = val
-            end
-        end
-        writefile(LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName, httpService:JSONEncode(serializedData))
-    end)
-end
-
-local function loadConfiguration()
-    pcall(function()
-        if not isfolder or not isfile or not readfile then return end
-        local fullPath = LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName
-        if isfile(fullPath) then
-            local decodedData = httpService:JSONDecode(readfile(fullPath))
-            if type(decodedData) == "table" then
-                for key, val in pairs(decodedData) do
-                    if type(val) == "table" then
-                        if val.Type == "Color3" then
-                            LibraryApi.Flags[key] = Color3.new(val.R, val.G, val.B)
-                        elseif val.Type == "KeyCode" then
-                            LibraryApi.Flags[key] = Enum.KeyCode[val.Name] or Enum.KeyCode.Unknown
-                        elseif val.Type == "Range" then
-                            LibraryApi.Flags[key] = {Min = val.Min, Max = val.Max}
-                        end
-                    else
-                        LibraryApi.Flags[key] = val
-                    end
-                end
-            end
-        end
-    end)
-end
-
-loadConfiguration()
-
-local tooltipDrawings = {}
-local tooltipTargetText = ""
-local tooltipAlpha = 0
-
-do
-    tooltipDrawings.bg = drawRect(0, 0, 0, 24, colors.tooltipBackground, 0, 200, true)
-    tooltipDrawings.border = drawRect(0, 0, 0, 24, colors.borderLightColor, 0, 200, false, 1)
-    tooltipDrawings.text = drawText("", 0, 0, 12, colors.textWhiteColor, 0, 201)
-end
-
-local function showTooltip(textString)
-    tooltipTargetText = textString or ""
 end
 
 local notifications = {}
 
-function LibraryApi:Notify(config)
-    local title = config.Title or "Notification"
-    local text = config.Text or ""
-    local duration = config.Duration or 3
-    local notificationType = config.Type or "Info"
-    local accentColor = colors["notification" .. notificationType .. "Color"] or colors.accentColor
-
-    local vp = workspaceService.CurrentCamera.ViewportSize
-    local nw, nh = 280, 56
-    local nx = vp.X - nw - 20
-    local baseY = vp.Y - 20
-
-    local notif = {
-        alpha = 0,
-        offsetX = nw + 20,
-        y = baseY,
-        drawings = {}
+function Library:Notify(opts)
+    local n = {
+        Title = opts and opts.Title or "Notification",
+        Text = opts and opts.Text or "",
+        Duration = opts and opts.Duration or 3,
+        Type = opts and opts.Type or "Info",
+        Start = tick(),
+        Drawings = {
+            bg = makeSquare(true),
+            border = makeSquare(false),
+            accent = makeSquare(true),
+            title = makeText(13, false),
+            text = makeText(12, false)
+        }
     }
-
-    notif.drawings.bg = drawRect(nx + notif.offsetX, baseY - nh, nw, nh, colors.mainBackground, 0, 150, true)
-    notif.drawings.border = drawRect(nx + notif.offsetX, baseY - nh, nw, nh, colors.borderLightColor, 0, 150, false, 1)
-    notif.drawings.line = drawRect(nx + notif.offsetX + 6, baseY - nh + 6, 3, nh - 12, accentColor, 0, 151, true)
-    notif.drawings.title = drawText(title, nx + notif.offsetX + 16, baseY - nh + 8, 13, colors.textWhiteColor, 0, 151)
-    notif.drawings.text = drawText(text, nx + notif.offsetX + 16, baseY - nh + 24, 11, colors.textDarkColor, 0, 151)
-
-    table.insert(notifications, notif)
-
-    local slideIn = 0
-    local life = 0
-    local sliding = true
-    local fadingOut = false
-
-    local conn
-    conn = runService.RenderStepped:Connect(function(dt)
-        if sliding then
-            slideIn = math.min(slideIn + dt * 3, 1)
-            local ease = 1 - (1 - slideIn)^3
-            notif.offsetX = (nw + 20) * (1 - ease)
-            notif.alpha = ease
-        else
-            life = life + dt
-            if life >= duration then
-                fadingOut = true
-                sliding = false
-            end
-        end
-
-        if fadingOut then
-            notif.alpha = math.max(notif.alpha - dt * 2, 0)
-            notif.offsetX = notif.offsetX + dt * 300
-            if notif.alpha <= 0 then
-                for _, d in pairs(notif.drawings) do d:Remove() end
-                conn:Disconnect()
-                return
-            end
-        end
-
-        if slideIn >= 1 and not fadingOut then
-            sliding = false
-            life = life + 0
-        end
-
-        local curX = nx + notif.offsetX
-        notif.drawings.bg.Position = Vector2.new(curX, baseY - nh)
-        notif.drawings.bg.Transparency = notif.alpha
-        notif.drawings.border.Position = Vector2.new(curX, baseY - nh)
-        notif.drawings.border.Transparency = notif.alpha * 0.5
-        notif.drawings.line.Position = Vector2.new(curX + 6, baseY - nh + 6)
-        notif.drawings.line.Transparency = notif.alpha
-        notif.drawings.title.Position = Vector2.new(curX + 16, baseY - nh + 8)
-        notif.drawings.title.Transparency = notif.alpha
-        notif.drawings.text.Position = Vector2.new(curX + 16, baseY - nh + 24)
-        notif.drawings.text.Transparency = notif.alpha * 0.7
-
-        if slideIn >= 1 and not fadingOut then
-            task.delay(duration, function()
-                fadingOut = true
-            end)
-            sliding = false
-            life = math.huge
-        end
-    end)
+    table.insert(notifications, n)
+    return n
 end
 
-runService.RenderStepped:Connect(function()
-    local mouse = userInputService:GetMouseLocation()
-    if tooltipTargetText ~= "" then
-        local tw, _ = getTextSize(tooltipTargetText, 12)
-        local bw = tw + 16
-        local bx = mouse.X + 15
-        local by = mouse.Y + 15
-        tooltipAlpha = math.min(tooltipAlpha + 0.15, 1)
-        tooltipDrawings.bg.Position = Vector2.new(bx, by)
-        tooltipDrawings.bg.Size = Vector2.new(bw, 22)
-        tooltipDrawings.bg.Transparency = tooltipAlpha * 0.85
-        tooltipDrawings.border.Position = Vector2.new(bx, by)
-        tooltipDrawings.border.Size = Vector2.new(bw, 22)
-        tooltipDrawings.border.Transparency = tooltipAlpha * 0.6
-        tooltipDrawings.text.Text = tooltipTargetText
-        tooltipDrawings.text.Position = Vector2.new(bx + 8, by + 5)
-        tooltipDrawings.text.Transparency = tooltipAlpha
+local function keyToChar(keyCode, shift)
+    local name = keyCode.Name
+    if #name == 1 then
+        if shift then return name end
+        return string.lower(name)
+    end
+    if name == "Space" then return " " end
+    if name == "Period" then return shift and ">" or "." end
+    if name == "Comma" then return shift and "<" or "," end
+    if name == "Minus" then return shift and "_" or "-" end
+    if name == "Equals" then return shift and "+" or "=" end
+    if name == "Semicolon" then return shift and ":" or ";" end
+    if name == "Quote" then return shift and '"' or "'" end
+    if name == "Slash" then return shift and "?" or "/" end
+    if name == "BackSlash" then return shift and "|" or "\\" end
+    if name == "LeftBracket" then return shift and "{" or "[" end
+    if name == "RightBracket" then return shift and "}" or "]" end
+    if name == "Zero" then return shift and ")" or "0" end
+    if name == "One" then return shift and "!" or "1" end
+    if name == "Two" then return shift and "@" or "2" end
+    if name == "Three" then return shift and "#" or "3" end
+    if name == "Four" then return shift and "$" or "4" end
+    if name == "Five" then return shift and "%" or "5" end
+    if name == "Six" then return shift and "^" or "6" end
+    if name == "Seven" then return shift and "&" or "7" end
+    if name == "Eight" then return shift and "*" or "8" end
+    if name == "Nine" then return shift and "(" or "9" end
+    return nil
+end
+
+local UIState = {
+    DragWindow = nil,
+    DragOffset = Vector2.new(),
+    ActiveTextbox = nil,
+    ActiveKeybind = nil,
+    ActiveSlider = nil,
+    ActiveRangeSlider = nil,
+    OpenDropdown = nil,
+    OpenColor = nil,
+    MouseDown = false,
+    Visible = true
+}
+
+local function createBaseSectionDrawings()
+    return {
+        bg = makeSquare(true),
+        border = makeSquare(false),
+        title = makeText(13, false),
+        separator = makeLine()
+    }
+end
+
+local function createWindowDrawings()
+    return {
+        bg = makeSquare(true),
+        border = makeSquare(false),
+        top = makeSquare(true),
+        accent = makeSquare(true),
+        sidebar = makeSquare(true),
+        sidebarLine = makeLine(),
+        title = makeText(13, false)
+    }
+end
+
+local function setVisible(list, visible)
+    for _, d in pairs(list) do
+        if typeof(d) == "table" then
+            setVisible(d, visible)
+        elseif d and d.Visible ~= nil then
+            d.Visible = visible
+        end
+    end
+end
+
+local function removeDrawings(list)
+    for _, d in pairs(list) do
+        if typeof(d) == "table" then
+            removeDrawings(d)
+        elseif d and d.Remove then
+            d:Remove()
+        end
+    end
+end
+
+local Window = {}
+Window.__index = Window
+local Tab = {}
+Tab.__index = Tab
+local Section = {}
+Section.__index = Section
+local Module = {}
+Module.__index = Module
+
+local function makeTabDrawings()
+    return {
+        btn = makeSquare(true),
+        hover = makeSquare(true),
+        indicator = makeSquare(true),
+        text = makeText(12, false)
+    }
+end
+
+function Library:CreateWindow(title)
+    local vp = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720)
+    local self = setmetatable({}, Window)
+    self.Title = title or "Window"
+    self.X = math.floor(vp.X * 0.5 - 360)
+    self.Y = math.floor(vp.Y * 0.5 - 240)
+    self.W = 720
+    self.H = 480
+    self.TopH = 36
+    self.SidebarW = 150
+    self.Visible = true
+    self.Tabs = {}
+    self.ActiveTab = nil
+    self.Drawings = createWindowDrawings()
+    table.insert(Library.Windows, self)
+    return self
+end
+
+function Window:Tab_Create(name)
+    local tab = setmetatable({}, Tab)
+    tab.Window = self
+    tab.Name = name
+    tab.Sections = {}
+    tab.Drawings = makeTabDrawings()
+    tab.Layout = {x = 0, y = 0, w = 0, h = 30}
+    table.insert(self.Tabs, tab)
+    if not self.ActiveTab then self.ActiveTab = tab end
+    return tab
+end
+
+function Tab:Section_Create(side, title)
+    local section = setmetatable({}, Section)
+    section.Tab = self
+    section.Side = side == "Right" and "Right" or "Left"
+    section.Title = title or "Section"
+    section.Items = {}
+    section.Drawings = createBaseSectionDrawings()
+    section.Layout = {x = 0, y = 0, w = 0, h = 38}
+    table.insert(self.Sections, section)
+    return section
+end
+
+function Section:_push(item)
+    item.Section = self
+    table.insert(self.Items, item)
+    return item
+end
+
+function Section:Subtext_Create(text)
+    return self:_push({Type = "Subtext", Text = text, Height = 18, Drawings = {text = makeText(11, false)}})
+end
+
+function Section:Toggle_Create(name, flag, default, tooltip, callback)
+    if Library.Flags[flag] == nil then Library.Flags[flag] = default or false end
+    return self:_push({Type = "Toggle", Name = name, Flag = flag, Tooltip = tooltip, Callback = callback, Height = 22, Drawings = {box = makeSquare(true), border = makeSquare(false), text = makeText(12, false)}, Hitbox = {}})
+end
+
+function Section:Slider_Create(name, flag, min, max, default, step, tooltip, callback)
+    if Library.Flags[flag] == nil then Library.Flags[flag] = round(default or min, step or 1) end
+    return self:_push({Type = "Slider", Name = name, Flag = flag, Min = min, Max = max, Step = step or 1, Tooltip = tooltip, Callback = callback, Height = 38, Drawings = {text = makeText(12, false), value = makeText(12, false), track = makeSquare(true), fill = makeSquare(true), border = makeSquare(false), knob = makeCircle(true), knobBorder = makeCircle(false)}, Hitbox = {}})
+end
+
+function Section:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltip, callback)
+    if Library.Flags[flag] == nil then
+        Library.Flags[flag] = {Min = round(defaultMin or min, step or 1), Max = round(defaultMax or max, step or 1)}
+    end
+    return self:_push({Type = "RangeSlider", Name = name, Flag = flag, Min = min, Max = max, Step = step or 1, Tooltip = tooltip, Callback = callback, Height = 38, Drawings = {text = makeText(12, false), value = makeText(12, false), track = makeSquare(true), fill = makeSquare(true), border = makeSquare(false), knobMin = makeCircle(true), knobMax = makeCircle(true), knobMinBorder = makeCircle(false), knobMaxBorder = makeCircle(false)}, Hitbox = {}})
+end
+
+function Section:Textbox_Create(name, flag, default, tooltip, callback)
+    if Library.Flags[flag] == nil then Library.Flags[flag] = default or "" end
+    return self:_push({Type = "Textbox", Name = name, Flag = flag, Tooltip = tooltip, Callback = callback, Height = 42, Drawings = {label = makeText(12, false), box = makeSquare(true), border = makeSquare(false), text = makeText(12, false)}, Hitbox = {}})
+end
+
+function Section:Keybind_Create(name, flag, default, tooltip, callback)
+    if Library.Flags[flag] == nil then Library.Flags[flag] = default or Enum.KeyCode.Unknown end
+    return self:_push({Type = "Keybind", Name = name, Flag = flag, Tooltip = tooltip, Callback = callback, Height = 30, Drawings = {label = makeText(12, false), box = makeSquare(true), border = makeSquare(false), text = makeText(12, true)}, Hitbox = {}})
+end
+
+function Section:Dropdown_Create(name, flag, values, default, tooltip, callback)
+    if Library.Flags[flag] == nil then Library.Flags[flag] = default or (values and values[1]) or "" end
+    return self:_push({Type = "Dropdown", Name = name, Flag = flag, Values = values or {}, Tooltip = tooltip, Callback = callback, Height = 42, Open = false, Drawings = {label = makeText(12, false), box = makeSquare(true), border = makeSquare(false), text = makeText(12, false), arrow = makeText(12, true)}, Hitbox = {}, OptionDrawings = {}})
+end
+
+function Section:ColorPicker_Create(name, flag, default, tooltip, callback)
+    if Library.Flags[flag] == nil then Library.Flags[flag] = default or theme.accent end
+    return self:_push({Type = "ColorPicker", Name = name, Flag = flag, Tooltip = tooltip, Callback = callback, Height = 30, Open = false, HSV = {H = 0, S = 0, V = 1}, Drawings = {label = makeText(12, false), preview = makeSquare(true), previewBorder = makeSquare(false), popup = makeSquare(true), popupBorder = makeSquare(false), hue = makeSquare(true), hueBorder = makeSquare(false), value = makeSquare(true), valueBorder = makeSquare(false)}, Hitbox = {}})
+end
+
+function Section:Button_Create(name, tooltip, callback)
+    return self:_push({Type = "Button", Name = name, Tooltip = tooltip, Callback = callback, Height = 32, Drawings = {box = makeSquare(true), border = makeSquare(false), text = makeText(12, true)}, Hitbox = {}})
+end
+
+function Section:Module_Create(name, flag, tooltip, default, tooltip2, callback)
+    if Library.Flags[flag] == nil then Library.Flags[flag] = default or false end
+    local module = setmetatable({Type = "Module", Name = name, Flag = flag, Tooltip = tooltip2 or tooltip, Callback = callback, Open = false, Children = {}, Height = 30, Drawings = {box = makeSquare(true), border = makeSquare(false), toggle = makeSquare(true), toggleBorder = makeSquare(false), text = makeText(12, false), arrow = makeText(12, true)}, Hitbox = {}}, Module)
+    return self:_push(module)
+end
+
+function Module:_push(item)
+    item.Module = self
+    table.insert(self.Children, item)
+    return item
+end
+
+function Module:Subtext_Create(text)
+    return self:_push({Type = "Subtext", Text = text, Height = 18, Drawings = {text = makeText(11, false)}})
+end
+
+function Module:SubButton_Create(name, tooltip, callback)
+    return self:_push({Type = "SubButton", Name = name, Tooltip = tooltip, Callback = callback, Height = 28, Drawings = {box = makeSquare(true), border = makeSquare(false), text = makeText(12, true)}, Hitbox = {}})
+end
+
+local function getColorHSV(c)
+    local h, s, v = Color3.toHSV(c)
+    return {H = h, S = s, V = v}
+end
+
+local function getTabContentBounds(win)
+    local x = win.X + win.SidebarW + 10
+    local y = win.Y + win.TopH + 10
+    local w = win.W - win.SidebarW - 20
+    local h = win.H - win.TopH - 20
+    return x, y, w, h
+end
+
+local function currentTab(win)
+    return win.Visible and UIState.Visible and win.ActiveTab or nil
+end
+
+local function sectionHeight(section)
+    local h = 36
+    for _, item in ipairs(section.Items) do
+        h = h + item.Height + 6
+        if item.Type == "Module" and item.Open then
+            for _, child in ipairs(item.Children) do
+                h = h + child.Height + 4
+            end
+        end
+    end
+    return h + 4
+end
+
+local function updateWindowLayout(win)
+    local vp = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1280,720)
+    win.X = clamp(win.X, 0, math.max(0, vp.X - win.W))
+    win.Y = clamp(win.Y, 0, math.max(0, vp.Y - win.H))
+
+    local d = win.Drawings
+    d.bg.Position = Vector2.new(win.X, win.Y)
+    d.bg.Size = Vector2.new(win.W, win.H)
+    d.bg.Color = theme.bg
+    d.bg.Transparency = 0.18
+    d.bg.Visible = win.Visible and UIState.Visible
+
+    d.border.Position = Vector2.new(win.X, win.Y)
+    d.border.Size = Vector2.new(win.W, win.H)
+    d.border.Color = theme.border2
+    d.border.Thickness = 1
+    d.border.Visible = d.bg.Visible
+
+    d.top.Position = Vector2.new(win.X, win.Y)
+    d.top.Size = Vector2.new(win.W, win.TopH)
+    d.top.Color = theme.bg2
+    d.top.Transparency = 0.05
+    d.top.Visible = d.bg.Visible
+
+    d.accent.Position = Vector2.new(win.X, win.Y)
+    d.accent.Size = Vector2.new(win.W, 2)
+    d.accent.Color = theme.accent
+    d.accent.Transparency = 0
+    d.accent.Visible = d.bg.Visible
+
+    d.sidebar.Position = Vector2.new(win.X, win.Y + win.TopH)
+    d.sidebar.Size = Vector2.new(win.SidebarW, win.H - win.TopH)
+    d.sidebar.Color = theme.bg2
+    d.sidebar.Transparency = 0.1
+    d.sidebar.Visible = d.bg.Visible
+
+    d.sidebarLine.From = Vector2.new(win.X + win.SidebarW, win.Y + win.TopH)
+    d.sidebarLine.To = Vector2.new(win.X + win.SidebarW, win.Y + win.H)
+    d.sidebarLine.Color = theme.border
+    d.sidebarLine.Thickness = 1
+    d.sidebarLine.Visible = d.bg.Visible
+
+    d.title.Text = win.Title
+    d.title.Position = Vector2.new(win.X + 16, win.Y + 11)
+    d.title.Color = theme.text2
+    d.title.Visible = d.bg.Visible
+
+    for i, tab in ipairs(win.Tabs) do
+        local td = tab.Drawings
+        local tx = win.X + 6
+        local ty = win.Y + win.TopH + 8 + (i - 1) * 36
+        tab.Layout.x, tab.Layout.y, tab.Layout.w, tab.Layout.h = tx, ty, win.SidebarW - 12, 30
+        local active = win.ActiveTab == tab
+        local hover = pointInRect(tx, ty, tab.Layout.w, tab.Layout.h, mousePos())
+        td.btn.Position = Vector2.new(tx, ty)
+        td.btn.Size = Vector2.new(tab.Layout.w, tab.Layout.h)
+        td.btn.Color = theme.panel2
+        td.btn.Transparency = active and 0.12 or 1
+        td.btn.Visible = d.bg.Visible
+        td.hover.Position = Vector2.new(tx, ty)
+        td.hover.Size = Vector2.new(tab.Layout.w, tab.Layout.h)
+        td.hover.Color = theme.panel2
+        td.hover.Transparency = hover and not active and 0.6 or 1
+        td.hover.Visible = d.bg.Visible
+        td.indicator.Position = Vector2.new(tx, ty + 8)
+        td.indicator.Size = Vector2.new(2, active and 14 or 0)
+        td.indicator.Color = theme.accent
+        td.indicator.Transparency = 0
+        td.indicator.Visible = d.bg.Visible
+        td.text.Text = tab.Name
+        td.text.Position = Vector2.new(tx + 12, ty + 9)
+        td.text.Color = active and theme.text or theme.text3
+        td.text.Visible = d.bg.Visible
+    end
+
+    local tab = currentTab(win)
+    for _, t in ipairs(win.Tabs) do
+        for _, section in ipairs(t.Sections) do
+            local show = tab == t
+            setVisible(section.Drawings, show)
+            for _, item in ipairs(section.Items) do
+                setVisible(item.Drawings, show)
+                if item.OptionDrawings then setVisible(item.OptionDrawings, show and item.Open) end
+                if item.Type == "Module" then
+                    for _, child in ipairs(item.Children) do
+                        setVisible(child.Drawings, show and item.Open)
+                    end
+                end
+            end
+        end
+    end
+    if not tab then return end
+
+    local cx, cy, cw = getTabContentBounds(win)
+    local gutter = 12
+    local colW = math.floor((cw - gutter) / 2)
+    local leftX = cx
+    local rightX = cx + colW + gutter
+    local leftY = cy
+    local rightY = cy
+
+    for _, section in ipairs(tab.Sections) do
+        local sx = section.Side == "Right" and rightX or leftX
+        local sy = section.Side == "Right" and rightY or leftY
+        local sh = sectionHeight(section)
+        section.Layout.x, section.Layout.y, section.Layout.w, section.Layout.h = sx, sy, colW, sh
+
+        local sd = section.Drawings
+        sd.bg.Position = Vector2.new(sx, sy)
+        sd.bg.Size = Vector2.new(colW, sh)
+        sd.bg.Color = theme.panel
+        sd.bg.Transparency = 0.22
+        sd.bg.Visible = true
+        sd.border.Position = Vector2.new(sx, sy)
+        sd.border.Size = Vector2.new(colW, sh)
+        sd.border.Color = theme.border
+        sd.border.Thickness = 1
+        sd.border.Visible = true
+        sd.title.Text = section.Title
+        sd.title.Position = Vector2.new(sx + 8, sy + 7)
+        sd.title.Color = theme.text
+        sd.title.Visible = true
+        sd.separator.From = Vector2.new(sx, sy + 24)
+        sd.separator.To = Vector2.new(sx + colW, sy + 24)
+        sd.separator.Color = theme.border
+        sd.separator.Thickness = 1
+        sd.separator.Visible = true
+
+        local iy = sy + 32
+        for _, item in ipairs(section.Items) do
+            item.Abs = {x = sx + 8, y = iy, w = colW - 16, h = item.Height}
+            local ix, iyy, iw, ih = item.Abs.x, item.Abs.y, item.Abs.w, item.Abs.h
+            local hover = pointInRect(ix, iyy, iw, ih, mousePos())
+            if item.Type == "Subtext" then
+                item.Drawings.text.Text = item.Text
+                item.Drawings.text.Position = Vector2.new(ix, iyy + 1)
+                item.Drawings.text.Color = theme.text3
+                item.Drawings.text.Visible = true
+            elseif item.Type == "Toggle" then
+                local val = Library.Flags[item.Flag]
+                item.Hitbox = {x = ix, y = iyy, w = iw, h = ih}
+                item.Drawings.box.Position = Vector2.new(ix, iyy + 2)
+                item.Drawings.box.Size = Vector2.new(13, 13)
+                item.Drawings.box.Color = val and theme.accent or theme.panel3
+                item.Drawings.box.Transparency = 0.05
+                item.Drawings.box.Visible = true
+                item.Drawings.border.Position = Vector2.new(ix, iyy + 2)
+                item.Drawings.border.Size = Vector2.new(13, 13)
+                item.Drawings.border.Color = val and theme.accent or (hover and theme.border2 or theme.border)
+                item.Drawings.border.Thickness = 1
+                item.Drawings.border.Visible = true
+                item.Drawings.text.Text = item.Name
+                item.Drawings.text.Position = Vector2.new(ix + 20, iyy + 2)
+                item.Drawings.text.Color = val and theme.text or theme.text2
+                item.Drawings.text.Visible = true
+            elseif item.Type == "Slider" then
+                local val = Library.Flags[item.Flag]
+                local p = clamp((val - item.Min) / (item.Max - item.Min), 0, 1)
+                item.Hitbox = {x = ix + 2, y = iyy + 16, w = iw - 4, h = 14}
+                item.Drawings.text.Text = item.Name
+                item.Drawings.text.Position = Vector2.new(ix, iyy)
+                item.Drawings.text.Color = theme.text
+                item.Drawings.text.Visible = true
+                item.Drawings.value.Text = formatValue(val, item.Step)
+                item.Drawings.value.Position = Vector2.new(ix + iw - 4 - #item.Drawings.value.Text * 6, iyy)
+                item.Drawings.value.Color = theme.text2
+                item.Drawings.value.Visible = true
+                item.Drawings.track.Position = Vector2.new(ix, iyy + 18)
+                item.Drawings.track.Size = Vector2.new(iw, 6)
+                item.Drawings.track.Color = theme.panel3
+                item.Drawings.track.Transparency = 0.05
+                item.Drawings.track.Visible = true
+                item.Drawings.fill.Position = Vector2.new(ix, iyy + 18)
+                item.Drawings.fill.Size = Vector2.new(math.max(1, math.floor(iw * p)), 6)
+                item.Drawings.fill.Color = theme.accent
+                item.Drawings.fill.Transparency = 0
+                item.Drawings.fill.Visible = true
+                item.Drawings.border.Position = Vector2.new(ix, iyy + 18)
+                item.Drawings.border.Size = Vector2.new(iw, 6)
+                item.Drawings.border.Color = hover and theme.border2 or theme.border
+                item.Drawings.border.Thickness = 1
+                item.Drawings.border.Visible = true
+                item.Drawings.knob.Position = Vector2.new(ix + iw * p, iyy + 21)
+                item.Drawings.knob.Radius = 5
+                item.Drawings.knob.Color = theme.text
+                item.Drawings.knob.Transparency = 0
+                item.Drawings.knob.Visible = true
+                item.Drawings.knobBorder.Position = item.Drawings.knob.Position
+                item.Drawings.knobBorder.Radius = 5
+                item.Drawings.knobBorder.Color = theme.border
+                item.Drawings.knobBorder.Thickness = 1
+                item.Drawings.knobBorder.Visible = true
+            elseif item.Type == "RangeSlider" then
+                local val = Library.Flags[item.Flag]
+                local p1 = clamp((val.Min - item.Min) / (item.Max - item.Min), 0, 1)
+                local p2 = clamp((val.Max - item.Min) / (item.Max - item.Min), 0, 1)
+                item.Hitbox = {x = ix + 2, y = iyy + 16, w = iw - 4, h = 14}
+                item.Drawings.text.Text = item.Name
+                item.Drawings.text.Position = Vector2.new(ix, iyy)
+                item.Drawings.text.Color = theme.text
+                item.Drawings.text.Visible = true
+                item.Drawings.value.Text = formatValue(val.Min, item.Step) .. " - " .. formatValue(val.Max, item.Step)
+                item.Drawings.value.Position = Vector2.new(ix + iw - 4 - #item.Drawings.value.Text * 6, iyy)
+                item.Drawings.value.Color = theme.text2
+                item.Drawings.value.Visible = true
+                item.Drawings.track.Position = Vector2.new(ix, iyy + 18)
+                item.Drawings.track.Size = Vector2.new(iw, 6)
+                item.Drawings.track.Color = theme.panel3
+                item.Drawings.track.Visible = true
+                item.Drawings.border.Position = Vector2.new(ix, iyy + 18)
+                item.Drawings.border.Size = Vector2.new(iw, 6)
+                item.Drawings.border.Color = hover and theme.border2 or theme.border
+                item.Drawings.border.Visible = true
+                item.Drawings.fill.Position = Vector2.new(ix + iw * p1, iyy + 18)
+                item.Drawings.fill.Size = Vector2.new(math.max(1, iw * (p2 - p1)), 6)
+                item.Drawings.fill.Color = theme.accent
+                item.Drawings.fill.Visible = true
+                item.Drawings.knobMin.Position = Vector2.new(ix + iw * p1, iyy + 21)
+                item.Drawings.knobMin.Radius = 5
+                item.Drawings.knobMin.Color = theme.text
+                item.Drawings.knobMin.Visible = true
+                item.Drawings.knobMinBorder.Position = item.Drawings.knobMin.Position
+                item.Drawings.knobMinBorder.Radius = 5
+                item.Drawings.knobMinBorder.Color = theme.border
+                item.Drawings.knobMinBorder.Visible = true
+                item.Drawings.knobMax.Position = Vector2.new(ix + iw * p2, iyy + 21)
+                item.Drawings.knobMax.Radius = 5
+                item.Drawings.knobMax.Color = theme.text
+                item.Drawings.knobMax.Visible = true
+                item.Drawings.knobMaxBorder.Position = item.Drawings.knobMax.Position
+                item.Drawings.knobMaxBorder.Radius = 5
+                item.Drawings.knobMaxBorder.Color = theme.border
+                item.Drawings.knobMaxBorder.Visible = true
+            elseif item.Type == "Textbox" then
+                item.Hitbox = {x = ix, y = iyy + 16, w = iw, h = 20}
+                item.Drawings.label.Text = item.Name
+                item.Drawings.label.Position = Vector2.new(ix, iyy)
+                item.Drawings.label.Color = theme.text
+                item.Drawings.label.Visible = true
+                item.Drawings.box.Position = Vector2.new(ix, iyy + 18)
+                item.Drawings.box.Size = Vector2.new(iw, 20)
+                item.Drawings.box.Color = theme.panel3
+                item.Drawings.box.Visible = true
+                item.Drawings.border.Position = Vector2.new(ix, iyy + 18)
+                item.Drawings.border.Size = Vector2.new(iw, 20)
+                item.Drawings.border.Color = UIState.ActiveTextbox == item and theme.accent or (hover and theme.border2 or theme.border)
+                item.Drawings.border.Visible = true
+                local txt = tostring(Library.Flags[item.Flag] or "")
+                if txt == "" then txt = UIState.ActiveTextbox == item and "" or "..." end
+                item.Drawings.text.Text = txt
+                item.Drawings.text.Position = Vector2.new(ix + 6, iyy + 21)
+                item.Drawings.text.Color = (Library.Flags[item.Flag] == "" and UIState.ActiveTextbox ~= item) and theme.text3 or theme.text2
+                item.Drawings.text.Visible = true
+            elseif item.Type == "Keybind" then
+                item.Hitbox = {x = ix + iw - 76, y = iyy + 1, w = 76, h = 18}
+                item.Drawings.label.Text = item.Name
+                item.Drawings.label.Position = Vector2.new(ix, iyy + 1)
+                item.Drawings.label.Color = theme.text
+                item.Drawings.label.Visible = true
+                item.Drawings.box.Position = Vector2.new(ix + iw - 76, iyy)
+                item.Drawings.box.Size = Vector2.new(76, 20)
+                item.Drawings.box.Color = theme.panel3
+                item.Drawings.box.Visible = true
+                item.Drawings.border.Position = Vector2.new(ix + iw - 76, iyy)
+                item.Drawings.border.Size = Vector2.new(76, 20)
+                item.Drawings.border.Color = UIState.ActiveKeybind == item and theme.accent or (hover and theme.border2 or theme.border)
+                item.Drawings.border.Visible = true
+                local key = Library.Flags[item.Flag]
+                local text = UIState.ActiveKeybind == item and "[...]" or "[ " .. ((key and key ~= Enum.KeyCode.Unknown) and key.Name or "None") .. " ]"
+                item.Drawings.text.Text = text
+                item.Drawings.text.Position = Vector2.new(ix + iw - 38, iyy + 3)
+                item.Drawings.text.Color = theme.text2
+                item.Drawings.text.Visible = true
+            elseif item.Type == "Dropdown" then
+                item.Hitbox = {x = ix, y = iyy + 18, w = iw, h = 20}
+                item.Drawings.label.Text = item.Name
+                item.Drawings.label.Position = Vector2.new(ix, iyy)
+                item.Drawings.label.Color = theme.text
+                item.Drawings.label.Visible = true
+                item.Drawings.box.Position = Vector2.new(ix, iyy + 18)
+                item.Drawings.box.Size = Vector2.new(iw, 20)
+                item.Drawings.box.Color = theme.panel3
+                item.Drawings.box.Visible = true
+                item.Drawings.border.Position = Vector2.new(ix, iyy + 18)
+                item.Drawings.border.Size = Vector2.new(iw, 20)
+                item.Drawings.border.Color = item.Open and theme.accent or (hover and theme.border2 or theme.border)
+                item.Drawings.border.Visible = true
+                item.Drawings.text.Text = tostring(Library.Flags[item.Flag])
+                item.Drawings.text.Position = Vector2.new(ix + 6, iyy + 21)
+                item.Drawings.text.Color = theme.text2
+                item.Drawings.text.Visible = true
+                item.Drawings.arrow.Text = item.Open and "^" or "v"
+                item.Drawings.arrow.Position = Vector2.new(ix + iw - 12, iyy + 21)
+                item.Drawings.arrow.Color = theme.text2
+                item.Drawings.arrow.Visible = true
+                if item.Open then
+                    for idx, option in ipairs(item.Values) do
+                        local od = item.OptionDrawings[idx]
+                        if not od then
+                            od = {box = makeSquare(true), border = makeSquare(false), text = makeText(12, false)}
+                            item.OptionDrawings[idx] = od
+                        end
+                        local oy = iyy + 40 + (idx - 1) * 20
+                        local oh = 20
+                        local ohover = pointInRect(ix, oy, iw, oh, mousePos())
+                        od.box.Position = Vector2.new(ix, oy)
+                        od.box.Size = Vector2.new(iw, oh)
+                        od.box.Color = theme.panel3
+                        od.box.Transparency = ohover and 0.25 or 0.05
+                        od.box.Visible = true
+                        od.border.Position = Vector2.new(ix, oy)
+                        od.border.Size = Vector2.new(iw, oh)
+                        od.border.Color = tostring(Library.Flags[item.Flag]) == tostring(option) and theme.accent or theme.border
+                        od.border.Visible = true
+                        od.text.Text = tostring(option)
+                        od.text.Position = Vector2.new(ix + 6, oy + 3)
+                        od.text.Color = theme.text2
+                        od.text.Visible = true
+                        od.Hitbox = {x = ix, y = oy, w = iw, h = oh, value = option}
+                    end
+                    for idx = #item.Values + 1, #item.OptionDrawings do
+                        setVisible(item.OptionDrawings[idx], false)
+                    end
+                else
+                    for _, od in ipairs(item.OptionDrawings) do
+                        setVisible(od, false)
+                    end
+                end
+            elseif item.Type == "ColorPicker" then
+                if not item.HSV or item.Drawings.preview.Color ~= Library.Flags[item.Flag] then
+                    item.HSV = getColorHSV(Library.Flags[item.Flag])
+                end
+                item.Hitbox = {x = ix + iw - 22, y = iyy + 2, w = 22, h = 14}
+                item.Drawings.label.Text = item.Name
+                item.Drawings.label.Position = Vector2.new(ix, iyy + 1)
+                item.Drawings.label.Color = theme.text
+                item.Drawings.label.Visible = true
+                item.Drawings.preview.Position = Vector2.new(ix + iw - 22, iyy + 2)
+                item.Drawings.preview.Size = Vector2.new(22, 14)
+                item.Drawings.preview.Color = Library.Flags[item.Flag]
+                item.Drawings.preview.Visible = true
+                item.Drawings.previewBorder.Position = Vector2.new(ix + iw - 22, iyy + 2)
+                item.Drawings.previewBorder.Size = Vector2.new(22, 14)
+                item.Drawings.previewBorder.Color = item.Open and theme.accent or theme.border
+                item.Drawings.previewBorder.Visible = true
+                local popupW, popupH = 120, 94
+                local px = ix + iw - popupW
+                local py = iyy + 22
+                item.Popup = {x = px, y = py, w = popupW, h = popupH, sv = {x = px + 8, y = py + 8, w = 80, h = 60}, hue = {x = px + 94, y = py + 8, w = 14, h = 60}}
+                if item.Open then
+                    item.Drawings.popup.Position = Vector2.new(px, py)
+                    item.Drawings.popup.Size = Vector2.new(popupW, popupH)
+                    item.Drawings.popup.Color = theme.panel2
+                    item.Drawings.popup.Visible = true
+                    item.Drawings.popupBorder.Position = Vector2.new(px, py)
+                    item.Drawings.popupBorder.Size = Vector2.new(popupW, popupH)
+                    item.Drawings.popupBorder.Color = theme.border2
+                    item.Drawings.popupBorder.Visible = true
+                    item.Drawings.value.Position = Vector2.new(px + 8, py + 8)
+                    item.Drawings.value.Size = Vector2.new(80, 60)
+                    item.Drawings.value.Color = Color3.fromHSV(item.HSV.H, 1, 1)
+                    item.Drawings.value.Visible = true
+                    item.Drawings.valueBorder.Position = Vector2.new(px + 8, py + 8)
+                    item.Drawings.valueBorder.Size = Vector2.new(80, 60)
+                    item.Drawings.valueBorder.Color = theme.border
+                    item.Drawings.valueBorder.Visible = true
+                    item.Drawings.hue.Position = Vector2.new(px + 94, py + 8)
+                    item.Drawings.hue.Size = Vector2.new(14, 60)
+                    item.Drawings.hue.Color = Color3.fromHSV(item.HSV.H, 1, 1)
+                    item.Drawings.hue.Visible = true
+                    item.Drawings.hueBorder.Position = Vector2.new(px + 94, py + 8)
+                    item.Drawings.hueBorder.Size = Vector2.new(14, 60)
+                    item.Drawings.hueBorder.Color = theme.border
+                    item.Drawings.hueBorder.Visible = true
+                else
+                    item.Drawings.popup.Visible = false
+                    item.Drawings.popupBorder.Visible = false
+                    item.Drawings.value.Visible = false
+                    item.Drawings.valueBorder.Visible = false
+                    item.Drawings.hue.Visible = false
+                    item.Drawings.hueBorder.Visible = false
+                end
+            elseif item.Type == "Button" then
+                item.Hitbox = {x = ix, y = iyy, w = iw, h = 24}
+                item.Drawings.box.Position = Vector2.new(ix, iyy)
+                item.Drawings.box.Size = Vector2.new(iw, 24)
+                item.Drawings.box.Color = theme.panel3
+                item.Drawings.box.Transparency = hover and 0.2 or 0.05
+                item.Drawings.box.Visible = true
+                item.Drawings.border.Position = Vector2.new(ix, iyy)
+                item.Drawings.border.Size = Vector2.new(iw, 24)
+                item.Drawings.border.Color = hover and theme.border2 or theme.border
+                item.Drawings.border.Visible = true
+                item.Drawings.text.Text = item.Name
+                item.Drawings.text.Position = Vector2.new(ix + iw / 2, iyy + 4)
+                item.Drawings.text.Color = theme.text
+                item.Drawings.text.Visible = true
+            elseif item.Type == "Module" then
+                item.Hitbox = {x = ix, y = iyy, w = iw, h = 24, toggle = {x = ix + 4, y = iyy + 5, w = 12, h = 12}, arrow = {x = ix + iw - 22, y = iyy, w = 22, h = 24}}
+                local val = Library.Flags[item.Flag]
+                item.Drawings.box.Position = Vector2.new(ix, iyy)
+                item.Drawings.box.Size = Vector2.new(iw, 24)
+                item.Drawings.box.Color = theme.panel3
+                item.Drawings.box.Transparency = hover and 0.2 or 0.05
+                item.Drawings.box.Visible = true
+                item.Drawings.border.Position = Vector2.new(ix, iyy)
+                item.Drawings.border.Size = Vector2.new(iw, 24)
+                item.Drawings.border.Color = hover and theme.border2 or theme.border
+                item.Drawings.border.Visible = true
+                item.Drawings.toggle.Position = Vector2.new(ix + 4, iyy + 5)
+                item.Drawings.toggle.Size = Vector2.new(12, 12)
+                item.Drawings.toggle.Color = val and theme.accent or theme.panel2
+                item.Drawings.toggle.Visible = true
+                item.Drawings.toggleBorder.Position = Vector2.new(ix + 4, iyy + 5)
+                item.Drawings.toggleBorder.Size = Vector2.new(12, 12)
+                item.Drawings.toggleBorder.Color = val and theme.accent or theme.border
+                item.Drawings.toggleBorder.Visible = true
+                item.Drawings.text.Text = item.Name
+                item.Drawings.text.Position = Vector2.new(ix + 22, iyy + 4)
+                item.Drawings.text.Color = theme.text
+                item.Drawings.text.Visible = true
+                item.Drawings.arrow.Text = item.Open and "^" or "v"
+                item.Drawings.arrow.Position = Vector2.new(ix + iw - 12, iyy + 4)
+                item.Drawings.arrow.Color = theme.text2
+                item.Drawings.arrow.Visible = true
+                if item.Open then
+                    local cy2 = iyy + 30
+                    for _, child in ipairs(item.Children) do
+                        child.Abs = {x = ix + 8, y = cy2, w = iw - 8, h = child.Height}
+                        local cix, ciy, ciw = child.Abs.x, child.Abs.y, child.Abs.w
+                        local chover = pointInRect(cix, ciy, ciw, child.Height, mousePos())
+                        if child.Type == "Subtext" then
+                            child.Drawings.text.Text = child.Text
+                            child.Drawings.text.Position = Vector2.new(cix, ciy + 1)
+                            child.Drawings.text.Color = theme.text3
+                            child.Drawings.text.Visible = true
+                        elseif child.Type == "SubButton" then
+                            child.Hitbox = {x = cix, y = ciy, w = ciw - 8, h = 22}
+                            child.Drawings.box.Position = Vector2.new(cix, ciy)
+                            child.Drawings.box.Size = Vector2.new(ciw - 8, 22)
+                            child.Drawings.box.Color = theme.panel2
+                            child.Drawings.box.Transparency = chover and 0.2 or 0.05
+                            child.Drawings.box.Visible = true
+                            child.Drawings.border.Position = Vector2.new(cix, ciy)
+                            child.Drawings.border.Size = Vector2.new(ciw - 8, 22)
+                            child.Drawings.border.Color = chover and theme.border2 or theme.border
+                            child.Drawings.border.Visible = true
+                            child.Drawings.text.Text = child.Name
+                            child.Drawings.text.Position = Vector2.new(cix + (ciw - 8) / 2, ciy + 3)
+                            child.Drawings.text.Color = theme.text2
+                            child.Drawings.text.Visible = true
+                        end
+                        cy2 = cy2 + child.Height + 4
+                    end
+                else
+                    for _, child in ipairs(item.Children) do
+                        setVisible(child.Drawings, false)
+                    end
+                end
+            end
+            iy = iy + item.Height + 6
+            if item.Type == "Module" and item.Open then
+                for _, child in ipairs(item.Children) do
+                    iy = iy + child.Height + 4
+                end
+            end
+        end
+
+        if section.Side == "Right" then rightY = sy + sh + 10 else leftY = sy + sh + 10 end
+    end
+end
+
+local function clickWindow(win, p)
+    if not (win.Visible and UIState.Visible) then return false end
+    if pointInRect(win.X, win.Y, win.W, win.TopH, p) then
+        UIState.DragWindow = win
+        UIState.DragOffset = Vector2.new(p.X - win.X, p.Y - win.Y)
+        return true
+    end
+    for _, tab in ipairs(win.Tabs) do
+        if pointInRect(tab.Layout.x, tab.Layout.y, tab.Layout.w, tab.Layout.h, p) then
+            win.ActiveTab = tab
+            UIState.OpenDropdown = nil
+            UIState.OpenColor = nil
+            return true
+        end
+    end
+    local tab = currentTab(win)
+    if not tab then return false end
+    for _, section in ipairs(tab.Sections) do
+        for _, item in ipairs(section.Items) do
+            if item.Type == "Toggle" and pointInRect(item.Hitbox.x, item.Hitbox.y, item.Hitbox.w, item.Hitbox.h, p) then
+                Library.Flags[item.Flag] = not Library.Flags[item.Flag]
+                if item.Callback then task.spawn(item.Callback, Library.Flags[item.Flag]) end
+                return true
+            elseif item.Type == "Slider" and pointInRect(item.Hitbox.x, item.Hitbox.y, item.Hitbox.w, item.Hitbox.h, p) then
+                UIState.ActiveSlider = item
+                return true
+            elseif item.Type == "RangeSlider" and pointInRect(item.Hitbox.x, item.Hitbox.y, item.Hitbox.w, item.Hitbox.h, p) then
+                local val = Library.Flags[item.Flag]
+                local width = item.Hitbox.w
+                local x = p.X - item.Hitbox.x
+                local pcur = clamp(x / width, 0, 1)
+                local p1 = clamp((val.Min - item.Min) / (item.Max - item.Min), 0, 1)
+                local p2 = clamp((val.Max - item.Min) / (item.Max - item.Min), 0, 1)
+                UIState.ActiveRangeSlider = {Item = item, Handle = math.abs(pcur - p1) <= math.abs(pcur - p2) and "Min" or "Max"}
+                return true
+            elseif item.Type == "Textbox" and pointInRect(item.Hitbox.x, item.Hitbox.y, item.Hitbox.w, item.Hitbox.h, p) then
+                UIState.ActiveTextbox = item
+                UIState.ActiveKeybind = nil
+                return true
+            elseif item.Type == "Keybind" and pointInRect(item.Hitbox.x, item.Hitbox.y, item.Hitbox.w, item.Hitbox.h, p) then
+                UIState.ActiveKeybind = item
+                UIState.ActiveTextbox = nil
+                return true
+            elseif item.Type == "Dropdown" then
+                if pointInRect(item.Hitbox.x, item.Hitbox.y, item.Hitbox.w, item.Hitbox.h, p) then
+                    item.Open = not item.Open
+                    UIState.OpenDropdown = item.Open and item or nil
+                    if UIState.OpenDropdown ~= item then item.Open = false end
+                    return true
+                end
+                if item.Open then
+                    for _, od in ipairs(item.OptionDrawings) do
+                        if od.Hitbox and pointInRect(od.Hitbox.x, od.Hitbox.y, od.Hitbox.w, od.Hitbox.h, p) then
+                            Library.Flags[item.Flag] = od.Hitbox.value
+                            item.Open = false
+                            UIState.OpenDropdown = nil
+                            if item.Callback then task.spawn(item.Callback, Library.Flags[item.Flag]) end
+                            return true
+                        end
+                    end
+                end
+            elseif item.Type == "ColorPicker" then
+                if pointInRect(item.Hitbox.x, item.Hitbox.y, item.Hitbox.w, item.Hitbox.h, p) then
+                    item.Open = not item.Open
+                    UIState.OpenColor = item.Open and item or nil
+                    return true
+                end
+                if item.Open and item.Popup then
+                    if pointInRect(item.Popup.hue.x, item.Popup.hue.y, item.Popup.hue.w, item.Popup.hue.h, p) then
+                        item.HSV.H = clamp((p.Y - item.Popup.hue.y) / item.Popup.hue.h, 0, 1)
+                        Library.Flags[item.Flag] = Color3.fromHSV(item.HSV.H, item.HSV.S, item.HSV.V)
+                        if item.Callback then task.spawn(item.Callback, Library.Flags[item.Flag]) end
+                        UIState.OpenColor = item
+                        UIState.ActiveSlider = {Color = item, Mode = "Hue"}
+                        return true
+                    elseif pointInRect(item.Popup.sv.x, item.Popup.sv.y, item.Popup.sv.w, item.Popup.sv.h, p) then
+                        item.HSV.S = clamp((p.X - item.Popup.sv.x) / item.Popup.sv.w, 0, 1)
+                        item.HSV.V = 1 - clamp((p.Y - item.Popup.sv.y) / item.Popup.sv.h, 0, 1)
+                        Library.Flags[item.Flag] = Color3.fromHSV(item.HSV.H, item.HSV.S, item.HSV.V)
+                        if item.Callback then task.spawn(item.Callback, Library.Flags[item.Flag]) end
+                        UIState.ActiveSlider = {Color = item, Mode = "SV"}
+                        return true
+                    end
+                end
+            elseif item.Type == "Button" and pointInRect(item.Hitbox.x, item.Hitbox.y, item.Hitbox.w, item.Hitbox.h, p) then
+                if item.Callback then task.spawn(item.Callback) end
+                return true
+            elseif item.Type == "Module" then
+                if pointInRect(item.Hitbox.toggle.x, item.Hitbox.toggle.y, item.Hitbox.toggle.w, item.Hitbox.toggle.h, p) then
+                    Library.Flags[item.Flag] = not Library.Flags[item.Flag]
+                    if item.Callback then task.spawn(item.Callback, Library.Flags[item.Flag]) end
+                    return true
+                elseif pointInRect(item.Hitbox.arrow.x, item.Hitbox.arrow.y, item.Hitbox.arrow.w, item.Hitbox.arrow.h, p) then
+                    item.Open = not item.Open
+                    return true
+                elseif pointInRect(item.Hitbox.x, item.Hitbox.y, item.Hitbox.w, item.Hitbox.h, p) then
+                    item.Open = not item.Open
+                    return true
+                end
+                if item.Open then
+                    for _, child in ipairs(item.Children) do
+                        if child.Type == "SubButton" and child.Hitbox and pointInRect(child.Hitbox.x, child.Hitbox.y, child.Hitbox.w, child.Hitbox.h, p) then
+                            if child.Callback then task.spawn(child.Callback) end
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return pointInRect(win.X, win.Y, win.W, win.H, p)
+end
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.Delete then
+        UIState.Visible = not UIState.Visible
+        return
+    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        UIState.MouseDown = true
+        local p = mousePos()
+        UIState.ActiveTextbox = nil
+        UIState.ActiveKeybind = nil
+        for i = #Library.Windows, 1, -1 do
+            if clickWindow(Library.Windows[i], p) then
+                break
+            end
+        end
+    elseif UIState.ActiveTextbox and input.UserInputType == Enum.UserInputType.Keyboard then
+        local item = UIState.ActiveTextbox
+        if input.KeyCode == Enum.KeyCode.Backspace then
+            local s = tostring(Library.Flags[item.Flag] or "")
+            Library.Flags[item.Flag] = s:sub(1, math.max(0, #s - 1))
+            if item.Callback then task.spawn(item.Callback, Library.Flags[item.Flag]) end
+        elseif input.KeyCode == Enum.KeyCode.Return or input.KeyCode == Enum.KeyCode.KeypadEnter or input.KeyCode == Enum.KeyCode.Escape then
+            UIState.ActiveTextbox = nil
+        else
+            local shift = UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
+            local ch = keyToChar(input.KeyCode, shift)
+            if ch then
+                Library.Flags[item.Flag] = tostring(Library.Flags[item.Flag] or "") .. ch
+                if item.Callback then task.spawn(item.Callback, Library.Flags[item.Flag]) end
+            end
+        end
+    elseif UIState.ActiveKeybind and input.UserInputType == Enum.UserInputType.Keyboard then
+        local item = UIState.ActiveKeybind
+        if input.KeyCode == Enum.KeyCode.Escape then
+            Library.Flags[item.Flag] = Enum.KeyCode.Unknown
+        else
+            Library.Flags[item.Flag] = input.KeyCode
+        end
+        UIState.ActiveKeybind = nil
+        if item.Callback then task.spawn(item.Callback, Library.Flags[item.Flag]) end
     else
-        tooltipAlpha = math.max(tooltipAlpha - 0.15, 0)
-        tooltipDrawings.bg.Transparency = tooltipAlpha * 0.85
-        tooltipDrawings.border.Transparency = tooltipAlpha * 0.6
-        tooltipDrawings.text.Transparency = tooltipAlpha
+        for _, win in ipairs(Library.Windows) do
+            local tab = currentTab(win)
+            if tab then
+                for _, section in ipairs(tab.Sections) do
+                    for _, item in ipairs(section.Items) do
+                        if item.Type == "Keybind" and Library.Flags[item.Flag] == input.KeyCode and item.Callback then
+                            task.spawn(item.Callback, input.KeyCode)
+                        end
+                    end
+                end
+            end
+        end
     end
 end)
 
-function LibraryApi:CreateWindow(windowName)
-    local vp = workspaceService.CurrentCamera.ViewportSize
-    local WW, WH = 720, 480
-    local WX = math.floor(vp.X / 2 - WW / 2)
-    local WY = math.floor(vp.Y / 2 - WH / 2)
-
-    local isDragging = false
-    local dragOffsetX, dragOffsetY = 0, 0
-
-    local windowVisible = true
-
-    local winDrawings = {}
-
-    winDrawings.bg = drawRect(WX, WY, WW, WH, colors.mainBackground, 0.82, 1, true)
-    winDrawings.bgBorder = drawRect(WX, WY, WW, WH, colors.borderColor, 1, 1, false, 1)
-
-    local topH = 36
-    winDrawings.topBar = drawRect(WX, WY, WW, topH, colors.sidebarBackground, 0.78, 2, true)
-    winDrawings.topBorder = drawLine(WX, WY + topH, WX + WW, WY + topH, colors.borderColor, 1, 1, 2)
-    winDrawings.accentLine = drawRect(WX, WY, WW, 2, colors.accentColor, 1, 3, true)
-    winDrawings.title = drawText(windowName, WX + 15, WY + 11, 13, colors.textWhiteColor, 1, 3)
-
-    local sideW = 150
-    winDrawings.sidebar = drawRect(WX, WY + topH, sideW, WH - topH, colors.sidebarBackground, 0.78, 2, true)
-    winDrawings.sidebarBorder = drawLine(WX + sideW, WY + topH, WX + sideW, WY + WH, colors.borderColor, 1, 1, 2)
-
-    local function redrawWindow()
-        winDrawings.bg.Position = Vector2.new(WX, WY)
-        winDrawings.bgBorder.Position = Vector2.new(WX, WY)
-        winDrawings.topBar.Position = Vector2.new(WX, WY)
-        winDrawings.topBorder.From = Vector2.new(WX, WY + topH)
-        winDrawings.topBorder.To = Vector2.new(WX + WW, WY + topH)
-        winDrawings.accentLine.Position = Vector2.new(WX, WY)
-        winDrawings.title.Position = Vector2.new(WX + 15, WY + 11)
-        winDrawings.sidebar.Position = Vector2.new(WX, WY + topH)
-        winDrawings.sidebarBorder.From = Vector2.new(WX + sideW, WY + topH)
-        winDrawings.sidebarBorder.To = Vector2.new(WX + sideW, WY + WH)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        UIState.MouseDown = false
+        UIState.DragWindow = nil
+        UIState.ActiveSlider = nil
+        UIState.ActiveRangeSlider = nil
     end
+end)
 
-    local function shiftAnyDrawing(entry, dx, dy, visited)
-        if type(entry) ~= "table" then
-            return
-        end
-        visited = visited or {}
-        if visited[entry] then
-            return
-        end
-        visited[entry] = true
-        local moved = false
-        pcall(function()
-            local from = entry.From
-            local to = entry.To
-            if typeof(from) == "Vector2" and typeof(to) == "Vector2" then
-                entry.From = from + Vector2.new(dx, dy)
-                entry.To = to + Vector2.new(dx, dy)
-                moved = true
-            end
-        end)
-        if not moved then
-            pcall(function()
-                local pos = entry.Position
-                if typeof(pos) == "Vector2" then
-                    entry.Position = pos + Vector2.new(dx, dy)
-                    moved = true
-                end
-            end)
-        end
-        if not moved then
-            for _, value in pairs(entry) do
-                shiftAnyDrawing(value, dx, dy, visited)
-            end
-        end
+RunService.RenderStepped:Connect(function()
+    local p = mousePos()
+    if UIState.DragWindow then
+        local vp = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1280,720)
+        UIState.DragWindow.X = clamp(p.X - UIState.DragOffset.X, 0, math.max(0, vp.X - UIState.DragWindow.W))
+        UIState.DragWindow.Y = clamp(p.Y - UIState.DragOffset.Y, 0, math.max(0, vp.Y - UIState.DragWindow.H))
     end
-
-    local function shiftTabData(tabData, dx, dy)
-        if tabData._positionUpdaters then
-            for _, updater in ipairs(tabData._positionUpdaters) do
-                updater(dx, dy)
-            end
-        end
-        if tabData._drawings then
-            shiftAnyDrawing(tabData._drawings, dx, dy)
-        end
-        if tabData._elements then
-            for _, group in ipairs(tabData._elements) do
-                shiftAnyDrawing(group, dx, dy)
-            end
-        end
-    end
-
-    local function setWindowVisible(v)
-        for _, d in pairs(winDrawings) do
-            d.Visible = v
-        end
-        if windowContext and windowContext.Tabs then
-            for _, tabData in ipairs(windowContext.Tabs) do
-                if tabData._drawings then
-                    for _, d in pairs(tabData._drawings) do
-                        if d.Visible ~= nil then
-                            d.Visible = v
-                        end
-                    end
-                end
-                if tabData._elements then
-                    local shouldShowElements = v and windowContext.Active_Tab == tabData
-                    for _, group in ipairs(tabData._elements) do
-                        for _, d in pairs(group) do
-                            if type(d) == "table" and d.Visible ~= nil then
-                                d.Visible = shouldShowElements
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        windowVisible = v
-    end
-
-    userInputService.InputBegan:Connect(function(input, gpe)
-        if not gpe and input.KeyCode == Enum.KeyCode.Delete then
-            setWindowVisible(not windowVisible)
-        end
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local mouse = userInputService:GetMouseLocation()
-            if isMouseOver(WX, WY, WW, topH) then
-                isDragging = true
-                dragOffsetX = mouse.X - WX
-                dragOffsetY = mouse.Y - WY
-            end
-        end
-    end)
-
-    userInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDragging = false
-        end
-    end)
-
-    runService.RenderStepped:Connect(function()
-        if isDragging then
-            local mouse = userInputService:GetMouseLocation()
-            local viewport = workspaceService.CurrentCamera and workspaceService.CurrentCamera.ViewportSize or vp
-            local newX = math.floor(math.clamp(mouse.X - dragOffsetX, 0, math.max(0, viewport.X - WW)))
-            local newY = math.floor(math.clamp(mouse.Y - dragOffsetY, 0, math.max(0, viewport.Y - WH)))
-            local dx = newX - WX
-            local dy = newY - WY
-            if dx ~= 0 or dy ~= 0 then
-                WX = newX
-                WY = newY
-                redrawWindow()
-                if windowContext and windowContext.Tabs then
-                    for _, tabData in ipairs(windowContext.Tabs) do
-                        shiftTabData(tabData, dx, dy)
-                    end
-                end
-            end
-        end
-    end)
-
-    local windowContext = { Tabs = {}, Active_Tab = nil, _RedrawAll = function() end }
-
-    local tabYStart = WY + topH + 8
-    local tabX = WX + 6
-    local tabButtonDrawings = {}
-
-    local contentX = WX + sideW + 10
-    local contentY = WY + topH + 10
-    local contentW = WW - sideW - 20
-    local contentH = WH - topH - 20
-
-    local scrollOffsets = {}
-
-    local allTabDrawings = {}
-    local allElementDrawings = {}
-
-    local function getContentBounds()
-        return WX + sideW + 10, WY + topH + 10, WW - sideW - 20, WH - topH - 20
-    end
-
-    function windowContext:_RedrawAll()
-        redrawWindow()
-        tabYStart = WY + topH + 8
-        for i, tabData in ipairs(self.Tabs) do
-            local ty = tabYStart + (i - 1) * 36
-            if tabData._drawings then
-                if tabData._drawings.btn then
-                    tabData._drawings.btn.Position = Vector2.new(WX + 6, ty)
-                end
-                if tabData._drawings.hover then
-                    tabData._drawings.hover.Position = Vector2.new(WX + 6, ty)
-                end
-                if tabData._drawings.hoverBg then
-                    tabData._drawings.hoverBg.Position = Vector2.new(WX + 6, ty)
-                end
-                if tabData._drawings.label then
-                    tabData._drawings.label.Position = Vector2.new(WX + 12 + (tabData._iconOffset or 0), ty + 9)
-                end
-                if tabData._drawings.indicator then
-                    tabData._drawings.indicator.Position = Vector2.new(WX + 6, ty + 8)
-                end
-                tabData._tabY = ty
-            end
-        end
-    end
-
-    function windowContext:Tab_Create(tabName, iconId)
-        local tabIndex = #self.Tabs + 1
-        local tabY = tabYStart + (tabIndex - 1) * 36
-
-        local tabData = {
-            _elements = {},
-            _iconOffset = 0,
-            _scrollOffset = 0,
-            _positionUpdaters = {},
-            _tabY = tabY
-        }
-
-        local td = {}
-        td.hover = drawRect(WX + 6, tabY, sideW - 12, 30, colors.elementHoverBackground, 1, 3, true)
-        td.btn = drawRect(WX + 6, tabY, sideW - 12, 30, colors.elementHoverBackground, 1, 3, true)
-        td.hover.Visible = false
-        td.btn.Visible = true
-        td.label = drawText(tabName, WX + 12, tabY + 9, 12, colors.textDarkColor, 1, 4)
-        td.indicator = drawRect(WX + 6, tabY + 8, 2, 0, colors.accentColor, 1, 4, true)
-
-        tabData._drawings = td
-
-        local function activate()
-            if windowContext.Active_Tab == tabData then return end
-            if windowContext.Active_Tab then
-                local old = windowContext.Active_Tab
-                old._drawings.btn.Transparency = 1
-                old._drawings.label.Color = colors.textDarkColor
-                old._drawings.indicator.Size = Vector2.new(2, 0)
-                for _, ed in ipairs(old._elements) do
-                    for _, d in pairs(ed) do
-                        if d.Visible ~= nil then d.Visible = false end
-                    end
-                end
-            end
-            windowContext.Active_Tab = tabData
-            td.btn.Transparency = 0.88
-            td.label.Color = colors.textWhiteColor
-            td.indicator.Size = Vector2.new(2, 14)
-            td.indicator.Position = Vector2.new(WX + 6, tabData._tabY + 8)
-            for _, ed in ipairs(tabData._elements) do
-                for _, d in pairs(ed) do
-                    if d.Visible ~= nil then d.Visible = true end
-                end
-            end
-        end
-
-        userInputService.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                if isMouseOver(WX + 6, tabData._tabY, sideW - 12, 30) and windowVisible then
-                    activate()
-                end
-            end
-        end)
-
-        runService.RenderStepped:Connect(function()
-            if not windowVisible then return end
-            if isMouseOver(WX + 6, tabData._tabY, sideW - 12, 30) then
-                td.hover.Visible = true
+    if UIState.ActiveSlider then
+        if UIState.ActiveSlider.Color then
+            local item = UIState.ActiveSlider.Color
+            if UIState.ActiveSlider.Mode == "Hue" then
+                item.HSV.H = clamp((p.Y - item.Popup.hue.y) / item.Popup.hue.h, 0, 1)
             else
-                td.hover.Visible = false
+                item.HSV.S = clamp((p.X - item.Popup.sv.x) / item.Popup.sv.w, 0, 1)
+                item.HSV.V = 1 - clamp((p.Y - item.Popup.sv.y) / item.Popup.sv.h, 0, 1)
             end
-        end)
-
-        table.insert(self.Tabs, tabData)
-        if #self.Tabs == 1 then activate() end
-
-        local columnLeftX = WX + sideW + 10
-        local columnRightX = WX + sideW + 10 + math.floor((WW - sideW - 20) / 2) + 6
-        local columnWidth = math.floor((WW - sideW - 20) / 2) - 16
-
-        local leftCursorY = WY + topH + 10
-        local rightCursorY = WY + topH + 10
-
-        local function elementInjector(side)
-            local cursorY = side == "Left" and leftCursorY or rightCursorY
-            local colX = side == "Left" and columnLeftX or columnRightX
-
-            local elements = {}
-            local elementGroup = {}
-            table.insert(tabData._elements, elementGroup)
-
-            local function isVisible()
-                return windowContext.Active_Tab == tabData and windowVisible
+            Library.Flags[item.Flag] = Color3.fromHSV(item.HSV.H, item.HSV.S, item.HSV.V)
+            if item.Callback then task.spawn(item.Callback, Library.Flags[item.Flag]) end
+        else
+            local item = UIState.ActiveSlider
+            local hb = item.Hitbox
+            local pr = clamp((p.X - hb.x) / hb.w, 0, 1)
+            local val = round(item.Min + (item.Max - item.Min) * pr, item.Step)
+            val = clamp(val, item.Min, item.Max)
+            if Library.Flags[item.Flag] ~= val then
+                Library.Flags[item.Flag] = val
+                if item.Callback then task.spawn(item.Callback, val) end
             end
-
-            local function nextY(side2)
-                if side2 == "Left" then
-                    return leftCursorY
-                else
-                    return rightCursorY
-                end
-            end
-
-            local function advanceCursor(side2, amount)
-                if side2 == "Left" then
-                    leftCursorY = leftCursorY + amount
-                else
-                    rightCursorY = rightCursorY + amount
-                end
-            end
-
-            function elements:Subtext_Create(text, elSide)
-                local s = elSide or side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local d = {}
-                d.text = drawText(text, cx + 4, cy + 2, 11, colors.textDarkColor, 1, 10)
-                d.text.Visible = isVisible()
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, 18)
-            end
-
-            function elements:Toggle_Create(name, flag, default, tooltip, callback)
-                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or false)
-                local s = side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local h = 18
-
-                local d = {}
-                d.checkbox = drawRect(cx + 2, cy + 2, 13, 13, LibraryApi.Flags[flag] and colors.accentColor or colors.elementBackground, 0.78, 10, true)
-                d.checkboxBorder = drawRect(cx + 2, cy + 2, 13, 13, LibraryApi.Flags[flag] and colors.accentColor or colors.borderColor, 1, 10, false, 1)
-                d.label = drawText(name, cx + 22, cy + 3, 12, LibraryApi.Flags[flag] and colors.textWhiteColor or colors.textDarkColor, 1, 10)
-                for _, v in pairs(d) do v.Visible = isVisible() end
-
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, h + 6)
-
-                local localCY = cy
-                userInputService.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 and windowVisible and windowContext.Active_Tab == tabData then
-                        if isMouseOver(cx, localCY, columnWidth, h) then
-                            LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
-                            local ns = LibraryApi.Flags[flag]
-                            d.checkbox.Color = ns and colors.accentColor or colors.elementBackground
-                            d.checkboxBorder.Color = ns and colors.accentColor or colors.borderColor
-                            d.label.Color = ns and colors.textWhiteColor or colors.textDarkColor
-                            saveConfiguration()
-                            if callback then task.spawn(callback, ns) end
-                        end
-                    end
-                end)
-
-                runService.RenderStepped:Connect(function()
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if isMouseOver(cx, localCY, columnWidth, h) then
-                        showTooltip(tooltip)
-                    end
-                end)
-            end
-
-            function elements:Slider_Create(name, flag, min, max, default, step, tooltip, callback)
-                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or snapValue(default or min, step)
-                local s = side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local h = 36
-                local sw = columnWidth - 4
-
-                local d = {}
-                d.label = drawText(name, cx + 2, cy + 1, 12, colors.textWhiteColor, 1, 10)
-                d.value = drawText(formatValue(LibraryApi.Flags[flag], step), cx + sw - 2, cy + 1, 12, colors.textWhiteColor, 1, 10)
-                d.track = drawRect(cx + 2, cy + 18, sw - 4, 6, colors.elementBackground, 0.78, 10, true)
-                d.trackBorder = drawRect(cx + 2, cy + 18, sw - 4, 6, colors.borderColor, 1, 10, false, 1)
-
-                local pct = (LibraryApi.Flags[flag] - min) / (max - min)
-                d.fill = drawRect(cx + 2, cy + 18, math.max(1, (sw - 4) * pct), 6, colors.accentColor, 1, 11, true)
-                d.knob = drawCircle(cx + 2 + (sw - 4) * pct, cy + 21, 5, colors.textWhiteColor, 1, 12, true)
-                d.knobBorder = drawCircle(cx + 2 + (sw - 4) * pct, cy + 21, 5, colors.borderColor, 1, 12, false, 1)
-
-                for _, v in pairs(d) do v.Visible = isVisible() end
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, h + 4)
-
-                local isSliding = false
-                local localCY = cy
-
-                local function setVal(newVal)
-                    local clamped = math.clamp(newVal, min, max)
-                    local snapped = snapValue(clamped, step)
-                    LibraryApi.Flags[flag] = snapped
-                    local p = (snapped - min) / (max - min)
-                    d.fill.Size = Vector2.new(math.max(1, (sw - 4) * p), 6)
-                    d.knob.Position = Vector2.new(cx + 2 + (sw - 4) * p, localCY + 21)
-                    d.knobBorder.Position = Vector2.new(cx + 2 + (sw - 4) * p, localCY + 21)
-                    d.value.Text = formatValue(snapped, step)
-                    saveConfiguration()
-                    if callback then task.spawn(callback, snapped) end
-                end
-
-                userInputService.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 and windowVisible and windowContext.Active_Tab == tabData then
-                        local mouse = userInputService:GetMouseLocation()
-                        if isMouseOver(cx + 2, localCY + 15, sw - 4, 12) then
-                            isSliding = true
-                            local p = math.clamp((mouse.X - (cx + 2)) / (sw - 4), 0, 1)
-                            setVal(min + (max - min) * p)
-                        end
-                    end
-                end)
-
-                userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then isSliding = false end
-                end)
-
-                userInputService.InputChanged:Connect(function(input)
-                    if isSliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                        local mouse = userInputService:GetMouseLocation()
-                        local p = math.clamp((mouse.X - (cx + 2)) / (sw - 4), 0, 1)
-                        setVal(min + (max - min) * p)
-                    end
-                end)
-
-                runService.RenderStepped:Connect(function()
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if isMouseOver(cx + 2, localCY + 15, sw - 4, 12) then
-                        showTooltip(tooltip)
-                        d.trackBorder.Color = colors.borderLightColor
-                    else
-                        d.trackBorder.Color = colors.borderColor
-                    end
-                end)
-            end
-
-            function elements:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltip, callback)
-                if not LibraryApi.Flags[flag] then
-                    LibraryApi.Flags[flag] = {Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step)}
-                end
-                local s = side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local h = 36
-                local sw = columnWidth - 4
-
-                local d = {}
-                d.label = drawText(name, cx + 2, cy + 1, 12, colors.textWhiteColor, 1, 10)
-                d.value = drawText(formatValue(LibraryApi.Flags[flag].Min, step) .. " - " .. formatValue(LibraryApi.Flags[flag].Max, step), cx + sw - 2, cy + 1, 12, colors.textWhiteColor, 1, 10)
-                d.track = drawRect(cx + 2, cy + 18, sw - 4, 6, colors.elementBackground, 0.78, 10, true)
-                d.trackBorder = drawRect(cx + 2, cy + 18, sw - 4, 6, colors.borderColor, 1, 10, false, 1)
-
-                local minP = (LibraryApi.Flags[flag].Min - min) / (max - min)
-                local maxP = (LibraryApi.Flags[flag].Max - min) / (max - min)
-                d.fill = drawRect(cx + 2 + (sw - 4) * minP, cy + 18, (sw - 4) * (maxP - minP), 6, colors.accentColor, 1, 11, true)
-                d.minKnob = drawCircle(cx + 2 + (sw - 4) * minP, cy + 21, 5, colors.textWhiteColor, 1, 12, true)
-                d.maxKnob = drawCircle(cx + 2 + (sw - 4) * maxP, cy + 21, 5, colors.textWhiteColor, 1, 12, true)
-                d.minKnobBorder = drawCircle(cx + 2 + (sw - 4) * minP, cy + 21, 5, colors.borderColor, 1, 12, false, 1)
-                d.maxKnobBorder = drawCircle(cx + 2 + (sw - 4) * maxP, cy + 21, 5, colors.borderColor, 1, 12, false, 1)
-
-                for _, v in pairs(d) do v.Visible = isVisible() end
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, h + 4)
-
-                local isSlidingMin = false
-                local isSlidingMax = false
-                local localCY = cy
-
-                local function updateVisuals()
-                    local mnP = (LibraryApi.Flags[flag].Min - min) / (max - min)
-                    local mxP = (LibraryApi.Flags[flag].Max - min) / (max - min)
-                    d.fill.Position = Vector2.new(cx + 2 + (sw - 4) * mnP, localCY + 18)
-                    d.fill.Size = Vector2.new(math.max(1, (sw - 4) * (mxP - mnP)), 6)
-                    d.minKnob.Position = Vector2.new(cx + 2 + (sw - 4) * mnP, localCY + 21)
-                    d.minKnobBorder.Position = d.minKnob.Position
-                    d.maxKnob.Position = Vector2.new(cx + 2 + (sw - 4) * mxP, localCY + 21)
-                    d.maxKnobBorder.Position = d.maxKnob.Position
-                    d.value.Text = formatValue(LibraryApi.Flags[flag].Min, step) .. " - " .. formatValue(LibraryApi.Flags[flag].Max, step)
-                end
-
-                userInputService.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 and windowVisible and windowContext.Active_Tab == tabData then
-                        local mouse = userInputService:GetMouseLocation()
-                        if isMouseOver(cx + 2, localCY + 15, sw - 4, 12) then
-                            local p = math.clamp((mouse.X - (cx + 2)) / (sw - 4), 0, 1)
-                            local mnP = (LibraryApi.Flags[flag].Min - min) / (max - min)
-                            local mxP = (LibraryApi.Flags[flag].Max - min) / (max - min)
-                            if math.abs(p - mnP) < math.abs(p - mxP) then
-                                isSlidingMin = true
-                            else
-                                isSlidingMax = true
-                            end
-                        end
-                    end
-                end)
-
-                userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        isSlidingMin = false
-                        isSlidingMax = false
-                    end
-                end)
-
-                userInputService.InputChanged:Connect(function(input)
-                    if (isSlidingMin or isSlidingMax) and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                        local mouse = userInputService:GetMouseLocation()
-                        local p = math.clamp((mouse.X - (cx + 2)) / (sw - 4), 0, 1)
-                        local v2 = snapValue(min + (max - min) * p, step)
-                        if isSlidingMin then
-                            LibraryApi.Flags[flag].Min = math.min(v2, LibraryApi.Flags[flag].Max)
-                        else
-                            LibraryApi.Flags[flag].Max = math.max(v2, LibraryApi.Flags[flag].Min)
-                        end
-                        updateVisuals()
-                        saveConfiguration()
-                        if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
-                    end
-                end)
-            end
-
-            function elements:Textbox_Create(name, flag, default, tooltip, callback)
-                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or "")
-                local s = side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local h = 36
-                local sw = columnWidth - 4
-
-                local inputText = LibraryApi.Flags[flag]
-                local isFocused = false
-                local cursorVisible = true
-                local cursorTimer = 0
-
-                local d = {}
-                d.label = drawText(name, cx + 2, cy + 1, 12, colors.textWhiteColor, 1, 10)
-                d.inputBg = drawRect(cx + 2, cy + 18, sw - 4, 20, colors.elementBackground, 0.78, 10, true)
-                d.inputBorder = drawRect(cx + 2, cy + 18, sw - 4, 20, colors.borderColor, 1, 10, false, 1)
-                d.inputText = drawText(inputText, cx + 6, cy + 22, 11, colors.textDarkColor, 1, 11)
-                d.cursor = drawRect(cx + 6 + getTextSize(inputText, 11), cy + 20, 1, 14, colors.textWhiteColor, 0, 11, true)
-
-                for _, v in pairs(d) do v.Visible = isVisible() end
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, h + 4)
-
-                local localCY = cy
-
-                userInputService.InputBegan:Connect(function(input)
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        if isMouseOver(cx + 2, localCY + 18, sw - 4, 20) then
-                            isFocused = true
-                            d.inputBorder.Color = colors.accentColor
-                            d.inputText.Color = colors.textWhiteColor
-                        else
-                            if isFocused then
-                                isFocused = false
-                                d.inputBorder.Color = colors.borderColor
-                                d.inputText.Color = colors.textDarkColor
-                                d.cursor.Transparency = 0
-                                LibraryApi.Flags[flag] = inputText
-                                saveConfiguration()
-                                if callback then task.spawn(callback, inputText) end
-                            end
-                        end
-                    end
-                    if isFocused and input.UserInputType == Enum.UserInputType.Keyboard then
-                        local kc = input.KeyCode
-                        if kc == Enum.KeyCode.BackSpace then
-                            inputText = inputText:sub(1, -2)
-                        elseif kc == Enum.KeyCode.Return then
-                            isFocused = false
-                            d.inputBorder.Color = colors.borderColor
-                            d.inputText.Color = colors.textDarkColor
-                            d.cursor.Transparency = 0
-                            LibraryApi.Flags[flag] = inputText
-                            saveConfiguration()
-                            if callback then task.spawn(callback, inputText) end
-                        end
-                        d.inputText.Text = inputText
-                        local tw = getTextSize(inputText, 11)
-                        d.cursor.Position = Vector2.new(cx + 6 + tw, localCY + 20)
-                    end
-                end)
-
-                userInputService.InputChanged:Connect(function(input)
-                    if isFocused and input.UserInputType == Enum.UserInputType.TextInput then
-                        local char = input.Position.Z
-                        if char >= 32 and char < 127 then
-                            inputText = inputText .. string.char(char)
-                            d.inputText.Text = inputText
-                            local tw = getTextSize(inputText, 11)
-                            d.cursor.Position = Vector2.new(cx + 6 + tw, localCY + 20)
-                        end
-                    end
-                end)
-
-                runService.RenderStepped:Connect(function(dt)
-                    if isFocused then
-                        cursorTimer = cursorTimer + dt
-                        if cursorTimer >= 0.5 then
-                            cursorTimer = 0
-                            cursorVisible = not cursorVisible
-                            d.cursor.Transparency = cursorVisible and 1 or 0
-                        end
-                    end
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if isMouseOver(cx + 2, localCY + 18, sw - 4, 20) then
-                        showTooltip(tooltip)
-                        if not isFocused then d.inputBorder.Color = colors.borderLightColor end
-                    else
-                        if not isFocused then d.inputBorder.Color = colors.borderColor end
-                    end
-                end)
-            end
-
-            function elements:Keybind_Create(name, flag, default, tooltip, callback)
-                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Enum.KeyCode.Unknown)
-                local isListening = false
-                local s = side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local h = 28
-                local sw = columnWidth - 4
-
-                local function getKeyText()
-                    return LibraryApi.Flags[flag] == Enum.KeyCode.Unknown and "[ None ]" or "[ " .. LibraryApi.Flags[flag].Name .. " ]"
-                end
-
-                local d = {}
-                d.label = drawText(name, cx + 2, cy + 7, 12, colors.textWhiteColor, 1, 10)
-                d.btnBg = drawRect(cx + sw - 72, cy + 3, 70, 22, colors.elementBackground, 0.78, 10, true)
-                d.btnBorder = drawRect(cx + sw - 72, cy + 3, 70, 22, colors.borderColor, 1, 10, false, 1)
-                d.btnText = drawText(getKeyText(), cx + sw - 72 + 35, cy + 8, 11, colors.textDarkColor, 1, 11)
-                d.btnText.Center = true
-
-                for _, v in pairs(d) do v.Visible = isVisible() end
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, h + 4)
-
-                local localCY = cy
-
-                userInputService.InputBegan:Connect(function(input)
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        if isMouseOver(cx + sw - 72, localCY + 3, 70, 22) then
-                            isListening = true
-                            d.btnText.Text = "[ ... ]"
-                            d.btnBorder.Color = colors.accentColor
-                            d.btnText.Color = colors.textWhiteColor
-                        end
-                    end
-                    if isListening and input.UserInputType == Enum.UserInputType.Keyboard then
-                        if input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode ~= Enum.KeyCode.Escape then
-                            LibraryApi.Flags[flag] = input.KeyCode
-                        elseif input.KeyCode == Enum.KeyCode.Escape then
-                            LibraryApi.Flags[flag] = Enum.KeyCode.Unknown
-                        end
-                        isListening = false
-                        d.btnText.Text = getKeyText()
-                        d.btnBorder.Color = colors.borderColor
-                        d.btnText.Color = colors.textDarkColor
-                        saveConfiguration()
-                        if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
-                    elseif not isListening and input.UserInputType == Enum.UserInputType.Keyboard then
-                        if input.KeyCode == LibraryApi.Flags[flag] and input.KeyCode ~= Enum.KeyCode.Unknown then
-                            if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
-                        end
-                    end
-                end)
-
-                runService.RenderStepped:Connect(function()
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if isMouseOver(cx + sw - 72, localCY + 3, 70, 22) then
-                        showTooltip(tooltip)
-                        if not isListening then d.btnBorder.Color = colors.borderLightColor end
-                    else
-                        if not isListening then d.btnBorder.Color = colors.borderColor end
-                    end
-                end)
-            end
-
-            function elements:Dropdown_Create(name, flag, options, default, tooltip, callback)
-                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or options[1])
-                local isOpen = false
-                local s = side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local baseH = 44
-                local sw = columnWidth - 4
-                local optH = 22
-                local maxVisible = 5
-
-                local d = {}
-                d.label = drawText(name, cx + 2, cy + 1, 12, colors.textWhiteColor, 1, 10)
-                d.btnBg = drawRect(cx + 2, cy + 16, sw - 4, 22, colors.elementBackground, 0.78, 10, true)
-                d.btnBorder = drawRect(cx + 2, cy + 16, sw - 4, 22, colors.borderColor, 1, 10, false, 1)
-                d.selected = drawText(LibraryApi.Flags[flag], cx + 8, cy + 21, 12, colors.textDarkColor, 1, 11)
-                d.arrow = drawText("v", cx + sw - 12, cy + 21, 11, colors.textDarkColor, 1, 11)
-
-                local optionDrawings = {}
-                for i, opt in ipairs(options) do
-                    local oy = cy + baseH + (i - 1) * optH
-                    local od = {}
-                    od.bg = drawRect(cx + 2, oy, sw - 4, optH, colors.elementBackground, 0, 12, true)
-                    od.border = drawRect(cx + 2, oy, sw - 4, optH, colors.borderColor, 0, 12, false, 1)
-                    od.text = drawText(opt, cx + 8, oy + 5, 12, LibraryApi.Flags[flag] == opt and colors.accentColor or colors.textDarkColor, 0, 13)
-                    od.text.Visible = false
-                    od.bg.Visible = false
-                    od.border.Visible = false
-                    optionDrawings[i] = od
-                    table.insert(elementGroup, od.bg)
-                    table.insert(elementGroup, od.border)
-                    table.insert(elementGroup, od.text)
-                end
-
-                for _, v in pairs(d) do v.Visible = isVisible() end
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, baseH + 4)
-
-                local localCY = cy
-
-                local function toggleOpen()
-                    isOpen = not isOpen
-                    d.btnBorder.Color = isOpen and colors.accentColor or colors.borderColor
-                    d.arrow.Text = isOpen and "^" or "v"
-                    for i, od in ipairs(optionDrawings) do
-                        local show = isOpen and isVisible()
-                        od.bg.Visible = show
-                        od.border.Visible = show
-                        od.text.Visible = show
-                        od.bg.Transparency = show and 0.78 or 0
-                        od.border.Transparency = show and 1 or 0
-                        od.text.Transparency = show and 1 or 0
-                    end
-                end
-
-                userInputService.InputBegan:Connect(function(input)
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        if isMouseOver(cx + 2, localCY + 16, sw - 4, 22) then
-                            toggleOpen()
-                        elseif isOpen then
-                            for i, opt in ipairs(options) do
-                                local oy = localCY + baseH + (i - 1) * optH
-                                if isMouseOver(cx + 2, oy, sw - 4, optH) then
-                                    LibraryApi.Flags[flag] = opt
-                                    d.selected.Text = opt
-                                    for j, od in ipairs(optionDrawings) do
-                                        od.text.Color = j == i and colors.accentColor or colors.textDarkColor
-                                    end
-                                    toggleOpen()
-                                    saveConfiguration()
-                                    if callback then task.spawn(callback, opt) end
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end)
-
-                runService.RenderStepped:Connect(function()
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if isMouseOver(cx + 2, localCY + 16, sw - 4, 22) then
-                        showTooltip(tooltip)
-                        if not isOpen then d.btnBorder.Color = colors.borderLightColor end
-                    else
-                        if not isOpen then d.btnBorder.Color = colors.borderColor end
-                    end
-                    if isOpen then
-                        for i, od in ipairs(optionDrawings) do
-                            local oy = localCY + baseH + (i - 1) * optH
-                            if isMouseOver(cx + 2, oy, sw - 4, optH) then
-                                od.bg.Transparency = 0.55
-                                if LibraryApi.Flags[flag] ~= options[i] then
-                                    od.text.Color = colors.textWhiteColor
-                                end
-                            else
-                                od.bg.Transparency = 0.78
-                                if LibraryApi.Flags[flag] ~= options[i] then
-                                    od.text.Color = colors.textDarkColor
-                                end
-                            end
-                        end
-                    end
-                end)
-            end
-
-            function elements:ColorPicker_Create(name, flag, default, tooltip, callback)
-                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Color3.new(1, 1, 1))
-                local isOpen = false
-                local hue, sat, val = LibraryApi.Flags[flag]:ToHSV()
-                local s = side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local sw = columnWidth - 4
-
-                local pickerW = sw - 4
-                local pickerH = 120
-                local hueBarH = 12
-
-                local d = {}
-                d.label = drawText(name, cx + 2, cy + 4, 12, colors.textWhiteColor, 1, 10)
-                d.preview = drawRect(cx + sw - 28, cy, 24, 16, LibraryApi.Flags[flag], 1, 10, true)
-                d.previewBorder = drawRect(cx + sw - 28, cy, 24, 16, colors.borderColor, 1, 10, false, 1)
-
-                local expandY = cy + 22
-
-                d.pickerBg = drawRect(cx + 2, expandY, pickerW, pickerH, colors.elementBackground, 0, 10, true)
-                d.pickerBorder = drawRect(cx + 2, expandY, pickerW, pickerH, colors.borderColor, 0, 10, false, 1)
-
-                d.satValBg = drawRect(cx + 4, expandY + 4, pickerW - 8, pickerH - 24, Color3.fromHSV(hue, 1, 1), 0, 11, true)
-                d.satValWhite = drawRect(cx + 4, expandY + 4, pickerW - 8, pickerH - 24, Color3.new(1,1,1), 0, 12, true)
-                d.satValBlack = drawRect(cx + 4, expandY + 4, pickerW - 8, pickerH - 24, Color3.new(0,0,0), 0, 13, true)
-
-                local svW = pickerW - 8
-                local svH = pickerH - 24
-                d.svCursor = drawCircle(cx + 4 + svW * sat, expandY + 4 + svH * (1 - val), 4, Color3.new(1,1,1), 0, 14, true)
-                d.svCursorBorder = drawCircle(cx + 4 + svW * sat, expandY + 4 + svH * (1 - val), 4, Color3.new(0,0,0), 0, 14, false, 1)
-
-                local hueY = expandY + pickerH - 16
-                d.hueBar = drawRect(cx + 4, hueY, pickerW - 8, hueBarH, Color3.new(1,1,1), 0, 11, true)
-                d.hueBorder = drawRect(cx + 4, hueY, pickerW - 8, hueBarH, colors.borderColor, 0, 11, false, 1)
-                d.hueCursor = drawRect(cx + 4 + (pickerW - 8) * hue - 2, hueY - 2, 4, hueBarH + 4, Color3.new(1,1,1), 0, 12, true)
-                d.hueCursorBorder = drawRect(cx + 4 + (pickerW - 8) * hue - 2, hueY - 2, 4, hueBarH + 4, Color3.new(0,0,0), 0, 12, false, 1)
-
-                for _, v in pairs(d) do v.Visible = isVisible() end
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, 24)
-
-                local localCY = cy
-                local isSlidingSV = false
-                local isSlidingHue = false
-
-                local function updateColor()
-                    local c = Color3.fromHSV(hue, sat, val)
-                    LibraryApi.Flags[flag] = c
-                    d.preview.Color = c
-                    d.satValBg.Color = Color3.fromHSV(hue, 1, 1)
-                    d.svCursor.Position = Vector2.new(cx + 4 + svW * sat, expandY + 4 + svH * (1 - val))
-                    d.svCursorBorder.Position = d.svCursor.Position
-                    d.hueCursor.Position = Vector2.new(cx + 4 + (pickerW - 8) * hue - 2, hueY - 2)
-                    d.hueCursorBorder.Position = d.hueCursor.Position
-                    saveConfiguration()
-                    if callback then task.spawn(callback, c) end
-                end
-
-                userInputService.InputBegan:Connect(function(input)
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        if isMouseOver(cx + sw - 28, localCY, 24, 16) then
-                            isOpen = not isOpen
-                            local a = isOpen and 1 or 0
-                            d.pickerBg.Transparency = a * 0.78
-                            d.pickerBorder.Transparency = a
-                            d.satValBg.Transparency = a
-                            d.satValWhite.Transparency = a * 0.5
-                            d.satValBlack.Transparency = a * 0.5
-                            d.svCursor.Transparency = a
-                            d.svCursorBorder.Transparency = a
-                            d.hueBar.Transparency = a
-                            d.hueBorder.Transparency = a
-                            d.hueCursor.Transparency = a
-                            d.hueCursorBorder.Transparency = a
-                            d.previewBorder.Color = isOpen and colors.accentColor or colors.borderColor
-                        elseif isOpen then
-                            local mx = input.Position.X
-                            local my = input.Position.Y
-                            if isMouseOver(cx + 4, expandY + 4, svW, svH) then
-                                isSlidingSV = true
-                                sat = math.clamp((mx - (cx + 4)) / svW, 0, 1)
-                                val = 1 - math.clamp((my - (expandY + 4)) / svH, 0, 1)
-                                updateColor()
-                            elseif isMouseOver(cx + 4, hueY, pickerW - 8, hueBarH) then
-                                isSlidingHue = true
-                                hue = math.clamp((mx - (cx + 4)) / (pickerW - 8), 0, 1)
-                                updateColor()
-                            end
-                        end
-                    end
-                end)
-
-                userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        isSlidingSV = false
-                        isSlidingHue = false
-                    end
-                end)
-
-                userInputService.InputChanged:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                        local mx = input.Position.X
-                        local my = input.Position.Y
-                        if isSlidingSV then
-                            sat = math.clamp((mx - (cx + 4)) / svW, 0, 1)
-                            val = 1 - math.clamp((my - (expandY + 4)) / svH, 0, 1)
-                            updateColor()
-                        elseif isSlidingHue then
-                            hue = math.clamp((mx - (cx + 4)) / (pickerW - 8), 0, 1)
-                            updateColor()
-                        end
-                    end
-                end)
-
-                runService.RenderStepped:Connect(function()
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if isMouseOver(cx + sw - 28, localCY, 24, 16) then
-                        showTooltip(tooltip)
-                        if not isOpen then d.previewBorder.Color = colors.borderLightColor end
-                    else
-                        if not isOpen then d.previewBorder.Color = colors.borderColor end
-                    end
-                end)
-            end
-
-            function elements:Button_Create(name, tooltip, callback)
-                local s = side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local h = 28
-                local sw = columnWidth - 4
-
-                local d = {}
-                d.bg = drawRect(cx + 2, cy, sw - 4, h, colors.elementBackground, 0.78, 10, true)
-                d.border = drawRect(cx + 2, cy, sw - 4, h, colors.borderColor, 1, 10, false, 1)
-                d.text = drawText(name, cx + 2 + (sw - 4) / 2, cy + 8, 12, colors.textWhiteColor, 1, 11)
-                d.text.Center = true
-
-                for _, v in pairs(d) do v.Visible = isVisible() end
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, h + 6)
-
-                local localCY = cy
-                local isDown = false
-
-                userInputService.InputBegan:Connect(function(input)
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        if isMouseOver(cx + 2, localCY, sw - 4, h) then
-                            isDown = true
-                            d.bg.Size = Vector2.new((sw - 4) * 0.96, h * 0.85)
-                            d.bg.Position = Vector2.new(cx + 2 + (sw - 4) * 0.02, localCY + h * 0.075)
-                        end
-                    end
-                end)
-
-                userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 and isDown then
-                        isDown = false
-                        d.bg.Size = Vector2.new(sw - 4, h)
-                        d.bg.Position = Vector2.new(cx + 2, localCY)
-                        if isMouseOver(cx + 2, localCY, sw - 4, h) and callback then
-                            task.spawn(callback)
-                        end
-                    end
-                end)
-
-                runService.RenderStepped:Connect(function()
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if isMouseOver(cx + 2, localCY, sw - 4, h) then
-                        showTooltip(tooltip)
-                        d.bg.Color = colors.elementHoverBackground
-                        d.border.Color = colors.accentColor
-                        d.text.Color = colors.accentColor
-                    else
-                        d.bg.Color = colors.elementBackground
-                        d.border.Color = colors.borderColor
-                        d.text.Color = colors.textWhiteColor
-                    end
-                end)
-            end
-
-            function elements:SubButton_Create(name, tooltip, callback)
-                local s = side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local h = 20
-                local sw = columnWidth - 20
-
-                local d = {}
-                d.bg = drawRect(cx + 8, cy, sw, h, colors.sectionBackground, 0.78, 10, true)
-                d.border = drawRect(cx + 8, cy, sw, h, colors.borderColor, 1, 10, false, 1)
-                d.text = drawText(name, cx + 8 + sw / 2, cy + 4, 11, colors.textDarkColor, 1, 11)
-                d.text.Center = true
-
-                for _, v in pairs(d) do v.Visible = isVisible() end
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, h + 4)
-
-                local localCY = cy
-                local isDown = false
-
-                userInputService.InputBegan:Connect(function(input)
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        if isMouseOver(cx + 8, localCY, sw, h) then
-                            isDown = true
-                        end
-                    end
-                end)
-
-                userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 and isDown then
-                        isDown = false
-                        if isMouseOver(cx + 8, localCY, sw, h) and callback then
-                            task.spawn(callback)
-                        end
-                    end
-                end)
-
-                runService.RenderStepped:Connect(function()
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if isMouseOver(cx + 8, localCY, sw, h) then
-                        showTooltip(tooltip)
-                        d.bg.Color = colors.elementBackground
-                        d.border.Color = colors.borderLightColor
-                        d.text.Color = colors.textWhiteColor
-                    else
-                        d.bg.Color = colors.sectionBackground
-                        d.border.Color = colors.borderColor
-                        d.text.Color = colors.textDarkColor
-                    end
-                end)
-            end
-
-            function elements:Module_Create(name, flag, descriptionText, default, tooltip, callback)
-                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or false)
-                local s = side
-                local cx = s == "Left" and columnLeftX or columnRightX
-                local cy = nextY(s)
-                local h = 44
-                local sw = columnWidth - 4
-
-                local d = {}
-                d.bg = drawRect(cx + 2, cy, sw - 4, h, colors.elementBackground, 0.78, 10, true)
-                d.border = drawRect(cx + 2, cy, sw - 4, h, LibraryApi.Flags[flag] and colors.accentColor or colors.borderColor, 1, 10, false, 1)
-                d.checkbox = drawRect(cx + 14, cy + 14, 16, 16, LibraryApi.Flags[flag] and colors.accentColor or colors.sectionBackground, 0.78, 11, true)
-                d.checkboxBorder = drawRect(cx + 14, cy + 14, 16, 16, colors.borderColor, 1, 11, false, 1)
-                d.name = drawText(name, cx + 38, cy + 8, 13, LibraryApi.Flags[flag] and colors.textWhiteColor or colors.textDarkColor, 1, 11)
-                d.desc = drawText(descriptionText or "", cx + 38, cy + 24, 11, colors.textDarkColor, 1, 11)
-                d.arrow = drawText(LibraryApi.Flags[flag] and "^" or "v", cx + sw - 24, cy + 15, 11, LibraryApi.Flags[flag] and colors.accentColor or colors.textDarkColor, 1, 11)
-
-                for _, v in pairs(d) do v.Visible = isVisible() end
-                for _, v in pairs(d) do table.insert(elementGroup, v) end
-                advanceCursor(s, h + 6)
-
-                local localCY = cy
-
-                local subElements = {}
-                local subElementGroup = {}
-                table.insert(tabData._elements, subElementGroup)
-
-                local subInjector = elementInjector(s)
-
-                userInputService.InputBegan:Connect(function(input)
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        if isMouseOver(cx + 2, localCY, sw - 4, h) then
-                            LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
-                            local ns = LibraryApi.Flags[flag]
-                            d.border.Color = ns and colors.accentColor or colors.borderColor
-                            d.checkbox.Color = ns and colors.accentColor or colors.sectionBackground
-                            d.name.Color = ns and colors.textWhiteColor or colors.textDarkColor
-                            d.arrow.Text = ns and "^" or "v"
-                            d.arrow.Color = ns and colors.accentColor or colors.textDarkColor
-                            saveConfiguration()
-                            if callback then task.spawn(callback, ns) end
-                        end
-                    end
-                end)
-
-                runService.RenderStepped:Connect(function()
-                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
-                    if isMouseOver(cx + 2, localCY, sw - 4, h) then
-                        showTooltip(tooltip)
-                        if not LibraryApi.Flags[flag] then d.border.Color = colors.borderLightColor end
-                    else
-                        if not LibraryApi.Flags[flag] then d.border.Color = colors.borderColor end
-                    end
-                end)
-
-                return subInjector
-            end
-
-            return elements
         end
-
-        local sectionApi = {}
-
-        function sectionApi:Section_Create(columnSide, sectionTitle)
-            local cx = columnSide == "Left" and columnLeftX or columnRightX
-            local cy = columnSide == "Left" and leftCursorY or rightCursorY
-            table.insert(tabData._positionUpdaters, function(dx, dy)
-                cx = cx + dx
-                cy = cy + dy
-            end)
-            local sw = columnWidth
-
-            local titleH = 24
-            local d = {}
-            d.bg = drawRect(cx, cy, sw, titleH + 8, colors.sectionBackground, 0.78, 8, true)
-            d.border = drawRect(cx, cy, sw, titleH + 8, colors.borderColor, 1, 8, false, 1)
-            d.title = drawText(sectionTitle, cx + 10, cy + 6, 12, colors.textWhiteColor, 1, 9)
-            d.separator = drawLine(cx + 10, cy + titleH, cx + sw - 10, cy + titleH, colors.borderColor, 1, 1, 9)
-
-            for _, v in pairs(d) do v.Visible = isVisible() end
-            for _, v in pairs(d) do table.insert(elementGroup, v) end
-
-            if columnSide == "Left" then
-                leftCursorY = leftCursorY + titleH + 12
-            else
-                rightCursorY = rightCursorY + titleH + 12
-            end
-
-            local sectionStartCY = columnSide == "Left" and leftCursorY or rightCursorY
-            local sectionElements = elementInjector(columnSide)
-
-            runService.RenderStepped:Connect(function()
-                local endCY = columnSide == "Left" and leftCursorY or rightCursorY
-                local totalH = titleH + 8 + math.max(0, endCY - sectionStartCY)
-                d.bg.Size = Vector2.new(sw, totalH)
-                d.border.Size = Vector2.new(sw, totalH)
-            end)
-
-            return sectionElements
+    end
+    if UIState.ActiveRangeSlider then
+        local item = UIState.ActiveRangeSlider.Item
+        local hb = item.Hitbox
+        local pr = clamp((p.X - hb.x) / hb.w, 0, 1)
+        local val = round(item.Min + (item.Max - item.Min) * pr, item.Step)
+        val = clamp(val, item.Min, item.Max)
+        local ref = Library.Flags[item.Flag]
+        if UIState.ActiveRangeSlider.Handle == "Min" then
+            ref.Min = math.min(val, ref.Max)
+        else
+            ref.Max = math.max(val, ref.Min)
         end
-
-        return sectionApi
+        if item.Callback then task.spawn(item.Callback, ref) end
     end
 
-    return windowContext
-end
+    for _, win in ipairs(Library.Windows) do
+        updateWindowLayout(win)
+    end
 
-return LibraryApi
+    local vp = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1280,720)
+    for i, n in ipairs(notifications) do
+        local age = tick() - n.Start
+        local alive = age <= n.Duration
+        if alive and UIState.Visible then
+            local y = vp.Y - 70 - (i - 1) * 56
+            local d = n.Drawings
+            local color = theme.accent
+            if n.Type == "Success" then color = theme.success elseif n.Type == "Warning" then color = theme.warning elseif n.Type == "Error" then color = theme.danger end
+            d.bg.Position = Vector2.new(vp.X - 290, y)
+            d.bg.Size = Vector2.new(260, 46)
+            d.bg.Color = theme.bg2
+            d.bg.Transparency = 0.1
+            d.bg.Visible = true
+            d.border.Position = Vector2.new(vp.X - 290, y)
+            d.border.Size = Vector2.new(260, 46)
+            d.border.Color = theme.border2
+            d.border.Visible = true
+            d.accent.Position = Vector2.new(vp.X - 290, y)
+            d.accent.Size = Vector2.new(2, 46)
+            d.accent.Color = color
+            d.accent.Visible = true
+            d.title.Text = n.Title
+            d.title.Position = Vector2.new(vp.X - 278, y + 7)
+            d.title.Color = theme.text
+            d.title.Visible = true
+            d.text.Text = n.Text
+            d.text.Position = Vector2.new(vp.X - 278, y + 23)
+            d.text.Color = theme.text2
+            d.text.Visible = true
+        else
+            setVisible(n.Drawings, false)
+        end
+    end
+    for i = #notifications, 1, -1 do
+        if tick() - notifications[i].Start > notifications[i].Duration then
+            removeDrawings(notifications[i].Drawings)
+            table.remove(notifications, i)
+        end
+    end
+end)
+
+return Library
