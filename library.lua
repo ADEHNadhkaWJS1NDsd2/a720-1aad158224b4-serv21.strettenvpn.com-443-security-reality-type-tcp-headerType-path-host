@@ -1736,6 +1736,12 @@ function LibraryApi:CreateWindow(windowName)
         return sectionApi
     end
 
+    userInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+        if not gameProcessedEvent and input.KeyCode == Enum.KeyCode.Delete then
+            mainBackground.Visible = not mainBackground.Visible
+        end
+    end)
+
     return windowContext
 end
 
