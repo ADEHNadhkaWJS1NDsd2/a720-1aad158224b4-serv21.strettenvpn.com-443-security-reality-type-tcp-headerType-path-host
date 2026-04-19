@@ -491,8 +491,8 @@ local function layoutWindow(window)
     setSoftFrame(d.body, window.x, window.y, window.w, window.h, 12, colors.mainBackground, 0.97, colors.borderColor, 0.94, 3)
     setSoftFrame(d.top, window.x + 10, window.y + 10, window.w - 20, 34, 8, colors.sidebarBackground, 0.99, colors.borderColor, 0.72, 0)
     setSoftFrame(d.sidebar, window.x + 10, window.y + window.topHeight + 10, window.sidebarWidth - 20, window.h - window.topHeight - 20, 10, colors.sidebarBackground, 0.98, colors.borderColor, 0.78, 1)
-    setRoundedPrimitive(d.accentGlow, window.x + 18, window.y + 16, 86, 3, 1, colors.accentGradientColor2, 0.15, true)
-    setRoundedPrimitive(d.accent, window.x + 18, window.y + 17, 74, 1, 0, colors.accentColor, 1, true)
+    setRoundedPrimitive(d.accentGlow, window.x + 18, window.y + 16, 0, 0, 0, colors.accentGradientColor2, 0, false)
+    setRoundedPrimitive(d.accent, window.x + 18, window.y + 17, 0, 0, 0, colors.accentColor, 0, false)
     d.title.Position = Vector2.new(window.x + 18, window.y + 20)
 
     for index, tab in ipairs(window.tabs) do
@@ -563,6 +563,8 @@ local function forEachElement(window, callback)
         end
     end
 end
+
+local setTooltipText
 
 local function drawTab(tab)
     local active = tab.window.activeTab == tab
@@ -702,7 +704,7 @@ local function hitTestElement(window)
     return nil
 end
 
-local function setTooltipText(text)
+setTooltipText = function(text)
     UI.tooltip = text
 end
 
