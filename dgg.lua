@@ -398,24 +398,6 @@ local function createSectionDrawings(section)
     section.drawings = g
 end
 
-local function createTabDrawings(tab)
-    local g = createGroup()
-    g.button = addToGroup(g, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.elementBackground, ZIndex = 30, Visible = true }))
-    g.border = addToGroup(g, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 31, Visible = true }))
-    g.indicator = addToGroup(g, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = colors.accentColor, ZIndex = 32, Visible = true }))
-    g.text = addToGroup(g, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 32, Visible = true, Text = tab.title }))
-    tab.drawings = g
-end
-
-local function createSectionDrawings(section)
-    local g = createGroup()
-    g.bg = addToGroup(g, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.sectionBackground, ZIndex = 40, Visible = true }))
-    g.border = addToGroup(g, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 41, Visible = true }))
-    g.title = addToGroup(g, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Outline = false, Center = false, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 42, Visible = true, Text = section.title }))
-    g.sep = addToGroup(g, newDrawing("Line", { Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 42, Visible = true }))
-    section.drawings = g
-end
-
 local function setWindowVisible(window, state)
     window.visible = state
     if not state then
