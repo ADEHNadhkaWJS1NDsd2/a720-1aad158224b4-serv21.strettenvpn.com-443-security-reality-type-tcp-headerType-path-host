@@ -395,8 +395,82 @@ function LibraryApi:CreateWindow(windowName)
         winDrawings.sidebarBorder.To = Vector2.new(WX + sideW, WY + WH)
     end
 
+    local function shiftAnyDrawing(entry, dx, dy, visited)
+        if type(entry) ~= "table" then
+            return
+        end
+        visited = visited or {}
+        if visited[entry] then
+            return
+        end
+        visited[entry] = true
+        local moved = false
+        pcall(function()
+            local from = entry.From
+            local to = entry.To
+            if typeof(from) == "Vector2" and typeof(to) == "Vector2" then
+                entry.From = from + Vector2.new(dx, dy)
+                entry.To = to + Vector2.new(dx, dy)
+                moved = true
+            end
+        end)
+        if not moved then
+            pcall(function()
+                local pos = entry.Position
+                if typeof(pos) == "Vector2" then
+                    entry.Position = pos + Vector2.new(dx, dy)
+                    moved = true
+                end
+            end)
+        end
+        if not moved then
+            for _, value in pairs(entry) do
+                shiftAnyDrawing(value, dx, dy, visited)
+            end
+        end
+    end
+
+    local function shiftTabData(tabData, dx, dy)
+        if tabData._positionUpdaters then
+            for _, updater in ipairs(tabData._positionUpdaters) do
+                updater(dx, dy)
+            end
+        end
+        if tabData._drawings then
+            shiftAnyDrawing(tabData._drawings, dx, dy)
+        end
+        if tabData._elements then
+            for _, group in ipairs(tabData._elements) do
+                shiftAnyDrawing(group, dx, dy)
+            end
+        end
+    end
+
     local function setWindowVisible(v)
-        for _, d in pairs(winDrawings) do d.Visible = v end
+        for _, d in pairs(winDrawings) do
+            d.Visible = v
+        end
+        if windowContext and windowContext.Tabs then
+            for _, tabData in ipairs(windowContext.Tabs) do
+                if tabData._drawings then
+                    for _, d in pairs(tabData._drawings) do
+                        if d.Visible ~= nil then
+                            d.Visible = v
+                        end
+                    end
+                end
+                if tabData._elements then
+                    local shouldShowElements = v and windowContext.Active_Tab == tabData
+                    for _, group in ipairs(tabData._elements) do
+                        for _, d in pairs(group) do
+                            if type(d) == "table" and d.Visible ~= nil then
+                                d.Visible = shouldShowElements
+                            end
+                        end
+                    end
+                end
+            end
+        end
         windowVisible = v
     end
 
@@ -423,11 +497,20 @@ function LibraryApi:CreateWindow(windowName)
     runService.RenderStepped:Connect(function()
         if isDragging then
             local mouse = userInputService:GetMouseLocation()
-            WX = mouse.X - dragOffsetX
-            WY = mouse.Y - dragOffsetY
-            redrawWindow()
-            if windowContext then
-                windowContext:_RedrawAll()
+            local viewport = workspaceService.CurrentCamera and workspaceService.CurrentCamera.ViewportSize or vp
+            local newX = math.floor(math.clamp(mouse.X - dragOffsetX, 0, math.max(0, viewport.X - WW)))
+            local newY = math.floor(math.clamp(mouse.Y - dragOffsetY, 0, math.max(0, viewport.Y - WH)))
+            local dx = newX - WX
+            local dy = newY - WY
+            if dx ~= 0 or dy ~= 0 then
+                WX = newX
+                WY = newY
+                redrawWindow()
+                if windowContext and windowContext.Tabs then
+                    for _, tabData in ipairs(windowContext.Tabs) do
+                        shiftTabData(tabData, dx, dy)
+                    end
+                end
             end
         end
     end)
@@ -455,19 +538,26 @@ function LibraryApi:CreateWindow(windowName)
     function windowContext:_RedrawAll()
         redrawWindow()
         tabYStart = WY + topH + 8
-        for i, td in ipairs(self.Tabs) do
+        for i, tabData in ipairs(self.Tabs) do
             local ty = tabYStart + (i - 1) * 36
-            if td._drawings then
-                td._drawings.btn.Position = Vector2.new(WX + 6, ty)
-                td._drawings.label.Position = Vector2.new(WX + 12 + (td._iconOffset or 0), ty + 10)
-                td._drawings.indicator.Position = Vector2.new(WX + 6, ty + 8)
-                if td._drawings.hover then
-                    td._drawings.hover.Position = Vector2.new(WX + 6, ty)
+            if tabData._drawings then
+                if tabData._drawings.btn then
+                    tabData._drawings.btn.Position = Vector2.new(WX + 6, ty)
                 end
+                if tabData._drawings.hover then
+                    tabData._drawings.hover.Position = Vector2.new(WX + 6, ty)
+                end
+                if tabData._drawings.hoverBg then
+                    tabData._drawings.hoverBg.Position = Vector2.new(WX + 6, ty)
+                end
+                if tabData._drawings.label then
+                    tabData._drawings.label.Position = Vector2.new(WX + 12 + (tabData._iconOffset or 0), ty + 9)
+                end
+                if tabData._drawings.indicator then
+                    tabData._drawings.indicator.Position = Vector2.new(WX + 6, ty + 8)
+                end
+                tabData._tabY = ty
             end
-        end
-        if self.Active_Tab then
-            self.Active_Tab:_RedrawElements()
         end
     end
 
@@ -478,7 +568,9 @@ function LibraryApi:CreateWindow(windowName)
         local tabData = {
             _elements = {},
             _iconOffset = 0,
-            _scrollOffset = 0
+            _scrollOffset = 0,
+            _positionUpdaters = {},
+            _tabY = ty
         }
 
         local td = {}
@@ -1349,6 +1441,10 @@ function LibraryApi:CreateWindow(windowName)
         function sectionApi:Section_Create(columnSide, sectionTitle)
             local cx = columnSide == "Left" and columnLeftX or columnRightX
             local cy = columnSide == "Left" and leftCursorY or rightCursorY
+            table.insert(tabData._positionUpdaters, function(dx, dy)
+                cx = cx + dx
+                cy = cy + dy
+            end)
             local sw = columnWidth
 
             local titleH = 24
@@ -1396,7 +1492,9 @@ function LibraryApi:CreateWindow(windowName)
         local tabData = {
             _elements = {},
             _iconOffset = 0,
-            _scrollOffset = 0
+            _scrollOffset = 0,
+            _positionUpdaters = {},
+            _tabY = ty
         }
 
         local td = {}
@@ -1430,10 +1528,14 @@ function LibraryApi:CreateWindow(windowName)
         end
 
         local localTY = ty
+        table.insert(tabData._positionUpdaters, function(_, dy)
+            localTY = localTY + dy
+            tabData._tabY = localTY
+        end)
 
         userInputService.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 and windowVisible then
-                if isMouseOver(WX + 6, localTY, sideW - 12, 30) then
+                if isMouseOver(WX + 6, tabData._tabY or localTY, sideW - 12, 30) then
                     activate()
                 end
             end
@@ -1444,7 +1546,7 @@ function LibraryApi:CreateWindow(windowName)
                 td.hoverBg.Visible = false
                 return
             end
-            td.hoverBg.Visible = isMouseOver(WX + 6, localTY, sideW - 12, 30)
+            td.hoverBg.Visible = isMouseOver(WX + 6, tabData._tabY or localTY, sideW - 12, 30)
         end)
 
         table.insert(self.Tabs, tabData)
@@ -1479,6 +1581,10 @@ function LibraryApi:CreateWindow(windowName)
 
             function elements:Subtext_Create(text)
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local d = drawText(text, cx + 4, cy + 2, 11, colors.textDarkColor, 1, 10)
                 d.Visible = isVisible()
                 table.insert(elementGroup, d)
@@ -1488,6 +1594,10 @@ function LibraryApi:CreateWindow(windowName)
             function elements:Toggle_Create(name, flag, default, tooltip, callback)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or false)
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local h, sw = 18, columnWidth
 
                 local dg = {}
@@ -1499,6 +1609,9 @@ function LibraryApi:CreateWindow(windowName)
                 advance(h + 6)
 
                 local lcy = cy
+                table.insert(tabData._positionUpdaters, function(_, dy)
+                    lcy = lcy + dy
+                end)
                 userInputService.InputBegan:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1 and windowVisible and self.Active_Tab == tabData then
                         if isMouseOver(cx, lcy, sw, h) then
@@ -1522,6 +1635,10 @@ function LibraryApi:CreateWindow(windowName)
             function elements:Slider_Create(name, flag, min, max, default, step, tooltip, callback)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or snapValue(default or min, step)
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local sw = columnWidth - 4
 
                 local dg = {}
@@ -1538,6 +1655,9 @@ function LibraryApi:CreateWindow(windowName)
                 advance(40)
 
                 local lcy = cy
+                table.insert(tabData._positionUpdaters, function(_, dy)
+                    lcy = lcy + dy
+                end)
                 local isSliding = false
                 local function setVal(newVal)
                     local clamped = snapValue(math.clamp(newVal, min, max), step)
@@ -1584,6 +1704,10 @@ function LibraryApi:CreateWindow(windowName)
                     LibraryApi.Flags[flag] = {Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step)}
                 end
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local sw = columnWidth - 4
                 local dg = {}
                 dg.lbl = drawText(name, cx + 2, cy + 1, 12, colors.textWhiteColor, 1, 10)
@@ -1601,6 +1725,9 @@ function LibraryApi:CreateWindow(windowName)
                 for _, v in pairs(dg) do table.insert(elementGroup, v) end
                 advance(40)
                 local lcy = cy
+                table.insert(tabData._positionUpdaters, function(_, dy)
+                    lcy = lcy + dy
+                end)
                 local isSlMin, isSlMax = false, false
                 local function updateRV()
                     local mn2 = (LibraryApi.Flags[flag].Min - min) / (max - min)
@@ -1642,6 +1769,10 @@ function LibraryApi:CreateWindow(windowName)
             function elements:Textbox_Create(name, flag, default, tooltip, callback)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or "")
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local sw = columnWidth - 4
                 local inputText = LibraryApi.Flags[flag]
                 local isFocused = false
@@ -1657,6 +1788,9 @@ function LibraryApi:CreateWindow(windowName)
                 for _, v in pairs(dg) do table.insert(elementGroup, v) end
                 advance(42)
                 local lcy = cy
+                table.insert(tabData._positionUpdaters, function(_, dy)
+                    lcy = lcy + dy
+                end)
                 userInputService.InputBegan:Connect(function(input)
                     if not windowVisible or self.Active_Tab ~= tabData then return end
                     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -1718,6 +1852,10 @@ function LibraryApi:CreateWindow(windowName)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Enum.KeyCode.Unknown)
                 local isListening = false
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local sw = columnWidth - 4
                 local function getKT() return LibraryApi.Flags[flag] == Enum.KeyCode.Unknown and "[ None ]" or "[ " .. LibraryApi.Flags[flag].Name .. " ]" end
                 local dg = {}
@@ -1730,6 +1868,9 @@ function LibraryApi:CreateWindow(windowName)
                 for _, v in pairs(dg) do table.insert(elementGroup, v) end
                 advance(32)
                 local lcy = cy
+                table.insert(tabData._positionUpdaters, function(_, dy)
+                    lcy = lcy + dy
+                end)
                 userInputService.InputBegan:Connect(function(input)
                     if not windowVisible or self.Active_Tab ~= tabData then return end
                     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -1773,6 +1914,10 @@ function LibraryApi:CreateWindow(windowName)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or options[1])
                 local isOpen = false
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local sw = columnWidth - 4
                 local baseH, optH = 44, 22
                 local dg = {}
@@ -1797,6 +1942,9 @@ function LibraryApi:CreateWindow(windowName)
                 for _, v in pairs(dg) do table.insert(elementGroup, v) end
                 advance(baseH + 4)
                 local lcy = cy
+                table.insert(tabData._positionUpdaters, function(_, dy)
+                    lcy = lcy + dy
+                end)
                 local function toggleOpen2()
                     isOpen = not isOpen
                     dg.btnB.Color = isOpen and colors.accentColor or colors.borderColor
@@ -1848,6 +1996,10 @@ function LibraryApi:CreateWindow(windowName)
                 local isOpen = false
                 local h2, s2, v2 = LibraryApi.Flags[flag]:ToHSV()
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local sw = columnWidth - 4
                 local pickerW = sw - 4
                 local pickerH = 120
@@ -1885,6 +2037,9 @@ function LibraryApi:CreateWindow(windowName)
                 dg.prevB.Visible = isVisible()
                 advance(24)
                 local lcy = cy
+                table.insert(tabData._positionUpdaters, function(_, dy)
+                    lcy = lcy + dy
+                end)
                 local isSV, isH = false, false
                 local function upC()
                     local c = Color3.fromHSV(h2, s2, v2)
@@ -1958,6 +2113,10 @@ function LibraryApi:CreateWindow(windowName)
 
             function elements:Button_Create(name, tooltip, callback)
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local sw = columnWidth - 4
                 local h3 = 28
                 local dg = {}
@@ -1969,6 +2128,9 @@ function LibraryApi:CreateWindow(windowName)
                 for _, v in pairs(dg) do table.insert(elementGroup, v) end
                 advance(h3 + 6)
                 local lcy = cy
+                table.insert(tabData._positionUpdaters, function(_, dy)
+                    lcy = lcy + dy
+                end)
                 local isDown = false
                 userInputService.InputBegan:Connect(function(input)
                     if not windowVisible or self.Active_Tab ~= tabData then return end
@@ -2005,6 +2167,10 @@ function LibraryApi:CreateWindow(windowName)
 
             function elements:SubButton_Create(name, tooltip, callback)
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local sw = columnWidth - 20
                 local h4 = 20
                 local dg = {}
@@ -2016,6 +2182,9 @@ function LibraryApi:CreateWindow(windowName)
                 for _, v in pairs(dg) do table.insert(elementGroup, v) end
                 advance(h4 + 4)
                 local lcy = cy
+                table.insert(tabData._positionUpdaters, function(_, dy)
+                    lcy = lcy + dy
+                end)
                 local isDown = false
                 userInputService.InputBegan:Connect(function(input)
                     if not windowVisible or self.Active_Tab ~= tabData then return end
@@ -2047,6 +2216,10 @@ function LibraryApi:CreateWindow(windowName)
             function elements:Module_Create(name, flag, descriptionText, default, tooltip, callback)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or false)
                 local cx, cy = getCX(), getCY()
+                table.insert(tabData._positionUpdaters, function(dx, dy)
+                    cx = cx + dx
+                    cy = cy + dy
+                end)
                 local sw = columnWidth - 4
                 local h5 = 44
                 local dg = {}
@@ -2061,6 +2234,9 @@ function LibraryApi:CreateWindow(windowName)
                 for _, v in pairs(dg) do table.insert(elementGroup, v) end
                 advance(h5 + 6)
                 local lcy = cy
+                table.insert(tabData._positionUpdaters, function(_, dy)
+                    lcy = lcy + dy
+                end)
                 userInputService.InputBegan:Connect(function(input)
                     if not windowVisible or self.Active_Tab ~= tabData then return end
                     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -2097,6 +2273,10 @@ function LibraryApi:CreateWindow(windowName)
         function sectionApi:Section_Create(columnSide, sectionTitle)
             local cx = columnSide == "Left" and columnLeftX or columnRightX
             local cy = columnSide == "Left" and leftCursorY or rightCursorY
+            table.insert(tabData._positionUpdaters, function(dx, dy)
+                cx = cx + dx
+                cy = cy + dy
+            end)
             local sw = columnWidth
             local titleH = 24
             local dg = {}
@@ -2105,6 +2285,11 @@ function LibraryApi:CreateWindow(windowName)
             dg.ttl = drawText(sectionTitle, cx + 10, cy + 6, 12, colors.textWhiteColor, 1, 9)
             dg.sep = drawLine(cx + 10, cy + titleH, cx + sw - 10, cy + titleH, colors.borderColor, 1, 1, 9)
             for _, v in pairs(dg) do v.Visible = isVisible() end
+            local sectionGroup = {}
+            for _, v in pairs(dg) do
+                table.insert(sectionGroup, v)
+            end
+            table.insert(tabData._elements, sectionGroup)
 
             if columnSide == "Left" then leftCursorY = leftCursorY + titleH + 12
             else rightCursorY = rightCursorY + titleH + 12 end
