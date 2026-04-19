@@ -11,23 +11,24 @@ local LibraryApi = {
 }
 
 local colors = {
-    mainBackground = Color3.fromRGB(9, 9, 13),
-    sidebarBackground = Color3.fromRGB(12, 12, 18),
-    sectionBackground = Color3.fromRGB(17, 17, 24),
-    elementBackground = Color3.fromRGB(23, 23, 31),
-    elementHoverBackground = Color3.fromRGB(30, 30, 40),
-    borderColor = Color3.fromRGB(28, 28, 38),
-    borderLightColor = Color3.fromRGB(45, 45, 61),
-    accentColor = Color3.fromRGB(108, 147, 252),
-    accentGradientColor1 = Color3.fromRGB(108, 147, 252),
-    accentGradientColor2 = Color3.fromRGB(158, 118, 252),
-    textWhiteColor = Color3.fromRGB(243, 243, 248),
-    textDarkColor = Color3.fromRGB(138, 138, 148),
-    tooltipBackground = Color3.fromRGB(11, 11, 16),
-    notificationInfoColor = Color3.fromRGB(63, 162, 250),
-    notificationSuccessColor = Color3.fromRGB(63, 250, 125),
-    notificationWarningColor = Color3.fromRGB(250, 209, 63),
-    notificationErrorColor = Color3.fromRGB(250, 63, 63)
+    mainBackground = Color3.fromRGB(13, 15, 24),
+    sidebarBackground = Color3.fromRGB(16, 19, 30),
+    sectionBackground = Color3.fromRGB(21, 25, 38),
+    elementBackground = Color3.fromRGB(28, 33, 48),
+    elementHoverBackground = Color3.fromRGB(36, 42, 61),
+    borderColor = Color3.fromRGB(39, 46, 67),
+    borderLightColor = Color3.fromRGB(79, 95, 134),
+    accentColor = Color3.fromRGB(116, 164, 255),
+    accentGradientColor1 = Color3.fromRGB(116, 164, 255),
+    accentGradientColor2 = Color3.fromRGB(180, 132, 255),
+    textWhiteColor = Color3.fromRGB(240, 244, 255),
+    textDarkColor = Color3.fromRGB(150, 160, 188),
+    tooltipBackground = Color3.fromRGB(11, 14, 22),
+    shadowColor = Color3.fromRGB(4, 6, 12),
+    notificationInfoColor = Color3.fromRGB(87, 174, 255),
+    notificationSuccessColor = Color3.fromRGB(90, 242, 156),
+    notificationWarningColor = Color3.fromRGB(255, 205, 93),
+    notificationErrorColor = Color3.fromRGB(255, 101, 101)
 }
 
 local UI = {
@@ -112,6 +113,86 @@ local function addToGroup(group, item)
     table.insert(group, item)
     return item
 end
+
+local function createRoundedPrimitive(z, color, transparency)
+    local group = createGroup()
+    group.mid = addToGroup(group, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = transparency or 1, Color = color, ZIndex = z, Visible = false }))
+    group.left = addToGroup(group, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = transparency or 1, Color = color, ZIndex = z, Visible = false }))
+    group.right = addToGroup(group, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = transparency or 1, Color = color, ZIndex = z, Visible = false }))
+    group.tl = addToGroup(group, newDrawing("Circle", { Filled = true, Thickness = 1, NumSides = 28, Transparency = transparency or 1, Radius = 0, Color = color, ZIndex = z, Visible = false }))
+    group.tr = addToGroup(group, newDrawing("Circle", { Filled = true, Thickness = 1, NumSides = 28, Transparency = transparency or 1, Radius = 0, Color = color, ZIndex = z, Visible = false }))
+    group.bl = addToGroup(group, newDrawing("Circle", { Filled = true, Thickness = 1, NumSides = 28, Transparency = transparency or 1, Radius = 0, Color = color, ZIndex = z, Visible = false }))
+    group.br = addToGroup(group, newDrawing("Circle", { Filled = true, Thickness = 1, NumSides = 28, Transparency = transparency or 1, Radius = 0, Color = color, ZIndex = z, Visible = false }))
+    return group
+end
+
+local function setRoundedPrimitive(group, x, y, w, h, radius, color, transparency, visible)
+    local pieces = { group.mid, group.left, group.right, group.tl, group.tr, group.bl, group.br }
+    if not visible or w <= 0 or h <= 0 then
+        for _, piece in ipairs(pieces) do
+            piece.Visible = false
+        end
+        return
+    end
+
+    local r = math.floor(math.max(0, math.min(radius or 0, w * 0.5, h * 0.5)))
+    local function apply(piece)
+        piece.Color = color
+        piece.Transparency = transparency or 1
+        piece.Visible = true
+    end
+
+    if r <= 0 then
+        apply(group.mid)
+        group.mid.Position = Vector2.new(x, y)
+        group.mid.Size = Vector2.new(w, h)
+        group.left.Visible = false
+        group.right.Visible = false
+        group.tl.Visible = false
+        group.tr.Visible = false
+        group.bl.Visible = false
+        group.br.Visible = false
+        return
+    end
+
+    apply(group.mid)
+    group.mid.Position = Vector2.new(x + r, y)
+    group.mid.Size = Vector2.new(math.max(1, w - r * 2), h)
+
+    apply(group.left)
+    group.left.Position = Vector2.new(x, y + r)
+    group.left.Size = Vector2.new(r, math.max(1, h - r * 2))
+
+    apply(group.right)
+    group.right.Position = Vector2.new(x + w - r, y + r)
+    group.right.Size = Vector2.new(r, math.max(1, h - r * 2))
+
+    for _, circle in ipairs({ group.tl, group.tr, group.bl, group.br }) do
+        apply(circle)
+        circle.Radius = r
+    end
+
+    group.tl.Position = Vector2.new(x + r, y + r)
+    group.tr.Position = Vector2.new(x + w - r, y + r)
+    group.bl.Position = Vector2.new(x + r, y + h - r)
+    group.br.Position = Vector2.new(x + w - r, y + h - r)
+end
+
+local function createSoftFrame(z)
+    local group = createGroup()
+    group.shadow = addToGroup(group, createRoundedPrimitive(z, colors.shadowColor or Color3.fromRGB(0, 0, 0), 0.16))
+    group.border = addToGroup(group, createRoundedPrimitive(z + 1, colors.borderColor, 0.95))
+    group.fill = addToGroup(group, createRoundedPrimitive(z + 2, colors.elementBackground, 0.92))
+    return group
+end
+
+local function setSoftFrame(frame, x, y, w, h, radius, fillColor, fillTransparency, borderColor, borderTransparency, shadowOffset)
+    local shadowY = shadowOffset or 2
+    setRoundedPrimitive(frame.shadow, x, y + shadowY, w, h, radius + 1, colors.shadowColor or Color3.fromRGB(0, 0, 0), 0.12, true)
+    setRoundedPrimitive(frame.border, x, y, w, h, radius, borderColor or colors.borderColor, borderTransparency or 1, true)
+    setRoundedPrimitive(frame.fill, x + 1, y + 1, w - 2, h - 2, math.max(0, radius - 1), fillColor or colors.elementBackground, fillTransparency or 0.92, true)
+end
+
 
 local function snapValue(value, step)
     if not step or step <= 0 then
@@ -276,8 +357,7 @@ local function createBaseElement(section, kind, height)
         hovered = false,
         pressable = false,
         tooltip = nil,
-        dynamicHeight = nil,
-        parentModule = section.ownerModule
+        dynamicHeight = nil
     }
     table.insert(section.elements, element)
     return element
@@ -292,15 +372,30 @@ end
 
 local function createWindowDrawings(window)
     local g = createGroup()
-    g.bg = addToGroup(g, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.mainBackground, ZIndex = 20, Visible = true }))
-    g.border = addToGroup(g, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 21, Visible = true }))
-    g.top = addToGroup(g, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.sidebarBackground, ZIndex = 22, Visible = true }))
-    g.topLine = addToGroup(g, newDrawing("Line", { Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 23, Visible = true }))
-    g.accent = addToGroup(g, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = colors.accentColor, ZIndex = 24, Visible = true }))
-    g.title = addToGroup(g, newDrawing("Text", { Size = 13, Font = Drawing.Fonts.UI, Outline = false, Center = false, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 24, Visible = true, Text = window.title }))
-    g.sidebar = addToGroup(g, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.sidebarBackground, ZIndex = 22, Visible = true }))
-    g.sidebarLine = addToGroup(g, newDrawing("Line", { Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 23, Visible = true }))
+    g.body = addToGroup(g, createSoftFrame(20))
+    g.top = addToGroup(g, createSoftFrame(26))
+    g.sidebar = addToGroup(g, createSoftFrame(24))
+    g.accentGlow = addToGroup(g, createRoundedPrimitive(33, colors.accentColor, 0.26))
+    g.accent = addToGroup(g, createRoundedPrimitive(34, colors.accentColor, 1))
+    g.title = addToGroup(g, newDrawing("Text", { Size = 13, Font = Drawing.Fonts.UI, Outline = false, Center = false, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 35, Visible = true, Text = window.title }))
     window.drawings = g
+end
+
+local function createTabDrawings(tab)
+    local g = createGroup()
+    g.button = addToGroup(g, createSoftFrame(30))
+    g.indicatorGlow = addToGroup(g, createRoundedPrimitive(33, colors.accentColor, 0.22))
+    g.indicator = addToGroup(g, createRoundedPrimitive(34, colors.accentColor, 1))
+    g.text = addToGroup(g, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 35, Visible = true, Text = tab.title }))
+    tab.drawings = g
+end
+
+local function createSectionDrawings(section)
+    local g = createGroup()
+    g.frame = addToGroup(g, createSoftFrame(40))
+    g.title = addToGroup(g, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Outline = false, Center = false, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 43, Visible = true, Text = section.title }))
+    g.sep = addToGroup(g, createRoundedPrimitive(42, colors.borderColor, 0.85))
+    section.drawings = g
 end
 
 local function createTabDrawings(tab)
@@ -364,52 +459,39 @@ local function bringWindowToFront(window)
     table.insert(UI.windows, window)
 end
 
-local isElementVisibleInLayout
-
 local function layoutWindow(window)
-    window.topHeight = 36
-    window.sidebarWidth = 150
-    window.contentPadding = 10
-    window.tabButtonHeight = 30
-    window.tabButtonGap = 6
+    window.topHeight = 40
+    window.sidebarWidth = 164
+    window.contentPadding = 12
+    window.tabButtonHeight = 34
+    window.tabButtonGap = 8
     window.sectionTitleHeight = 24
-    window.contentX = window.x + window.sidebarWidth + 10
-    window.contentY = window.y + window.topHeight + 10
-    window.contentW = window.w - window.sidebarWidth - 20
-    window.contentH = window.h - window.topHeight - 20
-    window.columnGap = 12
+    window.contentX = window.x + window.sidebarWidth + 14
+    window.contentY = window.y + window.topHeight + 14
+    window.contentW = window.w - window.sidebarWidth - 28
+    window.contentH = window.h - window.topHeight - 28
+    window.columnGap = 14
     window.columnWidth = math.floor((window.contentW - window.columnGap) / 2)
 
     local d = window.drawings
-    d.bg.Position = Vector2.new(window.x, window.y)
-    d.bg.Size = Vector2.new(window.w, window.h)
-    d.border.Position = d.bg.Position
-    d.border.Size = d.bg.Size
-    d.top.Position = Vector2.new(window.x, window.y)
-    d.top.Size = Vector2.new(window.w, window.topHeight)
-    d.topLine.From = Vector2.new(window.x, window.y + window.topHeight)
-    d.topLine.To = Vector2.new(window.x + window.w, window.y + window.topHeight)
-    d.accent.Position = Vector2.new(window.x, window.y)
-    d.accent.Size = Vector2.new(window.w, 2)
-    d.title.Position = Vector2.new(window.x + 14, window.y + 11)
-    d.sidebar.Position = Vector2.new(window.x, window.y + window.topHeight)
-    d.sidebar.Size = Vector2.new(window.sidebarWidth, window.h - window.topHeight)
-    d.sidebarLine.From = Vector2.new(window.x + window.sidebarWidth, window.y + window.topHeight)
-    d.sidebarLine.To = Vector2.new(window.x + window.sidebarWidth, window.y + window.h)
+    setSoftFrame(d.body, window.x, window.y, window.w, window.h, 14, colors.mainBackground, 0.94, colors.borderColor, 0.95, 3)
+    setSoftFrame(d.top, window.x + 1, window.y + 1, window.w - 2, window.topHeight + 8, 13, colors.sidebarBackground, 0.97, colors.borderColor, 0, 0)
+    setSoftFrame(d.sidebar, window.x + 8, window.y + window.topHeight + 8, window.sidebarWidth - 16, window.h - window.topHeight - 16, 12, colors.sidebarBackground, 0.95, colors.borderColor, 0.82, 1)
+    setRoundedPrimitive(d.accentGlow, window.x + 18, window.y + 10, 136, 8, 4, colors.accentGradientColor2, 0.18, true)
+    setRoundedPrimitive(d.accent, window.x + 18, window.y + 12, 120, 4, 2, colors.accentColor, 1, true)
+    d.title.Position = Vector2.new(window.x + 18, window.y + 13)
 
     for index, tab in ipairs(window.tabs) do
-        tab.x = window.x + 6
-        tab.y = window.y + window.topHeight + 8 + (index - 1) * (window.tabButtonHeight + window.tabButtonGap)
-        tab.w = window.sidebarWidth - 12
+        tab.x = window.x + 14
+        tab.y = window.y + window.topHeight + 14 + (index - 1) * (window.tabButtonHeight + window.tabButtonGap)
+        tab.w = window.sidebarWidth - 28
         tab.h = window.tabButtonHeight
         local td = tab.drawings
-        td.button.Position = Vector2.new(tab.x, tab.y)
-        td.button.Size = Vector2.new(tab.w, tab.h)
-        td.border.Position = td.button.Position
-        td.border.Size = td.button.Size
-        td.indicator.Position = Vector2.new(tab.x, tab.y + 8)
-        td.indicator.Size = Vector2.new(2, tab == window.activeTab and 14 or 0)
-        td.text.Position = Vector2.new(tab.x + 12, tab.y + 9)
+        local active = tab == window.activeTab
+        setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 10, active and colors.elementHoverBackground or colors.elementBackground, active and 0.98 or 0.88, active and colors.accentColor or colors.borderColor, active and 0.95 or 0.72, 1)
+        setRoundedPrimitive(td.indicatorGlow, tab.x + 10, tab.y + 9, 10, tab.h - 18, 5, colors.accentColor, active and 0.22 or 0, active)
+        setRoundedPrimitive(td.indicator, tab.x + 13, tab.y + 11, 4, tab.h - 22, 2, colors.accentColor, 1, active)
+        td.text.Position = Vector2.new(tab.x + 28, tab.y + 10)
     end
 
     if not window.activeTab then return end
@@ -421,43 +503,35 @@ local function layoutWindow(window)
         local columnX = section.side == "Left" and window.contentX or (window.contentX + window.columnWidth + window.columnGap)
         local contentWidth = window.columnWidth
         local startY = section.side == "Left" and leftY or rightY
-        local currentY = startY + 32
+        local currentY = startY + 34
         section.x = columnX
         section.y = startY
         section.w = contentWidth
-        section.contentX = columnX + 8
-        section.contentY = startY + 30
-        section.contentW = contentWidth - 16
+        section.contentX = columnX + 10
+        section.contentY = startY + 32
+        section.contentW = contentWidth - 20
 
         for _, element in ipairs(section.elements) do
-            local visibleInLayout = isElementVisibleInLayout(element)
-            element.layoutVisible = visibleInLayout
-            element.x = section.contentX + (element.parentModule and 10 or 0)
+            element.x = section.contentX
             element.y = currentY
-            element.w = section.contentW - (element.parentModule and 10 or 0)
-            if visibleInLayout then
-                if element.dynamicHeight then
-                    element.height = element:dynamicHeight()
-                end
-                currentY = currentY + element.height + 6
+            element.w = section.contentW
+            if element.dynamicHeight then
+                element.height = element:dynamicHeight()
             end
+            currentY = currentY + element.height + 8
         end
 
-        section.h = math.max(32, currentY - startY + 6)
+        section.h = math.max(38, currentY - startY + 8)
 
         local sd = section.drawings
-        sd.bg.Position = Vector2.new(section.x, section.y)
-        sd.bg.Size = Vector2.new(section.w, section.h)
-        sd.border.Position = sd.bg.Position
-        sd.border.Size = sd.bg.Size
-        sd.title.Position = Vector2.new(section.x + 10, section.y + 6)
-        sd.sep.From = Vector2.new(section.x + 10, section.y + 24)
-        sd.sep.To = Vector2.new(section.x + section.w - 10, section.y + 24)
+        setSoftFrame(sd.frame, section.x, section.y, section.w, section.h, 12, colors.sectionBackground, 0.95, colors.borderColor, 0.8, 2)
+        sd.title.Position = Vector2.new(section.x + 14, section.y + 8)
+        setRoundedPrimitive(sd.sep, section.x + 12, section.y + 28, section.w - 24, 2, 1, colors.borderColor, 0.65, true)
 
         if section.side == "Left" then
-            leftY = currentY + 6
+            leftY = currentY + 8
         else
-            rightY = currentY + 6
+            rightY = currentY + 8
         end
     end
 end
@@ -472,26 +546,9 @@ local function forEachElement(window, callback)
     end
 end
 
-isElementVisibleInLayout = function(element)
-    if element.visible == false then
-        return false
-    end
-    local parentModule = element.parentModule
-    while parentModule do
-        if not LibraryApi.Flags[parentModule.flag] then
-            return false
-        end
-        parentModule = parentModule.parentModule
-    end
-    return true
-end
-
-
 local function drawTab(tab)
     local active = tab.window.activeTab == tab
     local hovered = UI.hovered == tab
-    tab.drawings.button.Color = active and colors.elementHoverBackground or (hovered and colors.elementHoverBackground or colors.elementBackground)
-    tab.drawings.border.Color = active and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor)
     tab.drawings.text.Color = active and colors.textWhiteColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
 end
 
@@ -499,10 +556,8 @@ local function hideGroup(group)
     for _, drawing in pairs(group) do
         if type(drawing) == "table" and drawing.__isGroup then
             hideGroup(drawing)
-        elseif type(drawing) == "userdata" or type(drawing) == "table" then
-            if drawing.Visible ~= nil then
-                drawing.Visible = false
-            end
+        elseif drawing.Visible ~= nil then
+            drawing.Visible = false
         end
     end
 end
@@ -511,16 +566,14 @@ local function setElementBaseVisible(element, visible)
     for _, drawing in pairs(element.drawings) do
         if type(drawing) == "table" and drawing.__isGroup then
             hideGroup(drawing)
-        elseif type(drawing) == "userdata" or type(drawing) == "table" then
-            if drawing.Visible ~= nil then
-                drawing.Visible = visible
-            end
+        elseif drawing.Visible ~= nil then
+            drawing.Visible = visible
         end
     end
 end
 
 local function renderElement(element)
-    if not element.window.visible or element.window.activeTab ~= element.tab or not isElementVisibleInLayout(element) then
+    if not element.window.visible or element.window.activeTab ~= element.tab then
         setElementBaseVisible(element, false)
         return
     end
@@ -593,7 +646,7 @@ local function hitTestElement(window)
             local section = window.activeTab.sections[si]
             for ei = #section.elements, 1, -1 do
                 local element = section.elements[ei]
-                if isElementVisibleInLayout(element) and element.hitTest and element:hitTest(UI.mousePos) then
+                if element.hitTest and element:hitTest(UI.mousePos) then
                     return element
                 end
             end
@@ -724,26 +777,6 @@ local function initialize()
             if UI.focusedTextbox.callback then
                 task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
             end
-        elseif UI.focusedTextbox and input.UserInputType == Enum.UserInputType.Keyboard then
-            local ok, keyString = pcall(function()
-                return userInputService:GetStringForKeyCode(input.KeyCode)
-            end)
-            if ok and keyString and keyString ~= "" then
-                local isShiftDown = userInputService:IsKeyDown(Enum.KeyCode.LeftShift) or userInputService:IsKeyDown(Enum.KeyCode.RightShift)
-                if #keyString == 1 then
-                    if isShiftDown then
-                        keyString = string.upper(keyString)
-                    else
-                        keyString = string.lower(keyString)
-                    end
-                end
-                UI.focusedTextbox.value = UI.focusedTextbox.value .. keyString
-                LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
-                saveConfiguration()
-                if UI.focusedTextbox.callback then
-                    task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
-                end
-            end
         end
     end)
 
@@ -760,6 +793,17 @@ local function initialize()
                 end
             end
             UI.active = nil
+        end
+    end)
+
+    UI.connections.textInput = userInputService.TextInput:Connect(function(text)
+        if UI.focusedTextbox and not UI.bindingKey and text and text ~= "" and text ~= "\r" and text ~= "\n" then
+            UI.focusedTextbox.value = UI.focusedTextbox.value .. text
+            LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
+            saveConfiguration()
+            if UI.focusedTextbox.callback then
+                task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
+            end
         end
     end)
 
@@ -826,9 +870,9 @@ local function makeSectionApi(section)
         element.tooltip = tooltipText
         element.callback = callback
         element.pressable = true
-        element.box = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = value and colors.accentColor or colors.elementBackground, ZIndex = 60, Visible = false }))
-        element.boxBorder = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = value and colors.accentColor or colors.borderColor, ZIndex = 61, Visible = false }))
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Outline = false, Center = false, Transparency = 1, Color = value and colors.textWhiteColor or colors.textDarkColor, ZIndex = 62, Visible = false, Text = element.name }))
+        element.box = addToGroup(element.drawings, createSoftFrame(60))
+        element.knob = addToGroup(element.drawings, createRoundedPrimitive(63, colors.textWhiteColor, 1))
+        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Outline = false, Center = false, Transparency = 1, Color = value and colors.textWhiteColor or colors.textDarkColor, ZIndex = 64, Visible = false, Text = element.name }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x, self.y, self.w, self.height)
         end
@@ -841,17 +885,11 @@ local function makeSectionApi(section)
         function element:draw()
             local state = LibraryApi.Flags[self.flag]
             local hovered = UI.hovered == self
-            self.box.Position = Vector2.new(self.x + 2, self.y + 2)
-            self.box.Size = Vector2.new(13, 13)
-            self.box.Color = state and colors.accentColor or colors.elementBackground
-            self.boxBorder.Position = self.box.Position
-            self.boxBorder.Size = self.box.Size
-            self.boxBorder.Color = state and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor)
-            self.label.Position = Vector2.new(self.x + 22, self.y + 3)
+            setSoftFrame(self.box, self.x + 2, self.y + 1, 32, 18, 9, state and colors.accentColor or colors.elementBackground, 0.98, state and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setRoundedPrimitive(self.knob, self.x + (state and 18 or 4), self.y + 3, 12, 12, 6, colors.textWhiteColor, 1, true)
+            self.label.Position = Vector2.new(self.x + 42, self.y + 4)
             self.label.Text = self.name
             self.label.Color = state and colors.textWhiteColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
-            self.box.Visible = true
-            self.boxBorder.Visible = true
             self.label.Visible = true
             if hovered then setTooltipText(self.tooltip) end
         end
@@ -1035,8 +1073,7 @@ local function makeSectionApi(section)
         element.focused = false
         element.cursorBlink = 0
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
-        element.box = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.elementBackground, ZIndex = 60, Visible = false }))
-        element.border = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 61, Visible = false }))
+        element.box = addToGroup(element.drawings, createSoftFrame(60))
         element.text = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = element.value }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x, self.y, self.w, self.height)
@@ -1057,18 +1094,13 @@ local function makeSectionApi(section)
                 showText = showText .. "|"
             end
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
-            self.box.Position = Vector2.new(self.x + 2, self.y + 14)
-            self.box.Size = Vector2.new(self.w - 4, 14)
-            self.border.Position = self.box.Position
-            self.border.Size = self.box.Size
-            self.border.Color = self.focused and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor)
-            self.text.Position = Vector2.new(self.x + 6, self.y + 15)
+            setSoftFrame(self.box, self.x + 2, self.y + 14, self.w - 4, 18, 8, self.focused and colors.elementHoverBackground or colors.elementBackground, 0.96, self.focused and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            self.text.Position = Vector2.new(self.x + 10, self.y + 17)
             self.text.Text = showText
             self.text.Color = (#self.value > 0 or self.focused) and colors.textWhiteColor or colors.textDarkColor
             self.label.Text = self.name
             self.label.Visible = true
             self.box.Visible = true
-            self.border.Visible = true
             self.text.Visible = true
             if hovered then setTooltipText(self.tooltip) end
         end
@@ -1084,7 +1116,8 @@ local function makeSectionApi(section)
         element.callback = callback
         element.waiting = false
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
-        element.bindText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = "" }))
+        element.box = addToGroup(element.drawings, createSoftFrame(60))
+        element.bindText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textDarkColor, ZIndex = 63, Visible = false, Text = "" }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x, self.y, self.w, self.height)
         end
@@ -1099,9 +1132,11 @@ local function makeSectionApi(section)
         end
         function element:draw()
             local hovered = UI.hovered == self
+            local boxText = self:getText()
             self.label.Position = Vector2.new(self.x + 2, self.y + 2)
-            self.bindText.Text = self:getText()
-            self.bindText.Position = Vector2.new(self.x + self.w - getTextSize(self.bindText.Text, 12) - 2, self.y + 2)
+            setSoftFrame(self.box, self.x + self.w - math.max(72, getTextSize(boxText, 12) + 18), self.y - 1, math.max(72, getTextSize(boxText, 12) + 12), 20, 9, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.96, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            self.bindText.Text = boxText
+            self.bindText.Position = Vector2.new(self.x + self.w - math.max(72, getTextSize(boxText, 12) + 18) + 8, self.y + 2)
             self.label.Text = self.name
             self.label.Color = hovered and colors.textWhiteColor or colors.textWhiteColor
             self.bindText.Color = self.waiting and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
@@ -1124,17 +1159,15 @@ local function makeSectionApi(section)
         element.callback = callback
         element.open = false
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
-        element.box = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.elementBackground, ZIndex = 60, Visible = false }))
-        element.border = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 61, Visible = false }))
+        element.box = addToGroup(element.drawings, createSoftFrame(60))
         element.valueText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(value) }))
         element.arrow = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = "v" }))
         element.popup = createGroup()
-        element.popup.bg = addToGroup(element.popup, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.96, Color = colors.sectionBackground, ZIndex = 120, Visible = false }))
-        element.popup.border = addToGroup(element.popup, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 121, Visible = false }))
+        element.popup.frame = addToGroup(element.popup, createSoftFrame(120))
         element.popupItems = {}
         for i = 1, math.max(1, #opts) do
             element.popupItems[i] = {
-                bg = addToGroup(element.popup, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.sectionBackground, ZIndex = 122, Visible = false })),
+                bg = addToGroup(element.popup, createRoundedPrimitive(122, colors.sectionBackground, 0.92)),
                 text = addToGroup(element.popup, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textDarkColor, ZIndex = 123, Visible = false, Text = tostring(opts[i] or "") }))
             }
         end
@@ -1172,20 +1205,15 @@ local function makeSectionApi(section)
         function element:draw()
             local hovered = UI.hovered == self
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
-            self.box.Position = Vector2.new(self.x + 2, self.y + 14)
-            self.box.Size = Vector2.new(self.w - 4, 14)
-            self.border.Position = self.box.Position
-            self.border.Size = self.box.Size
-            self.border.Color = self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor)
+            setSoftFrame(self.box, self.x + 2, self.y + 14, self.w - 4, 18, 8, self.open and colors.elementHoverBackground or colors.elementBackground, 0.96, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
             self.valueText.Text = tostring(LibraryApi.Flags[self.flag])
-            self.valueText.Position = Vector2.new(self.x + 6, self.y + 15)
+            self.valueText.Position = Vector2.new(self.x + 10, self.y + 17)
             self.valueText.Color = hovered and colors.textWhiteColor or colors.textDarkColor
             self.arrow.Text = self.open and "^" or "v"
             self.arrow.Position = Vector2.new(self.x + self.w - 14, self.y + 15)
             self.arrow.Color = self.open and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
             self.label.Visible = true
             self.box.Visible = true
-            self.border.Visible = true
             self.valueText.Visible = true
             self.arrow.Visible = true
             if hovered then setTooltipText(self.tooltip) end
@@ -1194,20 +1222,12 @@ local function makeSectionApi(section)
             self.popupW = self.w - 4
             self.popupH = math.max(18, #self.options * 18)
             if self.open then
-                self.popup.bg.Position = Vector2.new(self.popupX, self.popupY)
-                self.popup.bg.Size = Vector2.new(self.popupW, self.popupH)
-                self.popup.border.Position = self.popup.bg.Position
-                self.popup.border.Size = self.popup.bg.Size
-                self.popup.bg.Visible = true
-                self.popup.border.Visible = true
+                setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 10, colors.sectionBackground, 0.97, colors.borderColor, 0.95, 1)
                 for index, option in ipairs(self.options) do
                     local item = self.popupItems[index]
                     local y = self.popupY + (index - 1) * 18
                     local hovering = pointInRect(UI.mousePos, self.popupX, y, self.popupW, 18)
-                    item.bg.Position = Vector2.new(self.popupX, y)
-                    item.bg.Size = Vector2.new(self.popupW, 18)
-                    item.bg.Color = hovering and colors.elementHoverBackground or colors.sectionBackground
-                    item.bg.Visible = true
+                    setRoundedPrimitive(item.bg, self.popupX + 4, y + 1, self.popupW - 8, 16, 7, hovering and colors.elementHoverBackground or colors.sectionBackground, 0.96, true)
                     item.text.Text = tostring(option)
                     item.text.Position = Vector2.new(self.popupX + 6, y + 3)
                     item.text.Color = tostring(option) == tostring(LibraryApi.Flags[self.flag]) and colors.textWhiteColor or (hovering and colors.textWhiteColor or colors.textDarkColor)
@@ -1234,11 +1254,10 @@ local function makeSectionApi(section)
         element.open = false
         element.dragMode = nil
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
-        element.preview = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = value, ZIndex = 60, Visible = false }))
-        element.previewBorder = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 61, Visible = false }))
+        element.previewFrame = addToGroup(element.drawings, createSoftFrame(60))
+        element.preview = addToGroup(element.drawings, createRoundedPrimitive(62, value, 1))
         element.popup = createGroup()
-        element.popup.bg = addToGroup(element.popup, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.96, Color = colors.sectionBackground, ZIndex = 130, Visible = false }))
-        element.popup.border = addToGroup(element.popup, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 131, Visible = false }))
+        element.popup.frame = addToGroup(element.popup, createSoftFrame(130))
         element.popup.sv = addToGroup(element.popup, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = hsvToColor(element.h, 1, 1), ZIndex = 132, Visible = false }))
         element.popup.svBorder = addToGroup(element.popup, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderLightColor, ZIndex = 133, Visible = false }))
         element.popup.hue = addToGroup(element.popup, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = colors.accentColor, ZIndex = 132, Visible = false }))
@@ -1295,15 +1314,9 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self
             local color = LibraryApi.Flags[self.flag]
             self.label.Position = Vector2.new(self.x + 2, self.y + 3)
-            self.preview.Position = Vector2.new(self.x + self.w - 24, self.y + 2)
-            self.preview.Size = Vector2.new(20, 20)
-            self.preview.Color = color
-            self.previewBorder.Position = self.preview.Position
-            self.previewBorder.Size = self.preview.Size
-            self.previewBorder.Color = self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor)
+            setSoftFrame(self.previewFrame, self.x + self.w - 28, self.y, 24, 24, 10, colors.elementBackground, 0.96, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setRoundedPrimitive(self.preview, self.x + self.w - 25, self.y + 3, 18, 18, 8, color, 1, true)
             self.label.Visible = true
-            self.preview.Visible = true
-            self.previewBorder.Visible = true
             if hovered then setTooltipText(self.tooltip) end
             self.popupX = self.x + self.w - 150
             self.popupY = self.y + 28
@@ -1318,10 +1331,7 @@ local function makeSectionApi(section)
             self.hueW = 16
             self.hueH = 96
             if self.open then
-                self.popup.bg.Position = Vector2.new(self.popupX, self.popupY)
-                self.popup.bg.Size = Vector2.new(self.popupW, self.popupH)
-                self.popup.border.Position = self.popup.bg.Position
-                self.popup.border.Size = self.popup.bg.Size
+                setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 12, colors.sectionBackground, 0.98, colors.borderColor, 0.95, 2)
                 self.popup.sv.Position = Vector2.new(self.svX, self.svY)
                 self.popup.sv.Size = Vector2.new(self.svW, self.svH)
                 self.popup.sv.Color = hsvToColor(self.h, 1, 1)
@@ -1335,8 +1345,6 @@ local function makeSectionApi(section)
                 self.popup.cursor.Position = Vector2.new(self.svX + self.s * self.svW, self.svY + (1 - self.v) * self.svH)
                 self.popup.hueCursor.From = Vector2.new(self.hueX, self.hueY + self.h * self.hueH)
                 self.popup.hueCursor.To = Vector2.new(self.hueX + self.hueW, self.hueY + self.h * self.hueH)
-                self.popup.bg.Visible = true
-                self.popup.border.Visible = true
                 self.popup.sv.Visible = true
                 self.popup.svBorder.Visible = true
                 self.popup.hue.Visible = true
@@ -1355,8 +1363,7 @@ local function makeSectionApi(section)
         element.name = tostring(name or "Button")
         element.tooltip = tooltipText
         element.callback = callback
-        element.box = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.elementBackground, ZIndex = 60, Visible = false }))
-        element.border = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 61, Visible = false }))
+        element.box = addToGroup(element.drawings, createSoftFrame(60))
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 62, Visible = false, Text = element.name, Center = true }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x + 2, self.y, self.w - 4, self.height)
@@ -1366,17 +1373,11 @@ local function makeSectionApi(section)
         end
         function element:draw()
             local hovered = UI.hovered == self
-            self.box.Position = Vector2.new(self.x + 2, self.y)
-            self.box.Size = Vector2.new(self.w - 4, self.height)
-            self.box.Color = hovered and colors.elementHoverBackground or colors.elementBackground
-            self.border.Position = self.box.Position
-            self.border.Size = self.box.Size
-            self.border.Color = hovered and colors.accentColor or colors.borderColor
+            setSoftFrame(self.box, self.x + 2, self.y, self.w - 4, self.height, 10, hovered and colors.elementHoverBackground or colors.elementBackground, 0.97, hovered and colors.accentColor or colors.borderColor, 0.95, 1)
             self.label.Text = self.name
             self.label.Position = Vector2.new(self.x + self.w / 2, self.y + 8)
             self.label.Color = hovered and colors.accentColor or colors.textWhiteColor
             self.box.Visible = true
-            self.border.Visible = true
             self.label.Visible = true
             if hovered then setTooltipText(self.tooltip) end
         end
@@ -1388,8 +1389,7 @@ local function makeSectionApi(section)
         element.name = tostring(name or "SubButton")
         element.tooltip = tooltipText
         element.callback = callback
-        element.box = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.sectionBackground, ZIndex = 60, Visible = false }))
-        element.border = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 61, Visible = false }))
+        element.box = addToGroup(element.drawings, createSoftFrame(60))
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = element.name, Center = true }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x + 8, self.y, self.w - 16, self.height)
@@ -1399,17 +1399,11 @@ local function makeSectionApi(section)
         end
         function element:draw()
             local hovered = UI.hovered == self
-            self.box.Position = Vector2.new(self.x + 8, self.y)
-            self.box.Size = Vector2.new(self.w - 16, self.height)
-            self.box.Color = hovered and colors.elementBackground or colors.sectionBackground
-            self.border.Position = self.box.Position
-            self.border.Size = self.box.Size
-            self.border.Color = hovered and colors.borderLightColor or colors.borderColor
+            setSoftFrame(self.box, self.x + 8, self.y, self.w - 16, self.height, 9, hovered and colors.elementBackground or colors.sectionBackground, 0.95, hovered and colors.borderLightColor or colors.borderColor, 0.9, 1)
             self.label.Text = self.name
             self.label.Position = Vector2.new(self.x + self.w / 2, self.y + 4)
             self.label.Color = hovered and colors.textWhiteColor or colors.textDarkColor
             self.box.Visible = true
-            self.border.Visible = true
             self.label.Visible = true
             if hovered then setTooltipText(self.tooltip) end
         end
@@ -1424,13 +1418,12 @@ local function makeSectionApi(section)
         element.flag = flag
         element.tooltip = tooltipText
         element.callback = callback
-        element.bg = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.elementBackground, ZIndex = 60, Visible = false }))
-        element.border = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = state and colors.accentColor or colors.borderColor, ZIndex = 61, Visible = false }))
-        element.check = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = state and colors.accentColor or colors.sectionBackground, ZIndex = 62, Visible = false }))
-        element.checkBorder = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 63, Visible = false }))
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 13, Font = Drawing.Fonts.UI, Transparency = 1, Color = state and colors.textWhiteColor or colors.textDarkColor, ZIndex = 64, Visible = false, Text = element.name }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textDarkColor, ZIndex = 64, Visible = false, Text = element.descriptionText }))
-        element.arrow = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = Drawing.Fonts.UI, Transparency = 1, Color = state and colors.accentColor or colors.textDarkColor, ZIndex = 64, Visible = false, Text = state and "^" or "v" }))
+        element.bg = addToGroup(element.drawings, createSoftFrame(60))
+        element.check = addToGroup(element.drawings, createSoftFrame(64))
+        element.dot = addToGroup(element.drawings, createRoundedPrimitive(67, colors.accentColor, 1))
+        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 13, Font = Drawing.Fonts.UI, Transparency = 1, Color = state and colors.textWhiteColor or colors.textDarkColor, ZIndex = 68, Visible = false, Text = element.name }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = Drawing.Fonts.UI, Transparency = 1, Color = colors.textDarkColor, ZIndex = 68, Visible = false, Text = element.descriptionText }))
+        element.arrow = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = Drawing.Fonts.UI, Transparency = 1, Color = state and colors.accentColor or colors.textDarkColor, ZIndex = 68, Visible = false, Text = state and "^" or "v" }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x + 2, self.y, self.w - 4, self.height)
         end
@@ -1443,17 +1436,10 @@ local function makeSectionApi(section)
         function element:draw()
             local stateNow = LibraryApi.Flags[self.flag]
             local hovered = UI.hovered == self
-            self.bg.Position = Vector2.new(self.x + 2, self.y)
-            self.bg.Size = Vector2.new(self.w - 4, self.height)
-            self.border.Position = self.bg.Position
-            self.border.Size = self.bg.Size
-            self.border.Color = stateNow and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor)
-            self.check.Position = Vector2.new(self.x + 14, self.y + 14)
-            self.check.Size = Vector2.new(16, 16)
-            self.check.Color = stateNow and colors.accentColor or colors.sectionBackground
-            self.checkBorder.Position = self.check.Position
-            self.checkBorder.Size = self.check.Size
-            self.label.Position = Vector2.new(self.x + 38, self.y + 8)
+            setSoftFrame(self.bg, self.x + 2, self.y, self.w - 4, self.height, 12, stateNow and colors.elementHoverBackground or colors.elementBackground, 0.97, stateNow and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.check, self.x + 14, self.y + 12, 18, 18, 9, stateNow and colors.accentColor or colors.sectionBackground, 0.98, stateNow and colors.accentColor or colors.borderColor, 0.95, 1)
+            setRoundedPrimitive(self.dot, self.x + 19, self.y + 17, 8, 8, 4, colors.textWhiteColor, stateNow and 1 or 0, stateNow)
+            self.label.Position = Vector2.new(self.x + 40, self.y + 8)
             self.label.Text = self.name
             self.label.Color = stateNow and colors.textWhiteColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
             self.desc.Position = Vector2.new(self.x + 38, self.y + 24)
@@ -1463,20 +1449,13 @@ local function makeSectionApi(section)
             self.arrow.Position = Vector2.new(self.x + self.w - 22, self.y + 15)
             self.arrow.Color = stateNow and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
             self.bg.Visible = true
-            self.border.Visible = true
             self.check.Visible = true
-            self.checkBorder.Visible = true
             self.label.Visible = true
             self.desc.Visible = true
             self.arrow.Visible = true
             if hovered then setTooltipText(self.tooltip) end
         end
-        local subSectionApi = makeSectionApi({
-            window = section.window,
-            tab = section.tab,
-            elements = section.elements,
-            ownerModule = element
-        })
+        local subSectionApi = makeSectionApi(section)
         return subSectionApi
     end
 
