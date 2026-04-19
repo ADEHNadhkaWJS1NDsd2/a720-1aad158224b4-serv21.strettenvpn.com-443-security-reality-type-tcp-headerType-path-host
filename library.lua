@@ -777,6 +777,26 @@ local function initialize()
             if UI.focusedTextbox.callback then
                 task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
             end
+        elseif UI.focusedTextbox and input.UserInputType == Enum.UserInputType.Keyboard then
+            local ok, char = pcall(function()
+                return userInputService:GetStringForKeyCode(input.KeyCode)
+            end)
+            if ok and char and char ~= "" then
+                local shifted = userInputService:IsKeyDown(Enum.KeyCode.LeftShift) or userInputService:IsKeyDown(Enum.KeyCode.RightShift)
+                if shifted then
+                    local shiftMap = {
+                        ["1"] = "!", ["2"] = "@", ["3"] = "#", ["4"] = "$", ["5"] = "%", ["6"] = "^", ["7"] = "&", ["8"] = "*", ["9"] = "(", ["0"] = ")",
+                        ["-"] = "_", ["="] = "+", ["["] = "{", ["]"] = "}", [";"] = ":", ["'"] = '"', [","] = "<", ["."] = ">", ["/"] = "?", ["\"] = "|", ["`"] = "~"
+                    }
+                    char = shiftMap[char] or string.upper(char)
+                end
+                UI.focusedTextbox.value = UI.focusedTextbox.value .. char
+                LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
+                saveConfiguration()
+                if UI.focusedTextbox.callback then
+                    task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
+                end
+            end
         end
     end)
 
@@ -793,17 +813,6 @@ local function initialize()
                 end
             end
             UI.active = nil
-        end
-    end)
-
-    UI.connections.textInput = userInputService.TextInput:Connect(function(text)
-        if UI.focusedTextbox and not UI.bindingKey and text and text ~= "" and text ~= "\r" and text ~= "\n" then
-            UI.focusedTextbox.value = UI.focusedTextbox.value .. text
-            LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
-            saveConfiguration()
-            if UI.focusedTextbox.callback then
-                task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
-            end
         end
     end)
 
