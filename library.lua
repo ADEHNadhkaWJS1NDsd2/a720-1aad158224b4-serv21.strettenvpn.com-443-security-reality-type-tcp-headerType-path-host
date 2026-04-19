@@ -1,11 +1,8 @@
-local coreGuiService = game:GetService("CoreGui")
 local userInputService = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
-local tweenService = game:GetService("TweenService")
-local textService = game:GetService("TextService")
 local httpService = game:GetService("HttpService")
-local workspaceService = game:GetService("Workspace")
 local playersService = game:GetService("Players")
+local workspaceService = game:GetService("Workspace")
 
 local LibraryApi = {
     Flags = {},
@@ -13,115 +10,93 @@ local LibraryApi = {
     ConfigName = "AutoSaveConfig.json"
 }
 
+local localPlayer = playersService.LocalPlayer
+local mouse = localPlayer:GetMouse()
+
 local colors = {
-    mainBackground = Color3.new(0.035294, 0.035294, 0.050980),
-    sidebarBackground = Color3.new(0.050980, 0.050980, 0.066666),
-    sectionBackground = Color3.new(0.066666, 0.066666, 0.082352),
-    elementBackground = Color3.new(0.090196, 0.090196, 0.105882),
-    elementHoverBackground = Color3.new(0.121568, 0.121568, 0.145098),
-    borderColor = Color3.new(0.105882, 0.105882, 0.133333),
-    borderLightColor = Color3.new(0.172549, 0.172549, 0.211764),
-    accentColor = Color3.new(0.423529, 0.576470, 0.988235),
-    accentGradientColor1 = Color3.new(0.423529, 0.576470, 0.988235),
-    accentGradientColor2 = Color3.new(0.619607, 0.462745, 0.988235),
-    textWhiteColor = Color3.new(0.952941, 0.952941, 0.972549),
-    textDarkColor = Color3.new(0.541176, 0.541176, 0.580392),
-    tooltipBackground = Color3.new(0.043137, 0.043137, 0.058823),
-    notificationInfoColor = Color3.new(0.247058, 0.635294, 0.980392),
-    notificationSuccessColor = Color3.new(0.247058, 0.980392, 0.490196),
-    notificationWarningColor = Color3.new(0.980392, 0.819607, 0.247058),
-    notificationErrorColor = Color3.new(0.980392, 0.247058, 0.247058)
+    mainBackground       = Color3.new(0.035294, 0.035294, 0.050980),
+    sidebarBackground    = Color3.new(0.050980, 0.050980, 0.066666),
+    sectionBackground    = Color3.new(0.066666, 0.066666, 0.082352),
+    elementBackground    = Color3.new(0.090196, 0.090196, 0.105882),
+    elementHover         = Color3.new(0.121568, 0.121568, 0.145098),
+    borderColor          = Color3.new(0.105882, 0.105882, 0.133333),
+    borderLight          = Color3.new(0.172549, 0.172549, 0.211764),
+    accentColor          = Color3.new(0.423529, 0.576470, 0.988235),
+    accentGrad1          = Color3.new(0.423529, 0.576470, 0.988235),
+    accentGrad2          = Color3.new(0.619607, 0.462745, 0.988235),
+    textWhite            = Color3.new(0.952941, 0.952941, 0.972549),
+    textDark             = Color3.new(0.541176, 0.541176, 0.580392),
+    tooltipBg            = Color3.new(0.043137, 0.043137, 0.058823),
+    notifInfo            = Color3.new(0.247058, 0.635294, 0.980392),
+    notifSuccess         = Color3.new(0.247058, 0.980392, 0.490196),
+    notifWarning         = Color3.new(0.980392, 0.819607, 0.247058),
+    notifError           = Color3.new(0.980392, 0.247058, 0.247058)
 }
 
-local mainFont = Enum.Font.GothamMedium
-local boldFont = Enum.Font.GothamBold
+local screenW, screenH = 0, 0
+local function updateScreen()
+    local vp = workspaceService.CurrentCamera.ViewportSize
+    screenW = vp.X
+    screenH = vp.Y
+end
+updateScreen()
+workspaceService.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScreen)
 
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = httpService:GenerateGUID(false)
-screenGui.Parent = coreGuiService
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.DisplayOrder = 999
-screenGui.IgnoreGuiInset = true
-
-local tooltipFrame = Instance.new("Frame")
-tooltipFrame.BackgroundColor3 = colors.tooltipBackground
-tooltipFrame.BackgroundTransparency = 0.158372
-tooltipFrame.Size = UDim2.new(0, 0, 0, 24)
-tooltipFrame.ZIndex = 2000
-tooltipFrame.Visible = false
-tooltipFrame.Parent = screenGui
-
-local tooltipCorner = Instance.new("UICorner")
-tooltipCorner.CornerRadius = UDim.new(0, 4)
-tooltipCorner.Parent = tooltipFrame
-
-local tooltipStroke = Instance.new("UIStroke")
-tooltipStroke.Color = colors.borderLightColor
-tooltipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-tooltipStroke.Transparency = 1
-tooltipStroke.Parent = tooltipFrame
-
-local tooltipText = Instance.new("TextLabel")
-tooltipText.Size = UDim2.new(1, -16, 1, 0)
-tooltipText.Position = UDim2.new(0, 8, 0, 0)
-tooltipText.BackgroundTransparency = 1
-tooltipText.TextColor3 = colors.textWhiteColor
-tooltipText.TextTransparency = 1
-tooltipText.TextSize = 12
-tooltipText.Font = mainFont
-tooltipText.TextXAlignment = Enum.TextXAlignment.Left
-tooltipText.ZIndex = 2001
-tooltipText.Parent = tooltipFrame
-
-local notificationContainer = Instance.new("Frame")
-notificationContainer.Size = UDim2.new(0, 300, 1, -40)
-notificationContainer.Position = UDim2.new(1, -320, 0, 20)
-notificationContainer.BackgroundTransparency = 1
-notificationContainer.ZIndex = 1500
-notificationContainer.Parent = screenGui
-
-local notificationLayout = Instance.new("UIListLayout")
-notificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
-notificationLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-notificationLayout.Padding = UDim.new(0, 10)
-notificationLayout.Parent = notificationContainer
-
-local tooltipTargetText = ""
-
-local function animateElement(element, properties, speed)
-    local tween = tweenService:Create(element, TweenInfo.new(speed or 0.35, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), properties)
-    tween:Play()
-    return tween
+local drawObjects = {}
+local function newDraw(drawType)
+    local obj = Drawing.new(drawType)
+    table.insert(drawObjects, obj)
+    return obj
 end
 
-local function applyAcrylicEffect(parent, transparency, cornerRadius)
-    local blurImage = Instance.new("ImageLabel")
-    blurImage.Size = UDim2.new(1, 0, 1, 0)
-    blurImage.BackgroundTransparency = 1
-    blurImage.Image = "rbxassetid://8992230113"
-    blurImage.TileSize = UDim2.new(0, 256, 0, 256)
-    blurImage.ScaleType = Enum.ScaleType.Tile
-    blurImage.ImageTransparency = transparency or 0.88732
-    blurImage.ZIndex = parent.ZIndex - 1
-    blurImage.Parent = parent
-    if cornerRadius then
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = cornerRadius
-        corner.Parent = blurImage
+local function lerp(a, b, t) return a + (b - a) * t end
+local function lerpColor(c1, c2, t)
+    return Color3.new(
+        lerp(c1.R, c2.R, t),
+        lerp(c1.G, c2.G, t),
+        lerp(c1.B, c2.B, t)
+    )
+end
+
+local tweens = {}
+local function animateProp(obj, props, duration)
+    local id = tostring(obj) .. tostring(math.random())
+    local startTime = tick()
+    local startVals = {}
+    for k, v in pairs(props) do
+        if typeof(obj[k]) == "Color3" or typeof(v) == "Color3" then
+            startVals[k] = obj[k]
+        elseif typeof(obj[k]) == "Vector2" or typeof(v) == "Vector2" then
+            startVals[k] = obj[k]
+        elseif type(obj[k]) == "number" or type(v) == "number" then
+            startVals[k] = obj[k] or 0
+        end
     end
-    return blurImage
+    tweens[id] = {obj = obj, props = props, startVals = startVals, startTime = startTime, duration = duration or 0.25}
+    return id
 end
 
-local function showTooltip(textString)
-    if not textString or textString == "" then
-        tooltipTargetText = ""
-        return
+runService.RenderStepped:Connect(function()
+    local now = tick()
+    for id, tw in pairs(tweens) do
+        local elapsed = now - tw.startTime
+        local t = math.min(elapsed / tw.duration, 1)
+        local easedT = 1 - (1 - t)^3
+        for k, targetVal in pairs(tw.props) do
+            local startVal = tw.startVals[k]
+            if typeof(targetVal) == "Color3" and typeof(startVal) == "Color3" then
+                tw.obj[k] = lerpColor(startVal, targetVal, easedT)
+            elseif typeof(targetVal) == "Vector2" and typeof(startVal) == "Vector2" then
+                tw.obj[k] = Vector2.new(lerp(startVal.X, targetVal.X, easedT), lerp(startVal.Y, targetVal.Y, easedT))
+            elseif type(targetVal) == "number" and type(startVal) == "number" then
+                tw.obj[k] = lerp(startVal, targetVal, easedT)
+            end
+        end
+        if t >= 1 then
+            tweens[id] = nil
+        end
     end
-    local textBounds = textService:GetTextSize(textString, 12, mainFont, Vector2.new(500, 24))
-    tooltipFrame.Size = UDim2.new(0, textBounds.X + 16, 0, 24)
-    tooltipText.Text = textString
-    tooltipTargetText = textString
-end
+end)
 
 local function snapValue(value, step)
     if not step then return value end
@@ -130,8 +105,8 @@ end
 
 local function formatValue(value, step)
     if step and step < 1 then
-        local decimalPlaces = tostring(step):len() - 2
-        return string.format("%."..decimalPlaces.."f", value)
+        local dec = #tostring(step) - 2
+        return string.format("%." .. dec .. "f", value)
     end
     return tostring(value)
 end
@@ -139,43 +114,41 @@ end
 local function saveConfiguration()
     pcall(function()
         if not isfolder or not writefile then return end
-        if not isfolder(LibraryApi.FolderName) then
-            makefolder(LibraryApi.FolderName)
-        end
-        local serializedData = {}
-        for key, val in pairs(LibraryApi.Flags) do
-            if typeof(val) == "Color3" then
-                serializedData[key] = {Type = "Color3", R = val.R, G = val.G, B = val.B}
-            elseif typeof(val) == "EnumItem" then
-                serializedData[key] = {Type = "KeyCode", Name = val.Name}
-            elseif type(val) == "table" and val.Min and val.Max then
-                serializedData[key] = {Type = "Range", Min = val.Min, Max = val.Max}
+        if not isfolder(LibraryApi.FolderName) then makefolder(LibraryApi.FolderName) end
+        local data = {}
+        for k, v in pairs(LibraryApi.Flags) do
+            if typeof(v) == "Color3" then
+                data[k] = {Type = "Color3", R = v.R, G = v.G, B = v.B}
+            elseif typeof(v) == "EnumItem" then
+                data[k] = {Type = "KeyCode", Name = v.Name}
+            elseif type(v) == "table" and v.Min and v.Max then
+                data[k] = {Type = "Range", Min = v.Min, Max = v.Max}
             else
-                serializedData[key] = val
+                data[k] = v
             end
         end
-        writefile(LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName, httpService:JSONEncode(serializedData))
+        writefile(LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName, httpService:JSONEncode(data))
     end)
 end
 
 local function loadConfiguration()
     pcall(function()
         if not isfolder or not isfile or not readfile then return end
-        local fullPath = LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName
-        if isfile(fullPath) then
-            local decodedData = httpService:JSONDecode(readfile(fullPath))
-            if type(decodedData) == "table" then
-                for key, val in pairs(decodedData) do
-                    if type(val) == "table" then
-                        if val.Type == "Color3" then
-                            LibraryApi.Flags[key] = Color3.new(val.R, val.G, val.B)
-                        elseif val.Type == "KeyCode" then
-                            LibraryApi.Flags[key] = Enum.KeyCode[val.Name] or Enum.KeyCode.Unknown
-                        elseif val.Type == "Range" then
-                            LibraryApi.Flags[key] = {Min = val.Min, Max = val.Max}
+        local path = LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName
+        if isfile(path) then
+            local decoded = httpService:JSONDecode(readfile(path))
+            if type(decoded) == "table" then
+                for k, v in pairs(decoded) do
+                    if type(v) == "table" then
+                        if v.Type == "Color3" then
+                            LibraryApi.Flags[k] = Color3.new(v.R, v.G, v.B)
+                        elseif v.Type == "KeyCode" then
+                            LibraryApi.Flags[k] = Enum.KeyCode[v.Name] or Enum.KeyCode.Unknown
+                        elseif v.Type == "Range" then
+                            LibraryApi.Flags[k] = {Min = v.Min, Max = v.Max}
                         end
                     else
-                        LibraryApi.Flags[key] = val
+                        LibraryApi.Flags[k] = v
                     end
                 end
             end
@@ -185,954 +158,928 @@ end
 
 loadConfiguration()
 
+local function drawRect(x, y, w, h, color, transparency, zindex, filled)
+    local sq = newDraw("Square")
+    sq.Position = Vector2.new(x, y)
+    sq.Size = Vector2.new(w, h)
+    sq.Color = color
+    sq.Transparency = 1 - (transparency or 1)
+    sq.ZIndex = zindex or 1
+    sq.Filled = filled ~= false
+    sq.Visible = true
+    return sq
+end
+
+local function drawRectOutline(x, y, w, h, color, transparency, zindex, thickness)
+    local sq = newDraw("Square")
+    sq.Position = Vector2.new(x, y)
+    sq.Size = Vector2.new(w, h)
+    sq.Color = color
+    sq.Transparency = 1 - (transparency or 1)
+    sq.ZIndex = zindex or 1
+    sq.Filled = false
+    sq.Thickness = thickness or 1
+    sq.Visible = true
+    return sq
+end
+
+local function drawText(text, x, y, size, color, transparency, zindex, font, outline)
+    local t = newDraw("Text")
+    t.Text = text
+    t.Position = Vector2.new(x, y)
+    t.FontSize = size or 13
+    t.Color = color
+    t.Transparency = 1 - (transparency or 1)
+    t.ZIndex = zindex or 1
+    t.Font = font or Drawing.Fonts.System
+    t.Outline = outline or false
+    t.Visible = true
+    return t
+end
+
+local function drawLine(x1, y1, x2, y2, color, transparency, zindex, thickness)
+    local ln = newDraw("Line")
+    ln.From = Vector2.new(x1, y1)
+    ln.To = Vector2.new(x2, y2)
+    ln.Color = color
+    ln.Transparency = 1 - (transparency or 1)
+    ln.ZIndex = zindex or 1
+    ln.Thickness = thickness or 1
+    ln.Visible = true
+    return ln
+end
+
+local function isPointInRect(px, py, rx, ry, rw, rh)
+    return px >= rx and px <= rx + rw and py >= ry and py <= ry + rh
+end
+
+local function getMousePos()
+    return mouse.X, mouse.Y
+end
+
+local tooltipObjs = {}
+local tooltipText = ""
+local tooltipVisible = false
+
+local function initTooltip()
+    local bg = newDraw("Square")
+    bg.Filled = true
+    bg.ZIndex = 200
+    bg.Visible = false
+    local border = newDraw("Square")
+    border.Filled = false
+    border.Thickness = 1
+    border.ZIndex = 201
+    border.Visible = false
+    local label = newDraw("Text")
+    label.ZIndex = 202
+    label.Font = Drawing.Fonts.System
+    label.FontSize = 12
+    label.Visible = false
+    tooltipObjs = {bg = bg, border = border, label = label}
+end
+initTooltip()
+
+local function showTooltip(text)
+    tooltipText = text or ""
+end
+
 runService.RenderStepped:Connect(function()
-    if tooltipTargetText ~= "" then
-        local mouseLocation = userInputService:GetMouseLocation()
-        tooltipFrame.Position = UDim2.new(0, mouseLocation.X + 15, 0, mouseLocation.Y + 15)
-        if not tooltipFrame.Visible then
-            tooltipFrame.Visible = true
-            animateElement(tooltipFrame, {BackgroundTransparency = 0.1837265}, 0.25)
-            animateElement(tooltipStroke, {Transparency = 0}, 0.25)
-            animateElement(tooltipText, {TextTransparency = 0}, 0.25)
-        end
+    if tooltipText ~= "" then
+        local mx, my = getMousePos()
+        local tw = #tooltipText * 7 + 16
+        tooltipObjs.bg.Position = Vector2.new(mx + 15, my + 15)
+        tooltipObjs.bg.Size = Vector2.new(tw, 22)
+        tooltipObjs.bg.Color = colors.tooltipBg
+        tooltipObjs.bg.Transparency = 0.85
+        tooltipObjs.bg.Visible = true
+        tooltipObjs.border.Position = Vector2.new(mx + 15, my + 15)
+        tooltipObjs.border.Size = Vector2.new(tw, 22)
+        tooltipObjs.border.Color = colors.borderLight
+        tooltipObjs.border.Transparency = 1
+        tooltipObjs.border.Visible = true
+        tooltipObjs.label.Text = tooltipText
+        tooltipObjs.label.Position = Vector2.new(mx + 23, my + 18)
+        tooltipObjs.label.Color = colors.textWhite
+        tooltipObjs.label.Transparency = 1
+        tooltipObjs.label.Visible = true
     else
-        animateElement(tooltipFrame, {BackgroundTransparency = 1}, 0.15)
-        animateElement(tooltipStroke, {Transparency = 1}, 0.15)
-        animateElement(tooltipText, {TextTransparency = 1}, 0.15)
-        task.delay(0.15, function()
-            if tooltipTargetText == "" then
-                tooltipFrame.Visible = false
-            end
-        end)
+        tooltipObjs.bg.Visible = false
+        tooltipObjs.border.Visible = false
+        tooltipObjs.label.Visible = false
     end
 end)
+
+local notifList = {}
 
 function LibraryApi:Notify(config)
     local title = config.Title or "Notification"
     local text = config.Text or ""
     local duration = config.Duration or 3
-    local notificationType = config.Type or "Info"
-    local accentColor = colors["notification" .. notificationType .. "Color"] or colors.accentColor
+    local ntype = config.Type or "Info"
+    local accent = colors["notif" .. ntype] or colors.accentColor
 
-    local notificationFrame = Instance.new("Frame")
-    notificationFrame.Size = UDim2.new(1, 0, 0, 60)
-    notificationFrame.Position = UDim2.new(1, 320, 0, 0)
-    notificationFrame.BackgroundColor3 = colors.mainBackground
-    notificationFrame.BackgroundTransparency = 0.28547
-    notificationFrame.ZIndex = 1501
-    notificationFrame.Parent = notificationContainer
+    local nx = screenW - 320
+    local baseY = screenH - 80
+    for _, n in ipairs(notifList) do
+        baseY = baseY - n.height - 10
+    end
 
-    local notificationCorner = Instance.new("UICorner")
-    notificationCorner.CornerRadius = UDim.new(0, 6)
-    notificationCorner.Parent = notificationFrame
+    local nHeight = 62
+    local notif = {}
+    notif.height = nHeight
 
-    local notificationStroke = Instance.new("UIStroke")
-    notificationStroke.Color = colors.borderLightColor
-    notificationStroke.Parent = notificationFrame
+    local bg = newDraw("Square")
+    bg.Filled = true
+    bg.Color = colors.mainBackground
+    bg.Transparency = 0.78
+    bg.ZIndex = 150
+    bg.Position = Vector2.new(nx, baseY)
+    bg.Size = Vector2.new(300, nHeight)
+    bg.Visible = true
 
-    applyAcrylicEffect(notificationFrame, 0.91238, UDim.new(0, 6))
+    local border = newDraw("Square")
+    border.Filled = false
+    border.Color = colors.borderLight
+    border.Transparency = 1
+    border.ZIndex = 151
+    border.Thickness = 1
+    border.Position = Vector2.new(nx, baseY)
+    border.Size = Vector2.new(300, nHeight)
+    border.Visible = true
 
-    local lineFrame = Instance.new("Frame")
-    lineFrame.Size = UDim2.new(0, 3, 1, -12)
-    lineFrame.Position = UDim2.new(0, 6, 0, 6)
-    lineFrame.BackgroundColor3 = accentColor
-    lineFrame.BorderSizePixel = 0
-    lineFrame.ZIndex = 1502
-    lineFrame.Parent = notificationFrame
+    local line = newDraw("Square")
+    line.Filled = true
+    line.Color = accent
+    line.Transparency = 1
+    line.ZIndex = 152
+    line.Position = Vector2.new(nx + 6, baseY + 6)
+    line.Size = Vector2.new(3, nHeight - 12)
+    line.Visible = true
 
-    local lineCorner = Instance.new("UICorner")
-    lineCorner.CornerRadius = UDim.new(0, 3)
-    lineCorner.Parent = lineFrame
+    local titleDraw = newDraw("Text")
+    titleDraw.Text = title
+    titleDraw.Color = colors.textWhite
+    titleDraw.Transparency = 1
+    titleDraw.FontSize = 14
+    titleDraw.Font = Drawing.Fonts.SystemBold
+    titleDraw.ZIndex = 153
+    titleDraw.Position = Vector2.new(nx + 16, baseY + 10)
+    titleDraw.Visible = true
 
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -24, 0, 16)
-    titleLabel.Position = UDim2.new(0, 16, 0, 8)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = title
-    titleLabel.TextColor3 = colors.textWhiteColor
-    titleLabel.TextSize = 13
-    titleLabel.Font = boldFont
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.ZIndex = 1502
-    titleLabel.Parent = notificationFrame
+    local textDraw = newDraw("Text")
+    textDraw.Text = text
+    textDraw.Color = colors.textDark
+    textDraw.Transparency = 1
+    textDraw.FontSize = 12
+    textDraw.Font = Drawing.Fonts.System
+    textDraw.ZIndex = 153
+    textDraw.Position = Vector2.new(nx + 16, baseY + 30)
+    textDraw.Visible = true
 
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, -24, 0, 24)
-    textLabel.Position = UDim2.new(0, 16, 0, 26)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Text = text
-    textLabel.TextColor3 = colors.textDarkColor
-    textLabel.TextSize = 12
-    textLabel.Font = mainFont
-    textLabel.TextXAlignment = Enum.TextXAlignment.Left
-    textLabel.TextWrapped = true
-    textLabel.ZIndex = 1502
-    textLabel.Parent = notificationFrame
-
-    animateElement(notificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.45)
+    notif.objs = {bg, border, line, titleDraw, textDraw}
+    table.insert(notifList, notif)
 
     task.delay(duration, function()
-        local hideTween = animateElement(notificationFrame, {Position = UDim2.new(1, 320, 0, 0)}, 0.45)
-        hideTween.Completed:Connect(function()
-            notificationFrame:Destroy()
-        end)
+        animateProp(bg, {Transparency = 0}, 0.4)
+        animateProp(border, {Transparency = 0}, 0.4)
+        animateProp(line, {Transparency = 0}, 0.4)
+        animateProp(titleDraw, {Transparency = 0}, 0.4)
+        animateProp(textDraw, {Transparency = 0}, 0.4)
+        task.wait(0.45)
+        for _, obj in ipairs(notif.objs) do
+            obj:Remove()
+        end
+        for i, n in ipairs(notifList) do
+            if n == notif then
+                table.remove(notifList, i)
+                break
+            end
+        end
     end)
 end
 
 function LibraryApi:CreateWindow(windowName)
-    local mainBackground = Instance.new("Frame")
-    mainBackground.Size = UDim2.new(0, 720, 0, 480)
-    mainBackground.Position = UDim2.new(0.5, -360, 0.5, -240)
-    mainBackground.BackgroundColor3 = colors.mainBackground
-    mainBackground.BackgroundTransparency = 0.18374
-    mainBackground.BorderSizePixel = 0
-    mainBackground.Active = true
-    mainBackground.Parent = screenGui
+    local WIN_W = 720
+    local WIN_H = 480
+    local TOPBAR_H = 36
+    local SIDEBAR_W = 150
+    local winX = math.floor(screenW / 2 - WIN_W / 2)
+    local winY = math.floor(screenH / 2 - WIN_H / 2)
 
-    local uiScaleModifier = Instance.new("UIScale")
-    uiScaleModifier.Parent = mainBackground
-    
-    local mainCorner = Instance.new("UICorner")
-    mainCorner.CornerRadius = UDim.new(0, 6)
-    mainCorner.Parent = mainBackground
-    
-    local mainStroke = Instance.new("UIStroke")
-    mainStroke.Color = colors.borderColor
-    mainStroke.Parent = mainBackground
+    local allWindowObjs = {}
+    local function regObj(o) table.insert(allWindowObjs, o) return o end
 
-    applyAcrylicEffect(mainBackground, 0.88741, UDim.new(0, 6))
+    local function wDraw(drawType) return regObj(newDraw(drawType)) end
+    local function wRect(x, y, w, h, color, trans, z)
+        local o = wDraw("Square")
+        o.Filled = true; o.Position = Vector2.new(x,y); o.Size = Vector2.new(w,h)
+        o.Color = color; o.Transparency = 1-(trans or 1); o.ZIndex = z or 1; o.Visible = true
+        return o
+    end
+    local function wRectBorder(x, y, w, h, color, trans, z, thick)
+        local o = wDraw("Square")
+        o.Filled = false; o.Position = Vector2.new(x,y); o.Size = Vector2.new(w,h)
+        o.Color = color; o.Transparency = 1-(trans or 1); o.ZIndex = z or 1
+        o.Thickness = thick or 1; o.Visible = true
+        return o
+    end
+    local function wText(text, x, y, size, color, trans, z, font)
+        local o = wDraw("Text")
+        o.Text = text; o.Position = Vector2.new(x,y); o.FontSize = size or 13
+        o.Color = color; o.Transparency = 1-(trans or 1); o.ZIndex = z or 1
+        o.Font = font or Drawing.Fonts.System; o.Visible = true
+        return o
+    end
+    local function wLine(x1, y1, x2, y2, color, trans, z, thick)
+        local o = wDraw("Line")
+        o.From = Vector2.new(x1,y1); o.To = Vector2.new(x2,y2)
+        o.Color = color; o.Transparency = 1-(trans or 1); o.ZIndex = z or 1
+        o.Thickness = thick or 1; o.Visible = true
+        return o
+    end
 
-    local topBar = Instance.new("Frame")
-    topBar.Size = UDim2.new(1, 0, 0, 36)
-    topBar.BackgroundColor3 = colors.sidebarBackground
-    topBar.BackgroundTransparency = 0.21847
-    topBar.BorderSizePixel = 0
-    topBar.Parent = mainBackground
-    
-    local topCorner = Instance.new("UICorner")
-    topCorner.CornerRadius = UDim.new(0, 6)
-    topCorner.Parent = topBar
+    local windowVisible = true
+    local Z_BASE = 10
+    local Z_TOP  = 15
+    local Z_UI   = 20
+    local Z_OVER = 50
 
-    local topHider = Instance.new("Frame")
-    topHider.Size = UDim2.new(1, 0, 0, 6)
-    topHider.Position = UDim2.new(0, 0, 1, -6)
-    topHider.BackgroundColor3 = colors.sidebarBackground
-    topHider.BackgroundTransparency = 0.21847
-    topHider.BorderSizePixel = 0
-    topHider.Parent = topBar
+    local mainBg    = wRect(winX, winY, WIN_W, WIN_H, colors.mainBackground, 0.82, Z_BASE)
+    local mainBord  = wRectBorder(winX, winY, WIN_W, WIN_H, colors.borderColor, 1, Z_BASE+1)
+    local topbarBg  = wRect(winX, winY, WIN_W, TOPBAR_H, colors.sidebarBackground, 0.82, Z_TOP)
+    local topBordLn = wLine(winX, winY+TOPBAR_H, winX+WIN_W, winY+TOPBAR_H, colors.borderColor, 1, Z_TOP+1)
+    local accentL1  = wLine(winX, winY, winX + math.floor(WIN_W/2), winY, colors.accentGrad1, 1, Z_TOP+2, 2)
+    local accentL2  = wLine(winX + math.floor(WIN_W/2), winY, winX+WIN_W, winY, colors.accentGrad2, 1, Z_TOP+2, 2)
+    local titleLbl  = wText(windowName, winX+15, winY+10, 14, colors.textWhite, 1, Z_TOP+3, Drawing.Fonts.SystemBold)
+    local sidebarBg = wRect(winX, winY+TOPBAR_H, SIDEBAR_W, WIN_H-TOPBAR_H, colors.sidebarBackground, 0.82, Z_BASE+1)
+    local sidebarBd = wLine(winX+SIDEBAR_W, winY+TOPBAR_H, winX+SIDEBAR_W, winY+WIN_H, colors.borderColor, 1, Z_BASE+2)
 
-    local accentLine = Instance.new("Frame")
-    accentLine.Size = UDim2.new(1, 0, 0, 2)
-    accentLine.BackgroundColor3 = Color3.new(1, 1, 1)
-    accentLine.BorderSizePixel = 0
-    accentLine.Parent = topBar
-    
-    local accentCorner = Instance.new("UICorner")
-    accentCorner.CornerRadius = UDim.new(0, 6)
-    accentCorner.Parent = accentLine
-
-    local accentGradient = Instance.new("UIGradient")
-    accentGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, colors.accentGradientColor1),
-        ColorSequenceKeypoint.new(1, colors.accentGradientColor2)
-    }
-    accentGradient.Parent = accentLine
-
-    local topBorder = Instance.new("Frame")
-    topBorder.Size = UDim2.new(1, 0, 0, 1)
-    topBorder.Position = UDim2.new(0, 0, 1, 0)
-    topBorder.BackgroundColor3 = colors.borderColor
-    topBorder.BorderSizePixel = 0
-    topBorder.Parent = topBar
-
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -20, 1, -2)
-    titleLabel.Position = UDim2.new(0, 15, 0, 2)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = windowName
-    titleLabel.TextColor3 = colors.textWhiteColor
-    titleLabel.TextSize = 13
-    titleLabel.Font = boldFont
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.Parent = topBar
-
-    local sidebarFrame = Instance.new("Frame")
-    sidebarFrame.Size = UDim2.new(0, 150, 1, -37)
-    sidebarFrame.Position = UDim2.new(0, 0, 0, 37)
-    sidebarFrame.BackgroundColor3 = colors.sidebarBackground
-    sidebarFrame.BackgroundTransparency = 0.21847
-    sidebarFrame.BorderSizePixel = 0
-    sidebarFrame.Parent = mainBackground
-    
-    local sidebarCorner = Instance.new("UICorner")
-    sidebarCorner.CornerRadius = UDim.new(0, 6)
-    sidebarCorner.Parent = sidebarFrame
-
-    local sidebarHiderRight = Instance.new("Frame")
-    sidebarHiderRight.Size = UDim2.new(0, 6, 1, 0)
-    sidebarHiderRight.Position = UDim2.new(1, -6, 0, 0)
-    sidebarHiderRight.BackgroundColor3 = colors.sidebarBackground
-    sidebarHiderRight.BackgroundTransparency = 0.21847
-    sidebarHiderRight.BorderSizePixel = 0
-    sidebarHiderRight.Parent = sidebarFrame
-
-    local sidebarHiderTop = Instance.new("Frame")
-    sidebarHiderTop.Size = UDim2.new(1, 0, 0, 6)
-    sidebarHiderTop.BackgroundColor3 = colors.sidebarBackground
-    sidebarHiderTop.BackgroundTransparency = 0.21847
-    sidebarHiderTop.BorderSizePixel = 0
-    sidebarHiderTop.Parent = sidebarFrame
-
-    local sidebarBorder = Instance.new("Frame")
-    sidebarBorder.Size = UDim2.new(0, 1, 1, 0)
-    sidebarBorder.Position = UDim2.new(1, 0, 0, 0)
-    sidebarBorder.BackgroundColor3 = colors.borderColor
-    sidebarBorder.BorderSizePixel = 0
-    sidebarBorder.Parent = sidebarFrame
-
-    local tabScrollingFrame = Instance.new("ScrollingFrame")
-    tabScrollingFrame.Size = UDim2.new(1, -10, 1, -10)
-    tabScrollingFrame.Position = UDim2.new(0, 5, 0, 5)
-    tabScrollingFrame.BackgroundTransparency = 1
-    tabScrollingFrame.BorderSizePixel = 0
-    tabScrollingFrame.ScrollBarThickness = 0
-    tabScrollingFrame.Parent = sidebarFrame
-
-    local tabLayout = Instance.new("UIListLayout")
-    tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    tabLayout.Padding = UDim.new(0, 4)
-    tabLayout.Parent = tabScrollingFrame
-
-    local contentAreaFrame = Instance.new("Frame")
-    contentAreaFrame.Size = UDim2.new(1, -151, 1, -37)
-    contentAreaFrame.Position = UDim2.new(0, 151, 0, 37)
-    contentAreaFrame.BackgroundTransparency = 1
-    contentAreaFrame.Parent = mainBackground
-
-    local mobileToggleButton = Instance.new("ImageButton")
-    mobileToggleButton.Size = UDim2.new(0, 50, 0, 50)
-    mobileToggleButton.Position = UDim2.new(0, 20, 0.5, -25)
-    mobileToggleButton.BackgroundColor3 = colors.mainBackground
-    mobileToggleButton.BorderSizePixel = 0
-    mobileToggleButton.ZIndex = 1000
-    mobileToggleButton.Visible = userInputService.TouchEnabled
-    mobileToggleButton.Parent = screenGui
-    
-    local success, avatarImage = pcall(function()
-        return playersService:GetUserThumbnailAsync(playersService.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-    end)
-    mobileToggleButton.Image = success and avatarImage or ""
-
-    local mobileToggleCorner = Instance.new("UICorner")
-    mobileToggleCorner.CornerRadius = UDim.new(1, 0)
-    mobileToggleCorner.Parent = mobileToggleButton
-
-    local mobileToggleStroke = Instance.new("UIStroke")
-    mobileToggleStroke.Color = colors.accentColor
-    mobileToggleStroke.Thickness = 2
-    mobileToggleStroke.Parent = mobileToggleButton
-
-    local isToggleDragging = false
-    local toggleDragInput = nil
-    local toggleDragStart = nil
-    local toggleStartPos = nil
-
-    mobileToggleButton.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isToggleDragging = true
-            toggleDragStart = input.Position
-            toggleStartPos = mobileToggleButton.Position
+    local function setWindowVisible(v)
+        windowVisible = v
+        for _, obj in ipairs(allWindowObjs) do
+            pcall(function() obj.Visible = v end)
         end
-    end)
-
-    mobileToggleButton.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            toggleDragInput = input
-        end
-    end)
-
-    userInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isToggleDragging = false
-        end
-    end)
-
-    runService.RenderStepped:Connect(function()
-        if isToggleDragging and toggleDragInput then
-            local delta = toggleDragInput.Position - toggleDragStart
-            mobileToggleButton.Position = UDim2.new(toggleStartPos.X.Scale, toggleStartPos.X.Offset + delta.X, toggleStartPos.Y.Scale, toggleStartPos.Y.Offset + delta.Y)
-        end
-    end)
-
-    local toggleClickTime = 0
-    mobileToggleButton.MouseButton1Down:Connect(function()
-        toggleClickTime = tick()
-        animateElement(mobileToggleButton, {Size = UDim2.new(0, 45, 0, 45)}, 0.25)
-    end)
-    
-    mobileToggleButton.MouseButton1Up:Connect(function()
-        animateElement(mobileToggleButton, {Size = UDim2.new(0, 50, 0, 50)}, 0.25)
-        if tick() - toggleClickTime < 0.2 then
-            mainBackground.Visible = not mainBackground.Visible
-        end
-    end)
-
-    local function updateResponsiveScale()
-        local vp = workspaceService.CurrentCamera.ViewportSize
-        if vp.X < 1 or vp.Y < 1 then 
-            uiScaleModifier.Scale = 1
-            return
-        end
-        local scaleX = vp.X / 800
-        local scaleY = vp.Y / 500
-        local scale = math.min(scaleX, scaleY)
-        if scale < 1 then
-            uiScaleModifier.Scale = math.clamp(scale * 0.95, 0.4, 1)
-        else
-            uiScaleModifier.Scale = 1
+        if not v then
+            tooltipObjs.bg.Visible = false
+            tooltipObjs.border.Visible = false
+            tooltipObjs.label.Visible = false
+            tooltipText = ""
         end
     end
 
-    workspaceService.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
-    updateResponsiveScale()
-
     local isDragging = false
-    local dragInput = nil
-    local dragStart = nil
-    local startPosition = nil
-    local targetPosition = mainBackground.Position
+    local dragOffX, dragOffY = 0, 0
 
-    topBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isDragging = true
-            dragStart = input.Position
-            startPosition = mainBackground.Position
+    local function updateWindowPos()
+        mainBg.Position    = Vector2.new(winX, winY)
+        mainBord.Position  = Vector2.new(winX, winY)
+        topbarBg.Position  = Vector2.new(winX, winY)
+        topBordLn.From     = Vector2.new(winX, winY+TOPBAR_H)
+        topBordLn.To       = Vector2.new(winX+WIN_W, winY+TOPBAR_H)
+        accentL1.From      = Vector2.new(winX, winY)
+        accentL1.To        = Vector2.new(winX + math.floor(WIN_W/2), winY)
+        accentL2.From      = Vector2.new(winX + math.floor(WIN_W/2), winY)
+        accentL2.To        = Vector2.new(winX+WIN_W, winY)
+        titleLbl.Position  = Vector2.new(winX+15, winY+11)
+        sidebarBg.Position = Vector2.new(winX, winY+TOPBAR_H)
+        sidebarBd.From     = Vector2.new(winX+SIDEBAR_W, winY+TOPBAR_H)
+        sidebarBd.To       = Vector2.new(winX+SIDEBAR_W, winY+WIN_H)
+    end
+
+    userInputService.InputBegan:Connect(function(input, gpe)
+        if not windowVisible then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mx, my = getMousePos()
+            if isPointInRect(mx, my, winX, winY, WIN_W, TOPBAR_H) then
+                isDragging = true
+                dragOffX = mx - winX
+                dragOffY = my - winY
+            end
         end
-    end)
-
-    topBar.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then 
-            dragInput = input 
+        if not gpe and input.KeyCode == Enum.KeyCode.Delete then
+            setWindowVisible(not windowVisible)
         end
     end)
 
     userInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-            isDragging = false 
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = false
         end
     end)
 
     runService.RenderStepped:Connect(function()
-        if isDragging and dragInput then
-            local delta = dragInput.Position - dragStart
-            targetPosition = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + (delta.X / uiScaleModifier.Scale), startPosition.Y.Scale, startPosition.Y.Offset + (delta.Y / uiScaleModifier.Scale))
+        if isDragging then
+            local mx, my = getMousePos()
+            winX = mx - dragOffX
+            winY = my - dragOffY
+            winX = math.clamp(winX, 0, screenW - WIN_W)
+            winY = math.clamp(winY, 0, screenH - WIN_H)
+            updateWindowPos()
+            if windowContext and windowContext.Active_Tab then
+                windowContext.Active_Tab:_repositionAll()
+            end
         end
-        mainBackground.Position = mainBackground.Position:Lerp(targetPosition, 0.25)
     end)
 
     local windowContext = { Tabs = {}, Active_Tab = nil }
 
-    function windowContext:Tab_Create(tabName, iconId)
+    local tabButtonList = {}
+    local TAB_BTN_H = 32
+    local TAB_PADDING = 4
+    local tabScrollOffset = 0
+    local maxTabScroll = 0
+    local TAB_AREA_Y = winY + TOPBAR_H + 5
+    local TAB_AREA_H = WIN_H - TOPBAR_H - 10
+
+    local function getTabBtnY(index)
+        return winY + TOPBAR_H + 5 + (index - 1) * (TAB_BTN_H + TAB_PADDING) - tabScrollOffset
+    end
+
+    local function repositionTabButtons()
+        local totalH = #tabButtonList * (TAB_BTN_H + TAB_PADDING)
+        maxTabScroll = math.max(0, totalH - (WIN_H - TOPBAR_H - 10))
+        for i, tb in ipairs(tabButtonList) do
+            local ty = getTabBtnY(i)
+            tb.bg.Position    = Vector2.new(winX + 5, ty)
+            tb.ind.From       = Vector2.new(winX + 5, ty + math.floor(TAB_BTN_H/2) - 8)
+            tb.ind.To         = Vector2.new(winX + 5, ty + math.floor(TAB_BTN_H/2) + 8)
+            tb.label.Position = Vector2.new(winX + 16, ty + 9)
+            local inBounds = ty >= winY + TOPBAR_H and ty + TAB_BTN_H <= winY + WIN_H
+            tb.bg.Visible    = windowVisible and inBounds
+            tb.ind.Visible   = windowVisible and inBounds and tb.active
+            tb.label.Visible = windowVisible and inBounds
+        end
+    end
+
+    userInputService.InputChanged:Connect(function(input)
+        if not windowVisible then return end
+        if input.UserInputType == Enum.UserInputType.MouseWheel then
+            local mx, my = getMousePos()
+            if isPointInRect(mx, my, winX, winY + TOPBAR_H, SIDEBAR_W, WIN_H - TOPBAR_H) then
+                tabScrollOffset = math.clamp(tabScrollOffset - input.Position.Z * 20, 0, maxTabScroll)
+                repositionTabButtons()
+            end
+        end
+    end)
+
+    function windowContext:Tab_Create(tabName, _iconId)
+        local tabIndex = #self.Tabs + 1
         local tabData = {}
+        tabData.active = false
+        tabData.elements = {}
+        tabData.sections = {}
 
-        local tabButton = Instance.new("TextButton")
-        tabButton.Size = UDim2.new(1, 0, 0, 32)
-        tabButton.BackgroundColor3 = colors.elementHoverBackground
-        tabButton.BackgroundTransparency = 1
-        tabButton.Text = ""
-        tabButton.AutoButtonColor = false
-        tabButton.Parent = tabScrollingFrame
-        
-        local buttonCorner = Instance.new("UICorner")
-        buttonCorner.CornerRadius = UDim.new(0, 4)
-        buttonCorner.Parent = tabButton
+        local ty = getTabBtnY(tabIndex)
 
-        local tabLabel = Instance.new("TextLabel")
-        tabLabel.BackgroundTransparency = 1
-        tabLabel.Text = tabName
-        tabLabel.TextColor3 = colors.textDarkColor
-        tabLabel.TextSize = 12
-        tabLabel.Font = mainFont
-        tabLabel.TextXAlignment = Enum.TextXAlignment.Left
-        tabLabel.Parent = tabButton
+        local tbBg = wRect(winX+5, ty, SIDEBAR_W-10, TAB_BTN_H, colors.elementHover, 0, Z_UI)
+        local tbInd = wLine(winX+5, ty + TAB_BTN_H/2 - 8, winX+5, ty + TAB_BTN_H/2 + 8, colors.accentColor, 0, Z_UI+1, 2)
+        tbInd.Visible = false
+        local tbLbl = wText(tabName, winX+16, ty+9, 12, colors.textDark, 1, Z_UI+1)
 
-        if iconId and iconId ~= "" then
-            local tabIcon = Instance.new("ImageLabel")
-            tabIcon.Size = UDim2.new(0, 14, 0, 14)
-            tabIcon.Position = UDim2.new(0, 12, 0.5, -7)
-            tabIcon.BackgroundTransparency = 1
-            tabIcon.Image = iconId
-            tabIcon.ImageColor3 = colors.textDarkColor
-            tabIcon.Parent = tabButton
-            tabData.Icon = tabIcon
-            tabLabel.Position = UDim2.new(0, 34, 0, 0)
-            tabLabel.Size = UDim2.new(1, -44, 1, 0)
-        else
-            tabLabel.Position = UDim2.new(0, 12, 0, 0)
-            tabLabel.Size = UDim2.new(1, -20, 1, 0)
+        local tbEntry = {bg = tbBg, ind = tbInd, label = tbLbl, active = false}
+        table.insert(tabButtonList, tbEntry)
+
+        local CONTENT_X = winX + SIDEBAR_W + 8
+        local CONTENT_Y = winY + TOPBAR_H + 8
+        local CONTENT_W = WIN_W - SIDEBAR_W - 16
+        local CONTENT_H = WIN_H - TOPBAR_H - 16
+
+        local COL_W = math.floor((CONTENT_W - 10) / 2)
+        local LEFT_X = CONTENT_X
+        local RIGHT_X = CONTENT_X + COL_W + 10
+
+        local contentObjs = {}
+        local function regContent(o)
+            table.insert(contentObjs, o)
+            return o
         end
 
-        local tabIndicator = Instance.new("Frame")
-        tabIndicator.Size = UDim2.new(0, 2, 0, 0)
-        tabIndicator.Position = UDim2.new(0, 0, 0.5, 0)
-        tabIndicator.BackgroundColor3 = colors.accentColor
-        tabIndicator.BorderSizePixel = 0
-        tabIndicator.Parent = tabButton
-        
-        local indicatorCorner = Instance.new("UICorner")
-        indicatorCorner.CornerRadius = UDim.new(0, 2)
-        indicatorCorner.Parent = tabIndicator
+        local leftColY = CONTENT_Y
+        local rightColY = CONTENT_Y
+        local scrollOffsetLeft = 0
+        local scrollOffsetRight = 0
+        local totalLeftH = 0
+        local totalRightH = 0
 
-        local pageScrollingFrame = Instance.new("ScrollingFrame")
-        pageScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
-        pageScrollingFrame.BackgroundTransparency = 1
-        pageScrollingFrame.BorderSizePixel = 0
-        pageScrollingFrame.ScrollBarThickness = 2
-        pageScrollingFrame.ScrollBarImageColor3 = colors.accentColor
-        pageScrollingFrame.Visible = false
-        pageScrollingFrame.Parent = contentAreaFrame
+        local contentClipTop    = wRect(winX + SIDEBAR_W, winY + TOPBAR_H, WIN_W - SIDEBAR_W, 0, colors.mainBackground, 0, Z_BASE)
+        local contentClipBottom = wRect(winX + SIDEBAR_W, winY + WIN_H, WIN_W - SIDEBAR_W, 8, colors.mainBackground, 0, Z_BASE)
+        regContent(contentClipTop)
+        regContent(contentClipBottom)
 
-        local leftColumnFrame = Instance.new("Frame")
-        leftColumnFrame.Size = UDim2.new(0.5, -16, 1, 0)
-        leftColumnFrame.Position = UDim2.new(0, 10, 0, 10)
-        leftColumnFrame.BackgroundTransparency = 1
-        leftColumnFrame.Parent = pageScrollingFrame
+        local function setContentVisible(v)
+            for _, obj in ipairs(contentObjs) do
+                pcall(function() obj.Visible = v end)
+            end
+        end
 
-        local rightColumnFrame = Instance.new("Frame")
-        rightColumnFrame.Size = UDim2.new(0.5, -16, 1, 0)
-        rightColumnFrame.Position = UDim2.new(0.5, 6, 0, 10)
-        rightColumnFrame.BackgroundTransparency = 1
-        rightColumnFrame.Parent = pageScrollingFrame
-
-        local leftColumnLayout = Instance.new("UIListLayout")
-        leftColumnLayout.Padding = UDim.new(0, 10)
-        leftColumnLayout.Parent = leftColumnFrame
-
-        local rightColumnLayout = Instance.new("UIListLayout")
-        rightColumnLayout.Padding = UDim.new(0, 10)
-        rightColumnLayout.Parent = rightColumnFrame
-
-        runService.RenderStepped:Connect(function()
-            local maxColumnHeight = math.max(leftColumnLayout.AbsoluteContentSize.Y, rightColumnLayout.AbsoluteContentSize.Y)
-            pageScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, maxColumnHeight + 20)
-            tabScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, tabLayout.AbsoluteContentSize.Y + 10)
-        end)
+        function tabData:_repositionAll()
+            CONTENT_X = winX + SIDEBAR_W + 8
+            CONTENT_Y = winY + TOPBAR_H + 8
+            LEFT_X    = CONTENT_X
+            RIGHT_X   = CONTENT_X + COL_W + 10
+            contentClipBottom.Position = Vector2.new(winX + SIDEBAR_W, winY + WIN_H)
+            contentClipTop.Position    = Vector2.new(winX + SIDEBAR_W, winY + TOPBAR_H)
+            for _, sec in ipairs(tabData.sections) do
+                if sec._reposition then sec:_reposition() end
+            end
+        end
 
         function tabData:Activate()
             if windowContext.Active_Tab == tabData then return end
             if windowContext.Active_Tab then
-                animateElement(windowContext.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.3)
-                animateElement(windowContext.Active_Tab.Lbl, {TextColor3 = colors.textDarkColor}, 0.3)
-                if windowContext.Active_Tab.Icon then animateElement(windowContext.Active_Tab.Icon, {ImageColor3 = colors.textDarkColor}, 0.3) end
-                animateElement(windowContext.Active_Tab.Ind, {Size = UDim2.new(0, 2, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.3)
-                windowContext.Active_Tab.Page.Visible = false
+                local prevIdx = nil
+                for i, t in ipairs(windowContext.Tabs) do if t == windowContext.Active_Tab then prevIdx = i break end end
+                if prevIdx then
+                    local tb = tabButtonList[prevIdx]
+                    animateProp(tb.bg, {Transparency = 0}, 0.25)
+                    animateProp(tb.label, {Color = colors.textDark}, 0.25)
+                    tb.ind.Visible = false
+                    tb.active = false
+                end
+                windowContext.Active_Tab:_setVisible(false)
             end
             windowContext.Active_Tab = tabData
-            pageScrollingFrame.Visible = true
-            animateElement(tabButton, {BackgroundTransparency = 0.11847}, 0.3)
-            animateElement(tabLabel, {TextColor3 = colors.textWhiteColor}, 0.3)
-            if tabData.Icon then animateElement(tabData.Icon, {ImageColor3 = colors.accentColor}, 0.3) end
-            animateElement(tabIndicator, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.3)
+            local myIdx = nil
+            for i, t in ipairs(windowContext.Tabs) do if t == tabData then myIdx = i break end end
+            if myIdx then
+                local tb = tabButtonList[myIdx]
+                animateProp(tb.bg, {Transparency = 0.85}, 0.25)
+                animateProp(tb.label, {Color = colors.textWhite}, 0.25)
+                tb.ind.Visible = true
+                tb.active = true
+            end
+            setContentVisible(true)
         end
 
-        tabButton.MouseButton1Click:Connect(function() tabData:Activate() end)
+        function tabData:_setVisible(v)
+            setContentVisible(v)
+        end
 
-        tabData.Btn = tabButton
-        tabData.Lbl = tabLabel
-        tabData.Ind = tabIndicator
-        tabData.Page = pageScrollingFrame
+        userInputService.InputBegan:Connect(function(input)
+            if not windowVisible then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                local mx, my = getMousePos()
+                for i, tb in ipairs(tabButtonList) do
+                    if tabButtonList[i] == tbEntry then
+                        local ty2 = getTabBtnY(i)
+                        if isPointInRect(mx, my, winX+5, ty2, SIDEBAR_W-10, TAB_BTN_H) then
+                            windowContext.Tabs[i]:Activate()
+                        end
+                        break
+                    end
+                end
+            end
+        end)
 
-        table.insert(windowContext.Tabs, tabData)
-        if #windowContext.Tabs == 1 then tabData:Activate() end
+        userInputService.InputChanged:Connect(function(input)
+            if not windowVisible then return end
+            if windowContext.Active_Tab ~= tabData then return end
+            if input.UserInputType == Enum.UserInputType.MouseWheel then
+                local mx, my = getMousePos()
+                if isPointInRect(mx, my, winX + SIDEBAR_W, winY + TOPBAR_H, WIN_W - SIDEBAR_W, WIN_H - TOPBAR_H) then
+                    local delta = -input.Position.Z * 18
+                    if mx < winX + SIDEBAR_W + COL_W + 5 then
+                        scrollOffsetLeft = math.max(0, scrollOffsetLeft + delta)
+                    else
+                        scrollOffsetRight = math.max(0, scrollOffsetRight + delta)
+                    end
+                    for _, sec in ipairs(tabData.sections) do
+                        if sec._reposition then sec:_reposition() end
+                    end
+                end
+            end
+        end)
 
-        local function elementInjector(targetContainer)
+        table.insert(self.Tabs, tabData)
+        setContentVisible(false)
+        if #self.Tabs == 1 then tabData:Activate() end
+
+        local function elementInjector(targetSec, getSectionBaseY, getSectionH, isLeft)
+            local elemObjs = {}
+            local elemHeights = {}
+            local elemPositions = {}
+            local totalElemH = 0
+
+            local function regElem(o) table.insert(elemObjs, o) return o end
+            local function getScrollOff() return isLeft and scrollOffsetLeft or scrollOffsetRight end
+
+            local function elemBaseX() return isLeft and LEFT_X + 8 or RIGHT_X + 8 end
+            local function elemWidth() return COL_W - 16 end
+
+            local function getElemY(localY)
+                local secY = getSectionBaseY()
+                return secY + 32 + localY - getScrollOff()
+            end
+
+            local function isInBounds(ey, eh)
+                local top = winY + TOPBAR_H
+                local bot = winY + WIN_H
+                return ey + eh > top and ey < bot
+            end
+
+            local function clipObj(obj, ey, eh)
+                obj.Visible = windowVisible and isInBounds(ey, eh)
+            end
+
+            local function refreshAllElems()
+                local accumY = 0
+                for i, eList in ipairs(elemPositions) do
+                    local ey = getElemY(accumY)
+                    local eh = elemHeights[i]
+                    for _, od in ipairs(eList) do
+                        if od.obj and od.relY ~= nil then
+                            local ney = ey + od.relY
+                            if od.isLine then
+                                od.obj.From = Vector2.new(od.fromX or od.obj.From.X, ney + (od.fromYOff or 0))
+                                od.obj.To   = Vector2.new(od.toX   or od.obj.To.X,   ney + (od.toYOff   or 0))
+                            else
+                                od.obj.Position = Vector2.new(od.xPos or elemBaseX() + (od.xOff or 0), ney)
+                            end
+                            clipObj(od.obj, ey, eh)
+                        end
+                    end
+                    accumY = accumY + eh + 8
+                end
+                if isLeft then
+                    totalLeftH = accumY
+                else
+                    totalRightH = accumY
+                end
+            end
+
             local elements = {}
+            elements._regElem = function(h, objDataList)
+                table.insert(elemHeights, h)
+                table.insert(elemPositions, objDataList)
+                table.insert(elemObjs, objDataList)
+                for _, od in ipairs(objDataList) do
+                    if od.obj then regContent(od.obj) end
+                end
+                refreshAllElems()
+            end
+            elements._refresh = refreshAllElems
 
             function elements:Subtext_Create(text)
-                local subtextLabel = Instance.new("TextLabel")
-                subtextLabel.Size = UDim2.new(1, -10, 0, 14)
-                subtextLabel.BackgroundTransparency = 1
-                subtextLabel.Text = text
-                subtextLabel.TextColor3 = colors.textDarkColor
-                subtextLabel.TextSize = 11
-                subtextLabel.Font = mainFont
-                subtextLabel.TextXAlignment = Enum.TextXAlignment.Left
-                subtextLabel.Parent = targetContainer
+                local o = wText(text, elemBaseX(), getElemY(0), 11, colors.textDark, 1, Z_UI)
+                local od = {obj = o, relY = 0, xPos = elemBaseX()}
+                elements._regElem(14, {od})
             end
 
             function elements:Toggle_Create(name, flag, default, tooltip, callback)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or false)
+                local bx = elemBaseX()
+                local ew = elemWidth()
+                local curY = getElemY(totalElemH)
 
-                local toggleButton = Instance.new("TextButton")
-                toggleButton.Size = UDim2.new(1, 0, 0, 16)
-                toggleButton.BackgroundTransparency = 1
-                toggleButton.Text = ""
-                toggleButton.Parent = targetContainer
+                local cbBg   = wRect(bx+2, curY+1, 12, 12, LibraryApi.Flags[flag] and colors.accentColor or colors.elementBackground, 0.82, Z_UI)
+                local cbBord = wRectBorder(bx+2, curY+1, 12, 12, LibraryApi.Flags[flag] and colors.accentColor or colors.borderColor, 1, Z_UI+1)
+                local lbl    = wText(name, bx+20, curY+1, 12, LibraryApi.Flags[flag] and colors.textWhite or colors.textDark, 1, Z_UI+1)
 
-                local checkboxFrame = Instance.new("Frame")
-                checkboxFrame.Size = UDim2.new(0, 14, 0, 14)
-                checkboxFrame.Position = UDim2.new(0, 2, 0.5, -7)
-                checkboxFrame.BackgroundColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.elementBackground
-                checkboxFrame.BackgroundTransparency = 0.21847
-                checkboxFrame.Parent = toggleButton
-                
-                local checkboxCorner = Instance.new("UICorner")
-                checkboxCorner.CornerRadius = UDim.new(0, 3)
-                checkboxCorner.Parent = checkboxFrame
-                
-                local checkboxStroke = Instance.new("UIStroke")
-                checkboxStroke.Color = LibraryApi.Flags[flag] and colors.accentColor or colors.borderColor
-                checkboxStroke.Parent = checkboxFrame
+                local odList = {
+                    {obj = cbBg,   relY = 1,  xPos = bx+2},
+                    {obj = cbBord, relY = 1,  xPos = bx+2},
+                    {obj = lbl,    relY = 1,  xPos = bx+20},
+                }
+                elements._regElem(16, odList)
 
-                local toggleLabel = Instance.new("TextLabel")
-                toggleLabel.Size = UDim2.new(1, -26, 1, 0)
-                toggleLabel.Position = UDim2.new(0, 24, 0, 0)
-                toggleLabel.BackgroundTransparency = 1
-                toggleLabel.Text = name
-                toggleLabel.TextColor3 = LibraryApi.Flags[flag] and colors.textWhiteColor or colors.textDarkColor
-                toggleLabel.TextSize = 12
-                toggleLabel.Font = mainFont
-                toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-                toggleLabel.Parent = toggleButton
+                local function doRefresh() refreshAllElems() end
 
-                toggleButton.MouseEnter:Connect(function()
-                    showTooltip(tooltip)
-                    if not LibraryApi.Flags[flag] then animateElement(checkboxStroke, {Color = colors.borderLightColor}, 0.25) end
-                end)
-                toggleButton.MouseLeave:Connect(function()
-                    showTooltip("")
-                    if not LibraryApi.Flags[flag] then animateElement(checkboxStroke, {Color = colors.borderColor}, 0.25) end
+                userInputService.InputBegan:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mx, my = getMousePos()
+                        local realY = cbBg.Position.Y - 1
+                        if isPointInRect(mx, my, bx, realY - 2, ew, 18) then
+                            LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
+                            local st = LibraryApi.Flags[flag]
+                            animateProp(cbBg,   {Color = st and colors.accentColor or colors.elementBackground}, 0.2)
+                            animateProp(cbBord, {Color = st and colors.accentColor or colors.borderColor}, 0.2)
+                            animateProp(lbl,    {Color = st and colors.textWhite or colors.textDark}, 0.2)
+                            saveConfiguration()
+                            if callback then task.spawn(callback, st) end
+                        end
+                    end
                 end)
 
-                toggleButton.MouseButton1Click:Connect(function()
-                    LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
-                    local newState = LibraryApi.Flags[flag]
-                    animateElement(checkboxFrame, {BackgroundColor3 = newState and colors.accentColor or colors.elementBackground}, 0.3)
-                    animateElement(checkboxStroke, {Color = newState and colors.accentColor or colors.borderColor}, 0.3)
-                    animateElement(toggleLabel, {TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor}, 0.3)
-                    saveConfiguration()
-                    if callback then task.spawn(callback, newState) end
+                userInputService.InputChanged:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local mx, my = getMousePos()
+                        local realY = cbBg.Position.Y - 1
+                        if isPointInRect(mx, my, bx, realY - 2, ew, 18) then
+                            showTooltip(tooltip or "")
+                            if not LibraryApi.Flags[flag] then
+                                cbBord.Color = colors.borderLight
+                            end
+                        else
+                            if tooltipText == (tooltip or "") then showTooltip("") end
+                            if not LibraryApi.Flags[flag] then
+                                cbBord.Color = colors.borderColor
+                            end
+                        end
+                    end
                 end)
             end
 
-            function elements:Slider_Create(name, flag, min, max, default, step, tooltip, callback)
-                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or snapValue(default or min, step)
+            function elements:Slider_Create(name, flag, minV, maxV, default, step, tooltip, callback)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or snapValue(default or minV, step)
+                local bx = elemBaseX()
+                local ew = elemWidth()
+                local curY = getElemY(0)
 
-                local sliderFrame = Instance.new("Frame")
-                sliderFrame.Size = UDim2.new(1, 0, 0, 36)
-                sliderFrame.BackgroundTransparency = 1
-                sliderFrame.Parent = targetContainer
+                local nameLbl  = wText(name, bx+2, curY, 12, colors.textWhite, 1, Z_UI)
+                local valLbl   = wText(formatValue(LibraryApi.Flags[flag], step), bx+ew-38, curY, 12, colors.textWhite, 1, Z_UI)
+                local trackBg  = wRect(bx+2, curY+18, ew-4, 6, colors.elementBackground, 0.82, Z_UI)
+                local trackBd  = wRectBorder(bx+2, curY+18, ew-4, 6, colors.borderColor, 1, Z_UI+1)
+                local pct = (LibraryApi.Flags[flag] - minV) / (maxV - minV)
+                local fillW = math.max(1, math.floor((ew-4)*pct))
+                local fillBar  = wRect(bx+2, curY+18, fillW, 6, colors.accentColor, 1, Z_UI+1)
+                local knobX    = bx+2 + math.floor((ew-4)*pct)
+                local knob     = wRect(knobX-5, curY+14, 10, 10, colors.textWhite, 1, Z_UI+2)
+                local knobBd   = wRectBorder(knobX-5, curY+14, 10, 10, colors.borderColor, 1, Z_UI+3)
 
-                local sliderLabel = Instance.new("TextLabel")
-                sliderLabel.Size = UDim2.new(1, -50, 0, 14)
-                sliderLabel.Position = UDim2.new(0, 2, 0, 0)
-                sliderLabel.BackgroundTransparency = 1
-                sliderLabel.Text = name
-                sliderLabel.TextColor3 = colors.textWhiteColor
-                sliderLabel.TextSize = 12
-                sliderLabel.Font = mainFont
-                sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-                sliderLabel.Parent = sliderFrame
-
-                local valueTextBox = Instance.new("TextBox")
-                valueTextBox.Size = UDim2.new(0, 40, 0, 14)
-                valueTextBox.Position = UDim2.new(1, -42, 0, 0)
-                valueTextBox.BackgroundTransparency = 1
-                valueTextBox.Text = formatValue(LibraryApi.Flags[flag], step)
-                valueTextBox.TextColor3 = colors.textWhiteColor
-                valueTextBox.TextSize = 12
-                valueTextBox.Font = mainFont
-                valueTextBox.TextXAlignment = Enum.TextXAlignment.Right
-                valueTextBox.ClearTextOnFocus = false
-                valueTextBox.Parent = sliderFrame
-
-                local sliderBackground = Instance.new("TextButton")
-                sliderBackground.Size = UDim2.new(1, -4, 0, 6)
-                sliderBackground.Position = UDim2.new(0, 2, 0, 24)
-                sliderBackground.BackgroundColor3 = colors.elementBackground
-                sliderBackground.BackgroundTransparency = 0.21847
-                sliderBackground.Text = ""
-                sliderBackground.AutoButtonColor = false
-                sliderBackground.Parent = sliderFrame
-                
-                local sliderBackgroundCorner = Instance.new("UICorner")
-                sliderBackgroundCorner.CornerRadius = UDim.new(0, 3)
-                sliderBackgroundCorner.Parent = sliderBackground
-                
-                local sliderBackgroundStroke = Instance.new("UIStroke")
-                sliderBackgroundStroke.Color = colors.borderColor
-                sliderBackgroundStroke.Parent = sliderBackground
-
-                local sliderFill = Instance.new("Frame")
-                local initialPercentage = (LibraryApi.Flags[flag] - min) / (max - min)
-                sliderFill.Size = UDim2.new(initialPercentage, 0, 1, 0)
-                sliderFill.BackgroundColor3 = colors.accentColor
-                sliderFill.Parent = sliderBackground
-                
-                local sliderFillCorner = Instance.new("UICorner")
-                sliderFillCorner.CornerRadius = UDim.new(0, 3)
-                sliderFillCorner.Parent = sliderFill
-
-                local sliderKnob = Instance.new("Frame")
-                sliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
-                sliderKnob.Size = UDim2.new(0, 10, 0, 10)
-                sliderKnob.Position = UDim2.new(initialPercentage, 0, 0.5, 0)
-                sliderKnob.BackgroundColor3 = colors.textWhiteColor
-                sliderKnob.ZIndex = 2
-                sliderKnob.Parent = sliderBackground
-                local sliderKnobCorner = Instance.new("UICorner"); sliderKnobCorner.CornerRadius = UDim.new(1, 0); sliderKnobCorner.Parent = sliderKnob
-                local sliderKnobStroke = Instance.new("UIStroke"); sliderKnobStroke.Color = colors.borderColor; sliderKnobStroke.Parent = sliderKnob
-
-                sliderBackground.MouseEnter:Connect(function()
-                    showTooltip(tooltip)
-                    animateElement(sliderBackgroundStroke, {Color = colors.borderLightColor}, 0.25)
-                end)
-                sliderBackground.MouseLeave:Connect(function()
-                    showTooltip("")
-                    animateElement(sliderBackgroundStroke, {Color = colors.borderColor}, 0.25)
-                end)
+                local odList = {
+                    {obj = nameLbl,  relY = 0,   xPos = bx+2},
+                    {obj = valLbl,   relY = 0,   xPos = bx+ew-38},
+                    {obj = trackBg,  relY = 18,  xPos = bx+2},
+                    {obj = trackBd,  relY = 18,  xPos = bx+2},
+                    {obj = fillBar,  relY = 18,  xPos = bx+2},
+                    {obj = knob,     relY = 14,  xPos = bx+2},
+                    {obj = knobBd,   relY = 14,  xPos = bx+2},
+                }
+                elements._regElem(36, odList)
 
                 local isSliding = false
 
-                local function setSliderValue(newValue)
-                    local clampedValue = math.clamp(newValue, min, max)
-                    local snappedValue = snapValue(clampedValue, step)
-                    if LibraryApi.Flags[flag] ~= snappedValue then
-                        LibraryApi.Flags[flag] = snappedValue
-                        local percentage = (snappedValue - min) / (max - min)
-                        animateElement(sliderFill, {Size = UDim2.new(percentage, 0, 1, 0)}, 0.15)
-                        animateElement(sliderKnob, {Position = UDim2.new(percentage, 0, 0.5, 0)}, 0.15)
-                        valueTextBox.Text = formatValue(snappedValue, step)
+                local function setVal(v)
+                    local clamped = math.clamp(v, minV, maxV)
+                    local snapped = snapValue(clamped, step)
+                    if LibraryApi.Flags[flag] ~= snapped then
+                        LibraryApi.Flags[flag] = snapped
+                        local np = (snapped - minV) / (maxV - minV)
+                        local trackY = trackBg.Position.Y
+                        local trackX = trackBg.Position.X
+                        local fw = math.max(1, math.floor((ew-4)*np))
+                        fillBar.Size = Vector2.new(fw, 6)
+                        knob.Position  = Vector2.new(trackX + math.floor((ew-4)*np) - 5, trackY - 4)
+                        knobBd.Position = knob.Position
+                        valLbl.Text = formatValue(snapped, step)
                         saveConfiguration()
-                        if callback then task.spawn(callback, snappedValue) end
+                        if callback then task.spawn(callback, snapped) end
                     end
                 end
 
-                sliderBackground.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        isSliding = true
-                        local percentage = math.clamp((input.Position.X - sliderBackground.AbsolutePosition.X) / sliderBackground.AbsoluteSize.X, 0, 1)
-                        setSliderValue(min + ((max - min) * percentage))
+                userInputService.InputBegan:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mx, my = getMousePos()
+                        local ty2 = trackBg.Position.Y
+                        if isPointInRect(mx, my, trackBg.Position.X, ty2-4, ew-4, 14) then
+                            isSliding = true
+                            local np = math.clamp((mx - trackBg.Position.X) / (ew-4), 0, 1)
+                            setVal(minV + (maxV - minV) * np)
+                        end
                     end
                 end)
 
                 userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-                        isSliding = false 
-                    end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then isSliding = false end
                 end)
 
                 userInputService.InputChanged:Connect(function(input)
-                    if isSliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then 
-                        local percentage = math.clamp((input.Position.X - sliderBackground.AbsolutePosition.X) / sliderBackground.AbsoluteSize.X, 0, 1)
-                        setSliderValue(min + ((max - min) * percentage))
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if isSliding and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local mx = getMousePos()
+                        local np = math.clamp((mx - trackBg.Position.X) / (ew-4), 0, 1)
+                        setVal(minV + (maxV - minV) * np)
                     end
-                end)
-
-                valueTextBox.FocusLost:Connect(function()
-                    local inputValue = tonumber(valueTextBox.Text)
-                    if inputValue then
-                        setSliderValue(inputValue)
-                    else
-                        valueTextBox.Text = formatValue(LibraryApi.Flags[flag], step)
+                    if input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local mx, my = getMousePos()
+                        if isPointInRect(mx, my, trackBg.Position.X, trackBg.Position.Y-4, ew-4, 14) then
+                            showTooltip(tooltip or "")
+                            trackBd.Color = colors.borderLight
+                        else
+                            if tooltipText == (tooltip or "") then showTooltip("") end
+                            trackBd.Color = colors.borderColor
+                        end
                     end
                 end)
             end
 
-            function elements:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltip, callback)
+            function elements:RangeSlider_Create(name, flag, minV, maxV, defaultMin, defaultMax, step, tooltip, callback)
                 if not LibraryApi.Flags[flag] then
-                    LibraryApi.Flags[flag] = {Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step)}
+                    LibraryApi.Flags[flag] = {Min = snapValue(defaultMin or minV, step), Max = snapValue(defaultMax or maxV, step)}
                 end
+                local bx = elemBaseX()
+                local ew = elemWidth()
 
-                local rangeSliderFrame = Instance.new("Frame")
-                rangeSliderFrame.Size = UDim2.new(1, 0, 0, 36)
-                rangeSliderFrame.BackgroundTransparency = 1
-                rangeSliderFrame.Parent = targetContainer
+                local nameLbl = wText(name, bx+2, 0, 12, colors.textWhite, 1, Z_UI)
+                local valLbl  = wText("", bx+ew-80, 0, 12, colors.textWhite, 1, Z_UI)
+                local trackBg = wRect(bx+2, 0, ew-4, 6, colors.elementBackground, 0.82, Z_UI)
+                local trackBd = wRectBorder(bx+2, 0, ew-4, 6, colors.borderColor, 1, Z_UI+1)
+                local fillBar = wRect(bx+2, 0, 1, 6, colors.accentColor, 1, Z_UI+1)
+                local minKnob = wRect(0, 0, 10, 10, colors.textWhite, 1, Z_UI+2)
+                local minKnobBd = wRectBorder(0, 0, 10, 10, colors.borderColor, 1, Z_UI+3)
+                local maxKnob = wRect(0, 0, 10, 10, colors.textWhite, 1, Z_UI+2)
+                local maxKnobBd = wRectBorder(0, 0, 10, 10, colors.borderColor, 1, Z_UI+3)
 
-                local rangeSliderLabel = Instance.new("TextLabel")
-                rangeSliderLabel.Size = UDim2.new(1, -80, 0, 14)
-                rangeSliderLabel.Position = UDim2.new(0, 2, 0, 0)
-                rangeSliderLabel.BackgroundTransparency = 1
-                rangeSliderLabel.Text = name
-                rangeSliderLabel.TextColor3 = colors.textWhiteColor
-                rangeSliderLabel.TextSize = 12
-                rangeSliderLabel.Font = mainFont
-                rangeSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-                rangeSliderLabel.Parent = rangeSliderFrame
+                local odList = {
+                    {obj = nameLbl,   relY = 0,  xPos = bx+2},
+                    {obj = valLbl,    relY = 0,  xPos = bx+ew-80},
+                    {obj = trackBg,   relY = 18, xPos = bx+2},
+                    {obj = trackBd,   relY = 18, xPos = bx+2},
+                    {obj = fillBar,   relY = 18, xPos = bx+2},
+                    {obj = minKnob,   relY = 14, xPos = bx+2},
+                    {obj = minKnobBd, relY = 14, xPos = bx+2},
+                    {obj = maxKnob,   relY = 14, xPos = bx+2},
+                    {obj = maxKnobBd, relY = 14, xPos = bx+2},
+                }
+                elements._regElem(36, odList)
 
-                local valueLabel = Instance.new("TextLabel")
-                valueLabel.Size = UDim2.new(0, 80, 0, 14)
-                valueLabel.Position = UDim2.new(1, -82, 0, 0)
-                valueLabel.BackgroundTransparency = 1
-                valueLabel.Text = formatValue(LibraryApi.Flags[flag].Min, step) .. " - " .. formatValue(LibraryApi.Flags[flag].Max, step)
-                valueLabel.TextColor3 = colors.textWhiteColor
-                valueLabel.TextSize = 12
-                valueLabel.Font = mainFont
-                valueLabel.TextXAlignment = Enum.TextXAlignment.Right
-                valueLabel.Parent = rangeSliderFrame
-
-                local rangeSliderBackground = Instance.new("TextButton")
-                rangeSliderBackground.Size = UDim2.new(1, -4, 0, 6)
-                rangeSliderBackground.Position = UDim2.new(0, 2, 0, 24)
-                rangeSliderBackground.BackgroundColor3 = colors.elementBackground
-                rangeSliderBackground.BackgroundTransparency = 0.21847
-                rangeSliderBackground.Text = ""
-                rangeSliderBackground.AutoButtonColor = false
-                rangeSliderBackground.Parent = rangeSliderFrame
-                
-                local rangeSliderBackgroundCorner = Instance.new("UICorner")
-                rangeSliderBackgroundCorner.CornerRadius = UDim.new(0, 3)
-                rangeSliderBackgroundCorner.Parent = rangeSliderBackground
-                
-                local rangeSliderBackgroundStroke = Instance.new("UIStroke")
-                rangeSliderBackgroundStroke.Color = colors.borderColor
-                rangeSliderBackgroundStroke.Parent = rangeSliderBackground
-
-                local rangeSliderFill = Instance.new("Frame")
-                rangeSliderFill.BackgroundColor3 = colors.accentColor
-                rangeSliderFill.Parent = rangeSliderBackground
-                
-                local rangeSliderFillCorner = Instance.new("UICorner")
-                rangeSliderFillCorner.CornerRadius = UDim.new(0, 3)
-                rangeSliderFillCorner.Parent = rangeSliderFill
-
-                local minRangeKnob = Instance.new("Frame")
-                minRangeKnob.AnchorPoint = Vector2.new(0.5, 0.5)
-                minRangeKnob.Size = UDim2.new(0, 10, 0, 10)
-                minRangeKnob.BackgroundColor3 = colors.textWhiteColor
-                minRangeKnob.ZIndex = 2
-                minRangeKnob.Parent = rangeSliderBackground
-                local minRangeKnobCorner = Instance.new("UICorner"); minRangeKnobCorner.CornerRadius = UDim.new(1, 0); minRangeKnobCorner.Parent = minRangeKnob
-                local minRangeKnobStroke = Instance.new("UIStroke"); minRangeKnobStroke.Color = colors.borderColor; minRangeKnobStroke.Parent = minRangeKnob
-
-                local maxRangeKnob = Instance.new("Frame")
-                maxRangeKnob.AnchorPoint = Vector2.new(0.5, 0.5)
-                maxRangeKnob.Size = UDim2.new(0, 10, 0, 10)
-                maxRangeKnob.BackgroundColor3 = colors.textWhiteColor
-                maxRangeKnob.ZIndex = 2
-                maxRangeKnob.Parent = rangeSliderBackground
-                local maxRangeKnobCorner = Instance.new("UICorner"); maxRangeKnobCorner.CornerRadius = UDim.new(1, 0); maxRangeKnobCorner.Parent = maxRangeKnob
-                local maxRangeKnobStroke = Instance.new("UIStroke"); maxRangeKnobStroke.Color = colors.borderColor; maxRangeKnobStroke.Parent = maxRangeKnob
-
-                local function updateRangeSliderVisuals()
-                    local minPercentage = (LibraryApi.Flags[flag].Min - min) / (max - min)
-                    local maxPercentage = (LibraryApi.Flags[flag].Max - min) / (max - min)
-                    animateElement(rangeSliderFill, {Position = UDim2.new(minPercentage, 0, 0, 0), Size = UDim2.new(maxPercentage - minPercentage, 0, 1, 0)}, 0.15)
-                    animateElement(minRangeKnob, {Position = UDim2.new(minPercentage, 0, 0.5, 0)}, 0.15)
-                    animateElement(maxRangeKnob, {Position = UDim2.new(maxPercentage, 0, 0.5, 0)}, 0.15)
-                    valueLabel.Text = formatValue(LibraryApi.Flags[flag].Min, step) .. " - " .. formatValue(LibraryApi.Flags[flag].Max, step)
+                local function updateVisuals()
+                    local fl = LibraryApi.Flags[flag]
+                    local minP = (fl.Min - minV) / (maxV - minV)
+                    local maxP = (fl.Max - minV) / (maxV - minV)
+                    local tx = trackBg.Position.X
+                    local ty2 = trackBg.Position.Y
+                    local tw = ew - 4
+                    fillBar.Position = Vector2.new(tx + math.floor(tw*minP), ty2)
+                    fillBar.Size = Vector2.new(math.max(1, math.floor(tw*(maxP-minP))), 6)
+                    local mkx = tx + math.floor(tw*minP) - 5
+                    local mxkx = tx + math.floor(tw*maxP) - 5
+                    minKnob.Position   = Vector2.new(mkx,  ty2-4)
+                    minKnobBd.Position = Vector2.new(mkx,  ty2-4)
+                    maxKnob.Position   = Vector2.new(mxkx, ty2-4)
+                    maxKnobBd.Position = Vector2.new(mxkx, ty2-4)
+                    valLbl.Text = formatValue(fl.Min, step) .. " - " .. formatValue(fl.Max, step)
                 end
-                updateRangeSliderVisuals()
+                updateVisuals()
 
-                rangeSliderBackground.MouseEnter:Connect(function()
-                    showTooltip(tooltip)
-                    animateElement(rangeSliderBackgroundStroke, {Color = colors.borderLightColor}, 0.25)
-                end)
-                rangeSliderBackground.MouseLeave:Connect(function()
-                    showTooltip("")
-                    animateElement(rangeSliderBackgroundStroke, {Color = colors.borderColor}, 0.25)
-                end)
+                local slidingMin = false
+                local slidingMax = false
 
-                local isSlidingMin = false
-                local isSlidingMax = false
-
-                rangeSliderBackground.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        local mouseX = input.Position.X
-                        local minPercentage = (LibraryApi.Flags[flag].Min - min) / (max - min)
-                        local maxPercentage = (LibraryApi.Flags[flag].Max - min) / (max - min)
-                        local minKnobPosition = rangeSliderBackground.AbsolutePosition.X + (rangeSliderBackground.AbsoluteSize.X * minPercentage)
-                        local maxKnobPosition = rangeSliderBackground.AbsolutePosition.X + (rangeSliderBackground.AbsoluteSize.X * maxPercentage)
-                        
-                        if math.abs(mouseX - minKnobPosition) < math.abs(mouseX - maxKnobPosition) then
-                            isSlidingMin = true
-                        else
-                            isSlidingMax = true
+                userInputService.InputBegan:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mx, my = getMousePos()
+                        local ty2 = trackBg.Position.Y
+                        if isPointInRect(mx, my, trackBg.Position.X, ty2-4, ew-4, 14) then
+                            local fl = LibraryApi.Flags[flag]
+                            local minP = (fl.Min - minV) / (maxV - minV)
+                            local maxP = (fl.Max - minV) / (maxV - minV)
+                            local tx = trackBg.Position.X
+                            local tw = ew-4
+                            local minKX = tx + tw*minP
+                            local maxKX = tx + tw*maxP
+                            if math.abs(mx - minKX) <= math.abs(mx - maxKX) then
+                                slidingMin = true
+                            else
+                                slidingMax = true
+                            end
                         end
                     end
                 end)
 
                 userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-                        isSlidingMin = false
-                        isSlidingMax = false
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        slidingMin = false; slidingMax = false
                     end
                 end)
 
                 userInputService.InputChanged:Connect(function(input)
-                    if (isSlidingMin or isSlidingMax) and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then 
-                        local percentage = math.clamp((input.Position.X - rangeSliderBackground.AbsolutePosition.X) / rangeSliderBackground.AbsoluteSize.X, 0, 1)
-                        local calculatedValue = snapValue(min + ((max - min) * percentage), step)
-                        
-                        if isSlidingMin then
-                            if calculatedValue <= LibraryApi.Flags[flag].Max then
-                                LibraryApi.Flags[flag].Min = calculatedValue
-                            else
-                                LibraryApi.Flags[flag].Min = LibraryApi.Flags[flag].Max
-                            end
-                        elseif isSlidingMax then
-                            if calculatedValue >= LibraryApi.Flags[flag].Min then
-                                LibraryApi.Flags[flag].Max = calculatedValue
-                            else
-                                LibraryApi.Flags[flag].Max = LibraryApi.Flags[flag].Min
-                            end
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if (slidingMin or slidingMax) and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local mx = getMousePos()
+                        local tx = trackBg.Position.X
+                        local tw = ew-4
+                        local p = math.clamp((mx - tx) / tw, 0, 1)
+                        local v = snapValue(minV + (maxV - minV) * p, step)
+                        local fl = LibraryApi.Flags[flag]
+                        if slidingMin then
+                            fl.Min = math.min(v, fl.Max)
+                        else
+                            fl.Max = math.max(v, fl.Min)
                         end
-                        updateRangeSliderVisuals()
+                        updateVisuals()
                         saveConfiguration()
-                        if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
+                        if callback then task.spawn(callback, fl) end
                     end
                 end)
             end
 
             function elements:Textbox_Create(name, flag, default, tooltip, callback)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or "")
+                local bx = elemBaseX()
+                local ew = elemWidth()
 
-                local textboxFrame = Instance.new("Frame")
-                textboxFrame.Size = UDim2.new(1, 0, 0, 36)
-                textboxFrame.BackgroundTransparency = 1
-                textboxFrame.Parent = targetContainer
+                local nameLbl = wText(name, bx+2, 0, 12, colors.textWhite, 1, Z_UI)
+                local inputBg = wRect(bx+ew-112, 0, 110, 20, colors.elementBackground, 0.82, Z_UI)
+                local inputBd = wRectBorder(bx+ew-112, 0, 110, 20, colors.borderColor, 1, Z_UI+1)
+                local inputLbl = wText(LibraryApi.Flags[flag], bx+ew-108, 0, 12, colors.textDark, 1, Z_UI+2)
 
-                local textboxLabel = Instance.new("TextLabel")
-                textboxLabel.Size = UDim2.new(1, -120, 1, 0)
-                textboxLabel.Position = UDim2.new(0, 2, 0, 0)
-                textboxLabel.BackgroundTransparency = 1
-                textboxLabel.Text = name
-                textboxLabel.TextColor3 = colors.textWhiteColor
-                textboxLabel.TextSize = 12
-                textboxLabel.Font = mainFont
-                textboxLabel.TextXAlignment = Enum.TextXAlignment.Left
-                textboxLabel.Parent = textboxFrame
+                local odList = {
+                    {obj = nameLbl,  relY = 6,  xPos = bx+2},
+                    {obj = inputBg,  relY = 0,  xPos = bx+ew-112},
+                    {obj = inputBd,  relY = 0,  xPos = bx+ew-112},
+                    {obj = inputLbl, relY = 4,  xPos = bx+ew-108},
+                }
+                elements._regElem(24, odList)
 
-                local textboxInputBackground = Instance.new("Frame")
-                textboxInputBackground.Size = UDim2.new(0, 110, 0, 24)
-                textboxInputBackground.Position = UDim2.new(1, -112, 0.5, -12)
-                textboxInputBackground.BackgroundColor3 = colors.elementBackground
-                textboxInputBackground.BackgroundTransparency = 0.21847
-                textboxInputBackground.Parent = textboxFrame
-                
-                local textboxInputBackgroundCorner = Instance.new("UICorner")
-                textboxInputBackgroundCorner.CornerRadius = UDim.new(0, 4)
-                textboxInputBackgroundCorner.Parent = textboxInputBackground
-                
-                local textboxInputBackgroundStroke = Instance.new("UIStroke")
-                textboxInputBackgroundStroke.Color = colors.borderColor
-                textboxInputBackgroundStroke.Parent = textboxInputBackground
+                local focused = false
+                local inputBuffer = LibraryApi.Flags[flag]
 
-                local inputTextBox = Instance.new("TextBox")
-                inputTextBox.Size = UDim2.new(1, -10, 1, 0)
-                inputTextBox.Position = UDim2.new(0, 5, 0, 0)
-                inputTextBox.BackgroundTransparency = 1
-                inputTextBox.Text = LibraryApi.Flags[flag]
-                inputTextBox.TextColor3 = colors.textDarkColor
-                inputTextBox.TextSize = 12
-                inputTextBox.Font = mainFont
-                inputTextBox.ClearTextOnFocus = false
-                inputTextBox.TextXAlignment = Enum.TextXAlignment.Left
-                inputTextBox.ClipsDescendants = true
-                inputTextBox.Parent = textboxInputBackground
-
-                inputTextBox.MouseEnter:Connect(function()
-                    showTooltip(tooltip)
-                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderLightColor}, 0.25)
+                userInputService.InputBegan:Connect(function(input, gpe)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mx, my = getMousePos()
+                        local iy = inputBg.Position.Y
+                        if isPointInRect(mx, my, inputBg.Position.X, iy, 110, 20) then
+                            focused = true
+                            animateProp(inputBd, {Color = colors.accentColor}, 0.2)
+                            animateProp(inputLbl, {Color = colors.textWhite}, 0.2)
+                            showTooltip(tooltip or "")
+                        else
+                            if focused then
+                                focused = false
+                                animateProp(inputBd, {Color = colors.borderColor}, 0.2)
+                                animateProp(inputLbl, {Color = colors.textDark}, 0.2)
+                                LibraryApi.Flags[flag] = inputBuffer
+                                inputLbl.Text = inputBuffer
+                                saveConfiguration()
+                                if callback then task.spawn(callback, inputBuffer) end
+                                showTooltip("")
+                            end
+                        end
+                    end
+                    if focused and not gpe then
+                        if input.KeyCode == Enum.KeyCode.Backspace then
+                            inputBuffer = inputBuffer:sub(1, -2)
+                            inputLbl.Text = inputBuffer
+                        elseif input.KeyCode == Enum.KeyCode.Return then
+                            focused = false
+                            animateProp(inputBd, {Color = colors.borderColor}, 0.2)
+                            animateProp(inputLbl, {Color = colors.textDark}, 0.2)
+                            LibraryApi.Flags[flag] = inputBuffer
+                            saveConfiguration()
+                            if callback then task.spawn(callback, inputBuffer) end
+                            showTooltip("")
+                        end
+                    end
                 end)
-                inputTextBox.MouseLeave:Connect(function()
-                    showTooltip("")
-                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderColor}, 0.25)
-                end)
 
-                inputTextBox.Focused:Connect(function()
-                    animateElement(textboxInputBackgroundStroke, {Color = colors.accentColor}, 0.25)
-                    animateElement(inputTextBox, {TextColor3 = colors.textWhiteColor}, 0.25)
-                end)
-
-                inputTextBox.FocusLost:Connect(function()
-                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderColor}, 0.25)
-                    animateElement(inputTextBox, {TextColor3 = colors.textDarkColor}, 0.25)
-                    LibraryApi.Flags[flag] = inputTextBox.Text
-                    saveConfiguration()
-                    if callback then task.spawn(callback, inputTextBox.Text) end
-                end)
+                userInputService.TextBoxFocused:Connect(function() end)
             end
 
             function elements:Keybind_Create(name, flag, default, tooltip, callback)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Enum.KeyCode.Unknown)
+                local bx = elemBaseX()
+                local ew = elemWidth()
                 local isListening = false
 
-                local keybindFrame = Instance.new("Frame")
-                keybindFrame.Size = UDim2.new(1, 0, 0, 30)
-                keybindFrame.BackgroundTransparency = 1
-                keybindFrame.Parent = targetContainer
+                local nameLbl = wText(name, bx+2, 0, 12, colors.textWhite, 1, Z_UI)
+                local btnBg   = wRect(bx+ew-74, 0, 72, 20, colors.elementBackground, 0.82, Z_UI)
+                local btnBd   = wRectBorder(bx+ew-74, 0, 72, 20, colors.borderColor, 1, Z_UI+1)
+                local function getKeyText()
+                    return LibraryApi.Flags[flag] == Enum.KeyCode.Unknown and "[ None ]" or ("[ " .. LibraryApi.Flags[flag].Name .. " ]")
+                end
+                local btnLbl  = wText(getKeyText(), bx+ew-70, 0, 11, colors.textDark, 1, Z_UI+2, Drawing.Fonts.SystemBold)
 
-                local keybindIcon = Instance.new("ImageLabel")
-                keybindIcon.Size = UDim2.new(0, 18, 0, 18)
-                keybindIcon.Position = UDim2.new(0, 6, 0.5, -9)
-                keybindIcon.BackgroundTransparency = 1
-                keybindIcon.Image = "rbxassetid://119296823312315"
-                keybindIcon.ImageColor3 = colors.textWhiteColor
-                keybindIcon.Parent = keybindFrame
+                local odList = {
+                    {obj = nameLbl, relY = 5,  xPos = bx+2},
+                    {obj = btnBg,   relY = 0,  xPos = bx+ew-74},
+                    {obj = btnBd,   relY = 0,  xPos = bx+ew-74},
+                    {obj = btnLbl,  relY = 4,  xPos = bx+ew-70},
+                }
+                elements._regElem(24, odList)
 
-                local keybindLabel = Instance.new("TextLabel")
-                keybindLabel.Size = UDim2.new(1, -100, 1, 0)
-                keybindLabel.Position = UDim2.new(0, 28, 0, 0)
-                keybindLabel.BackgroundTransparency = 1
-                keybindLabel.Text = name
-                keybindLabel.TextColor3 = colors.textWhiteColor
-                keybindLabel.TextSize = 12
-                keybindLabel.Font = mainFont
-                keybindLabel.TextXAlignment = Enum.TextXAlignment.Left
-                keybindLabel.Parent = keybindFrame
-
-                local keybindButton = Instance.new("TextButton")
-                keybindButton.Size = UDim2.new(0, 70, 0, 22)
-                keybindButton.Position = UDim2.new(1, -74, 0.5, -11)
-                keybindButton.BackgroundColor3 = colors.elementBackground
-                keybindButton.BackgroundTransparency = 0.21847
-                keybindButton.Text = LibraryApi.Flags[flag] == Enum.KeyCode.Unknown and "[ None ]" or "[ " .. LibraryApi.Flags[flag].Name .. " ]"
-                keybindButton.TextColor3 = colors.textDarkColor
-                keybindButton.TextSize = 11
-                keybindButton.Font = boldFont
-                keybindButton.AutoButtonColor = false
-                keybindButton.Parent = keybindFrame
-
-                local keybindButtonCorner = Instance.new("UICorner")
-                keybindButtonCorner.CornerRadius = UDim.new(0, 4)
-                keybindButtonCorner.Parent = keybindButton
-
-                local keybindButtonStroke = Instance.new("UIStroke")
-                keybindButtonStroke.Color = colors.borderColor
-                keybindButtonStroke.Parent = keybindButton
-
-                keybindButton.MouseEnter:Connect(function()
-                    showTooltip(tooltip)
-                    if not isListening then animateElement(keybindButtonStroke, {Color = colors.borderLightColor}, 0.25) end
-                end)
-                keybindButton.MouseLeave:Connect(function()
-                    showTooltip("")
-                    if not isListening then animateElement(keybindButtonStroke, {Color = colors.borderColor}, 0.25) end
-                end)
-
-                keybindButton.MouseButton1Click:Connect(function()
-                    isListening = true
-                    keybindButton.Text = "[ ... ]"
-                    animateElement(keybindButtonStroke, {Color = colors.accentColor}, 0.3)
-                    animateElement(keybindButton, {TextColor3 = colors.textWhiteColor}, 0.3)
-                end)
-
-                userInputService.InputBegan:Connect(function(input)
-                    if isListening then
+                userInputService.InputBegan:Connect(function(input, gpe)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mx, my = getMousePos()
+                        local by2 = btnBg.Position.Y
+                        if isPointInRect(mx, my, btnBg.Position.X, by2, 72, 20) then
+                            isListening = true
+                            btnLbl.Text = "[ ... ]"
+                            animateProp(btnBd, {Color = colors.accentColor}, 0.2)
+                            animateProp(btnLbl, {Color = colors.textWhite}, 0.2)
+                            showTooltip(tooltip or "")
+                        end
+                    end
+                    if isListening and input.UserInputType == Enum.UserInputType.Keyboard then
                         if input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode ~= Enum.KeyCode.Escape then
                             LibraryApi.Flags[flag] = input.KeyCode
-                            keybindButton.Text = "[ " .. input.KeyCode.Name .. " ]"
                         elseif input.KeyCode == Enum.KeyCode.Escape then
                             LibraryApi.Flags[flag] = Enum.KeyCode.Unknown
-                            keybindButton.Text = "[ None ]"
                         end
                         isListening = false
-                        animateElement(keybindButtonStroke, {Color = colors.borderColor}, 0.3)
-                        animateElement(keybindButton, {TextColor3 = colors.textDarkColor}, 0.3)
+                        btnLbl.Text = getKeyText()
+                        animateProp(btnBd, {Color = colors.borderColor}, 0.2)
+                        animateProp(btnLbl, {Color = colors.textDark}, 0.2)
                         saveConfiguration()
                         if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
-                    else
+                        showTooltip("")
+                    elseif not isListening and input.UserInputType == Enum.UserInputType.Keyboard then
                         if input.KeyCode == LibraryApi.Flags[flag] and input.KeyCode ~= Enum.KeyCode.Unknown then
                             if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
                         end
@@ -1142,534 +1089,522 @@ function LibraryApi:CreateWindow(windowName)
 
             function elements:Dropdown_Create(name, flag, options, default, tooltip, callback)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or options[1])
-                local isDropdownOpen = false
+                local bx = elemBaseX()
+                local ew = elemWidth()
+                local isOpen = false
+                local ITEM_H = 20
+                local maxVisible = 5
+                local dropScrollOff = 0
 
-                local dropdownFrame = Instance.new("Frame")
-                dropdownFrame.Size = UDim2.new(1, 0, 0, 46)
-                dropdownFrame.BackgroundTransparency = 1
-                dropdownFrame.ClipsDescendants = true
-                dropdownFrame.Parent = targetContainer
+                local nameLbl   = wText(name, bx+2, 0, 12, colors.textWhite, 1, Z_UI)
+                local mainBtnBg = wRect(bx+2, 0, ew-4, 22, colors.elementBackground, 0.82, Z_UI)
+                local mainBtnBd = wRectBorder(bx+2, 0, ew-4, 22, colors.borderColor, 1, Z_UI+1)
+                local selLbl    = wText(LibraryApi.Flags[flag], bx+8, 0, 12, colors.textDark, 1, Z_UI+2)
+                local arrowL    = wLine(0, 0, 0, 0, colors.textDark, 1, Z_UI+2, 1)
+                local arrowR    = wLine(0, 0, 0, 0, colors.textDark, 1, Z_UI+2, 1)
 
-                local dropdownLabel = Instance.new("TextLabel")
-                dropdownLabel.Size = UDim2.new(1, -10, 0, 14)
-                dropdownLabel.Position = UDim2.new(0, 2, 0, 0)
-                dropdownLabel.BackgroundTransparency = 1
-                dropdownLabel.Text = name
-                dropdownLabel.TextColor3 = colors.textWhiteColor
-                dropdownLabel.TextSize = 12
-                dropdownLabel.Font = mainFont
-                dropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
-                dropdownLabel.Parent = dropdownFrame
-
-                local dropdownMainButton = Instance.new("TextButton")
-                dropdownMainButton.Size = UDim2.new(1, -4, 0, 24)
-                dropdownMainButton.Position = UDim2.new(0, 2, 0, 20)
-                dropdownMainButton.BackgroundColor3 = colors.elementBackground
-                dropdownMainButton.BackgroundTransparency = 0.21847
-                dropdownMainButton.Text = ""
-                dropdownMainButton.AutoButtonColor = false
-                dropdownMainButton.Parent = dropdownFrame
-                
-                local dropdownMainButtonCorner = Instance.new("UICorner")
-                dropdownMainButtonCorner.CornerRadius = UDim.new(0, 4)
-                dropdownMainButtonCorner.Parent = dropdownMainButton
-                
-                local dropdownMainButtonStroke = Instance.new("UIStroke")
-                dropdownMainButtonStroke.Color = colors.borderColor
-                dropdownMainButtonStroke.Parent = dropdownMainButton
-
-                local selectedOptionLabel = Instance.new("TextLabel")
-                selectedOptionLabel.Size = UDim2.new(1, -30, 1, 0)
-                selectedOptionLabel.Position = UDim2.new(0, 8, 0, 0)
-                selectedOptionLabel.BackgroundTransparency = 1
-                selectedOptionLabel.Text = LibraryApi.Flags[flag]
-                selectedOptionLabel.TextColor3 = colors.textDarkColor
-                selectedOptionLabel.TextSize = 12
-                selectedOptionLabel.Font = mainFont
-                selectedOptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-                selectedOptionLabel.Parent = dropdownMainButton
-
-                local dropdownArrowIcon = Instance.new("ImageLabel")
-                dropdownArrowIcon.Size = UDim2.new(0, 14, 0, 14)
-                dropdownArrowIcon.Position = UDim2.new(1, -22, 0.5, -7)
-                dropdownArrowIcon.BackgroundTransparency = 1
-                dropdownArrowIcon.Image = "rbxassetid://6031090656"
-                dropdownArrowIcon.ImageColor3 = colors.textDarkColor
-                dropdownArrowIcon.Parent = dropdownMainButton
-
-                local dropdownOptionListFrame = Instance.new("ScrollingFrame")
-                dropdownOptionListFrame.Size = UDim2.new(1, -4, 0, 0)
-                dropdownOptionListFrame.Position = UDim2.new(0, 2, 0, 48)
-                dropdownOptionListFrame.BackgroundColor3 = colors.elementBackground
-                dropdownOptionListFrame.BackgroundTransparency = 0.21847
-                dropdownOptionListFrame.BorderSizePixel = 0
-                dropdownOptionListFrame.ScrollBarThickness = 2
-                dropdownOptionListFrame.ScrollBarImageColor3 = colors.accentColor
-                dropdownOptionListFrame.ClipsDescendants = true
-                dropdownOptionListFrame.Parent = dropdownFrame
-                
-                local dropdownOptionListCorner = Instance.new("UICorner")
-                dropdownOptionListCorner.CornerRadius = UDim.new(0, 4)
-                dropdownOptionListCorner.Parent = dropdownOptionListFrame
-                
-                local dropdownOptionListStroke = Instance.new("UIStroke")
-                dropdownOptionListStroke.Color = colors.borderColor
-                dropdownOptionListStroke.Transparency = 1
-                dropdownOptionListStroke.Parent = dropdownOptionListFrame
-
-                local dropdownOptionListLayout = Instance.new("UIListLayout")
-                dropdownOptionListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-                dropdownOptionListLayout.Parent = dropdownOptionListFrame
-
-                local function toggleDropdownState()
-                    isDropdownOpen = not isDropdownOpen
-                    local maxListHeight = math.min(#options * 24, 120)
-                    local targetListHeight = isDropdownOpen and maxListHeight or 0
-                    animateElement(dropdownMainButtonStroke, {Color = isDropdownOpen and colors.accentColor or colors.borderColor}, 0.3)
-                    animateElement(dropdownArrowIcon, {Rotation = isDropdownOpen and 180 or 0, ImageColor3 = isDropdownOpen and colors.accentColor or colors.textDarkColor}, 0.3)
-                    animateElement(dropdownOptionListFrame, {Size = UDim2.new(1, -4, 0, targetListHeight)}, 0.3)
-                    animateElement(dropdownOptionListStroke, {Transparency = isDropdownOpen and 0 or 1}, 0.3)
-                    animateElement(dropdownFrame, {Size = UDim2.new(1, 0, 0, 46 + targetListHeight + (isDropdownOpen and 4 or 0))}, 0.3)
+                local function updateArrow()
+                    local ax = mainBtnBg.Position.X + ew - 18
+                    local ay = mainBtnBg.Position.Y + 11
+                    if isOpen then
+                        arrowL.From = Vector2.new(ax, ay+3); arrowL.To = Vector2.new(ax+5, ay-2)
+                        arrowR.From = Vector2.new(ax+5, ay-2); arrowR.To = Vector2.new(ax+10, ay+3)
+                    else
+                        arrowL.From = Vector2.new(ax, ay-2); arrowL.To = Vector2.new(ax+5, ay+3)
+                        arrowR.From = Vector2.new(ax+5, ay+3); arrowR.To = Vector2.new(ax+10, ay-2)
+                    end
                 end
 
-                dropdownMainButton.MouseEnter:Connect(function()
-                    showTooltip(tooltip)
-                    if not isDropdownOpen then animateElement(dropdownMainButtonStroke, {Color = colors.borderLightColor}, 0.25) end
-                end)
-                dropdownMainButton.MouseLeave:Connect(function()
-                    showTooltip("")
-                    if not isDropdownOpen then animateElement(dropdownMainButtonStroke, {Color = colors.borderColor}, 0.25) end
-                end)
-                dropdownMainButton.MouseButton1Click:Connect(toggleDropdownState)
-
-                for _, option in ipairs(options) do
-                    local optionButton = Instance.new("TextButton")
-                    optionButton.Size = UDim2.new(1, 0, 0, 24)
-                    optionButton.BackgroundColor3 = colors.elementHoverBackground
-                    optionButton.BackgroundTransparency = 1
-                    optionButton.Text = ""
-                    optionButton.Parent = dropdownOptionListFrame
-
-                    local optionLabel = Instance.new("TextLabel")
-                    optionLabel.Size = UDim2.new(1, -20, 1, 0)
-                    optionLabel.Position = UDim2.new(0, 8, 0, 0)
-                    optionLabel.BackgroundTransparency = 1
-                    optionLabel.Text = option
-                    optionLabel.TextColor3 = LibraryApi.Flags[flag] == option and colors.accentColor or colors.textDarkColor
-                    optionLabel.TextSize = 12
-                    optionLabel.Font = mainFont
-                    optionLabel.TextXAlignment = Enum.TextXAlignment.Left
-                    optionLabel.Parent = optionButton
-
-                    optionButton.MouseEnter:Connect(function() 
-                        animateElement(optionButton, {BackgroundTransparency = 0.21847}, 0.25)
-                        if LibraryApi.Flags[flag] ~= option then
-                            animateElement(optionLabel, {TextColor3 = colors.textWhiteColor}, 0.25) 
+                local optionObjs = {}
+                local function buildOptionObjs()
+                    for _, od in ipairs(optionObjs) do
+                        od.bg:Remove(); od.lbl:Remove()
+                    end
+                    optionObjs = {}
+                    local dropY = mainBtnBg.Position.Y + 24
+                    local visCount = math.min(#options, maxVisible)
+                    for i, opt in ipairs(options) do
+                        local relIdx = i - 1 - math.floor(dropScrollOff / ITEM_H)
+                        if relIdx >= 0 and relIdx < visCount then
+                            local oy = dropY + relIdx * ITEM_H
+                            local obg = wRect(bx+2, oy, ew-4, ITEM_H, colors.elementHover, 0, Z_OVER)
+                            local olbl = wText(opt, bx+8, oy+3, 12, LibraryApi.Flags[flag] == opt and colors.accentColor or colors.textDark, 1, Z_OVER+1)
+                            obg.Visible = isOpen and windowVisible
+                            olbl.Visible = isOpen and windowVisible
+                            table.insert(optionObjs, {bg = obg, lbl = olbl, opt = opt, oy = oy})
+                            regContent(obg); regContent(olbl)
                         end
-                    end)
-                    optionButton.MouseLeave:Connect(function()
-                        animateElement(optionButton, {BackgroundTransparency = 1}, 0.25)
-                        if LibraryApi.Flags[flag] ~= option then
-                            animateElement(optionLabel, {TextColor3 = colors.textDarkColor}, 0.25)
-                        end
-                    end)
-
-                    optionButton.MouseButton1Click:Connect(function()
-                        LibraryApi.Flags[flag] = option
-                        selectedOptionLabel.Text = option
-                        toggleDropdownState()
-                        for _, child in ipairs(dropdownOptionListFrame:GetChildren()) do
-                            if child:IsA("TextButton") then
-                                animateElement(child:FindFirstChildOfClass("TextLabel"), {TextColor3 = colors.textDarkColor}, 0.3)
-                            end
-                        end
-                        animateElement(optionLabel, {TextColor3 = colors.accentColor}, 0.3)
-                        saveConfiguration()
-                        if callback then task.spawn(callback, option) end
-                    end)
+                    end
                 end
-                dropdownOptionListFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 24)
-            end
 
-            function elements:ColorPicker_Create(name, flag, default, tooltip, callback)
-                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Color3.new(1, 1, 1))
-                local isColorPickerOpen = false
-                local hue, saturation, value = LibraryApi.Flags[flag]:ToHSV()
+                local dropBg    = wRect(bx+2, 0, ew-4, 0, colors.elementBackground, 0.9, Z_OVER-1)
+                local dropBd    = wRectBorder(bx+2, 0, ew-4, 0, colors.borderColor, 1, Z_OVER)
+                dropBg.Visible = false
+                dropBd.Visible = false
 
-                local colorPickerFrame = Instance.new("Frame")
-                colorPickerFrame.Size = UDim2.new(1, 0, 0, 24)
-                colorPickerFrame.BackgroundTransparency = 1
-                colorPickerFrame.ClipsDescendants = true
-                colorPickerFrame.Parent = targetContainer
-
-                local colorPickerLabel = Instance.new("TextLabel")
-                colorPickerLabel.Size = UDim2.new(1, -40, 0, 24)
-                colorPickerLabel.Position = UDim2.new(0, 2, 0, 0)
-                colorPickerLabel.BackgroundTransparency = 1
-                colorPickerLabel.Text = name
-                colorPickerLabel.TextColor3 = colors.textWhiteColor
-                colorPickerLabel.TextSize = 12
-                colorPickerLabel.Font = mainFont
-                colorPickerLabel.TextXAlignment = Enum.TextXAlignment.Left
-                colorPickerLabel.Parent = colorPickerFrame
-
-                local colorPreviewButton = Instance.new("TextButton")
-                colorPreviewButton.Size = UDim2.new(0, 24, 0, 14)
-                colorPreviewButton.Position = UDim2.new(1, -28, 0, 5)
-                colorPreviewButton.BackgroundColor3 = LibraryApi.Flags[flag]
-                colorPreviewButton.Text = ""
-                colorPreviewButton.AutoButtonColor = false
-                colorPreviewButton.Parent = colorPickerFrame
-                
-                local colorPreviewButtonCorner = Instance.new("UICorner")
-                colorPreviewButtonCorner.CornerRadius = UDim.new(0, 3)
-                colorPreviewButtonCorner.Parent = colorPreviewButton
-                
-                local colorPreviewButtonStroke = Instance.new("UIStroke")
-                colorPreviewButtonStroke.Color = colors.borderColor
-                colorPreviewButtonStroke.Parent = colorPreviewButton
-
-                local expandedPickerFrame = Instance.new("Frame")
-                expandedPickerFrame.Size = UDim2.new(1, -4, 0, 190)
-                expandedPickerFrame.Position = UDim2.new(0, 2, 0, 28)
-                expandedPickerFrame.BackgroundColor3 = colors.elementBackground
-                expandedPickerFrame.BackgroundTransparency = 0.21847
-                expandedPickerFrame.Parent = colorPickerFrame
-                
-                local expandedPickerCorner = Instance.new("UICorner")
-                expandedPickerCorner.CornerRadius = UDim.new(0, 4)
-                expandedPickerCorner.Parent = expandedPickerFrame
-                
-                local expandedPickerStroke = Instance.new("UIStroke")
-                expandedPickerStroke.Color = colors.borderColor
-                expandedPickerStroke.Parent = expandedPickerFrame
-
-                local saturationValueMap = Instance.new("ImageButton")
-                saturationValueMap.Size = UDim2.new(1, -16, 0, 150)
-                saturationValueMap.Position = UDim2.new(0, 8, 0, 8)
-                saturationValueMap.Image = "rbxassetid://4155801252"
-                saturationValueMap.ImageColor3 = Color3.fromHSV(hue, 1, 1)
-                saturationValueMap.AutoButtonColor = false
-                saturationValueMap.Parent = expandedPickerFrame
-                local saturationValueMapCorner = Instance.new("UICorner"); saturationValueMapCorner.CornerRadius = UDim.new(0, 3); saturationValueMapCorner.Parent = saturationValueMap
-                local saturationValueMapStroke = Instance.new("UIStroke"); saturationValueMapStroke.Color = colors.borderColor; saturationValueMapStroke.Parent = saturationValueMap
-
-                local saturationValueMapCursor = Instance.new("Frame")
-                saturationValueMapCursor.AnchorPoint = Vector2.new(0.5, 0.5)
-                saturationValueMapCursor.Size = UDim2.new(0, 6, 0, 6)
-                saturationValueMapCursor.Position = UDim2.new(saturation, 0, 1 - value, 0)
-                saturationValueMapCursor.BackgroundColor3 = Color3.new(1, 1, 1)
-                saturationValueMapCursor.Parent = saturationValueMap
-                local saturationValueMapCursorCorner = Instance.new("UICorner"); saturationValueMapCursorCorner.CornerRadius = UDim.new(1, 0); saturationValueMapCursorCorner.Parent = saturationValueMapCursor
-                local saturationValueMapCursorStroke = Instance.new("UIStroke"); saturationValueMapCursorStroke.Color = Color3.new(0, 0, 0); saturationValueMapCursorStroke.Parent = saturationValueMapCursor
-
-                local hueMap = Instance.new("TextButton")
-                hueMap.Size = UDim2.new(1, -16, 0, 12)
-                hueMap.Position = UDim2.new(0, 8, 0, 168)
-                hueMap.Text = ""
-                hueMap.AutoButtonColor = false
-                hueMap.BackgroundColor3 = Color3.new(1, 1, 1)
-                hueMap.Parent = expandedPickerFrame
-                local hueMapCorner = Instance.new("UICorner"); hueMapCorner.CornerRadius = UDim.new(0, 3); hueMapCorner.Parent = hueMap
-                local hueMapStroke = Instance.new("UIStroke"); hueMapStroke.Color = colors.borderColor; hueMapStroke.Parent = hueMap
-
-                local hueGradient = Instance.new("UIGradient")
-                hueGradient.Color = ColorSequence.new{
-                    ColorSequenceKeypoint.new(0, Color3.new(1, 0, 0)),
-                    ColorSequenceKeypoint.new(1/6, Color3.new(1, 1, 0)),
-                    ColorSequenceKeypoint.new(2/6, Color3.new(0, 1, 0)),
-                    ColorSequenceKeypoint.new(3/6, Color3.new(0, 1, 1)),
-                    ColorSequenceKeypoint.new(4/6, Color3.new(0, 0, 1)),
-                    ColorSequenceKeypoint.new(5/6, Color3.new(1, 0, 1)),
-                    ColorSequenceKeypoint.new(1, Color3.new(1, 0, 0))
+                local closedH = 14 + 4 + 22
+                local odList = {
+                    {obj = nameLbl,   relY = 0,  xPos = bx+2},
+                    {obj = mainBtnBg, relY = 16, xPos = bx+2},
+                    {obj = mainBtnBd, relY = 16, xPos = bx+2},
+                    {obj = selLbl,    relY = 20, xPos = bx+8},
+                    {obj = arrowL,    isLine = true, relY = 16, fromX = nil, fromYOff = 11, toX = nil, toYOff = 11},
+                    {obj = arrowR,    isLine = true, relY = 16, fromX = nil, fromYOff = 11, toX = nil, toYOff = 11},
+                    {obj = dropBg,    relY = 40, xPos = bx+2},
+                    {obj = dropBd,    relY = 40, xPos = bx+2},
                 }
-                hueGradient.Parent = hueMap
+                elements._regElem(closedH, odList)
+                updateArrow()
 
-                local hueMapCursor = Instance.new("Frame")
-                hueMapCursor.AnchorPoint = Vector2.new(0.5, 0.5)
-                hueMapCursor.Size = UDim2.new(0, 4, 1, 4)
-                hueMapCursor.Position = UDim2.new(hue, 0, 0.5, 0)
-                hueMapCursor.BackgroundColor3 = Color3.new(1, 1, 1)
-                hueMapCursor.Parent = hueMap
-                local hueMapCursorCorner = Instance.new("UICorner"); hueMapCursorCorner.CornerRadius = UDim.new(0, 2); hueMapCursorCorner.Parent = hueMapCursor
-                local hueMapCursorStroke = Instance.new("UIStroke"); hueMapCursorStroke.Color = Color3.new(0, 0, 0); hueMapCursorStroke.Parent = hueMapCursor
-
-                local function updateColorPickerState()
-                    local currentColor = Color3.fromHSV(hue, saturation, value)
-                    LibraryApi.Flags[flag] = currentColor
-                    saturationValueMap.ImageColor3 = Color3.fromHSV(hue, 1, 1)
-                    colorPreviewButton.BackgroundColor3 = currentColor
-                    saturationValueMapCursor.Position = UDim2.new(saturation, 0, 1 - value, 0)
-                    hueMapCursor.Position = UDim2.new(hue, 0, 0.5, 0)
-                    saveConfiguration()
-                    if callback then task.spawn(callback, currentColor) end
+                local function openDrop()
+                    isOpen = true
+                    animateProp(mainBtnBd, {Color = colors.accentColor}, 0.2)
+                    local visCount = math.min(#options, maxVisible)
+                    local dropH = visCount * ITEM_H + 2
+                    dropBg.Position = Vector2.new(bx+2, mainBtnBg.Position.Y + 24)
+                    dropBg.Size = Vector2.new(ew-4, dropH)
+                    dropBg.Visible = true
+                    dropBd.Position = Vector2.new(bx+2, mainBtnBg.Position.Y + 24)
+                    dropBd.Size = Vector2.new(ew-4, dropH)
+                    dropBd.Visible = true
+                    buildOptionObjs()
+                    updateArrow()
                 end
 
-                local isSlidingSaturationValue = false
-                local isSlidingHue = false
-
-                local function processSaturationValueInput(input)
-                    saturation = math.clamp((input.Position.X - saturationValueMap.AbsolutePosition.X) / saturationValueMap.AbsoluteSize.X, 0, 1)
-                    value = 1 - math.clamp((input.Position.Y - saturationValueMap.AbsolutePosition.Y) / saturationValueMap.AbsoluteSize.Y, 0, 1)
-                    updateColorPickerState()
-                end
-
-                local function processHueInput(input)
-                    hue = math.clamp((input.Position.X - hueMap.AbsolutePosition.X) / hueMap.AbsoluteSize.X, 0, 1)
-                    updateColorPickerState()
-                end
-
-                saturationValueMap.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        isSlidingSaturationValue = true
-                        processSaturationValueInput(input)
+                local function closeDrop()
+                    isOpen = false
+                    animateProp(mainBtnBd, {Color = colors.borderColor}, 0.2)
+                    dropBg.Visible = false
+                    dropBd.Visible = false
+                    for _, od in ipairs(optionObjs) do
+                        od.bg.Visible = false
+                        od.lbl.Visible = false
                     end
-                end)
-                
-                hueMap.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        isSlidingHue = true
-                        processHueInput(input)
-                    end
-                end)
+                    updateArrow()
+                end
 
-                userInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                        isSlidingSaturationValue = false
-                        isSlidingHue = false
+                userInputService.InputBegan:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mx, my = getMousePos()
+                        local mby = mainBtnBg.Position.Y
+                        if isPointInRect(mx, my, mainBtnBg.Position.X, mby, ew-4, 22) then
+                            if isOpen then closeDrop() else openDrop() end
+                            showTooltip(tooltip or "")
+                            return
+                        end
+                        if isOpen then
+                            local hit = false
+                            for _, od in ipairs(optionObjs) do
+                                if isPointInRect(mx, my, od.bg.Position.X, od.bg.Position.Y, ew-4, ITEM_H) then
+                                    LibraryApi.Flags[flag] = od.opt
+                                    selLbl.Text = od.opt
+                                    closeDrop()
+                                    saveConfiguration()
+                                    if callback then task.spawn(callback, od.opt) end
+                                    hit = true
+                                    break
+                                end
+                            end
+                            if not hit then closeDrop() end
+                        end
+                    end
+                    if isOpen and input.UserInputType == Enum.UserInputType.MouseWheel then
+                        local mx, my = getMousePos()
+                        if isPointInRect(mx, my, dropBg.Position.X, dropBg.Position.Y, ew-4, dropBg.Size.Y) then
+                            dropScrollOff = math.clamp(dropScrollOff - input.Position.Z * ITEM_H, 0, math.max(0, (#options - maxVisible) * ITEM_H))
+                            buildOptionObjs()
+                        end
                     end
                 end)
 
                 userInputService.InputChanged:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                        if isSlidingSaturationValue then processSaturationValueInput(input) end
-                        if isSlidingHue then processHueInput(input) end
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseMovement and isOpen then
+                        local mx, my = getMousePos()
+                        for _, od in ipairs(optionObjs) do
+                            if isPointInRect(mx, my, od.bg.Position.X, od.bg.Position.Y, ew-4, ITEM_H) then
+                                animateProp(od.bg, {Transparency = 0.82}, 0.15)
+                                if LibraryApi.Flags[flag] ~= od.opt then
+                                    animateProp(od.lbl, {Color = colors.textWhite}, 0.15)
+                                end
+                            else
+                                animateProp(od.bg, {Transparency = 0}, 0.15)
+                                if LibraryApi.Flags[flag] ~= od.opt then
+                                    animateProp(od.lbl, {Color = colors.textDark}, 0.15)
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+
+            function elements:ColorPicker_Create(name, flag, default, tooltip, callback)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Color3.new(1,1,1))
+                local bx = elemBaseX()
+                local ew = elemWidth()
+                local isOpen = false
+                local hue, sat, val = LibraryApi.Flags[flag]:ToHSV()
+
+                local nameLbl   = wText(name, bx+2, 0, 12, colors.textWhite, 1, Z_UI)
+                local prevBg    = wRect(bx+ew-28, 0, 24, 14, LibraryApi.Flags[flag], 1, Z_UI+1)
+                local prevBd    = wRectBorder(bx+ew-28, 0, 24, 14, colors.borderColor, 1, Z_UI+2)
+
+                local PW = ew - 16
+                local PH = 130
+                local HH = 12
+                local pickerBg = wRect(bx+2, 0, ew-4, PH+HH+28, colors.elementBackground, 0.9, Z_OVER-1)
+                local pickerBd = wRectBorder(bx+2, 0, ew-4, PH+HH+28, colors.borderColor, 1, Z_OVER)
+                pickerBg.Visible = false
+                pickerBd.Visible = false
+
+                local SV_X = bx+8
+                local SV_Y = 0
+                local svBg = wRect(SV_X, SV_Y, PW, PH, Color3.fromHSV(hue,1,1), 1, Z_OVER)
+                local svWhite = wRect(SV_X, SV_Y, PW, PH, Color3.new(1,1,1), 0, Z_OVER+1)
+                local svBlack = wRect(SV_X, SV_Y, PW, PH, Color3.new(0,0,0), 0, Z_OVER+2)
+                local svBd = wRectBorder(SV_X, SV_Y, PW, PH, colors.borderColor, 1, Z_OVER+3)
+                local svCursor = wRect(0, 0, 8, 8, Color3.new(1,1,1), 1, Z_OVER+4)
+                local svCursorBd = wRectBorder(0, 0, 8, 8, Color3.new(0,0,0), 1, Z_OVER+5)
+
+                local HUE_X = bx+8
+                local HUE_Y = 0
+                local hueBarBg = wRect(HUE_X, HUE_Y, PW, HH, Color3.new(1,1,1), 1, Z_OVER)
+                local hueBd = wRectBorder(HUE_X, HUE_Y, PW, HH, colors.borderColor, 1, Z_OVER+1)
+
+                local HUE_SEGS = 12
+                local hueSegs = {}
+                for i = 1, HUE_SEGS do
+                    local seg = wRect(0, 0, 0, HH, Color3.fromHSV((i-1)/HUE_SEGS, 1, 1), 1, Z_OVER)
+                    seg.Visible = false
+                    regContent(seg)
+                    table.insert(hueSegs, seg)
+                end
+
+                local hueCursor = wRect(0, 0, 4, HH+4, Color3.new(1,1,1), 1, Z_OVER+4)
+                local hueCursorBd = wRectBorder(0, 0, 4, HH+4, Color3.new(0,0,0), 1, Z_OVER+5)
+
+                svBg.Visible = false; svWhite.Visible = false; svBlack.Visible = false
+                svBd.Visible = false; svCursor.Visible = false; svCursorBd.Visible = false
+                hueBarBg.Visible = false; hueBd.Visible = false
+                hueCursor.Visible = false; hueCursorBd.Visible = false
+
+                regContent(svBg); regContent(svWhite); regContent(svBlack); regContent(svBd)
+                regContent(svCursor); regContent(svCursorBd)
+                regContent(hueBarBg); regContent(hueBd)
+                regContent(hueCursor); regContent(hueCursorBd)
+                regContent(pickerBg); regContent(pickerBd)
+
+                local closedH = 22
+                local openH = 22 + PH + 8 + HH + 16
+
+                local odList = {
+                    {obj = nameLbl, relY = 4,  xPos = bx+2},
+                    {obj = prevBg,  relY = 4,  xPos = bx+ew-28},
+                    {obj = prevBd,  relY = 4,  xPos = bx+ew-28},
+                }
+                elements._regElem(closedH, odList)
+
+                local function updatePickerPositions()
+                    local baseY = prevBg.Position.Y + 18
+                    SV_Y = baseY + 8
+                    HUE_Y = SV_Y + PH + 8
+
+                    svBg.Position  = Vector2.new(SV_X, SV_Y)
+                    svWhite.Position = Vector2.new(SV_X, SV_Y)
+                    svBlack.Position = Vector2.new(SV_X, SV_Y)
+                    svBd.Position  = Vector2.new(SV_X, SV_Y)
+
+                    hueBarBg.Position = Vector2.new(HUE_X, HUE_Y)
+                    hueBd.Position    = Vector2.new(HUE_X, HUE_Y)
+                    for i, seg in ipairs(hueSegs) do
+                        local sw = math.ceil(PW / HUE_SEGS)
+                        seg.Position = Vector2.new(HUE_X + (i-1)*sw, HUE_Y)
+                        seg.Size = Vector2.new(sw, HH)
+                    end
+
+                    pickerBg.Position = Vector2.new(bx+2, baseY + 4)
+                    pickerBd.Position = Vector2.new(bx+2, baseY + 4)
+                    pickerBg.Size = Vector2.new(ew-4, PH + HH + 28)
+                    pickerBd.Size = Vector2.new(ew-4, PH + HH + 28)
+
+                    local cx = SV_X + math.floor(sat * PW) - 4
+                    local cy = SV_Y + math.floor((1-val) * PH) - 4
+                    svCursor.Position   = Vector2.new(cx, cy)
+                    svCursorBd.Position = Vector2.new(cx, cy)
+
+                    local hx = HUE_X + math.floor(hue * PW) - 2
+                    hueCursor.Position   = Vector2.new(hx, HUE_Y - 2)
+                    hueCursorBd.Position = Vector2.new(hx, HUE_Y - 2)
+                end
+
+                local function updateColor()
+                    local c = Color3.fromHSV(hue, sat, val)
+                    LibraryApi.Flags[flag] = c
+                    prevBg.Color = c
+                    svBg.Color = Color3.fromHSV(hue, 1, 1)
+
+                    local svW_start = Vector2.new(1,1,1)
+                    local svB_start = Vector2.new(0,0,0)
+                    svWhite.Transparency = 0
+                    svBlack.Transparency = 1 - val
+
+                    local cx = SV_X + math.floor(sat * PW) - 4
+                    local cy = SV_Y + math.floor((1-val) * PH) - 4
+                    svCursor.Position   = Vector2.new(cx, cy)
+                    svCursorBd.Position = Vector2.new(cx, cy)
+
+                    local hx = HUE_X + math.floor(hue * PW) - 2
+                    hueCursor.Position   = Vector2.new(hx, HUE_Y - 2)
+                    hueCursorBd.Position = Vector2.new(hx, HUE_Y - 2)
+
+                    saveConfiguration()
+                    if callback then task.spawn(callback, c) end
+                end
+
+                local function openPicker()
+                    isOpen = true
+                    updatePickerPositions()
+                    pickerBg.Visible = true; pickerBd.Visible = true
+                    svBg.Visible = true; svWhite.Visible = true; svBlack.Visible = true
+                    svBd.Visible = true; svCursor.Visible = true; svCursorBd.Visible = true
+                    hueBarBg.Visible = true; hueBd.Visible = true
+                    for _, seg in ipairs(hueSegs) do seg.Visible = true end
+                    hueCursor.Visible = true; hueCursorBd.Visible = true
+                    animateProp(prevBd, {Color = colors.accentColor}, 0.2)
+                end
+
+                local function closePicker()
+                    isOpen = false
+                    pickerBg.Visible = false; pickerBd.Visible = false
+                    svBg.Visible = false; svWhite.Visible = false; svBlack.Visible = false
+                    svBd.Visible = false; svCursor.Visible = false; svCursorBd.Visible = false
+                    hueBarBg.Visible = false; hueBd.Visible = false
+                    for _, seg in ipairs(hueSegs) do seg.Visible = false end
+                    hueCursor.Visible = false; hueCursorBd.Visible = false
+                    animateProp(prevBd, {Color = colors.borderColor}, 0.2)
+                end
+
+                local slidingSV = false
+                local slidingHue = false
+
+                userInputService.InputBegan:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mx, my = getMousePos()
+                        local pby = prevBg.Position.Y
+                        if isPointInRect(mx, my, prevBg.Position.X, pby, 24, 14) then
+                            if isOpen then closePicker() else openPicker() end
+                            showTooltip(tooltip or "")
+                            return
+                        end
+                        if isOpen then
+                            if isPointInRect(mx, my, SV_X, SV_Y, PW, PH) then
+                                slidingSV = true
+                                sat = math.clamp((mx - SV_X) / PW, 0, 1)
+                                val = 1 - math.clamp((my - SV_Y) / PH, 0, 1)
+                                updateColor()
+                            elseif isPointInRect(mx, my, HUE_X, HUE_Y, PW, HH) then
+                                slidingHue = true
+                                hue = math.clamp((mx - HUE_X) / PW, 0, 1)
+                                updateColor()
+                            else
+                                closePicker()
+                                showTooltip("")
+                            end
+                        end
                     end
                 end)
 
-                colorPreviewButton.MouseEnter:Connect(function()
-                    showTooltip(tooltip)
-                    if not isColorPickerOpen then animateElement(colorPreviewButtonStroke, {Color = colors.borderLightColor}, 0.25) end
-                end)
-                colorPreviewButton.MouseLeave:Connect(function()
-                    showTooltip("")
-                    if not isColorPickerOpen then animateElement(colorPreviewButtonStroke, {Color = colors.borderColor}, 0.25) end
+                userInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        slidingSV = false; slidingHue = false
+                    end
                 end)
 
-                colorPreviewButton.MouseButton1Click:Connect(function()
-                    isColorPickerOpen = not isColorPickerOpen
-                    animateElement(colorPreviewButtonStroke, {Color = isColorPickerOpen and colors.accentColor or colors.borderColor}, 0.3)
-                    animateElement(colorPickerFrame, {Size = UDim2.new(1, 0, 0, isColorPickerOpen and 224 or 24)}, 0.3)
+                userInputService.InputChanged:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local mx, my = getMousePos()
+                        if slidingSV then
+                            sat = math.clamp((mx - SV_X) / PW, 0, 1)
+                            val = 1 - math.clamp((my - SV_Y) / PH, 0, 1)
+                            updateColor()
+                        elseif slidingHue then
+                            hue = math.clamp((mx - HUE_X) / PW, 0, 1)
+                            updateColor()
+                        end
+                    end
                 end)
             end
 
             function elements:Button_Create(name, tooltip, callback)
-                local buttonFrame = Instance.new("Frame")
-                buttonFrame.Size = UDim2.new(1, 0, 0, 30)
-                buttonFrame.BackgroundTransparency = 1
-                buttonFrame.Parent = targetContainer
+                local bx = elemBaseX()
+                local ew = elemWidth()
 
-                local actionButton = Instance.new("TextButton")
-                actionButton.Size = UDim2.new(1, -4, 1, 0)
-                actionButton.Position = UDim2.new(0, 2, 0, 0)
-                actionButton.BackgroundColor3 = colors.elementBackground
-                actionButton.BackgroundTransparency = 0.21847
-                actionButton.Text = name
-                actionButton.TextColor3 = colors.textWhiteColor
-                actionButton.TextSize = 12
-                actionButton.Font = boldFont
-                actionButton.AutoButtonColor = false
-                actionButton.Parent = buttonFrame
-                
-                local actionButtonCorner = Instance.new("UICorner")
-                actionButtonCorner.CornerRadius = UDim.new(0, 4)
-                actionButtonCorner.Parent = actionButton
-                
-                local actionButtonStroke = Instance.new("UIStroke")
-                actionButtonStroke.Color = colors.borderColor
-                actionButtonStroke.Parent = actionButton
+                local btnBg = wRect(bx+2, 0, ew-4, 26, colors.elementBackground, 0.82, Z_UI)
+                local btnBd = wRectBorder(bx+2, 0, ew-4, 26, colors.borderColor, 1, Z_UI+1)
+                local btnLbl = wText(name, bx+2+math.floor((ew-4)/2) - math.floor(#name*3.5), 0, 12, colors.textWhite, 1, Z_UI+2, Drawing.Fonts.SystemBold)
 
-                actionButton.MouseEnter:Connect(function()
-                    showTooltip(tooltip)
-                    animateElement(actionButton, {BackgroundColor3 = colors.elementHoverBackground}, 0.25)
-                    animateElement(actionButtonStroke, {Color = colors.accentColor}, 0.25)
-                    animateElement(actionButton, {TextColor3 = colors.accentColor}, 0.25)
+                local odList = {
+                    {obj = btnBg,  relY = 0, xPos = bx+2},
+                    {obj = btnBd,  relY = 0, xPos = bx+2},
+                    {obj = btnLbl, relY = 7, xPos = bx+2+math.floor((ew-4)/2) - math.floor(#name*3.5)},
+                }
+                elements._regElem(30, odList)
+
+                local pressing = false
+
+                userInputService.InputBegan:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mx, my = getMousePos()
+                        if isPointInRect(mx, my, btnBg.Position.X, btnBg.Position.Y, ew-4, 26) then
+                            pressing = true
+                            animateProp(btnBg, {Color = colors.accentColor, Transparency = 0.6}, 0.15)
+                            animateProp(btnBd, {Color = colors.accentColor}, 0.15)
+                            animateProp(btnLbl, {Color = colors.textWhite}, 0.15)
+                            showTooltip(tooltip or "")
+                        end
+                    end
                 end)
-                actionButton.MouseLeave:Connect(function()
-                    showTooltip("")
-                    animateElement(actionButton, {BackgroundColor3 = colors.elementBackground}, 0.25)
-                    animateElement(actionButtonStroke, {Color = colors.borderColor}, 0.25)
-                    animateElement(actionButton, {TextColor3 = colors.textWhiteColor}, 0.25)
+
+                userInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 and pressing then
+                        pressing = false
+                        animateProp(btnBg, {Color = colors.elementBackground, Transparency = 0.82}, 0.15)
+                        animateProp(btnBd, {Color = colors.borderColor}, 0.15)
+                        local mx, my = getMousePos()
+                        if isPointInRect(mx, my, btnBg.Position.X, btnBg.Position.Y, ew-4, 26) then
+                            if callback then task.spawn(callback) end
+                        end
+                    end
                 end)
-                actionButton.MouseButton1Down:Connect(function() animateElement(actionButton, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.15) end)
-                actionButton.MouseButton1Up:Connect(function()
-                    animateElement(actionButton, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.15)
-                    if callback then task.spawn(callback) end
+
+                userInputService.InputChanged:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseMovement and not pressing then
+                        local mx, my = getMousePos()
+                        if isPointInRect(mx, my, btnBg.Position.X, btnBg.Position.Y, ew-4, 26) then
+                            animateProp(btnBg, {Color = colors.elementHover}, 0.2)
+                            animateProp(btnBd, {Color = colors.accentColor}, 0.2)
+                            animateProp(btnLbl, {Color = colors.accentColor}, 0.2)
+                            showTooltip(tooltip or "")
+                        else
+                            animateProp(btnBg, {Color = colors.elementBackground}, 0.2)
+                            animateProp(btnBd, {Color = colors.borderColor}, 0.2)
+                            animateProp(btnLbl, {Color = colors.textWhite}, 0.2)
+                            if tooltipText == (tooltip or "") then showTooltip("") end
+                        end
+                    end
                 end)
             end
 
             function elements:SubButton_Create(name, tooltip, callback)
-                local subButtonFrame = Instance.new("Frame")
-                subButtonFrame.Size = UDim2.new(1, 0, 0, 22)
-                subButtonFrame.BackgroundTransparency = 1
-                subButtonFrame.Parent = targetContainer
+                local bx = elemBaseX()
+                local ew = elemWidth()
 
-                local subButtonAction = Instance.new("TextButton")
-                subButtonAction.Size = UDim2.new(1, -16, 1, 0)
-                subButtonAction.Position = UDim2.new(0, 8, 0, 0)
-                subButtonAction.BackgroundColor3 = colors.sectionBackground
-                subButtonAction.BackgroundTransparency = 0.21847
-                subButtonAction.Text = name
-                subButtonAction.TextColor3 = colors.textDarkColor
-                subButtonAction.TextSize = 11
-                subButtonAction.Font = mainFont
-                subButtonAction.AutoButtonColor = false
-                subButtonAction.Parent = subButtonFrame
-                
-                local subButtonCorner = Instance.new("UICorner")
-                subButtonCorner.CornerRadius = UDim.new(0, 3)
-                subButtonCorner.Parent = subButtonAction
-                
-                local subButtonStroke = Instance.new("UIStroke")
-                subButtonStroke.Color = colors.borderColor
-                subButtonStroke.Parent = subButtonAction
+                local btnBg  = wRect(bx+8, 0, ew-16, 20, colors.sectionBackground, 0.82, Z_UI)
+                local btnBd  = wRectBorder(bx+8, 0, ew-16, 20, colors.borderColor, 1, Z_UI+1)
+                local btnLbl = wText(name, bx+8 + math.floor((ew-16)/2) - math.floor(#name*3), 0, 11, colors.textDark, 1, Z_UI+2)
 
-                subButtonAction.MouseEnter:Connect(function()
-                    showTooltip(tooltip)
-                    animateElement(subButtonAction, {BackgroundColor3 = colors.elementBackground}, 0.25)
-                    animateElement(subButtonStroke, {Color = colors.borderLightColor}, 0.25)
-                    animateElement(subButtonAction, {TextColor3 = colors.textWhiteColor}, 0.25)
-                end)
-                subButtonAction.MouseLeave:Connect(function()
-                    showTooltip("")
-                    animateElement(subButtonAction, {BackgroundColor3 = colors.sectionBackground}, 0.25)
-                    animateElement(subButtonStroke, {Color = colors.borderColor}, 0.25)
-                    animateElement(subButtonAction, {TextColor3 = colors.textDarkColor}, 0.25)
-                end)
-                subButtonAction.MouseButton1Down:Connect(function() animateElement(subButtonAction, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.15) end)
-                subButtonAction.MouseButton1Up:Connect(function()
-                    animateElement(subButtonAction, {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0)}, 0.15)
-                    if callback then task.spawn(callback) end
+                local odList = {
+                    {obj = btnBg,  relY = 0, xPos = bx+8},
+                    {obj = btnBd,  relY = 0, xPos = bx+8},
+                    {obj = btnLbl, relY = 4, xPos = bx+8+math.floor((ew-16)/2)-math.floor(#name*3)},
+                }
+                elements._regElem(22, odList)
+
+                userInputService.InputBegan:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mx, my = getMousePos()
+                        if isPointInRect(mx, my, btnBg.Position.X, btnBg.Position.Y, ew-16, 20) then
+                            animateProp(btnBg, {Color = colors.elementBackground}, 0.15)
+                            animateProp(btnBd, {Color = colors.borderLight}, 0.15)
+                            animateProp(btnLbl, {Color = colors.textWhite}, 0.15)
+                            showTooltip(tooltip or "")
+                            task.wait(0.1)
+                            animateProp(btnBg, {Color = colors.sectionBackground}, 0.15)
+                            animateProp(btnBd, {Color = colors.borderColor}, 0.15)
+                            animateProp(btnLbl, {Color = colors.textDark}, 0.15)
+                            if callback then task.spawn(callback) end
+                        end
+                    end
                 end)
             end
 
             function elements:Module_Create(name, flag, descriptionText, default, tooltip, callback)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or false)
+                local bx = elemBaseX()
+                local ew = elemWidth()
 
-                local moduleFrame = Instance.new("Frame")
-                moduleFrame.Size = UDim2.new(1, 0, 0, 46)
-                moduleFrame.BackgroundTransparency = 1
-                moduleFrame.ClipsDescendants = true
-                moduleFrame.Parent = targetContainer
+                local modBg    = wRect(bx+2, 0, ew-4, 44, colors.elementBackground, 0.82, Z_UI)
+                local modBd    = wRectBorder(bx+2, 0, ew-4, 44, LibraryApi.Flags[flag] and colors.accentColor or colors.borderColor, 1, Z_UI+1)
+                local cbBg     = wRect(bx+14, 0, 14, 14, LibraryApi.Flags[flag] and colors.accentColor or colors.sectionBackground, 0.82, Z_UI+2)
+                local cbBd     = wRectBorder(bx+14, 0, 14, 14, colors.borderColor, 1, Z_UI+3)
+                local modLbl   = wText(name, bx+36, 0, 13, LibraryApi.Flags[flag] and colors.textWhite or colors.textDark, 1, Z_UI+2, Drawing.Fonts.SystemBold)
+                local descLbl  = wText(descriptionText, bx+36, 0, 11, colors.textDark, 1, Z_UI+2)
+                local arrL     = wLine(0,0,0,0, LibraryApi.Flags[flag] and colors.accentColor or colors.textDark, 1, Z_UI+2, 1)
+                local arrR     = wLine(0,0,0,0, LibraryApi.Flags[flag] and colors.accentColor or colors.textDark, 1, Z_UI+2, 1)
 
-                local moduleToggleButton = Instance.new("TextButton")
-                moduleToggleButton.Size = UDim2.new(1, -4, 0, 44)
-                moduleToggleButton.Position = UDim2.new(0, 2, 0, 0)
-                moduleToggleButton.BackgroundColor3 = colors.elementBackground
-                moduleToggleButton.BackgroundTransparency = 0.21847
-                moduleToggleButton.Text = ""
-                moduleToggleButton.AutoButtonColor = false
-                moduleToggleButton.Parent = moduleFrame
-                
-                local moduleToggleButtonCorner = Instance.new("UICorner")
-                moduleToggleButtonCorner.CornerRadius = UDim.new(0, 6)
-                moduleToggleButtonCorner.Parent = moduleToggleButton
-                
-                local moduleToggleButtonStroke = Instance.new("UIStroke")
-                moduleToggleButtonStroke.Color = LibraryApi.Flags[flag] and colors.accentColor or colors.borderColor
-                moduleToggleButtonStroke.Parent = moduleToggleButton
+                local closedH = 46
+                local odList = {
+                    {obj = modBg,   relY = 0,  xPos = bx+2},
+                    {obj = modBd,   relY = 0,  xPos = bx+2},
+                    {obj = cbBg,    relY = 14, xPos = bx+14},
+                    {obj = cbBd,    relY = 14, xPos = bx+14},
+                    {obj = modLbl,  relY = 6,  xPos = bx+36},
+                    {obj = descLbl, relY = 22, xPos = bx+36},
+                    {obj = arrL,    isLine = true, relY = 14, fromYOff = 14, toYOff = 14},
+                    {obj = arrR,    isLine = true, relY = 14, fromYOff = 14, toYOff = 14},
+                }
+                elements._regElem(closedH, odList)
 
-                local moduleCheckboxFrame = Instance.new("Frame")
-                moduleCheckboxFrame.Size = UDim2.new(0, 16, 0, 16)
-                moduleCheckboxFrame.Position = UDim2.new(0, 14, 0.5, -8)
-                moduleCheckboxFrame.BackgroundColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.sectionBackground
-                moduleCheckboxFrame.BackgroundTransparency = 0.21847
-                moduleCheckboxFrame.Parent = moduleToggleButton
-                
-                local moduleCheckboxCorner = Instance.new("UICorner")
-                moduleCheckboxCorner.CornerRadius = UDim.new(0, 4)
-                moduleCheckboxCorner.Parent = moduleCheckboxFrame
-                
-                local moduleCheckboxStroke = Instance.new("UIStroke")
-                moduleCheckboxStroke.Color = colors.borderColor
-                moduleCheckboxStroke.Parent = moduleCheckboxFrame
-
-                local moduleLabel = Instance.new("TextLabel")
-                moduleLabel.Size = UDim2.new(1, -45, 0, 16)
-                moduleLabel.Position = UDim2.new(0, 40, 0, 6)
-                moduleLabel.BackgroundTransparency = 1
-                moduleLabel.Text = name
-                moduleLabel.TextColor3 = LibraryApi.Flags[flag] and colors.textWhiteColor or colors.textDarkColor
-                moduleLabel.TextSize = 13
-                moduleLabel.Font = boldFont
-                moduleLabel.TextXAlignment = Enum.TextXAlignment.Left
-                moduleLabel.Parent = moduleToggleButton
-
-                local moduleDescriptionLabel = Instance.new("TextLabel")
-                moduleDescriptionLabel.Size = UDim2.new(1, -45, 0, 14)
-                moduleDescriptionLabel.Position = UDim2.new(0, 40, 0, 22)
-                moduleDescriptionLabel.BackgroundTransparency = 1
-                moduleDescriptionLabel.Text = descriptionText
-                moduleDescriptionLabel.TextColor3 = colors.textDarkColor
-                moduleDescriptionLabel.TextSize = 11
-                moduleDescriptionLabel.Font = mainFont
-                moduleDescriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-                moduleDescriptionLabel.Parent = moduleToggleButton
-
-                local moduleArrowIcon = Instance.new("ImageLabel")
-                moduleArrowIcon.Size = UDim2.new(0, 14, 0, 14)
-                moduleArrowIcon.Position = UDim2.new(1, -22, 0, 14)
-                moduleArrowIcon.BackgroundTransparency = 1
-                moduleArrowIcon.Image = "rbxassetid://6031090656"
-                moduleArrowIcon.ImageColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.textDarkColor
-                moduleArrowIcon.Rotation = LibraryApi.Flags[flag] and 180 or 0
-                moduleArrowIcon.Parent = moduleToggleButton
-
-                local moduleContentFrame = Instance.new("Frame")
-                moduleContentFrame.Size = UDim2.new(1, -16, 0, 0)
-                moduleContentFrame.Position = UDim2.new(0, 12, 0, 48)
-                moduleContentFrame.BackgroundTransparency = 1
-                moduleContentFrame.Parent = moduleFrame
-
-                local moduleContentLayout = Instance.new("UIListLayout")
-                moduleContentLayout.Padding = UDim.new(0, 8)
-                moduleContentLayout.Parent = moduleContentFrame
-
-                local function synchronizeModuleSize()
-                    if LibraryApi.Flags[flag] then
-                        animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46 + moduleContentLayout.AbsoluteContentSize.Y + 8)}, 0.3)
-                        animateElement(moduleArrowIcon, {Rotation = 180, ImageColor3 = colors.accentColor}, 0.3)
+                local function updateArrows(open)
+                    local ax = modBg.Position.X + ew - 24
+                    local ay = modBg.Position.Y + 22
+                    if open then
+                        arrL.From = Vector2.new(ax, ay+3);   arrL.To = Vector2.new(ax+5, ay-2)
+                        arrR.From = Vector2.new(ax+5, ay-2); arrR.To = Vector2.new(ax+10, ay+3)
                     else
-                        animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46)}, 0.3)
-                        animateElement(moduleArrowIcon, {Rotation = 0, ImageColor3 = colors.textDarkColor}, 0.3)
+                        arrL.From = Vector2.new(ax, ay-2);   arrL.To = Vector2.new(ax+5, ay+3)
+                        arrR.From = Vector2.new(ax+5, ay+3); arrR.To = Vector2.new(ax+10, ay-2)
                     end
                 end
+                updateArrows(LibraryApi.Flags[flag])
 
-                moduleContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                    if LibraryApi.Flags[flag] then synchronizeModuleSize() end
+                local moduleContentInjector = nil
+                local moduleContentH = 0
+                local moduleContentObjs = {}
+
+                local function getModuleBaseY() return modBg.Position.Y + 48 end
+                local function getModuleH() return moduleContentH end
+
+                local function getModuleIsLeft() return isLeft end
+                moduleContentInjector = elementInjector({
+                    _getBaseY = getModuleBaseY,
+                    _isLeft = isLeft,
+                }, getModuleBaseY, getModuleH, isLeft)
+
+                userInputService.InputBegan:Connect(function(input)
+                    if not windowVisible or windowContext.Active_Tab ~= tabData then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        local mx, my = getMousePos()
+                        if isPointInRect(mx, my, modBg.Position.X, modBg.Position.Y, ew-4, 44) then
+                            LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
+                            local st = LibraryApi.Flags[flag]
+                            animateProp(cbBg, {Color = st and colors.accentColor or colors.sectionBackground}, 0.2)
+                            animateProp(modBd, {Color = st and colors.accentColor or colors.borderColor}, 0.2)
+                            animateProp(modLbl, {Color = st and colors.textWhite or colors.textDark}, 0.2)
+                            updateArrows(st)
+                            saveConfiguration()
+                            if callback then task.spawn(callback, st) end
+                        end
+                    end
                 end)
 
-                moduleToggleButton.MouseEnter:Connect(function()
-                    showTooltip(tooltip)
-                    if not LibraryApi.Flags[flag] then animateElement(moduleToggleButtonStroke, {Color = colors.borderLightColor}, 0.25) end
-                end)
-                moduleToggleButton.MouseLeave:Connect(function()
-                    showTooltip("")
-                    if not LibraryApi.Flags[flag] then animateElement(moduleToggleButtonStroke, {Color = colors.borderColor}, 0.25) end
-                end)
-
-                moduleToggleButton.MouseButton1Click:Connect(function()
-                    LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
-                    local newState = LibraryApi.Flags[flag]
-                    animateElement(moduleCheckboxFrame, {BackgroundColor3 = newState and colors.accentColor or colors.sectionBackground}, 0.3)
-                    animateElement(moduleToggleButtonStroke, {Color = newState and colors.accentColor or colors.borderColor}, 0.3)
-                    animateElement(moduleLabel, {TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor}, 0.3)
-                    synchronizeModuleSize()
-                    saveConfiguration()
-                    if callback then task.spawn(callback, newState) end
-                end)
-
-                return elementInjector(moduleContentFrame)
+                return moduleContentInjector
             end
 
             return elements
@@ -1678,69 +1613,65 @@ function LibraryApi:CreateWindow(windowName)
         local sectionApi = {}
 
         function sectionApi:Section_Create(columnSide, sectionTitle)
-            local sectionBackgroundFrame = Instance.new("Frame")
-            sectionBackgroundFrame.Size = UDim2.new(1, 0, 0, 40)
-            sectionBackgroundFrame.BackgroundColor3 = colors.sectionBackground
-            sectionBackgroundFrame.BackgroundTransparency = 0.21847
-            sectionBackgroundFrame.Parent = (columnSide == "Left") and leftColumnFrame or rightColumnFrame
-            
-            local sectionBackgroundCorner = Instance.new("UICorner")
-            sectionBackgroundCorner.CornerRadius = UDim.new(0, 6)
-            sectionBackgroundCorner.Parent = sectionBackgroundFrame
-            
-            local sectionBackgroundStroke = Instance.new("UIStroke")
-            sectionBackgroundStroke.Color = colors.borderColor
-            sectionBackgroundStroke.Parent = sectionBackgroundFrame
+            local isLeft = columnSide == "Left"
+            local colX = isLeft and LEFT_X or RIGHT_X
+            local colY = isLeft and leftColY or rightColY
+            local colW = COL_W
 
-            local sectionHeaderFrame = Instance.new("Frame")
-            sectionHeaderFrame.Size = UDim2.new(1, 0, 0, 26)
-            sectionHeaderFrame.BackgroundTransparency = 1
-            sectionHeaderFrame.Parent = sectionBackgroundFrame
+            local SEC_H_BASE = 44
+            local secFrame = {}
+            secFrame.x = colX
+            secFrame.y = colY
+            secFrame.w = colW
+            secFrame.h = SEC_H_BASE
+            secFrame.contentH = 0
 
-            local sectionLabel = Instance.new("TextLabel")
-            sectionLabel.Size = UDim2.new(1, -20, 1, 0)
-            sectionLabel.Position = UDim2.new(0, 10, 0, 0)
-            sectionLabel.BackgroundTransparency = 1
-            sectionLabel.Text = sectionTitle
-            sectionLabel.TextColor3 = colors.textWhiteColor
-            sectionLabel.TextSize = 12
-            sectionLabel.Font = boldFont
-            sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
-            sectionLabel.Parent = sectionHeaderFrame
+            local secBg   = wRect(colX, colY, colW, SEC_H_BASE, colors.sectionBackground, 0.82, Z_BASE+2)
+            local secBd   = wRectBorder(colX, colY, colW, SEC_H_BASE, colors.borderColor, 1, Z_BASE+3)
+            local titleLb = wText(sectionTitle, colX+10, colY+8, 12, colors.textWhite, 1, Z_UI, Drawing.Fonts.SystemBold)
+            local sepLine = wLine(colX+10, colY+26, colX+colW-10, colY+26, colors.borderColor, 1, Z_UI)
 
-            local sectionSeparatorLine = Instance.new("Frame")
-            sectionSeparatorLine.Size = UDim2.new(1, -20, 0, 1)
-            sectionSeparatorLine.Position = UDim2.new(0, 10, 1, 0)
-            sectionSeparatorLine.BackgroundColor3 = colors.borderColor
-            sectionSeparatorLine.BorderSizePixel = 0
-            sectionSeparatorLine.Parent = sectionHeaderFrame
+            local sectionContentH = 0
 
-            local sectionContentFrame = Instance.new("Frame")
-            sectionContentFrame.Size = UDim2.new(1, -16, 1, -34)
-            sectionContentFrame.Position = UDim2.new(0, 8, 0, 32)
-            sectionContentFrame.BackgroundTransparency = 1
-            sectionContentFrame.Parent = sectionBackgroundFrame
+            local function getSectionBaseY() return secBg.Position.Y end
+            local function getSectionH() return sectionContentH end
 
-            local sectionContentLayout = Instance.new("UIListLayout")
-            sectionContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            sectionContentLayout.Padding = UDim.new(0, 8)
-            sectionContentLayout.Parent = sectionContentFrame
+            local injected = elementInjector(nil, getSectionBaseY, getSectionH, isLeft)
 
-            runService.RenderStepped:Connect(function()
-                sectionBackgroundFrame.Size = UDim2.new(1, 0, 0, sectionContentLayout.AbsoluteContentSize.Y + 44)
-            end)
+            local origRegElem = injected._regElem
+            injected._regElem = function(h, odList)
+                origRegElem(h, odList)
+                sectionContentH = sectionContentH + h + 8
+                local newSecH = SEC_H_BASE + sectionContentH
+                secBg.Size = Vector2.new(colW, newSecH)
+                secBd.Size = Vector2.new(colW, newSecH)
+                if isLeft then
+                    leftColY = secBg.Position.Y + newSecH + 10
+                else
+                    rightColY = secBg.Position.Y + newSecH + 10
+                end
+            end
 
-            return elementInjector(sectionContentFrame)
+            secFrame.secBg = secBg
+            secFrame.secBd = secBd
+            secFrame.titleLb = titleLb
+            secFrame.sepLine = sepLine
+
+            function secFrame:_reposition()
+                secBg.Position   = Vector2.new(winX + (isLeft and SIDEBAR_W+8 or SIDEBAR_W+8+COL_W+10), secBg.Position.Y)
+                secBd.Position   = secBg.Position
+                titleLb.Position = Vector2.new(secBg.Position.X+10, secBg.Position.Y+8)
+                sepLine.From     = Vector2.new(secBg.Position.X+10, secBg.Position.Y+26)
+                sepLine.To       = Vector2.new(secBg.Position.X+colW-10, secBg.Position.Y+26)
+                if injected._refresh then injected._refresh() end
+            end
+
+            table.insert(tabData.sections, secFrame)
+            return injected
         end
 
         return sectionApi
     end
-
-    userInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-        if not gameProcessedEvent and input.KeyCode == Enum.KeyCode.Delete then
-            mainBackground.Visible = not mainBackground.Visible
-        end
-    end)
 
     return windowContext
 end
