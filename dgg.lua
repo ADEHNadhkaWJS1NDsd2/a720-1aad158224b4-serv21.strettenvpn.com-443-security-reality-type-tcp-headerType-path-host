@@ -284,16 +284,24 @@ local function snapValue(value, step)
 end
 
 local function formatValue(value, step)
-    if step and step < 1 then
+    if type(value) ~= "number" then
+        return tostring(value)
+    end
+    if step and type(step) == "number" and step > 0 then
         local decimals = tostring(step):match("%.(%d+)")
         if decimals then
-            return string.format("%." .. tostring(#decimals) .. "f", value)
+            local formatted = string.format("%." .. tostring(#decimals) .. "f", value)
+            formatted = formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
+            return formatted
         end
+        return tostring(math.floor(value + 0.5))
     end
-    if math.floor(value) == value then
-        return tostring(math.floor(value))
+    if math.abs(value - math.floor(value + 0.5)) < 0.001 then
+        return tostring(math.floor(value + 0.5))
     end
-    return tostring(value)
+    local formatted = string.format("%.2f", value)
+    formatted = formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
+    return formatted
 end
 
 local function hsvToColor(h, s, v)
@@ -1474,6 +1482,7 @@ local function makeSectionApi(section)
         element.v = vVal
         element.open = false
         element.dragMode = nil
+        element.animOpen = 0
         element.gridCols = 40
         element.gridRows = 28
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
@@ -1543,7 +1552,7 @@ local function makeSectionApi(section)
         end
         function element:hitTest(pos)
             if pointInRect(pos, self.x, self.y, self.w, self.height) then return true end
-            if self.open and pointInRect(pos, self.popupX, self.popupY, self.popupW, self.popupH) then return true end
+            if (self.open or (self.animOpen or 0) > 0.01) and pointInRect(pos, self.popupX, self.popupY, self.popupW, self.popupH) then return true end
             return false
         end
         function element:applySVFromMouse(pos)
@@ -1603,22 +1612,26 @@ local function makeSectionApi(section)
         end
         function element:dynamicHeight()
             if self.open then
-                return 46 + 228 + 8
+                return 46 + 252 + 10
             end
             return 28
         end
         function element:draw()
             local hovered = UI.hovered == self
             local color = LibraryApi.Flags[self.flag]
+            self.animOpen = lerp(self.animOpen or 0, self.open and 1 or 0, 0.18)
+            if self.animOpen < 0.001 and not self.open then
+                self.animOpen = 0
+            end
             self.label.Position = Vector2.new(self.x + 2, self.y + 3)
             setSoftFrame(self.previewFrame, self.x + self.w - 28, self.y + 5, 24, 14, 3, colors.elementBackground, 0.82, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
             setRoundedPrimitive(self.preview, self.x + self.w - 24, self.y + 8, 16, 8, 2, color, 1, true)
             self.label.Visible = true
             if hovered then setTooltipText(self.tooltip) end
-            self.popupW = 210
-            self.popupH = 228
+            self.popupW = 236
+            self.popupH = 252
             self.popupX = self.x + self.w - self.popupW
-            self.popupY = self.y + 46
+            self.popupY = self.y + 42 + (1 - self.animOpen) * -6
             self.svX = self.popupX + 8
             self.svY = self.popupY + 8
             self.svW = self.popupW - 16
@@ -1627,20 +1640,22 @@ local function makeSectionApi(section)
             self.hueY = self.svY + self.svH + 10
             self.hueW = self.popupW - 16
             self.hueH = 12
-            self.infoY = self.hueY + self.hueH + 6
-            self.swatchX = self.popupX + 8
-            self.swatchY = self.infoY + 2
-            self.swatchW = 34
-            self.swatchH = 18
-            self.copyX = self.popupX + self.popupW - 8 - 56 - 52
-            self.copyY = self.infoY + 0
-            self.copyW = 52
-            self.pasteX = self.popupX + self.popupW - 8 - 56
-            self.pasteY = self.infoY + 0
-            self.pasteW = 56
-            self.actionH = 18
-            if self.open then
-                setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 4, colors.sectionBackground, 0.985, colors.borderColor, 0.95, 2)
+            self.actionY = self.hueY + self.hueH + 10
+            self.copyX = self.popupX + 8
+            self.copyY = self.actionY
+            self.copyW = 66
+            self.pasteX = self.copyX + self.copyW + 8
+            self.pasteY = self.actionY
+            self.pasteW = 66
+            self.actionH = 20
+            self.swatchX = self.popupX + self.popupW - 52
+            self.swatchY = self.actionY
+            self.swatchW = 44
+            self.swatchH = 20
+            self.infoY = self.actionY + self.actionH + 10
+            if self.animOpen > 0.01 then
+                local alpha = self.animOpen
+                setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 4, colors.sectionBackground, 0.985 * alpha, colors.borderColor, 0.95 * alpha, 2)
                 local cellW = self.svW / self.gridCols
                 local cellH = self.svH / self.gridRows
                 for gy = 1, self.gridRows do
@@ -1651,16 +1666,20 @@ local function makeSectionApi(section)
                         cell.Position = Vector2.new(self.svX + (gx - 1) * cellW, self.svY + (gy - 1) * cellH)
                         cell.Size = Vector2.new(math.ceil(cellW + 0.35), math.ceil(cellH + 0.35))
                         cell.Color = hsvToColor(self.h, sSample, vSample)
+                        cell.Transparency = alpha
                         cell.Visible = true
                     end
                 end
                 self.popup.gridBorder.Position = Vector2.new(self.svX, self.svY)
                 self.popup.gridBorder.Size = Vector2.new(self.svW, self.svH)
+                self.popup.gridBorder.Transparency = alpha
                 self.popup.gridBorder.Visible = true
                 local cursorX = self.svX + self.s * self.svW
                 local cursorY = self.svY + (1 - self.v) * self.svH
                 self.popup.cursorOuter.Position = Vector2.new(cursorX, cursorY)
                 self.popup.cursorInner.Position = Vector2.new(cursorX, cursorY)
+                self.popup.cursorOuter.Transparency = alpha
+                self.popup.cursorInner.Transparency = alpha
                 self.popup.cursorOuter.Visible = true
                 self.popup.cursorInner.Visible = true
                 local hueCellW = self.hueW / #self.popup.hueCells
@@ -1669,39 +1688,46 @@ local function makeSectionApi(section)
                     cell.Position = Vector2.new(self.hueX + (i - 1) * hueCellW, self.hueY)
                     cell.Size = Vector2.new(math.ceil(hueCellW + 0.35), self.hueH)
                     cell.Color = hsvToColor(hSample, 1, 1)
+                    cell.Transparency = alpha
                     cell.Visible = true
                 end
                 self.popup.hueBorder.Position = Vector2.new(self.hueX, self.hueY)
                 self.popup.hueBorder.Size = Vector2.new(self.hueW, self.hueH)
+                self.popup.hueBorder.Transparency = alpha
                 self.popup.hueBorder.Visible = true
                 local hx = self.hueX + self.h * self.hueW
                 self.popup.hueLine.From = Vector2.new(hx, self.hueY - 2)
                 self.popup.hueLine.To = Vector2.new(hx, self.hueY + self.hueH + 2)
+                self.popup.hueLine.Transparency = alpha
                 self.popup.hueLine.Visible = true
-                setSoftFrame(self.popup.currentFrame, self.swatchX, self.swatchY, self.swatchW, self.swatchH, 3, colors.elementBackground, 0.96, colors.borderLightColor, 0.95, 1)
-                setRoundedPrimitive(self.popup.currentFill, self.swatchX + 2, self.swatchY + 2, self.swatchW - 4, self.swatchH - 4, 2, color, 1, true)
+                setSoftFrame(self.popup.currentFrame, self.swatchX, self.swatchY, self.swatchW, self.swatchH, 3, colors.elementBackground, 0.96 * alpha, colors.borderLightColor, 0.95 * alpha, 1)
+                setRoundedPrimitive(self.popup.currentFill, self.swatchX + 2, self.swatchY + 2, self.swatchW - 4, self.swatchH - 4, 2, color, alpha, true)
                 local copyHovered = pointInRect(UI.mousePos, self.copyX, self.copyY, self.copyW, self.actionH)
                 local pasteHovered = pointInRect(UI.mousePos, self.pasteX, self.pasteY, self.pasteW, self.actionH)
-                setSoftFrame(self.popup.copyButton, self.copyX, self.copyY, self.copyW, self.actionH, 3, copyHovered and colors.elementHoverBackground or colors.elementBackground, 0.97, copyHovered and colors.borderLightColor or colors.borderColor, 0.95, 1)
-                setSoftFrame(self.popup.pasteButton, self.pasteX, self.pasteY, self.pasteW, self.actionH, 3, pasteHovered and colors.elementHoverBackground or colors.elementBackground, 0.97, pasteHovered and colors.accentColor or colors.borderColor, 0.95, 1)
-                self.popup.copyLabel.Position = Vector2.new(self.copyX + self.copyW * 0.5, self.copyY + 4)
+                setSoftFrame(self.popup.copyButton, self.copyX, self.copyY, self.copyW, self.actionH, 3, copyHovered and colors.elementHoverBackground or colors.elementBackground, 0.97 * alpha, copyHovered and colors.borderLightColor or colors.borderColor, 0.95 * alpha, 1)
+                setSoftFrame(self.popup.pasteButton, self.pasteX, self.pasteY, self.pasteW, self.actionH, 3, pasteHovered and colors.elementHoverBackground or colors.elementBackground, 0.97 * alpha, pasteHovered and colors.accentColor or colors.borderColor, 0.95 * alpha, 1)
+                self.popup.copyLabel.Position = Vector2.new(self.copyX + self.copyW * 0.5, self.copyY + 5)
                 self.popup.copyLabel.Color = copyHovered and colors.textWhiteColor or colors.textDarkColor
+                self.popup.copyLabel.Transparency = alpha
                 self.popup.copyLabel.Visible = true
-                self.popup.pasteLabel.Position = Vector2.new(self.pasteX + self.pasteW * 0.5, self.pasteY + 4)
+                self.popup.pasteLabel.Position = Vector2.new(self.pasteX + self.pasteW * 0.5, self.pasteY + 5)
                 self.popup.pasteLabel.Color = pasteHovered and colors.textWhiteColor or colors.textDarkColor
+                self.popup.pasteLabel.Transparency = alpha
                 self.popup.pasteLabel.Visible = true
-                local rgbText = string.format("%d, %d, %d", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
-                local hexText = colorToHex(color)
-                self.popup.rgbLabel.Position = Vector2.new(self.popupX + 8, self.infoY + 24)
-                self.popup.rgbLabel.Visible = true
+                local rgbText = string.format("RGB  %d, %d, %d", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
+                local hexText = "HEX  " .. colorToHex(color)
+                self.popup.rgbLabel.Visible = false
+                self.popup.hexLabel.Visible = false
                 self.popup.rgbValue.Text = rgbText
-                self.popup.rgbValue.Position = Vector2.new(self.popupX + 8, self.infoY + 36)
+                self.popup.rgbValue.Position = Vector2.new(self.popupX + 8, self.infoY)
+                self.popup.rgbValue.Size = 11
+                self.popup.rgbValue.Transparency = alpha
                 self.popup.rgbValue.Visible = true
-                self.popup.hexLabel.Position = Vector2.new(self.popupX + 108, self.infoY + 24)
-                self.popup.hexLabel.Visible = true
                 self.popup.hexValue.Text = hexText
-                self.popup.hexValue.Position = Vector2.new(self.popupX + 108, self.infoY + 36)
+                self.popup.hexValue.Position = Vector2.new(self.popupX + 8, self.infoY + 16)
+                self.popup.hexValue.Size = 11
                 self.popup.hexValue.Color = colors.textWhiteColor
+                self.popup.hexValue.Transparency = alpha
                 self.popup.hexValue.Visible = true
             else
                 hideGroup(self.popup)
