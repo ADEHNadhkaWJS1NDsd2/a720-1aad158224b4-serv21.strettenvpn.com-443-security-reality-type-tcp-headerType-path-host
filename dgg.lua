@@ -1045,7 +1045,7 @@ local function makeSectionApi(section)
             flag = makeAutoFlag(section, name)
         end
         local value = ensureFlag(flag, default or false)
-        local element = createBaseElement(section, "toggle", 18)
+        local element = createBaseElement(section, "toggle", tooltipText and tooltipText ~= "" and 30 or 18)
         element.name = tostring(name or "Toggle")
         element.flag = flag
         element.tooltip = tooltipText
@@ -1054,6 +1054,7 @@ local function makeSectionApi(section)
         element.box = addToGroup(element.drawings, createSoftFrame(60))
         element.knob = addToGroup(element.drawings, createRoundedPrimitive(63, colors.textWhiteColor, 1))
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = value and colors.textWhiteColor or colors.textDarkColor, ZIndex = 64, Visible = false, Text = element.name }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 64, Visible = false, Text = tostring(tooltipText or "") }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x, self.y, self.w, math.max(self.height or 0, 48))
         end
@@ -1068,10 +1069,14 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self
             setSoftFrame(self.box, self.x + 2, self.y + 1, 30, 16, 4, state and colors.accentColor or colors.elementBackground, 0.98, state and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
             setRoundedPrimitive(self.knob, self.x + (state and 17 or 4), self.y + 4, 8, 8, 3, colors.textWhiteColor, 1, true)
-            self.label.Position = Vector2.new(self.x + 40, self.y + 3)
+            local titleY = self.tooltip and self.tooltip ~= "" and (self.y + 1) or (self.y + 3)
+            self.label.Position = Vector2.new(self.x + 40, titleY)
             self.label.Text = self.name
             self.label.Color = state and colors.textWhiteColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
             self.label.Visible = true
+            self.desc.Position = Vector2.new(self.x + 40, self.y + 15)
+            self.desc.Text = tostring(self.tooltip or "")
+            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
             if hovered then setTooltipText(self.tooltip) end
         end
         return element
@@ -1093,7 +1098,7 @@ local function makeSectionApi(section)
             return api:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltipText, callback)
         end
         local value = ensureFlag(flag, snapValue(default or min, step))
-        local element = createBaseElement(section, "slider", 28)
+        local element = createBaseElement(section, "slider", tooltipText and tooltipText ~= "" and 40 or 28)
         element.name = tostring(name or "Slider")
         element.flag = flag
         element.min = min
@@ -1102,6 +1107,7 @@ local function makeSectionApi(section)
         element.tooltip = tooltipText
         element.callback = callback
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
         element.valueText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = formatValue(value, step) }))
         element.track = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.elementBackground, ZIndex = 60, Visible = false }))
         element.trackBorder = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 61, Visible = false }))
@@ -1139,18 +1145,23 @@ local function makeSectionApi(section)
             local pct = (valueNow - self.min) / math.max(1e-9, (self.max - self.min))
             local fillW = math.max(1, trackW * pct)
             local hovered = UI.hovered == self or (UI.active and UI.active.element == self)
-            self.label.Position = Vector2.new(self.x + 2, self.y + 1)
+            local labelY = self.tooltip and self.tooltip ~= "" and (self.y + 1) or (self.y + 1)
+            local trackY = self.tooltip and self.tooltip ~= "" and (self.y + 31) or (self.y + 19)
+            self.label.Position = Vector2.new(self.x + 2, labelY)
             self.label.Text = self.name
+            self.desc.Position = Vector2.new(self.x + 2, self.y + 15)
+            self.desc.Text = tostring(self.tooltip or "")
+            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
             self.valueText.Text = formatValue(valueNow, self.step or 1)
-            self.valueText.Position = Vector2.new(self.x + self.w - getTextSize(self.valueText.Text, 12) - 2, self.y + 1)
-            self.track.Position = Vector2.new(self.x + 2, self.y + 19)
+            self.valueText.Position = Vector2.new(self.x + self.w - getTextSize(self.valueText.Text, 12) - 2, labelY)
+            self.track.Position = Vector2.new(self.x + 2, trackY)
             self.track.Size = Vector2.new(trackW, 5)
             self.trackBorder.Position = self.track.Position
             self.trackBorder.Size = self.track.Size
             self.trackBorder.Color = hovered and colors.borderLightColor or colors.borderColor
             self.fill.Position = self.track.Position
             self.fill.Size = Vector2.new(fillW, 5)
-            self.knob.Position = Vector2.new(self.x + 2 + trackW * pct, self.y + 20.5)
+            self.knob.Position = Vector2.new(self.x + 2 + trackW * pct, self.track.Position.Y + 1.5)
             self.knobBorder.Position = self.knob.Position
             self.knobBorder.Color = hovered and colors.accentColor or colors.borderColor
             self.label.Visible = true
@@ -1180,7 +1191,7 @@ local function makeSectionApi(section)
         value.Min = clamp(value.Min, min, max)
         value.Max = clamp(value.Max, min, max)
         if value.Min > value.Max then value.Min, value.Max = value.Max, value.Min end
-        local element = createBaseElement(section, "rangeslider", 28)
+        local element = createBaseElement(section, "rangeslider", tooltipText and tooltipText ~= "" and 40 or 28)
         element.name = tostring(name or "Range")
         element.flag = flag
         element.min = min
@@ -1190,6 +1201,7 @@ local function makeSectionApi(section)
         element.callback = callback
         element.dragging = nil
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
         element.valueText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = "" }))
         element.track = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.elementBackground, ZIndex = 60, Visible = false }))
         element.trackBorder = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 61, Visible = false }))
@@ -1284,6 +1296,7 @@ local function makeSectionApi(section)
         element.focused = false
         element.cursorBlink = 0
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
         element.box = addToGroup(element.drawings, createSoftFrame(60))
         element.text = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = element.value }))
         function element:hitTest(pos)
@@ -1326,13 +1339,14 @@ local function makeSectionApi(section)
             flag = makeAutoFlag(section, name)
         end
         local value = ensureFlag(flag, default or Enum.KeyCode.Unknown)
-        local element = createBaseElement(section, "keybind", 18)
+        local element = createBaseElement(section, "keybind", tooltipText and tooltipText ~= "" and 30 or 18)
         element.name = tostring(name or "Keybind")
         element.flag = flag
         element.tooltip = tooltipText
         element.callback = callback
         element.waiting = false
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
         element.box = addToGroup(element.drawings, createSoftFrame(60))
         element.bindText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 63, Visible = false, Text = "" }))
         function element:hitTest(pos)
@@ -1384,6 +1398,7 @@ local function makeSectionApi(section)
         element.callback = callback
         element.open = false
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
         element.box = addToGroup(element.drawings, createSoftFrame(60))
         element.valueText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(value) }))
         element.arrow = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = "v" }))
@@ -1753,12 +1768,13 @@ local function makeSectionApi(section)
     api.Input_Create = api.Textbox_Create
 
     function api:Button_Create(name, tooltipText, callback)
-        local element = createBaseElement(section, "button", 28)
+        local element = createBaseElement(section, "button", tooltipText and tooltipText ~= "" and 40 or 28)
         element.name = tostring(name or "Button")
         element.tooltip = tooltipText
         element.callback = callback
         element.box = addToGroup(element.drawings, createSoftFrame(60))
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 62, Visible = false, Text = element.name, Center = true }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(tooltipText or ""), Center = true }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x + 2, self.y, self.w - 4, self.height)
         end
@@ -1769,8 +1785,11 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self
             setSoftFrame(self.box, self.x + 2, self.y, self.w - 4, self.height, 4, hovered and colors.elementHoverBackground or colors.elementBackground, 0.78153, hovered and colors.accentColor or colors.borderColor, 0.95, 1)
             self.label.Text = self.name
-            self.label.Position = Vector2.new(self.x + self.w / 2, self.y + 8)
+            self.label.Position = Vector2.new(self.x + self.w / 2, self.tooltip and self.tooltip ~= "" and (self.y + 4) or (self.y + 8))
             self.label.Color = hovered and colors.accentColor or colors.textWhiteColor
+            self.desc.Position = Vector2.new(self.x + self.w / 2, self.y + 18)
+            self.desc.Text = tostring(self.tooltip or "")
+            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
             self.box.Visible = true
             self.label.Visible = true
             if hovered then setTooltipText(self.tooltip) end
@@ -1779,12 +1798,13 @@ local function makeSectionApi(section)
     end
 
     function api:SubButton_Create(name, tooltipText, callback)
-        local element = createBaseElement(section, "subbutton", 20)
+        local element = createBaseElement(section, "subbutton", tooltipText and tooltipText ~= "" and 32 or 20)
         element.name = tostring(name or "SubButton")
         element.tooltip = tooltipText
         element.callback = callback
         element.box = addToGroup(element.drawings, createSoftFrame(60))
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = element.name, Center = true }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 10, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(tooltipText or ""), Center = true }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x + 8, self.y, self.w - 16, self.height)
         end
@@ -1795,8 +1815,11 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self
             setSoftFrame(self.box, self.x + 8, self.y, self.w - 16, self.height, 3, hovered and colors.elementBackground or colors.sectionBackground, 0.95, hovered and colors.borderLightColor or colors.borderColor, 0.9, 1)
             self.label.Text = self.name
-            self.label.Position = Vector2.new(self.x + self.w / 2, self.y + 4)
+            self.label.Position = Vector2.new(self.x + self.w / 2, self.tooltip and self.tooltip ~= "" and (self.y + 2) or (self.y + 4))
             self.label.Color = hovered and colors.textWhiteColor or colors.textDarkColor
+            self.desc.Position = Vector2.new(self.x + self.w / 2, self.y + 14)
+            self.desc.Text = tostring(self.tooltip or "")
+            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
             self.box.Visible = true
             self.label.Visible = true
             if hovered then setTooltipText(self.tooltip) end
