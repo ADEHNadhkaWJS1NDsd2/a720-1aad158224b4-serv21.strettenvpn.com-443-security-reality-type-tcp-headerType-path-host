@@ -3,6 +3,13 @@ local runService = game:GetService("RunService")
 local textService = game:GetService("TextService")
 local httpService = game:GetService("HttpService")
 local workspaceService = game:GetService("Workspace")
+local playersService = game:GetService("Players")
+local env = (getgenv and getgenv()) or (getfenv and getfenv()) or _G
+local matchaIsMouse1Pressed = rawget(env, "ismouse1pressed")
+local matchaIsMouse2Pressed = rawget(env, "ismouse2pressed")
+local matchaIsKeyPressed = rawget(env, "iskeypressed")
+local matchaSetClipboard = rawget(env, "setclipboard") or rawget(env, "toclipboard")
+local matchaGetClipboard = rawget(env, "getclipboard") or rawget(env, "fromclipboard")
 
 local LibraryApi = {
     Flags = {},
@@ -79,8 +86,59 @@ local function pointInRect(p, x, y, w, h)
     return p.X >= x and p.X <= x + w and p.Y >= y and p.Y <= y + h
 end
 
+local function getMousePosition()
+    local ok, value = pcall(function()
+        return userInputService:GetMouseLocation()
+    end)
+    if ok and value then
+        return value
+    end
+    local lp = playersService.LocalPlayer
+    if lp then
+        local mouse = lp:GetMouse()
+        if mouse then
+            return Vector2.new(mouse.X or 0, mouse.Y or 0)
+        end
+    end
+    return UI and UI.mousePos or Vector2.zero
+end
+
+local function isMouse1Held()
+    if type(matchaIsMouse1Pressed) == "function" then
+        local ok, value = pcall(matchaIsMouse1Pressed)
+        if ok then
+            return not not value
+        end
+    end
+    return UI and UI.mouseDown or false
+end
+
+local function isMouse2Held()
+    if type(matchaIsMouse2Pressed) == "function" then
+        local ok, value = pcall(matchaIsMouse2Pressed)
+        if ok then
+            return not not value
+        end
+    end
+    return false
+end
+
+local function isShiftHeld()
+    local okL, left = pcall(function() return userInputService:IsKeyDown(Enum.KeyCode.LeftShift) end)
+    local okR, right = pcall(function() return userInputService:IsKeyDown(Enum.KeyCode.RightShift) end)
+    if (okL and left) or (okR and right) then
+        return true
+    end
+    if type(matchaIsKeyPressed) == "function" then
+        local ok1, v1 = pcall(matchaIsKeyPressed, 160)
+        local ok2, v2 = pcall(matchaIsKeyPressed, 161)
+        return (ok1 and v1) or (ok2 and v2) or false
+    end
+    return false
+end
+
 local function setClipboardText(text)
-    local fn = rawget(getfenv and getfenv() or _G, "setclipboard") or rawget(getfenv and getfenv() or _G, "toclipboard")
+    local fn = matchaSetClipboard or rawget(getfenv and getfenv() or _G, "setclipboard") or rawget(getfenv and getfenv() or _G, "toclipboard")
     if type(fn) == "function" then
         return pcall(fn, text)
     end
@@ -89,7 +147,7 @@ end
 
 local function getClipboardText()
     local env = getfenv and getfenv() or _G
-    local fn = rawget(env, "getclipboard") or rawget(env, "fromclipboard")
+    local fn = matchaGetClipboard or rawget(env, "getclipboard") or rawget(env, "fromclipboard")
     if type(fn) == "function" then
         local ok, result = pcall(fn)
         if ok and type(result) == "string" then
@@ -674,6 +732,13 @@ local function layoutWindow(window)
     setRoundedPrimitive(d.sidebarBorder, window.x + 150, window.y + 37, 1, window.h - 37, 0, colors.borderColor, 0.85, true)
     d.title.Position = Vector2.new(window.x + 15, window.y + 11)
 
+    for _, tab in ipairs(window.tabs) do
+        if tab.drawings then
+            hideGroup(tab.drawings.indicatorGlow)
+            hideGroup(tab.drawings.indicator)
+        end
+    end
+
     for index, tab in ipairs(window.tabs) do
         tab.x = window.x + 5
         tab.y = window.y + 42 + (index - 1) * (window.tabButtonHeight + window.tabButtonGap)
@@ -682,8 +747,13 @@ local function layoutWindow(window)
         local td = tab.drawings
         local active = tab == window.activeTab
         setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 4, active and colors.elementHoverBackground or colors.sidebarBackground, active and 0.78153 or 0.0, active and colors.borderLightColor or colors.borderColor, active and 0.18 or 0.0, 0)
-        setRoundedPrimitive(td.indicatorGlow, tab.x + 0, tab.y + 7, 2, 18, 1, colors.accentColor, active and 0.14 or 0.0, active)
-        setRoundedPrimitive(td.indicator, tab.x + 0, tab.y + 7, 2, 18, 1, colors.accentColor, active and 1 or 0, active)
+        if active then
+            setRoundedPrimitive(td.indicatorGlow, tab.x, tab.y + 7, 2, 18, 1, colors.accentColor, 0.14, true)
+            setRoundedPrimitive(td.indicator, tab.x, tab.y + 7, 2, 18, 1, colors.accentColor, 1, true)
+        else
+            hideGroup(td.indicatorGlow)
+            hideGroup(td.indicator)
+        end
         td.icon.Text = tostring(tab.icon or "•")
         td.icon.Position = Vector2.new(tab.x + 12, tab.y + 8)
         td.icon.Color = active and colors.accentColor or colors.textDarkColor
@@ -927,9 +997,9 @@ local function initialize()
 
     UI.connections.mouseMove = userInputService.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
-            UI.mousePos = userInputService:GetMouseLocation()
+            UI.mousePos = getMousePosition()
         elseif input.UserInputType == Enum.UserInputType.MouseWheel then
-            UI.mousePos = userInputService:GetMouseLocation()
+            UI.mousePos = getMousePosition()
             local topWindow = getTopWindowAtMouse()
             if topWindow and topWindow.activeTab then
                 for _, section in ipairs(topWindow.activeTab.sections) do
@@ -994,7 +1064,7 @@ local function initialize()
 
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             UI.mouseDown = true
-            UI.mousePos = userInputService:GetMouseLocation()
+            UI.mousePos = getMousePosition()
             local topWindow = getTopWindowAtMouse()
             if topWindow then
                 bringWindowToFront(topWindow)
@@ -1035,7 +1105,7 @@ local function initialize()
                 if UI.openColorPicker then UI.openColorPicker.open = false UI.openColorPicker = nil end
             end
         elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
-            UI.mousePos = userInputService:GetMouseLocation()
+            UI.mousePos = getMousePosition()
             local topWindow = getTopWindowAtMouse()
             if topWindow then
                 bringWindowToFront(topWindow)
@@ -1069,7 +1139,7 @@ local function initialize()
                 return userInputService:GetStringForKeyCode(input.KeyCode)
             end)
             if ok and char and char ~= "" then
-                local shifted = userInputService:IsKeyDown(Enum.KeyCode.LeftShift) or userInputService:IsKeyDown(Enum.KeyCode.RightShift)
+                local shifted = isShiftHeld()
                 if shifted then
                     local shiftMap = {
                         ["1"] = "!", ["2"] = "@", ["3"] = "#", ["4"] = "$", ["5"] = "%", ["6"] = "^", ["7"] = "&", ["8"] = "*", ["9"] = "(", ["0"] = ")",
@@ -1108,9 +1178,21 @@ local function initialize()
     end)
 
     UI.connections.render = runService.RenderStepped:Connect(function(dt)
-        UI.mousePos = userInputService:GetMouseLocation()
+        UI.mousePos = getMousePosition()
         UI.blinkClock = UI.blinkClock + dt
         UI.tooltip = nil
+
+        if UI.mouseDown and not isMouse1Held() then
+            UI.mouseDown = false
+            if UI.active and UI.active.element and UI.active.element.onMouseUp then
+                UI.active.element:onMouseUp(UI.mousePos)
+            end
+            if UI.active and UI.active.type ~= "windowdrag" then
+                UI.active = nil
+            elseif UI.active and UI.active.type == "windowdrag" then
+                UI.active = nil
+            end
+        end
 
         if UI.focusedTextbox and (UI.backspaceHeld or UI.deleteHeld) and tick() >= (UI.nextTextRepeat or 0) then
             deleteFocusedTextboxChar()
