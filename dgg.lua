@@ -271,8 +271,25 @@ local function setSoftFrame(frame, x, y, w, h, radius, fillColor, fillTransparen
 end
 
 
+local function normalizeStep(step)
+    if type(step) == "number" then
+        if step > 0 then
+            return step
+        end
+        return nil
+    end
+    if type(step) == "string" then
+        local n = tonumber(step)
+        if n and n > 0 then
+            return n
+        end
+    end
+    return nil
+end
+
 local function snapValue(value, step)
-    if not step or step <= 0 then
+    step = normalizeStep(step)
+    if not step then
         return value
     end
     local snapped = math.floor((value / step) + 0.5) * step
@@ -567,11 +584,27 @@ local function setWindowVisible(window, state)
         end
         if UI.openDropdown and UI.openDropdown.window == window then
             UI.openDropdown.open = false
+            hideGroup(UI.openDropdown.popup)
             UI.openDropdown = nil
         end
         if UI.openColorPicker and UI.openColorPicker.window == window then
             UI.openColorPicker.open = false
+            UI.openColorPicker.animOpen = 0
+            hideGroup(UI.openColorPicker.popup)
             UI.openColorPicker = nil
+        end
+        setVisible(window.drawings, false)
+        for _, tab in ipairs(window.tabs or {}) do
+            setVisible(tab.drawings, false)
+            for _, section in ipairs(tab.sections or {}) do
+                setVisible(section.drawings, false)
+                for _, element in ipairs(section.elements or {}) do
+                    setElementBaseVisible(element, false)
+                    if element.popup then
+                        hideGroup(element.popup)
+                    end
+                end
+            end
         end
     end
 end
@@ -850,8 +883,28 @@ local function initialize()
     UI.connections.inputBegan = userInputService.InputBegan:Connect(function(input, gpe)
         if gpe then return end
         if input.KeyCode == Enum.KeyCode.Delete then
+            local targetState = true
             for _, window in ipairs(UI.windows) do
-                setWindowVisible(window, not window.visible)
+                if window.visible then
+                    targetState = false
+                    break
+                end
+            end
+            UI.mouseDown = false
+            UI.active = nil
+            if UI.openDropdown then
+                UI.openDropdown.open = false
+                hideGroup(UI.openDropdown.popup)
+                UI.openDropdown = nil
+            end
+            if UI.openColorPicker then
+                UI.openColorPicker.open = false
+                UI.openColorPicker.animOpen = 0
+                hideGroup(UI.openColorPicker.popup)
+                UI.openColorPicker = nil
+            end
+            for _, window in ipairs(UI.windows) do
+                setWindowVisible(window, targetState)
             end
             return
         end
@@ -1097,6 +1150,7 @@ local function makeSectionApi(section)
             local defaultMax = default.Max or default[2] or max
             return api:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltipText, callback)
         end
+        step = normalizeStep(step)
         local value = ensureFlag(flag, snapValue(default or min, step))
         local element = createBaseElement(section, "slider", tooltipText and tooltipText ~= "" and 40 or 28)
         element.name = tostring(name or "Slider")
@@ -1187,6 +1241,7 @@ local function makeSectionApi(section)
             min = flag
             flag = makeAutoFlag(section, name)
         end
+        step = normalizeStep(step)
         local value = ensureFlag(flag, { Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step) })
         value.Min = clamp(value.Min, min, max)
         value.Max = clamp(value.Max, min, max)
@@ -1639,6 +1694,11 @@ local function makeSectionApi(section)
         end
         function element:draw()
             local hovered = UI.hovered == self
+            if not self.window.visible then
+                self.animOpen = 0
+                hideGroup(self.popup)
+                return
+            end
             local color = LibraryApi.Flags[self.flag]
             self.animOpen = lerp(self.animOpen or 0, self.open and 1 or 0, 0.24)
             if self.animOpen < 0.001 and not self.open then
@@ -1652,7 +1712,7 @@ local function makeSectionApi(section)
             self.popupW = 268
             self.popupH = 286
             self.popupX = self.x + self.w - self.popupW
-            self.popupY = self.y + 36 + (1 - self.animOpen) * -8
+            self.popupY = self.y + 28 + (1 - self.animOpen) * -6
             self.svX = self.popupX + 10
             self.svY = self.popupY + 10
             self.svW = self.popupW - 20
