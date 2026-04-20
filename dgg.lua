@@ -49,7 +49,10 @@ local UI = {
     blinkClock = 0,
     openDropdown = nil,
     openColorPicker = nil,
-    notifications = {}
+    notifications = {},
+    backspaceHeld = false,
+    deleteHeld = false,
+    nextTextRepeat = 0
 }
 
 local function clamp(v, a, b)
@@ -431,6 +434,22 @@ local function focusTextbox(box)
     end
 end
 
+local function deleteFocusedTextboxChar()
+    if not UI.focusedTextbox then
+        return
+    end
+    local text = tostring(UI.focusedTextbox.value or "")
+    if #text <= 0 then
+        return
+    end
+    UI.focusedTextbox.value = text:sub(1, #text - 1)
+    LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
+    saveConfiguration()
+    if UI.focusedTextbox.callback then
+        task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
+    end
+end
+
 local function beginKeybind(element)
     UI.bindingKey = element
 end
@@ -685,23 +704,35 @@ local function layoutWindow(window)
         section.contentX = columnX + 10
         section.contentY = startY + 32
         section.contentW = contentWidth - 20
+        section.viewportBottomPadding = 10
 
         for _, element in ipairs(section.elements) do
             local visibleInLayout = isElementVisibleInLayout(element)
             local indent = element.parentModule and 12 or 0
-            element.x = math.floor(section.contentX + indent)
-            element.y = math.floor(currentY)
-            element.w = math.floor(section.contentW - indent)
             if element.dynamicHeight then
                 element.height = element:dynamicHeight()
             end
+            element._indent = indent
+            element._baseY = math.floor(currentY)
             if visibleInLayout then
                 local extra = element.height or 0
                 currentY = math.floor(currentY + extra + 8)
             end
         end
 
-        section.h = math.max(38, math.floor(currentY - startY + 8))
+        local contentHeight = math.max(38, math.floor(currentY - startY + 8))
+        local availableHeight = math.max(120, math.floor(window.contentY + window.contentH - startY))
+        section.h = math.min(contentHeight, availableHeight)
+        section.scrollMax = math.max(0, contentHeight - section.h)
+        section.scroll = clamp(section.scroll or 0, 0, section.scrollMax)
+        section.viewportTop = section.contentY
+        section.viewportBottom = section.y + section.h - section.viewportBottomPadding
+
+        for _, element in ipairs(section.elements) do
+            element.x = math.floor(section.contentX + (element._indent or 0))
+            element.y = math.floor((element._baseY or section.contentY) - (section.scroll or 0))
+            element.w = math.floor(section.contentW - (element._indent or 0))
+        end
 
         local sd = section.drawings
         setSoftFrame(sd.frame, section.x, section.y, section.w, section.h, 6, colors.sectionBackground, 0.78153, colors.borderColor, 0.90, 1)
@@ -771,8 +802,20 @@ local function setElementBaseVisible(element, visible)
     end
 end
 
+local function isElementInsideViewport(element)
+    local section = element.section
+    if not section then
+        return true
+    end
+    local top = section.viewportTop or section.contentY or 0
+    local bottom = section.viewportBottom or (section.y + section.h)
+    local elemTop = element.y
+    local elemBottom = element.y + (element.height or 0)
+    return elemBottom >= top and elemTop <= bottom
+end
+
 local function renderElement(element)
-    if not element.window.visible or element.window.activeTab ~= element.tab or not isElementVisibleInLayout(element) then
+    if not element.window.visible or element.window.activeTab ~= element.tab or not isElementVisibleInLayout(element) or not isElementInsideViewport(element) then
         setElementBaseVisible(element, false)
         return
     end
@@ -877,6 +920,23 @@ local function initialize()
     UI.connections.mouseMove = userInputService.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
             UI.mousePos = userInputService:GetMouseLocation()
+        elseif input.UserInputType == Enum.UserInputType.MouseWheel then
+            UI.mousePos = userInputService:GetMouseLocation()
+            local topWindow = getTopWindowAtMouse()
+            if topWindow and topWindow.activeTab then
+                for _, section in ipairs(topWindow.activeTab.sections) do
+                    if pointInRect(UI.mousePos, section.x, section.y, section.w, section.h) then
+                        local delta = 0
+                        pcall(function()
+                            delta = input.Position.Z
+                        end)
+                        if delta ~= 0 and (section.scrollMax or 0) > 0 then
+                            section.scroll = clamp((section.scroll or 0) - delta * 24, 0, section.scrollMax or 0)
+                        end
+                        break
+                    end
+                end
+            end
         end
     end)
 
@@ -975,15 +1035,13 @@ local function initialize()
                 end
             end
         elseif input.KeyCode == Enum.KeyCode.Backspace then
-            if UI.focusedTextbox then
-                local text = UI.focusedTextbox.value
-                UI.focusedTextbox.value = text:sub(1, math.max(0, #text - 1))
-                LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
-                saveConfiguration()
-                if UI.focusedTextbox.callback then
-                    task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
-                end
-            end
+            UI.backspaceHeld = true
+            UI.nextTextRepeat = tick() + 0.38
+            deleteFocusedTextboxChar()
+        elseif input.KeyCode == Enum.KeyCode.Delete then
+            UI.deleteHeld = true
+            UI.nextTextRepeat = tick() + 0.38
+            deleteFocusedTextboxChar()
         elseif input.KeyCode == Enum.KeyCode.Return then
             if UI.focusedTextbox then
                 UI.focusedTextbox.focused = false
@@ -1020,7 +1078,11 @@ local function initialize()
     end)
 
     UI.connections.inputEnded = userInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.KeyCode == Enum.KeyCode.Backspace then
+            UI.backspaceHeld = false
+        elseif input.KeyCode == Enum.KeyCode.Delete then
+            UI.deleteHeld = false
+        elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
             UI.mouseDown = false
             if UI.active then
                 if UI.active.type == "slider" and UI.active.element.onMouseUp then
@@ -1039,6 +1101,11 @@ local function initialize()
         UI.mousePos = userInputService:GetMouseLocation()
         UI.blinkClock = UI.blinkClock + dt
         UI.tooltip = nil
+
+        if UI.focusedTextbox and (UI.backspaceHeld or UI.deleteHeld) and tick() >= (UI.nextTextRepeat or 0) then
+            deleteFocusedTextboxChar()
+            UI.nextTextRepeat = tick() + 0.045
+        end
 
         if UI.active and UI.active.type == "windowdrag" then
             local window = UI.active.window
@@ -1403,7 +1470,7 @@ local function makeSectionApi(section)
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
         element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
         element.box = addToGroup(element.drawings, createSoftFrame(60))
-        element.bindText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 63, Visible = false, Text = "" }))
+        element.bindText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 63, Visible = false, Text = "", Center = true }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x, self.y, self.w, self.height)
         end
@@ -1423,7 +1490,7 @@ local function makeSectionApi(section)
             self.label.Position = Vector2.new(self.x + 2, self.y + 2)
             setSoftFrame(self.box, self.x + self.w - bindW, self.y - 1, bindW, 20, 4, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.82, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
             self.bindText.Text = boxText
-            self.bindText.Position = Vector2.new(self.x + self.w - bindW + 8, self.y + 2)
+            self.bindText.Position = Vector2.new(self.x + self.w - bindW * 0.5, self.y + 2)
             self.label.Text = self.name
             self.label.Color = hovered and colors.textWhiteColor or colors.textWhiteColor
             self.bindText.Color = self.waiting and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
@@ -1688,7 +1755,7 @@ local function makeSectionApi(section)
         end
         function element:dynamicHeight()
             if self.open then
-                return 40 + 286 + 10
+                return 40 + 216 + 10
             end
             return 28
         end
@@ -1709,31 +1776,31 @@ local function makeSectionApi(section)
             setRoundedPrimitive(self.preview, self.x + self.w - 24, self.y + 8, 16, 8, 2, color, 1, true)
             self.label.Visible = true
             if hovered then setTooltipText(self.tooltip) end
-            self.popupW = 268
-            self.popupH = 286
+            self.popupW = 236
+            self.popupH = 216
             self.popupX = self.x + self.w - self.popupW
             self.popupY = self.y + 28 + (1 - self.animOpen) * -6
             self.svX = self.popupX + 10
             self.svY = self.popupY + 10
             self.svW = self.popupW - 20
-            self.svH = 164
+            self.svH = 122
             self.hueX = self.popupX + 10
-            self.hueY = self.svY + self.svH + 12
+            self.hueY = self.svY + self.svH + 8
             self.hueW = self.popupW - 20
             self.hueH = 12
-            self.actionY = self.hueY + self.hueH + 12
+            self.actionY = self.hueY + self.hueH + 8
             self.copyX = self.popupX + 10
             self.copyY = self.actionY
-            self.copyW = 72
+            self.copyW = 54
             self.pasteX = self.copyX + self.copyW + 8
             self.pasteY = self.actionY
-            self.pasteW = 72
-            self.actionH = 22
-            self.swatchX = self.popupX + self.popupW - 58
+            self.pasteW = 54
+            self.actionH = 20
+            self.swatchX = self.popupX + self.popupW - 42
             self.swatchY = self.actionY
-            self.swatchW = 48
-            self.swatchH = 22
-            self.infoY = self.actionY + self.actionH + 12
+            self.swatchW = 32
+            self.swatchH = 20
+            self.infoY = self.actionY + self.actionH + 8
             if self.animOpen > 0.01 then
                 local alpha = self.animOpen
                 setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 4, colors.sectionBackground, 0.985 * alpha, colors.borderColor, 0.95 * alpha, 2)
@@ -1808,12 +1875,12 @@ local function makeSectionApi(section)
                 self.popup.rgbValue.Transparency = alpha
                 self.popup.rgbValue.Visible = true
                 self.popup.hexLabel.Text = "HEX"
-                self.popup.hexLabel.Position = Vector2.new(self.popupX + 148, self.infoY)
+                self.popup.hexLabel.Position = Vector2.new(self.popupX + 118, self.infoY)
                 self.popup.hexLabel.Size = 10
                 self.popup.hexLabel.Transparency = alpha
                 self.popup.hexLabel.Visible = true
                 self.popup.hexValue.Text = hexText
-                self.popup.hexValue.Position = Vector2.new(self.popupX + 148, self.infoY + 12)
+                self.popup.hexValue.Position = Vector2.new(self.popupX + 118, self.infoY + 12)
                 self.popup.hexValue.Size = 11
                 self.popup.hexValue.Color = colors.textWhiteColor
                 self.popup.hexValue.Transparency = alpha
@@ -1997,7 +2064,9 @@ function LibraryApi:CreateWindow(windowName)
                 side = columnSide == "Right" and "Right" or "Left",
                 elements = {},
                 window = window,
-                tab = tab
+                tab = tab,
+                scroll = 0,
+                scrollMax = 0
             }
             createSectionDrawings(section)
             table.insert(tab.sections, section)
