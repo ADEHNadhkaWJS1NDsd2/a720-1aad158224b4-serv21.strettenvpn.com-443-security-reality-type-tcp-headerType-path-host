@@ -12,10 +12,10 @@ local LibraryApi = {
 
 local colors = {
     mainBackground = Color3.fromRGB(9, 9, 13),
-    sidebarBackground = Color3.fromRGB(13, 13, 17),
+    sidebarBackground = Color3.fromRGB(11, 11, 15),
     sectionBackground = Color3.fromRGB(17, 17, 21),
     elementBackground = Color3.fromRGB(23, 23, 27),
-    elementHoverBackground = Color3.fromRGB(31, 31, 37),
+    elementHoverBackground = Color3.fromRGB(28, 28, 34),
     borderColor = Color3.fromRGB(27, 27, 34),
     borderLightColor = Color3.fromRGB(44, 44, 54),
     accentColor = Color3.fromRGB(108, 147, 252),
@@ -478,6 +478,7 @@ local function createTabDrawings(tab)
     g.button = addToGroup(g, createSoftFrame(30))
     g.indicatorGlow = addToGroup(g, createRoundedPrimitive(33, colors.accentColor, 0.22))
     g.indicator = addToGroup(g, createRoundedPrimitive(34, colors.accentColor, 1))
+    g.icon = addToGroup(g, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderLightColor, Size = Vector2.new(10, 10), ZIndex = 35, Visible = true }))
     g.text = addToGroup(g, newDrawing("Text", { Size = 13, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 35, Visible = true, Text = tab.title }))
     tab.drawings = g
 end
@@ -536,9 +537,9 @@ end
 local function layoutWindow(window)
     window.topHeight = 36
     window.sidebarWidth = 150
-    window.contentPadding = 12
-    window.tabButtonHeight = 30
-    window.tabButtonGap = 6
+    window.contentPadding = 10
+    window.tabButtonHeight = 32
+    window.tabButtonGap = 4
     window.sectionTitleHeight = 24
     window.contentX = math.floor(window.x + window.sidebarWidth + window.contentPadding)
     window.contentY = math.floor(window.y + window.topHeight + window.contentPadding)
@@ -548,9 +549,9 @@ local function layoutWindow(window)
     window.columnWidth = math.floor((window.contentW - window.columnGap) / 2)
 
     local d = window.drawings
-    setSoftFrame(d.body, window.x, window.y, window.w, window.h, 6, colors.mainBackground, 0.97, colors.borderColor, 0.94, 3)
-    setSoftFrame(d.top, window.x, window.y, window.w, 36, 6, colors.sidebarBackground, 0.99, colors.borderColor, 0.72, 0)
-    setSoftFrame(d.sidebar, window.x, window.y + 37, 150, window.h - 37, 6, colors.sidebarBackground, 0.98, colors.borderColor, 0.78, 1)
+    setSoftFrame(d.body, window.x, window.y, window.w, window.h, 6, colors.mainBackground, 0.82, colors.borderColor, 0.92, 3)
+    setSoftFrame(d.top, window.x, window.y, window.w, 36, 6, colors.sidebarBackground, 0.78, colors.borderColor, 0.90, 0)
+    setSoftFrame(d.sidebar, window.x, window.y + 37, 150, window.h - 37, 6, colors.sidebarBackground, 0.78, colors.borderColor, 0.90, 1)
     setRoundedPrimitive(d.accentGlow, window.x + 18, window.y + 16, 0, 0, 0, colors.accentGradientColor2, 0, false)
     setRoundedPrimitive(d.accent, window.x + 18, window.y + 17, 0, 0, 0, colors.accentColor, 0, false)
     d.title.Position = Vector2.new(window.x + 15, window.y + 11)
@@ -562,10 +563,13 @@ local function layoutWindow(window)
         tab.h = window.tabButtonHeight
         local td = tab.drawings
         local active = tab == window.activeTab
-        setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 4, active and colors.elementHoverBackground or colors.elementBackground, active and 0.98 or 0.92, active and colors.borderLightColor or colors.borderColor, active and 0.95 or 0.84, 1)
+        setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 4, active and colors.elementBackground or colors.sidebarBackground, active and 0.88 or 0.02, active and colors.borderLightColor or colors.borderColor, active and 0.92 or 0.0, 1)
         setRoundedPrimitive(td.indicatorGlow, tab.x + 0, tab.y + 8, 2, 16, 1, colors.accentColor, active and 0.18 or 0.06, true)
         setRoundedPrimitive(td.indicator, tab.x + 0, tab.y + 8, 2, 16, 1, active and colors.accentColor or colors.borderLightColor, 1, true)
-        td.text.Position = Vector2.new(tab.x + 12, tab.y + 8)
+        td.icon.Position = Vector2.new(tab.x + 12, tab.y + 11)
+        td.icon.Size = Vector2.new(10, 10)
+        td.icon.Color = active and colors.accentColor or colors.textDarkColor
+        td.text.Position = Vector2.new(tab.x + 32, tab.y + 8)
     end
 
     if not window.activeTab then return end
@@ -581,9 +585,9 @@ local function layoutWindow(window)
         section.x = columnX
         section.y = startY
         section.w = contentWidth
-        section.contentX = columnX + 12
+        section.contentX = columnX + 10
         section.contentY = startY + 32
-        section.contentW = contentWidth - 24
+        section.contentW = contentWidth - 20
 
         for _, element in ipairs(section.elements) do
             local visibleInLayout = isElementVisibleInLayout(element)
@@ -595,16 +599,16 @@ local function layoutWindow(window)
                 element.height = element:dynamicHeight()
             end
             if visibleInLayout then
-                currentY = currentY + element.height + 6
+                currentY = currentY + element.height + 8
             end
         end
 
         section.h = math.max(38, math.floor(currentY - startY + 8))
 
         local sd = section.drawings
-        setSoftFrame(sd.frame, section.x, section.y, section.w, section.h, 4, colors.sectionBackground, 0.96, colors.borderColor, 0.82, 2)
+        setSoftFrame(sd.frame, section.x, section.y, section.w, section.h, 6, colors.sectionBackground, 0.80, colors.borderColor, 0.90, 2)
         sd.title.Position = Vector2.new(section.x + 12, section.y + 9)
-        setRoundedPrimitive(sd.sep, section.x + 12, section.y + 28, section.w - 24, 1, 0, colors.borderColor, 0.65, true)
+        setRoundedPrimitive(sd.sep, section.x + 12, section.y + 28, section.w - 24, 1, 0, colors.borderColor, 0.42, true)
 
         if section.side == "Left" then
             leftY = math.floor(section.y + section.h + 10)
@@ -1200,7 +1204,7 @@ local function makeSectionApi(section)
                 showText = showText .. "|"
             end
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
-            setSoftFrame(self.box, self.x + 2, self.y + 20, self.w - 4, 24, 4, self.focused and colors.elementHoverBackground or colors.elementBackground, 0.96, self.focused and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.box, self.x + 2, self.y + 20, self.w - 4, 24, 4, self.focused and colors.elementHoverBackground or colors.elementBackground, 0.82, self.focused and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
             self.text.Position = Vector2.new(self.x + 10, self.y + 27)
             self.text.Text = showText
             self.text.Color = (#self.value > 0 or self.focused) and colors.textWhiteColor or colors.textDarkColor
@@ -1241,7 +1245,7 @@ local function makeSectionApi(section)
             local boxText = self:getText()
             local bindW = math.max(72, getTextSize(boxText, 12) + 18)
             self.label.Position = Vector2.new(self.x + 2, self.y + 2)
-            setSoftFrame(self.box, self.x + self.w - bindW, self.y - 1, bindW, 20, 4, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.96, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.box, self.x + self.w - bindW, self.y - 1, bindW, 20, 4, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.82, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
             self.bindText.Text = boxText
             self.bindText.Position = Vector2.new(self.x + self.w - bindW + 8, self.y + 2)
             self.label.Text = self.name
@@ -1312,7 +1316,7 @@ local function makeSectionApi(section)
         function element:draw()
             local hovered = UI.hovered == self
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
-            setSoftFrame(self.box, self.x + 2, self.y + 20, self.w - 4, 24, 4, self.open and colors.elementHoverBackground or colors.elementBackground, 0.96, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.box, self.x + 2, self.y + 20, self.w - 4, 24, 4, self.open and colors.elementHoverBackground or colors.elementBackground, 0.82, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
             self.valueText.Text = tostring(LibraryApi.Flags[self.flag])
             self.valueText.Position = Vector2.new(self.x + 10, self.y + 27)
             self.valueText.Color = hovered and colors.textWhiteColor or colors.textDarkColor
@@ -1491,7 +1495,7 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self
             local color = LibraryApi.Flags[self.flag]
             self.label.Position = Vector2.new(self.x + 2, self.y + 3)
-            setSoftFrame(self.previewFrame, self.x + self.w - 28, self.y + 5, 24, 14, 3, colors.elementBackground, 0.96, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
+            setSoftFrame(self.previewFrame, self.x + self.w - 28, self.y + 5, 24, 14, 3, colors.elementBackground, 0.82, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
             setRoundedPrimitive(self.preview, self.x + self.w - 24, self.y + 8, 16, 8, 2, color, 1, true)
             self.label.Visible = true
             if hovered then setTooltipText(self.tooltip) end
@@ -1668,8 +1672,8 @@ local function makeSectionApi(section)
         function element:draw()
             local stateNow = LibraryApi.Flags[self.flag]
             local hovered = UI.hovered == self
-            setSoftFrame(self.bg, self.x + 2, self.y, self.w - 4, self.height, 6, stateNow and colors.elementHoverBackground or colors.elementBackground, 0.97, stateNow and colors.borderLightColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
-            setSoftFrame(self.check, self.x + 12, self.y + 14, 16, 16, 4, stateNow and colors.accentColor or colors.sectionBackground, 0.98, stateNow and colors.accentColor or colors.borderColor, 0.95, 1)
+            setSoftFrame(self.bg, self.x + 2, self.y, self.w - 4, self.height, 6, stateNow and colors.elementHoverBackground or colors.elementBackground, 0.82, stateNow and colors.borderLightColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
+            setSoftFrame(self.check, self.x + 12, self.y + 14, 16, 16, 4, stateNow and colors.accentColor or colors.sectionBackground, 0.82, stateNow and colors.accentColor or colors.borderColor, 0.92, 1)
             setRoundedPrimitive(self.dot, self.x + 16, self.y + 18, 8, 8, 3, colors.textWhiteColor, stateNow and 1 or 0, stateNow)
             self.label.Position = Vector2.new(self.x + 40, self.y + 7)
             self.label.Text = self.name
