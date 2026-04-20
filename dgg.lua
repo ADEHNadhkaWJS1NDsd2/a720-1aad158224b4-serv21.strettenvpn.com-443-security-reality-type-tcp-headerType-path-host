@@ -462,7 +462,7 @@ local function addNotification(text, kind, duration)
     table.insert(UI.notifications, {
         text = tostring(text or ""),
         kind = kind or "info",
-        duration = duration or 3,
+        duration = tonumber(duration) or 3,
         born = tick(),
         alpha = 0
     })
@@ -721,7 +721,7 @@ local function layoutWindow(window)
         end
 
         local contentHeight = math.max(38, math.floor(currentY - startY + 8))
-        local availableHeight = math.max(120, math.floor(window.contentY + window.contentH - startY))
+        local availableHeight = math.max(0, math.floor(window.contentY + window.contentH - startY))
         section.h = math.min(contentHeight, availableHeight)
         section.scrollMax = math.max(0, contentHeight - section.h)
         section.scroll = clamp(section.scroll or 0, 0, section.scrollMax)
@@ -735,9 +735,15 @@ local function layoutWindow(window)
         end
 
         local sd = section.drawings
-        setSoftFrame(sd.frame, section.x, section.y, section.w, section.h, 6, colors.sectionBackground, 0.78153, colors.borderColor, 0.90, 1)
-        sd.title.Position = Vector2.new(section.x + 12, section.y + 8)
-        setRoundedPrimitive(sd.sep, section.x + 12, section.y + 28, section.w - 24, 1, 0, colors.borderColor, 0.42, true)
+        if section.h > 0 then
+            setSoftFrame(sd.frame, section.x, section.y, section.w, section.h, 6, colors.sectionBackground, 0.78153, colors.borderColor, 0.90, 1)
+            sd.title.Position = Vector2.new(section.x + 12, section.y + 8)
+            setRoundedPrimitive(sd.sep, section.x + 12, section.y + 28, section.w - 24, 1, 0, colors.borderColor, 0.42, true)
+        else
+            hideGroup(sd.frame)
+            trySetVisible(sd.title, false)
+            trySetVisible(sd.sep, false)
+        end
 
         if section.side == "Left" then
             leftY = math.floor(section.y + section.h + 10)
@@ -888,7 +894,7 @@ local function hitTestElement(window)
             local section = window.activeTab.sections[si]
             for ei = #section.elements, 1, -1 do
                 local element = section.elements[ei]
-                if isElementVisibleInLayout(element) and element.hitTest and element:hitTest(UI.mousePos) then
+                if isElementVisibleInLayout(element) and isElementInsideViewport(element) and element.hitTest and element:hitTest(UI.mousePos) then
                     return element
                 end
             end
@@ -1016,6 +1022,8 @@ local function initialize()
                 elseif hit and hit.title then
                     focusTextbox(nil)
                     topWindow.activeTab = hit
+                    if UI.openDropdown then UI.openDropdown.open = false UI.openDropdown = nil end
+                    if UI.openColorPicker then UI.openColorPicker.open = false UI.openColorPicker = nil end
                 else
                     focusTextbox(nil)
                 end
@@ -1204,32 +1212,36 @@ local function makeSectionApi(section)
 
     function api:Slider_Create(name, flag, min, max, default, step, tooltipText, callback)
         if type(flag) ~= "string" then
-            callback = tooltipText
-            tooltipText = step
-            step = default
-            default = max
-            max = min
-            min = flag
+            local args = { flag, min, max, default, step, tooltipText, callback }
             flag = makeAutoFlag(section, name)
-        end
-        if type(default) == "table" then
-            local defaultMin = default.Min or default[1] or min
-            local defaultMax = default.Max or default[2] or max
-            return api:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltipText, callback)
+            min = tonumber(args[1]) or 0
+            max = tonumber(args[2]) or 100
+            default = args[3]
+            if type(args[4]) == "number" or type(args[4]) == "string" then
+                step = args[4]
+                tooltipText = args[5]
+                callback = args[6]
+            else
+                step = nil
+                tooltipText = args[4]
+                callback = args[5]
+            end
         end
         step = normalizeStep(step)
         local value = ensureFlag(flag, snapValue(default or min, step))
         local element = createBaseElement(section, "slider", tooltipText and tooltipText ~= "" and 40 or 28)
         element.name = tostring(name or "Slider")
         element.flag = flag
-        element.min = min
-        element.max = max
+        element.min = tonumber(min) or 0
+        element.max = tonumber(max) or 100
+        if element.max < element.min then element.min, element.max = element.max, element.min end
         element.step = step
         element.tooltip = tooltipText
         element.callback = callback
+        LibraryApi.Flags[flag] = clamp(tonumber(value) or element.min, element.min, element.max)
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
         element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
-        element.valueText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = formatValue(value, step) }))
+        element.valueText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = formatValue(LibraryApi.Flags[flag], step) }))
         element.track = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.elementBackground, ZIndex = 60, Visible = false }))
         element.trackBorder = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 61, Visible = false }))
         element.fill = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = colors.accentColor, ZIndex = 62, Visible = false }))
@@ -1237,10 +1249,10 @@ local function makeSectionApi(section)
         element.knobBorder = addToGroup(element.drawings, newDrawing("Circle", { Filled = false, Thickness = 1, Transparency = 1, Radius = 4, Color = colors.borderColor, ZIndex = 64, Visible = false }))
         function element:setFromMouse(pos)
             local sx = self.x + 2
-            local width = self.w - 8
+            local width = math.max(1, self.w - 8)
             local alpha = clamp((pos.X - sx) / width, 0, 1)
             local newValue = snapValue(self.min + (self.max - self.min) * alpha, self.step)
-            newValue = clamp(newValue, self.min, self.max)
+            newValue = clamp(tonumber(newValue) or self.min, self.min, self.max)
             if LibraryApi.Flags[self.flag] ~= newValue then
                 LibraryApi.Flags[self.flag] = newValue
                 saveConfiguration()
@@ -1261,12 +1273,12 @@ local function makeSectionApi(section)
             self:setFromMouse(pos)
         end
         function element:draw()
-            local valueNow = clamp(LibraryApi.Flags[self.flag], self.min, self.max)
-            local trackW = self.w - 8
+            local valueNow = clamp(tonumber(LibraryApi.Flags[self.flag]) or self.min, self.min, self.max)
+            local trackW = math.max(1, self.w - 8)
             local pct = (valueNow - self.min) / math.max(1e-9, (self.max - self.min))
             local fillW = math.max(1, trackW * pct)
             local hovered = UI.hovered == self or (UI.active and UI.active.element == self)
-            local labelY = self.tooltip and self.tooltip ~= "" and (self.y + 1) or (self.y + 1)
+            local labelY = self.y + 1
             local trackY = self.tooltip and self.tooltip ~= "" and (self.y + 31) or (self.y + 19)
             self.label.Position = Vector2.new(self.x + 2, labelY)
             self.label.Text = self.name
@@ -1299,14 +1311,21 @@ local function makeSectionApi(section)
 
     function api:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltipText, callback)
         if type(flag) ~= "string" then
-            callback = tooltipText
-            tooltipText = step
-            step = defaultMax
-            defaultMax = defaultMin
-            defaultMin = max
-            max = min
-            min = flag
+            local args = { flag, min, max, defaultMin, defaultMax, step, tooltipText, callback }
             flag = makeAutoFlag(section, name)
+            min = tonumber(args[1]) or 0
+            max = tonumber(args[2]) or 100
+            defaultMin = args[3]
+            defaultMax = args[4]
+            if type(args[5]) == "number" or type(args[5]) == "string" then
+                step = args[5]
+                tooltipText = args[6]
+                callback = args[7]
+            else
+                step = nil
+                tooltipText = args[5]
+                callback = args[6]
+            end
         end
         step = normalizeStep(step)
         local value = ensureFlag(flag, { Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step) })
