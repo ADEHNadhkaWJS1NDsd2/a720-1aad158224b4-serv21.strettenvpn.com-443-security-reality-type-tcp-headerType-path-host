@@ -649,7 +649,8 @@ local function layoutWindow(window)
                 element.height = element:dynamicHeight()
             end
             if visibleInLayout then
-                currentY = currentY + element.height + 8
+                local extra = element.height or 0
+                currentY = math.floor(currentY + extra + 8)
             end
         end
 
@@ -1411,7 +1412,8 @@ local function makeSectionApi(section)
         end
         function element:dynamicHeight()
             if self.open then
-                return 28 + math.max(28, #self.options * 24) + 8
+                local popupH = math.max(24, #self.options * 24)
+                return 48 + popupH + 8
             end
             return 28
         end
@@ -1601,7 +1603,7 @@ local function makeSectionApi(section)
         end
         function element:dynamicHeight()
             if self.open then
-                return 28 + 228 + 8
+                return 46 + 228 + 8
             end
             return 28
         end
