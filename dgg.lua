@@ -34,6 +34,8 @@ local colors = {
 local FONT_MAIN = Drawing.Fonts.System
 local FONT_SUB = Drawing.Fonts.System
 
+local hideGroup
+
 local UI = {
     windows = {},
     drawables = {},
@@ -774,7 +776,7 @@ local function drawTab(tab)
     end
 end
 
-local function hideGroup(group)
+hideGroup = function(group)
     if type(group) ~= "table" then
         return
     end
