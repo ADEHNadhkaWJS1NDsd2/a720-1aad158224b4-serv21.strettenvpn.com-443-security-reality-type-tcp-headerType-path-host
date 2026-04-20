@@ -11,24 +11,24 @@ local LibraryApi = {
 }
 
 local colors = {
-    mainBackground = Color3.fromRGB(9, 9, 13),
-    sidebarBackground = Color3.fromRGB(11, 11, 15),
-    sectionBackground = Color3.fromRGB(17, 17, 21),
-    elementBackground = Color3.fromRGB(23, 23, 27),
-    elementHoverBackground = Color3.fromRGB(28, 28, 34),
-    borderColor = Color3.fromRGB(27, 27, 34),
-    borderLightColor = Color3.fromRGB(44, 44, 54),
-    accentColor = Color3.fromRGB(108, 147, 252),
-    accentGradientColor1 = Color3.fromRGB(108, 147, 252),
-    accentGradientColor2 = Color3.fromRGB(158, 118, 252),
-    textWhiteColor = Color3.fromRGB(243, 243, 248),
-    textDarkColor = Color3.fromRGB(138, 138, 148),
-    tooltipBackground = Color3.fromRGB(11, 11, 15),
-    shadowColor = Color3.fromRGB(0, 0, 0),
-    notificationInfoColor = Color3.fromRGB(90, 145, 235),
-    notificationSuccessColor = Color3.fromRGB(78, 202, 132),
-    notificationWarningColor = Color3.fromRGB(228, 183, 77),
-    notificationErrorColor = Color3.fromRGB(226, 93, 93)
+    mainBackground = Color3.new(0.035294, 0.035294, 0.050980),
+    sidebarBackground = Color3.new(0.050980, 0.050980, 0.066666),
+    sectionBackground = Color3.new(0.066666, 0.066666, 0.082352),
+    elementBackground = Color3.new(0.090196, 0.090196, 0.105882),
+    elementHoverBackground = Color3.new(0.121568, 0.121568, 0.145098),
+    borderColor = Color3.new(0.105882, 0.105882, 0.133333),
+    borderLightColor = Color3.new(0.172549, 0.172549, 0.211764),
+    accentColor = Color3.new(0.423529, 0.576470, 0.988235),
+    accentGradientColor1 = Color3.new(0.423529, 0.576470, 0.988235),
+    accentGradientColor2 = Color3.new(0.619607, 0.462745, 0.988235),
+    textWhiteColor = Color3.new(0.952941, 0.952941, 0.972549),
+    textDarkColor = Color3.new(0.541176, 0.541176, 0.580392),
+    tooltipBackground = Color3.new(0.043137, 0.043137, 0.058823),
+    shadowColor = Color3.new(0, 0, 0),
+    notificationInfoColor = Color3.new(0.247058, 0.635294, 0.980392),
+    notificationSuccessColor = Color3.new(0.247058, 0.980392, 0.490196),
+    notificationWarningColor = Color3.new(0.980392, 0.819607, 0.247058),
+    notificationErrorColor = Color3.new(0.980392, 0.247058, 0.247058)
 }
 
 local FONT_MAIN = Drawing.Fonts.System
@@ -531,7 +531,7 @@ local function createWindowDrawings(window)
     g.accent = addToGroup(g, createRoundedPrimitive(34, colors.accentColor, 1))
     g.topBorder = addToGroup(g, createRoundedPrimitive(28, colors.borderColor, 0.9))
     g.sidebarBorder = addToGroup(g, createRoundedPrimitive(28, colors.borderColor, 0.9))
-    g.title = addToGroup(g, newDrawing("Text", { Size = 13, Font = FONT_MAIN, Outline = true, Center = false, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 35, Visible = true, Text = window.title }))
+    g.title = addToGroup(g, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Outline = true, Center = false, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 35, Visible = true, Text = window.title }))
     window.drawings = g
 end
 
@@ -541,7 +541,7 @@ local function createTabDrawings(tab)
     g.indicatorGlow = addToGroup(g, createRoundedPrimitive(33, colors.accentColor, 0.22))
     g.indicator = addToGroup(g, createRoundedPrimitive(34, colors.accentColor, 1))
     g.icon = addToGroup(g, newDrawing("Text", { Size = 14, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 35, Visible = true, Text = tostring(tab.icon or "•") }))
-    g.text = addToGroup(g, newDrawing("Text", { Size = 13, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 35, Visible = true, Text = tab.title }))
+    g.text = addToGroup(g, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 35, Visible = true, Text = tab.title }))
     tab.drawings = g
 end
 
@@ -611,10 +611,10 @@ local function layoutWindow(window)
     window.columnWidth = math.floor((window.contentW - window.columnGap) / 2)
 
     local d = window.drawings
-    setSoftFrame(d.body, window.x, window.y, window.w, window.h, 6, colors.mainBackground, 0.81626, colors.borderColor, 0.92, 3)
-    setSoftFrame(d.top, window.x, window.y, window.w, 36, 6, colors.sidebarBackground, 0.78153, colors.borderColor, 0.0, 0)
-    setSoftFrame(d.sidebar, window.x, window.y + 37, 150, window.h - 37, 6, colors.sidebarBackground, 0.78153, colors.borderColor, 0.0, 1)
-    setRoundedPrimitive(d.accentGlow, window.x + 0, window.y + 0, window.w, 2, 1, colors.accentGradientColor2, 0.24, true)
+    setSoftFrame(d.body, window.x, window.y, window.w, window.h, 6, colors.mainBackground, 0.81626, colors.borderColor, 1, 2)
+    setSoftFrame(d.top, window.x, window.y, window.w, 36, 6, colors.sidebarBackground, 0.78153, colors.borderColor, 0, 0)
+    setSoftFrame(d.sidebar, window.x, window.y + 37, 150, window.h - 37, 6, colors.sidebarBackground, 0.78153, colors.borderColor, 0, 1)
+    setRoundedPrimitive(d.accentGlow, window.x + 0, window.y + 0, window.w, 2, 1, colors.accentGradientColor2, 0.16, true)
     setRoundedPrimitive(d.accent, window.x + 0, window.y + 0, window.w, 2, 1, colors.accentColor, 1, true)
     setRoundedPrimitive(d.topBorder, window.x + 0, window.y + 36, window.w, 1, 0, colors.borderColor, 0.85, true)
     setRoundedPrimitive(d.sidebarBorder, window.x + 150, window.y + 37, 1, window.h - 37, 0, colors.borderColor, 0.85, true)
@@ -627,13 +627,13 @@ local function layoutWindow(window)
         tab.h = window.tabButtonHeight
         local td = tab.drawings
         local active = tab == window.activeTab
-        setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 4, active and colors.elementHoverBackground or colors.sidebarBackground, active and 0.78 or 0.0, active and colors.borderLightColor or colors.borderColor, active and 0.28 or 0.0, 0)
+        setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 4, active and colors.elementHoverBackground or colors.sidebarBackground, active and 0.78153 or 0.0, active and colors.borderLightColor or colors.borderColor, active and 0.18 or 0.0, 0)
         setRoundedPrimitive(td.indicatorGlow, tab.x + 0, tab.y + 7, 2, 18, 1, colors.accentColor, active and 0.14 or 0.0, active)
         setRoundedPrimitive(td.indicator, tab.x + 0, tab.y + 7, 2, 18, 1, colors.accentColor, active and 1 or 0, active)
         td.icon.Text = tostring(tab.icon or "•")
-        td.icon.Position = Vector2.new(tab.x + 14, tab.y + 8)
+        td.icon.Position = Vector2.new(tab.x + 12, tab.y + 8)
         td.icon.Color = active and colors.accentColor or colors.textDarkColor
-        td.text.Position = Vector2.new(tab.x + 32, tab.y + 9)
+        td.text.Position = Vector2.new(tab.x + 34, tab.y + 9)
     end
 
     if not window.activeTab then return end
@@ -671,8 +671,8 @@ local function layoutWindow(window)
         section.h = math.max(38, math.floor(currentY - startY + 8))
 
         local sd = section.drawings
-        setSoftFrame(sd.frame, section.x, section.y, section.w, section.h, 6, colors.sectionBackground, 0.78153, colors.borderColor, 0.90, 2)
-        sd.title.Position = Vector2.new(section.x + 12, section.y + 9)
+        setSoftFrame(sd.frame, section.x, section.y, section.w, section.h, 6, colors.sectionBackground, 0.78153, colors.borderColor, 0.90, 1)
+        sd.title.Position = Vector2.new(section.x + 12, section.y + 8)
         setRoundedPrimitive(sd.sep, section.x + 12, section.y + 28, section.w - 24, 1, 0, colors.borderColor, 0.42, true)
 
         if section.side == "Left" then
@@ -1427,7 +1427,7 @@ local function makeSectionApi(section)
         function element:dynamicHeight()
             if self.open then
                 local popupH = math.max(24, #self.options * 24)
-                return 48 + popupH + 8
+                return 46 + popupH + 4
             end
             return 48
         end
