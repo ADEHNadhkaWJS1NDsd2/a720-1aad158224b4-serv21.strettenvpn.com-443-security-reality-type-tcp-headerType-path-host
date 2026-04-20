@@ -4,16 +4,17 @@ local textService = game:GetService("TextService")
 local httpService = game:GetService("HttpService")
 local workspaceService = game:GetService("Workspace")
 local playersService = game:GetService("Players")
-local env = (getgenv and getgenv()) or (getfenv and getfenv()) or _G
-local matchaIsMouse1Pressed = rawget(env, "ismouse1pressed")
-local matchaIsMouse2Pressed = rawget(env, "ismouse2pressed")
-local matchaIsKeyPressed = rawget(env, "iskeypressed")
-local matchaSetClipboard = rawget(env, "setclipboard") or rawget(env, "toclipboard")
-local matchaGetClipboard = rawget(env, "getclipboard") or rawget(env, "fromclipboard")
+
+local env = getgenv and getgenv() or _G
+local m_ismouse1pressed = env.ismouse1pressed
+local m_ismouse2pressed = env.ismouse2pressed
+local m_iskeypressed = env.iskeypressed
+local m_setclipboard = env.setclipboard or env.toclipboard
+local m_getclipboard = env.getclipboard or env.fromclipboard
 
 local LibraryApi = {
     Flags = {},
-    FolderName = "Moonshade",
+    FolderName = "PhantomHub",
     ConfigName = "AutoSaveConfig.json"
 }
 
@@ -93,92 +94,62 @@ local function getMousePosition()
     if ok and value then
         return value
     end
-    local lp = playersService.LocalPlayer
-    if lp then
-        local mouse = lp:GetMouse()
-        if mouse then
-            return Vector2.new(mouse.X or 0, mouse.Y or 0)
-        end
-    end
-    return UI and UI.mousePos or Vector2.zero
+    return UI.mousePos
 end
 
 local function isMouse1Held()
-    if type(matchaIsMouse1Pressed) == "function" then
-        local ok, value = pcall(matchaIsMouse1Pressed)
-        if ok then
-            return not not value
-        end
+    if m_ismouse1pressed then
+        local ok, value = pcall(m_ismouse1pressed)
+        if ok then return value == true end
     end
-    return UI and UI.mouseDown or false
+    return UI.mouseDown
 end
 
 local function isMouse2Held()
-    if type(matchaIsMouse2Pressed) == "function" then
-        local ok, value = pcall(matchaIsMouse2Pressed)
-        if ok then
-            return not not value
-        end
+    if m_ismouse2pressed then
+        local ok, value = pcall(m_ismouse2pressed)
+        if ok then return value == true end
     end
     return false
 end
 
 local function isShiftHeld()
+    if m_iskeypressed then
+        local ok1, v1 = pcall(m_iskeypressed, 0xA0)
+        local ok2, v2 = pcall(m_iskeypressed, 0xA1)
+        if (ok1 and v1) or (ok2 and v2) then return true end
+    end
     local okL, left = pcall(function() return userInputService:IsKeyDown(Enum.KeyCode.LeftShift) end)
     local okR, right = pcall(function() return userInputService:IsKeyDown(Enum.KeyCode.RightShift) end)
-    if (okL and left) or (okR and right) then
-        return true
-    end
-    if type(matchaIsKeyPressed) == "function" then
-        local ok1, v1 = pcall(matchaIsKeyPressed, 160)
-        local ok2, v2 = pcall(matchaIsKeyPressed, 161)
-        return (ok1 and v1) or (ok2 and v2) or false
-    end
-    return false
+    return (okL and left) or (okR and right)
 end
 
 local function setClipboardText(text)
-    local fn = matchaSetClipboard or rawget(getfenv and getfenv() or _G, "setclipboard") or rawget(getfenv and getfenv() or _G, "toclipboard")
-    if type(fn) == "function" then
-        return pcall(fn, text)
+    if m_setclipboard then
+        local ok = pcall(m_setclipboard, text)
+        if ok then return true end
     end
     return false
 end
 
 local function getClipboardText()
-    local env = getfenv and getfenv() or _G
-    local fn = matchaGetClipboard or rawget(env, "getclipboard") or rawget(env, "fromclipboard")
-    if type(fn) == "function" then
-        local ok, result = pcall(fn)
-        if ok and type(result) == "string" then
-            return result
-        end
+    if m_getclipboard then
+        local ok, result = pcall(m_getclipboard)
+        if ok and type(result) == "string" then return result end
     end
     return nil
 end
 
-
-
 local keyCodeNameCache = nil
 
 local function getKeyCodeName(key)
-    if key == nil then
-        return "None"
-    end
-    local okName, name = pcall(function()
-        return key.Name
-    end)
-    if okName and type(name) == "string" and name ~= "" then
-        return name
-    end
-    if type(key) == "string" then
-        return key
-    end
+    if key == nil then return "None" end
+    local okName, name = pcall(function() return key.Name end)
+    if okName and type(name) == "string" and name ~= "" then return name end
+    if type(key) == "string" then return key end
     if keyCodeNameCache == nil then
         keyCodeNameCache = {}
-        local okEnum, enumTable = pcall(function()
-            return Enum.KeyCode
-        end)
+        local okEnum, enumTable = pcall(function() return Enum.KeyCode end)
         if okEnum and type(enumTable) == "table" then
             for enumName, enumValue in pairs(enumTable) do
                 if keyCodeNameCache[enumValue] == nil then
@@ -191,18 +162,10 @@ local function getKeyCodeName(key)
 end
 
 local function colorToHSV(color)
-    local okMethod, h, s, v = pcall(function()
-        return color:ToHSV()
-    end)
-    if okMethod then
-        return h, s, v
-    end
-    local okStatic, sh, ss, sv = pcall(function()
-        return Color3.toHSV(color)
-    end)
-    if okStatic then
-        return sh, ss, sv
-    end
+    local okMethod, h, s, v = pcall(function() return color:ToHSV() end)
+    if okMethod then return h, s, v end
+    local okStatic, sh, ss, sv = pcall(function() return Color3.toHSV(color) end)
+    if okStatic then return sh, ss, sv end
     local r = tonumber(color and color.R) or 0
     local g = tonumber(color and color.G) or 0
     local b = tonumber(color and color.B) or 0
@@ -224,7 +187,6 @@ local function colorToHSV(color)
     local vv = maxc
     return hh, ss, vv
 end
-
 
 local function getViewportSize()
     local candidates = {}
@@ -254,30 +216,22 @@ local function colorToHex(color)
 end
 
 local function parseClipboardColor(text)
-    if type(text) ~= "string" then
-        return nil
-    end
+    if type(text) ~= "string" then return nil end
     local source = text:match("^%s*(.-)%s*$")
-    if source == "" then
-        return nil
-    end
+    if source == "" then return nil end
     local hex = source:match("^#?(%x%x%x%x%x%x)$")
     if hex then
         local r = tonumber(hex:sub(1, 2), 16)
         local g = tonumber(hex:sub(3, 4), 16)
         local b = tonumber(hex:sub(5, 6), 16)
-        if r and g and b then
-            return Color3.fromRGB(r, g, b)
-        end
+        if r and g and b then return Color3.fromRGB(r, g, b) end
     end
     local short = source:match("^#?(%x%x%x)$")
     if short then
         local r = tonumber(short:sub(1, 1) .. short:sub(1, 1), 16)
         local g = tonumber(short:sub(2, 2) .. short:sub(2, 2), 16)
         local b = tonumber(short:sub(3, 3) .. short:sub(3, 3), 16)
-        if r and g and b then
-            return Color3.fromRGB(r, g, b)
-        end
+        if r and g and b then return Color3.fromRGB(r, g, b) end
     end
     local rgb = { source:match("^%s*(%d+)%s*[, ]%s*(%d+)%s*[, ]%s*(%d+)%s*$") }
     if #rgb == 3 then
@@ -324,9 +278,7 @@ local function freeDrawing(object)
 end
 
 local function trySetVisible(target, state)
-    if not target then
-        return
-    end
+    if not target then return end
     pcall(function()
         if target.Visible ~= nil then
             target.Visible = state
@@ -335,9 +287,7 @@ local function trySetVisible(target, state)
 end
 
 local function setVisible(drawings, state)
-    if type(drawings) ~= "table" then
-        return
-    end
+    if type(drawings) ~= "table" then return end
     for key, drawing in pairs(drawings) do
         if key ~= "__isGroup" then
             if type(drawing) == "table" and rawget(drawing, "__isGroup") then
@@ -437,28 +387,21 @@ local function setSoftFrame(frame, x, y, w, h, radius, fillColor, fillTransparen
     setRoundedPrimitive(frame.fill, x + 1, y + 1, w - 2, h - 2, math.max(0, radius - 1), fillColor or colors.elementBackground, fillTransparency or 0.92, true)
 end
 
-
 local function normalizeStep(step)
     if type(step) == "number" then
-        if step > 0 then
-            return step
-        end
+        if step > 0 then return step end
         return nil
     end
     if type(step) == "string" then
         local n = tonumber(step)
-        if n and n > 0 then
-            return n
-        end
+        if n and n > 0 then return n end
     end
     return nil
 end
 
 local function snapValue(value, step)
     step = normalizeStep(step)
-    if not step then
-        return value
-    end
+    if not step then return value end
     local snapped = math.floor((value / step) + 0.5) * step
     local precision = tostring(step):match("%.(%d+)")
     if precision then
@@ -468,12 +411,8 @@ local function snapValue(value, step)
 end
 
 local function formatValue(value, step)
-    if type(value) ~= "number" then
-        return tostring(value)
-    end
-    if math.abs(value) < 0.000001 then
-        value = 0
-    end
+    if type(value) ~= "number" then return tostring(value) end
+    if math.abs(value) < 0.000001 then value = 0 end
     local decimals = 2
     if step and type(step) == "number" and step > 0 then
         local precision = tostring(step):match("%.(%d+)")
@@ -488,9 +427,7 @@ local function formatValue(value, step)
     end
     local formatted = string.format("%." .. tostring(decimals) .. "f", value)
     formatted = formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
-    if formatted == "-0" then
-        formatted = "0"
-    end
+    if formatted == "-0" then formatted = "0" end
     return formatted
 end
 
@@ -599,13 +536,9 @@ local function focusTextbox(box)
 end
 
 local function deleteFocusedTextboxChar()
-    if not UI.focusedTextbox then
-        return
-    end
+    if not UI.focusedTextbox then return end
     local text = tostring(UI.focusedTextbox.value or "")
-    if #text <= 0 then
-        return
-    end
+    if #text <= 0 then return end
     UI.focusedTextbox.value = text:sub(1, #text - 1)
     LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
     saveConfiguration()
@@ -708,12 +641,8 @@ local function normalizeSectionArgs(first, second)
 end
 
 local function isElementVisibleInLayout(element)
-    if not element then
-        return false
-    end
-    if element.visible == false then
-        return false
-    end
+    if not element then return false end
+    if element.visible == false then return false end
     if element.parentModule then
         return LibraryApi.Flags[element.parentModule.flag] == true
     end
@@ -959,9 +888,7 @@ local function drawTab(tab)
 end
 
 hideGroup = function(group)
-    if type(group) ~= "table" then
-        return
-    end
+    if type(group) ~= "table" then return end
     for key, drawing in pairs(group) do
         if key ~= "__isGroup" then
             if type(drawing) == "table" and rawget(drawing, "__isGroup") then
@@ -974,9 +901,7 @@ hideGroup = function(group)
 end
 
 local function setElementBaseVisible(element, visible)
-    if type(element) ~= "table" or type(element.drawings) ~= "table" then
-        return
-    end
+    if type(element) ~= "table" or type(element.drawings) ~= "table" then return end
     for key, drawing in pairs(element.drawings) do
         if key ~= "__isGroup" then
             if type(drawing) == "table" and rawget(drawing, "__isGroup") then
@@ -994,9 +919,7 @@ end
 
 local function isElementInsideViewport(element)
     local section = element.section
-    if not section then
-        return true
-    end
+    if not section then return true end
     local top = tonumber(section.viewportTop) or tonumber(section.contentY) or tonumber(section.y) or 0
     local sectionY = tonumber(section.y) or top
     local sectionH = tonumber(section.h) or 0
@@ -1063,16 +986,12 @@ local function hitTestElement(window)
 
     if UI.openColorPicker and UI.openColorPicker.window == window and UI.openColorPicker.open then
         local cp = UI.openColorPicker
-        if pointInRect(UI.mousePos, cp.popupX, cp.popupY, cp.popupW, cp.popupH) then
-            return cp
-        end
+        if pointInRect(UI.mousePos, cp.popupX, cp.popupY, cp.popupW, cp.popupH) then return cp end
     end
 
     if UI.openDropdown and UI.openDropdown.window == window and UI.openDropdown.open then
         local dd = UI.openDropdown
-        if pointInRect(UI.mousePos, dd.popupX, dd.popupY, dd.popupW, dd.popupH) then
-            return dd
-        end
+        if pointInRect(UI.mousePos, dd.popupX, dd.popupY, dd.popupW, dd.popupH) then return dd end
     end
 
     if window.activeTab then
@@ -1089,15 +1008,10 @@ local function hitTestElement(window)
 
     for i = #window.tabs, 1, -1 do
         local tab = window.tabs[i]
-        if pointInRect(UI.mousePos, tab.x, tab.y, tab.w, tab.h) then
-            return tab
-        end
+        if pointInRect(UI.mousePos, tab.x, tab.y, tab.w, tab.h) then return tab end
     end
 
-    if pointInRect(UI.mousePos, window.x, window.y, window.w, window.topHeight) then
-        return window
-    end
-
+    if pointInRect(UI.mousePos, window.x, window.y, window.w, window.topHeight) then return window end
     return nil
 end
 
@@ -1105,16 +1019,12 @@ setTooltipText = function(text)
     UI.tooltip = text
 end
 
-
 local function initialize()
     if UI.initialized then return end
     UI.initialized = true
 
     local keyWatch = {
-        Enum.KeyCode.Delete,
-        Enum.KeyCode.Backspace,
-        Enum.KeyCode.Return,
-        Enum.KeyCode.Space,
+        Enum.KeyCode.Delete, Enum.KeyCode.Backspace, Enum.KeyCode.Return, Enum.KeyCode.Space,
         Enum.KeyCode.A, Enum.KeyCode.B, Enum.KeyCode.C, Enum.KeyCode.D, Enum.KeyCode.E, Enum.KeyCode.F, Enum.KeyCode.G, Enum.KeyCode.H, Enum.KeyCode.I, Enum.KeyCode.J, Enum.KeyCode.K, Enum.KeyCode.L, Enum.KeyCode.M,
         Enum.KeyCode.N, Enum.KeyCode.O, Enum.KeyCode.P, Enum.KeyCode.Q, Enum.KeyCode.R, Enum.KeyCode.S, Enum.KeyCode.T, Enum.KeyCode.U, Enum.KeyCode.V, Enum.KeyCode.W, Enum.KeyCode.X, Enum.KeyCode.Y, Enum.KeyCode.Z,
         Enum.KeyCode.Zero, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine,
@@ -1126,12 +1036,8 @@ local function initialize()
     UI.prevMouse2 = false
 
     local function pollKeyDown(keyCode)
-        local ok, value = pcall(function()
-            return userInputService:IsKeyDown(keyCode)
-        end)
-        if ok then
-            return not not value
-        end
+        local ok, value = pcall(function() return userInputService:IsKeyDown(keyCode) end)
+        if ok then return value == true end
         return false
     end
 
@@ -1253,25 +1159,15 @@ local function initialize()
     end
 
     UI.connections.scroll = userInputService.InputChanged:Connect(function(input)
-        if not input or input.UserInputType ~= Enum.UserInputType.MouseWheel then
-            return
-        end
+        if not input or input.UserInputType ~= Enum.UserInputType.MouseWheel then return end
         UI.mousePos = getMousePosition()
         local window = getTopWindowAtMouse()
-        if not window or not window.visible or not window.activeTab then
-            return
-        end
+        if not window or not window.visible or not window.activeTab then return end
         for _, section in ipairs(window.activeTab.sections) do
             if pointInRect(UI.mousePos, section.x, section.y, section.w, section.h) then
                 local delta = 0
-                pcall(function()
-                    delta = tonumber(input.Position.Z) or 0
-                end)
-                if delta == 0 then
-                    pcall(function()
-                        delta = tonumber(input.Delta.Z) or 0
-                    end)
-                end
+                pcall(function() delta = tonumber(input.Position.Z) or 0 end)
+                if delta == 0 then pcall(function() delta = tonumber(input.Delta.Z) or 0 end) end
                 section.scroll = clamp((section.scroll or 0) - (delta * 18), 0, section.scrollMax or 0)
                 break
             end
@@ -1329,9 +1225,7 @@ local function initialize()
                 elseif UI.focusedTextbox and keyCode == Enum.KeyCode.Space then
                     appendFocusedTextboxChar(" ")
                 elseif UI.focusedTextbox then
-                    local ok, char = pcall(function()
-                        return userInputService:GetStringForKeyCode(keyCode)
-                    end)
+                    local ok, char = pcall(function() return userInputService:GetStringForKeyCode(keyCode) end)
                     if ok and char and char ~= "" then
                         appendFocusedTextboxChar(char)
                     end
@@ -1940,9 +1834,7 @@ local function makeSectionApi(section)
             end
         end
         function element:applyColor(color, fireCallback)
-            if not color then
-                return false
-            end
+            if not color then return false end
             self.h, self.s, self.v = colorToHSV(color)
             self:updateColor(fireCallback)
             return true
@@ -2271,7 +2163,6 @@ local function makeSectionApi(section)
             self.arrow.Visible = true
             if hovered then setTooltipText(self.tooltip) end
         end
-
         local moduleSection = {
             title = section.title,
             side = section.side,
@@ -2283,50 +2174,18 @@ local function makeSectionApi(section)
         return makeSectionApi(moduleSection)
     end
 
-    function api:AddLabel(text)
-        return self:Subtext_Create(text)
-    end
-
-    function api:AddButton(name, callback, tooltipText)
-        return self:Button_Create(name, tooltipText, callback)
-    end
-
-    function api:AddSubButton(name, callback, tooltipText)
-        return self:SubButton_Create(name, tooltipText, callback)
-    end
-
-    function api:AddToggle(name, default, callback, tooltipText)
-        return self:Toggle_Create(name, default, tooltipText, callback)
-    end
-
+    function api:AddLabel(text) return self:Subtext_Create(text) end
+    function api:AddButton(name, callback, tooltipText) return self:Button_Create(name, tooltipText, callback) end
+    function api:AddSubButton(name, callback, tooltipText) return self:SubButton_Create(name, tooltipText, callback) end
+    function api:AddToggle(name, default, callback, tooltipText) return self:Toggle_Create(name, default, tooltipText, callback) end
     api.AddCheckbox = api.AddToggle
-
-    function api:AddSlider(name, min, max, default, step, callback, tooltipText)
-        return self:Slider_Create(name, min, max, default, step, tooltipText, callback)
-    end
-
-    function api:AddRangeSlider(name, min, max, defaultMin, defaultMax, step, callback, tooltipText)
-        return self:RangeSlider_Create(name, min, max, defaultMin, defaultMax, step, tooltipText, callback)
-    end
-
-    function api:AddDropdown(name, options, default, callback, tooltipText)
-        return self:Dropdown_Create(name, options, default, tooltipText, callback)
-    end
-
-    function api:AddTextInput(name, default, callback, tooltipText)
-        return self:Textbox_Create(name, default, tooltipText, callback)
-    end
-
+    function api:AddSlider(name, min, max, default, step, callback, tooltipText) return self:Slider_Create(name, min, max, default, step, tooltipText, callback) end
+    function api:AddRangeSlider(name, min, max, defaultMin, defaultMax, step, callback, tooltipText) return self:RangeSlider_Create(name, min, max, defaultMin, defaultMax, step, tooltipText, callback) end
+    function api:AddDropdown(name, options, default, callback, tooltipText) return self:Dropdown_Create(name, options, default, tooltipText, callback) end
+    function api:AddTextInput(name, default, callback, tooltipText) return self:Textbox_Create(name, default, tooltipText, callback) end
     api.AddTextbox = api.AddTextInput
-
-    function api:AddKeybind(name, default, callback, tooltipText)
-        return self:Keybind_Create(name, default, tooltipText, callback)
-    end
-
-    function api:AddColorPicker(name, default, callback, tooltipText)
-        return self:ColorPicker_Create(name, default, tooltipText, callback)
-    end
-
+    function api:AddKeybind(name, default, callback, tooltipText) return self:Keybind_Create(name, default, tooltipText, callback) end
+    function api:AddColorPicker(name, default, callback, tooltipText) return self:ColorPicker_Create(name, default, tooltipText, callback) end
     function api:AddValueLabel(name, value)
         local element = self:Subtext_Create((tostring(name or "Value")) .. ": " .. tostring(value or ""))
         function element:SetValue(newValue)
@@ -2335,7 +2194,6 @@ local function makeSectionApi(section)
         end
         return element
     end
-
     function api:AddTooltip(text)
         local element = self:Subtext_Create("")
         element.height = 0
@@ -2348,14 +2206,8 @@ local function makeSectionApi(section)
         end
         return element
     end
-
-    function api:AddConfigPreset(name, default)
-        return self:Textbox_Create(name or "Config Name", default or "default")
-    end
-
-    function api:AddScrollFrame(name)
-        return self:Subtext_Create(name or "")
-    end
+    function api:AddConfigPreset(name, default) return self:Textbox_Create(name or "Config Name", default or "default") end
+    function api:AddScrollFrame(name) return self:Subtext_Create(name or "") end
 
     return api
 end
@@ -2392,9 +2244,7 @@ function LibraryApi:CreateWindow(windowName)
         }
         createTabDrawings(tab)
         table.insert(window.tabs, tab)
-        if not window.activeTab then
-            window.activeTab = tab
-        end
+        if not window.activeTab then window.activeTab = tab end
 
         local tabApi = {}
 
@@ -2435,13 +2285,8 @@ function LibraryApi:CreateWindow(windowName)
         return self
     end
 
-    function api:Show()
-        return self:SetVisible(true)
-    end
-
-    function api:Hide()
-        return self:SetVisible(false)
-    end
+    function api:Show() return self:SetVisible(true) end
+    function api:Hide() return self:SetVisible(false) end
 
     function api:SetTitle(text)
         window.title = tostring(text or window.title)
@@ -2453,6 +2298,5 @@ function LibraryApi:CreateWindow(windowName)
 
     return api
 end
-
 
 return LibraryApi
