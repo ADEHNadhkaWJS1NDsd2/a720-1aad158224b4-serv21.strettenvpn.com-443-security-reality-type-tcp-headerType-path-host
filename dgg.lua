@@ -38,8 +38,8 @@ local colors = {
     notificationErrorColor = Color3.new(0.980392, 0.247058, 0.247058)
 }
 
-local FONT_MAIN = (Drawing and Drawing.Fonts and (Drawing.Fonts.UI or Drawing.Fonts.System)) or Drawing.Fonts.System
-local FONT_SUB = (Drawing and Drawing.Fonts and (Drawing.Fonts.UI or Drawing.Fonts.System)) or Drawing.Fonts.System
+local FONT_MAIN = Drawing.Fonts.System
+local FONT_SUB = Drawing.Fonts.System
 
 local hideGroup
 
@@ -157,6 +157,8 @@ local function getClipboardText()
     return nil
 end
 
+
+
 local keyCodeNameCache = nil
 
 local function getKeyCodeName(key)
@@ -222,6 +224,7 @@ local function colorToHSV(color)
     local vv = maxc
     return hh, ss, vv
 end
+
 
 local function getViewportSize()
     local candidates = {}
@@ -301,114 +304,6 @@ local function getTextSize(text, size)
     local width = math.floor(#content * (textSize * 0.55))
     local height = math.floor(textSize + 2)
     return width, height
-end
-
-local function getRealTextSize(object, text, size)
-    local content = tostring(text or "")
-    local textSize = tonumber(size) or tonumber(object and object.Size) or 12
-    local tw, th = getTextSize(content, textSize)
-    if object then
-        local originalText = object.Text
-        local originalVisible = object.Visible
-        local originalCenter = object.Center
-        local originalSize = object.Size
-        pcall(function()
-            object.Text = content
-            if object.Size ~= nil then
-                object.Size = textSize
-            end
-            if object.Center ~= nil then
-                object.Center = false
-            end
-            local bounds = object.TextBounds
-            if bounds then
-                tw = tonumber(bounds.X) or tw
-                th = tonumber(bounds.Y) or th
-            end
-        end)
-        pcall(function()
-            object.Text = originalText
-            object.Visible = originalVisible
-            if object.Center ~= nil then
-                object.Center = originalCenter
-            end
-            if object.Size ~= nil then
-                object.Size = originalSize
-            end
-        end)
-    end
-    return tw, th
-end
-
-local function getAutoCenterYOffset(size)
-    local s = tonumber(size) or 12
-    if s <= 10 then
-        return -1
-    elseif s <= 12 then
-        return -2
-    elseif s <= 14 then
-        return -2
-    end
-    return -math.floor(s * 0.15)
-end
-
-local function centeredTextPosition(object, x, y, w, h, text, size)
-    local textSize = tonumber(size) or tonumber(object and object.Size) or 12
-    local tw = select(1, getRealTextSize(object, text, textSize))
-    return Vector2.new(
-        math.floor(x + (w - tw) * 0.5 + 0.5),
-        math.floor(y + (h - textSize) * 0.5 + getAutoCenterYOffset(textSize) + 0.5)
-    )
-end
-
-local function leftAlignedTextPosition(object, x, y, w, h, text, size, padding)
-    local textSize = tonumber(size) or tonumber(object and object.Size) or 12
-    return Vector2.new(
-        math.floor(x + (padding or 0) + 0.5),
-        math.floor(y + (h - textSize) * 0.5 + getAutoCenterYOffset(textSize) + 0.5)
-    )
-end
-
-local function rightAlignedTextPosition(object, x, y, w, h, text, size, padding)
-    local textSize = tonumber(size) or tonumber(object and object.Size) or 12
-    local tw = select(1, getRealTextSize(object, text, textSize))
-    return Vector2.new(
-        math.floor(x + w - tw - (padding or 0) + 0.5),
-        math.floor(y + (h - textSize) * 0.5 + getAutoCenterYOffset(textSize) + 0.5)
-    )
-end
-
-local function setCenteredText(object, x, y, w, h, text, size)
-    object.Text = tostring(text or "")
-    if object.Center ~= nil then
-        object.Center = false
-    end
-    if object.Size ~= nil and size then
-        object.Size = size
-    end
-    object.Position = centeredTextPosition(object, x, y, w, h, object.Text, size or object.Size)
-end
-
-local function setLeftAlignedText(object, x, y, w, h, text, size, padding)
-    object.Text = tostring(text or "")
-    if object.Center ~= nil then
-        object.Center = false
-    end
-    if object.Size ~= nil and size then
-        object.Size = size
-    end
-    object.Position = leftAlignedTextPosition(object, x, y, w, h, object.Text, size or object.Size, padding)
-end
-
-local function setRightAlignedText(object, x, y, w, h, text, size, padding)
-    object.Text = tostring(text or "")
-    if object.Center ~= nil then
-        object.Center = false
-    end
-    if object.Size ~= nil and size then
-        object.Size = size
-    end
-    object.Position = rightAlignedTextPosition(object, x, y, w, h, object.Text, size or object.Size, padding)
 end
 
 local function newDrawing(class, props)
@@ -541,6 +436,7 @@ local function setSoftFrame(frame, x, y, w, h, radius, fillColor, fillTransparen
     setRoundedPrimitive(frame.border, x, y, w, h, radius, borderColor or colors.borderColor, borderTransparency or 1, true)
     setRoundedPrimitive(frame.fill, x + 1, y + 1, w - 2, h - 2, math.max(0, radius - 1), fillColor or colors.elementBackground, fillTransparency or 0.92, true)
 end
+
 
 local function normalizeStep(step)
     if type(step) == "number" then
@@ -1209,6 +1105,7 @@ setTooltipText = function(text)
     UI.tooltip = text
 end
 
+
 local function initialize()
     if UI.initialized then return end
     UI.initialized = true
@@ -1354,6 +1251,32 @@ local function initialize()
         end
         UI.active = nil
     end
+
+    UI.connections.scroll = userInputService.InputChanged:Connect(function(input)
+        if not input or input.UserInputType ~= Enum.UserInputType.MouseWheel then
+            return
+        end
+        UI.mousePos = getMousePosition()
+        local window = getTopWindowAtMouse()
+        if not window or not window.visible or not window.activeTab then
+            return
+        end
+        for _, section in ipairs(window.activeTab.sections) do
+            if pointInRect(UI.mousePos, section.x, section.y, section.w, section.h) then
+                local delta = 0
+                pcall(function()
+                    delta = tonumber(input.Position.Z) or 0
+                end)
+                if delta == 0 then
+                    pcall(function()
+                        delta = tonumber(input.Delta.Z) or 0
+                    end)
+                end
+                section.scroll = clamp((section.scroll or 0) - (delta * 18), 0, section.scrollMax or 0)
+                break
+            end
+        end
+    end)
 
     UI.connections.render = runService.RenderStepped:Connect(function(dt)
         UI.mousePos = getMousePosition()
@@ -1817,7 +1740,7 @@ local function makeSectionApi(section)
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
         element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
         element.box = addToGroup(element.drawings, createSoftFrame(60))
-        element.bindText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 63, Visible = false, Text = "", Center = false }))
+        element.bindText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 63, Visible = false, Text = "", Center = true }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x, self.y, self.w, self.height)
         end
@@ -1836,14 +1759,13 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self
             local boxText = self:getText()
             local bindW = math.max(72, getTextSize(boxText, 12) + 18)
-            local boxX = self.x + self.w - bindW
-            local boxY = self.y - 1
             self.label.Position = Vector2.new(self.x + 2, self.y + 2)
-            setSoftFrame(self.box, boxX, boxY, bindW, 20, 4, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.82, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
-            setCenteredText(self.bindText, boxX, boxY, bindW, 20, boxText, 12)
+            setSoftFrame(self.box, self.x + self.w - bindW, self.y - 1, bindW, 20, 4, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.82, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
+            self.bindText.Text = boxText
+            self.bindText.Position = Vector2.new(self.x + self.w - bindW * 0.5, self.y + 2)
             self.label.Text = self.name
-            self.label.Color = colors.textWhiteColor
-            self.bindText.Color = self.waiting and colors.accentColor or (hovered and colors.textWhiteColor or Color3.fromRGB(214, 218, 229))
+            self.label.Color = hovered and colors.textWhiteColor or colors.textWhiteColor
+            self.bindText.Color = self.waiting and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
             self.label.Visible = true
             self.bindText.Visible = true
             if hovered then setTooltipText(self.tooltip) end
@@ -1922,9 +1844,11 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
             setSoftFrame(self.box, self.x + 2, self.y + 20, self.w - 4, 24, 4, self.open and colors.elementHoverBackground or colors.elementBackground, 0.82, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
-            setLeftAlignedText(self.valueText, self.x + 2, self.y + 20, self.w - 24, 24, tostring(LibraryApi.Flags[self.flag]), 12, 8)
+            self.valueText.Text = tostring(LibraryApi.Flags[self.flag])
+            self.valueText.Position = Vector2.new(self.x + 10, self.y + 27)
             self.valueText.Color = hovered and colors.textWhiteColor or colors.textDarkColor
-            setCenteredText(self.arrow, self.x + self.w - 24, self.y + 20, 16, 24, self.open and "^" or "v", 12)
+            self.arrow.Text = self.open and "^" or "v"
+            self.arrow.Position = Vector2.new(self.x + self.w - 16, self.y + 25)
             self.arrow.Color = self.open and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
             self.label.Visible = true
             self.box.Visible = true
@@ -1942,7 +1866,8 @@ local function makeSectionApi(section)
                     local y = self.popupY + (index - 1) * 24
                     local hovering = pointInRect(UI.mousePos, self.popupX, y, self.popupW, 24)
                     setRoundedPrimitive(item.bg, self.popupX + 2, y + 2, self.popupW - 4, 20, 4, hovering and colors.elementHoverBackground or colors.sectionBackground, 0.96, true)
-                    setLeftAlignedText(item.text, self.popupX, y, self.popupW, 24, tostring(option), 12, 8)
+                    item.text.Text = tostring(option)
+                    item.text.Position = Vector2.new(self.popupX + 8, y + 6)
                     item.text.Color = tostring(option) == tostring(LibraryApi.Flags[self.flag]) and colors.textWhiteColor or (hovering and colors.textWhiteColor or colors.textDarkColor)
                     item.text.Visible = true
                 end
@@ -1999,9 +1924,9 @@ local function makeSectionApi(section)
         element.popup.currentFrame = addToGroup(element.popup, createSoftFrame(134))
         element.popup.currentFill = addToGroup(element.popup, createRoundedPrimitive(137, value, 1))
         element.popup.copyButton = addToGroup(element.popup, createSoftFrame(134))
-        element.popup.copyLabel = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 138, Visible = false, Text = "COPY", Center = false }))
+        element.popup.copyLabel = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 138, Visible = false, Text = "COPY", Center = true }))
         element.popup.pasteButton = addToGroup(element.popup, createSoftFrame(134))
-        element.popup.pasteLabel = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 138, Visible = false, Text = "PASTE", Center = false }))
+        element.popup.pasteLabel = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 138, Visible = false, Text = "PASTE", Center = true }))
         element.popup.rgbLabel = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 136, Visible = false, Text = "RGB" }))
         element.popup.rgbValue = addToGroup(element.popup, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 136, Visible = false, Text = "" }))
         element.popup.hexLabel = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 136, Visible = false, Text = "HEX" }))
@@ -2201,11 +2126,11 @@ local function makeSectionApi(section)
                 local pasteHovered = pointInRect(UI.mousePos, self.pasteX, self.pasteY, self.pasteW, self.actionH)
                 setSoftFrame(self.popup.copyButton, self.copyX, self.copyY, self.copyW, self.actionH, 3, copyHovered and colors.elementHoverBackground or colors.elementBackground, 0.97 * alpha, copyHovered and colors.borderLightColor or colors.borderColor, 0.95 * alpha, 1)
                 setSoftFrame(self.popup.pasteButton, self.pasteX, self.pasteY, self.pasteW, self.actionH, 3, pasteHovered and colors.elementHoverBackground or colors.elementBackground, 0.97 * alpha, pasteHovered and colors.accentColor or colors.borderColor, 0.95 * alpha, 1)
-                setCenteredText(self.popup.copyLabel, self.copyX, self.copyY, self.copyW, self.actionH, "COPY", 11)
+                self.popup.copyLabel.Position = Vector2.new(self.copyX + self.copyW * 0.5, self.copyY + 5)
                 self.popup.copyLabel.Color = copyHovered and colors.textWhiteColor or colors.textDarkColor
                 self.popup.copyLabel.Transparency = alpha
                 self.popup.copyLabel.Visible = true
-                setCenteredText(self.popup.pasteLabel, self.pasteX, self.pasteY, self.pasteW, self.actionH, "PASTE", 11)
+                self.popup.pasteLabel.Position = Vector2.new(self.pasteX + self.pasteW * 0.5, self.pasteY + 5)
                 self.popup.pasteLabel.Color = pasteHovered and colors.textWhiteColor or colors.textDarkColor
                 self.popup.pasteLabel.Transparency = alpha
                 self.popup.pasteLabel.Visible = true
@@ -2247,8 +2172,8 @@ local function makeSectionApi(section)
         element.tooltip = tooltipText
         element.callback = callback
         element.box = addToGroup(element.drawings, createSoftFrame(60))
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 62, Visible = false, Text = element.name, Center = false }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(tooltipText or ""), Center = false }))
+        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 62, Visible = false, Text = element.name, Center = true }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(tooltipText or ""), Center = true }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x + 2, self.y, self.w - 4, self.height)
         end
@@ -2258,17 +2183,14 @@ local function makeSectionApi(section)
         function element:draw()
             local hovered = UI.hovered == self
             setSoftFrame(self.box, self.x + 2, self.y, self.w - 4, self.height, 4, hovered and colors.elementHoverBackground or colors.elementBackground, 0.78153, hovered and colors.accentColor or colors.borderColor, 0.95, 1)
-            if self.tooltip and self.tooltip ~= "" then
-                setCenteredText(self.label, self.x + 2, self.y + 2, self.w - 4, 14, self.name, 12)
-                setCenteredText(self.desc, self.x + 2, self.y + 18, self.w - 4, self.height - 18, tostring(self.tooltip or ""), 11)
-            else
-                setCenteredText(self.label, self.x + 2, self.y, self.w - 4, self.height, self.name, 12)
-                self.desc.Visible = false
-            end
+            self.label.Text = self.name
+            self.label.Position = Vector2.new(self.x + self.w / 2, self.tooltip and self.tooltip ~= "" and (self.y + 4) or (self.y + 8))
             self.label.Color = hovered and colors.accentColor or colors.textWhiteColor
+            self.desc.Position = Vector2.new(self.x + self.w / 2, self.y + 18)
+            self.desc.Text = tostring(self.tooltip or "")
+            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
             self.box.Visible = true
             self.label.Visible = true
-            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
             if hovered then setTooltipText(self.tooltip) end
         end
         return element
@@ -2280,8 +2202,8 @@ local function makeSectionApi(section)
         element.tooltip = tooltipText
         element.callback = callback
         element.box = addToGroup(element.drawings, createSoftFrame(60))
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = element.name, Center = false }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 10, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(tooltipText or ""), Center = false }))
+        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = element.name, Center = true }))
+        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 10, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(tooltipText or ""), Center = true }))
         function element:hitTest(pos)
             return pointInRect(pos, self.x + 8, self.y, self.w - 16, self.height)
         end
@@ -2291,17 +2213,14 @@ local function makeSectionApi(section)
         function element:draw()
             local hovered = UI.hovered == self
             setSoftFrame(self.box, self.x + 8, self.y, self.w - 16, self.height, 3, hovered and colors.elementBackground or colors.sectionBackground, 0.95, hovered and colors.borderLightColor or colors.borderColor, 0.9, 1)
-            if self.tooltip and self.tooltip ~= "" then
-                setCenteredText(self.label, self.x + 8, self.y + 2, self.w - 16, 12, self.name, 11)
-                setCenteredText(self.desc, self.x + 8, self.y + 14, self.w - 16, self.height - 14, tostring(self.tooltip or ""), 10)
-            else
-                setCenteredText(self.label, self.x + 8, self.y, self.w - 16, self.height, self.name, 11)
-                self.desc.Visible = false
-            end
-            self.label.Color = hovered and colors.textWhiteColor or Color3.fromRGB(214, 218, 229)
+            self.label.Text = self.name
+            self.label.Position = Vector2.new(self.x + self.w / 2, self.tooltip and self.tooltip ~= "" and (self.y + 2) or (self.y + 4))
+            self.label.Color = hovered and colors.textWhiteColor or colors.textDarkColor
+            self.desc.Position = Vector2.new(self.x + self.w / 2, self.y + 14)
+            self.desc.Text = tostring(self.tooltip or "")
+            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
             self.box.Visible = true
             self.label.Visible = true
-            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
             if hovered then setTooltipText(self.tooltip) end
         end
         return element
@@ -2362,6 +2281,80 @@ local function makeSectionApi(section)
             parentModule = element
         }
         return makeSectionApi(moduleSection)
+    end
+
+    function api:AddLabel(text)
+        return self:Subtext_Create(text)
+    end
+
+    function api:AddButton(name, callback, tooltipText)
+        return self:Button_Create(name, tooltipText, callback)
+    end
+
+    function api:AddSubButton(name, callback, tooltipText)
+        return self:SubButton_Create(name, tooltipText, callback)
+    end
+
+    function api:AddToggle(name, default, callback, tooltipText)
+        return self:Toggle_Create(name, default, tooltipText, callback)
+    end
+
+    api.AddCheckbox = api.AddToggle
+
+    function api:AddSlider(name, min, max, default, step, callback, tooltipText)
+        return self:Slider_Create(name, min, max, default, step, tooltipText, callback)
+    end
+
+    function api:AddRangeSlider(name, min, max, defaultMin, defaultMax, step, callback, tooltipText)
+        return self:RangeSlider_Create(name, min, max, defaultMin, defaultMax, step, tooltipText, callback)
+    end
+
+    function api:AddDropdown(name, options, default, callback, tooltipText)
+        return self:Dropdown_Create(name, options, default, tooltipText, callback)
+    end
+
+    function api:AddTextInput(name, default, callback, tooltipText)
+        return self:Textbox_Create(name, default, tooltipText, callback)
+    end
+
+    api.AddTextbox = api.AddTextInput
+
+    function api:AddKeybind(name, default, callback, tooltipText)
+        return self:Keybind_Create(name, default, tooltipText, callback)
+    end
+
+    function api:AddColorPicker(name, default, callback, tooltipText)
+        return self:ColorPicker_Create(name, default, tooltipText, callback)
+    end
+
+    function api:AddValueLabel(name, value)
+        local element = self:Subtext_Create((tostring(name or "Value")) .. ": " .. tostring(value or ""))
+        function element:SetValue(newValue)
+            self.text = (tostring(name or "Value")) .. ": " .. tostring(newValue or "")
+            return self
+        end
+        return element
+    end
+
+    function api:AddTooltip(text)
+        local element = self:Subtext_Create("")
+        element.height = 0
+        element.tooltip = tostring(text or "")
+        function element:draw()
+            self.label.Visible = false
+            if UI.hovered == self.section or UI.hovered == self then
+                setTooltipText(self.tooltip)
+            end
+        end
+        return element
+    end
+
+    function api:AddConfigPreset(name, default)
+        return self:Textbox_Create(name or "Config Name", default or "default")
+    end
+
+    function api:AddScrollFrame(name)
+        return self:Subtext_Create(name or "")
     end
 
     return api
@@ -2426,78 +2419,40 @@ function LibraryApi:CreateWindow(windowName)
             return makeSectionApi(section)
         end
 
+        function tabApi:AddSection(sectionTitle, columnSide)
+            return self:Section_Create(columnSide, sectionTitle)
+        end
+
         return tabApi
+    end
+
+    function api:AddCategory(tabName, tabIcon)
+        return self:Tab_Create(tabName, tabIcon)
+    end
+
+    function api:SetVisible(state)
+        setWindowVisible(window, not not state)
+        return self
+    end
+
+    function api:Show()
+        return self:SetVisible(true)
+    end
+
+    function api:Hide()
+        return self:SetVisible(false)
+    end
+
+    function api:SetTitle(text)
+        window.title = tostring(text or window.title)
+        if window.drawings and window.drawings.title then
+            window.drawings.title.Text = window.title
+        end
+        return self
     end
 
     return api
 end
 
-local __moonshade = LibraryApi:CreateWindow("Moonshade | Matcha Menu")
 
-local __combat = __moonshade:Tab_Create("Combat", "◈")
-local __visuals = __moonshade:Tab_Create("Visuals", "◎")
-local __settings = __moonshade:Tab_Create("Settings", "⚙")
-
-local __aimbot = __combat:Section_Create("Aimbot", "left")
-__aimbot:Subtext_Create("Main combat controls")
-__aimbot:Toggle_Create("Enabled", false)
-__aimbot:Keybind_Create("Aim Key", Enum.KeyCode.E)
-__aimbot:Dropdown_Create("Target Part", {"Head","Torso","HumanoidRootPart"}, "Head")
-__aimbot:Slider_Create("Smoothness", 0, 100, 35, 1)
-__aimbot:RangeSlider_Create("Damage Range", 0, 100, 5, 100, 1)
-__aimbot:Textbox_Create("Custom Bone", "Head")
-__aimbot:Button_Create("Reset Aimbot")
-__aimbot:SubButton_Create("Quick Disable")
-
-local __weapon = __combat:Section_Create("Weapon", "right")
-__weapon:Subtext_Create("Weapon tuning")
-__weapon:Slider_Create("Fire Rate", 0, 10, 3, 0.1)
-__weapon:Slider_Create("Spread", 0, 100, 12, 1)
-__weapon:Textbox_Create("Ammo Type", "Standard")
-__weapon:Button_Create("Reload Current Weapon")
-__weapon:SubButton_Create("Drop Weapon")
-
-local __modules = __combat:Section_Create("Modules", "left")
-__modules:Subtext_Create("Expandable module cards")
-
-local __legit = __modules:Module_Create("Legit Bot", "legit_bot", "Assist aiming with smooth behavior", false)
-__legit:Toggle_Create("Silent Aim", false)
-__legit:Toggle_Create("Triggerbot", false)
-__legit:Slider_Create("FOV", 0, 300, 120, 1)
-__legit:Dropdown_Create("Priority", {"Closest","Lowest Health","Crosshair"}, "Closest")
-__legit:Textbox_Create("Whitelist", "friend1,friend2")
-__legit:Button_Create("Apply Legit")
-
-local __rage = __modules:Module_Create("Rage Bot", "rage_bot", "Aggressive aim preset", false)
-__rage:Toggle_Create("Auto Shoot", true)
-__rage:Slider_Create("Hitchance", 0, 100, 80, 1)
-__rage:ColorPicker_Create("Accent", Color3.fromRGB(255, 80, 80))
-
-local __esp = __visuals:Section_Create("ESP", "left")
-__esp:Subtext_Create("Visual overlays")
-__esp:Toggle_Create("Enabled", false)
-__esp:ColorPicker_Create("Color", Color3.fromRGB(108,147,252))
-__esp:Toggle_Create("Box", true)
-__esp:Toggle_Create("Name", true)
-__esp:Toggle_Create("Distance", true)
-
-local __world = __visuals:Section_Create("World", "right")
-__world:Subtext_Create("Scene controls")
-__world:Dropdown_Create("Sky", {"Default","Night","Purple"}, "Default")
-__world:Slider_Create("Brightness", 0, 100, 50, 1)
-__world:Button_Create("Refresh Visuals")
-
-local __ui = __settings:Section_Create("UI", "left")
-__ui:Subtext_Create("Menu appearance")
-__ui:Dropdown_Create("Theme", {"Dark","Light"}, "Dark")
-__ui:Slider_Create("Transparency", 0, 100, 82, 1)
-__ui:ColorPicker_Create("Accent", Color3.fromRGB(108,147,252))
-
-local __cfg = __settings:Section_Create("Config", "right")
-__cfg:Subtext_Create("Configuration controls")
-__cfg:Textbox_Create("Config Name", "default")
-__cfg:Button_Create("Save")
-__cfg:Button_Create("Load")
-__cfg:SubButton_Create("Unload")
-
-return __moonshade
+return LibraryApi
