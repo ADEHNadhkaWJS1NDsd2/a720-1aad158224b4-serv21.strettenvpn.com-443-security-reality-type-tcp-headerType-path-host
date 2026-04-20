@@ -885,10 +885,12 @@ local function isElementInsideViewport(element)
     if not section then
         return true
     end
-    local top = section.viewportTop or section.contentY or 0
-    local bottom = section.viewportBottom or (section.y + section.h)
-    local elemTop = element.y
-    local elemBottom = element.y + (element.height or 0)
+    local top = tonumber(section.viewportTop) or tonumber(section.contentY) or tonumber(section.y) or 0
+    local sectionY = tonumber(section.y) or top
+    local sectionH = tonumber(section.h) or 0
+    local bottom = tonumber(section.viewportBottom) or (sectionY + sectionH)
+    local elemTop = tonumber(element.y) or 0
+    local elemBottom = elemTop + (tonumber(element.height) or 0)
     return elemBottom >= top and elemTop <= bottom
 end
 
