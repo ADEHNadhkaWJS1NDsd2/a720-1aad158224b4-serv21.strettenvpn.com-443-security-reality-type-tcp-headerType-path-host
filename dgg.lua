@@ -287,20 +287,26 @@ local function formatValue(value, step)
     if type(value) ~= "number" then
         return tostring(value)
     end
+    if math.abs(value) < 0.000001 then
+        value = 0
+    end
+    local decimals = 2
     if step and type(step) == "number" and step > 0 then
-        local decimals = tostring(step):match("%.(%d+)")
-        if decimals then
-            local formatted = string.format("%." .. tostring(#decimals) .. "f", value)
-            formatted = formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
-            return formatted
+        local precision = tostring(step):match("%.(%d+)")
+        if precision then
+            decimals = math.min(#precision, 2)
+        else
+            decimals = 0
         end
-        return tostring(math.floor(value + 0.5))
+    else
+        local frac = math.abs(value - math.floor(value))
+        decimals = frac < 0.001 and 0 or 2
     end
-    if math.abs(value - math.floor(value + 0.5)) < 0.001 then
-        return tostring(math.floor(value + 0.5))
-    end
-    local formatted = string.format("%.2f", value)
+    local formatted = string.format("%." .. tostring(decimals) .. "f", value)
     formatted = formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
+    if formatted == "-0" then
+        formatted = "0"
+    end
     return formatted
 end
 
@@ -1612,14 +1618,14 @@ local function makeSectionApi(section)
         end
         function element:dynamicHeight()
             if self.open then
-                return 46 + 252 + 10
+                return 40 + 286 + 10
             end
             return 28
         end
         function element:draw()
             local hovered = UI.hovered == self
             local color = LibraryApi.Flags[self.flag]
-            self.animOpen = lerp(self.animOpen or 0, self.open and 1 or 0, 0.18)
+            self.animOpen = lerp(self.animOpen or 0, self.open and 1 or 0, 0.24)
             if self.animOpen < 0.001 and not self.open then
                 self.animOpen = 0
             end
@@ -1628,31 +1634,31 @@ local function makeSectionApi(section)
             setRoundedPrimitive(self.preview, self.x + self.w - 24, self.y + 8, 16, 8, 2, color, 1, true)
             self.label.Visible = true
             if hovered then setTooltipText(self.tooltip) end
-            self.popupW = 236
-            self.popupH = 252
+            self.popupW = 268
+            self.popupH = 286
             self.popupX = self.x + self.w - self.popupW
-            self.popupY = self.y + 42 + (1 - self.animOpen) * -6
-            self.svX = self.popupX + 8
-            self.svY = self.popupY + 8
-            self.svW = self.popupW - 16
-            self.svH = 150
-            self.hueX = self.popupX + 8
-            self.hueY = self.svY + self.svH + 10
-            self.hueW = self.popupW - 16
+            self.popupY = self.y + 36 + (1 - self.animOpen) * -8
+            self.svX = self.popupX + 10
+            self.svY = self.popupY + 10
+            self.svW = self.popupW - 20
+            self.svH = 164
+            self.hueX = self.popupX + 10
+            self.hueY = self.svY + self.svH + 12
+            self.hueW = self.popupW - 20
             self.hueH = 12
-            self.actionY = self.hueY + self.hueH + 10
-            self.copyX = self.popupX + 8
+            self.actionY = self.hueY + self.hueH + 12
+            self.copyX = self.popupX + 10
             self.copyY = self.actionY
-            self.copyW = 66
+            self.copyW = 72
             self.pasteX = self.copyX + self.copyW + 8
             self.pasteY = self.actionY
-            self.pasteW = 66
-            self.actionH = 20
-            self.swatchX = self.popupX + self.popupW - 52
+            self.pasteW = 72
+            self.actionH = 22
+            self.swatchX = self.popupX + self.popupW - 58
             self.swatchY = self.actionY
-            self.swatchW = 44
-            self.swatchH = 20
-            self.infoY = self.actionY + self.actionH + 10
+            self.swatchW = 48
+            self.swatchH = 22
+            self.infoY = self.actionY + self.actionH + 12
             if self.animOpen > 0.01 then
                 local alpha = self.animOpen
                 setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 4, colors.sectionBackground, 0.985 * alpha, colors.borderColor, 0.95 * alpha, 2)
@@ -1714,17 +1720,25 @@ local function makeSectionApi(section)
                 self.popup.pasteLabel.Color = pasteHovered and colors.textWhiteColor or colors.textDarkColor
                 self.popup.pasteLabel.Transparency = alpha
                 self.popup.pasteLabel.Visible = true
-                local rgbText = string.format("RGB  %d, %d, %d", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
-                local hexText = "HEX  " .. colorToHex(color)
-                self.popup.rgbLabel.Visible = false
-                self.popup.hexLabel.Visible = false
+                local rgbText = string.format("%d, %d, %d", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
+                local hexText = colorToHex(color)
+                self.popup.rgbLabel.Text = "RGB"
+                self.popup.rgbLabel.Position = Vector2.new(self.popupX + 10, self.infoY)
+                self.popup.rgbLabel.Size = 10
+                self.popup.rgbLabel.Transparency = alpha
+                self.popup.rgbLabel.Visible = true
                 self.popup.rgbValue.Text = rgbText
-                self.popup.rgbValue.Position = Vector2.new(self.popupX + 8, self.infoY)
+                self.popup.rgbValue.Position = Vector2.new(self.popupX + 10, self.infoY + 12)
                 self.popup.rgbValue.Size = 11
                 self.popup.rgbValue.Transparency = alpha
                 self.popup.rgbValue.Visible = true
+                self.popup.hexLabel.Text = "HEX"
+                self.popup.hexLabel.Position = Vector2.new(self.popupX + 148, self.infoY)
+                self.popup.hexLabel.Size = 10
+                self.popup.hexLabel.Transparency = alpha
+                self.popup.hexLabel.Visible = true
                 self.popup.hexValue.Text = hexText
-                self.popup.hexValue.Position = Vector2.new(self.popupX + 8, self.infoY + 16)
+                self.popup.hexValue.Position = Vector2.new(self.popupX + 148, self.infoY + 12)
                 self.popup.hexValue.Size = 11
                 self.popup.hexValue.Color = colors.textWhiteColor
                 self.popup.hexValue.Transparency = alpha
