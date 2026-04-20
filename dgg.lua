@@ -1041,7 +1041,7 @@ local function makeSectionApi(section)
         element.knob = addToGroup(element.drawings, createRoundedPrimitive(63, colors.textWhiteColor, 1))
         element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = value and colors.textWhiteColor or colors.textDarkColor, ZIndex = 64, Visible = false, Text = element.name }))
         function element:hitTest(pos)
-            return pointInRect(pos, self.x, self.y, self.w, self.height)
+            return pointInRect(pos, self.x, self.y, self.w, math.max(self.height or 0, 48))
         end
         function element:onMouseDown()
             local state = not LibraryApi.Flags[self.flag]
@@ -1127,7 +1127,7 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self or (UI.active and UI.active.element == self)
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
             self.label.Text = self.name
-            self.valueText.Text = formatValue(valueNow, self.step)
+            self.valueText.Text = formatValue(valueNow, self.step or 1)
             self.valueText.Position = Vector2.new(self.x + self.w - getTextSize(self.valueText.Text, 12) - 2, self.y + 1)
             self.track.Position = Vector2.new(self.x + 2, self.y + 19)
             self.track.Size = Vector2.new(trackW, 5)
@@ -1230,7 +1230,7 @@ local function makeSectionApi(section)
             local hovered = UI.hovered == self or (UI.active and UI.active.element == self)
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
             self.label.Text = self.name
-            self.valueText.Text = formatValue(range.Min, self.step) .. " - " .. formatValue(range.Max, self.step)
+            self.valueText.Text = formatValue(range.Min, self.step or 1) .. " - " .. formatValue(range.Max, self.step or 1)
             self.valueText.Position = Vector2.new(self.x + self.w - getTextSize(self.valueText.Text, 12) - 2, self.y + 1)
             self.track.Position = Vector2.new(self.x + 2, self.y + 19)
             self.track.Size = Vector2.new(trackW, 5)
@@ -1261,7 +1261,7 @@ local function makeSectionApi(section)
             flag = makeAutoFlag(section, name)
         end
         local value = ensureFlag(flag, tostring(default or ""))
-        local element = createBaseElement(section, "textbox", 28)
+        local element = createBaseElement(section, "textbox", 48)
         element.name = tostring(name or "Textbox")
         element.flag = flag
         element.value = tostring(value)
@@ -1362,7 +1362,7 @@ local function makeSectionApi(section)
         local opts = options or {}
         local fallback = default or opts[1] or ""
         local value = ensureFlag(flag, fallback)
-        local element = createBaseElement(section, "dropdown", 28)
+        local element = createBaseElement(section, "dropdown", 48)
         element.name = tostring(name or "Dropdown")
         element.flag = flag
         element.options = opts
@@ -1415,7 +1415,7 @@ local function makeSectionApi(section)
                 local popupH = math.max(24, #self.options * 24)
                 return 48 + popupH + 8
             end
-            return 28
+            return 48
         end
         function element:draw()
             local hovered = UI.hovered == self
