@@ -448,6 +448,52 @@ local function ensureFlag(flag, default)
     return LibraryApi.Flags[flag]
 end
 
+
+local function sanitizeFlagPart(value)
+    value = tostring(value or "value"):lower()
+    value = value:gsub("%s+", "_"):gsub("[^%w_]", "")
+    if value == "" then
+        value = "value"
+    end
+    return value
+end
+
+local function makeAutoFlag(section, name)
+    local parts = {}
+    if section and section.window and section.window.title then
+        table.insert(parts, sanitizeFlagPart(section.window.title))
+    end
+    if section and section.tab and section.tab.title then
+        table.insert(parts, sanitizeFlagPart(section.tab.title))
+    end
+    if section and section.title then
+        table.insert(parts, sanitizeFlagPart(section.title))
+    end
+    table.insert(parts, sanitizeFlagPart(name))
+    return table.concat(parts, ".")
+end
+
+local function normalizeSectionArgs(first, second)
+    local side
+    local title
+    local firstText = tostring(first or "")
+    local firstLower = string.lower(firstText)
+    if firstLower == "left" or firstLower == "right" then
+        side = firstText
+        title = second
+    else
+        title = first
+        side = second
+    end
+    side = tostring(side or "Left")
+    if string.lower(side) == "right" then
+        side = "Right"
+    else
+        side = "Left"
+    end
+    return side, tostring(title or "Section")
+end
+
 local function isElementVisibleInLayout(element)
     if not element then
         return false
@@ -977,6 +1023,12 @@ local function makeSectionApi(section)
     end
 
     function api:Toggle_Create(name, flag, default, tooltipText, callback)
+        if type(flag) ~= "string" then
+            callback = tooltipText
+            tooltipText = default
+            default = flag
+            flag = makeAutoFlag(section, name)
+        end
         local value = ensureFlag(flag, default or false)
         local element = createBaseElement(section, "toggle", 18)
         element.name = tostring(name or "Toggle")
@@ -1011,6 +1063,20 @@ local function makeSectionApi(section)
     end
 
     function api:Slider_Create(name, flag, min, max, default, step, tooltipText, callback)
+        if type(flag) ~= "string" then
+            callback = tooltipText
+            tooltipText = step
+            step = default
+            default = max
+            max = min
+            min = flag
+            flag = makeAutoFlag(section, name)
+        end
+        if type(default) == "table" then
+            local defaultMin = default.Min or default[1] or min
+            local defaultMax = default.Max or default[2] or max
+            return api:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltipText, callback)
+        end
         local value = ensureFlag(flag, snapValue(default or min, step))
         local element = createBaseElement(section, "slider", 28)
         element.name = tostring(name or "Slider")
@@ -1055,7 +1121,7 @@ local function makeSectionApi(section)
         function element:draw()
             local valueNow = clamp(LibraryApi.Flags[self.flag], self.min, self.max)
             local trackW = self.w - 8
-            local pct = (valueNow - self.min) / (self.max - self.min)
+            local pct = (valueNow - self.min) / math.max(1e-9, (self.max - self.min))
             local fillW = math.max(1, trackW * pct)
             local hovered = UI.hovered == self or (UI.active and UI.active.element == self)
             self.label.Position = Vector2.new(self.x + 2, self.y + 1)
@@ -1085,6 +1151,16 @@ local function makeSectionApi(section)
     end
 
     function api:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltipText, callback)
+        if type(flag) ~= "string" then
+            callback = tooltipText
+            tooltipText = step
+            step = defaultMax
+            defaultMax = defaultMin
+            defaultMin = max
+            max = min
+            min = flag
+            flag = makeAutoFlag(section, name)
+        end
         local value = ensureFlag(flag, { Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step) })
         value.Min = clamp(value.Min, min, max)
         value.Max = clamp(value.Max, min, max)
@@ -1106,7 +1182,7 @@ local function makeSectionApi(section)
         element.knobMin = addToGroup(element.drawings, newDrawing("Circle", { Filled = true, Thickness = 1, Transparency = 1, Radius = 4, Color = colors.textWhiteColor, ZIndex = 63, Visible = false }))
         element.knobMax = addToGroup(element.drawings, newDrawing("Circle", { Filled = true, Thickness = 1, Transparency = 1, Radius = 4, Color = colors.textWhiteColor, ZIndex = 63, Visible = false }))
         function element:valueToPct(v)
-            return (v - self.min) / (self.max - self.min)
+            return (v - self.min) / math.max(1e-9, (self.max - self.min))
         end
         function element:setFromMouse(pos)
             local trackX = self.x + 2
@@ -1177,6 +1253,12 @@ local function makeSectionApi(section)
     end
 
     function api:Textbox_Create(name, flag, default, tooltipText, callback)
+        if type(flag) ~= "string" then
+            callback = tooltipText
+            tooltipText = default
+            default = flag
+            flag = makeAutoFlag(section, name)
+        end
         local value = ensureFlag(flag, tostring(default or ""))
         local element = createBaseElement(section, "textbox", 28)
         element.name = tostring(name or "Textbox")
@@ -1222,6 +1304,12 @@ local function makeSectionApi(section)
     end
 
     function api:Keybind_Create(name, flag, default, tooltipText, callback)
+        if type(flag) ~= "string" then
+            callback = tooltipText
+            tooltipText = default
+            default = flag
+            flag = makeAutoFlag(section, name)
+        end
         local value = ensureFlag(flag, default or Enum.KeyCode.Unknown)
         local element = createBaseElement(section, "keybind", 18)
         element.name = tostring(name or "Keybind")
@@ -1263,6 +1351,13 @@ local function makeSectionApi(section)
     end
 
     function api:Dropdown_Create(name, flag, options, default, tooltipText, callback)
+        if type(flag) ~= "string" then
+            callback = tooltipText
+            tooltipText = default
+            default = options
+            options = flag
+            flag = makeAutoFlag(section, name)
+        end
         local opts = options or {}
         local fallback = default or opts[1] or ""
         local value = ensureFlag(flag, fallback)
@@ -1359,6 +1454,12 @@ local function makeSectionApi(section)
     end
 
     function api:ColorPicker_Create(name, flag, default, tooltipText, callback)
+        if type(flag) ~= "string" then
+            callback = tooltipText
+            tooltipText = default
+            default = flag
+            flag = makeAutoFlag(section, name)
+        end
         local value = ensureFlag(flag, default or colors.accentColor)
         local h, sVal, vVal = value:ToHSV()
         local element = createBaseElement(section, "colorpicker", 28)
@@ -1607,6 +1708,8 @@ local function makeSectionApi(section)
         return element
     end
 
+    api.Input_Create = api.Textbox_Create
+
     function api:Button_Create(name, tooltipText, callback)
         local element = createBaseElement(section, "button", 28)
         element.name = tostring(name or "Button")
@@ -1763,6 +1866,7 @@ function LibraryApi:CreateWindow(windowName)
         end
 
         function tabApi:Section_Create(columnSide, sectionTitle)
+            columnSide, sectionTitle = normalizeSectionArgs(columnSide, sectionTitle)
             local section = {
                 title = tostring(sectionTitle or "Section"),
                 side = columnSide == "Right" and "Right" or "Left",
