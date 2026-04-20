@@ -555,7 +555,77 @@ local function ensureFlag(flag, default)
     if LibraryApi.Flags[flag] == nil then
         LibraryApi.Flags[flag] = default
     end
-    return LibraryApi.Flags[flag]
+    
+local __moonshade = LibraryApi:CreateWindow("Moonshade | Matcha Menu")
+
+local __combat = __moonshade:Tab_Create("Combat", "◈")
+local __visuals = __moonshade:Tab_Create("Visuals", "◎")
+local __settings = __moonshade:Tab_Create("Settings", "⚙")
+
+local __aimbot = __combat:Section_Create("Aimbot", "left")
+__aimbot:Subtext_Create("Main combat controls")
+__aimbot:Toggle_Create("Enabled", false)
+__aimbot:Keybind_Create("Aim Key", Enum.KeyCode.E)
+__aimbot:Dropdown_Create("Target Part", {"Head","Torso","HumanoidRootPart"}, "Head")
+__aimbot:Slider_Create("Smoothness", 0, 100, 35, 1)
+__aimbot:RangeSlider_Create("Damage Range", 0, 100, 5, 100, 1)
+__aimbot:Textbox_Create("Custom Bone", "Head")
+__aimbot:Button_Create("Reset Aimbot")
+__aimbot:SubButton_Create("Quick Disable")
+
+local __weapon = __combat:Section_Create("Weapon", "right")
+__weapon:Subtext_Create("Weapon tuning")
+__weapon:Slider_Create("Fire Rate", 0, 10, 3, 0.1)
+__weapon:Slider_Create("Spread", 0, 100, 12, 1)
+__weapon:Textbox_Create("Ammo Type", "Standard")
+__weapon:Button_Create("Reload Current Weapon")
+__weapon:SubButton_Create("Drop Weapon")
+
+local __modules = __combat:Section_Create("Modules", "left")
+__modules:Subtext_Create("Expandable module cards")
+
+local __legit = __modules:Module_Create("Legit Bot", "legit_bot", "Assist aiming with smooth behavior", false)
+__legit:Toggle_Create("Silent Aim", false)
+__legit:Toggle_Create("Triggerbot", false)
+__legit:Slider_Create("FOV", 0, 300, 120, 1)
+__legit:Dropdown_Create("Priority", {"Closest","Lowest Health","Crosshair"}, "Closest")
+__legit:Textbox_Create("Whitelist", "friend1,friend2")
+__legit:Button_Create("Apply Legit")
+
+local __rage = __modules:Module_Create("Rage Bot", "rage_bot", "Aggressive aim preset", false)
+__rage:Toggle_Create("Auto Shoot", true)
+__rage:Slider_Create("Hitchance", 0, 100, 80, 1)
+__rage:ColorPicker_Create("Accent", Color3.fromRGB(255, 80, 80))
+
+local __esp = __visuals:Section_Create("ESP", "left")
+__esp:Subtext_Create("Visual overlays")
+__esp:Toggle_Create("Enabled", false)
+__esp:ColorPicker_Create("Color", Color3.fromRGB(108,147,252))
+__esp:Toggle_Create("Box", true)
+__esp:Toggle_Create("Name", true)
+__esp:Toggle_Create("Distance", true)
+
+local __world = __visuals:Section_Create("World", "right")
+__world:Subtext_Create("Scene controls")
+__world:Dropdown_Create("Sky", {"Default","Night","Purple"}, "Default")
+__world:Slider_Create("Brightness", 0, 100, 50, 1)
+__world:Button_Create("Refresh Visuals")
+
+local __ui = __settings:Section_Create("UI", "left")
+__ui:Subtext_Create("Menu appearance")
+__ui:Dropdown_Create("Theme", {"Dark","Light"}, "Dark")
+__ui:Slider_Create("Transparency", 0, 100, 82, 1)
+__ui:ColorPicker_Create("Accent", Color3.fromRGB(108,147,252))
+
+local __cfg = __settings:Section_Create("Config", "right")
+__cfg:Subtext_Create("Configuration controls")
+__cfg:Textbox_Create("Config Name", "default")
+__cfg:Button_Create("Save")
+__cfg:Button_Create("Load")
+__cfg:SubButton_Create("Unload")
+
+return __moonshade
+.Flags[flag]
 end
 
 
@@ -612,7 +682,77 @@ local function isElementVisibleInLayout(element)
         return false
     end
     if element.parentModule then
-        return LibraryApi.Flags[element.parentModule.flag] == true
+        
+local __moonshade = LibraryApi:CreateWindow("Moonshade | Matcha Menu")
+
+local __combat = __moonshade:Tab_Create("Combat", "◈")
+local __visuals = __moonshade:Tab_Create("Visuals", "◎")
+local __settings = __moonshade:Tab_Create("Settings", "⚙")
+
+local __aimbot = __combat:Section_Create("Aimbot", "left")
+__aimbot:Subtext_Create("Main combat controls")
+__aimbot:Toggle_Create("Enabled", false)
+__aimbot:Keybind_Create("Aim Key", Enum.KeyCode.E)
+__aimbot:Dropdown_Create("Target Part", {"Head","Torso","HumanoidRootPart"}, "Head")
+__aimbot:Slider_Create("Smoothness", 0, 100, 35, 1)
+__aimbot:RangeSlider_Create("Damage Range", 0, 100, 5, 100, 1)
+__aimbot:Textbox_Create("Custom Bone", "Head")
+__aimbot:Button_Create("Reset Aimbot")
+__aimbot:SubButton_Create("Quick Disable")
+
+local __weapon = __combat:Section_Create("Weapon", "right")
+__weapon:Subtext_Create("Weapon tuning")
+__weapon:Slider_Create("Fire Rate", 0, 10, 3, 0.1)
+__weapon:Slider_Create("Spread", 0, 100, 12, 1)
+__weapon:Textbox_Create("Ammo Type", "Standard")
+__weapon:Button_Create("Reload Current Weapon")
+__weapon:SubButton_Create("Drop Weapon")
+
+local __modules = __combat:Section_Create("Modules", "left")
+__modules:Subtext_Create("Expandable module cards")
+
+local __legit = __modules:Module_Create("Legit Bot", "legit_bot", "Assist aiming with smooth behavior", false)
+__legit:Toggle_Create("Silent Aim", false)
+__legit:Toggle_Create("Triggerbot", false)
+__legit:Slider_Create("FOV", 0, 300, 120, 1)
+__legit:Dropdown_Create("Priority", {"Closest","Lowest Health","Crosshair"}, "Closest")
+__legit:Textbox_Create("Whitelist", "friend1,friend2")
+__legit:Button_Create("Apply Legit")
+
+local __rage = __modules:Module_Create("Rage Bot", "rage_bot", "Aggressive aim preset", false)
+__rage:Toggle_Create("Auto Shoot", true)
+__rage:Slider_Create("Hitchance", 0, 100, 80, 1)
+__rage:ColorPicker_Create("Accent", Color3.fromRGB(255, 80, 80))
+
+local __esp = __visuals:Section_Create("ESP", "left")
+__esp:Subtext_Create("Visual overlays")
+__esp:Toggle_Create("Enabled", false)
+__esp:ColorPicker_Create("Color", Color3.fromRGB(108,147,252))
+__esp:Toggle_Create("Box", true)
+__esp:Toggle_Create("Name", true)
+__esp:Toggle_Create("Distance", true)
+
+local __world = __visuals:Section_Create("World", "right")
+__world:Subtext_Create("Scene controls")
+__world:Dropdown_Create("Sky", {"Default","Night","Purple"}, "Default")
+__world:Slider_Create("Brightness", 0, 100, 50, 1)
+__world:Button_Create("Refresh Visuals")
+
+local __ui = __settings:Section_Create("UI", "left")
+__ui:Subtext_Create("Menu appearance")
+__ui:Dropdown_Create("Theme", {"Dark","Light"}, "Dark")
+__ui:Slider_Create("Transparency", 0, 100, 82, 1)
+__ui:ColorPicker_Create("Accent", Color3.fromRGB(108,147,252))
+
+local __cfg = __settings:Section_Create("Config", "right")
+__cfg:Subtext_Create("Configuration controls")
+__cfg:Textbox_Create("Config Name", "default")
+__cfg:Button_Create("Save")
+__cfg:Button_Create("Load")
+__cfg:SubButton_Create("Unload")
+
+return __moonshade
+.Flags[element.parentModule.flag] == true
     end
     return true
 end
@@ -628,6 +768,8 @@ local function createWindowDrawings(window)
     g.topBorder = addToGroup(g, createRoundedPrimitive(28, colors.borderColor, 0.9))
     g.sidebarBorder = addToGroup(g, createRoundedPrimitive(28, colors.borderColor, 0.9))
     g.title = addToGroup(g, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Outline = true, Center = false, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 35, Visible = true, Text = window.title }))
+    g.tabIndicatorGlow = addToGroup(g, createRoundedPrimitive(33, colors.accentColor, 0.14))
+    g.tabIndicator = addToGroup(g, createRoundedPrimitive(34, colors.accentColor, 1))
     window.drawings = g
 end
 
@@ -739,6 +881,8 @@ local function layoutWindow(window)
         end
     end
 
+    local activeTabY = nil
+
     for index, tab in ipairs(window.tabs) do
         tab.x = window.x + 5
         tab.y = window.y + 42 + (index - 1) * (window.tabButtonHeight + window.tabButtonGap)
@@ -747,17 +891,23 @@ local function layoutWindow(window)
         local td = tab.drawings
         local active = tab == window.activeTab
         setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 4, active and colors.elementHoverBackground or colors.sidebarBackground, active and 0.78153 or 0.0, active and colors.borderLightColor or colors.borderColor, active and 0.18 or 0.0, 0)
+        hideGroup(td.indicatorGlow)
+        hideGroup(td.indicator)
         if active then
-            setRoundedPrimitive(td.indicatorGlow, tab.x, tab.y + 7, 2, 18, 1, colors.accentColor, 0.14, true)
-            setRoundedPrimitive(td.indicator, tab.x, tab.y + 7, 2, 18, 1, colors.accentColor, 1, true)
-        else
-            hideGroup(td.indicatorGlow)
-            hideGroup(td.indicator)
+            activeTabY = tab.y
         end
         td.icon.Text = tostring(tab.icon or "•")
         td.icon.Position = Vector2.new(tab.x + 12, tab.y + 8)
         td.icon.Color = active and colors.accentColor or colors.textDarkColor
         td.text.Position = Vector2.new(tab.x + 34, tab.y + 9)
+    end
+
+    if activeTabY then
+        setRoundedPrimitive(d.tabIndicatorGlow, window.x + 5, activeTabY + 7, 2, 18, 1, colors.accentColor, 0.14, true)
+        setRoundedPrimitive(d.tabIndicator, window.x + 5, activeTabY + 7, 2, 18, 1, colors.accentColor, 1, true)
+    else
+        hideGroup(d.tabIndicatorGlow)
+        hideGroup(d.tabIndicator)
     end
 
     if not window.activeTab then return end
@@ -2184,4 +2334,74 @@ function LibraryApi:CreateWindow(windowName)
     return api
 end
 
-return LibraryApi
+
+local __moonshade = LibraryApi:CreateWindow("Moonshade | Matcha Menu")
+
+local __combat = __moonshade:Tab_Create("Combat", "◈")
+local __visuals = __moonshade:Tab_Create("Visuals", "◎")
+local __settings = __moonshade:Tab_Create("Settings", "⚙")
+
+local __aimbot = __combat:Section_Create("Aimbot", "left")
+__aimbot:Subtext_Create("Main combat controls")
+__aimbot:Toggle_Create("Enabled", false)
+__aimbot:Keybind_Create("Aim Key", Enum.KeyCode.E)
+__aimbot:Dropdown_Create("Target Part", {"Head","Torso","HumanoidRootPart"}, "Head")
+__aimbot:Slider_Create("Smoothness", 0, 100, 35, 1)
+__aimbot:RangeSlider_Create("Damage Range", 0, 100, 5, 100, 1)
+__aimbot:Textbox_Create("Custom Bone", "Head")
+__aimbot:Button_Create("Reset Aimbot")
+__aimbot:SubButton_Create("Quick Disable")
+
+local __weapon = __combat:Section_Create("Weapon", "right")
+__weapon:Subtext_Create("Weapon tuning")
+__weapon:Slider_Create("Fire Rate", 0, 10, 3, 0.1)
+__weapon:Slider_Create("Spread", 0, 100, 12, 1)
+__weapon:Textbox_Create("Ammo Type", "Standard")
+__weapon:Button_Create("Reload Current Weapon")
+__weapon:SubButton_Create("Drop Weapon")
+
+local __modules = __combat:Section_Create("Modules", "left")
+__modules:Subtext_Create("Expandable module cards")
+
+local __legit = __modules:Module_Create("Legit Bot", "legit_bot", "Assist aiming with smooth behavior", false)
+__legit:Toggle_Create("Silent Aim", false)
+__legit:Toggle_Create("Triggerbot", false)
+__legit:Slider_Create("FOV", 0, 300, 120, 1)
+__legit:Dropdown_Create("Priority", {"Closest","Lowest Health","Crosshair"}, "Closest")
+__legit:Textbox_Create("Whitelist", "friend1,friend2")
+__legit:Button_Create("Apply Legit")
+
+local __rage = __modules:Module_Create("Rage Bot", "rage_bot", "Aggressive aim preset", false)
+__rage:Toggle_Create("Auto Shoot", true)
+__rage:Slider_Create("Hitchance", 0, 100, 80, 1)
+__rage:ColorPicker_Create("Accent", Color3.fromRGB(255, 80, 80))
+
+local __esp = __visuals:Section_Create("ESP", "left")
+__esp:Subtext_Create("Visual overlays")
+__esp:Toggle_Create("Enabled", false)
+__esp:ColorPicker_Create("Color", Color3.fromRGB(108,147,252))
+__esp:Toggle_Create("Box", true)
+__esp:Toggle_Create("Name", true)
+__esp:Toggle_Create("Distance", true)
+
+local __world = __visuals:Section_Create("World", "right")
+__world:Subtext_Create("Scene controls")
+__world:Dropdown_Create("Sky", {"Default","Night","Purple"}, "Default")
+__world:Slider_Create("Brightness", 0, 100, 50, 1)
+__world:Button_Create("Refresh Visuals")
+
+local __ui = __settings:Section_Create("UI", "left")
+__ui:Subtext_Create("Menu appearance")
+__ui:Dropdown_Create("Theme", {"Dark","Light"}, "Dark")
+__ui:Slider_Create("Transparency", 0, 100, 82, 1)
+__ui:ColorPicker_Create("Accent", Color3.fromRGB(108,147,252))
+
+local __cfg = __settings:Section_Create("Config", "right")
+__cfg:Subtext_Create("Configuration controls")
+__cfg:Textbox_Create("Config Name", "default")
+__cfg:Button_Create("Save")
+__cfg:Button_Create("Load")
+__cfg:SubButton_Create("Unload")
+
+return __moonshade
+
