@@ -13,7 +13,7 @@ local matchaGetClipboard = rawget(env, "getclipboard") or rawget(env, "fromclipb
 
 local LibraryApi = {
     Flags = {},
-    FolderName = "Moonshade",
+    FolderName = "Nightfall",
     ConfigName = "AutoSaveConfig.json"
 }
 
@@ -157,6 +157,98 @@ local function getClipboardText()
     return nil
 end
 
+
+
+local keyCodeNameCache = nil
+
+local function getKeyCodeName(key)
+    if key == nil then
+        return "None"
+    end
+    local okName, name = pcall(function()
+        return key.Name
+    end)
+    if okName and type(name) == "string" and name ~= "" then
+        return name
+    end
+    if type(key) == "string" then
+        return key
+    end
+    if keyCodeNameCache == nil then
+        keyCodeNameCache = {}
+        local okEnum, enumTable = pcall(function()
+            return Enum.KeyCode
+        end)
+        if okEnum and type(enumTable) == "table" then
+            for enumName, enumValue in pairs(enumTable) do
+                if keyCodeNameCache[enumValue] == nil then
+                    keyCodeNameCache[enumValue] = tostring(enumName)
+                end
+            end
+        end
+    end
+    return keyCodeNameCache[key] or tostring(key)
+end
+
+local function colorToHSV(color)
+    local okMethod, h, s, v = pcall(function()
+        return color:ToHSV()
+    end)
+    if okMethod then
+        return h, s, v
+    end
+    local okStatic, sh, ss, sv = pcall(function()
+        return Color3.toHSV(color)
+    end)
+    if okStatic then
+        return sh, ss, sv
+    end
+    local r = tonumber(color and color.R) or 0
+    local g = tonumber(color and color.G) or 0
+    local b = tonumber(color and color.B) or 0
+    local maxc = math.max(r, g, b)
+    local minc = math.min(r, g, b)
+    local delta = maxc - minc
+    local hh = 0
+    if delta > 0 then
+        if maxc == r then
+            hh = ((g - b) / delta) % 6
+        elseif maxc == g then
+            hh = ((b - r) / delta) + 2
+        else
+            hh = ((r - g) / delta) + 4
+        end
+        hh = hh / 6
+    end
+    local ss = maxc == 0 and 0 or (delta / maxc)
+    local vv = maxc
+    return hh, ss, vv
+end
+
+
+local function getViewportSize()
+    local candidates = {}
+    pcall(function()
+        if workspaceService.CurrentCamera and workspaceService.CurrentCamera.ViewportSize then
+            table.insert(candidates, workspaceService.CurrentCamera.ViewportSize)
+        end
+    end)
+    pcall(function()
+        local cam = workspaceService.Camera
+        if cam and cam.ViewportSize then
+            table.insert(candidates, cam.ViewportSize)
+        end
+    end)
+    for _, v in ipairs(candidates) do
+        local x = tonumber(v.X) or 0
+        local y = tonumber(v.Y) or 0
+        if x > 100 and y > 100 then
+            return Vector2.new(x, y)
+        end
+    end
+    return Vector2.new(1280, 720)
+end
+
 local function colorToHex(color)
     return string.format("#%02X%02X%02X", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
 end
@@ -198,8 +290,30 @@ local function parseClipboardColor(text)
 end
 
 local function getTextSize(text, size)
-    local bounds = textService:GetTextSize(text or "", size or 12, Enum.Font.GothamMedium, Vector2.new(1000, 1000))
-    return bounds.X, bounds.Y
+    local content = tostring(text or "")
+    local textSize = tonumber(size) or 12
+    local fontEnum = nil
+    pcall(function()
+        if Enum and Enum.Font then
+            fontEnum = Enum.Font.GothamMedium or Enum.Font.SourceSans or Enum.Font.Legacy
+        end
+    end)
+    if textService and textService.GetTextSize and fontEnum then
+        local ok, bounds = pcall(function()
+            return textService:GetTextSize(content, textSize, fontEnum, Vector2.new(1000, 1000))
+        end)
+        if ok and bounds then
+            return tonumber(bounds.X) or 0, tonumber(bounds.Y) or textSize
+        end
+    end
+    local width = math.floor(#content * (textSize * 0.55))
+    local height = math.floor(textSize + 2)
+    return width, height
+end
+
+local function getCenteredTextPosition(x, y, w, h, text, size)
+    local tw, th = getTextSize(text, size)
+    return Vector2.new(round(x + (w - tw) * 0.5), round(y + (h - th) * 0.5))
 end
 
 local function newDrawing(class, props)
@@ -555,79 +669,8 @@ local function ensureFlag(flag, default)
     if LibraryApi.Flags[flag] == nil then
         LibraryApi.Flags[flag] = default
     end
-    
-local __moonshade = LibraryApi:CreateWindow("Moonshade | Matcha Menu")
-
-local __combat = __moonshade:Tab_Create("Combat", "◈")
-local __visuals = __moonshade:Tab_Create("Visuals", "◎")
-local __settings = __moonshade:Tab_Create("Settings", "⚙")
-
-local __aimbot = __combat:Section_Create("Aimbot", "left")
-__aimbot:Subtext_Create("Main combat controls")
-__aimbot:Toggle_Create("Enabled", false)
-__aimbot:Keybind_Create("Aim Key", Enum.KeyCode.E)
-__aimbot:Dropdown_Create("Target Part", {"Head","Torso","HumanoidRootPart"}, "Head")
-__aimbot:Slider_Create("Smoothness", 0, 100, 35, 1)
-__aimbot:RangeSlider_Create("Damage Range", 0, 100, 5, 100, 1)
-__aimbot:Textbox_Create("Custom Bone", "Head")
-__aimbot:Button_Create("Reset Aimbot")
-__aimbot:SubButton_Create("Quick Disable")
-
-local __weapon = __combat:Section_Create("Weapon", "right")
-__weapon:Subtext_Create("Weapon tuning")
-__weapon:Slider_Create("Fire Rate", 0, 10, 3, 0.1)
-__weapon:Slider_Create("Spread", 0, 100, 12, 1)
-__weapon:Textbox_Create("Ammo Type", "Standard")
-__weapon:Button_Create("Reload Current Weapon")
-__weapon:SubButton_Create("Drop Weapon")
-
-local __modules = __combat:Section_Create("Modules", "left")
-__modules:Subtext_Create("Expandable module cards")
-
-local __legit = __modules:Module_Create("Legit Bot", "legit_bot", "Assist aiming with smooth behavior", false)
-__legit:Toggle_Create("Silent Aim", false)
-__legit:Toggle_Create("Triggerbot", false)
-__legit:Slider_Create("FOV", 0, 300, 120, 1)
-__legit:Dropdown_Create("Priority", {"Closest","Lowest Health","Crosshair"}, "Closest")
-__legit:Textbox_Create("Whitelist", "friend1,friend2")
-__legit:Button_Create("Apply Legit")
-
-local __rage = __modules:Module_Create("Rage Bot", "rage_bot", "Aggressive aim preset", false)
-__rage:Toggle_Create("Auto Shoot", true)
-__rage:Slider_Create("Hitchance", 0, 100, 80, 1)
-__rage:ColorPicker_Create("Accent", Color3.fromRGB(255, 80, 80))
-
-local __esp = __visuals:Section_Create("ESP", "left")
-__esp:Subtext_Create("Visual overlays")
-__esp:Toggle_Create("Enabled", false)
-__esp:ColorPicker_Create("Color", Color3.fromRGB(108,147,252))
-__esp:Toggle_Create("Box", true)
-__esp:Toggle_Create("Name", true)
-__esp:Toggle_Create("Distance", true)
-
-local __world = __visuals:Section_Create("World", "right")
-__world:Subtext_Create("Scene controls")
-__world:Dropdown_Create("Sky", {"Default","Night","Purple"}, "Default")
-__world:Slider_Create("Brightness", 0, 100, 50, 1)
-__world:Button_Create("Refresh Visuals")
-
-local __ui = __settings:Section_Create("UI", "left")
-__ui:Subtext_Create("Menu appearance")
-__ui:Dropdown_Create("Theme", {"Dark","Light"}, "Dark")
-__ui:Slider_Create("Transparency", 0, 100, 82, 1)
-__ui:ColorPicker_Create("Accent", Color3.fromRGB(108,147,252))
-
-local __cfg = __settings:Section_Create("Config", "right")
-__cfg:Subtext_Create("Configuration controls")
-__cfg:Textbox_Create("Config Name", "default")
-__cfg:Button_Create("Save")
-__cfg:Button_Create("Load")
-__cfg:SubButton_Create("Unload")
-
-return __moonshade
-.Flags[flag]
+    return LibraryApi.Flags[flag]
 end
-
 
 local function sanitizeFlagPart(value)
     value = tostring(value or "value"):lower()
@@ -682,81 +725,10 @@ local function isElementVisibleInLayout(element)
         return false
     end
     if element.parentModule then
-        
-local __moonshade = LibraryApi:CreateWindow("Moonshade | Matcha Menu")
-
-local __combat = __moonshade:Tab_Create("Combat", "◈")
-local __visuals = __moonshade:Tab_Create("Visuals", "◎")
-local __settings = __moonshade:Tab_Create("Settings", "⚙")
-
-local __aimbot = __combat:Section_Create("Aimbot", "left")
-__aimbot:Subtext_Create("Main combat controls")
-__aimbot:Toggle_Create("Enabled", false)
-__aimbot:Keybind_Create("Aim Key", Enum.KeyCode.E)
-__aimbot:Dropdown_Create("Target Part", {"Head","Torso","HumanoidRootPart"}, "Head")
-__aimbot:Slider_Create("Smoothness", 0, 100, 35, 1)
-__aimbot:RangeSlider_Create("Damage Range", 0, 100, 5, 100, 1)
-__aimbot:Textbox_Create("Custom Bone", "Head")
-__aimbot:Button_Create("Reset Aimbot")
-__aimbot:SubButton_Create("Quick Disable")
-
-local __weapon = __combat:Section_Create("Weapon", "right")
-__weapon:Subtext_Create("Weapon tuning")
-__weapon:Slider_Create("Fire Rate", 0, 10, 3, 0.1)
-__weapon:Slider_Create("Spread", 0, 100, 12, 1)
-__weapon:Textbox_Create("Ammo Type", "Standard")
-__weapon:Button_Create("Reload Current Weapon")
-__weapon:SubButton_Create("Drop Weapon")
-
-local __modules = __combat:Section_Create("Modules", "left")
-__modules:Subtext_Create("Expandable module cards")
-
-local __legit = __modules:Module_Create("Legit Bot", "legit_bot", "Assist aiming with smooth behavior", false)
-__legit:Toggle_Create("Silent Aim", false)
-__legit:Toggle_Create("Triggerbot", false)
-__legit:Slider_Create("FOV", 0, 300, 120, 1)
-__legit:Dropdown_Create("Priority", {"Closest","Lowest Health","Crosshair"}, "Closest")
-__legit:Textbox_Create("Whitelist", "friend1,friend2")
-__legit:Button_Create("Apply Legit")
-
-local __rage = __modules:Module_Create("Rage Bot", "rage_bot", "Aggressive aim preset", false)
-__rage:Toggle_Create("Auto Shoot", true)
-__rage:Slider_Create("Hitchance", 0, 100, 80, 1)
-__rage:ColorPicker_Create("Accent", Color3.fromRGB(255, 80, 80))
-
-local __esp = __visuals:Section_Create("ESP", "left")
-__esp:Subtext_Create("Visual overlays")
-__esp:Toggle_Create("Enabled", false)
-__esp:ColorPicker_Create("Color", Color3.fromRGB(108,147,252))
-__esp:Toggle_Create("Box", true)
-__esp:Toggle_Create("Name", true)
-__esp:Toggle_Create("Distance", true)
-
-local __world = __visuals:Section_Create("World", "right")
-__world:Subtext_Create("Scene controls")
-__world:Dropdown_Create("Sky", {"Default","Night","Purple"}, "Default")
-__world:Slider_Create("Brightness", 0, 100, 50, 1)
-__world:Button_Create("Refresh Visuals")
-
-local __ui = __settings:Section_Create("UI", "left")
-__ui:Subtext_Create("Menu appearance")
-__ui:Dropdown_Create("Theme", {"Dark","Light"}, "Dark")
-__ui:Slider_Create("Transparency", 0, 100, 82, 1)
-__ui:ColorPicker_Create("Accent", Color3.fromRGB(108,147,252))
-
-local __cfg = __settings:Section_Create("Config", "right")
-__cfg:Subtext_Create("Configuration controls")
-__cfg:Textbox_Create("Config Name", "default")
-__cfg:Button_Create("Save")
-__cfg:Button_Create("Load")
-__cfg:SubButton_Create("Unload")
-
-return __moonshade
-.Flags[element.parentModule.flag] == true
+        return LibraryApi.Flags[element.parentModule.flag] == true
     end
     return true
 end
-
 
 local function createWindowDrawings(window)
     local g = createGroup()
@@ -1143,207 +1115,234 @@ setTooltipText = function(text)
     UI.tooltip = text
 end
 
+
 local function initialize()
     if UI.initialized then return end
     UI.initialized = true
 
-    UI.connections.mouseMove = userInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            UI.mousePos = getMousePosition()
-        elseif input.UserInputType == Enum.UserInputType.MouseWheel then
-            UI.mousePos = getMousePosition()
-            local topWindow = getTopWindowAtMouse()
-            if topWindow and topWindow.activeTab then
-                for _, section in ipairs(topWindow.activeTab.sections) do
-                    if pointInRect(UI.mousePos, section.x, section.y, section.w, section.h) then
-                        local delta = 0
-                        pcall(function()
-                            delta = input.Position.Z
-                        end)
-                        if delta ~= 0 and (section.scrollMax or 0) > 0 then
-                            section.scroll = clamp((section.scroll or 0) - delta * 24, 0, section.scrollMax or 0)
-                        end
-                        break
-                    end
-                end
+    local keyWatch = {
+        Enum.KeyCode.Delete,
+        Enum.KeyCode.Backspace,
+        Enum.KeyCode.Return,
+        Enum.KeyCode.Space,
+        Enum.KeyCode.A, Enum.KeyCode.B, Enum.KeyCode.C, Enum.KeyCode.D, Enum.KeyCode.E, Enum.KeyCode.F, Enum.KeyCode.G, Enum.KeyCode.H, Enum.KeyCode.I, Enum.KeyCode.J, Enum.KeyCode.K, Enum.KeyCode.L, Enum.KeyCode.M,
+        Enum.KeyCode.N, Enum.KeyCode.O, Enum.KeyCode.P, Enum.KeyCode.Q, Enum.KeyCode.R, Enum.KeyCode.S, Enum.KeyCode.T, Enum.KeyCode.U, Enum.KeyCode.V, Enum.KeyCode.W, Enum.KeyCode.X, Enum.KeyCode.Y, Enum.KeyCode.Z,
+        Enum.KeyCode.Zero, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine,
+        Enum.KeyCode.Minus, Enum.KeyCode.Equals, Enum.KeyCode.LeftBracket, Enum.KeyCode.RightBracket, Enum.KeyCode.Semicolon, Enum.KeyCode.Quote, Enum.KeyCode.Comma, Enum.KeyCode.Period, Enum.KeyCode.Slash, Enum.KeyCode.Backquote, Enum.KeyCode.BackSlash
+    }
+
+    UI.keyState = UI.keyState or {}
+    UI.prevMouse1 = false
+    UI.prevMouse2 = false
+
+    local function pollKeyDown(keyCode)
+        local ok, value = pcall(function()
+            return userInputService:IsKeyDown(keyCode)
+        end)
+        if ok then
+            return not not value
+        end
+        return false
+    end
+
+    local function onDeleteToggle()
+        local targetState = true
+        for _, window in ipairs(UI.windows) do
+            if window.visible then
+                targetState = false
+                break
             end
         end
-    end)
-
-    UI.connections.inputBegan = userInputService.InputBegan:Connect(function(input, gpe)
-        if gpe then return end
-        if input.KeyCode == Enum.KeyCode.Delete then
-            local targetState = true
-            for _, window in ipairs(UI.windows) do
-                if window.visible then
-                    targetState = false
-                    break
-                end
-            end
-            UI.mouseDown = false
-            UI.active = nil
-            if UI.openDropdown then
-                UI.openDropdown.open = false
-                hideGroup(UI.openDropdown.popup)
-                UI.openDropdown = nil
-            end
-            if UI.openColorPicker then
-                UI.openColorPicker.open = false
-                UI.openColorPicker.animOpen = 0
-                hideGroup(UI.openColorPicker.popup)
-                UI.openColorPicker = nil
-            end
-            for _, window in ipairs(UI.windows) do
-                setWindowVisible(window, targetState)
-            end
-            return
+        UI.mouseDown = false
+        UI.active = nil
+        if UI.openDropdown then
+            UI.openDropdown.open = false
+            hideGroup(UI.openDropdown.popup)
+            UI.openDropdown = nil
         end
-
-        if UI.bindingKey then
-            if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then
-                LibraryApi.Flags[UI.bindingKey.flag] = Enum.KeyCode.Unknown
-            elseif input.KeyCode ~= Enum.KeyCode.Unknown then
-                LibraryApi.Flags[UI.bindingKey.flag] = input.KeyCode
-            end
-            if UI.bindingKey.callback then
-                task.spawn(UI.bindingKey.callback, LibraryApi.Flags[UI.bindingKey.flag])
-            end
-            saveConfiguration()
-            UI.bindingKey.waiting = false
-            endKeybind()
-            return
+        if UI.openColorPicker then
+            UI.openColorPicker.open = false
+            UI.openColorPicker.animOpen = 0
+            hideGroup(UI.openColorPicker.popup)
+            UI.openColorPicker = nil
         end
+        for _, window in ipairs(UI.windows) do
+            setWindowVisible(window, targetState)
+        end
+    end
 
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            UI.mouseDown = true
-            UI.mousePos = getMousePosition()
-            local topWindow = getTopWindowAtMouse()
-            if topWindow then
-                bringWindowToFront(topWindow)
-                local hit = hitTestElement(topWindow)
-                UI.hovered = hit
-                if UI.openDropdown and UI.openDropdown.window == topWindow and UI.openDropdown.open and hit ~= UI.openDropdown then
-                    if not pointInRect(UI.mousePos, UI.openDropdown.popupX, UI.openDropdown.popupY, UI.openDropdown.popupW, UI.openDropdown.popupH) then
-                        UI.openDropdown.open = false
-                        UI.openDropdown = nil
-                    end
+    local function appendFocusedTextboxChar(char)
+        if not (UI.focusedTextbox and char and char ~= "") then return end
+        local shifted = isShiftHeld()
+        if shifted then
+            local shiftMap = {
+                ["1"] = "!", ["2"] = "@", ["3"] = "#", ["4"] = "$", ["5"] = "%", ["6"] = "^", ["7"] = "&", ["8"] = "*", ["9"] = "(", ["0"] = ")",
+                ["-"] = "_", ["="] = "+", ["["] = "{", ["]"] = "}", [";"] = ":", ["'"] = '"', [","] = "<", ["."] = ">", ["/"] = "?", ["\\"] = "|", ["`"] = "~"
+            }
+            char = shiftMap[char] or string.upper(char)
+        end
+        UI.focusedTextbox.value = UI.focusedTextbox.value .. char
+        LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
+        saveConfiguration()
+        if UI.focusedTextbox.callback then
+            task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
+        end
+    end
+
+    local function onMouse1Pressed()
+        UI.mouseDown = true
+        UI.mousePos = getMousePosition()
+        local topWindow = getTopWindowAtMouse()
+        if topWindow then
+            bringWindowToFront(topWindow)
+            local hit = hitTestElement(topWindow)
+            UI.hovered = hit
+            if UI.openDropdown and UI.openDropdown.window == topWindow and UI.openDropdown.open and hit ~= UI.openDropdown then
+                if not pointInRect(UI.mousePos, UI.openDropdown.popupX, UI.openDropdown.popupY, UI.openDropdown.popupW, UI.openDropdown.popupH) then
+                    UI.openDropdown.open = false
+                    hideGroup(UI.openDropdown.popup)
+                    UI.openDropdown = nil
                 end
-                if UI.openColorPicker and UI.openColorPicker.window == topWindow and UI.openColorPicker.open and hit ~= UI.openColorPicker then
-                    if not pointInRect(UI.mousePos, UI.openColorPicker.popupX, UI.openColorPicker.popupY, UI.openColorPicker.popupW, UI.openColorPicker.popupH) then
-                        UI.openColorPicker.open = false
-                        UI.openColorPicker = nil
-                    end
+            end
+            if UI.openColorPicker and UI.openColorPicker.window == topWindow and UI.openColorPicker.open and hit ~= UI.openColorPicker then
+                if not pointInRect(UI.mousePos, UI.openColorPicker.popupX, UI.openColorPicker.popupY, UI.openColorPicker.popupW, UI.openColorPicker.popupH) then
+                    UI.openColorPicker.open = false
+                    UI.openColorPicker.animOpen = 0
+                    hideGroup(UI.openColorPicker.popup)
+                    UI.openColorPicker = nil
                 end
-                if hit == topWindow then
-                    UI.active = { type = "windowdrag", window = topWindow, offX = UI.mousePos.X - topWindow.x, offY = UI.mousePos.Y - topWindow.y }
-                    focusTextbox(nil)
-                elseif hit and hit.kind == "textbox" then
-                    focusTextbox(hit)
-                    hit:onMouseDown(UI.mousePos)
-                elseif hit and hit.onMouseDown then
-                    focusTextbox(nil)
-                    hit:onMouseDown(UI.mousePos)
-                elseif hit and hit.title then
-                    focusTextbox(nil)
-                    topWindow.activeTab = hit
-                    if UI.openDropdown then UI.openDropdown.open = false UI.openDropdown = nil end
-                    if UI.openColorPicker then UI.openColorPicker.open = false UI.openColorPicker = nil end
-                else
-                    focusTextbox(nil)
-                end
+            end
+            if hit == topWindow then
+                UI.active = { type = "windowdrag", window = topWindow, offX = UI.mousePos.X - topWindow.x, offY = UI.mousePos.Y - topWindow.y }
+                focusTextbox(nil)
+            elseif hit and hit.kind == "textbox" then
+                focusTextbox(hit)
+                hit:onMouseDown(UI.mousePos)
+            elseif hit and hit.onMouseDown then
+                focusTextbox(nil)
+                hit:onMouseDown(UI.mousePos)
+            elseif hit and hit.title then
+                focusTextbox(nil)
+                topWindow.activeTab = hit
+                if UI.openDropdown then UI.openDropdown.open = false hideGroup(UI.openDropdown.popup) UI.openDropdown = nil end
+                if UI.openColorPicker then UI.openColorPicker.open = false UI.openColorPicker.animOpen = 0 hideGroup(UI.openColorPicker.popup) UI.openColorPicker = nil end
             else
                 focusTextbox(nil)
-                if UI.openDropdown then UI.openDropdown.open = false UI.openDropdown = nil end
-                if UI.openColorPicker then UI.openColorPicker.open = false UI.openColorPicker = nil end
             end
-        elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
-            UI.mousePos = getMousePosition()
-            local topWindow = getTopWindowAtMouse()
-            if topWindow then
-                bringWindowToFront(topWindow)
-                local hit = hitTestElement(topWindow)
-                if hit and hit.onMouse2Down then
-                    hit:onMouse2Down(UI.mousePos)
-                end
-            end
-        elseif input.KeyCode == Enum.KeyCode.Backspace then
-            UI.backspaceHeld = true
-            UI.nextTextRepeat = tick() + 0.38
-            deleteFocusedTextboxChar()
-        elseif input.KeyCode == Enum.KeyCode.Delete then
-            UI.deleteHeld = true
-            UI.nextTextRepeat = tick() + 0.38
-            deleteFocusedTextboxChar()
-        elseif input.KeyCode == Enum.KeyCode.Return then
-            if UI.focusedTextbox then
-                UI.focusedTextbox.focused = false
-                UI.focusedTextbox = nil
-            end
-        elseif UI.focusedTextbox and input.KeyCode == Enum.KeyCode.Space then
-            UI.focusedTextbox.value = UI.focusedTextbox.value .. " "
-            LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
-            saveConfiguration()
-            if UI.focusedTextbox.callback then
-                task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
-            end
-        elseif UI.focusedTextbox and input.UserInputType == Enum.UserInputType.Keyboard then
-            local ok, char = pcall(function()
-                return userInputService:GetStringForKeyCode(input.KeyCode)
-            end)
-            if ok and char and char ~= "" then
-                local shifted = isShiftHeld()
-                if shifted then
-                    local shiftMap = {
-                        ["1"] = "!", ["2"] = "@", ["3"] = "#", ["4"] = "$", ["5"] = "%", ["6"] = "^", ["7"] = "&", ["8"] = "*", ["9"] = "(", ["0"] = ")",
-                        ["-"] = "_", ["="] = "+", ["["] = "{", ["]"] = "}", [";"] = ":", ["'"] = '"', [","] = "<", ["."] = ">", ["/"] = "?", ["\\"] = "|", ["`"] = "~"
-                    }
-                    char = shiftMap[char] or string.upper(char)
-                end
-                UI.focusedTextbox.value = UI.focusedTextbox.value .. char
-                LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
-                saveConfiguration()
-                if UI.focusedTextbox.callback then
-                    task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
-                end
-            end
+        else
+            focusTextbox(nil)
+            if UI.openDropdown then UI.openDropdown.open = false hideGroup(UI.openDropdown.popup) UI.openDropdown = nil end
+            if UI.openColorPicker then UI.openColorPicker.open = false UI.openColorPicker.animOpen = 0 hideGroup(UI.openColorPicker.popup) UI.openColorPicker = nil end
         end
-    end)
+    end
 
-    UI.connections.inputEnded = userInputService.InputEnded:Connect(function(input)
-        if input.KeyCode == Enum.KeyCode.Backspace then
-            UI.backspaceHeld = false
-        elseif input.KeyCode == Enum.KeyCode.Delete then
-            UI.deleteHeld = false
-        elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
-            UI.mouseDown = false
-            if UI.active then
-                if UI.active.type == "slider" and UI.active.element.onMouseUp then
-                    UI.active.element:onMouseUp(UI.mousePos)
-                elseif UI.active.type == "rangeslider" and UI.active.element.onMouseUp then
-                    UI.active.element:onMouseUp(UI.mousePos)
-                elseif UI.active.type == "colorpicker" and UI.active.element.onMouseUp then
-                    UI.active.element:onMouseUp(UI.mousePos)
-                end
+    local function onMouse2Pressed()
+        UI.mousePos = getMousePosition()
+        local topWindow = getTopWindowAtMouse()
+        if topWindow then
+            bringWindowToFront(topWindow)
+            local hit = hitTestElement(topWindow)
+            if hit and hit.onMouse2Down then
+                hit:onMouse2Down(UI.mousePos)
             end
-            UI.active = nil
         end
-    end)
+    end
+
+    local function onMouse1Released()
+        UI.mouseDown = false
+        if UI.active then
+            if UI.active.type == "slider" and UI.active.element.onMouseUp then
+                UI.active.element:onMouseUp(UI.mousePos)
+            elseif UI.active.type == "rangeslider" and UI.active.element.onMouseUp then
+                UI.active.element:onMouseUp(UI.mousePos)
+            elseif UI.active.type == "colorpicker" and UI.active.element.onMouseUp then
+                UI.active.element:onMouseUp(UI.mousePos)
+            end
+        end
+        UI.active = nil
+    end
 
     UI.connections.render = runService.RenderStepped:Connect(function(dt)
         UI.mousePos = getMousePosition()
         UI.blinkClock = UI.blinkClock + dt
         UI.tooltip = nil
 
-        if UI.mouseDown and not isMouse1Held() then
+        local mouse1 = isMouse1Held()
+        local mouse2 = isMouse2Held()
+
+        if mouse1 and not UI.prevMouse1 then
+            onMouse1Pressed()
+        elseif (not mouse1) and UI.prevMouse1 then
+            onMouse1Released()
+        end
+
+        if mouse2 and not UI.prevMouse2 then
+            onMouse2Pressed()
+        end
+
+        UI.prevMouse1 = mouse1
+        UI.prevMouse2 = mouse2
+
+        for _, keyCode in ipairs(keyWatch) do
+            local down = pollKeyDown(keyCode)
+            local wasDown = UI.keyState[keyCode]
+            if down and not wasDown then
+                if UI.bindingKey then
+                    if keyCode == Enum.KeyCode.Backspace or keyCode == Enum.KeyCode.Delete then
+                        LibraryApi.Flags[UI.bindingKey.flag] = Enum.KeyCode.Unknown
+                    elseif keyCode ~= Enum.KeyCode.Unknown then
+                        LibraryApi.Flags[UI.bindingKey.flag] = keyCode
+                    end
+                    if UI.bindingKey.callback then
+                        task.spawn(UI.bindingKey.callback, LibraryApi.Flags[UI.bindingKey.flag])
+                    end
+                    saveConfiguration()
+                    UI.bindingKey.waiting = false
+                    endKeybind()
+                elseif keyCode == Enum.KeyCode.Delete then
+                    onDeleteToggle()
+                elseif keyCode == Enum.KeyCode.Backspace then
+                    UI.backspaceHeld = true
+                    UI.nextTextRepeat = tick() + 0.38
+                    deleteFocusedTextboxChar()
+                elseif keyCode == Enum.KeyCode.Return then
+                    if UI.focusedTextbox then
+                        UI.focusedTextbox.focused = false
+                        UI.focusedTextbox = nil
+                    end
+                elseif UI.focusedTextbox and keyCode == Enum.KeyCode.Space then
+                    appendFocusedTextboxChar(" ")
+                elseif UI.focusedTextbox then
+                    local ok, char = pcall(function()
+                        return userInputService:GetStringForKeyCode(keyCode)
+                    end)
+                    if ok and char and char ~= "" then
+                        appendFocusedTextboxChar(char)
+                    end
+                end
+            elseif (not down) and wasDown then
+                if keyCode == Enum.KeyCode.Backspace then
+                    UI.backspaceHeld = false
+                elseif keyCode == Enum.KeyCode.Delete then
+                    UI.deleteHeld = false
+                end
+            end
+            UI.keyState[keyCode] = down
+        end
+
+        local deleteDown = pollKeyDown(Enum.KeyCode.Delete)
+        if deleteDown and not UI.bindingKey then
+            UI.deleteHeld = true
+        elseif not deleteDown then
+            UI.deleteHeld = false
+        end
+
+        if UI.mouseDown and not mouse1 then
             UI.mouseDown = false
             if UI.active and UI.active.element and UI.active.element.onMouseUp then
                 UI.active.element:onMouseUp(UI.mousePos)
             end
-            if UI.active and UI.active.type ~= "windowdrag" then
-                UI.active = nil
-            elseif UI.active and UI.active.type == "windowdrag" then
-                UI.active = nil
-            end
+            UI.active = nil
         end
 
         if UI.focusedTextbox and (UI.backspaceHeld or UI.deleteHeld) and tick() >= (UI.nextTextRepeat or 0) then
@@ -1353,7 +1352,7 @@ local function initialize()
 
         if UI.active and UI.active.type == "windowdrag" then
             local window = UI.active.window
-            local viewport = workspaceService.CurrentCamera and workspaceService.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+            local viewport = getViewportSize()
             window.x = clamp(UI.mousePos.X - UI.active.offX, 0, math.max(0, viewport.X - window.w))
             window.y = clamp(UI.mousePos.Y - UI.active.offY, 0, math.max(0, viewport.Y - window.h))
         elseif UI.active and UI.active.element and UI.active.element.onDrag then
@@ -1736,16 +1735,21 @@ local function makeSectionApi(section)
         function element:getText()
             if self.waiting then return "[ ... ]" end
             local key = LibraryApi.Flags[self.flag]
-            return key == Enum.KeyCode.Unknown and "[ None ]" or ("[ " .. key.Name .. " ]")
+            local name = getKeyCodeName(key)
+            if name == "Unknown" or name == "None" then return "[ None ]" end
+            return "[ " .. name .. " ]"
         end
         function element:draw()
             local hovered = UI.hovered == self
             local boxText = self:getText()
             local bindW = math.max(72, getTextSize(boxText, 12) + 18)
-            self.label.Position = Vector2.new(self.x + 2, self.y + 2)
-            setSoftFrame(self.box, self.x + self.w - bindW, self.y - 1, bindW, 20, 4, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.82, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
+            local labelH = select(2, getTextSize(self.name, 12))
+            self.label.Position = Vector2.new(self.x + 2, round(self.y + (16 - labelH) * 0.5))
+            local boxX = self.x + self.w - bindW
+            local boxY = self.y - 1
+            setSoftFrame(self.box, boxX, boxY, bindW, 20, 4, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.82, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
             self.bindText.Text = boxText
-            self.bindText.Position = Vector2.new(self.x + self.w - bindW * 0.5, self.y + 2)
+            self.bindText.Position = getCenteredTextPosition(boxX, boxY, bindW, 20, boxText, 12)
             self.label.Text = self.name
             self.label.Color = hovered and colors.textWhiteColor or colors.textWhiteColor
             self.bindText.Color = self.waiting and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
@@ -1869,7 +1873,7 @@ local function makeSectionApi(section)
             flag = makeAutoFlag(section, name)
         end
         local value = ensureFlag(flag, default or colors.accentColor)
-        local h, sVal, vVal = value:ToHSV()
+        local h, sVal, vVal = colorToHSV(value)
         local element = createBaseElement(section, "colorpicker", 28)
         element.name = tostring(name or "Color")
         element.flag = flag
@@ -1926,7 +1930,7 @@ local function makeSectionApi(section)
             if not color then
                 return false
             end
-            self.h, self.s, self.v = color:ToHSV()
+            self.h, self.s, self.v = colorToHSV(color)
             self:updateColor(fireCallback)
             return true
         end
@@ -2271,7 +2275,7 @@ end
 
 function LibraryApi:CreateWindow(windowName)
     initialize()
-    local viewport = workspaceService.CurrentCamera and workspaceService.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+    local viewport = getViewportSize()
     local window = {
         title = tostring(windowName or "Window"),
         x = round(viewport.X / 2 - 360),
@@ -2335,73 +2339,5 @@ function LibraryApi:CreateWindow(windowName)
 end
 
 
-local __moonshade = LibraryApi:CreateWindow("Moonshade | Matcha Menu")
 
-local __combat = __moonshade:Tab_Create("Combat", "◈")
-local __visuals = __moonshade:Tab_Create("Visuals", "◎")
-local __settings = __moonshade:Tab_Create("Settings", "⚙")
-
-local __aimbot = __combat:Section_Create("Aimbot", "left")
-__aimbot:Subtext_Create("Main combat controls")
-__aimbot:Toggle_Create("Enabled", false)
-__aimbot:Keybind_Create("Aim Key", Enum.KeyCode.E)
-__aimbot:Dropdown_Create("Target Part", {"Head","Torso","HumanoidRootPart"}, "Head")
-__aimbot:Slider_Create("Smoothness", 0, 100, 35, 1)
-__aimbot:RangeSlider_Create("Damage Range", 0, 100, 5, 100, 1)
-__aimbot:Textbox_Create("Custom Bone", "Head")
-__aimbot:Button_Create("Reset Aimbot")
-__aimbot:SubButton_Create("Quick Disable")
-
-local __weapon = __combat:Section_Create("Weapon", "right")
-__weapon:Subtext_Create("Weapon tuning")
-__weapon:Slider_Create("Fire Rate", 0, 10, 3, 0.1)
-__weapon:Slider_Create("Spread", 0, 100, 12, 1)
-__weapon:Textbox_Create("Ammo Type", "Standard")
-__weapon:Button_Create("Reload Current Weapon")
-__weapon:SubButton_Create("Drop Weapon")
-
-local __modules = __combat:Section_Create("Modules", "left")
-__modules:Subtext_Create("Expandable module cards")
-
-local __legit = __modules:Module_Create("Legit Bot", "legit_bot", "Assist aiming with smooth behavior", false)
-__legit:Toggle_Create("Silent Aim", false)
-__legit:Toggle_Create("Triggerbot", false)
-__legit:Slider_Create("FOV", 0, 300, 120, 1)
-__legit:Dropdown_Create("Priority", {"Closest","Lowest Health","Crosshair"}, "Closest")
-__legit:Textbox_Create("Whitelist", "friend1,friend2")
-__legit:Button_Create("Apply Legit")
-
-local __rage = __modules:Module_Create("Rage Bot", "rage_bot", "Aggressive aim preset", false)
-__rage:Toggle_Create("Auto Shoot", true)
-__rage:Slider_Create("Hitchance", 0, 100, 80, 1)
-__rage:ColorPicker_Create("Accent", Color3.fromRGB(255, 80, 80))
-
-local __esp = __visuals:Section_Create("ESP", "left")
-__esp:Subtext_Create("Visual overlays")
-__esp:Toggle_Create("Enabled", false)
-__esp:ColorPicker_Create("Color", Color3.fromRGB(108,147,252))
-__esp:Toggle_Create("Box", true)
-__esp:Toggle_Create("Name", true)
-__esp:Toggle_Create("Distance", true)
-
-local __world = __visuals:Section_Create("World", "right")
-__world:Subtext_Create("Scene controls")
-__world:Dropdown_Create("Sky", {"Default","Night","Purple"}, "Default")
-__world:Slider_Create("Brightness", 0, 100, 50, 1)
-__world:Button_Create("Refresh Visuals")
-
-local __ui = __settings:Section_Create("UI", "left")
-__ui:Subtext_Create("Menu appearance")
-__ui:Dropdown_Create("Theme", {"Dark","Light"}, "Dark")
-__ui:Slider_Create("Transparency", 0, 100, 82, 1)
-__ui:ColorPicker_Create("Accent", Color3.fromRGB(108,147,252))
-
-local __cfg = __settings:Section_Create("Config", "right")
-__cfg:Subtext_Create("Configuration controls")
-__cfg:Textbox_Create("Config Name", "default")
-__cfg:Button_Create("Save")
-__cfg:Button_Create("Load")
-__cfg:SubButton_Create("Unload")
-
-return __moonshade
-
+return LibraryApi
