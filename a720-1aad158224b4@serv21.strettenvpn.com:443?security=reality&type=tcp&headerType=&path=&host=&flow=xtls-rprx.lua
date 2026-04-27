@@ -2594,7 +2594,7 @@ RunService.RenderStepped:Connect(function()
                 modeDraw.Color = bindMode == "Hold" and Library.Palette.Accent2 or Library.Palette.Accent
                 modeDraw.Position = Vec2(modeTextX, row.Y + 8)
             else
-                SetGroupVisible(rowBox, false)
+                SetVisible(rowBox, false)
                 if bindDraw then bindDraw.Visible = false end
                 if stateDraw then stateDraw.Visible = false end
                 if modeDraw then modeDraw.Visible = false end
