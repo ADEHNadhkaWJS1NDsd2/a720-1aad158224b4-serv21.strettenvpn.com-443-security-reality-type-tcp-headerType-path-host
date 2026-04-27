@@ -1,6 +1,3 @@
---!native
---!strict
---!optimize 2
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -2490,7 +2487,7 @@ RunService.RenderStepped:Connect(function()
     local hotkeyEntries = {
         {BindFlag = "ParryKeybind", ToggleFlag = "AutoParry", Label = "Parry"},
         {BindFlag = "SpamKeybind", ToggleFlag = "AutoSpam", Label = "Spam"},
-        {BindFlag = "TriggerbotKeybind", ToggleFlag = "TriggerbotEnabled", Label = "Trigger"}
+        {BindFlag = "TriggerbotKeybind", ToggleFlag = "TriggerbotEnabled", Label = "Trigger"},
     }
 
     local statsSize = Vec2(276, 166)
@@ -3386,7 +3383,7 @@ local function GetParryThreshold(ballPosition, ballVelocity, ballSpeed, playerPo
     return baseThreshold, dotValue, isCurving
 end
 
-local function ExecuteParryAction(isLobby, ballDot, isCurving)
+local function ExecuteParryAction()
     DoClick()
 end
 
