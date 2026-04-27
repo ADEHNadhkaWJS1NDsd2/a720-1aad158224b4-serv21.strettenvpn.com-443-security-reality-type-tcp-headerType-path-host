@@ -2470,7 +2470,7 @@ RunService.RenderStepped:Connect(function()
 
     ApplyHeldBackspace()
 
-    local hotkeysSize = Vector2.new(286, 196)
+    local hotkeysSize = Vector2.new(286, 160)
     local shouldShowHotkeys = Config.ShowHotkeyList
 
     if not Library.Visible then
@@ -2532,12 +2532,18 @@ RunService.RenderStepped:Connect(function()
         local rowH = 28
         local rowStartY = bindsPos.Y + 48
         local rowGap = 8
-        local hotkeyRows = {
-            {X = rowX, Y = rowStartY, W = rowW, H = rowH, Entry = hotkeyEntries[1]},
-            {X = rowX, Y = rowStartY + (rowH + rowGap) * 1, W = rowW, H = rowH, Entry = hotkeyEntries[2]},
-            {X = rowX, Y = rowStartY + (rowH + rowGap) * 2, W = rowW, H = rowH, Entry = hotkeyEntries[3]},
-            {X = rowX, Y = rowStartY + (rowH + rowGap) * 3, W = rowW, H = rowH, Entry = hotkeyEntries[4]}
-        }
+        local hotkeyRows = {}
+        for _, entry in ipairs(hotkeyEntries) do
+            if entry and entry.BindFlag and entry.ToggleFlag then
+                hotkeyRows[#hotkeyRows + 1] = {
+                    X = rowX,
+                    Y = rowStartY + (rowH + rowGap) * #hotkeyRows,
+                    W = rowW,
+                    H = rowH,
+                    Entry = entry
+                }
+            end
+        end
 
         if Library.Input.Mouse2Clicked and Library.State.HotkeysContext.Open then
             local menuPos = Library.State.HotkeysContext.Position
@@ -2552,39 +2558,47 @@ RunService.RenderStepped:Connect(function()
         local stateTexts = {KeybindsDrawings.State1, KeybindsDrawings.State2, KeybindsDrawings.State3, KeybindsDrawings.State4}
         local modeTexts = {KeybindsDrawings.Mode1, KeybindsDrawings.Mode2, KeybindsDrawings.Mode3, KeybindsDrawings.Mode4}
 
-        for i, row in ipairs(hotkeyRows) do
+        for i = 1, #rowBoxes do
+            local row = hotkeyRows[i]
             local rowBox = rowBoxes[i]
             local bindDraw = bindTexts[i]
             local stateDraw = stateTexts[i]
             local modeDraw = modeTexts[i]
-            local bindValue = NormalizeKeybindValue(Config[row.Entry.BindFlag])
-            local bindMode = GetBindMode(row.Entry.BindFlag)
-            local isEnabled = Config[row.Entry.ToggleFlag] and true or false
-            local rowHovered = IsMouseInBounds(Library.Input.MousePos, Vec2(row.X, row.Y), Vec2(row.W, row.H))
-            local rowColor = isEnabled and Library.Palette.Hover or (rowHovered and Library.Palette.Hover or Library.Palette.Element)
 
-            UpdateRoundedBox(rowBox, Vec2(row.X, row.Y), Vec2(row.W, row.H), 6, rowColor, 1, true)
+            if row and row.Entry and row.Entry.BindFlag and row.Entry.ToggleFlag then
+                local bindValue = NormalizeKeybindValue(Config[row.Entry.BindFlag])
+                local bindMode = GetBindMode(row.Entry.BindFlag)
+                local isEnabled = Config[row.Entry.ToggleFlag] and true or false
+                local rowHovered = IsMouseInBounds(Library.Input.MousePos, Vec2(row.X, row.Y), Vec2(row.W, row.H))
+                local rowColor = isEnabled and Library.Palette.Hover or (rowHovered and Library.Palette.Hover or Library.Palette.Element)
 
-            bindDraw.Visible = true
-            bindDraw.Text = "[" .. string.upper(bindValue) .. "]  " .. row.Entry.Label
-            bindDraw.Color = isEnabled and Library.Palette.Text or LerpColor(Library.Palette.SubText, Library.Palette.Text, rowHovered and 0.35 or 0)
-            bindDraw.Position = Vec2(row.X + 10, row.Y + 7)
+                UpdateRoundedBox(rowBox, Vec2(row.X, row.Y), Vec2(row.W, row.H), 6, rowColor, 1, true)
 
-            local stateColumnW = 36
-            local modeColumnW = 58
-            local stateTextX = row.X + row.W - stateColumnW - 10
-            local modeTextX = stateTextX - modeColumnW - 10
+                bindDraw.Visible = true
+                bindDraw.Text = "[" .. string.upper(bindValue) .. "]  " .. row.Entry.Label
+                bindDraw.Color = isEnabled and Library.Palette.Text or LerpColor(Library.Palette.SubText, Library.Palette.Text, rowHovered and 0.35 or 0)
+                bindDraw.Position = Vec2(row.X + 10, row.Y + 7)
 
-            stateDraw.Visible = true
-            stateDraw.Text = isEnabled and "ON" or "OFF"
-            stateDraw.Color = isEnabled and Library.Palette.Text or Library.Palette.SubText
-            stateDraw.Position = Vec2(stateTextX, row.Y + 8)
+                local stateColumnW = 36
+                local modeColumnW = 58
+                local stateTextX = row.X + row.W - stateColumnW - 10
+                local modeTextX = stateTextX - modeColumnW - 10
 
-            modeDraw.Visible = true
-            modeDraw.Text = string.upper(bindMode)
-            modeDraw.Color = bindMode == "Hold" and Library.Palette.Accent2 or Library.Palette.Accent
-            modeDraw.Position = Vec2(modeTextX, row.Y + 8)
+                stateDraw.Visible = true
+                stateDraw.Text = isEnabled and "ON" or "OFF"
+                stateDraw.Color = isEnabled and Library.Palette.Text or Library.Palette.SubText
+                stateDraw.Position = Vec2(stateTextX, row.Y + 8)
 
+                modeDraw.Visible = true
+                modeDraw.Text = string.upper(bindMode)
+                modeDraw.Color = bindMode == "Hold" and Library.Palette.Accent2 or Library.Palette.Accent
+                modeDraw.Position = Vec2(modeTextX, row.Y + 8)
+            else
+                SetGroupVisible(rowBox, false)
+                if bindDraw then bindDraw.Visible = false end
+                if stateDraw then stateDraw.Visible = false end
+                if modeDraw then modeDraw.Visible = false end
+            end
         end
     else
         HideHotkeysDrawings()
