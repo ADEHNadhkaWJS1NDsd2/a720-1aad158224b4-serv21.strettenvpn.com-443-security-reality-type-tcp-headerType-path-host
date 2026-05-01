@@ -504,6 +504,7 @@ function Library:CreateKeybindList()
     Frame.BackgroundTransparency = 0.1
     Frame.Parent = Screen
     Frame.Active = true
+    Frame.ClipsDescendants = true
     Corner(Frame, 4)
     Stroke(Frame, Theme.Stroke, 1, 0)
     MakeDraggable(Frame, Frame)
@@ -517,7 +518,6 @@ function Library:CreateKeybindList()
     KNoise.Parent = Frame
     Corner(KNoise, 4)
     local Header = Instance.new("Frame")
-    Frame.ClipsDescendants = true
     Header.Size = UDim2.new(1, 0, 0, 24)
     Header.BackgroundColor3 = Theme.Sidebar
     Header.Parent = Frame
@@ -548,12 +548,7 @@ end
 function Library:UpdateKeybindList(name, key, active, mode)
     if not Library.KeybindList then Library:CreateKeybindList() end
     local existing = Library.KeybindList.Container:FindFirstChild(name)
-    if not Library.ShowKeybinds then
-        Library.KeybindList.Frame.Visible = false
-        return
-    end
     if active and key ~= "None" and key ~= "Unknown" and mode ~= "Always" then
-        Library.KeybindList.Frame.Visible = true
         if not existing then
             local Item = Instance.new("Frame")
             Item.Name = name
@@ -561,6 +556,7 @@ function Library:UpdateKeybindList(name, key, active, mode)
             Item.BackgroundTransparency = 1
             Item.Parent = Library.KeybindList.Container
             local LName = Instance.new("TextLabel")
+            LName.Name = "LName"
             LName.Size = UDim2.new(0.6, 0, 1, 0)
             LName.Position = UDim2.new(0, 5, 0, 0)
             LName.BackgroundTransparency = 1
@@ -571,24 +567,27 @@ function Library:UpdateKeybindList(name, key, active, mode)
             LName.TextXAlignment = Enum.TextXAlignment.Left
             LName.Parent = Item
             local LKey = Instance.new("TextLabel")
+            LKey.Name = "LKey"
             LKey.Size = UDim2.new(0.4, -5, 1, 0)
             LKey.Position = UDim2.new(0.6, 0, 0, 0)
             LKey.BackgroundTransparency = 1
-            LKey.Text = "[" .. key .. "]"
+            LKey.Text = "[" .. tostring(key) .. "]"
             LKey.TextColor3 = Theme.TextDark
             LKey.Font = Config.FontMain
             LKey.TextSize = 12
             LKey.TextXAlignment = Enum.TextXAlignment.Right
             LKey.Parent = Item
         else
-            local lkey = existing:FindFirstChildWhichIsA("TextLabel", true)
-            if lkey then lkey.Text = "[" .. key .. "]" end
+            local lkey = existing:FindFirstChild("LKey")
+            if lkey then lkey.Text = "[" .. tostring(key) .. "]" end
         end
     else
         if existing then existing:Destroy() end
-        if #Library.KeybindList.Container:GetChildren() <= 1 then
-            Library.KeybindList.Frame.Visible = false
-        end
+    end
+    if Library.ShowKeybinds then
+        Library.KeybindList.Frame.Visible = (#Library.KeybindList.Container:GetChildren() > 1)
+    else
+        Library.KeybindList.Frame.Visible = false
     end
 end
 local function CreateDropdownElement(text, flag, options, default, tooltipText, callback, parentFrame, sectionRef, isMulti, customParent)
@@ -1300,11 +1299,23 @@ function Library:CreateWindow(options)
             local LabelObj = {}
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, 0, 0, 26)
-            Frame.BackgroundTransparency = 1
+            Frame.BackgroundColor3 = Theme.Container
+            Frame.BackgroundTransparency = 0.5
             Frame.Parent = Content
+            Corner(Frame, 4)
+            Stroke(Frame, Theme.Stroke, 1, 0.5)
+            local Accent = Instance.new("Frame")
+            Accent.Size = UDim2.new(0, 3, 1, -10)
+            Accent.Position = UDim2.new(0, 5, 0.5, 0)
+            Accent.AnchorPoint = Vector2.new(0, 0.5)
+            Accent.BackgroundColor3 = Theme.Accent
+            Accent.BorderSizePixel = 0
+            Accent.Parent = Frame
+            Corner(Accent, 2)
+            RegisterTheme(Accent, "BackgroundColor")
             local Lbl = Instance.new("TextLabel")
-            Lbl.Size = UDim2.new(1, -10, 1, 0)
-            Lbl.Position = UDim2.new(0, 5, 0, 0)
+            Lbl.Size = UDim2.new(1, -15, 1, 0)
+            Lbl.Position = UDim2.new(0, 15, 0, 0)
             Lbl.BackgroundTransparency = 1
             Lbl.Text = ltext
             Lbl.Font = Config.FontMain
@@ -1402,6 +1413,9 @@ function Library:CreateWindow(options)
                 if currentTween then currentTween:Cancel() end
                 Tween(Fill, {BackgroundTransparency = toggled and 0 or 1}, 0.2)
                 Library.Flags[flag] = toggled
+                if ToggleObj.KeybindValue then
+                    Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, ToggleObj.KeybindMode)
+                end
                 if toggled then
                     SubContainer.Visible = true
                     SubContainer.ClipsDescendants = true
@@ -1554,6 +1568,7 @@ function Library:CreateWindow(options)
             SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
             SVMap.Parent = PickerCont
             SVMap.ZIndex = 11
+            SVMap.Active = true
             Corner(SVMap, 4)
             local SVCursor = Instance.new("Frame")
             SVCursor.Size = UDim2.new(0, 8, 0, 8)
@@ -1569,6 +1584,7 @@ function Library:CreateWindow(options)
             HueBar.Image = "rbxassetid://4155801252"
             HueBar.Parent = PickerCont
             HueBar.ZIndex = 11
+            HueBar.Active = true
             Corner(HueBar, 4)
             local UIGradient = Instance.new("UIGradient")
             UIGradient.Rotation = 90
@@ -1755,7 +1771,9 @@ function Library:CreateWindow(options)
         end)
         MenuSec:Toggle("Show Keybind List", "KeybindListToggle", true, "Show the active keybinds widget", function(state)
             Library.ShowKeybinds = state
-            if Library.KeybindList then Library.KeybindList.Frame.Visible = state and (#Library.KeybindList.Container:GetChildren() > 1) end
+            if Library.KeybindList then
+                Library.KeybindList.Frame.Visible = state and (#Library.KeybindList.Container:GetChildren() > 1)
+            end
         end)
         MenuSec:ColorPicker("Accent Color", "MenuAccentColor", Theme.Accent, "Change the theme color", function(col)
             Library:UpdateTheme(col)
@@ -2292,23 +2310,26 @@ function Library:CreateWindow(options)
                 end
                 local Btn = Instance.new("TextButton")
                 Btn.Size = UDim2.new(1, 0, 0, 32)
-                Btn.BackgroundTransparency = 1
+                Btn.BackgroundColor3 = Theme.Container
                 Btn.Text = ""
+                Btn.AutoButtonColor = false
                 Btn.Parent = Content
                 table.insert(secData.Items, {Name = text, Instance = Btn})
+                Corner(Btn, 4)
+                Stroke(Btn, Theme.Stroke, 1, 0.5)
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
                 Label.Font = Config.FontMain
                 Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
-                Label.Size = UDim2.new(0.65, 0, 1, 0)
-                Label.Position = UDim2.new(0, 5, 0, 0)
+                Label.Size = UDim2.new(1, -30, 1, 0)
+                Label.Position = UDim2.new(0, 10, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Btn
                 local Box = Instance.new("Frame")
                 Box.Size = UDim2.new(0, 18, 0, 18)
-                Box.Position = UDim2.new(1, -5, 0.5, 0)
+                Box.Position = UDim2.new(1, -10, 0.5, 0)
                 Box.AnchorPoint = Vector2.new(1, 0.5)
                 Box.BackgroundColor3 = Theme.Background
                 Box.Parent = Btn
@@ -2472,7 +2493,7 @@ function Library:CreateWindow(options)
                     end)
                     UserInputService.InputChanged:Connect(function(input)
                         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                            dragInput = input
+                            if dragging then dragInput = input end
                         end
                     end)
                     RunService.RenderStepped:Connect(function()
@@ -2612,6 +2633,7 @@ function Library:CreateWindow(options)
                     end)
                     table.insert(Library.Connections, ToggleObj.BindConnection)
                     table.insert(Library.Connections, ToggleObj.BindConnectionEnded)
+                    if toggled then Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, ToggleObj.KeybindMode) end
                     return ToggleObj
                 end
                 return ToggleObj
@@ -2649,6 +2671,8 @@ function Library:CreateWindow(options)
                 KeyBtn.Parent = Frame
                 Corner(KeyBtn, 4)
                 Stroke(KeyBtn, Theme.Stroke, 1, 0.5)
+                local toggled = (kMode == "Always")
+                Library:UpdateKeybindList(text, key.Name, toggled, kMode)
                 local binding = false
                 KeyBtn.MouseButton1Click:Connect(function()
                     if binding then return end
@@ -2669,7 +2693,7 @@ function Library:CreateWindow(options)
                             binding = false
                             Library.Unsaved = true
                             conn:Disconnect()
-                            Library:UpdateKeybindList(text, key.Name, true, kMode)
+                            Library:UpdateKeybindList(text, key.Name, toggled, kMode)
                         end
                     end)
                 end)
@@ -2700,24 +2724,26 @@ function Library:CreateWindow(options)
                         Library.Flags[flag] = {Key = key, Mode = kMode}
                         ModeGui.Visible = false
                         Library.Unsaved = true
-                        Library:UpdateKeybindList(text, key.Name, true, kMode)
                         if kMode == "Always" then
+                            toggled = true
                             callback(true)
                         end
+                        Library:UpdateKeybindList(text, key.Name, toggled, kMode)
                     end)
                 end
                 KeyBtn.MouseButton2Click:Connect(function()
                     ModeGui.Visible = not ModeGui.Visible
                     if ModeGui.Visible then Content.ClipsDescendants = false end
                 end)
-                local toggled = false
                 local BindConnection = UserInputService.InputBegan:Connect(function(input, gp)
                     if not gp and input.KeyCode == key and key ~= Enum.KeyCode.Unknown then
                         if kMode == "Toggle" then
                             toggled = not toggled
+                            Library:UpdateKeybindList(text, key.Name, toggled, kMode)
                             callback(toggled)
                         elseif kMode == "Hold" then
                             toggled = true
+                            Library:UpdateKeybindList(text, key.Name, toggled, kMode)
                             callback(toggled)
                         end
                     end
@@ -2726,20 +2752,24 @@ function Library:CreateWindow(options)
                     if not gp and input.KeyCode == key and key ~= Enum.KeyCode.Unknown then
                         if kMode == "Hold" then
                             toggled = false
+                            Library:UpdateKeybindList(text, key.Name, toggled, kMode)
                             callback(toggled)
                         end
                     end
                 end)
                 table.insert(Library.Connections, BindConnection)
                 table.insert(Library.Connections, BindConnectionEnded)
-                Library:UpdateKeybindList(text, key.Name, true, kMode)
                 ApplyTooltip(Frame, tooltipText)
                 Library.Signals[flag] = function(val)
                     if type(val) == "table" and val.Key then
                         key = val.Key
                         kMode = val.Mode or "Toggle"
                         KeyBtn.Text = "[" .. key.Name .. "]"
-                        Library:UpdateKeybindList(text, key.Name, true, kMode)
+                        if kMode == "Always" then
+                            toggled = true
+                            callback(true)
+                        end
+                        Library:UpdateKeybindList(text, key.Name, toggled, kMode)
                     end
                 end
                 local BindObj = {}
@@ -2748,7 +2778,7 @@ function Library:CreateWindow(options)
                     KeyBtn.Text = "[" .. key.Name .. "]"
                     Library.Flags[flag] = {Key = key, Mode = kMode}
                     Library.Unsaved = true
-                    Library:UpdateKeybindList(text, key.Name, true, kMode)
+                    Library:UpdateKeybindList(text, key.Name, toggled, kMode)
                 end
                 return BindObj
             end
