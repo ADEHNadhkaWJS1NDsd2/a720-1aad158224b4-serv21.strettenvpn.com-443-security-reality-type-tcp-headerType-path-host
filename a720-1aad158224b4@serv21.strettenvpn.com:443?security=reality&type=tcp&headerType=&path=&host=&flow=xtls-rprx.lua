@@ -111,72 +111,70 @@ local function FormatNumber(value, increment)
     end
     return tostring(value)
 end
-local function MakeDraggable(dragObj, moveObj, onDragCallback)
+local function MakeDraggable(dragArea, frame, onDragCallback)
     local dragging = false
-    local dragStart
-    local startPos
-    local inputChangedConn, inputEndedConn
-    dragObj.InputBegan:Connect(function(input)
+    local dragInput, dragStart, startPos
+    dragArea.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
+            dragging = true
             dragStart = input.Position
-            startPos = moveObj.Position
-            if inputChangedConn then inputChangedConn:Disconnect() end
-            if inputEndedConn then inputEndedConn:Disconnect() end
-            inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                if inp == input and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
-                    local delta = inp.Position - dragStart
-                    if not dragging and delta.Magnitude > 5 then
-                        dragging = true
-                    end
-                    if dragging then
-                        moveObj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-                    end
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    if onDragCallback then onDragCallback(false) end
                 end
             end)
-            inputEndedConn = input.Changed:Connect(function()
+        end
+    end)
+    dragArea.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    RunService.RenderStepped:Connect(function()
+        if dragging and dragInput then
+            local delta = dragInput.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            if onDragCallback then onDragCallback(true) end
+        end
+    end)
+    return function() return dragging end
+end
+local function MakeResizable(resizeBtn, frame, minSize)
+    local dragging = false
+    local dragInput, dragStart, startSize, startPos, scaleMult
+    resizeBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragInput = input
+            dragStart = input.Position
+            startSize = frame.Size
+            startPos = frame.Position
+            local scaleObj = frame:FindFirstChildWhichIsA("UIScale")
+            scaleMult = scaleObj and scaleObj.Scale or 1
+            if scaleMult <= 0 then scaleMult = 1 end
+            input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
-                    if inputChangedConn then inputChangedConn:Disconnect() end
-                    if inputEndedConn then inputEndedConn:Disconnect() end
-                    if onDragCallback then
-                        onDragCallback(dragging)
-                    end
                     dragging = false
                 end
             end)
         end
     end)
-    return function()
-        return dragging
-    end
-end
-local function MakeResizable(resizeBtn, frame, minSize)
-    resizeBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            local dragStart = input.Position
-            local startSizeOffset = frame.Size
-            local startPos = frame.Position
-            local scaleObj = frame:FindFirstChildWhichIsA("UIScale")
-            local scaleMult = scaleObj and scaleObj.Scale or 1
-            if scaleMult <= 0 then scaleMult = 1 end
-            local inputChangedConn, inputEndedConn
-            inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                if inp == input and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
-                    local delta = inp.Position - dragStart
-                    local newX = math.max(minSize.X, startSizeOffset.X.Offset + (delta.X / scaleMult))
-                    local newY = math.max(minSize.Y, startSizeOffset.Y.Offset + (delta.Y / scaleMult))
-                    local diffX_visual = (newX - startSizeOffset.X.Offset) * scaleMult
-                    local diffY_visual = (newY - startSizeOffset.Y.Offset) * scaleMult
-                    frame.Size = UDim2.new(0, newX, 0, newY)
-                    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (diffX_visual / 2), startPos.Y.Scale, startPos.Y.Offset + (diffY_visual / 2))
-                end
-            end)
-            inputEndedConn = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    if inputChangedConn then inputChangedConn:Disconnect() end
-                    if inputEndedConn then inputEndedConn:Disconnect() end
-                end
-            end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    RunService.RenderStepped:Connect(function()
+        if dragging and dragInput then
+            local delta = dragInput.Position - dragStart
+            local newX = math.max(minSize.X, startSize.X.Offset + (delta.X / scaleMult))
+            local newY = math.max(minSize.Y, startSize.Y.Offset + (delta.Y / scaleMult))
+            local diffX = (newX - startSize.X.Offset) * scaleMult
+            local diffY = (newY - startSize.Y.Offset) * scaleMult
+            frame.Size = UDim2.new(0, newX, 0, newY)
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (diffX / 2), startPos.Y.Scale, startPos.Y.Offset + (diffY / 2))
         end
     end)
 end
@@ -858,7 +856,6 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     Bar.Position = UDim2.new(0, 0, 0, 24)
     Bar.BackgroundColor3 = Theme.Container
     Bar.Parent = Frame
-    Bar.Active = true
     Corner(Bar, 3)
     Stroke(Bar, Theme.Stroke, 1, 0.5)
     local Fill = Instance.new("Frame")
@@ -871,7 +868,7 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     Corner(Fill, 3)
     RegisterTheme(Fill, "BackgroundColor")
     local dragging = false
-    local inputChangedConn = nil
+    local dragInput
     local function SetFromInput(input)
         local r = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
         local raw = min + (max - min) * r
@@ -884,21 +881,26 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
         Library.Unsaved = true
         callback(val)
     end
-    Bar.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+    Bar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
-            SetFromInput(i)
-            inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                if inp == i and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragging then SetFromInput(inp) end
-            end)
-            local inputEndedConn
-            inputEndedConn = UserInputService.InputEnded:Connect(function(inp)
-                if inp == i and (inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch) then
+            dragInput = input
+            SetFromInput(input)
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
-                    if inputChangedConn then inputChangedConn:Disconnect() inputChangedConn = nil end
-                    if inputEndedConn then inputEndedConn:Disconnect() inputEndedConn = nil end
                 end
             end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    RunService.RenderStepped:Connect(function()
+        if dragging and dragInput then
+            SetFromInput(dragInput)
         end
     end)
     ValLabel.FocusLost:Connect(function(enter)
@@ -1298,23 +1300,11 @@ function Library:CreateWindow(options)
             local LabelObj = {}
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, 0, 0, 26)
-            Frame.BackgroundColor3 = Theme.Container
-            Frame.BackgroundTransparency = 0.5
+            Frame.BackgroundTransparency = 1
             Frame.Parent = Content
-            Corner(Frame, 4)
-            Stroke(Frame, Theme.Stroke, 1, 0.5)
-            local Accent = Instance.new("Frame")
-            Accent.Size = UDim2.new(0, 3, 1, -10)
-            Accent.Position = UDim2.new(0, 5, 0.5, 0)
-            Accent.AnchorPoint = Vector2.new(0, 0.5)
-            Accent.BackgroundColor3 = Theme.Accent
-            Accent.BorderSizePixel = 0
-            Accent.Parent = Frame
-            Corner(Accent, 2)
-            RegisterTheme(Accent, "BackgroundColor")
             local Lbl = Instance.new("TextLabel")
-            Lbl.Size = UDim2.new(1, -15, 1, 0)
-            Lbl.Position = UDim2.new(0, 15, 0, 0)
+            Lbl.Size = UDim2.new(1, -10, 1, 0)
+            Lbl.Position = UDim2.new(0, 5, 0, 0)
             Lbl.BackgroundTransparency = 1
             Lbl.Text = ltext
             Lbl.Font = Config.FontMain
@@ -1323,7 +1313,7 @@ function Library:CreateWindow(options)
             Lbl.TextXAlignment = Enum.TextXAlignment.Left
             Lbl.Parent = Frame
             function LabelObj:Set(newText)
-                Lbl.Text = newText
+                Lbl.Text = tostring(newText)
             end
             return LabelObj
         end
@@ -1564,7 +1554,6 @@ function Library:CreateWindow(options)
             SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
             SVMap.Parent = PickerCont
             SVMap.ZIndex = 11
-            SVMap.Active = true
             Corner(SVMap, 4)
             local SVCursor = Instance.new("Frame")
             SVCursor.Size = UDim2.new(0, 8, 0, 8)
@@ -1580,7 +1569,6 @@ function Library:CreateWindow(options)
             HueBar.Image = "rbxassetid://4155801252"
             HueBar.Parent = PickerCont
             HueBar.ZIndex = 11
-            HueBar.Active = true
             Corner(HueBar, 4)
             local UIGradient = Instance.new("UIGradient")
             UIGradient.Rotation = 90
@@ -1658,38 +1646,52 @@ function Library:CreateWindow(options)
                 HCursor.Position = UDim2.new(0, 0, h, 0)
                 Update()
             end
-            local dragSV, dragH = false, false
-            local svChangedConn, hChangedConn, svEndedConn, hEndedConn
-            SVMap.InputBegan:Connect(function(i)
-                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            local dragSV = false
+            local dragInputSV
+            SVMap.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     dragSV = true
-                    SetSV(i)
-                    svChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                        if inp == i and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragSV then SetSV(inp) end
-                    end)
-                    svEndedConn = UserInputService.InputEnded:Connect(function(inp)
-                        if inp == i and (inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch) then
+                    dragInputSV = input
+                    SetSV(input)
+                    input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
                             dragSV = false
-                            if svChangedConn then svChangedConn:Disconnect() svChangedConn = nil end
-                            if svEndedConn then svEndedConn:Disconnect() svEndedConn = nil end
                         end
                     end)
                 end
             end)
-            HueBar.InputBegan:Connect(function(i)
-                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            UserInputService.InputChanged:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                    if dragSV then dragInputSV = input end
+                end
+            end)
+            RunService.RenderStepped:Connect(function()
+                if dragSV and dragInputSV then
+                    SetSV(dragInputSV)
+                end
+            end)
+            local dragH = false
+            local dragInputH
+            HueBar.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     dragH = true
-                    SetH(i)
-                    hChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                        if inp == i and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragH then SetH(inp) end
-                    end)
-                    hEndedConn = UserInputService.InputEnded:Connect(function(inp)
-                        if inp == i and (inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch) then
+                    dragInputH = input
+                    SetH(input)
+                    input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
                             dragH = false
-                            if hChangedConn then hChangedConn:Disconnect() hChangedConn = nil end
-                            if hEndedConn then hEndedConn:Disconnect() hEndedConn = nil end
                         end
                     end)
+                end
+            end)
+            UserInputService.InputChanged:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                    if dragH then dragInputH = input end
+                end
+            end)
+            RunService.RenderStepped:Connect(function()
+                if dragH and dragInputH then
+                    SetH(dragInputH)
                 end
             end)
             Preview.MouseButton1Click:Connect(function()
@@ -1720,6 +1722,7 @@ function Library:CreateWindow(options)
         SetPage.BackgroundTransparency = 1
         SetPage.ScrollBarThickness = 2
         SetPage.ScrollBarImageColor3 = Theme.Accent
+        SetPage.Active = true
         SetPage.Parent = SettingsWindow
         RegisterTheme(SetPage, "ScrollBar")
         local ListLayout = Instance.new("UIListLayout")
@@ -2125,6 +2128,7 @@ function Library:CreateWindow(options)
         Page.BackgroundTransparency = 1
         Page.ScrollBarThickness = 0
         Page.Visible = false
+        Page.Active = true
         Page.Parent = MainPages
         local TabBtn = Instance.new("TextButton")
         TabBtn.Size = UDim2.new(0, 160, 0, 36)
@@ -2252,24 +2256,12 @@ function Library:CreateWindow(options)
                 local LabelObj = {}
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 26)
-                Frame.BackgroundColor3 = Theme.Container
-                Frame.BackgroundTransparency = 0.5
+                Frame.BackgroundTransparency = 1
                 Frame.Parent = Content
                 table.insert(secData.Items, {Name = ltext, Instance = Frame})
-                Corner(Frame, 4)
-                Stroke(Frame, Theme.Stroke, 1, 0.5)
-                local Accent = Instance.new("Frame")
-                Accent.Size = UDim2.new(0, 3, 1, -10)
-                Accent.Position = UDim2.new(0, 5, 0.5, 0)
-                Accent.AnchorPoint = Vector2.new(0, 0.5)
-                Accent.BackgroundColor3 = Theme.Accent
-                Accent.BorderSizePixel = 0
-                Accent.Parent = Frame
-                Corner(Accent, 2)
-                RegisterTheme(Accent, "BackgroundColor")
                 local Lbl = Instance.new("TextLabel")
-                Lbl.Size = UDim2.new(1, -15, 1, 0)
-                Lbl.Position = UDim2.new(0, 15, 0, 0)
+                Lbl.Size = UDim2.new(1, -10, 1, 0)
+                Lbl.Position = UDim2.new(0, 5, 0, 0)
                 Lbl.BackgroundTransparency = 1
                 Lbl.Text = ltext
                 Lbl.Font = Config.FontMain
@@ -2278,7 +2270,7 @@ function Library:CreateWindow(options)
                 Lbl.TextXAlignment = Enum.TextXAlignment.Left
                 Lbl.Parent = Frame
                 function LabelObj:Set(newText)
-                    Lbl.Text = newText
+                    Lbl.Text = tostring(newText)
                 end
                 return LabelObj
             end
@@ -2443,7 +2435,6 @@ function Library:CreateWindow(options)
                     SlideBg.Position = UDim2.new(0, 0, 0, 22)
                     SlideBg.BackgroundColor3 = Theme.Background
                     SlideBg.Parent = SFrame
-                    SlideBg.Active = true
                     Corner(SlideBg, 3)
                     local SlideFill = Instance.new("Frame")
                     local ratio = range > 0 and (val - min) / range or 0
@@ -2454,7 +2445,7 @@ function Library:CreateWindow(options)
                     Corner(SlideFill, 3)
                     RegisterTheme(SlideFill, "BackgroundColor")
                     local dragging = false
-                    local inputChangedConn = nil
+                    local dragInput
                     local function Set(input)
                         local r = math.clamp((input.Position.X - SlideBg.AbsolutePosition.X) / SlideBg.AbsoluteSize.X, 0, 1)
                         local raw = min + (max - min) * r
@@ -2470,18 +2461,23 @@ function Library:CreateWindow(options)
                     SlideBg.InputBegan:Connect(function(i)
                         if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
                             dragging = true
+                            dragInput = i
                             Set(i)
-                            inputChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                                if inp == i and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragging then Set(inp) end
-                            end)
-                            local inputEndedConn
-                            inputEndedConn = UserInputService.InputEnded:Connect(function(inp)
-                                if inp == i and (inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch) then
+                            i.Changed:Connect(function()
+                                if i.UserInputState == Enum.UserInputState.End then
                                     dragging = false
-                                    if inputChangedConn then inputChangedConn:Disconnect() inputChangedConn = nil end
-                                    if inputEndedConn then inputEndedConn:Disconnect() inputEndedConn = nil end
                                 end
                             end)
+                        end
+                    end)
+                    UserInputService.InputChanged:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                            dragInput = input
+                        end
+                    end)
+                    RunService.RenderStepped:Connect(function()
+                        if dragging and dragInput then
+                            Set(dragInput)
                         end
                     end)
                     SValue.FocusLost:Connect(function(enter)
@@ -2890,7 +2886,6 @@ function Library:CreateWindow(options)
                 SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                 SVMap.Parent = PickerCont
                 SVMap.ZIndex = 11
-                SVMap.Active = true
                 Corner(SVMap, 4)
                 local SVCursor = Instance.new("Frame")
                 SVCursor.Size = UDim2.new(0, 8, 0, 8)
@@ -2906,7 +2901,6 @@ function Library:CreateWindow(options)
                 HueBar.Image = "rbxassetid://4155801252"
                 HueBar.Parent = PickerCont
                 HueBar.ZIndex = 11
-                HueBar.Active = true
                 Corner(HueBar, 4)
                 local UIGradient = Instance.new("UIGradient")
                 UIGradient.Rotation = 90
@@ -2984,38 +2978,52 @@ function Library:CreateWindow(options)
                     HCursor.Position = UDim2.new(0, 0, h, 0)
                     Update()
                 end
-                local dragSV, dragH = false, false
-                local svChangedConn, hChangedConn, svEndedConn, hEndedConn
-                SVMap.InputBegan:Connect(function(i)
-                    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                local dragSV = false
+                local dragInputSV
+                SVMap.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         dragSV = true
-                        SetSV(i)
-                        svChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                            if inp == i and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragSV then SetSV(inp) end
-                        end)
-                        svEndedConn = UserInputService.InputEnded:Connect(function(inp)
-                            if inp == i and (inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch) then
+                        dragInputSV = input
+                        SetSV(input)
+                        input.Changed:Connect(function()
+                            if input.UserInputState == Enum.UserInputState.End then
                                 dragSV = false
-                                if svChangedConn then svChangedConn:Disconnect() svChangedConn = nil end
-                                if svEndedConn then svEndedConn:Disconnect() svEndedConn = nil end
                             end
                         end)
                     end
                 end)
-                HueBar.InputBegan:Connect(function(i)
-                    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                UserInputService.InputChanged:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                        if dragSV then dragInputSV = input end
+                    end
+                end)
+                RunService.RenderStepped:Connect(function()
+                    if dragSV and dragInputSV then
+                        SetSV(dragInputSV)
+                    end
+                end)
+                local dragH = false
+                local dragInputH
+                HueBar.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         dragH = true
-                        SetH(i)
-                        hChangedConn = UserInputService.InputChanged:Connect(function(inp)
-                            if inp == i and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) and dragH then SetH(inp) end
-                        end)
-                        hEndedConn = UserInputService.InputEnded:Connect(function(inp)
-                            if inp == i and (inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch) then
+                        dragInputH = input
+                        SetH(input)
+                        input.Changed:Connect(function()
+                            if input.UserInputState == Enum.UserInputState.End then
                                 dragH = false
-                                if hChangedConn then hChangedConn:Disconnect() hChangedConn = nil end
-                                if hEndedConn then hEndedConn:Disconnect() hEndedConn = nil end
                             end
                         end)
+                    end
+                end)
+                UserInputService.InputChanged:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                        if dragH then dragInputH = input end
+                    end
+                end)
+                RunService.RenderStepped:Connect(function()
+                    if dragH and dragInputH then
+                        SetH(dragInputH)
                     end
                 end)
                 Preview.MouseButton1Click:Connect(function()
