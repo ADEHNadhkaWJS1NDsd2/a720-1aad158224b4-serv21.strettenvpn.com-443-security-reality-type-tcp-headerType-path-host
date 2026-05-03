@@ -1077,6 +1077,17 @@ function Library:CreateWindow(options)
     Library._SettingsWindow = SettingsWindow
     Library._SetScale = SetScale
     Library._IsSettings = false
+    local function Update_Window_Size(Tab_List_Layout)
+        if not Tab_List_Layout then return end
+        local Content_Height = Tab_List_Layout.AbsoluteContentSize.Y
+        local Target_Height = Content_Height + 140
+        local Viewport_Height = workspace.CurrentCamera.ViewportSize.Y
+        local Max_Allowed_Height = Viewport_Height * 0.9
+        if Target_Height < 400 then Target_Height = 400 end
+        if Target_Height > Max_Allowed_Height then Target_Height = Max_Allowed_Height end
+        MainWindow.Size = UDim2.new(0, MainWindow.Size.X.Offset, 0, Target_Height)
+        SettingsWindow.Size = UDim2.new(0, SettingsWindow.Size.X.Offset, 0, Target_Height)
+    end
     local Resizer = Instance.new("Frame")
     Resizer.Size = UDim2.new(0, 20, 0, 20)
     Resizer.Position = UDim2.new(1, 0, 1, 0)
@@ -1172,6 +1183,7 @@ function Library:CreateWindow(options)
             List.Parent = Container
             local Tab_Canvas_Connection = List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
                 Container.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20)
+                Update_Window_Size(List)
             end)
             table.insert(Library.Connections, Tab_Canvas_Connection)
             return Bar, Container, nil
@@ -1286,6 +1298,8 @@ function Library:CreateWindow(options)
     table.insert(Library.Connections, c6)
     table.insert(Library.Connections, c7)
     local c8 = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+        local Tab_List_Layout = TabContainer and TabContainer:FindFirstChildWhichIsA("UIListLayout")
+        if Tab_List_Layout then Update_Window_Size(Tab_List_Layout) end
         if Library.Open then
             if IsSettings and SettingsWindow.Visible then
                 SetScale.Scale = GetBaseScale()
@@ -3050,6 +3064,7 @@ function Library:CreateWindow(options)
                 SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                 SVMap.Parent = PickerCont
                 SVMap.ZIndex = 11
+                SVMap.Active = true
                 Corner(SVMap, 4)
                 local SVCursor = Instance.new("Frame")
                 SVCursor.Size = UDim2.new(0, 8, 0, 8)
@@ -3065,6 +3080,7 @@ function Library:CreateWindow(options)
                 HueBar.Image = "rbxassetid://4155801252"
                 HueBar.Parent = PickerCont
                 HueBar.ZIndex = 11
+                HueBar.Active = true
                 Corner(HueBar, 4)
                 local UIGradient = Instance.new("UIGradient")
                 UIGradient.Rotation = 90
@@ -3240,6 +3256,8 @@ function Library:CreateWindow(options)
     end)
     MainScale.Scale = GetBaseScale()
     MainWindow.Visible = true
+    local Tab_List_Layout_Init = TabContainer:FindFirstChildWhichIsA("UIListLayout")
+    if Tab_List_Layout_Init then Update_Window_Size(Tab_List_Layout_Init) end
     return WindowObj
 end
 return Library
