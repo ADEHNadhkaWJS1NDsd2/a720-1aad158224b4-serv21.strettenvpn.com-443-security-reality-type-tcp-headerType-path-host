@@ -675,15 +675,12 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     ListFrame.Active = true
     ListFrame.ScrollBarThickness = 2
     ListFrame.ScrollBarImageColor3 = Theme.Accent
+    ListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     Corner(ListFrame, 4)
     Stroke(ListFrame, Theme.Stroke, 1, 0.5)
     local IList = Instance.new("UIListLayout")
     IList.SortOrder = Enum.SortOrder.LayoutOrder
     IList.Parent = ListFrame
-    local c1 = IList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        ListFrame.CanvasSize = UDim2.new(0, 0, 0, IList.AbsoluteContentSize.Y)
-    end)
-    table.insert(Library.Connections, c1)
     local function CloseDropdown()
         isDropped = false
         if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = 1 end
@@ -1077,17 +1074,6 @@ function Library:CreateWindow(options)
     Library._SettingsWindow = SettingsWindow
     Library._SetScale = SetScale
     Library._IsSettings = false
-    local function Update_Window_Size(Tab_List_Layout)
-        if not Tab_List_Layout then return end
-        local Content_Height = Tab_List_Layout.AbsoluteContentSize.Y
-        local Target_Height = Content_Height + 140
-        local Viewport_Height = workspace.CurrentCamera.ViewportSize.Y
-        local Max_Allowed_Height = Viewport_Height * 0.9
-        if Target_Height < 400 then Target_Height = 400 end
-        if Target_Height > Max_Allowed_Height then Target_Height = Max_Allowed_Height end
-        MainWindow.Size = UDim2.new(0, MainWindow.Size.X.Offset, 0, Target_Height)
-        SettingsWindow.Size = UDim2.new(0, SettingsWindow.Size.X.Offset, 0, Target_Height)
-    end
     local Resizer = Instance.new("Frame")
     Resizer.Size = UDim2.new(0, 20, 0, 20)
     Resizer.Position = UDim2.new(1, 0, 1, 0)
@@ -1174,6 +1160,8 @@ function Library:CreateWindow(options)
             Container.BorderSizePixel = 0
             Container.ScrollBarThickness = 2
             Container.ScrollBarImageColor3 = Theme.Accent
+            Container.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            Container.ClipsDescendants = true
             Container.Parent = Bar
             RegisterTheme(Container, "ScrollBar")
             local List = Instance.new("UIListLayout")
@@ -1181,11 +1169,6 @@ function Library:CreateWindow(options)
             List.HorizontalAlignment = Enum.HorizontalAlignment.Center
             List.SortOrder = Enum.SortOrder.LayoutOrder
             List.Parent = Container
-            local Tab_Canvas_Connection = List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                Container.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 20)
-                Update_Window_Size(List)
-            end)
-            table.insert(Library.Connections, Tab_Canvas_Connection)
             return Bar, Container, nil
         end
     end
@@ -1298,8 +1281,6 @@ function Library:CreateWindow(options)
     table.insert(Library.Connections, c6)
     table.insert(Library.Connections, c7)
     local c8 = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-        local Tab_List_Layout = TabContainer and TabContainer:FindFirstChildWhichIsA("UIListLayout")
-        if Tab_List_Layout then Update_Window_Size(Tab_List_Layout) end
         if Library.Open then
             if IsSettings and SettingsWindow.Visible then
                 SetScale.Scale = GetBaseScale()
@@ -1365,18 +1346,9 @@ function Library:CreateWindow(options)
             Frame.Parent = Content
             Corner(Frame, 4)
             Stroke(Frame, Theme.Stroke, 1, 0.5)
-            local Accent = Instance.new("Frame")
-            Accent.Size = UDim2.new(0, 3, 1, -10)
-            Accent.Position = UDim2.new(0, 5, 0.5, 0)
-            Accent.AnchorPoint = Vector2.new(0, 0.5)
-            Accent.BackgroundColor3 = Theme.Accent
-            Accent.BorderSizePixel = 0
-            Accent.Parent = Frame
-            Corner(Accent, 2)
-            RegisterTheme(Accent, "BackgroundColor")
             local Lbl = Instance.new("TextLabel")
-            Lbl.Size = UDim2.new(1, -25, 1, -10)
-            Lbl.Position = UDim2.new(0, 15, 0, 5)
+            Lbl.Size = UDim2.new(1, -10, 1, -10)
+            Lbl.Position = UDim2.new(0, 5, 0, 5)
             Lbl.BackgroundTransparency = 1
             Lbl.Text = tostring(ltext)
             Lbl.Font = Config.FontMain
@@ -1827,6 +1799,7 @@ function Library:CreateWindow(options)
         SetPage.BackgroundTransparency = 1
         SetPage.ScrollBarThickness = 2
         SetPage.ScrollBarImageColor3 = Theme.Accent
+        SetPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
         SetPage.Active = true
         SetPage.Parent = SettingsWindow
         RegisterTheme(SetPage, "ScrollBar")
@@ -1834,10 +1807,6 @@ function Library:CreateWindow(options)
         ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ListLayout.Padding = UDim.new(0, 10)
         ListLayout.Parent = SetPage
-        local c1 = ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            SetPage.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
-        end)
-        table.insert(Library.Connections, c1)
         local MenuSec = WindowObj:CreateRawSection("Menu Settings", SetPage)
         MenuSec:Button("Unload UI", "Destroys the Hub", function()
             Library:Unload()
@@ -1969,15 +1938,12 @@ function Library:CreateWindow(options)
         CDListFrame.Active = true
         CDListFrame.ScrollBarThickness = 2
         CDListFrame.ScrollBarImageColor3 = Theme.Accent
+        CDListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         Corner(CDListFrame, 4)
         Stroke(CDListFrame, Theme.Stroke, 1, 0.5)
         local CDIList = Instance.new("UIListLayout")
         CDIList.SortOrder = Enum.SortOrder.LayoutOrder
         CDIList.Parent = CDListFrame
-        local c3 = CDIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            CDListFrame.CanvasSize = UDim2.new(0, 0, 0, CDIList.AbsoluteContentSize.Y)
-        end)
-        table.insert(Library.Connections, c3)
         local cdIsDropped = false
         local cdOptionBtns = {}
         selectedConfigName = #ConfigList > 0 and ConfigList[1] or ""
@@ -2258,6 +2224,7 @@ function Library:CreateWindow(options)
         Page.ScrollBarThickness = 0
         Page.Visible = false
         Page.Active = true
+        Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
         Page.Parent = MainPages
         local TabBtn = Instance.new("TextButton")
         TabBtn.Size = UDim2.new(1, 0, 0, 36)
@@ -2330,18 +2297,20 @@ function Library:CreateWindow(options)
             Indicator.BackgroundTransparency = 0
         end
         local LeftCol = Instance.new("Frame")
-        LeftCol.Size = UDim2.new(0.5, -5, 1, 0)
+        LeftCol.Size = UDim2.new(0.5, -5, 0, 0)
         LeftCol.Position = UDim2.new(0, 0, 0, 0)
         LeftCol.BackgroundTransparency = 1
+        LeftCol.AutomaticSize = Enum.AutomaticSize.Y
         LeftCol.Parent = Page
         local LeftList = Instance.new("UIListLayout")
         LeftList.SortOrder = Enum.SortOrder.LayoutOrder
         LeftList.Padding = UDim.new(0, 10)
         LeftList.Parent = LeftCol
         local RightCol = Instance.new("Frame")
-        RightCol.Size = UDim2.new(0.5, -5, 1, 0)
+        RightCol.Size = UDim2.new(0.5, -5, 0, 0)
         RightCol.Position = UDim2.new(0.5, 5, 0, 0)
         RightCol.BackgroundTransparency = 1
+        RightCol.AutomaticSize = Enum.AutomaticSize.Y
         RightCol.Parent = Page
         local RightList = Instance.new("UIListLayout")
         RightList.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2390,12 +2359,15 @@ function Library:CreateWindow(options)
                 local LabelObj = {}
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 26)
-                Frame.BackgroundTransparency = 1
+                Frame.BackgroundColor3 = Theme.Container
+                Frame.BackgroundTransparency = 0.5
                 Frame.Parent = Content
                 table.insert(secData.Items, {Name = ltext, Instance = Frame})
+                Corner(Frame, 4)
+                Stroke(Frame, Theme.Stroke, 1, 0.5)
                 local Lbl = Instance.new("TextLabel")
-                Lbl.Size = UDim2.new(1, -10, 1, 0)
-                Lbl.Position = UDim2.new(0, 5, 0, 0)
+                Lbl.Size = UDim2.new(1, -10, 1, -10)
+                Lbl.Position = UDim2.new(0, 5, 0, 5)
                 Lbl.BackgroundTransparency = 1
                 Lbl.Text = tostring(ltext)
                 Lbl.Font = Config.FontMain
@@ -2495,20 +2467,20 @@ function Library:CreateWindow(options)
                         if h > 0 then h = h + 6 end
                         currentTween = TweenService:Create(SubContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, h)})
                         currentTween:Play()
-                        local tcc
-                        tcc = currentTween.Completed:Connect(function(state)
+                        local tc
+                        tc = currentTween.Completed:Connect(function(state)
                             if state == Enum.PlaybackState.Completed and toggled then SubContainer.ClipsDescendants = false end
-                            tcc:Disconnect()
+                            tc:Disconnect()
                         end)
                     else
                         SubContainer.ClipsDescendants = true
                         currentTween = TweenService:Create(SubContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 0)})
                         currentTween:Play()
                         local expectedToggle = toggled
-                        local tcc
-                        tcc = currentTween.Completed:Connect(function(playbackState)
+                        local tc
+                        tc = currentTween.Completed:Connect(function(playbackState)
                             if playbackState == Enum.PlaybackState.Completed and expectedToggle == toggled and not toggled then SubContainer.Visible = false end
-                            tcc:Disconnect()
+                            tc:Disconnect()
                         end)
                     end
                 end
@@ -3064,7 +3036,6 @@ function Library:CreateWindow(options)
                 SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                 SVMap.Parent = PickerCont
                 SVMap.ZIndex = 11
-                SVMap.Active = true
                 Corner(SVMap, 4)
                 local SVCursor = Instance.new("Frame")
                 SVCursor.Size = UDim2.new(0, 8, 0, 8)
@@ -3080,7 +3051,6 @@ function Library:CreateWindow(options)
                 HueBar.Image = "rbxassetid://4155801252"
                 HueBar.Parent = PickerCont
                 HueBar.ZIndex = 11
-                HueBar.Active = true
                 Corner(HueBar, 4)
                 local UIGradient = Instance.new("UIGradient")
                 UIGradient.Rotation = 90
@@ -3256,8 +3226,6 @@ function Library:CreateWindow(options)
     end)
     MainScale.Scale = GetBaseScale()
     MainWindow.Visible = true
-    local Tab_List_Layout_Init = TabContainer:FindFirstChildWhichIsA("UIListLayout")
-    if Tab_List_Layout_Init then Update_Window_Size(Tab_List_Layout_Init) end
     return WindowObj
 end
 return Library
