@@ -1,20 +1,15 @@
+local coreGuiService = game:GetService("CoreGui")
 local userInputService = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
+local tweenService = game:GetService("TweenService")
 local textService = game:GetService("TextService")
 local httpService = game:GetService("HttpService")
 local workspaceService = game:GetService("Workspace")
 local playersService = game:GetService("Players")
 
-local env = getgenv and getgenv() or _G
-local m_ismouse1pressed = env.ismouse1pressed
-local m_ismouse2pressed = env.ismouse2pressed
-local m_iskeypressed = env.iskeypressed
-local m_setclipboard = env.setclipboard or env.toclipboard
-local m_getclipboard = env.getclipboard or env.fromclipboard
-
 local LibraryApi = {
     Flags = {},
-    FolderName = "PhantomHub",
+    FolderName = "Moonshade",
     ConfigName = "AutoSaveConfig.json"
 }
 
@@ -32,407 +27,113 @@ local colors = {
     textWhiteColor = Color3.new(0.952941, 0.952941, 0.972549),
     textDarkColor = Color3.new(0.541176, 0.541176, 0.580392),
     tooltipBackground = Color3.new(0.043137, 0.043137, 0.058823),
-    shadowColor = Color3.new(0, 0, 0),
     notificationInfoColor = Color3.new(0.247058, 0.635294, 0.980392),
     notificationSuccessColor = Color3.new(0.247058, 0.980392, 0.490196),
     notificationWarningColor = Color3.new(0.980392, 0.819607, 0.247058),
     notificationErrorColor = Color3.new(0.980392, 0.247058, 0.247058)
 }
 
-local FONT_MAIN = Drawing.Fonts.System
-local FONT_SUB = Drawing.Fonts.System
+local mainFont = Enum.Font.GothamMedium
+local boldFont = Enum.Font.GothamBold
 
-local hideGroup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = httpService:GenerateGUID(false)
+screenGui.Parent = coreGuiService
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.DisplayOrder = 999
+screenGui.IgnoreGuiInset = true
 
-local UI = {
-    windows = {},
-    drawables = {},
-    initialized = false,
-    mousePos = Vector2.zero,
-    mouseDown = false,
-    active = nil,
-    hovered = nil,
-    focusedTextbox = nil,
-    bindingKey = nil,
-    tooltip = nil,
-    connections = {},
-    blinkClock = 0,
-    openDropdown = nil,
-    openColorPicker = nil,
-    notifications = {},
-    backspaceHeld = false,
-    deleteHeld = false,
-    nextTextRepeat = 0
-}
+local tooltipFrame = Instance.new("Frame")
+tooltipFrame.BackgroundColor3 = colors.tooltipBackground
+tooltipFrame.BackgroundTransparency = 0.158372
+tooltipFrame.Size = UDim2.new(0, 0, 0, 24)
+tooltipFrame.ZIndex = 2000
+tooltipFrame.Visible = false
+tooltipFrame.Parent = screenGui
 
-local function clamp(v, a, b)
-    if v < a then return a end
-    if v > b then return b end
-    return v
+local tooltipCorner = Instance.new("UICorner")
+tooltipCorner.CornerRadius = UDim.new(0, 4)
+tooltipCorner.Parent = tooltipFrame
+
+local tooltipStroke = Instance.new("UIStroke")
+tooltipStroke.Color = colors.borderLightColor
+tooltipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+tooltipStroke.Transparency = 1
+tooltipStroke.Parent = tooltipFrame
+
+local tooltipText = Instance.new("TextLabel")
+tooltipText.Size = UDim2.new(1, -16, 1, 0)
+tooltipText.Position = UDim2.new(0, 8, 0, 0)
+tooltipText.BackgroundTransparency = 1
+tooltipText.TextColor3 = colors.textWhiteColor
+tooltipText.TextTransparency = 1
+tooltipText.TextSize = 12
+tooltipText.Font = mainFont
+tooltipText.TextXAlignment = Enum.TextXAlignment.Left
+tooltipText.ZIndex = 2001
+tooltipText.Parent = tooltipFrame
+
+local notificationContainer = Instance.new("Frame")
+notificationContainer.Size = UDim2.new(0, 300, 1, -40)
+notificationContainer.Position = UDim2.new(1, -320, 0, 20)
+notificationContainer.BackgroundTransparency = 1
+notificationContainer.ZIndex = 1500
+notificationContainer.Parent = screenGui
+
+local notificationLayout = Instance.new("UIListLayout")
+notificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
+notificationLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+notificationLayout.Padding = UDim.new(0, 10)
+notificationLayout.Parent = notificationContainer
+
+local tooltipTargetText = ""
+
+local function animateElement(element, properties, speed)
+    local tween = tweenService:Create(element, TweenInfo.new(speed or 0.35, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), properties)
+    tween:Play()
+    return tween
 end
 
-local function lerp(a, b, t)
-    return a + (b - a) * t
-end
-
-local function lerpColor(a, b, t)
-    return Color3.new(lerp(a.R, b.R, t), lerp(a.G, b.G, t), lerp(a.B, b.B, t))
-end
-
-local function round(n)
-    return math.floor(n + 0.5)
-end
-
-local function pointInRect(p, x, y, w, h)
-    return p.X >= x and p.X <= x + w and p.Y >= y and p.Y <= y + h
-end
-
-local function getMousePosition()
-    local ok, value = pcall(function()
-        return userInputService:GetMouseLocation()
-    end)
-    if ok and value then
-        return value
+local function applyAcrylicEffect(parent, transparency, cornerRadius)
+    local blurImage = Instance.new("ImageLabel")
+    blurImage.Size = UDim2.new(1, 0, 1, 0)
+    blurImage.BackgroundTransparency = 1
+    blurImage.Image = "rbxassetid://8992230113"
+    blurImage.TileSize = UDim2.new(0, 256, 0, 256)
+    blurImage.ScaleType = Enum.ScaleType.Tile
+    blurImage.ImageTransparency = transparency or 0.88732
+    blurImage.ZIndex = parent.ZIndex - 1
+    blurImage.Parent = parent
+    if cornerRadius then
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = cornerRadius
+        corner.Parent = blurImage
     end
-    return UI.mousePos
+    return blurImage
 end
 
-local function isMouse1Held()
-    if m_ismouse1pressed then
-        local ok, value = pcall(m_ismouse1pressed)
-        if ok then return value == true end
-    end
-    return UI.mouseDown
-end
-
-local function isMouse2Held()
-    if m_ismouse2pressed then
-        local ok, value = pcall(m_ismouse2pressed)
-        if ok then return value == true end
-    end
-    return false
-end
-
-local function isShiftHeld()
-    if m_iskeypressed then
-        local ok1, v1 = pcall(m_iskeypressed, 0xA0)
-        local ok2, v2 = pcall(m_iskeypressed, 0xA1)
-        if (ok1 and v1) or (ok2 and v2) then return true end
-    end
-    local okL, left = pcall(function() return userInputService:IsKeyDown(Enum.KeyCode.LeftShift) end)
-    local okR, right = pcall(function() return userInputService:IsKeyDown(Enum.KeyCode.RightShift) end)
-    return (okL and left) or (okR and right)
-end
-
-local function setClipboardText(text)
-    if m_setclipboard then
-        local ok = pcall(m_setclipboard, text)
-        if ok then return true end
-    end
-    return false
-end
-
-local function getClipboardText()
-    if m_getclipboard then
-        local ok, result = pcall(m_getclipboard)
-        if ok and type(result) == "string" then return result end
-    end
-    return nil
-end
-
-local keyCodeNameCache = nil
-
-local function getKeyCodeName(key)
-    if key == nil then return "None" end
-    local okName, name = pcall(function() return key.Name end)
-    if okName and type(name) == "string" and name ~= "" then return name end
-    if type(key) == "string" then return key end
-    if keyCodeNameCache == nil then
-        keyCodeNameCache = {}
-        local okEnum, enumTable = pcall(function() return Enum.KeyCode end)
-        if okEnum and type(enumTable) == "table" then
-            for enumName, enumValue in pairs(enumTable) do
-                if keyCodeNameCache[enumValue] == nil then
-                    keyCodeNameCache[enumValue] = tostring(enumName)
-                end
-            end
-        end
-    end
-    return keyCodeNameCache[key] or tostring(key)
-end
-
-local function colorToHSV(color)
-    local okMethod, h, s, v = pcall(function() return color:ToHSV() end)
-    if okMethod then return h, s, v end
-    local okStatic, sh, ss, sv = pcall(function() return Color3.toHSV(color) end)
-    if okStatic then return sh, ss, sv end
-    local r = tonumber(color and color.R) or 0
-    local g = tonumber(color and color.G) or 0
-    local b = tonumber(color and color.B) or 0
-    local maxc = math.max(r, g, b)
-    local minc = math.min(r, g, b)
-    local delta = maxc - minc
-    local hh = 0
-    if delta > 0 then
-        if maxc == r then
-            hh = ((g - b) / delta) % 6
-        elseif maxc == g then
-            hh = ((b - r) / delta) + 2
-        else
-            hh = ((r - g) / delta) + 4
-        end
-        hh = hh / 6
-    end
-    local ss = maxc == 0 and 0 or (delta / maxc)
-    local vv = maxc
-    return hh, ss, vv
-end
-
-local function getViewportSize()
-    local candidates = {}
-    pcall(function()
-        if workspaceService.CurrentCamera and workspaceService.CurrentCamera.ViewportSize then
-            table.insert(candidates, workspaceService.CurrentCamera.ViewportSize)
-        end
-    end)
-    pcall(function()
-        local cam = workspaceService.Camera
-        if cam and cam.ViewportSize then
-            table.insert(candidates, cam.ViewportSize)
-        end
-    end)
-    for _, v in ipairs(candidates) do
-        local x = tonumber(v.X) or 0
-        local y = tonumber(v.Y) or 0
-        if x > 100 and y > 100 then
-            return Vector2.new(x, y)
-        end
-    end
-    return Vector2.new(1280, 720)
-end
-
-local function colorToHex(color)
-    return string.format("#%02X%02X%02X", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
-end
-
-local function parseClipboardColor(text)
-    if type(text) ~= "string" then return nil end
-    local source = text:match("^%s*(.-)%s*$")
-    if source == "" then return nil end
-    local hex = source:match("^#?(%x%x%x%x%x%x)$")
-    if hex then
-        local r = tonumber(hex:sub(1, 2), 16)
-        local g = tonumber(hex:sub(3, 4), 16)
-        local b = tonumber(hex:sub(5, 6), 16)
-        if r and g and b then return Color3.fromRGB(r, g, b) end
-    end
-    local short = source:match("^#?(%x%x%x)$")
-    if short then
-        local r = tonumber(short:sub(1, 1) .. short:sub(1, 1), 16)
-        local g = tonumber(short:sub(2, 2) .. short:sub(2, 2), 16)
-        local b = tonumber(short:sub(3, 3) .. short:sub(3, 3), 16)
-        if r and g and b then return Color3.fromRGB(r, g, b) end
-    end
-    local rgb = { source:match("^%s*(%d+)%s*[, ]%s*(%d+)%s*[, ]%s*(%d+)%s*$") }
-    if #rgb == 3 then
-        local r = clamp(tonumber(rgb[1]) or 0, 0, 255)
-        local g = clamp(tonumber(rgb[2]) or 0, 0, 255)
-        local b = clamp(tonumber(rgb[3]) or 0, 0, 255)
-        return Color3.fromRGB(r, g, b)
-    end
-    return nil
-end
-
-local function getTextSize(text, size)
-    local content = tostring(text or "")
-    local textSize = tonumber(size) or 12
-    local fontEnum = Enum and Enum.Font and (Enum.Font.GothamMedium or Enum.Font.SourceSans or Enum.Font.Legacy)
-    if textService and textService.GetTextSize and fontEnum then
-        local ok, bounds = pcall(function()
-            return textService:GetTextSize(content, textSize, fontEnum, Vector2.new(1000, 1000))
-        end)
-        if ok and bounds then
-            return tonumber(bounds.X) or 0, tonumber(bounds.Y) or textSize
-        end
-    end
-    local width = math.floor(#content * (textSize * 0.55))
-    local height = math.floor(textSize + 2)
-    return width, height
-end
-
-local function newDrawing(class, props)
-    local object = Drawing.new(class)
-    for k, v in pairs(props) do
-        object[k] = v
-    end
-    table.insert(UI.drawables, object)
-    return object
-end
-
-local function freeDrawing(object)
-    if not object then return end
-    pcall(function()
-        object.Visible = false
-        object:Remove()
-    end)
-end
-
-local function trySetVisible(target, state)
-    if not target then return end
-    pcall(function()
-        if target.Visible ~= nil then
-            target.Visible = state
-        end
-    end)
-end
-
-local function setVisible(drawings, state)
-    if type(drawings) ~= "table" then return end
-    for key, drawing in pairs(drawings) do
-        if key ~= "__isGroup" then
-            if type(drawing) == "table" and rawget(drawing, "__isGroup") then
-                setVisible(drawing, state)
-            else
-                trySetVisible(drawing, state)
-            end
-        end
-    end
-end
-
-local function createGroup()
-    return { __isGroup = true }
-end
-
-local function addToGroup(group, item)
-    table.insert(group, item)
-    return item
-end
-
-local function createRoundedPrimitive(z, color, transparency)
-    local group = createGroup()
-    group.mid = addToGroup(group, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = transparency or 1, Color = color, ZIndex = z, Visible = false }))
-    group.left = addToGroup(group, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = transparency or 1, Color = color, ZIndex = z, Visible = false }))
-    group.right = addToGroup(group, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = transparency or 1, Color = color, ZIndex = z, Visible = false }))
-    group.tl = addToGroup(group, newDrawing("Circle", { Filled = true, Thickness = 1, NumSides = 28, Transparency = transparency or 1, Radius = 0, Color = color, ZIndex = z, Visible = false }))
-    group.tr = addToGroup(group, newDrawing("Circle", { Filled = true, Thickness = 1, NumSides = 28, Transparency = transparency or 1, Radius = 0, Color = color, ZIndex = z, Visible = false }))
-    group.bl = addToGroup(group, newDrawing("Circle", { Filled = true, Thickness = 1, NumSides = 28, Transparency = transparency or 1, Radius = 0, Color = color, ZIndex = z, Visible = false }))
-    group.br = addToGroup(group, newDrawing("Circle", { Filled = true, Thickness = 1, NumSides = 28, Transparency = transparency or 1, Radius = 0, Color = color, ZIndex = z, Visible = false }))
-    return group
-end
-
-local function setRoundedPrimitive(group, x, y, w, h, radius, color, transparency, visible)
-    local pieces = { group.mid, group.left, group.right, group.tl, group.tr, group.bl, group.br }
-    if not visible or w <= 0 or h <= 0 then
-        for _, piece in ipairs(pieces) do
-            piece.Visible = false
-        end
+local function showTooltip(textString)
+    if not textString or textString == "" then
+        tooltipTargetText = ""
         return
     end
-
-    local r = math.floor(math.max(0, math.min(radius or 0, w * 0.5, h * 0.5)))
-    local function apply(piece)
-        piece.Color = color
-        piece.Transparency = transparency or 1
-        piece.Visible = true
-    end
-
-    if r <= 0 then
-        apply(group.mid)
-        group.mid.Position = Vector2.new(x, y)
-        group.mid.Size = Vector2.new(w, h)
-        group.left.Visible = false
-        group.right.Visible = false
-        group.tl.Visible = false
-        group.tr.Visible = false
-        group.bl.Visible = false
-        group.br.Visible = false
-        return
-    end
-
-    apply(group.mid)
-    group.mid.Position = Vector2.new(x + r, y)
-    group.mid.Size = Vector2.new(math.max(1, w - r * 2), h)
-
-    apply(group.left)
-    group.left.Position = Vector2.new(x, y + r)
-    group.left.Size = Vector2.new(r, math.max(1, h - r * 2))
-
-    apply(group.right)
-    group.right.Position = Vector2.new(x + w - r, y + r)
-    group.right.Size = Vector2.new(r, math.max(1, h - r * 2))
-
-    for _, circle in ipairs({ group.tl, group.tr, group.bl, group.br }) do
-        apply(circle)
-        circle.Radius = r
-    end
-
-    group.tl.Position = Vector2.new(x + r, y + r)
-    group.tr.Position = Vector2.new(x + w - r, y + r)
-    group.bl.Position = Vector2.new(x + r, y + h - r)
-    group.br.Position = Vector2.new(x + w - r, y + h - r)
-end
-
-local function createSoftFrame(z)
-    local group = createGroup()
-    group.shadow = addToGroup(group, createRoundedPrimitive(z, colors.shadowColor or Color3.fromRGB(0, 0, 0), 0.16))
-    group.border = addToGroup(group, createRoundedPrimitive(z + 1, colors.borderColor, 0.95))
-    group.fill = addToGroup(group, createRoundedPrimitive(z + 2, colors.elementBackground, 0.92))
-    return group
-end
-
-local function setSoftFrame(frame, x, y, w, h, radius, fillColor, fillTransparency, borderColor, borderTransparency, shadowOffset)
-    local shadowY = shadowOffset or 2
-    setRoundedPrimitive(frame.shadow, x, y + shadowY, w, h, radius + 1, colors.shadowColor or Color3.fromRGB(0, 0, 0), 0.12, true)
-    setRoundedPrimitive(frame.border, x, y, w, h, radius, borderColor or colors.borderColor, borderTransparency or 1, true)
-    setRoundedPrimitive(frame.fill, x + 1, y + 1, w - 2, h - 2, math.max(0, radius - 1), fillColor or colors.elementBackground, fillTransparency or 0.92, true)
-end
-
-local function normalizeStep(step)
-    if type(step) == "number" then
-        if step > 0 then return step end
-        return nil
-    end
-    if type(step) == "string" then
-        local n = tonumber(step)
-        if n and n > 0 then return n end
-    end
-    return nil
+    local textBounds = textService:GetTextSize(textString, 12, mainFont, Vector2.new(500, 24))
+    tooltipFrame.Size = UDim2.new(0, textBounds.X + 16, 0, 24)
+    tooltipText.Text = textString
+    tooltipTargetText = textString
 end
 
 local function snapValue(value, step)
-    step = normalizeStep(step)
     if not step then return value end
-    local snapped = math.floor((value / step) + 0.5) * step
-    local precision = tostring(step):match("%.(%d+)")
-    if precision then
-        return tonumber(string.format("%." .. tostring(#precision) .. "f", snapped))
-    end
-    return snapped
+    return math.floor((value / step) + 0.5) * step
 end
 
 local function formatValue(value, step)
-    if type(value) ~= "number" then return tostring(value) end
-    if math.abs(value) < 0.000001 then value = 0 end
-    local decimals = 2
-    if step and type(step) == "number" and step > 0 then
-        local precision = tostring(step):match("%.(%d+)")
-        if precision then
-            decimals = math.min(#precision, 2)
-        else
-            decimals = 0
-        end
-    else
-        local frac = math.abs(value - math.floor(value))
-        decimals = frac < 0.001 and 0 or 2
+    if step and step < 1 then
+        local decimalPlaces = tostring(step):len() - 2
+        return string.format("%."..decimalPlaces.."f", value)
     end
-    local formatted = string.format("%." .. tostring(decimals) .. "f", value)
-    formatted = formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
-    if formatted == "-0" then formatted = "0" end
-    return formatted
-end
-
-local function hsvToColor(h, s, v)
-    return Color3.fromHSV(clamp(h, 0, 1), clamp(s, 0, 1), clamp(v, 0, 1))
+    return tostring(value)
 end
 
 local function saveConfiguration()
@@ -441,38 +142,42 @@ local function saveConfiguration()
         if not isfolder(LibraryApi.FolderName) then
             makefolder(LibraryApi.FolderName)
         end
-        local data = {}
-        for key, value in pairs(LibraryApi.Flags) do
-            if typeof(value) == "Color3" then
-                data[key] = { Type = "Color3", R = value.R, G = value.G, B = value.B }
-            elseif typeof(value) == "EnumItem" then
-                data[key] = { Type = "KeyCode", Name = value.Name }
-            elseif type(value) == "table" and value.Min ~= nil and value.Max ~= nil then
-                data[key] = { Type = "Range", Min = value.Min, Max = value.Max }
+        local serializedData = {}
+        for key, val in pairs(LibraryApi.Flags) do
+            if typeof(val) == "Color3" then
+                serializedData[key] = {Type = "Color3", R = val.R, G = val.G, B = val.B}
+            elseif typeof(val) == "EnumItem" then
+                serializedData[key] = {Type = "KeyCode", Name = val.Name}
+            elseif type(val) == "table" and val.Min and val.Max then
+                serializedData[key] = {Type = "Range", Min = val.Min, Max = val.Max}
             else
-                data[key] = value
+                serializedData[key] = val
             end
         end
-        writefile(LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName, httpService:JSONEncode(data))
+        writefile(LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName, httpService:JSONEncode(serializedData))
     end)
 end
 
 local function loadConfiguration()
     pcall(function()
         if not isfolder or not isfile or not readfile then return end
-        local path = LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName
-        if not isfile(path) then return end
-        local decoded = httpService:JSONDecode(readfile(path))
-        if type(decoded) ~= "table" then return end
-        for key, value in pairs(decoded) do
-            if type(value) == "table" and value.Type == "Color3" then
-                LibraryApi.Flags[key] = Color3.new(value.R, value.G, value.B)
-            elseif type(value) == "table" and value.Type == "KeyCode" then
-                LibraryApi.Flags[key] = Enum.KeyCode[value.Name] or Enum.KeyCode.Unknown
-            elseif type(value) == "table" and value.Type == "Range" then
-                LibraryApi.Flags[key] = { Min = value.Min, Max = value.Max }
-            else
-                LibraryApi.Flags[key] = value
+        local fullPath = LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName
+        if isfile(fullPath) then
+            local decodedData = httpService:JSONDecode(readfile(fullPath))
+            if type(decodedData) == "table" then
+                for key, val in pairs(decodedData) do
+                    if type(val) == "table" then
+                        if val.Type == "Color3" then
+                            LibraryApi.Flags[key] = Color3.new(val.R, val.G, val.B)
+                        elseif val.Type == "KeyCode" then
+                            LibraryApi.Flags[key] = Enum.KeyCode[val.Name] or Enum.KeyCode.Unknown
+                        elseif val.Type == "Range" then
+                            LibraryApi.Flags[key] = {Min = val.Min, Max = val.Max}
+                        end
+                    else
+                        LibraryApi.Flags[key] = val
+                    end
+                end
             end
         end
     end)
@@ -480,1823 +185,1564 @@ end
 
 loadConfiguration()
 
-local tooltip = createGroup()
-tooltip.bg = addToGroup(tooltip, newDrawing("Square", { Visible = false, Filled = true, Thickness = 1, Transparency = 0.96, Color = colors.tooltipBackground, ZIndex = 500 }))
-tooltip.border = addToGroup(tooltip, newDrawing("Square", { Visible = false, Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderLightColor, ZIndex = 501 }))
-tooltip.text = addToGroup(tooltip, newDrawing("Text", { Visible = false, Size = 12, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 502, Text = "" }))
-
-local function hideTooltip()
-    tooltip.bg.Visible = false
-    tooltip.border.Visible = false
-    tooltip.text.Visible = false
-end
-
-local function drawTooltip(text)
-    if not text or text == "" then
-        hideTooltip()
-        return
-    end
-    local tw, th = getTextSize(text, 12)
-    local x = UI.mousePos.X + 16
-    local y = UI.mousePos.Y + 16
-    tooltip.bg.Position = Vector2.new(x, y)
-    tooltip.bg.Size = Vector2.new(tw + 14, th + 10)
-    tooltip.border.Position = tooltip.bg.Position
-    tooltip.border.Size = tooltip.bg.Size
-    tooltip.text.Text = text
-    tooltip.text.Position = Vector2.new(x + 7, y + 5)
-    tooltip.bg.Visible = true
-    tooltip.border.Visible = true
-    tooltip.text.Visible = true
-end
-
-local function closeOpenDropdown(element)
-    if UI.openDropdown and UI.openDropdown ~= element then
-        UI.openDropdown.open = false
-    end
-    UI.openDropdown = element and element.open and element or nil
-end
-
-local function closeOpenColorPicker(element)
-    if UI.openColorPicker and UI.openColorPicker ~= element then
-        UI.openColorPicker.open = false
-    end
-    UI.openColorPicker = element and element.open and element or nil
-end
-
-local function focusTextbox(box)
-    if UI.focusedTextbox and UI.focusedTextbox ~= box then
-        UI.focusedTextbox.focused = false
-    end
-    UI.focusedTextbox = box
-    if box then
-        box.focused = true
-        box.cursorBlink = 0
-    end
-end
-
-local function deleteFocusedTextboxChar()
-    if not UI.focusedTextbox then return end
-    local text = tostring(UI.focusedTextbox.value or "")
-    if #text <= 0 then return end
-    UI.focusedTextbox.value = text:sub(1, #text - 1)
-    LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
-    saveConfiguration()
-    if UI.focusedTextbox.callback then
-        task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
-    end
-end
-
-local function beginKeybind(element)
-    UI.bindingKey = element
-end
-
-local function endKeybind()
-    UI.bindingKey = nil
-end
-
-local function addNotification(text, kind, duration)
-    table.insert(UI.notifications, {
-        text = tostring(text or ""),
-        kind = kind or "info",
-        duration = tonumber(duration) or 3,
-        born = tick(),
-        alpha = 0
-    })
-end
-
-LibraryApi.Notify = addNotification
-
-local function createBaseElement(section, kind, height)
-    local element = {
-        section = section,
-        window = section.window,
-        tab = section.tab,
-        kind = kind,
-        height = height or 18,
-        relY = 0,
-        rect = nil,
-        drawings = createGroup(),
-        visible = true,
-        hovered = false,
-        pressable = false,
-        tooltip = nil,
-        dynamicHeight = nil,
-        parentModule = section.parentModule
-    }
-    table.insert(section.elements, element)
-    return element
-end
-
-local function ensureFlag(flag, default)
-    if LibraryApi.Flags[flag] == nil then
-        LibraryApi.Flags[flag] = default
-    end
-    return LibraryApi.Flags[flag]
-end
-
-local function sanitizeFlagPart(value)
-    value = tostring(value or "value"):lower()
-    value = value:gsub("%s+", "_"):gsub("[^%w_]", "")
-    if value == "" then
-        value = "value"
-    end
-    return value
-end
-
-local function makeAutoFlag(section, name)
-    local parts = {}
-    if section and section.window and section.window.title then
-        table.insert(parts, sanitizeFlagPart(section.window.title))
-    end
-    if section and section.tab and section.tab.title then
-        table.insert(parts, sanitizeFlagPart(section.tab.title))
-    end
-    if section and section.title then
-        table.insert(parts, sanitizeFlagPart(section.title))
-    end
-    table.insert(parts, sanitizeFlagPart(name))
-    return table.concat(parts, ".")
-end
-
-local function normalizeSectionArgs(first, second)
-    local side
-    local title
-    local firstText = tostring(first or "")
-    local firstLower = string.lower(firstText)
-    if firstLower == "left" or firstLower == "right" then
-        side = firstText
-        title = second
+runService.RenderStepped:Connect(function()
+    if tooltipTargetText ~= "" then
+        local mouseLocation = userInputService:GetMouseLocation()
+        tooltipFrame.Position = UDim2.new(0, mouseLocation.X + 15, 0, mouseLocation.Y + 15)
+        if not tooltipFrame.Visible then
+            tooltipFrame.Visible = true
+            animateElement(tooltipFrame, {BackgroundTransparency = 0.1837265}, 0.25)
+            animateElement(tooltipStroke, {Transparency = 0}, 0.25)
+            animateElement(tooltipText, {TextTransparency = 0}, 0.25)
+        end
     else
-        title = first
-        side = second
-    end
-    side = tostring(side or "Left")
-    if string.lower(side) == "right" then
-        side = "Right"
-    else
-        side = "Left"
-    end
-    return side, tostring(title or "Section")
-end
-
-local function isElementVisibleInLayout(element)
-    if not element then return false end
-    if element.visible == false then return false end
-    if element.parentModule then
-        return LibraryApi.Flags[element.parentModule.flag] == true
-    end
-    return true
-end
-
-local function createWindowDrawings(window)
-    local g = createGroup()
-    g.body = addToGroup(g, createSoftFrame(20))
-    g.top = addToGroup(g, createSoftFrame(26))
-    g.sidebar = addToGroup(g, createSoftFrame(24))
-    g.accentGlow = addToGroup(g, createRoundedPrimitive(33, colors.accentGradientColor2, 0.18))
-    g.accent = addToGroup(g, createRoundedPrimitive(34, colors.accentColor, 1))
-    g.topBorder = addToGroup(g, createRoundedPrimitive(28, colors.borderColor, 0.9))
-    g.sidebarBorder = addToGroup(g, createRoundedPrimitive(28, colors.borderColor, 0.9))
-    g.title = addToGroup(g, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Outline = true, Center = false, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 35, Visible = true, Text = window.title }))
-    g.tabIndicatorGlow = addToGroup(g, createRoundedPrimitive(33, colors.accentColor, 0.14))
-    g.tabIndicator = addToGroup(g, createRoundedPrimitive(34, colors.accentColor, 1))
-    window.drawings = g
-end
-
-local function createTabDrawings(tab)
-    local g = createGroup()
-    g.button = addToGroup(g, createSoftFrame(30))
-    g.indicatorGlow = addToGroup(g, createRoundedPrimitive(33, colors.accentColor, 0.22))
-    g.indicator = addToGroup(g, createRoundedPrimitive(34, colors.accentColor, 1))
-    g.icon = addToGroup(g, newDrawing("Text", { Size = 14, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 35, Visible = true, Text = tostring(tab.icon or "•") }))
-    g.text = addToGroup(g, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 35, Visible = true, Text = tab.title }))
-    tab.drawings = g
-end
-
-local function createSectionDrawings(section)
-    local g = createGroup()
-    g.frame = addToGroup(g, createSoftFrame(40))
-    g.title = addToGroup(g, newDrawing("Text", { Size = 13, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 43, Visible = true, Text = section.title }))
-    g.sep = addToGroup(g, createRoundedPrimitive(42, colors.borderColor, 0.85))
-    section.drawings = g
-end
-
-local function setWindowVisible(window, state)
-    window.visible = state
-    if not state then
-        if UI.focusedTextbox and UI.focusedTextbox.window == window then
-            focusTextbox(nil)
-        end
-        if UI.bindingKey and UI.bindingKey.window == window then
-            endKeybind()
-        end
-        if UI.active and UI.active.window == window then
-            UI.active = nil
-        end
-        if UI.openDropdown and UI.openDropdown.window == window then
-            UI.openDropdown.open = false
-            hideGroup(UI.openDropdown.popup)
-            UI.openDropdown = nil
-        end
-        if UI.openColorPicker and UI.openColorPicker.window == window then
-            UI.openColorPicker.open = false
-            UI.openColorPicker.animOpen = 0
-            hideGroup(UI.openColorPicker.popup)
-            UI.openColorPicker = nil
-        end
-        setVisible(window.drawings, false)
-        for _, tab in ipairs(window.tabs or {}) do
-            setVisible(tab.drawings, false)
-            for _, section in ipairs(tab.sections or {}) do
-                setVisible(section.drawings, false)
-                for _, element in ipairs(section.elements or {}) do
-                    setElementBaseVisible(element, false)
-                    if element.popup then
-                        hideGroup(element.popup)
-                    end
-                end
+        animateElement(tooltipFrame, {BackgroundTransparency = 1}, 0.15)
+        animateElement(tooltipStroke, {Transparency = 1}, 0.15)
+        animateElement(tooltipText, {TextTransparency = 1}, 0.15)
+        task.delay(0.15, function()
+            if tooltipTargetText == "" then
+                tooltipFrame.Visible = false
             end
-        end
+        end)
     end
-end
+end)
 
-local function getVisibleWindows()
-    local windows = {}
-    for _, window in ipairs(UI.windows) do
-        if window.visible then
-            table.insert(windows, window)
-        end
-    end
-    return windows
-end
+function LibraryApi:Notify(config)
+    local title = config.Title or "Notification"
+    local text = config.Text or ""
+    local duration = config.Duration or 3
+    local notificationType = config.Type or "Info"
+    local accentColor = colors["notification" .. notificationType .. "Color"] or colors.accentColor
 
-local function bringWindowToFront(window)
-    for i, w in ipairs(UI.windows) do
-        if w == window then
-            table.remove(UI.windows, i)
-            break
-        end
-    end
-    table.insert(UI.windows, window)
-end
+    local notificationFrame = Instance.new("Frame")
+    notificationFrame.Size = UDim2.new(1, 0, 0, 60)
+    notificationFrame.Position = UDim2.new(1, 320, 0, 0)
+    notificationFrame.BackgroundColor3 = colors.mainBackground
+    notificationFrame.BackgroundTransparency = 0.28547
+    notificationFrame.ZIndex = 1501
+    notificationFrame.Parent = notificationContainer
 
-local function layoutWindow(window)
-    window.topHeight = 36
-    window.sidebarWidth = 150
-    window.contentPadding = 10
-    window.tabButtonHeight = 32
-    window.tabButtonGap = 4
-    window.sectionTitleHeight = 24
-    window.contentX = math.floor(window.x + 151 + window.contentPadding)
-    window.contentY = math.floor(window.y + 37 + window.contentPadding)
-    window.contentW = math.floor(window.w - 151 - (window.contentPadding * 2))
-    window.contentH = math.floor(window.h - 37 - (window.contentPadding * 2))
-    window.columnGap = 10
-    window.columnWidth = math.floor((window.contentW - window.columnGap) / 2)
+    local notificationCorner = Instance.new("UICorner")
+    notificationCorner.CornerRadius = UDim.new(0, 6)
+    notificationCorner.Parent = notificationFrame
 
-    local d = window.drawings
-    setSoftFrame(d.body, window.x, window.y, window.w, window.h, 6, colors.mainBackground, 0.81626, colors.borderColor, 1, 2)
-    setSoftFrame(d.top, window.x, window.y, window.w, 36, 6, colors.sidebarBackground, 0.78153, colors.borderColor, 0, 0)
-    setSoftFrame(d.sidebar, window.x, window.y + 37, 150, window.h - 37, 6, colors.sidebarBackground, 0.78153, colors.borderColor, 0, 1)
-    setRoundedPrimitive(d.accentGlow, window.x + 0, window.y + 0, window.w, 2, 1, colors.accentGradientColor2, 0.16, true)
-    setRoundedPrimitive(d.accent, window.x + 0, window.y + 0, window.w, 2, 1, colors.accentColor, 1, true)
-    setRoundedPrimitive(d.topBorder, window.x + 0, window.y + 36, window.w, 1, 0, colors.borderColor, 0.85, true)
-    setRoundedPrimitive(d.sidebarBorder, window.x + 150, window.y + 37, 1, window.h - 37, 0, colors.borderColor, 0.85, true)
-    d.title.Position = Vector2.new(window.x + 15, window.y + 11)
+    local notificationStroke = Instance.new("UIStroke")
+    notificationStroke.Color = colors.borderLightColor
+    notificationStroke.Parent = notificationFrame
 
-    for _, tab in ipairs(window.tabs) do
-        if tab.drawings then
-            hideGroup(tab.drawings.indicatorGlow)
-            hideGroup(tab.drawings.indicator)
-        end
-    end
+    applyAcrylicEffect(notificationFrame, 0.91238, UDim.new(0, 6))
 
-    local activeTabY = nil
+    local lineFrame = Instance.new("Frame")
+    lineFrame.Size = UDim2.new(0, 3, 1, -12)
+    lineFrame.Position = UDim2.new(0, 6, 0, 6)
+    lineFrame.BackgroundColor3 = accentColor
+    lineFrame.BorderSizePixel = 0
+    lineFrame.ZIndex = 1502
+    lineFrame.Parent = notificationFrame
 
-    for index, tab in ipairs(window.tabs) do
-        tab.x = window.x + 5
-        tab.y = window.y + 42 + (index - 1) * (window.tabButtonHeight + window.tabButtonGap)
-        tab.w = 140
-        tab.h = window.tabButtonHeight
-        local td = tab.drawings
-        local active = tab == window.activeTab
-        setSoftFrame(td.button, tab.x, tab.y, tab.w, tab.h, 4, active and colors.elementHoverBackground or colors.sidebarBackground, active and 0.78153 or 0.0, active and colors.borderLightColor or colors.borderColor, active and 0.18 or 0.0, 0)
-        hideGroup(td.indicatorGlow)
-        hideGroup(td.indicator)
-        if active then
-            activeTabY = tab.y
-        end
-        td.icon.Text = tostring(tab.icon or "•")
-        td.icon.Position = Vector2.new(tab.x + 12, tab.y + 8)
-        td.icon.Color = active and colors.accentColor or colors.textDarkColor
-        td.text.Position = Vector2.new(tab.x + 34, tab.y + 9)
-    end
+    local lineCorner = Instance.new("UICorner")
+    lineCorner.CornerRadius = UDim.new(0, 3)
+    lineCorner.Parent = lineFrame
 
-    if activeTabY then
-        setRoundedPrimitive(d.tabIndicatorGlow, window.x + 5, activeTabY + 7, 2, 18, 1, colors.accentColor, 0.14, true)
-        setRoundedPrimitive(d.tabIndicator, window.x + 5, activeTabY + 7, 2, 18, 1, colors.accentColor, 1, true)
-    else
-        hideGroup(d.tabIndicatorGlow)
-        hideGroup(d.tabIndicator)
-    end
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -24, 0, 16)
+    titleLabel.Position = UDim2.new(0, 16, 0, 8)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title
+    titleLabel.TextColor3 = colors.textWhiteColor
+    titleLabel.TextSize = 13
+    titleLabel.Font = boldFont
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.ZIndex = 1502
+    titleLabel.Parent = notificationFrame
 
-    if not window.activeTab then return end
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -24, 0, 24)
+    textLabel.Position = UDim2.new(0, 16, 0, 26)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = text
+    textLabel.TextColor3 = colors.textDarkColor
+    textLabel.TextSize = 12
+    textLabel.Font = mainFont
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextWrapped = true
+    textLabel.ZIndex = 1502
+    textLabel.Parent = notificationFrame
 
-    local leftY = window.contentY
-    local rightY = window.contentY
+    animateElement(notificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.45)
 
-    for _, section in ipairs(window.activeTab.sections) do
-        local columnX = math.floor(section.side == "Left" and window.contentX or (window.contentX + window.columnWidth + window.columnGap))
-        local contentWidth = math.floor(window.columnWidth)
-        local startY = math.floor(section.side == "Left" and leftY or rightY)
-        local currentY = startY + 32
-        section.x = columnX
-        section.y = startY
-        section.w = contentWidth
-        section.contentX = columnX + 10
-        section.contentY = startY + 32
-        section.contentW = contentWidth - 20
-        section.viewportBottomPadding = 10
-
-        for _, element in ipairs(section.elements) do
-            local visibleInLayout = isElementVisibleInLayout(element)
-            local indent = element.parentModule and 12 or 0
-            if element.dynamicHeight then
-                element.height = element:dynamicHeight()
-            end
-            element._indent = indent
-            element._baseY = math.floor(currentY)
-            if visibleInLayout then
-                local extra = element.height or 0
-                currentY = math.floor(currentY + extra + 8)
-            end
-        end
-
-        local contentHeight = math.max(38, math.floor(currentY - startY + 8))
-        local availableHeight = math.max(0, math.floor(window.contentY + window.contentH - startY))
-        section.h = math.min(contentHeight, availableHeight)
-        section.scrollMax = math.max(0, contentHeight - section.h)
-        section.scroll = clamp(section.scroll or 0, 0, section.scrollMax)
-        section.viewportTop = section.contentY
-        section.viewportBottom = section.y + section.h - section.viewportBottomPadding
-
-        for _, element in ipairs(section.elements) do
-            element.x = math.floor(section.contentX + (element._indent or 0))
-            element.y = math.floor((element._baseY or section.contentY) - (section.scroll or 0))
-            element.w = math.floor(section.contentW - (element._indent or 0))
-        end
-
-        local sd = section.drawings
-        if section.h > 0 then
-            setSoftFrame(sd.frame, section.x, section.y, section.w, section.h, 6, colors.sectionBackground, 0.78153, colors.borderColor, 0.90, 1)
-            sd.title.Position = Vector2.new(section.x + 12, section.y + 8)
-            setRoundedPrimitive(sd.sep, section.x + 12, section.y + 28, section.w - 24, 1, 0, colors.borderColor, 0.42, true)
-        else
-            hideGroup(sd.frame)
-            trySetVisible(sd.title, false)
-            trySetVisible(sd.sep, false)
-        end
-
-        if section.side == "Left" then
-            leftY = math.floor(section.y + section.h + 10)
-        else
-            rightY = math.floor(section.y + section.h + 10)
-        end
-    end
-end
-
-local function forEachElement(window, callback)
-    if not window.activeTab then return end
-    for _, section in ipairs(window.activeTab.sections) do
-        callback(section)
-        for _, element in ipairs(section.elements) do
-            callback(element)
-        end
-    end
-end
-
-local setTooltipText
-
-local function drawTab(tab)
-    local active = tab.window.activeTab == tab
-    local hovered = UI.hovered == tab
-    tab.drawings.text.Color = active and colors.textWhiteColor or (hovered and Color3.fromRGB(188, 194, 208) or colors.textDarkColor)
-    if hovered then
-        setTooltipText(tab.title)
-    end
-end
-
-hideGroup = function(group)
-    if type(group) ~= "table" then return end
-    for key, drawing in pairs(group) do
-        if key ~= "__isGroup" then
-            if type(drawing) == "table" and rawget(drawing, "__isGroup") then
-                hideGroup(drawing)
-            else
-                trySetVisible(drawing, false)
-            end
-        end
-    end
-end
-
-local function setElementBaseVisible(element, visible)
-    if type(element) ~= "table" or type(element.drawings) ~= "table" then return end
-    for key, drawing in pairs(element.drawings) do
-        if key ~= "__isGroup" then
-            if type(drawing) == "table" and rawget(drawing, "__isGroup") then
-                if visible then
-                    setVisible(drawing, true)
-                else
-                    hideGroup(drawing)
-                end
-            else
-                trySetVisible(drawing, visible)
-            end
-        end
-    end
-end
-
-local function isElementInsideViewport(element)
-    local section = element.section
-    if not section then return true end
-    local top = tonumber(section.viewportTop) or tonumber(section.contentY) or tonumber(section.y) or 0
-    local sectionY = tonumber(section.y) or top
-    local sectionH = tonumber(section.h) or 0
-    local bottom = tonumber(section.viewportBottom) or (sectionY + sectionH)
-    local elemTop = tonumber(element.y) or 0
-    local elemBottom = elemTop + (tonumber(element.height) or 0)
-    return elemBottom >= top and elemTop <= bottom
-end
-
-local function renderElement(element)
-    if not element.window.visible or element.window.activeTab ~= element.tab or not isElementVisibleInLayout(element) or not isElementInsideViewport(element) then
-        setElementBaseVisible(element, false)
-        return
-    end
-    element:draw()
-end
-
-local function renderWindow(window)
-    local visible = window.visible
-    setVisible(window.drawings, visible)
-    if not visible then
-        for _, tab in ipairs(window.tabs) do
-            setVisible(tab.drawings, false)
-            for _, section in ipairs(tab.sections) do
-                setVisible(section.drawings, false)
-                for _, element in ipairs(section.elements) do
-                    setElementBaseVisible(element, false)
-                end
-            end
-        end
-        return
-    end
-
-    for _, tab in ipairs(window.tabs) do
-        setVisible(tab.drawings, true)
-        drawTab(tab)
-        local active = window.activeTab == tab
-        for _, section in ipairs(tab.sections) do
-            setVisible(section.drawings, active)
-            if active then
-                for _, element in ipairs(section.elements) do
-                    renderElement(element)
-                end
-            else
-                for _, element in ipairs(section.elements) do
-                    setElementBaseVisible(element, false)
-                end
-            end
-        end
-    end
-end
-
-local function getTopWindowAtMouse()
-    for i = #UI.windows, 1, -1 do
-        local window = UI.windows[i]
-        if window.visible and pointInRect(UI.mousePos, window.x, window.y, window.w, window.h) then
-            return window
-        end
-    end
-end
-
-local function hitTestElement(window)
-    if not window or not window.visible then return nil end
-
-    if UI.openColorPicker and UI.openColorPicker.window == window and UI.openColorPicker.open then
-        local cp = UI.openColorPicker
-        if pointInRect(UI.mousePos, cp.popupX, cp.popupY, cp.popupW, cp.popupH) then return cp end
-    end
-
-    if UI.openDropdown and UI.openDropdown.window == window and UI.openDropdown.open then
-        local dd = UI.openDropdown
-        if pointInRect(UI.mousePos, dd.popupX, dd.popupY, dd.popupW, dd.popupH) then return dd end
-    end
-
-    if window.activeTab then
-        for si = #window.activeTab.sections, 1, -1 do
-            local section = window.activeTab.sections[si]
-            for ei = #section.elements, 1, -1 do
-                local element = section.elements[ei]
-                if isElementVisibleInLayout(element) and isElementInsideViewport(element) and element.hitTest and element:hitTest(UI.mousePos) then
-                    return element
-                end
-            end
-        end
-    end
-
-    for i = #window.tabs, 1, -1 do
-        local tab = window.tabs[i]
-        if pointInRect(UI.mousePos, tab.x, tab.y, tab.w, tab.h) then return tab end
-    end
-
-    if pointInRect(UI.mousePos, window.x, window.y, window.w, window.topHeight) then return window end
-    return nil
-end
-
-setTooltipText = function(text)
-    UI.tooltip = text
-end
-
-local function initialize()
-    if UI.initialized then return end
-    UI.initialized = true
-
-    local keyWatch = {
-        Enum.KeyCode.Delete, Enum.KeyCode.Backspace, Enum.KeyCode.Return, Enum.KeyCode.Space,
-        Enum.KeyCode.A, Enum.KeyCode.B, Enum.KeyCode.C, Enum.KeyCode.D, Enum.KeyCode.E, Enum.KeyCode.F, Enum.KeyCode.G, Enum.KeyCode.H, Enum.KeyCode.I, Enum.KeyCode.J, Enum.KeyCode.K, Enum.KeyCode.L, Enum.KeyCode.M,
-        Enum.KeyCode.N, Enum.KeyCode.O, Enum.KeyCode.P, Enum.KeyCode.Q, Enum.KeyCode.R, Enum.KeyCode.S, Enum.KeyCode.T, Enum.KeyCode.U, Enum.KeyCode.V, Enum.KeyCode.W, Enum.KeyCode.X, Enum.KeyCode.Y, Enum.KeyCode.Z,
-        Enum.KeyCode.Zero, Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Seven, Enum.KeyCode.Eight, Enum.KeyCode.Nine,
-        Enum.KeyCode.Minus, Enum.KeyCode.Equals, Enum.KeyCode.LeftBracket, Enum.KeyCode.RightBracket, Enum.KeyCode.Semicolon, Enum.KeyCode.Quote, Enum.KeyCode.Comma, Enum.KeyCode.Period, Enum.KeyCode.Slash, Enum.KeyCode.Backquote, Enum.KeyCode.BackSlash
-    }
-
-    UI.keyState = UI.keyState or {}
-    UI.prevMouse1 = false
-    UI.prevMouse2 = false
-
-    local function pollKeyDown(keyCode)
-        local ok, value = pcall(function() return userInputService:IsKeyDown(keyCode) end)
-        if ok then return value == true end
-        return false
-    end
-
-    local function onDeleteToggle()
-        local targetState = true
-        for _, window in ipairs(UI.windows) do
-            if window.visible then
-                targetState = false
-                break
-            end
-        end
-        UI.mouseDown = false
-        UI.active = nil
-        if UI.openDropdown then
-            UI.openDropdown.open = false
-            hideGroup(UI.openDropdown.popup)
-            UI.openDropdown = nil
-        end
-        if UI.openColorPicker then
-            UI.openColorPicker.open = false
-            UI.openColorPicker.animOpen = 0
-            hideGroup(UI.openColorPicker.popup)
-            UI.openColorPicker = nil
-        end
-        for _, window in ipairs(UI.windows) do
-            setWindowVisible(window, targetState)
-        end
-    end
-
-    local function appendFocusedTextboxChar(char)
-        if not (UI.focusedTextbox and char and char ~= "") then return end
-        local shifted = isShiftHeld()
-        if shifted then
-            local shiftMap = {
-                ["1"] = "!", ["2"] = "@", ["3"] = "#", ["4"] = "$", ["5"] = "%", ["6"] = "^", ["7"] = "&", ["8"] = "*", ["9"] = "(", ["0"] = ")",
-                ["-"] = "_", ["="] = "+", ["["] = "{", ["]"] = "}", [";"] = ":", ["'"] = '"', [","] = "<", ["."] = ">", ["/"] = "?", ["\\"] = "|", ["`"] = "~"
-            }
-            char = shiftMap[char] or string.upper(char)
-        end
-        UI.focusedTextbox.value = UI.focusedTextbox.value .. char
-        LibraryApi.Flags[UI.focusedTextbox.flag] = UI.focusedTextbox.value
-        saveConfiguration()
-        if UI.focusedTextbox.callback then
-            task.spawn(UI.focusedTextbox.callback, UI.focusedTextbox.value)
-        end
-    end
-
-    local function onMouse1Pressed()
-        UI.mouseDown = true
-        UI.mousePos = getMousePosition()
-        local topWindow = getTopWindowAtMouse()
-        if topWindow then
-            bringWindowToFront(topWindow)
-            local hit = hitTestElement(topWindow)
-            UI.hovered = hit
-            if UI.openDropdown and UI.openDropdown.window == topWindow and UI.openDropdown.open and hit ~= UI.openDropdown then
-                if not pointInRect(UI.mousePos, UI.openDropdown.popupX, UI.openDropdown.popupY, UI.openDropdown.popupW, UI.openDropdown.popupH) then
-                    UI.openDropdown.open = false
-                    hideGroup(UI.openDropdown.popup)
-                    UI.openDropdown = nil
-                end
-            end
-            if UI.openColorPicker and UI.openColorPicker.window == topWindow and UI.openColorPicker.open and hit ~= UI.openColorPicker then
-                if not pointInRect(UI.mousePos, UI.openColorPicker.popupX, UI.openColorPicker.popupY, UI.openColorPicker.popupW, UI.openColorPicker.popupH) then
-                    UI.openColorPicker.open = false
-                    UI.openColorPicker.animOpen = 0
-                    hideGroup(UI.openColorPicker.popup)
-                    UI.openColorPicker = nil
-                end
-            end
-            if hit == topWindow then
-                UI.active = { type = "windowdrag", window = topWindow, offX = UI.mousePos.X - topWindow.x, offY = UI.mousePos.Y - topWindow.y }
-                focusTextbox(nil)
-            elseif hit and hit.kind == "textbox" then
-                focusTextbox(hit)
-                hit:onMouseDown(UI.mousePos)
-            elseif hit and hit.onMouseDown then
-                focusTextbox(nil)
-                hit:onMouseDown(UI.mousePos)
-            elseif hit and hit.title then
-                focusTextbox(nil)
-                topWindow.activeTab = hit
-                if UI.openDropdown then UI.openDropdown.open = false hideGroup(UI.openDropdown.popup) UI.openDropdown = nil end
-                if UI.openColorPicker then UI.openColorPicker.open = false UI.openColorPicker.animOpen = 0 hideGroup(UI.openColorPicker.popup) UI.openColorPicker = nil end
-            else
-                focusTextbox(nil)
-            end
-        else
-            focusTextbox(nil)
-            if UI.openDropdown then UI.openDropdown.open = false hideGroup(UI.openDropdown.popup) UI.openDropdown = nil end
-            if UI.openColorPicker then UI.openColorPicker.open = false UI.openColorPicker.animOpen = 0 hideGroup(UI.openColorPicker.popup) UI.openColorPicker = nil end
-        end
-    end
-
-    local function onMouse2Pressed()
-        UI.mousePos = getMousePosition()
-        local topWindow = getTopWindowAtMouse()
-        if topWindow then
-            bringWindowToFront(topWindow)
-            local hit = hitTestElement(topWindow)
-            if hit and hit.onMouse2Down then
-                hit:onMouse2Down(UI.mousePos)
-            end
-        end
-    end
-
-    local function onMouse1Released()
-        UI.mouseDown = false
-        if UI.active then
-            if UI.active.type == "slider" and UI.active.element.onMouseUp then
-                UI.active.element:onMouseUp(UI.mousePos)
-            elseif UI.active.type == "rangeslider" and UI.active.element.onMouseUp then
-                UI.active.element:onMouseUp(UI.mousePos)
-            elseif UI.active.type == "colorpicker" and UI.active.element.onMouseUp then
-                UI.active.element:onMouseUp(UI.mousePos)
-            end
-        end
-        UI.active = nil
-    end
-
-    UI.connections.scroll = userInputService.InputChanged:Connect(function(input)
-        if not input or input.UserInputType ~= Enum.UserInputType.MouseWheel then return end
-        UI.mousePos = getMousePosition()
-        local window = getTopWindowAtMouse()
-        if not window or not window.visible or not window.activeTab then return end
-        for _, section in ipairs(window.activeTab.sections) do
-            if pointInRect(UI.mousePos, section.x, section.y, section.w, section.h) then
-                local delta = 0
-                pcall(function() delta = tonumber(input.Position.Z) or 0 end)
-                if delta == 0 then pcall(function() delta = tonumber(input.Delta.Z) or 0 end) end
-                section.scroll = clamp((section.scroll or 0) - (delta * 18), 0, section.scrollMax or 0)
-                break
-            end
-        end
+    task.delay(duration, function()
+        local hideTween = animateElement(notificationFrame, {Position = UDim2.new(1, 320, 0, 0)}, 0.45)
+        hideTween.Completed:Connect(function()
+            notificationFrame:Destroy()
+        end)
     end)
-
-    UI.connections.render = runService.RenderStepped:Connect(function(dt)
-        UI.mousePos = getMousePosition()
-        UI.blinkClock = UI.blinkClock + dt
-        UI.tooltip = nil
-
-        local mouse1 = isMouse1Held()
-        local mouse2 = isMouse2Held()
-
-        if mouse1 and not UI.prevMouse1 then
-            onMouse1Pressed()
-        elseif (not mouse1) and UI.prevMouse1 then
-            onMouse1Released()
-        end
-
-        if mouse2 and not UI.prevMouse2 then
-            onMouse2Pressed()
-        end
-
-        UI.prevMouse1 = mouse1
-        UI.prevMouse2 = mouse2
-
-        for _, keyCode in ipairs(keyWatch) do
-            local down = pollKeyDown(keyCode)
-            local wasDown = UI.keyState[keyCode]
-            if down and not wasDown then
-                if UI.bindingKey then
-                    if keyCode == Enum.KeyCode.Backspace or keyCode == Enum.KeyCode.Delete then
-                        LibraryApi.Flags[UI.bindingKey.flag] = Enum.KeyCode.Unknown
-                    elseif keyCode ~= Enum.KeyCode.Unknown then
-                        LibraryApi.Flags[UI.bindingKey.flag] = keyCode
-                    end
-                    if UI.bindingKey.callback then
-                        task.spawn(UI.bindingKey.callback, LibraryApi.Flags[UI.bindingKey.flag])
-                    end
-                    saveConfiguration()
-                    UI.bindingKey.waiting = false
-                    endKeybind()
-                elseif keyCode == Enum.KeyCode.Delete then
-                    onDeleteToggle()
-                elseif keyCode == Enum.KeyCode.Backspace then
-                    UI.backspaceHeld = true
-                    UI.nextTextRepeat = tick() + 0.38
-                    deleteFocusedTextboxChar()
-                elseif keyCode == Enum.KeyCode.Return then
-                    if UI.focusedTextbox then
-                        UI.focusedTextbox.focused = false
-                        UI.focusedTextbox = nil
-                    end
-                elseif UI.focusedTextbox and keyCode == Enum.KeyCode.Space then
-                    appendFocusedTextboxChar(" ")
-                elseif UI.focusedTextbox then
-                    local ok, char = pcall(function() return userInputService:GetStringForKeyCode(keyCode) end)
-                    if ok and char and char ~= "" then
-                        appendFocusedTextboxChar(char)
-                    end
-                end
-            elseif (not down) and wasDown then
-                if keyCode == Enum.KeyCode.Backspace then
-                    UI.backspaceHeld = false
-                elseif keyCode == Enum.KeyCode.Delete then
-                    UI.deleteHeld = false
-                end
-            end
-            UI.keyState[keyCode] = down
-        end
-
-        local deleteDown = pollKeyDown(Enum.KeyCode.Delete)
-        if deleteDown and not UI.bindingKey then
-            UI.deleteHeld = true
-        elseif not deleteDown then
-            UI.deleteHeld = false
-        end
-
-        if UI.mouseDown and not mouse1 then
-            UI.mouseDown = false
-            if UI.active and UI.active.element and UI.active.element.onMouseUp then
-                UI.active.element:onMouseUp(UI.mousePos)
-            end
-            UI.active = nil
-        end
-
-        if UI.focusedTextbox and (UI.backspaceHeld or UI.deleteHeld) and tick() >= (UI.nextTextRepeat or 0) then
-            deleteFocusedTextboxChar()
-            UI.nextTextRepeat = tick() + 0.045
-        end
-
-        if UI.active and UI.active.type == "windowdrag" then
-            local window = UI.active.window
-            local viewport = getViewportSize()
-            window.x = clamp(UI.mousePos.X - UI.active.offX, 0, math.max(0, viewport.X - window.w))
-            window.y = clamp(UI.mousePos.Y - UI.active.offY, 0, math.max(0, viewport.Y - window.h))
-        elseif UI.active and UI.active.element and UI.active.element.onDrag then
-            UI.active.element:onDrag(UI.mousePos)
-        end
-
-        for _, window in ipairs(UI.windows) do
-            layoutWindow(window)
-        end
-
-        local topWindow = getTopWindowAtMouse()
-        UI.hovered = hitTestElement(topWindow)
-
-        for _, window in ipairs(UI.windows) do
-            renderWindow(window)
-        end
-
-        for _, notification in ipairs(UI.notifications) do
-            local age = tick() - notification.born
-            notification.alpha = clamp(1 - math.max(0, age - notification.duration + 0.25) / 0.25, 0, 1)
-        end
-        for i = #UI.notifications, 1, -1 do
-            if UI.notifications[i].alpha <= 0 then
-                table.remove(UI.notifications, i)
-            end
-        end
-
-        drawTooltip(UI.tooltip)
-    end)
-end
-
-local function makeSectionApi(section)
-    local api = {}
-
-    function api:Subtext_Create(text)
-        local element = createBaseElement(section, "subtext", 16)
-        element.text = tostring(text or "")
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = element.text }))
-        function element:hitTest() return false end
-        function element:draw()
-            self.label.Position = Vector2.new(self.x + 2, self.y + 2)
-            self.label.Text = self.text
-            self.label.Visible = true
-        end
-        return element
-    end
-
-    function api:Toggle_Create(name, flag, default, tooltipText, callback)
-        if type(flag) ~= "string" then
-            callback = tooltipText
-            tooltipText = default
-            default = flag
-            flag = makeAutoFlag(section, name)
-        end
-        local value = ensureFlag(flag, default or false)
-        local element = createBaseElement(section, "toggle", tooltipText and tooltipText ~= "" and 30 or 18)
-        element.name = tostring(name or "Toggle")
-        element.flag = flag
-        element.tooltip = tooltipText
-        element.callback = callback
-        element.pressable = true
-        element.box = addToGroup(element.drawings, createSoftFrame(60))
-        element.knob = addToGroup(element.drawings, createRoundedPrimitive(63, colors.textWhiteColor, 1))
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Outline = false, Center = false, Transparency = 1, Color = value and colors.textWhiteColor or colors.textDarkColor, ZIndex = 64, Visible = false, Text = element.name }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Outline = false, Center = false, Transparency = 1, Color = colors.textDarkColor, ZIndex = 64, Visible = false, Text = tostring(tooltipText or "") }))
-        function element:hitTest(pos)
-            return pointInRect(pos, self.x, self.y, self.w, math.max(self.height or 0, 48))
-        end
-        function element:onMouseDown()
-            local state = not LibraryApi.Flags[self.flag]
-            LibraryApi.Flags[self.flag] = state
-            saveConfiguration()
-            if self.callback then task.spawn(self.callback, state) end
-        end
-        function element:draw()
-            local state = LibraryApi.Flags[self.flag]
-            local hovered = UI.hovered == self
-            setSoftFrame(self.box, self.x + 2, self.y + 1, 30, 16, 4, state and colors.accentColor or colors.elementBackground, 0.98, state and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.95, 1)
-            setRoundedPrimitive(self.knob, self.x + (state and 17 or 4), self.y + 4, 8, 8, 3, colors.textWhiteColor, 1, true)
-            local titleY = self.tooltip and self.tooltip ~= "" and (self.y + 1) or (self.y + 3)
-            self.label.Position = Vector2.new(self.x + 40, titleY)
-            self.label.Text = self.name
-            self.label.Color = state and colors.textWhiteColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
-            self.label.Visible = true
-            self.desc.Position = Vector2.new(self.x + 40, self.y + 15)
-            self.desc.Text = tostring(self.tooltip or "")
-            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
-            if hovered then setTooltipText(self.tooltip) end
-        end
-        return element
-    end
-
-    function api:Slider_Create(name, flag, min, max, default, step, tooltipText, callback)
-        if type(flag) ~= "string" then
-            local args = { flag, min, max, default, step, tooltipText, callback }
-            flag = makeAutoFlag(section, name)
-            min = tonumber(args[1]) or 0
-            max = tonumber(args[2]) or 100
-            default = args[3]
-            if type(args[4]) == "number" or type(args[4]) == "string" then
-                step = args[4]
-                tooltipText = args[5]
-                callback = args[6]
-            else
-                step = nil
-                tooltipText = args[4]
-                callback = args[5]
-            end
-        end
-        step = normalizeStep(step)
-        local value = ensureFlag(flag, snapValue(default or min, step))
-        local element = createBaseElement(section, "slider", tooltipText and tooltipText ~= "" and 40 or 28)
-        element.name = tostring(name or "Slider")
-        element.flag = flag
-        element.min = tonumber(min) or 0
-        element.max = tonumber(max) or 100
-        if element.max < element.min then element.min, element.max = element.max, element.min end
-        element.step = step
-        element.tooltip = tooltipText
-        element.callback = callback
-        LibraryApi.Flags[flag] = clamp(tonumber(value) or element.min, element.min, element.max)
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
-        element.valueText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = formatValue(LibraryApi.Flags[flag], step) }))
-        element.track = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.elementBackground, ZIndex = 60, Visible = false }))
-        element.trackBorder = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 61, Visible = false }))
-        element.fill = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = colors.accentColor, ZIndex = 62, Visible = false }))
-        element.knob = addToGroup(element.drawings, newDrawing("Circle", { Filled = true, Thickness = 1, Transparency = 1, Radius = 4, Color = colors.textWhiteColor, ZIndex = 63, Visible = false }))
-        element.knobBorder = addToGroup(element.drawings, newDrawing("Circle", { Filled = false, Thickness = 1, Transparency = 1, Radius = 4, Color = colors.borderColor, ZIndex = 64, Visible = false }))
-        function element:setFromMouse(pos)
-            local sx = self.x + 2
-            local width = math.max(1, self.w - 8)
-            local alpha = clamp((pos.X - sx) / width, 0, 1)
-            local newValue = snapValue(self.min + (self.max - self.min) * alpha, self.step)
-            newValue = clamp(tonumber(newValue) or self.min, self.min, self.max)
-            if LibraryApi.Flags[self.flag] ~= newValue then
-                LibraryApi.Flags[self.flag] = newValue
-                saveConfiguration()
-                if self.callback then task.spawn(self.callback, newValue) end
-            end
-        end
-        function element:hitTest(pos)
-            return pointInRect(pos, self.x, self.y, self.w, self.height)
-        end
-        function element:onMouseDown(pos)
-            UI.active = { type = "slider", element = self, window = self.window }
-            self:setFromMouse(pos)
-        end
-        function element:onDrag(pos)
-            self:setFromMouse(pos)
-        end
-        function element:onMouseUp(pos)
-            self:setFromMouse(pos)
-        end
-        function element:draw()
-            local valueNow = clamp(tonumber(LibraryApi.Flags[self.flag]) or self.min, self.min, self.max)
-            local trackW = math.max(1, self.w - 8)
-            local pct = (valueNow - self.min) / math.max(1e-9, (self.max - self.min))
-            local fillW = math.max(1, trackW * pct)
-            local hovered = UI.hovered == self or (UI.active and UI.active.element == self)
-            local labelY = self.y + 1
-            local trackY = self.tooltip and self.tooltip ~= "" and (self.y + 31) or (self.y + 19)
-            self.label.Position = Vector2.new(self.x + 2, labelY)
-            self.label.Text = self.name
-            self.desc.Position = Vector2.new(self.x + 2, self.y + 15)
-            self.desc.Text = tostring(self.tooltip or "")
-            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
-            self.valueText.Text = formatValue(valueNow, self.step or 1)
-            self.valueText.Position = Vector2.new(self.x + self.w - getTextSize(self.valueText.Text, 12) - 2, labelY)
-            self.track.Position = Vector2.new(self.x + 2, trackY)
-            self.track.Size = Vector2.new(trackW, 5)
-            self.trackBorder.Position = self.track.Position
-            self.trackBorder.Size = self.track.Size
-            self.trackBorder.Color = hovered and colors.borderLightColor or colors.borderColor
-            self.fill.Position = self.track.Position
-            self.fill.Size = Vector2.new(fillW, 5)
-            self.knob.Position = Vector2.new(self.x + 2 + trackW * pct, self.track.Position.Y + 1.5)
-            self.knobBorder.Position = self.knob.Position
-            self.knobBorder.Color = hovered and colors.accentColor or colors.borderColor
-            self.label.Visible = true
-            self.valueText.Visible = true
-            self.track.Visible = true
-            self.trackBorder.Visible = true
-            self.fill.Visible = true
-            self.knob.Visible = true
-            self.knobBorder.Visible = true
-            if hovered then setTooltipText(self.tooltip) end
-        end
-        return element
-    end
-
-    function api:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltipText, callback)
-        if type(flag) ~= "string" then
-            local args = { flag, min, max, defaultMin, defaultMax, step, tooltipText, callback }
-            flag = makeAutoFlag(section, name)
-            min = tonumber(args[1]) or 0
-            max = tonumber(args[2]) or 100
-            defaultMin = args[3]
-            defaultMax = args[4]
-            if type(args[5]) == "number" or type(args[5]) == "string" then
-                step = args[5]
-                tooltipText = args[6]
-                callback = args[7]
-            else
-                step = nil
-                tooltipText = args[5]
-                callback = args[6]
-            end
-        end
-        step = normalizeStep(step)
-        local value = ensureFlag(flag, { Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step) })
-        value.Min = clamp(value.Min, min, max)
-        value.Max = clamp(value.Max, min, max)
-        if value.Min > value.Max then value.Min, value.Max = value.Max, value.Min end
-        local element = createBaseElement(section, "rangeslider", tooltipText and tooltipText ~= "" and 40 or 28)
-        element.name = tostring(name or "Range")
-        element.flag = flag
-        element.min = min
-        element.max = max
-        element.step = step
-        element.tooltip = tooltipText
-        element.callback = callback
-        element.dragging = nil
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
-        element.valueText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = "" }))
-        element.track = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 0.84, Color = colors.elementBackground, ZIndex = 60, Visible = false }))
-        element.trackBorder = addToGroup(element.drawings, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderColor, ZIndex = 61, Visible = false }))
-        element.fill = addToGroup(element.drawings, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = colors.accentColor, ZIndex = 62, Visible = false }))
-        element.knobMin = addToGroup(element.drawings, newDrawing("Circle", { Filled = true, Thickness = 1, Transparency = 1, Radius = 4, Color = colors.textWhiteColor, ZIndex = 63, Visible = false }))
-        element.knobMax = addToGroup(element.drawings, newDrawing("Circle", { Filled = true, Thickness = 1, Transparency = 1, Radius = 4, Color = colors.textWhiteColor, ZIndex = 63, Visible = false }))
-        function element:valueToPct(v)
-            return (v - self.min) / math.max(1e-9, (self.max - self.min))
-        end
-        function element:setFromMouse(pos)
-            local trackX = self.x + 2
-            local trackW = self.w - 8
-            local alpha = clamp((pos.X - trackX) / trackW, 0, 1)
-            local newValue = snapValue(self.min + (self.max - self.min) * alpha, self.step)
-            newValue = clamp(newValue, self.min, self.max)
-            local range = LibraryApi.Flags[self.flag]
-            if self.dragging == "min" then
-                range.Min = math.min(newValue, range.Max)
-            else
-                range.Max = math.max(newValue, range.Min)
-            end
-            saveConfiguration()
-            if self.callback then task.spawn(self.callback, { Min = range.Min, Max = range.Max }) end
-        end
-        function element:hitTest(pos)
-            return pointInRect(pos, self.x, self.y, self.w, self.height)
-        end
-        function element:onMouseDown(pos)
-            local range = LibraryApi.Flags[self.flag]
-            local trackX = self.x + 2
-            local trackW = self.w - 8
-            local minX = trackX + trackW * self:valueToPct(range.Min)
-            local maxX = trackX + trackW * self:valueToPct(range.Max)
-            self.dragging = math.abs(pos.X - minX) < math.abs(pos.X - maxX) and "min" or "max"
-            UI.active = { type = "rangeslider", element = self, window = self.window }
-            self:setFromMouse(pos)
-        end
-        function element:onDrag(pos)
-            self:setFromMouse(pos)
-        end
-        function element:onMouseUp(pos)
-            self:setFromMouse(pos)
-            self.dragging = nil
-        end
-        function element:draw()
-            local range = LibraryApi.Flags[self.flag]
-            local trackW = self.w - 8
-            local minPct = self:valueToPct(range.Min)
-            local maxPct = self:valueToPct(range.Max)
-            local startX = self.x + 2 + trackW * minPct
-            local endX = self.x + 2 + trackW * maxPct
-            local hovered = UI.hovered == self or (UI.active and UI.active.element == self)
-            self.label.Position = Vector2.new(self.x + 2, self.y + 1)
-            self.label.Text = self.name
-            self.valueText.Text = formatValue(range.Min, self.step or 1) .. " - " .. formatValue(range.Max, self.step or 1)
-            self.valueText.Position = Vector2.new(self.x + self.w - getTextSize(self.valueText.Text, 12) - 2, self.y + 1)
-            self.track.Position = Vector2.new(self.x + 2, self.y + 19)
-            self.track.Size = Vector2.new(trackW, 5)
-            self.trackBorder.Position = self.track.Position
-            self.trackBorder.Size = self.track.Size
-            self.trackBorder.Color = hovered and colors.borderLightColor or colors.borderColor
-            self.fill.Position = Vector2.new(startX, self.y + 18)
-            self.fill.Size = Vector2.new(math.max(1, endX - startX), 6)
-            self.knobMin.Position = Vector2.new(startX, self.y + 21)
-            self.knobMax.Position = Vector2.new(endX, self.y + 21)
-            self.label.Visible = true
-            self.valueText.Visible = true
-            self.track.Visible = true
-            self.trackBorder.Visible = true
-            self.fill.Visible = true
-            self.knobMin.Visible = true
-            self.knobMax.Visible = true
-            if hovered then setTooltipText(self.tooltip) end
-        end
-        return element
-    end
-
-    function api:Textbox_Create(name, flag, default, tooltipText, callback)
-        if type(flag) ~= "string" then
-            callback = tooltipText
-            tooltipText = default
-            default = flag
-            flag = makeAutoFlag(section, name)
-        end
-        local value = ensureFlag(flag, tostring(default or ""))
-        local element = createBaseElement(section, "textbox", 48)
-        element.name = tostring(name or "Textbox")
-        element.flag = flag
-        element.value = tostring(value)
-        element.tooltip = tooltipText
-        element.callback = callback
-        element.focused = false
-        element.cursorBlink = 0
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
-        element.box = addToGroup(element.drawings, createSoftFrame(60))
-        element.text = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = element.value }))
-        function element:hitTest(pos)
-            return pointInRect(pos, self.x, self.y, self.w, self.height)
-        end
-        function element:onMouseDown(pos)
-            if pointInRect(pos, self.x + 2, self.y + 14, self.w - 4, 14) then
-                focusTextbox(self)
-            else
-                focusTextbox(nil)
-            end
-        end
-        function element:draw()
-            self.focused = UI.focusedTextbox == self
-            self.value = tostring(LibraryApi.Flags[self.flag] or "")
-            local hovered = UI.hovered == self
-            local showText = self.value
-            if self.focused and math.floor(UI.blinkClock * 2) % 2 == 0 then
-                showText = showText .. "|"
-            end
-            self.label.Position = Vector2.new(self.x + 2, self.y + 1)
-            setSoftFrame(self.box, self.x + 2, self.y + 20, self.w - 4, 24, 4, self.focused and colors.elementHoverBackground or colors.elementBackground, 0.82, self.focused and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
-            self.text.Position = Vector2.new(self.x + 10, self.y + 27)
-            self.text.Text = showText
-            self.text.Color = (#self.value > 0 or self.focused) and colors.textWhiteColor or colors.textDarkColor
-            self.label.Text = self.name
-            self.label.Visible = true
-            self.box.Visible = true
-            self.text.Visible = true
-            if hovered then setTooltipText(self.tooltip) end
-        end
-        return element
-    end
-
-    function api:Keybind_Create(name, flag, default, tooltipText, callback)
-        if type(flag) ~= "string" then
-            callback = tooltipText
-            tooltipText = default
-            default = flag
-            flag = makeAutoFlag(section, name)
-        end
-        local value = ensureFlag(flag, default or Enum.KeyCode.Unknown)
-        local element = createBaseElement(section, "keybind", tooltipText and tooltipText ~= "" and 30 or 18)
-        element.name = tostring(name or "Keybind")
-        element.flag = flag
-        element.tooltip = tooltipText
-        element.callback = callback
-        element.waiting = false
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
-        element.box = addToGroup(element.drawings, createSoftFrame(60))
-        element.bindText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 63, Visible = false, Text = "", Center = true }))
-        function element:hitTest(pos)
-            return pointInRect(pos, self.x, self.y, self.w, self.height)
-        end
-        function element:onMouseDown()
-            self.waiting = true
-            beginKeybind(self)
-        end
-        function element:getText()
-            if self.waiting then return "[ ... ]" end
-            local key = LibraryApi.Flags[self.flag]
-            local name = getKeyCodeName(key)
-            if name == "Unknown" or name == "None" then return "[ None ]" end
-            return "[ " .. name .. " ]"
-        end
-        function element:draw()
-            local hovered = UI.hovered == self
-            local boxText = self:getText()
-            local bindW = math.max(72, getTextSize(boxText, 12) + 18)
-            self.label.Position = Vector2.new(self.x + 2, self.y + 2)
-            setSoftFrame(self.box, self.x + self.w - bindW, self.y - 1, bindW, 20, 4, self.waiting and colors.elementHoverBackground or colors.elementBackground, 0.82, self.waiting and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
-            self.bindText.Text = boxText
-            self.bindText.Position = Vector2.new(self.x + self.w - bindW * 0.5, self.y + 2)
-            self.label.Text = self.name
-            self.label.Color = hovered and colors.textWhiteColor or colors.textWhiteColor
-            self.bindText.Color = self.waiting and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
-            self.label.Visible = true
-            self.bindText.Visible = true
-            if hovered then setTooltipText(self.tooltip) end
-        end
-        return element
-    end
-
-    function api:Dropdown_Create(name, flag, options, default, tooltipText, callback)
-        if type(flag) ~= "string" then
-            callback = tooltipText
-            tooltipText = default
-            default = options
-            options = flag
-            flag = makeAutoFlag(section, name)
-        end
-        local opts = options or {}
-        local fallback = default or opts[1] or ""
-        local value = ensureFlag(flag, fallback)
-        local element = createBaseElement(section, "dropdown", 48)
-        element.name = tostring(name or "Dropdown")
-        element.flag = flag
-        element.options = opts
-        element.tooltip = tooltipText
-        element.callback = callback
-        element.open = false
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 60, Visible = false, Text = tostring(tooltipText or "") }))
-        element.box = addToGroup(element.drawings, createSoftFrame(60))
-        element.valueText = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(value) }))
-        element.arrow = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = "v" }))
-        element.popup = createGroup()
-        element.popup.frame = addToGroup(element.popup, createSoftFrame(120))
-        element.popupItems = {}
-        for i = 1, math.max(1, #opts) do
-            element.popupItems[i] = {
-                bg = addToGroup(element.popup, createRoundedPrimitive(122, colors.sectionBackground, 0.92)),
-                text = addToGroup(element.popup, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 123, Visible = false, Text = tostring(opts[i] or "") }))
-            }
-        end
-        function element:hitTest(pos)
-            if pointInRect(pos, self.x, self.y, self.w, self.height) then
-                return true
-            end
-            if self.open and pointInRect(pos, self.popupX, self.popupY, self.popupW, self.popupH) then
-                return true
-            end
-            return false
-        end
-        function element:onMouseDown(pos)
-            local buttonRectY = self.y + 20
-            if pointInRect(pos, self.x + 2, buttonRectY, self.w - 4, 24) then
-                self.open = not self.open
-                closeOpenDropdown(self.open and self or nil)
-            elseif self.open and pointInRect(pos, self.popupX, self.popupY, self.popupW, self.popupH) then
-                local itemH = 24
-                local index = clamp(math.floor((pos.Y - self.popupY) / itemH) + 1, 1, #self.options)
-                local chosen = self.options[index]
-                LibraryApi.Flags[self.flag] = chosen
-                self.open = false
-                UI.openDropdown = nil
-                saveConfiguration()
-                if self.callback then task.spawn(self.callback, chosen) end
-            else
-                self.open = false
-                if UI.openDropdown == self then UI.openDropdown = nil end
-            end
-        end
-        function element:dynamicHeight()
-            if self.open then
-                local popupH = math.max(24, #self.options * 24)
-                return 46 + popupH + 4
-            end
-            return 48
-        end
-        function element:draw()
-            local hovered = UI.hovered == self
-            self.label.Position = Vector2.new(self.x + 2, self.y + 1)
-            setSoftFrame(self.box, self.x + 2, self.y + 20, self.w - 4, 24, 4, self.open and colors.elementHoverBackground or colors.elementBackground, 0.82, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
-            self.valueText.Text = tostring(LibraryApi.Flags[self.flag])
-            self.valueText.Position = Vector2.new(self.x + 10, self.y + 27)
-            self.valueText.Color = hovered and colors.textWhiteColor or colors.textDarkColor
-            self.arrow.Text = self.open and "^" or "v"
-            self.arrow.Position = Vector2.new(self.x + self.w - 16, self.y + 25)
-            self.arrow.Color = self.open and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
-            self.label.Visible = true
-            self.box.Visible = true
-            self.valueText.Visible = true
-            self.arrow.Visible = true
-            if hovered then setTooltipText(self.tooltip) end
-            self.popupX = self.x + 2
-            self.popupY = self.y + 48
-            self.popupW = self.w - 4
-            self.popupH = math.max(24, #self.options * 24)
-            if self.open then
-                setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 5, colors.sectionBackground, 0.97, colors.borderColor, 0.95, 1)
-                for index, option in ipairs(self.options) do
-                    local item = self.popupItems[index]
-                    local y = self.popupY + (index - 1) * 24
-                    local hovering = pointInRect(UI.mousePos, self.popupX, y, self.popupW, 24)
-                    setRoundedPrimitive(item.bg, self.popupX + 2, y + 2, self.popupW - 4, 20, 4, hovering and colors.elementHoverBackground or colors.sectionBackground, 0.96, true)
-                    item.text.Text = tostring(option)
-                    item.text.Position = Vector2.new(self.popupX + 8, y + 6)
-                    item.text.Color = tostring(option) == tostring(LibraryApi.Flags[self.flag]) and colors.textWhiteColor or (hovering and colors.textWhiteColor or colors.textDarkColor)
-                    item.text.Visible = true
-                end
-            else
-                hideGroup(self.popup)
-            end
-        end
-        return element
-    end
-
-    function api:ColorPicker_Create(name, flag, default, tooltipText, callback)
-        if type(flag) ~= "string" then
-            callback = tooltipText
-            tooltipText = default
-            default = flag
-            flag = makeAutoFlag(section, name)
-        end
-        local value = ensureFlag(flag, default or colors.accentColor)
-        local h, sVal, vVal = colorToHSV(value)
-        local element = createBaseElement(section, "colorpicker", 28)
-        element.name = tostring(name or "Color")
-        element.flag = flag
-        element.tooltip = tooltipText
-        element.callback = callback
-        element.h = h
-        element.s = sVal
-        element.v = vVal
-        element.open = false
-        element.dragMode = nil
-        element.animOpen = 0
-        element.gridCols = 40
-        element.gridRows = 28
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 60, Visible = false, Text = element.name }))
-        element.previewFrame = addToGroup(element.drawings, createSoftFrame(60))
-        element.preview = addToGroup(element.drawings, createRoundedPrimitive(62, value, 1))
-        element.popup = createGroup()
-        element.popup.frame = addToGroup(element.popup, createSoftFrame(130))
-        element.popup.grid = {}
-        for gy = 1, element.gridRows do
-            element.popup.grid[gy] = {}
-            for gx = 1, element.gridCols do
-                element.popup.grid[gy][gx] = addToGroup(element.popup, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = value, ZIndex = 132, Visible = false }))
-            end
-        end
-        element.popup.gridBorder = addToGroup(element.popup, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderLightColor, ZIndex = 133, Visible = false }))
-        element.popup.cursorOuter = addToGroup(element.popup, newDrawing("Circle", { Filled = false, Thickness = 1, Transparency = 1, Radius = 5, Color = colors.textWhiteColor, ZIndex = 135, Visible = false }))
-        element.popup.cursorInner = addToGroup(element.popup, newDrawing("Circle", { Filled = false, Thickness = 1, Transparency = 1, Radius = 3, Color = colors.mainBackground, ZIndex = 136, Visible = false }))
-        element.popup.hueCells = {}
-        for i = 1, 80 do
-            element.popup.hueCells[i] = addToGroup(element.popup, newDrawing("Square", { Filled = true, Thickness = 1, Transparency = 1, Color = value, ZIndex = 132, Visible = false }))
-        end
-        element.popup.hueBorder = addToGroup(element.popup, newDrawing("Square", { Filled = false, Thickness = 1, Transparency = 1, Color = colors.borderLightColor, ZIndex = 133, Visible = false }))
-        element.popup.hueLine = addToGroup(element.popup, newDrawing("Line", { Thickness = 2, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 135, Visible = false }))
-        element.popup.currentFrame = addToGroup(element.popup, createSoftFrame(134))
-        element.popup.currentFill = addToGroup(element.popup, createRoundedPrimitive(137, value, 1))
-        element.popup.copyButton = addToGroup(element.popup, createSoftFrame(134))
-        element.popup.copyLabel = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 138, Visible = false, Text = "COPY", Center = true }))
-        element.popup.pasteButton = addToGroup(element.popup, createSoftFrame(134))
-        element.popup.pasteLabel = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 138, Visible = false, Text = "PASTE", Center = true }))
-        element.popup.rgbLabel = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 136, Visible = false, Text = "RGB" }))
-        element.popup.rgbValue = addToGroup(element.popup, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 136, Visible = false, Text = "" }))
-        element.popup.hexLabel = addToGroup(element.popup, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 136, Visible = false, Text = "HEX" }))
-        element.popup.hexValue = addToGroup(element.popup, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 136, Visible = false, Text = "" }))
-        function element:updateColor(fireCallback)
-            local color = hsvToColor(self.h, self.s, self.v)
-            LibraryApi.Flags[self.flag] = color
-            if fireCallback ~= false then
-                saveConfiguration()
-                if self.callback then task.spawn(self.callback, color) end
-            end
-        end
-        function element:applyColor(color, fireCallback)
-            if not color then return false end
-            self.h, self.s, self.v = colorToHSV(color)
-            self:updateColor(fireCallback)
-            return true
-        end
-        function element:copyColor()
-            local ok = setClipboardText(colorToHex(LibraryApi.Flags[self.flag]))
-            if ok then
-                LibraryApi:Notify("Copied color", "success", 1.2)
-            else
-                LibraryApi:Notify("Clipboard unavailable", "warning", 1.2)
-            end
-        end
-        function element:pasteColor()
-            local raw = getClipboardText()
-            local color = parseClipboardColor(raw)
-            if color then
-                self:applyColor(color, true)
-                LibraryApi:Notify("Pasted color", "success", 1.2)
-            else
-                LibraryApi:Notify("Clipboard has no valid color", "warning", 1.3)
-            end
-        end
-        function element:hitTest(pos)
-            if pointInRect(pos, self.x, self.y, self.w, self.height) then return true end
-            if (self.open or (self.animOpen or 0) > 0.01) and pointInRect(pos, self.popupX, self.popupY, self.popupW, self.popupH) then return true end
-            return false
-        end
-        function element:applySVFromMouse(pos)
-            self.s = clamp((pos.X - self.svX) / self.svW, 0, 1)
-            self.v = 1 - clamp((pos.Y - self.svY) / self.svH, 0, 1)
-            self:updateColor(true)
-        end
-        function element:applyHueFromMouse(pos)
-            self.h = clamp((pos.X - self.hueX) / self.hueW, 0, 1)
-            self:updateColor(true)
-        end
-        function element:onMouseDown(pos)
-            local previewX = self.x + self.w - 24
-            if pointInRect(pos, previewX, self.y + 5, 20, 14) then
-                self.open = not self.open
-                closeOpenColorPicker(self.open and self or nil)
-                return
-            end
-            if self.open then
-                if pointInRect(pos, self.svX, self.svY, self.svW, self.svH) then
-                    self.dragMode = "sv"
-                    UI.active = { type = "colorpicker", element = self, window = self.window }
-                    self:applySVFromMouse(pos)
-                elseif pointInRect(pos, self.hueX, self.hueY, self.hueW, self.hueH) then
-                    self.dragMode = "hue"
-                    UI.active = { type = "colorpicker", element = self, window = self.window }
-                    self:applyHueFromMouse(pos)
-                elseif pointInRect(pos, self.copyX, self.copyY, self.copyW, self.actionH) then
-                    self:copyColor()
-                elseif pointInRect(pos, self.pasteX, self.pasteY, self.pasteW, self.actionH) then
-                    self:pasteColor()
-                else
-                    self.open = false
-                    if UI.openColorPicker == self then UI.openColorPicker = nil end
-                end
-            end
-        end
-        function element:onMouse2Down(pos)
-            local previewX = self.x + self.w - 24
-            if pointInRect(pos, previewX, self.y + 5, 20, 14) then
-                self:copyColor()
-                return
-            end
-            if self.open and pointInRect(pos, self.popupX, self.popupY, self.popupW, self.popupH) then
-                self:pasteColor()
-            end
-        end
-        function element:onDrag(pos)
-            if self.dragMode == "sv" then
-                self:applySVFromMouse(pos)
-            elseif self.dragMode == "hue" then
-                self:applyHueFromMouse(pos)
-            end
-        end
-        function element:onMouseUp()
-            self.dragMode = nil
-        end
-        function element:dynamicHeight()
-            if self.open then
-                return 40 + 216 + 10
-            end
-            return 28
-        end
-        function element:draw()
-            local hovered = UI.hovered == self
-            if not self.window.visible then
-                self.animOpen = 0
-                hideGroup(self.popup)
-                return
-            end
-            local color = LibraryApi.Flags[self.flag]
-            self.animOpen = lerp(self.animOpen or 0, self.open and 1 or 0, 0.24)
-            if self.animOpen < 0.001 and not self.open then
-                self.animOpen = 0
-            end
-            self.label.Position = Vector2.new(self.x + 2, self.y + 3)
-            setSoftFrame(self.previewFrame, self.x + self.w - 28, self.y + 5, 24, 14, 3, colors.elementBackground, 0.82, self.open and colors.accentColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
-            setRoundedPrimitive(self.preview, self.x + self.w - 24, self.y + 8, 16, 8, 2, color, 1, true)
-            self.label.Visible = true
-            if hovered then setTooltipText(self.tooltip) end
-            self.popupW = 236
-            self.popupH = 216
-            self.popupX = self.x + self.w - self.popupW
-            self.popupY = self.y + 28 + (1 - self.animOpen) * -6
-            self.svX = self.popupX + 10
-            self.svY = self.popupY + 10
-            self.svW = self.popupW - 20
-            self.svH = 122
-            self.hueX = self.popupX + 10
-            self.hueY = self.svY + self.svH + 8
-            self.hueW = self.popupW - 20
-            self.hueH = 12
-            self.actionY = self.hueY + self.hueH + 8
-            self.copyX = self.popupX + 10
-            self.copyY = self.actionY
-            self.copyW = 54
-            self.pasteX = self.copyX + self.copyW + 8
-            self.pasteY = self.actionY
-            self.pasteW = 54
-            self.actionH = 20
-            self.swatchX = self.popupX + self.popupW - 42
-            self.swatchY = self.actionY
-            self.swatchW = 32
-            self.swatchH = 20
-            self.infoY = self.actionY + self.actionH + 8
-            if self.animOpen > 0.01 then
-                local alpha = self.animOpen
-                setSoftFrame(self.popup.frame, self.popupX, self.popupY, self.popupW, self.popupH, 4, colors.sectionBackground, 0.985 * alpha, colors.borderColor, 0.95 * alpha, 2)
-                local cellW = self.svW / self.gridCols
-                local cellH = self.svH / self.gridRows
-                for gy = 1, self.gridRows do
-                    for gx = 1, self.gridCols do
-                        local sSample = (gx - 1) / (self.gridCols - 1)
-                        local vSample = 1 - ((gy - 1) / (self.gridRows - 1))
-                        local cell = self.popup.grid[gy][gx]
-                        cell.Position = Vector2.new(self.svX + (gx - 1) * cellW, self.svY + (gy - 1) * cellH)
-                        cell.Size = Vector2.new(math.ceil(cellW + 0.35), math.ceil(cellH + 0.35))
-                        cell.Color = hsvToColor(self.h, sSample, vSample)
-                        cell.Transparency = alpha
-                        cell.Visible = true
-                    end
-                end
-                self.popup.gridBorder.Position = Vector2.new(self.svX, self.svY)
-                self.popup.gridBorder.Size = Vector2.new(self.svW, self.svH)
-                self.popup.gridBorder.Transparency = alpha
-                self.popup.gridBorder.Visible = true
-                local cursorX = self.svX + self.s * self.svW
-                local cursorY = self.svY + (1 - self.v) * self.svH
-                self.popup.cursorOuter.Position = Vector2.new(cursorX, cursorY)
-                self.popup.cursorInner.Position = Vector2.new(cursorX, cursorY)
-                self.popup.cursorOuter.Transparency = alpha
-                self.popup.cursorInner.Transparency = alpha
-                self.popup.cursorOuter.Visible = true
-                self.popup.cursorInner.Visible = true
-                local hueCellW = self.hueW / #self.popup.hueCells
-                for i, cell in ipairs(self.popup.hueCells) do
-                    local hSample = (i - 1) / (#self.popup.hueCells - 1)
-                    cell.Position = Vector2.new(self.hueX + (i - 1) * hueCellW, self.hueY)
-                    cell.Size = Vector2.new(math.ceil(hueCellW + 0.35), self.hueH)
-                    cell.Color = hsvToColor(hSample, 1, 1)
-                    cell.Transparency = alpha
-                    cell.Visible = true
-                end
-                self.popup.hueBorder.Position = Vector2.new(self.hueX, self.hueY)
-                self.popup.hueBorder.Size = Vector2.new(self.hueW, self.hueH)
-                self.popup.hueBorder.Transparency = alpha
-                self.popup.hueBorder.Visible = true
-                local hx = self.hueX + self.h * self.hueW
-                self.popup.hueLine.From = Vector2.new(hx, self.hueY - 2)
-                self.popup.hueLine.To = Vector2.new(hx, self.hueY + self.hueH + 2)
-                self.popup.hueLine.Transparency = alpha
-                self.popup.hueLine.Visible = true
-                setSoftFrame(self.popup.currentFrame, self.swatchX, self.swatchY, self.swatchW, self.swatchH, 3, colors.elementBackground, 0.96 * alpha, colors.borderLightColor, 0.95 * alpha, 1)
-                setRoundedPrimitive(self.popup.currentFill, self.swatchX + 2, self.swatchY + 2, self.swatchW - 4, self.swatchH - 4, 2, color, alpha, true)
-                local copyHovered = pointInRect(UI.mousePos, self.copyX, self.copyY, self.copyW, self.actionH)
-                local pasteHovered = pointInRect(UI.mousePos, self.pasteX, self.pasteY, self.pasteW, self.actionH)
-                setSoftFrame(self.popup.copyButton, self.copyX, self.copyY, self.copyW, self.actionH, 3, copyHovered and colors.elementHoverBackground or colors.elementBackground, 0.97 * alpha, copyHovered and colors.borderLightColor or colors.borderColor, 0.95 * alpha, 1)
-                setSoftFrame(self.popup.pasteButton, self.pasteX, self.pasteY, self.pasteW, self.actionH, 3, pasteHovered and colors.elementHoverBackground or colors.elementBackground, 0.97 * alpha, pasteHovered and colors.accentColor or colors.borderColor, 0.95 * alpha, 1)
-                self.popup.copyLabel.Position = Vector2.new(self.copyX + self.copyW * 0.5, self.copyY + 5)
-                self.popup.copyLabel.Color = copyHovered and colors.textWhiteColor or colors.textDarkColor
-                self.popup.copyLabel.Transparency = alpha
-                self.popup.copyLabel.Visible = true
-                self.popup.pasteLabel.Position = Vector2.new(self.pasteX + self.pasteW * 0.5, self.pasteY + 5)
-                self.popup.pasteLabel.Color = pasteHovered and colors.textWhiteColor or colors.textDarkColor
-                self.popup.pasteLabel.Transparency = alpha
-                self.popup.pasteLabel.Visible = true
-                local rgbText = string.format("%d, %d, %d", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
-                local hexText = colorToHex(color)
-                self.popup.rgbLabel.Text = "RGB"
-                self.popup.rgbLabel.Position = Vector2.new(self.popupX + 10, self.infoY)
-                self.popup.rgbLabel.Size = 10
-                self.popup.rgbLabel.Transparency = alpha
-                self.popup.rgbLabel.Visible = true
-                self.popup.rgbValue.Text = rgbText
-                self.popup.rgbValue.Position = Vector2.new(self.popupX + 10, self.infoY + 12)
-                self.popup.rgbValue.Size = 11
-                self.popup.rgbValue.Transparency = alpha
-                self.popup.rgbValue.Visible = true
-                self.popup.hexLabel.Text = "HEX"
-                self.popup.hexLabel.Position = Vector2.new(self.popupX + 118, self.infoY)
-                self.popup.hexLabel.Size = 10
-                self.popup.hexLabel.Transparency = alpha
-                self.popup.hexLabel.Visible = true
-                self.popup.hexValue.Text = hexText
-                self.popup.hexValue.Position = Vector2.new(self.popupX + 118, self.infoY + 12)
-                self.popup.hexValue.Size = 11
-                self.popup.hexValue.Color = colors.textWhiteColor
-                self.popup.hexValue.Transparency = alpha
-                self.popup.hexValue.Visible = true
-            else
-                hideGroup(self.popup)
-            end
-        end
-        return element
-    end
-
-    api.Input_Create = api.Textbox_Create
-
-    function api:Button_Create(name, tooltipText, callback)
-        local element = createBaseElement(section, "button", tooltipText and tooltipText ~= "" and 40 or 28)
-        element.name = tostring(name or "Button")
-        element.tooltip = tooltipText
-        element.callback = callback
-        element.box = addToGroup(element.drawings, createSoftFrame(60))
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = colors.textWhiteColor, ZIndex = 62, Visible = false, Text = element.name, Center = true }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(tooltipText or ""), Center = true }))
-        function element:hitTest(pos)
-            return pointInRect(pos, self.x + 2, self.y, self.w - 4, self.height)
-        end
-        function element:onMouseDown()
-            if self.callback then task.spawn(self.callback) end
-        end
-        function element:draw()
-            local hovered = UI.hovered == self
-            setSoftFrame(self.box, self.x + 2, self.y, self.w - 4, self.height, 4, hovered and colors.elementHoverBackground or colors.elementBackground, 0.78153, hovered and colors.accentColor or colors.borderColor, 0.95, 1)
-            self.label.Text = self.name
-            self.label.Position = Vector2.new(self.x + self.w / 2, self.tooltip and self.tooltip ~= "" and (self.y + 4) or (self.y + 8))
-            self.label.Color = hovered and colors.accentColor or colors.textWhiteColor
-            self.desc.Position = Vector2.new(self.x + self.w / 2, self.y + 18)
-            self.desc.Text = tostring(self.tooltip or "")
-            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
-            self.box.Visible = true
-            self.label.Visible = true
-            if hovered then setTooltipText(self.tooltip) end
-        end
-        return element
-    end
-
-    function api:SubButton_Create(name, tooltipText, callback)
-        local element = createBaseElement(section, "subbutton", tooltipText and tooltipText ~= "" and 32 or 20)
-        element.name = tostring(name or "SubButton")
-        element.tooltip = tooltipText
-        element.callback = callback
-        element.box = addToGroup(element.drawings, createSoftFrame(60))
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = element.name, Center = true }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 10, Font = FONT_SUB, Transparency = 1, Color = colors.textDarkColor, ZIndex = 62, Visible = false, Text = tostring(tooltipText or ""), Center = true }))
-        function element:hitTest(pos)
-            return pointInRect(pos, self.x + 8, self.y, self.w - 16, self.height)
-        end
-        function element:onMouseDown()
-            if self.callback then task.spawn(self.callback) end
-        end
-        function element:draw()
-            local hovered = UI.hovered == self
-            setSoftFrame(self.box, self.x + 8, self.y, self.w - 16, self.height, 3, hovered and colors.elementBackground or colors.sectionBackground, 0.95, hovered and colors.borderLightColor or colors.borderColor, 0.9, 1)
-            self.label.Text = self.name
-            self.label.Position = Vector2.new(self.x + self.w / 2, self.tooltip and self.tooltip ~= "" and (self.y + 2) or (self.y + 4))
-            self.label.Color = hovered and colors.textWhiteColor or colors.textDarkColor
-            self.desc.Position = Vector2.new(self.x + self.w / 2, self.y + 14)
-            self.desc.Text = tostring(self.tooltip or "")
-            self.desc.Visible = self.tooltip ~= nil and self.tooltip ~= ""
-            self.box.Visible = true
-            self.label.Visible = true
-            if hovered then setTooltipText(self.tooltip) end
-        end
-        return element
-    end
-
-    function api:Module_Create(name, flag, descriptionText, default, tooltipText, callback)
-        local state = ensureFlag(flag, default or false)
-        local element = createBaseElement(section, "module", 46)
-        element.name = tostring(name or "Module")
-        element.descriptionText = tostring(descriptionText or "")
-        element.flag = flag
-        element.tooltip = tooltipText
-        element.callback = callback
-        element.bg = addToGroup(element.drawings, createSoftFrame(60))
-        element.check = addToGroup(element.drawings, createSoftFrame(64))
-        element.dot = addToGroup(element.drawings, createRoundedPrimitive(67, colors.textWhiteColor, 1))
-        element.label = addToGroup(element.drawings, newDrawing("Text", { Size = 12, Font = FONT_MAIN, Transparency = 1, Color = state and colors.textWhiteColor or colors.textDarkColor, ZIndex = 68, Visible = false, Text = element.name }))
-        element.desc = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = colors.textDarkColor, ZIndex = 68, Visible = false, Text = element.descriptionText }))
-        element.arrow = addToGroup(element.drawings, newDrawing("Text", { Size = 11, Font = FONT_MAIN, Transparency = 1, Color = state and colors.accentColor or colors.textDarkColor, ZIndex = 68, Visible = false, Text = ">" }))
-        function element:hitTest(pos)
-            return pointInRect(pos, self.x + 2, self.y, self.w - 4, self.height)
-        end
-        function element:onMouseDown()
-            local newState = not LibraryApi.Flags[self.flag]
-            LibraryApi.Flags[self.flag] = newState
-            saveConfiguration()
-            if self.callback then task.spawn(self.callback, newState) end
-        end
-        function element:draw()
-            local stateNow = LibraryApi.Flags[self.flag]
-            local hovered = UI.hovered == self
-            setSoftFrame(self.bg, self.x + 2, self.y, self.w - 4, self.height, 4, stateNow and colors.elementHoverBackground or colors.elementBackground, 0.78153, stateNow and colors.borderLightColor or (hovered and colors.borderLightColor or colors.borderColor), 0.92, 1)
-            setSoftFrame(self.check, self.x + 12, self.y + 14, 16, 16, 4, stateNow and colors.accentColor or colors.sectionBackground, 0.78153, stateNow and colors.accentColor or colors.borderColor, 0.92, 1)
-            setRoundedPrimitive(self.dot, self.x + 16, self.y + 18, 8, 8, 3, colors.textWhiteColor, stateNow and 1 or 0, stateNow)
-            self.label.Position = Vector2.new(self.x + 40, self.y + 7)
-            self.label.Text = self.name
-            self.label.Color = stateNow and colors.textWhiteColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
-            self.desc.Position = Vector2.new(self.x + 40, self.y + 22)
-            self.desc.Text = self.descriptionText
-            self.desc.Color = colors.textDarkColor
-            self.arrow.Text = stateNow and "v" or ">"
-            self.arrow.Position = Vector2.new(self.x + self.w - 16, self.y + 15)
-            self.arrow.Color = stateNow and colors.accentColor or (hovered and colors.textWhiteColor or colors.textDarkColor)
-            self.bg.Visible = true
-            self.check.Visible = true
-            self.label.Visible = true
-            self.desc.Visible = self.descriptionText ~= ""
-            self.arrow.Visible = true
-            if hovered then setTooltipText(self.tooltip) end
-        end
-        local moduleSection = {
-            title = section.title,
-            side = section.side,
-            elements = section.elements,
-            window = section.window,
-            tab = section.tab,
-            parentModule = element
-        }
-        return makeSectionApi(moduleSection)
-    end
-
-    function api:AddLabel(text) return self:Subtext_Create(text) end
-    function api:AddButton(name, callback, tooltipText) return self:Button_Create(name, tooltipText, callback) end
-    function api:AddSubButton(name, callback, tooltipText) return self:SubButton_Create(name, tooltipText, callback) end
-    function api:AddToggle(name, default, callback, tooltipText) return self:Toggle_Create(name, default, tooltipText, callback) end
-    api.AddCheckbox = api.AddToggle
-    function api:AddSlider(name, min, max, default, step, callback, tooltipText) return self:Slider_Create(name, min, max, default, step, tooltipText, callback) end
-    function api:AddRangeSlider(name, min, max, defaultMin, defaultMax, step, callback, tooltipText) return self:RangeSlider_Create(name, min, max, defaultMin, defaultMax, step, tooltipText, callback) end
-    function api:AddDropdown(name, options, default, callback, tooltipText) return self:Dropdown_Create(name, options, default, tooltipText, callback) end
-    function api:AddTextInput(name, default, callback, tooltipText) return self:Textbox_Create(name, default, tooltipText, callback) end
-    api.AddTextbox = api.AddTextInput
-    function api:AddKeybind(name, default, callback, tooltipText) return self:Keybind_Create(name, default, tooltipText, callback) end
-    function api:AddColorPicker(name, default, callback, tooltipText) return self:ColorPicker_Create(name, default, tooltipText, callback) end
-    function api:AddValueLabel(name, value)
-        local element = self:Subtext_Create((tostring(name or "Value")) .. ": " .. tostring(value or ""))
-        function element:SetValue(newValue)
-            self.text = (tostring(name or "Value")) .. ": " .. tostring(newValue or "")
-            return self
-        end
-        return element
-    end
-    function api:AddTooltip(text)
-        local element = self:Subtext_Create("")
-        element.height = 0
-        element.tooltip = tostring(text or "")
-        function element:draw()
-            self.label.Visible = false
-            if UI.hovered == self.section or UI.hovered == self then
-                setTooltipText(self.tooltip)
-            end
-        end
-        return element
-    end
-    function api:AddConfigPreset(name, default) return self:Textbox_Create(name or "Config Name", default or "default") end
-    function api:AddScrollFrame(name) return self:Subtext_Create(name or "") end
-
-    return api
 end
 
 function LibraryApi:CreateWindow(windowName)
-    initialize()
-    local viewport = getViewportSize()
-    local window = {
-        title = tostring(windowName or "Window"),
-        x = round(viewport.X / 2 - 360),
-        y = round(viewport.Y / 2 - 240),
-        w = 720,
-        h = 480,
-        visible = true,
-        tabs = {},
-        activeTab = nil
+    local mainBackground = Instance.new("Frame")
+    mainBackground.Size = UDim2.new(0, 720, 0, 480)
+    mainBackground.Position = UDim2.new(0.5, -360, 0.5, -240)
+    mainBackground.BackgroundColor3 = colors.mainBackground
+    mainBackground.BackgroundTransparency = 0.18374
+    mainBackground.BorderSizePixel = 0
+    mainBackground.Active = true
+    mainBackground.Parent = screenGui
+
+    local uiScaleModifier = Instance.new("UIScale")
+    uiScaleModifier.Parent = mainBackground
+    
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 6)
+    mainCorner.Parent = mainBackground
+    
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = colors.borderColor
+    mainStroke.Parent = mainBackground
+
+    applyAcrylicEffect(mainBackground, 0.88741, UDim.new(0, 6))
+
+    local topBar = Instance.new("Frame")
+    topBar.Size = UDim2.new(1, 0, 0, 36)
+    topBar.BackgroundColor3 = colors.sidebarBackground
+    topBar.BackgroundTransparency = 0.21847
+    topBar.BorderSizePixel = 0
+    topBar.Parent = mainBackground
+    
+    local topCorner = Instance.new("UICorner")
+    topCorner.CornerRadius = UDim.new(0, 6)
+    topCorner.Parent = topBar
+
+    local topHider = Instance.new("Frame")
+    topHider.Size = UDim2.new(1, 0, 0, 6)
+    topHider.Position = UDim2.new(0, 0, 1, -6)
+    topHider.BackgroundColor3 = colors.sidebarBackground
+    topHider.BackgroundTransparency = 0.21847
+    topHider.BorderSizePixel = 0
+    topHider.Parent = topBar
+
+    local accentLine = Instance.new("Frame")
+    accentLine.Size = UDim2.new(1, 0, 0, 2)
+    accentLine.BackgroundColor3 = Color3.new(1, 1, 1)
+    accentLine.BorderSizePixel = 0
+    accentLine.Parent = topBar
+    
+    local accentCorner = Instance.new("UICorner")
+    accentCorner.CornerRadius = UDim.new(0, 6)
+    accentCorner.Parent = accentLine
+
+    local accentGradient = Instance.new("UIGradient")
+    accentGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, colors.accentGradientColor1),
+        ColorSequenceKeypoint.new(1, colors.accentGradientColor2)
     }
-    createWindowDrawings(window)
-    table.insert(UI.windows, window)
+    accentGradient.Parent = accentLine
 
-    local api = {}
+    local topBorder = Instance.new("Frame")
+    topBorder.Size = UDim2.new(1, 0, 0, 1)
+    topBorder.Position = UDim2.new(0, 0, 1, 0)
+    topBorder.BackgroundColor3 = colors.borderColor
+    topBorder.BorderSizePixel = 0
+    topBorder.Parent = topBar
 
-    function api:_RedrawAll()
-        layoutWindow(window)
-        renderWindow(window)
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -20, 1, -2)
+    titleLabel.Position = UDim2.new(0, 15, 0, 2)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = windowName
+    titleLabel.TextColor3 = colors.textWhiteColor
+    titleLabel.TextSize = 13
+    titleLabel.Font = boldFont
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = topBar
+
+    local sidebarFrame = Instance.new("Frame")
+    sidebarFrame.Size = UDim2.new(0, 150, 1, -37)
+    sidebarFrame.Position = UDim2.new(0, 0, 0, 37)
+    sidebarFrame.BackgroundColor3 = colors.sidebarBackground
+    sidebarFrame.BackgroundTransparency = 0.21847
+    sidebarFrame.BorderSizePixel = 0
+    sidebarFrame.Parent = mainBackground
+    
+    local sidebarCorner = Instance.new("UICorner")
+    sidebarCorner.CornerRadius = UDim.new(0, 6)
+    sidebarCorner.Parent = sidebarFrame
+
+    local sidebarHiderRight = Instance.new("Frame")
+    sidebarHiderRight.Size = UDim2.new(0, 6, 1, 0)
+    sidebarHiderRight.Position = UDim2.new(1, -6, 0, 0)
+    sidebarHiderRight.BackgroundColor3 = colors.sidebarBackground
+    sidebarHiderRight.BackgroundTransparency = 0.21847
+    sidebarHiderRight.BorderSizePixel = 0
+    sidebarHiderRight.Parent = sidebarFrame
+
+    local sidebarHiderTop = Instance.new("Frame")
+    sidebarHiderTop.Size = UDim2.new(1, 0, 0, 6)
+    sidebarHiderTop.BackgroundColor3 = colors.sidebarBackground
+    sidebarHiderTop.BackgroundTransparency = 0.21847
+    sidebarHiderTop.BorderSizePixel = 0
+    sidebarHiderTop.Parent = sidebarFrame
+
+    local sidebarBorder = Instance.new("Frame")
+    sidebarBorder.Size = UDim2.new(0, 1, 1, 0)
+    sidebarBorder.Position = UDim2.new(1, 0, 0, 0)
+    sidebarBorder.BackgroundColor3 = colors.borderColor
+    sidebarBorder.BorderSizePixel = 0
+    sidebarBorder.Parent = sidebarFrame
+
+    local tabScrollingFrame = Instance.new("ScrollingFrame")
+    tabScrollingFrame.Size = UDim2.new(1, -10, 1, -10)
+    tabScrollingFrame.Position = UDim2.new(0, 5, 0, 5)
+    tabScrollingFrame.BackgroundTransparency = 1
+    tabScrollingFrame.BorderSizePixel = 0
+    tabScrollingFrame.ScrollBarThickness = 0
+    tabScrollingFrame.Parent = sidebarFrame
+
+    local tabLayout = Instance.new("UIListLayout")
+    tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabLayout.Padding = UDim.new(0, 4)
+    tabLayout.Parent = tabScrollingFrame
+
+    local contentAreaFrame = Instance.new("Frame")
+    contentAreaFrame.Size = UDim2.new(1, -151, 1, -37)
+    contentAreaFrame.Position = UDim2.new(0, 151, 0, 37)
+    contentAreaFrame.BackgroundTransparency = 1
+    contentAreaFrame.Parent = mainBackground
+
+    local mobileToggleButton = Instance.new("ImageButton")
+    mobileToggleButton.Size = UDim2.new(0, 50, 0, 50)
+    mobileToggleButton.Position = UDim2.new(0, 20, 0.5, -25)
+    mobileToggleButton.BackgroundColor3 = colors.mainBackground
+    mobileToggleButton.BorderSizePixel = 0
+    mobileToggleButton.ZIndex = 1000
+    mobileToggleButton.Visible = userInputService.TouchEnabled
+    mobileToggleButton.Parent = screenGui
+    
+    local success, avatarImage = pcall(function()
+        return playersService:GetUserThumbnailAsync(playersService.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+    end)
+    mobileToggleButton.Image = success and avatarImage or ""
+
+    local mobileToggleCorner = Instance.new("UICorner")
+    mobileToggleCorner.CornerRadius = UDim.new(1, 0)
+    mobileToggleCorner.Parent = mobileToggleButton
+
+    local mobileToggleStroke = Instance.new("UIStroke")
+    mobileToggleStroke.Color = colors.accentColor
+    mobileToggleStroke.Thickness = 2
+    mobileToggleStroke.Parent = mobileToggleButton
+
+    local isToggleDragging = false
+    local toggleDragInput = nil
+    local toggleDragStart = nil
+    local toggleStartPos = nil
+
+    mobileToggleButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isToggleDragging = true
+            toggleDragStart = input.Position
+            toggleStartPos = mobileToggleButton.Position
+        end
+    end)
+
+    mobileToggleButton.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            toggleDragInput = input
+        end
+    end)
+
+    userInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isToggleDragging = false
+        end
+    end)
+
+    runService.RenderStepped:Connect(function()
+        if isToggleDragging and toggleDragInput then
+            local delta = toggleDragInput.Position - toggleDragStart
+            mobileToggleButton.Position = UDim2.new(toggleStartPos.X.Scale, toggleStartPos.X.Offset + delta.X, toggleStartPos.Y.Scale, toggleStartPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    local toggleClickTime = 0
+    mobileToggleButton.MouseButton1Down:Connect(function()
+        toggleClickTime = tick()
+        animateElement(mobileToggleButton, {Size = UDim2.new(0, 45, 0, 45)}, 0.25)
+    end)
+    
+    mobileToggleButton.MouseButton1Up:Connect(function()
+        animateElement(mobileToggleButton, {Size = UDim2.new(0, 50, 0, 50)}, 0.25)
+        if tick() - toggleClickTime < 0.2 then
+            mainBackground.Visible = not mainBackground.Visible
+        end
+    end)
+
+    local function updateResponsiveScale()
+        local vp = workspaceService.CurrentCamera.ViewportSize
+        if vp.X < 1 or vp.Y < 1 then 
+            uiScaleModifier.Scale = 1
+            return
+        end
+        local scaleX = vp.X / 800
+        local scaleY = vp.Y / 500
+        local scale = math.min(scaleX, scaleY)
+        if scale < 1 then
+            uiScaleModifier.Scale = math.clamp(scale * 0.95, 0.4, 1)
+        else
+            uiScaleModifier.Scale = 1
+        end
     end
 
-    function api:Tab_Create(tabName, tabIcon)
-        local tab = {
-            title = tostring(tabName or "Tab"),
-            icon = tostring(tabIcon or "•"),
-            sections = {},
-            window = window
-        }
-        createTabDrawings(tab)
-        table.insert(window.tabs, tab)
-        if not window.activeTab then window.activeTab = tab end
+    workspaceService.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveScale)
+    updateResponsiveScale()
 
-        local tabApi = {}
+    local isDragging = false
+    local dragInput = nil
+    local dragStart = nil
+    local startPosition = nil
+    local targetPosition = mainBackground.Position
 
-        function tabApi:SetIcon(iconText)
-            tab.icon = tostring(iconText or "•")
-            return self
+    topBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+            dragStart = input.Position
+            startPosition = mainBackground.Position
+        end
+    end)
+
+    topBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then 
+            dragInput = input 
+        end
+    end)
+
+    userInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+            isDragging = false 
+        end
+    end)
+
+    runService.RenderStepped:Connect(function()
+        if isDragging and dragInput then
+            local delta = dragInput.Position - dragStart
+            targetPosition = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + (delta.X / uiScaleModifier.Scale), startPosition.Y.Scale, startPosition.Y.Offset + (delta.Y / uiScaleModifier.Scale))
+        end
+        mainBackground.Position = mainBackground.Position:Lerp(targetPosition, 0.25)
+    end)
+
+    local windowContext = { Tabs = {}, Active_Tab = nil }
+
+    function windowContext:Tab_Create(tabName, iconId)
+        local tabData = {}
+
+        local tabButton = Instance.new("TextButton")
+        tabButton.Size = UDim2.new(1, 0, 0, 32)
+        tabButton.BackgroundColor3 = colors.elementHoverBackground
+        tabButton.BackgroundTransparency = 1
+        tabButton.Text = ""
+        tabButton.AutoButtonColor = false
+        tabButton.Parent = tabScrollingFrame
+        
+        local buttonCorner = Instance.new("UICorner")
+        buttonCorner.CornerRadius = UDim.new(0, 4)
+        buttonCorner.Parent = tabButton
+
+        local tabLabel = Instance.new("TextLabel")
+        tabLabel.BackgroundTransparency = 1
+        tabLabel.Text = tabName
+        tabLabel.TextColor3 = colors.textDarkColor
+        tabLabel.TextSize = 12
+        tabLabel.Font = mainFont
+        tabLabel.TextXAlignment = Enum.TextXAlignment.Left
+        tabLabel.Parent = tabButton
+
+        if iconId and iconId ~= "" then
+            local tabIcon = Instance.new("ImageLabel")
+            tabIcon.Size = UDim2.new(0, 14, 0, 14)
+            tabIcon.Position = UDim2.new(0, 12, 0.5, -7)
+            tabIcon.BackgroundTransparency = 1
+            tabIcon.Image = iconId
+            tabIcon.ImageColor3 = colors.textDarkColor
+            tabIcon.Parent = tabButton
+            tabData.Icon = tabIcon
+            tabLabel.Position = UDim2.new(0, 34, 0, 0)
+            tabLabel.Size = UDim2.new(1, -44, 1, 0)
+        else
+            tabLabel.Position = UDim2.new(0, 12, 0, 0)
+            tabLabel.Size = UDim2.new(1, -20, 1, 0)
         end
 
-        function tabApi:Section_Create(columnSide, sectionTitle)
-            columnSide, sectionTitle = normalizeSectionArgs(columnSide, sectionTitle)
-            local section = {
-                title = tostring(sectionTitle or "Section"),
-                side = columnSide == "Right" and "Right" or "Left",
-                elements = {},
-                window = window,
-                tab = tab,
-                scroll = 0,
-                scrollMax = 0
-            }
-            createSectionDrawings(section)
-            table.insert(tab.sections, section)
-            return makeSectionApi(section)
+        local tabIndicator = Instance.new("Frame")
+        tabIndicator.Size = UDim2.new(0, 2, 0, 0)
+        tabIndicator.Position = UDim2.new(0, 0, 0.5, 0)
+        tabIndicator.BackgroundColor3 = colors.accentColor
+        tabIndicator.BorderSizePixel = 0
+        tabIndicator.Parent = tabButton
+        
+        local indicatorCorner = Instance.new("UICorner")
+        indicatorCorner.CornerRadius = UDim.new(0, 2)
+        indicatorCorner.Parent = tabIndicator
+
+        local pageScrollingFrame = Instance.new("ScrollingFrame")
+        pageScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+        pageScrollingFrame.BackgroundTransparency = 1
+        pageScrollingFrame.BorderSizePixel = 0
+        pageScrollingFrame.ScrollBarThickness = 2
+        pageScrollingFrame.ScrollBarImageColor3 = colors.accentColor
+        pageScrollingFrame.Visible = false
+        pageScrollingFrame.Parent = contentAreaFrame
+
+        local leftColumnFrame = Instance.new("Frame")
+        leftColumnFrame.Size = UDim2.new(0.5, -16, 1, 0)
+        leftColumnFrame.Position = UDim2.new(0, 10, 0, 10)
+        leftColumnFrame.BackgroundTransparency = 1
+        leftColumnFrame.Parent = pageScrollingFrame
+
+        local rightColumnFrame = Instance.new("Frame")
+        rightColumnFrame.Size = UDim2.new(0.5, -16, 1, 0)
+        rightColumnFrame.Position = UDim2.new(0.5, 6, 0, 10)
+        rightColumnFrame.BackgroundTransparency = 1
+        rightColumnFrame.Parent = pageScrollingFrame
+
+        local leftColumnLayout = Instance.new("UIListLayout")
+        leftColumnLayout.Padding = UDim.new(0, 10)
+        leftColumnLayout.Parent = leftColumnFrame
+
+        local rightColumnLayout = Instance.new("UIListLayout")
+        rightColumnLayout.Padding = UDim.new(0, 10)
+        rightColumnLayout.Parent = rightColumnFrame
+
+        runService.RenderStepped:Connect(function()
+            local maxColumnHeight = math.max(leftColumnLayout.AbsoluteContentSize.Y, rightColumnLayout.AbsoluteContentSize.Y)
+            pageScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, maxColumnHeight + 20)
+            tabScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, tabLayout.AbsoluteContentSize.Y + 10)
+        end)
+
+        function tabData:Activate()
+            if windowContext.Active_Tab == tabData then return end
+            if windowContext.Active_Tab then
+                animateElement(windowContext.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.3)
+                animateElement(windowContext.Active_Tab.Lbl, {TextColor3 = colors.textDarkColor}, 0.3)
+                if windowContext.Active_Tab.Icon then animateElement(windowContext.Active_Tab.Icon, {ImageColor3 = colors.textDarkColor}, 0.3) end
+                animateElement(windowContext.Active_Tab.Ind, {Size = UDim2.new(0, 2, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.3)
+                windowContext.Active_Tab.Page.Visible = false
+            end
+            windowContext.Active_Tab = tabData
+            pageScrollingFrame.Visible = true
+            animateElement(tabButton, {BackgroundTransparency = 0.11847}, 0.3)
+            animateElement(tabLabel, {TextColor3 = colors.textWhiteColor}, 0.3)
+            if tabData.Icon then animateElement(tabData.Icon, {ImageColor3 = colors.accentColor}, 0.3) end
+            animateElement(tabIndicator, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.3)
         end
 
-        function tabApi:AddSection(sectionTitle, columnSide)
-            return self:Section_Create(columnSide, sectionTitle)
+        tabButton.MouseButton1Click:Connect(function() tabData:Activate() end)
+
+        tabData.Btn = tabButton
+        tabData.Lbl = tabLabel
+        tabData.Ind = tabIndicator
+        tabData.Page = pageScrollingFrame
+
+        table.insert(windowContext.Tabs, tabData)
+        if #windowContext.Tabs == 1 then tabData:Activate() end
+
+        local function elementInjector(targetContainer)
+            local elements = {}
+
+            function elements:Subtext_Create(text)
+                local subtextLabel = Instance.new("TextLabel")
+                subtextLabel.Size = UDim2.new(1, -10, 0, 14)
+                subtextLabel.BackgroundTransparency = 1
+                subtextLabel.Text = text
+                subtextLabel.TextColor3 = colors.textDarkColor
+                subtextLabel.TextSize = 11
+                subtextLabel.Font = mainFont
+                subtextLabel.TextXAlignment = Enum.TextXAlignment.Left
+                subtextLabel.Parent = targetContainer
+            end
+
+            function elements:Toggle_Create(name, flag, default, tooltip, callback)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or false)
+
+                local toggleButton = Instance.new("TextButton")
+                toggleButton.Size = UDim2.new(1, 0, 0, 16)
+                toggleButton.BackgroundTransparency = 1
+                toggleButton.Text = ""
+                toggleButton.Parent = targetContainer
+
+                local checkboxFrame = Instance.new("Frame")
+                checkboxFrame.Size = UDim2.new(0, 14, 0, 14)
+                checkboxFrame.Position = UDim2.new(0, 2, 0.5, -7)
+                checkboxFrame.BackgroundColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.elementBackground
+                checkboxFrame.BackgroundTransparency = 0.21847
+                checkboxFrame.Parent = toggleButton
+                
+                local checkboxCorner = Instance.new("UICorner")
+                checkboxCorner.CornerRadius = UDim.new(0, 3)
+                checkboxCorner.Parent = checkboxFrame
+                
+                local checkboxStroke = Instance.new("UIStroke")
+                checkboxStroke.Color = LibraryApi.Flags[flag] and colors.accentColor or colors.borderColor
+                checkboxStroke.Parent = checkboxFrame
+
+                local toggleLabel = Instance.new("TextLabel")
+                toggleLabel.Size = UDim2.new(1, -26, 1, 0)
+                toggleLabel.Position = UDim2.new(0, 24, 0, 0)
+                toggleLabel.BackgroundTransparency = 1
+                toggleLabel.Text = name
+                toggleLabel.TextColor3 = LibraryApi.Flags[flag] and colors.textWhiteColor or colors.textDarkColor
+                toggleLabel.TextSize = 12
+                toggleLabel.Font = mainFont
+                toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                toggleLabel.Parent = toggleButton
+
+                toggleButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    if not LibraryApi.Flags[flag] then animateElement(checkboxStroke, {Color = colors.borderLightColor}, 0.25) end
+                end)
+                toggleButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    if not LibraryApi.Flags[flag] then animateElement(checkboxStroke, {Color = colors.borderColor}, 0.25) end
+                end)
+
+                toggleButton.MouseButton1Click:Connect(function()
+                    LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
+                    local newState = LibraryApi.Flags[flag]
+                    animateElement(checkboxFrame, {BackgroundColor3 = newState and colors.accentColor or colors.elementBackground}, 0.3)
+                    animateElement(checkboxStroke, {Color = newState and colors.accentColor or colors.borderColor}, 0.3)
+                    animateElement(toggleLabel, {TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor}, 0.3)
+                    saveConfiguration()
+                    if callback then task.spawn(callback, newState) end
+                end)
+            end
+
+            function elements:Slider_Create(name, flag, min, max, default, step, tooltip, callback)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or snapValue(default or min, step)
+
+                local sliderFrame = Instance.new("Frame")
+                sliderFrame.Size = UDim2.new(1, 0, 0, 36)
+                sliderFrame.BackgroundTransparency = 1
+                sliderFrame.Parent = targetContainer
+
+                local sliderLabel = Instance.new("TextLabel")
+                sliderLabel.Size = UDim2.new(1, -50, 0, 14)
+                sliderLabel.Position = UDim2.new(0, 2, 0, 0)
+                sliderLabel.BackgroundTransparency = 1
+                sliderLabel.Text = name
+                sliderLabel.TextColor3 = colors.textWhiteColor
+                sliderLabel.TextSize = 12
+                sliderLabel.Font = mainFont
+                sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+                sliderLabel.Parent = sliderFrame
+
+                local valueTextBox = Instance.new("TextBox")
+                valueTextBox.Size = UDim2.new(0, 40, 0, 14)
+                valueTextBox.Position = UDim2.new(1, -42, 0, 0)
+                valueTextBox.BackgroundTransparency = 1
+                valueTextBox.Text = formatValue(LibraryApi.Flags[flag], step)
+                valueTextBox.TextColor3 = colors.textWhiteColor
+                valueTextBox.TextSize = 12
+                valueTextBox.Font = mainFont
+                valueTextBox.TextXAlignment = Enum.TextXAlignment.Right
+                valueTextBox.ClearTextOnFocus = false
+                valueTextBox.Parent = sliderFrame
+
+                local sliderBackground = Instance.new("TextButton")
+                sliderBackground.Size = UDim2.new(1, -4, 0, 6)
+                sliderBackground.Position = UDim2.new(0, 2, 0, 24)
+                sliderBackground.BackgroundColor3 = colors.elementBackground
+                sliderBackground.BackgroundTransparency = 0.21847
+                sliderBackground.Text = ""
+                sliderBackground.AutoButtonColor = false
+                sliderBackground.Parent = sliderFrame
+                
+                local sliderBackgroundCorner = Instance.new("UICorner")
+                sliderBackgroundCorner.CornerRadius = UDim.new(0, 3)
+                sliderBackgroundCorner.Parent = sliderBackground
+                
+                local sliderBackgroundStroke = Instance.new("UIStroke")
+                sliderBackgroundStroke.Color = colors.borderColor
+                sliderBackgroundStroke.Parent = sliderBackground
+
+                local sliderFill = Instance.new("Frame")
+                local initialPercentage = (LibraryApi.Flags[flag] - min) / (max - min)
+                sliderFill.Size = UDim2.new(initialPercentage, 0, 1, 0)
+                sliderFill.BackgroundColor3 = colors.accentColor
+                sliderFill.Parent = sliderBackground
+                
+                local sliderFillCorner = Instance.new("UICorner")
+                sliderFillCorner.CornerRadius = UDim.new(0, 3)
+                sliderFillCorner.Parent = sliderFill
+
+                local sliderKnob = Instance.new("Frame")
+                sliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+                sliderKnob.Size = UDim2.new(0, 10, 0, 10)
+                sliderKnob.Position = UDim2.new(initialPercentage, 0, 0.5, 0)
+                sliderKnob.BackgroundColor3 = colors.textWhiteColor
+                sliderKnob.ZIndex = 2
+                sliderKnob.Parent = sliderBackground
+                local sliderKnobCorner = Instance.new("UICorner"); sliderKnobCorner.CornerRadius = UDim.new(1, 0); sliderKnobCorner.Parent = sliderKnob
+                local sliderKnobStroke = Instance.new("UIStroke"); sliderKnobStroke.Color = colors.borderColor; sliderKnobStroke.Parent = sliderKnob
+
+                sliderBackground.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    animateElement(sliderBackgroundStroke, {Color = colors.borderLightColor}, 0.25)
+                end)
+                sliderBackground.MouseLeave:Connect(function()
+                    showTooltip("")
+                    animateElement(sliderBackgroundStroke, {Color = colors.borderColor}, 0.25)
+                end)
+
+                local isSliding = false
+
+                local function setSliderValue(newValue)
+                    local clampedValue = math.clamp(newValue, min, max)
+                    local snappedValue = snapValue(clampedValue, step)
+                    if LibraryApi.Flags[flag] ~= snappedValue then
+                        LibraryApi.Flags[flag] = snappedValue
+                        local percentage = (snappedValue - min) / (max - min)
+                        animateElement(sliderFill, {Size = UDim2.new(percentage, 0, 1, 0)}, 0.15)
+                        animateElement(sliderKnob, {Position = UDim2.new(percentage, 0, 0.5, 0)}, 0.15)
+                        valueTextBox.Text = formatValue(snappedValue, step)
+                        saveConfiguration()
+                        if callback then task.spawn(callback, snappedValue) end
+                    end
+                end
+
+                sliderBackground.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        isSliding = true
+                        local percentage = math.clamp((input.Position.X - sliderBackground.AbsolutePosition.X) / sliderBackground.AbsoluteSize.X, 0, 1)
+                        setSliderValue(min + ((max - min) * percentage))
+                    end
+                end)
+
+                userInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+                        isSliding = false 
+                    end
+                end)
+
+                userInputService.InputChanged:Connect(function(input)
+                    if isSliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then 
+                        local percentage = math.clamp((input.Position.X - sliderBackground.AbsolutePosition.X) / sliderBackground.AbsoluteSize.X, 0, 1)
+                        setSliderValue(min + ((max - min) * percentage))
+                    end
+                end)
+
+                valueTextBox.FocusLost:Connect(function()
+                    local inputValue = tonumber(valueTextBox.Text)
+                    if inputValue then
+                        setSliderValue(inputValue)
+                    else
+                        valueTextBox.Text = formatValue(LibraryApi.Flags[flag], step)
+                    end
+                end)
+            end
+
+            function elements:RangeSlider_Create(name, flag, min, max, defaultMin, defaultMax, step, tooltip, callback)
+                if not LibraryApi.Flags[flag] then
+                    LibraryApi.Flags[flag] = {Min = snapValue(defaultMin or min, step), Max = snapValue(defaultMax or max, step)}
+                end
+
+                local rangeSliderFrame = Instance.new("Frame")
+                rangeSliderFrame.Size = UDim2.new(1, 0, 0, 36)
+                rangeSliderFrame.BackgroundTransparency = 1
+                rangeSliderFrame.Parent = targetContainer
+
+                local rangeSliderLabel = Instance.new("TextLabel")
+                rangeSliderLabel.Size = UDim2.new(1, -80, 0, 14)
+                rangeSliderLabel.Position = UDim2.new(0, 2, 0, 0)
+                rangeSliderLabel.BackgroundTransparency = 1
+                rangeSliderLabel.Text = name
+                rangeSliderLabel.TextColor3 = colors.textWhiteColor
+                rangeSliderLabel.TextSize = 12
+                rangeSliderLabel.Font = mainFont
+                rangeSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+                rangeSliderLabel.Parent = rangeSliderFrame
+
+                local valueLabel = Instance.new("TextLabel")
+                valueLabel.Size = UDim2.new(0, 80, 0, 14)
+                valueLabel.Position = UDim2.new(1, -82, 0, 0)
+                valueLabel.BackgroundTransparency = 1
+                valueLabel.Text = formatValue(LibraryApi.Flags[flag].Min, step) .. " - " .. formatValue(LibraryApi.Flags[flag].Max, step)
+                valueLabel.TextColor3 = colors.textWhiteColor
+                valueLabel.TextSize = 12
+                valueLabel.Font = mainFont
+                valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+                valueLabel.Parent = rangeSliderFrame
+
+                local rangeSliderBackground = Instance.new("TextButton")
+                rangeSliderBackground.Size = UDim2.new(1, -4, 0, 6)
+                rangeSliderBackground.Position = UDim2.new(0, 2, 0, 24)
+                rangeSliderBackground.BackgroundColor3 = colors.elementBackground
+                rangeSliderBackground.BackgroundTransparency = 0.21847
+                rangeSliderBackground.Text = ""
+                rangeSliderBackground.AutoButtonColor = false
+                rangeSliderBackground.Parent = rangeSliderFrame
+                
+                local rangeSliderBackgroundCorner = Instance.new("UICorner")
+                rangeSliderBackgroundCorner.CornerRadius = UDim.new(0, 3)
+                rangeSliderBackgroundCorner.Parent = rangeSliderBackground
+                
+                local rangeSliderBackgroundStroke = Instance.new("UIStroke")
+                rangeSliderBackgroundStroke.Color = colors.borderColor
+                rangeSliderBackgroundStroke.Parent = rangeSliderBackground
+
+                local rangeSliderFill = Instance.new("Frame")
+                rangeSliderFill.BackgroundColor3 = colors.accentColor
+                rangeSliderFill.Parent = rangeSliderBackground
+                
+                local rangeSliderFillCorner = Instance.new("UICorner")
+                rangeSliderFillCorner.CornerRadius = UDim.new(0, 3)
+                rangeSliderFillCorner.Parent = rangeSliderFill
+
+                local minRangeKnob = Instance.new("Frame")
+                minRangeKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+                minRangeKnob.Size = UDim2.new(0, 10, 0, 10)
+                minRangeKnob.BackgroundColor3 = colors.textWhiteColor
+                minRangeKnob.ZIndex = 2
+                minRangeKnob.Parent = rangeSliderBackground
+                local minRangeKnobCorner = Instance.new("UICorner"); minRangeKnobCorner.CornerRadius = UDim.new(1, 0); minRangeKnobCorner.Parent = minRangeKnob
+                local minRangeKnobStroke = Instance.new("UIStroke"); minRangeKnobStroke.Color = colors.borderColor; minRangeKnobStroke.Parent = minRangeKnob
+
+                local maxRangeKnob = Instance.new("Frame")
+                maxRangeKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+                maxRangeKnob.Size = UDim2.new(0, 10, 0, 10)
+                maxRangeKnob.BackgroundColor3 = colors.textWhiteColor
+                maxRangeKnob.ZIndex = 2
+                maxRangeKnob.Parent = rangeSliderBackground
+                local maxRangeKnobCorner = Instance.new("UICorner"); maxRangeKnobCorner.CornerRadius = UDim.new(1, 0); maxRangeKnobCorner.Parent = maxRangeKnob
+                local maxRangeKnobStroke = Instance.new("UIStroke"); maxRangeKnobStroke.Color = colors.borderColor; maxRangeKnobStroke.Parent = maxRangeKnob
+
+                local function updateRangeSliderVisuals()
+                    local minPercentage = (LibraryApi.Flags[flag].Min - min) / (max - min)
+                    local maxPercentage = (LibraryApi.Flags[flag].Max - min) / (max - min)
+                    animateElement(rangeSliderFill, {Position = UDim2.new(minPercentage, 0, 0, 0), Size = UDim2.new(maxPercentage - minPercentage, 0, 1, 0)}, 0.15)
+                    animateElement(minRangeKnob, {Position = UDim2.new(minPercentage, 0, 0.5, 0)}, 0.15)
+                    animateElement(maxRangeKnob, {Position = UDim2.new(maxPercentage, 0, 0.5, 0)}, 0.15)
+                    valueLabel.Text = formatValue(LibraryApi.Flags[flag].Min, step) .. " - " .. formatValue(LibraryApi.Flags[flag].Max, step)
+                end
+                updateRangeSliderVisuals()
+
+                rangeSliderBackground.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    animateElement(rangeSliderBackgroundStroke, {Color = colors.borderLightColor}, 0.25)
+                end)
+                rangeSliderBackground.MouseLeave:Connect(function()
+                    showTooltip("")
+                    animateElement(rangeSliderBackgroundStroke, {Color = colors.borderColor}, 0.25)
+                end)
+
+                local isSlidingMin = false
+                local isSlidingMax = false
+
+                rangeSliderBackground.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        local mouseX = input.Position.X
+                        local minPercentage = (LibraryApi.Flags[flag].Min - min) / (max - min)
+                        local maxPercentage = (LibraryApi.Flags[flag].Max - min) / (max - min)
+                        local minKnobPosition = rangeSliderBackground.AbsolutePosition.X + (rangeSliderBackground.AbsoluteSize.X * minPercentage)
+                        local maxKnobPosition = rangeSliderBackground.AbsolutePosition.X + (rangeSliderBackground.AbsoluteSize.X * maxPercentage)
+                        
+                        if math.abs(mouseX - minKnobPosition) < math.abs(mouseX - maxKnobPosition) then
+                            isSlidingMin = true
+                        else
+                            isSlidingMax = true
+                        end
+                    end
+                end)
+
+                userInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+                        isSlidingMin = false
+                        isSlidingMax = false
+                    end
+                end)
+
+                userInputService.InputChanged:Connect(function(input)
+                    if (isSlidingMin or isSlidingMax) and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then 
+                        local percentage = math.clamp((input.Position.X - rangeSliderBackground.AbsolutePosition.X) / rangeSliderBackground.AbsoluteSize.X, 0, 1)
+                        local calculatedValue = snapValue(min + ((max - min) * percentage), step)
+                        
+                        if isSlidingMin then
+                            if calculatedValue <= LibraryApi.Flags[flag].Max then
+                                LibraryApi.Flags[flag].Min = calculatedValue
+                            else
+                                LibraryApi.Flags[flag].Min = LibraryApi.Flags[flag].Max
+                            end
+                        elseif isSlidingMax then
+                            if calculatedValue >= LibraryApi.Flags[flag].Min then
+                                LibraryApi.Flags[flag].Max = calculatedValue
+                            else
+                                LibraryApi.Flags[flag].Max = LibraryApi.Flags[flag].Min
+                            end
+                        end
+                        updateRangeSliderVisuals()
+                        saveConfiguration()
+                        if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
+                    end
+                end)
+            end
+
+            function elements:Textbox_Create(name, flag, default, tooltip, callback)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or "")
+
+                local textboxFrame = Instance.new("Frame")
+                textboxFrame.Size = UDim2.new(1, 0, 0, 36)
+                textboxFrame.BackgroundTransparency = 1
+                textboxFrame.Parent = targetContainer
+
+                local textboxLabel = Instance.new("TextLabel")
+                textboxLabel.Size = UDim2.new(1, -120, 1, 0)
+                textboxLabel.Position = UDim2.new(0, 2, 0, 0)
+                textboxLabel.BackgroundTransparency = 1
+                textboxLabel.Text = name
+                textboxLabel.TextColor3 = colors.textWhiteColor
+                textboxLabel.TextSize = 12
+                textboxLabel.Font = mainFont
+                textboxLabel.TextXAlignment = Enum.TextXAlignment.Left
+                textboxLabel.Parent = textboxFrame
+
+                local textboxInputBackground = Instance.new("Frame")
+                textboxInputBackground.Size = UDim2.new(0, 110, 0, 24)
+                textboxInputBackground.Position = UDim2.new(1, -112, 0.5, -12)
+                textboxInputBackground.BackgroundColor3 = colors.elementBackground
+                textboxInputBackground.BackgroundTransparency = 0.21847
+                textboxInputBackground.Parent = textboxFrame
+                
+                local textboxInputBackgroundCorner = Instance.new("UICorner")
+                textboxInputBackgroundCorner.CornerRadius = UDim.new(0, 4)
+                textboxInputBackgroundCorner.Parent = textboxInputBackground
+                
+                local textboxInputBackgroundStroke = Instance.new("UIStroke")
+                textboxInputBackgroundStroke.Color = colors.borderColor
+                textboxInputBackgroundStroke.Parent = textboxInputBackground
+
+                local inputTextBox = Instance.new("TextBox")
+                inputTextBox.Size = UDim2.new(1, -10, 1, 0)
+                inputTextBox.Position = UDim2.new(0, 5, 0, 0)
+                inputTextBox.BackgroundTransparency = 1
+                inputTextBox.Text = LibraryApi.Flags[flag]
+                inputTextBox.TextColor3 = colors.textDarkColor
+                inputTextBox.TextSize = 12
+                inputTextBox.Font = mainFont
+                inputTextBox.ClearTextOnFocus = false
+                inputTextBox.TextXAlignment = Enum.TextXAlignment.Left
+                inputTextBox.ClipsDescendants = true
+                inputTextBox.Parent = textboxInputBackground
+
+                inputTextBox.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderLightColor}, 0.25)
+                end)
+                inputTextBox.MouseLeave:Connect(function()
+                    showTooltip("")
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderColor}, 0.25)
+                end)
+
+                inputTextBox.Focused:Connect(function()
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.accentColor}, 0.25)
+                    animateElement(inputTextBox, {TextColor3 = colors.textWhiteColor}, 0.25)
+                end)
+
+                inputTextBox.FocusLost:Connect(function()
+                    animateElement(textboxInputBackgroundStroke, {Color = colors.borderColor}, 0.25)
+                    animateElement(inputTextBox, {TextColor3 = colors.textDarkColor}, 0.25)
+                    LibraryApi.Flags[flag] = inputTextBox.Text
+                    saveConfiguration()
+                    if callback then task.spawn(callback, inputTextBox.Text) end
+                end)
+            end
+
+            function elements:Keybind_Create(name, flag, default, tooltip, callback)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Enum.KeyCode.Unknown)
+                local isListening = false
+
+                local keybindFrame = Instance.new("Frame")
+                keybindFrame.Size = UDim2.new(1, 0, 0, 30)
+                keybindFrame.BackgroundTransparency = 1
+                keybindFrame.Parent = targetContainer
+
+                local keybindIcon = Instance.new("ImageLabel")
+                keybindIcon.Size = UDim2.new(0, 18, 0, 18)
+                keybindIcon.Position = UDim2.new(0, 6, 0.5, -9)
+                keybindIcon.BackgroundTransparency = 1
+                keybindIcon.Image = "rbxassetid://119296823312315"
+                keybindIcon.ImageColor3 = colors.textWhiteColor
+                keybindIcon.Parent = keybindFrame
+
+                local keybindLabel = Instance.new("TextLabel")
+                keybindLabel.Size = UDim2.new(1, -100, 1, 0)
+                keybindLabel.Position = UDim2.new(0, 28, 0, 0)
+                keybindLabel.BackgroundTransparency = 1
+                keybindLabel.Text = name
+                keybindLabel.TextColor3 = colors.textWhiteColor
+                keybindLabel.TextSize = 12
+                keybindLabel.Font = mainFont
+                keybindLabel.TextXAlignment = Enum.TextXAlignment.Left
+                keybindLabel.Parent = keybindFrame
+
+                local keybindButton = Instance.new("TextButton")
+                keybindButton.Size = UDim2.new(0, 70, 0, 22)
+                keybindButton.Position = UDim2.new(1, -74, 0.5, -11)
+                keybindButton.BackgroundColor3 = colors.elementBackground
+                keybindButton.BackgroundTransparency = 0.21847
+                keybindButton.Text = LibraryApi.Flags[flag] == Enum.KeyCode.Unknown and "[ None ]" or "[ " .. LibraryApi.Flags[flag].Name .. " ]"
+                keybindButton.TextColor3 = colors.textDarkColor
+                keybindButton.TextSize = 11
+                keybindButton.Font = boldFont
+                keybindButton.AutoButtonColor = false
+                keybindButton.Parent = keybindFrame
+
+                local keybindButtonCorner = Instance.new("UICorner")
+                keybindButtonCorner.CornerRadius = UDim.new(0, 4)
+                keybindButtonCorner.Parent = keybindButton
+
+                local keybindButtonStroke = Instance.new("UIStroke")
+                keybindButtonStroke.Color = colors.borderColor
+                keybindButtonStroke.Parent = keybindButton
+
+                keybindButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    if not isListening then animateElement(keybindButtonStroke, {Color = colors.borderLightColor}, 0.25) end
+                end)
+                keybindButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    if not isListening then animateElement(keybindButtonStroke, {Color = colors.borderColor}, 0.25) end
+                end)
+
+                keybindButton.MouseButton1Click:Connect(function()
+                    isListening = true
+                    keybindButton.Text = "[ ... ]"
+                    animateElement(keybindButtonStroke, {Color = colors.accentColor}, 0.3)
+                    animateElement(keybindButton, {TextColor3 = colors.textWhiteColor}, 0.3)
+                end)
+
+                userInputService.InputBegan:Connect(function(input)
+                    if isListening then
+                        if input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode ~= Enum.KeyCode.Escape then
+                            LibraryApi.Flags[flag] = input.KeyCode
+                            keybindButton.Text = "[ " .. input.KeyCode.Name .. " ]"
+                        elseif input.KeyCode == Enum.KeyCode.Escape then
+                            LibraryApi.Flags[flag] = Enum.KeyCode.Unknown
+                            keybindButton.Text = "[ None ]"
+                        end
+                        isListening = false
+                        animateElement(keybindButtonStroke, {Color = colors.borderColor}, 0.3)
+                        animateElement(keybindButton, {TextColor3 = colors.textDarkColor}, 0.3)
+                        saveConfiguration()
+                        if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
+                    else
+                        if input.KeyCode == LibraryApi.Flags[flag] and input.KeyCode ~= Enum.KeyCode.Unknown then
+                            if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
+                        end
+                    end
+                end)
+            end
+
+            function elements:Dropdown_Create(name, flag, options, default, tooltip, callback)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or options[1])
+                local isDropdownOpen = false
+
+                local dropdownFrame = Instance.new("Frame")
+                dropdownFrame.Size = UDim2.new(1, 0, 0, 46)
+                dropdownFrame.BackgroundTransparency = 1
+                dropdownFrame.ClipsDescendants = true
+                dropdownFrame.Parent = targetContainer
+
+                local dropdownLabel = Instance.new("TextLabel")
+                dropdownLabel.Size = UDim2.new(1, -10, 0, 14)
+                dropdownLabel.Position = UDim2.new(0, 2, 0, 0)
+                dropdownLabel.BackgroundTransparency = 1
+                dropdownLabel.Text = name
+                dropdownLabel.TextColor3 = colors.textWhiteColor
+                dropdownLabel.TextSize = 12
+                dropdownLabel.Font = mainFont
+                dropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+                dropdownLabel.Parent = dropdownFrame
+
+                local dropdownMainButton = Instance.new("TextButton")
+                dropdownMainButton.Size = UDim2.new(1, -4, 0, 24)
+                dropdownMainButton.Position = UDim2.new(0, 2, 0, 20)
+                dropdownMainButton.BackgroundColor3 = colors.elementBackground
+                dropdownMainButton.BackgroundTransparency = 0.21847
+                dropdownMainButton.Text = ""
+                dropdownMainButton.AutoButtonColor = false
+                dropdownMainButton.Parent = dropdownFrame
+                
+                local dropdownMainButtonCorner = Instance.new("UICorner")
+                dropdownMainButtonCorner.CornerRadius = UDim.new(0, 4)
+                dropdownMainButtonCorner.Parent = dropdownMainButton
+                
+                local dropdownMainButtonStroke = Instance.new("UIStroke")
+                dropdownMainButtonStroke.Color = colors.borderColor
+                dropdownMainButtonStroke.Parent = dropdownMainButton
+
+                local selectedOptionLabel = Instance.new("TextLabel")
+                selectedOptionLabel.Size = UDim2.new(1, -30, 1, 0)
+                selectedOptionLabel.Position = UDim2.new(0, 8, 0, 0)
+                selectedOptionLabel.BackgroundTransparency = 1
+                selectedOptionLabel.Text = LibraryApi.Flags[flag]
+                selectedOptionLabel.TextColor3 = colors.textDarkColor
+                selectedOptionLabel.TextSize = 12
+                selectedOptionLabel.Font = mainFont
+                selectedOptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                selectedOptionLabel.Parent = dropdownMainButton
+
+                local dropdownArrowIcon = Instance.new("ImageLabel")
+                dropdownArrowIcon.Size = UDim2.new(0, 14, 0, 14)
+                dropdownArrowIcon.Position = UDim2.new(1, -22, 0.5, -7)
+                dropdownArrowIcon.BackgroundTransparency = 1
+                dropdownArrowIcon.Image = "rbxassetid://6031090656"
+                dropdownArrowIcon.ImageColor3 = colors.textDarkColor
+                dropdownArrowIcon.Parent = dropdownMainButton
+
+                local dropdownOptionListFrame = Instance.new("ScrollingFrame")
+                dropdownOptionListFrame.Size = UDim2.new(1, -4, 0, 0)
+                dropdownOptionListFrame.Position = UDim2.new(0, 2, 0, 48)
+                dropdownOptionListFrame.BackgroundColor3 = colors.elementBackground
+                dropdownOptionListFrame.BackgroundTransparency = 0.21847
+                dropdownOptionListFrame.BorderSizePixel = 0
+                dropdownOptionListFrame.ScrollBarThickness = 2
+                dropdownOptionListFrame.ScrollBarImageColor3 = colors.accentColor
+                dropdownOptionListFrame.ClipsDescendants = true
+                dropdownOptionListFrame.Parent = dropdownFrame
+                
+                local dropdownOptionListCorner = Instance.new("UICorner")
+                dropdownOptionListCorner.CornerRadius = UDim.new(0, 4)
+                dropdownOptionListCorner.Parent = dropdownOptionListFrame
+                
+                local dropdownOptionListStroke = Instance.new("UIStroke")
+                dropdownOptionListStroke.Color = colors.borderColor
+                dropdownOptionListStroke.Transparency = 1
+                dropdownOptionListStroke.Parent = dropdownOptionListFrame
+
+                local dropdownOptionListLayout = Instance.new("UIListLayout")
+                dropdownOptionListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                dropdownOptionListLayout.Parent = dropdownOptionListFrame
+
+                local function toggleDropdownState()
+                    isDropdownOpen = not isDropdownOpen
+                    local maxListHeight = math.min(#options * 24, 120)
+                    local targetListHeight = isDropdownOpen and maxListHeight or 0
+                    animateElement(dropdownMainButtonStroke, {Color = isDropdownOpen and colors.accentColor or colors.borderColor}, 0.3)
+                    animateElement(dropdownArrowIcon, {Rotation = isDropdownOpen and 180 or 0, ImageColor3 = isDropdownOpen and colors.accentColor or colors.textDarkColor}, 0.3)
+                    animateElement(dropdownOptionListFrame, {Size = UDim2.new(1, -4, 0, targetListHeight)}, 0.3)
+                    animateElement(dropdownOptionListStroke, {Transparency = isDropdownOpen and 0 or 1}, 0.3)
+                    animateElement(dropdownFrame, {Size = UDim2.new(1, 0, 0, 46 + targetListHeight + (isDropdownOpen and 4 or 0))}, 0.3)
+                end
+
+                dropdownMainButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    if not isDropdownOpen then animateElement(dropdownMainButtonStroke, {Color = colors.borderLightColor}, 0.25) end
+                end)
+                dropdownMainButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    if not isDropdownOpen then animateElement(dropdownMainButtonStroke, {Color = colors.borderColor}, 0.25) end
+                end)
+                dropdownMainButton.MouseButton1Click:Connect(toggleDropdownState)
+
+                for _, option in ipairs(options) do
+                    local optionButton = Instance.new("TextButton")
+                    optionButton.Size = UDim2.new(1, 0, 0, 24)
+                    optionButton.BackgroundColor3 = colors.elementHoverBackground
+                    optionButton.BackgroundTransparency = 1
+                    optionButton.Text = ""
+                    optionButton.Parent = dropdownOptionListFrame
+
+                    local optionLabel = Instance.new("TextLabel")
+                    optionLabel.Size = UDim2.new(1, -20, 1, 0)
+                    optionLabel.Position = UDim2.new(0, 8, 0, 0)
+                    optionLabel.BackgroundTransparency = 1
+                    optionLabel.Text = option
+                    optionLabel.TextColor3 = LibraryApi.Flags[flag] == option and colors.accentColor or colors.textDarkColor
+                    optionLabel.TextSize = 12
+                    optionLabel.Font = mainFont
+                    optionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                    optionLabel.Parent = optionButton
+
+                    optionButton.MouseEnter:Connect(function() 
+                        animateElement(optionButton, {BackgroundTransparency = 0.21847}, 0.25)
+                        if LibraryApi.Flags[flag] ~= option then
+                            animateElement(optionLabel, {TextColor3 = colors.textWhiteColor}, 0.25) 
+                        end
+                    end)
+                    optionButton.MouseLeave:Connect(function()
+                        animateElement(optionButton, {BackgroundTransparency = 1}, 0.25)
+                        if LibraryApi.Flags[flag] ~= option then
+                            animateElement(optionLabel, {TextColor3 = colors.textDarkColor}, 0.25)
+                        end
+                    end)
+
+                    optionButton.MouseButton1Click:Connect(function()
+                        LibraryApi.Flags[flag] = option
+                        selectedOptionLabel.Text = option
+                        toggleDropdownState()
+                        for _, child in ipairs(dropdownOptionListFrame:GetChildren()) do
+                            if child:IsA("TextButton") then
+                                animateElement(child:FindFirstChildOfClass("TextLabel"), {TextColor3 = colors.textDarkColor}, 0.3)
+                            end
+                        end
+                        animateElement(optionLabel, {TextColor3 = colors.accentColor}, 0.3)
+                        saveConfiguration()
+                        if callback then task.spawn(callback, option) end
+                    end)
+                end
+                dropdownOptionListFrame.CanvasSize = UDim2.new(0, 0, 0, #options * 24)
+            end
+
+            function elements:ColorPicker_Create(name, flag, default, tooltip, callback)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Color3.new(1, 1, 1))
+                local isColorPickerOpen = false
+                local hue, saturation, value = LibraryApi.Flags[flag]:ToHSV()
+
+                local colorPickerFrame = Instance.new("Frame")
+                colorPickerFrame.Size = UDim2.new(1, 0, 0, 24)
+                colorPickerFrame.BackgroundTransparency = 1
+                colorPickerFrame.ClipsDescendants = true
+                colorPickerFrame.Parent = targetContainer
+
+                local colorPickerLabel = Instance.new("TextLabel")
+                colorPickerLabel.Size = UDim2.new(1, -40, 0, 24)
+                colorPickerLabel.Position = UDim2.new(0, 2, 0, 0)
+                colorPickerLabel.BackgroundTransparency = 1
+                colorPickerLabel.Text = name
+                colorPickerLabel.TextColor3 = colors.textWhiteColor
+                colorPickerLabel.TextSize = 12
+                colorPickerLabel.Font = mainFont
+                colorPickerLabel.TextXAlignment = Enum.TextXAlignment.Left
+                colorPickerLabel.Parent = colorPickerFrame
+
+                local colorPreviewButton = Instance.new("TextButton")
+                colorPreviewButton.Size = UDim2.new(0, 24, 0, 14)
+                colorPreviewButton.Position = UDim2.new(1, -28, 0, 5)
+                colorPreviewButton.BackgroundColor3 = LibraryApi.Flags[flag]
+                colorPreviewButton.Text = ""
+                colorPreviewButton.AutoButtonColor = false
+                colorPreviewButton.Parent = colorPickerFrame
+                
+                local colorPreviewButtonCorner = Instance.new("UICorner")
+                colorPreviewButtonCorner.CornerRadius = UDim.new(0, 3)
+                colorPreviewButtonCorner.Parent = colorPreviewButton
+                
+                local colorPreviewButtonStroke = Instance.new("UIStroke")
+                colorPreviewButtonStroke.Color = colors.borderColor
+                colorPreviewButtonStroke.Parent = colorPreviewButton
+
+                local expandedPickerFrame = Instance.new("Frame")
+                expandedPickerFrame.Size = UDim2.new(1, -4, 0, 190)
+                expandedPickerFrame.Position = UDim2.new(0, 2, 0, 28)
+                expandedPickerFrame.BackgroundColor3 = colors.elementBackground
+                expandedPickerFrame.BackgroundTransparency = 0.21847
+                expandedPickerFrame.Parent = colorPickerFrame
+                
+                local expandedPickerCorner = Instance.new("UICorner")
+                expandedPickerCorner.CornerRadius = UDim.new(0, 4)
+                expandedPickerCorner.Parent = expandedPickerFrame
+                
+                local expandedPickerStroke = Instance.new("UIStroke")
+                expandedPickerStroke.Color = colors.borderColor
+                expandedPickerStroke.Parent = expandedPickerFrame
+
+                local saturationValueMap = Instance.new("ImageButton")
+                saturationValueMap.Size = UDim2.new(1, -16, 0, 150)
+                saturationValueMap.Position = UDim2.new(0, 8, 0, 8)
+                saturationValueMap.Image = "rbxassetid://4155801252"
+                saturationValueMap.ImageColor3 = Color3.fromHSV(hue, 1, 1)
+                saturationValueMap.AutoButtonColor = false
+                saturationValueMap.Parent = expandedPickerFrame
+                local saturationValueMapCorner = Instance.new("UICorner"); saturationValueMapCorner.CornerRadius = UDim.new(0, 3); saturationValueMapCorner.Parent = saturationValueMap
+                local saturationValueMapStroke = Instance.new("UIStroke"); saturationValueMapStroke.Color = colors.borderColor; saturationValueMapStroke.Parent = saturationValueMap
+
+                local saturationValueMapCursor = Instance.new("Frame")
+                saturationValueMapCursor.AnchorPoint = Vector2.new(0.5, 0.5)
+                saturationValueMapCursor.Size = UDim2.new(0, 6, 0, 6)
+                saturationValueMapCursor.Position = UDim2.new(saturation, 0, 1 - value, 0)
+                saturationValueMapCursor.BackgroundColor3 = Color3.new(1, 1, 1)
+                saturationValueMapCursor.Parent = saturationValueMap
+                local saturationValueMapCursorCorner = Instance.new("UICorner"); saturationValueMapCursorCorner.CornerRadius = UDim.new(1, 0); saturationValueMapCursorCorner.Parent = saturationValueMapCursor
+                local saturationValueMapCursorStroke = Instance.new("UIStroke"); saturationValueMapCursorStroke.Color = Color3.new(0, 0, 0); saturationValueMapCursorStroke.Parent = saturationValueMapCursor
+
+                local hueMap = Instance.new("TextButton")
+                hueMap.Size = UDim2.new(1, -16, 0, 12)
+                hueMap.Position = UDim2.new(0, 8, 0, 168)
+                hueMap.Text = ""
+                hueMap.AutoButtonColor = false
+                hueMap.BackgroundColor3 = Color3.new(1, 1, 1)
+                hueMap.Parent = expandedPickerFrame
+                local hueMapCorner = Instance.new("UICorner"); hueMapCorner.CornerRadius = UDim.new(0, 3); hueMapCorner.Parent = hueMap
+                local hueMapStroke = Instance.new("UIStroke"); hueMapStroke.Color = colors.borderColor; hueMapStroke.Parent = hueMap
+
+                local hueGradient = Instance.new("UIGradient")
+                hueGradient.Color = ColorSequence.new{
+                    ColorSequenceKeypoint.new(0, Color3.new(1, 0, 0)),
+                    ColorSequenceKeypoint.new(1/6, Color3.new(1, 1, 0)),
+                    ColorSequenceKeypoint.new(2/6, Color3.new(0, 1, 0)),
+                    ColorSequenceKeypoint.new(3/6, Color3.new(0, 1, 1)),
+                    ColorSequenceKeypoint.new(4/6, Color3.new(0, 0, 1)),
+                    ColorSequenceKeypoint.new(5/6, Color3.new(1, 0, 1)),
+                    ColorSequenceKeypoint.new(1, Color3.new(1, 0, 0))
+                }
+                hueGradient.Parent = hueMap
+
+                local hueMapCursor = Instance.new("Frame")
+                hueMapCursor.AnchorPoint = Vector2.new(0.5, 0.5)
+                hueMapCursor.Size = UDim2.new(0, 4, 1, 4)
+                hueMapCursor.Position = UDim2.new(hue, 0, 0.5, 0)
+                hueMapCursor.BackgroundColor3 = Color3.new(1, 1, 1)
+                hueMapCursor.Parent = hueMap
+                local hueMapCursorCorner = Instance.new("UICorner"); hueMapCursorCorner.CornerRadius = UDim.new(0, 2); hueMapCursorCorner.Parent = hueMapCursor
+                local hueMapCursorStroke = Instance.new("UIStroke"); hueMapCursorStroke.Color = Color3.new(0, 0, 0); hueMapCursorStroke.Parent = hueMapCursor
+
+                local function updateColorPickerState()
+                    local currentColor = Color3.fromHSV(hue, saturation, value)
+                    LibraryApi.Flags[flag] = currentColor
+                    saturationValueMap.ImageColor3 = Color3.fromHSV(hue, 1, 1)
+                    colorPreviewButton.BackgroundColor3 = currentColor
+                    saturationValueMapCursor.Position = UDim2.new(saturation, 0, 1 - value, 0)
+                    hueMapCursor.Position = UDim2.new(hue, 0, 0.5, 0)
+                    saveConfiguration()
+                    if callback then task.spawn(callback, currentColor) end
+                end
+
+                local isSlidingSaturationValue = false
+                local isSlidingHue = false
+
+                local function processSaturationValueInput(input)
+                    saturation = math.clamp((input.Position.X - saturationValueMap.AbsolutePosition.X) / saturationValueMap.AbsoluteSize.X, 0, 1)
+                    value = 1 - math.clamp((input.Position.Y - saturationValueMap.AbsolutePosition.Y) / saturationValueMap.AbsoluteSize.Y, 0, 1)
+                    updateColorPickerState()
+                end
+
+                local function processHueInput(input)
+                    hue = math.clamp((input.Position.X - hueMap.AbsolutePosition.X) / hueMap.AbsoluteSize.X, 0, 1)
+                    updateColorPickerState()
+                end
+
+                saturationValueMap.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        isSlidingSaturationValue = true
+                        processSaturationValueInput(input)
+                    end
+                end)
+                
+                hueMap.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        isSlidingHue = true
+                        processHueInput(input)
+                    end
+                end)
+
+                userInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        isSlidingSaturationValue = false
+                        isSlidingHue = false
+                    end
+                end)
+
+                userInputService.InputChanged:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                        if isSlidingSaturationValue then processSaturationValueInput(input) end
+                        if isSlidingHue then processHueInput(input) end
+                    end
+                end)
+
+                colorPreviewButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    if not isColorPickerOpen then animateElement(colorPreviewButtonStroke, {Color = colors.borderLightColor}, 0.25) end
+                end)
+                colorPreviewButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    if not isColorPickerOpen then animateElement(colorPreviewButtonStroke, {Color = colors.borderColor}, 0.25) end
+                end)
+
+                colorPreviewButton.MouseButton1Click:Connect(function()
+                    isColorPickerOpen = not isColorPickerOpen
+                    animateElement(colorPreviewButtonStroke, {Color = isColorPickerOpen and colors.accentColor or colors.borderColor}, 0.3)
+                    animateElement(colorPickerFrame, {Size = UDim2.new(1, 0, 0, isColorPickerOpen and 224 or 24)}, 0.3)
+                end)
+            end
+
+            function elements:Button_Create(name, tooltip, callback)
+                local buttonFrame = Instance.new("Frame")
+                buttonFrame.Size = UDim2.new(1, 0, 0, 30)
+                buttonFrame.BackgroundTransparency = 1
+                buttonFrame.Parent = targetContainer
+
+                local actionButton = Instance.new("TextButton")
+                actionButton.Size = UDim2.new(1, -4, 1, 0)
+                actionButton.Position = UDim2.new(0, 2, 0, 0)
+                actionButton.BackgroundColor3 = colors.elementBackground
+                actionButton.BackgroundTransparency = 0.21847
+                actionButton.Text = name
+                actionButton.TextColor3 = colors.textWhiteColor
+                actionButton.TextSize = 12
+                actionButton.Font = boldFont
+                actionButton.AutoButtonColor = false
+                actionButton.Parent = buttonFrame
+                
+                local actionButtonCorner = Instance.new("UICorner")
+                actionButtonCorner.CornerRadius = UDim.new(0, 4)
+                actionButtonCorner.Parent = actionButton
+                
+                local actionButtonStroke = Instance.new("UIStroke")
+                actionButtonStroke.Color = colors.borderColor
+                actionButtonStroke.Parent = actionButton
+
+                actionButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    animateElement(actionButton, {BackgroundColor3 = colors.elementHoverBackground}, 0.25)
+                    animateElement(actionButtonStroke, {Color = colors.accentColor}, 0.25)
+                    animateElement(actionButton, {TextColor3 = colors.accentColor}, 0.25)
+                end)
+                actionButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    animateElement(actionButton, {BackgroundColor3 = colors.elementBackground}, 0.25)
+                    animateElement(actionButtonStroke, {Color = colors.borderColor}, 0.25)
+                    animateElement(actionButton, {TextColor3 = colors.textWhiteColor}, 0.25)
+                end)
+                actionButton.MouseButton1Down:Connect(function() animateElement(actionButton, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.15) end)
+                actionButton.MouseButton1Up:Connect(function()
+                    animateElement(actionButton, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.15)
+                    if callback then task.spawn(callback) end
+                end)
+            end
+
+            function elements:SubButton_Create(name, tooltip, callback)
+                local subButtonFrame = Instance.new("Frame")
+                subButtonFrame.Size = UDim2.new(1, 0, 0, 22)
+                subButtonFrame.BackgroundTransparency = 1
+                subButtonFrame.Parent = targetContainer
+
+                local subButtonAction = Instance.new("TextButton")
+                subButtonAction.Size = UDim2.new(1, -16, 1, 0)
+                subButtonAction.Position = UDim2.new(0, 8, 0, 0)
+                subButtonAction.BackgroundColor3 = colors.sectionBackground
+                subButtonAction.BackgroundTransparency = 0.21847
+                subButtonAction.Text = name
+                subButtonAction.TextColor3 = colors.textDarkColor
+                subButtonAction.TextSize = 11
+                subButtonAction.Font = mainFont
+                subButtonAction.AutoButtonColor = false
+                subButtonAction.Parent = subButtonFrame
+                
+                local subButtonCorner = Instance.new("UICorner")
+                subButtonCorner.CornerRadius = UDim.new(0, 3)
+                subButtonCorner.Parent = subButtonAction
+                
+                local subButtonStroke = Instance.new("UIStroke")
+                subButtonStroke.Color = colors.borderColor
+                subButtonStroke.Parent = subButtonAction
+
+                subButtonAction.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    animateElement(subButtonAction, {BackgroundColor3 = colors.elementBackground}, 0.25)
+                    animateElement(subButtonStroke, {Color = colors.borderLightColor}, 0.25)
+                    animateElement(subButtonAction, {TextColor3 = colors.textWhiteColor}, 0.25)
+                end)
+                subButtonAction.MouseLeave:Connect(function()
+                    showTooltip("")
+                    animateElement(subButtonAction, {BackgroundColor3 = colors.sectionBackground}, 0.25)
+                    animateElement(subButtonStroke, {Color = colors.borderColor}, 0.25)
+                    animateElement(subButtonAction, {TextColor3 = colors.textDarkColor}, 0.25)
+                end)
+                subButtonAction.MouseButton1Down:Connect(function() animateElement(subButtonAction, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.15) end)
+                subButtonAction.MouseButton1Up:Connect(function()
+                    animateElement(subButtonAction, {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0)}, 0.15)
+                    if callback then task.spawn(callback) end
+                end)
+            end
+
+            function elements:Module_Create(name, flag, descriptionText, default, tooltip, callback)
+                LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or false)
+
+                local moduleFrame = Instance.new("Frame")
+                moduleFrame.Size = UDim2.new(1, 0, 0, 46)
+                moduleFrame.BackgroundTransparency = 1
+                moduleFrame.ClipsDescendants = true
+                moduleFrame.Parent = targetContainer
+
+                local moduleToggleButton = Instance.new("TextButton")
+                moduleToggleButton.Size = UDim2.new(1, -4, 0, 44)
+                moduleToggleButton.Position = UDim2.new(0, 2, 0, 0)
+                moduleToggleButton.BackgroundColor3 = colors.elementBackground
+                moduleToggleButton.BackgroundTransparency = 0.21847
+                moduleToggleButton.Text = ""
+                moduleToggleButton.AutoButtonColor = false
+                moduleToggleButton.Parent = moduleFrame
+                
+                local moduleToggleButtonCorner = Instance.new("UICorner")
+                moduleToggleButtonCorner.CornerRadius = UDim.new(0, 6)
+                moduleToggleButtonCorner.Parent = moduleToggleButton
+                
+                local moduleToggleButtonStroke = Instance.new("UIStroke")
+                moduleToggleButtonStroke.Color = LibraryApi.Flags[flag] and colors.accentColor or colors.borderColor
+                moduleToggleButtonStroke.Parent = moduleToggleButton
+
+                local moduleCheckboxFrame = Instance.new("Frame")
+                moduleCheckboxFrame.Size = UDim2.new(0, 16, 0, 16)
+                moduleCheckboxFrame.Position = UDim2.new(0, 14, 0.5, -8)
+                moduleCheckboxFrame.BackgroundColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.sectionBackground
+                moduleCheckboxFrame.BackgroundTransparency = 0.21847
+                moduleCheckboxFrame.Parent = moduleToggleButton
+                
+                local moduleCheckboxCorner = Instance.new("UICorner")
+                moduleCheckboxCorner.CornerRadius = UDim.new(0, 4)
+                moduleCheckboxCorner.Parent = moduleCheckboxFrame
+                
+                local moduleCheckboxStroke = Instance.new("UIStroke")
+                moduleCheckboxStroke.Color = colors.borderColor
+                moduleCheckboxStroke.Parent = moduleCheckboxFrame
+
+                local moduleLabel = Instance.new("TextLabel")
+                moduleLabel.Size = UDim2.new(1, -45, 0, 16)
+                moduleLabel.Position = UDim2.new(0, 40, 0, 6)
+                moduleLabel.BackgroundTransparency = 1
+                moduleLabel.Text = name
+                moduleLabel.TextColor3 = LibraryApi.Flags[flag] and colors.textWhiteColor or colors.textDarkColor
+                moduleLabel.TextSize = 13
+                moduleLabel.Font = boldFont
+                moduleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                moduleLabel.Parent = moduleToggleButton
+
+                local moduleDescriptionLabel = Instance.new("TextLabel")
+                moduleDescriptionLabel.Size = UDim2.new(1, -45, 0, 14)
+                moduleDescriptionLabel.Position = UDim2.new(0, 40, 0, 22)
+                moduleDescriptionLabel.BackgroundTransparency = 1
+                moduleDescriptionLabel.Text = descriptionText
+                moduleDescriptionLabel.TextColor3 = colors.textDarkColor
+                moduleDescriptionLabel.TextSize = 11
+                moduleDescriptionLabel.Font = mainFont
+                moduleDescriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                moduleDescriptionLabel.Parent = moduleToggleButton
+
+                local moduleArrowIcon = Instance.new("ImageLabel")
+                moduleArrowIcon.Size = UDim2.new(0, 14, 0, 14)
+                moduleArrowIcon.Position = UDim2.new(1, -22, 0, 14)
+                moduleArrowIcon.BackgroundTransparency = 1
+                moduleArrowIcon.Image = "rbxassetid://6031090656"
+                moduleArrowIcon.ImageColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.textDarkColor
+                moduleArrowIcon.Rotation = LibraryApi.Flags[flag] and 180 or 0
+                moduleArrowIcon.Parent = moduleToggleButton
+
+                local moduleContentFrame = Instance.new("Frame")
+                moduleContentFrame.Size = UDim2.new(1, -16, 0, 0)
+                moduleContentFrame.Position = UDim2.new(0, 12, 0, 48)
+                moduleContentFrame.BackgroundTransparency = 1
+                moduleContentFrame.Parent = moduleFrame
+
+                local moduleContentLayout = Instance.new("UIListLayout")
+                moduleContentLayout.Padding = UDim.new(0, 8)
+                moduleContentLayout.Parent = moduleContentFrame
+
+                local function synchronizeModuleSize()
+                    if LibraryApi.Flags[flag] then
+                        animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46 + moduleContentLayout.AbsoluteContentSize.Y + 8)}, 0.3)
+                        animateElement(moduleArrowIcon, {Rotation = 180, ImageColor3 = colors.accentColor}, 0.3)
+                    else
+                        animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46)}, 0.3)
+                        animateElement(moduleArrowIcon, {Rotation = 0, ImageColor3 = colors.textDarkColor}, 0.3)
+                    end
+                end
+
+                moduleContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                    if LibraryApi.Flags[flag] then synchronizeModuleSize() end
+                end)
+
+                moduleToggleButton.MouseEnter:Connect(function()
+                    showTooltip(tooltip)
+                    if not LibraryApi.Flags[flag] then animateElement(moduleToggleButtonStroke, {Color = colors.borderLightColor}, 0.25) end
+                end)
+                moduleToggleButton.MouseLeave:Connect(function()
+                    showTooltip("")
+                    if not LibraryApi.Flags[flag] then animateElement(moduleToggleButtonStroke, {Color = colors.borderColor}, 0.25) end
+                end)
+
+                moduleToggleButton.MouseButton1Click:Connect(function()
+                    LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
+                    local newState = LibraryApi.Flags[flag]
+                    animateElement(moduleCheckboxFrame, {BackgroundColor3 = newState and colors.accentColor or colors.sectionBackground}, 0.3)
+                    animateElement(moduleToggleButtonStroke, {Color = newState and colors.accentColor or colors.borderColor}, 0.3)
+                    animateElement(moduleLabel, {TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor}, 0.3)
+                    synchronizeModuleSize()
+                    saveConfiguration()
+                    if callback then task.spawn(callback, newState) end
+                end)
+
+                return elementInjector(moduleContentFrame)
+            end
+
+            return elements
         end
 
-        return tabApi
-    end
+        local sectionApi = {}
 
-    function api:AddCategory(tabName, tabIcon)
-        return self:Tab_Create(tabName, tabIcon)
-    end
+        function sectionApi:Section_Create(columnSide, sectionTitle)
+            local sectionBackgroundFrame = Instance.new("Frame")
+            sectionBackgroundFrame.Size = UDim2.new(1, 0, 0, 40)
+            sectionBackgroundFrame.BackgroundColor3 = colors.sectionBackground
+            sectionBackgroundFrame.BackgroundTransparency = 0.21847
+            sectionBackgroundFrame.Parent = (columnSide == "Left") and leftColumnFrame or rightColumnFrame
+            
+            local sectionBackgroundCorner = Instance.new("UICorner")
+            sectionBackgroundCorner.CornerRadius = UDim.new(0, 6)
+            sectionBackgroundCorner.Parent = sectionBackgroundFrame
+            
+            local sectionBackgroundStroke = Instance.new("UIStroke")
+            sectionBackgroundStroke.Color = colors.borderColor
+            sectionBackgroundStroke.Parent = sectionBackgroundFrame
 
-    function api:SetVisible(state)
-        setWindowVisible(window, not not state)
-        return self
-    end
+            local sectionHeaderFrame = Instance.new("Frame")
+            sectionHeaderFrame.Size = UDim2.new(1, 0, 0, 26)
+            sectionHeaderFrame.BackgroundTransparency = 1
+            sectionHeaderFrame.Parent = sectionBackgroundFrame
 
-    function api:Show() return self:SetVisible(true) end
-    function api:Hide() return self:SetVisible(false) end
+            local sectionLabel = Instance.new("TextLabel")
+            sectionLabel.Size = UDim2.new(1, -20, 1, 0)
+            sectionLabel.Position = UDim2.new(0, 10, 0, 0)
+            sectionLabel.BackgroundTransparency = 1
+            sectionLabel.Text = sectionTitle
+            sectionLabel.TextColor3 = colors.textWhiteColor
+            sectionLabel.TextSize = 12
+            sectionLabel.Font = boldFont
+            sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+            sectionLabel.Parent = sectionHeaderFrame
 
-    function api:SetTitle(text)
-        window.title = tostring(text or window.title)
-        if window.drawings and window.drawings.title then
-            window.drawings.title.Text = window.title
+            local sectionSeparatorLine = Instance.new("Frame")
+            sectionSeparatorLine.Size = UDim2.new(1, -20, 0, 1)
+            sectionSeparatorLine.Position = UDim2.new(0, 10, 1, 0)
+            sectionSeparatorLine.BackgroundColor3 = colors.borderColor
+            sectionSeparatorLine.BorderSizePixel = 0
+            sectionSeparatorLine.Parent = sectionHeaderFrame
+
+            local sectionContentFrame = Instance.new("Frame")
+            sectionContentFrame.Size = UDim2.new(1, -16, 1, -34)
+            sectionContentFrame.Position = UDim2.new(0, 8, 0, 32)
+            sectionContentFrame.BackgroundTransparency = 1
+            sectionContentFrame.Parent = sectionBackgroundFrame
+
+            local sectionContentLayout = Instance.new("UIListLayout")
+            sectionContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            sectionContentLayout.Padding = UDim.new(0, 8)
+            sectionContentLayout.Parent = sectionContentFrame
+
+            runService.RenderStepped:Connect(function()
+                sectionBackgroundFrame.Size = UDim2.new(1, 0, 0, sectionContentLayout.AbsoluteContentSize.Y + 44)
+            end)
+
+            return elementInjector(sectionContentFrame)
         end
-        return self
+
+        return sectionApi
     end
 
-    return api
+    userInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+        if not gameProcessedEvent and input.KeyCode == Enum.KeyCode.Delete then
+            mainBackground.Visible = not mainBackground.Visible
+        end
+    end)
+
+    return windowContext
 end
 
 return LibraryApi
