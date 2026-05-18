@@ -155,7 +155,7 @@ local function formatValue(value, step)
     return tostring(value)
 end
 
-local function getConfigs()
+local function Get_Configs()
     local list = {}
     if isfolder and isfolder(LibraryApi.FolderName) and listfiles then
         pcall(function()
@@ -169,7 +169,7 @@ local function getConfigs()
     return list
 end
 
-local function saveConfiguration(name)
+local function Save_Configuration(name)
     pcall(function()
         if not isfolder or not writefile then return end
         if not isfolder(LibraryApi.FolderName) then makefolder(LibraryApi.FolderName) end
@@ -195,7 +195,7 @@ local function saveConfiguration(name)
     end)
 end
 
-local function loadConfiguration(name)
+local function Load_Configuration(name)
     pcall(function()
         if not isfolder or not isfile or not readfile then return end
         local fullPath = LibraryApi.FolderName .. "/" .. name .. ".json"
@@ -232,7 +232,7 @@ local function loadConfiguration(name)
     end)
 end
 
-local function deleteConfiguration(name)
+local function Delete_Configuration(name)
     pcall(function()
         if isfile and delfile then
             local fullPath = LibraryApi.FolderName .. "/" .. name .. ".json"
@@ -244,7 +244,7 @@ local function deleteConfiguration(name)
     end)
 end
 
-local function refreshKeybindsList()
+local function Refresh_Keybinds_List()
     if not keybindListContainer then return end
     for _, child in ipairs(keybindListContainer:GetChildren()) do
         if child:IsA("Frame") then child:Destroy() end
@@ -260,7 +260,7 @@ local function refreshKeybindsList()
         nameLbl.Position = UDim2.new(0, 5, 0, 0)
         nameLbl.BackgroundTransparency = 1
         nameLbl.Text = name
-        applyTheme(nameLbl, "TextColor3", "textDarkColor")
+        nameLbl.TextColor3 = colors.textDarkColor
         nameLbl.TextSize = 11
         nameLbl.Font = mainFont
         nameLbl.TextXAlignment = Enum.TextXAlignment.Left
@@ -272,7 +272,7 @@ local function refreshKeybindsList()
         keyLbl.Position = UDim2.new(1, -55, 0, 0)
         keyLbl.BackgroundTransparency = 1
         keyLbl.Text = "[" .. key .. "]"
-        applyTheme(keyLbl, "TextColor3", "accentColor")
+        keyLbl.TextColor3 = colors.accentColor
         keyLbl.TextSize = 11
         keyLbl.Font = boldFont
         keyLbl.TextXAlignment = Enum.TextXAlignment.Right
@@ -312,7 +312,7 @@ function LibraryApi:Notify(config)
     local notificationFrame = Instance.new("Frame")
     notificationFrame.Size = UDim2.new(1, 0, 0, 50)
     notificationFrame.Position = UDim2.new(1, 270, 0, 0)
-    applyTheme(notificationFrame, "BackgroundColor3", "sectionBackground")
+    notificationFrame.BackgroundColor3 = colors.sectionBackground
     notificationFrame.BackgroundTransparency = 0.05
     notificationFrame.ZIndex = 1501
     notificationFrame.Parent = notificationContainer
@@ -322,13 +322,13 @@ function LibraryApi:Notify(config)
     notificationCorner.Parent = notificationFrame
 
     local notificationStroke = Instance.new("UIStroke")
-    applyTheme(notificationStroke, "Color", "borderColor")
+    notificationStroke.Color = colors.borderColor
     notificationStroke.Parent = notificationFrame
 
     local lineFrame = Instance.new("Frame")
     lineFrame.Size = UDim2.new(0, 2, 1, -16)
     lineFrame.Position = UDim2.new(0, 8, 0, 8)
-    applyTheme(lineFrame, "BackgroundColor3", "notification" .. notificationType .. "Color")
+    lineFrame.BackgroundColor3 = colors["notification" .. notificationType .. "Color"] or colors.accentColor
     lineFrame.BorderSizePixel = 0
     lineFrame.ZIndex = 1502
     lineFrame.Parent = notificationFrame
@@ -342,7 +342,7 @@ function LibraryApi:Notify(config)
     titleLabel.Position = UDim2.new(0, 16, 0, 8)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Text = title
-    applyTheme(titleLabel, "TextColor3", "textWhiteColor")
+    titleLabel.TextColor3 = colors.textWhiteColor
     titleLabel.TextSize = 12
     titleLabel.Font = boldFont
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -354,7 +354,7 @@ function LibraryApi:Notify(config)
     textLabel.Position = UDim2.new(0, 16, 0, 24)
     textLabel.BackgroundTransparency = 1
     textLabel.Text = text
-    applyTheme(textLabel, "TextColor3", "textDarkColor")
+    textLabel.TextColor3 = colors.textDarkColor
     textLabel.TextSize = 11
     textLabel.Font = mainFont
     textLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -581,6 +581,11 @@ function LibraryApi:CreateWindow(windowName)
     local kbLayout = Instance.new("UIListLayout")
     kbLayout.SortOrder = Enum.SortOrder.LayoutOrder
     kbLayout.Parent = keybindListContainer
+    
+    local function Update_Keybind_List_Size()
+        keybindListContainer.CanvasSize = UDim2.new(0, 0, 0, kbLayout.AbsoluteContentSize.Y)
+    end
+    kbLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Keybind_List_Size)
 
     local kbDragStart, kbStartPos
     local kbDragging = false
@@ -804,13 +809,20 @@ function LibraryApi:CreateWindow(windowName)
         rightColumnLayout.Padding = UDim.new(0, 10)
         rightColumnLayout.Parent = rightColumnFrame
 
-        runService.RenderStepped:Connect(function()
+        local function Update_Canvas_Size()
             local maxColumnHeight = math.max(leftColumnLayout.AbsoluteContentSize.Y, rightColumnLayout.AbsoluteContentSize.Y)
             pageScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, maxColumnHeight + 20)
             if not isHidden then
                 tabScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, tabLayout.AbsoluteContentSize.Y + 10)
             end
-        end)
+        end
+
+        leftColumnLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Canvas_Size)
+        rightColumnLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Canvas_Size)
+        if not isHidden then
+            tabLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Canvas_Size)
+        end
+        Update_Canvas_Size()
 
         function tabData:Activate()
             if windowContext.Active_Tab == tabData then return end
@@ -1294,7 +1306,7 @@ function LibraryApi:CreateWindow(windowName)
                 LibraryApi.Flags[flag] = LibraryApi.Flags[flag] ~= nil and LibraryApi.Flags[flag] or (default or Enum.KeyCode.Unknown)
                 if LibraryApi.Flags[flag] ~= Enum.KeyCode.Unknown then
                     activeKeybinds[name] = LibraryApi.Flags[flag].Name
-                    refreshKeybindsList()
+                    Refresh_Keybinds_List()
                 end
                 local isListening = false
 
@@ -1370,7 +1382,7 @@ function LibraryApi:CreateWindow(windowName)
                             activeKeybinds[name] = nil
                         end
                         isListening = false
-                        refreshKeybindsList()
+                        Refresh_Keybinds_List()
                         pcall(function() keybindButtonStroke.Color = colors.borderColor end)
                         pcall(function() keybindButton.TextColor3 = colors.textDarkColor end)
                         if callback then task.spawn(callback, LibraryApi.Flags[flag]) end
@@ -1646,7 +1658,9 @@ function LibraryApi:CreateWindow(windowName)
 
                 local function toggleDropdownState()
                     isDropdownOpen = not isDropdownOpen
-                    local maxListHeight = math.min(#options * 24, 120)
+                    local count = 0
+                    for _, c in ipairs(dropdownOptionListFrame:GetChildren()) do if c:IsA("TextButton") then count = count + 1 end end
+                    local maxListHeight = math.min(count * 24, 120)
                     local targetListHeight = isDropdownOpen and maxListHeight or 0
                     pcall(function() dropdownMainButtonStroke.Color = isDropdownOpen and colors.accentColor or colors.borderColor end)
                     animateElement(dropdownArrowIcon, {Rotation = isDropdownOpen and 180 or 0}, 0.3)
@@ -2083,7 +2097,7 @@ function LibraryApi:CreateWindow(windowName)
                 moduleContentLayout.Padding = UDim.new(0, 8)
                 moduleContentLayout.Parent = moduleContentFrame
 
-                local function synchronizeModuleSize()
+                local function Synchronize_Module_Size()
                     if LibraryApi.Flags[flag] then
                         animateElement(moduleFrame, {Size = UDim2.new(1, 0, 0, 46 + moduleContentLayout.AbsoluteContentSize.Y + 8)}, 0.3)
                         animateElement(moduleArrowIcon, {Rotation = 180}, 0.3)
@@ -2096,7 +2110,7 @@ function LibraryApi:CreateWindow(windowName)
                 end
 
                 moduleContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                    if LibraryApi.Flags[flag] then synchronizeModuleSize() end
+                    if LibraryApi.Flags[flag] then Synchronize_Module_Size() end
                 end)
 
                 moduleToggleButton.MouseEnter:Connect(function()
@@ -2114,7 +2128,7 @@ function LibraryApi:CreateWindow(windowName)
                     applyTheme(moduleCheckboxFrame, "BackgroundColor3", newState and "accentColor" or "sectionBackground")
                     applyTheme(moduleToggleButtonStroke, "Color", newState and "accentColor" or "borderColor")
                     applyTheme(moduleLabel, "TextColor3", newState and "textWhiteColor" or "textDarkColor")
-                    synchronizeModuleSize()
+                    Synchronize_Module_Size()
                     if callback then task.spawn(callback, newState) end
                 end)
 
@@ -2175,9 +2189,11 @@ function LibraryApi:CreateWindow(windowName)
             sectionContentLayout.Padding = UDim.new(0, 8)
             sectionContentLayout.Parent = sectionContentFrame
 
-            runService.RenderStepped:Connect(function()
+            local function Update_Section_Size()
                 sectionBackgroundFrame.Size = UDim2.new(1, 0, 0, sectionContentLayout.AbsoluteContentSize.Y + 44)
-            end)
+            end
+            sectionContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Section_Size)
+            Update_Section_Size()
 
             return elementInjector(sectionContentFrame)
         end
@@ -2196,11 +2212,11 @@ function LibraryApi:CreateWindow(windowName)
         
         themeSection:Toggle_Create("Show Keybinds List", "InternalShowKB", false, "", function(s) kbOuterFrame.Visible = s end)
 
-        local cfgDropdown = configSection:Dropdown_Create("Select Config", "InternalCfgSel", getConfigs(), "Default", "", function(v) LibraryApi.CurrentConfig = v end)
+        local cfgDropdown = configSection:Dropdown_Create("Select Config", "InternalCfgSel", Get_Configs(), "Default", "", function(v) LibraryApi.CurrentConfig = v end)
         local cfgTextbox = configSection:Textbox_Create("Config Name", "InternalCfgName", "Default", "", function(v) LibraryApi.CurrentConfig = v end)
         
         configSection:Button_Create("Load Config", "", function() 
-            loadConfiguration(LibraryApi.CurrentConfig)
+            Load_Configuration(LibraryApi.CurrentConfig)
             accentPicker:Set(colors.accentColor)
             mainBgPicker:Set(colors.mainBackground)
             sideBgPicker:Set(colors.sidebarBackground)
@@ -2211,17 +2227,17 @@ function LibraryApi:CreateWindow(windowName)
         end)
         
         configSection:Button_Create("Save Config", "", function()
-            saveConfiguration(LibraryApi.CurrentConfig)
-            cfgDropdown:Refresh(getConfigs())
+            Save_Configuration(LibraryApi.CurrentConfig)
+            cfgDropdown:Refresh(Get_Configs())
         end)
         
         configSection:Button_Create("Rewrite Config", "", function()
-            saveConfiguration(LibraryApi.CurrentConfig)
+            Save_Configuration(LibraryApi.CurrentConfig)
         end)
         
         configSection:SubButton_Create("Delete Config", "", function()
-            deleteConfiguration(LibraryApi.CurrentConfig)
-            cfgDropdown:Refresh(getConfigs())
+            Delete_Configuration(LibraryApi.CurrentConfig)
+            cfgDropdown:Refresh(Get_Configs())
         end)
 
         profileButton.MouseButton1Click:Connect(function()
