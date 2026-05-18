@@ -281,25 +281,40 @@ local function Refresh_Keybinds_List()
     keybindListContainer.CanvasSize = UDim2.new(0, 0, 0, keybindListContainer.UIListLayout.AbsoluteContentSize.Y)
 end
 
+local tooltipVisible = false
+local tooltipHiding = false
+
 runService.RenderStepped:Connect(function()
     if tooltipTargetText ~= "" then
         local mouseLocation = userInputService:GetMouseLocation()
         tooltipFrame.Position = UDim2.new(0, mouseLocation.X + 15, 0, mouseLocation.Y + 15)
-        if not tooltipFrame.Visible then
+
+        if not tooltipVisible then
+            tooltipVisible = true
+            tooltipHiding = false
             tooltipFrame.Visible = true
+
             animateElement(tooltipFrame, {BackgroundTransparency = 0.15}, 0.25)
             animateElement(tooltipStroke, {Transparency = 0}, 0.25)
             animateElement(tooltipText, {TextTransparency = 0}, 0.25)
         end
     else
-        animateElement(tooltipFrame, {BackgroundTransparency = 1}, 0.15)
-        animateElement(tooltipStroke, {Transparency = 1}, 0.15)
-        animateElement(tooltipText, {TextTransparency = 1}, 0.15)
-        task.delay(0.15, function()
-            if tooltipTargetText == "" then
-                tooltipFrame.Visible = false
-            end
-        end)
+        if tooltipVisible and not tooltipHiding then
+            tooltipHiding = true
+            tooltipVisible = false
+
+            animateElement(tooltipFrame, {BackgroundTransparency = 1}, 0.15)
+            animateElement(tooltipStroke, {Transparency = 1}, 0.15)
+            animateElement(tooltipText, {TextTransparency = 1}, 0.15)
+
+            task.delay(0.15, function()
+                if tooltipTargetText == "" then
+                    tooltipFrame.Visible = false
+                end
+
+                tooltipHiding = false
+            end)
+        end
     end
 end)
 
