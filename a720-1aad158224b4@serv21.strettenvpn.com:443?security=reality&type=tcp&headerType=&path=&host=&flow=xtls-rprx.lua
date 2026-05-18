@@ -187,17 +187,6 @@ local function MakeResizable(resizeBtn, frame, minSize)
     table.insert(Library.Connections, c3)
     table.insert(Library.Connections, c4)
 end
-local function GetBaseScale()
-    local vp = workspace.CurrentCamera.ViewportSize
-    if vp.X < 1 or vp.Y < 1 then return 1 end
-    local scaleX = vp.X / 800
-    local scaleY = vp.Y / 500
-    local scale = math.min(scaleX, scaleY)
-    if scale < 1 then
-        return math.clamp(scale * 0.95, 0.4, 1)
-    end
-    return 1
-end
 function Library:Unload()
     for _, conn in ipairs(Library.Connections) do pcall(function() conn:Disconnect() end) end
     Library.Connections = {}
@@ -415,6 +404,7 @@ function Library:Notify(title, text, duration)
     NText.Font = Config.FontMain
     NText.TextSize = 12
     NText.TextXAlignment = Enum.TextXAlignment.Left
+    NText.TextTruncate = Enum.TextTruncate.AtEnd
     NText.Parent = NotifFrame
     local TimebarBg = Instance.new("Frame")
     TimebarBg.Size = UDim2.new(1, 0, 0, 2)
@@ -578,6 +568,7 @@ function Library:UpdateKeybindList(name, key, active, mode)
             LName.Font = Config.FontMain
             LName.TextSize = 12
             LName.TextXAlignment = Enum.TextXAlignment.Left
+            LName.TextTruncate = Enum.TextTruncate.AtEnd
             LName.Parent = Item
             local LKey = Instance.new("TextLabel")
             LKey.Name = "LKey"
@@ -589,6 +580,7 @@ function Library:UpdateKeybindList(name, key, active, mode)
             LKey.Font = Config.FontMain
             LKey.TextSize = 12
             LKey.TextXAlignment = Enum.TextXAlignment.Right
+            LKey.TextTruncate = Enum.TextTruncate.AtEnd
             LKey.Parent = Item
         else
             local lkey = existing:FindFirstChild("LKey")
@@ -630,6 +622,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     DLabel.Size = UDim2.new(1, 0, 0, 16)
     DLabel.Position = UDim2.new(0, 5, 0, 0)
     DLabel.TextXAlignment = Enum.TextXAlignment.Left
+    DLabel.TextTruncate = Enum.TextTruncate.AtEnd
     DLabel.BackgroundTransparency = 1
     DLabel.Parent = DropFrame
     local Interactive = Instance.new("TextButton")
@@ -734,6 +727,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
             OptBtn.Text = opt
             OptBtn.Font = Config.FontMain
             OptBtn.TextSize = 12
+            OptBtn.TextTruncate = Enum.TextTruncate.AtEnd
             OptBtn.Parent = ListFrame
             OptBtn.ZIndex = 11
             if IsSelected(opt) then
@@ -858,6 +852,7 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     Label.Size = UDim2.new(0.6, 0, 0, 16)
     Label.Position = UDim2.new(0, 5, 0, 0)
     Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.TextTruncate = Enum.TextTruncate.AtEnd
     Label.BackgroundTransparency = 1
     Label.Parent = Frame
     local ValLabel = Instance.new("TextBox")
@@ -998,37 +993,6 @@ function Library:CreateWindow(options)
     MakeDraggable(MiniButton, MiniButton, function(wasDrag)
         miniWasDragged = wasDrag
     end)
-    local c1 = MiniButton.MouseButton1Click:Connect(function()
-        if miniWasDragged then
-            miniWasDragged = false
-            return
-        end
-        if Library.Open then
-            Library.Open = false
-            if Library._IsSettings then
-                Tween(Library._SetScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
-            else
-                Tween(Library._MainScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
-            end
-            Library._MainWindow.Visible = false
-            Library._SettingsWindow.Visible = false
-            TooltipLabel.Visible = false
-        else
-            Library.Open = true
-            if Library._IsSettings then
-                Library._SettingsWindow.Visible = true
-                Library._SettingsWindow.BackgroundTransparency = 0.1
-                Library._SetScale.Scale = GetBaseScale() * 0.8
-                Tween(Library._SetScale, {Scale = GetBaseScale()}, 0.3)
-            else
-                Library._MainWindow.Visible = true
-                Library._MainWindow.BackgroundTransparency = 0.1
-                Library._MainScale.Scale = GetBaseScale() * 0.8
-                Tween(Library._MainScale, {Scale = GetBaseScale()}, 0.3)
-            end
-        end
-    end)
-    table.insert(Library.Connections, c1)
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
@@ -1042,10 +1006,6 @@ function Library:CreateWindow(options)
         Frame.Visible = false
         Frame.Parent = ScreenGui
         Frame.Active = true
-        local SizeConstraint = Instance.new("UISizeConstraint")
-        SizeConstraint.MaxSize = Vector2.new(1400, 900)
-        SizeConstraint.MinSize = Vector2.new(350, 250)
-        SizeConstraint.Parent = Frame
         Corner(Frame, 6)
         Stroke(Frame, Theme.Stroke, 1, 0)
         local BgNoise = Instance.new("ImageLabel")
@@ -1075,30 +1035,6 @@ function Library:CreateWindow(options)
     Library._SettingsWindow = SettingsWindow
     Library._SetScale = SetScale
     Library._IsSettings = false
-    local Resizer = Instance.new("Frame")
-    Resizer.Size = UDim2.new(0, 20, 0, 20)
-    Resizer.Position = UDim2.new(1, 0, 1, 0)
-    Resizer.AnchorPoint = Vector2.new(1, 1)
-    Resizer.BackgroundTransparency = 1
-    Resizer.Parent = MainWindow
-    Resizer.ZIndex = 20
-    Resizer.Active = true
-    local ResizerIcon = Instance.new("TextLabel")
-    ResizerIcon.Size = UDim2.new(1, 0, 1, 0)
-    ResizerIcon.BackgroundTransparency = 1
-    ResizerIcon.Text = "◢"
-    ResizerIcon.TextColor3 = Theme.TextDark
-    ResizerIcon.TextSize = 16
-    ResizerIcon.Parent = Resizer
-    local c2 = Resizer.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.Accent}) end
-    end)
-    local c3 = Resizer.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
-    end)
-    table.insert(Library.Connections, c2)
-    table.insert(Library.Connections, c3)
-    MakeResizable(Resizer, MainWindow, Vector2.new(350, 250))
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
         Bar.Size = UDim2.new(0, 180, 1, 0)
@@ -1118,11 +1054,11 @@ function Library:CreateWindow(options)
             BackBtn.Size = UDim2.new(1, -20, 0, 30)
             BackBtn.Position = UDim2.new(0, 10, 0, 15)
             BackBtn.BackgroundColor3 = Theme.Container
-            BackBtn.Text = " < Back to Menu"
+            BackBtn.Text = " < Back"
             BackBtn.Font = Config.FontBold
             BackBtn.TextSize = 13
             BackBtn.TextColor3 = Theme.TextDark
-            BackBtn.TextXAlignment = Enum.TextXAlignment.Left
+            BackBtn.TextXAlignment = Enum.TextXAlignment.Center
             BackBtn.AutoButtonColor = false
             BackBtn.Parent = Bar
             Corner(BackBtn, 4)
@@ -1136,7 +1072,7 @@ function Library:CreateWindow(options)
             Title.Size = UDim2.new(1, 0, 0, 30)
             Title.Position = UDim2.new(0, 0, 0, 55)
             Title.Font = Config.FontBold
-            Title.TextSize = 22
+            Title.TextSize = 18
             Title.TextColor3 = Theme.Text
             Title.BackgroundTransparency = 1
             Title.Parent = Bar
@@ -1148,9 +1084,10 @@ function Library:CreateWindow(options)
             Logo.Position = UDim2.new(0, 15, 0, 20)
             Logo.Size = UDim2.new(1, -30, 0, 30)
             Logo.Font = Config.FontBold
-            Logo.TextSize = 20
+            Logo.TextSize = 18
             Logo.TextColor3 = Theme.Accent
             Logo.TextXAlignment = Enum.TextXAlignment.Left
+            Logo.TextTruncate = Enum.TextTruncate.AtEnd
             Logo.BackgroundTransparency = 1
             Logo.Parent = Bar
             RegisterTheme(Logo, "TextColor")
@@ -1169,6 +1106,20 @@ function Library:CreateWindow(options)
     end
     local MainBar, TabContainer, _ = CreateSidebar(MainWindow, false)
     local SetBar, SetContainer, BackBtn = CreateSidebar(SettingsWindow, true)
+    local MainPages = Instance.new("Frame")
+    MainPages.Size = UDim2.new(1, -181, 1, 0)
+    MainPages.Position = UDim2.new(0, 181, 0, 0)
+    MainPages.BackgroundTransparency = 1
+    MainPages.Parent = MainWindow
+    local SetPage = Instance.new("ScrollingFrame")
+    SetPage.Size = UDim2.new(1, -200, 1, -20)
+    SetPage.Position = UDim2.new(0, 190, 0, 10)
+    SetPage.BackgroundTransparency = 1
+    SetPage.ScrollBarThickness = 2
+    SetPage.ScrollBarImageColor3 = Theme.Accent
+    SetPage.Active = true
+    SetPage.Parent = SettingsWindow
+    RegisterTheme(SetPage, "ScrollBar")
     local ProfileBtn = Instance.new("TextButton")
     ProfileBtn.Size = UDim2.new(1, 0, 0, 60)
     ProfileBtn.Position = UDim2.new(0, 0, 1, 0)
@@ -1190,7 +1141,7 @@ function Library:CreateWindow(options)
     local AvS = Stroke(SideAvatar, Theme.Accent, 1)
     RegisterTheme(AvS, "BorderColor")
     local SideName = Instance.new("TextLabel")
-    SideName.Size = UDim2.new(0, 100, 0, 16)
+    SideName.Size = UDim2.new(1, -65, 0, 16)
     SideName.Position = UDim2.new(0, 60, 0.5, -9)
     SideName.AnchorPoint = Vector2.new(0, 0.5)
     SideName.BackgroundTransparency = 1
@@ -1199,9 +1150,10 @@ function Library:CreateWindow(options)
     SideName.Font = Config.FontBold
     SideName.TextSize = 13
     SideName.TextXAlignment = Enum.TextXAlignment.Left
+    SideName.TextTruncate = Enum.TextTruncate.AtEnd
     SideName.Parent = ProfileBtn
     local SideSub = Instance.new("TextLabel")
-    SideSub.Size = UDim2.new(0, 100, 0, 14)
+    SideSub.Size = UDim2.new(1, -65, 0, 14)
     SideSub.Position = UDim2.new(0, 60, 0.5, 9)
     SideSub.AnchorPoint = Vector2.new(0, 0.5)
     SideSub.BackgroundTransparency = 1
@@ -1211,8 +1163,66 @@ function Library:CreateWindow(options)
     SideSub.TextSize = 11
     SideSub.TextXAlignment = Enum.TextXAlignment.Left
     SideSub.Parent = ProfileBtn
+    local function HandleResponsiveness()
+        local vp = workspace.CurrentCamera.ViewportSize
+        local isMobile = vp.X < 650
+        local targetSize = isMobile and UDim2.new(1, -20, 1, -20) or UDim2.new(0, 650, 0, 400)
+        local barSize = isMobile and UDim2.new(0, 110, 1, 0) or UDim2.new(0, 180, 1, 0)
+        local pagesPos = isMobile and UDim2.new(0, 111, 0, 0) or UDim2.new(0, 181, 0, 0)
+        local pagesSize = isMobile and UDim2.new(1, -111, 1, 0) or UDim2.new(1, -181, 1, 0)
+        local settingsPos = isMobile and UDim2.new(0, 120, 0, 10) or UDim2.new(0, 190, 0, 10)
+        local settingsSize = isMobile and UDim2.new(1, -130, 1, -20) or UDim2.new(1, -200, 1, -20)
+        MainWindow.Size = targetSize
+        SettingsWindow.Size = targetSize
+        MainBar.Size = barSize
+        SetBar.Size = barSize
+        MainPages.Position = pagesPos
+        MainPages.Size = pagesSize
+        SetPage.Position = settingsPos
+        SetPage.Size = settingsSize
+        if isMobile then
+            SideName.Visible = false
+            SideSub.Visible = false
+        else
+            SideName.Visible = true
+            SideSub.Visible = true
+        end
+    end
+    table.insert(Library.Connections, workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(HandleResponsiveness))
+    HandleResponsiveness()
     local IsSettings = false
     local animating = false
+    local c1_mini = MiniButton.MouseButton1Click:Connect(function()
+        if miniWasDragged then
+            miniWasDragged = false
+            return
+        end
+        if Library.Open then
+            Library.Open = false
+            if Library._IsSettings then
+                Tween(Library._SetScale, {Scale = 0.8}, 0.2).Completed:Wait()
+            else
+                Tween(Library._MainScale, {Scale = 0.8}, 0.2).Completed:Wait()
+            end
+            Library._MainWindow.Visible = false
+            Library._SettingsWindow.Visible = false
+            TooltipLabel.Visible = false
+        else
+            Library.Open = true
+            if Library._IsSettings then
+                Library._SettingsWindow.Visible = true
+                Library._SettingsWindow.BackgroundTransparency = 0.1
+                Library._SetScale.Scale = 0.8
+                Tween(Library._SetScale, {Scale = 1}, 0.3)
+            else
+                Library._MainWindow.Visible = true
+                Library._MainWindow.BackgroundTransparency = 0.1
+                Library._MainScale.Scale = 0.8
+                Tween(Library._MainScale, {Scale = 1}, 0.3)
+            end
+        end
+    end)
+    table.insert(Library.Connections, c1_mini)
     local function ToggleMain()
         if animating then return end
         animating = true
@@ -1221,19 +1231,19 @@ function Library:CreateWindow(options)
             if IsSettings then
                 SettingsWindow.Visible = true
                 SettingsWindow.BackgroundTransparency = 0.1
-                SetScale.Scale = GetBaseScale() * 0.8
-                Tween(SetScale, {Scale = GetBaseScale()}, 0.3).Completed:Wait()
+                SetScale.Scale = 0.8
+                Tween(SetScale, {Scale = 1}, 0.3).Completed:Wait()
             else
                 MainWindow.Visible = true
                 MainWindow.BackgroundTransparency = 0.1
-                MainScale.Scale = GetBaseScale() * 0.8
-                Tween(MainScale, {Scale = GetBaseScale()}, 0.3).Completed:Wait()
+                MainScale.Scale = 0.8
+                Tween(MainScale, {Scale = 1}, 0.3).Completed:Wait()
             end
         else
             if IsSettings then
-                Tween(SetScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
+                Tween(SetScale, {Scale = 0.8}, 0.2).Completed:Wait()
             else
-                Tween(MainScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
+                Tween(MainScale, {Scale = 0.8}, 0.2).Completed:Wait()
             end
             MainWindow.Visible = false
             SettingsWindow.Visible = false
@@ -1246,12 +1256,12 @@ function Library:CreateWindow(options)
         animating = true
         SettingsWindow.Position = MainWindow.Position
         SettingsWindow.Size = MainWindow.Size
-        Tween(MainScale, {Scale = GetBaseScale() * 0.9}, 0.15).Completed:Wait()
+        Tween(MainScale, {Scale = 0.9}, 0.15).Completed:Wait()
         MainWindow.Visible = false
         SettingsWindow.Visible = true
         SettingsWindow.BackgroundTransparency = 0.1
-        SetScale.Scale = GetBaseScale() * 0.9
-        Tween(SetScale, {Scale = GetBaseScale()}, 0.2).Completed:Wait()
+        SetScale.Scale = 0.9
+        Tween(SetScale, {Scale = 1}, 0.2).Completed:Wait()
         IsSettings = true
         Library._IsSettings = true
         animating = false
@@ -1261,12 +1271,12 @@ function Library:CreateWindow(options)
         animating = true
         MainWindow.Position = SettingsWindow.Position
         MainWindow.Size = SettingsWindow.Size
-        Tween(SetScale, {Scale = GetBaseScale() * 0.9}, 0.15).Completed:Wait()
+        Tween(SetScale, {Scale = 0.9}, 0.15).Completed:Wait()
         SettingsWindow.Visible = false
         MainWindow.Visible = true
         MainWindow.BackgroundTransparency = 0.1
-        MainScale.Scale = GetBaseScale() * 0.9
-        Tween(MainScale, {Scale = GetBaseScale()}, 0.2).Completed:Wait()
+        MainScale.Scale = 0.9
+        Tween(MainScale, {Scale = 1}, 0.2).Completed:Wait()
         IsSettings = false
         Library._IsSettings = false
         animating = false
@@ -1275,16 +1285,6 @@ function Library:CreateWindow(options)
     local c7 = BackBtn.MouseButton1Click:Connect(function() task.spawn(SwitchToMain) end)
     table.insert(Library.Connections, c6)
     table.insert(Library.Connections, c7)
-    local c8 = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-        if Library.Open then
-            if IsSettings and SettingsWindow.Visible then
-                SetScale.Scale = GetBaseScale()
-            elseif not IsSettings and MainWindow.Visible then
-                MainScale.Scale = GetBaseScale()
-            end
-        end
-    end)
-    table.insert(Library.Connections, c8)
     local MenuBindConnection = UserInputService.InputBegan:Connect(function(input, gp)
         if not gp and input.KeyCode == Config.Keybind then
             task.spawn(ToggleMain)
@@ -1292,11 +1292,6 @@ function Library:CreateWindow(options)
     end)
     table.insert(Library.Connections, MenuBindConnection)
     local WindowObj = {}
-    local MainPages = Instance.new("Frame")
-    MainPages.Size = UDim2.new(1, -181, 1, 0)
-    MainPages.Position = UDim2.new(0, 181, 0, 0)
-    MainPages.BackgroundTransparency = 1
-    MainPages.Parent = MainWindow
     function WindowObj:CreateRawSection(text, parent)
         local Section = {}
         local Container = Instance.new("Frame")
@@ -1316,6 +1311,7 @@ function Library:CreateWindow(options)
         Title.Position = UDim2.new(0, 10, 0, 0)
         Title.BackgroundTransparency = 1
         Title.TextXAlignment = Enum.TextXAlignment.Left
+        Title.TextTruncate = Enum.TextTruncate.AtEnd
         Title.Parent = Container
         local Content = Instance.new("Frame")
         Content.Name = "Content"
@@ -1386,6 +1382,7 @@ function Library:CreateWindow(options)
             Btn.Font = Config.FontMain
             Btn.TextSize = 13
             Btn.TextColor3 = Theme.Text
+            Btn.TextTruncate = Enum.TextTruncate.AtEnd
             Btn.AutoButtonColor = false
             Btn.Parent = Content
             Corner(Btn, 4)
@@ -1431,6 +1428,7 @@ function Library:CreateWindow(options)
             Label.Size = UDim2.new(1, -30, 1, 0)
             Label.Position = UDim2.new(0, 10, 0, 0)
             Label.TextXAlignment = Enum.TextXAlignment.Left
+            Label.TextTruncate = Enum.TextTruncate.AtEnd
             Label.BackgroundTransparency = 1
             Label.Parent = Btn
             local Box = Instance.new("Frame")
@@ -1528,6 +1526,7 @@ function Library:CreateWindow(options)
             Label.Size = UDim2.new(1, 0, 0, 20)
             Label.Position = UDim2.new(0, 5, 0, 0)
             Label.TextXAlignment = Enum.TextXAlignment.Left
+            Label.TextTruncate = Enum.TextTruncate.AtEnd
             Label.BackgroundTransparency = 1
             Label.Parent = Frame
             local BoxCont = Instance.new("Frame")
@@ -1599,6 +1598,7 @@ function Library:CreateWindow(options)
             Label.Size = UDim2.new(0.6, 0, 1, 0)
             Label.Position = UDim2.new(0, 5, 0, 0)
             Label.TextXAlignment = Enum.TextXAlignment.Left
+            Label.TextTruncate = Enum.TextTruncate.AtEnd
             Label.BackgroundTransparency = 1
             Label.Parent = Frame
             local Preview = Instance.new("TextButton")
@@ -1799,15 +1799,6 @@ function Library:CreateWindow(options)
         return Section
     end
     local function PopulateSettings()
-        local SetPage = Instance.new("ScrollingFrame")
-        SetPage.Size = UDim2.new(1, -200, 1, -20)
-        SetPage.Position = UDim2.new(0, 190, 0, 10)
-        SetPage.BackgroundTransparency = 1
-        SetPage.ScrollBarThickness = 2
-        SetPage.ScrollBarImageColor3 = Theme.Accent
-        SetPage.Active = true
-        SetPage.Parent = SettingsWindow
-        RegisterTheme(SetPage, "ScrollBar")
         local ListLayout = Instance.new("UIListLayout")
         ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ListLayout.Padding = UDim.new(0, 10)
@@ -1864,6 +1855,7 @@ function Library:CreateWindow(options)
         CNameLabel.Size = UDim2.new(1, 0, 0, 20)
         CNameLabel.Position = UDim2.new(0, 5, 0, 0)
         CNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        CNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
         CNameLabel.BackgroundTransparency = 1
         CNameLabel.Parent = CNameFrame
         local CNameBoxCont = Instance.new("Frame")
@@ -1903,6 +1895,7 @@ function Library:CreateWindow(options)
         CDLabel.Size = UDim2.new(1, 0, 0, 16)
         CDLabel.Position = UDim2.new(0, 5, 0, 0)
         CDLabel.TextXAlignment = Enum.TextXAlignment.Left
+        CDLabel.TextTruncate = Enum.TextTruncate.AtEnd
         CDLabel.BackgroundTransparency = 1
         CDLabel.Parent = ConfigDropdownFrame
         local CDInteractive = Instance.new("TextButton")
@@ -1984,6 +1977,7 @@ function Library:CreateWindow(options)
                 OptBtn.Text = opt
                 OptBtn.Font = Config.FontMain
                 OptBtn.TextSize = 12
+                OptBtn.TextTruncate = Enum.TextTruncate.AtEnd
                 OptBtn.Parent = CDListFrame
                 OptBtn.ZIndex = 11
                 OptBtn.TextColor3 = (selectedConfigName == opt) and Theme.Accent or Theme.TextDark
@@ -2041,6 +2035,7 @@ function Library:CreateWindow(options)
         CreateBtn.Font = Config.FontMain
         CreateBtn.TextSize = 13
         CreateBtn.TextColor3 = Theme.Text
+        CreateBtn.TextTruncate = Enum.TextTruncate.AtEnd
         CreateBtn.AutoButtonColor = false
         CreateBtn.LayoutOrder = 3
         CreateBtn.Parent = ConfigContent
@@ -2084,6 +2079,7 @@ function Library:CreateWindow(options)
         LoadBtn.Font = Config.FontMain
         LoadBtn.TextSize = 13
         LoadBtn.TextColor3 = Theme.Text
+        LoadBtn.TextTruncate = Enum.TextTruncate.AtEnd
         LoadBtn.AutoButtonColor = false
         LoadBtn.LayoutOrder = 4
         LoadBtn.Parent = ConfigContent
@@ -2117,6 +2113,7 @@ function Library:CreateWindow(options)
         RewriteBtn.Font = Config.FontMain
         RewriteBtn.TextSize = 13
         RewriteBtn.TextColor3 = Theme.Text
+        RewriteBtn.TextTruncate = Enum.TextTruncate.AtEnd
         RewriteBtn.AutoButtonColor = false
         RewriteBtn.LayoutOrder = 5
         RewriteBtn.Parent = ConfigContent
@@ -2150,6 +2147,7 @@ function Library:CreateWindow(options)
         DeleteBtn.Font = Config.FontMain
         DeleteBtn.TextSize = 13
         DeleteBtn.TextColor3 = Theme.Text
+        DeleteBtn.TextTruncate = Enum.TextTruncate.AtEnd
         DeleteBtn.AutoButtonColor = false
         DeleteBtn.LayoutOrder = 6
         DeleteBtn.Parent = ConfigContent
@@ -2184,6 +2182,7 @@ function Library:CreateWindow(options)
         RefreshBtn.Font = Config.FontMain
         RefreshBtn.TextSize = 13
         RefreshBtn.TextColor3 = Theme.Text
+        RefreshBtn.TextTruncate = Enum.TextTruncate.AtEnd
         RefreshBtn.AutoButtonColor = false
         RefreshBtn.LayoutOrder = 7
         RefreshBtn.Parent = ConfigContent
@@ -2205,6 +2204,7 @@ function Library:CreateWindow(options)
         ResetBtn.Font = Config.FontMain
         ResetBtn.TextSize = 13
         ResetBtn.TextColor3 = Theme.Text
+        ResetBtn.TextTruncate = Enum.TextTruncate.AtEnd
         ResetBtn.AutoButtonColor = false
         ResetBtn.LayoutOrder = 8
         ResetBtn.Parent = ConfigContent
@@ -2253,6 +2253,7 @@ function Library:CreateWindow(options)
         Title.Size = UDim2.new(1, -20, 1, 0)
         Title.Position = UDim2.new(0, iconId and 35 or 15, 0, 0)
         Title.TextXAlignment = Enum.TextXAlignment.Left
+        Title.TextTruncate = Enum.TextTruncate.AtEnd
         Title.BackgroundTransparency = 1
         Title.Parent = TabBtn
         if iconId then
@@ -2308,8 +2309,6 @@ function Library:CreateWindow(options)
             Indicator.BackgroundTransparency = 0
         end
         local LeftCol = Instance.new("Frame")
-        LeftCol.Size = UDim2.new(0.5, -5, 1, 0)
-        LeftCol.Position = UDim2.new(0, 0, 0, 0)
         LeftCol.BackgroundTransparency = 1
         LeftCol.Parent = Page
         local LeftList = Instance.new("UIListLayout")
@@ -2317,22 +2316,33 @@ function Library:CreateWindow(options)
         LeftList.Padding = UDim.new(0, 10)
         LeftList.Parent = LeftCol
         local RightCol = Instance.new("Frame")
-        RightCol.Size = UDim2.new(0.5, -5, 1, 0)
-        RightCol.Position = UDim2.new(0.5, 5, 0, 0)
         RightCol.BackgroundTransparency = 1
         RightCol.Parent = Page
         local RightList = Instance.new("UIListLayout")
         RightList.SortOrder = Enum.SortOrder.LayoutOrder
         RightList.Padding = UDim.new(0, 10)
         RightList.Parent = RightCol
-        local ll1 = LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
-        end)
-        local rl1 = RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
-        end)
-        table.insert(Library.Connections, ll1)
-        table.insert(Library.Connections, rl1)
+        local function UpdateColumns()
+            local w = Page.AbsoluteWindowSize.X
+            local leftH = LeftList.AbsoluteContentSize.Y
+            local rightH = RightList.AbsoluteContentSize.Y
+            if w < 450 then
+                LeftCol.Size = UDim2.new(1, 0, 0, leftH)
+                LeftCol.Position = UDim2.new(0, 0, 0, 0)
+                RightCol.Size = UDim2.new(1, 0, 0, rightH)
+                RightCol.Position = UDim2.new(0, 0, 0, leftH + (leftH > 0 and 10 or 0))
+                Page.CanvasSize = UDim2.new(0, 0, 0, leftH + rightH + 20)
+            else
+                LeftCol.Size = UDim2.new(0.5, -5, 0, leftH)
+                LeftCol.Position = UDim2.new(0, 0, 0, 0)
+                RightCol.Size = UDim2.new(0.5, -5, 0, rightH)
+                RightCol.Position = UDim2.new(0.5, 5, 0, 0)
+                Page.CanvasSize = UDim2.new(0, 0, 0, math.max(leftH, rightH) + 20)
+            end
+        end
+        table.insert(Library.Connections, Page:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(UpdateColumns))
+        table.insert(Library.Connections, LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateColumns))
+        table.insert(Library.Connections, RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateColumns))
         function Tab:Section(text, side)
             local Section = {}
             local ParentCol = (side == "Right" and RightCol or LeftCol)
@@ -2355,6 +2365,7 @@ function Library:CreateWindow(options)
             STitle.Position = UDim2.new(0, 10, 0, 0)
             STitle.BackgroundTransparency = 1
             STitle.TextXAlignment = Enum.TextXAlignment.Left
+            STitle.TextTruncate = Enum.TextTruncate.AtEnd
             STitle.Parent = Container
             local Content = Instance.new("Frame")
             Content.Size = UDim2.new(1, -10, 0, 0)
@@ -2437,6 +2448,7 @@ function Library:CreateWindow(options)
                 Label.Size = UDim2.new(1, -30, 1, 0)
                 Label.Position = UDim2.new(0, 10, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
+                Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Label.BackgroundTransparency = 1
                 Label.Parent = Btn
                 local Box = Instance.new("Frame")
@@ -2527,6 +2539,7 @@ function Library:CreateWindow(options)
                     SBtn.Font = Config.FontMain
                     SBtn.TextSize = 12
                     SBtn.TextColor3 = Theme.Text
+                    SBtn.TextTruncate = Enum.TextTruncate.AtEnd
                     SBtn.AutoButtonColor = false
                     SBtn.Parent = SubContainer
                     Corner(SBtn, 4)
@@ -2558,6 +2571,7 @@ function Library:CreateWindow(options)
                     SLabel.TextColor3 = Theme.TextDark
                     SLabel.Size = UDim2.new(1, 0, 0, 16)
                     SLabel.TextXAlignment = Enum.TextXAlignment.Left
+                    SLabel.TextTruncate = Enum.TextTruncate.AtEnd
                     SLabel.BackgroundTransparency = 1
                     SLabel.Parent = SFrame
                     local SValue = Instance.new("TextBox")
@@ -2671,6 +2685,7 @@ function Library:CreateWindow(options)
                     KeyBtn.Font = Config.FontMain
                     KeyBtn.TextSize = 11
                     KeyBtn.TextXAlignment = Enum.TextXAlignment.Right
+                    KeyBtn.TextTruncate = Enum.TextTruncate.AtEnd
                     KeyBtn.Parent = Btn
                     local binding = false
                     local kb1 = KeyBtn.MouseButton1Click:Connect(function()
@@ -2782,6 +2797,7 @@ function Library:CreateWindow(options)
                 Label.Size = UDim2.new(0.6, 0, 1, 0)
                 Label.Position = UDim2.new(0, 5, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
+                Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
                 local KeyBtn = Instance.new("TextButton")
@@ -2793,6 +2809,7 @@ function Library:CreateWindow(options)
                 KeyBtn.Font = Config.FontMain
                 KeyBtn.TextSize = 12
                 KeyBtn.TextColor3 = Theme.TextDark
+                KeyBtn.TextTruncate = Enum.TextTruncate.AtEnd
                 KeyBtn.AutoButtonColor = false
                 KeyBtn.Parent = Frame
                 Corner(KeyBtn, 4)
@@ -2919,6 +2936,7 @@ function Library:CreateWindow(options)
                 Btn.Font = Config.FontMain
                 Btn.TextSize = 13
                 Btn.TextColor3 = Theme.Text
+                Btn.TextTruncate = Enum.TextTruncate.AtEnd
                 Btn.AutoButtonColor = false
                 Btn.Parent = Content
                 table.insert(secData.Items, {Name = text, Instance = Btn})
@@ -2950,6 +2968,7 @@ function Library:CreateWindow(options)
                 Label.Size = UDim2.new(1, 0, 0, 16)
                 Label.Position = UDim2.new(0, 5, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
+                Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
                 local BoxCont = Instance.new("Frame")
@@ -3022,6 +3041,7 @@ function Library:CreateWindow(options)
                 Label.Size = UDim2.new(0.6, 0, 1, 0)
                 Label.Position = UDim2.new(0, 5, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
+                Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
                 local Preview = Instance.new("TextButton")
@@ -3236,7 +3256,7 @@ function Library:CreateWindow(options)
     task.defer(function()
         Library:LoadConfig("_autosave")
     end)
-    MainScale.Scale = GetBaseScale()
+    MainScale.Scale = 1
     MainWindow.Visible = true
     return WindowObj
 end
