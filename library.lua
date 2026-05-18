@@ -61,6 +61,10 @@ local function Get_Input_Name(Input_Enum)
     return Input_Enum.Name
 end
 
+local function GetTextWidth(Text_String, Size, Font)
+    return Text_Service:GetTextSize(Text_String, Size, Font, Vector2.new(10000, 10000)).X
+end
+
 function Library_Api:UpdateTheme(New_Color)
     local Old_Color = Hub_Colors.accentColor
     Hub_Colors.accentColor = New_Color
@@ -247,6 +251,8 @@ function Library_Api:RefreshKeybinds()
     for Flag, Key in pairs(Library_Api.Flags) do
         if typeof(Key) == "EnumItem" and Key ~= Enum.KeyCode.Unknown then
             local Name = Library_Api.Keybind_Names[Flag] or Flag
+            local BindText = "[" .. Get_Input_Name(Key) .. "]"
+            local BindWidth = GetTextWidth(BindText, 11, Bold_Font)
             Count = Count + 1
             local Kb_Item = Instance.new("Frame")
             Kb_Item.Size = UDim2.new(1, 0, 0, 22)
@@ -262,8 +268,20 @@ function Library_Api:RefreshKeybinds()
             Item_Stroke.Color = Hub_Colors.borderColor
             Item_Stroke.Parent = Kb_Item
 
+            local Kb_Val = Instance.new("TextLabel")
+            Kb_Val.AnchorPoint = Vector2.new(1, 0.5)
+            Kb_Val.Size = UDim2.new(0, BindWidth, 1, 0)
+            Kb_Val.Position = UDim2.new(1, -8, 0.5, 0)
+            Kb_Val.BackgroundTransparency = 1
+            Kb_Val.Text = BindText
+            Kb_Val.TextColor3 = Hub_Colors.accentColor
+            Kb_Val.TextSize = 11
+            Kb_Val.Font = Bold_Font
+            Kb_Val.TextXAlignment = Enum.TextXAlignment.Right
+            Kb_Val.Parent = Kb_Item
+
             local Kb_Name = Instance.new("TextLabel")
-            Kb_Name.Size = UDim2.new(1, -60, 1, 0)
+            Kb_Name.Size = UDim2.new(1, -(BindWidth + 20), 1, 0)
             Kb_Name.Position = UDim2.new(0, 8, 0, 0)
             Kb_Name.BackgroundTransparency = 1
             Kb_Name.Text = Name
@@ -271,18 +289,8 @@ function Library_Api:RefreshKeybinds()
             Kb_Name.TextSize = 11
             Kb_Name.Font = Main_Font
             Kb_Name.TextXAlignment = Enum.TextXAlignment.Left
+            Kb_Name.TextTruncate = Enum.TextTruncate.AtEnd
             Kb_Name.Parent = Kb_Item
-
-            local Kb_Val = Instance.new("TextLabel")
-            Kb_Val.Size = UDim2.new(0, 60, 1, 0)
-            Kb_Val.Position = UDim2.new(1, -68, 0, 0)
-            Kb_Val.BackgroundTransparency = 1
-            Kb_Val.Text = "[" .. Get_Input_Name(Key) .. "]"
-            Kb_Val.TextColor3 = Hub_Colors.accentColor
-            Kb_Val.TextSize = 11
-            Kb_Val.Font = Bold_Font
-            Kb_Val.TextXAlignment = Enum.TextXAlignment.Right
-            Kb_Val.Parent = Kb_Item
         end
     end
     Animate_Element(Keybinds_Frame, {Size = UDim2.new(0, 220, 0, 42 + (Count * 28))}, 0.2)
@@ -649,6 +657,7 @@ function Library_Api:CreateWindow(Window_Name)
     Profile_Name_Label.TextSize = 12
     Profile_Name_Label.Font = Bold_Font
     Profile_Name_Label.TextXAlignment = Enum.TextXAlignment.Left
+    Profile_Name_Label.TextTruncate = Enum.TextTruncate.AtEnd
     Profile_Name_Label.Parent = Profile_Button
 
     local Profile_Sub_Label = Instance.new("TextLabel")
@@ -818,6 +827,7 @@ function Library_Api:CreateWindow(Window_Name)
         Tab_Label.TextSize = 12
         Tab_Label.Font = Main_Font
         Tab_Label.TextXAlignment = Enum.TextXAlignment.Left
+        Tab_Label.TextTruncate = Enum.TextTruncate.AtEnd
         Tab_Label.Parent = Tab_Button
 
         if Icon_Id and Icon_Id ~= "" then
@@ -933,8 +943,11 @@ function Library_Api:CreateWindow(Window_Name)
                 Label_Stroke.Color = Hub_Colors.borderColor
                 Label_Stroke.Parent = Label_Bg
 
+                local titleWidth = GetTextWidth(Name, 12, Main_Font)
+                titleWidth = math.clamp(titleWidth + 10, 50, 160)
+
                 local Title_Label = Instance.new("TextLabel")
-                Title_Label.Size = UDim2.new(0.5, 0, 1, 0)
+                Title_Label.Size = UDim2.new(0, titleWidth, 1, 0)
                 Title_Label.Position = UDim2.new(0, 8, 0, 0)
                 Title_Label.BackgroundTransparency = 1
                 Title_Label.Text = Name
@@ -942,17 +955,20 @@ function Library_Api:CreateWindow(Window_Name)
                 Title_Label.TextSize = 12
                 Title_Label.Font = Main_Font
                 Title_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Title_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Title_Label.Parent = Label_Bg
 
                 local Value_Label = Instance.new("TextLabel")
-                Value_Label.Size = UDim2.new(0.5, -8, 1, 0)
-                Value_Label.Position = UDim2.new(0.5, 0, 0, 0)
+                Value_Label.AnchorPoint = Vector2.new(1, 0)
+                Value_Label.Size = UDim2.new(1, -(titleWidth + 20), 1, 0)
+                Value_Label.Position = UDim2.new(1, -8, 0, 0)
                 Value_Label.BackgroundTransparency = 1
                 Value_Label.Text = Initial_Value or ""
                 Value_Label.TextColor3 = Hub_Colors.textWhiteColor
                 Value_Label.TextSize = 12
                 Value_Label.Font = Bold_Font
                 Value_Label.TextXAlignment = Enum.TextXAlignment.Right
+                Value_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Value_Label.Parent = Label_Bg
 
                 local Api = {}
@@ -971,6 +987,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Subtext_Label.TextSize = 11
                 Subtext_Label.Font = Main_Font
                 Subtext_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Subtext_Label.TextWrapped = true
                 Subtext_Label.Parent = Target_Container
             end
 
@@ -1007,6 +1024,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Toggle_Label.TextSize = 12
                 Toggle_Label.Font = Main_Font
                 Toggle_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Toggle_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Toggle_Label.Parent = Toggle_Button
 
                 Library_Api.Registry[Flag] = function(New_State)
@@ -1043,7 +1061,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Slider_Frame.Parent = Target_Container
 
                 local Slider_Label = Instance.new("TextLabel")
-                Slider_Label.Size = UDim2.new(1, -50, 0, 14)
+                Slider_Label.Size = UDim2.new(1, -60, 0, 14)
                 Slider_Label.Position = UDim2.new(0, 2, 0, 0)
                 Slider_Label.BackgroundTransparency = 1
                 Slider_Label.Text = Name
@@ -1051,11 +1069,13 @@ function Library_Api:CreateWindow(Window_Name)
                 Slider_Label.TextSize = 12
                 Slider_Label.Font = Main_Font
                 Slider_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Slider_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Slider_Label.Parent = Slider_Frame
 
                 local Value_Text_Box = Instance.new("TextBox")
-                Value_Text_Box.Size = UDim2.new(0, 40, 0, 14)
-                Value_Text_Box.Position = UDim2.new(1, -42, 0, 0)
+                Value_Text_Box.AnchorPoint = Vector2.new(1, 0)
+                Value_Text_Box.Size = UDim2.new(0, 50, 0, 14)
+                Value_Text_Box.Position = UDim2.new(1, -4, 0, 0)
                 Value_Text_Box.BackgroundTransparency = 1
                 Value_Text_Box.Text = Format_Value(Library_Api.Flags[Flag], Step)
                 Value_Text_Box.TextColor3 = Hub_Colors.textWhiteColor
@@ -1064,6 +1084,13 @@ function Library_Api:CreateWindow(Window_Name)
                 Value_Text_Box.TextXAlignment = Enum.TextXAlignment.Right
                 Value_Text_Box.ClearTextOnFocus = false
                 Value_Text_Box.Parent = Slider_Frame
+
+                local function UpdateValSize(text)
+                    local w = GetTextWidth(text, 12, Main_Font)
+                    w = math.max(30, w + 10)
+                    Value_Text_Box.Size = UDim2.new(0, w, 0, 14)
+                    Slider_Label.Size = UDim2.new(1, -(w + 15), 0, 14)
+                end
 
                 local Slider_Background = Instance.new("TextButton")
                 Slider_Background.Size = UDim2.new(1, -4, 0, 6)
@@ -1105,9 +1132,11 @@ function Library_Api:CreateWindow(Window_Name)
                     local Snapped_Value = Snap_Value(Clamped_Value, Step)
                     Library_Api.Flags[Flag] = Snapped_Value
                     local Percentage = (Snapped_Value - Min) / (Max - Min)
+                    local formatStr = Format_Value(Snapped_Value, Step)
                     Animate_Element(Slider_Fill, {Size = UDim2.new(Percentage, 0, 1, 0)}, 0.15)
                     Animate_Element(Slider_Knob, {Position = UDim2.new(Percentage, 0, 0.5, 0)}, 0.15)
-                    Value_Text_Box.Text = Format_Value(Snapped_Value, Step)
+                    Value_Text_Box.Text = formatStr
+                    UpdateValSize(formatStr)
                     if Callback then task.spawn(Callback, Snapped_Value) end
                 end
 
@@ -1173,7 +1202,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Range_Slider_Frame.Parent = Target_Container
 
                 local Range_Slider_Label = Instance.new("TextLabel")
-                Range_Slider_Label.Size = UDim2.new(1, -80, 0, 14)
+                Range_Slider_Label.Size = UDim2.new(1, -110, 0, 14)
                 Range_Slider_Label.Position = UDim2.new(0, 2, 0, 0)
                 Range_Slider_Label.BackgroundTransparency = 1
                 Range_Slider_Label.Text = Name
@@ -1181,11 +1210,13 @@ function Library_Api:CreateWindow(Window_Name)
                 Range_Slider_Label.TextSize = 12
                 Range_Slider_Label.Font = Main_Font
                 Range_Slider_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Range_Slider_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Range_Slider_Label.Parent = Range_Slider_Frame
 
                 local Value_Label = Instance.new("TextLabel")
-                Value_Label.Size = UDim2.new(0, 80, 0, 14)
-                Value_Label.Position = UDim2.new(1, -82, 0, 0)
+                Value_Label.AnchorPoint = Vector2.new(1, 0)
+                Value_Label.Size = UDim2.new(0, 100, 0, 14)
+                Value_Label.Position = UDim2.new(1, -4, 0, 0)
                 Value_Label.BackgroundTransparency = 1
                 Value_Label.Text = ""
                 Value_Label.TextColor3 = Hub_Colors.textWhiteColor
@@ -1193,6 +1224,13 @@ function Library_Api:CreateWindow(Window_Name)
                 Value_Label.Font = Main_Font
                 Value_Label.TextXAlignment = Enum.TextXAlignment.Right
                 Value_Label.Parent = Range_Slider_Frame
+
+                local function UpdateValSize(text)
+                    local w = GetTextWidth(text, 12, Main_Font)
+                    w = math.max(60, w + 10)
+                    Value_Label.Size = UDim2.new(0, w, 0, 14)
+                    Range_Slider_Label.Size = UDim2.new(1, -(w + 15), 0, 14)
+                end
 
                 local Range_Slider_Background = Instance.new("TextButton")
                 Range_Slider_Background.Size = UDim2.new(1, -4, 0, 6)
@@ -1242,10 +1280,12 @@ function Library_Api:CreateWindow(Window_Name)
                     Library_Api.Flags[Flag].Max = math.clamp(New_Range.Max, Min, Max)
                     local Min_Percentage = (Library_Api.Flags[Flag].Min - Min) / (Max - Min)
                     local Max_Percentage = (Library_Api.Flags[Flag].Max - Min) / (Max - Min)
+                    local formatStr = Format_Value(Library_Api.Flags[Flag].Min, Step) .. " - " .. Format_Value(Library_Api.Flags[Flag].Max, Step)
                     Animate_Element(Range_Slider_Fill, {Position = UDim2.new(Min_Percentage, 0, 0, 0), Size = UDim2.new(Max_Percentage - Min_Percentage, 0, 1, 0)}, 0.15)
                     Animate_Element(Min_Range_Knob, {Position = UDim2.new(Min_Percentage, 0, 0.5, 0)}, 0.15)
                     Animate_Element(Max_Range_Knob, {Position = UDim2.new(Max_Percentage, 0, 0.5, 0)}, 0.15)
-                    Value_Label.Text = Format_Value(Library_Api.Flags[Flag].Min, Step) .. " - " .. Format_Value(Library_Api.Flags[Flag].Max, Step)
+                    Value_Label.Text = formatStr
+                    UpdateValSize(formatStr)
                     if Callback then task.spawn(Callback, Library_Api.Flags[Flag]) end
                 end
 
@@ -1318,8 +1358,11 @@ function Library_Api:CreateWindow(Window_Name)
                 Textbox_Frame.BackgroundTransparency = 1
                 Textbox_Frame.Parent = Target_Container
 
+                local labelWidth = GetTextWidth(Name, 12, Main_Font)
+                labelWidth = math.clamp(labelWidth + 10, 50, 160)
+
                 local Textbox_Label = Instance.new("TextLabel")
-                Textbox_Label.Size = UDim2.new(0.4, 0, 1, 0)
+                Textbox_Label.Size = UDim2.new(0, labelWidth, 1, 0)
                 Textbox_Label.Position = UDim2.new(0, 2, 0, 0)
                 Textbox_Label.BackgroundTransparency = 1
                 Textbox_Label.Text = Name
@@ -1327,12 +1370,13 @@ function Library_Api:CreateWindow(Window_Name)
                 Textbox_Label.TextSize = 12
                 Textbox_Label.Font = Main_Font
                 Textbox_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Textbox_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Textbox_Label.Parent = Textbox_Frame
 
                 local Textbox_Input_Background = Instance.new("Frame")
                 Textbox_Input_Background.AnchorPoint = Vector2.new(1, 0.5)
-                Textbox_Input_Background.Size = UDim2.new(0.6, -10, 0, 24)
-                Textbox_Input_Background.Position = UDim2.new(1, -2, 0.5, 0)
+                Textbox_Input_Background.Size = UDim2.new(1, -(labelWidth + 15), 0, 24)
+                Textbox_Input_Background.Position = UDim2.new(1, -4, 0.5, 0)
                 Textbox_Input_Background.BackgroundColor3 = Hub_Colors.elementBackground
                 Textbox_Input_Background.BackgroundTransparency = 0.21
                 Textbox_Input_Background.Parent = Textbox_Frame
@@ -1355,7 +1399,6 @@ function Library_Api:CreateWindow(Window_Name)
                 Input_Text_Box.Font = Main_Font
                 Input_Text_Box.ClearTextOnFocus = false
                 Input_Text_Box.TextXAlignment = Enum.TextXAlignment.Left
-                Input_Text_Box.TextWrapped = true
                 Input_Text_Box.ClipsDescendants = true
                 Input_Text_Box.Parent = Textbox_Input_Background
 
@@ -1416,11 +1459,13 @@ function Library_Api:CreateWindow(Window_Name)
                 Keybind_Label.TextSize = 12
                 Keybind_Label.Font = Main_Font
                 Keybind_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Keybind_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Keybind_Label.Parent = Keybind_Frame
 
                 local Keybind_Button = Instance.new("TextButton")
+                Keybind_Button.AnchorPoint = Vector2.new(1, 0.5)
                 Keybind_Button.Size = UDim2.new(0, 70, 0, 22)
-                Keybind_Button.Position = UDim2.new(1, -74, 0.5, -11)
+                Keybind_Button.Position = UDim2.new(1, -4, 0.5, 0)
                 Keybind_Button.BackgroundColor3 = Hub_Colors.elementBackground
                 Keybind_Button.BackgroundTransparency = 0.21
                 Keybind_Button.Text = ""
@@ -1438,9 +1483,18 @@ function Library_Api:CreateWindow(Window_Name)
                 Keybind_Button_Stroke.Color = Hub_Colors.borderColor
                 Keybind_Button_Stroke.Parent = Keybind_Button
 
+                local function UpdateKeybindSize(text)
+                    local w = GetTextWidth(text, 11, Bold_Font)
+                    w = math.clamp(w + 20, 50, 120)
+                    Animate_Element(Keybind_Button, {Size = UDim2.new(0, w, 0, 22)}, 0.15)
+                    Keybind_Label.Size = UDim2.new(1, -(w + 35), 1, 0)
+                end
+
                 Library_Api.Registry[Flag] = function(New_Bind)
                     Library_Api.Flags[Flag] = New_Bind
-                    Keybind_Button.Text = "[ " .. Get_Input_Name(New_Bind) .. " ]"
+                    local bindStr = "[ " .. Get_Input_Name(New_Bind) .. " ]"
+                    Keybind_Button.Text = bindStr
+                    UpdateKeybindSize(bindStr)
                     Library_Api:RefreshKeybinds()
                     if Callback then task.spawn(Callback, New_Bind) end
                 end
@@ -1457,6 +1511,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Keybind_Button.MouseButton1Click:Connect(function()
                     Is_Listening = true
                     Keybind_Button.Text = "[ ... ]"
+                    UpdateKeybindSize("[ ... ]")
                     Animate_Element(Keybind_Button_Stroke, {Color = Hub_Colors.accentColor}, 0.3)
                     Animate_Element(Keybind_Button, {TextColor3 = Hub_Colors.textWhiteColor}, 0.3)
                 end)
@@ -1505,6 +1560,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Dropdown_Label.TextSize = 12
                 Dropdown_Label.Font = Main_Font
                 Dropdown_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Dropdown_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Dropdown_Label.Parent = Dropdown_Frame
 
                 local Dropdown_Main_Button = Instance.new("TextButton")
@@ -1533,6 +1589,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Selected_Option_Label.TextSize = 12
                 Selected_Option_Label.Font = Main_Font
                 Selected_Option_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Selected_Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Selected_Option_Label.Parent = Dropdown_Main_Button
 
                 local Dropdown_Arrow_Icon = Instance.new("ImageLabel")
@@ -1610,6 +1667,7 @@ function Library_Api:CreateWindow(Window_Name)
                         Option_Label.TextSize = 12
                         Option_Label.Font = Main_Font
                         Option_Label.TextXAlignment = Enum.TextXAlignment.Left
+                        Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
                         Option_Label.Parent = Option_Button
 
                         Option_Button.MouseEnter:Connect(function() 
@@ -1678,6 +1736,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Dropdown_Label.TextSize = 12
                 Dropdown_Label.Font = Main_Font
                 Dropdown_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Dropdown_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Dropdown_Label.Parent = Dropdown_Frame
 
                 local Dropdown_Main_Button = Instance.new("TextButton")
@@ -1799,6 +1858,7 @@ function Library_Api:CreateWindow(Window_Name)
                     Option_Label.TextSize = 12
                     Option_Label.Font = Main_Font
                     Option_Label.TextXAlignment = Enum.TextXAlignment.Left
+                    Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
                     Option_Label.Parent = Option_Button
 
                     Option_Button.MouseEnter:Connect(function() 
@@ -1844,7 +1904,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Color_Picker_Frame.Parent = Target_Container
 
                 local Color_Picker_Label = Instance.new("TextLabel")
-                Color_Picker_Label.Size = UDim2.new(1, -40, 0, 24)
+                Color_Picker_Label.Size = UDim2.new(1, -40, 1, 0)
                 Color_Picker_Label.Position = UDim2.new(0, 2, 0, 0)
                 Color_Picker_Label.BackgroundTransparency = 1
                 Color_Picker_Label.Text = Name
@@ -1852,11 +1912,13 @@ function Library_Api:CreateWindow(Window_Name)
                 Color_Picker_Label.TextSize = 12
                 Color_Picker_Label.Font = Main_Font
                 Color_Picker_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Color_Picker_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Color_Picker_Label.Parent = Color_Picker_Frame
 
                 local Color_Preview_Button = Instance.new("TextButton")
-                Color_Preview_Button.Size = UDim2.new(0, 24, 0, 14)
-                Color_Preview_Button.Position = UDim2.new(1, -28, 0, 5)
+                Color_Preview_Button.AnchorPoint = Vector2.new(1, 0.5)
+                Color_Preview_Button.Size = UDim2.new(0, 30, 0, 14)
+                Color_Preview_Button.Position = UDim2.new(1, -4, 0.5, 0)
                 Color_Preview_Button.BackgroundColor3 = Library_Api.Flags[Flag]
                 Color_Preview_Button.Text = ""
                 Color_Preview_Button.AutoButtonColor = false
@@ -2035,6 +2097,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Action_Button.TextSize = 12
                 Action_Button.Font = Bold_Font
                 Action_Button.AutoButtonColor = false
+                Action_Button.TextTruncate = Enum.TextTruncate.AtEnd
                 Action_Button.Parent = Button_Frame
                 
                 local Action_Button_Corner = Instance.new("UICorner")
@@ -2080,6 +2143,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Sub_Button_Action.TextSize = 11
                 Sub_Button_Action.Font = Main_Font
                 Sub_Button_Action.AutoButtonColor = false
+                Sub_Button_Action.TextTruncate = Enum.TextTruncate.AtEnd
                 Sub_Button_Action.Parent = Sub_Button_Frame
                 
                 local Sub_Button_Corner = Instance.new("UICorner")
@@ -2159,6 +2223,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Module_Label.TextSize = 13
                 Module_Label.Font = Bold_Font
                 Module_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Module_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Module_Label.Parent = Module_Toggle_Button
 
                 local Module_Description_Label = Instance.new("TextLabel")
@@ -2170,6 +2235,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Module_Description_Label.TextSize = 11
                 Module_Description_Label.Font = Main_Font
                 Module_Description_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Module_Description_Label.TextTruncate = Enum.TextTruncate.AtEnd
                 Module_Description_Label.Parent = Module_Toggle_Button
 
                 local Module_Arrow_Icon = Instance.new("ImageLabel")
@@ -2267,6 +2333,7 @@ function Library_Api:CreateWindow(Window_Name)
             Section_Label.TextSize = 12
             Section_Label.Font = Bold_Font
             Section_Label.TextXAlignment = Enum.TextXAlignment.Left
+            Section_Label.TextTruncate = Enum.TextTruncate.AtEnd
             Section_Label.Parent = Section_Header_Frame
 
             local Section_Separator_Line = Instance.new("Frame")
