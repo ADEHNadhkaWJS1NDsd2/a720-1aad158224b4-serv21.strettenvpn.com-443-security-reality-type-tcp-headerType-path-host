@@ -410,18 +410,14 @@ function LibraryApi:CreateWindow(windowName)
     contentAreaFrame.Parent = mainBackground
 
     local mobileToggleButton = Instance.new("ImageButton")
-    mobileToggleButton.Size = UDim2.new(0, 50, 0, 50)
-    mobileToggleButton.Position = UDim2.new(0, 20, 0.5, -25)
+    mobileToggleButton.Size = UDim2.new(0, 36, 0, 36)
+    mobileToggleButton.Position = UDim2.new(0, 20, 0.5, -18)
     mobileToggleButton.BackgroundColor3 = colors.mainBackground
     mobileToggleButton.BorderSizePixel = 0
     mobileToggleButton.ZIndex = 1000
-    mobileToggleButton.Visible = userInputService.TouchEnabled
+    mobileToggleButton.Visible = true
+    mobileToggleButton.Image = "rbxassetid://131244616689186"
     mobileToggleButton.Parent = screenGui
-    
-    local success, avatarImage = pcall(function()
-        return playersService:GetUserThumbnailAsync(playersService.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-    end)
-    mobileToggleButton.Image = success and avatarImage or ""
 
     local mobileToggleCorner = Instance.new("UICorner")
     mobileToggleCorner.CornerRadius = UDim.new(1, 0)
@@ -467,11 +463,11 @@ function LibraryApi:CreateWindow(windowName)
     local toggleClickTime = 0
     mobileToggleButton.MouseButton1Down:Connect(function()
         toggleClickTime = tick()
-        animateElement(mobileToggleButton, {Size = UDim2.new(0, 45, 0, 45)}, 0.25)
+        animateElement(mobileToggleButton, {Size = UDim2.new(0, 30, 0, 30)}, 0.25)
     end)
     
     mobileToggleButton.MouseButton1Up:Connect(function()
-        animateElement(mobileToggleButton, {Size = UDim2.new(0, 50, 0, 50)}, 0.25)
+        animateElement(mobileToggleButton, {Size = UDim2.new(0, 36, 0, 36)}, 0.25)
         if tick() - toggleClickTime < 0.2 then
             mainBackground.Visible = not mainBackground.Visible
         end
@@ -1111,7 +1107,7 @@ function LibraryApi:CreateWindow(windowName)
                 keybindIcon.Size = UDim2.new(0, 18, 0, 18)
                 keybindIcon.Position = UDim2.new(0, 6, 0.5, -9)
                 keybindIcon.BackgroundTransparency = 1
-                keybindIcon.Image = "rbxassetid://119296823312315"
+                keybindIcon.Image = "rbxassetid://104798010403294"
                 keybindIcon.ImageColor3 = colors.textWhiteColor
                 keybindIcon.Parent = keybindFrame
 
