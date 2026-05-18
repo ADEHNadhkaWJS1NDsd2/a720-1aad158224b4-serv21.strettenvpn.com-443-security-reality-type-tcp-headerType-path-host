@@ -1053,11 +1053,7 @@ function Library:CreateWindow(options)
     else
         Frame.Size = UDim2.new(0, 650, 0, 400)
     end
-        if IsMobile then
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    else
-        Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    end
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
         Frame.BackgroundTransparency = 0.1
@@ -1322,8 +1318,6 @@ function Library:CreateWindow(options)
     MainPages.BackgroundTransparency = 1
     MainPages.Parent = MainWindow
 
-pcall(function() game:GetService("TextService"):GetTextSize("A",14,Enum.Font.SourceSans,Vector2.new(999,999)) end)
-
 local ScrollHolder = Instance.new("ScrollingFrame")
 ScrollHolder.Name = "ScrollHolder"
 ScrollHolder.Size = UDim2.new(1, 0, 1, 0)
@@ -1583,15 +1577,11 @@ ScrollLayout.Parent = ScrollHolder
             Input.PlaceholderText = placeholder
             Input.PlaceholderColor3 = Theme.TextDark
             Input.Font = Enum.Font.Gotham
-            Input.TextSize = 13
+            Input.TextSize = IsMobile and 15 or 13
             Input.TextXAlignment = Enum.TextXAlignment.Left
             local currentText = Library.Flags[flag] or ""
             Input.Text = currentText
             Input.ClearTextOnFocus = false
-
-            if IsMobile then
-                Input.TextSize = 16
-            end
 
             Input.Parent = BoxCont
             local ic1 = Input.FocusLost:Connect(function(enter)
@@ -1926,14 +1916,10 @@ ScrollLayout.Parent = ScrollHolder
         CNameInput.PlaceholderText = "Type config name..."
         CNameInput.PlaceholderColor3 = Theme.TextDark
         CNameInput.Font = Enum.Font.Gotham
-        CNameInput.TextSize = 13
+        CNameInput.TextSize = IsMobile and 15 or 13
         CNameInput.TextXAlignment = Enum.TextXAlignment.Left
         CNameInput.Text = ""
         CNameInput.ClearTextOnFocus = false
-
-            if IsMobile then
-                Input.TextSize = 16
-            end
 
         CNameInput.Parent = CNameBoxCont
         local c2 = CNameInput:GetPropertyChangedSignal("Text"):Connect(function()
@@ -2280,7 +2266,7 @@ ScrollLayout.Parent = ScrollHolder
     function WindowObj:Tab(name, iconId)
         local Tab = {}
         local Page = Instance.new("ScrollingFrame")
-        Page.Size = UDim2.new(1, -20, 1, -20)
+        Page.Size = IsMobile and UDim2.new(1, -10, 1, -10) or UDim2.new(1, -20, 1, -20)
         Page.Position = UDim2.new(0, 10, 0, 10)
         Page.BackgroundTransparency = 1
         Page.ScrollBarThickness = 0
@@ -3008,15 +2994,11 @@ ScrollLayout.Parent = ScrollHolder
                 Input.PlaceholderText = placeholder or "Type here..."
                 Input.PlaceholderColor3 = Theme.TextDark
                 Input.Font = Enum.Font.Gotham
-                Input.TextSize = 13
+                Input.TextSize = IsMobile and 15 or 13
                 Input.TextXAlignment = Enum.TextXAlignment.Left
                 local currentText = Library.Flags[flag] or ""
                 Input.Text = currentText
                 Input.ClearTextOnFocus = false
-
-            if IsMobile then
-                Input.TextSize = 16
-            end
 
                 Input.Parent = BoxCont
                 local c1 = Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}) end)
