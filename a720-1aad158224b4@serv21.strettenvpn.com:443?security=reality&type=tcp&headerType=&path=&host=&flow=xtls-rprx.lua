@@ -14,6 +14,20 @@ local delfile = delfile or function() end
 local CoreGui
 pcall(function() CoreGui = game:GetService("CoreGui") end)
 local LocalPlayer = Players.LocalPlayer
+
+local function IsMobile()
+    return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+end
+
+local function GetSafeViewport()
+    local cam = workspace.CurrentCamera
+    if not cam then
+        return Vector2.new(800, 600)
+    end
+    local vp = cam.ViewportSize
+    return Vector2.new(math.max(vp.X, 300), math.max(vp.Y, 250))
+end
+
 local Library = {
     Flags = {},
     Signals = {},
@@ -673,7 +687,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     ListFrame.ZIndex = 10
     ListFrame.Visible = false
     ListFrame.Active = true
-    ListFrame.ScrollBarThickness = 2
+    ListFrame.ScrollBarThickness = UserInputService.TouchEnabled and 6 or 2
     ListFrame.ScrollBarImageColor3 = Theme.Accent
     Corner(ListFrame, 4)
     Stroke(ListFrame, Theme.Stroke, 1, 0.5)
@@ -795,7 +809,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         isDropped = not isDropped
         if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = isDropped and 10 or 1 end
         DropFrame.ZIndex = isDropped and 10 or 5
-        if customParent then customParent.ZIndex = isDropped and 10 or 1 customParent.ClipsDescendants = false end
+        if customParent then customParent.ZIndex = isDropped and 10 or 1; customParent.ClipsDescendants = false end
         if isDropped then
             ListFrame.Visible = true
             local listH = math.min(#options * 24, 200)
@@ -983,7 +997,7 @@ function Library:CreateWindow(options)
     MiniGui.Enabled = true
     MiniGui.IgnoreGuiInset = true
     local MiniButton = Instance.new("ImageButton")
-    MiniButton.Size = UDim2.new(0, 46, 0, 46)
+    MiniButton.Size = UDim2.new(0, 54, 0, 54)
     MiniButton.Position = UDim2.new(0, 20, 0.5, -23)
     MiniButton.BackgroundColor3 = Theme.Background
     MiniButton.BackgroundTransparency = 0.1
@@ -1034,13 +1048,14 @@ function Library:CreateWindow(options)
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
-        Frame.Size = UDim2.new(0, 650, 0, 400)
+        Frame.Size = UDim2.new(0, math.min(workspace.CurrentCamera.ViewportSize.X - 20, 650), 0, math.min(workspace.CurrentCamera.ViewportSize.Y - 20, 400))
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
         Frame.BackgroundTransparency = 0.1
         Frame.BorderSizePixel = 0
         Frame.ClipsDescendants = false
+        Frame.AnchorPoint = Vector2.new(0.5,0.5)
         Frame.Visible = false
         Frame.Parent = ScreenGui
         Frame.Active = true
@@ -1944,7 +1959,7 @@ function Library:CreateWindow(options)
         CDListFrame.ZIndex = 10
         CDListFrame.Visible = false
         CDListFrame.Active = true
-        CDListFrame.ScrollBarThickness = 2
+        CDListFrame.ScrollBarThickness = UserInputService.TouchEnabled and 6 or 2
         CDListFrame.ScrollBarImageColor3 = Theme.Accent
         Corner(CDListFrame, 4)
         Stroke(CDListFrame, Theme.Stroke, 1, 0.5)
