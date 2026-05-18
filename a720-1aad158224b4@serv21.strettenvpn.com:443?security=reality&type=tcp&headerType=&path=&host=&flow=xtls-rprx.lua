@@ -122,7 +122,7 @@ local function MakeDraggable(dragArea, frame, onDragCallback)
             dragInput = input
         end
     end)
-    local c2 = dragArea.InputChanged:Connect(function(input)
+    local c2 = UserInputService.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             if dragging then dragInput = input end
         end
@@ -672,7 +672,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     ListFrame.ZIndex = 10
     ListFrame.Visible = false
     ListFrame.Active = true
-    ListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     ListFrame.ScrollBarThickness = 2
     ListFrame.ScrollBarImageColor3 = Theme.Accent
     Corner(ListFrame, 4)
@@ -680,6 +679,10 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     local IList = Instance.new("UIListLayout")
     IList.SortOrder = Enum.SortOrder.LayoutOrder
     IList.Parent = ListFrame
+    local cll = IList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ListFrame.CanvasSize = UDim2.new(0, 0, 0, IList.AbsoluteContentSize.Y)
+    end)
+    table.insert(Library.Connections, cll)
     local function CloseDropdown()
         isDropped = false
         if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = 1 end
@@ -1041,7 +1044,7 @@ function Library:CreateWindow(options)
         Frame.Active = true
         local SizeConstraint = Instance.new("UISizeConstraint")
         SizeConstraint.MaxSize = Vector2.new(1400, 900)
-        SizeConstraint.MinSize = Vector2.new(450, 300)
+        SizeConstraint.MinSize = Vector2.new(350, 250)
         SizeConstraint.Parent = Frame
         Corner(Frame, 6)
         Stroke(Frame, Theme.Stroke, 1, 0)
@@ -1095,7 +1098,7 @@ function Library:CreateWindow(options)
     end)
     table.insert(Library.Connections, c2)
     table.insert(Library.Connections, c3)
-    MakeResizable(Resizer, MainWindow, Vector2.new(450, 300))
+    MakeResizable(Resizer, MainWindow, Vector2.new(350, 250))
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
         Bar.Size = UDim2.new(0, 180, 1, 0)
@@ -1298,7 +1301,6 @@ function Library:CreateWindow(options)
         local Section = {}
         local Container = Instance.new("Frame")
         Container.Size = UDim2.new(1, 0, 0, 0)
-        Container.AutomaticSize = Enum.AutomaticSize.Y
         Container.BackgroundColor3 = Theme.Section
         Container.Parent = parent
         Container.ZIndex = 1
@@ -1319,7 +1321,6 @@ function Library:CreateWindow(options)
         Content.Name = "Content"
         Content.Size = UDim2.new(1, -10, 0, 0)
         Content.Position = UDim2.new(0, 5, 0, 30)
-        Content.AutomaticSize = Enum.AutomaticSize.Y
         Content.BackgroundTransparency = 1
         Content.Parent = Container
         local C_Pad = Instance.new("UIPadding")
@@ -1329,6 +1330,12 @@ function Library:CreateWindow(options)
         List.Padding = UDim.new(0, 6)
         List.SortOrder = Enum.SortOrder.LayoutOrder
         List.Parent = Content
+        local function UpdateSize()
+            Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 36)
+        end
+        local c4 = List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
+        table.insert(Library.Connections, c4)
+        UpdateSize()
         function Section:Label(ltext, options)
             options = options or {}
             local LabelObj = {}
@@ -1797,7 +1804,6 @@ function Library:CreateWindow(options)
         SetPage.Position = UDim2.new(0, 190, 0, 10)
         SetPage.BackgroundTransparency = 1
         SetPage.ScrollBarThickness = 2
-        SetPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
         SetPage.ScrollBarImageColor3 = Theme.Accent
         SetPage.Active = true
         SetPage.Parent = SettingsWindow
@@ -1806,6 +1812,10 @@ function Library:CreateWindow(options)
         ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
         ListLayout.Padding = UDim.new(0, 10)
         ListLayout.Parent = SetPage
+        local c1 = ListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            SetPage.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 20)
+        end)
+        table.insert(Library.Connections, c1)
         local MenuSec = WindowObj:CreateRawSection("Menu Settings", SetPage)
         MenuSec:Button("Unload UI", "Destroys the Hub", function()
             Library:Unload()
@@ -1935,7 +1945,6 @@ function Library:CreateWindow(options)
         CDListFrame.ZIndex = 10
         CDListFrame.Visible = false
         CDListFrame.Active = true
-        CDListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         CDListFrame.ScrollBarThickness = 2
         CDListFrame.ScrollBarImageColor3 = Theme.Accent
         Corner(CDListFrame, 4)
@@ -1943,6 +1952,10 @@ function Library:CreateWindow(options)
         local CDIList = Instance.new("UIListLayout")
         CDIList.SortOrder = Enum.SortOrder.LayoutOrder
         CDIList.Parent = CDListFrame
+        local c3 = CDIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            CDListFrame.CanvasSize = UDim2.new(0, 0, 0, CDIList.AbsoluteContentSize.Y)
+        end)
+        table.insert(Library.Connections, c3)
         local cdIsDropped = false
         local cdOptionBtns = {}
         selectedConfigName = #ConfigList > 0 and ConfigList[1] or ""
@@ -2221,7 +2234,6 @@ function Library:CreateWindow(options)
         Page.Position = UDim2.new(0, 10, 0, 10)
         Page.BackgroundTransparency = 1
         Page.ScrollBarThickness = 0
-        Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
         Page.Visible = false
         Page.Active = true
         Page.Parent = MainPages
@@ -2298,7 +2310,6 @@ function Library:CreateWindow(options)
         local LeftCol = Instance.new("Frame")
         LeftCol.Size = UDim2.new(0.5, -5, 1, 0)
         LeftCol.Position = UDim2.new(0, 0, 0, 0)
-        LeftCol.AutomaticSize = Enum.AutomaticSize.Y
         LeftCol.BackgroundTransparency = 1
         LeftCol.Parent = Page
         local LeftList = Instance.new("UIListLayout")
@@ -2308,19 +2319,25 @@ function Library:CreateWindow(options)
         local RightCol = Instance.new("Frame")
         RightCol.Size = UDim2.new(0.5, -5, 1, 0)
         RightCol.Position = UDim2.new(0.5, 5, 0, 0)
-        RightCol.AutomaticSize = Enum.AutomaticSize.Y
         RightCol.BackgroundTransparency = 1
         RightCol.Parent = Page
         local RightList = Instance.new("UIListLayout")
         RightList.SortOrder = Enum.SortOrder.LayoutOrder
         RightList.Padding = UDim.new(0, 10)
         RightList.Parent = RightCol
+        local ll1 = LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
+        end)
+        local rl1 = RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
+        end)
+        table.insert(Library.Connections, ll1)
+        table.insert(Library.Connections, rl1)
         function Tab:Section(text, side)
             local Section = {}
             local ParentCol = (side == "Right" and RightCol or LeftCol)
             local Container = Instance.new("Frame")
             Container.Size = UDim2.new(1, 0, 0, 0)
-            Container.AutomaticSize = Enum.AutomaticSize.Y
             Container.BackgroundColor3 = Theme.Section
             Container.Parent = ParentCol
             Container.ZIndex = 1
@@ -2342,7 +2359,6 @@ function Library:CreateWindow(options)
             local Content = Instance.new("Frame")
             Content.Size = UDim2.new(1, -10, 0, 0)
             Content.Position = UDim2.new(0, 5, 0, 25)
-            Content.AutomaticSize = Enum.AutomaticSize.Y
             Content.BackgroundTransparency = 1
             Content.Parent = Container
             local C_Pad = Instance.new("UIPadding")
@@ -2352,6 +2368,11 @@ function Library:CreateWindow(options)
             List.Padding = UDim.new(0, 6)
             List.SortOrder = Enum.SortOrder.LayoutOrder
             List.Parent = Content
+            local function UpdateSize()
+                Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 31)
+            end
+            local c4 = List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
+            table.insert(Library.Connections, c4)
             function Section:Label(ltext, options)
                 options = options or {}
                 local LabelObj = {}
