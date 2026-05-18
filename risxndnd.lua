@@ -391,6 +391,7 @@ function Library_Api:Create_Window(Window_Name)
     Sidebar_Frame.BackgroundColor3 = Menu_Colors.Sidebar_Background
     Sidebar_Frame.BackgroundTransparency = 0.218
     Sidebar_Frame.BorderSizePixel = 0
+    Sidebar_Frame.ZIndex = 5
     Sidebar_Frame.Parent = Main_Background
     
     local Sidebar_Corner = Instance.new("UICorner")
@@ -439,6 +440,8 @@ function Library_Api:Create_Window(Window_Name)
     Profile_Button.BackgroundTransparency = 1
     Profile_Button.Text = ""
     Profile_Button.AutoButtonColor = false
+    Profile_Button.ZIndex = 15
+    Profile_Button.Active = true
     Profile_Button.Parent = Sidebar_Frame
 
     local Profile_Button_Corner = Instance.new("UICorner")
@@ -450,6 +453,7 @@ function Library_Api:Create_Window(Window_Name)
     Profile_Avatar.Position = UDim2.new(0, 7, 0.5, -18)
     Profile_Avatar.BackgroundColor3 = Menu_Colors.Main_Background
     Profile_Avatar.BorderSizePixel = 0
+    Profile_Avatar.ZIndex = 16
     Profile_Avatar.Parent = Profile_Button
 
     local Success, Avatar_Image_Url = pcall(function()
@@ -475,6 +479,7 @@ function Library_Api:Create_Window(Window_Name)
     Profile_Name.TextSize = 13
     Profile_Name.Font = Bold_Font
     Profile_Name.TextXAlignment = Enum.TextXAlignment.Left
+    Profile_Name.ZIndex = 16
     Profile_Name.Parent = Profile_Button
 
     local Profile_Subtext = Instance.new("TextLabel")
@@ -486,12 +491,14 @@ function Library_Api:Create_Window(Window_Name)
     Profile_Subtext.TextSize = 12
     Profile_Subtext.Font = Main_Font
     Profile_Subtext.TextXAlignment = Enum.TextXAlignment.Left
+    Profile_Subtext.ZIndex = 16
     Profile_Subtext.Parent = Profile_Button
 
     local Content_Area_Frame = Instance.new("Frame")
     Content_Area_Frame.Size = UDim2.new(1, -151, 1, -37)
     Content_Area_Frame.Position = UDim2.new(0, 151, 0, 37)
     Content_Area_Frame.BackgroundTransparency = 1
+    Content_Area_Frame.ZIndex = 5
     Content_Area_Frame.Parent = Main_Background
 
     local Mobile_Toggle_Button = Instance.new("ImageButton")
@@ -725,7 +732,7 @@ function Library_Api:Create_Window(Window_Name)
             end
         end
 
-        Tab_Button.MouseButton1Click:Connect(function() Tab_Data:Activate() end)
+        Tab_Button.MouseButton1Down:Connect(function() Tab_Data:Activate() end)
 
         Tab_Data.Btn = Tab_Button
         Tab_Data.Lbl = Tab_Label
@@ -933,6 +940,186 @@ function Library_Api:Create_Window(Window_Name)
                     else
                         Value_Text_Box.Text = Format_Value(Library_Api.Flags[Flag], Step)
                     end
+                end)
+            end
+
+            function Elements:ColorPicker_Create(Name, Flag, Default, Tooltip, Callback)
+                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or Color3.new(1, 1, 1))
+                local Is_Color_Picker_Open = false
+                local Hue, Saturation, Value = Library_Api.Flags[Flag]:ToHSV()
+
+                local Color_Picker_Frame = Instance.new("Frame")
+                Color_Picker_Frame.Size = UDim2.new(1, 0, 0, 24)
+                Color_Picker_Frame.BackgroundTransparency = 1
+                Color_Picker_Frame.ClipsDescendants = true
+                Color_Picker_Frame.Parent = Target_Container
+
+                local Color_Picker_Label = Instance.new("TextLabel")
+                Color_Picker_Label.Size = UDim2.new(1, -40, 0, 24)
+                Color_Picker_Label.Position = UDim2.new(0, 2, 0, 0)
+                Color_Picker_Label.BackgroundTransparency = 1
+                Color_Picker_Label.Text = Name
+                Color_Picker_Label.TextColor3 = Menu_Colors.Text_White_Color
+                Color_Picker_Label.TextSize = 12
+                Color_Picker_Label.Font = Main_Font
+                Color_Picker_Label.TextXAlignment = Enum.TextXAlignment.Left
+                Color_Picker_Label.Parent = Color_Picker_Frame
+
+                local Color_Preview_Button = Instance.new("TextButton")
+                Color_Preview_Button.Size = UDim2.new(0, 24, 0, 14)
+                Color_Preview_Button.Position = UDim2.new(1, -28, 0, 5)
+                Color_Preview_Button.BackgroundColor3 = Library_Api.Flags[Flag]
+                Color_Preview_Button.Text = ""
+                Color_Preview_Button.AutoButtonColor = false
+                Color_Preview_Button.Parent = Color_Picker_Frame
+                
+                local Color_Preview_Button_Corner = Instance.new("UICorner")
+                Color_Preview_Button_Corner.CornerRadius = UDim.new(0, 3)
+                Color_Preview_Button_Corner.Parent = Color_Preview_Button
+                
+                local Color_Preview_Button_Stroke = Instance.new("UIStroke")
+                Color_Preview_Button_Stroke.Color = Menu_Colors.Border_Color
+                Color_Preview_Button_Stroke.Parent = Color_Preview_Button
+
+                local Expanded_Picker_Frame = Instance.new("Frame")
+                Expanded_Picker_Frame.Size = UDim2.new(1, -4, 0, 190)
+                Expanded_Picker_Frame.Position = UDim2.new(0, 2, 0, 28)
+                Expanded_Picker_Frame.BackgroundColor3 = Menu_Colors.Element_Background
+                Expanded_Picker_Frame.BackgroundTransparency = 0.218
+                Expanded_Picker_Frame.Parent = Color_Picker_Frame
+                
+                local Expanded_Picker_Corner = Instance.new("UICorner")
+                Expanded_Picker_Corner.CornerRadius = UDim.new(0, 4)
+                Expanded_Picker_Corner.Parent = Expanded_Picker_Frame
+                
+                local Expanded_Picker_Stroke = Instance.new("UIStroke")
+                Expanded_Picker_Stroke.Color = Menu_Colors.Border_Color
+                Expanded_Picker_Stroke.Parent = Expanded_Picker_Frame
+
+                local Saturation_Value_Map = Instance.new("ImageButton")
+                Saturation_Value_Map.Size = UDim2.new(1, -16, 0, 150)
+                Saturation_Value_Map.Position = UDim2.new(0, 8, 0, 8)
+                Saturation_Value_Map.Image = "rbxassetid://4155801252"
+                Saturation_Value_Map.ImageColor3 = Color3.fromHSV(Hue, 1, 1)
+                Saturation_Value_Map.AutoButtonColor = false
+                Saturation_Value_Map.Parent = Expanded_Picker_Frame
+                local Saturation_Value_Map_Corner = Instance.new("UICorner"); Saturation_Value_Map_Corner.CornerRadius = UDim.new(0, 3); Saturation_Value_Map_Corner.Parent = Saturation_Value_Map
+                local Saturation_Value_Map_Stroke = Instance.new("UIStroke"); Saturation_Value_Map_Stroke.Color = Menu_Colors.Border_Color; Saturation_Value_Map_Stroke.Parent = Saturation_Value_Map
+
+                local Saturation_Value_Map_Cursor = Instance.new("Frame")
+                Saturation_Value_Map_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
+                Saturation_Value_Map_Cursor.Size = UDim2.new(0, 6, 0, 6)
+                Saturation_Value_Map_Cursor.Position = UDim2.new(Saturation, 0, 1 - Value, 0)
+                Saturation_Value_Map_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
+                Saturation_Value_Map_Cursor.Parent = Saturation_Value_Map
+                local Saturation_Value_Map_Cursor_Corner = Instance.new("UICorner"); Saturation_Value_Map_Cursor_Corner.CornerRadius = UDim.new(1, 0); Saturation_Value_Map_Cursor_Corner.Parent = Saturation_Value_Map_Cursor
+                local Saturation_Value_Map_Cursor_Stroke = Instance.new("UIStroke"); Saturation_Value_Map_Cursor_Stroke.Color = Color3.new(0, 0, 0); Saturation_Value_Map_Cursor_Stroke.Parent = Saturation_Value_Map_Cursor
+
+                local Hue_Map = Instance.new("TextButton")
+                Hue_Map.Size = UDim2.new(1, -16, 0, 12)
+                Hue_Map.Position = UDim2.new(0, 8, 0, 168)
+                Hue_Map.Text = ""
+                Hue_Map.AutoButtonColor = false
+                Hue_Map.BackgroundColor3 = Color3.new(1, 1, 1)
+                Hue_Map.Parent = Expanded_Picker_Frame
+                local Hue_Map_Corner = Instance.new("UICorner"); Hue_Map_Corner.CornerRadius = UDim.new(0, 3); Hue_Map_Corner.Parent = Hue_Map
+                local Hue_Map_Stroke = Instance.new("UIStroke"); Hue_Map_Stroke.Color = Menu_Colors.Border_Color; Hue_Map_Stroke.Parent = Hue_Map
+
+                local Hue_Gradient = Instance.new("UIGradient")
+                Hue_Gradient.Color = ColorSequence.new{
+                    ColorSequenceKeypoint.new(0, Color3.new(1, 0, 0)),
+                    ColorSequenceKeypoint.new(1/6, Color3.new(1, 1, 0)),
+                    ColorSequenceKeypoint.new(2/6, Color3.new(0, 1, 0)),
+                    ColorSequenceKeypoint.new(3/6, Color3.new(0, 1, 1)),
+                    ColorSequenceKeypoint.new(4/6, Color3.new(0, 0, 1)),
+                    ColorSequenceKeypoint.new(5/6, Color3.new(1, 0, 1)),
+                    ColorSequenceKeypoint.new(1, Color3.new(1, 0, 0))
+                }
+                Hue_Gradient.Parent = Hue_Map
+
+                local Hue_Map_Cursor = Instance.new("Frame")
+                Hue_Map_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
+                Hue_Map_Cursor.Size = UDim2.new(0, 4, 1, 4)
+                Hue_Map_Cursor.Position = UDim2.new(Hue, 0, 0.5, 0)
+                Hue_Map_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
+                Hue_Map_Cursor.Parent = Hue_Map
+                local Hue_Map_Cursor_Corner = Instance.new("UICorner"); Hue_Map_Cursor_Corner.CornerRadius = UDim.new(0, 2); Hue_Map_Cursor_Corner.Parent = Hue_Map_Cursor
+                local Hue_Map_Cursor_Stroke = Instance.new("UIStroke"); Hue_Map_Cursor_Stroke.Color = Color3.new(0, 0, 0); Hue_Map_Cursor_Stroke.Parent = Hue_Map_Cursor
+
+                local function Update_Color_Picker_State()
+                    local Current_Color = Color3.fromHSV(Hue, Saturation, Value)
+                    Library_Api.Flags[Flag] = Current_Color
+                    Saturation_Value_Map.ImageColor3 = Color3.fromHSV(Hue, 1, 1)
+                    Color_Preview_Button.BackgroundColor3 = Current_Color
+                    Saturation_Value_Map_Cursor.Position = UDim2.new(Saturation, 0, 1 - Value, 0)
+                    Hue_Map_Cursor.Position = UDim2.new(Hue, 0, 0.5, 0)
+                    if Callback then task.spawn(Callback, Current_Color) end
+                end
+
+                Library_Api.Update_Functions[Flag] = function(New_Color)
+                    Library_Api.Flags[Flag] = New_Color
+                    Hue, Saturation, Value = New_Color:ToHSV()
+                    Update_Color_Picker_State()
+                end
+
+                local Is_Sliding_Saturation_Value = false
+                local Is_Sliding_Hue = false
+
+                local function Process_Saturation_Value_Input(Input)
+                    Saturation = math.clamp((Input.Position.X - Saturation_Value_Map.AbsolutePosition.X) / Saturation_Value_Map.AbsoluteSize.X, 0, 1)
+                    Value = 1 - math.clamp((Input.Position.Y - Saturation_Value_Map.AbsolutePosition.Y) / Saturation_Value_Map.AbsoluteSize.Y, 0, 1)
+                    Update_Color_Picker_State()
+                end
+
+                local function Process_Hue_Input(Input)
+                    Hue = math.clamp((Input.Position.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
+                    Update_Color_Picker_State()
+                end
+
+                Saturation_Value_Map.InputBegan:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+                        Is_Sliding_Saturation_Value = true
+                        Process_Saturation_Value_Input(Input)
+                    end
+                end)
+                
+                Hue_Map.InputBegan:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+                        Is_Sliding_Hue = true
+                        Process_Hue_Input(Input)
+                    end
+                end)
+
+                User_Input_Service.InputEnded:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+                        if Is_Sliding_Saturation_Value or Is_Sliding_Hue then
+                            Save_Configuration()
+                        end
+                        Is_Sliding_Saturation_Value = false
+                        Is_Sliding_Hue = false
+                    end
+                end)
+
+                User_Input_Service.InputChanged:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+                        if Is_Sliding_Saturation_Value then Process_Saturation_Value_Input(Input) end
+                        if Is_Sliding_Hue then Process_Hue_Input(Input) end
+                    end
+                end)
+
+                Color_Preview_Button.MouseEnter:Connect(function()
+                    Show_Tooltip(Tooltip)
+                    if not Is_Color_Picker_Open then Animate_Element(Color_Preview_Button_Stroke, {Color = Menu_Colors.Border_Light_Color}, 0.25) end
+                end)
+                Color_Preview_Button.MouseLeave:Connect(function()
+                    Show_Tooltip("")
+                    if not Is_Color_Picker_Open then Animate_Element(Color_Preview_Button_Stroke, {Color = Menu_Colors.Border_Color}, 0.25) end
+                end)
+
+                Color_Preview_Button.MouseButton1Click:Connect(function()
+                    Is_Color_Picker_Open = not Is_Color_Picker_Open
+                    Animate_Element(Color_Preview_Button_Stroke, {Color = Is_Color_Picker_Open and Menu_Colors.Accent_Color or Menu_Colors.Border_Color}, 0.3)
+                    Animate_Element(Color_Picker_Frame, {Size = UDim2.new(1, 0, 0, Is_Color_Picker_Open and 224 or 24)}, 0.3)
                 end)
             end
 
@@ -1306,11 +1493,23 @@ function Library_Api:Create_Window(Window_Name)
 
     local Settings_Tab_Context = Window_Context:Tab_Create("Settings", "", true)
     
-    Profile_Button.MouseButton1Click:Connect(function()
+    Profile_Button.MouseButton1Down:Connect(function()
         Settings_Tab_Context:Activate()
     end)
 
-    local Config_Section = Settings_Tab_Context:Section_Create("Right", "Configuration")
+    local Theme_Section = Settings_Tab_Context:Section_Create("Left", "Theme")
+    
+    Theme_Section:ColorPicker_Create("Accent Color", "Menu_Accent_Color", Menu_Colors.Accent_Color, "Select global menu accent color", function(New_Color)
+        Menu_Colors.Accent_Color = New_Color
+        Library_Api:Notify({
+            Title = "Theme Updated", 
+            Text = "Settings saved. Restart menu to fully apply changes.", 
+            Duration = 3, 
+            Type = "Success"
+        })
+    end)
+
+    local Config_Section = Settings_Tab_Context:Section_Create("Right", "PhantomHub Config")
     
     local Config_Name_Input = ""
     Config_Section:Textbox_Create("Config Name", "New_Config_Name", "", "Enter a name for the config", function(Value)
