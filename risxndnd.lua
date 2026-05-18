@@ -45,7 +45,7 @@ screenGui.IgnoreGuiInset = true
 
 local tooltipFrame = Instance.new("Frame")
 tooltipFrame.BackgroundColor3 = colors.tooltipBackground
-tooltipFrame.BackgroundTransparency = 0.158372
+tooltipFrame.BackgroundTransparency = 0.15
 tooltipFrame.Size = UDim2.new(0, 0, 0, 24)
 tooltipFrame.ZIndex = 2000
 tooltipFrame.Visible = false
@@ -74,8 +74,8 @@ tooltipText.ZIndex = 2001
 tooltipText.Parent = tooltipFrame
 
 local notificationContainer = Instance.new("Frame")
-notificationContainer.Size = UDim2.new(0, 300, 1, -40)
-notificationContainer.Position = UDim2.new(1, -320, 0, 20)
+notificationContainer.Size = UDim2.new(0, 250, 1, -40)
+notificationContainer.Position = UDim2.new(1, -270, 0, 20)
 notificationContainer.BackgroundTransparency = 1
 notificationContainer.ZIndex = 1500
 notificationContainer.Parent = screenGui
@@ -83,7 +83,7 @@ notificationContainer.Parent = screenGui
 local notificationLayout = Instance.new("UIListLayout")
 notificationLayout.SortOrder = Enum.SortOrder.LayoutOrder
 notificationLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-notificationLayout.Padding = UDim.new(0, 10)
+notificationLayout.Padding = UDim.new(0, 8)
 notificationLayout.Parent = notificationContainer
 
 local tooltipTargetText = ""
@@ -101,7 +101,7 @@ local function applyAcrylicEffect(parent, transparency, cornerRadius)
     blurImage.Image = "rbxassetid://8992230113"
     blurImage.TileSize = UDim2.new(0, 256, 0, 256)
     blurImage.ScaleType = Enum.ScaleType.Tile
-    blurImage.ImageTransparency = transparency or 0.88732
+    blurImage.ImageTransparency = transparency or 0.88
     blurImage.ZIndex = parent.ZIndex - 1
     blurImage.Parent = parent
     if cornerRadius then
@@ -193,7 +193,7 @@ runService.RenderStepped:Connect(function()
         tooltipFrame.Position = UDim2.new(0, mouseLocation.X + 15, 0, mouseLocation.Y + 15)
         if not tooltipFrame.Visible then
             tooltipFrame.Visible = true
-            animateElement(tooltipFrame, {BackgroundTransparency = 0.1837265}, 0.25)
+            animateElement(tooltipFrame, {BackgroundTransparency = 0.15}, 0.25)
             animateElement(tooltipStroke, {Transparency = 0}, 0.25)
             animateElement(tooltipText, {TextTransparency = 0}, 0.25)
         end
@@ -217,15 +217,15 @@ function LibraryApi:Notify(config)
     local accentColor = colors["notification" .. notificationType .. "Color"] or colors.accentColor
 
     local notificationFrame = Instance.new("Frame")
-    notificationFrame.Size = UDim2.new(1, 0, 0, 60)
-    notificationFrame.Position = UDim2.new(1, 320, 0, 0)
+    notificationFrame.Size = UDim2.new(1, 0, 0, 50)
+    notificationFrame.Position = UDim2.new(1, 270, 0, 0)
     notificationFrame.BackgroundColor3 = colors.sectionBackground
-    notificationFrame.BackgroundTransparency = 0
+    notificationFrame.BackgroundTransparency = 0.05
     notificationFrame.ZIndex = 1501
     notificationFrame.Parent = notificationContainer
 
     local notificationCorner = Instance.new("UICorner")
-    notificationCorner.CornerRadius = UDim.new(0, 6)
+    notificationCorner.CornerRadius = UDim.new(0, 4)
     notificationCorner.Parent = notificationFrame
 
     local notificationStroke = Instance.new("UIStroke")
@@ -233,36 +233,36 @@ function LibraryApi:Notify(config)
     notificationStroke.Parent = notificationFrame
 
     local lineFrame = Instance.new("Frame")
-    lineFrame.Size = UDim2.new(0, 3, 1, -12)
-    lineFrame.Position = UDim2.new(0, 6, 0, 6)
+    lineFrame.Size = UDim2.new(0, 2, 1, -16)
+    lineFrame.Position = UDim2.new(0, 8, 0, 8)
     lineFrame.BackgroundColor3 = accentColor
     lineFrame.BorderSizePixel = 0
     lineFrame.ZIndex = 1502
     lineFrame.Parent = notificationFrame
 
     local lineCorner = Instance.new("UICorner")
-    lineCorner.CornerRadius = UDim.new(0, 3)
+    lineCorner.CornerRadius = UDim.new(0, 2)
     lineCorner.Parent = lineFrame
 
     local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, -24, 0, 16)
+    titleLabel.Size = UDim2.new(1, -24, 0, 14)
     titleLabel.Position = UDim2.new(0, 16, 0, 8)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Text = title
     titleLabel.TextColor3 = colors.textWhiteColor
-    titleLabel.TextSize = 13
+    titleLabel.TextSize = 12
     titleLabel.Font = boldFont
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.ZIndex = 1502
     titleLabel.Parent = notificationFrame
 
     local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, -24, 0, 24)
-    textLabel.Position = UDim2.new(0, 16, 0, 26)
+    textLabel.Size = UDim2.new(1, -24, 0, 18)
+    textLabel.Position = UDim2.new(0, 16, 0, 24)
     textLabel.BackgroundTransparency = 1
     textLabel.Text = text
     textLabel.TextColor3 = colors.textDarkColor
-    textLabel.TextSize = 12
+    textLabel.TextSize = 11
     textLabel.Font = mainFont
     textLabel.TextXAlignment = Enum.TextXAlignment.Left
     textLabel.TextWrapped = true
@@ -272,7 +272,7 @@ function LibraryApi:Notify(config)
     animateElement(notificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.45)
 
     task.delay(duration, function()
-        local hideTween = animateElement(notificationFrame, {Position = UDim2.new(1, 320, 0, 0)}, 0.45)
+        local hideTween = animateElement(notificationFrame, {Position = UDim2.new(1, 270, 0, 0)}, 0.45)
         hideTween.Completed:Connect(function()
             notificationFrame:Destroy()
         end)
@@ -284,7 +284,7 @@ function LibraryApi:CreateWindow(windowName)
     mainBackground.Size = UDim2.new(0, 720, 0, 480)
     mainBackground.Position = UDim2.new(0.5, -360, 0.5, -240)
     mainBackground.BackgroundColor3 = colors.mainBackground
-    mainBackground.BackgroundTransparency = 0.18374
+    mainBackground.BackgroundTransparency = 0.18
     mainBackground.BorderSizePixel = 0
     mainBackground.Active = true
     mainBackground.Parent = screenGui
@@ -300,12 +300,12 @@ function LibraryApi:CreateWindow(windowName)
     mainStroke.Color = colors.borderColor
     mainStroke.Parent = mainBackground
 
-    applyAcrylicEffect(mainBackground, 0.88741, UDim.new(0, 6))
+    applyAcrylicEffect(mainBackground, 0.88, UDim.new(0, 6))
 
     local topBar = Instance.new("Frame")
     topBar.Size = UDim2.new(1, 0, 0, 36)
     topBar.BackgroundColor3 = colors.sidebarBackground
-    topBar.BackgroundTransparency = 0.21847
+    topBar.BackgroundTransparency = 0.21
     topBar.BorderSizePixel = 0
     topBar.Parent = mainBackground
     
@@ -317,7 +317,7 @@ function LibraryApi:CreateWindow(windowName)
     topHider.Size = UDim2.new(1, 0, 0, 6)
     topHider.Position = UDim2.new(0, 0, 1, -6)
     topHider.BackgroundColor3 = colors.sidebarBackground
-    topHider.BackgroundTransparency = 0.21847
+    topHider.BackgroundTransparency = 0.21
     topHider.BorderSizePixel = 0
     topHider.Parent = topBar
 
@@ -360,7 +360,7 @@ function LibraryApi:CreateWindow(windowName)
     sidebarFrame.Size = UDim2.new(0, 150, 1, -37)
     sidebarFrame.Position = UDim2.new(0, 0, 0, 37)
     sidebarFrame.BackgroundColor3 = colors.sidebarBackground
-    sidebarFrame.BackgroundTransparency = 0.21847
+    sidebarFrame.BackgroundTransparency = 0.21
     sidebarFrame.BorderSizePixel = 0
     sidebarFrame.Parent = mainBackground
     
@@ -372,14 +372,14 @@ function LibraryApi:CreateWindow(windowName)
     sidebarHiderRight.Size = UDim2.new(0, 6, 1, 0)
     sidebarHiderRight.Position = UDim2.new(1, -6, 0, 0)
     sidebarHiderRight.BackgroundColor3 = colors.sidebarBackground
-    sidebarHiderRight.BackgroundTransparency = 0.21847
+    sidebarHiderRight.BackgroundTransparency = 0.21
     sidebarHiderRight.BorderSizePixel = 0
     sidebarHiderRight.Parent = sidebarFrame
 
     local sidebarHiderTop = Instance.new("Frame")
     sidebarHiderTop.Size = UDim2.new(1, 0, 0, 6)
     sidebarHiderTop.BackgroundColor3 = colors.sidebarBackground
-    sidebarHiderTop.BackgroundTransparency = 0.21847
+    sidebarHiderTop.BackgroundTransparency = 0.21
     sidebarHiderTop.BorderSizePixel = 0
     sidebarHiderTop.Parent = sidebarFrame
 
@@ -629,7 +629,7 @@ function LibraryApi:CreateWindow(windowName)
             end
             windowContext.Active_Tab = tabData
             pageScrollingFrame.Visible = true
-            animateElement(tabButton, {BackgroundTransparency = 0.11847}, 0.3)
+            animateElement(tabButton, {BackgroundTransparency = 0.11}, 0.3)
             animateElement(tabLabel, {TextColor3 = colors.textWhiteColor}, 0.3)
             if tabData.Icon then animateElement(tabData.Icon, {ImageColor3 = colors.accentColor}, 0.3) end
             animateElement(tabIndicator, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.3)
@@ -647,6 +647,50 @@ function LibraryApi:CreateWindow(windowName)
 
         local function elementInjector(targetContainer)
             local elements = {}
+
+            function elements:Label_Create(name, initialValue)
+                local labelBg = Instance.new("Frame")
+                labelBg.Size = UDim2.new(1, 0, 0, 26)
+                labelBg.BackgroundColor3 = colors.elementBackground
+                labelBg.BackgroundTransparency = 0.21
+                labelBg.Parent = targetContainer
+
+                local labelCorner = Instance.new("UICorner")
+                labelCorner.CornerRadius = UDim.new(0, 4)
+                labelCorner.Parent = labelBg
+
+                local labelStroke = Instance.new("UIStroke")
+                labelStroke.Color = colors.borderColor
+                labelStroke.Parent = labelBg
+
+                local titleLabel = Instance.new("TextLabel")
+                titleLabel.Size = UDim2.new(0.5, 0, 1, 0)
+                titleLabel.Position = UDim2.new(0, 8, 0, 0)
+                titleLabel.BackgroundTransparency = 1
+                titleLabel.Text = name
+                titleLabel.TextColor3 = colors.textDarkColor
+                titleLabel.TextSize = 12
+                titleLabel.Font = mainFont
+                titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                titleLabel.Parent = labelBg
+
+                local valueLabel = Instance.new("TextLabel")
+                valueLabel.Size = UDim2.new(0.5, -8, 1, 0)
+                valueLabel.Position = UDim2.new(0.5, 0, 0, 0)
+                valueLabel.BackgroundTransparency = 1
+                valueLabel.Text = initialValue or ""
+                valueLabel.TextColor3 = colors.textWhiteColor
+                valueLabel.TextSize = 12
+                valueLabel.Font = boldFont
+                valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+                valueLabel.Parent = labelBg
+
+                local api = {}
+                function api:Set(text)
+                    valueLabel.Text = tostring(text)
+                end
+                return api
+            end
 
             function elements:Subtext_Create(text)
                 local subtextLabel = Instance.new("TextLabel")
@@ -673,7 +717,7 @@ function LibraryApi:CreateWindow(windowName)
                 checkboxFrame.Size = UDim2.new(0, 14, 0, 14)
                 checkboxFrame.Position = UDim2.new(0, 2, 0.5, -7)
                 checkboxFrame.BackgroundColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.elementBackground
-                checkboxFrame.BackgroundTransparency = 0.21847
+                checkboxFrame.BackgroundTransparency = 0.21
                 checkboxFrame.Parent = toggleButton
                 
                 local checkboxCorner = Instance.new("UICorner")
@@ -750,7 +794,7 @@ function LibraryApi:CreateWindow(windowName)
                 sliderBackground.Size = UDim2.new(1, -4, 0, 6)
                 sliderBackground.Position = UDim2.new(0, 2, 0, 24)
                 sliderBackground.BackgroundColor3 = colors.elementBackground
-                sliderBackground.BackgroundTransparency = 0.21847
+                sliderBackground.BackgroundTransparency = 0.21
                 sliderBackground.Text = ""
                 sliderBackground.AutoButtonColor = false
                 sliderBackground.Parent = sliderFrame
@@ -875,7 +919,7 @@ function LibraryApi:CreateWindow(windowName)
                 rangeSliderBackground.Size = UDim2.new(1, -4, 0, 6)
                 rangeSliderBackground.Position = UDim2.new(0, 2, 0, 24)
                 rangeSliderBackground.BackgroundColor3 = colors.elementBackground
-                rangeSliderBackground.BackgroundTransparency = 0.21847
+                rangeSliderBackground.BackgroundTransparency = 0.21
                 rangeSliderBackground.Text = ""
                 rangeSliderBackground.AutoButtonColor = false
                 rangeSliderBackground.Parent = rangeSliderFrame
@@ -1007,7 +1051,7 @@ function LibraryApi:CreateWindow(windowName)
                 textboxInputBackground.Size = UDim2.new(0, 110, 0, 24)
                 textboxInputBackground.Position = UDim2.new(1, -112, 0.5, -12)
                 textboxInputBackground.BackgroundColor3 = colors.elementBackground
-                textboxInputBackground.BackgroundTransparency = 0.21847
+                textboxInputBackground.BackgroundTransparency = 0.21
                 textboxInputBackground.Parent = textboxFrame
                 
                 local textboxInputBackgroundCorner = Instance.new("UICorner")
@@ -1086,7 +1130,7 @@ function LibraryApi:CreateWindow(windowName)
                 keybindButton.Size = UDim2.new(0, 70, 0, 22)
                 keybindButton.Position = UDim2.new(1, -74, 0.5, -11)
                 keybindButton.BackgroundColor3 = colors.elementBackground
-                keybindButton.BackgroundTransparency = 0.21847
+                keybindButton.BackgroundTransparency = 0.21
                 keybindButton.Text = LibraryApi.Flags[flag] == Enum.KeyCode.Unknown and "[ None ]" or "[ " .. LibraryApi.Flags[flag].Name .. " ]"
                 keybindButton.TextColor3 = colors.textDarkColor
                 keybindButton.TextSize = 11
@@ -1165,7 +1209,7 @@ function LibraryApi:CreateWindow(windowName)
                 dropdownMainButton.Size = UDim2.new(1, -4, 0, 24)
                 dropdownMainButton.Position = UDim2.new(0, 2, 0, 20)
                 dropdownMainButton.BackgroundColor3 = colors.elementBackground
-                dropdownMainButton.BackgroundTransparency = 0.21847
+                dropdownMainButton.BackgroundTransparency = 0.21
                 dropdownMainButton.Text = ""
                 dropdownMainButton.AutoButtonColor = false
                 dropdownMainButton.Parent = dropdownFrame
@@ -1201,7 +1245,7 @@ function LibraryApi:CreateWindow(windowName)
                 dropdownOptionListFrame.Size = UDim2.new(1, -4, 0, 0)
                 dropdownOptionListFrame.Position = UDim2.new(0, 2, 0, 48)
                 dropdownOptionListFrame.BackgroundColor3 = colors.elementBackground
-                dropdownOptionListFrame.BackgroundTransparency = 0.21847
+                dropdownOptionListFrame.BackgroundTransparency = 0.21
                 dropdownOptionListFrame.BorderSizePixel = 0
                 dropdownOptionListFrame.ScrollBarThickness = 2
                 dropdownOptionListFrame.ScrollBarImageColor3 = colors.accentColor
@@ -1262,7 +1306,7 @@ function LibraryApi:CreateWindow(windowName)
                     optionLabel.Parent = optionButton
 
                     optionButton.MouseEnter:Connect(function() 
-                        animateElement(optionButton, {BackgroundTransparency = 0.21847}, 0.25)
+                        animateElement(optionButton, {BackgroundTransparency = 0.21}, 0.25)
                         if LibraryApi.Flags[flag] ~= option then
                             animateElement(optionLabel, {TextColor3 = colors.textWhiteColor}, 0.25) 
                         end
@@ -1316,7 +1360,7 @@ function LibraryApi:CreateWindow(windowName)
                 dropdownMainButton.Size = UDim2.new(1, -4, 0, 24)
                 dropdownMainButton.Position = UDim2.new(0, 2, 0, 20)
                 dropdownMainButton.BackgroundColor3 = colors.elementBackground
-                dropdownMainButton.BackgroundTransparency = 0.21847
+                dropdownMainButton.BackgroundTransparency = 0.21
                 dropdownMainButton.Text = ""
                 dropdownMainButton.AutoButtonColor = false
                 dropdownMainButton.Parent = dropdownFrame
@@ -1362,7 +1406,7 @@ function LibraryApi:CreateWindow(windowName)
                 dropdownOptionListFrame.Size = UDim2.new(1, -4, 0, 0)
                 dropdownOptionListFrame.Position = UDim2.new(0, 2, 0, 48)
                 dropdownOptionListFrame.BackgroundColor3 = colors.elementBackground
-                dropdownOptionListFrame.BackgroundTransparency = 0.21847
+                dropdownOptionListFrame.BackgroundTransparency = 0.21
                 dropdownOptionListFrame.BorderSizePixel = 0
                 dropdownOptionListFrame.ScrollBarThickness = 2
                 dropdownOptionListFrame.ScrollBarImageColor3 = colors.accentColor
@@ -1428,7 +1472,7 @@ function LibraryApi:CreateWindow(windowName)
                     optionLabel.Parent = optionButton
 
                     optionButton.MouseEnter:Connect(function() 
-                        animateElement(optionButton, {BackgroundTransparency = 0.21847}, 0.25)
+                        animateElement(optionButton, {BackgroundTransparency = 0.21}, 0.25)
                         isSelected = table.find(LibraryApi.Flags[flag], option) ~= nil
                         if not isSelected then
                             animateElement(optionLabel, {TextColor3 = colors.textWhiteColor}, 0.25) 
@@ -1501,7 +1545,7 @@ function LibraryApi:CreateWindow(windowName)
                 expandedPickerFrame.Size = UDim2.new(1, -4, 0, 190)
                 expandedPickerFrame.Position = UDim2.new(0, 2, 0, 28)
                 expandedPickerFrame.BackgroundColor3 = colors.elementBackground
-                expandedPickerFrame.BackgroundTransparency = 0.21847
+                expandedPickerFrame.BackgroundTransparency = 0.21
                 expandedPickerFrame.Parent = colorPickerFrame
                 
                 local expandedPickerCorner = Instance.new("UICorner")
@@ -1641,7 +1685,7 @@ function LibraryApi:CreateWindow(windowName)
                 actionButton.Size = UDim2.new(1, -4, 1, 0)
                 actionButton.Position = UDim2.new(0, 2, 0, 0)
                 actionButton.BackgroundColor3 = colors.elementBackground
-                actionButton.BackgroundTransparency = 0.21847
+                actionButton.BackgroundTransparency = 0.21
                 actionButton.Text = name
                 actionButton.TextColor3 = colors.textWhiteColor
                 actionButton.TextSize = 12
@@ -1686,7 +1730,7 @@ function LibraryApi:CreateWindow(windowName)
                 subButtonAction.Size = UDim2.new(1, -16, 1, 0)
                 subButtonAction.Position = UDim2.new(0, 8, 0, 0)
                 subButtonAction.BackgroundColor3 = colors.sectionBackground
-                subButtonAction.BackgroundTransparency = 0.21847
+                subButtonAction.BackgroundTransparency = 0.21
                 subButtonAction.Text = name
                 subButtonAction.TextColor3 = colors.textDarkColor
                 subButtonAction.TextSize = 11
@@ -1734,7 +1778,7 @@ function LibraryApi:CreateWindow(windowName)
                 moduleToggleButton.Size = UDim2.new(1, -4, 0, 44)
                 moduleToggleButton.Position = UDim2.new(0, 2, 0, 0)
                 moduleToggleButton.BackgroundColor3 = colors.elementBackground
-                moduleToggleButton.BackgroundTransparency = 0.21847
+                moduleToggleButton.BackgroundTransparency = 0.21
                 moduleToggleButton.Text = ""
                 moduleToggleButton.AutoButtonColor = false
                 moduleToggleButton.Parent = moduleFrame
@@ -1751,7 +1795,7 @@ function LibraryApi:CreateWindow(windowName)
                 moduleCheckboxFrame.Size = UDim2.new(0, 16, 0, 16)
                 moduleCheckboxFrame.Position = UDim2.new(0, 14, 0.5, -8)
                 moduleCheckboxFrame.BackgroundColor3 = LibraryApi.Flags[flag] and colors.accentColor or colors.sectionBackground
-                moduleCheckboxFrame.BackgroundTransparency = 0.21847
+                moduleCheckboxFrame.BackgroundTransparency = 0.21
                 moduleCheckboxFrame.Parent = moduleToggleButton
                 
                 local moduleCheckboxCorner = Instance.new("UICorner")
@@ -1849,7 +1893,7 @@ function LibraryApi:CreateWindow(windowName)
             local sectionBackgroundFrame = Instance.new("Frame")
             sectionBackgroundFrame.Size = UDim2.new(1, 0, 0, 40)
             sectionBackgroundFrame.BackgroundColor3 = colors.sectionBackground
-            sectionBackgroundFrame.BackgroundTransparency = 0.21847
+            sectionBackgroundFrame.BackgroundTransparency = 0.21
             sectionBackgroundFrame.Parent = (columnSide == "Left") and leftColumnFrame or rightColumnFrame
             
             local sectionBackgroundCorner = Instance.new("UICorner")
