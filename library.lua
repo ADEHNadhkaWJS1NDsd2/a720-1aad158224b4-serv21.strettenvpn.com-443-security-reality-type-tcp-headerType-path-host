@@ -35,6 +35,14 @@ local themeObjects = {}
 
 local function applyTheme(obj, prop, colorName)
     if not themeObjects[colorName] then themeObjects[colorName] = {} end
+
+    for _, item in ipairs(themeObjects[colorName]) do
+        if item[1] == obj and item[2] == prop then
+            pcall(function() obj[prop] = colors[colorName] end)
+            return
+        end
+    end
+
     table.insert(themeObjects[colorName], {obj, prop})
     pcall(function() obj[prop] = colors[colorName] end)
 end
@@ -107,17 +115,18 @@ local tooltipTargetText = ""
 local activeKeybinds = {}
 local keybindListContainer = nil
 
-local activeTweens = {}
+local activeTweens = setmetatable({}, {__mode = "k"})
 
 local function animateElement(element, properties, speed)
     if not element or not element.Parent then
         return
     end
 
-    if activeTweens[element] then
+    local previousTween = activeTweens[element]
+    if previousTween then
         pcall(function()
-            activeTweens[element]:Cancel()
-            activeTweens[element]:Destroy()
+            previousTween:Cancel()
+            previousTween:Destroy()
         end)
     end
 
@@ -139,7 +148,6 @@ local function animateElement(element, properties, speed)
     end)
 
     tween:Play()
-
     return tween
 end
 
@@ -312,36 +320,36 @@ local function Refresh_Keybinds_List()
 end
 
 local tooltipVisible = false
-local lastTooltipUpdate = 0
+local tooltipHiddenScheduled = false
 
 runService.RenderStepped:Connect(function()
-    if tick() - lastTooltipUpdate < 0.016 then
-        return
-    end
-
-    lastTooltipUpdate = tick()
-
     if tooltipTargetText ~= "" then
         local mouseLocation = userInputService:GetMouseLocation()
-
         tooltipFrame.Position = UDim2.new(0, mouseLocation.X + 15, 0, mouseLocation.Y + 15)
 
         if not tooltipVisible then
             tooltipVisible = true
+            tooltipHiddenScheduled = false
             tooltipFrame.Visible = true
-
             tooltipFrame.BackgroundTransparency = 0.15
             tooltipStroke.Transparency = 0
             tooltipText.TextTransparency = 0
         end
     else
-        if tooltipVisible then
+        if tooltipVisible and not tooltipHiddenScheduled then
             tooltipVisible = false
+            tooltipHiddenScheduled = true
 
-            tooltipFrame.Visible = false
-            tooltipFrame.BackgroundTransparency = 1
-            tooltipStroke.Transparency = 1
-            tooltipText.TextTransparency = 1
+            animateElement(tooltipFrame, {BackgroundTransparency = 1}, 0.15)
+            animateElement(tooltipStroke, {Transparency = 1}, 0.15)
+            animateElement(tooltipText, {TextTransparency = 1}, 0.15)
+
+            task.delay(0.15, function()
+                if tooltipTargetText == "" then
+                    tooltipFrame.Visible = false
+                end
+                tooltipHiddenScheduled = false
+            end)
         end
     end
 end)
@@ -698,7 +706,12 @@ function LibraryApi:CreateWindow(windowName)
     runService.RenderStepped:Connect(function()
         if isToggleDragging and toggleDragInput then
             local delta = toggleDragInput.Position - toggleDragStart
-            mobileToggleButton.Position = UDim2.new(toggleStartPos.X.Scale, toggleStartPos.X.Offset + delta.X, toggleStartPos.Y.Scale, toggleStartPos.Y.Offset + delta.Y)
+            mobileToggleButton.Position = UDim2.new(
+                toggleStartPos.X.Scale,
+                toggleStartPos.X.Offset + delta.X,
+                toggleStartPos.Y.Scale,
+                toggleStartPos.Y.Offset + delta.Y
+            )
         end
     end)
 
@@ -763,14 +776,12 @@ function LibraryApi:CreateWindow(windowName)
     runService.RenderStepped:Connect(function()
         if isDragging and dragInput then
             local delta = dragInput.Position - dragStart
-
             targetPosition = UDim2.new(
                 startPosition.X.Scale,
                 startPosition.X.Offset + (delta.X / uiScaleModifier.Scale),
                 startPosition.Y.Scale,
                 startPosition.Y.Offset + (delta.Y / uiScaleModifier.Scale)
             )
-
             mainBackground.Position = targetPosition
         end
     end)
@@ -1009,9 +1020,9 @@ function LibraryApi:CreateWindow(windowName)
                 toggleButton.MouseButton1Click:Connect(function()
                     LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
                     local newState = LibraryApi.Flags[flag]
-                    applyTheme(checkboxFrame, "BackgroundColor3", newState and "accentColor" or "elementBackground")
-                    applyTheme(checkboxStroke, "Color", newState and "accentColor" or "borderColor")
-                    applyTheme(toggleLabel, "TextColor3", newState and "textWhiteColor" or "textDarkColor")
+                    checkboxFrame.BackgroundColor3 = newState and colors.accentColor or colors.elementBackground
+                    checkboxStroke.Color = newState and colors.accentColor or colors.borderColor
+                    toggleLabel.TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor
                     if callback then task.spawn(callback, newState) end
                 end)
             end
@@ -2175,9 +2186,9 @@ function LibraryApi:CreateWindow(windowName)
                 moduleToggleButton.MouseButton1Click:Connect(function()
                     LibraryApi.Flags[flag] = not LibraryApi.Flags[flag]
                     local newState = LibraryApi.Flags[flag]
-                    applyTheme(moduleCheckboxFrame, "BackgroundColor3", newState and "accentColor" or "sectionBackground")
-                    applyTheme(moduleToggleButtonStroke, "Color", newState and "accentColor" or "borderColor")
-                    applyTheme(moduleLabel, "TextColor3", newState and "textWhiteColor" or "textDarkColor")
+                    moduleCheckboxFrame.BackgroundColor3 = newState and colors.accentColor or colors.sectionBackground
+                    moduleToggleButtonStroke.Color = newState and colors.accentColor or colors.borderColor
+                    moduleLabel.TextColor3 = newState and colors.textWhiteColor or colors.textDarkColor
                     Synchronize_Module_Size()
                     if callback then task.spawn(callback, newState) end
                 end)
