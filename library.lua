@@ -46,7 +46,7 @@ Screen_Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Screen_Gui.DisplayOrder = 999
 Screen_Gui.IgnoreGuiInset = true
 
-function Library_Api:Update_Theme(New_Color)
+function Library_Api:UpdateTheme(New_Color)
     local Old_Color = Hub_Colors.accentColor
     Hub_Colors.accentColor = New_Color
     for _, Obj in ipairs(Screen_Gui:GetDescendants()) do
@@ -185,30 +185,34 @@ local Kb_Layout = Instance.new("UIListLayout")
 Kb_Layout.Padding = UDim.new(0, 4)
 Kb_Layout.Parent = Kb_Container
 
-local Kb_Drag_Input_Obj = nil
+local Kb_Dragging = false
+local Kb_Drag_Input = nil
 local Kb_Drag_Start = nil
 local Kb_Start_Pos = nil
 local Kb_Target_Pos = Keybinds_Frame.Position
 
 Kb_Top.InputBegan:Connect(function(Input)
-    if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and Kb_Drag_Input_Obj == nil then
-        Kb_Drag_Input_Obj = Input
+    if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+        Kb_Dragging = true
         Kb_Drag_Start = Input.Position
         Kb_Start_Pos = Keybinds_Frame.Position
         Kb_Target_Pos = Kb_Start_Pos
+        Input.Changed:Connect(function()
+            if Input.UserInputState == Enum.UserInputState.End then Kb_Dragging = false end
+        end)
+    end
+end)
+
+Kb_Top.InputChanged:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+        Kb_Drag_Input = Input
     end
 end)
 
 User_Input_Service.InputChanged:Connect(function(Input)
-    if Input == Kb_Drag_Input_Obj then
+    if Input == Kb_Drag_Input and Kb_Dragging then
         local Delta = Input.Position - Kb_Drag_Start
         Kb_Target_Pos = UDim2.new(Kb_Start_Pos.X.Scale, Kb_Start_Pos.X.Offset + Delta.X, Kb_Start_Pos.Y.Scale, Kb_Start_Pos.Y.Offset + Delta.Y)
-    end
-end)
-
-User_Input_Service.InputEnded:Connect(function(Input)
-    if Input == Kb_Drag_Input_Obj then
-        Kb_Drag_Input_Obj = nil
     end
 end)
 
@@ -218,7 +222,7 @@ Run_Service.RenderStepped:Connect(function()
     end
 end)
 
-function Library_Api:Refresh_Keybinds()
+function Library_Api:RefreshKeybinds()
     for _, Child in ipairs(Kb_Container:GetChildren()) do
         if Child:IsA("Frame") then Child:Destroy() end
     end
@@ -423,7 +427,7 @@ function Library_Api:Notify(Config)
     end)
 end
 
-function Library_Api:Create_Window(Window_Name)
+function Library_Api:CreateWindow(Window_Name)
     local Main_Background = Instance.new("Frame")
     Main_Background.Size = UDim2.new(0, 720, 0, 480)
     Main_Background.Position = UDim2.new(0.5, -360, 0.5, -240)
@@ -623,30 +627,34 @@ function Library_Api:Create_Window(Window_Name)
     Mobile_Toggle_Stroke.Thickness = 2
     Mobile_Toggle_Stroke.Parent = Mobile_Toggle_Button
 
-    local Toggle_Drag_Input_Obj = nil
+    local Toggle_Dragging = false
+    local Toggle_Drag_Input = nil
     local Toggle_Drag_Start = nil
     local Toggle_Start_Pos = nil
     local Toggle_Target_Pos = Mobile_Toggle_Button.Position
 
     Mobile_Toggle_Button.InputBegan:Connect(function(Input)
-        if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and Toggle_Drag_Input_Obj == nil then
-            Toggle_Drag_Input_Obj = Input
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+            Toggle_Dragging = true
             Toggle_Drag_Start = Input.Position
             Toggle_Start_Pos = Mobile_Toggle_Button.Position
             Toggle_Target_Pos = Toggle_Start_Pos
+            Input.Changed:Connect(function()
+                if Input.UserInputState == Enum.UserInputState.End then Toggle_Dragging = false end
+            end)
+        end
+    end)
+
+    Mobile_Toggle_Button.InputChanged:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+            Toggle_Drag_Input = Input
         end
     end)
 
     User_Input_Service.InputChanged:Connect(function(Input)
-        if Input == Toggle_Drag_Input_Obj then
+        if Input == Toggle_Drag_Input and Toggle_Dragging then
             local Delta = Input.Position - Toggle_Drag_Start
             Toggle_Target_Pos = UDim2.new(Toggle_Start_Pos.X.Scale, Toggle_Start_Pos.X.Offset + Delta.X, Toggle_Start_Pos.Y.Scale, Toggle_Start_Pos.Y.Offset + Delta.Y)
-        end
-    end)
-
-    User_Input_Service.InputEnded:Connect(function(Input)
-        if Input == Toggle_Drag_Input_Obj then
-            Toggle_Drag_Input_Obj = nil
         end
     end)
 
@@ -689,30 +697,34 @@ function Library_Api:Create_Window(Window_Name)
     Workspace_Service.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(Update_Responsive_Scale)
     Update_Responsive_Scale()
 
-    local Main_Drag_Input_Obj = nil
+    local Main_Dragging = false
+    local Main_Drag_Input = nil
     local Main_Drag_Start = nil
     local Main_Start_Pos = nil
     local Main_Target_Pos = Main_Background.Position
 
     Top_Bar.InputBegan:Connect(function(Input)
-        if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and Main_Drag_Input_Obj == nil then
-            Main_Drag_Input_Obj = Input
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+            Main_Dragging = true
             Main_Drag_Start = Input.Position
             Main_Start_Pos = Main_Background.Position
             Main_Target_Pos = Main_Start_Pos
+            Input.Changed:Connect(function()
+                if Input.UserInputState == Enum.UserInputState.End then Main_Dragging = false end
+            end)
+        end
+    end)
+
+    Top_Bar.InputChanged:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+            Main_Drag_Input = Input
         end
     end)
 
     User_Input_Service.InputChanged:Connect(function(Input)
-        if Input == Main_Drag_Input_Obj then 
+        if Input == Main_Drag_Input and Main_Dragging then
             local Delta = Input.Position - Main_Drag_Start
             Main_Target_Pos = UDim2.new(Main_Start_Pos.X.Scale, Main_Start_Pos.X.Offset + (Delta.X / Ui_Scale_Modifier.Scale), Main_Start_Pos.Y.Scale, Main_Start_Pos.Y.Offset + (Delta.Y / Ui_Scale_Modifier.Scale))
-        end
-    end)
-
-    User_Input_Service.InputEnded:Connect(function(Input)
-        if Input == Main_Drag_Input_Obj then 
-            Main_Drag_Input_Obj = nil
         end
     end)
 
@@ -1034,7 +1046,8 @@ function Library_Api:Create_Window(Window_Name)
                     Animate_Element(Slider_Background_Stroke, {Color = Hub_Colors.borderColor}, 0.25)
                 end)
 
-                local Slider_Drag_Obj = nil
+                local Is_Sliding = false
+                local Slider_Drag_Input = nil
 
                 local function Set_Slider_Value(New_Value)
                     local Clamped_Value = math.clamp(New_Value, Min, Max)
@@ -1051,23 +1064,26 @@ function Library_Api:Create_Window(Window_Name)
                 end
 
                 Slider_Background.InputBegan:Connect(function(Input)
-                    if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and Slider_Drag_Obj == nil then
-                        Slider_Drag_Obj = Input
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+                        Is_Sliding = true
                         local Percentage = math.clamp((Input.Position.X - Slider_Background.AbsolutePosition.X) / Slider_Background.AbsoluteSize.X, 0, 1)
                         Set_Slider_Value(Min + ((Max - Min) * Percentage))
+                        Input.Changed:Connect(function()
+                            if Input.UserInputState == Enum.UserInputState.End then Is_Sliding = false end
+                        end)
+                    end
+                end)
+
+                Slider_Background.InputChanged:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+                        Slider_Drag_Input = Input
                     end
                 end)
 
                 User_Input_Service.InputChanged:Connect(function(Input)
-                    if Input == Slider_Drag_Obj then 
+                    if Input == Slider_Drag_Input and Is_Sliding then
                         local Percentage = math.clamp((Input.Position.X - Slider_Background.AbsolutePosition.X) / Slider_Background.AbsoluteSize.X, 0, 1)
                         Set_Slider_Value(Min + ((Max - Min) * Percentage))
-                    end
-                end)
-
-                User_Input_Service.InputEnded:Connect(function(Input)
-                    if Input == Slider_Drag_Obj then 
-                        Slider_Drag_Obj = nil 
                     end
                 end)
 
@@ -1175,8 +1191,9 @@ function Library_Api:Create_Window(Window_Name)
                     Animate_Element(Range_Slider_Background_Stroke, {Color = Hub_Colors.borderColor}, 0.25)
                 end)
 
-                local Min_Drag_Obj = nil
-                local Max_Drag_Obj = nil
+                local Is_Sliding_Min = false
+                local Is_Sliding_Max = false
+                local Range_Drag_Input = nil
 
                 Range_Slider_Background.InputBegan:Connect(function(Input)
                     if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
@@ -1187,32 +1204,40 @@ function Library_Api:Create_Window(Window_Name)
                         local Max_Knob_Position = Range_Slider_Background.AbsolutePosition.X + (Range_Slider_Background.AbsoluteSize.X * Max_Percentage)
                         
                         if math.abs(Mouse_X - Min_Knob_Position) < math.abs(Mouse_X - Max_Knob_Position) then
-                            if Min_Drag_Obj == nil then Min_Drag_Obj = Input end
+                            Is_Sliding_Min = true
                         else
-                            if Max_Drag_Obj == nil then Max_Drag_Obj = Input end
+                            Is_Sliding_Max = true
                         end
+
+                        Input.Changed:Connect(function()
+                            if Input.UserInputState == Enum.UserInputState.End then
+                                Is_Sliding_Min = false
+                                Is_Sliding_Max = false
+                            end
+                        end)
+                    end
+                end)
+
+                Range_Slider_Background.InputChanged:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+                        Range_Drag_Input = Input
                     end
                 end)
 
                 User_Input_Service.InputChanged:Connect(function(Input)
-                    if Input == Min_Drag_Obj or Input == Max_Drag_Obj then 
+                    if Input == Range_Drag_Input and (Is_Sliding_Min or Is_Sliding_Max) then
                         local Percentage = math.clamp((Input.Position.X - Range_Slider_Background.AbsolutePosition.X) / Range_Slider_Background.AbsoluteSize.X, 0, 1)
                         local Calculated_Value = Snap_Value(Min + ((Max - Min) * Percentage), Step)
                         
-                        if Input == Min_Drag_Obj then
+                        if Is_Sliding_Min then
                             Library_Api.Flags[Flag].Min = math.clamp(Calculated_Value, Min, Library_Api.Flags[Flag].Max)
-                        elseif Input == Max_Drag_Obj then
+                        elseif Is_Sliding_Max then
                             Library_Api.Flags[Flag].Max = math.clamp(Calculated_Value, Library_Api.Flags[Flag].Min, Max)
                         end
                         Update_Range_Slider_Visuals()
                         Save_Configuration()
                         if Callback then task.spawn(Callback, Library_Api.Flags[Flag]) end
                     end
-                end)
-
-                User_Input_Service.InputEnded:Connect(function(Input)
-                    if Input == Min_Drag_Obj then Min_Drag_Obj = nil end
-                    if Input == Max_Drag_Obj then Max_Drag_Obj = nil end
                 end)
             end
 
@@ -1364,7 +1389,7 @@ function Library_Api:Create_Window(Window_Name)
                         Animate_Element(Keybind_Button_Stroke, {Color = Hub_Colors.borderColor}, 0.3)
                         Animate_Element(Keybind_Button, {TextColor3 = Hub_Colors.textDarkColor}, 0.3)
                         Save_Configuration()
-                        Library_Api:Refresh_Keybinds()
+                        Library_Api:RefreshKeybinds()
                         if Callback then task.spawn(Callback, Library_Api.Flags[Flag]) end
                     else
                         if Input.KeyCode == Library_Api.Flags[Flag] and Input.KeyCode ~= Enum.KeyCode.Unknown then
@@ -1822,42 +1847,58 @@ function Library_Api:Create_Window(Window_Name)
                     if Callback then task.spawn(Callback, Current_Color) end
                 end
 
-                local Sat_Drag_Input_Obj = nil
-                local Hue_Drag_Input_Obj = nil
+                local Is_Sliding_Sat = false
+                local Is_Sliding_Hue = false
+                local Picker_Drag_Input = nil
 
-                local function Process_Saturation_Value_Input(Input)
+                local function Process_Sat(Input)
                     Saturation = math.clamp((Input.Position.X - Saturation_Value_Map.AbsolutePosition.X) / Saturation_Value_Map.AbsoluteSize.X, 0, 1)
                     Value = 1 - math.clamp((Input.Position.Y - Saturation_Value_Map.AbsolutePosition.Y) / Saturation_Value_Map.AbsoluteSize.Y, 0, 1)
                     Update_Color_Picker_State()
                 end
 
-                local function Process_Hue_Input(Input)
+                local function Process_Hue(Input)
                     Hue = math.clamp((Input.Position.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
                     Update_Color_Picker_State()
                 end
 
                 Saturation_Value_Map.InputBegan:Connect(function(Input)
-                    if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and Sat_Drag_Input_Obj == nil then
-                        Sat_Drag_Input_Obj = Input
-                        Process_Saturation_Value_Input(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+                        Is_Sliding_Sat = true
+                        Process_Sat(Input)
+                        Input.Changed:Connect(function()
+                            if Input.UserInputState == Enum.UserInputState.End then Is_Sliding_Sat = false end
+                        end)
                     end
                 end)
                 
                 Hue_Map.InputBegan:Connect(function(Input)
-                    if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and Hue_Drag_Input_Obj == nil then
-                        Hue_Drag_Input_Obj = Input
-                        Process_Hue_Input(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+                        Is_Sliding_Hue = true
+                        Process_Hue(Input)
+                        Input.Changed:Connect(function()
+                            if Input.UserInputState == Enum.UserInputState.End then Is_Sliding_Hue = false end
+                        end)
                     end
                 end)
 
-                User_Input_Service.InputEnded:Connect(function(Input)
-                    if Input == Sat_Drag_Input_Obj then Sat_Drag_Input_Obj = nil end
-                    if Input == Hue_Drag_Input_Obj then Hue_Drag_Input_Obj = nil end
+                Saturation_Value_Map.InputChanged:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+                        Picker_Drag_Input = Input
+                    end
+                end)
+                
+                Hue_Map.InputChanged:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+                        Picker_Drag_Input = Input
+                    end
                 end)
 
                 User_Input_Service.InputChanged:Connect(function(Input)
-                    if Input == Sat_Drag_Input_Obj then Process_Saturation_Value_Input(Input) end
-                    if Input == Hue_Drag_Input_Obj then Process_Hue_Input(Input) end
+                    if Input == Picker_Drag_Input then
+                        if Is_Sliding_Sat then Process_Sat(Input) end
+                        if Is_Sliding_Hue then Process_Hue(Input) end
+                    end
                 end)
 
                 Color_Preview_Button.MouseEnter:Connect(function()
@@ -2174,7 +2215,7 @@ function Library_Api:Create_Window(Window_Name)
     if Library_Api.Flags["Show_Keybinds"] then Keybinds_Frame.Visible = true end
 
     Left_Settings:ColorPicker_Create("Theme Accent", "Theme_Color", Hub_Colors.accentColor, "Change Hub Palette", function(Color_Val)
-        Library_Api:Update_Theme(Color_Val)
+        Library_Api:UpdateTheme(Color_Val)
     end)
 
     local Right_Settings = Settings_Api:Section_Create("Right", "Configurations")
@@ -2220,7 +2261,7 @@ function Library_Api:Create_Window(Window_Name)
             Library_Api.Config_Name = Library_Api.Flags["Cfg_Select"] .. ".json"
             Load_Configuration()
             Library_Api.Config_Name = "AutoSaveConfig.json"
-            Library_Api:Refresh_Keybinds()
+            Library_Api:RefreshKeybinds()
             Library_Api:Notify({Title = "Phantom Hub", Text = "Loaded Config", Type = "Success"})
         end
     end)
