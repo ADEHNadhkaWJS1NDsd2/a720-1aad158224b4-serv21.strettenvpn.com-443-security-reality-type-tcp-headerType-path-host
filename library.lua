@@ -107,9 +107,39 @@ local tooltipTargetText = ""
 local activeKeybinds = {}
 local keybindListContainer = nil
 
+local activeTweens = {}
+
 local function animateElement(element, properties, speed)
-    local tween = tweenService:Create(element, TweenInfo.new(speed or 0.35, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), properties)
+    if not element or not element.Parent then
+        return
+    end
+
+    if activeTweens[element] then
+        pcall(function()
+            activeTweens[element]:Cancel()
+            activeTweens[element]:Destroy()
+        end)
+    end
+
+    local tween = tweenService:Create(
+        element,
+        TweenInfo.new(speed or 0.2, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out),
+        properties
+    )
+
+    activeTweens[element] = tween
+
+    tween.Completed:Connect(function()
+        if activeTweens[element] == tween then
+            activeTweens[element] = nil
+        end
+        pcall(function()
+            tween:Destroy()
+        end)
+    end)
+
     tween:Play()
+
     return tween
 end
 
@@ -282,38 +312,36 @@ local function Refresh_Keybinds_List()
 end
 
 local tooltipVisible = false
-local tooltipHiding = false
+local lastTooltipUpdate = 0
 
 runService.RenderStepped:Connect(function()
+    if tick() - lastTooltipUpdate < 0.016 then
+        return
+    end
+
+    lastTooltipUpdate = tick()
+
     if tooltipTargetText ~= "" then
         local mouseLocation = userInputService:GetMouseLocation()
+
         tooltipFrame.Position = UDim2.new(0, mouseLocation.X + 15, 0, mouseLocation.Y + 15)
 
         if not tooltipVisible then
             tooltipVisible = true
-            tooltipHiding = false
             tooltipFrame.Visible = true
 
-            animateElement(tooltipFrame, {BackgroundTransparency = 0.15}, 0.25)
-            animateElement(tooltipStroke, {Transparency = 0}, 0.25)
-            animateElement(tooltipText, {TextTransparency = 0}, 0.25)
+            tooltipFrame.BackgroundTransparency = 0.15
+            tooltipStroke.Transparency = 0
+            tooltipText.TextTransparency = 0
         end
     else
-        if tooltipVisible and not tooltipHiding then
-            tooltipHiding = true
+        if tooltipVisible then
             tooltipVisible = false
 
-            animateElement(tooltipFrame, {BackgroundTransparency = 1}, 0.15)
-            animateElement(tooltipStroke, {Transparency = 1}, 0.15)
-            animateElement(tooltipText, {TextTransparency = 1}, 0.15)
-
-            task.delay(0.15, function()
-                if tooltipTargetText == "" then
-                    tooltipFrame.Visible = false
-                end
-
-                tooltipHiding = false
-            end)
+            tooltipFrame.Visible = false
+            tooltipFrame.BackgroundTransparency = 1
+            tooltipStroke.Transparency = 1
+            tooltipText.TextTransparency = 1
         end
     end
 end)
@@ -735,9 +763,16 @@ function LibraryApi:CreateWindow(windowName)
     runService.RenderStepped:Connect(function()
         if isDragging and dragInput then
             local delta = dragInput.Position - dragStart
-            targetPosition = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + (delta.X / uiScaleModifier.Scale), startPosition.Y.Scale, startPosition.Y.Offset + (delta.Y / uiScaleModifier.Scale))
+
+            targetPosition = UDim2.new(
+                startPosition.X.Scale,
+                startPosition.X.Offset + (delta.X / uiScaleModifier.Scale),
+                startPosition.Y.Scale,
+                startPosition.Y.Offset + (delta.Y / uiScaleModifier.Scale)
+            )
+
+            mainBackground.Position = targetPosition
         end
-        mainBackground.Position = mainBackground.Position:Lerp(targetPosition, 0.25)
     end)
 
     local windowContext = { Tabs = {}, Active_Tab = nil }
