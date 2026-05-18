@@ -14,20 +14,6 @@ local delfile = delfile or function() end
 local CoreGui
 pcall(function() CoreGui = game:GetService("CoreGui") end)
 local LocalPlayer = Players.LocalPlayer
-
-local function IsMobile()
-    return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-end
-
-local function GetSafeViewport()
-    local cam = workspace.CurrentCamera
-    if not cam then
-        return Vector2.new(800, 600)
-    end
-    local vp = cam.ViewportSize
-    return Vector2.new(math.max(vp.X, 300), math.max(vp.Y, 250))
-end
-
 local Library = {
     Flags = {},
     Signals = {},
@@ -687,7 +673,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     ListFrame.ZIndex = 10
     ListFrame.Visible = false
     ListFrame.Active = true
-    ListFrame.ScrollBarThickness = UserInputService.TouchEnabled and 6 or 2
+    ListFrame.ScrollBarThickness = 2
     ListFrame.ScrollBarImageColor3 = Theme.Accent
     Corner(ListFrame, 4)
     Stroke(ListFrame, Theme.Stroke, 1, 0.5)
@@ -997,7 +983,7 @@ function Library:CreateWindow(options)
     MiniGui.Enabled = true
     MiniGui.IgnoreGuiInset = true
     local MiniButton = Instance.new("ImageButton")
-    MiniButton.Size = UDim2.new(0, 54, 0, 54)
+    MiniButton.Size = UDim2.new(0, 46, 0, 46)
     MiniButton.Position = UDim2.new(0, 20, 0.5, -23)
     MiniButton.BackgroundColor3 = Theme.Background
     MiniButton.BackgroundTransparency = 0.1
@@ -1048,14 +1034,18 @@ function Library:CreateWindow(options)
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
-        Frame.Size = UDim2.new(0, math.min(workspace.CurrentCamera.ViewportSize.X - 20, 650), 0, math.min(workspace.CurrentCamera.ViewportSize.Y - 20, 400))
+        local vp = workspace.CurrentCamera.ViewportSize
+        if UserInputService.TouchEnabled then
+            Frame.Size = UDim2.new(0, math.min(vp.X - 20, 520), 0, math.min(vp.Y - 120, 360))
+        else
+            Frame.Size = UDim2.new(0, 650, 0, 400)
+        end
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
         Frame.BackgroundTransparency = 0.1
         Frame.BorderSizePixel = 0
         Frame.ClipsDescendants = false
-        Frame.AnchorPoint = Vector2.new(0.5,0.5)
         Frame.Visible = false
         Frame.Parent = ScreenGui
         Frame.Active = true
@@ -1118,7 +1108,7 @@ function Library:CreateWindow(options)
     MakeResizable(Resizer, MainWindow, Vector2.new(450, 300))
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
-        Bar.Size = UDim2.new(0, 180, 1, 0)
+        Bar.Size = UserInputService.TouchEnabled and UDim2.new(0, 140, 1, 0) or UDim2.new(0, 180, 1, 0)
         Bar.BackgroundColor3 = Theme.Sidebar
         Bar.BorderSizePixel = 0
         Bar.Parent = parent
@@ -1310,8 +1300,8 @@ function Library:CreateWindow(options)
     table.insert(Library.Connections, MenuBindConnection)
     local WindowObj = {}
     local MainPages = Instance.new("Frame")
-    MainPages.Size = UDim2.new(1, -181, 1, 0)
-    MainPages.Position = UDim2.new(0, 181, 0, 0)
+    MainPages.Size = UserInputService.TouchEnabled and UDim2.new(1, -141, 1, 0) or UDim2.new(1, -181, 1, 0)
+    MainPages.Position = UserInputService.TouchEnabled and UDim2.new(0, 141, 0, 0) or UDim2.new(0, 181, 0, 0)
     MainPages.BackgroundTransparency = 1
     MainPages.Parent = MainWindow
     function WindowObj:CreateRawSection(text, parent)
@@ -1959,7 +1949,7 @@ function Library:CreateWindow(options)
         CDListFrame.ZIndex = 10
         CDListFrame.Visible = false
         CDListFrame.Active = true
-        CDListFrame.ScrollBarThickness = UserInputService.TouchEnabled and 6 or 2
+        CDListFrame.ScrollBarThickness = 2
         CDListFrame.ScrollBarImageColor3 = Theme.Accent
         Corner(CDListFrame, 4)
         Stroke(CDListFrame, Theme.Stroke, 1, 0.5)
