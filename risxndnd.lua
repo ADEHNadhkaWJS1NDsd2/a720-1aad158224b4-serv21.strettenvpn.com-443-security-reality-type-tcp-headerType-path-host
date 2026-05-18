@@ -14,16 +14,16 @@ local LibraryApi = {
 }
 
 local colors = {
-    mainBackground = Color3.fromRGB(10,10,10),
-    sidebarBackground = Color3.fromRGB(15,15,15),
-    sectionBackground = Color3.fromRGB(20,20,20),
-    elementBackground = Color3.fromRGB(30,30,30),
+    mainBackground = Color3.new(0.035294, 0.035294, 0.050980),
+    sidebarBackground = Color3.new(0.050980, 0.050980, 0.066666),
+    sectionBackground = Color3.new(0.066666, 0.066666, 0.082352),
+    elementBackground = Color3.new(0.090196, 0.090196, 0.105882),
     elementHoverBackground = Color3.new(0.121568, 0.121568, 0.145098),
     borderColor = Color3.new(0.105882, 0.105882, 0.133333),
     borderLightColor = Color3.new(0.172549, 0.172549, 0.211764),
-    accentColor = Color3.fromRGB(255,40,40),
-    accentGradientColor1 = Color3.fromRGB(255,20,20),
-    accentGradientColor2 = Color3.fromRGB(120,0,0),
+    accentColor = Color3.new(0.423529, 0.576470, 0.988235),
+    accentGradientColor1 = Color3.new(0.423529, 0.576470, 0.988235),
+    accentGradientColor2 = Color3.new(0.619607, 0.462745, 0.988235),
     textWhiteColor = Color3.new(0.952941, 0.952941, 0.972549),
     textDarkColor = Color3.new(0.541176, 0.541176, 0.580392),
     tooltipBackground = Color3.new(0.043137, 0.043137, 0.058823),
@@ -1746,89 +1746,3 @@ function LibraryApi:CreateWindow(windowName)
 end
 
 return LibraryApi
-
-task.spawn(function()
-    while task.wait(5) do
-        pcall(saveConfiguration)
-    end
-end)
-
-function LibraryApi:GetConfigList()
-    local configs = {}
-    if listfiles and isfolder then
-        if not isfolder(self.FolderName) then
-            makefolder(self.FolderName)
-        end
-        for _,v in ipairs(listfiles(self.FolderName)) do
-            local name = v:match("([^/\\]+)%.json$")
-            if name then
-                table.insert(configs,name)
-            end
-        end
-    end
-    return configs
-end
-
-function LibraryApi:SaveConfig(name)
-    self.ConfigName = tostring(name)..".json"
-    saveConfiguration()
-end
-
-function LibraryApi:LoadConfig(name)
-    self.ConfigName = tostring(name)..".json"
-    loadConfiguration()
-end
-
-function LibraryApi:DeleteConfig(name)
-    if delfile then
-        local file = self.FolderName.."/"..tostring(name)..".json"
-        if isfile(file) then
-            delfile(file)
-        end
-    end
-end
-
-function LibraryApi:RewriteConfig(name)
-    self.ConfigName = tostring(name)..".json"
-    saveConfiguration()
-end
-
-function LibraryApi:CreateStatsSection(parent)
-    local holder = Instance.new("Frame")
-    holder.Size = UDim2.new(1,0,0,120)
-    holder.BackgroundColor3 = colors.sectionBackground
-    holder.Parent = parent
-
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0,6)
-    layout.Parent = holder
-
-    local labels = {}
-
-    local function createLabel(text)
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1,-10,0,24)
-        lbl.BackgroundTransparency = 1
-        lbl.TextColor3 = colors.textWhiteColor
-        lbl.Font = boldFont
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.Text = text
-        lbl.Parent = holder
-        return lbl
-    end
-
-    labels.Coins = createLabel("Coins Earned: 0")
-    labels.Session = createLabel("Session Time: 0s")
-    labels.Noa = createLabel("NOA Enabled: false")
-
-    local startTick = tick()
-
-    task.spawn(function()
-        while holder.Parent do
-            labels.Session.Text = "Session Time: "..math.floor(tick()-startTick).."s"
-            task.wait(1)
-        end
-    end)
-
-    return labels
-end
