@@ -4,19 +4,6 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local Stats = game:GetService("Stats")
-local GuiService = game:GetService("GuiService")
-local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-
-local function GetSafeViewport()
-    local camera = workspace.CurrentCamera
-    if not camera then
-        return Vector2.new(800, 500)
-    end
-    local inset = GuiService:GetGuiInset()
-    local size = camera.ViewportSize
-    return Vector2.new(size.X, size.Y - inset.Y)
-end
-
 local isfolder = isfolder or function() return false end
 local makefolder = makefolder or function() end
 local isfile = isfile or function() return false end
@@ -61,6 +48,7 @@ local Theme = {
     Success = Color3.fromHex("#00ff88"),
     Danger = Color3.fromHex("#ff4444")
 }
+local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local ThemeRegistry = {}
 setmetatable(ThemeRegistry, { __mode = "k" })
 local function RegisterTheme(instance, propType)
@@ -124,71 +112,71 @@ local function FormatNumber(value, increment)
     end
     return tostring(value)
 end
+local function IsTouch(input)
+    return input.UserInputType == Enum.UserInputType.Touch
+end
+local function IsMouse1(input)
+    return input.UserInputType == Enum.UserInputType.MouseButton1
+end
+local function IsTouchOrMouse1(input)
+    return IsMouse1(input) or IsTouch(input)
+end
+local function IsTouchOrMouseMove(input)
+    return input.UserInputType == Enum.UserInputType.MouseMovement or IsTouch(input)
+end
 local function MakeDraggable(dragArea, frame, onDragCallback)
     local dragging = false
-    local dragInput, dragStart, startPos
+    local dragStart, startPos
+    local lastInput
     local c1 = dragArea.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if IsTouchOrMouse1(input) then
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
-            local c2
-            c2 = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                    if onDragCallback then onDragCallback(false) end
-                    c2:Disconnect()
-                end
-            end)
+            lastInput = input
         end
     end)
-    local c3 = dragArea.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
+    local c2 = UserInputService.InputChanged:Connect(function(input)
+        if IsTouchOrMouseMove(input) then
+            if dragging then
+                lastInput = input
+                local delta = lastInput.Position - dragStart
+                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                if onDragCallback then onDragCallback(true) end
+            end
         end
     end)
-    local c4 = RunService.RenderStepped:Connect(function()
-        if dragging and dragInput then
-            local delta = dragInput.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            if onDragCallback then onDragCallback(true) end
+    local c3 = UserInputService.InputEnded:Connect(function(input)
+        if IsTouchOrMouse1(input) and dragging then
+            dragging = false
+            if onDragCallback then onDragCallback(false) end
         end
     end)
     table.insert(Library.Connections, c1)
+    table.insert(Library.Connections, c2)
     table.insert(Library.Connections, c3)
-    table.insert(Library.Connections, c4)
     return function() return dragging end
 end
 local function MakeResizable(resizeBtn, frame, minSize)
     local dragging = false
-    local dragInput, dragStart, startSize, startPos, scaleMult
+    local dragStart, startSize, startPos
+    local lastInput
     local c1 = resizeBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if IsTouchOrMouse1(input) then
             dragging = true
-            dragInput = input
             dragStart = input.Position
             startSize = frame.Size
             startPos = frame.Position
+            lastInput = input
+        end
+    end)
+    local c2 = UserInputService.InputChanged:Connect(function(input)
+        if IsTouchOrMouseMove(input) and dragging then
+            lastInput = input
+            local delta = lastInput.Position - dragStart
             local scaleObj = frame:FindFirstChildWhichIsA("UIScale")
-            scaleMult = scaleObj and scaleObj.Scale or 1
+            local scaleMult = scaleObj and scaleObj.Scale or 1
             if scaleMult <= 0 then scaleMult = 1 end
-            local c2
-            c2 = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                    c2:Disconnect()
-                end
-            end)
-        end
-    end)
-    local c3 = UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-    local c4 = RunService.RenderStepped:Connect(function()
-        if dragging and dragInput then
-            local delta = dragInput.Position - dragStart
             local newX = math.max(minSize.X, startSize.X.Offset + (delta.X / scaleMult))
             local newY = math.max(minSize.Y, startSize.Y.Offset + (delta.Y / scaleMult))
             local diffX = (newX - startSize.X.Offset) * scaleMult
@@ -197,21 +185,34 @@ local function MakeResizable(resizeBtn, frame, minSize)
             frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + (diffX / 2), startPos.Y.Scale, startPos.Y.Offset + (diffY / 2))
         end
     end)
+    local c3 = UserInputService.InputEnded:Connect(function(input)
+        if IsTouchOrMouse1(input) and dragging then
+            dragging = false
+        end
+    end)
     table.insert(Library.Connections, c1)
+    table.insert(Library.Connections, c2)
     table.insert(Library.Connections, c3)
-    table.insert(Library.Connections, c4)
 end
 local function GetBaseScale()
-    local vp = GetSafeViewport()
-    if vp.X < 1 or vp.Y < 1 then
+    local vp = workspace.CurrentCamera.ViewportSize
+    if vp.X < 1 or vp.Y < 1 then return 1 end
+    if IsMobile then
+        local refWidth = 800
+        local refHeight = 500
+        local scaleX = vp.X / refWidth
+        local scaleY = vp.Y / refHeight
+        local scale = math.min(scaleX, scaleY)
+        return math.clamp(scale * 0.85, 0.3, 1.2)
+    else
+        local scaleX = vp.X / 800
+        local scaleY = vp.Y / 500
+        local scale = math.min(scaleX, scaleY)
+        if scale < 1 then
+            return math.clamp(scale * 0.95, 0.4, 1)
+        end
         return 1
     end
-    local baseX = IsMobile and 430 or 800
-    local baseY = IsMobile and 760 or 500
-    local scaleX = vp.X / baseX
-    local scaleY = vp.Y / baseY
-    local scale = math.min(scaleX, scaleY)
-    return math.clamp(scale, 0.55, 1)
 end
 function Library:Unload()
     for _, conn in ipairs(Library.Connections) do pcall(function() conn:Disconnect() end) end
@@ -339,7 +340,7 @@ local TooltipLabel = Instance.new("TextLabel")
 TooltipLabel.BackgroundTransparency = 0.05
 TooltipLabel.BackgroundColor3 = Theme.Container
 TooltipLabel.TextColor3 = Theme.Text
-TooltipLabel.Font = Enum.Font.Gotham
+TooltipLabel.Font = Config.FontMain
 TooltipLabel.TextSize = 12
 TooltipLabel.Visible = false
 TooltipLabel.Parent = TooltipGui
@@ -347,7 +348,7 @@ TooltipLabel.ZIndex = 1000
 Corner(TooltipLabel, 4)
 Stroke(TooltipLabel, Theme.Stroke, 1)
 local function ApplyTooltip(guiObj, text)
-    if not text or text == "" then return end
+    if not text or text == "" or IsMobile then return end
     local hovered = false
     local c1 = guiObj.MouseEnter:Connect(function()
         hovered = true
@@ -427,7 +428,7 @@ function Library:Notify(title, text, duration)
     NText.BackgroundTransparency = 1
     NText.Text = text
     NText.TextColor3 = Theme.Text
-    NText.Font = Enum.Font.Gotham
+    NText.Font = Config.FontMain
     NText.TextSize = 12
     NText.TextXAlignment = Enum.TextXAlignment.Left
     NText.Parent = NotifFrame
@@ -497,11 +498,11 @@ function Library:InitWatermark()
     local lastUpdate = 0
     local frames = 0
     local conn
-    conn = RunService.RenderStepped:Connect(function()
+    conn = RunService.RenderStepped:Connect(function(dt)
         frames = frames + 1
         local now = os.clock()
         if now - lastUpdate >= 1 then
-            local fps = frames
+            local fps = math.round(frames / (now - lastUpdate))
             frames = 0
             lastUpdate = now
             local ping = "0"
@@ -590,7 +591,7 @@ function Library:UpdateKeybindList(name, key, active, mode)
             LName.BackgroundTransparency = 1
             LName.Text = name
             LName.TextColor3 = Theme.Text
-            LName.Font = Enum.Font.Gotham
+            LName.Font = Config.FontMain
             LName.TextSize = 12
             LName.TextXAlignment = Enum.TextXAlignment.Left
             LName.Parent = Item
@@ -601,7 +602,7 @@ function Library:UpdateKeybindList(name, key, active, mode)
             LKey.BackgroundTransparency = 1
             LKey.Text = "[" .. tostring(key) .. "]"
             LKey.TextColor3 = Theme.TextDark
-            LKey.Font = Enum.Font.Gotham
+            LKey.Font = Config.FontMain
             LKey.TextSize = 12
             LKey.TextXAlignment = Enum.TextXAlignment.Right
             LKey.Parent = Item
@@ -617,6 +618,127 @@ function Library:UpdateKeybindList(name, key, active, mode)
     else
         Library.KeybindList.Frame.Visible = false
     end
+end
+local function CreateSliderElement(text, flag, min, max, default, increment, tooltipText, callback, parentFrame, secData)
+    increment = increment or 1
+    local val = Library.Flags[flag]
+    if val == nil then
+        val = default or min
+    end
+    val = RoundToIncrement(val, increment)
+    Library.Defaults[flag] = val
+    Library.Flags[flag] = val
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 42)
+    Frame.BackgroundTransparency = 1
+    Frame.Parent = parentFrame
+    if secData then table.insert(secData.Items, {Name = text, Instance = Frame}) end
+    local Label = Instance.new("TextLabel")
+    Label.Text = text
+    Label.Font = Config.FontMain
+    Label.TextSize = 13
+    Label.TextColor3 = Theme.Text
+    Label.Size = UDim2.new(0.6, 0, 0, 16)
+    Label.Position = UDim2.new(0, 5, 0, 0)
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.BackgroundTransparency = 1
+    Label.Parent = Frame
+    local ValLabel = Instance.new("TextBox")
+    ValLabel.Text = FormatNumber(val, increment)
+    ValLabel.Font = Config.FontMain
+    ValLabel.TextSize = 13
+    ValLabel.TextColor3 = Theme.Text
+    ValLabel.Size = UDim2.new(0.4, -5, 0, 16)
+    ValLabel.Position = UDim2.new(0.6, 0, 0, 0)
+    ValLabel.TextXAlignment = Enum.TextXAlignment.Right
+    ValLabel.BackgroundTransparency = 1
+    ValLabel.ClearTextOnFocus = false
+    ValLabel.Parent = Frame
+    local Bar = Instance.new("Frame")
+    Bar.Size = UDim2.new(1, 0, 0, 6)
+    Bar.Position = UDim2.new(0, 0, 0, 24)
+    Bar.BackgroundColor3 = Theme.Container
+    Bar.Parent = Frame
+    Corner(Bar, 3)
+    Stroke(Bar, Theme.Stroke, 1, 0.5)
+    local Fill = Instance.new("Frame")
+    local range = max - min
+    local ratio = range > 0 and (val - min) / range or 0
+    Fill.Size = UDim2.new(ratio, 0, 1, 0)
+    Fill.BackgroundColor3 = Theme.Accent
+    Fill.BorderSizePixel = 0
+    Fill.Parent = Bar
+    Corner(Fill, 3)
+    RegisterTheme(Fill, "BackgroundColor")
+    local dragging = false
+    local lastDragInput
+    local function SetFromPosition(posX)
+        local r = math.clamp((posX - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+        local raw = min + (max - min) * r
+        val = RoundToIncrement(raw, increment)
+        val = math.clamp(val, min, max)
+        local displayRatio = range > 0 and (val - min) / range or 0
+        ValLabel.Text = FormatNumber(val, increment)
+        Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
+        Library.Flags[flag] = val
+        Library.Unsaved = true
+        callback(val)
+    end
+    local c1 = Bar.InputBegan:Connect(function(input)
+        if IsTouchOrMouse1(input) then
+            dragging = true
+            lastDragInput = input
+            SetFromPosition(input.Position.X)
+        end
+    end)
+    local c2 = UserInputService.InputChanged:Connect(function(input)
+        if IsTouchOrMouseMove(input) and dragging then
+            lastDragInput = input
+            SetFromPosition(lastDragInput.Position.X)
+        end
+    end)
+    local c3 = UserInputService.InputEnded:Connect(function(input)
+        if IsTouchOrMouse1(input) and dragging then
+            dragging = false
+        end
+    end)
+    table.insert(Library.Connections, c1)
+    table.insert(Library.Connections, c2)
+    table.insert(Library.Connections, c3)
+    local c4 = ValLabel.FocusLost:Connect(function(enter)
+        if enter then
+            local cleanText = string.gsub(ValLabel.Text, "[^%d.-]", "")
+            local num = tonumber(cleanText)
+            if num then
+                num = RoundToIncrement(num, increment)
+                num = math.clamp(num, min, max)
+                val = num
+                local displayRatio = range > 0 and (val - min) / range or 0
+                ValLabel.Text = FormatNumber(val, increment)
+                Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
+                Library.Flags[flag] = val
+                Library.Unsaved = true
+                callback(val)
+            else
+                ValLabel.Text = FormatNumber(val, increment)
+            end
+        else
+            ValLabel.Text = FormatNumber(val, increment)
+        end
+    end)
+    table.insert(Library.Connections, c4)
+    Library.Signals[flag] = function(loadedVal)
+        val = RoundToIncrement(loadedVal, increment)
+        val = math.clamp(val, min, max)
+        local displayRatio = range > 0 and (val - min) / range or 0
+        ValLabel.Text = FormatNumber(val, increment)
+        Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
+        Library.Unsaved = true
+        callback(val)
+    end
+    ApplyTooltip(Frame, tooltipText)
+    task.spawn(callback, val)
+    return Frame
 end
 local function CreateDropdownElement(text, flag, options, default, tooltipText, callback, parentFrame, sectionRef, isMulti, customParent)
     local selected = Library.Flags[flag]
@@ -639,7 +761,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     DropFrame.ZIndex = 5
     local DLabel = Instance.new("TextLabel")
     DLabel.Text = text
-    DLabel.Font = Enum.Font.Gotham
+    DLabel.Font = Config.FontMain
     DLabel.TextSize = 13
     DLabel.TextColor3 = customParent and Theme.TextDark or Theme.Text
     DLabel.Size = UDim2.new(1, 0, 0, 16)
@@ -658,7 +780,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     Corner(Interactive, 4)
     Stroke(Interactive, Theme.Stroke, 1, 0.5)
     local SelectedText = Instance.new("TextLabel")
-    SelectedText.Font = Enum.Font.Gotham
+    SelectedText.Font = Config.FontMain
     SelectedText.TextSize = 13
     SelectedText.TextColor3 = Theme.Text
     SelectedText.Size = UDim2.new(1, -25, 1, 0)
@@ -687,7 +809,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     ListFrame.ZIndex = 10
     ListFrame.Visible = false
     ListFrame.Active = true
-    ListFrame.ScrollBarThickness = IsMobile and 5 or 2
+    ListFrame.ScrollBarThickness = IsMobile and 4 or 2
     ListFrame.ScrollBarImageColor3 = Theme.Accent
     Corner(ListFrame, 4)
     Stroke(ListFrame, Theme.Stroke, 1, 0.5)
@@ -695,7 +817,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     IList.SortOrder = Enum.SortOrder.LayoutOrder
     IList.Parent = ListFrame
     local c1 = IList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        ListFrame.CanvasSize = UDim2.new(0, 0, 0, IList.AbsoluteContentSize.Y + 10)
+        ListFrame.CanvasSize = UDim2.new(0, 0, 0, IList.AbsoluteContentSize.Y)
     end)
     table.insert(Library.Connections, c1)
     local function CloseDropdown()
@@ -743,12 +865,12 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         options = newOptions
         for _, opt in ipairs(options) do
             local OptBtn = Instance.new("TextButton")
-            OptBtn.Size = UDim2.new(1, 0, 0, 24)
+            OptBtn.Size = UDim2.new(1, 0, 0, IsMobile and 32 or 24)
             OptBtn.BackgroundColor3 = Theme.Container
             OptBtn.BackgroundTransparency = 1
             OptBtn.Text = opt
-            OptBtn.Font = Enum.Font.Gotham
-            OptBtn.TextSize = 12
+            OptBtn.Font = Config.FontMain
+            OptBtn.TextSize = IsMobile and 14 or 12
             OptBtn.Parent = ListFrame
             OptBtn.ZIndex = 11
             if IsSelected(opt) then
@@ -757,16 +879,20 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
                 OptBtn.TextColor3 = Theme.TextDark
             end
             optionBtns[opt] = OptBtn
-            local c3 = OptBtn.MouseEnter:Connect(function()
-                if not IsSelected(opt) then
-                    Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent})
-                end
-            end)
-            local c4 = OptBtn.MouseLeave:Connect(function()
-                if not IsSelected(opt) then
-                    Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark})
-                end
-            end)
+            if not IsMobile then
+                local c3 = OptBtn.MouseEnter:Connect(function()
+                    if not IsSelected(opt) then
+                        Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent})
+                    end
+                end)
+                local c4 = OptBtn.MouseLeave:Connect(function()
+                    if not IsSelected(opt) then
+                        Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark})
+                    end
+                end)
+                table.insert(Library.Connections, c3)
+                table.insert(Library.Connections, c4)
+            end
             local c5 = OptBtn.MouseButton1Click:Connect(function()
                 if isMulti then
                     local found = table.find(selected, opt)
@@ -784,8 +910,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
                     CloseDropdown()
                 end
             end)
-            table.insert(Library.Connections, c3)
-            table.insert(Library.Connections, c4)
             table.insert(Library.Connections, c5)
         end
     end
@@ -812,7 +936,8 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         if customParent then customParent.ZIndex = isDropped and 10 or 1 customParent.ClipsDescendants = false end
         if isDropped then
             ListFrame.Visible = true
-            local listH = math.min(#options * 24, IsMobile and 260 or 200)
+            local itemH = IsMobile and 32 or 24
+            local listH = math.min(#options * itemH, 200)
             local totalH = 46 + listH + 5
             Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, totalH)}, 0.2)
             Tween(ListFrame, {Size = UDim2.new(1, 0, 0, listH)}, 0.2)
@@ -851,133 +976,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     end
     return DropdownObj
 end
-local function CreateSliderElement(text, flag, min, max, default, increment, tooltipText, callback, parentFrame, secData)
-    increment = increment or 1
-    local val = Library.Flags[flag]
-    if val == nil then
-        val = default or min
-    end
-    val = RoundToIncrement(val, increment)
-    Library.Defaults[flag] = val
-    Library.Flags[flag] = val
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(1, 0, 0, 42)
-    Frame.BackgroundTransparency = 1
-    Frame.Parent = parentFrame
-    if secData then table.insert(secData.Items, {Name = text, Instance = Frame}) end
-    local Label = Instance.new("TextLabel")
-    Label.Text = text
-    Label.Font = Enum.Font.Gotham
-    Label.TextSize = 13
-    Label.TextColor3 = Theme.Text
-    Label.Size = UDim2.new(0.6, 0, 0, 16)
-    Label.Position = UDim2.new(0, 5, 0, 0)
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.BackgroundTransparency = 1
-    Label.Parent = Frame
-    local ValLabel = Instance.new("TextBox")
-    ValLabel.Text = FormatNumber(val, increment)
-    ValLabel.Font = Enum.Font.Gotham
-    ValLabel.TextSize = 13
-    ValLabel.TextColor3 = Theme.Text
-    ValLabel.Size = UDim2.new(0.4, -5, 0, 16)
-    ValLabel.Position = UDim2.new(0.6, 0, 0, 0)
-    ValLabel.TextXAlignment = Enum.TextXAlignment.Right
-    ValLabel.BackgroundTransparency = 1
-    ValLabel.ClearTextOnFocus = true
-    ValLabel.Parent = Frame
-    local Bar = Instance.new("Frame")
-    Bar.Size = UDim2.new(1, 0, 0, 6)
-    Bar.Position = UDim2.new(0, 0, 0, 24)
-    Bar.BackgroundColor3 = Theme.Container
-    Bar.Parent = Frame
-    Corner(Bar, 3)
-    Stroke(Bar, Theme.Stroke, 1, 0.5)
-    local Fill = Instance.new("Frame")
-    local range = max - min
-    local ratio = range > 0 and (val - min) / range or 0
-    Fill.Size = UDim2.new(ratio, 0, 1, 0)
-    Fill.BackgroundColor3 = Theme.Accent
-    Fill.BorderSizePixel = 0
-    Fill.Parent = Bar
-    Corner(Fill, 3)
-    RegisterTheme(Fill, "BackgroundColor")
-    local dragging = false
-    local dragInput
-    local function SetFromInput(input)
-        local r = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-        local raw = min + (max - min) * r
-        val = RoundToIncrement(raw, increment)
-        val = math.clamp(val, min, max)
-        local displayRatio = range > 0 and (val - min) / range or 0
-        ValLabel.Text = FormatNumber(val, increment)
-        Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
-        Library.Flags[flag] = val
-        Library.Unsaved = true
-        callback(val)
-    end
-    local c1 = Bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragInput = input
-            SetFromInput(input)
-            local c2
-            c2 = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                    c2:Disconnect()
-                end
-            end)
-        end
-    end)
-    local c3 = UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-    local c4 = RunService.RenderStepped:Connect(function()
-        if dragging and dragInput then
-            SetFromInput(dragInput)
-        end
-    end)
-    table.insert(Library.Connections, c1)
-    table.insert(Library.Connections, c3)
-    table.insert(Library.Connections, c4)
-    local c5 = ValLabel.FocusLost:Connect(function(enter)
-        if enter then
-            local cleanText = string.gsub(ValLabel.Text, "[^%d.-]", "")
-            local num = tonumber(cleanText)
-            if num then
-                num = RoundToIncrement(num, increment)
-                num = math.clamp(num, min, max)
-                val = num
-                local displayRatio = range > 0 and (val - min) / range or 0
-                ValLabel.Text = FormatNumber(val, increment)
-                Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
-                Library.Flags[flag] = val
-                Library.Unsaved = true
-                callback(val)
-            else
-                ValLabel.Text = FormatNumber(val, increment)
-            end
-        else
-            ValLabel.Text = FormatNumber(val, increment)
-        end
-    end)
-    table.insert(Library.Connections, c5)
-    Library.Signals[flag] = function(loadedVal)
-        val = RoundToIncrement(loadedVal, increment)
-        val = math.clamp(val, min, max)
-        local displayRatio = range > 0 and (val - min) / range or 0
-        ValLabel.Text = FormatNumber(val, increment)
-        Tween(Fill, {Size = UDim2.new(displayRatio, 0, 1, 0)}, 0.05)
-        Library.Unsaved = true
-        callback(val)
-    end
-    ApplyTooltip(Frame, tooltipText)
-    task.spawn(callback, val)
-    return Frame
-end
 function Library:CreateWindow(options)
     if options and options.Name then Config.Name = options.Name end
     if options and options.ConfigFolder then Config.ConfigFolder = options.ConfigFolder end
@@ -1010,49 +1008,46 @@ function Library:CreateWindow(options)
     Corner(MiniButton, 23)
     Stroke(MiniButton, Theme.Accent, 2, 0.3)
     RegisterTheme(MiniButton, "ImageColor")
-    local miniWasDragged = false
-    MakeDraggable(MiniButton, MiniButton, function(wasDrag)
-        miniWasDragged = wasDrag
-    end)
-    local c1 = MiniButton.MouseButton1Click:Connect(function()
-        if miniWasDragged then
-            miniWasDragged = false
-            return
+    local miniDragDelta = Vector2.new(0, 0)
+    local miniDragStart = nil
+    local miniDragStartPos = nil
+    local miniIsDragging = false
+    local DRAG_THRESHOLD = 10
+    local miniInputBegan = MiniButton.InputBegan:Connect(function(input)
+        if IsTouchOrMouse1(input) then
+            miniDragStart = input.Position
+            miniDragStartPos = MiniButton.Position
+            miniIsDragging = false
         end
-        if Library.Open then
-            Library.Open = false
-            if Library._IsSettings then
-                Tween(Library._SetScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
-            else
-                Tween(Library._MainScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
+    end)
+    local miniInputChanged = UserInputService.InputChanged:Connect(function(input)
+        if IsTouchOrMouseMove(input) and miniDragStart then
+            local delta = input.Position - miniDragStart
+            if not miniIsDragging and (math.abs(delta.X) > DRAG_THRESHOLD or math.abs(delta.Y) > DRAG_THRESHOLD) then
+                miniIsDragging = true
             end
-            Library._MainWindow.Visible = false
-            Library._SettingsWindow.Visible = false
-            TooltipLabel.Visible = false
-        else
-            Library.Open = true
-            if Library._IsSettings then
-                Library._SettingsWindow.Visible = true
-                Library._SettingsWindow.BackgroundTransparency = 0.1
-                Library._SetScale.Scale = GetBaseScale() * 0.8
-                Tween(Library._SetScale, {Scale = GetBaseScale()}, 0.3)
-            else
-                Library._MainWindow.Visible = true
-                Library._MainWindow.BackgroundTransparency = 0.1
-                Library._MainScale.Scale = GetBaseScale() * 0.8
-                Tween(Library._MainScale, {Scale = GetBaseScale()}, 0.3)
+            if miniIsDragging then
+                MiniButton.Position = UDim2.new(
+                    miniDragStartPos.X.Scale,
+                    miniDragStartPos.X.Offset + delta.X,
+                    miniDragStartPos.Y.Scale,
+                    miniDragStartPos.Y.Offset + delta.Y
+                )
             end
         end
     end)
-    table.insert(Library.Connections, c1)
+    local miniInputEnded = UserInputService.InputEnded:Connect(function(input)
+        if IsTouchOrMouse1(input) then
+            miniDragStart = nil
+        end
+    end)
+    table.insert(Library.Connections, miniInputBegan)
+    table.insert(Library.Connections, miniInputChanged)
+    table.insert(Library.Connections, miniInputEnded)
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
-        if IsMobile then
-        Frame.Size = UDim2.new(1, -10, 1, -10)
-    else
-        Frame.Size = UDim2.new(0, 650, 0, 400)
-    end
+        Frame.Size = UDim2.new(0, IsMobile and 580 or 650, 0, IsMobile and 380 or 400)
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
@@ -1064,7 +1059,7 @@ function Library:CreateWindow(options)
         Frame.Active = true
         local SizeConstraint = Instance.new("UISizeConstraint")
         SizeConstraint.MaxSize = Vector2.new(1400, 900)
-        SizeConstraint.MinSize = IsMobile and Vector2.new(320, 420) or Vector2.new(450, 300)
+        SizeConstraint.MinSize = Vector2.new(IsMobile and 300 or 450, IsMobile and 250 or 300)
         SizeConstraint.Parent = Frame
         Corner(Frame, 6)
         Stroke(Frame, Theme.Stroke, 1, 0)
@@ -1095,33 +1090,36 @@ function Library:CreateWindow(options)
     Library._SettingsWindow = SettingsWindow
     Library._SetScale = SetScale
     Library._IsSettings = false
-    local Resizer = Instance.new("Frame")
-    Resizer.Size = UDim2.new(0, 20, 0, 20)
-    Resizer.Position = UDim2.new(1, 0, 1, 0)
-    Resizer.AnchorPoint = Vector2.new(1, 1)
-    Resizer.BackgroundTransparency = 1
-    Resizer.Parent = MainWindow
-    Resizer.ZIndex = 20
-    Resizer.Active = true
-    local ResizerIcon = Instance.new("TextLabel")
-    ResizerIcon.Size = UDim2.new(1, 0, 1, 0)
-    ResizerIcon.BackgroundTransparency = 1
-    ResizerIcon.Text = "◢"
-    ResizerIcon.TextColor3 = Theme.TextDark
-    ResizerIcon.TextSize = 16
-    ResizerIcon.Parent = Resizer
-    local c2 = Resizer.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.Accent}) end
-    end)
-    local c3 = Resizer.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
-    end)
-    table.insert(Library.Connections, c2)
-    table.insert(Library.Connections, c3)
-    if not IsMobile then MakeResizable(Resizer, MainWindow, Vector2.new(450, 300)) end
+    if not IsMobile then
+        local Resizer = Instance.new("Frame")
+        Resizer.Size = UDim2.new(0, 20, 0, 20)
+        Resizer.Position = UDim2.new(1, 0, 1, 0)
+        Resizer.AnchorPoint = Vector2.new(1, 1)
+        Resizer.BackgroundTransparency = 1
+        Resizer.Parent = MainWindow
+        Resizer.ZIndex = 20
+        Resizer.Active = true
+        local ResizerIcon = Instance.new("TextLabel")
+        ResizerIcon.Size = UDim2.new(1, 0, 1, 0)
+        ResizerIcon.BackgroundTransparency = 1
+        ResizerIcon.Text = "◢"
+        ResizerIcon.TextColor3 = Theme.TextDark
+        ResizerIcon.TextSize = 16
+        ResizerIcon.Parent = Resizer
+        local c2 = Resizer.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.Accent}) end
+        end)
+        local c3 = Resizer.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
+        end)
+        table.insert(Library.Connections, c2)
+        table.insert(Library.Connections, c3)
+        MakeResizable(Resizer, MainWindow, Vector2.new(450, 300))
+    end
     local function CreateSidebar(parent, isSettings)
+        local sidebarW = IsMobile and 140 or 180
         local Bar = Instance.new("Frame")
-        Bar.Size = UDim2.new(0, 180, 1, 0)
+        Bar.Size = UDim2.new(0, sidebarW, 1, 0)
         Bar.BackgroundColor3 = Theme.Sidebar
         Bar.BorderSizePixel = 0
         Bar.Parent = parent
@@ -1147,10 +1145,12 @@ function Library:CreateWindow(options)
             BackBtn.Parent = Bar
             Corner(BackBtn, 4)
             Stroke(BackBtn, Theme.Stroke, 1, 0.5)
-            local c4 = BackBtn.MouseEnter:Connect(function() Tween(BackBtn, {TextColor3 = Theme.Accent}) end)
-            local c5 = BackBtn.MouseLeave:Connect(function() Tween(BackBtn, {TextColor3 = Theme.TextDark}) end)
-            table.insert(Library.Connections, c4)
-            table.insert(Library.Connections, c5)
+            if not IsMobile then
+                local c4 = BackBtn.MouseEnter:Connect(function() Tween(BackBtn, {TextColor3 = Theme.Accent}) end)
+                local c5 = BackBtn.MouseLeave:Connect(function() Tween(BackBtn, {TextColor3 = Theme.TextDark}) end)
+                table.insert(Library.Connections, c4)
+                table.insert(Library.Connections, c5)
+            end
             local Title = Instance.new("TextLabel")
             Title.Text = "Settings"
             Title.Size = UDim2.new(1, 0, 0, 30)
@@ -1168,7 +1168,7 @@ function Library:CreateWindow(options)
             Logo.Position = UDim2.new(0, 15, 0, 20)
             Logo.Size = UDim2.new(1, -30, 0, 30)
             Logo.Font = Config.FontBold
-            Logo.TextSize = 20
+            Logo.TextSize = IsMobile and 16 or 20
             Logo.TextColor3 = Theme.Accent
             Logo.TextXAlignment = Enum.TextXAlignment.Left
             Logo.BackgroundTransparency = 1
@@ -1187,6 +1187,7 @@ function Library:CreateWindow(options)
             return Bar, Container, nil
         end
     end
+    local sidebarW = IsMobile and 141 or 181
     local MainBar, TabContainer, _ = CreateSidebar(MainWindow, false)
     local SetBar, SetContainer, BackBtn = CreateSidebar(SettingsWindow, true)
     local ProfileBtn = Instance.new("TextButton")
@@ -1227,7 +1228,7 @@ function Library:CreateWindow(options)
     SideSub.BackgroundTransparency = 1
     SideSub.Text = "Settings"
     SideSub.TextColor3 = Theme.TextDark
-    SideSub.Font = Enum.Font.Gotham
+    SideSub.Font = Config.FontMain
     SideSub.TextSize = 11
     SideSub.TextXAlignment = Enum.TextXAlignment.Left
     SideSub.Parent = ProfileBtn
@@ -1291,6 +1292,14 @@ function Library:CreateWindow(options)
         Library._IsSettings = false
         animating = false
     end
+    local c1 = MiniButton.MouseButton1Click:Connect(function()
+        if miniIsDragging then
+            miniIsDragging = false
+            return
+        end
+        task.spawn(ToggleMain)
+    end)
+    table.insert(Library.Connections, c1)
     local c6 = ProfileBtn.MouseButton1Click:Connect(function() task.spawn(SwitchToSettings) end)
     local c7 = BackBtn.MouseButton1Click:Connect(function() task.spawn(SwitchToMain) end)
     table.insert(Library.Connections, c6)
@@ -1305,35 +1314,20 @@ function Library:CreateWindow(options)
         end
     end)
     table.insert(Library.Connections, c8)
-    local MenuBindConnection = UserInputService.InputBegan:Connect(function(input, gp)
-        if not gp and input.KeyCode == Config.Keybind then
-            task.spawn(ToggleMain)
-        end
-    end)
-    table.insert(Library.Connections, MenuBindConnection)
+    if not IsMobile then
+        local MenuBindConnection = UserInputService.InputBegan:Connect(function(input, gp)
+            if not gp and input.KeyCode == Config.Keybind then
+                task.spawn(ToggleMain)
+            end
+        end)
+        table.insert(Library.Connections, MenuBindConnection)
+    end
     local WindowObj = {}
     local MainPages = Instance.new("Frame")
-    MainPages.Size = UDim2.new(1, -181, 1, 0)
-    MainPages.Position = UDim2.new(0, 181, 0, 0)
+    MainPages.Size = UDim2.new(1, -sidebarW, 1, 0)
+    MainPages.Position = UDim2.new(0, sidebarW, 0, 0)
     MainPages.BackgroundTransparency = 1
     MainPages.Parent = MainWindow
-
-local ScrollHolder = Instance.new("ScrollingFrame")
-ScrollHolder.Name = "ScrollHolder"
-ScrollHolder.Size = UDim2.new(1, 0, 1, 0)
-ScrollHolder.CanvasSize = UDim2.new(0, 0, 0, 0)
-ScrollHolder.AutomaticCanvasSize = Enum.AutomaticSize.Y
-ScrollHolder.ScrollBarThickness = 3
-ScrollHolder.ScrollBarImageColor3 = Theme.Accent
-ScrollHolder.BackgroundTransparency = 1
-ScrollHolder.BorderSizePixel = 0
-ScrollHolder.Parent = MainPages
-
-local ScrollLayout = Instance.new("UIListLayout")
-ScrollLayout.Padding = UDim.new(0, 8)
-ScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ScrollLayout.Parent = ScrollHolder
-
     function WindowObj:CreateRawSection(text, parent)
         local Section = {}
         local Container = Instance.new("Frame")
@@ -1392,7 +1386,7 @@ ScrollLayout.Parent = ScrollHolder
             Lbl.Position = UDim2.new(0, 15, 0, 0)
             Lbl.BackgroundTransparency = 1
             Lbl.Text = tostring(ltext)
-            Lbl.Font = Enum.Font.Gotham
+            Lbl.Font = Config.FontMain
             Lbl.TextSize = 13
             Lbl.TextColor3 = options.Color or Theme.Text
             Lbl.TextXAlignment = options.Alignment or Enum.TextXAlignment.Left
@@ -1411,22 +1405,25 @@ ScrollLayout.Parent = ScrollHolder
             return LabelObj
         end
         function Section:Button(text, tooltipText, callback)
+            local btnH = IsMobile and 38 or 32
             local Btn = Instance.new("TextButton")
-            Btn.Size = UDim2.new(1, 0, 0, 32)
+            Btn.Size = UDim2.new(1, 0, 0, btnH)
             Btn.BackgroundColor3 = Theme.Container
             Btn.Text = text
-            Btn.Font = Enum.Font.Gotham
+            Btn.Font = Config.FontMain
             Btn.TextSize = 13
             Btn.TextColor3 = Theme.Text
             Btn.AutoButtonColor = false
             Btn.Parent = Content
             Corner(Btn, 4)
             local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
-            local bc1 = Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
-            local bc2 = Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+            if not IsMobile then
+                local bc1 = Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
+                local bc2 = Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+                table.insert(Library.Connections, bc1)
+                table.insert(Library.Connections, bc2)
+            end
             local bc3 = Btn.MouseButton1Click:Connect(callback)
-            table.insert(Library.Connections, bc1)
-            table.insert(Library.Connections, bc2)
             table.insert(Library.Connections, bc3)
             ApplyTooltip(Btn, tooltipText)
             return Btn
@@ -1447,8 +1444,9 @@ ScrollLayout.Parent = ScrollHolder
                     callback(val)
                 end
             end
+            local btnH = IsMobile and 38 or 32
             local Btn = Instance.new("TextButton")
-            Btn.Size = UDim2.new(1, 0, 0, 32)
+            Btn.Size = UDim2.new(1, 0, 0, btnH)
             Btn.BackgroundColor3 = Theme.Container
             Btn.Text = ""
             Btn.AutoButtonColor = false
@@ -1457,7 +1455,7 @@ ScrollLayout.Parent = ScrollHolder
             Stroke(Btn, Theme.Stroke, 1, 0.5)
             local Label = Instance.new("TextLabel")
             Label.Text = text
-            Label.Font = Enum.Font.Gotham
+            Label.Font = Config.FontMain
             Label.TextSize = 13
             Label.TextColor3 = Theme.Text
             Label.Size = UDim2.new(1, -30, 1, 0)
@@ -1554,7 +1552,7 @@ ScrollLayout.Parent = ScrollHolder
             Frame.Parent = Content
             local Label = Instance.new("TextLabel")
             Label.Text = text
-            Label.Font = Enum.Font.Gotham
+            Label.Font = Config.FontMain
             Label.TextSize = 13
             Label.TextColor3 = Theme.Text
             Label.Size = UDim2.new(1, 0, 0, 20)
@@ -1576,13 +1574,12 @@ ScrollLayout.Parent = ScrollHolder
             Input.TextColor3 = Theme.Text
             Input.PlaceholderText = placeholder
             Input.PlaceholderColor3 = Theme.TextDark
-            Input.Font = Enum.Font.Gotham
-            Input.TextSize = IsMobile and 15 or 13
+            Input.Font = Config.FontMain
+            Input.TextSize = 13
             Input.TextXAlignment = Enum.TextXAlignment.Left
             local currentText = Library.Flags[flag] or ""
             Input.Text = currentText
             Input.ClearTextOnFocus = false
-
             Input.Parent = BoxCont
             local ic1 = Input.FocusLost:Connect(function(enter)
                 if enter then
@@ -1626,7 +1623,7 @@ ScrollLayout.Parent = ScrollHolder
             Frame.ZIndex = 5
             local Label = Instance.new("TextLabel")
             Label.Text = text
-            Label.Font = Enum.Font.Gotham
+            Label.Font = Config.FontMain
             Label.TextSize = 13
             Label.TextColor3 = Theme.Text
             Label.Size = UDim2.new(0.6, 0, 1, 0)
@@ -1701,9 +1698,10 @@ ScrollLayout.Parent = ScrollHolder
             HexInput.Position = UDim2.new(0, 10, 0, 140)
             HexInput.BackgroundColor3 = Theme.Container
             HexInput.TextColor3 = Theme.Text
-            HexInput.Font = Enum.Font.Gotham
+            HexInput.Font = Config.FontMain
             HexInput.TextSize = 12
             HexInput.Text = "#" .. color:ToHex()
+            HexInput.ClearTextOnFocus = false
             HexInput.Parent = PickerCont
             HexInput.ZIndex = 11
             Corner(HexInput, 4)
@@ -1741,74 +1739,62 @@ ScrollLayout.Parent = ScrollHolder
                     Update()
                 end
             end
-            local function SetSV(input)
-                local rX = math.clamp((input.Position.X - SVMap.AbsolutePosition.X) / SVMap.AbsoluteSize.X, 0, 1)
-                local rY = math.clamp((input.Position.Y - SVMap.AbsolutePosition.Y) / SVMap.AbsoluteSize.Y, 0, 1)
+            local function SetSV(posX, posY)
+                local rX = math.clamp((posX - SVMap.AbsolutePosition.X) / SVMap.AbsoluteSize.X, 0, 1)
+                local rY = math.clamp((posY - SVMap.AbsolutePosition.Y) / SVMap.AbsoluteSize.Y, 0, 1)
                 s = rX
                 v = 1 - rY
                 SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
                 Update()
             end
-            local function SetH(input)
-                local rY = math.clamp((input.Position.Y - HueBar.AbsolutePosition.Y) / HueBar.AbsoluteSize.Y, 0, 1)
+            local function SetH(posY)
+                local rY = math.clamp((posY - HueBar.AbsolutePosition.Y) / HueBar.AbsoluteSize.Y, 0, 1)
                 h = rY
                 HCursor.Position = UDim2.new(0, 0, h, 0)
                 Update()
             end
             local dragSV = false
-            local dragInputSV
+            local lastSVPos
             local sv1 = SVMap.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if IsTouchOrMouse1(input) then
                     dragSV = true
-                    dragInputSV = input
-                    SetSV(input)
-                    local sc2
-                    sc2 = input.Changed:Connect(function()
-                        if input.UserInputState == Enum.UserInputState.End then
-                            dragSV = false
-                            sc2:Disconnect()
-                        end
-                    end)
+                    lastSVPos = input.Position
+                    SetSV(input.Position.X, input.Position.Y)
                 end
             end)
-            local sv3 = UserInputService.InputChanged:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                    if dragSV then dragInputSV = input end
+            local sv2 = UserInputService.InputChanged:Connect(function(input)
+                if IsTouchOrMouseMove(input) and dragSV then
+                    lastSVPos = input.Position
+                    SetSV(lastSVPos.X, lastSVPos.Y)
                 end
             end)
-            local sv4 = RunService.RenderStepped:Connect(function()
-                if dragSV and dragInputSV then SetSV(dragInputSV) end
+            local sv3 = UserInputService.InputEnded:Connect(function(input)
+                if IsTouchOrMouse1(input) then dragSV = false end
             end)
             table.insert(Library.Connections, sv1)
+            table.insert(Library.Connections, sv2)
             table.insert(Library.Connections, sv3)
-            table.insert(Library.Connections, sv4)
             local dragH = false
-            local dragInputH
+            local lastHPos
             local h1 = HueBar.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if IsTouchOrMouse1(input) then
                     dragH = true
-                    dragInputH = input
-                    SetH(input)
-                    local hc2
-                    hc2 = input.Changed:Connect(function()
-                        if input.UserInputState == Enum.UserInputState.End then
-                            dragH = false
-                            hc2:Disconnect()
-                        end
-                    end)
+                    lastHPos = input.Position
+                    SetH(input.Position.Y)
                 end
             end)
-            local h3 = UserInputService.InputChanged:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                    if dragH then dragInputH = input end
+            local h2 = UserInputService.InputChanged:Connect(function(input)
+                if IsTouchOrMouseMove(input) and dragH then
+                    lastHPos = input.Position
+                    SetH(lastHPos.Y)
                 end
             end)
-            local h4 = RunService.RenderStepped:Connect(function()
-                if dragH and dragInputH then SetH(dragInputH) end
+            local h3 = UserInputService.InputEnded:Connect(function(input)
+                if IsTouchOrMouse1(input) then dragH = false end
             end)
             table.insert(Library.Connections, h1)
+            table.insert(Library.Connections, h2)
             table.insert(Library.Connections, h3)
-            table.insert(Library.Connections, h4)
             local pc1 = Preview.MouseButton1Click:Connect(function()
                 isOpen = not isOpen
                 Section.Container.ZIndex = isOpen and 10 or 1
@@ -1835,10 +1821,10 @@ ScrollLayout.Parent = ScrollHolder
     end
     local function PopulateSettings()
         local SetPage = Instance.new("ScrollingFrame")
-        SetPage.Size = UDim2.new(1, -200, 1, -20)
-        SetPage.Position = UDim2.new(0, 190, 0, 10)
+        SetPage.Size = UDim2.new(1, -(sidebarW + 10), 1, -20)
+        SetPage.Position = UDim2.new(0, sidebarW + 10, 0, 10)
         SetPage.BackgroundTransparency = 1
-        SetPage.ScrollBarThickness = 2
+        SetPage.ScrollBarThickness = IsMobile and 4 or 2
         SetPage.ScrollBarImageColor3 = Theme.Accent
         SetPage.Active = true
         SetPage.Parent = SettingsWindow
@@ -1855,23 +1841,25 @@ ScrollLayout.Parent = ScrollHolder
         MenuSec:Button("Unload UI", "Destroys the Hub", function()
             Library:Unload()
         end)
-        local keybindBtn
-        keybindBtn = MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), "Change the open/close key", function()
-            keybindBtn.Text = "Press any key..."
-            local conn
-            conn = UserInputService.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.Keyboard then
-                    if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then
-                        Config.Keybind = Enum.KeyCode.LeftControl
-                    elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then
-                        Config.Keybind = input.KeyCode
+        if not IsMobile then
+            local keybindBtn
+            keybindBtn = MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), "Change the open/close key", function()
+                keybindBtn.Text = "Press any key..."
+                local conn
+                conn = UserInputService.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.Keyboard then
+                        if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then
+                            Config.Keybind = Enum.KeyCode.LeftControl
+                        elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then
+                            Config.Keybind = input.KeyCode
+                        end
+                        keybindBtn.Text = "Menu Keybind: " .. tostring(Config.Keybind.Name)
+                        Library:Notify("Settings", "Menu keybind set to " .. tostring(Config.Keybind.Name), 2)
+                        conn:Disconnect()
                     end
-                    keybindBtn.Text = "Menu Keybind: " .. tostring(Config.Keybind.Name)
-                    Library:Notify("Settings", "Menu keybind set to " .. tostring(Config.Keybind.Name), 2)
-                    conn:Disconnect()
-                end
+                end)
             end)
-        end)
+        end
         MenuSec:Toggle("Show Keybind List", "KeybindListToggle", true, "Show the active keybinds widget", function(state)
             Library.ShowKeybinds = state
             if Library.KeybindList then
@@ -1893,7 +1881,7 @@ ScrollLayout.Parent = ScrollHolder
         CNameFrame.Parent = ConfigContent
         local CNameLabel = Instance.new("TextLabel")
         CNameLabel.Text = "Config Name"
-        CNameLabel.Font = Enum.Font.Gotham
+        CNameLabel.Font = Config.FontMain
         CNameLabel.TextSize = 13
         CNameLabel.TextColor3 = Theme.Text
         CNameLabel.Size = UDim2.new(1, 0, 0, 20)
@@ -1915,12 +1903,11 @@ ScrollLayout.Parent = ScrollHolder
         CNameInput.TextColor3 = Theme.Text
         CNameInput.PlaceholderText = "Type config name..."
         CNameInput.PlaceholderColor3 = Theme.TextDark
-        CNameInput.Font = Enum.Font.Gotham
-        CNameInput.TextSize = IsMobile and 15 or 13
+        CNameInput.Font = Config.FontMain
+        CNameInput.TextSize = 13
         CNameInput.TextXAlignment = Enum.TextXAlignment.Left
         CNameInput.Text = ""
         CNameInput.ClearTextOnFocus = false
-
         CNameInput.Parent = CNameBoxCont
         local c2 = CNameInput:GetPropertyChangedSignal("Text"):Connect(function()
             configNameInput = CNameInput.Text
@@ -1933,7 +1920,7 @@ ScrollLayout.Parent = ScrollHolder
         ConfigDropdownFrame.Parent = ConfigContent
         local CDLabel = Instance.new("TextLabel")
         CDLabel.Text = "Select Config"
-        CDLabel.Font = Enum.Font.Gotham
+        CDLabel.Font = Config.FontMain
         CDLabel.TextSize = 13
         CDLabel.TextColor3 = Theme.Text
         CDLabel.Size = UDim2.new(1, 0, 0, 16)
@@ -1952,7 +1939,7 @@ ScrollLayout.Parent = ScrollHolder
         Corner(CDInteractive, 4)
         Stroke(CDInteractive, Theme.Stroke, 1, 0.5)
         local CDSelectedText = Instance.new("TextLabel")
-        CDSelectedText.Font = Enum.Font.Gotham
+        CDSelectedText.Font = Config.FontMain
         CDSelectedText.TextSize = 13
         CDSelectedText.TextColor3 = Theme.Text
         CDSelectedText.Size = UDim2.new(1, -25, 1, 0)
@@ -1981,7 +1968,7 @@ ScrollLayout.Parent = ScrollHolder
         CDListFrame.ZIndex = 10
         CDListFrame.Visible = false
         CDListFrame.Active = true
-        CDListFrame.ScrollBarThickness = IsMobile and 5 or 2
+        CDListFrame.ScrollBarThickness = IsMobile and 4 or 2
         CDListFrame.ScrollBarImageColor3 = Theme.Accent
         Corner(CDListFrame, 4)
         Stroke(CDListFrame, Theme.Stroke, 1, 0.5)
@@ -2013,31 +2000,34 @@ ScrollLayout.Parent = ScrollHolder
             for _, btn in pairs(cdOptionBtns) do btn:Destroy() end
             table.clear(cdOptionBtns)
             for _, opt in ipairs(opts) do
+                local itemH = IsMobile and 32 or 24
                 local OptBtn = Instance.new("TextButton")
-                OptBtn.Size = UDim2.new(1, 0, 0, 24)
+                OptBtn.Size = UDim2.new(1, 0, 0, itemH)
                 OptBtn.BackgroundColor3 = Theme.Container
                 OptBtn.BackgroundTransparency = 1
                 OptBtn.Text = opt
-                OptBtn.Font = Enum.Font.Gotham
-                OptBtn.TextSize = 12
+                OptBtn.Font = Config.FontMain
+                OptBtn.TextSize = IsMobile and 14 or 12
                 OptBtn.Parent = CDListFrame
                 OptBtn.ZIndex = 11
                 OptBtn.TextColor3 = (selectedConfigName == opt) and Theme.Accent or Theme.TextDark
                 cdOptionBtns[opt] = OptBtn
-                local c5 = OptBtn.MouseEnter:Connect(function()
-                    if selectedConfigName ~= opt then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
-                end)
-                local c6 = OptBtn.MouseLeave:Connect(function()
-                    if selectedConfigName ~= opt then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
-                end)
+                if not IsMobile then
+                    local c5 = OptBtn.MouseEnter:Connect(function()
+                        if selectedConfigName ~= opt then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
+                    end)
+                    local c6 = OptBtn.MouseLeave:Connect(function()
+                        if selectedConfigName ~= opt then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
+                    end)
+                    table.insert(Library.Connections, c5)
+                    table.insert(Library.Connections, c6)
+                end
                 local c7 = OptBtn.MouseButton1Click:Connect(function()
                     selectedConfigName = opt
                     CDSelectedText.Text = opt
                     for o, b in pairs(cdOptionBtns) do b.TextColor3 = (o == opt) and Theme.Accent or Theme.TextDark end
                     CDCloseDropdown()
                 end)
-                table.insert(Library.Connections, c5)
-                table.insert(Library.Connections, c6)
                 table.insert(Library.Connections, c7)
             end
         end
@@ -2050,8 +2040,9 @@ ScrollLayout.Parent = ScrollHolder
                 CDListFrame.Visible = true
                 local currentList = Library:GetConfigs()
                 CDBuildOptions(currentList)
-                local listH = math.min(#currentList * 24, 200)
-                if listH < 24 then listH = 24 end
+                local itemH = IsMobile and 32 or 24
+                local listH = math.min(#currentList * itemH, 200)
+                if listH < itemH then listH = itemH end
                 local totalH = 46 + listH + 5
                 Tween(ConfigDropdownFrame, {Size = UDim2.new(1, 0, 0, totalH)}, 0.2)
                 Tween(CDListFrame, {Size = UDim2.new(1, 0, 0, listH)}, 0.2)
@@ -2070,21 +2061,30 @@ ScrollLayout.Parent = ScrollHolder
             CDSelectedText.Text = selectedConfigName ~= "" and selectedConfigName or "No configs"
             CDBuildOptions(newList)
         end
-        local CreateBtn = Instance.new("TextButton")
-        CreateBtn.Size = UDim2.new(1, 0, 0, 32)
-        CreateBtn.BackgroundColor3 = Theme.Container
-        CreateBtn.Text = "Create New Config"
-        CreateBtn.Font = Enum.Font.Gotham
-        CreateBtn.TextSize = 13
-        CreateBtn.TextColor3 = Theme.Text
-        CreateBtn.AutoButtonColor = false
-        CreateBtn.LayoutOrder = 3
-        CreateBtn.Parent = ConfigContent
-        Corner(CreateBtn, 4)
-        local cs1 = Stroke(CreateBtn, Theme.Stroke, 1, 0.5)
-        local c9 = CreateBtn.MouseEnter:Connect(function() Tween(CreateBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs1, {Color = Theme.Accent}) end)
-        local c10 = CreateBtn.MouseLeave:Connect(function() Tween(CreateBtn, {BackgroundColor3 = Theme.Container}) Tween(cs1, {Color = Theme.Stroke}) end)
-        local c11 = CreateBtn.MouseButton1Click:Connect(function()
+        local function MakeConfigBtn(txt, lo)
+            local btnH = IsMobile and 38 or 32
+            local Btn = Instance.new("TextButton")
+            Btn.Size = UDim2.new(1, 0, 0, btnH)
+            Btn.BackgroundColor3 = Theme.Container
+            Btn.Text = txt
+            Btn.Font = Config.FontMain
+            Btn.TextSize = 13
+            Btn.TextColor3 = Theme.Text
+            Btn.AutoButtonColor = false
+            Btn.LayoutOrder = lo
+            Btn.Parent = ConfigContent
+            Corner(Btn, 4)
+            local cs = Stroke(Btn, Theme.Stroke, 1, 0.5)
+            if not IsMobile then
+                local ce1 = Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(cs, {Color = Theme.Accent}) end)
+                local ce2 = Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(cs, {Color = Theme.Stroke}) end)
+                table.insert(Library.Connections, ce1)
+                table.insert(Library.Connections, ce2)
+            end
+            return Btn
+        end
+        local CreateBtn = MakeConfigBtn("Create New Config", 3)
+        local c9 = CreateBtn.MouseButton1Click:Connect(function()
             local name = configNameInput
             if not name or name == "" or string.match(name, "^%s*$") then
                 Library:Notify("Error", "Please type a config name first", 3)
@@ -2111,98 +2111,35 @@ ScrollLayout.Parent = ScrollHolder
             end
         end)
         table.insert(Library.Connections, c9)
-        table.insert(Library.Connections, c10)
-        table.insert(Library.Connections, c11)
-        local LoadBtn = Instance.new("TextButton")
-        LoadBtn.Size = UDim2.new(1, 0, 0, 32)
-        LoadBtn.BackgroundColor3 = Theme.Container
-        LoadBtn.Text = "Load Config"
-        LoadBtn.Font = Enum.Font.Gotham
-        LoadBtn.TextSize = 13
-        LoadBtn.TextColor3 = Theme.Text
-        LoadBtn.AutoButtonColor = false
-        LoadBtn.LayoutOrder = 4
-        LoadBtn.Parent = ConfigContent
-        Corner(LoadBtn, 4)
-        local cs2 = Stroke(LoadBtn, Theme.Stroke, 1, 0.5)
-        local c12 = LoadBtn.MouseEnter:Connect(function() Tween(LoadBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs2, {Color = Theme.Accent}) end)
-        local c13 = LoadBtn.MouseLeave:Connect(function() Tween(LoadBtn, {BackgroundColor3 = Theme.Container}) Tween(cs2, {Color = Theme.Stroke}) end)
-        local c14 = LoadBtn.MouseButton1Click:Connect(function()
+        local LoadBtn = MakeConfigBtn("Load Config", 4)
+        local c10 = LoadBtn.MouseButton1Click:Connect(function()
             local name = selectedConfigName
-            if not name or name == "" then
-                Library:Notify("Error", "No config selected", 3)
-                return
-            end
-            if not Library:ConfigExists(name) then
-                Library:Notify("Error", "Config '" .. name .. "' does not exist", 3)
-                return
-            end
+            if not name or name == "" then Library:Notify("Error", "No config selected", 3) return end
+            if not Library:ConfigExists(name) then Library:Notify("Error", "Config '" .. name .. "' does not exist", 3) return end
             if Library:LoadConfig(name) then
                 Library:Notify("Config", "Loaded: " .. name, 3)
             else
                 Library:Notify("Error", "Failed to load config", 3)
             end
         end)
-        table.insert(Library.Connections, c12)
-        table.insert(Library.Connections, c13)
-        table.insert(Library.Connections, c14)
-        local RewriteBtn = Instance.new("TextButton")
-        RewriteBtn.Size = UDim2.new(1, 0, 0, 32)
-        RewriteBtn.BackgroundColor3 = Theme.Container
-        RewriteBtn.Text = "Rewrite Config"
-        RewriteBtn.Font = Enum.Font.Gotham
-        RewriteBtn.TextSize = 13
-        RewriteBtn.TextColor3 = Theme.Text
-        RewriteBtn.AutoButtonColor = false
-        RewriteBtn.LayoutOrder = 5
-        RewriteBtn.Parent = ConfigContent
-        Corner(RewriteBtn, 4)
-        local cs3 = Stroke(RewriteBtn, Theme.Stroke, 1, 0.5)
-        local c15 = RewriteBtn.MouseEnter:Connect(function() Tween(RewriteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs3, {Color = Theme.Accent}) end)
-        local c16 = RewriteBtn.MouseLeave:Connect(function() Tween(RewriteBtn, {BackgroundColor3 = Theme.Container}) Tween(cs3, {Color = Theme.Stroke}) end)
-        local c17 = RewriteBtn.MouseButton1Click:Connect(function()
+        table.insert(Library.Connections, c10)
+        local RewriteBtn = MakeConfigBtn("Rewrite Config", 5)
+        local c11 = RewriteBtn.MouseButton1Click:Connect(function()
             local name = selectedConfigName
-            if not name or name == "" then
-                Library:Notify("Error", "No config selected", 3)
-                return
-            end
-            if not Library:ConfigExists(name) then
-                Library:Notify("Error", "Config '" .. name .. "' does not exist", 3)
-                return
-            end
+            if not name or name == "" then Library:Notify("Error", "No config selected", 3) return end
+            if not Library:ConfigExists(name) then Library:Notify("Error", "Config '" .. name .. "' does not exist", 3) return end
             if Library:SaveConfig(name) then
                 Library:Notify("Config", "Rewritten: " .. name, 3)
             else
                 Library:Notify("Error", "Failed to rewrite config", 3)
             end
         end)
-        table.insert(Library.Connections, c15)
-        table.insert(Library.Connections, c16)
-        table.insert(Library.Connections, c17)
-        local DeleteBtn = Instance.new("TextButton")
-        DeleteBtn.Size = UDim2.new(1, 0, 0, 32)
-        DeleteBtn.BackgroundColor3 = Theme.Container
-        DeleteBtn.Text = "Delete Config"
-        DeleteBtn.Font = Enum.Font.Gotham
-        DeleteBtn.TextSize = 13
-        DeleteBtn.TextColor3 = Theme.Text
-        DeleteBtn.AutoButtonColor = false
-        DeleteBtn.LayoutOrder = 6
-        DeleteBtn.Parent = ConfigContent
-        Corner(DeleteBtn, 4)
-        local cs4 = Stroke(DeleteBtn, Theme.Stroke, 1, 0.5)
-        local c18 = DeleteBtn.MouseEnter:Connect(function() Tween(DeleteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs4, {Color = Theme.Accent}) end)
-        local c19 = DeleteBtn.MouseLeave:Connect(function() Tween(DeleteBtn, {BackgroundColor3 = Theme.Container}) Tween(cs4, {Color = Theme.Stroke}) end)
-        local c20 = DeleteBtn.MouseButton1Click:Connect(function()
+        table.insert(Library.Connections, c11)
+        local DeleteBtn = MakeConfigBtn("Delete Config", 6)
+        local c12 = DeleteBtn.MouseButton1Click:Connect(function()
             local name = selectedConfigName
-            if not name or name == "" then
-                Library:Notify("Error", "No config selected", 3)
-                return
-            end
-            if not Library:ConfigExists(name) then
-                Library:Notify("Error", "Config '" .. name .. "' does not exist", 3)
-                return
-            end
+            if not name or name == "" then Library:Notify("Error", "No config selected", 3) return end
+            if not Library:ConfigExists(name) then Library:Notify("Error", "Config '" .. name .. "' does not exist", 3) return end
             if Library:DeleteConfig(name) then
                 RefreshConfigDropdown()
                 Library:Notify("Config", "Deleted: " .. name, 3)
@@ -2210,45 +2147,15 @@ ScrollLayout.Parent = ScrollHolder
                 Library:Notify("Error", "Failed to delete config", 3)
             end
         end)
-        table.insert(Library.Connections, c18)
-        table.insert(Library.Connections, c19)
-        table.insert(Library.Connections, c20)
-        local RefreshBtn = Instance.new("TextButton")
-        RefreshBtn.Size = UDim2.new(1, 0, 0, 32)
-        RefreshBtn.BackgroundColor3 = Theme.Container
-        RefreshBtn.Text = "Refresh Config List"
-        RefreshBtn.Font = Enum.Font.Gotham
-        RefreshBtn.TextSize = 13
-        RefreshBtn.TextColor3 = Theme.Text
-        RefreshBtn.AutoButtonColor = false
-        RefreshBtn.LayoutOrder = 7
-        RefreshBtn.Parent = ConfigContent
-        Corner(RefreshBtn, 4)
-        local cs5 = Stroke(RefreshBtn, Theme.Stroke, 1, 0.5)
-        local c21 = RefreshBtn.MouseEnter:Connect(function() Tween(RefreshBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs5, {Color = Theme.Accent}) end)
-        local c22 = RefreshBtn.MouseLeave:Connect(function() Tween(RefreshBtn, {BackgroundColor3 = Theme.Container}) Tween(cs5, {Color = Theme.Stroke}) end)
-        local c23 = RefreshBtn.MouseButton1Click:Connect(function()
+        table.insert(Library.Connections, c12)
+        local RefreshBtn = MakeConfigBtn("Refresh Config List", 7)
+        local c13 = RefreshBtn.MouseButton1Click:Connect(function()
             RefreshConfigDropdown()
             Library:Notify("Config", "List Refreshed", 2)
         end)
-        table.insert(Library.Connections, c21)
-        table.insert(Library.Connections, c22)
-        table.insert(Library.Connections, c23)
-        local ResetBtn = Instance.new("TextButton")
-        ResetBtn.Size = UDim2.new(1, 0, 0, 32)
-        ResetBtn.BackgroundColor3 = Theme.Container
-        ResetBtn.Text = "Reset to Defaults"
-        ResetBtn.Font = Enum.Font.Gotham
-        ResetBtn.TextSize = 13
-        ResetBtn.TextColor3 = Theme.Text
-        ResetBtn.AutoButtonColor = false
-        ResetBtn.LayoutOrder = 8
-        ResetBtn.Parent = ConfigContent
-        Corner(ResetBtn, 4)
-        local cs6 = Stroke(ResetBtn, Theme.Stroke, 1, 0.5)
-        local c24 = ResetBtn.MouseEnter:Connect(function() Tween(ResetBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs6, {Color = Theme.Accent}) end)
-        local c25 = ResetBtn.MouseLeave:Connect(function() Tween(ResetBtn, {BackgroundColor3 = Theme.Container}) Tween(cs6, {Color = Theme.Stroke}) end)
-        local c26 = ResetBtn.MouseButton1Click:Connect(function()
+        table.insert(Library.Connections, c13)
+        local ResetBtn = MakeConfigBtn("Reset to Defaults", 8)
+        local c14 = ResetBtn.MouseButton1Click:Connect(function()
             for flag, val in pairs(Library.Defaults) do
                 if IgnoredFlags[flag] then continue end
                 Library.Flags[flag] = val
@@ -2258,23 +2165,23 @@ ScrollLayout.Parent = ScrollHolder
             end
             Library:Notify("Settings", "Reset to defaults", 3)
         end)
-        table.insert(Library.Connections, c24)
-        table.insert(Library.Connections, c25)
-        table.insert(Library.Connections, c26)
+        table.insert(Library.Connections, c14)
     end
     PopulateSettings()
     function WindowObj:Tab(name, iconId)
         local Tab = {}
+        local tabBtnH = IsMobile and 40 or 36
+        local tabBtnW = IsMobile and 120 or 160
         local Page = Instance.new("ScrollingFrame")
-        Page.Size = IsMobile and UDim2.new(1, -10, 1, -10) or UDim2.new(1, -20, 1, -20)
+        Page.Size = UDim2.new(1, -20, 1, -20)
         Page.Position = UDim2.new(0, 10, 0, 10)
         Page.BackgroundTransparency = 1
-        Page.ScrollBarThickness = 0
+        Page.ScrollBarThickness = IsMobile and 4 or 0
         Page.Visible = false
         Page.Active = true
-        Page.Parent = ScrollHolder
+        Page.Parent = MainPages
         local TabBtn = Instance.new("TextButton")
-        TabBtn.Size = UDim2.new(0, 160, 0, 36)
+        TabBtn.Size = UDim2.new(0, tabBtnW, 0, tabBtnH)
         TabBtn.BackgroundColor3 = Theme.Background
         TabBtn.BackgroundTransparency = 1
         TabBtn.Text = ""
@@ -2283,8 +2190,8 @@ ScrollLayout.Parent = ScrollHolder
         Corner(TabBtn, 6)
         local Title = Instance.new("TextLabel")
         Title.Text = name
-        Title.Font = Enum.Font.Gotham
-        Title.TextSize = 14
+        Title.Font = Config.FontMain
+        Title.TextSize = IsMobile and 12 or 14
         Title.TextColor3 = Theme.TextDark
         Title.Size = UDim2.new(1, -20, 1, 0)
         Title.Position = UDim2.new(0, iconId and 35 or 15, 0, 0)
@@ -2300,10 +2207,12 @@ ScrollLayout.Parent = ScrollHolder
             if tonumber(iconId) then Ico.Image = "rbxassetid://" .. iconId else Ico.Image = iconId end
             Ico.ImageColor3 = Theme.TextDark
             Ico.Parent = TabBtn
-            local c1 = TabBtn.MouseEnter:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.Text}) end end)
-            local c2 = TabBtn.MouseLeave:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.TextDark}) end end)
-            table.insert(Library.Connections, c1)
-            table.insert(Library.Connections, c2)
+            if not IsMobile then
+                local c1 = TabBtn.MouseEnter:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.Text}) end end)
+                local c2 = TabBtn.MouseLeave:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.TextDark}) end end)
+                table.insert(Library.Connections, c1)
+                table.insert(Library.Connections, c2)
+            end
         end
         local Indicator = Instance.new("Frame")
         Indicator.Size = UDim2.new(0, 3, 0, 16)
@@ -2318,16 +2227,17 @@ ScrollLayout.Parent = ScrollHolder
             for _, p in pairs(MainPages:GetChildren()) do if p:IsA("ScrollingFrame") then p.Visible = false end end
             for _, t in pairs(TabContainer:GetChildren()) do
                 if t:IsA("TextButton") then
-                    Tween(t.TextLabel, {TextColor3 = Theme.TextDark})
+                    if t:FindFirstChildOfClass("TextLabel") then Tween(t:FindFirstChildOfClass("TextLabel"), {TextColor3 = Theme.TextDark}) end
                     Tween(t, {BackgroundTransparency = 1, BackgroundColor3 = Theme.Background})
-                    if t:FindFirstChild("ImageLabel") then Tween(t.ImageLabel, {ImageColor3 = Theme.TextDark}) end
-                    Tween(t.Frame, {BackgroundTransparency = 1})
+                    if t:FindFirstChildOfClass("ImageLabel") then Tween(t:FindFirstChildOfClass("ImageLabel"), {ImageColor3 = Theme.TextDark}) end
+                    local ind = t:FindFirstChildOfClass("Frame")
+                    if ind then Tween(ind, {BackgroundTransparency = 1}) end
                 end
             end
             Page.Visible = true
             Tween(Title, {TextColor3 = Theme.Text})
             Tween(TabBtn, {BackgroundTransparency = 0.95, BackgroundColor3 = Theme.Text})
-            if TabBtn:FindFirstChild("ImageLabel") then Tween(TabBtn.ImageLabel, {ImageColor3 = Theme.Text}) end
+            if TabBtn:FindFirstChildOfClass("ImageLabel") then Tween(TabBtn:FindFirstChildOfClass("ImageLabel"), {ImageColor3 = Theme.Text}) end
             Tween(Indicator, {BackgroundTransparency = 0})
         end)
         table.insert(Library.Connections, c3)
@@ -2340,7 +2250,7 @@ ScrollLayout.Parent = ScrollHolder
             Title.TextColor3 = Theme.Text
             TabBtn.BackgroundTransparency = 0.95
             TabBtn.BackgroundColor3 = Theme.Text
-            if TabBtn:FindFirstChild("ImageLabel") then TabBtn.ImageLabel.ImageColor3 = Theme.Text end
+            if TabBtn:FindFirstChildOfClass("ImageLabel") then TabBtn:FindFirstChildOfClass("ImageLabel").ImageColor3 = Theme.Text end
             Indicator.BackgroundTransparency = 0
         end
         local LeftCol = Instance.new("Frame")
@@ -2364,6 +2274,7 @@ ScrollLayout.Parent = ScrollHolder
         function Tab:Section(text, side)
             local Section = {}
             local ParentCol = (side == "Right" and RightCol or LeftCol)
+            local ParentList = (side == "Right" and RightList or LeftList)
             local Container = Instance.new("Frame")
             Container.Size = UDim2.new(1, 0, 0, 0)
             Container.BackgroundColor3 = Theme.Section
@@ -2412,7 +2323,7 @@ ScrollLayout.Parent = ScrollHolder
                 Lbl.Position = UDim2.new(0, 5, 0, 0)
                 Lbl.BackgroundTransparency = 1
                 Lbl.Text = tostring(ltext)
-                Lbl.Font = Enum.Font.Gotham
+                Lbl.Font = Config.FontMain
                 Lbl.TextSize = 13
                 Lbl.TextColor3 = options.Color or Theme.Text
                 Lbl.TextXAlignment = options.Alignment or Enum.TextXAlignment.Left
@@ -2446,8 +2357,9 @@ ScrollLayout.Parent = ScrollHolder
                         callback(val)
                     end
                 end
+                local btnH = IsMobile and 38 or 32
                 local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1, 0, 0, 32)
+                Btn.Size = UDim2.new(1, 0, 0, btnH)
                 Btn.BackgroundColor3 = Theme.Container
                 Btn.Text = ""
                 Btn.AutoButtonColor = false
@@ -2457,7 +2369,7 @@ ScrollLayout.Parent = ScrollHolder
                 Stroke(Btn, Theme.Stroke, 1, 0.5)
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
-                Label.Font = Enum.Font.Gotham
+                Label.Font = Config.FontMain
                 Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(1, -30, 1, 0)
@@ -2545,23 +2457,26 @@ ScrollLayout.Parent = ScrollHolder
                 ApplyTooltip(Btn, tooltipText)
                 task.spawn(callback, toggled)
                 function ToggleObj:AddButton(txt, cb)
+                    local btnH2 = IsMobile and 32 or 26
                     local SBtn = Instance.new("TextButton")
-                    SBtn.Size = UDim2.new(1, -20, 0, 26)
+                    SBtn.Size = UDim2.new(1, -20, 0, btnH2)
                     SBtn.Position = UDim2.new(0, 20, 0, 0)
                     SBtn.BackgroundColor3 = Theme.Container
                     SBtn.Text = txt
-                    SBtn.Font = Enum.Font.Gotham
+                    SBtn.Font = Config.FontMain
                     SBtn.TextSize = 12
                     SBtn.TextColor3 = Theme.Text
                     SBtn.AutoButtonColor = false
                     SBtn.Parent = SubContainer
                     Corner(SBtn, 4)
                     local s = Stroke(SBtn, Theme.Stroke, 1, 0.5)
-                    local tbc1 = SBtn.MouseEnter:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
-                    local tbc2 = SBtn.MouseLeave:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+                    if not IsMobile then
+                        local tbc1 = SBtn.MouseEnter:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
+                        local tbc2 = SBtn.MouseLeave:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+                        table.insert(Library.Connections, tbc1)
+                        table.insert(Library.Connections, tbc2)
+                    end
                     local tbc3 = SBtn.MouseButton1Click:Connect(cb)
-                    table.insert(Library.Connections, tbc1)
-                    table.insert(Library.Connections, tbc2)
                     table.insert(Library.Connections, tbc3)
                 end
                 function ToggleObj:AddSlider(txt, sflag, min, max, def, cb, inc)
@@ -2579,7 +2494,7 @@ ScrollLayout.Parent = ScrollHolder
                     SFrame.Parent = SubContainer
                     local SLabel = Instance.new("TextLabel")
                     SLabel.Text = txt
-                    SLabel.Font = Enum.Font.Gotham
+                    SLabel.Font = Config.FontMain
                     SLabel.TextSize = 12
                     SLabel.TextColor3 = Theme.TextDark
                     SLabel.Size = UDim2.new(1, 0, 0, 16)
@@ -2588,13 +2503,13 @@ ScrollLayout.Parent = ScrollHolder
                     SLabel.Parent = SFrame
                     local SValue = Instance.new("TextBox")
                     SValue.Text = FormatNumber(val, inc)
-                    SValue.Font = Enum.Font.Gotham
+                    SValue.Font = Config.FontMain
                     SValue.TextSize = 12
                     SValue.TextColor3 = Theme.Text
                     SValue.Size = UDim2.new(1, 0, 0, 16)
                     SValue.TextXAlignment = Enum.TextXAlignment.Right
                     SValue.BackgroundTransparency = 1
-                    SValue.ClearTextOnFocus = true
+                    SValue.ClearTextOnFocus = false
                     SValue.Parent = SFrame
                     local SlideBg = Instance.new("Frame")
                     SlideBg.Size = UDim2.new(1, 0, 0, 6)
@@ -2611,9 +2526,9 @@ ScrollLayout.Parent = ScrollHolder
                     Corner(SlideFill, 3)
                     RegisterTheme(SlideFill, "BackgroundColor")
                     local dragging = false
-                    local dragInput
-                    local function Set(input)
-                        local r = math.clamp((input.Position.X - SlideBg.AbsolutePosition.X) / SlideBg.AbsoluteSize.X, 0, 1)
+                    local lastDragInput
+                    local function Set(posX)
+                        local r = math.clamp((posX - SlideBg.AbsolutePosition.X) / SlideBg.AbsoluteSize.X, 0, 1)
                         local raw = min + (max - min) * r
                         val = RoundToIncrement(raw, inc)
                         val = math.clamp(val, min, max)
@@ -2625,26 +2540,20 @@ ScrollLayout.Parent = ScrollHolder
                         cb(val)
                     end
                     local ts1 = SlideBg.InputBegan:Connect(function(i)
-                        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                        if IsTouchOrMouse1(i) then
                             dragging = true
-                            dragInput = i
-                            Set(i)
-                            local tsc
-                            tsc = i.Changed:Connect(function()
-                                if i.UserInputState == Enum.UserInputState.End then
-                                    dragging = false
-                                    tsc:Disconnect()
-                                end
-                            end)
+                            lastDragInput = i
+                            Set(i.Position.X)
                         end
                     end)
                     local ts2 = UserInputService.InputChanged:Connect(function(input)
-                        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                            if dragging then dragInput = input end
+                        if IsTouchOrMouseMove(input) and dragging then
+                            lastDragInput = input
+                            Set(lastDragInput.Position.X)
                         end
                     end)
-                    local ts3 = RunService.RenderStepped:Connect(function()
-                        if dragging and dragInput then Set(dragInput) end
+                    local ts3 = UserInputService.InputEnded:Connect(function(input)
+                        if IsTouchOrMouse1(input) and dragging then dragging = false end
                     end)
                     table.insert(Library.Connections, ts1)
                     table.insert(Library.Connections, ts2)
@@ -2695,13 +2604,13 @@ ScrollLayout.Parent = ScrollHolder
                     KeyBtn.BackgroundTransparency = 1
                     KeyBtn.Text = "[" .. (ToggleObj.KeybindValue.Name) .. "]"
                     KeyBtn.TextColor3 = Theme.TextDark
-                    KeyBtn.Font = Enum.Font.Gotham
+                    KeyBtn.Font = Config.FontMain
                     KeyBtn.TextSize = 11
                     KeyBtn.TextXAlignment = Enum.TextXAlignment.Right
                     KeyBtn.Parent = Btn
                     local binding = false
                     local kb1 = KeyBtn.MouseButton1Click:Connect(function()
-                        if binding then return end
+                        if IsMobile or binding then return end
                         binding = true
                         KeyBtn.Text = "[...]"
                         KeyBtn.TextColor3 = Theme.Accent
@@ -2720,50 +2629,52 @@ ScrollLayout.Parent = ScrollHolder
                         end)
                     end)
                     table.insert(Library.Connections, kb1)
-                    local ModeGui = Instance.new("Frame")
-                    ModeGui.Size = UDim2.new(0, 80, 0, 60)
-                    ModeGui.BackgroundColor3 = Theme.Sidebar
-                    ModeGui.Visible = false
-                    ModeGui.ZIndex = 100
-                    ModeGui.Parent = Btn
-                    Corner(ModeGui, 4)
-                    Stroke(ModeGui, Theme.Stroke, 1)
-                    local ModeList = Instance.new("UIListLayout")
-                    ModeList.Parent = ModeGui
-                    local modes = {"Toggle", "Hold", "Always"}
-                    for _, md in ipairs(modes) do
-                        local mBtn = Instance.new("TextButton")
-                        mBtn.Size = UDim2.new(1, 0, 0, 20)
-                        mBtn.BackgroundTransparency = 1
-                        mBtn.Text = md
-                        mBtn.TextColor3 = Theme.TextDark
-                        mBtn.Font = Enum.Font.Gotham
-                        mBtn.TextSize = 11
-                        mBtn.Parent = ModeGui
-                        mBtn.ZIndex = 101
-                        local mb1 = mBtn.MouseButton1Click:Connect(function()
-                            ToggleObj.KeybindMode = md
-                            ModeGui.Visible = false
-                            Library.Unsaved = true
-                            if md == "Always" and not toggled then
-                                toggled = true
-                                ToggleAnim()
-                                callback(toggled)
-                            end
-                            if toggled then Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, md) end
+                    if not IsMobile then
+                        local ModeGui = Instance.new("Frame")
+                        ModeGui.Size = UDim2.new(0, 80, 0, 60)
+                        ModeGui.BackgroundColor3 = Theme.Sidebar
+                        ModeGui.Visible = false
+                        ModeGui.ZIndex = 100
+                        ModeGui.Parent = Btn
+                        Corner(ModeGui, 4)
+                        Stroke(ModeGui, Theme.Stroke, 1)
+                        local ModeList = Instance.new("UIListLayout")
+                        ModeList.Parent = ModeGui
+                        local modes = {"Toggle", "Hold", "Always"}
+                        for _, md in ipairs(modes) do
+                            local mBtn = Instance.new("TextButton")
+                            mBtn.Size = UDim2.new(1, 0, 0, 20)
+                            mBtn.BackgroundTransparency = 1
+                            mBtn.Text = md
+                            mBtn.TextColor3 = Theme.TextDark
+                            mBtn.Font = Config.FontMain
+                            mBtn.TextSize = 11
+                            mBtn.Parent = ModeGui
+                            mBtn.ZIndex = 101
+                            local mb1 = mBtn.MouseButton1Click:Connect(function()
+                                ToggleObj.KeybindMode = md
+                                ModeGui.Visible = false
+                                Library.Unsaved = true
+                                if md == "Always" and not toggled then
+                                    toggled = true
+                                    ToggleAnim()
+                                    callback(toggled)
+                                end
+                                if toggled then Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, md) end
+                            end)
+                            table.insert(Library.Connections, mb1)
+                        end
+                        local kb2 = KeyBtn.MouseButton2Click:Connect(function()
+                            ModeGui.Position = UDim2.new(1, -110, 0, 20)
+                            ModeGui.Visible = not ModeGui.Visible
+                            if ModeGui.Visible then SubContainer.ClipsDescendants = false end
                         end)
-                        table.insert(Library.Connections, mb1)
+                        table.insert(Library.Connections, kb2)
                     end
-                    local kb2 = KeyBtn.MouseButton2Click:Connect(function()
-                        ModeGui.Position = UDim2.new(1, -110, 0, 20)
-                        ModeGui.Visible = not ModeGui.Visible
-                        if ModeGui.Visible then SubContainer.ClipsDescendants = false end
-                    end)
-                    table.insert(Library.Connections, kb2)
                     if ToggleObj.BindConnection then ToggleObj.BindConnection:Disconnect() end
                     if ToggleObj.BindConnectionEnded then ToggleObj.BindConnectionEnded:Disconnect() end
                     ToggleObj.BindConnection = UserInputService.InputBegan:Connect(function(input, gp)
-                        if not gp and input.KeyCode == ToggleObj.KeybindValue and ToggleObj.KeybindValue ~= Enum.KeyCode.Unknown then
+                        if not gp and not IsMobile and input.KeyCode == ToggleObj.KeybindValue and ToggleObj.KeybindValue ~= Enum.KeyCode.Unknown then
                             if ToggleObj.KeybindMode == "Toggle" then
                                 toggled = not toggled
                                 ToggleAnim()
@@ -2776,7 +2687,7 @@ ScrollLayout.Parent = ScrollHolder
                         end
                     end)
                     ToggleObj.BindConnectionEnded = UserInputService.InputEnded:Connect(function(input, gp)
-                        if not gp and input.KeyCode == ToggleObj.KeybindValue and ToggleObj.KeybindValue ~= Enum.KeyCode.Unknown then
+                        if not gp and not IsMobile and input.KeyCode == ToggleObj.KeybindValue and ToggleObj.KeybindValue ~= Enum.KeyCode.Unknown then
                             if ToggleObj.KeybindMode == "Hold" then
                                 toggled = false
                                 ToggleAnim()
@@ -2792,6 +2703,7 @@ ScrollLayout.Parent = ScrollHolder
                 return ToggleObj
             end
             function Section:Keybind(text, flag, defaultKey, mode, tooltipText, callback)
+                if IsMobile then return {SetKey = function() end} end
                 local defObj = Library.Flags[flag]
                 local key = defObj and defObj.Key or (defaultKey or Enum.KeyCode.Unknown)
                 local kMode = defObj and defObj.Mode or (mode or "Toggle")
@@ -2803,7 +2715,7 @@ ScrollLayout.Parent = ScrollHolder
                 Frame.Parent = Content
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
-                Label.Font = Enum.Font.Gotham
+                Label.Font = Config.FontMain
                 Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(0.6, 0, 1, 0)
@@ -2817,7 +2729,7 @@ ScrollLayout.Parent = ScrollHolder
                 KeyBtn.AnchorPoint = Vector2.new(1, 0.5)
                 KeyBtn.BackgroundColor3 = Theme.Container
                 KeyBtn.Text = "[" .. key.Name .. "]"
-                KeyBtn.Font = Enum.Font.Gotham
+                KeyBtn.Font = Config.FontMain
                 KeyBtn.TextSize = 12
                 KeyBtn.TextColor3 = Theme.TextDark
                 KeyBtn.AutoButtonColor = false
@@ -2869,7 +2781,7 @@ ScrollLayout.Parent = ScrollHolder
                     mBtn.BackgroundTransparency = 1
                     mBtn.Text = md
                     mBtn.TextColor3 = Theme.TextDark
-                    mBtn.Font = Enum.Font.Gotham
+                    mBtn.Font = Config.FontMain
                     mBtn.TextSize = 11
                     mBtn.Parent = ModeGui
                     mBtn.ZIndex = 101
@@ -2939,11 +2851,12 @@ ScrollLayout.Parent = ScrollHolder
                 return BindObj
             end
             function Section:Button(text, tooltipText, callback)
+                local btnH = IsMobile and 38 or 30
                 local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1, 0, 0, 30)
+                Btn.Size = UDim2.new(1, 0, 0, btnH)
                 Btn.BackgroundColor3 = Theme.Container
                 Btn.Text = text
-                Btn.Font = Enum.Font.Gotham
+                Btn.Font = Config.FontMain
                 Btn.TextSize = 13
                 Btn.TextColor3 = Theme.Text
                 Btn.AutoButtonColor = false
@@ -2951,11 +2864,13 @@ ScrollLayout.Parent = ScrollHolder
                 table.insert(secData.Items, {Name = text, Instance = Btn})
                 Corner(Btn, 4)
                 local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
-                local c1 = Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
-                local c2 = Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+                if not IsMobile then
+                    local c1 = Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
+                    local c2 = Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+                    table.insert(Library.Connections, c1)
+                    table.insert(Library.Connections, c2)
+                end
                 local c3 = Btn.MouseButton1Click:Connect(callback)
-                table.insert(Library.Connections, c1)
-                table.insert(Library.Connections, c2)
                 table.insert(Library.Connections, c3)
                 ApplyTooltip(Btn, tooltipText)
             end
@@ -2964,14 +2879,15 @@ ScrollLayout.Parent = ScrollHolder
             end
             function Section:TextBox(text, flag, placeholder, tooltipText, callback)
                 Library.Defaults[flag] = ""
+                local boxH = IsMobile and 52 or 46
                 local Frame = Instance.new("Frame")
-                Frame.Size = UDim2.new(1, 0, 0, 46)
+                Frame.Size = UDim2.new(1, 0, 0, boxH)
                 Frame.BackgroundTransparency = 1
                 Frame.Parent = Content
                 table.insert(secData.Items, {Name = text, Instance = Frame})
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
-                Label.Font = Enum.Font.Gotham
+                Label.Font = Config.FontMain
                 Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(1, 0, 0, 16)
@@ -2980,7 +2896,7 @@ ScrollLayout.Parent = ScrollHolder
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
                 local BoxCont = Instance.new("Frame")
-                BoxCont.Size = UDim2.new(1, 0, 0, 26)
+                BoxCont.Size = UDim2.new(1, 0, 0, IsMobile and 30 or 26)
                 BoxCont.Position = UDim2.new(0, 0, 0, 20)
                 BoxCont.BackgroundColor3 = Theme.Container
                 BoxCont.Parent = Frame
@@ -2993,13 +2909,12 @@ ScrollLayout.Parent = ScrollHolder
                 Input.TextColor3 = Theme.Text
                 Input.PlaceholderText = placeholder or "Type here..."
                 Input.PlaceholderColor3 = Theme.TextDark
-                Input.Font = Enum.Font.Gotham
-                Input.TextSize = IsMobile and 15 or 13
+                Input.Font = Config.FontMain
+                Input.TextSize = 13
                 Input.TextXAlignment = Enum.TextXAlignment.Left
                 local currentText = Library.Flags[flag] or ""
                 Input.Text = currentText
                 Input.ClearTextOnFocus = false
-
                 Input.Parent = BoxCont
                 local c1 = Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}) end)
                 local c2 = Input.FocusLost:Connect(function(enter)
@@ -3044,7 +2959,7 @@ ScrollLayout.Parent = ScrollHolder
                 Frame.ZIndex = 5
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
-                Label.Font = Enum.Font.Gotham
+                Label.Font = Config.FontMain
                 Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(0.6, 0, 1, 0)
@@ -3078,6 +2993,7 @@ ScrollLayout.Parent = ScrollHolder
                 SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                 SVMap.Parent = PickerCont
                 SVMap.ZIndex = 11
+                SVMap.Active = true
                 Corner(SVMap, 4)
                 local SVCursor = Instance.new("Frame")
                 SVCursor.Size = UDim2.new(0, 8, 0, 8)
@@ -3093,6 +3009,7 @@ ScrollLayout.Parent = ScrollHolder
                 HueBar.Image = "rbxassetid://4155801252"
                 HueBar.Parent = PickerCont
                 HueBar.ZIndex = 11
+                HueBar.Active = true
                 Corner(HueBar, 4)
                 local UIGradient = Instance.new("UIGradient")
                 UIGradient.Rotation = 90
@@ -3117,9 +3034,10 @@ ScrollLayout.Parent = ScrollHolder
                 HexInput.Position = UDim2.new(0, 10, 0, 140)
                 HexInput.BackgroundColor3 = Theme.Container
                 HexInput.TextColor3 = Theme.Text
-                HexInput.Font = Enum.Font.Gotham
+                HexInput.Font = Config.FontMain
                 HexInput.TextSize = 12
                 HexInput.Text = "#" .. color:ToHex()
+                HexInput.ClearTextOnFocus = false
                 HexInput.Parent = PickerCont
                 HexInput.ZIndex = 11
                 Corner(HexInput, 4)
@@ -3157,70 +3075,52 @@ ScrollLayout.Parent = ScrollHolder
                         Update()
                     end
                 end
-                local function SetSV(input)
-                    local rX = math.clamp((input.Position.X - SVMap.AbsolutePosition.X) / SVMap.AbsoluteSize.X, 0, 1)
-                    local rY = math.clamp((input.Position.Y - SVMap.AbsolutePosition.Y) / SVMap.AbsoluteSize.Y, 0, 1)
+                local function SetSV(posX, posY)
+                    local rX = math.clamp((posX - SVMap.AbsolutePosition.X) / SVMap.AbsoluteSize.X, 0, 1)
+                    local rY = math.clamp((posY - SVMap.AbsolutePosition.Y) / SVMap.AbsoluteSize.Y, 0, 1)
                     s = rX
                     v = 1 - rY
                     SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
                     Update()
                 end
-                local function SetH(input)
-                    local rY = math.clamp((input.Position.Y - HueBar.AbsolutePosition.Y) / HueBar.AbsoluteSize.Y, 0, 1)
+                local function SetH(posY)
+                    local rY = math.clamp((posY - HueBar.AbsolutePosition.Y) / HueBar.AbsoluteSize.Y, 0, 1)
                     h = rY
                     HCursor.Position = UDim2.new(0, 0, h, 0)
                     Update()
                 end
                 local dragSV = false
-                local dragInputSV
                 local sv1 = SVMap.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    if IsTouchOrMouse1(input) then
                         dragSV = true
-                        dragInputSV = input
-                        SetSV(input)
-                        local svc
-                        svc = input.Changed:Connect(function()
-                            if input.UserInputState == Enum.UserInputState.End then
-                                dragSV = false
-                                svc:Disconnect()
-                            end
-                        end)
+                        SetSV(input.Position.X, input.Position.Y)
                     end
                 end)
                 local sv2 = UserInputService.InputChanged:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                        if dragSV then dragInputSV = input end
+                    if IsTouchOrMouseMove(input) and dragSV then
+                        SetSV(input.Position.X, input.Position.Y)
                     end
                 end)
-                local sv3 = RunService.RenderStepped:Connect(function()
-                    if dragSV and dragInputSV then SetSV(dragInputSV) end
+                local sv3 = UserInputService.InputEnded:Connect(function(input)
+                    if IsTouchOrMouse1(input) then dragSV = false end
                 end)
                 table.insert(Library.Connections, sv1)
                 table.insert(Library.Connections, sv2)
                 table.insert(Library.Connections, sv3)
                 local dragH = false
-                local dragInputH
                 local h1 = HueBar.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    if IsTouchOrMouse1(input) then
                         dragH = true
-                        dragInputH = input
-                        SetH(input)
-                        local hc
-                        hc = input.Changed:Connect(function()
-                            if input.UserInputState == Enum.UserInputState.End then
-                                dragH = false
-                                hc:Disconnect()
-                            end
-                        end)
+                        SetH(input.Position.Y)
                     end
                 end)
                 local h2 = UserInputService.InputChanged:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                        if dragH then dragInputH = input end
+                    if IsTouchOrMouseMove(input) and dragH then
+                        SetH(input.Position.Y)
                     end
                 end)
-                local h3 = RunService.RenderStepped:Connect(function()
-                    if dragH and dragInputH then SetH(dragInputH) end
+                local h3 = UserInputService.InputEnded:Connect(function(input)
+                    if IsTouchOrMouse1(input) then dragH = false end
                 end)
                 table.insert(Library.Connections, h1)
                 table.insert(Library.Connections, h2)
