@@ -119,18 +119,19 @@ local function MakeDraggable(dragArea, frame, onDragCallback)
             dragging = true
             dragStart = input.Position
             startPos = frame.Position
-            dragInput = input
+            local c2
+            c2 = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    if onDragCallback then onDragCallback(false) end
+                    c2:Disconnect()
+                end
+            end)
         end
     end)
-    local c2 = dragArea.InputChanged:Connect(function(input)
+    local c3 = dragArea.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            if dragging then dragInput = input end
-        end
-    end)
-    local c3 = UserInputService.InputEnded:Connect(function(input)
-        if dragging and input == dragInput then
-            dragging = false
-            if onDragCallback then onDragCallback(false) end
+            dragInput = input
         end
     end)
     local c4 = RunService.RenderStepped:Connect(function()
@@ -141,7 +142,6 @@ local function MakeDraggable(dragArea, frame, onDragCallback)
         end
     end)
     table.insert(Library.Connections, c1)
-    table.insert(Library.Connections, c2)
     table.insert(Library.Connections, c3)
     table.insert(Library.Connections, c4)
     return function() return dragging end
@@ -159,16 +159,18 @@ local function MakeResizable(resizeBtn, frame, minSize)
             local scaleObj = frame:FindFirstChildWhichIsA("UIScale")
             scaleMult = scaleObj and scaleObj.Scale or 1
             if scaleMult <= 0 then scaleMult = 1 end
+            local c2
+            c2 = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    c2:Disconnect()
+                end
+            end)
         end
     end)
-    local c2 = UserInputService.InputChanged:Connect(function(input)
+    local c3 = UserInputService.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            if dragging then dragInput = input end
-        end
-    end)
-    local c3 = UserInputService.InputEnded:Connect(function(input)
-        if dragging and input == dragInput then
-            dragging = false
+            dragInput = input
         end
     end)
     local c4 = RunService.RenderStepped:Connect(function()
@@ -183,7 +185,6 @@ local function MakeResizable(resizeBtn, frame, minSize)
         end
     end)
     table.insert(Library.Connections, c1)
-    table.insert(Library.Connections, c2)
     table.insert(Library.Connections, c3)
     table.insert(Library.Connections, c4)
 end
@@ -672,9 +673,9 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     ListFrame.ZIndex = 10
     ListFrame.Visible = false
     ListFrame.Active = true
-    ListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     ListFrame.ScrollBarThickness = 2
     ListFrame.ScrollBarImageColor3 = Theme.Accent
+    ListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     Corner(ListFrame, 4)
     Stroke(ListFrame, Theme.Stroke, 1, 0.5)
     local IList = Instance.new("UIListLayout")
@@ -903,16 +904,18 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
             dragging = true
             dragInput = input
             SetFromInput(input)
+            local c2
+            c2 = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    c2:Disconnect()
+                end
+            end)
         end
     end)
-    local c2 = UserInputService.InputChanged:Connect(function(input)
+    local c3 = UserInputService.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            if dragging then dragInput = input end
-        end
-    end)
-    local c3 = UserInputService.InputEnded:Connect(function(input)
-        if dragging and input == dragInput then
-            dragging = false
+            dragInput = input
         end
     end)
     local c4 = RunService.RenderStepped:Connect(function()
@@ -921,7 +924,6 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
         end
     end)
     table.insert(Library.Connections, c1)
-    table.insert(Library.Connections, c2)
     table.insert(Library.Connections, c3)
     table.insert(Library.Connections, c4)
     local c5 = ValLabel.FocusLost:Connect(function(enter)
@@ -1151,11 +1153,17 @@ function Library:CreateWindow(options)
             Logo.BackgroundTransparency = 1
             Logo.Parent = Bar
             RegisterTheme(Logo, "TextColor")
-            local Container = Instance.new("Frame")
+            local Container = Instance.new("ScrollingFrame")
             Container.Size = UDim2.new(1, 0, 1, -130)
             Container.Position = UDim2.new(0, 0, 0, 60)
             Container.BackgroundTransparency = 1
+            Container.BorderSizePixel = 0
+            Container.ScrollBarThickness = 2
+            Container.ScrollBarImageColor3 = Theme.Accent
+            Container.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            Container.ClipsDescendants = true
             Container.Parent = Bar
+            RegisterTheme(Container, "ScrollBar")
             local List = Instance.new("UIListLayout")
             List.Padding = UDim.new(0, 6)
             List.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -1298,7 +1306,6 @@ function Library:CreateWindow(options)
         local Section = {}
         local Container = Instance.new("Frame")
         Container.Size = UDim2.new(1, 0, 0, 0)
-        Container.AutomaticSize = Enum.AutomaticSize.Y
         Container.BackgroundColor3 = Theme.Section
         Container.Parent = parent
         Container.ZIndex = 1
@@ -1319,16 +1326,16 @@ function Library:CreateWindow(options)
         Content.Name = "Content"
         Content.Size = UDim2.new(1, -10, 0, 0)
         Content.Position = UDim2.new(0, 5, 0, 30)
-        Content.AutomaticSize = Enum.AutomaticSize.Y
         Content.BackgroundTransparency = 1
         Content.Parent = Container
-        local C_Pad = Instance.new("UIPadding")
-        C_Pad.PaddingBottom = UDim.new(0, 6)
-        C_Pad.Parent = Content
         local List = Instance.new("UIListLayout")
         List.Padding = UDim.new(0, 6)
         List.SortOrder = Enum.SortOrder.LayoutOrder
         List.Parent = Content
+        local lc1 = List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 40)
+        end)
+        table.insert(Library.Connections, lc1)
         function Section:Label(ltext, options)
             options = options or {}
             local LabelObj = {}
@@ -1339,24 +1346,16 @@ function Library:CreateWindow(options)
             Frame.Parent = Content
             Corner(Frame, 4)
             Stroke(Frame, Theme.Stroke, 1, 0.5)
-            local Accent = Instance.new("Frame")
-            Accent.Size = UDim2.new(0, 3, 1, -10)
-            Accent.Position = UDim2.new(0, 5, 0.5, 0)
-            Accent.AnchorPoint = Vector2.new(0, 0.5)
-            Accent.BackgroundColor3 = Theme.Accent
-            Accent.BorderSizePixel = 0
-            Accent.Parent = Frame
-            Corner(Accent, 2)
-            RegisterTheme(Accent, "BackgroundColor")
             local Lbl = Instance.new("TextLabel")
-            Lbl.Size = UDim2.new(1, -15, 1, 0)
-            Lbl.Position = UDim2.new(0, 15, 0, 0)
+            Lbl.Size = UDim2.new(1, -10, 1, -10)
+            Lbl.Position = UDim2.new(0, 5, 0, 5)
             Lbl.BackgroundTransparency = 1
             Lbl.Text = tostring(ltext)
             Lbl.Font = Config.FontMain
             Lbl.TextSize = 13
             Lbl.TextColor3 = options.Color or Theme.Text
             Lbl.TextXAlignment = options.Alignment or Enum.TextXAlignment.Left
+            Lbl.TextYAlignment = Enum.TextYAlignment.Top
             Lbl.RichText = true
             Lbl.TextWrapped = true
             Lbl.Parent = Frame
@@ -1722,23 +1721,24 @@ function Library:CreateWindow(options)
                     dragSV = true
                     dragInputSV = input
                     SetSV(input)
+                    local sc2
+                    sc2 = input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
+                            dragSV = false
+                            sc2:Disconnect()
+                        end
+                    end)
                 end
             end)
-            local sv2 = UserInputService.InputChanged:Connect(function(input)
+            local sv3 = UserInputService.InputChanged:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                     if dragSV then dragInputSV = input end
-                end
-            end)
-            local sv3 = UserInputService.InputEnded:Connect(function(input)
-                if dragSV and input == dragInputSV then
-                    dragSV = false
                 end
             end)
             local sv4 = RunService.RenderStepped:Connect(function()
                 if dragSV and dragInputSV then SetSV(dragInputSV) end
             end)
             table.insert(Library.Connections, sv1)
-            table.insert(Library.Connections, sv2)
             table.insert(Library.Connections, sv3)
             table.insert(Library.Connections, sv4)
             local dragH = false
@@ -1748,23 +1748,24 @@ function Library:CreateWindow(options)
                     dragH = true
                     dragInputH = input
                     SetH(input)
+                    local hc2
+                    hc2 = input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
+                            dragH = false
+                            hc2:Disconnect()
+                        end
+                    end)
                 end
             end)
-            local h2 = UserInputService.InputChanged:Connect(function(input)
+            local h3 = UserInputService.InputChanged:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                     if dragH then dragInputH = input end
-                end
-            end)
-            local h3 = UserInputService.InputEnded:Connect(function(input)
-                if dragH and input == dragInputH then
-                    dragH = false
                 end
             end)
             local h4 = RunService.RenderStepped:Connect(function()
                 if dragH and dragInputH then SetH(dragInputH) end
             end)
             table.insert(Library.Connections, h1)
-            table.insert(Library.Connections, h2)
             table.insert(Library.Connections, h3)
             table.insert(Library.Connections, h4)
             local pc1 = Preview.MouseButton1Click:Connect(function()
@@ -1797,8 +1798,8 @@ function Library:CreateWindow(options)
         SetPage.Position = UDim2.new(0, 190, 0, 10)
         SetPage.BackgroundTransparency = 1
         SetPage.ScrollBarThickness = 2
-        SetPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
         SetPage.ScrollBarImageColor3 = Theme.Accent
+        SetPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
         SetPage.Active = true
         SetPage.Parent = SettingsWindow
         RegisterTheme(SetPage, "ScrollBar")
@@ -1935,9 +1936,9 @@ function Library:CreateWindow(options)
         CDListFrame.ZIndex = 10
         CDListFrame.Visible = false
         CDListFrame.Active = true
-        CDListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         CDListFrame.ScrollBarThickness = 2
         CDListFrame.ScrollBarImageColor3 = Theme.Accent
+        CDListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         Corner(CDListFrame, 4)
         Stroke(CDListFrame, Theme.Stroke, 1, 0.5)
         local CDIList = Instance.new("UIListLayout")
@@ -2221,12 +2222,12 @@ function Library:CreateWindow(options)
         Page.Position = UDim2.new(0, 10, 0, 10)
         Page.BackgroundTransparency = 1
         Page.ScrollBarThickness = 0
-        Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
         Page.Visible = false
         Page.Active = true
+        Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
         Page.Parent = MainPages
         local TabBtn = Instance.new("TextButton")
-        TabBtn.Size = UDim2.new(0, 160, 0, 36)
+        TabBtn.Size = UDim2.new(1, 0, 0, 36)
         TabBtn.BackgroundColor3 = Theme.Background
         TabBtn.BackgroundTransparency = 1
         TabBtn.Text = ""
@@ -2296,20 +2297,20 @@ function Library:CreateWindow(options)
             Indicator.BackgroundTransparency = 0
         end
         local LeftCol = Instance.new("Frame")
-        LeftCol.Size = UDim2.new(0.5, -5, 1, 0)
+        LeftCol.Size = UDim2.new(0.5, -5, 0, 0)
         LeftCol.Position = UDim2.new(0, 0, 0, 0)
-        LeftCol.AutomaticSize = Enum.AutomaticSize.Y
         LeftCol.BackgroundTransparency = 1
+        LeftCol.AutomaticSize = Enum.AutomaticSize.Y
         LeftCol.Parent = Page
         local LeftList = Instance.new("UIListLayout")
         LeftList.SortOrder = Enum.SortOrder.LayoutOrder
         LeftList.Padding = UDim.new(0, 10)
         LeftList.Parent = LeftCol
         local RightCol = Instance.new("Frame")
-        RightCol.Size = UDim2.new(0.5, -5, 1, 0)
+        RightCol.Size = UDim2.new(0.5, -5, 0, 0)
         RightCol.Position = UDim2.new(0.5, 5, 0, 0)
-        RightCol.AutomaticSize = Enum.AutomaticSize.Y
         RightCol.BackgroundTransparency = 1
+        RightCol.AutomaticSize = Enum.AutomaticSize.Y
         RightCol.Parent = Page
         local RightList = Instance.new("UIListLayout")
         RightList.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2320,7 +2321,6 @@ function Library:CreateWindow(options)
             local ParentCol = (side == "Right" and RightCol or LeftCol)
             local Container = Instance.new("Frame")
             Container.Size = UDim2.new(1, 0, 0, 0)
-            Container.AutomaticSize = Enum.AutomaticSize.Y
             Container.BackgroundColor3 = Theme.Section
             Container.Parent = ParentCol
             Container.ZIndex = 1
@@ -2342,33 +2342,39 @@ function Library:CreateWindow(options)
             local Content = Instance.new("Frame")
             Content.Size = UDim2.new(1, -10, 0, 0)
             Content.Position = UDim2.new(0, 5, 0, 25)
-            Content.AutomaticSize = Enum.AutomaticSize.Y
             Content.BackgroundTransparency = 1
             Content.Parent = Container
-            local C_Pad = Instance.new("UIPadding")
-            C_Pad.PaddingBottom = UDim.new(0, 6)
-            C_Pad.Parent = Content
             local List = Instance.new("UIListLayout")
             List.Padding = UDim.new(0, 6)
             List.SortOrder = Enum.SortOrder.LayoutOrder
             List.Parent = Content
+            local function UpdateSize()
+                Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 35)
+                Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
+            end
+            local c4 = List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
+            table.insert(Library.Connections, c4)
             function Section:Label(ltext, options)
                 options = options or {}
                 local LabelObj = {}
                 local Frame = Instance.new("Frame")
                 Frame.Size = UDim2.new(1, 0, 0, 26)
-                Frame.BackgroundTransparency = 1
+                Frame.BackgroundColor3 = Theme.Container
+                Frame.BackgroundTransparency = 0.5
                 Frame.Parent = Content
                 table.insert(secData.Items, {Name = ltext, Instance = Frame})
+                Corner(Frame, 4)
+                Stroke(Frame, Theme.Stroke, 1, 0.5)
                 local Lbl = Instance.new("TextLabel")
-                Lbl.Size = UDim2.new(1, -10, 1, 0)
-                Lbl.Position = UDim2.new(0, 5, 0, 0)
+                Lbl.Size = UDim2.new(1, -10, 1, -10)
+                Lbl.Position = UDim2.new(0, 5, 0, 5)
                 Lbl.BackgroundTransparency = 1
                 Lbl.Text = tostring(ltext)
                 Lbl.Font = Config.FontMain
                 Lbl.TextSize = 13
                 Lbl.TextColor3 = options.Color or Theme.Text
                 Lbl.TextXAlignment = options.Alignment or Enum.TextXAlignment.Left
+                Lbl.TextYAlignment = Enum.TextYAlignment.Top
                 Lbl.RichText = true
                 Lbl.TextWrapped = true
                 Lbl.Parent = Frame
@@ -2461,20 +2467,20 @@ function Library:CreateWindow(options)
                         if h > 0 then h = h + 6 end
                         currentTween = TweenService:Create(SubContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, h)})
                         currentTween:Play()
-                        local tcc
-                        tcc = currentTween.Completed:Connect(function(state)
+                        local tc
+                        tc = currentTween.Completed:Connect(function(state)
                             if state == Enum.PlaybackState.Completed and toggled then SubContainer.ClipsDescendants = false end
-                            tcc:Disconnect()
+                            tc:Disconnect()
                         end)
                     else
                         SubContainer.ClipsDescendants = true
                         currentTween = TweenService:Create(SubContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 0)})
                         currentTween:Play()
                         local expectedToggle = toggled
-                        local tcc
-                        tcc = currentTween.Completed:Connect(function(playbackState)
+                        local tc
+                        tc = currentTween.Completed:Connect(function(playbackState)
                             if playbackState == Enum.PlaybackState.Completed and expectedToggle == toggled and not toggled then SubContainer.Visible = false end
-                            tcc:Disconnect()
+                            tc:Disconnect()
                         end)
                     end
                 end
@@ -2582,6 +2588,13 @@ function Library:CreateWindow(options)
                             dragging = true
                             dragInput = i
                             Set(i)
+                            local tsc
+                            tsc = i.Changed:Connect(function()
+                                if i.UserInputState == Enum.UserInputState.End then
+                                    dragging = false
+                                    tsc:Disconnect()
+                                end
+                            end)
                         end
                     end)
                     local ts2 = UserInputService.InputChanged:Connect(function(input)
@@ -2589,19 +2602,13 @@ function Library:CreateWindow(options)
                             if dragging then dragInput = input end
                         end
                     end)
-                    local ts3 = UserInputService.InputEnded:Connect(function(input)
-                        if dragging and input == dragInput then
-                            dragging = false
-                        end
-                    end)
-                    local ts4 = RunService.RenderStepped:Connect(function()
+                    local ts3 = RunService.RenderStepped:Connect(function()
                         if dragging and dragInput then Set(dragInput) end
                     end)
                     table.insert(Library.Connections, ts1)
                     table.insert(Library.Connections, ts2)
                     table.insert(Library.Connections, ts3)
-                    table.insert(Library.Connections, ts4)
-                    local ts5 = SValue.FocusLost:Connect(function(enter)
+                    local ts4 = SValue.FocusLost:Connect(function(enter)
                         if enter then
                             local cleanText = string.gsub(SValue.Text, "[^%d.-]", "")
                             local num = tonumber(cleanText)
@@ -2622,7 +2629,7 @@ function Library:CreateWindow(options)
                             SValue.Text = FormatNumber(val, inc)
                         end
                     end)
-                    table.insert(Library.Connections, ts5)
+                    table.insert(Library.Connections, ts4)
                     Library.Signals[sflag] = function(loadedVal)
                         val = RoundToIncrement(loadedVal, inc)
                         val = math.clamp(val, min, max)
@@ -3129,23 +3136,24 @@ function Library:CreateWindow(options)
                         dragSV = true
                         dragInputSV = input
                         SetSV(input)
+                        local sc2
+                        sc2 = input.Changed:Connect(function()
+                            if input.UserInputState == Enum.UserInputState.End then
+                                dragSV = false
+                                sc2:Disconnect()
+                            end
+                        end)
                     end
                 end)
-                local sv2 = UserInputService.InputChanged:Connect(function(input)
+                local sv3 = UserInputService.InputChanged:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                         if dragSV then dragInputSV = input end
-                    end
-                end)
-                local sv3 = UserInputService.InputEnded:Connect(function(input)
-                    if dragSV and input == dragInputSV then
-                        dragSV = false
                     end
                 end)
                 local sv4 = RunService.RenderStepped:Connect(function()
                     if dragSV and dragInputSV then SetSV(dragInputSV) end
                 end)
                 table.insert(Library.Connections, sv1)
-                table.insert(Library.Connections, sv2)
                 table.insert(Library.Connections, sv3)
                 table.insert(Library.Connections, sv4)
                 local dragH = false
@@ -3155,23 +3163,24 @@ function Library:CreateWindow(options)
                         dragH = true
                         dragInputH = input
                         SetH(input)
+                        local hc2
+                        hc2 = input.Changed:Connect(function()
+                            if input.UserInputState == Enum.UserInputState.End then
+                                dragH = false
+                                hc2:Disconnect()
+                            end
+                        end)
                     end
                 end)
-                local h2 = UserInputService.InputChanged:Connect(function(input)
+                local h3 = UserInputService.InputChanged:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                         if dragH then dragInputH = input end
-                    end
-                end)
-                local h3 = UserInputService.InputEnded:Connect(function(input)
-                    if dragH and input == dragInputH then
-                        dragH = false
                     end
                 end)
                 local h4 = RunService.RenderStepped:Connect(function()
                     if dragH and dragInputH then SetH(dragInputH) end
                 end)
                 table.insert(Library.Connections, h1)
-                table.insert(Library.Connections, h2)
                 table.insert(Library.Connections, h3)
                 table.insert(Library.Connections, h4)
                 local pc1 = Preview.MouseButton1Click:Connect(function()
@@ -3200,18 +3209,18 @@ function Library:CreateWindow(options)
         end
         return Tab
     end
-    local autoSaveTimer = 0
-    local autoSaveConn = RunService.Heartbeat:Connect(function(dt)
+    local Auto_Save_Timer = 0
+    local Auto_Save_Conn = RunService.Heartbeat:Connect(function(dt)
         if Library.AutoSaveEnabled and Library.Unsaved then
-            autoSaveTimer = autoSaveTimer + dt
-            if autoSaveTimer >= 3 then
-                autoSaveTimer = 0
+            Auto_Save_Timer = Auto_Save_Timer + dt
+            if Auto_Save_Timer >= 3 then
+                Auto_Save_Timer = 0
                 Library.Unsaved = false
                 Library:SaveConfig("_autosave")
             end
         end
     end)
-    table.insert(Library.Connections, autoSaveConn)
+    table.insert(Library.Connections, Auto_Save_Conn)
     task.defer(function()
         Library:LoadConfig("_autosave")
     end)
