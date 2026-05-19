@@ -98,17 +98,19 @@ local function Save_To_File(FileName)
         pcall(function()
             local Serialized_Data = {}
             for Key, Val in pairs(Library_Api.Flags) do
-                if typeof(Val) == "Color3" then
-                    Serialized_Data[Key] = {Type = "Color3", R = Val.R, G = Val.G, B = Val.B}
-                elseif typeof(Val) == "EnumItem" then
-                    Serialized_Data[Key] = {Type = "EnumItem", EnumType = tostring(Val.EnumType), Name = Val.Name}
-                elseif type(Val) == "table" and Val.Min ~= nil and Val.Max ~= nil then
-                    Serialized_Data[Key] = {Type = "Range", Min = Val.Min, Max = Val.Max}
-                elseif type(Val) == "table" then
-                    Serialized_Data[Key] = {Type = "Array", Data = Val}
-                else
-                    Serialized_Data[Key] = Val
-                end
+                pcall(function()
+                    if typeof(Val) == "Color3" then
+                        Serialized_Data[Key] = {Type = "Color3", R = Val.R, G = Val.G, B = Val.B}
+                    elseif typeof(Val) == "EnumItem" then
+                        Serialized_Data[Key] = {Type = "EnumItem", EnumType = tostring(Val.EnumType), Name = Val.Name}
+                    elseif type(Val) == "table" and Val.Min ~= nil and Val.Max ~= nil then
+                        Serialized_Data[Key] = {Type = "Range", Min = Val.Min, Max = Val.Max}
+                    elseif type(Val) == "table" then
+                        Serialized_Data[Key] = {Type = "Array", Data = Val}
+                    else
+                        Serialized_Data[Key] = Val
+                    end
+                end)
             end
             if Library_Api.Instances.Menu then
                 local pos = Library_Api.Instances.Menu.Position
@@ -153,43 +155,45 @@ local function Load_From_File(FileName)
             local Decoded_Data = Http_Service:JSONDecode(content)
             if type(Decoded_Data) == "table" then
                 for Key, Val in pairs(Decoded_Data) do
-                    if Key == "$$MenuPos" then
-                        local pos = UDim2.new(Val.X, Val.XOff, Val.Y, Val.YOff)
-                        Library_Api.Saved_Positions.Menu = pos
-                        if Library_Api.Instances.Menu then 
-                            Library_Api.Instances.Menu.Position = pos
-                            Library_Api.Instances.MenuTargetPos = pos 
-                        end
-                    elseif Key == "$$KbPos" then
-                        local pos = UDim2.new(Val.X, Val.XOff, Val.Y, Val.YOff)
-                        Library_Api.Saved_Positions.Keybinds = pos
-                        if Library_Api.Instances.Keybinds then 
-                            Library_Api.Instances.Keybinds.Position = pos
-                            Library_Api.Instances.KeybindsTarget = pos
-                        end
-                    elseif type(Val) == "table" then
-                        if Val.Type == "Color3" then
-                            Library_Api.Flags[Key] = Color3.new(Val.R, Val.G, Val.B)
-                        elseif Val.Type == "EnumItem" then
-                            local enumGroup = string.split(Val.EnumType, ".")[2]
-                            local enumType = Enum[enumGroup]
-                            if enumType then
-                                Library_Api.Flags[Key] = enumType[Val.Name] or Enum.KeyCode.Unknown
+                    pcall(function()
+                        if Key == "$$MenuPos" then
+                            local pos = UDim2.new(Val.X, Val.XOff, Val.Y, Val.YOff)
+                            Library_Api.Saved_Positions.Menu = pos
+                            if Library_Api.Instances.Menu then 
+                                Library_Api.Instances.Menu.Position = pos
+                                Library_Api.Instances.MenuTargetPos = pos 
                             end
-                        elseif Val.Type == "Range" then
-                            Library_Api.Flags[Key] = {Min = Val.Min, Max = Val.Max}
-                        elseif Val.Type == "Array" then
-                            Library_Api.Flags[Key] = Val.Data
+                        elseif Key == "$$KbPos" then
+                            local pos = UDim2.new(Val.X, Val.XOff, Val.Y, Val.YOff)
+                            Library_Api.Saved_Positions.Keybinds = pos
+                            if Library_Api.Instances.Keybinds then 
+                                Library_Api.Instances.Keybinds.Position = pos
+                                Library_Api.Instances.KeybindsTarget = pos
+                            end
+                        elseif type(Val) == "table" then
+                            if Val.Type == "Color3" then
+                                Library_Api.Flags[Key] = Color3.new(Val.R, Val.G, Val.B)
+                            elseif Val.Type == "EnumItem" then
+                                local enumGroup = tostring(Val.EnumType):gsub("Enum%.", "")
+                                local enumType = Enum[enumGroup]
+                                if enumType then
+                                    Library_Api.Flags[Key] = enumType[tostring(Val.Name)] or Enum.KeyCode.Unknown
+                                end
+                            elseif Val.Type == "Range" then
+                                Library_Api.Flags[Key] = {Min = Val.Min, Max = Val.Max}
+                            elseif Val.Type == "Array" then
+                                Library_Api.Flags[Key] = Val.Data
+                            else
+                                Library_Api.Flags[Key] = Val
+                            end
                         else
                             Library_Api.Flags[Key] = Val
                         end
-                    else
-                        Library_Api.Flags[Key] = Val
-                    end
 
-                    if Library_Api.Registry[Key] then
-                        task.spawn(Library_Api.Registry[Key], Library_Api.Flags[Key])
-                    end
+                        if Library_Api.Registry[Key] then
+                            task.spawn(Library_Api.Registry[Key], Library_Api.Flags[Key])
+                        end
+                    end)
                 end
             end
         end)
