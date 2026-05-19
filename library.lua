@@ -1971,7 +1971,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Color_Picker_Frame.Parent = Target_Container
 
                 local Color_Picker_Label = Instance.new("TextLabel")
-                Color_Picker_Label.Size = UDim2.new(1, -40, 1, 0)
+                Color_Picker_Label.Size = UDim2.new(1, -40, 0, 24)
                 Color_Picker_Label.Position = UDim2.new(0, 2, 0, 0)
                 Color_Picker_Label.BackgroundTransparency = 1
                 Color_Picker_Label.Text = Name
@@ -1983,9 +1983,9 @@ function Library_Api:CreateWindow(Window_Name)
                 Color_Picker_Label.Parent = Color_Picker_Frame
 
                 local Color_Preview_Button = Instance.new("TextButton")
-                Color_Preview_Button.AnchorPoint = Vector2.new(1, 0.5)
+                Color_Preview_Button.AnchorPoint = Vector2.new(1, 0)
                 Color_Preview_Button.Size = UDim2.new(0, 30, 0, 14)
-                Color_Preview_Button.Position = UDim2.new(1, -4, 0.5, 0)
+                Color_Preview_Button.Position = UDim2.new(1, -4, 0, 5)
                 Color_Preview_Button.BackgroundColor3 = Library_Api.Flags[Flag]
                 Color_Preview_Button.Text = ""
                 Color_Preview_Button.AutoButtonColor = false
