@@ -104,32 +104,15 @@ local function Save_To_File(FileName)
                 Serialized_Data[Key] = Val
             end
         end
-        if Library_Api.Instances.MenuTargetPos then
-            local pos = Library_Api.Instances.MenuTargetPos
+        if Library_Api.Instances.Menu then
+            local pos = Library_Api.Instances.Menu.Position
             Serialized_Data["$$MenuPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
         end
-        if Library_Api.Instances.KeybindsTarget then
-            local pos = Library_Api.Instances.KeybindsTarget
+        if Library_Api.Instances.Keybinds then
+            local pos = Library_Api.Instances.Keybinds.Position
             Serialized_Data["$$KbPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
         end
-        
-        local Success, JSON_String = pcall(function()
-            return Http_Service:JSONEncode(Serialized_Data)
-        end)
-        if Success then
-            writefile(Library_Api.Folder_Name .. "/" .. FileName, JSON_String)
-        end
-    end)
-end
-
-local Save_Timer = 0
-local function Auto_Save()
-    Save_Timer = tick()
-    local Capture_Time = Save_Timer
-    task.delay(0.5, function()
-        if Save_Timer == Capture_Time then
-            Save_To_File(Library_Api.Config_Name)
-        end
+        writefile(Library_Api.Folder_Name .. "/" .. FileName, Http_Service:JSONEncode(Serialized_Data))
     end)
 end
 
@@ -184,6 +167,12 @@ local function Load_From_File(FileName)
 end
 
 Load_From_File(Library_Api.Config_Name)
+
+task.spawn(function()
+    while task.wait(5) do
+        Save_To_File(Library_Api.Config_Name)
+    end
+end)
 
 local Tooltip_Frame = Instance.new("Frame")
 Tooltip_Frame.BackgroundColor3 = Hub_Colors.tooltipBackground
@@ -334,7 +323,6 @@ User_Input_Service.InputChanged:Connect(function(Input)
     if Input == Kb_Drag_Input and Kb_Dragging then
         local Delta = Input.Position - Kb_Drag_Start
         Library_Api.Instances.KeybindsTarget = UDim2.new(Kb_Start_Pos.X.Scale, Kb_Start_Pos.X.Offset + Delta.X, Kb_Start_Pos.Y.Scale, Kb_Start_Pos.Y.Offset + Delta.Y)
-        Auto_Save()
     end
 end)
 
@@ -814,7 +802,6 @@ function Library_Api:CreateWindow(Window_Name)
         if Input == Main_Drag_Input and Main_Dragging then
             local Delta = Input.Position - Main_Drag_Start
             Library_Api.Instances.MenuTargetPos = UDim2.new(Main_Start_Pos.X.Scale, Main_Start_Pos.X.Offset + (Delta.X / Ui_Scale_Modifier.Scale), Main_Start_Pos.Y.Scale, Main_Start_Pos.Y.Offset + (Delta.Y / Ui_Scale_Modifier.Scale))
-            Auto_Save()
         end
     end)
 
@@ -1013,7 +1000,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:Toggle_Create(Name, Flag, Default, Tooltip, Callback)
-                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or false end
+                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or false)
 
                 local Toggle_Button = Instance.new("TextButton")
                 Toggle_Button.Size = UDim2.new(1, 0, 0, 16)
@@ -1067,14 +1054,13 @@ function Library_Api:CreateWindow(Window_Name)
                 Toggle_Button.MouseButton1Click:Connect(function()
                     Library_Api.Flags[Flag] = not Library_Api.Flags[Flag]
                     Library_Api.Registry[Flag](Library_Api.Flags[Flag])
-                    Auto_Save()
                 end)
                 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
             end
 
             function Elements:Slider_Create(Name, Flag, Min, Max, Default, Step, Tooltip, Callback)
-                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Snap_Value(Default or Min, Step) end
+                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or Snap_Value(Default or Min, Step)
 
                 local Slider_Frame = Instance.new("Frame")
                 Slider_Frame.Size = UDim2.new(1, 0, 0, 36)
@@ -1178,7 +1164,6 @@ function Library_Api:CreateWindow(Window_Name)
                         Is_Sliding = true
                         local Percentage = math.clamp((Input.Position.X - Slider_Background.AbsolutePosition.X) / Slider_Background.AbsoluteSize.X, 0, 1)
                         Library_Api.Registry[Flag](Min + ((Max - Min) * Percentage))
-                        Auto_Save()
                         Input.Changed:Connect(function()
                             if Input.UserInputState == Enum.UserInputState.End then Is_Sliding = false end
                         end)
@@ -1195,7 +1180,6 @@ function Library_Api:CreateWindow(Window_Name)
                     if Input == Slider_Drag_Input and Is_Sliding then
                         local Percentage = math.clamp((Input.Position.X - Slider_Background.AbsolutePosition.X) / Slider_Background.AbsoluteSize.X, 0, 1)
                         Library_Api.Registry[Flag](Min + ((Max - Min) * Percentage))
-                        Auto_Save()
                     end
                 end)
 
@@ -1203,7 +1187,6 @@ function Library_Api:CreateWindow(Window_Name)
                     local Input_Value = tonumber(Value_Text_Box.Text)
                     if Input_Value then
                         Library_Api.Registry[Flag](Input_Value)
-                        Auto_Save()
                     else
                         Value_Text_Box.Text = Format_Value(Library_Api.Flags[Flag], Step)
                     end
@@ -1213,7 +1196,9 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:RangeSlider_Create(Name, Flag, Min, Max, Default_Min, Default_Max, Step, Tooltip, Callback)
-                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = {Min = Snap_Value(Default_Min or Min, Step), Max = Snap_Value(Default_Max or Max, Step)} end
+                if not Library_Api.Flags[Flag] then
+                    Library_Api.Flags[Flag] = {Min = Snap_Value(Default_Min or Min, Step), Max = Snap_Value(Default_Max or Max, Step)}
+                end
 
                 local Range_Slider_Frame = Instance.new("Frame")
                 Range_Slider_Frame.Size = UDim2.new(1, 0, 0, 36)
@@ -1362,7 +1347,6 @@ function Library_Api:CreateWindow(Window_Name)
                             tempRange.Max = math.clamp(Calculated_Value, tempRange.Min, Max)
                         end
                         Library_Api.Registry[Flag](tempRange)
-                        Auto_Save()
                     end
                 end)
 
@@ -1370,7 +1354,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:Textbox_Create(Name, Flag, Default, Tooltip, Callback)
-                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or "" end
+                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or "")
 
                 local Textbox_Frame = Instance.new("Frame")
                 Textbox_Frame.Size = UDim2.new(1, 0, 0, 36)
@@ -1423,17 +1407,9 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Library_Api.Registry[Flag] = function(New_Text)
                     Library_Api.Flags[Flag] = New_Text
-                    if Input_Text_Box.Text ~= New_Text then
-                        Input_Text_Box.Text = New_Text
-                    end
+                    Input_Text_Box.Text = New_Text
+                    if Callback then task.spawn(Callback, New_Text) end
                 end
-
-                Input_Text_Box:GetPropertyChangedSignal("Text"):Connect(function()
-                    if Library_Api.Flags[Flag] ~= Input_Text_Box.Text then
-                        Library_Api.Flags[Flag] = Input_Text_Box.Text
-                        Auto_Save()
-                    end
-                end)
 
                 Input_Text_Box.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
@@ -1452,15 +1428,14 @@ function Library_Api:CreateWindow(Window_Name)
                 Input_Text_Box.FocusLost:Connect(function()
                     Animate_Element(Textbox_Input_Background_Stroke, {Color = Hub_Colors.borderColor}, 0.25)
                     Animate_Element(Input_Text_Box, {TextColor3 = Hub_Colors.textDarkColor}, 0.25)
-                    if Callback then task.spawn(Callback, Input_Text_Box.Text) end
+                    Library_Api.Registry[Flag](Input_Text_Box.Text)
                 end)
 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
-                if Callback then task.spawn(Callback, Library_Api.Flags[Flag]) end
             end
 
             function Elements:Keybind_Create(Name, Flag, Default, Tooltip, Callback)
-                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or Enum.KeyCode.Unknown end
+                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or Enum.KeyCode.Unknown)
                 Library_Api.Keybind_Names[Flag] = Name
                 local Is_Listening = false
 
@@ -1554,7 +1529,6 @@ function Library_Api:CreateWindow(Window_Name)
                             Is_Listening = false
                             Animate_Element(Keybind_Button_Stroke, {Color = Hub_Colors.borderColor}, 0.3)
                             Animate_Element(Keybind_Button, {TextColor3 = Hub_Colors.textDarkColor}, 0.3)
-                            Auto_Save()
                         end
                     else
                         if User_Input_Service:GetFocusedTextBox() then return end
@@ -1569,7 +1543,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:Dropdown_Create(Name, Flag, Options, Default, Tooltip, Callback)
-                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or Options[1] end
+                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or Options[1])
                 local Is_Dropdown_Open = false
 
                 local Dropdown_Frame = Instance.new("Frame")
@@ -1713,7 +1687,6 @@ function Library_Api:CreateWindow(Window_Name)
                         Option_Button.MouseButton1Click:Connect(function()
                             Library_Api.Registry[Flag](Option)
                             Toggle_Dropdown_State()
-                            Auto_Save()
                         end)
                     end
                     Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 24)
@@ -1745,7 +1718,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:MultiDropdown_Create(Name, Flag, Options, Default, Tooltip, Callback)
-                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or {} end
+                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or {})
                 local Is_Dropdown_Open = false
 
                 local Dropdown_Frame = Instance.new("Frame")
@@ -1911,7 +1884,6 @@ function Library_Api:CreateWindow(Window_Name)
                             table.insert(newArr, Option)
                         end
                         Library_Api.Registry[Flag](newArr)
-                        Auto_Save()
                     end)
                 end
                 Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 24)
@@ -1920,7 +1892,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:ColorPicker_Create(Name, Flag, Default, Tooltip, Callback)
-                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or Color3.new(1, 1, 1) end
+                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or Color3.new(1, 1, 1))
                 local Is_Color_Picker_Open = false
                 local Hue, Saturation, Value = Library_Api.Flags[Flag]:ToHSV()
 
@@ -2042,13 +2014,11 @@ function Library_Api:CreateWindow(Window_Name)
                     local S = math.clamp((Input.Position.X - Saturation_Value_Map.AbsolutePosition.X) / Saturation_Value_Map.AbsoluteSize.X, 0, 1)
                     local V = 1 - math.clamp((Input.Position.Y - Saturation_Value_Map.AbsolutePosition.Y) / Saturation_Value_Map.AbsoluteSize.Y, 0, 1)
                     Library_Api.Registry[Flag](Color3.fromHSV(Hue, S, V))
-                    Auto_Save()
                 end
 
                 local function Process_Hue(Input)
                     local H = math.clamp((Input.Position.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
                     Library_Api.Registry[Flag](Color3.fromHSV(H, Saturation, Value))
-                    Auto_Save()
                 end
 
                 Saturation_Value_Map.InputBegan:Connect(function(Input)
@@ -2201,7 +2171,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:Module_Create(Name, Flag, Description_Text, Default, Tooltip, Callback)
-                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or false end
+                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or false)
 
                 local Module_Frame = Instance.new("Frame")
                 Module_Frame.Size = UDim2.new(1, 0, 0, 46)
@@ -2318,7 +2288,6 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Module_Toggle_Button.MouseButton1Click:Connect(function()
                     Library_Api.Registry[Flag](not Library_Api.Flags[Flag])
-                    Auto_Save()
                 end)
                 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
