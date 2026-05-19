@@ -6,6 +6,7 @@ local Text_Service = game:GetService("TextService")
 local Http_Service = game:GetService("HttpService")
 local Workspace_Service = game:GetService("Workspace")
 local Players_Service = game:GetService("Players")
+local Lighting_Service = game:GetService("Lighting")
 local Local_Player = Players_Service.LocalPlayer
 
 local Library_Api = {
@@ -13,7 +14,6 @@ local Library_Api = {
     Registry = {},
     Keybind_Names = {},
     Theme_Objects = {},
-    Acrylic_Objects = {},
     Transparency_Objects = {},
     Saved_Positions = {},
     Instances = {},
@@ -62,6 +62,26 @@ Screen_Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Screen_Gui.DisplayOrder = 999
 Screen_Gui.IgnoreGuiInset = true
 
+local UI_Blur = Instance.new("BlurEffect")
+UI_Blur.Size = 0
+UI_Blur.Enabled = false
+UI_Blur.Parent = Lighting_Service
+
+local function Update_Global_Blur()
+    if Library_Api.Instances.Menu and Library_Api.Instances.Menu.Visible and Library_Api.Global_Settings.Acrylic then
+        UI_Blur.Enabled = true
+        Tween_Service:Create(UI_Blur, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 15}):Play()
+    else
+        local t = Tween_Service:Create(UI_Blur, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 0})
+        t:Play()
+        t.Completed:Connect(function()
+            if not (Library_Api.Instances.Menu.Visible and Library_Api.Global_Settings.Acrylic) then
+                UI_Blur.Enabled = false
+            end
+        end)
+    end
+end
+
 local function Get_Input_Name(Input_Enum)
     if Custom_Input_Names[Input_Enum] then return Custom_Input_Names[Input_Enum] end
     if Input_Enum == Enum.KeyCode.Unknown then return "None" end
@@ -83,6 +103,18 @@ local function Bind_Color(Instance_Obj, Property, Color_Key)
     Instance_Obj[Property] = Themes[Library_Api.Current_Theme][Color_Key]
 end
 
+local function Set_Theme_State(Obj, Prop, New_Key)
+    for _, Data in ipairs(Library_Api.Theme_Objects) do
+        if Data.Obj == Obj and Data.Prop == Prop then
+            Data.Key = New_Key
+            Animate_Element(Obj, {[Prop] = Themes[Library_Api.Current_Theme][New_Key]}, 0.25)
+            return
+        end
+    end
+    Bind_Color(Obj, Prop, New_Key)
+    Animate_Element(Obj, {[Prop] = Themes[Library_Api.Current_Theme][New_Key]}, 0.25)
+end
+
 function Library_Api:ChangeTheme(Theme_Name)
     if not Themes[Theme_Name] then return end
     Library_Api.Current_Theme = Theme_Name
@@ -93,14 +125,25 @@ function Library_Api:ChangeTheme(Theme_Name)
     end
 end
 
-local function Register_Acrylic(Obj)
-    table.insert(Library_Api.Acrylic_Objects, Obj)
-    Obj.Visible = Library_Api.Global_Settings.Acrylic
-end
-
 local function Register_Transparency(Obj, Default_Val)
     table.insert(Library_Api.Transparency_Objects, {Obj = Obj, Def = Default_Val})
     Obj.BackgroundTransparency = Library_Api.Global_Settings.Transparency and Default_Val or 0
+end
+
+local function Apply_Acrylic_Effect(Parent)
+    local Noise = Instance.new("ImageLabel")
+    Noise.Size = UDim2.new(1, 0, 1, 0)
+    Noise.BackgroundTransparency = 1
+    Noise.Image = "rbxassetid://13830869661"
+    Noise.ImageTransparency = 0.96
+    Noise.TileSize = UDim2.new(0, 256, 0, 256)
+    Noise.ScaleType = Enum.ScaleType.Tile
+    Noise.ZIndex = Parent.ZIndex
+    Noise.Parent = Parent
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Noise
+    return Noise
 end
 
 local function Save_To_File(FileName)
@@ -229,7 +272,6 @@ local function Load_From_File(FileName)
 end
 
 local Tooltip_Frame = Instance.new("Frame")
-Tooltip_Frame.BackgroundTransparency = 0.15
 Tooltip_Frame.Size = UDim2.new(0, 0, 0, 24)
 Tooltip_Frame.ZIndex = 2000
 Tooltip_Frame.Visible = false
@@ -275,34 +317,14 @@ Notification_Layout.Parent = Notification_Container
 
 local Tooltip_Target_Text = ""
 
-local function Apply_Acrylic_Effect(Parent, Transparency, Corner_Radius)
-    local Blur_Image = Instance.new("ImageLabel")
-    Blur_Image.Size = UDim2.new(1, 0, 1, 0)
-    Blur_Image.BackgroundTransparency = 1
-    Blur_Image.Image = "rbxassetid://8992230113"
-    Blur_Image.TileSize = UDim2.new(0, 256, 0, 256)
-    Blur_Image.ScaleType = Enum.ScaleType.Tile
-    Blur_Image.ImageTransparency = Transparency or 0.88
-    Blur_Image.ZIndex = Parent.ZIndex - 1
-    Blur_Image.Parent = Parent
-    if Corner_Radius then
-        local Corner = Instance.new("UICorner")
-        Corner.CornerRadius = Corner_Radius
-        Corner.Parent = Blur_Image
-    end
-    Register_Acrylic(Blur_Image)
-    return Blur_Image
-end
-
 local Keybinds_Frame = Instance.new("Frame")
 Keybinds_Frame.Size = UDim2.new(0, 220, 0, 30)
 Keybinds_Frame.Position = Library_Api.Saved_Positions.Keybinds or UDim2.new(0, 20, 0, 20)
-Keybinds_Frame.BackgroundTransparency = 0.1
 Keybinds_Frame.Visible = false
 Keybinds_Frame.Parent = Screen_Gui
 Bind_Color(Keybinds_Frame, "BackgroundColor3", "mainBackground")
 Register_Transparency(Keybinds_Frame, 0.1)
-Apply_Acrylic_Effect(Keybinds_Frame, 0.9, UDim.new(0, 8))
+Apply_Acrylic_Effect(Keybinds_Frame)
 Library_Api.Instances.Keybinds = Keybinds_Frame
 Library_Api.Instances.KeybindsTarget = Keybinds_Frame.Position
 
@@ -398,7 +420,6 @@ function Library_Api:RefreshKeybinds()
             Count = Count + 1
             local Kb_Item = Instance.new("Frame")
             Kb_Item.Size = UDim2.new(1, 0, 0, 22)
-            Kb_Item.BackgroundTransparency = 0.5
             Kb_Item.Parent = Kb_Container
             Bind_Color(Kb_Item, "BackgroundColor3", "elementBackground")
             Register_Transparency(Kb_Item, 0.5)
@@ -438,18 +459,6 @@ function Library_Api:RefreshKeybinds()
         end
     end
     Animate_Element(Keybinds_Frame, {Size = UDim2.new(0, 220, 0, 42 + (Count * 28))}, 0.25)
-end
-
-local function Show_Tooltip(Text_String)
-    if User_Input_Service.TouchEnabled and not User_Input_Service.MouseEnabled then return end
-    if not Text_String or Text_String == "" then
-        Tooltip_Target_Text = ""
-        return
-    end
-    local Text_Bounds = Text_Service:GetTextSize(Text_String, 11, Main_Font, Vector2.new(500, 24))
-    Tooltip_Frame.Size = UDim2.new(0, Text_Bounds.X + 16, 0, 24)
-    Tooltip_Text.Text = Text_String
-    Tooltip_Target_Text = Text_String
 end
 
 local function Snap_Value(Value, Step)
@@ -495,7 +504,6 @@ function Library_Api:Notify(Config)
     local Notification_Frame = Instance.new("Frame")
     Notification_Frame.Size = UDim2.new(1, 0, 0, 50)
     Notification_Frame.Position = UDim2.new(1, 270, 0, 0)
-    Notification_Frame.BackgroundTransparency = 0.05
     Notification_Frame.ZIndex = 1501
     Notification_Frame.Parent = Notification_Container
     Bind_Color(Notification_Frame, "BackgroundColor3", "sectionBackground")
@@ -558,16 +566,18 @@ function Library_Api:Notify(Config)
 end
 
 function Library_Api:CreateWindow(Window_Name)
+    Load_From_File(Library_Api.Config_Name)
+
     local Main_Background = Instance.new("Frame")
     Main_Background.Size = UDim2.new(0, 720, 0, 480)
     Main_Background.Position = Library_Api.Saved_Positions.Menu or UDim2.new(0.5, -360, 0.5, -240)
-    Main_Background.BackgroundTransparency = 0.18
     Main_Background.BorderSizePixel = 0
     Main_Background.Active = true
     Main_Background.Parent = Screen_Gui
     Bind_Color(Main_Background, "BackgroundColor3", "mainBackground")
     Register_Transparency(Main_Background, 0.18)
     Library_Api.Instances.Menu = Main_Background
+    Update_Global_Blur()
 
     local Top_Accent_Line = Instance.new("Frame")
     Top_Accent_Line.Size = UDim2.new(1, 0, 0, 2)
@@ -601,11 +611,10 @@ function Library_Api:CreateWindow(Window_Name)
     Main_Stroke.Parent = Main_Background
     Bind_Color(Main_Stroke, "Color", "borderColor")
 
-    Apply_Acrylic_Effect(Main_Background, 0.88, UDim.new(0, 6))
+    Apply_Acrylic_Effect(Main_Background)
 
     local Top_Bar = Instance.new("Frame")
     Top_Bar.Size = UDim2.new(1, 0, 0, 36)
-    Top_Bar.BackgroundTransparency = 0.21
     Top_Bar.BorderSizePixel = 0
     Top_Bar.Parent = Main_Background
     Bind_Color(Top_Bar, "BackgroundColor3", "sidebarBackground")
@@ -618,7 +627,6 @@ function Library_Api:CreateWindow(Window_Name)
     local Top_Hider = Instance.new("Frame")
     Top_Hider.Size = UDim2.new(1, 0, 0, 6)
     Top_Hider.Position = UDim2.new(0, 0, 1, -6)
-    Top_Hider.BackgroundTransparency = 0.21
     Top_Hider.BorderSizePixel = 0
     Top_Hider.Parent = Top_Bar
     Bind_Color(Top_Hider, "BackgroundColor3", "sidebarBackground")
@@ -646,7 +654,6 @@ function Library_Api:CreateWindow(Window_Name)
     local Sidebar_Frame = Instance.new("Frame")
     Sidebar_Frame.Size = UDim2.new(0, Sidebar_Width, 1, -37)
     Sidebar_Frame.Position = UDim2.new(0, 0, 0, 37)
-    Sidebar_Frame.BackgroundTransparency = 0.21
     Sidebar_Frame.BorderSizePixel = 0
     Sidebar_Frame.Parent = Main_Background
     Bind_Color(Sidebar_Frame, "BackgroundColor3", "sidebarBackground")
@@ -659,7 +666,6 @@ function Library_Api:CreateWindow(Window_Name)
     local Sidebar_Hider_Right = Instance.new("Frame")
     Sidebar_Hider_Right.Size = UDim2.new(0, 6, 1, 0)
     Sidebar_Hider_Right.Position = UDim2.new(1, -6, 0, 0)
-    Sidebar_Hider_Right.BackgroundTransparency = 0.21
     Sidebar_Hider_Right.BorderSizePixel = 0
     Sidebar_Hider_Right.Parent = Sidebar_Frame
     Bind_Color(Sidebar_Hider_Right, "BackgroundColor3", "sidebarBackground")
@@ -667,7 +673,6 @@ function Library_Api:CreateWindow(Window_Name)
 
     local Sidebar_Hider_Top = Instance.new("Frame")
     Sidebar_Hider_Top.Size = UDim2.new(1, 0, 0, 6)
-    Sidebar_Hider_Top.BackgroundTransparency = 0.21
     Sidebar_Hider_Top.BorderSizePixel = 0
     Sidebar_Hider_Top.Parent = Sidebar_Frame
     Bind_Color(Sidebar_Hider_Top, "BackgroundColor3", "sidebarBackground")
@@ -816,6 +821,7 @@ function Library_Api:CreateWindow(Window_Name)
         Animate_Element(Mobile_Toggle_Button, {Size = UDim2.new(0, 48, 0, 48)}, 0.25)
         if tick() - Toggle_Click_Time < 0.2 then
             Main_Background.Visible = not Main_Background.Visible
+            Update_Global_Blur()
         end
     end)
 
@@ -979,8 +985,8 @@ function Library_Api:CreateWindow(Window_Name)
             if Window_Context.Active_Tab == Tab_Data then return end
             if Window_Context.Active_Tab then
                 Animate_Element(Window_Context.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.25)
-                Animate_Element(Window_Context.Active_Tab.Lbl, {TextColor3 = Themes[Library_Api.Current_Theme].textDarkColor}, 0.25)
-                if Window_Context.Active_Tab.Icon then Animate_Element(Window_Context.Active_Tab.Icon, {ImageColor3 = Themes[Library_Api.Current_Theme].textDarkColor}, 0.25) end
+                Set_Theme_State(Window_Context.Active_Tab.Lbl, "TextColor3", "textDarkColor")
+                if Window_Context.Active_Tab.Icon then Set_Theme_State(Window_Context.Active_Tab.Icon, "ImageColor3", "textDarkColor") end
                 Animate_Element(Window_Context.Active_Tab.Ind, {Size = UDim2.new(0, 2, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.25)
                 Window_Context.Active_Tab.Page.Visible = false
             end
@@ -992,8 +998,8 @@ function Library_Api:CreateWindow(Window_Name)
             Window_Context.Active_Tab = Tab_Data
             Page_Scrolling_Frame.Visible = true
             Animate_Element(Tab_Button, {BackgroundTransparency = 0.11}, 0.25)
-            Animate_Element(Tab_Label, {TextColor3 = Themes[Library_Api.Current_Theme].textWhiteColor}, 0.25)
-            if Tab_Data.Icon then Animate_Element(Tab_Data.Icon, {ImageColor3 = Themes[Library_Api.Current_Theme].accentColor}, 0.25) end
+            Set_Theme_State(Tab_Label, "TextColor3", "textWhiteColor")
+            if Tab_Data.Icon then Set_Theme_State(Tab_Data.Icon, "ImageColor3", "accentColor") end
             Animate_Element(Tab_Indicator, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.25)
         end
 
@@ -1013,7 +1019,6 @@ function Library_Api:CreateWindow(Window_Name)
             function Elements:Label_Create(Name, Initial_Value)
                 local Label_Bg = Instance.new("Frame")
                 Label_Bg.Size = UDim2.new(1, 0, 0, 24)
-                Label_Bg.BackgroundTransparency = 0.21
                 Label_Bg.Parent = Target_Container
                 Bind_Color(Label_Bg, "BackgroundColor3", "elementBackground")
                 Register_Transparency(Label_Bg, 0.21)
@@ -1087,7 +1092,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Checkbox_Frame = Instance.new("Frame")
                 Checkbox_Frame.Size = UDim2.new(0, 14, 0, 14)
                 Checkbox_Frame.Position = UDim2.new(0, 2, 0.5, -7)
-                Checkbox_Frame.BackgroundTransparency = 0.21
                 Checkbox_Frame.Parent = Toggle_Button
                 Bind_Color(Checkbox_Frame, "BackgroundColor3", "elementBackground")
                 Register_Transparency(Checkbox_Frame, 0.21)
@@ -1114,19 +1118,19 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Toggle_Label, "TextColor3", "textDarkColor")
 
                 Library_Api.Registry[Flag] = function(New_State)
-                    Animate_Element(Checkbox_Frame, {BackgroundColor3 = New_State and Themes[Library_Api.Current_Theme].accentColor or Themes[Library_Api.Current_Theme].elementBackground}, 0.25)
-                    Animate_Element(Checkbox_Stroke, {Color = New_State and Themes[Library_Api.Current_Theme].accentColor or Themes[Library_Api.Current_Theme].borderColor}, 0.25)
-                    Animate_Element(Toggle_Label, {TextColor3 = New_State and Themes[Library_Api.Current_Theme].textWhiteColor or Themes[Library_Api.Current_Theme].textDarkColor}, 0.25)
+                    Set_Theme_State(Checkbox_Frame, "BackgroundColor3", New_State and "accentColor" or "elementBackground")
+                    Set_Theme_State(Checkbox_Stroke, "Color", New_State and "accentColor" or "borderColor")
+                    Set_Theme_State(Toggle_Label, "TextColor3", New_State and "textWhiteColor" or "textDarkColor")
                     if Callback then task.spawn(Callback, New_State) end
                 end
 
                 Toggle_Button.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    if not Library_Api.Flags[Flag] then Animate_Element(Checkbox_Stroke, {Color = Themes[Library_Api.Current_Theme].borderLightColor}, 0.2) end
+                    if not Library_Api.Flags[Flag] then Set_Theme_State(Checkbox_Stroke, "Color", "borderLightColor") end
                 end)
                 Toggle_Button.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    if not Library_Api.Flags[Flag] then Animate_Element(Checkbox_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2) end
+                    if not Library_Api.Flags[Flag] then Set_Theme_State(Checkbox_Stroke, "Color", "borderColor") end
                 end)
 
                 Toggle_Button.MouseButton1Click:Connect(function()
@@ -1181,7 +1185,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Slider_Background = Instance.new("TextButton")
                 Slider_Background.Size = UDim2.new(1, -4, 0, 6)
                 Slider_Background.Position = UDim2.new(0, 2, 0, 22)
-                Slider_Background.BackgroundTransparency = 0.21
                 Slider_Background.Text = ""
                 Slider_Background.AutoButtonColor = false
                 Slider_Background.Parent = Slider_Frame
@@ -1233,11 +1236,11 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Slider_Background.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    Animate_Element(Slider_Background_Stroke, {Color = Themes[Library_Api.Current_Theme].borderLightColor}, 0.2)
+                    Set_Theme_State(Slider_Background_Stroke, "Color", "borderLightColor")
                 end)
                 Slider_Background.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    Animate_Element(Slider_Background_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2)
+                    Set_Theme_State(Slider_Background_Stroke, "Color", "borderColor")
                 end)
 
                 local Is_Sliding = false
@@ -1327,7 +1330,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Range_Slider_Background = Instance.new("TextButton")
                 Range_Slider_Background.Size = UDim2.new(1, -4, 0, 6)
                 Range_Slider_Background.Position = UDim2.new(0, 2, 0, 22)
-                Range_Slider_Background.BackgroundTransparency = 0.21
                 Range_Slider_Background.Text = ""
                 Range_Slider_Background.AutoButtonColor = false
                 Range_Slider_Background.Parent = Range_Slider_Frame
@@ -1389,11 +1391,11 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Range_Slider_Background.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    Animate_Element(Range_Slider_Background_Stroke, {Color = Themes[Library_Api.Current_Theme].borderLightColor}, 0.2)
+                    Set_Theme_State(Range_Slider_Background_Stroke, "Color", "borderLightColor")
                 end)
                 Range_Slider_Background.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    Animate_Element(Range_Slider_Background_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2)
+                    Set_Theme_State(Range_Slider_Background_Stroke, "Color", "borderColor")
                 end)
 
                 local Is_Sliding_Min = false
@@ -1477,7 +1479,6 @@ function Library_Api:CreateWindow(Window_Name)
                 Textbox_Input_Background.AnchorPoint = Vector2.new(1, 0.5)
                 Textbox_Input_Background.Size = UDim2.new(1, -(labelWidth + 15), 0, 22)
                 Textbox_Input_Background.Position = UDim2.new(1, -4, 0.5, 0)
-                Textbox_Input_Background.BackgroundTransparency = 0.21
                 Textbox_Input_Background.Parent = Textbox_Frame
                 Bind_Color(Textbox_Input_Background, "BackgroundColor3", "elementBackground")
                 Register_Transparency(Textbox_Input_Background, 0.21)
@@ -1512,21 +1513,21 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Input_Text_Box.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    Animate_Element(Textbox_Input_Background_Stroke, {Color = Themes[Library_Api.Current_Theme].borderLightColor}, 0.2)
+                    if not Input_Text_Box:IsFocused() then Set_Theme_State(Textbox_Input_Background_Stroke, "Color", "borderLightColor") end
                 end)
                 Input_Text_Box.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    Animate_Element(Textbox_Input_Background_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2)
+                    if not Input_Text_Box:IsFocused() then Set_Theme_State(Textbox_Input_Background_Stroke, "Color", "borderColor") end
                 end)
 
                 Input_Text_Box.Focused:Connect(function()
-                    Animate_Element(Textbox_Input_Background_Stroke, {Color = Themes[Library_Api.Current_Theme].accentColor}, 0.2)
-                    Animate_Element(Input_Text_Box, {TextColor3 = Themes[Library_Api.Current_Theme].textWhiteColor}, 0.2)
+                    Set_Theme_State(Textbox_Input_Background_Stroke, "Color", "accentColor")
+                    Set_Theme_State(Input_Text_Box, "TextColor3", "textWhiteColor")
                 end)
 
                 Input_Text_Box.FocusLost:Connect(function()
-                    Animate_Element(Textbox_Input_Background_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2)
-                    Animate_Element(Input_Text_Box, {TextColor3 = Themes[Library_Api.Current_Theme].textDarkColor}, 0.2)
+                    Set_Theme_State(Textbox_Input_Background_Stroke, "Color", "borderColor")
+                    Set_Theme_State(Input_Text_Box, "TextColor3", "textDarkColor")
                     Library_Api.Registry[Flag](Input_Text_Box.Text)
                     Auto_Save()
                 end)
@@ -1550,7 +1551,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Keybind_Icon.BackgroundTransparency = 1
                 Keybind_Icon.Image = "rbxassetid://104798010403294"
                 Keybind_Icon.Parent = Keybind_Frame
-                Bind_Color(Keybind_Icon, "ImageColor3", "textWhiteColor")
+                Bind_Color(Keybind_Icon, "ImageColor3", "textDarkColor")
 
                 local Keybind_Label = Instance.new("TextLabel")
                 Keybind_Label.Size = UDim2.new(1, -100, 1, 0)
@@ -1568,7 +1569,6 @@ function Library_Api:CreateWindow(Window_Name)
                 Keybind_Button.AnchorPoint = Vector2.new(1, 0.5)
                 Keybind_Button.Size = UDim2.new(0, 70, 0, 20)
                 Keybind_Button.Position = UDim2.new(1, -4, 0.5, 0)
-                Keybind_Button.BackgroundTransparency = 0.21
                 Keybind_Button.Text = ""
                 Keybind_Button.TextSize = 10
                 Keybind_Button.Font = Bold_Font
@@ -1604,19 +1604,20 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Keybind_Button.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    if not Is_Listening then Animate_Element(Keybind_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderLightColor}, 0.2) end
+                    if not Is_Listening then Set_Theme_State(Keybind_Button_Stroke, "Color", "borderLightColor") end
                 end)
                 Keybind_Button.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    if not Is_Listening then Animate_Element(Keybind_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2) end
+                    if not Is_Listening then Set_Theme_State(Keybind_Button_Stroke, "Color", "borderColor") end
                 end)
 
                 Keybind_Button.MouseButton1Click:Connect(function()
                     Is_Listening = true
                     Keybind_Button.Text = "[ ... ]"
                     UpdateKeybindSize("[ ... ]")
-                    Animate_Element(Keybind_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].accentColor}, 0.25)
-                    Animate_Element(Keybind_Button, {TextColor3 = Themes[Library_Api.Current_Theme].textWhiteColor}, 0.25)
+                    Set_Theme_State(Keybind_Button_Stroke, "Color", "accentColor")
+                    Set_Theme_State(Keybind_Button, "TextColor3", "textWhiteColor")
+                    Set_Theme_State(Keybind_Icon, "ImageColor3", "accentColor")
                 end)
 
                 User_Input_Service.InputBegan:Connect(function(Input)
@@ -1629,8 +1630,9 @@ function Library_Api:CreateWindow(Window_Name)
                                 Library_Api.Registry[Flag](Key)
                             end
                             Is_Listening = false
-                            Animate_Element(Keybind_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.25)
-                            Animate_Element(Keybind_Button, {TextColor3 = Themes[Library_Api.Current_Theme].textDarkColor}, 0.25)
+                            Set_Theme_State(Keybind_Button_Stroke, "Color", "borderColor")
+                            Set_Theme_State(Keybind_Button, "TextColor3", "textDarkColor")
+                            Set_Theme_State(Keybind_Icon, "ImageColor3", "textDarkColor")
                             Auto_Save()
                         end
                     else
@@ -1670,7 +1672,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Dropdown_Main_Button = Instance.new("TextButton")
                 Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 22)
                 Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 20)
-                Dropdown_Main_Button.BackgroundTransparency = 0.21
                 Dropdown_Main_Button.Text = ""
                 Dropdown_Main_Button.AutoButtonColor = false
                 Dropdown_Main_Button.Parent = Dropdown_Frame
@@ -1709,7 +1710,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Dropdown_Option_List_Frame = Instance.new("ScrollingFrame")
                 Dropdown_Option_List_Frame.Size = UDim2.new(1, -4, 0, 0)
                 Dropdown_Option_List_Frame.Position = UDim2.new(0, 2, 0, 44)
-                Dropdown_Option_List_Frame.BackgroundTransparency = 0.21
                 Dropdown_Option_List_Frame.BorderSizePixel = 0
                 Dropdown_Option_List_Frame.ScrollBarThickness = 2
                 Dropdown_Option_List_Frame.ClipsDescendants = true
@@ -1738,8 +1738,9 @@ function Library_Api:CreateWindow(Window_Name)
                     Is_Dropdown_Open = not Is_Dropdown_Open
                     local Max_List_Height = math.min(#Options * 22, 110)
                     local Target_List_Height = Is_Dropdown_Open and Max_List_Height or 0
-                    Animate_Element(Dropdown_Main_Button_Stroke, {Color = Is_Dropdown_Open and Themes[Library_Api.Current_Theme].accentColor or Themes[Library_Api.Current_Theme].borderColor}, 0.25)
-                    Animate_Element(Dropdown_Arrow_Icon, {Rotation = Is_Dropdown_Open and 180 or 0, ImageColor3 = Is_Dropdown_Open and Themes[Library_Api.Current_Theme].accentColor or Themes[Library_Api.Current_Theme].textDarkColor}, 0.25)
+                    Set_Theme_State(Dropdown_Main_Button_Stroke, "Color", Is_Dropdown_Open and "accentColor" or "borderColor")
+                    Set_Theme_State(Dropdown_Arrow_Icon, "ImageColor3", Is_Dropdown_Open and "accentColor" or "textDarkColor")
+                    Animate_Element(Dropdown_Arrow_Icon, {Rotation = Is_Dropdown_Open and 180 or 0}, 0.25)
                     Animate_Element(Dropdown_Option_List_Frame, {Size = UDim2.new(1, -4, 0, Target_List_Height)}, 0.25)
                     Animate_Element(Dropdown_Option_List_Stroke, {Transparency = Is_Dropdown_Open and 0 or 1}, 0.25)
                     Animate_Element(Dropdown_Frame, {Size = UDim2.new(1, 0, 0, 42 + Target_List_Height + (Is_Dropdown_Open and 4 or 0))}, 0.25)
@@ -1747,11 +1748,11 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Dropdown_Main_Button.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    if not Is_Dropdown_Open then Animate_Element(Dropdown_Main_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderLightColor}, 0.2) end
+                    if not Is_Dropdown_Open then Set_Theme_State(Dropdown_Main_Button_Stroke, "Color", "borderLightColor") end
                 end)
                 Dropdown_Main_Button.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    if not Is_Dropdown_Open then Animate_Element(Dropdown_Main_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2) end
+                    if not Is_Dropdown_Open then Set_Theme_State(Dropdown_Main_Button_Stroke, "Color", "borderColor") end
                 end)
                 Dropdown_Main_Button.MouseButton1Click:Connect(Toggle_Dropdown_State)
 
@@ -1779,21 +1780,15 @@ function Library_Api:CreateWindow(Window_Name)
                         Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
                         Option_Label.ZIndex = 6
                         Option_Label.Parent = Option_Button
-                        
-                        table.insert(Library_Api.Theme_Objects, {Obj = Option_Label, Prop = "TextColor3", Key = (Library_Api.Flags[Flag] == Option and "accentColor" or "textDarkColor")})
-                        Option_Label.TextColor3 = Themes[Library_Api.Current_Theme][(Library_Api.Flags[Flag] == Option and "accentColor" or "textDarkColor")]
+                        Bind_Color(Option_Label, "TextColor3", Library_Api.Flags[Flag] == Option and "accentColor" or "textDarkColor")
 
                         Option_Button.MouseEnter:Connect(function() 
                             Animate_Element(Option_Button, {BackgroundTransparency = 0.21}, 0.2)
-                            if Library_Api.Flags[Flag] ~= Option then
-                                Animate_Element(Option_Label, {TextColor3 = Themes[Library_Api.Current_Theme].textWhiteColor}, 0.2) 
-                            end
+                            if Library_Api.Flags[Flag] ~= Option then Set_Theme_State(Option_Label, "TextColor3", "textWhiteColor") end
                         end)
                         Option_Button.MouseLeave:Connect(function()
                             Animate_Element(Option_Button, {BackgroundTransparency = 1}, 0.2)
-                            if Library_Api.Flags[Flag] ~= Option then
-                                Animate_Element(Option_Label, {TextColor3 = Themes[Library_Api.Current_Theme].textDarkColor}, 0.2)
-                            end
+                            if Library_Api.Flags[Flag] ~= Option then Set_Theme_State(Option_Label, "TextColor3", "textDarkColor") end
                         end)
 
                         Option_Button.MouseButton1Click:Connect(function()
@@ -1811,13 +1806,7 @@ function Library_Api:CreateWindow(Window_Name)
                     for _, Child in ipairs(Dropdown_Option_List_Frame:GetChildren()) do
                         if Child:IsA("TextButton") then
                             local Lbl = Child:FindFirstChildOfClass("TextLabel")
-                            if Lbl then
-                                local isSel = (Lbl.Text == New_Val)
-                                for _, d in ipairs(Library_Api.Theme_Objects) do
-                                    if d.Obj == Lbl then d.Key = isSel and "accentColor" or "textDarkColor" end
-                                end
-                                Animate_Element(Lbl, {TextColor3 = Themes[Library_Api.Current_Theme][isSel and "accentColor" or "textDarkColor"]}, 0.25)
-                            end
+                            if Lbl then Set_Theme_State(Lbl, "TextColor3", Lbl.Text == New_Val and "accentColor" or "textDarkColor") end
                         end
                     end
                     if Callback then task.spawn(Callback, New_Val) end
@@ -1859,7 +1848,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Dropdown_Main_Button = Instance.new("TextButton")
                 Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 22)
                 Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 20)
-                Dropdown_Main_Button.BackgroundTransparency = 0.21
                 Dropdown_Main_Button.Text = ""
                 Dropdown_Main_Button.AutoButtonColor = false
                 Dropdown_Main_Button.Parent = Dropdown_Frame
@@ -1897,7 +1885,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Dropdown_Option_List_Frame = Instance.new("ScrollingFrame")
                 Dropdown_Option_List_Frame.Size = UDim2.new(1, -4, 0, 0)
                 Dropdown_Option_List_Frame.Position = UDim2.new(0, 2, 0, 44)
-                Dropdown_Option_List_Frame.BackgroundTransparency = 0.21
                 Dropdown_Option_List_Frame.BorderSizePixel = 0
                 Dropdown_Option_List_Frame.ScrollBarThickness = 2
                 Dropdown_Option_List_Frame.ClipsDescendants = true
@@ -1926,8 +1913,9 @@ function Library_Api:CreateWindow(Window_Name)
                     Is_Dropdown_Open = not Is_Dropdown_Open
                     local Max_List_Height = math.min(#Options * 22, 110)
                     local Target_List_Height = Is_Dropdown_Open and Max_List_Height or 0
-                    Animate_Element(Dropdown_Main_Button_Stroke, {Color = Is_Dropdown_Open and Themes[Library_Api.Current_Theme].accentColor or Themes[Library_Api.Current_Theme].borderColor}, 0.25)
-                    Animate_Element(Dropdown_Arrow_Icon, {Rotation = Is_Dropdown_Open and 180 or 0, ImageColor3 = Is_Dropdown_Open and Themes[Library_Api.Current_Theme].accentColor or Themes[Library_Api.Current_Theme].textDarkColor}, 0.25)
+                    Set_Theme_State(Dropdown_Main_Button_Stroke, "Color", Is_Dropdown_Open and "accentColor" or "borderColor")
+                    Set_Theme_State(Dropdown_Arrow_Icon, "ImageColor3", Is_Dropdown_Open and "accentColor" or "textDarkColor")
+                    Animate_Element(Dropdown_Arrow_Icon, {Rotation = Is_Dropdown_Open and 180 or 0}, 0.25)
                     Animate_Element(Dropdown_Option_List_Frame, {Size = UDim2.new(1, -4, 0, Target_List_Height)}, 0.25)
                     Animate_Element(Dropdown_Option_List_Stroke, {Transparency = Is_Dropdown_Open and 0 or 1}, 0.25)
                     Animate_Element(Dropdown_Frame, {Size = UDim2.new(1, 0, 0, 42 + Target_List_Height + (Is_Dropdown_Open and 4 or 0))}, 0.25)
@@ -1935,11 +1923,11 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Dropdown_Main_Button.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    if not Is_Dropdown_Open then Animate_Element(Dropdown_Main_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderLightColor}, 0.2) end
+                    if not Is_Dropdown_Open then Set_Theme_State(Dropdown_Main_Button_Stroke, "Color", "borderLightColor") end
                 end)
                 Dropdown_Main_Button.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    if not Is_Dropdown_Open then Animate_Element(Dropdown_Main_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2) end
+                    if not Is_Dropdown_Open then Set_Theme_State(Dropdown_Main_Button_Stroke, "Color", "borderColor") end
                 end)
                 Dropdown_Main_Button.MouseButton1Click:Connect(Toggle_Dropdown_State)
 
@@ -1954,13 +1942,7 @@ function Library_Api:CreateWindow(Window_Name)
                     for _, Child in ipairs(Dropdown_Option_List_Frame:GetChildren()) do
                         if Child:IsA("TextButton") then
                             local Lbl = Child:FindFirstChildOfClass("TextLabel")
-                            if Lbl then
-                                local isSel = table.find(New_Array, Lbl.Text) ~= nil
-                                for _, d in ipairs(Library_Api.Theme_Objects) do
-                                    if d.Obj == Lbl then d.Key = isSel and "accentColor" or "textDarkColor" end
-                                end
-                                Animate_Element(Lbl, {TextColor3 = Themes[Library_Api.Current_Theme][isSel and "accentColor" or "textDarkColor"]}, 0.25)
-                            end
+                            if Lbl then Set_Theme_State(Lbl, "TextColor3", table.find(New_Array, Lbl.Text) ~= nil and "accentColor" or "textDarkColor") end
                         end
                     end
                     if Callback then task.spawn(Callback, New_Array) end
@@ -1986,21 +1968,15 @@ function Library_Api:CreateWindow(Window_Name)
                     Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
                     Option_Label.ZIndex = 6
                     Option_Label.Parent = Option_Button
-                    
-                    table.insert(Library_Api.Theme_Objects, {Obj = Option_Label, Prop = "TextColor3", Key = (table.find(Library_Api.Flags[Flag], Option) ~= nil and "accentColor" or "textDarkColor")})
-                    Option_Label.TextColor3 = Themes[Library_Api.Current_Theme][table.find(Library_Api.Flags[Flag], Option) ~= nil and "accentColor" or "textDarkColor"]
+                    Bind_Color(Option_Label, "TextColor3", table.find(Library_Api.Flags[Flag], Option) ~= nil and "accentColor" or "textDarkColor")
 
                     Option_Button.MouseEnter:Connect(function() 
                         Animate_Element(Option_Button, {BackgroundTransparency = 0.21}, 0.2)
-                        if table.find(Library_Api.Flags[Flag], Option) == nil then
-                            Animate_Element(Option_Label, {TextColor3 = Themes[Library_Api.Current_Theme].textWhiteColor}, 0.2) 
-                        end
+                        if table.find(Library_Api.Flags[Flag], Option) == nil then Set_Theme_State(Option_Label, "TextColor3", "textWhiteColor") end
                     end)
                     Option_Button.MouseLeave:Connect(function()
                         Animate_Element(Option_Button, {BackgroundTransparency = 1}, 0.2)
-                        if table.find(Library_Api.Flags[Flag], Option) == nil then
-                            Animate_Element(Option_Label, {TextColor3 = Themes[Library_Api.Current_Theme].textDarkColor}, 0.2)
-                        end
+                        if table.find(Library_Api.Flags[Flag], Option) == nil then Set_Theme_State(Option_Label, "TextColor3", "textDarkColor") end
                     end)
 
                     Option_Button.MouseButton1Click:Connect(function()
@@ -2050,9 +2026,9 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Color_Picker_Label, "TextColor3", "textWhiteColor")
 
                 local Color_Preview_Button = Instance.new("TextButton")
-                Color_Preview_Button.AnchorPoint = Vector2.new(1, 0.5)
+                Color_Preview_Button.AnchorPoint = Vector2.new(1, 0)
                 Color_Preview_Button.Size = UDim2.new(0, 30, 0, 14)
-                Color_Preview_Button.Position = UDim2.new(1, -4, 0.5, 0)
+                Color_Preview_Button.Position = UDim2.new(1, -4, 0, 5)
                 Color_Preview_Button.BackgroundColor3 = Library_Api.Flags[Flag]
                 Color_Preview_Button.Text = ""
                 Color_Preview_Button.AutoButtonColor = false
@@ -2070,7 +2046,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Expanded_Picker_Frame = Instance.new("Frame")
                 Expanded_Picker_Frame.Size = UDim2.new(1, -4, 0, 114)
                 Expanded_Picker_Frame.Position = UDim2.new(0, 2, 0, 28)
-                Expanded_Picker_Frame.BackgroundTransparency = 0.21
                 Expanded_Picker_Frame.Parent = Color_Picker_Frame
                 Bind_Color(Expanded_Picker_Frame, "BackgroundColor3", "elementBackground")
                 Register_Transparency(Expanded_Picker_Frame, 0.21)
@@ -2204,16 +2179,16 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Color_Preview_Button.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    if not Is_Color_Picker_Open then Animate_Element(Color_Preview_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderLightColor}, 0.2) end
+                    if not Is_Color_Picker_Open then Set_Theme_State(Color_Preview_Button_Stroke, "Color", "borderLightColor") end
                 end)
                 Color_Preview_Button.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    if not Is_Color_Picker_Open then Animate_Element(Color_Preview_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2) end
+                    if not Is_Color_Picker_Open then Set_Theme_State(Color_Preview_Button_Stroke, "Color", "borderColor") end
                 end)
 
                 Color_Preview_Button.MouseButton1Click:Connect(function()
                     Is_Color_Picker_Open = not Is_Color_Picker_Open
-                    Animate_Element(Color_Preview_Button_Stroke, {Color = Is_Color_Picker_Open and Themes[Library_Api.Current_Theme].accentColor or Themes[Library_Api.Current_Theme].borderColor}, 0.25)
+                    Set_Theme_State(Color_Preview_Button_Stroke, "Color", Is_Color_Picker_Open and "accentColor" or "borderColor")
                     Animate_Element(Color_Picker_Frame, {Size = UDim2.new(1, 0, 0, Is_Color_Picker_Open and 146 or 24)}, 0.25)
                 end)
                 
@@ -2229,7 +2204,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Action_Button = Instance.new("TextButton")
                 Action_Button.Size = UDim2.new(1, -4, 1, 0)
                 Action_Button.Position = UDim2.new(0, 2, 0, 0)
-                Action_Button.BackgroundTransparency = 0.21
                 Action_Button.Text = Name
                 Action_Button.TextSize = 11
                 Action_Button.Font = Bold_Font
@@ -2251,15 +2225,15 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Action_Button.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    Animate_Element(Action_Button, {BackgroundColor3 = Themes[Library_Api.Current_Theme].elementHoverBackground}, 0.2)
-                    Animate_Element(Action_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].accentColor}, 0.2)
-                    Animate_Element(Action_Button, {TextColor3 = Themes[Library_Api.Current_Theme].accentColor}, 0.2)
+                    Set_Theme_State(Action_Button, "BackgroundColor3", "elementHoverBackground")
+                    Set_Theme_State(Action_Button_Stroke, "Color", "accentColor")
+                    Set_Theme_State(Action_Button, "TextColor3", "accentColor")
                 end)
                 Action_Button.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    Animate_Element(Action_Button, {BackgroundColor3 = Themes[Library_Api.Current_Theme].elementBackground}, 0.2)
-                    Animate_Element(Action_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2)
-                    Animate_Element(Action_Button, {TextColor3 = Themes[Library_Api.Current_Theme].textWhiteColor}, 0.2)
+                    Set_Theme_State(Action_Button, "BackgroundColor3", "elementBackground")
+                    Set_Theme_State(Action_Button_Stroke, "Color", "borderColor")
+                    Set_Theme_State(Action_Button, "TextColor3", "textWhiteColor")
                 end)
                 Action_Button.MouseButton1Down:Connect(function() Animate_Element(Action_Button, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.15) end)
                 Action_Button.MouseButton1Up:Connect(function()
@@ -2277,7 +2251,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Sub_Button_Action = Instance.new("TextButton")
                 Sub_Button_Action.Size = UDim2.new(1, -16, 1, 0)
                 Sub_Button_Action.Position = UDim2.new(0, 8, 0, 0)
-                Sub_Button_Action.BackgroundTransparency = 0.21
                 Sub_Button_Action.Text = Name
                 Sub_Button_Action.TextSize = 10
                 Sub_Button_Action.Font = Main_Font
@@ -2299,15 +2272,15 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Sub_Button_Action.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    Animate_Element(Sub_Button_Action, {BackgroundColor3 = Themes[Library_Api.Current_Theme].elementBackground}, 0.2)
-                    Animate_Element(Sub_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderLightColor}, 0.2)
-                    Animate_Element(Sub_Button_Action, {TextColor3 = Themes[Library_Api.Current_Theme].textWhiteColor}, 0.2)
+                    Set_Theme_State(Sub_Button_Action, "BackgroundColor3", "elementBackground")
+                    Set_Theme_State(Sub_Button_Stroke, "Color", "borderLightColor")
+                    Set_Theme_State(Sub_Button_Action, "TextColor3", "textWhiteColor")
                 end)
                 Sub_Button_Action.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    Animate_Element(Sub_Button_Action, {BackgroundColor3 = Themes[Library_Api.Current_Theme].sectionBackground}, 0.2)
-                    Animate_Element(Sub_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2)
-                    Animate_Element(Sub_Button_Action, {TextColor3 = Themes[Library_Api.Current_Theme].textDarkColor}, 0.2)
+                    Set_Theme_State(Sub_Button_Action, "BackgroundColor3", "sectionBackground")
+                    Set_Theme_State(Sub_Button_Stroke, "Color", "borderColor")
+                    Set_Theme_State(Sub_Button_Action, "TextColor3", "textDarkColor")
                 end)
                 Sub_Button_Action.MouseButton1Down:Connect(function() Animate_Element(Sub_Button_Action, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.15) end)
                 Sub_Button_Action.MouseButton1Up:Connect(function()
@@ -2328,7 +2301,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Module_Toggle_Button = Instance.new("TextButton")
                 Module_Toggle_Button.Size = UDim2.new(1, -4, 0, 38)
                 Module_Toggle_Button.Position = UDim2.new(0, 2, 0, 0)
-                Module_Toggle_Button.BackgroundTransparency = 0.21
                 Module_Toggle_Button.Text = ""
                 Module_Toggle_Button.AutoButtonColor = false
                 Module_Toggle_Button.Parent = Module_Frame
@@ -2347,7 +2319,6 @@ function Library_Api:CreateWindow(Window_Name)
                 local Module_Checkbox_Frame = Instance.new("Frame")
                 Module_Checkbox_Frame.Size = UDim2.new(0, 14, 0, 14)
                 Module_Checkbox_Frame.Position = UDim2.new(0, 12, 0.5, -7)
-                Module_Checkbox_Frame.BackgroundTransparency = 0.21
                 Module_Checkbox_Frame.Parent = Module_Toggle_Button
                 Bind_Color(Module_Checkbox_Frame, "BackgroundColor3", "sectionBackground")
                 Register_Transparency(Module_Checkbox_Frame, 0.21)
@@ -2407,10 +2378,10 @@ function Library_Api:CreateWindow(Window_Name)
                 local function Synchronize_Module_Size()
                     if Library_Api.Flags[Flag] then
                         Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 40 + Module_Content_Layout.AbsoluteContentSize.Y + 8)}, 0.25)
-                        Animate_Element(Module_Arrow_Icon, {Rotation = 180, ImageColor3 = Themes[Library_Api.Current_Theme].accentColor}, 0.25)
+                        Animate_Element(Module_Arrow_Icon, {Rotation = 180}, 0.25)
                     else
                         Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 40)}, 0.25)
-                        Animate_Element(Module_Arrow_Icon, {Rotation = 0, ImageColor3 = Themes[Library_Api.Current_Theme].textDarkColor}, 0.25)
+                        Animate_Element(Module_Arrow_Icon, {Rotation = 0}, 0.25)
                     end
                 end
 
@@ -2420,20 +2391,21 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Library_Api.Registry[Flag] = function(New_State)
                     Library_Api.Flags[Flag] = New_State
-                    Animate_Element(Module_Checkbox_Frame, {BackgroundColor3 = New_State and Themes[Library_Api.Current_Theme].accentColor or Themes[Library_Api.Current_Theme].sectionBackground}, 0.25)
-                    Animate_Element(Module_Toggle_Button_Stroke, {Color = New_State and Themes[Library_Api.Current_Theme].accentColor or Themes[Library_Api.Current_Theme].borderColor}, 0.25)
-                    Animate_Element(Module_Label, {TextColor3 = New_State and Themes[Library_Api.Current_Theme].textWhiteColor or Themes[Library_Api.Current_Theme].textDarkColor}, 0.25)
+                    Set_Theme_State(Module_Checkbox_Frame, "BackgroundColor3", New_State and "accentColor" or "sectionBackground")
+                    Set_Theme_State(Module_Toggle_Button_Stroke, "Color", New_State and "accentColor" or "borderColor")
+                    Set_Theme_State(Module_Label, "TextColor3", New_State and "textWhiteColor" or "textDarkColor")
+                    Set_Theme_State(Module_Arrow_Icon, "ImageColor3", New_State and "accentColor" or "textDarkColor")
                     Synchronize_Module_Size()
                     if Callback then task.spawn(Callback, New_State) end
                 end
 
                 Module_Toggle_Button.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    if not Library_Api.Flags[Flag] then Animate_Element(Module_Toggle_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderLightColor}, 0.2) end
+                    if not Library_Api.Flags[Flag] then Set_Theme_State(Module_Toggle_Button_Stroke, "Color", "borderLightColor") end
                 end)
                 Module_Toggle_Button.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    if not Library_Api.Flags[Flag] then Animate_Element(Module_Toggle_Button_Stroke, {Color = Themes[Library_Api.Current_Theme].borderColor}, 0.2) end
+                    if not Library_Api.Flags[Flag] then Set_Theme_State(Module_Toggle_Button_Stroke, "Color", "borderColor") end
                 end)
 
                 Module_Toggle_Button.MouseButton1Click:Connect(function()
@@ -2452,7 +2424,6 @@ function Library_Api:CreateWindow(Window_Name)
         function Tab_Data:Section_Create(Column_Side, Section_Title)
             local Section_Background_Frame = Instance.new("Frame")
             Section_Background_Frame.Size = UDim2.new(1, 0, 0, 38)
-            Section_Background_Frame.BackgroundTransparency = 0.21
             Section_Background_Frame.ClipsDescendants = true
             Section_Background_Frame.Parent = (Column_Side == "Left") and Left_Column_Frame or Right_Column_Frame
             Bind_Color(Section_Background_Frame, "BackgroundColor3", "sectionBackground")
@@ -2541,6 +2512,7 @@ function Library_Api:CreateWindow(Window_Name)
     
     Left_Settings:Keybind_Create("Menu Toggle", "Menu_Toggle_Key", Enum.KeyCode.Delete, "Toggle Menu Visibility", function()
         Main_Background.Visible = not Main_Background.Visible
+        Update_Global_Blur()
     end)
     
     Left_Settings:Toggle_Create("Keybinds List", "Show_Keybinds", false, "Toggle Keybinds Tracker", function(State)
@@ -2566,6 +2538,7 @@ function Library_Api:CreateWindow(Window_Name)
         for _, Obj in ipairs(Library_Api.Acrylic_Objects) do
             if Obj and Obj.Parent then Obj.Visible = State end
         end
+        Update_Global_Blur()
     end)
 
     Left_Settings:Toggle_Create("Enable Transparency", "Global_Trans", true, "Toggle element transparency", function(State)
