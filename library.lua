@@ -86,41 +86,71 @@ function Library_Api:UpdateTheme(New_Color)
 end
 
 local function Save_To_File(FileName)
-    pcall(function()
-        if not isfolder(Library_Api.Folder_Name) then
-            makefolder(Library_Api.Folder_Name)
-        end
-        local Serialized_Data = {}
-        for Key, Val in pairs(Library_Api.Flags) do
-            if typeof(Val) == "Color3" then
-                Serialized_Data[Key] = {Type = "Color3", R = Val.R, G = Val.G, B = Val.B}
-            elseif typeof(Val) == "EnumItem" then
-                Serialized_Data[Key] = {Type = "EnumItem", EnumType = tostring(Val.EnumType), Name = Val.Name}
-            elseif type(Val) == "table" and Val.Min ~= nil and Val.Max ~= nil then
-                Serialized_Data[Key] = {Type = "Range", Min = Val.Min, Max = Val.Max}
-            elseif type(Val) == "table" then
-                Serialized_Data[Key] = {Type = "Array", Data = Val}
-            else
-                Serialized_Data[Key] = Val
+    task.spawn(function()
+        pcall(function()
+            if type(isfolder) == "function" and not isfolder(Library_Api.Folder_Name) then
+                makefolder(Library_Api.Folder_Name)
+            elseif type(makefolder) == "function" then
+                pcall(makefolder, Library_Api.Folder_Name)
             end
-        end
-        if Library_Api.Instances.Menu then
-            local pos = Library_Api.Instances.Menu.Position
-            Serialized_Data["$$MenuPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
-        end
-        if Library_Api.Instances.Keybinds then
-            local pos = Library_Api.Instances.Keybinds.Position
-            Serialized_Data["$$KbPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
-        end
-        writefile(Library_Api.Folder_Name .. "/" .. FileName, Http_Service:JSONEncode(Serialized_Data))
+        end)
+        
+        pcall(function()
+            local Serialized_Data = {}
+            for Key, Val in pairs(Library_Api.Flags) do
+                if typeof(Val) == "Color3" then
+                    Serialized_Data[Key] = {Type = "Color3", R = Val.R, G = Val.G, B = Val.B}
+                elseif typeof(Val) == "EnumItem" then
+                    Serialized_Data[Key] = {Type = "EnumItem", EnumType = tostring(Val.EnumType), Name = Val.Name}
+                elseif type(Val) == "table" and Val.Min ~= nil and Val.Max ~= nil then
+                    Serialized_Data[Key] = {Type = "Range", Min = Val.Min, Max = Val.Max}
+                elseif type(Val) == "table" then
+                    Serialized_Data[Key] = {Type = "Array", Data = Val}
+                else
+                    Serialized_Data[Key] = Val
+                end
+            end
+            if Library_Api.Instances.Menu then
+                local pos = Library_Api.Instances.Menu.Position
+                Serialized_Data["$$MenuPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
+            end
+            if Library_Api.Instances.Keybinds then
+                local pos = Library_Api.Instances.Keybinds.Position
+                Serialized_Data["$$KbPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
+            end
+            writefile(Library_Api.Folder_Name .. "/" .. FileName, Http_Service:JSONEncode(Serialized_Data))
+        end)
     end)
 end
 
+local Save_Pending = false
+local Last_Save_Time = tick()
+
+local function Auto_Save()
+    if Save_Pending then return end
+    Save_Pending = true
+    task.delay(1, function()
+        Save_To_File(Library_Api.Config_Name)
+        Last_Save_Time = tick()
+        Save_Pending = false
+    end)
+end
+
+Run_Service.Heartbeat:Connect(function()
+    if tick() - Last_Save_Time >= 5 then
+        Last_Save_Time = tick()
+        Save_To_File(Library_Api.Config_Name)
+    end
+end)
+
 local function Load_From_File(FileName)
-    pcall(function()
-        local Full_Path = Library_Api.Folder_Name .. "/" .. FileName
-        if isfile(Full_Path) then
-            local Decoded_Data = Http_Service:JSONDecode(readfile(Full_Path))
+    local success, content = pcall(function()
+        return readfile(Library_Api.Folder_Name .. "/" .. FileName)
+    end)
+    
+    if success and content then
+        pcall(function()
+            local Decoded_Data = Http_Service:JSONDecode(content)
             if type(Decoded_Data) == "table" then
                 for Key, Val in pairs(Decoded_Data) do
                     if Key == "$$MenuPos" then
@@ -162,17 +192,11 @@ local function Load_From_File(FileName)
                     end
                 end
             end
-        end
-    end)
+        end)
+    end
 end
 
 Load_From_File(Library_Api.Config_Name)
-
-task.spawn(function()
-    while task.wait(5) do
-        Save_To_File(Library_Api.Config_Name)
-    end
-end)
 
 local Tooltip_Frame = Instance.new("Frame")
 Tooltip_Frame.BackgroundColor3 = Hub_Colors.tooltipBackground
@@ -323,6 +347,7 @@ User_Input_Service.InputChanged:Connect(function(Input)
     if Input == Kb_Drag_Input and Kb_Dragging then
         local Delta = Input.Position - Kb_Drag_Start
         Library_Api.Instances.KeybindsTarget = UDim2.new(Kb_Start_Pos.X.Scale, Kb_Start_Pos.X.Offset + Delta.X, Kb_Start_Pos.Y.Scale, Kb_Start_Pos.Y.Offset + Delta.Y)
+        Auto_Save()
     end
 end)
 
@@ -802,6 +827,7 @@ function Library_Api:CreateWindow(Window_Name)
         if Input == Main_Drag_Input and Main_Dragging then
             local Delta = Input.Position - Main_Drag_Start
             Library_Api.Instances.MenuTargetPos = UDim2.new(Main_Start_Pos.X.Scale, Main_Start_Pos.X.Offset + (Delta.X / Ui_Scale_Modifier.Scale), Main_Start_Pos.Y.Scale, Main_Start_Pos.Y.Offset + (Delta.Y / Ui_Scale_Modifier.Scale))
+            Auto_Save()
         end
     end)
 
@@ -1054,6 +1080,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Toggle_Button.MouseButton1Click:Connect(function()
                     Library_Api.Flags[Flag] = not Library_Api.Flags[Flag]
                     Library_Api.Registry[Flag](Library_Api.Flags[Flag])
+                    Auto_Save()
                 end)
                 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
@@ -1165,7 +1192,10 @@ function Library_Api:CreateWindow(Window_Name)
                         local Percentage = math.clamp((Input.Position.X - Slider_Background.AbsolutePosition.X) / Slider_Background.AbsoluteSize.X, 0, 1)
                         Library_Api.Registry[Flag](Min + ((Max - Min) * Percentage))
                         Input.Changed:Connect(function()
-                            if Input.UserInputState == Enum.UserInputState.End then Is_Sliding = false end
+                            if Input.UserInputState == Enum.UserInputState.End then
+                                Is_Sliding = false
+                                Auto_Save()
+                            end
                         end)
                     end
                 end)
@@ -1187,6 +1217,7 @@ function Library_Api:CreateWindow(Window_Name)
                     local Input_Value = tonumber(Value_Text_Box.Text)
                     if Input_Value then
                         Library_Api.Registry[Flag](Input_Value)
+                        Auto_Save()
                     else
                         Value_Text_Box.Text = Format_Value(Library_Api.Flags[Flag], Step)
                     end
@@ -1324,6 +1355,7 @@ function Library_Api:CreateWindow(Window_Name)
                             if Input.UserInputState == Enum.UserInputState.End then
                                 Is_Sliding_Min = false
                                 Is_Sliding_Max = false
+                                Auto_Save()
                             end
                         end)
                     end
@@ -1429,6 +1461,7 @@ function Library_Api:CreateWindow(Window_Name)
                     Animate_Element(Textbox_Input_Background_Stroke, {Color = Hub_Colors.borderColor}, 0.25)
                     Animate_Element(Input_Text_Box, {TextColor3 = Hub_Colors.textDarkColor}, 0.25)
                     Library_Api.Registry[Flag](Input_Text_Box.Text)
+                    Auto_Save()
                 end)
 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
@@ -1529,6 +1562,7 @@ function Library_Api:CreateWindow(Window_Name)
                             Is_Listening = false
                             Animate_Element(Keybind_Button_Stroke, {Color = Hub_Colors.borderColor}, 0.3)
                             Animate_Element(Keybind_Button, {TextColor3 = Hub_Colors.textDarkColor}, 0.3)
+                            Auto_Save()
                         end
                     else
                         if User_Input_Service:GetFocusedTextBox() then return end
@@ -1687,6 +1721,7 @@ function Library_Api:CreateWindow(Window_Name)
                         Option_Button.MouseButton1Click:Connect(function()
                             Library_Api.Registry[Flag](Option)
                             Toggle_Dropdown_State()
+                            Auto_Save()
                         end)
                     end
                     Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 24)
@@ -1884,6 +1919,7 @@ function Library_Api:CreateWindow(Window_Name)
                             table.insert(newArr, Option)
                         end
                         Library_Api.Registry[Flag](newArr)
+                        Auto_Save()
                     end)
                 end
                 Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 24)
@@ -2014,11 +2050,13 @@ function Library_Api:CreateWindow(Window_Name)
                     local S = math.clamp((Input.Position.X - Saturation_Value_Map.AbsolutePosition.X) / Saturation_Value_Map.AbsoluteSize.X, 0, 1)
                     local V = 1 - math.clamp((Input.Position.Y - Saturation_Value_Map.AbsolutePosition.Y) / Saturation_Value_Map.AbsoluteSize.Y, 0, 1)
                     Library_Api.Registry[Flag](Color3.fromHSV(Hue, S, V))
+                    Auto_Save()
                 end
 
                 local function Process_Hue(Input)
                     local H = math.clamp((Input.Position.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
                     Library_Api.Registry[Flag](Color3.fromHSV(H, Saturation, Value))
+                    Auto_Save()
                 end
 
                 Saturation_Value_Map.InputBegan:Connect(function(Input)
@@ -2288,6 +2326,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Module_Toggle_Button.MouseButton1Click:Connect(function()
                     Library_Api.Registry[Flag](not Library_Api.Flags[Flag])
+                    Auto_Save()
                 end)
                 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
@@ -2393,8 +2432,8 @@ function Library_Api:CreateWindow(Window_Name)
     
     local function Get_Configs()
         local List = {}
-        pcall(function()
-            if not isfolder("PhantomHub") then makefolder("PhantomHub") end
+        local success, _ = pcall(function()
+            if type(isfolder) == "function" and not isfolder("PhantomHub") then makefolder("PhantomHub") end
             for _, File in ipairs(listfiles("PhantomHub")) do
                 local Name = File:match("([^/\\]+)%.json$")
                 if Name and Name ~= "AutoSaveConfig" then table.insert(List, Name) end
