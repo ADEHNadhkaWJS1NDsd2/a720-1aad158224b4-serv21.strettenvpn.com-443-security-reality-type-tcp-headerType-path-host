@@ -104,25 +104,32 @@ local function Save_To_File(FileName)
                 Serialized_Data[Key] = Val
             end
         end
-        if Library_Api.Instances.Menu then
-            local pos = Library_Api.Instances.Menu.Position
+        if Library_Api.Instances.MenuTargetPos then
+            local pos = Library_Api.Instances.MenuTargetPos
             Serialized_Data["$$MenuPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
         end
-        if Library_Api.Instances.Keybinds then
-            local pos = Library_Api.Instances.Keybinds.Position
+        if Library_Api.Instances.KeybindsTarget then
+            local pos = Library_Api.Instances.KeybindsTarget
             Serialized_Data["$$KbPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
         end
-        writefile(Library_Api.Folder_Name .. "/" .. FileName, Http_Service:JSONEncode(Serialized_Data))
+        
+        local Success, JSON_String = pcall(function()
+            return Http_Service:JSONEncode(Serialized_Data)
+        end)
+        if Success then
+            writefile(Library_Api.Folder_Name .. "/" .. FileName, JSON_String)
+        end
     end)
 end
 
-local Save_Pending = false
+local Save_Timer = 0
 local function Auto_Save()
-    if Save_Pending then return end
-    Save_Pending = true
+    Save_Timer = tick()
+    local Capture_Time = Save_Timer
     task.delay(0.5, function()
-        Save_To_File(Library_Api.Config_Name)
-        Save_Pending = false
+        if Save_Timer == Capture_Time then
+            Save_To_File(Library_Api.Config_Name)
+        end
     end)
 end
 
@@ -1006,7 +1013,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:Toggle_Create(Name, Flag, Default, Tooltip, Callback)
-                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or false)
+                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or false end
 
                 local Toggle_Button = Instance.new("TextButton")
                 Toggle_Button.Size = UDim2.new(1, 0, 0, 16)
@@ -1067,7 +1074,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:Slider_Create(Name, Flag, Min, Max, Default, Step, Tooltip, Callback)
-                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or Snap_Value(Default or Min, Step)
+                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Snap_Value(Default or Min, Step) end
 
                 local Slider_Frame = Instance.new("Frame")
                 Slider_Frame.Size = UDim2.new(1, 0, 0, 36)
@@ -1206,9 +1213,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:RangeSlider_Create(Name, Flag, Min, Max, Default_Min, Default_Max, Step, Tooltip, Callback)
-                if not Library_Api.Flags[Flag] then
-                    Library_Api.Flags[Flag] = {Min = Snap_Value(Default_Min or Min, Step), Max = Snap_Value(Default_Max or Max, Step)}
-                end
+                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = {Min = Snap_Value(Default_Min or Min, Step), Max = Snap_Value(Default_Max or Max, Step)} end
 
                 local Range_Slider_Frame = Instance.new("Frame")
                 Range_Slider_Frame.Size = UDim2.new(1, 0, 0, 36)
@@ -1365,7 +1370,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:Textbox_Create(Name, Flag, Default, Tooltip, Callback)
-                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or "")
+                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or "" end
 
                 local Textbox_Frame = Instance.new("Frame")
                 Textbox_Frame.Size = UDim2.new(1, 0, 0, 36)
@@ -1418,9 +1423,17 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Library_Api.Registry[Flag] = function(New_Text)
                     Library_Api.Flags[Flag] = New_Text
-                    Input_Text_Box.Text = New_Text
-                    if Callback then task.spawn(Callback, New_Text) end
+                    if Input_Text_Box.Text ~= New_Text then
+                        Input_Text_Box.Text = New_Text
+                    end
                 end
+
+                Input_Text_Box:GetPropertyChangedSignal("Text"):Connect(function()
+                    if Library_Api.Flags[Flag] ~= Input_Text_Box.Text then
+                        Library_Api.Flags[Flag] = Input_Text_Box.Text
+                        Auto_Save()
+                    end
+                end)
 
                 Input_Text_Box.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
@@ -1439,15 +1452,15 @@ function Library_Api:CreateWindow(Window_Name)
                 Input_Text_Box.FocusLost:Connect(function()
                     Animate_Element(Textbox_Input_Background_Stroke, {Color = Hub_Colors.borderColor}, 0.25)
                     Animate_Element(Input_Text_Box, {TextColor3 = Hub_Colors.textDarkColor}, 0.25)
-                    Library_Api.Registry[Flag](Input_Text_Box.Text)
-                    Auto_Save()
+                    if Callback then task.spawn(Callback, Input_Text_Box.Text) end
                 end)
 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
+                if Callback then task.spawn(Callback, Library_Api.Flags[Flag]) end
             end
 
             function Elements:Keybind_Create(Name, Flag, Default, Tooltip, Callback)
-                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or Enum.KeyCode.Unknown)
+                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or Enum.KeyCode.Unknown end
                 Library_Api.Keybind_Names[Flag] = Name
                 local Is_Listening = false
 
@@ -1556,7 +1569,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:Dropdown_Create(Name, Flag, Options, Default, Tooltip, Callback)
-                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or Options[1])
+                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or Options[1] end
                 local Is_Dropdown_Open = false
 
                 local Dropdown_Frame = Instance.new("Frame")
@@ -1732,7 +1745,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:MultiDropdown_Create(Name, Flag, Options, Default, Tooltip, Callback)
-                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or {})
+                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or {} end
                 local Is_Dropdown_Open = false
 
                 local Dropdown_Frame = Instance.new("Frame")
@@ -1907,7 +1920,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:ColorPicker_Create(Name, Flag, Default, Tooltip, Callback)
-                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or Color3.new(1, 1, 1))
+                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or Color3.new(1, 1, 1) end
                 local Is_Color_Picker_Open = false
                 local Hue, Saturation, Value = Library_Api.Flags[Flag]:ToHSV()
 
@@ -2188,7 +2201,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:Module_Create(Name, Flag, Description_Text, Default, Tooltip, Callback)
-                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or false)
+                if Library_Api.Flags[Flag] == nil then Library_Api.Flags[Flag] = Default or false end
 
                 local Module_Frame = Instance.new("Frame")
                 Module_Frame.Size = UDim2.new(1, 0, 0, 46)
