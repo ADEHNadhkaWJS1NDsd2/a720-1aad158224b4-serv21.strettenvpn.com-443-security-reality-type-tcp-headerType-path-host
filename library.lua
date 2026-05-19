@@ -85,6 +85,99 @@ function Library_Api:UpdateTheme(New_Color)
     end
 end
 
+local function Save_To_File(FileName)
+    pcall(function()
+        if not isfolder(Library_Api.Folder_Name) then
+            makefolder(Library_Api.Folder_Name)
+        end
+        local Serialized_Data = {}
+        for Key, Val in pairs(Library_Api.Flags) do
+            if typeof(Val) == "Color3" then
+                Serialized_Data[Key] = {Type = "Color3", R = Val.R, G = Val.G, B = Val.B}
+            elseif typeof(Val) == "EnumItem" then
+                Serialized_Data[Key] = {Type = "EnumItem", EnumType = tostring(Val.EnumType), Name = Val.Name}
+            elseif type(Val) == "table" and Val.Min ~= nil and Val.Max ~= nil then
+                Serialized_Data[Key] = {Type = "Range", Min = Val.Min, Max = Val.Max}
+            elseif type(Val) == "table" then
+                Serialized_Data[Key] = {Type = "Array", Data = Val}
+            else
+                Serialized_Data[Key] = Val
+            end
+        end
+        if Library_Api.Instances.Menu then
+            local pos = Library_Api.Instances.Menu.Position
+            Serialized_Data["$$MenuPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
+        end
+        if Library_Api.Instances.Keybinds then
+            local pos = Library_Api.Instances.Keybinds.Position
+            Serialized_Data["$$KbPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
+        end
+        writefile(Library_Api.Folder_Name .. "/" .. FileName, Http_Service:JSONEncode(Serialized_Data))
+    end)
+end
+
+local Save_Pending = false
+local function Auto_Save()
+    if Save_Pending then return end
+    Save_Pending = true
+    task.delay(0.5, function()
+        Save_To_File(Library_Api.Config_Name)
+        Save_Pending = false
+    end)
+end
+
+local function Load_From_File(FileName)
+    pcall(function()
+        local Full_Path = Library_Api.Folder_Name .. "/" .. FileName
+        if isfile(Full_Path) then
+            local Decoded_Data = Http_Service:JSONDecode(readfile(Full_Path))
+            if type(Decoded_Data) == "table" then
+                for Key, Val in pairs(Decoded_Data) do
+                    if Key == "$$MenuPos" then
+                        local pos = UDim2.new(Val.X, Val.XOff, Val.Y, Val.YOff)
+                        Library_Api.Saved_Positions.Menu = pos
+                        if Library_Api.Instances.Menu then 
+                            Library_Api.Instances.Menu.Position = pos
+                            Library_Api.Instances.MenuTargetPos = pos 
+                        end
+                    elseif Key == "$$KbPos" then
+                        local pos = UDim2.new(Val.X, Val.XOff, Val.Y, Val.YOff)
+                        Library_Api.Saved_Positions.Keybinds = pos
+                        if Library_Api.Instances.Keybinds then 
+                            Library_Api.Instances.Keybinds.Position = pos
+                            Library_Api.Instances.KeybindsTarget = pos
+                        end
+                    elseif type(Val) == "table" then
+                        if Val.Type == "Color3" then
+                            Library_Api.Flags[Key] = Color3.new(Val.R, Val.G, Val.B)
+                        elseif Val.Type == "EnumItem" then
+                            local enumGroup = string.split(Val.EnumType, ".")[2]
+                            local enumType = Enum[enumGroup]
+                            if enumType then
+                                Library_Api.Flags[Key] = enumType[Val.Name] or Enum.KeyCode.Unknown
+                            end
+                        elseif Val.Type == "Range" then
+                            Library_Api.Flags[Key] = {Min = Val.Min, Max = Val.Max}
+                        elseif Val.Type == "Array" then
+                            Library_Api.Flags[Key] = Val.Data
+                        else
+                            Library_Api.Flags[Key] = Val
+                        end
+                    else
+                        Library_Api.Flags[Key] = Val
+                    end
+
+                    if Library_Api.Registry[Key] then
+                        task.spawn(Library_Api.Registry[Key], Library_Api.Flags[Key])
+                    end
+                end
+            end
+        end
+    end)
+end
+
+Load_From_File(Library_Api.Config_Name)
+
 local Tooltip_Frame = Instance.new("Frame")
 Tooltip_Frame.BackgroundColor3 = Hub_Colors.tooltipBackground
 Tooltip_Frame.BackgroundTransparency = 0.15
@@ -156,13 +249,14 @@ end
 
 local Keybinds_Frame = Instance.new("Frame")
 Keybinds_Frame.Size = UDim2.new(0, 220, 0, 30)
-Keybinds_Frame.Position = UDim2.new(0, 20, 0, 20)
+Keybinds_Frame.Position = Library_Api.Saved_Positions.Keybinds or UDim2.new(0, 20, 0, 20)
 Keybinds_Frame.BackgroundColor3 = Hub_Colors.mainBackground
 Keybinds_Frame.BackgroundTransparency = 0.1
 Keybinds_Frame.Visible = false
 Keybinds_Frame.Parent = Screen_Gui
 Apply_Acrylic_Effect(Keybinds_Frame, 0.9, UDim.new(0, 8))
 Library_Api.Instances.Keybinds = Keybinds_Frame
+Library_Api.Instances.KeybindsTarget = Keybinds_Frame.Position
 
 local Kb_Corner = Instance.new("UICorner")
 Kb_Corner.CornerRadius = UDim.new(0, 8)
@@ -210,14 +304,13 @@ local Kb_Dragging = false
 local Kb_Drag_Input = nil
 local Kb_Drag_Start = nil
 local Kb_Start_Pos = nil
-local Kb_Target_Pos = Keybinds_Frame.Position
 
 Kb_Top.InputBegan:Connect(function(Input)
     if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
         Kb_Dragging = true
         Kb_Drag_Start = Input.Position
         Kb_Start_Pos = Keybinds_Frame.Position
-        Kb_Target_Pos = Kb_Start_Pos
+        Library_Api.Instances.KeybindsTarget = Kb_Start_Pos
         Input.Changed:Connect(function()
             if Input.UserInputState == Enum.UserInputState.End then Kb_Dragging = false end
         end)
@@ -233,13 +326,14 @@ end)
 User_Input_Service.InputChanged:Connect(function(Input)
     if Input == Kb_Drag_Input and Kb_Dragging then
         local Delta = Input.Position - Kb_Drag_Start
-        Kb_Target_Pos = UDim2.new(Kb_Start_Pos.X.Scale, Kb_Start_Pos.X.Offset + Delta.X, Kb_Start_Pos.Y.Scale, Kb_Start_Pos.Y.Offset + Delta.Y)
+        Library_Api.Instances.KeybindsTarget = UDim2.new(Kb_Start_Pos.X.Scale, Kb_Start_Pos.X.Offset + Delta.X, Kb_Start_Pos.Y.Scale, Kb_Start_Pos.Y.Offset + Delta.Y)
+        Auto_Save()
     end
 end)
 
 Run_Service.RenderStepped:Connect(function()
     if Keybinds_Frame.Visible then
-        Keybinds_Frame.Position = Keybinds_Frame.Position:Lerp(Kb_Target_Pos, 0.4)
+        Keybinds_Frame.Position = Keybinds_Frame.Position:Lerp(Library_Api.Instances.KeybindsTarget, 0.4)
     end
 end)
 
@@ -320,87 +414,6 @@ local function Format_Value(Value, Step)
     end
     return tostring(Value)
 end
-
-local function Save_Configuration()
-    pcall(function()
-        if not isfolder or not writefile then return end
-        if not isfolder(Library_Api.Folder_Name) then
-            makefolder(Library_Api.Folder_Name)
-        end
-        local Serialized_Data = {}
-        for Key, Val in pairs(Library_Api.Flags) do
-            if typeof(Val) == "Color3" then
-                Serialized_Data[Key] = {Type = "Color3", R = Val.R, G = Val.G, B = Val.B}
-            elseif typeof(Val) == "EnumItem" then
-                Serialized_Data[Key] = {Type = "EnumItem", Enum = tostring(Val.EnumType), Name = Val.Name}
-            elseif type(Val) == "table" and Val.Min and Val.Max then
-                Serialized_Data[Key] = {Type = "Range", Min = Val.Min, Max = Val.Max}
-            else
-                Serialized_Data[Key] = Val
-            end
-        end
-        if Library_Api.Instances.Menu then
-            local pos = Library_Api.Instances.Menu.Position
-            Serialized_Data["$$MenuPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
-        end
-        if Library_Api.Instances.Keybinds then
-            local pos = Library_Api.Instances.Keybinds.Position
-            Serialized_Data["$$KbPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
-        end
-        writefile(Library_Api.Folder_Name .. "/" .. Library_Api.Config_Name, Http_Service:JSONEncode(Serialized_Data))
-    end)
-end
-
-local function Load_Configuration()
-    pcall(function()
-        if not isfolder or not isfile or not readfile then return end
-        local Full_Path = Library_Api.Folder_Name .. "/" .. Library_Api.Config_Name
-        if isfile(Full_Path) then
-            local Decoded_Data = Http_Service:JSONDecode(readfile(Full_Path))
-            if type(Decoded_Data) == "table" then
-                for Key, Val in pairs(Decoded_Data) do
-                    if Key == "$$MenuPos" then
-                        local pos = UDim2.new(Val.X, Val.XOff, Val.Y, Val.YOff)
-                        Library_Api.Saved_Positions.Menu = pos
-                        if Library_Api.Instances.Menu then 
-                            Library_Api.Instances.Menu.Position = pos
-                            Library_Api.Instances.MenuTargetPos = pos 
-                        end
-                    elseif Key == "$$KbPos" then
-                        local pos = UDim2.new(Val.X, Val.XOff, Val.Y, Val.YOff)
-                        Library_Api.Saved_Positions.Keybinds = pos
-                        if Library_Api.Instances.Keybinds then 
-                            Library_Api.Instances.Keybinds.Position = pos
-                            Kb_Target_Pos = pos
-                        end
-                    elseif type(Val) == "table" then
-                        if Val.Type == "Color3" then
-                            Library_Api.Flags[Key] = Color3.new(Val.R, Val.G, Val.B)
-                        elseif Val.Type == "EnumItem" then
-                            local enumTypeStr = string.split(Val.Enum, ".")[2]
-                            local enumType = Enum[enumTypeStr]
-                            if enumType then
-                                Library_Api.Flags[Key] = enumType[Val.Name] or Enum.KeyCode.Unknown
-                            end
-                        elseif Val.Type == "Range" then
-                            Library_Api.Flags[Key] = {Min = Val.Min, Max = Val.Max}
-                        else
-                            Library_Api.Flags[Key] = Val
-                        end
-                    else
-                        Library_Api.Flags[Key] = Val
-                    end
-
-                    if Library_Api.Registry[Key] then
-                        task.spawn(Library_Api.Registry[Key], Library_Api.Flags[Key])
-                    end
-                end
-            end
-        end
-    end)
-end
-
-Load_Configuration()
 
 Run_Service.RenderStepped:Connect(function()
     if Tooltip_Target_Text ~= "" then
@@ -794,6 +807,7 @@ function Library_Api:CreateWindow(Window_Name)
         if Input == Main_Drag_Input and Main_Dragging then
             local Delta = Input.Position - Main_Drag_Start
             Library_Api.Instances.MenuTargetPos = UDim2.new(Main_Start_Pos.X.Scale, Main_Start_Pos.X.Offset + (Delta.X / Ui_Scale_Modifier.Scale), Main_Start_Pos.Y.Scale, Main_Start_Pos.Y.Offset + (Delta.Y / Ui_Scale_Modifier.Scale))
+            Auto_Save()
         end
     end)
 
@@ -1046,7 +1060,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Toggle_Button.MouseButton1Click:Connect(function()
                     Library_Api.Flags[Flag] = not Library_Api.Flags[Flag]
                     Library_Api.Registry[Flag](Library_Api.Flags[Flag])
-                    Save_Configuration()
+                    Auto_Save()
                 end)
                 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
@@ -1157,7 +1171,7 @@ function Library_Api:CreateWindow(Window_Name)
                         Is_Sliding = true
                         local Percentage = math.clamp((Input.Position.X - Slider_Background.AbsolutePosition.X) / Slider_Background.AbsoluteSize.X, 0, 1)
                         Library_Api.Registry[Flag](Min + ((Max - Min) * Percentage))
-                        Save_Configuration()
+                        Auto_Save()
                         Input.Changed:Connect(function()
                             if Input.UserInputState == Enum.UserInputState.End then Is_Sliding = false end
                         end)
@@ -1174,7 +1188,7 @@ function Library_Api:CreateWindow(Window_Name)
                     if Input == Slider_Drag_Input and Is_Sliding then
                         local Percentage = math.clamp((Input.Position.X - Slider_Background.AbsolutePosition.X) / Slider_Background.AbsoluteSize.X, 0, 1)
                         Library_Api.Registry[Flag](Min + ((Max - Min) * Percentage))
-                        Save_Configuration()
+                        Auto_Save()
                     end
                 end)
 
@@ -1182,7 +1196,7 @@ function Library_Api:CreateWindow(Window_Name)
                     local Input_Value = tonumber(Value_Text_Box.Text)
                     if Input_Value then
                         Library_Api.Registry[Flag](Input_Value)
-                        Save_Configuration()
+                        Auto_Save()
                     else
                         Value_Text_Box.Text = Format_Value(Library_Api.Flags[Flag], Step)
                     end
@@ -1343,7 +1357,7 @@ function Library_Api:CreateWindow(Window_Name)
                             tempRange.Max = math.clamp(Calculated_Value, tempRange.Min, Max)
                         end
                         Library_Api.Registry[Flag](tempRange)
-                        Save_Configuration()
+                        Auto_Save()
                     end
                 end)
 
@@ -1426,7 +1440,7 @@ function Library_Api:CreateWindow(Window_Name)
                     Animate_Element(Textbox_Input_Background_Stroke, {Color = Hub_Colors.borderColor}, 0.25)
                     Animate_Element(Input_Text_Box, {TextColor3 = Hub_Colors.textDarkColor}, 0.25)
                     Library_Api.Registry[Flag](Input_Text_Box.Text)
-                    Save_Configuration()
+                    Auto_Save()
                 end)
 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
@@ -1496,7 +1510,6 @@ function Library_Api:CreateWindow(Window_Name)
                     Keybind_Button.Text = bindStr
                     UpdateKeybindSize(bindStr)
                     Library_Api:RefreshKeybinds()
-                    if Callback then task.spawn(Callback, New_Bind) end
                 end
 
                 Keybind_Button.MouseEnter:Connect(function()
@@ -1528,9 +1541,10 @@ function Library_Api:CreateWindow(Window_Name)
                             Is_Listening = false
                             Animate_Element(Keybind_Button_Stroke, {Color = Hub_Colors.borderColor}, 0.3)
                             Animate_Element(Keybind_Button, {TextColor3 = Hub_Colors.textDarkColor}, 0.3)
-                            Save_Configuration()
+                            Auto_Save()
                         end
                     else
+                        if User_Input_Service:GetFocusedTextBox() then return end
                         local Key = Input.KeyCode == Enum.KeyCode.Unknown and Input.UserInputType or Input.KeyCode
                         if Key == Library_Api.Flags[Flag] and Key ~= Enum.KeyCode.Unknown then
                             if Callback then task.spawn(Callback, Library_Api.Flags[Flag]) end
@@ -1686,7 +1700,7 @@ function Library_Api:CreateWindow(Window_Name)
                         Option_Button.MouseButton1Click:Connect(function()
                             Library_Api.Registry[Flag](Option)
                             Toggle_Dropdown_State()
-                            Save_Configuration()
+                            Auto_Save()
                         end)
                     end
                     Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 24)
@@ -1884,7 +1898,7 @@ function Library_Api:CreateWindow(Window_Name)
                             table.insert(newArr, Option)
                         end
                         Library_Api.Registry[Flag](newArr)
-                        Save_Configuration()
+                        Auto_Save()
                     end)
                 end
                 Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 24)
@@ -2015,13 +2029,13 @@ function Library_Api:CreateWindow(Window_Name)
                     local S = math.clamp((Input.Position.X - Saturation_Value_Map.AbsolutePosition.X) / Saturation_Value_Map.AbsoluteSize.X, 0, 1)
                     local V = 1 - math.clamp((Input.Position.Y - Saturation_Value_Map.AbsolutePosition.Y) / Saturation_Value_Map.AbsoluteSize.Y, 0, 1)
                     Library_Api.Registry[Flag](Color3.fromHSV(Hue, S, V))
-                    Save_Configuration()
+                    Auto_Save()
                 end
 
                 local function Process_Hue(Input)
                     local H = math.clamp((Input.Position.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
                     Library_Api.Registry[Flag](Color3.fromHSV(H, Saturation, Value))
-                    Save_Configuration()
+                    Auto_Save()
                 end
 
                 Saturation_Value_Map.InputBegan:Connect(function(Input)
@@ -2291,7 +2305,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Module_Toggle_Button.MouseButton1Click:Connect(function()
                     Library_Api.Registry[Flag](not Library_Api.Flags[Flag])
-                    Save_Configuration()
+                    Auto_Save()
                 end)
                 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
@@ -2381,7 +2395,9 @@ function Library_Api:CreateWindow(Window_Name)
 
     local Left_Settings = Settings_Api:Section_Create("Left", "Menu UI")
     
-    Left_Settings:Keybind_Create("Menu Toggle", "Menu_Toggle_Key", Enum.KeyCode.Delete, "Toggle Menu Visibility", function(Key) end)
+    Left_Settings:Keybind_Create("Menu Toggle", "Menu_Toggle_Key", Enum.KeyCode.Delete, "Toggle Menu Visibility", function()
+        Main_Background.Visible = not Main_Background.Visible
+    end)
     
     Left_Settings:Toggle_Create("Keybinds List", "Show_Keybinds", false, "Toggle Keybinds Tracker", function(State)
         Keybinds_Frame.Visible = State
@@ -2412,28 +2428,22 @@ function Library_Api:CreateWindow(Window_Name)
 
     Right_Settings:Button_Create("Save Config", "", function()
         if Config_Name_Input ~= "" then
-            Library_Api.Config_Name = Config_Name_Input .. ".json"
-            Save_Configuration()
+            Save_To_File(Config_Name_Input .. ".json")
             Cfg_Dropdown:Refresh(Get_Configs())
-            Library_Api.Config_Name = "AutoSaveConfig.json"
             Library_Api:Notify({Title = "Phantom Hub", Text = "Saved Config: " .. Config_Name_Input, Type = "Success"})
         end
     end)
 
     Right_Settings:Button_Create("Rewrite Config", "", function()
         if Library_Api.Flags["Cfg_Select"] and Library_Api.Flags["Cfg_Select"] ~= "None" then
-            Library_Api.Config_Name = Library_Api.Flags["Cfg_Select"] .. ".json"
-            Save_Configuration()
-            Library_Api.Config_Name = "AutoSaveConfig.json"
+            Save_To_File(Library_Api.Flags["Cfg_Select"] .. ".json")
             Library_Api:Notify({Title = "Phantom Hub", Text = "Rewritten Config", Type = "Info"})
         end
     end)
     
     Right_Settings:Button_Create("Load Config", "", function()
         if Library_Api.Flags["Cfg_Select"] and Library_Api.Flags["Cfg_Select"] ~= "None" then
-            Library_Api.Config_Name = Library_Api.Flags["Cfg_Select"] .. ".json"
-            Load_Configuration()
-            Library_Api.Config_Name = "AutoSaveConfig.json"
+            Load_From_File(Library_Api.Flags["Cfg_Select"] .. ".json")
             Library_Api:RefreshKeybinds()
             Library_Api:Notify({Title = "Phantom Hub", Text = "Loaded Config", Type = "Success"})
         end
@@ -2444,16 +2454,6 @@ function Library_Api:CreateWindow(Window_Name)
             pcall(function() delfile("PhantomHub/" .. Library_Api.Flags["Cfg_Select"] .. ".json") end)
             Cfg_Dropdown:Refresh(Get_Configs())
             Library_Api:Notify({Title = "Phantom Hub", Text = "Deleted Config", Type = "Error"})
-        end
-    end)
-
-    User_Input_Service.InputBegan:Connect(function(Input, Game_Processed_Event)
-        if not Game_Processed_Event then
-            local Toggle_Key = Library_Api.Flags["Menu_Toggle_Key"] or Enum.KeyCode.Delete
-            local Current_Input = Input.KeyCode == Enum.KeyCode.Unknown and Input.UserInputType or Input.KeyCode
-            if Current_Input == Toggle_Key then
-                Main_Background.Visible = not Main_Background.Visible
-            end
         end
     end)
 
