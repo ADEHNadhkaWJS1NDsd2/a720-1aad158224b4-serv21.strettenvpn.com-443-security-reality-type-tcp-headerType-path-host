@@ -1169,7 +1169,9 @@ function Library_Api:CreateWindow(Window_Name)
                     local Clamped_Value = math.clamp(New_Value, Min, Max)
                     local Snapped_Value = Snap_Value(Clamped_Value, Step)
                     Library_Api.Flags[Flag] = Snapped_Value
-                    local Percentage = (Snapped_Value - Min) / (Max - Min)
+                    local Denominator = Max - Min
+                    if Denominator == 0 then Denominator = 1 end
+                    local Percentage = (Snapped_Value - Min) / Denominator
                     local formatStr = Format_Value(Snapped_Value, Step)
                     Animate_Element(Slider_Fill, {Size = UDim2.new(Percentage, 0, 1, 0)}, 0.15)
                     Animate_Element(Slider_Knob, {Position = UDim2.new(Percentage, 0, 0.5, 0)}, 0.15)
@@ -1317,8 +1319,10 @@ function Library_Api:CreateWindow(Window_Name)
                 Library_Api.Registry[Flag] = function(New_Range)
                     Library_Api.Flags[Flag].Min = math.clamp(New_Range.Min, Min, Max)
                     Library_Api.Flags[Flag].Max = math.clamp(New_Range.Max, Min, Max)
-                    local Min_Percentage = (Library_Api.Flags[Flag].Min - Min) / (Max - Min)
-                    local Max_Percentage = (Library_Api.Flags[Flag].Max - Min) / (Max - Min)
+                    local Denominator = Max - Min
+                    if Denominator == 0 then Denominator = 1 end
+                    local Min_Percentage = (Library_Api.Flags[Flag].Min - Min) / Denominator
+                    local Max_Percentage = (Library_Api.Flags[Flag].Max - Min) / Denominator
                     local formatStr = Format_Value(Library_Api.Flags[Flag].Min, Step) .. " - " .. Format_Value(Library_Api.Flags[Flag].Max, Step)
                     Animate_Element(Range_Slider_Fill, {Position = UDim2.new(Min_Percentage, 0, 0, 0), Size = UDim2.new(Max_Percentage - Min_Percentage, 0, 1, 0)}, 0.15)
                     Animate_Element(Min_Range_Knob, {Position = UDim2.new(Min_Percentage, 0, 0.5, 0)}, 0.15)
@@ -1344,8 +1348,10 @@ function Library_Api:CreateWindow(Window_Name)
                 Range_Slider_Background.InputBegan:Connect(function(Input)
                     if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
                         local Mouse_X = Input.Position.X
-                        local Min_Percentage = (Library_Api.Flags[Flag].Min - Min) / (Max - Min)
-                        local Max_Percentage = (Library_Api.Flags[Flag].Max - Min) / (Max - Min)
+                        local Denominator = Max - Min
+                        if Denominator == 0 then Denominator = 1 end
+                        local Min_Percentage = (Library_Api.Flags[Flag].Min - Min) / Denominator
+                        local Max_Percentage = (Library_Api.Flags[Flag].Max - Min) / Denominator
                         local Min_Knob_Position = Range_Slider_Background.AbsolutePosition.X + (Range_Slider_Background.AbsoluteSize.X * Min_Percentage)
                         local Max_Knob_Position = Range_Slider_Background.AbsolutePosition.X + (Range_Slider_Background.AbsoluteSize.X * Max_Percentage)
                         
@@ -2341,9 +2347,7 @@ function Library_Api:CreateWindow(Window_Name)
             return Elements
         end
 
-        local Section_Api = {}
-
-        function Section_Api:Section_Create(Column_Side, Section_Title)
+        function Tab_Data:Section_Create(Column_Side, Section_Title)
             local Section_Background_Frame = Instance.new("Frame")
             Section_Background_Frame.Size = UDim2.new(1, 0, 0, 40)
             Section_Background_Frame.BackgroundColor3 = Hub_Colors.sectionBackground
@@ -2400,11 +2404,13 @@ function Library_Api:CreateWindow(Window_Name)
             return Element_Injector(Section_Content_Frame)
         end
 
-        return Section_Api
+        Tab_Data.Elements = Element_Injector(Page_Scrolling_Frame)
+
+        return Tab_Data
     end
 
     local Settings_Api = Window_Context:Tab_Create("Settings", "")
-    local Settings_Tab_Obj = Window_Context.Tabs[#Window_Context.Tabs]
+    local Settings_Tab_Obj = Settings_Api
     Settings_Tab_Obj.Btn.Visible = false
 
     Profile_Button.MouseEnter:Connect(function() Animate_Element(Profile_Button, {BackgroundTransparency = 0.11}, 0.3) end)
@@ -2437,8 +2443,8 @@ function Library_Api:CreateWindow(Window_Name)
     local function Get_Configs()
         local List = {}
         local success, _ = pcall(function()
-            if type(isfolder) == "function" and not isfolder("PhantomHub") then makefolder("PhantomHub") end
-            for _, File in ipairs(listfiles("PhantomHub")) do
+            if type(isfolder) == "function" and not isfolder(Library_Api.Folder_Name) then makefolder(Library_Api.Folder_Name) end
+            for _, File in ipairs(listfiles(Library_Api.Folder_Name)) do
                 local Name = File:match("([^/\\]+)%.json$")
                 if Name and Name ~= "AutoSaveConfig" then table.insert(List, Name) end
             end
@@ -2476,7 +2482,7 @@ function Library_Api:CreateWindow(Window_Name)
     
     Right_Settings:Button_Create("Delete Config", "", function()
         if Library_Api.Flags["Cfg_Select"] and Library_Api.Flags["Cfg_Select"] ~= "None" then
-            pcall(function() delfile("PhantomHub/" .. Library_Api.Flags["Cfg_Select"] .. ".json") end)
+            pcall(function() delfile(Library_Api.Folder_Name .. "/" .. Library_Api.Flags["Cfg_Select"] .. ".json") end)
             Cfg_Dropdown:Refresh(Get_Configs())
             Library_Api:Notify({Title = "Phantom Hub", Text = "Deleted Config", Type = "Error"})
         end
