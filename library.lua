@@ -183,12 +183,12 @@ local function Save_To_File(FileName)
             Serialized_Data["$$Theme"] = Library_Api.Current_Theme
             Serialized_Data["$$Acrylic"] = Library_Api.Global_Settings.Acrylic
             Serialized_Data["$$Transparency"] = Library_Api.Global_Settings.Transparency
-            if Library_Api.Instances.Menu then
-                local pos = Library_Api.Instances.Menu.Position
+            if Library_Api.Instances.MenuTargetPos then
+                local pos = Library_Api.Instances.MenuTargetPos
                 Serialized_Data["$$MenuPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
             end
-            if Library_Api.Instances.Keybinds then
-                local pos = Library_Api.Instances.Keybinds.Position
+            if Library_Api.Instances.KeybindsTarget then
+                local pos = Library_Api.Instances.KeybindsTarget
                 Serialized_Data["$$KbPos"] = {X = pos.X.Scale, XOff = pos.X.Offset, Y = pos.Y.Scale, YOff = pos.Y.Offset}
             end
             writefile(Library_Api.Folder_Name .. "/" .. FileName, Http_Service:JSONEncode(Serialized_Data))
@@ -225,6 +225,18 @@ local function Load_From_File(FileName)
         pcall(function()
             local Decoded_Data = Http_Service:JSONDecode(content)
             if type(Decoded_Data) == "table" then
+                
+                if Decoded_Data["$$Theme"] then
+                    Library_Api:ChangeTheme(tostring(Decoded_Data["$$Theme"]))
+                end
+                
+                if Decoded_Data["Custom_Accent_Color"] then
+                    local cData = Decoded_Data["Custom_Accent_Color"]
+                    local c = Color3.new(cData.R, cData.G, cData.B)
+                    for _, theme in pairs(Themes) do theme.accentColor = c end
+                    Library_Api:ChangeTheme(tostring(Decoded_Data["$$Theme"] or Library_Api.Current_Theme))
+                end
+
                 for Key, Val in pairs(Decoded_Data) do
                     pcall(function()
                         if Key == "$$MenuPos" then
@@ -241,9 +253,6 @@ local function Load_From_File(FileName)
                                 Library_Api.Instances.Keybinds.Position = pos
                                 Library_Api.Instances.KeybindsTarget = pos
                             end
-                        elseif Key == "$$Theme" then
-                            Library_Api:ChangeTheme(tostring(Val))
-                            if type(Library_Api.Registry["Menu_Theme_Select"]) == "function" then task.spawn(Library_Api.Registry["Menu_Theme_Select"], tostring(Val)) end
                         elseif Key == "$$Acrylic" then
                             Library_Api.Global_Settings.Acrylic = Val
                             Library_Api.Flags["Global_Acrylic"] = Val
@@ -252,28 +261,30 @@ local function Load_From_File(FileName)
                             Library_Api.Global_Settings.Transparency = Val
                             Library_Api.Flags["Global_Trans"] = Val
                             if type(Library_Api.Registry["Global_Trans"]) == "function" then task.spawn(Library_Api.Registry["Global_Trans"], Val) end
-                        elseif type(Val) == "table" then
-                            if Val.Type == "Color3" then
-                                Library_Api.Flags[Key] = Color3.new(Val.R, Val.G, Val.B)
-                            elseif Val.Type == "EnumItem" then
-                                local enumGroup = tostring(Val.EnumType):gsub("Enum%.", "")
-                                local enumType = Enum[enumGroup]
-                                if enumType then
-                                    Library_Api.Flags[Key] = enumType[tostring(Val.Name)] or Enum.KeyCode.Unknown
+                        elseif Key ~= "$$Theme" and Key ~= "Custom_Accent_Color" then
+                            if type(Val) == "table" then
+                                if Val.Type == "Color3" then
+                                    Library_Api.Flags[Key] = Color3.new(Val.R, Val.G, Val.B)
+                                elseif Val.Type == "EnumItem" then
+                                    local enumGroup = tostring(Val.EnumType):gsub("Enum%.", "")
+                                    local enumType = Enum[enumGroup]
+                                    if enumType then
+                                        Library_Api.Flags[Key] = enumType[tostring(Val.Name)] or Enum.KeyCode.Unknown
+                                    end
+                                elseif Val.Type == "Range" then
+                                    Library_Api.Flags[Key] = {Min = Val.Min, Max = Val.Max}
+                                elseif Val.Type == "Array" then
+                                    Library_Api.Flags[Key] = Val.Data
+                                else
+                                    Library_Api.Flags[Key] = Val
                                 end
-                            elseif Val.Type == "Range" then
-                                Library_Api.Flags[Key] = {Min = Val.Min, Max = Val.Max}
-                            elseif Val.Type == "Array" then
-                                Library_Api.Flags[Key] = Val.Data
                             else
                                 Library_Api.Flags[Key] = Val
                             end
-                        else
-                            Library_Api.Flags[Key] = Val
-                        end
 
-                        if type(Library_Api.Registry[Key]) == "function" and Key ~= "Menu_Theme_Select" and Key ~= "Global_Acrylic" and Key ~= "Global_Trans" then
-                            task.spawn(Library_Api.Registry[Key], Library_Api.Flags[Key])
+                            if type(Library_Api.Registry[Key]) == "function" and Key ~= "Menu_Theme_Select" and Key ~= "Global_Acrylic" and Key ~= "Global_Trans" then
+                                task.spawn(Library_Api.Registry[Key], Library_Api.Flags[Key])
+                            end
                         end
                     end)
                 end
@@ -699,24 +710,67 @@ function Library_Api:CreateWindow(Window_Name)
     Controls_Layout.SortOrder = Enum.SortOrder.LayoutOrder
     Controls_Layout.Parent = Window_Controls
 
-    local function Create_Ctrl_Btn(Txt, Order)
+    local function Create_Ctrl_Btn(Type, Order)
         local Btn = Instance.new("TextButton")
         Btn.Size = UDim2.new(0, 26, 0, 26)
         Btn.BackgroundTransparency = 1
-        Btn.Text = Txt
-        Btn.TextSize = 14
-        Btn.Font = Bold_Font
+        Btn.Text = ""
         Btn.LayoutOrder = Order
         Btn.Parent = Window_Controls
-        Bind_Color(Btn, "TextColor3", "textDarkColor")
-        Btn.MouseEnter:Connect(function() Set_Theme_State(Btn, "TextColor3", "textWhiteColor") end)
-        Btn.MouseLeave:Connect(function() Set_Theme_State(Btn, "TextColor3", "textDarkColor") end)
+
+        local Icon
+        if Type == "Min" then
+            Icon = Instance.new("Frame", Btn)
+            Icon.Size = UDim2.new(0, 10, 0, 2)
+            Icon.AnchorPoint = Vector2.new(0.5, 0.5)
+            Icon.Position = UDim2.new(0.5, 0, 0.5, 0)
+            Icon.BorderSizePixel = 0
+            Bind_Color(Icon, "BackgroundColor3", "textDarkColor")
+        elseif Type == "Max" then
+            Icon = Instance.new("Frame", Btn)
+            Icon.Size = UDim2.new(0, 10, 0, 10)
+            Icon.AnchorPoint = Vector2.new(0.5, 0.5)
+            Icon.Position = UDim2.new(0.5, 0, 0.5, 0)
+            Icon.BackgroundTransparency = 1
+            local Stroke = Instance.new("UIStroke", Icon)
+            Stroke.Thickness = 2
+            Bind_Color(Stroke, "Color", "textDarkColor")
+        elseif Type == "Close" then
+            Icon = Instance.new("TextLabel", Btn)
+            Icon.Text = "✕"
+            Icon.Size = UDim2.new(1, 0, 1, 0)
+            Icon.BackgroundTransparency = 1
+            Icon.Font = Enum.Font.GothamMedium
+            Icon.TextSize = 14
+            Bind_Color(Icon, "TextColor3", "textDarkColor")
+        end
+
+        Btn.MouseEnter:Connect(function()
+            if Type == "Close" then
+                Set_Theme_State(Icon, "TextColor3", "accentColor")
+            elseif Type == "Max" then
+                Set_Theme_State(Icon:FindFirstChildOfClass("UIStroke"), "Color", "textWhiteColor")
+            else
+                Set_Theme_State(Icon, "BackgroundColor3", "textWhiteColor")
+            end
+        end)
+        
+        Btn.MouseLeave:Connect(function()
+            if Type == "Close" then
+                Set_Theme_State(Icon, "TextColor3", "textDarkColor")
+            elseif Type == "Max" then
+                Set_Theme_State(Icon:FindFirstChildOfClass("UIStroke"), "Color", "textDarkColor")
+            else
+                Set_Theme_State(Icon, "BackgroundColor3", "textDarkColor")
+            end
+        end)
+
         return Btn
     end
 
-    local Min_Btn = Create_Ctrl_Btn("-", 1)
-    local Max_Btn = Create_Ctrl_Btn("□", 2)
-    local Close_Btn = Create_Ctrl_Btn("X", 3)
+    local Min_Btn = Create_Ctrl_Btn("Min", 1)
+    local Max_Btn = Create_Ctrl_Btn("Max", 2)
+    local Close_Btn = Create_Ctrl_Btn("Close", 3)
 
     local Sidebar_Width = 140
     local Sidebar_Frame = Instance.new("Frame")
@@ -955,10 +1009,12 @@ function Library_Api:CreateWindow(Window_Name)
 
     Min_Btn.MouseButton1Click:Connect(function()
         Is_Minimized = not Is_Minimized
+        Sidebar_Frame.Visible = not Is_Minimized
+        Content_Area_Frame.Visible = not Is_Minimized
         if Is_Minimized then
             Animate_Element(Main_Background, {Size = UDim2.new(Main_Background.Size.X.Scale, Main_Background.Size.X.Offset, 0, 36)}, 0.3)
         else
-            local targetSize = Is_Maximized and UDim2.new(0.9, 0, 0.9, 0) or Normal_Size
+            local targetSize = Is_Maximized and UDim2.new(0, 750, 0, 450) or Normal_Size
             Animate_Element(Main_Background, {Size = targetSize}, 0.3)
         end
     end)
@@ -968,8 +1024,11 @@ function Library_Api:CreateWindow(Window_Name)
         Is_Maximized = not Is_Maximized
         if Is_Maximized then
             Normal_Pos = Library_Api.Instances.MenuTargetPos
-            Library_Api.Instances.MenuTargetPos = UDim2.new(0.05, 0, 0.05, 0)
-            Animate_Element(Main_Background, {Size = UDim2.new(0.9, 0, 0.9, 0)}, 0.3)
+            local Vp = Workspace_Service.CurrentCamera.ViewportSize
+            local targetX = math.min(Vp.X - 40, 750)
+            local targetY = math.min(Vp.Y - 40, 450)
+            Library_Api.Instances.MenuTargetPos = UDim2.new(0.5, -targetX/2, 0.5, -targetY/2)
+            Animate_Element(Main_Background, {Size = UDim2.new(0, targetX, 0, targetY)}, 0.3)
         else
             Library_Api.Instances.MenuTargetPos = Normal_Pos
             Animate_Element(Main_Background, {Size = Normal_Size}, 0.3)
@@ -1635,7 +1694,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Keybind_Icon.Size = UDim2.new(0, 16, 0, 16)
                 Keybind_Icon.Position = UDim2.new(0, 6, 0.5, -8)
                 Keybind_Icon.BackgroundTransparency = 1
-                Keybind_Icon.Image = "rbxassetid://10493018448"
+                Keybind_Icon.Image = "rbxassetid://127939607767683"
                 Keybind_Icon.Parent = Keybind_Frame
                 Bind_Color(Keybind_Icon, "ImageColor3", "textDarkColor")
 
@@ -2666,8 +2725,11 @@ function Library_Api:CreateWindow(Window_Name)
     end)
 
     Left_Settings:ColorPicker_Create("Custom Accent", "Custom_Accent_Color", Themes["Rose"].accentColor, "Override active theme accent", function(Color_Val)
-        Themes[Library_Api.Current_Theme].accentColor = Color_Val
+        for _, theme in pairs(Themes) do
+            theme.accentColor = Color_Val
+        end
         Library_Api:ChangeTheme(Library_Api.Current_Theme)
+        Auto_Save()
     end)
 
     Left_Settings:Toggle_Create("Enable Acrylic", "Global_Acrylic", true, "Toggle blur effects", function(State)
