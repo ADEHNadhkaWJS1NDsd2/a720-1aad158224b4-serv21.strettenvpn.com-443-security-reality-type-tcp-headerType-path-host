@@ -6,7 +6,6 @@ local Text_Service = game:GetService("TextService")
 local Http_Service = game:GetService("HttpService")
 local Workspace_Service = game:GetService("Workspace")
 local Players_Service = game:GetService("Players")
-local Lighting_Service = game:GetService("Lighting")
 local Local_Player = Players_Service.LocalPlayer
 
 local Library_Api = {
@@ -62,26 +61,6 @@ Screen_Gui.Parent = Core_Gui_Service
 Screen_Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Screen_Gui.DisplayOrder = 999
 Screen_Gui.IgnoreGuiInset = true
-
-local UI_Blur = Instance.new("BlurEffect")
-UI_Blur.Size = 0
-UI_Blur.Enabled = false
-pcall(function() UI_Blur.Parent = Lighting_Service end)
-
-local function Update_Global_Blur()
-    if Library_Api.Instances.Menu and Library_Api.Instances.Menu.Visible and Library_Api.Global_Settings.Acrylic then
-        UI_Blur.Enabled = true
-        Tween_Service:Create(UI_Blur, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 15}):Play()
-    else
-        local t = Tween_Service:Create(UI_Blur, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 0})
-        t:Play()
-        t.Completed:Connect(function()
-            if not (Library_Api.Instances.Menu and Library_Api.Instances.Menu.Visible and Library_Api.Global_Settings.Acrylic) then
-                UI_Blur.Enabled = false
-            end
-        end)
-    end
-end
 
 local function Get_Input_Name(Input_Enum)
     if Custom_Input_Names[Input_Enum] then return Custom_Input_Names[Input_Enum] end
@@ -622,7 +601,6 @@ function Library_Api:CreateWindow(Window_Name)
     Bind_Color(Main_Background, "BackgroundColor3", "mainBackground")
     Register_Transparency(Main_Background, 0.18)
     Library_Api.Instances.Menu = Main_Background
-    Update_Global_Blur()
 
     local Top_Accent_Line = Instance.new("Frame")
     Top_Accent_Line.Size = UDim2.new(1, 0, 0, 2)
@@ -752,7 +730,7 @@ function Library_Api:CreateWindow(Window_Name)
     local Max_Btn = Create_Ctrl_Btn("Max", 2)
     local Close_Btn = Create_Ctrl_Btn("Close", 3)
 
-    local Sidebar_Width = 140
+    local Sidebar_Width = 160
     local Sidebar_Frame = Instance.new("Frame")
     Sidebar_Frame.Size = UDim2.new(0, Sidebar_Width, 1, -37)
     Sidebar_Frame.Position = UDim2.new(0, 0, 0, 37)
@@ -921,7 +899,6 @@ function Library_Api:CreateWindow(Window_Name)
         Animate_Element(Mobile_Toggle_Button, {Size = UDim2.new(0, 48, 0, 48)}, 0.25)
         if os.clock() - Toggle_Click_Time < 0.2 then
             Main_Background.Visible = not Main_Background.Visible
-            Update_Global_Blur()
         end
     end)
 
@@ -1011,7 +988,6 @@ function Library_Api:CreateWindow(Window_Name)
 
     Close_Btn.MouseButton1Click:Connect(function()
         Main_Background.Visible = false
-        Update_Global_Blur()
     end)
 
     local Window_Context = { Tabs = {}, Active_Tab = nil }
@@ -1576,8 +1552,11 @@ function Library_Api:CreateWindow(Window_Name)
                 Textbox_Frame.BackgroundTransparency = 1
                 Textbox_Frame.Parent = Target_Container
 
+                local labelWidth = GetTextWidth(Name, 11, Main_Font)
+                labelWidth = math.clamp(labelWidth + 10, 50, 160)
+
                 local Textbox_Label = Instance.new("TextLabel")
-                Textbox_Label.Size = UDim2.new(0.4, 0, 1, 0)
+                Textbox_Label.Size = UDim2.new(0, labelWidth, 1, 0)
                 Textbox_Label.Position = UDim2.new(0, 2, 0, 0)
                 Textbox_Label.BackgroundTransparency = 1
                 Textbox_Label.Text = Name
@@ -1590,7 +1569,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Textbox_Input_Background = Instance.new("Frame")
                 Textbox_Input_Background.AnchorPoint = Vector2.new(1, 0.5)
-                Textbox_Input_Background.Size = UDim2.new(0.55, 0, 0, 22)
+                Textbox_Input_Background.Size = UDim2.new(1, -(labelWidth + 15), 0, 22)
                 Textbox_Input_Background.Position = UDim2.new(1, -4, 0.5, 0)
                 Textbox_Input_Background.Parent = Textbox_Frame
                 Bind_Color(Textbox_Input_Background, "BackgroundColor3", "elementBackground")
@@ -1659,8 +1638,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Keybind_Frame.Parent = Target_Container
 
                 local Keybind_Icon = Instance.new("ImageLabel")
-                Keybind_Icon.Size = UDim2.new(0, 16, 0, 16)
-                Keybind_Icon.Position = UDim2.new(0, 6, 0.5, -8)
+                Keybind_Icon.Size = UDim2.new(0, 14, 0, 14)
+                Keybind_Icon.Position = UDim2.new(0, 2, 0.5, -7)
                 Keybind_Icon.BackgroundTransparency = 1
                 Keybind_Icon.Image = "rbxassetid://127939607767683"
                 Keybind_Icon.Parent = Keybind_Frame
@@ -1668,7 +1647,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Keybind_Label = Instance.new("TextLabel")
                 Keybind_Label.Size = UDim2.new(1, -100, 1, 0)
-                Keybind_Label.Position = UDim2.new(0, 26, 0, 0)
+                Keybind_Label.Position = UDim2.new(0, 24, 0, 0)
                 Keybind_Label.BackgroundTransparency = 1
                 Keybind_Label.Text = Name
                 Keybind_Label.TextSize = 11
@@ -1702,7 +1681,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local function UpdateKeybindSize(text)
                     local w = GetTextWidth(text, 10, Bold_Font)
-                    w = math.clamp(w + 20, 40, 120)
+                    w = math.clamp(w + 20, 50, 120)
                     Animate_Element(Keybind_Button, {Size = UDim2.new(0, w, 0, 20)}, 0.2)
                     Keybind_Label.Size = UDim2.new(1, -(w + 33), 1, 0)
                 end
@@ -1732,7 +1711,7 @@ function Library_Api:CreateWindow(Window_Name)
                     Set_Theme_State(Keybind_Button, "TextColor3", "textWhiteColor")
                 end)
 
-                User_Input_Service.InputBegan:Connect(function(Input)
+                User_Input_Service.InputBegan:Connect(function(Input, gameProcessed)
                     if Is_Listening then
                         local Key = Input.KeyCode == Enum.KeyCode.Unknown and Input.UserInputType or Input.KeyCode
                         if Key ~= Enum.KeyCode.Unknown and not (Input.UserInputType == Enum.UserInputType.MouseMovement) then
@@ -1747,7 +1726,7 @@ function Library_Api:CreateWindow(Window_Name)
                             Auto_Save()
                         end
                     else
-                        if User_Input_Service:GetFocusedTextBox() then return end
+                        if gameProcessed then return end
                         local Key = Input.KeyCode == Enum.KeyCode.Unknown and Input.UserInputType or Input.KeyCode
                         if Key == Library_Api.Flags[Flag] and Key ~= Enum.KeyCode.Unknown then
                             if type(Callback) == "function" then task.spawn(Callback, Library_Api.Flags[Flag]) end
@@ -1764,13 +1743,14 @@ function Library_Api:CreateWindow(Window_Name)
                 local Is_Dropdown_Open = false
 
                 local Dropdown_Frame = Instance.new("Frame")
-                Dropdown_Frame.Size = UDim2.new(1, 0, 0, 42)
+                Dropdown_Frame.Size = UDim2.new(1, 0, 0, 48)
                 Dropdown_Frame.BackgroundTransparency = 1
                 Dropdown_Frame.ClipsDescendants = true
+                Dropdown_Frame.ZIndex = 5
                 Dropdown_Frame.Parent = Target_Container
 
                 local Dropdown_Label = Instance.new("TextLabel")
-                Dropdown_Label.Size = UDim2.new(1, -10, 0, 14)
+                Dropdown_Label.Size = UDim2.new(1, -10, 0, 16)
                 Dropdown_Label.Position = UDim2.new(0, 2, 0, 0)
                 Dropdown_Label.BackgroundTransparency = 1
                 Dropdown_Label.Text = Name
@@ -1782,8 +1762,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Dropdown_Label, "TextColor3", "textWhiteColor")
 
                 local Dropdown_Main_Button = Instance.new("TextButton")
-                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 24)
-                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 18)
+                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 26)
+                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 20)
                 Dropdown_Main_Button.Text = ""
                 Dropdown_Main_Button.AutoButtonColor = false
                 Dropdown_Main_Button.Parent = Dropdown_Frame
@@ -1801,7 +1781,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Selected_Option_Label = Instance.new("TextLabel")
                 Selected_Option_Label.Size = UDim2.new(1, -30, 1, 0)
-                Selected_Option_Label.Position = UDim2.new(0, 8, 0, 0)
+                Selected_Option_Label.Position = UDim2.new(0, 10, 0, 0)
                 Selected_Option_Label.BackgroundTransparency = 1
                 Selected_Option_Label.Text = ""
                 Selected_Option_Label.TextSize = 11
@@ -1821,12 +1801,12 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Dropdown_Option_List_Frame = Instance.new("ScrollingFrame")
                 Dropdown_Option_List_Frame.Size = UDim2.new(1, -4, 0, 0)
-                Dropdown_Option_List_Frame.Position = UDim2.new(0, 2, 0, 44)
+                Dropdown_Option_List_Frame.Position = UDim2.new(0, 2, 0, 50)
                 Dropdown_Option_List_Frame.BorderSizePixel = 0
                 Dropdown_Option_List_Frame.ScrollBarThickness = 2
                 Dropdown_Option_List_Frame.ClipsDescendants = true
                 Dropdown_Option_List_Frame.Active = true
-                Dropdown_Option_List_Frame.ZIndex = 5
+                Dropdown_Option_List_Frame.ZIndex = 10
                 Dropdown_Option_List_Frame.Parent = Dropdown_Frame
                 Bind_Color(Dropdown_Option_List_Frame, "BackgroundColor3", "elementBackground")
                 Bind_Color(Dropdown_Option_List_Frame, "ScrollBarImageColor3", "accentColor")
@@ -1844,17 +1824,18 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Dropdown_Option_List_Layout = Instance.new("UIListLayout")
                 Dropdown_Option_List_Layout.SortOrder = Enum.SortOrder.LayoutOrder
+                Dropdown_Option_List_Layout.Padding = UDim.new(0, 2)
                 Dropdown_Option_List_Layout.Parent = Dropdown_Option_List_Frame
 
                 local function Toggle_Dropdown_State()
                     Is_Dropdown_Open = not Is_Dropdown_Open
-                    local Max_List_Height = math.min(#Options * 22, 110)
+                    local Max_List_Height = math.min(#Options * 24 + (#Options * 2), 130)
                     local Target_List_Height = Is_Dropdown_Open and Max_List_Height or 0
                     Set_Theme_State(Dropdown_Main_Button_Stroke, "Color", Is_Dropdown_Open and "accentColor" or "borderColor")
                     Animate_Element(Dropdown_Arrow_Icon, {Rotation = Is_Dropdown_Open and 180 or 0}, 0.25)
                     Animate_Element(Dropdown_Option_List_Frame, {Size = UDim2.new(1, -4, 0, Target_List_Height)}, 0.25)
                     Animate_Element(Dropdown_Option_List_Stroke, {Transparency = Is_Dropdown_Open and 0 or 1}, 0.25)
-                    Animate_Element(Dropdown_Frame, {Size = UDim2.new(1, 0, 0, 42 + Target_List_Height + (Is_Dropdown_Open and 4 or 0))}, 0.25)
+                    Animate_Element(Dropdown_Frame, {Size = UDim2.new(1, 0, 0, 48 + Target_List_Height + (Is_Dropdown_Open and 4 or 0))}, 0.25)
                 end
 
                 Dropdown_Main_Button.MouseEnter:Connect(function()
@@ -1873,23 +1854,23 @@ function Library_Api:CreateWindow(Window_Name)
                     end
                     for _, Option in ipairs(Options) do
                         local Option_Button = Instance.new("TextButton")
-                        Option_Button.Size = UDim2.new(1, 0, 0, 22)
+                        Option_Button.Size = UDim2.new(1, 0, 0, 24)
                         Option_Button.BackgroundTransparency = 1
                         Option_Button.Text = ""
-                        Option_Button.ZIndex = 6
+                        Option_Button.ZIndex = 11
                         Option_Button.Parent = Dropdown_Option_List_Frame
                         Bind_Color(Option_Button, "BackgroundColor3", "elementHoverBackground")
 
                         local Option_Label = Instance.new("TextLabel")
                         Option_Label.Size = UDim2.new(1, -20, 1, 0)
-                        Option_Label.Position = UDim2.new(0, 8, 0, 0)
+                        Option_Label.Position = UDim2.new(0, 10, 0, 0)
                         Option_Label.BackgroundTransparency = 1
                         Option_Label.Text = Option
                         Option_Label.TextSize = 11
                         Option_Label.Font = Main_Font
                         Option_Label.TextXAlignment = Enum.TextXAlignment.Left
                         Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
-                        Option_Label.ZIndex = 6
+                        Option_Label.ZIndex = 11
                         Option_Label.Parent = Option_Button
                         
                         table.insert(Library_Api.Theme_Objects, {Obj = Option_Label, Prop = "TextColor3", Key = (Library_Api.Flags[Flag] == Option and "accentColor" or "textDarkColor")})
@@ -1914,7 +1895,7 @@ function Library_Api:CreateWindow(Window_Name)
                             Auto_Save()
                         end)
                     end
-                    Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 22)
+                    Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 24 + (#Options * 2))
                 end
 
                 Library_Api.Registry[Flag] = function(New_Val)
@@ -1949,13 +1930,14 @@ function Library_Api:CreateWindow(Window_Name)
                 local Is_Dropdown_Open = false
 
                 local Dropdown_Frame = Instance.new("Frame")
-                Dropdown_Frame.Size = UDim2.new(1, 0, 0, 42)
+                Dropdown_Frame.Size = UDim2.new(1, 0, 0, 48)
                 Dropdown_Frame.BackgroundTransparency = 1
                 Dropdown_Frame.ClipsDescendants = true
+                Dropdown_Frame.ZIndex = 5
                 Dropdown_Frame.Parent = Target_Container
 
                 local Dropdown_Label = Instance.new("TextLabel")
-                Dropdown_Label.Size = UDim2.new(1, -10, 0, 14)
+                Dropdown_Label.Size = UDim2.new(1, -10, 0, 16)
                 Dropdown_Label.Position = UDim2.new(0, 2, 0, 0)
                 Dropdown_Label.BackgroundTransparency = 1
                 Dropdown_Label.Text = Name
@@ -1967,8 +1949,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Dropdown_Label, "TextColor3", "textWhiteColor")
 
                 local Dropdown_Main_Button = Instance.new("TextButton")
-                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 24)
-                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 18)
+                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 26)
+                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 20)
                 Dropdown_Main_Button.Text = ""
                 Dropdown_Main_Button.AutoButtonColor = false
                 Dropdown_Main_Button.Parent = Dropdown_Frame
@@ -1986,7 +1968,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Selected_Option_Label = Instance.new("TextLabel")
                 Selected_Option_Label.Size = UDim2.new(1, -30, 1, 0)
-                Selected_Option_Label.Position = UDim2.new(0, 8, 0, 0)
+                Selected_Option_Label.Position = UDim2.new(0, 10, 0, 0)
                 Selected_Option_Label.BackgroundTransparency = 1
                 Selected_Option_Label.TextSize = 11
                 Selected_Option_Label.Font = Main_Font
@@ -2005,12 +1987,12 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Dropdown_Option_List_Frame = Instance.new("ScrollingFrame")
                 Dropdown_Option_List_Frame.Size = UDim2.new(1, -4, 0, 0)
-                Dropdown_Option_List_Frame.Position = UDim2.new(0, 2, 0, 44)
+                Dropdown_Option_List_Frame.Position = UDim2.new(0, 2, 0, 50)
                 Dropdown_Option_List_Frame.BorderSizePixel = 0
                 Dropdown_Option_List_Frame.ScrollBarThickness = 2
                 Dropdown_Option_List_Frame.ClipsDescendants = true
                 Dropdown_Option_List_Frame.Active = true
-                Dropdown_Option_List_Frame.ZIndex = 5
+                Dropdown_Option_List_Frame.ZIndex = 10
                 Dropdown_Option_List_Frame.Parent = Dropdown_Frame
                 Bind_Color(Dropdown_Option_List_Frame, "BackgroundColor3", "elementBackground")
                 Bind_Color(Dropdown_Option_List_Frame, "ScrollBarImageColor3", "accentColor")
@@ -2028,17 +2010,18 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Dropdown_Option_List_Layout = Instance.new("UIListLayout")
                 Dropdown_Option_List_Layout.SortOrder = Enum.SortOrder.LayoutOrder
+                Dropdown_Option_List_Layout.Padding = UDim.new(0, 2)
                 Dropdown_Option_List_Layout.Parent = Dropdown_Option_List_Frame
 
                 local function Toggle_Dropdown_State()
                     Is_Dropdown_Open = not Is_Dropdown_Open
-                    local Max_List_Height = math.min(#Options * 22, 110)
+                    local Max_List_Height = math.min(#Options * 24 + (#Options * 2), 130)
                     local Target_List_Height = Is_Dropdown_Open and Max_List_Height or 0
                     Set_Theme_State(Dropdown_Main_Button_Stroke, "Color", Is_Dropdown_Open and "accentColor" or "borderColor")
                     Animate_Element(Dropdown_Arrow_Icon, {Rotation = Is_Dropdown_Open and 180 or 0}, 0.25)
                     Animate_Element(Dropdown_Option_List_Frame, {Size = UDim2.new(1, -4, 0, Target_List_Height)}, 0.25)
                     Animate_Element(Dropdown_Option_List_Stroke, {Transparency = Is_Dropdown_Open and 0 or 1}, 0.25)
-                    Animate_Element(Dropdown_Frame, {Size = UDim2.new(1, 0, 0, 42 + Target_List_Height + (Is_Dropdown_Open and 4 or 0))}, 0.25)
+                    Animate_Element(Dropdown_Frame, {Size = UDim2.new(1, 0, 0, 48 + Target_List_Height + (Is_Dropdown_Open and 4 or 0))}, 0.25)
                 end
 
                 Dropdown_Main_Button.MouseEnter:Connect(function()
@@ -2058,23 +2041,23 @@ function Library_Api:CreateWindow(Window_Name)
                     local currArr = type(Library_Api.Flags[Flag]) == "table" and Library_Api.Flags[Flag] or {}
                     for _, Option in ipairs(Options) do
                         local Option_Button = Instance.new("TextButton")
-                        Option_Button.Size = UDim2.new(1, 0, 0, 22)
+                        Option_Button.Size = UDim2.new(1, 0, 0, 24)
                         Option_Button.BackgroundTransparency = 1
                         Option_Button.Text = ""
-                        Option_Button.ZIndex = 6
+                        Option_Button.ZIndex = 11
                         Option_Button.Parent = Dropdown_Option_List_Frame
                         Bind_Color(Option_Button, "BackgroundColor3", "elementHoverBackground")
 
                         local Option_Label = Instance.new("TextLabel")
                         Option_Label.Size = UDim2.new(1, -20, 1, 0)
-                        Option_Label.Position = UDim2.new(0, 8, 0, 0)
+                        Option_Label.Position = UDim2.new(0, 10, 0, 0)
                         Option_Label.BackgroundTransparency = 1
                         Option_Label.Text = Option
                         Option_Label.TextSize = 11
                         Option_Label.Font = Main_Font
                         Option_Label.TextXAlignment = Enum.TextXAlignment.Left
                         Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
-                        Option_Label.ZIndex = 6
+                        Option_Label.ZIndex = 11
                         Option_Label.Parent = Option_Button
                         
                         local isSel = table.find(currArr, Option) ~= nil
@@ -2108,7 +2091,7 @@ function Library_Api:CreateWindow(Window_Name)
                             Auto_Save()
                         end)
                     end
-                    Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 22)
+                    Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 24 + (#Options * 2))
                 end
 
                 Library_Api.Registry[Flag] = function(New_Array)
@@ -2454,13 +2437,13 @@ function Library_Api:CreateWindow(Window_Name)
                 Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or false)
 
                 local Module_Frame = Instance.new("Frame")
-                Module_Frame.Size = UDim2.new(1, 0, 0, 40)
+                Module_Frame.Size = UDim2.new(1, 0, 0, 48)
                 Module_Frame.BackgroundTransparency = 1
                 Module_Frame.ClipsDescendants = true
                 Module_Frame.Parent = Target_Container
 
                 local Module_Toggle_Button = Instance.new("TextButton")
-                Module_Toggle_Button.Size = UDim2.new(1, -4, 0, 38)
+                Module_Toggle_Button.Size = UDim2.new(1, -4, 0, 46)
                 Module_Toggle_Button.Position = UDim2.new(0, 2, 0, 0)
                 Module_Toggle_Button.Text = ""
                 Module_Toggle_Button.AutoButtonColor = false
@@ -2479,7 +2462,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Module_Checkbox_Frame = Instance.new("Frame")
                 Module_Checkbox_Frame.Size = UDim2.new(0, 14, 0, 14)
-                Module_Checkbox_Frame.Position = UDim2.new(0, 12, 0.5, -7)
+                Module_Checkbox_Frame.Position = UDim2.new(0, 12, 0, 16)
                 Module_Checkbox_Frame.Parent = Module_Toggle_Button
                 Bind_Color(Module_Checkbox_Frame, "BackgroundColor3", "sectionBackground")
                 Register_Transparency(Module_Checkbox_Frame, 0.21)
@@ -2495,7 +2478,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Module_Label = Instance.new("TextLabel")
                 Module_Label.Size = UDim2.new(1, -45, 0, 14)
-                Module_Label.Position = UDim2.new(0, 36, 0, 4)
+                Module_Label.Position = UDim2.new(0, 36, 0, 6)
                 Module_Label.BackgroundTransparency = 1
                 Module_Label.Text = Name
                 Module_Label.TextSize = 12
@@ -2506,20 +2489,21 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Module_Label, "TextColor3", "textDarkColor")
 
                 local Module_Description_Label = Instance.new("TextLabel")
-                Module_Description_Label.Size = UDim2.new(1, -45, 0, 12)
+                Module_Description_Label.Size = UDim2.new(1, -45, 0, 24)
                 Module_Description_Label.Position = UDim2.new(0, 36, 0, 20)
                 Module_Description_Label.BackgroundTransparency = 1
                 Module_Description_Label.Text = Description_Text
                 Module_Description_Label.TextSize = 10
                 Module_Description_Label.Font = Main_Font
                 Module_Description_Label.TextXAlignment = Enum.TextXAlignment.Left
-                Module_Description_Label.TextTruncate = Enum.TextTruncate.AtEnd
+                Module_Description_Label.TextYAlignment = Enum.TextYAlignment.Top
+                Module_Description_Label.TextWrapped = true
                 Module_Description_Label.Parent = Module_Toggle_Button
                 Bind_Color(Module_Description_Label, "TextColor3", "textDarkColor")
 
                 local Module_Arrow_Icon = Instance.new("ImageLabel")
                 Module_Arrow_Icon.Size = UDim2.new(0, 12, 0, 12)
-                Module_Arrow_Icon.Position = UDim2.new(1, -20, 0, 13)
+                Module_Arrow_Icon.Position = UDim2.new(1, -20, 0, 17)
                 Module_Arrow_Icon.BackgroundTransparency = 1
                 Module_Arrow_Icon.Image = "rbxassetid://10492813580"
                 Module_Arrow_Icon.Rotation = 0
@@ -2528,7 +2512,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Module_Content_Frame = Instance.new("Frame")
                 Module_Content_Frame.Size = UDim2.new(1, -16, 0, 0)
-                Module_Content_Frame.Position = UDim2.new(0, 12, 0, 42)
+                Module_Content_Frame.Position = UDim2.new(0, 12, 0, 50)
                 Module_Content_Frame.BackgroundTransparency = 1
                 Module_Content_Frame.Parent = Module_Frame
 
@@ -2538,10 +2522,10 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local function Synchronize_Module_Size()
                     if Library_Api.Flags[Flag] then
-                        Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 40 + Module_Content_Layout.AbsoluteContentSize.Y + 8)}, 0.25)
+                        Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 48 + Module_Content_Layout.AbsoluteContentSize.Y + 8)}, 0.25)
                         Animate_Element(Module_Arrow_Icon, {Rotation = 180}, 0.25)
                     else
-                        Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 40)}, 0.25)
+                        Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 48)}, 0.25)
                         Animate_Element(Module_Arrow_Icon, {Rotation = 0}, 0.25)
                     end
                 end
@@ -2672,7 +2656,6 @@ function Library_Api:CreateWindow(Window_Name)
     
     Left_Settings:Keybind_Create("Menu Toggle", "Menu_Toggle_Key", Enum.KeyCode.Delete, "Toggle Menu Visibility", function()
         Main_Background.Visible = not Main_Background.Visible
-        Update_Global_Blur()
     end)
     
     Left_Settings:Toggle_Create("Keybinds List", "Show_Keybinds", false, "Toggle Keybinds Tracker", function(State)
@@ -2701,7 +2684,6 @@ function Library_Api:CreateWindow(Window_Name)
         for _, Obj in ipairs(Library_Api.Acrylic_Objects) do
             if Obj and Obj.Parent then Obj.Visible = State end
         end
-        Update_Global_Blur()
         Auto_Save()
     end)
 
