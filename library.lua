@@ -865,8 +865,8 @@ function Library_Api:CreateWindow(Window_Name)
             Ui_Scale_Modifier.Scale = 1
             return
         end
-        local Target_Scale = Vp.X / 1280
-        Ui_Scale_Modifier.Scale = math.clamp(Target_Scale, 0.8, 2.5)
+        -- Исправленный и более мягкий множитель
+        Ui_Scale_Modifier.Scale = math.clamp(Vp.X / 1600, 0.75, 1.2)
     end
 
     Workspace_Service.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(Update_Responsive_Scale)
