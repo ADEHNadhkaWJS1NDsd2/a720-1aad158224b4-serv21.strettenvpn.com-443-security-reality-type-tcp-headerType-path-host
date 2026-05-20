@@ -22,13 +22,13 @@ local Library_Api = {
     Config_Name = "AutoSaveConfig.json",
     Current_Theme = "Rose",
     Global_Settings = {
-        Acrylic = false,
+        Acrylic = true,
         Transparency = true
     }
 }
 
 local Themes = {
-    ["Rose"] = { mainBackground = Color3.fromRGB(25, 20, 22), sidebarBackground = Color3.fromRGB(20, 15, 18), sectionBackground = Color3.fromRGB(30, 24, 26), elementBackground = Color3.fromRGB(40, 30, 35), elementHoverBackground = Color3.fromRGB(50, 35, 42), borderColor = Color3.fromRGB(60, 40, 50), borderLightColor = Color3.fromRGB(90, 60, 75), accentColor = Color3.fromRGB(180, 55, 90), textWhiteColor = Color3.fromRGB(240, 240, 240), textDarkColor = Color3.fromRGB(170, 160, 165) },
+    ["Rose"] = { mainBackground = Color3.fromRGB(24, 18, 20), sidebarBackground = Color3.fromRGB(20, 14, 16), sectionBackground = Color3.fromRGB(30, 24, 26), elementBackground = Color3.fromRGB(38, 30, 33), elementHoverBackground = Color3.fromRGB(48, 38, 42), borderColor = Color3.fromRGB(60, 40, 48), borderLightColor = Color3.fromRGB(85, 55, 68), accentColor = Color3.fromRGB(180, 55, 90), textWhiteColor = Color3.fromRGB(240, 240, 240), textDarkColor = Color3.fromRGB(170, 160, 165) },
     ["Slate"] = { mainBackground = Color3.fromRGB(15, 17, 20), sidebarBackground = Color3.fromRGB(11, 13, 15), sectionBackground = Color3.fromRGB(20, 22, 26), elementBackground = Color3.fromRGB(28, 30, 35), elementHoverBackground = Color3.fromRGB(38, 42, 48), borderColor = Color3.fromRGB(45, 50, 58), borderLightColor = Color3.fromRGB(65, 75, 88), accentColor = Color3.fromRGB(85, 135, 215), textWhiteColor = Color3.fromRGB(240, 245, 250), textDarkColor = Color3.fromRGB(140, 150, 165) },
     ["Midnight"] = { mainBackground = Color3.fromRGB(10, 12, 18), sidebarBackground = Color3.fromRGB(6, 8, 12), sectionBackground = Color3.fromRGB(16, 18, 26), elementBackground = Color3.fromRGB(22, 26, 36), elementHoverBackground = Color3.fromRGB(30, 35, 48), borderColor = Color3.fromRGB(35, 40, 55), borderLightColor = Color3.fromRGB(55, 65, 85), accentColor = Color3.fromRGB(100, 120, 240), textWhiteColor = Color3.fromRGB(230, 235, 255), textDarkColor = Color3.fromRGB(130, 140, 170) },
     ["Mocha"] = { mainBackground = Color3.fromRGB(20, 16, 14), sidebarBackground = Color3.fromRGB(15, 11, 9), sectionBackground = Color3.fromRGB(26, 22, 18), elementBackground = Color3.fromRGB(35, 28, 24), elementHoverBackground = Color3.fromRGB(48, 38, 32), borderColor = Color3.fromRGB(55, 45, 38), borderLightColor = Color3.fromRGB(85, 70, 60), accentColor = Color3.fromRGB(200, 140, 100), textWhiteColor = Color3.fromRGB(245, 240, 235), textDarkColor = Color3.fromRGB(165, 150, 140) },
@@ -66,7 +66,7 @@ Screen_Gui.IgnoreGuiInset = true
 local UI_Blur = Instance.new("BlurEffect")
 UI_Blur.Size = 0
 UI_Blur.Enabled = false
-UI_Blur.Parent = Lighting_Service
+pcall(function() UI_Blur.Parent = Lighting_Service end)
 
 local function Update_Global_Blur()
     if Library_Api.Instances.Menu and Library_Api.Instances.Menu.Visible and Library_Api.Global_Settings.Acrylic then
@@ -76,7 +76,7 @@ local function Update_Global_Blur()
         local t = Tween_Service:Create(UI_Blur, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = 0})
         t:Play()
         t.Completed:Connect(function()
-            if not (Library_Api.Instances.Menu.Visible and Library_Api.Global_Settings.Acrylic) then
+            if not (Library_Api.Instances.Menu and Library_Api.Instances.Menu.Visible and Library_Api.Global_Settings.Acrylic) then
                 UI_Blur.Enabled = false
             end
         end)
@@ -136,17 +136,18 @@ local function Apply_Acrylic_Effect(Parent)
     local Noise = Instance.new("ImageLabel")
     Noise.Size = UDim2.new(1, 0, 1, 0)
     Noise.BackgroundTransparency = 1
-    Noise.Image = "rbxassetid://9968344105"
-    Noise.ImageTransparency = 0.95
+    Noise.Image = "rbxassetid://13830869661"
+    Noise.ImageTransparency = 0.92
     Noise.TileSize = UDim2.new(0, 128, 0, 128)
     Noise.ScaleType = Enum.ScaleType.Tile
     Noise.ZIndex = Parent.ZIndex
     Noise.Parent = Parent
-    local Corner = Instance.new("UICorner")
     local P_Corner = Parent:FindFirstChildOfClass("UICorner")
-    Corner.CornerRadius = P_Corner and P_Corner.CornerRadius or UDim.new(0, 6)
-    Corner.Parent = Noise
-    
+    if P_Corner then
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = P_Corner.CornerRadius
+        Corner.Parent = Noise
+    end
     table.insert(Library_Api.Acrylic_Objects, Noise)
     Noise.Visible = Library_Api.Global_Settings.Acrylic
     return Noise
@@ -766,9 +767,10 @@ function Library_Api:CreateWindow(Window_Name)
     Mobile_Toggle_Button.BorderSizePixel = 0
     Mobile_Toggle_Button.ZIndex = 1000
     Mobile_Toggle_Button.Visible = true
-    Mobile_Toggle_Button.Image = "rbxassetid://131244616689186"
+    Mobile_Toggle_Button.Image = "rbxassetid://10492965648"
     Mobile_Toggle_Button.Parent = Screen_Gui
     Bind_Color(Mobile_Toggle_Button, "BackgroundColor3", "mainBackground")
+    Bind_Color(Mobile_Toggle_Button, "ImageColor3", "textWhiteColor")
 
     local Mobile_Toggle_Corner = Instance.new("UICorner")
     Mobile_Toggle_Corner.CornerRadius = UDim.new(1, 0)
@@ -1132,7 +1134,8 @@ function Library_Api:CreateWindow(Window_Name)
                 end)
 
                 Toggle_Button.MouseButton1Click:Connect(function()
-                    Library_Api.Registry[Flag](not Library_Api.Flags[Flag])
+                    Library_Api.Flags[Flag] = not Library_Api.Flags[Flag]
+                    Library_Api.Registry[Flag](Library_Api.Flags[Flag])
                     Auto_Save()
                 end)
                 
@@ -1537,7 +1540,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Keybind_Icon.Size = UDim2.new(0, 16, 0, 16)
                 Keybind_Icon.Position = UDim2.new(0, 6, 0.5, -8)
                 Keybind_Icon.BackgroundTransparency = 1
-                Keybind_Icon.Image = "rbxassetid://104798010403294"
+                Keybind_Icon.Image = "rbxassetid://10493018448"
                 Keybind_Icon.Parent = Keybind_Frame
                 Bind_Color(Keybind_Icon, "ImageColor3", "textDarkColor")
 
@@ -1692,7 +1695,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Dropdown_Arrow_Icon.Size = UDim2.new(0, 14, 0, 14)
                 Dropdown_Arrow_Icon.Position = UDim2.new(1, -22, 0.5, -7)
                 Dropdown_Arrow_Icon.BackgroundTransparency = 1
-                Dropdown_Arrow_Icon.Image = "rbxassetid://6031090656"
+                Dropdown_Arrow_Icon.Image = "rbxassetid://10492813580"
                 Dropdown_Arrow_Icon.Parent = Dropdown_Main_Button
                 Bind_Color(Dropdown_Arrow_Icon, "ImageColor3", "textDarkColor")
 
@@ -1877,7 +1880,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Dropdown_Arrow_Icon.Size = UDim2.new(0, 14, 0, 14)
                 Dropdown_Arrow_Icon.Position = UDim2.new(1, -22, 0.5, -7)
                 Dropdown_Arrow_Icon.BackgroundTransparency = 1
-                Dropdown_Arrow_Icon.Image = "rbxassetid://6031090656"
+                Dropdown_Arrow_Icon.Image = "rbxassetid://10492813580"
                 Dropdown_Arrow_Icon.Parent = Dropdown_Main_Button
                 Bind_Color(Dropdown_Arrow_Icon, "ImageColor3", "textDarkColor")
 
@@ -2085,22 +2088,44 @@ function Library_Api:CreateWindow(Window_Name)
                 Expanded_Picker_Stroke.Parent = Expanded_Picker_Frame
                 Bind_Color(Expanded_Picker_Stroke, "Color", "borderColor")
 
-                local Saturation_Value_Map = Instance.new("ImageButton")
+                local Saturation_Value_Map = Instance.new("TextButton")
                 Saturation_Value_Map.Size = UDim2.new(1, -16, 0, 80)
                 Saturation_Value_Map.Position = UDim2.new(0, 8, 0, 8)
-                Saturation_Value_Map.Image = "rbxassetid://4155801252"
-                Saturation_Value_Map.ImageColor3 = Color3.fromHSV(Hue, 1, 1)
                 Saturation_Value_Map.AutoButtonColor = false
+                Saturation_Value_Map.Text = ""
+                Saturation_Value_Map.BackgroundColor3 = Color3.fromHSV(math.clamp(Hue, 0, 1), 1, 1)
                 Saturation_Value_Map.Parent = Expanded_Picker_Frame
                 local Saturation_Value_Map_Corner = Instance.new("UICorner"); Saturation_Value_Map_Corner.CornerRadius = UDim.new(0, 3); Saturation_Value_Map_Corner.Parent = Saturation_Value_Map
                 local Saturation_Value_Map_Stroke = Instance.new("UIStroke"); Saturation_Value_Map_Stroke.Thickness = 1; Saturation_Value_Map_Stroke.Parent = Saturation_Value_Map
                 Bind_Color(Saturation_Value_Map_Stroke, "Color", "borderColor")
+
+                local White_Overlay = Instance.new("Frame")
+                White_Overlay.Size = UDim2.new(1, 0, 1, 0)
+                White_Overlay.BackgroundColor3 = Color3.new(1, 1, 1)
+                White_Overlay.BorderSizePixel = 0
+                White_Overlay.Parent = Saturation_Value_Map
+                local White_Corner = Instance.new("UICorner"); White_Corner.CornerRadius = UDim.new(0, 3); White_Corner.Parent = White_Overlay
+                local White_Gradient = Instance.new("UIGradient")
+                White_Gradient.Transparency = ColorSequence.new{ColorSequenceKeypoint.new(0, 0), ColorSequenceKeypoint.new(1, 1)}
+                White_Gradient.Parent = White_Overlay
+
+                local Black_Overlay = Instance.new("Frame")
+                Black_Overlay.Size = UDim2.new(1, 0, 1, 0)
+                Black_Overlay.BackgroundColor3 = Color3.new(0, 0, 0)
+                Black_Overlay.BorderSizePixel = 0
+                Black_Overlay.Parent = Saturation_Value_Map
+                local Black_Corner = Instance.new("UICorner"); Black_Corner.CornerRadius = UDim.new(0, 3); Black_Corner.Parent = Black_Overlay
+                local Black_Gradient = Instance.new("UIGradient")
+                Black_Gradient.Rotation = 90
+                Black_Gradient.Transparency = ColorSequence.new{ColorSequenceKeypoint.new(0, 1), ColorSequenceKeypoint.new(1, 0)}
+                Black_Gradient.Parent = Black_Overlay
 
                 local Saturation_Value_Map_Cursor = Instance.new("Frame")
                 Saturation_Value_Map_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
                 Saturation_Value_Map_Cursor.Size = UDim2.new(0, 6, 0, 6)
                 Saturation_Value_Map_Cursor.Position = UDim2.new(math.clamp(Saturation, 0, 1), 0, math.clamp(1 - Value, 0, 1), 0)
                 Saturation_Value_Map_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
+                Saturation_Value_Map_Cursor.ZIndex = 2
                 Saturation_Value_Map_Cursor.Parent = Saturation_Value_Map
                 local Saturation_Value_Map_Cursor_Corner = Instance.new("UICorner"); Saturation_Value_Map_Cursor_Corner.CornerRadius = UDim.new(1, 0); Saturation_Value_Map_Cursor_Corner.Parent = Saturation_Value_Map_Cursor
                 local Saturation_Value_Map_Cursor_Stroke = Instance.new("UIStroke"); Saturation_Value_Map_Cursor_Stroke.Color = Color3.new(0, 0, 0); Saturation_Value_Map_Cursor_Stroke.Thickness = 1; Saturation_Value_Map_Cursor_Stroke.Parent = Saturation_Value_Map_Cursor
@@ -2133,6 +2158,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Hue_Map_Cursor.Size = UDim2.new(0, 4, 1, 4)
                 Hue_Map_Cursor.Position = UDim2.new(math.clamp(Hue, 0, 1), 0, 0.5, 0)
                 Hue_Map_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
+                Hue_Map_Cursor.ZIndex = 2
                 Hue_Map_Cursor.Parent = Hue_Map
                 local Hue_Map_Cursor_Corner = Instance.new("UICorner"); Hue_Map_Cursor_Corner.CornerRadius = UDim.new(0, 2); Hue_Map_Cursor_Corner.Parent = Hue_Map_Cursor
                 local Hue_Map_Cursor_Stroke = Instance.new("UIStroke"); Hue_Map_Cursor_Stroke.Color = Color3.new(0, 0, 0); Hue_Map_Cursor_Stroke.Thickness = 1; Hue_Map_Cursor_Stroke.Parent = Hue_Map_Cursor
@@ -2141,9 +2167,12 @@ function Library_Api:CreateWindow(Window_Name)
                     local c = typeof(New_Color) == "Color3" and New_Color or Color3.new(1,1,1)
                     Library_Api.Flags[Flag] = c
                     if not From_Internal then
-                        Hue, Saturation, Value = c:ToHSV()
+                        local h, s, v = c:ToHSV()
+                        Hue = h
+                        Saturation = s
+                        Value = v
                     end
-                    Saturation_Value_Map.ImageColor3 = Color3.fromHSV(Hue, 1, 1)
+                    Saturation_Value_Map.BackgroundColor3 = Color3.fromHSV(math.clamp(Hue, 0, 1), 1, 1)
                     Color_Preview_Button.BackgroundColor3 = c
                     Saturation_Value_Map_Cursor.Position = UDim2.new(math.clamp(Saturation, 0, 1), 0, math.clamp(1 - Value, 0, 1), 0)
                     Hue_Map_Cursor.Position = UDim2.new(math.clamp(Hue, 0, 1), 0, 0.5, 0)
@@ -2378,7 +2407,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Module_Arrow_Icon.Size = UDim2.new(0, 12, 0, 12)
                 Module_Arrow_Icon.Position = UDim2.new(1, -20, 0, 13)
                 Module_Arrow_Icon.BackgroundTransparency = 1
-                Module_Arrow_Icon.Image = "rbxassetid://6031090656"
+                Module_Arrow_Icon.Image = "rbxassetid://10492813580"
                 Module_Arrow_Icon.Rotation = 0
                 Module_Arrow_Icon.Parent = Module_Toggle_Button
                 Bind_Color(Module_Arrow_Icon, "ImageColor3", "textDarkColor")
@@ -2414,6 +2443,7 @@ function Library_Api:CreateWindow(Window_Name)
                     Set_Theme_State(Module_Checkbox_Frame, "BackgroundColor3", New_State and "accentColor" or "sectionBackground")
                     Set_Theme_State(Module_Toggle_Button_Stroke, "Color", New_State and "accentColor" or "borderColor")
                     Set_Theme_State(Module_Label, "TextColor3", New_State and "textWhiteColor" or "textDarkColor")
+                    Set_Theme_State(Module_Arrow_Icon, "ImageColor3", New_State and "accentColor" or "textDarkColor")
                     Synchronize_Module_Size()
                     if type(Callback) == "function" then task.spawn(Callback, New_State) end
                 end
@@ -2558,6 +2588,7 @@ function Library_Api:CreateWindow(Window_Name)
             if Obj and Obj.Parent then Obj.Visible = State end
         end
         Update_Global_Blur()
+        Auto_Save()
     end)
 
     Left_Settings:Toggle_Create("Enable Transparency", "Global_Trans", true, "Toggle element transparency", function(State)
@@ -2567,16 +2598,17 @@ function Library_Api:CreateWindow(Window_Name)
                 Data.Obj.BackgroundTransparency = State and Data.Def or 0
             end
         end
+        Auto_Save()
     end)
 
     local Right_Settings = Settings_Api:Section_Create("Right", "Configurations")
     
     local function Get_Configs()
         local List = {}
-        local success, files = pcall(listfiles, Library_Api.Folder_Name)
+        local success, files = pcall(function() return listfiles(Library_Api.Folder_Name) end)
         if success and type(files) == "table" then
             for _, File in ipairs(files) do
-                local Name = File:match("([^/\\]+)%.json$")
+                local Name = tostring(File):match("([^/\\]+)%.json$")
                 if Name and Name ~= "AutoSaveConfig" then table.insert(List, Name) end
             end
         end
