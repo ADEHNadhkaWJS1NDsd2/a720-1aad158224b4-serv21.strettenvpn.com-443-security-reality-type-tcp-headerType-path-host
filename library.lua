@@ -15,19 +15,20 @@ local Library_Api = {
     Keybind_Names = {},
     Theme_Objects = {},
     Transparency_Objects = {},
+    Acrylic_Objects = {},
     Saved_Positions = {},
     Instances = {},
     Folder_Name = "PhantomHub",
     Config_Name = "AutoSaveConfig.json",
     Current_Theme = "Rose",
     Global_Settings = {
-        Acrylic = true,
+        Acrylic = false,
         Transparency = true
     }
 }
 
 local Themes = {
-    ["Rose"] = { mainBackground = Color3.fromRGB(18, 14, 16), sidebarBackground = Color3.fromRGB(14, 10, 12), sectionBackground = Color3.fromRGB(24, 18, 20), elementBackground = Color3.fromRGB(32, 24, 28), elementHoverBackground = Color3.fromRGB(45, 30, 38), borderColor = Color3.fromRGB(55, 40, 48), borderLightColor = Color3.fromRGB(85, 55, 70), accentColor = Color3.fromRGB(180, 65, 95), textWhiteColor = Color3.fromRGB(240, 240, 240), textDarkColor = Color3.fromRGB(160, 150, 155) },
+    ["Rose"] = { mainBackground = Color3.fromRGB(25, 20, 22), sidebarBackground = Color3.fromRGB(20, 15, 18), sectionBackground = Color3.fromRGB(30, 24, 26), elementBackground = Color3.fromRGB(40, 30, 35), elementHoverBackground = Color3.fromRGB(50, 35, 42), borderColor = Color3.fromRGB(60, 40, 50), borderLightColor = Color3.fromRGB(90, 60, 75), accentColor = Color3.fromRGB(180, 55, 90), textWhiteColor = Color3.fromRGB(240, 240, 240), textDarkColor = Color3.fromRGB(170, 160, 165) },
     ["Slate"] = { mainBackground = Color3.fromRGB(15, 17, 20), sidebarBackground = Color3.fromRGB(11, 13, 15), sectionBackground = Color3.fromRGB(20, 22, 26), elementBackground = Color3.fromRGB(28, 30, 35), elementHoverBackground = Color3.fromRGB(38, 42, 48), borderColor = Color3.fromRGB(45, 50, 58), borderLightColor = Color3.fromRGB(65, 75, 88), accentColor = Color3.fromRGB(85, 135, 215), textWhiteColor = Color3.fromRGB(240, 245, 250), textDarkColor = Color3.fromRGB(140, 150, 165) },
     ["Midnight"] = { mainBackground = Color3.fromRGB(10, 12, 18), sidebarBackground = Color3.fromRGB(6, 8, 12), sectionBackground = Color3.fromRGB(16, 18, 26), elementBackground = Color3.fromRGB(22, 26, 36), elementHoverBackground = Color3.fromRGB(30, 35, 48), borderColor = Color3.fromRGB(35, 40, 55), borderLightColor = Color3.fromRGB(55, 65, 85), accentColor = Color3.fromRGB(100, 120, 240), textWhiteColor = Color3.fromRGB(230, 235, 255), textDarkColor = Color3.fromRGB(130, 140, 170) },
     ["Mocha"] = { mainBackground = Color3.fromRGB(20, 16, 14), sidebarBackground = Color3.fromRGB(15, 11, 9), sectionBackground = Color3.fromRGB(26, 22, 18), elementBackground = Color3.fromRGB(35, 28, 24), elementHoverBackground = Color3.fromRGB(48, 38, 32), borderColor = Color3.fromRGB(55, 45, 38), borderLightColor = Color3.fromRGB(85, 70, 60), accentColor = Color3.fromRGB(200, 140, 100), textWhiteColor = Color3.fromRGB(245, 240, 235), textDarkColor = Color3.fromRGB(165, 150, 140) },
@@ -104,6 +105,7 @@ local function Bind_Color(Instance_Obj, Property, Color_Key)
 end
 
 local function Set_Theme_State(Obj, Prop, New_Key)
+    if not Obj or not Obj.Parent then return end
     for _, Data in ipairs(Library_Api.Theme_Objects) do
         if Data.Obj == Obj and Data.Prop == Prop then
             Data.Key = New_Key
@@ -134,15 +136,19 @@ local function Apply_Acrylic_Effect(Parent)
     local Noise = Instance.new("ImageLabel")
     Noise.Size = UDim2.new(1, 0, 1, 0)
     Noise.BackgroundTransparency = 1
-    Noise.Image = "rbxassetid://13830869661"
-    Noise.ImageTransparency = 0.96
-    Noise.TileSize = UDim2.new(0, 256, 0, 256)
+    Noise.Image = "rbxassetid://9968344105"
+    Noise.ImageTransparency = 0.95
+    Noise.TileSize = UDim2.new(0, 128, 0, 128)
     Noise.ScaleType = Enum.ScaleType.Tile
     Noise.ZIndex = Parent.ZIndex
     Noise.Parent = Parent
     local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 6)
+    local P_Corner = Parent:FindFirstChildOfClass("UICorner")
+    Corner.CornerRadius = P_Corner and P_Corner.CornerRadius or UDim.new(0, 6)
     Corner.Parent = Noise
+    
+    table.insert(Library_Api.Acrylic_Objects, Noise)
+    Noise.Visible = Library_Api.Global_Settings.Acrylic
     return Noise
 end
 
@@ -236,11 +242,11 @@ local function Load_From_File(FileName)
                             end
                         elseif Key == "$$Theme" then
                             Library_Api:ChangeTheme(tostring(Val))
-                            if Library_Api.Registry["Menu_Theme_Select"] then task.spawn(Library_Api.Registry["Menu_Theme_Select"], tostring(Val)) end
+                            if type(Library_Api.Registry["Menu_Theme_Select"]) == "function" then task.spawn(Library_Api.Registry["Menu_Theme_Select"], tostring(Val)) end
                         elseif Key == "$$Acrylic" then
-                            if Library_Api.Registry["Global_Acrylic"] then task.spawn(Library_Api.Registry["Global_Acrylic"], Val) end
+                            if type(Library_Api.Registry["Global_Acrylic"]) == "function" then task.spawn(Library_Api.Registry["Global_Acrylic"], Val) end
                         elseif Key == "$$Transparency" then
-                            if Library_Api.Registry["Global_Trans"] then task.spawn(Library_Api.Registry["Global_Trans"], Val) end
+                            if type(Library_Api.Registry["Global_Trans"]) == "function" then task.spawn(Library_Api.Registry["Global_Trans"], Val) end
                         elseif type(Val) == "table" then
                             if Val.Type == "Color3" then
                                 Library_Api.Flags[Key] = Color3.new(Val.R, Val.G, Val.B)
@@ -261,7 +267,7 @@ local function Load_From_File(FileName)
                             Library_Api.Flags[Key] = Val
                         end
 
-                        if Library_Api.Registry[Key] and Key ~= "Menu_Theme_Select" and Key ~= "Global_Acrylic" and Key ~= "Global_Trans" then
+                        if type(Library_Api.Registry[Key]) == "function" and Key ~= "Menu_Theme_Select" and Key ~= "Global_Acrylic" and Key ~= "Global_Trans" then
                             task.spawn(Library_Api.Registry[Key], Library_Api.Flags[Key])
                         end
                     end)
@@ -381,22 +387,19 @@ Kb_Top.InputBegan:Connect(function(Input)
         Kb_Drag_Start = Input.Position
         Kb_Start_Pos = Keybinds_Frame.Position
         Library_Api.Instances.KeybindsTarget = Kb_Start_Pos
-        Input.Changed:Connect(function()
-            if Input.UserInputState == Enum.UserInputState.End then Kb_Dragging = false end
-        end)
-    end
-end)
-
-Kb_Top.InputChanged:Connect(function(Input)
-    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-        Kb_Drag_Input = Input
     end
 end)
 
 User_Input_Service.InputChanged:Connect(function(Input)
-    if Input == Kb_Drag_Input and Kb_Dragging then
+    if Kb_Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
         local Delta = Input.Position - Kb_Drag_Start
         Library_Api.Instances.KeybindsTarget = UDim2.new(Kb_Start_Pos.X.Scale, Kb_Start_Pos.X.Offset + Delta.X, Kb_Start_Pos.Y.Scale, Kb_Start_Pos.Y.Offset + Delta.Y)
+    end
+end)
+
+User_Input_Service.InputEnded:Connect(function(Input)
+    if Kb_Dragging and (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) then
+        Kb_Dragging = false
         Auto_Save()
     end
 end)
@@ -788,22 +791,19 @@ function Library_Api:CreateWindow(Window_Name)
             Toggle_Drag_Start = Input.Position
             Toggle_Start_Pos = Mobile_Toggle_Button.Position
             Toggle_Target_Pos = Toggle_Start_Pos
-            Input.Changed:Connect(function()
-                if Input.UserInputState == Enum.UserInputState.End then Toggle_Dragging = false end
-            end)
-        end
-    end)
-
-    Mobile_Toggle_Button.InputChanged:Connect(function(Input)
-        if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-            Toggle_Drag_Input = Input
         end
     end)
 
     User_Input_Service.InputChanged:Connect(function(Input)
-        if Input == Toggle_Drag_Input and Toggle_Dragging then
+        if Toggle_Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
             local Delta = Input.Position - Toggle_Drag_Start
             Toggle_Target_Pos = UDim2.new(Toggle_Start_Pos.X.Scale, Toggle_Start_Pos.X.Offset + Delta.X, Toggle_Start_Pos.Y.Scale, Toggle_Start_Pos.Y.Offset + Delta.Y)
+        end
+    end)
+    
+    User_Input_Service.InputEnded:Connect(function(Input)
+        if Toggle_Dragging and (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) then
+            Toggle_Dragging = false
         end
     end)
 
@@ -859,22 +859,19 @@ function Library_Api:CreateWindow(Window_Name)
             Main_Drag_Start = Input.Position
             Main_Start_Pos = Main_Background.Position
             Library_Api.Instances.MenuTargetPos = Main_Start_Pos
-            Input.Changed:Connect(function()
-                if Input.UserInputState == Enum.UserInputState.End then Main_Dragging = false end
-            end)
-        end
-    end)
-
-    Top_Bar.InputChanged:Connect(function(Input)
-        if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-            Main_Drag_Input = Input
         end
     end)
 
     User_Input_Service.InputChanged:Connect(function(Input)
-        if Input == Main_Drag_Input and Main_Dragging then
+        if Main_Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
             local Delta = Input.Position - Main_Drag_Start
             Library_Api.Instances.MenuTargetPos = UDim2.new(Main_Start_Pos.X.Scale, Main_Start_Pos.X.Offset + (Delta.X / Ui_Scale_Modifier.Scale), Main_Start_Pos.Y.Scale, Main_Start_Pos.Y.Offset + (Delta.Y / Ui_Scale_Modifier.Scale))
+        end
+    end)
+    
+    User_Input_Service.InputEnded:Connect(function(Input)
+        if Main_Dragging and (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) then
+            Main_Dragging = false
             Auto_Save()
         end
     end)
@@ -1118,10 +1115,11 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Toggle_Label, "TextColor3", "textDarkColor")
 
                 Library_Api.Registry[Flag] = function(New_State)
+                    Library_Api.Flags[Flag] = New_State
                     Set_Theme_State(Checkbox_Frame, "BackgroundColor3", New_State and "accentColor" or "elementBackground")
                     Set_Theme_State(Checkbox_Stroke, "Color", New_State and "accentColor" or "borderColor")
                     Set_Theme_State(Toggle_Label, "TextColor3", New_State and "textWhiteColor" or "textDarkColor")
-                    if Callback then task.spawn(Callback, New_State) end
+                    if type(Callback) == "function" then task.spawn(Callback, New_State) end
                 end
 
                 Toggle_Button.MouseEnter:Connect(function()
@@ -1134,8 +1132,7 @@ function Library_Api:CreateWindow(Window_Name)
                 end)
 
                 Toggle_Button.MouseButton1Click:Connect(function()
-                    Library_Api.Flags[Flag] = not Library_Api.Flags[Flag]
-                    Library_Api.Registry[Flag](Library_Api.Flags[Flag])
+                    Library_Api.Registry[Flag](not Library_Api.Flags[Flag])
                     Auto_Save()
                 end)
                 
@@ -1231,7 +1228,7 @@ function Library_Api:CreateWindow(Window_Name)
                     Animate_Element(Slider_Knob, {Position = UDim2.new(Percentage, 0, 0.5, 0)}, 0.15)
                     Value_Text_Box.Text = formatStr
                     UpdateValSize(formatStr)
-                    if Callback then task.spawn(Callback, Snapped_Value) end
+                    if type(Callback) == "function" then task.spawn(Callback, Snapped_Value) end
                 end
 
                 Slider_Background.MouseEnter:Connect(function()
@@ -1243,33 +1240,30 @@ function Library_Api:CreateWindow(Window_Name)
                     Set_Theme_State(Slider_Background_Stroke, "Color", "borderColor")
                 end)
 
-                local Is_Sliding = false
-                local Slider_Drag_Input = nil
+                local Dragging_Slider = false
+
+                local function Update_Slider(Input)
+                    local Percentage = math.clamp((Input.Position.X - Slider_Background.AbsolutePosition.X) / Slider_Background.AbsoluteSize.X, 0, 1)
+                    Library_Api.Registry[Flag](Min + ((Max - Min) * Percentage))
+                end
 
                 Slider_Background.InputBegan:Connect(function(Input)
                     if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-                        Is_Sliding = true
-                        local Percentage = math.clamp((Input.Position.X - Slider_Background.AbsolutePosition.X) / Slider_Background.AbsoluteSize.X, 0, 1)
-                        Library_Api.Registry[Flag](Min + ((Max - Min) * Percentage))
-                        Input.Changed:Connect(function()
-                            if Input.UserInputState == Enum.UserInputState.End then
-                                Is_Sliding = false
-                                Auto_Save()
-                            end
-                        end)
-                    end
-                end)
-
-                Slider_Background.InputChanged:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-                        Slider_Drag_Input = Input
+                        Dragging_Slider = true
+                        Update_Slider(Input)
                     end
                 end)
 
                 User_Input_Service.InputChanged:Connect(function(Input)
-                    if Input == Slider_Drag_Input and Is_Sliding then
-                        local Percentage = math.clamp((Input.Position.X - Slider_Background.AbsolutePosition.X) / Slider_Background.AbsoluteSize.X, 0, 1)
-                        Library_Api.Registry[Flag](Min + ((Max - Min) * Percentage))
+                    if Dragging_Slider and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
+                        Update_Slider(Input)
+                    end
+                end)
+
+                User_Input_Service.InputEnded:Connect(function(Input)
+                    if Dragging_Slider and (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) then
+                        Dragging_Slider = false
+                        Auto_Save()
                     end
                 end)
 
@@ -1287,7 +1281,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:RangeSlider_Create(Name, Flag, Min, Max, Default_Min, Default_Max, Step, Tooltip, Callback)
-                if not Library_Api.Flags[Flag] then
+                if type(Library_Api.Flags[Flag]) ~= "table" then
                     Library_Api.Flags[Flag] = {Min = Snap_Value(Default_Min or Min, Step), Max = Snap_Value(Default_Max or Max, Step)}
                 end
 
@@ -1374,8 +1368,9 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Max_Range_Knob_Stroke, "Color", "borderColor")
 
                 Library_Api.Registry[Flag] = function(New_Range)
-                    Library_Api.Flags[Flag].Min = math.clamp(New_Range.Min, Min, Max)
-                    Library_Api.Flags[Flag].Max = math.clamp(New_Range.Max, Min, Max)
+                    local current = type(New_Range) == "table" and New_Range or {Min = Min, Max = Max}
+                    Library_Api.Flags[Flag].Min = math.clamp(current.Min, Min, Max)
+                    Library_Api.Flags[Flag].Max = math.clamp(current.Max, Min, Max)
                     local Denominator = Max - Min
                     if Denominator == 0 then Denominator = 1 end
                     local Min_Percentage = (Library_Api.Flags[Flag].Min - Min) / Denominator
@@ -1386,7 +1381,7 @@ function Library_Api:CreateWindow(Window_Name)
                     Animate_Element(Max_Range_Knob, {Position = UDim2.new(Max_Percentage, 0, 0.5, 0)}, 0.15)
                     Value_Label.Text = formatStr
                     UpdateValSize(formatStr)
-                    if Callback then task.spawn(Callback, Library_Api.Flags[Flag]) end
+                    if type(Callback) == "function" then task.spawn(Callback, Library_Api.Flags[Flag]) end
                 end
 
                 Range_Slider_Background.MouseEnter:Connect(function()
@@ -1400,7 +1395,6 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Is_Sliding_Min = false
                 local Is_Sliding_Max = false
-                local Range_Drag_Input = nil
 
                 Range_Slider_Background.InputBegan:Connect(function(Input)
                     if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
@@ -1417,25 +1411,11 @@ function Library_Api:CreateWindow(Window_Name)
                         else
                             Is_Sliding_Max = true
                         end
-
-                        Input.Changed:Connect(function()
-                            if Input.UserInputState == Enum.UserInputState.End then
-                                Is_Sliding_Min = false
-                                Is_Sliding_Max = false
-                                Auto_Save()
-                            end
-                        end)
-                    end
-                end)
-
-                Range_Slider_Background.InputChanged:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-                        Range_Drag_Input = Input
                     end
                 end)
 
                 User_Input_Service.InputChanged:Connect(function(Input)
-                    if Input == Range_Drag_Input and (Is_Sliding_Min or Is_Sliding_Max) then
+                    if (Is_Sliding_Min or Is_Sliding_Max) and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
                         local Percentage = math.clamp((Input.Position.X - Range_Slider_Background.AbsolutePosition.X) / Range_Slider_Background.AbsoluteSize.X, 0, 1)
                         local Calculated_Value = Snap_Value(Min + ((Max - Min) * Percentage), Step)
                         
@@ -1446,6 +1426,14 @@ function Library_Api:CreateWindow(Window_Name)
                             tempRange.Max = math.clamp(Calculated_Value, tempRange.Min, Max)
                         end
                         Library_Api.Registry[Flag](tempRange)
+                    end
+                end)
+
+                User_Input_Service.InputEnded:Connect(function(Input)
+                    if (Is_Sliding_Min or Is_Sliding_Max) and (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) then
+                        Is_Sliding_Min = false
+                        Is_Sliding_Max = false
+                        Auto_Save()
                     end
                 end)
 
@@ -1507,8 +1495,8 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Library_Api.Registry[Flag] = function(New_Text)
                     Library_Api.Flags[Flag] = New_Text
-                    Input_Text_Box.Text = New_Text
-                    if Callback then task.spawn(Callback, New_Text) end
+                    Input_Text_Box.Text = tostring(New_Text)
+                    if type(Callback) == "function" then task.spawn(Callback, New_Text) end
                 end
 
                 Input_Text_Box.MouseEnter:Connect(function()
@@ -1639,7 +1627,7 @@ function Library_Api:CreateWindow(Window_Name)
                         if User_Input_Service:GetFocusedTextBox() then return end
                         local Key = Input.KeyCode == Enum.KeyCode.Unknown and Input.UserInputType or Input.KeyCode
                         if Key == Library_Api.Flags[Flag] and Key ~= Enum.KeyCode.Unknown then
-                            if Callback then task.spawn(Callback, Library_Api.Flags[Flag]) end
+                            if type(Callback) == "function" then task.spawn(Callback, Library_Api.Flags[Flag]) end
                         end
                     end
                 end)
@@ -1648,6 +1636,7 @@ function Library_Api:CreateWindow(Window_Name)
             end
 
             function Elements:Dropdown_Create(Name, Flag, Options, Default, Tooltip, Callback)
+                Options = type(Options) == "table" and Options or {"None"}
                 Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or Options[1])
                 local Is_Dropdown_Open = false
 
@@ -1780,15 +1769,21 @@ function Library_Api:CreateWindow(Window_Name)
                         Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
                         Option_Label.ZIndex = 6
                         Option_Label.Parent = Option_Button
-                        Bind_Color(Option_Label, "TextColor3", Library_Api.Flags[Flag] == Option and "accentColor" or "textDarkColor")
+                        
+                        table.insert(Library_Api.Theme_Objects, {Obj = Option_Label, Prop = "TextColor3", Key = (Library_Api.Flags[Flag] == Option and "accentColor" or "textDarkColor")})
+                        Option_Label.TextColor3 = Themes[Library_Api.Current_Theme][(Library_Api.Flags[Flag] == Option and "accentColor" or "textDarkColor")]
 
                         Option_Button.MouseEnter:Connect(function() 
                             Animate_Element(Option_Button, {BackgroundTransparency = 0.21}, 0.2)
-                            if Library_Api.Flags[Flag] ~= Option then Set_Theme_State(Option_Label, "TextColor3", "textWhiteColor") end
+                            if Library_Api.Flags[Flag] ~= Option then
+                                Set_Theme_State(Option_Label, "TextColor3", "textWhiteColor")
+                            end
                         end)
                         Option_Button.MouseLeave:Connect(function()
                             Animate_Element(Option_Button, {BackgroundTransparency = 1}, 0.2)
-                            if Library_Api.Flags[Flag] ~= Option then Set_Theme_State(Option_Label, "TextColor3", "textDarkColor") end
+                            if Library_Api.Flags[Flag] ~= Option then
+                                Set_Theme_State(Option_Label, "TextColor3", "textDarkColor")
+                            end
                         end)
 
                         Option_Button.MouseButton1Click:Connect(function()
@@ -1802,14 +1797,17 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Library_Api.Registry[Flag] = function(New_Val)
                     Library_Api.Flags[Flag] = New_Val
-                    Selected_Option_Label.Text = New_Val
+                    Selected_Option_Label.Text = tostring(New_Val)
                     for _, Child in ipairs(Dropdown_Option_List_Frame:GetChildren()) do
                         if Child:IsA("TextButton") then
                             local Lbl = Child:FindFirstChildOfClass("TextLabel")
-                            if Lbl then Set_Theme_State(Lbl, "TextColor3", Lbl.Text == New_Val and "accentColor" or "textDarkColor") end
+                            if Lbl then
+                                local isSel = (Lbl.Text == tostring(New_Val))
+                                Set_Theme_State(Lbl, "TextColor3", isSel and "accentColor" or "textDarkColor")
+                            end
                         end
                     end
-                    if Callback then task.spawn(Callback, New_Val) end
+                    if type(Callback) == "function" then task.spawn(Callback, New_Val) end
                 end
 
                 Render_Options()
@@ -1817,13 +1815,14 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Api = {}
                 function Api:Refresh(New_Opts)
-                    Options = New_Opts
+                    Options = type(New_Opts) == "table" and New_Opts or {"None"}
                     Render_Options()
                 end
                 return Api
             end
 
             function Elements:MultiDropdown_Create(Name, Flag, Options, Default, Tooltip, Callback)
+                Options = type(Options) == "table" and Options or {}
                 Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or {})
                 local Is_Dropdown_Open = false
 
@@ -1931,74 +1930,101 @@ function Library_Api:CreateWindow(Window_Name)
                 end)
                 Dropdown_Main_Button.MouseButton1Click:Connect(Toggle_Dropdown_State)
 
+                local function Render_Options()
+                    for _, Child in ipairs(Dropdown_Option_List_Frame:GetChildren()) do
+                        if Child:IsA("TextButton") then Child:Destroy() end
+                    end
+                    local currArr = type(Library_Api.Flags[Flag]) == "table" and Library_Api.Flags[Flag] or {}
+                    for _, Option in ipairs(Options) do
+                        local Option_Button = Instance.new("TextButton")
+                        Option_Button.Size = UDim2.new(1, 0, 0, 22)
+                        Option_Button.BackgroundTransparency = 1
+                        Option_Button.Text = ""
+                        Option_Button.ZIndex = 6
+                        Option_Button.Parent = Dropdown_Option_List_Frame
+                        Bind_Color(Option_Button, "BackgroundColor3", "elementHoverBackground")
+
+                        local Option_Label = Instance.new("TextLabel")
+                        Option_Label.Size = UDim2.new(1, -20, 1, 0)
+                        Option_Label.Position = UDim2.new(0, 8, 0, 0)
+                        Option_Label.BackgroundTransparency = 1
+                        Option_Label.Text = Option
+                        Option_Label.TextSize = 11
+                        Option_Label.Font = Main_Font
+                        Option_Label.TextXAlignment = Enum.TextXAlignment.Left
+                        Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
+                        Option_Label.ZIndex = 6
+                        Option_Label.Parent = Option_Button
+                        
+                        local isSel = table.find(currArr, Option) ~= nil
+                        table.insert(Library_Api.Theme_Objects, {Obj = Option_Label, Prop = "TextColor3", Key = (isSel and "accentColor" or "textDarkColor")})
+                        Option_Label.TextColor3 = Themes[Library_Api.Current_Theme][isSel and "accentColor" or "textDarkColor"]
+
+                        Option_Button.MouseEnter:Connect(function() 
+                            Animate_Element(Option_Button, {BackgroundTransparency = 0.21}, 0.2)
+                            if table.find(type(Library_Api.Flags[Flag]) == "table" and Library_Api.Flags[Flag] or {}, Option) == nil then
+                                Set_Theme_State(Option_Label, "TextColor3", "textWhiteColor")
+                            end
+                        end)
+                        Option_Button.MouseLeave:Connect(function()
+                            Animate_Element(Option_Button, {BackgroundTransparency = 1}, 0.2)
+                            if table.find(type(Library_Api.Flags[Flag]) == "table" and Library_Api.Flags[Flag] or {}, Option) == nil then
+                                Set_Theme_State(Option_Label, "TextColor3", "textDarkColor")
+                            end
+                        end)
+
+                        Option_Button.MouseButton1Click:Connect(function()
+                            local curr = type(Library_Api.Flags[Flag]) == "table" and Library_Api.Flags[Flag] or {}
+                            local Idx = table.find(curr, Option)
+                            local newArr = {}
+                            for _, v in ipairs(curr) do table.insert(newArr, v) end
+                            if Idx then
+                                table.remove(newArr, Idx)
+                            else
+                                table.insert(newArr, Option)
+                            end
+                            Library_Api.Registry[Flag](newArr)
+                            Auto_Save()
+                        end)
+                    end
+                    Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 22)
+                end
+
                 Library_Api.Registry[Flag] = function(New_Array)
-                    Library_Api.Flags[Flag] = New_Array
-                    if #New_Array == 0 then
+                    local arr = type(New_Array) == "table" and New_Array or {}
+                    Library_Api.Flags[Flag] = arr
+                    if #arr == 0 then
                         Selected_Option_Label.Text = "None"
                     else
-                        Selected_Option_Label.Text = table.concat(New_Array, ", ")
+                        Selected_Option_Label.Text = table.concat(arr, ", ")
                     end
                     
                     for _, Child in ipairs(Dropdown_Option_List_Frame:GetChildren()) do
                         if Child:IsA("TextButton") then
                             local Lbl = Child:FindFirstChildOfClass("TextLabel")
-                            if Lbl then Set_Theme_State(Lbl, "TextColor3", table.find(New_Array, Lbl.Text) ~= nil and "accentColor" or "textDarkColor") end
+                            if Lbl then
+                                local isSel = table.find(arr, Lbl.Text) ~= nil
+                                Set_Theme_State(Lbl, "TextColor3", isSel and "accentColor" or "textDarkColor")
+                            end
                         end
                     end
-                    if Callback then task.spawn(Callback, New_Array) end
+                    if type(Callback) == "function" then task.spawn(Callback, arr) end
                 end
 
-                for _, Option in ipairs(Options) do
-                    local Option_Button = Instance.new("TextButton")
-                    Option_Button.Size = UDim2.new(1, 0, 0, 22)
-                    Option_Button.BackgroundTransparency = 1
-                    Option_Button.Text = ""
-                    Option_Button.ZIndex = 6
-                    Option_Button.Parent = Dropdown_Option_List_Frame
-                    Bind_Color(Option_Button, "BackgroundColor3", "elementHoverBackground")
-
-                    local Option_Label = Instance.new("TextLabel")
-                    Option_Label.Size = UDim2.new(1, -20, 1, 0)
-                    Option_Label.Position = UDim2.new(0, 8, 0, 0)
-                    Option_Label.BackgroundTransparency = 1
-                    Option_Label.Text = Option
-                    Option_Label.TextSize = 11
-                    Option_Label.Font = Main_Font
-                    Option_Label.TextXAlignment = Enum.TextXAlignment.Left
-                    Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
-                    Option_Label.ZIndex = 6
-                    Option_Label.Parent = Option_Button
-                    Bind_Color(Option_Label, "TextColor3", table.find(Library_Api.Flags[Flag], Option) ~= nil and "accentColor" or "textDarkColor")
-
-                    Option_Button.MouseEnter:Connect(function() 
-                        Animate_Element(Option_Button, {BackgroundTransparency = 0.21}, 0.2)
-                        if table.find(Library_Api.Flags[Flag], Option) == nil then Set_Theme_State(Option_Label, "TextColor3", "textWhiteColor") end
-                    end)
-                    Option_Button.MouseLeave:Connect(function()
-                        Animate_Element(Option_Button, {BackgroundTransparency = 1}, 0.2)
-                        if table.find(Library_Api.Flags[Flag], Option) == nil then Set_Theme_State(Option_Label, "TextColor3", "textDarkColor") end
-                    end)
-
-                    Option_Button.MouseButton1Click:Connect(function()
-                        local Idx = table.find(Library_Api.Flags[Flag], Option)
-                        local newArr = {}
-                        for _, v in ipairs(Library_Api.Flags[Flag]) do table.insert(newArr, v) end
-                        if Idx then
-                            table.remove(newArr, Idx)
-                        else
-                            table.insert(newArr, Option)
-                        end
-                        Library_Api.Registry[Flag](newArr)
-                        Auto_Save()
-                    end)
-                end
-                Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 22)
-                
+                Render_Options()
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
+
+                local Api = {}
+                function Api:Refresh(New_Opts)
+                    Options = type(New_Opts) == "table" and New_Opts or {}
+                    Render_Options()
+                end
+                return Api
             end
 
             function Elements:ColorPicker_Create(Name, Flag, Default, Tooltip, Callback)
-                Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or Color3.new(1, 1, 1))
+                local initialColor = typeof(Default) == "Color3" and Default or Color3.new(1, 1, 1)
+                Library_Api.Flags[Flag] = typeof(Library_Api.Flags[Flag]) == "Color3" and Library_Api.Flags[Flag] or initialColor
                 local Is_Color_Picker_Open = false
                 local Hue, Saturation, Value = Library_Api.Flags[Flag]:ToHSV()
 
@@ -2073,7 +2099,7 @@ function Library_Api:CreateWindow(Window_Name)
                 local Saturation_Value_Map_Cursor = Instance.new("Frame")
                 Saturation_Value_Map_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
                 Saturation_Value_Map_Cursor.Size = UDim2.new(0, 6, 0, 6)
-                Saturation_Value_Map_Cursor.Position = UDim2.new(Saturation, 0, 1 - Value, 0)
+                Saturation_Value_Map_Cursor.Position = UDim2.new(math.clamp(Saturation, 0, 1), 0, math.clamp(1 - Value, 0, 1), 0)
                 Saturation_Value_Map_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 Saturation_Value_Map_Cursor.Parent = Saturation_Value_Map
                 local Saturation_Value_Map_Cursor_Corner = Instance.new("UICorner"); Saturation_Value_Map_Cursor_Corner.CornerRadius = UDim.new(1, 0); Saturation_Value_Map_Cursor_Corner.Parent = Saturation_Value_Map_Cursor
@@ -2105,75 +2131,67 @@ function Library_Api:CreateWindow(Window_Name)
                 local Hue_Map_Cursor = Instance.new("Frame")
                 Hue_Map_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
                 Hue_Map_Cursor.Size = UDim2.new(0, 4, 1, 4)
-                Hue_Map_Cursor.Position = UDim2.new(Hue, 0, 0.5, 0)
+                Hue_Map_Cursor.Position = UDim2.new(math.clamp(Hue, 0, 1), 0, 0.5, 0)
                 Hue_Map_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 Hue_Map_Cursor.Parent = Hue_Map
                 local Hue_Map_Cursor_Corner = Instance.new("UICorner"); Hue_Map_Cursor_Corner.CornerRadius = UDim.new(0, 2); Hue_Map_Cursor_Corner.Parent = Hue_Map_Cursor
                 local Hue_Map_Cursor_Stroke = Instance.new("UIStroke"); Hue_Map_Cursor_Stroke.Color = Color3.new(0, 0, 0); Hue_Map_Cursor_Stroke.Thickness = 1; Hue_Map_Cursor_Stroke.Parent = Hue_Map_Cursor
 
-                Library_Api.Registry[Flag] = function(New_Color)
-                    Library_Api.Flags[Flag] = New_Color
-                    Hue, Saturation, Value = New_Color:ToHSV()
+                Library_Api.Registry[Flag] = function(New_Color, From_Internal)
+                    local c = typeof(New_Color) == "Color3" and New_Color or Color3.new(1,1,1)
+                    Library_Api.Flags[Flag] = c
+                    if not From_Internal then
+                        Hue, Saturation, Value = c:ToHSV()
+                    end
                     Saturation_Value_Map.ImageColor3 = Color3.fromHSV(Hue, 1, 1)
-                    Color_Preview_Button.BackgroundColor3 = New_Color
-                    Saturation_Value_Map_Cursor.Position = UDim2.new(Saturation, 0, 1 - Value, 0)
-                    Hue_Map_Cursor.Position = UDim2.new(Hue, 0, 0.5, 0)
-                    if Callback then task.spawn(Callback, New_Color) end
+                    Color_Preview_Button.BackgroundColor3 = c
+                    Saturation_Value_Map_Cursor.Position = UDim2.new(math.clamp(Saturation, 0, 1), 0, math.clamp(1 - Value, 0, 1), 0)
+                    Hue_Map_Cursor.Position = UDim2.new(math.clamp(Hue, 0, 1), 0, 0.5, 0)
+                    if type(Callback) == "function" then task.spawn(Callback, c) end
                 end
 
-                local Is_Sliding_Sat = false
-                local Is_Sliding_Hue = false
-                local Picker_Drag_Input = nil
+                local Dragging_Sat = false
+                local Dragging_Hue = false
 
-                local function Process_Sat(Input)
-                    local S = math.clamp((Input.Position.X - Saturation_Value_Map.AbsolutePosition.X) / Saturation_Value_Map.AbsoluteSize.X, 0, 1)
-                    local V = 1 - math.clamp((Input.Position.Y - Saturation_Value_Map.AbsolutePosition.Y) / Saturation_Value_Map.AbsoluteSize.Y, 0, 1)
-                    Library_Api.Registry[Flag](Color3.fromHSV(Hue, S, V))
-                    Auto_Save()
+                local function Update_Sat(Input)
+                    Saturation = math.clamp((Input.Position.X - Saturation_Value_Map.AbsolutePosition.X) / Saturation_Value_Map.AbsoluteSize.X, 0, 1)
+                    Value = 1 - math.clamp((Input.Position.Y - Saturation_Value_Map.AbsolutePosition.Y) / Saturation_Value_Map.AbsoluteSize.Y, 0, 1)
+                    Library_Api.Registry[Flag](Color3.fromHSV(Hue, Saturation, Value), true)
                 end
 
-                local function Process_Hue(Input)
-                    local H = math.clamp((Input.Position.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
-                    Library_Api.Registry[Flag](Color3.fromHSV(H, Saturation, Value))
-                    Auto_Save()
+                local function Update_Hue(Input)
+                    Hue = math.clamp((Input.Position.X - Hue_Map.AbsolutePosition.X) / Hue_Map.AbsoluteSize.X, 0, 1)
+                    Library_Api.Registry[Flag](Color3.fromHSV(Hue, Saturation, Value), true)
                 end
 
                 Saturation_Value_Map.InputBegan:Connect(function(Input)
                     if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-                        Is_Sliding_Sat = true
-                        Process_Sat(Input)
-                        Input.Changed:Connect(function()
-                            if Input.UserInputState == Enum.UserInputState.End then Is_Sliding_Sat = false end
-                        end)
+                        Dragging_Sat = true
+                        Update_Sat(Input)
                     end
                 end)
                 
                 Hue_Map.InputBegan:Connect(function(Input)
                     if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-                        Is_Sliding_Hue = true
-                        Process_Hue(Input)
-                        Input.Changed:Connect(function()
-                            if Input.UserInputState == Enum.UserInputState.End then Is_Sliding_Hue = false end
-                        end)
-                    end
-                end)
-
-                Saturation_Value_Map.InputChanged:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-                        Picker_Drag_Input = Input
-                    end
-                end)
-                
-                Hue_Map.InputChanged:Connect(function(Input)
-                    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-                        Picker_Drag_Input = Input
+                        Dragging_Hue = true
+                        Update_Hue(Input)
                     end
                 end)
 
                 User_Input_Service.InputChanged:Connect(function(Input)
-                    if Input == Picker_Drag_Input then
-                        if Is_Sliding_Sat then Process_Sat(Input) end
-                        if Is_Sliding_Hue then Process_Hue(Input) end
+                    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+                        if Dragging_Sat then Update_Sat(Input) end
+                        if Dragging_Hue then Update_Hue(Input) end
+                    end
+                end)
+
+                User_Input_Service.InputEnded:Connect(function(Input)
+                    if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+                        if Dragging_Sat or Dragging_Hue then
+                            Dragging_Sat = false
+                            Dragging_Hue = false
+                            Auto_Save()
+                        end
                     end
                 end)
 
@@ -2238,7 +2256,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Action_Button.MouseButton1Down:Connect(function() Animate_Element(Action_Button, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.15) end)
                 Action_Button.MouseButton1Up:Connect(function()
                     Animate_Element(Action_Button, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.15)
-                    if Callback then task.spawn(Callback) end
+                    if type(Callback) == "function" then task.spawn(Callback) end
                 end)
             end
 
@@ -2285,7 +2303,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Sub_Button_Action.MouseButton1Down:Connect(function() Animate_Element(Sub_Button_Action, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.15) end)
                 Sub_Button_Action.MouseButton1Up:Connect(function()
                     Animate_Element(Sub_Button_Action, {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0)}, 0.15)
-                    if Callback then task.spawn(Callback) end
+                    if type(Callback) == "function" then task.spawn(Callback) end
                 end)
             end
 
@@ -2379,9 +2397,11 @@ function Library_Api:CreateWindow(Window_Name)
                     if Library_Api.Flags[Flag] then
                         Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 40 + Module_Content_Layout.AbsoluteContentSize.Y + 8)}, 0.25)
                         Animate_Element(Module_Arrow_Icon, {Rotation = 180}, 0.25)
+                        Set_Theme_State(Module_Arrow_Icon, "ImageColor3", "accentColor")
                     else
                         Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 40)}, 0.25)
                         Animate_Element(Module_Arrow_Icon, {Rotation = 0}, 0.25)
+                        Set_Theme_State(Module_Arrow_Icon, "ImageColor3", "textDarkColor")
                     end
                 end
 
@@ -2394,9 +2414,8 @@ function Library_Api:CreateWindow(Window_Name)
                     Set_Theme_State(Module_Checkbox_Frame, "BackgroundColor3", New_State and "accentColor" or "sectionBackground")
                     Set_Theme_State(Module_Toggle_Button_Stroke, "Color", New_State and "accentColor" or "borderColor")
                     Set_Theme_State(Module_Label, "TextColor3", New_State and "textWhiteColor" or "textDarkColor")
-                    Set_Theme_State(Module_Arrow_Icon, "ImageColor3", New_State and "accentColor" or "textDarkColor")
                     Synchronize_Module_Size()
-                    if Callback then task.spawn(Callback, New_State) end
+                    if type(Callback) == "function" then task.spawn(Callback, New_State) end
                 end
 
                 Module_Toggle_Button.MouseEnter:Connect(function()
@@ -2554,13 +2573,13 @@ function Library_Api:CreateWindow(Window_Name)
     
     local function Get_Configs()
         local List = {}
-        local success, _ = pcall(function()
-            if type(isfolder) == "function" and not isfolder(Library_Api.Folder_Name) then makefolder(Library_Api.Folder_Name) end
-            for _, File in ipairs(listfiles(Library_Api.Folder_Name)) do
+        local success, files = pcall(listfiles, Library_Api.Folder_Name)
+        if success and type(files) == "table" then
+            for _, File in ipairs(files) do
                 local Name = File:match("([^/\\]+)%.json$")
                 if Name and Name ~= "AutoSaveConfig" then table.insert(List, Name) end
             end
-        end)
+        end
         return #List > 0 and List or {"None"}
     end
 
