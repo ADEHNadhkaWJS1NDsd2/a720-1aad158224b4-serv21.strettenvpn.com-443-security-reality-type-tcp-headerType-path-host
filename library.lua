@@ -197,21 +197,21 @@ local function Save_To_File(FileName)
 end
 
 local Save_Pending = false
-local Last_Save_Time = tick()
+local Last_Save_Time = os.clock()
 
 local function Auto_Save()
     if Save_Pending then return end
     Save_Pending = true
     task.delay(1, function()
         Save_To_File(Library_Api.Config_Name)
-        Last_Save_Time = tick()
+        Last_Save_Time = os.clock()
         Save_Pending = false
     end)
 end
 
 Run_Service.Heartbeat:Connect(function()
-    if tick() - Last_Save_Time >= 5 then
-        Last_Save_Time = tick()
+    if os.clock() - Last_Save_Time >= 5 then
+        Last_Save_Time = os.clock()
         Save_To_File(Library_Api.Config_Name)
     end
 end)
@@ -323,6 +323,15 @@ Notification_Layout.Padding = UDim.new(0, 8)
 Notification_Layout.Parent = Notification_Container
 
 local Tooltip_Target_Text = ""
+
+local function Show_Tooltip(Text)
+    Tooltip_Target_Text = Text or ""
+    if Tooltip_Target_Text ~= "" then
+        Tooltip_Text.Text = Tooltip_Target_Text
+        local Text_Width = GetTextWidth(Tooltip_Target_Text, 11, Main_Font)
+        Tooltip_Frame.Size = UDim2.new(0, Text_Width + 16, 0, 24)
+    end
+end
 
 local Keybinds_Frame = Instance.new("Frame")
 Keybinds_Frame.Size = UDim2.new(0, 220, 0, 30)
@@ -472,10 +481,12 @@ end
 
 local function Format_Value(Value, Step)
     if Step and Step < 1 then
-        local Decimal_Places = tostring(Step):len() - 2
+        local Step_Str = tostring(Step)
+        local Dot_Index = string.find(Step_Str, "%.")
+        local Decimal_Places = Dot_Index and (string.len(Step_Str) - Dot_Index) or 0
         return string.format("%."..Decimal_Places.."f", Value)
     end
-    return tostring(Value)
+    return tostring(math.floor(Value + 0.5))
 end
 
 Run_Service.RenderStepped:Connect(function()
@@ -507,7 +518,6 @@ function Library_Api:Notify(Config)
 
     local Notification_Frame = Instance.new("Frame")
     Notification_Frame.Size = UDim2.new(1, 0, 0, 50)
-    Notification_Frame.Position = UDim2.new(1, 270, 0, 0)
     Notification_Frame.ZIndex = 1501
     Notification_Frame.Parent = Notification_Container
     Bind_Color(Notification_Frame, "BackgroundColor3", "sectionBackground")
@@ -559,10 +569,24 @@ function Library_Api:Notify(Config)
     Text_Label.Parent = Notification_Frame
     Bind_Color(Text_Label, "TextColor3", "textDarkColor")
 
-    Animate_Element(Notification_Frame, {Position = UDim2.new(0, 0, 0, 0)}, 0.35)
+    Notification_Frame.BackgroundTransparency = 1
+    Notification_Stroke.Transparency = 1
+    Line_Frame.BackgroundTransparency = 1
+    Title_Label.TextTransparency = 1
+    Text_Label.TextTransparency = 1
+
+    Animate_Element(Notification_Frame, {BackgroundTransparency = Library_Api.Global_Settings.Transparency and 0.05 or 0}, 0.35)
+    Animate_Element(Notification_Stroke, {Transparency = 0}, 0.35)
+    Animate_Element(Line_Frame, {BackgroundTransparency = 0}, 0.35)
+    Animate_Element(Title_Label, {TextTransparency = 0}, 0.35)
+    Animate_Element(Text_Label, {TextTransparency = 0}, 0.35)
 
     task.delay(Duration, function()
-        local Hide_Tween = Animate_Element(Notification_Frame, {Position = UDim2.new(1, 270, 0, 0)}, 0.35)
+        local Hide_Tween = Animate_Element(Notification_Frame, {BackgroundTransparency = 1}, 0.35)
+        Animate_Element(Notification_Stroke, {Transparency = 1}, 0.35)
+        Animate_Element(Line_Frame, {BackgroundTransparency = 1}, 0.35)
+        Animate_Element(Title_Label, {TextTransparency = 1}, 0.35)
+        Animate_Element(Text_Label, {TextTransparency = 1}, 0.35)
         Hide_Tween.Completed:Connect(function()
             Notification_Frame:Destroy()
         end)
@@ -815,13 +839,13 @@ function Library_Api:CreateWindow(Window_Name)
 
     local Toggle_Click_Time = 0
     Mobile_Toggle_Button.MouseButton1Down:Connect(function()
-        Toggle_Click_Time = tick()
+        Toggle_Click_Time = os.clock()
         Animate_Element(Mobile_Toggle_Button, {Size = UDim2.new(0, 42, 0, 42)}, 0.25)
     end)
     
     Mobile_Toggle_Button.MouseButton1Up:Connect(function()
         Animate_Element(Mobile_Toggle_Button, {Size = UDim2.new(0, 48, 0, 48)}, 0.25)
-        if tick() - Toggle_Click_Time < 0.2 then
+        if os.clock() - Toggle_Click_Time < 0.2 then
             Main_Background.Visible = not Main_Background.Visible
             Update_Global_Blur()
         end
@@ -985,7 +1009,6 @@ function Library_Api:CreateWindow(Window_Name)
             if Window_Context.Active_Tab then
                 Animate_Element(Window_Context.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.25)
                 Set_Theme_State(Window_Context.Active_Tab.Lbl, "TextColor3", "textDarkColor")
-                if Window_Context.Active_Tab.Icon then Set_Theme_State(Window_Context.Active_Tab.Icon, "ImageColor3", "textDarkColor") end
                 Animate_Element(Window_Context.Active_Tab.Ind, {Size = UDim2.new(0, 2, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.25)
                 Window_Context.Active_Tab.Page.Visible = false
             end
@@ -998,7 +1021,6 @@ function Library_Api:CreateWindow(Window_Name)
             Page_Scrolling_Frame.Visible = true
             Animate_Element(Tab_Button, {BackgroundTransparency = 0.11}, 0.25)
             Set_Theme_State(Tab_Label, "TextColor3", "textWhiteColor")
-            if Tab_Data.Icon then Set_Theme_State(Tab_Data.Icon, "ImageColor3", "accentColor") end
             Animate_Element(Tab_Indicator, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.25)
         end
 
@@ -1608,7 +1630,6 @@ function Library_Api:CreateWindow(Window_Name)
                     UpdateKeybindSize("[ ... ]")
                     Set_Theme_State(Keybind_Button_Stroke, "Color", "accentColor")
                     Set_Theme_State(Keybind_Button, "TextColor3", "textWhiteColor")
-                    Set_Theme_State(Keybind_Icon, "ImageColor3", "accentColor")
                 end)
 
                 User_Input_Service.InputBegan:Connect(function(Input)
@@ -1623,7 +1644,6 @@ function Library_Api:CreateWindow(Window_Name)
                             Is_Listening = false
                             Set_Theme_State(Keybind_Button_Stroke, "Color", "borderColor")
                             Set_Theme_State(Keybind_Button, "TextColor3", "textDarkColor")
-                            Set_Theme_State(Keybind_Icon, "ImageColor3", "textDarkColor")
                             Auto_Save()
                         end
                     else
@@ -1731,7 +1751,6 @@ function Library_Api:CreateWindow(Window_Name)
                     local Max_List_Height = math.min(#Options * 22, 110)
                     local Target_List_Height = Is_Dropdown_Open and Max_List_Height or 0
                     Set_Theme_State(Dropdown_Main_Button_Stroke, "Color", Is_Dropdown_Open and "accentColor" or "borderColor")
-                    Set_Theme_State(Dropdown_Arrow_Icon, "ImageColor3", Is_Dropdown_Open and "accentColor" or "textDarkColor")
                     Animate_Element(Dropdown_Arrow_Icon, {Rotation = Is_Dropdown_Open and 180 or 0}, 0.25)
                     Animate_Element(Dropdown_Option_List_Frame, {Size = UDim2.new(1, -4, 0, Target_List_Height)}, 0.25)
                     Animate_Element(Dropdown_Option_List_Stroke, {Transparency = Is_Dropdown_Open and 0 or 1}, 0.25)
@@ -1916,7 +1935,6 @@ function Library_Api:CreateWindow(Window_Name)
                     local Max_List_Height = math.min(#Options * 22, 110)
                     local Target_List_Height = Is_Dropdown_Open and Max_List_Height or 0
                     Set_Theme_State(Dropdown_Main_Button_Stroke, "Color", Is_Dropdown_Open and "accentColor" or "borderColor")
-                    Set_Theme_State(Dropdown_Arrow_Icon, "ImageColor3", Is_Dropdown_Open and "accentColor" or "textDarkColor")
                     Animate_Element(Dropdown_Arrow_Icon, {Rotation = Is_Dropdown_Open and 180 or 0}, 0.25)
                     Animate_Element(Dropdown_Option_List_Frame, {Size = UDim2.new(1, -4, 0, Target_List_Height)}, 0.25)
                     Animate_Element(Dropdown_Option_List_Stroke, {Transparency = Is_Dropdown_Open and 0 or 1}, 0.25)
@@ -2426,11 +2444,9 @@ function Library_Api:CreateWindow(Window_Name)
                     if Library_Api.Flags[Flag] then
                         Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 40 + Module_Content_Layout.AbsoluteContentSize.Y + 8)}, 0.25)
                         Animate_Element(Module_Arrow_Icon, {Rotation = 180}, 0.25)
-                        Set_Theme_State(Module_Arrow_Icon, "ImageColor3", "accentColor")
                     else
                         Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 40)}, 0.25)
                         Animate_Element(Module_Arrow_Icon, {Rotation = 0}, 0.25)
-                        Set_Theme_State(Module_Arrow_Icon, "ImageColor3", "textDarkColor")
                     end
                 end
 
