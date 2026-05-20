@@ -798,7 +798,7 @@ function Library_Api:CreateWindow(Window_Name)
 
     local Tab_Layout = Instance.new("UIListLayout")
     Tab_Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    Tab_Layout.Padding = UDim.new(0, 4)
+    Tab_Layout.Padding = UDim.new(0, 6)
     Tab_Layout.Parent = Tab_Scrolling_Frame
 
     local Profile_Button = Instance.new("TextButton")
@@ -933,15 +933,9 @@ function Library_Api:CreateWindow(Window_Name)
         end
         local Is_Mobile = User_Input_Service.TouchEnabled and not User_Input_Service.MouseEnabled
         if Is_Mobile then
-            local Scale_X = Vp.X / 700
-            local Scale_Y = Vp.Y / 450
-            local Scale = math.min(Scale_X, Scale_Y)
-            Ui_Scale_Modifier.Scale = math.clamp(Scale, 0.45, 0.8)
+            Ui_Scale_Modifier.Scale = math.clamp(Vp.X / 800, 0.75, 1)
         else
-            local Scale_X = Vp.X / 1400
-            local Scale_Y = Vp.Y / 900
-            local Scale = math.min(Scale_X, Scale_Y)
-            Ui_Scale_Modifier.Scale = math.clamp(Scale, 0.6, 1)
+            Ui_Scale_Modifier.Scale = math.clamp(Vp.X / 1440, 0.85, 1)
         end
     end
 
@@ -1026,7 +1020,7 @@ function Library_Api:CreateWindow(Window_Name)
         local Tab_Data = {}
 
         local Tab_Button = Instance.new("TextButton")
-        Tab_Button.Size = UDim2.new(1, 0, 0, 30)
+        Tab_Button.Size = UDim2.new(1, 0, 0, 36)
         Tab_Button.BackgroundTransparency = 1
         Tab_Button.Text = ""
         Tab_Button.AutoButtonColor = false
@@ -1064,7 +1058,7 @@ function Library_Api:CreateWindow(Window_Name)
         end
 
         local Tab_Indicator = Instance.new("Frame")
-        Tab_Indicator.Size = UDim2.new(0, 2, 0, 0)
+        Tab_Indicator.Size = UDim2.new(0, 3, 0, 0)
         Tab_Indicator.Position = UDim2.new(0, 0, 0.5, 0)
         Tab_Indicator.BorderSizePixel = 0
         Tab_Indicator.Parent = Tab_Button
@@ -1121,7 +1115,7 @@ function Library_Api:CreateWindow(Window_Name)
             if Window_Context.Active_Tab then
                 Animate_Element(Window_Context.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.25)
                 Set_Theme_State(Window_Context.Active_Tab.Lbl, "TextColor3", "textDarkColor")
-                Animate_Element(Window_Context.Active_Tab.Ind, {Size = UDim2.new(0, 2, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.25)
+                Animate_Element(Window_Context.Active_Tab.Ind, {Size = UDim2.new(0, 3, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.25)
                 Window_Context.Active_Tab.Page.Visible = false
             end
             
@@ -1133,7 +1127,7 @@ function Library_Api:CreateWindow(Window_Name)
             Page_Scrolling_Frame.Visible = true
             Animate_Element(Tab_Button, {BackgroundTransparency = 0.11}, 0.25)
             Set_Theme_State(Tab_Label, "TextColor3", "textWhiteColor")
-            Animate_Element(Tab_Indicator, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.25)
+            Animate_Element(Tab_Indicator, {Size = UDim2.new(0, 3, 0, 20), Position = UDim2.new(0, 0, 0.5, -10)}, 0.25)
         end
 
         Tab_Button.MouseButton1Click:Connect(function() Tab_Data:Activate() end)
@@ -1165,11 +1159,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Label_Stroke.Parent = Label_Bg
                 Bind_Color(Label_Stroke, "Color", "borderColor")
 
-                local titleWidth = GetTextWidth(Name, 11, Main_Font)
-                titleWidth = math.clamp(titleWidth + 10, 50, 160)
-
                 local Title_Label = Instance.new("TextLabel")
-                Title_Label.Size = UDim2.new(0, titleWidth, 1, 0)
+                Title_Label.Size = UDim2.new(0.5, 0, 1, 0)
                 Title_Label.Position = UDim2.new(0, 8, 0, 0)
                 Title_Label.BackgroundTransparency = 1
                 Title_Label.Text = Name
@@ -1182,7 +1173,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Value_Label = Instance.new("TextLabel")
                 Value_Label.AnchorPoint = Vector2.new(1, 0)
-                Value_Label.Size = UDim2.new(1, -(titleWidth + 20), 1, 0)
+                Value_Label.Size = UDim2.new(0.5, -8, 1, 0)
                 Value_Label.Position = UDim2.new(1, -8, 0, 0)
                 Value_Label.BackgroundTransparency = 1
                 Value_Label.Text = Initial_Value or ""
@@ -1585,11 +1576,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Textbox_Frame.BackgroundTransparency = 1
                 Textbox_Frame.Parent = Target_Container
 
-                local labelWidth = GetTextWidth(Name, 11, Main_Font)
-                labelWidth = math.clamp(labelWidth + 10, 50, 160)
-
                 local Textbox_Label = Instance.new("TextLabel")
-                Textbox_Label.Size = UDim2.new(0, labelWidth, 1, 0)
+                Textbox_Label.Size = UDim2.new(0.4, 0, 1, 0)
                 Textbox_Label.Position = UDim2.new(0, 2, 0, 0)
                 Textbox_Label.BackgroundTransparency = 1
                 Textbox_Label.Text = Name
@@ -1602,7 +1590,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Textbox_Input_Background = Instance.new("Frame")
                 Textbox_Input_Background.AnchorPoint = Vector2.new(1, 0.5)
-                Textbox_Input_Background.Size = UDim2.new(1, -(labelWidth + 15), 0, 22)
+                Textbox_Input_Background.Size = UDim2.new(0.55, 0, 0, 22)
                 Textbox_Input_Background.Position = UDim2.new(1, -4, 0.5, 0)
                 Textbox_Input_Background.Parent = Textbox_Frame
                 Bind_Color(Textbox_Input_Background, "BackgroundColor3", "elementBackground")
@@ -1714,7 +1702,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local function UpdateKeybindSize(text)
                     local w = GetTextWidth(text, 10, Bold_Font)
-                    w = math.clamp(w + 20, 50, 120)
+                    w = math.clamp(w + 20, 40, 120)
                     Animate_Element(Keybind_Button, {Size = UDim2.new(0, w, 0, 20)}, 0.2)
                     Keybind_Label.Size = UDim2.new(1, -(w + 33), 1, 0)
                 end
@@ -1794,8 +1782,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Dropdown_Label, "TextColor3", "textWhiteColor")
 
                 local Dropdown_Main_Button = Instance.new("TextButton")
-                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 22)
-                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 20)
+                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 24)
+                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 18)
                 Dropdown_Main_Button.Text = ""
                 Dropdown_Main_Button.AutoButtonColor = false
                 Dropdown_Main_Button.Parent = Dropdown_Frame
@@ -1979,8 +1967,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Dropdown_Label, "TextColor3", "textWhiteColor")
 
                 local Dropdown_Main_Button = Instance.new("TextButton")
-                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 22)
-                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 20)
+                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 24)
+                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 18)
                 Dropdown_Main_Button.Text = ""
                 Dropdown_Main_Button.AutoButtonColor = false
                 Dropdown_Main_Button.Parent = Dropdown_Frame
@@ -2402,15 +2390,13 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Action_Button.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    Set_Theme_State(Action_Button, "BackgroundColor3", "elementHoverBackground")
-                    Set_Theme_State(Action_Button_Stroke, "Color", "accentColor")
-                    Set_Theme_State(Action_Button, "TextColor3", "accentColor")
+                    Animate_Element(Action_Button, {BackgroundTransparency = 0.1}, 0.2)
+                    Set_Theme_State(Action_Button_Stroke, "Color", "borderLightColor")
                 end)
                 Action_Button.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    Set_Theme_State(Action_Button, "BackgroundColor3", "elementBackground")
+                    Animate_Element(Action_Button, {BackgroundTransparency = 0.21}, 0.2)
                     Set_Theme_State(Action_Button_Stroke, "Color", "borderColor")
-                    Set_Theme_State(Action_Button, "TextColor3", "textWhiteColor")
                 end)
                 Action_Button.MouseButton1Down:Connect(function() Animate_Element(Action_Button, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.15) end)
                 Action_Button.MouseButton1Up:Connect(function()
@@ -2449,15 +2435,13 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Sub_Button_Action.MouseEnter:Connect(function()
                     Show_Tooltip(Tooltip)
-                    Set_Theme_State(Sub_Button_Action, "BackgroundColor3", "elementBackground")
+                    Animate_Element(Sub_Button_Action, {BackgroundTransparency = 0.1}, 0.2)
                     Set_Theme_State(Sub_Button_Stroke, "Color", "borderLightColor")
-                    Set_Theme_State(Sub_Button_Action, "TextColor3", "textWhiteColor")
                 end)
                 Sub_Button_Action.MouseLeave:Connect(function()
                     Show_Tooltip("")
-                    Set_Theme_State(Sub_Button_Action, "BackgroundColor3", "sectionBackground")
+                    Animate_Element(Sub_Button_Action, {BackgroundTransparency = 0.21}, 0.2)
                     Set_Theme_State(Sub_Button_Stroke, "Color", "borderColor")
-                    Set_Theme_State(Sub_Button_Action, "TextColor3", "textDarkColor")
                 end)
                 Sub_Button_Action.MouseButton1Down:Connect(function() Animate_Element(Sub_Button_Action, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.15) end)
                 Sub_Button_Action.MouseButton1Up:Connect(function()
