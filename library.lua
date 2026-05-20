@@ -599,11 +599,14 @@ end
 
 function Library_Api:CreateWindow(Window_Name)
 
+    local Normal_Size = UDim2.new(0, 600, 0, 380)
+
     local Main_Background = Instance.new("Frame")
-    Main_Background.Size = UDim2.new(0, 800, 0, 520)
-    Main_Background.Position = Library_Api.Saved_Positions.Menu or UDim2.new(0.5, -400, 0.5, -260)
+    Main_Background.Size = Normal_Size
+    Main_Background.Position = Library_Api.Saved_Positions.Menu or UDim2.new(0.5, -300, 0.5, -190)
     Main_Background.BorderSizePixel = 0
     Main_Background.Active = true
+    Main_Background.ClipsDescendants = true
     Main_Background.Parent = Screen_Gui
     Bind_Color(Main_Background, "BackgroundColor3", "mainBackground")
     Register_Transparency(Main_Background, 0.18)
@@ -671,7 +674,7 @@ function Library_Api:CreateWindow(Window_Name)
     Bind_Color(Top_Border, "BackgroundColor3", "borderColor")
 
     local Title_Label = Instance.new("TextLabel")
-    Title_Label.Size = UDim2.new(1, -20, 1, -2)
+    Title_Label.Size = UDim2.new(1, -110, 1, -2)
     Title_Label.Position = UDim2.new(0, 15, 0, 2)
     Title_Label.BackgroundTransparency = 1
     Title_Label.Text = Window_Name
@@ -680,6 +683,40 @@ function Library_Api:CreateWindow(Window_Name)
     Title_Label.TextXAlignment = Enum.TextXAlignment.Left
     Title_Label.Parent = Top_Bar
     Bind_Color(Title_Label, "TextColor3", "textWhiteColor")
+
+    local Window_Controls = Instance.new("Frame")
+    Window_Controls.AnchorPoint = Vector2.new(1, 0)
+    Window_Controls.Size = UDim2.new(0, 100, 1, 0)
+    Window_Controls.Position = UDim2.new(1, -5, 0, 0)
+    Window_Controls.BackgroundTransparency = 1
+    Window_Controls.Parent = Top_Bar
+
+    local Controls_Layout = Instance.new("UIListLayout")
+    Controls_Layout.FillDirection = Enum.FillDirection.Horizontal
+    Controls_Layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+    Controls_Layout.VerticalAlignment = Enum.VerticalAlignment.Center
+    Controls_Layout.Padding = UDim.new(0, 6)
+    Controls_Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Controls_Layout.Parent = Window_Controls
+
+    local function Create_Ctrl_Btn(Txt, Order)
+        local Btn = Instance.new("TextButton")
+        Btn.Size = UDim2.new(0, 26, 0, 26)
+        Btn.BackgroundTransparency = 1
+        Btn.Text = Txt
+        Btn.TextSize = 14
+        Btn.Font = Bold_Font
+        Btn.LayoutOrder = Order
+        Btn.Parent = Window_Controls
+        Bind_Color(Btn, "TextColor3", "textDarkColor")
+        Btn.MouseEnter:Connect(function() Set_Theme_State(Btn, "TextColor3", "textWhiteColor") end)
+        Btn.MouseLeave:Connect(function() Set_Theme_State(Btn, "TextColor3", "textDarkColor") end)
+        return Btn
+    end
+
+    local Min_Btn = Create_Ctrl_Btn("-", 1)
+    local Max_Btn = Create_Ctrl_Btn("□", 2)
+    local Close_Btn = Create_Ctrl_Btn("X", 3)
 
     local Sidebar_Width = 140
     local Sidebar_Frame = Instance.new("Frame")
@@ -862,15 +899,15 @@ function Library_Api:CreateWindow(Window_Name)
         end
         local Is_Mobile = User_Input_Service.TouchEnabled and not User_Input_Service.MouseEnabled
         if Is_Mobile then
-            local Scale_X = Vp.X / 1000
-            local Scale_Y = Vp.Y / 700
+            local Scale_X = Vp.X / 700
+            local Scale_Y = Vp.Y / 450
             local Scale = math.min(Scale_X, Scale_Y)
-            Ui_Scale_Modifier.Scale = math.clamp(Scale, 0.4, 0.75)
+            Ui_Scale_Modifier.Scale = math.clamp(Scale, 0.45, 0.8)
         else
-            local Scale_X = Vp.X / 1200
-            local Scale_Y = Vp.Y / 800
+            local Scale_X = Vp.X / 1400
+            local Scale_Y = Vp.Y / 900
             local Scale = math.min(Scale_X, Scale_Y)
-            Ui_Scale_Modifier.Scale = math.clamp(Scale, 0.8, 1.2)
+            Ui_Scale_Modifier.Scale = math.clamp(Scale, 0.6, 1)
         end
     end
 
@@ -882,6 +919,10 @@ function Library_Api:CreateWindow(Window_Name)
     local Main_Drag_Start = nil
     local Main_Start_Pos = nil
     Library_Api.Instances.MenuTargetPos = Main_Background.Position
+
+    local Is_Minimized = false
+    local Is_Maximized = false
+    local Normal_Pos = Main_Background.Position
 
     Top_Bar.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
@@ -910,6 +951,34 @@ function Library_Api:CreateWindow(Window_Name)
         if Main_Background.Visible then
             Main_Background.Position = Main_Background.Position:Lerp(Library_Api.Instances.MenuTargetPos, 0.4)
         end
+    end)
+
+    Min_Btn.MouseButton1Click:Connect(function()
+        Is_Minimized = not Is_Minimized
+        if Is_Minimized then
+            Animate_Element(Main_Background, {Size = UDim2.new(Main_Background.Size.X.Scale, Main_Background.Size.X.Offset, 0, 36)}, 0.3)
+        else
+            local targetSize = Is_Maximized and UDim2.new(0.9, 0, 0.9, 0) or Normal_Size
+            Animate_Element(Main_Background, {Size = targetSize}, 0.3)
+        end
+    end)
+
+    Max_Btn.MouseButton1Click:Connect(function()
+        if Is_Minimized then return end
+        Is_Maximized = not Is_Maximized
+        if Is_Maximized then
+            Normal_Pos = Library_Api.Instances.MenuTargetPos
+            Library_Api.Instances.MenuTargetPos = UDim2.new(0.05, 0, 0.05, 0)
+            Animate_Element(Main_Background, {Size = UDim2.new(0.9, 0, 0.9, 0)}, 0.3)
+        else
+            Library_Api.Instances.MenuTargetPos = Normal_Pos
+            Animate_Element(Main_Background, {Size = Normal_Size}, 0.3)
+        end
+    end)
+
+    Close_Btn.MouseButton1Click:Connect(function()
+        Main_Background.Visible = false
+        Update_Global_Blur()
     end)
 
     local Window_Context = { Tabs = {}, Active_Tab = nil }
