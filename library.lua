@@ -718,51 +718,31 @@ function Library_Api:CreateWindow(Window_Name)
         Btn.LayoutOrder = Order
         Btn.Parent = Window_Controls
 
-        local Icon
+        local Icon = Instance.new("ImageLabel", Btn)
+        Icon.Size = UDim2.new(0, 16, 0, 16)
+        Icon.AnchorPoint = Vector2.new(0.5, 0.5)
+        Icon.Position = UDim2.new(0.5, 0, 0.5, 0)
+        Icon.BackgroundTransparency = 1
+        Bind_Color(Icon, "ImageColor3", "textDarkColor")
+
         if Type == "Min" then
-            Icon = Instance.new("Frame", Btn)
-            Icon.Size = UDim2.new(0, 10, 0, 2)
-            Icon.AnchorPoint = Vector2.new(0.5, 0.5)
-            Icon.Position = UDim2.new(0.5, 0, 0.5, 0)
-            Icon.BorderSizePixel = 0
-            Bind_Color(Icon, "BackgroundColor3", "textDarkColor")
+            Icon.Image = "rbxassetid://114881903200357"
         elseif Type == "Max" then
-            Icon = Instance.new("Frame", Btn)
-            Icon.Size = UDim2.new(0, 10, 0, 10)
-            Icon.AnchorPoint = Vector2.new(0.5, 0.5)
-            Icon.Position = UDim2.new(0.5, 0, 0.5, 0)
-            Icon.BackgroundTransparency = 1
-            local Stroke = Instance.new("UIStroke", Icon)
-            Stroke.Thickness = 2
-            Bind_Color(Stroke, "Color", "textDarkColor")
+            Icon.Image = "rbxassetid://71596577790781"
         elseif Type == "Close" then
-            Icon = Instance.new("TextLabel", Btn)
-            Icon.Text = "✕"
-            Icon.Size = UDim2.new(1, 0, 1, 0)
-            Icon.BackgroundTransparency = 1
-            Icon.Font = Enum.Font.GothamMedium
-            Icon.TextSize = 14
-            Bind_Color(Icon, "TextColor3", "textDarkColor")
+            Icon.Image = "rbxassetid://73860578620454"
         end
 
         Btn.MouseEnter:Connect(function()
             if Type == "Close" then
-                Set_Theme_State(Icon, "TextColor3", "accentColor")
-            elseif Type == "Max" then
-                Set_Theme_State(Icon:FindFirstChildOfClass("UIStroke"), "Color", "textWhiteColor")
+                Set_Theme_State(Icon, "ImageColor3", "accentColor")
             else
-                Set_Theme_State(Icon, "BackgroundColor3", "textWhiteColor")
+                Set_Theme_State(Icon, "ImageColor3", "textWhiteColor")
             end
         end)
         
         Btn.MouseLeave:Connect(function()
-            if Type == "Close" then
-                Set_Theme_State(Icon, "TextColor3", "textDarkColor")
-            elseif Type == "Max" then
-                Set_Theme_State(Icon:FindFirstChildOfClass("UIStroke"), "Color", "textDarkColor")
-            else
-                Set_Theme_State(Icon, "BackgroundColor3", "textDarkColor")
-            end
+            Set_Theme_State(Icon, "ImageColor3", "textDarkColor")
         end)
 
         return Btn
