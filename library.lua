@@ -245,8 +245,12 @@ local function Load_From_File(FileName)
                             Library_Api:ChangeTheme(tostring(Val))
                             if type(Library_Api.Registry["Menu_Theme_Select"]) == "function" then task.spawn(Library_Api.Registry["Menu_Theme_Select"], tostring(Val)) end
                         elseif Key == "$$Acrylic" then
+                            Library_Api.Global_Settings.Acrylic = Val
+                            Library_Api.Flags["Global_Acrylic"] = Val
                             if type(Library_Api.Registry["Global_Acrylic"]) == "function" then task.spawn(Library_Api.Registry["Global_Acrylic"], Val) end
                         elseif Key == "$$Transparency" then
+                            Library_Api.Global_Settings.Transparency = Val
+                            Library_Api.Flags["Global_Trans"] = Val
                             if type(Library_Api.Registry["Global_Trans"]) == "function" then task.spawn(Library_Api.Registry["Global_Trans"], Val) end
                         elseif type(Val) == "table" then
                             if Val.Type == "Color3" then
@@ -594,11 +598,10 @@ function Library_Api:Notify(Config)
 end
 
 function Library_Api:CreateWindow(Window_Name)
-    Load_From_File(Library_Api.Config_Name)
 
     local Main_Background = Instance.new("Frame")
-    Main_Background.Size = UDim2.new(0, 720, 0, 480)
-    Main_Background.Position = Library_Api.Saved_Positions.Menu or UDim2.new(0.5, -360, 0.5, -240)
+    Main_Background.Size = UDim2.new(0, 800, 0, 520)
+    Main_Background.Position = Library_Api.Saved_Positions.Menu or UDim2.new(0.5, -400, 0.5, -260)
     Main_Background.BorderSizePixel = 0
     Main_Background.Active = true
     Main_Background.Parent = Screen_Gui
@@ -791,7 +794,7 @@ function Library_Api:CreateWindow(Window_Name)
     Mobile_Toggle_Button.BorderSizePixel = 0
     Mobile_Toggle_Button.ZIndex = 1000
     Mobile_Toggle_Button.Visible = true
-    Mobile_Toggle_Button.Image = "rbxassetid://10492965648"
+    Mobile_Toggle_Button.Image = "rbxassetid://112964043447417"
     Mobile_Toggle_Button.Parent = Screen_Gui
     Bind_Color(Mobile_Toggle_Button, "BackgroundColor3", "mainBackground")
     Bind_Color(Mobile_Toggle_Button, "ImageColor3", "textWhiteColor")
@@ -858,15 +861,16 @@ function Library_Api:CreateWindow(Window_Name)
             return
         end
         local Is_Mobile = User_Input_Service.TouchEnabled and not User_Input_Service.MouseEnabled
-        local Base_Width = Is_Mobile and 650 or 800
-        local Base_Height = Is_Mobile and 350 or 500
-        local Scale_X = Vp.X / Base_Width
-        local Scale_Y = Vp.Y / Base_Height
-        local Scale = math.min(Scale_X, Scale_Y)
         if Is_Mobile then
-            Ui_Scale_Modifier.Scale = math.clamp(Scale, 0.45, 1.1)
+            local Scale_X = Vp.X / 1000
+            local Scale_Y = Vp.Y / 700
+            local Scale = math.min(Scale_X, Scale_Y)
+            Ui_Scale_Modifier.Scale = math.clamp(Scale, 0.4, 0.75)
         else
-            Ui_Scale_Modifier.Scale = math.clamp(Scale * 0.95, 0.4, 1)
+            local Scale_X = Vp.X / 1200
+            local Scale_Y = Vp.Y / 800
+            local Scale = math.min(Scale_X, Scale_Y)
+            Ui_Scale_Modifier.Scale = math.clamp(Scale, 0.8, 1.2)
         end
     end
 
@@ -994,7 +998,7 @@ function Library_Api:CreateWindow(Window_Name)
 
         local function Update_Canvas()
             local Max_Column_Height = math.max(Left_Column_Layout.AbsoluteContentSize.Y, Right_Column_Layout.AbsoluteContentSize.Y)
-            Animate_Element(Page_Scrolling_Frame, {CanvasSize = UDim2.new(0, 0, 0, Max_Column_Height + 16)}, 0.25)
+            Animate_Element(Page_Scrolling_Frame, {CanvasSize = UDim2.new(0, 0, 0, Max_Column_Height + 30)}, 0.25)
         end
 
         Left_Column_Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Canvas)
@@ -2665,6 +2669,8 @@ function Library_Api:CreateWindow(Window_Name)
             Library_Api:Notify({Title = "Phantom Hub", Text = "Deleted Config", Type = "Error"})
         end
     end)
+
+    Load_From_File(Library_Api.Config_Name)
 
     return Window_Context
 end
