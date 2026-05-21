@@ -111,19 +111,26 @@ local function FormatNumber(value, increment)
     end
     return tostring(value)
 end
+local function Can_Hover()
+    return UserInputService:GetLastInputType() ~= Enum.UserInputType.Touch
+end
 local function MakeDraggable(dragArea, frame, onDragCallback)
     local dragging = false
     local dragInput, dragStart, startPos
+    local Drag_Dead_Zone = 5
+    local Actually_Dragging = false
     local c1 = dragArea.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
+            Actually_Dragging = false
             dragStart = input.Position
             startPos = frame.Position
             local c2
             c2 = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
-                    if onDragCallback then onDragCallback(false) end
+                    if onDragCallback then onDragCallback(Actually_Dragging) end
+                    Actually_Dragging = false
                     c2:Disconnect()
                 end
             end)
@@ -136,9 +143,12 @@ local function MakeDraggable(dragArea, frame, onDragCallback)
     end)
     local c4 = RunService.RenderStepped:Connect(function()
         if dragging and dragInput then
-            local delta = dragInput.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            if onDragCallback then onDragCallback(true) end
+            local delta_Cool_Snake_Case = dragInput.Position - dragStart
+            if delta_Cool_Snake_Case.Magnitude > Drag_Dead_Zone then
+                Actually_Dragging = true
+                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta_Cool_Snake_Case.X, startPos.Y.Scale, startPos.Y.Offset + delta_Cool_Snake_Case.Y)
+                if onDragCallback then onDragCallback(true) end
+            end
         end
     end)
     table.insert(Library.Connections, c1)
@@ -336,6 +346,7 @@ local function ApplyTooltip(guiObj, text)
     if not text or text == "" then return end
     local hovered = false
     local c1 = guiObj.MouseEnter:Connect(function()
+        if not Can_Hover() then return end
         hovered = true
         task.delay(0.5, function()
             if hovered and Library.Open then
@@ -516,7 +527,7 @@ function Library:CreateKeybindList()
     Frame.BackgroundColor3 = Theme.Background
     Frame.BackgroundTransparency = 0.1
     Frame.Parent = Screen
-    Frame.Active = true
+    Frame.Active = false
     Frame.ClipsDescendants = true
     Corner(Frame, 4)
     Stroke(Frame, Theme.Stroke, 1, 0)
@@ -640,7 +651,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     Interactive.Text = ""
     Interactive.AutoButtonColor = false
     Interactive.Parent = DropFrame
-    Interactive.ZIndex = 5
+    Interactive.ZIndex = 50
     Corner(Interactive, 4)
     Stroke(Interactive, Theme.Stroke, 1, 0.5)
     local SelectedText = Instance.new("TextLabel")
@@ -651,7 +662,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     SelectedText.Position = UDim2.new(0, 8, 0, 0)
     SelectedText.TextXAlignment = Enum.TextXAlignment.Left
     SelectedText.BackgroundTransparency = 1
-    SelectedText.ZIndex = 6
+    SelectedText.ZIndex = 51
     SelectedText.ClipsDescendants = false
     SelectedText.TextTruncate = Enum.TextTruncate.AtEnd
     SelectedText.Parent = Interactive
@@ -663,14 +674,14 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     Arrow.BackgroundTransparency = 1
     Arrow.ImageColor3 = Theme.TextDark
     Arrow.Parent = Interactive
-    Arrow.ZIndex = 6
+    Arrow.ZIndex = 51
     local ListFrame = Instance.new("ScrollingFrame")
     ListFrame.Size = UDim2.new(1, 0, 0, 0)
     ListFrame.Position = UDim2.new(0, 0, 1, 5)
     ListFrame.BackgroundColor3 = Theme.Container
     ListFrame.BorderSizePixel = 0
     ListFrame.Parent = Interactive
-    ListFrame.ZIndex = 10
+    ListFrame.ZIndex = 51
     ListFrame.Visible = false
     ListFrame.Active = true
     ListFrame.ScrollBarThickness = 2
@@ -681,6 +692,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     local IList = Instance.new("UIListLayout")
     IList.SortOrder = Enum.SortOrder.LayoutOrder
     IList.Parent = ListFrame
+    local Parent_Page = parent:FindFirstAncestorOfClass("ScrollingFrame")
     local function CloseDropdown()
         isDropped = false
         if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = 1 end
@@ -689,6 +701,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         Tween(DropFrame, {Size = UDim2.new(1, customParent and -20 or 0, 0, 46)}, 0.2)
         local t = Tween(ListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
         Tween(Arrow, {Rotation = 0}, 0.2)
+        if Parent_Page then Parent_Page.ScrollingEnabled = true end
         local c2
         c2 = t.Completed:Connect(function()
             if not isDropped then ListFrame.Visible = false end
@@ -696,6 +709,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         end)
     end
     local optionBtns = {}
+    local Drop_Conns_List = {}
     local function IsSelected(opt)
         if isMulti then
             for _, v in ipairs(selected) do
@@ -721,6 +735,8 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         end
     end
     local function BuildOptions(newOptions)
+        for _, conn in ipairs(Drop_Conns_List) do conn:Disconnect() end
+        table.clear(Drop_Conns_List)
         for _, btn in pairs(optionBtns) do btn:Destroy() end
         table.clear(optionBtns)
         options = newOptions
@@ -733,7 +749,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
             OptBtn.Font = Config.FontMain
             OptBtn.TextSize = 12
             OptBtn.Parent = ListFrame
-            OptBtn.ZIndex = 11
+            OptBtn.ZIndex = 52
             if IsSelected(opt) then
                 OptBtn.TextColor3 = Theme.Accent
             else
@@ -741,12 +757,12 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
             end
             optionBtns[opt] = OptBtn
             local c3 = OptBtn.MouseEnter:Connect(function()
-                if not IsSelected(opt) then
+                if not IsSelected(opt) and Can_Hover() then
                     Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent})
                 end
             end)
             local c4 = OptBtn.MouseLeave:Connect(function()
-                if not IsSelected(opt) then
+                if not IsSelected(opt) and Can_Hover() then
                     Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark})
                 end
             end)
@@ -767,9 +783,9 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
                     CloseDropdown()
                 end
             end)
-            table.insert(Library.Connections, c3)
-            table.insert(Library.Connections, c4)
-            table.insert(Library.Connections, c5)
+            table.insert(Drop_Conns_List, c3)
+            table.insert(Drop_Conns_List, c4)
+            table.insert(Drop_Conns_List, c5)
         end
     end
     BuildOptions(options)
@@ -790,9 +806,10 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     end
     local c6 = Interactive.MouseButton1Click:Connect(function()
         isDropped = not isDropped
-        if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = isDropped and 10 or 1 end
-        DropFrame.ZIndex = isDropped and 10 or 5
-        if customParent then customParent.ZIndex = isDropped and 10 or 1 customParent.ClipsDescendants = false end
+        if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = isDropped and 50 or 1 end
+        DropFrame.ZIndex = isDropped and 50 or 5
+        if customParent then customParent.ZIndex = isDropped and 50 or 1 customParent.ClipsDescendants = false end
+        if Parent_Page then Parent_Page.ScrollingEnabled = not isDropped end
         if isDropped then
             ListFrame.Visible = true
             local listH = math.min(#options * 24, 200)
@@ -915,7 +932,7 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     end)
     local c3 = UserInputService.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
+            if dragging then dragInput = input end
         end
     end)
     local c4 = RunService.RenderStepped:Connect(function()
@@ -1040,7 +1057,7 @@ function Library:CreateWindow(options)
         Frame.ClipsDescendants = false
         Frame.Visible = false
         Frame.Parent = ScreenGui
-        Frame.Active = true
+        Frame.Active = false
         local SizeConstraint = Instance.new("UISizeConstraint")
         SizeConstraint.MaxSize = Vector2.new(1400, 900)
         SizeConstraint.MinSize = Vector2.new(450, 300)
@@ -1075,7 +1092,7 @@ function Library:CreateWindow(options)
     Library._SetScale = SetScale
     Library._IsSettings = false
     local Resizer = Instance.new("Frame")
-    Resizer.Size = UDim2.new(0, 20, 0, 20)
+    Resizer.Size = UDim2.new(0, 40, 0, 40)
     Resizer.Position = UDim2.new(1, 0, 1, 0)
     Resizer.AnchorPoint = Vector2.new(1, 1)
     Resizer.BackgroundTransparency = 1
@@ -1083,7 +1100,9 @@ function Library:CreateWindow(options)
     Resizer.ZIndex = 20
     Resizer.Active = true
     local ResizerIcon = Instance.new("TextLabel")
-    ResizerIcon.Size = UDim2.new(1, 0, 1, 0)
+    ResizerIcon.Size = UDim2.new(0, 20, 0, 20)
+    ResizerIcon.Position = UDim2.new(1, 0, 1, 0)
+    ResizerIcon.AnchorPoint = Vector2.new(1, 1)
     ResizerIcon.BackgroundTransparency = 1
     ResizerIcon.Text = "◢"
     ResizerIcon.TextColor3 = Theme.TextDark
@@ -1104,7 +1123,7 @@ function Library:CreateWindow(options)
         Bar.BackgroundColor3 = Theme.Sidebar
         Bar.BorderSizePixel = 0
         Bar.Parent = parent
-        Bar.Active = true
+        Bar.Active = false
         Corner(Bar, 6)
         local Div = Instance.new("Frame")
         Div.Size = UDim2.new(0, 1, 1, 0)
@@ -1126,8 +1145,8 @@ function Library:CreateWindow(options)
             BackBtn.Parent = Bar
             Corner(BackBtn, 4)
             Stroke(BackBtn, Theme.Stroke, 1, 0.5)
-            local c4 = BackBtn.MouseEnter:Connect(function() Tween(BackBtn, {TextColor3 = Theme.Accent}) end)
-            local c5 = BackBtn.MouseLeave:Connect(function() Tween(BackBtn, {TextColor3 = Theme.TextDark}) end)
+            local c4 = BackBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(BackBtn, {TextColor3 = Theme.Accent}) end end)
+            local c5 = BackBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(BackBtn, {TextColor3 = Theme.TextDark}) end end)
             table.insert(Library.Connections, c4)
             table.insert(Library.Connections, c5)
             local Title = Instance.new("TextLabel")
@@ -1162,6 +1181,7 @@ function Library:CreateWindow(options)
             Container.ScrollBarImageColor3 = Theme.Accent
             Container.AutomaticCanvasSize = Enum.AutomaticSize.Y
             Container.ClipsDescendants = true
+            Container.Active = true
             Container.Parent = Bar
             RegisterTheme(Container, "ScrollBar")
             local List = Instance.new("UIListLayout")
@@ -1281,6 +1301,7 @@ function Library:CreateWindow(options)
     table.insert(Library.Connections, c6)
     table.insert(Library.Connections, c7)
     local c8 = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+        if UserInputService:GetFocusedTextBox() then return end
         if Library.Open then
             if IsSettings and SettingsWindow.Visible then
                 SetScale.Scale = GetBaseScale()
@@ -1307,6 +1328,7 @@ function Library:CreateWindow(options)
         local Container = Instance.new("Frame")
         Container.Size = UDim2.new(1, 0, 0, 0)
         Container.BackgroundColor3 = Theme.Section
+        Container.Active = false
         Container.Parent = parent
         Container.ZIndex = 1
         Corner(Container, 6)
@@ -1382,8 +1404,8 @@ function Library:CreateWindow(options)
             Btn.Parent = Content
             Corner(Btn, 4)
             local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
-            local bc1 = Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
-            local bc2 = Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+            local bc1 = Btn.MouseEnter:Connect(function() if Can_Hover() then Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end end)
+            local bc2 = Btn.MouseLeave:Connect(function() if Can_Hover() then Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end end)
             local bc3 = Btn.MouseButton1Click:Connect(callback)
             table.insert(Library.Connections, bc1)
             table.insert(Library.Connections, bc2)
@@ -1903,7 +1925,7 @@ function Library:CreateWindow(options)
         CDInteractive.Text = ""
         CDInteractive.AutoButtonColor = false
         CDInteractive.Parent = ConfigDropdownFrame
-        CDInteractive.ZIndex = 5
+        CDInteractive.ZIndex = 50
         Corner(CDInteractive, 4)
         Stroke(CDInteractive, Theme.Stroke, 1, 0.5)
         local CDSelectedText = Instance.new("TextLabel")
@@ -1914,7 +1936,7 @@ function Library:CreateWindow(options)
         CDSelectedText.Position = UDim2.new(0, 8, 0, 0)
         CDSelectedText.TextXAlignment = Enum.TextXAlignment.Left
         CDSelectedText.BackgroundTransparency = 1
-        CDSelectedText.ZIndex = 6
+        CDSelectedText.ZIndex = 51
         CDSelectedText.ClipsDescendants = false
         CDSelectedText.TextTruncate = Enum.TextTruncate.AtEnd
         CDSelectedText.Parent = CDInteractive
@@ -1926,14 +1948,14 @@ function Library:CreateWindow(options)
         CDArrow.BackgroundTransparency = 1
         CDArrow.ImageColor3 = Theme.TextDark
         CDArrow.Parent = CDInteractive
-        CDArrow.ZIndex = 6
+        CDArrow.ZIndex = 51
         local CDListFrame = Instance.new("ScrollingFrame")
         CDListFrame.Size = UDim2.new(1, 0, 0, 0)
         CDListFrame.Position = UDim2.new(0, 0, 1, 5)
         CDListFrame.BackgroundColor3 = Theme.Container
         CDListFrame.BorderSizePixel = 0
         CDListFrame.Parent = CDInteractive
-        CDListFrame.ZIndex = 10
+        CDListFrame.ZIndex = 51
         CDListFrame.Visible = false
         CDListFrame.Active = true
         CDListFrame.ScrollBarThickness = 2
@@ -1946,6 +1968,7 @@ function Library:CreateWindow(options)
         CDIList.Parent = CDListFrame
         local cdIsDropped = false
         local cdOptionBtns = {}
+        local Config_Drop_Conns = {}
         selectedConfigName = #ConfigList > 0 and ConfigList[1] or ""
         CDSelectedText.Text = selectedConfigName ~= "" and selectedConfigName or "No configs"
         local function CDCloseDropdown()
@@ -1955,6 +1978,7 @@ function Library:CreateWindow(options)
             Tween(ConfigDropdownFrame, {Size = UDim2.new(1, 0, 0, 46)}, 0.2)
             local t = Tween(CDListFrame, {Size = UDim2.new(1, 0, 0, 0)}, 0.2)
             Tween(CDArrow, {Rotation = 0}, 0.2)
+            SetPage.ScrollingEnabled = true
             local c4
             c4 = t.Completed:Connect(function()
                 if not cdIsDropped then CDListFrame.Visible = false end
@@ -1962,6 +1986,8 @@ function Library:CreateWindow(options)
             end)
         end
         local function CDBuildOptions(opts)
+            for _, conn in ipairs(Config_Drop_Conns) do conn:Disconnect() end
+            table.clear(Config_Drop_Conns)
             for _, btn in pairs(cdOptionBtns) do btn:Destroy() end
             table.clear(cdOptionBtns)
             for _, opt in ipairs(opts) do
@@ -1973,14 +1999,14 @@ function Library:CreateWindow(options)
                 OptBtn.Font = Config.FontMain
                 OptBtn.TextSize = 12
                 OptBtn.Parent = CDListFrame
-                OptBtn.ZIndex = 11
+                OptBtn.ZIndex = 52
                 OptBtn.TextColor3 = (selectedConfigName == opt) and Theme.Accent or Theme.TextDark
                 cdOptionBtns[opt] = OptBtn
                 local c5 = OptBtn.MouseEnter:Connect(function()
-                    if selectedConfigName ~= opt then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
+                    if selectedConfigName ~= opt and Can_Hover() then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
                 end)
                 local c6 = OptBtn.MouseLeave:Connect(function()
-                    if selectedConfigName ~= opt then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
+                    if selectedConfigName ~= opt and Can_Hover() then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
                 end)
                 local c7 = OptBtn.MouseButton1Click:Connect(function()
                     selectedConfigName = opt
@@ -1988,16 +2014,17 @@ function Library:CreateWindow(options)
                     for o, b in pairs(cdOptionBtns) do b.TextColor3 = (o == opt) and Theme.Accent or Theme.TextDark end
                     CDCloseDropdown()
                 end)
-                table.insert(Library.Connections, c5)
-                table.insert(Library.Connections, c6)
-                table.insert(Library.Connections, c7)
+                table.insert(Config_Drop_Conns, c5)
+                table.insert(Config_Drop_Conns, c6)
+                table.insert(Config_Drop_Conns, c7)
             end
         end
         CDBuildOptions(ConfigList)
         local c8 = CDInteractive.MouseButton1Click:Connect(function()
             cdIsDropped = not cdIsDropped
-            ConfigSec.Container.ZIndex = cdIsDropped and 10 or 1
-            ConfigDropdownFrame.ZIndex = cdIsDropped and 10 or 5
+            ConfigSec.Container.ZIndex = cdIsDropped and 50 or 1
+            ConfigDropdownFrame.ZIndex = cdIsDropped and 50 or 5
+            SetPage.ScrollingEnabled = not cdIsDropped
             if cdIsDropped then
                 CDListFrame.Visible = true
                 local currentList = Library:GetConfigs()
@@ -2034,8 +2061,8 @@ function Library:CreateWindow(options)
         CreateBtn.Parent = ConfigContent
         Corner(CreateBtn, 4)
         local cs1 = Stroke(CreateBtn, Theme.Stroke, 1, 0.5)
-        local c9 = CreateBtn.MouseEnter:Connect(function() Tween(CreateBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs1, {Color = Theme.Accent}) end)
-        local c10 = CreateBtn.MouseLeave:Connect(function() Tween(CreateBtn, {BackgroundColor3 = Theme.Container}) Tween(cs1, {Color = Theme.Stroke}) end)
+        local c9 = CreateBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(CreateBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs1, {Color = Theme.Accent}) end end)
+        local c10 = CreateBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(CreateBtn, {BackgroundColor3 = Theme.Container}) Tween(cs1, {Color = Theme.Stroke}) end end)
         local c11 = CreateBtn.MouseButton1Click:Connect(function()
             local name = configNameInput
             if not name or name == "" or string.match(name, "^%s*$") then
@@ -2077,8 +2104,8 @@ function Library:CreateWindow(options)
         LoadBtn.Parent = ConfigContent
         Corner(LoadBtn, 4)
         local cs2 = Stroke(LoadBtn, Theme.Stroke, 1, 0.5)
-        local c12 = LoadBtn.MouseEnter:Connect(function() Tween(LoadBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs2, {Color = Theme.Accent}) end)
-        local c13 = LoadBtn.MouseLeave:Connect(function() Tween(LoadBtn, {BackgroundColor3 = Theme.Container}) Tween(cs2, {Color = Theme.Stroke}) end)
+        local c12 = LoadBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(LoadBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs2, {Color = Theme.Accent}) end end)
+        local c13 = LoadBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(LoadBtn, {BackgroundColor3 = Theme.Container}) Tween(cs2, {Color = Theme.Stroke}) end end)
         local c14 = LoadBtn.MouseButton1Click:Connect(function()
             local name = selectedConfigName
             if not name or name == "" then
@@ -2110,8 +2137,8 @@ function Library:CreateWindow(options)
         RewriteBtn.Parent = ConfigContent
         Corner(RewriteBtn, 4)
         local cs3 = Stroke(RewriteBtn, Theme.Stroke, 1, 0.5)
-        local c15 = RewriteBtn.MouseEnter:Connect(function() Tween(RewriteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs3, {Color = Theme.Accent}) end)
-        local c16 = RewriteBtn.MouseLeave:Connect(function() Tween(RewriteBtn, {BackgroundColor3 = Theme.Container}) Tween(cs3, {Color = Theme.Stroke}) end)
+        local c15 = RewriteBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(RewriteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs3, {Color = Theme.Accent}) end end)
+        local c16 = RewriteBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(RewriteBtn, {BackgroundColor3 = Theme.Container}) Tween(cs3, {Color = Theme.Stroke}) end end)
         local c17 = RewriteBtn.MouseButton1Click:Connect(function()
             local name = selectedConfigName
             if not name or name == "" then
@@ -2143,8 +2170,8 @@ function Library:CreateWindow(options)
         DeleteBtn.Parent = ConfigContent
         Corner(DeleteBtn, 4)
         local cs4 = Stroke(DeleteBtn, Theme.Stroke, 1, 0.5)
-        local c18 = DeleteBtn.MouseEnter:Connect(function() Tween(DeleteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs4, {Color = Theme.Accent}) end)
-        local c19 = DeleteBtn.MouseLeave:Connect(function() Tween(DeleteBtn, {BackgroundColor3 = Theme.Container}) Tween(cs4, {Color = Theme.Stroke}) end)
+        local c18 = DeleteBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(DeleteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs4, {Color = Theme.Accent}) end end)
+        local c19 = DeleteBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(DeleteBtn, {BackgroundColor3 = Theme.Container}) Tween(cs4, {Color = Theme.Stroke}) end end)
         local c20 = DeleteBtn.MouseButton1Click:Connect(function()
             local name = selectedConfigName
             if not name or name == "" then
@@ -2177,8 +2204,8 @@ function Library:CreateWindow(options)
         RefreshBtn.Parent = ConfigContent
         Corner(RefreshBtn, 4)
         local cs5 = Stroke(RefreshBtn, Theme.Stroke, 1, 0.5)
-        local c21 = RefreshBtn.MouseEnter:Connect(function() Tween(RefreshBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs5, {Color = Theme.Accent}) end)
-        local c22 = RefreshBtn.MouseLeave:Connect(function() Tween(RefreshBtn, {BackgroundColor3 = Theme.Container}) Tween(cs5, {Color = Theme.Stroke}) end)
+        local c21 = RefreshBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(RefreshBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs5, {Color = Theme.Accent}) end end)
+        local c22 = RefreshBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(RefreshBtn, {BackgroundColor3 = Theme.Container}) Tween(cs5, {Color = Theme.Stroke}) end end)
         local c23 = RefreshBtn.MouseButton1Click:Connect(function()
             RefreshConfigDropdown()
             Library:Notify("Config", "List Refreshed", 2)
@@ -2198,8 +2225,8 @@ function Library:CreateWindow(options)
         ResetBtn.Parent = ConfigContent
         Corner(ResetBtn, 4)
         local cs6 = Stroke(ResetBtn, Theme.Stroke, 1, 0.5)
-        local c24 = ResetBtn.MouseEnter:Connect(function() Tween(ResetBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs6, {Color = Theme.Accent}) end)
-        local c25 = ResetBtn.MouseLeave:Connect(function() Tween(ResetBtn, {BackgroundColor3 = Theme.Container}) Tween(cs6, {Color = Theme.Stroke}) end)
+        local c24 = ResetBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(ResetBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs6, {Color = Theme.Accent}) end end)
+        local c25 = ResetBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(ResetBtn, {BackgroundColor3 = Theme.Container}) Tween(cs6, {Color = Theme.Stroke}) end end)
         local c26 = ResetBtn.MouseButton1Click:Connect(function()
             for flag, val in pairs(Library.Defaults) do
                 if IgnoredFlags[flag] then continue end
@@ -2223,7 +2250,7 @@ function Library:CreateWindow(options)
         Page.BackgroundTransparency = 1
         Page.ScrollBarThickness = 0
         Page.Visible = false
-        Page.Active = true
+        Page.Active = false
         Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
         Page.Parent = MainPages
         local TabBtn = Instance.new("TextButton")
@@ -2253,8 +2280,8 @@ function Library:CreateWindow(options)
             if tonumber(iconId) then Ico.Image = "rbxassetid://" .. iconId else Ico.Image = iconId end
             Ico.ImageColor3 = Theme.TextDark
             Ico.Parent = TabBtn
-            local c1 = TabBtn.MouseEnter:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.Text}) end end)
-            local c2 = TabBtn.MouseLeave:Connect(function() if TabBtn.BackgroundTransparency > 0.5 then Tween(Ico, {ImageColor3 = Theme.TextDark}) end end)
+            local c1 = TabBtn.MouseEnter:Connect(function() if TabBtn.BackgroundTransparency > 0.5 and Can_Hover() then Tween(Ico, {ImageColor3 = Theme.Text}) end end)
+            local c2 = TabBtn.MouseLeave:Connect(function() if TabBtn.BackgroundTransparency > 0.5 and Can_Hover() then Tween(Ico, {ImageColor3 = Theme.TextDark}) end end)
             table.insert(Library.Connections, c1)
             table.insert(Library.Connections, c2)
         end
@@ -2301,6 +2328,7 @@ function Library:CreateWindow(options)
         LeftCol.Position = UDim2.new(0, 0, 0, 0)
         LeftCol.BackgroundTransparency = 1
         LeftCol.AutomaticSize = Enum.AutomaticSize.Y
+        LeftCol.Active = false
         LeftCol.Parent = Page
         local LeftList = Instance.new("UIListLayout")
         LeftList.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2311,17 +2339,24 @@ function Library:CreateWindow(options)
         RightCol.Position = UDim2.new(0.5, 5, 0, 0)
         RightCol.BackgroundTransparency = 1
         RightCol.AutomaticSize = Enum.AutomaticSize.Y
+        RightCol.Active = false
         RightCol.Parent = Page
         local RightList = Instance.new("UIListLayout")
         RightList.SortOrder = Enum.SortOrder.LayoutOrder
         RightList.Padding = UDim.new(0, 10)
         RightList.Parent = RightCol
+        local function Update_Canvas_Size()
+            Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 30)
+        end
+        table.insert(Library.Connections, LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Canvas_Size))
+        table.insert(Library.Connections, RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Canvas_Size))
         function Tab:Section(text, side)
             local Section = {}
             local ParentCol = (side == "Right" and RightCol or LeftCol)
             local Container = Instance.new("Frame")
             Container.Size = UDim2.new(1, 0, 0, 0)
             Container.BackgroundColor3 = Theme.Section
+            Container.Active = false
             Container.Parent = ParentCol
             Container.ZIndex = 1
             Corner(Container, 6)
@@ -2350,7 +2385,7 @@ function Library:CreateWindow(options)
             List.Parent = Content
             local function UpdateSize()
                 Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 35)
-                Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
+                Update_Canvas_Size()
             end
             local c4 = List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
             table.insert(Library.Connections, c4)
@@ -2516,8 +2551,8 @@ function Library:CreateWindow(options)
                     SBtn.Parent = SubContainer
                     Corner(SBtn, 4)
                     local s = Stroke(SBtn, Theme.Stroke, 1, 0.5)
-                    local tbc1 = SBtn.MouseEnter:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
-                    local tbc2 = SBtn.MouseLeave:Connect(function() Tween(SBtn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+                    local tbc1 = SBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(SBtn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end end)
+                    local tbc2 = SBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(SBtn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end end)
                     local tbc3 = SBtn.MouseButton1Click:Connect(cb)
                     table.insert(Library.Connections, tbc1)
                     table.insert(Library.Connections, tbc2)
@@ -2910,8 +2945,8 @@ function Library:CreateWindow(options)
                 table.insert(secData.Items, {Name = text, Instance = Btn})
                 Corner(Btn, 4)
                 local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
-                local c1 = Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end)
-                local c2 = Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end)
+                local c1 = Btn.MouseEnter:Connect(function() if Can_Hover() then Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end end)
+                local c2 = Btn.MouseLeave:Connect(function() if Can_Hover() then Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end end)
                 local c3 = Btn.MouseButton1Click:Connect(callback)
                 table.insert(Library.Connections, c1)
                 table.insert(Library.Connections, c2)
@@ -2959,9 +2994,9 @@ function Library:CreateWindow(options)
                 Input.Text = currentText
                 Input.ClearTextOnFocus = false
                 Input.Parent = BoxCont
-                local c1 = Input.Focused:Connect(function() Tween(s, {Color = Theme.Accent}) end)
+                local c1 = Input.Focused:Connect(function() if Can_Hover() then Tween(s, {Color = Theme.Accent}) end end)
                 local c2 = Input.FocusLost:Connect(function(enter)
-                    Tween(s, {Color = Theme.Stroke})
+                    if Can_Hover() then Tween(s, {Color = Theme.Stroke}) end
                     if enter then
                         Library.Flags[flag] = Input.Text
                         Library.Unsaved = true
@@ -3027,7 +3062,7 @@ function Library:CreateWindow(options)
                 PickerCont.Parent = ContainerFrame
                 PickerCont.ClipsDescendants = true
                 PickerCont.Visible = false
-                PickerCont.ZIndex = 10
+                PickerCont.ZIndex = 50
                 Corner(PickerCont, 4)
                 local SVMap = Instance.new("ImageLabel")
                 SVMap.Size = UDim2.new(0, 140, 0, 120)
@@ -3035,7 +3070,7 @@ function Library:CreateWindow(options)
                 SVMap.Image = "rbxassetid://4155801252"
                 SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                 SVMap.Parent = PickerCont
-                SVMap.ZIndex = 11
+                SVMap.ZIndex = 51
                 Corner(SVMap, 4)
                 local SVCursor = Instance.new("Frame")
                 SVCursor.Size = UDim2.new(0, 8, 0, 8)
@@ -3043,14 +3078,14 @@ function Library:CreateWindow(options)
                 SVCursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 SVCursor.Parent = SVMap
                 SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
-                SVCursor.ZIndex = 12
+                SVCursor.ZIndex = 52
                 Corner(SVCursor, 4)
                 local HueBar = Instance.new("ImageLabel")
                 HueBar.Size = UDim2.new(0, 20, 0, 120)
                 HueBar.Position = UDim2.new(0, 160, 0, 10)
                 HueBar.Image = "rbxassetid://4155801252"
                 HueBar.Parent = PickerCont
-                HueBar.ZIndex = 11
+                HueBar.ZIndex = 51
                 Corner(HueBar, 4)
                 local UIGradient = Instance.new("UIGradient")
                 UIGradient.Rotation = 90
@@ -3069,7 +3104,7 @@ function Library:CreateWindow(options)
                 HCursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 HCursor.Parent = HueBar
                 HCursor.Position = UDim2.new(0, 0, h, 0)
-                HCursor.ZIndex = 12
+                HCursor.ZIndex = 52
                 local HexInput = Instance.new("TextBox")
                 HexInput.Size = UDim2.new(0, 170, 0, 20)
                 HexInput.Position = UDim2.new(0, 10, 0, 140)
@@ -3079,7 +3114,7 @@ function Library:CreateWindow(options)
                 HexInput.TextSize = 12
                 HexInput.Text = "#" .. color:ToHex()
                 HexInput.Parent = PickerCont
-                HexInput.ZIndex = 11
+                HexInput.ZIndex = 51
                 Corner(HexInput, 4)
                 Stroke(HexInput, Theme.Stroke, 1)
                 local function Update()
@@ -3185,8 +3220,9 @@ function Library:CreateWindow(options)
                 table.insert(Library.Connections, h4)
                 local pc1 = Preview.MouseButton1Click:Connect(function()
                     isOpen = not isOpen
-                    Section.Container.ZIndex = isOpen and 10 or 1
-                    ContainerFrame.ZIndex = isOpen and 10 or 5
+                    Section.Container.ZIndex = isOpen and 50 or 1
+                    ContainerFrame.ZIndex = isOpen and 50 or 5
+                    if Page then Page.ScrollingEnabled = not isOpen end
                     if isOpen then
                         PickerCont.Visible = true
                         Tween(ContainerFrame, {Size = UDim2.new(1, 0, 0, 200)}, 0.2)
