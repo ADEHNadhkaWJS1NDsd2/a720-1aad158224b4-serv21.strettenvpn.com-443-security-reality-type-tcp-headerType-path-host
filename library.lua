@@ -69,7 +69,7 @@ local function Get_Input_Name(Input_Enum)
 end
 
 local function GetTextWidth(Text_String, Size, Font)
-    return Text_Service:GetTextSize(Text_String, Size, Font, Vector2.new(10000, 10000)).X
+    return Text_Service:GetTextSize(Text_String, Size, Font, Vector2.new(10000, 10000)).X + 2
 end
 
 local function Animate_Element(Element, Properties, Speed)
@@ -160,7 +160,6 @@ local function Save_To_File(FileName)
                 end)
             end
             Serialized_Data["$$Theme"] = Library_Api.Current_Theme
-            Serialized_Data["$$Acrylic"] = Library_Api.Global_Settings.Acrylic
             Serialized_Data["$$Transparency"] = Library_Api.Global_Settings.Transparency
             if Library_Api.Instances.MenuTargetPos then
                 local pos = Library_Api.Instances.MenuTargetPos
@@ -208,13 +207,6 @@ local function Load_From_File(FileName)
                 if Decoded_Data["$$Theme"] then
                     Library_Api:ChangeTheme(tostring(Decoded_Data["$$Theme"]))
                 end
-                
-                if Decoded_Data["Custom_Accent_Color"] then
-                    local cData = Decoded_Data["Custom_Accent_Color"]
-                    local c = Color3.new(cData.R, cData.G, cData.B)
-                    for _, theme in pairs(Themes) do theme.accentColor = c end
-                    Library_Api:ChangeTheme(tostring(Decoded_Data["$$Theme"] or Library_Api.Current_Theme))
-                end
 
                 for Key, Val in pairs(Decoded_Data) do
                     pcall(function()
@@ -232,15 +224,11 @@ local function Load_From_File(FileName)
                                 Library_Api.Instances.Keybinds.Position = pos
                                 Library_Api.Instances.KeybindsTarget = pos
                             end
-                        elseif Key == "$$Acrylic" then
-                            Library_Api.Global_Settings.Acrylic = Val
-                            Library_Api.Flags["Global_Acrylic"] = Val
-                            if type(Library_Api.Registry["Global_Acrylic"]) == "function" then task.spawn(Library_Api.Registry["Global_Acrylic"], Val) end
                         elseif Key == "$$Transparency" then
                             Library_Api.Global_Settings.Transparency = Val
                             Library_Api.Flags["Global_Trans"] = Val
                             if type(Library_Api.Registry["Global_Trans"]) == "function" then task.spawn(Library_Api.Registry["Global_Trans"], Val) end
-                        elseif Key ~= "$$Theme" and Key ~= "Custom_Accent_Color" then
+                        elseif Key ~= "$$Theme" and Key ~= "Custom_Accent_Color" and Key ~= "$$Acrylic" then
                             if type(Val) == "table" then
                                 if Val.Type == "Color3" then
                                     Library_Api.Flags[Key] = Color3.new(Val.R, Val.G, Val.B)
@@ -261,7 +249,7 @@ local function Load_From_File(FileName)
                                 Library_Api.Flags[Key] = Val
                             end
 
-                            if type(Library_Api.Registry[Key]) == "function" and Key ~= "Menu_Theme_Select" and Key ~= "Global_Acrylic" and Key ~= "Global_Trans" then
+                            if type(Library_Api.Registry[Key]) == "function" and Key ~= "Menu_Theme_Select" and Key ~= "Global_Trans" then
                                 task.spawn(Library_Api.Registry[Key], Library_Api.Flags[Key])
                             end
                         end
@@ -369,7 +357,6 @@ Kb_Layout.Padding = UDim.new(0, 6)
 Kb_Layout.Parent = Kb_Container
 
 local Kb_Dragging = false
-local Kb_Drag_Input = nil
 local Kb_Drag_Start = nil
 local Kb_Start_Pos = nil
 
@@ -815,7 +802,6 @@ function Library_Api:CreateWindow(Window_Name)
     Mobile_Toggle_Corner.Parent = Mobile_Toggle_Button
 
     local Toggle_Dragging = false
-    local Toggle_Drag_Input = nil
     local Toggle_Drag_Start = nil
     local Toggle_Start_Pos = nil
     local Toggle_Target_Pos = Mobile_Toggle_Button.Position
@@ -865,16 +851,14 @@ function Library_Api:CreateWindow(Window_Name)
             Ui_Scale_Modifier.Scale = 1
             return
         end
-        -- Масштаб: 1.0 при ширине 1920 пикселей.
-        -- На широких мониторах чуть увеличивается (до 1.15), на маленьких уменьшается (до 0.8)
-        Ui_Scale_Modifier.Scale = math.clamp(Vp.X / 1920, 0.8, 1.15)
+        local Scale = math.min(Vp.X / 1920, Vp.Y / 1080)
+        Ui_Scale_Modifier.Scale = math.clamp(Scale, 0.65, 1.25)
     end
 
     Workspace_Service.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(Update_Responsive_Scale)
     Update_Responsive_Scale()
 
     local Main_Dragging = false
-    local Main_Drag_Input = nil
     local Main_Drag_Start = nil
     local Main_Start_Pos = nil
     Library_Api.Instances.MenuTargetPos = Main_Background.Position
@@ -1221,7 +1205,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local function UpdateValSize(text)
                     local w = GetTextWidth(text, 12, Main_Font)
-                    w = math.max(34, w + 10)
+                    w = math.max(34, w + 14)
                     Value_Text_Box.Size = UDim2.new(0, w, 0, 16)
                     Slider_Label.Size = UDim2.new(1, -(w + 16), 0, 16)
                 end
@@ -1356,7 +1340,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local function UpdateValSize(text)
                     local w = GetTextWidth(text, 12, Main_Font)
-                    w = math.max(64, w + 10)
+                    w = math.max(64, w + 14)
                     Value_Label.Size = UDim2.new(0, w, 0, 16)
                     Range_Slider_Label.Size = UDim2.new(1, -(w + 16), 0, 16)
                 end
@@ -1480,7 +1464,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Textbox_Frame.Parent = Target_Container
 
                 local labelWidth = GetTextWidth(Name, 12, Main_Font)
-                labelWidth = math.clamp(labelWidth + 10, 56, 170)
+                labelWidth = math.clamp(labelWidth + 14, 56, 170)
 
                 local Textbox_Label = Instance.new("TextLabel")
                 Textbox_Label.Size = UDim2.new(0, labelWidth, 1, 0)
@@ -1596,7 +1580,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local function UpdateKeybindSize(text)
                     local w = GetTextWidth(text, 12, Bold_Font)
-                    w = math.clamp(w + 20, 56, 130)
+                    w = math.clamp(w + 24, 56, 130)
                     Animate_Element(Keybind_Button, {Size = UDim2.new(0, w, 0, 24)}, 0.2)
                     Keybind_Label.Size = UDim2.new(1, -(w + 36), 1, 0)
                 end
@@ -2504,22 +2488,6 @@ function Library_Api:CreateWindow(Window_Name)
 
     Left_Settings:Dropdown_Create("Menu Theme", "Menu_Theme_Select", Theme_List, "Rose", "Select global theme", function(Theme_Name)
         Library_Api:ChangeTheme(Theme_Name)
-        Auto_Save()
-    end)
-
-    Left_Settings:ColorPicker_Create("Custom Accent", "Custom_Accent_Color", Themes["Rose"].accentColor, "Override active theme accent", function(Color_Val)
-        for _, theme in pairs(Themes) do
-            theme.accentColor = Color_Val
-        end
-        Library_Api:ChangeTheme(Library_Api.Current_Theme)
-        Auto_Save()
-    end)
-
-    Left_Settings:Toggle_Create("Enable Acrylic", "Global_Acrylic", true, "Toggle blur effects", function(State)
-        Library_Api.Global_Settings.Acrylic = State
-        for _, Obj in ipairs(Library_Api.Acrylic_Objects) do
-            if Obj and Obj.Parent then Obj.Visible = State end
-        end
         Auto_Save()
     end)
 
