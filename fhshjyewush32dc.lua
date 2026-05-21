@@ -199,6 +199,63 @@ local function MakeResizable(resizeBtn, frame, minSize)
     table.insert(Library.Connections, c4)
 end
 local function GetBaseScale()
+    local camera = workspace.CurrentCamera
+    if not camera then
+        return 1
+    end
+    local vp = camera.ViewportSize
+    local minAxis = math.min(vp.X, vp.Y)
+    local scale = minAxis / 700
+    if UserInputService.TouchEnabled then
+        scale = scale * 0.92
+    end
+    return math.clamp(scale, 0.5, 1)
+end
+
+local function GetResponsiveWindowSize()
+    local camera = workspace.CurrentCamera
+    if not camera then
+        return 650, 400
+    end
+    local vp = camera.ViewportSize
+    local width = math.clamp(vp.X * (UserInputService.TouchEnabled and 0.96 or 0.7), 320, 1400)
+    local height = math.clamp(vp.Y * (UserInputService.TouchEnabled and 0.9 or 0.78), 250, 900)
+    return math.floor(width), math.floor(height)
+end
+
+local function GetSidebarWidth()
+    local camera = workspace.CurrentCamera
+    if not camera then
+        return 180
+    end
+    local vp = camera.ViewportSize
+    if UserInputService.TouchEnabled then
+        return math.clamp(vp.X * 0.26, 90, 140)
+    end
+    return 180
+end
+
+function Library:RefreshResponsiveLayout()
+    if not self._MainWindow then
+        return
+    end
+    local width, height = GetResponsiveWindowSize()
+    local sidebarWidth = UserInputService.TouchEnabled and 110 or GetSidebarWidth()
+
+    self._MainWindow.Size = UDim2.new(0, width, 0, height)
+    self._SettingsWindow.Size = UDim2.new(0, width, 0, height)
+
+    if self._MainSidebar then
+        self._MainSidebar.Size = UDim2.new(0, sidebarWidth, 1, 0)
+    end
+
+    if self._MainPages then
+        self._MainPages.Size = UDim2.new(1, -sidebarWidth - 1, 1, 0)
+        self._MainPages.Position = UDim2.new(0, sidebarWidth + 1, 0, 0)
+    end
+end
+
+local function LegacyGetBaseScaleDisabled()
     local vp = workspace.CurrentCamera.ViewportSize
     if vp.X < 1 or vp.Y < 1 then return 1 end
     local scaleX = vp.X / 800
@@ -456,7 +513,7 @@ function Library:InitWatermark()
     WatermarkGui.IgnoreGuiInset = true
     WatermarkGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 0, 0, 26)
+    Frame.Size = UDim2.new(0, 0, 0, UserInputService.TouchEnabled and 22 or 26)
     Frame.Position = UDim2.new(1, -20, 0, 10)
     Frame.AnchorPoint = Vector2.new(1, 0)
     Frame.BackgroundColor3 = Theme.Background
@@ -645,7 +702,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     DLabel.BackgroundTransparency = 1
     DLabel.Parent = DropFrame
     local Interactive = Instance.new("TextButton")
-    Interactive.Size = UDim2.new(1, 0, 0, 26)
+    Interactive.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 38 or 26)
     Interactive.Position = UDim2.new(0, 0, 0, 20)
     Interactive.BackgroundColor3 = Theme.Container
     Interactive.Text = ""
@@ -684,7 +741,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     ListFrame.ZIndex = 51
     ListFrame.Visible = false
     ListFrame.Active = true
-    ListFrame.ScrollBarThickness = 2
+    ListFrame.ScrollBarThickness = UserInputService.TouchEnabled and 6 or 2
     ListFrame.ScrollBarImageColor3 = Theme.Accent
     ListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     Corner(ListFrame, 4)
@@ -1048,7 +1105,13 @@ function Library:CreateWindow(options)
     local function CreateBaseFrame(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
-        Frame.Size = UDim2.new(0, 650, 0, 400)
+        local responsiveWidth, responsiveHeight = GetResponsiveWindowSize()
+        if UserInputService.TouchEnabled then
+            Frame.Size = UDim2.new(1, -12, 1, -12)
+            Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+        else
+            Frame.Size = UDim2.new(0, responsiveWidth, 0, responsiveHeight)
+        end
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
@@ -1060,7 +1123,7 @@ function Library:CreateWindow(options)
         Frame.Active = false
         local SizeConstraint = Instance.new("UISizeConstraint")
         SizeConstraint.MaxSize = Vector2.new(1400, 900)
-        SizeConstraint.MinSize = Vector2.new(450, 300)
+        SizeConstraint.MinSize = Vector2.new(320, 250)
         SizeConstraint.Parent = Frame
         Corner(Frame, 6)
         Stroke(Frame, Theme.Stroke, 1, 0)
@@ -1091,6 +1154,11 @@ function Library:CreateWindow(options)
     Library._SettingsWindow = SettingsWindow
     Library._SetScale = SetScale
     Library._IsSettings = false
+    Library._MainSidebar = MainBar
+    Library._MainPages = MainPages
+    task.defer(function()
+        Library:RefreshResponsiveLayout()
+    end)
     local Resizer = Instance.new("Frame")
     Resizer.Size = UDim2.new(0, 40, 0, 40)
     Resizer.Position = UDim2.new(1, 0, 1, 0)
@@ -1098,6 +1166,7 @@ function Library:CreateWindow(options)
     Resizer.BackgroundTransparency = 1
     Resizer.Parent = MainWindow
     Resizer.ZIndex = 20
+    Resizer.Visible = not UserInputService.TouchEnabled
     Resizer.Active = true
     local ResizerIcon = Instance.new("TextLabel")
     ResizerIcon.Size = UDim2.new(0, 20, 0, 20)
@@ -1116,10 +1185,14 @@ function Library:CreateWindow(options)
     end)
     table.insert(Library.Connections, c2)
     table.insert(Library.Connections, c3)
-    MakeResizable(Resizer, MainWindow, Vector2.new(450, 300))
+    MakeResizable(Resizer, MainWindow, Vector2.new(320, 250))
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
-        Bar.Size = UDim2.new(0, 180, 1, 0)
+        if UserInputService.TouchEnabled then
+            Bar.Size = UDim2.new(0, 110, 1, 0)
+        else
+            Bar.Size = UDim2.new(0, GetSidebarWidth(), 1, 0)
+        end
         Bar.BackgroundColor3 = Theme.Sidebar
         Bar.BorderSizePixel = 0
         Bar.Parent = parent
@@ -1177,7 +1250,7 @@ function Library:CreateWindow(options)
             Container.Position = UDim2.new(0, 0, 0, 60)
             Container.BackgroundTransparency = 1
             Container.BorderSizePixel = 0
-            Container.ScrollBarThickness = 2
+            Container.ScrollBarThickness = UserInputService.TouchEnabled and 4 or 2
             Container.ScrollBarImageColor3 = Theme.Accent
             Container.AutomaticCanvasSize = Enum.AutomaticSize.Y
             Container.ClipsDescendants = true
@@ -1319,10 +1392,20 @@ function Library:CreateWindow(options)
     table.insert(Library.Connections, MenuBindConnection)
     local WindowObj = {}
     local MainPages = Instance.new("Frame")
-    MainPages.Size = UDim2.new(1, -181, 1, 0)
-    MainPages.Position = UDim2.new(0, 181, 0, 0)
+    local sidebarWidth = GetSidebarWidth()
+    MainPages.Size = UDim2.new(1, -sidebarWidth - 1, 1, 0)
+    MainPages.Position = UDim2.new(0, sidebarWidth + 1, 0, 0)
     MainPages.BackgroundTransparency = 1
     MainPages.Parent = MainWindow
+
+    if UserInputService.TouchEnabled then
+        local mobilePadding = Instance.new("UIPadding")
+        mobilePadding.PaddingTop = UDim.new(0, 6)
+        mobilePadding.PaddingBottom = UDim.new(0, 6)
+        mobilePadding.PaddingLeft = UDim.new(0, 6)
+        mobilePadding.PaddingRight = UDim.new(0, 6)
+        mobilePadding.Parent = MainPages
+    end
     function WindowObj:CreateRawSection(text, parent)
         local Section = {}
         local Container = Instance.new("Frame")
@@ -1394,7 +1477,7 @@ function Library:CreateWindow(options)
         end
         function Section:Button(text, tooltipText, callback)
             local Btn = Instance.new("TextButton")
-            Btn.Size = UDim2.new(1, 0, 0, 32)
+            Btn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
             Btn.BackgroundColor3 = Theme.Container
             Btn.Text = text
             Btn.Font = Config.FontMain
@@ -1430,7 +1513,7 @@ function Library:CreateWindow(options)
                 end
             end
             local Btn = Instance.new("TextButton")
-            Btn.Size = UDim2.new(1, 0, 0, 32)
+            Btn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
             Btn.BackgroundColor3 = Theme.Container
             Btn.Text = ""
             Btn.AutoButtonColor = false
@@ -1919,7 +2002,7 @@ function Library:CreateWindow(options)
         CDLabel.BackgroundTransparency = 1
         CDLabel.Parent = ConfigDropdownFrame
         local CDInteractive = Instance.new("TextButton")
-        CDInteractive.Size = UDim2.new(1, 0, 0, 26)
+        CDInteractive.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 38 or 26)
         CDInteractive.Position = UDim2.new(0, 0, 0, 20)
         CDInteractive.BackgroundColor3 = Theme.Container
         CDInteractive.Text = ""
@@ -1958,7 +2041,7 @@ function Library:CreateWindow(options)
         CDListFrame.ZIndex = 51
         CDListFrame.Visible = false
         CDListFrame.Active = true
-        CDListFrame.ScrollBarThickness = 2
+        CDListFrame.ScrollBarThickness = UserInputService.TouchEnabled and 6 or 2
         CDListFrame.ScrollBarImageColor3 = Theme.Accent
         CDListFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         Corner(CDListFrame, 4)
@@ -2050,7 +2133,7 @@ function Library:CreateWindow(options)
             CDBuildOptions(newList)
         end
         local CreateBtn = Instance.new("TextButton")
-        CreateBtn.Size = UDim2.new(1, 0, 0, 32)
+        CreateBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
         CreateBtn.BackgroundColor3 = Theme.Container
         CreateBtn.Text = "Create New Config"
         CreateBtn.Font = Config.FontMain
@@ -2093,7 +2176,7 @@ function Library:CreateWindow(options)
         table.insert(Library.Connections, c10)
         table.insert(Library.Connections, c11)
         local LoadBtn = Instance.new("TextButton")
-        LoadBtn.Size = UDim2.new(1, 0, 0, 32)
+        LoadBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
         LoadBtn.BackgroundColor3 = Theme.Container
         LoadBtn.Text = "Load Config"
         LoadBtn.Font = Config.FontMain
@@ -2126,7 +2209,7 @@ function Library:CreateWindow(options)
         table.insert(Library.Connections, c13)
         table.insert(Library.Connections, c14)
         local RewriteBtn = Instance.new("TextButton")
-        RewriteBtn.Size = UDim2.new(1, 0, 0, 32)
+        RewriteBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
         RewriteBtn.BackgroundColor3 = Theme.Container
         RewriteBtn.Text = "Rewrite Config"
         RewriteBtn.Font = Config.FontMain
@@ -2159,7 +2242,7 @@ function Library:CreateWindow(options)
         table.insert(Library.Connections, c16)
         table.insert(Library.Connections, c17)
         local DeleteBtn = Instance.new("TextButton")
-        DeleteBtn.Size = UDim2.new(1, 0, 0, 32)
+        DeleteBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
         DeleteBtn.BackgroundColor3 = Theme.Container
         DeleteBtn.Text = "Delete Config"
         DeleteBtn.Font = Config.FontMain
@@ -2193,7 +2276,7 @@ function Library:CreateWindow(options)
         table.insert(Library.Connections, c19)
         table.insert(Library.Connections, c20)
         local RefreshBtn = Instance.new("TextButton")
-        RefreshBtn.Size = UDim2.new(1, 0, 0, 32)
+        RefreshBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
         RefreshBtn.BackgroundColor3 = Theme.Container
         RefreshBtn.Text = "Refresh Config List"
         RefreshBtn.Font = Config.FontMain
@@ -2214,7 +2297,7 @@ function Library:CreateWindow(options)
         table.insert(Library.Connections, c22)
         table.insert(Library.Connections, c23)
         local ResetBtn = Instance.new("TextButton")
-        ResetBtn.Size = UDim2.new(1, 0, 0, 32)
+        ResetBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
         ResetBtn.BackgroundColor3 = Theme.Container
         ResetBtn.Text = "Reset to Defaults"
         ResetBtn.Font = Config.FontMain
@@ -2441,7 +2524,7 @@ function Library:CreateWindow(options)
                     end
                 end
                 local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1, 0, 0, 32)
+                Btn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
                 Btn.BackgroundColor3 = Theme.Container
                 Btn.Text = ""
                 Btn.AutoButtonColor = false
