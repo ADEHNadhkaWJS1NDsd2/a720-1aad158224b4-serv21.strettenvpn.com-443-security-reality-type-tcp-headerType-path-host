@@ -30,7 +30,7 @@ local Library = {
 local Config = {
     Name = "PHANTOM HUB",
     Keybind = Enum.KeyCode.LeftControl,
-    Duration = 0.3,
+    Duration = 0.2,
     FontMain = Enum.Font.GothamMedium,
     FontBold = Enum.Font.GothamBold,
     ConfigFolder = "PhantomHub"
@@ -100,9 +100,7 @@ local function RoundToIncrement(value, increment)
     return math.round(value / increment) * increment
 end
 local function FormatNumber(value, increment)
-    if increment >= 1 then
-        return tostring(math.round(value))
-    end
+    if increment >= 1 then return tostring(math.round(value)) end
     local str = tostring(increment)
     local dotPos = string.find(str, "%.")
     if dotPos then
@@ -112,7 +110,7 @@ local function FormatNumber(value, increment)
     return tostring(value)
 end
 local function Can_Hover()
-    return UserInputService:GetLastInputType() ~= Enum.UserInputType.Touch
+    return not UserInputService.TouchEnabled
 end
 local function MakeDraggable(dragArea, frame, onDragCallback)
     local dragging = false
@@ -143,10 +141,10 @@ local function MakeDraggable(dragArea, frame, onDragCallback)
     end)
     local c4 = RunService.RenderStepped:Connect(function()
         if dragging and dragInput then
-            local delta_Cool_Snake_Case = dragInput.Position - dragStart
-            if delta_Cool_Snake_Case.Magnitude > Drag_Dead_Zone then
+            local delta = dragInput.Position - dragStart
+            if delta.Magnitude > Drag_Dead_Zone then
                 Actually_Dragging = true
-                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta_Cool_Snake_Case.X, startPos.Y.Scale, startPos.Y.Offset + delta_Cool_Snake_Case.Y)
+                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
                 if onDragCallback then onDragCallback(true) end
             end
         end
@@ -157,10 +155,11 @@ local function MakeDraggable(dragArea, frame, onDragCallback)
     return function() return dragging end
 end
 local function MakeResizable(resizeBtn, frame, minSize)
+    if UserInputService.TouchEnabled then return end
     local dragging = false
     local dragInput, dragStart, startSize, startPos, scaleMult
     local c1 = resizeBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragInput = input
             dragStart = input.Position
@@ -179,9 +178,7 @@ local function MakeResizable(resizeBtn, frame, minSize)
         end
     end)
     local c3 = UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
+        if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
     end)
     local c4 = RunService.RenderStepped:Connect(function()
         if dragging and dragInput then
@@ -199,72 +196,41 @@ local function MakeResizable(resizeBtn, frame, minSize)
     table.insert(Library.Connections, c4)
 end
 local function GetBaseScale()
+    if UserInputService.TouchEnabled then return 1 end
     local camera = workspace.CurrentCamera
-    if not camera then
-        return 1
-    end
+    if not camera then return 1 end
     local vp = camera.ViewportSize
     local minAxis = math.min(vp.X, vp.Y)
     local scale = minAxis / 700
-    if UserInputService.TouchEnabled then
-        scale = scale * 0.92
-    end
     return math.clamp(scale, 0.5, 1)
 end
-
 local function GetResponsiveWindowSize()
     local camera = workspace.CurrentCamera
-    if not camera then
-        return 650, 400
+    local vp = camera and camera.ViewportSize or Vector2.new(800, 600)
+    if UserInputService.TouchEnabled then
+        local width = math.clamp(vp.X * 0.9, 300, 600)
+        local height = math.clamp(vp.Y * 0.85, 250, 400)
+        return math.floor(width), math.floor(height)
     end
-    local vp = camera.ViewportSize
-    local width = math.clamp(vp.X * (UserInputService.TouchEnabled and 0.96 or 0.7), 320, 1400)
-    local height = math.clamp(vp.Y * (UserInputService.TouchEnabled and 0.9 or 0.78), 250, 900)
+    local width = math.clamp(vp.X * 0.7, 320, 1400)
+    local height = math.clamp(vp.Y * 0.78, 250, 900)
     return math.floor(width), math.floor(height)
 end
-
 local function GetSidebarWidth()
-    local camera = workspace.CurrentCamera
-    if not camera then
-        return 180
-    end
-    local vp = camera.ViewportSize
-    if UserInputService.TouchEnabled then
-        return math.clamp(vp.X * 0.26, 90, 140)
-    end
+    if UserInputService.TouchEnabled then return 120 end
     return 180
 end
-
 function Library:RefreshResponsiveLayout()
-    if not self._MainWindow then
-        return
-    end
+    if not self._MainWindow then return end
     local width, height = GetResponsiveWindowSize()
-    local sidebarWidth = UserInputService.TouchEnabled and 110 or GetSidebarWidth()
-
+    local sidebarWidth = GetSidebarWidth()
     self._MainWindow.Size = UDim2.new(0, width, 0, height)
     self._SettingsWindow.Size = UDim2.new(0, width, 0, height)
-
-    if self._MainSidebar then
-        self._MainSidebar.Size = UDim2.new(0, sidebarWidth, 1, 0)
-    end
-
+    if self._MainSidebar then self._MainSidebar.Size = UDim2.new(0, sidebarWidth, 1, 0) end
     if self._MainPages then
         self._MainPages.Size = UDim2.new(1, -sidebarWidth - 1, 1, 0)
         self._MainPages.Position = UDim2.new(0, sidebarWidth + 1, 0, 0)
     end
-end
-
-local function LegacyGetBaseScaleDisabled()
-    local vp = workspace.CurrentCamera.ViewportSize
-    if vp.X < 1 or vp.Y < 1 then return 1 end
-    local scaleX = vp.X / 800
-    local scaleY = vp.Y / 500
-    local scale = math.min(scaleX, scaleY)
-    if scale < 1 then
-        return math.clamp(scale * 0.95, 0.4, 1)
-    end
-    return 1
 end
 function Library:Unload()
     for _, conn in ipairs(Library.Connections) do pcall(function() conn:Disconnect() end) end
@@ -284,30 +250,21 @@ function Library:GetConfigs()
         for _, file in ipairs(files) do
             if string.sub(file, -5) == ".json" then
                 local name = string.match(string.gsub(file, "\\", "/"), "([^/]+)%.json$") or file
-                if name ~= "_autosave" then
-                    table.insert(configs, name)
-                end
+                if name ~= "_autosave" then table.insert(configs, name) end
             end
         end
     end
     return configs
 end
-local IgnoredFlags = {
-    ConfigSelectorFlag = true,
-    MenuAccentColor = true,
-    KeybindListToggle = true,
-}
+local IgnoredFlags = {ConfigSelectorFlag = true, MenuAccentColor = true, KeybindListToggle = true}
 local function SerializeConfigValue(v)
-    if typeof(v) == "Color3" then
-        return {Type = "Color3", Hex = v:ToHex()}
+    if typeof(v) == "Color3" then return {Type = "Color3", Hex = v:ToHex()}
     elseif typeof(v) == "EnumItem" then
         local enumName = tostring(v.EnumType):match("Enum%.(.+)") or tostring(v.EnumType)
         return {Type = "EnumItem", EnumType = enumName, Name = v.Name}
     elseif type(v) == "table" then
         local serialized = {}
-        for tk, tv in pairs(v) do
-            serialized[tk] = SerializeConfigValue(tv)
-        end
+        for tk, tv in pairs(v) do serialized[tk] = SerializeConfigValue(tv) end
         return {Type = "Table", Value = serialized}
     end
     return v
@@ -325,9 +282,7 @@ local function DeserializeConfigValue(value)
         elseif value.Type == "Table" then
             local deserialized = {}
             if type(value.Value) == "table" then
-                for tk, tv in pairs(value.Value) do
-                    deserialized[tk] = DeserializeConfigValue(tv)
-                end
+                for tk, tv in pairs(value.Value) do deserialized[tk] = DeserializeConfigValue(tv) end
             end
             return deserialized
         end
@@ -343,9 +298,7 @@ function Library:SaveConfig(name)
     end
     local ok, json = pcall(HttpService.JSONEncode, HttpService, saveFlags)
     if ok then
-        pcall(function()
-            writefile(Config.ConfigFolder .. "/" .. name .. ".json", json)
-        end)
+        pcall(function() writefile(Config.ConfigFolder .. "/" .. name .. ".json", json) end)
         return true
     end
     return false
@@ -363,9 +316,7 @@ function Library:LoadConfig(name)
         end
         for flag, value in pairs(Library.Flags) do
             if IgnoredFlags[flag] then continue end
-            if data[flag] ~= nil and Library.Signals[flag] then
-                task.spawn(Library.Signals[flag], value)
-            end
+            if data[flag] ~= nil and Library.Signals[flag] then task.spawn(Library.Signals[flag], value) end
         end
         return true
     end
@@ -400,7 +351,7 @@ TooltipLabel.ZIndex = 1000
 Corner(TooltipLabel, 4)
 Stroke(TooltipLabel, Theme.Stroke, 1)
 local function ApplyTooltip(guiObj, text)
-    if not text or text == "" then return end
+    if not text or text == "" or not Can_Hover() then return end
     local hovered = false
     local c1 = guiObj.MouseEnter:Connect(function()
         if not Can_Hover() then return end
@@ -513,7 +464,7 @@ function Library:InitWatermark()
     WatermarkGui.IgnoreGuiInset = true
     WatermarkGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 0, 0, UserInputService.TouchEnabled and 22 or 26)
+    Frame.Size = UDim2.new(0, 0, 0, 26)
     Frame.Position = UDim2.new(1, -20, 0, 10)
     Frame.AnchorPoint = Vector2.new(1, 0)
     Frame.BackgroundColor3 = Theme.Background
@@ -702,7 +653,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     DLabel.BackgroundTransparency = 1
     DLabel.Parent = DropFrame
     local Interactive = Instance.new("TextButton")
-    Interactive.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 38 or 26)
+    Interactive.Size = UDim2.new(1, 0, 0, 26)
     Interactive.Position = UDim2.new(0, 0, 0, 20)
     Interactive.BackgroundColor3 = Theme.Container
     Interactive.Text = ""
@@ -823,7 +774,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
                     Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark})
                 end
             end)
-            local c5 = OptBtn.MouseButton1Click:Connect(function()
+            local c5 = OptBtn.Activated:Connect(function()
                 if isMulti then
                     local found = table.find(selected, opt)
                     if found then table.remove(selected, found) else table.insert(selected, opt) end
@@ -849,11 +800,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     UpdateVisuals()
     Library.Signals[flag] = function(val)
         if isMulti then
-            if type(val) == "table" then
-                selected = val
-            else
-                selected = {val}
-            end
+            if type(val) == "table" then selected = val else selected = {val} end
         else
             selected = val
         end
@@ -861,7 +808,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         Library.Unsaved = true
         callback(selected)
     end
-    local c6 = Interactive.MouseButton1Click:Connect(function()
+    local c6 = Interactive.Activated:Connect(function()
         isDropped = not isDropped
         if sectionRef and sectionRef.Container then sectionRef.Container.ZIndex = isDropped and 50 or 1 end
         DropFrame.ZIndex = isDropped and 50 or 5
@@ -893,9 +840,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
         BuildOptions(newOptions)
         UpdateVisuals()
     end
-    function DropdownObj:GetSelected()
-        return selected
-    end
+    function DropdownObj:GetSelected() return selected end
     function DropdownObj:Set(val)
         if isMulti then
             if type(val) == "table" then selected = val else selected = {val} end
@@ -911,9 +856,7 @@ end
 local function CreateSliderElement(text, flag, min, max, default, increment, tooltipText, callback, parentFrame, secData)
     increment = increment or 1
     local val = Library.Flags[flag]
-    if val == nil then
-        val = default or min
-    end
+    if val == nil then val = default or min end
     val = RoundToIncrement(val, increment)
     Library.Defaults[flag] = val
     Library.Flags[flag] = val
@@ -948,6 +891,7 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     Bar.Position = UDim2.new(0, 0, 0, 24)
     Bar.BackgroundColor3 = Theme.Container
     Bar.Parent = Frame
+    Bar.Active = true
     Corner(Bar, 3)
     Stroke(Bar, Theme.Stroke, 1, 0.5)
     local Fill = Instance.new("Frame")
@@ -961,6 +905,7 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     RegisterTheme(Fill, "BackgroundColor")
     local dragging = false
     local dragInput
+    local Parent_Page = parentFrame:FindFirstAncestorOfClass("ScrollingFrame")
     local function SetFromInput(input)
         local r = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
         local raw = min + (max - min) * r
@@ -978,10 +923,12 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
             dragging = true
             dragInput = input
             SetFromInput(input)
+            if Parent_Page then Parent_Page.ScrollingEnabled = false end
             local c2
             c2 = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
+                    if Parent_Page then Parent_Page.ScrollingEnabled = true end
                     c2:Disconnect()
                 end
             end)
@@ -993,9 +940,7 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
         end
     end)
     local c4 = RunService.RenderStepped:Connect(function()
-        if dragging and dragInput then
-            SetFromInput(dragInput)
-        end
+        if dragging and dragInput then SetFromInput(dragInput) end
     end)
     table.insert(Library.Connections, c1)
     table.insert(Library.Connections, c3)
@@ -1071,7 +1016,7 @@ function Library:CreateWindow(options)
     MakeDraggable(MiniButton, MiniButton, function(wasDrag)
         miniWasDragged = wasDrag
     end)
-    local c1 = MiniButton.MouseButton1Click:Connect(function()
+    local c1 = MiniButton.Activated:Connect(function()
         if miniWasDragged then
             miniWasDragged = false
             return
@@ -1106,12 +1051,7 @@ function Library:CreateWindow(options)
         local Frame = Instance.new("Frame")
         Frame.Name = name
         local responsiveWidth, responsiveHeight = GetResponsiveWindowSize()
-        if UserInputService.TouchEnabled then
-            Frame.Size = UDim2.new(1, -12, 1, -12)
-            Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        else
-            Frame.Size = UDim2.new(0, responsiveWidth, 0, responsiveHeight)
-        end
+        Frame.Size = UDim2.new(0, responsiveWidth, 0, responsiveHeight)
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
@@ -1120,10 +1060,10 @@ function Library:CreateWindow(options)
         Frame.ClipsDescendants = false
         Frame.Visible = false
         Frame.Parent = ScreenGui
-        Frame.Active = false
+        Frame.Active = true
         local SizeConstraint = Instance.new("UISizeConstraint")
         SizeConstraint.MaxSize = Vector2.new(1400, 900)
-        SizeConstraint.MinSize = Vector2.new(320, 250)
+        SizeConstraint.MinSize = Vector2.new(300, 250)
         SizeConstraint.Parent = Frame
         Corner(Frame, 6)
         Stroke(Frame, Theme.Stroke, 1, 0)
@@ -1154,11 +1094,7 @@ function Library:CreateWindow(options)
     Library._SettingsWindow = SettingsWindow
     Library._SetScale = SetScale
     Library._IsSettings = false
-    Library._MainSidebar = MainBar
-    Library._MainPages = MainPages
-    task.defer(function()
-        Library:RefreshResponsiveLayout()
-    end)
+    task.defer(function() Library:RefreshResponsiveLayout() end)
     local Resizer = Instance.new("Frame")
     Resizer.Size = UDim2.new(0, 40, 0, 40)
     Resizer.Position = UDim2.new(1, 0, 1, 0)
@@ -1166,33 +1102,32 @@ function Library:CreateWindow(options)
     Resizer.BackgroundTransparency = 1
     Resizer.Parent = MainWindow
     Resizer.ZIndex = 20
-    Resizer.Visible = not UserInputService.TouchEnabled
     Resizer.Active = true
-    local ResizerIcon = Instance.new("TextLabel")
-    ResizerIcon.Size = UDim2.new(0, 20, 0, 20)
-    ResizerIcon.Position = UDim2.new(1, 0, 1, 0)
-    ResizerIcon.AnchorPoint = Vector2.new(1, 1)
-    ResizerIcon.BackgroundTransparency = 1
-    ResizerIcon.Text = "◢"
-    ResizerIcon.TextColor3 = Theme.TextDark
-    ResizerIcon.TextSize = 16
-    ResizerIcon.Parent = Resizer
-    local c2 = Resizer.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.Accent}) end
-    end)
-    local c3 = Resizer.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
-    end)
-    table.insert(Library.Connections, c2)
-    table.insert(Library.Connections, c3)
-    MakeResizable(Resizer, MainWindow, Vector2.new(320, 250))
+    if not UserInputService.TouchEnabled then
+        local ResizerIcon = Instance.new("TextLabel")
+        ResizerIcon.Size = UDim2.new(0, 20, 0, 20)
+        ResizerIcon.Position = UDim2.new(1, 0, 1, 0)
+        ResizerIcon.AnchorPoint = Vector2.new(1, 1)
+        ResizerIcon.BackgroundTransparency = 1
+        ResizerIcon.Text = "◢"
+        ResizerIcon.TextColor3 = Theme.TextDark
+        ResizerIcon.TextSize = 16
+        ResizerIcon.Parent = Resizer
+        local c2 = Resizer.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.Accent}) end
+        end)
+        local c3 = Resizer.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then Tween(ResizerIcon, {TextColor3 = Theme.TextDark}) end
+        end)
+        table.insert(Library.Connections, c2)
+        table.insert(Library.Connections, c3)
+        MakeResizable(Resizer, MainWindow, Vector2.new(320, 250))
+    else
+        Resizer.Visible = false
+    end
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
-        if UserInputService.TouchEnabled then
-            Bar.Size = UDim2.new(0, 110, 1, 0)
-        else
-            Bar.Size = UDim2.new(0, GetSidebarWidth(), 1, 0)
-        end
+        Bar.Size = UDim2.new(0, GetSidebarWidth(), 1, 0)
         Bar.BackgroundColor3 = Theme.Sidebar
         Bar.BorderSizePixel = 0
         Bar.Parent = parent
@@ -1267,6 +1202,7 @@ function Library:CreateWindow(options)
     end
     local MainBar, TabContainer, _ = CreateSidebar(MainWindow, false)
     local SetBar, SetContainer, BackBtn = CreateSidebar(SettingsWindow, true)
+    Library._MainSidebar = MainBar
     local ProfileBtn = Instance.new("TextButton")
     ProfileBtn.Size = UDim2.new(1, 0, 0, 60)
     ProfileBtn.Position = UDim2.new(0, 0, 1, 0)
@@ -1328,11 +1264,8 @@ function Library:CreateWindow(options)
                 Tween(MainScale, {Scale = GetBaseScale()}, 0.3).Completed:Wait()
             end
         else
-            if IsSettings then
-                Tween(SetScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
-            else
-                Tween(MainScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
-            end
+            if IsSettings then Tween(SetScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait()
+            else Tween(MainScale, {Scale = GetBaseScale() * 0.8}, 0.2).Completed:Wait() end
             MainWindow.Visible = false
             SettingsWindow.Visible = false
             TooltipLabel.Visible = false
@@ -1369,25 +1302,21 @@ function Library:CreateWindow(options)
         Library._IsSettings = false
         animating = false
     end
-    local c6 = ProfileBtn.MouseButton1Click:Connect(function() task.spawn(SwitchToSettings) end)
-    local c7 = BackBtn.MouseButton1Click:Connect(function() task.spawn(SwitchToMain) end)
+    local c6 = ProfileBtn.Activated:Connect(function() task.spawn(SwitchToSettings) end)
+    local c7 = BackBtn.Activated:Connect(function() task.spawn(SwitchToMain) end)
     table.insert(Library.Connections, c6)
     table.insert(Library.Connections, c7)
     local c8 = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
         if UserInputService:GetFocusedTextBox() then return end
+        Library:RefreshResponsiveLayout()
         if Library.Open then
-            if IsSettings and SettingsWindow.Visible then
-                SetScale.Scale = GetBaseScale()
-            elseif not IsSettings and MainWindow.Visible then
-                MainScale.Scale = GetBaseScale()
-            end
+            if IsSettings and SettingsWindow.Visible then SetScale.Scale = GetBaseScale()
+            elseif not IsSettings and MainWindow.Visible then MainScale.Scale = GetBaseScale() end
         end
     end)
     table.insert(Library.Connections, c8)
     local MenuBindConnection = UserInputService.InputBegan:Connect(function(input, gp)
-        if not gp and input.KeyCode == Config.Keybind then
-            task.spawn(ToggleMain)
-        end
+        if not gp and input.KeyCode == Config.Keybind then task.spawn(ToggleMain) end
     end)
     table.insert(Library.Connections, MenuBindConnection)
     local WindowObj = {}
@@ -1397,15 +1326,7 @@ function Library:CreateWindow(options)
     MainPages.Position = UDim2.new(0, sidebarWidth + 1, 0, 0)
     MainPages.BackgroundTransparency = 1
     MainPages.Parent = MainWindow
-
-    if UserInputService.TouchEnabled then
-        local mobilePadding = Instance.new("UIPadding")
-        mobilePadding.PaddingTop = UDim.new(0, 6)
-        mobilePadding.PaddingBottom = UDim.new(0, 6)
-        mobilePadding.PaddingLeft = UDim.new(0, 6)
-        mobilePadding.PaddingRight = UDim.new(0, 6)
-        mobilePadding.Parent = MainPages
-    end
+    Library._MainPages = MainPages
     function WindowObj:CreateRawSection(text, parent)
         local Section = {}
         local Container = Instance.new("Frame")
@@ -1477,7 +1398,7 @@ function Library:CreateWindow(options)
         end
         function Section:Button(text, tooltipText, callback)
             local Btn = Instance.new("TextButton")
-            Btn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
+            Btn.Size = UDim2.new(1, 0, 0, 32)
             Btn.BackgroundColor3 = Theme.Container
             Btn.Text = text
             Btn.Font = Config.FontMain
@@ -1489,7 +1410,7 @@ function Library:CreateWindow(options)
             local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
             local bc1 = Btn.MouseEnter:Connect(function() if Can_Hover() then Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end end)
             local bc2 = Btn.MouseLeave:Connect(function() if Can_Hover() then Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end end)
-            local bc3 = Btn.MouseButton1Click:Connect(callback)
+            local bc3 = Btn.Activated:Connect(callback)
             table.insert(Library.Connections, bc1)
             table.insert(Library.Connections, bc2)
             table.insert(Library.Connections, bc3)
@@ -1513,7 +1434,7 @@ function Library:CreateWindow(options)
                 end
             end
             local Btn = Instance.new("TextButton")
-            Btn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
+            Btn.Size = UDim2.new(1, 0, 0, 32)
             Btn.BackgroundColor3 = Theme.Container
             Btn.Text = ""
             Btn.AutoButtonColor = false
@@ -1599,7 +1520,7 @@ function Library:CreateWindow(options)
                 end
             end)
             table.insert(Library.Connections, tlc1)
-            local tlc2 = Btn.MouseButton1Click:Connect(function()
+            local tlc2 = Btn.Activated:Connect(function()
                 toggled = not toggled
                 Library.Unsaved = true
                 ToggleAnim()
@@ -1772,6 +1693,7 @@ function Library:CreateWindow(options)
             HexInput.ZIndex = 11
             Corner(HexInput, 4)
             Stroke(HexInput, Theme.Stroke, 1)
+            local Parent_Page = Content:FindFirstAncestorOfClass("ScrollingFrame")
             local function Update()
                 color = Color3.fromHSV(h, s, v)
                 Preview.BackgroundColor3 = color
@@ -1826,10 +1748,12 @@ function Library:CreateWindow(options)
                     dragSV = true
                     dragInputSV = input
                     SetSV(input)
+                    if Parent_Page then Parent_Page.ScrollingEnabled = false end
                     local sc2
                     sc2 = input.Changed:Connect(function()
                         if input.UserInputState == Enum.UserInputState.End then
                             dragSV = false
+                            if Parent_Page then Parent_Page.ScrollingEnabled = true end
                             sc2:Disconnect()
                         end
                     end)
@@ -1853,10 +1777,12 @@ function Library:CreateWindow(options)
                     dragH = true
                     dragInputH = input
                     SetH(input)
+                    if Parent_Page then Parent_Page.ScrollingEnabled = false end
                     local hc2
                     hc2 = input.Changed:Connect(function()
                         if input.UserInputState == Enum.UserInputState.End then
                             dragH = false
+                            if Parent_Page then Parent_Page.ScrollingEnabled = true end
                             hc2:Disconnect()
                         end
                     end)
@@ -1873,7 +1799,7 @@ function Library:CreateWindow(options)
             table.insert(Library.Connections, h1)
             table.insert(Library.Connections, h3)
             table.insert(Library.Connections, h4)
-            local pc1 = Preview.MouseButton1Click:Connect(function()
+            local pc1 = Preview.Activated:Connect(function()
                 isOpen = not isOpen
                 Section.Container.ZIndex = isOpen and 10 or 1
                 ContainerFrame.ZIndex = isOpen and 10 or 5
@@ -1899,10 +1825,10 @@ function Library:CreateWindow(options)
     end
     local function PopulateSettings()
         local SetPage = Instance.new("ScrollingFrame")
-        SetPage.Size = UDim2.new(1, -200, 1, -20)
-        SetPage.Position = UDim2.new(0, 190, 0, 10)
+        SetPage.Size = UDim2.new(1, -GetSidebarWidth() - 20, 1, -20)
+        SetPage.Position = UDim2.new(0, GetSidebarWidth() + 10, 0, 10)
         SetPage.BackgroundTransparency = 1
-        SetPage.ScrollBarThickness = 2
+        SetPage.ScrollBarThickness = UserInputService.TouchEnabled and 6 or 2
         SetPage.ScrollBarImageColor3 = Theme.Accent
         SetPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
         SetPage.Active = true
@@ -1913,20 +1839,15 @@ function Library:CreateWindow(options)
         ListLayout.Padding = UDim.new(0, 10)
         ListLayout.Parent = SetPage
         local MenuSec = WindowObj:CreateRawSection("Menu Settings", SetPage)
-        MenuSec:Button("Unload UI", "Destroys the Hub", function()
-            Library:Unload()
-        end)
+        MenuSec:Button("Unload UI", "Destroys the Hub", function() Library:Unload() end)
         local keybindBtn
         keybindBtn = MenuSec:Button("Menu Keybind: " .. tostring(Config.Keybind.Name), "Change the open/close key", function()
             keybindBtn.Text = "Press any key..."
             local conn
             conn = UserInputService.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.Keyboard then
-                    if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then
-                        Config.Keybind = Enum.KeyCode.LeftControl
-                    elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then
-                        Config.Keybind = input.KeyCode
-                    end
+                    if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then Config.Keybind = Enum.KeyCode.LeftControl
+                    elseif input.KeyCode ~= Enum.KeyCode.Escape and input.KeyCode ~= Enum.KeyCode.Unknown then Config.Keybind = input.KeyCode end
                     keybindBtn.Text = "Menu Keybind: " .. tostring(Config.Keybind.Name)
                     Library:Notify("Settings", "Menu keybind set to " .. tostring(Config.Keybind.Name), 2)
                     conn:Disconnect()
@@ -1935,13 +1856,9 @@ function Library:CreateWindow(options)
         end)
         MenuSec:Toggle("Show Keybind List", "KeybindListToggle", true, "Show the active keybinds widget", function(state)
             Library.ShowKeybinds = state
-            if Library.KeybindList then
-                Library.KeybindList.Frame.Visible = state and (#Library.KeybindList.Container:GetChildren() > 1)
-            end
+            if Library.KeybindList then Library.KeybindList.Frame.Visible = state and (#Library.KeybindList.Container:GetChildren() > 1) end
         end)
-        MenuSec:ColorPicker("Accent Color", "MenuAccentColor", Theme.Accent, "Change the theme color", function(col)
-            Library:UpdateTheme(col)
-        end)
+        MenuSec:ColorPicker("Accent Color", "MenuAccentColor", Theme.Accent, "Change the theme color", function(col) Library:UpdateTheme(col) end)
         local ConfigSec = WindowObj:CreateRawSection("Configuration", SetPage)
         local ConfigContent = ConfigSec.Container:FindFirstChild("Content")
         local configNameInput = ""
@@ -1982,9 +1899,7 @@ function Library:CreateWindow(options)
         CNameInput.Text = ""
         CNameInput.ClearTextOnFocus = false
         CNameInput.Parent = CNameBoxCont
-        local c2 = CNameInput:GetPropertyChangedSignal("Text"):Connect(function()
-            configNameInput = CNameInput.Text
-        end)
+        local c2 = CNameInput:GetPropertyChangedSignal("Text"):Connect(function() configNameInput = CNameInput.Text end)
         table.insert(Library.Connections, c2)
         local ConfigDropdownFrame = Instance.new("Frame")
         ConfigDropdownFrame.Size = UDim2.new(1, 0, 0, 46)
@@ -2002,7 +1917,7 @@ function Library:CreateWindow(options)
         CDLabel.BackgroundTransparency = 1
         CDLabel.Parent = ConfigDropdownFrame
         local CDInteractive = Instance.new("TextButton")
-        CDInteractive.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 38 or 26)
+        CDInteractive.Size = UDim2.new(1, 0, 0, 26)
         CDInteractive.Position = UDim2.new(0, 0, 0, 20)
         CDInteractive.BackgroundColor3 = Theme.Container
         CDInteractive.Text = ""
@@ -2091,7 +2006,7 @@ function Library:CreateWindow(options)
                 local c6 = OptBtn.MouseLeave:Connect(function()
                     if selectedConfigName ~= opt and Can_Hover() then Tween(OptBtn, {BackgroundTransparency = 1, TextColor3 = Theme.TextDark}) end
                 end)
-                local c7 = OptBtn.MouseButton1Click:Connect(function()
+                local c7 = OptBtn.Activated:Connect(function()
                     selectedConfigName = opt
                     CDSelectedText.Text = opt
                     for o, b in pairs(cdOptionBtns) do b.TextColor3 = (o == opt) and Theme.Accent or Theme.TextDark end
@@ -2103,7 +2018,7 @@ function Library:CreateWindow(options)
             end
         end
         CDBuildOptions(ConfigList)
-        local c8 = CDInteractive.MouseButton1Click:Connect(function()
+        local c8 = CDInteractive.Activated:Connect(function()
             cdIsDropped = not cdIsDropped
             ConfigSec.Container.ZIndex = cdIsDropped and 50 or 1
             ConfigDropdownFrame.ZIndex = cdIsDropped and 50 or 5
@@ -2126,14 +2041,12 @@ function Library:CreateWindow(options)
         local function RefreshConfigDropdown()
             local newList = Library:GetConfigs()
             ConfigList = newList
-            if not table.find(newList, selectedConfigName) then
-                selectedConfigName = #newList > 0 and newList[1] or ""
-            end
+            if not table.find(newList, selectedConfigName) then selectedConfigName = #newList > 0 and newList[1] or "" end
             CDSelectedText.Text = selectedConfigName ~= "" and selectedConfigName or "No configs"
             CDBuildOptions(newList)
         end
         local CreateBtn = Instance.new("TextButton")
-        CreateBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
+        CreateBtn.Size = UDim2.new(1, 0, 0, 32)
         CreateBtn.BackgroundColor3 = Theme.Container
         CreateBtn.Text = "Create New Config"
         CreateBtn.Font = Config.FontMain
@@ -2146,37 +2059,26 @@ function Library:CreateWindow(options)
         local cs1 = Stroke(CreateBtn, Theme.Stroke, 1, 0.5)
         local c9 = CreateBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(CreateBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs1, {Color = Theme.Accent}) end end)
         local c10 = CreateBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(CreateBtn, {BackgroundColor3 = Theme.Container}) Tween(cs1, {Color = Theme.Stroke}) end end)
-        local c11 = CreateBtn.MouseButton1Click:Connect(function()
+        local c11 = CreateBtn.Activated:Connect(function()
             local name = configNameInput
-            if not name or name == "" or string.match(name, "^%s*$") then
-                Library:Notify("Error", "Please type a config name first", 3)
-                return
-            end
+            if not name or name == "" or string.match(name, "^%s*$") then Library:Notify("Error", "Please type a config name first", 3) return end
             name = string.gsub(name, "^%s+", "")
             name = string.gsub(name, "%s+$", "")
-            if name == "" then
-                Library:Notify("Error", "Please type a config name first", 3)
-                return
-            end
-            if Library:ConfigExists(name) then
-                Library:Notify("Error", "Config '" .. name .. "' already exists", 3)
-                return
-            end
+            if name == "" then Library:Notify("Error", "Please type a config name first", 3) return end
+            if Library:ConfigExists(name) then Library:Notify("Error", "Config '" .. name .. "' already exists", 3) return end
             if Library:SaveConfig(name) then
                 selectedConfigName = name
                 CNameInput.Text = ""
                 configNameInput = ""
                 RefreshConfigDropdown()
                 Library:Notify("Config", "Created: " .. name, 3)
-            else
-                Library:Notify("Error", "Failed to create config", 3)
-            end
+            else Library:Notify("Error", "Failed to create config", 3) end
         end)
         table.insert(Library.Connections, c9)
         table.insert(Library.Connections, c10)
         table.insert(Library.Connections, c11)
         local LoadBtn = Instance.new("TextButton")
-        LoadBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
+        LoadBtn.Size = UDim2.new(1, 0, 0, 32)
         LoadBtn.BackgroundColor3 = Theme.Container
         LoadBtn.Text = "Load Config"
         LoadBtn.Font = Config.FontMain
@@ -2189,27 +2091,18 @@ function Library:CreateWindow(options)
         local cs2 = Stroke(LoadBtn, Theme.Stroke, 1, 0.5)
         local c12 = LoadBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(LoadBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs2, {Color = Theme.Accent}) end end)
         local c13 = LoadBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(LoadBtn, {BackgroundColor3 = Theme.Container}) Tween(cs2, {Color = Theme.Stroke}) end end)
-        local c14 = LoadBtn.MouseButton1Click:Connect(function()
+        local c14 = LoadBtn.Activated:Connect(function()
             local name = selectedConfigName
-            if not name or name == "" then
-                Library:Notify("Error", "No config selected", 3)
-                return
-            end
-            if not Library:ConfigExists(name) then
-                Library:Notify("Error", "Config '" .. name .. "' does not exist", 3)
-                return
-            end
-            if Library:LoadConfig(name) then
-                Library:Notify("Config", "Loaded: " .. name, 3)
-            else
-                Library:Notify("Error", "Failed to load config", 3)
-            end
+            if not name or name == "" then Library:Notify("Error", "No config selected", 3) return end
+            if not Library:ConfigExists(name) then Library:Notify("Error", "Config '" .. name .. "' does not exist", 3) return end
+            if Library:LoadConfig(name) then Library:Notify("Config", "Loaded: " .. name, 3)
+            else Library:Notify("Error", "Failed to load config", 3) end
         end)
         table.insert(Library.Connections, c12)
         table.insert(Library.Connections, c13)
         table.insert(Library.Connections, c14)
         local RewriteBtn = Instance.new("TextButton")
-        RewriteBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
+        RewriteBtn.Size = UDim2.new(1, 0, 0, 32)
         RewriteBtn.BackgroundColor3 = Theme.Container
         RewriteBtn.Text = "Rewrite Config"
         RewriteBtn.Font = Config.FontMain
@@ -2222,27 +2115,18 @@ function Library:CreateWindow(options)
         local cs3 = Stroke(RewriteBtn, Theme.Stroke, 1, 0.5)
         local c15 = RewriteBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(RewriteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs3, {Color = Theme.Accent}) end end)
         local c16 = RewriteBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(RewriteBtn, {BackgroundColor3 = Theme.Container}) Tween(cs3, {Color = Theme.Stroke}) end end)
-        local c17 = RewriteBtn.MouseButton1Click:Connect(function()
+        local c17 = RewriteBtn.Activated:Connect(function()
             local name = selectedConfigName
-            if not name or name == "" then
-                Library:Notify("Error", "No config selected", 3)
-                return
-            end
-            if not Library:ConfigExists(name) then
-                Library:Notify("Error", "Config '" .. name .. "' does not exist", 3)
-                return
-            end
-            if Library:SaveConfig(name) then
-                Library:Notify("Config", "Rewritten: " .. name, 3)
-            else
-                Library:Notify("Error", "Failed to rewrite config", 3)
-            end
+            if not name or name == "" then Library:Notify("Error", "No config selected", 3) return end
+            if not Library:ConfigExists(name) then Library:Notify("Error", "Config '" .. name .. "' does not exist", 3) return end
+            if Library:SaveConfig(name) then Library:Notify("Config", "Rewritten: " .. name, 3)
+            else Library:Notify("Error", "Failed to rewrite config", 3) end
         end)
         table.insert(Library.Connections, c15)
         table.insert(Library.Connections, c16)
         table.insert(Library.Connections, c17)
         local DeleteBtn = Instance.new("TextButton")
-        DeleteBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
+        DeleteBtn.Size = UDim2.new(1, 0, 0, 32)
         DeleteBtn.BackgroundColor3 = Theme.Container
         DeleteBtn.Text = "Delete Config"
         DeleteBtn.Font = Config.FontMain
@@ -2255,28 +2139,20 @@ function Library:CreateWindow(options)
         local cs4 = Stroke(DeleteBtn, Theme.Stroke, 1, 0.5)
         local c18 = DeleteBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(DeleteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs4, {Color = Theme.Accent}) end end)
         local c19 = DeleteBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(DeleteBtn, {BackgroundColor3 = Theme.Container}) Tween(cs4, {Color = Theme.Stroke}) end end)
-        local c20 = DeleteBtn.MouseButton1Click:Connect(function()
+        local c20 = DeleteBtn.Activated:Connect(function()
             local name = selectedConfigName
-            if not name or name == "" then
-                Library:Notify("Error", "No config selected", 3)
-                return
-            end
-            if not Library:ConfigExists(name) then
-                Library:Notify("Error", "Config '" .. name .. "' does not exist", 3)
-                return
-            end
+            if not name or name == "" then Library:Notify("Error", "No config selected", 3) return end
+            if not Library:ConfigExists(name) then Library:Notify("Error", "Config '" .. name .. "' does not exist", 3) return end
             if Library:DeleteConfig(name) then
                 RefreshConfigDropdown()
                 Library:Notify("Config", "Deleted: " .. name, 3)
-            else
-                Library:Notify("Error", "Failed to delete config", 3)
-            end
+            else Library:Notify("Error", "Failed to delete config", 3) end
         end)
         table.insert(Library.Connections, c18)
         table.insert(Library.Connections, c19)
         table.insert(Library.Connections, c20)
         local RefreshBtn = Instance.new("TextButton")
-        RefreshBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
+        RefreshBtn.Size = UDim2.new(1, 0, 0, 32)
         RefreshBtn.BackgroundColor3 = Theme.Container
         RefreshBtn.Text = "Refresh Config List"
         RefreshBtn.Font = Config.FontMain
@@ -2289,7 +2165,7 @@ function Library:CreateWindow(options)
         local cs5 = Stroke(RefreshBtn, Theme.Stroke, 1, 0.5)
         local c21 = RefreshBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(RefreshBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs5, {Color = Theme.Accent}) end end)
         local c22 = RefreshBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(RefreshBtn, {BackgroundColor3 = Theme.Container}) Tween(cs5, {Color = Theme.Stroke}) end end)
-        local c23 = RefreshBtn.MouseButton1Click:Connect(function()
+        local c23 = RefreshBtn.Activated:Connect(function()
             RefreshConfigDropdown()
             Library:Notify("Config", "List Refreshed", 2)
         end)
@@ -2297,7 +2173,7 @@ function Library:CreateWindow(options)
         table.insert(Library.Connections, c22)
         table.insert(Library.Connections, c23)
         local ResetBtn = Instance.new("TextButton")
-        ResetBtn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
+        ResetBtn.Size = UDim2.new(1, 0, 0, 32)
         ResetBtn.BackgroundColor3 = Theme.Container
         ResetBtn.Text = "Reset to Defaults"
         ResetBtn.Font = Config.FontMain
@@ -2310,13 +2186,11 @@ function Library:CreateWindow(options)
         local cs6 = Stroke(ResetBtn, Theme.Stroke, 1, 0.5)
         local c24 = ResetBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(ResetBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs6, {Color = Theme.Accent}) end end)
         local c25 = ResetBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(ResetBtn, {BackgroundColor3 = Theme.Container}) Tween(cs6, {Color = Theme.Stroke}) end end)
-        local c26 = ResetBtn.MouseButton1Click:Connect(function()
+        local c26 = ResetBtn.Activated:Connect(function()
             for flag, val in pairs(Library.Defaults) do
                 if IgnoredFlags[flag] then continue end
                 Library.Flags[flag] = val
-                if Library.Signals[flag] then
-                    task.spawn(Library.Signals[flag], val)
-                end
+                if Library.Signals[flag] then task.spawn(Library.Signals[flag], val) end
             end
             Library:Notify("Settings", "Reset to defaults", 3)
         end)
@@ -2377,14 +2251,14 @@ function Library:CreateWindow(options)
         Indicator.Parent = TabBtn
         Corner(Indicator, 2)
         RegisterTheme(Indicator, "BackgroundColor")
-        local c3 = TabBtn.MouseButton1Click:Connect(function()
+        local c3 = TabBtn.Activated:Connect(function()
             for _, p in pairs(MainPages:GetChildren()) do if p:IsA("ScrollingFrame") then p.Visible = false end end
             for _, t in pairs(TabContainer:GetChildren()) do
                 if t:IsA("TextButton") then
                     Tween(t.TextLabel, {TextColor3 = Theme.TextDark})
                     Tween(t, {BackgroundTransparency = 1, BackgroundColor3 = Theme.Background})
                     if t:FindFirstChild("ImageLabel") then Tween(t.ImageLabel, {ImageColor3 = Theme.TextDark}) end
-                    Tween(t.Frame, {BackgroundTransparency = 1})
+                    if t:FindFirstChild("Frame") then Tween(t.Frame, {BackgroundTransparency = 1}) end
                 end
             end
             Page.Visible = true
@@ -2395,9 +2269,7 @@ function Library:CreateWindow(options)
         end)
         table.insert(Library.Connections, c3)
         local tabCount = 0
-        for _, c in pairs(TabContainer:GetChildren()) do
-            if c:IsA("TextButton") then tabCount = tabCount + 1 end
-        end
+        for _, c in pairs(TabContainer:GetChildren()) do if c:IsA("TextButton") then tabCount = tabCount + 1 end end
         if tabCount <= 1 then
             Page.Visible = true
             Title.TextColor3 = Theme.Text
@@ -2428,14 +2300,13 @@ function Library:CreateWindow(options)
         RightList.SortOrder = Enum.SortOrder.LayoutOrder
         RightList.Padding = UDim.new(0, 10)
         RightList.Parent = RightCol
-        local function Update_Canvas_Size()
-            Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 30)
-        end
+        local function Update_Canvas_Size() Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 30) end
         table.insert(Library.Connections, LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Canvas_Size))
         table.insert(Library.Connections, RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Canvas_Size))
         function Tab:Section(text, side)
             local Section = {}
             local ParentCol = (side == "Right" and RightCol or LeftCol)
+            if UserInputService.TouchEnabled then ParentCol = LeftCol LeftCol.Size = UDim2.new(1, 0, 0, 0) RightCol.Visible = false end
             local Container = Instance.new("Frame")
             Container.Size = UDim2.new(1, 0, 0, 0)
             Container.BackgroundColor3 = Theme.Section
@@ -2510,10 +2381,7 @@ function Library:CreateWindow(options)
             function Section:Toggle(text, flag, default, tooltipText, callback)
                 Library.Defaults[flag] = default or false
                 local toggled = Library.Flags[flag]
-                if toggled == nil then
-                    toggled = default or false
-                    Library.Flags[flag] = toggled
-                end
+                if toggled == nil then toggled = default or false Library.Flags[flag] = toggled end
                 local ToggleObj = {}
                 Library.Signals[flag] = function(val)
                     if toggled ~= val then
@@ -2524,7 +2392,7 @@ function Library:CreateWindow(options)
                     end
                 end
                 local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1, 0, 0, UserInputService.TouchEnabled and 42 or 32)
+                Btn.Size = UDim2.new(1, 0, 0, 32)
                 Btn.BackgroundColor3 = Theme.Container
                 Btn.Text = ""
                 Btn.AutoButtonColor = false
@@ -2575,9 +2443,7 @@ function Library:CreateWindow(options)
                     if currentTween then currentTween:Cancel() end
                     Tween(Fill, {BackgroundTransparency = toggled and 0 or 1}, 0.2)
                     Library.Flags[flag] = toggled
-                    if ToggleObj.KeybindValue then
-                        Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, ToggleObj.KeybindMode)
-                    end
+                    if ToggleObj.KeybindValue then Library:UpdateKeybindList(text, ToggleObj.KeybindValue.Name, toggled, ToggleObj.KeybindMode) end
                     if toggled then
                         SubContainer.Visible = true
                         SubContainer.ClipsDescendants = true
@@ -2611,7 +2477,7 @@ function Library:CreateWindow(options)
                     end
                 end)
                 table.insert(Library.Connections, c5)
-                local c6 = Btn.MouseButton1Click:Connect(function()
+                local c6 = Btn.Activated:Connect(function()
                     toggled = not toggled
                     Library.Unsaved = true
                     ToggleAnim()
@@ -2636,7 +2502,7 @@ function Library:CreateWindow(options)
                     local s = Stroke(SBtn, Theme.Stroke, 1, 0.5)
                     local tbc1 = SBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(SBtn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end end)
                     local tbc2 = SBtn.MouseLeave:Connect(function() if Can_Hover() then Tween(SBtn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end end)
-                    local tbc3 = SBtn.MouseButton1Click:Connect(cb)
+                    local tbc3 = SBtn.Activated:Connect(cb)
                     table.insert(Library.Connections, tbc1)
                     table.insert(Library.Connections, tbc2)
                     table.insert(Library.Connections, tbc3)
@@ -2706,10 +2572,12 @@ function Library:CreateWindow(options)
                             dragging = true
                             dragInput = i
                             Set(i)
+                            if Page then Page.ScrollingEnabled = false end
                             local tsc
                             tsc = i.Changed:Connect(function()
                                 if i.UserInputState == Enum.UserInputState.End then
                                     dragging = false
+                                    if Page then Page.ScrollingEnabled = true end
                                     tsc:Disconnect()
                                 end
                             end)
@@ -2740,12 +2608,8 @@ function Library:CreateWindow(options)
                                 Library.Flags[sflag] = val
                                 Library.Unsaved = true
                                 cb(val)
-                            else
-                                SValue.Text = FormatNumber(val, inc)
-                            end
-                        else
-                            SValue.Text = FormatNumber(val, inc)
-                        end
+                            else SValue.Text = FormatNumber(val, inc) end
+                        else SValue.Text = FormatNumber(val, inc) end
                     end)
                     table.insert(Library.Connections, ts4)
                     Library.Signals[sflag] = function(loadedVal)
@@ -2759,9 +2623,7 @@ function Library:CreateWindow(options)
                     end
                     task.spawn(cb, val)
                 end
-                function ToggleObj:AddDropdown(txt, dflag, opts, def, cb, isMulti)
-                    CreateDropdownElement(txt, dflag, opts, def, nil, cb, Content, Section, isMulti, SubContainer)
-                end
+                function ToggleObj:AddDropdown(txt, dflag, opts, def, cb, isMulti) CreateDropdownElement(txt, dflag, opts, def, nil, cb, Content, Section, isMulti, SubContainer) end
                 function ToggleObj:Keybind(defaultKey, mode)
                     ToggleObj.KeybindValue = defaultKey or Enum.KeyCode.Unknown
                     ToggleObj.KeybindMode = mode or "Toggle"
@@ -2777,7 +2639,7 @@ function Library:CreateWindow(options)
                     KeyBtn.TextXAlignment = Enum.TextXAlignment.Right
                     KeyBtn.Parent = Btn
                     local binding = false
-                    local kb1 = KeyBtn.MouseButton1Click:Connect(function()
+                    local kb1 = KeyBtn.Activated:Connect(function()
                         if binding then return end
                         binding = true
                         KeyBtn.Text = "[...]"
@@ -2818,7 +2680,7 @@ function Library:CreateWindow(options)
                         mBtn.TextSize = 11
                         mBtn.Parent = ModeGui
                         mBtn.ZIndex = 101
-                        local mb1 = mBtn.MouseButton1Click:Connect(function()
+                        local mb1 = mBtn.Activated:Connect(function()
                             ToggleObj.KeybindMode = md
                             ModeGui.Visible = false
                             Library.Unsaved = true
@@ -2904,7 +2766,7 @@ function Library:CreateWindow(options)
                 local toggled = (kMode == "Always")
                 Library:UpdateKeybindList(text, key.Name, toggled, kMode)
                 local binding = false
-                local c1 = KeyBtn.MouseButton1Click:Connect(function()
+                local c1 = KeyBtn.Activated:Connect(function()
                     if binding then return end
                     binding = true
                     KeyBtn.Text = "[...]"
@@ -2950,7 +2812,7 @@ function Library:CreateWindow(options)
                     mBtn.TextSize = 11
                     mBtn.Parent = ModeGui
                     mBtn.ZIndex = 101
-                    local c2 = mBtn.MouseButton1Click:Connect(function()
+                    local c2 = mBtn.Activated:Connect(function()
                         kMode = md
                         Library.Flags[flag] = {Key = key, Mode = kMode}
                         ModeGui.Visible = false
@@ -3030,7 +2892,7 @@ function Library:CreateWindow(options)
                 local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
                 local c1 = Btn.MouseEnter:Connect(function() if Can_Hover() then Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end end)
                 local c2 = Btn.MouseLeave:Connect(function() if Can_Hover() then Tween(Btn, {BackgroundColor3 = Theme.Container}) Tween(s, {Color = Theme.Stroke}) end end)
-                local c3 = Btn.MouseButton1Click:Connect(callback)
+                local c3 = Btn.Activated:Connect(callback)
                 table.insert(Library.Connections, c1)
                 table.insert(Library.Connections, c2)
                 table.insert(Library.Connections, c3)
@@ -3219,9 +3081,7 @@ function Library:CreateWindow(options)
                             SVCursor.Position = UDim2.new(s, 0, 1 - v, 0)
                             Update()
                         end)
-                    else
-                        HexInput.Text = "#" .. color:ToHex()
-                    end
+                    else HexInput.Text = "#" .. color:ToHex() end
                 end)
                 table.insert(Library.Connections, hc1)
                 Library.Signals[flag] = function(val)
@@ -3249,15 +3109,18 @@ function Library:CreateWindow(options)
                 end
                 local dragSV = false
                 local dragInputSV
+                local Parent_Page = Content:FindFirstAncestorOfClass("ScrollingFrame")
                 local sv1 = SVMap.InputBegan:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         dragSV = true
                         dragInputSV = input
                         SetSV(input)
+                        if Parent_Page then Parent_Page.ScrollingEnabled = false end
                         local sc2
                         sc2 = input.Changed:Connect(function()
                             if input.UserInputState == Enum.UserInputState.End then
                                 dragSV = false
+                                if Parent_Page then Parent_Page.ScrollingEnabled = true end
                                 sc2:Disconnect()
                             end
                         end)
@@ -3281,10 +3144,12 @@ function Library:CreateWindow(options)
                         dragH = true
                         dragInputH = input
                         SetH(input)
+                        if Parent_Page then Parent_Page.ScrollingEnabled = false end
                         local hc2
                         hc2 = input.Changed:Connect(function()
                             if input.UserInputState == Enum.UserInputState.End then
                                 dragH = false
+                                if Parent_Page then Parent_Page.ScrollingEnabled = true end
                                 hc2:Disconnect()
                             end
                         end)
@@ -3301,7 +3166,7 @@ function Library:CreateWindow(options)
                 table.insert(Library.Connections, h1)
                 table.insert(Library.Connections, h3)
                 table.insert(Library.Connections, h4)
-                local pc1 = Preview.MouseButton1Click:Connect(function()
+                local pc1 = Preview.Activated:Connect(function()
                     isOpen = not isOpen
                     Section.Container.ZIndex = isOpen and 50 or 1
                     ContainerFrame.ZIndex = isOpen and 50 or 5
@@ -3340,9 +3205,7 @@ function Library:CreateWindow(options)
         end
     end)
     table.insert(Library.Connections, Auto_Save_Conn)
-    task.defer(function()
-        Library:LoadConfig("_autosave")
-    end)
+    task.defer(function() Library:LoadConfig("_autosave") end)
     MainScale.Scale = GetBaseScale()
     MainWindow.Visible = true
     return WindowObj
