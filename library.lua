@@ -273,7 +273,7 @@ local function Load_From_File(FileName)
 end
 
 local Tooltip_Frame = Instance.new("Frame")
-Tooltip_Frame.Size = UDim2.new(0, 0, 0, 28)
+Tooltip_Frame.Size = UDim2.new(0, 0, 0, 24)
 Tooltip_Frame.ZIndex = 2000
 Tooltip_Frame.Visible = false
 Tooltip_Frame.Parent = Screen_Gui
@@ -281,7 +281,7 @@ Bind_Color(Tooltip_Frame, "BackgroundColor3", "elementBackground")
 Register_Transparency(Tooltip_Frame, 0.15)
 
 local Tooltip_Corner = Instance.new("UICorner")
-Tooltip_Corner.CornerRadius = UDim.new(0, 6)
+Tooltip_Corner.CornerRadius = UDim.new(0, 4)
 Tooltip_Corner.Parent = Tooltip_Frame
 
 local Tooltip_Text = Instance.new("TextLabel")
@@ -289,7 +289,7 @@ Tooltip_Text.Size = UDim2.new(1, -16, 1, 0)
 Tooltip_Text.Position = UDim2.new(0, 8, 0, 0)
 Tooltip_Text.BackgroundTransparency = 1
 Tooltip_Text.TextTransparency = 1
-Tooltip_Text.TextSize = 14
+Tooltip_Text.TextSize = 12
 Tooltip_Text.Font = Main_Font
 Tooltip_Text.TextXAlignment = Enum.TextXAlignment.Left
 Tooltip_Text.ZIndex = 2001
@@ -297,8 +297,8 @@ Tooltip_Text.Parent = Tooltip_Frame
 Bind_Color(Tooltip_Text, "TextColor3", "textWhiteColor")
 
 local Notification_Container = Instance.new("Frame")
-Notification_Container.Size = UDim2.new(0, 280, 1, -40)
-Notification_Container.Position = UDim2.new(1, -300, 0, 20)
+Notification_Container.Size = UDim2.new(0, 260, 1, -40)
+Notification_Container.Position = UDim2.new(1, -280, 0, 20)
 Notification_Container.BackgroundTransparency = 1
 Notification_Container.ZIndex = 1500
 Notification_Container.Parent = Screen_Gui
@@ -306,7 +306,7 @@ Notification_Container.Parent = Screen_Gui
 local Notification_Layout = Instance.new("UIListLayout")
 Notification_Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Notification_Layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-Notification_Layout.Padding = UDim.new(0, 10)
+Notification_Layout.Padding = UDim.new(0, 8)
 Notification_Layout.Parent = Notification_Container
 
 local Tooltip_Target_Text = ""
@@ -315,13 +315,13 @@ local function Show_Tooltip(Text)
     Tooltip_Target_Text = Text or ""
     if Tooltip_Target_Text ~= "" then
         Tooltip_Text.Text = Tooltip_Target_Text
-        local Text_Width = GetTextWidth(Tooltip_Target_Text, 14, Main_Font)
-        Tooltip_Frame.Size = UDim2.new(0, Text_Width + 16, 0, 28)
+        local Text_Width = GetTextWidth(Tooltip_Target_Text, 12, Main_Font)
+        Tooltip_Frame.Size = UDim2.new(0, Text_Width + 16, 0, 24)
     end
 end
 
 local Keybinds_Frame = Instance.new("Frame")
-Keybinds_Frame.Size = UDim2.new(0, 240, 0, 36)
+Keybinds_Frame.Size = UDim2.new(0, 220, 0, 32)
 Keybinds_Frame.Position = Library_Api.Saved_Positions.Keybinds or UDim2.new(0, 20, 0, 20)
 Keybinds_Frame.Visible = false
 Keybinds_Frame.Parent = Screen_Gui
@@ -332,11 +332,11 @@ Library_Api.Instances.Keybinds = Keybinds_Frame
 Library_Api.Instances.KeybindsTarget = Keybinds_Frame.Position
 
 local Kb_Corner = Instance.new("UICorner")
-Kb_Corner.CornerRadius = UDim.new(0, 8)
+Kb_Corner.CornerRadius = UDim.new(0, 6)
 Kb_Corner.Parent = Keybinds_Frame
 
 local Kb_Top = Instance.new("Frame")
-Kb_Top.Size = UDim2.new(1, 0, 0, 36)
+Kb_Top.Size = UDim2.new(1, 0, 0, 32)
 Kb_Top.BackgroundTransparency = 1
 Kb_Top.Parent = Keybinds_Frame
 
@@ -345,7 +345,7 @@ Kb_Title.Size = UDim2.new(1, -20, 1, 0)
 Kb_Title.Position = UDim2.new(0, 10, 0, 0)
 Kb_Title.BackgroundTransparency = 1
 Kb_Title.Text = "Active Keybinds"
-Kb_Title.TextSize = 15
+Kb_Title.TextSize = 13
 Kb_Title.Font = Bold_Font
 Kb_Title.TextXAlignment = Enum.TextXAlignment.Center
 Kb_Title.Parent = Kb_Top
@@ -359,13 +359,13 @@ Kb_Line.Parent = Kb_Top
 Bind_Color(Kb_Line, "BackgroundColor3", "elementBackground")
 
 local Kb_Container = Instance.new("Frame")
-Kb_Container.Size = UDim2.new(1, -16, 1, -44)
-Kb_Container.Position = UDim2.new(0, 8, 0, 40)
+Kb_Container.Size = UDim2.new(1, -16, 1, -40)
+Kb_Container.Position = UDim2.new(0, 8, 0, 36)
 Kb_Container.BackgroundTransparency = 1
 Kb_Container.Parent = Keybinds_Frame
 
 local Kb_Layout = Instance.new("UIListLayout")
-Kb_Layout.Padding = UDim.new(0, 8)
+Kb_Layout.Padding = UDim.new(0, 6)
 Kb_Layout.Parent = Kb_Container
 
 local Kb_Dragging = false
@@ -411,10 +411,10 @@ function Library_Api:RefreshKeybinds()
         if typeof(Key) == "EnumItem" and Key ~= Enum.KeyCode.Unknown then
             local Name = Library_Api.Keybind_Names[Flag] or Flag
             local BindText = "[" .. Get_Input_Name(Key) .. "]"
-            local BindWidth = GetTextWidth(BindText, 14, Bold_Font)
+            local BindWidth = GetTextWidth(BindText, 12, Bold_Font)
             Count = Count + 1
             local Kb_Item = Instance.new("Frame")
-            Kb_Item.Size = UDim2.new(1, 0, 0, 26)
+            Kb_Item.Size = UDim2.new(1, 0, 0, 24)
             Kb_Item.Parent = Kb_Container
             Bind_Color(Kb_Item, "BackgroundColor3", "elementBackground")
             Register_Transparency(Kb_Item, 0.5)
@@ -426,21 +426,21 @@ function Library_Api:RefreshKeybinds()
             local Kb_Val = Instance.new("TextLabel")
             Kb_Val.AnchorPoint = Vector2.new(1, 0.5)
             Kb_Val.Size = UDim2.new(0, BindWidth, 1, 0)
-            Kb_Val.Position = UDim2.new(1, -10, 0.5, 0)
+            Kb_Val.Position = UDim2.new(1, -8, 0.5, 0)
             Kb_Val.BackgroundTransparency = 1
             Kb_Val.Text = BindText
-            Kb_Val.TextSize = 14
+            Kb_Val.TextSize = 12
             Kb_Val.Font = Bold_Font
             Kb_Val.TextXAlignment = Enum.TextXAlignment.Right
             Kb_Val.Parent = Kb_Item
             Bind_Color(Kb_Val, "TextColor3", "accentColor")
 
             local Kb_Name = Instance.new("TextLabel")
-            Kb_Name.Size = UDim2.new(1, -(BindWidth + 24), 1, 0)
-            Kb_Name.Position = UDim2.new(0, 10, 0, 0)
+            Kb_Name.Size = UDim2.new(1, -(BindWidth + 20), 1, 0)
+            Kb_Name.Position = UDim2.new(0, 8, 0, 0)
             Kb_Name.BackgroundTransparency = 1
             Kb_Name.Text = Name
-            Kb_Name.TextSize = 14
+            Kb_Name.TextSize = 12
             Kb_Name.Font = Main_Font
             Kb_Name.TextXAlignment = Enum.TextXAlignment.Left
             Kb_Name.TextTruncate = Enum.TextTruncate.AtEnd
@@ -448,7 +448,7 @@ function Library_Api:RefreshKeybinds()
             Bind_Color(Kb_Name, "TextColor3", "textWhiteColor")
         end
     end
-    Animate_Element(Keybinds_Frame, {Size = UDim2.new(0, 240, 0, 50 + (Count * 34))}, 0.25)
+    Animate_Element(Keybinds_Frame, {Size = UDim2.new(0, 220, 0, 46 + (Count * 30))}, 0.25)
 end
 
 local function Snap_Value(Value, Step)
@@ -469,7 +469,7 @@ end
 Run_Service.RenderStepped:Connect(function()
     if Tooltip_Target_Text ~= "" then
         local Mouse_Loc = User_Input_Service:GetMouseLocation()
-        Tooltip_Frame.Position = UDim2.new(0, Mouse_Loc.X + 20, 0, Mouse_Loc.Y + 20)
+        Tooltip_Frame.Position = UDim2.new(0, Mouse_Loc.X + 15, 0, Mouse_Loc.Y + 15)
         if not Tooltip_Frame.Visible then
             Tooltip_Frame.Visible = true
             Animate_Element(Tooltip_Frame, {BackgroundTransparency = Library_Api.Global_Settings.Transparency and 0.15 or 0}, 0.25)
@@ -492,19 +492,19 @@ function Library_Api:Notify(Config)
     local Duration = Config.Duration or 3
 
     local Notification_Frame = Instance.new("Frame")
-    Notification_Frame.Size = UDim2.new(1, 0, 0, 60)
+    Notification_Frame.Size = UDim2.new(1, 0, 0, 54)
     Notification_Frame.ZIndex = 1501
     Notification_Frame.Parent = Notification_Container
     Bind_Color(Notification_Frame, "BackgroundColor3", "sectionBackground")
     Register_Transparency(Notification_Frame, 0.05)
 
     local Notification_Corner = Instance.new("UICorner")
-    Notification_Corner.CornerRadius = UDim.new(0, 6)
+    Notification_Corner.CornerRadius = UDim.new(0, 4)
     Notification_Corner.Parent = Notification_Frame
 
     local Line_Frame = Instance.new("Frame")
-    Line_Frame.Size = UDim2.new(0, 4, 1, -20)
-    Line_Frame.Position = UDim2.new(0, 10, 0, 10)
+    Line_Frame.Size = UDim2.new(0, 3, 1, -16)
+    Line_Frame.Position = UDim2.new(0, 8, 0, 8)
     Line_Frame.BorderSizePixel = 0
     Line_Frame.ZIndex = 1502
     Line_Frame.Parent = Notification_Frame
@@ -515,11 +515,11 @@ function Library_Api:Notify(Config)
     Line_Corner.Parent = Line_Frame
 
     local Title_Label = Instance.new("TextLabel")
-    Title_Label.Size = UDim2.new(1, -30, 0, 18)
-    Title_Label.Position = UDim2.new(0, 20, 0, 10)
+    Title_Label.Size = UDim2.new(1, -26, 0, 16)
+    Title_Label.Position = UDim2.new(0, 16, 0, 8)
     Title_Label.BackgroundTransparency = 1
     Title_Label.Text = Title
-    Title_Label.TextSize = 15
+    Title_Label.TextSize = 13
     Title_Label.Font = Bold_Font
     Title_Label.TextXAlignment = Enum.TextXAlignment.Left
     Title_Label.ZIndex = 1502
@@ -527,11 +527,11 @@ function Library_Api:Notify(Config)
     Bind_Color(Title_Label, "TextColor3", "textWhiteColor")
 
     local Text_Label = Instance.new("TextLabel")
-    Text_Label.Size = UDim2.new(1, -30, 0, 20)
-    Text_Label.Position = UDim2.new(0, 20, 0, 30)
+    Text_Label.Size = UDim2.new(1, -26, 0, 18)
+    Text_Label.Position = UDim2.new(0, 16, 0, 26)
     Text_Label.BackgroundTransparency = 1
     Text_Label.Text = Text
-    Text_Label.TextSize = 14
+    Text_Label.TextSize = 12
     Text_Label.Font = Main_Font
     Text_Label.TextXAlignment = Enum.TextXAlignment.Left
     Text_Label.TextWrapped = true
@@ -561,11 +561,11 @@ function Library_Api:Notify(Config)
 end
 
 function Library_Api:CreateWindow(Window_Name)
-    local Normal_Size = UDim2.new(0, 680, 0, 420)
+    local Normal_Size = UDim2.new(0, 640, 0, 400)
 
     local Main_Background = Instance.new("Frame")
     Main_Background.Size = Normal_Size
-    Main_Background.Position = Library_Api.Saved_Positions.Menu or UDim2.new(0.5, -340, 0.5, -210)
+    Main_Background.Position = Library_Api.Saved_Positions.Menu or UDim2.new(0.5, -320, 0.5, -200)
     Main_Background.BorderSizePixel = 0
     Main_Background.Active = true
     Main_Background.ClipsDescendants = true
@@ -575,7 +575,7 @@ function Library_Api:CreateWindow(Window_Name)
     Library_Api.Instances.Menu = Main_Background
 
     local Top_Accent_Line = Instance.new("Frame")
-    Top_Accent_Line.Size = UDim2.new(1, 0, 0, 3)
+    Top_Accent_Line.Size = UDim2.new(1, 0, 0, 2)
     Top_Accent_Line.Position = UDim2.new(0, 0, 0, 0)
     Top_Accent_Line.BorderSizePixel = 0
     Top_Accent_Line.ZIndex = 5
@@ -583,12 +583,12 @@ function Library_Api:CreateWindow(Window_Name)
     Bind_Color(Top_Accent_Line, "BackgroundColor3", "accentColor")
     
     local Top_Accent_Corner = Instance.new("UICorner")
-    Top_Accent_Corner.CornerRadius = UDim.new(0, 8)
+    Top_Accent_Corner.CornerRadius = UDim.new(0, 6)
     Top_Accent_Corner.Parent = Top_Accent_Line
     
     local Top_Accent_Hider = Instance.new("Frame")
-    Top_Accent_Hider.Size = UDim2.new(1, 0, 0, 2)
-    Top_Accent_Hider.Position = UDim2.new(0, 0, 1, -2)
+    Top_Accent_Hider.Size = UDim2.new(1, 0, 0, 1)
+    Top_Accent_Hider.Position = UDim2.new(0, 0, 1, -1)
     Top_Accent_Hider.BorderSizePixel = 0
     Top_Accent_Hider.ZIndex = 5
     Top_Accent_Hider.Parent = Top_Accent_Line
@@ -598,25 +598,25 @@ function Library_Api:CreateWindow(Window_Name)
     Ui_Scale_Modifier.Parent = Main_Background
     
     local Main_Corner = Instance.new("UICorner")
-    Main_Corner.CornerRadius = UDim.new(0, 8)
+    Main_Corner.CornerRadius = UDim.new(0, 6)
     Main_Corner.Parent = Main_Background
 
     Apply_Acrylic_Effect(Main_Background)
 
     local Top_Bar = Instance.new("Frame")
-    Top_Bar.Size = UDim2.new(1, 0, 0, 42)
+    Top_Bar.Size = UDim2.new(1, 0, 0, 38)
     Top_Bar.BorderSizePixel = 0
     Top_Bar.Parent = Main_Background
     Bind_Color(Top_Bar, "BackgroundColor3", "sidebarBackground")
     Register_Transparency(Top_Bar, 0.21)
     
     local Top_Corner = Instance.new("UICorner")
-    Top_Corner.CornerRadius = UDim.new(0, 8)
+    Top_Corner.CornerRadius = UDim.new(0, 6)
     Top_Corner.Parent = Top_Bar
 
     local Top_Hider = Instance.new("Frame")
-    Top_Hider.Size = UDim2.new(1, 0, 0, 8)
-    Top_Hider.Position = UDim2.new(0, 0, 1, -8)
+    Top_Hider.Size = UDim2.new(1, 0, 0, 6)
+    Top_Hider.Position = UDim2.new(0, 0, 1, -6)
     Top_Hider.BorderSizePixel = 0
     Top_Hider.Parent = Top_Bar
     Bind_Color(Top_Hider, "BackgroundColor3", "sidebarBackground")
@@ -630,11 +630,11 @@ function Library_Api:CreateWindow(Window_Name)
     Bind_Color(Top_Border, "BackgroundColor3", "elementBackground")
 
     local Title_Label = Instance.new("TextLabel")
-    Title_Label.Size = UDim2.new(1, -120, 1, -2)
-    Title_Label.Position = UDim2.new(0, 20, 0, 2)
+    Title_Label.Size = UDim2.new(1, -110, 1, -2)
+    Title_Label.Position = UDim2.new(0, 16, 0, 2)
     Title_Label.BackgroundTransparency = 1
     Title_Label.Text = Window_Name
-    Title_Label.TextSize = 16
+    Title_Label.TextSize = 14
     Title_Label.Font = Bold_Font
     Title_Label.TextXAlignment = Enum.TextXAlignment.Left
     Title_Label.Parent = Top_Bar
@@ -642,8 +642,8 @@ function Library_Api:CreateWindow(Window_Name)
 
     local Window_Controls = Instance.new("Frame")
     Window_Controls.AnchorPoint = Vector2.new(1, 0)
-    Window_Controls.Size = UDim2.new(0, 110, 1, 0)
-    Window_Controls.Position = UDim2.new(1, -10, 0, 0)
+    Window_Controls.Size = UDim2.new(0, 100, 1, 0)
+    Window_Controls.Position = UDim2.new(1, -6, 0, 0)
     Window_Controls.BackgroundTransparency = 1
     Window_Controls.Parent = Top_Bar
 
@@ -651,20 +651,20 @@ function Library_Api:CreateWindow(Window_Name)
     Controls_Layout.FillDirection = Enum.FillDirection.Horizontal
     Controls_Layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
     Controls_Layout.VerticalAlignment = Enum.VerticalAlignment.Center
-    Controls_Layout.Padding = UDim.new(0, 8)
+    Controls_Layout.Padding = UDim.new(0, 6)
     Controls_Layout.SortOrder = Enum.SortOrder.LayoutOrder
     Controls_Layout.Parent = Window_Controls
 
     local function Create_Ctrl_Btn(Type, Order)
         local Btn = Instance.new("TextButton")
-        Btn.Size = UDim2.new(0, 30, 0, 30)
+        Btn.Size = UDim2.new(0, 28, 0, 28)
         Btn.BackgroundTransparency = 1
         Btn.Text = ""
         Btn.LayoutOrder = Order
         Btn.Parent = Window_Controls
 
         local Icon = Instance.new("ImageLabel", Btn)
-        Icon.Size = UDim2.new(0, 18, 0, 18)
+        Icon.Size = UDim2.new(0, 16, 0, 16)
         Icon.AnchorPoint = Vector2.new(0.5, 0.5)
         Icon.Position = UDim2.new(0.5, 0, 0.5, 0)
         Icon.BackgroundTransparency = 1
@@ -697,29 +697,29 @@ function Library_Api:CreateWindow(Window_Name)
     local Max_Btn = Create_Ctrl_Btn("Max", 2)
     local Close_Btn = Create_Ctrl_Btn("Close", 3)
 
-    local Sidebar_Width = 180
+    local Sidebar_Width = 170
     local Sidebar_Frame = Instance.new("Frame")
-    Sidebar_Frame.Size = UDim2.new(0, Sidebar_Width, 1, -43)
-    Sidebar_Frame.Position = UDim2.new(0, 0, 0, 43)
+    Sidebar_Frame.Size = UDim2.new(0, Sidebar_Width, 1, -39)
+    Sidebar_Frame.Position = UDim2.new(0, 0, 0, 39)
     Sidebar_Frame.BorderSizePixel = 0
     Sidebar_Frame.Parent = Main_Background
     Bind_Color(Sidebar_Frame, "BackgroundColor3", "sidebarBackground")
     Register_Transparency(Sidebar_Frame, 0.21)
     
     local Sidebar_Corner = Instance.new("UICorner")
-    Sidebar_Corner.CornerRadius = UDim.new(0, 8)
+    Sidebar_Corner.CornerRadius = UDim.new(0, 6)
     Sidebar_Corner.Parent = Sidebar_Frame
 
     local Sidebar_Hider_Right = Instance.new("Frame")
-    Sidebar_Hider_Right.Size = UDim2.new(0, 8, 1, 0)
-    Sidebar_Hider_Right.Position = UDim2.new(1, -8, 0, 0)
+    Sidebar_Hider_Right.Size = UDim2.new(0, 6, 1, 0)
+    Sidebar_Hider_Right.Position = UDim2.new(1, -6, 0, 0)
     Sidebar_Hider_Right.BorderSizePixel = 0
     Sidebar_Hider_Right.Parent = Sidebar_Frame
     Bind_Color(Sidebar_Hider_Right, "BackgroundColor3", "sidebarBackground")
     Register_Transparency(Sidebar_Hider_Right, 0.21)
 
     local Sidebar_Hider_Top = Instance.new("Frame")
-    Sidebar_Hider_Top.Size = UDim2.new(1, 0, 0, 8)
+    Sidebar_Hider_Top.Size = UDim2.new(1, 0, 0, 6)
     Sidebar_Hider_Top.BorderSizePixel = 0
     Sidebar_Hider_Top.Parent = Sidebar_Frame
     Bind_Color(Sidebar_Hider_Top, "BackgroundColor3", "sidebarBackground")
@@ -733,8 +733,8 @@ function Library_Api:CreateWindow(Window_Name)
     Bind_Color(Sidebar_Border, "BackgroundColor3", "elementBackground")
 
     local Tab_Scrolling_Frame = Instance.new("ScrollingFrame")
-    Tab_Scrolling_Frame.Size = UDim2.new(1, -12, 1, -70)
-    Tab_Scrolling_Frame.Position = UDim2.new(0, 6, 0, 8)
+    Tab_Scrolling_Frame.Size = UDim2.new(1, -10, 1, -64)
+    Tab_Scrolling_Frame.Position = UDim2.new(0, 5, 0, 6)
     Tab_Scrolling_Frame.BackgroundTransparency = 1
     Tab_Scrolling_Frame.BorderSizePixel = 0
     Tab_Scrolling_Frame.ScrollBarThickness = 0
@@ -743,12 +743,12 @@ function Library_Api:CreateWindow(Window_Name)
 
     local Tab_Layout = Instance.new("UIListLayout")
     Tab_Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    Tab_Layout.Padding = UDim.new(0, 8)
+    Tab_Layout.Padding = UDim.new(0, 6)
     Tab_Layout.Parent = Tab_Scrolling_Frame
 
     local Profile_Button = Instance.new("TextButton")
-    Profile_Button.Size = UDim2.new(1, -12, 0, 52)
-    Profile_Button.Position = UDim2.new(0, 6, 1, -58)
+    Profile_Button.Size = UDim2.new(1, -10, 0, 48)
+    Profile_Button.Position = UDim2.new(0, 5, 1, -54)
     Profile_Button.BackgroundTransparency = 1
     Profile_Button.Text = ""
     Profile_Button.AutoButtonColor = false
@@ -760,8 +760,8 @@ function Library_Api:CreateWindow(Window_Name)
     Profile_Corner.Parent = Profile_Button
 
     local Avatar_Img = Instance.new("ImageLabel")
-    Avatar_Img.Size = UDim2.new(0, 32, 0, 32)
-    Avatar_Img.Position = UDim2.new(0, 10, 0.5, -16)
+    Avatar_Img.Size = UDim2.new(0, 28, 0, 28)
+    Avatar_Img.Position = UDim2.new(0, 8, 0.5, -14)
     Avatar_Img.BackgroundTransparency = 1
     Avatar_Img.Image = "rbxthumb://type=AvatarHeadShot&id=" .. Local_Player.UserId .. "&w=48&h=48"
     Avatar_Img.Parent = Profile_Button
@@ -771,11 +771,11 @@ function Library_Api:CreateWindow(Window_Name)
     Av_Corner.Parent = Avatar_Img
 
     local Profile_Name_Label = Instance.new("TextLabel")
-    Profile_Name_Label.Size = UDim2.new(1, -52, 0, 16)
-    Profile_Name_Label.Position = UDim2.new(0, 50, 0, 10)
+    Profile_Name_Label.Size = UDim2.new(1, -46, 0, 14)
+    Profile_Name_Label.Position = UDim2.new(0, 44, 0, 8)
     Profile_Name_Label.BackgroundTransparency = 1
     Profile_Name_Label.Text = Local_Player.DisplayName
-    Profile_Name_Label.TextSize = 14
+    Profile_Name_Label.TextSize = 13
     Profile_Name_Label.Font = Bold_Font
     Profile_Name_Label.TextXAlignment = Enum.TextXAlignment.Left
     Profile_Name_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -783,25 +783,25 @@ function Library_Api:CreateWindow(Window_Name)
     Bind_Color(Profile_Name_Label, "TextColor3", "textWhiteColor")
 
     local Profile_Sub_Label = Instance.new("TextLabel")
-    Profile_Sub_Label.Size = UDim2.new(1, -52, 0, 14)
-    Profile_Sub_Label.Position = UDim2.new(0, 50, 0, 28)
+    Profile_Sub_Label.Size = UDim2.new(1, -46, 0, 12)
+    Profile_Sub_Label.Position = UDim2.new(0, 44, 0, 24)
     Profile_Sub_Label.BackgroundTransparency = 1
     Profile_Sub_Label.Text = "Settings"
-    Profile_Sub_Label.TextSize = 12
+    Profile_Sub_Label.TextSize = 11
     Profile_Sub_Label.Font = Main_Font
     Profile_Sub_Label.TextXAlignment = Enum.TextXAlignment.Left
     Profile_Sub_Label.Parent = Profile_Button
     Bind_Color(Profile_Sub_Label, "TextColor3", "textDarkColor")
 
     local Content_Area_Frame = Instance.new("Frame")
-    Content_Area_Frame.Size = UDim2.new(1, -(Sidebar_Width + 1), 1, -43)
-    Content_Area_Frame.Position = UDim2.new(0, Sidebar_Width + 1, 0, 43)
+    Content_Area_Frame.Size = UDim2.new(1, -(Sidebar_Width + 1), 1, -39)
+    Content_Area_Frame.Position = UDim2.new(0, Sidebar_Width + 1, 0, 39)
     Content_Area_Frame.BackgroundTransparency = 1
     Content_Area_Frame.Parent = Main_Background
 
     local Mobile_Toggle_Button = Instance.new("ImageButton")
-    Mobile_Toggle_Button.Size = UDim2.new(0, 56, 0, 56)
-    Mobile_Toggle_Button.Position = UDim2.new(0, 20, 0.5, -28)
+    Mobile_Toggle_Button.Size = UDim2.new(0, 52, 0, 52)
+    Mobile_Toggle_Button.Position = UDim2.new(0, 20, 0.5, -26)
     Mobile_Toggle_Button.BorderSizePixel = 0
     Mobile_Toggle_Button.ZIndex = 1000
     Mobile_Toggle_Button.Visible = true
@@ -849,11 +849,11 @@ function Library_Api:CreateWindow(Window_Name)
     local Toggle_Click_Time = 0
     Mobile_Toggle_Button.MouseButton1Down:Connect(function()
         Toggle_Click_Time = os.clock()
-        Animate_Element(Mobile_Toggle_Button, {Size = UDim2.new(0, 50, 0, 50)}, 0.25)
+        Animate_Element(Mobile_Toggle_Button, {Size = UDim2.new(0, 46, 0, 46)}, 0.25)
     end)
     
     Mobile_Toggle_Button.MouseButton1Up:Connect(function()
-        Animate_Element(Mobile_Toggle_Button, {Size = UDim2.new(0, 56, 0, 56)}, 0.25)
+        Animate_Element(Mobile_Toggle_Button, {Size = UDim2.new(0, 52, 0, 52)}, 0.25)
         if os.clock() - Toggle_Click_Time < 0.2 then
             Main_Background.Visible = not Main_Background.Visible
         end
@@ -865,8 +865,9 @@ function Library_Api:CreateWindow(Window_Name)
             Ui_Scale_Modifier.Scale = 1
             return
         end
-        -- Исправленный и более мягкий множитель
-        Ui_Scale_Modifier.Scale = math.clamp(Vp.X / 1600, 0.75, 1.2)
+        -- Масштаб: 1.0 при ширине 1920 пикселей.
+        -- На широких мониторах чуть увеличивается (до 1.15), на маленьких уменьшается (до 0.8)
+        Ui_Scale_Modifier.Scale = math.clamp(Vp.X / 1920, 0.8, 1.15)
     end
 
     Workspace_Service.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(Update_Responsive_Scale)
@@ -916,9 +917,9 @@ function Library_Api:CreateWindow(Window_Name)
         Sidebar_Frame.Visible = not Is_Minimized
         Content_Area_Frame.Visible = not Is_Minimized
         if Is_Minimized then
-            Animate_Element(Main_Background, {Size = UDim2.new(Main_Background.Size.X.Scale, Main_Background.Size.X.Offset, 0, 42)}, 0.3)
+            Animate_Element(Main_Background, {Size = UDim2.new(Main_Background.Size.X.Scale, Main_Background.Size.X.Offset, 0, 38)}, 0.3)
         else
-            local targetSize = Is_Maximized and UDim2.new(0, 850, 0, 520) or Normal_Size
+            local targetSize = Is_Maximized and UDim2.new(0, 800, 0, 480) or Normal_Size
             Animate_Element(Main_Background, {Size = targetSize}, 0.3)
         end
     end)
@@ -929,8 +930,8 @@ function Library_Api:CreateWindow(Window_Name)
         if Is_Maximized then
             Normal_Pos = Library_Api.Instances.MenuTargetPos
             local Vp = Workspace_Service.CurrentCamera.ViewportSize
-            local targetX = math.min(Vp.X / Ui_Scale_Modifier.Scale - 60, 950)
-            local targetY = math.min(Vp.Y / Ui_Scale_Modifier.Scale - 60, 600)
+            local targetX = math.min(Vp.X / Ui_Scale_Modifier.Scale - 50, 850)
+            local targetY = math.min(Vp.Y / Ui_Scale_Modifier.Scale - 50, 550)
             Library_Api.Instances.MenuTargetPos = UDim2.new(0.5, -targetX/2, 0.5, -targetY/2)
             Animate_Element(Main_Background, {Size = UDim2.new(0, targetX, 0, targetY)}, 0.3)
         else
@@ -949,7 +950,7 @@ function Library_Api:CreateWindow(Window_Name)
         local Tab_Data = {}
 
         local Tab_Button = Instance.new("TextButton")
-        Tab_Button.Size = UDim2.new(1, 0, 0, 40)
+        Tab_Button.Size = UDim2.new(1, 0, 0, 36)
         Tab_Button.BackgroundTransparency = 1
         Tab_Button.Text = ""
         Tab_Button.AutoButtonColor = false
@@ -957,13 +958,13 @@ function Library_Api:CreateWindow(Window_Name)
         Bind_Color(Tab_Button, "BackgroundColor3", "elementHoverBackground")
         
         local Button_Corner = Instance.new("UICorner")
-        Button_Corner.CornerRadius = UDim.new(0, 6)
+        Button_Corner.CornerRadius = UDim.new(0, 4)
         Button_Corner.Parent = Tab_Button
 
         local Tab_Label = Instance.new("TextLabel")
         Tab_Label.BackgroundTransparency = 1
         Tab_Label.Text = Tab_Name
-        Tab_Label.TextSize = 14
+        Tab_Label.TextSize = 12
         Tab_Label.Font = Main_Font
         Tab_Label.TextXAlignment = Enum.TextXAlignment.Left
         Tab_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -972,22 +973,22 @@ function Library_Api:CreateWindow(Window_Name)
 
         if Icon_Id and Icon_Id ~= "" then
             local Tab_Icon = Instance.new("ImageLabel")
-            Tab_Icon.Size = UDim2.new(0, 18, 0, 18)
-            Tab_Icon.Position = UDim2.new(0, 12, 0.5, -9)
+            Tab_Icon.Size = UDim2.new(0, 16, 0, 16)
+            Tab_Icon.Position = UDim2.new(0, 10, 0.5, -8)
             Tab_Icon.BackgroundTransparency = 1
             Tab_Icon.Image = Icon_Id
             Tab_Icon.Parent = Tab_Button
             Bind_Color(Tab_Icon, "ImageColor3", "textDarkColor")
             Tab_Data.Icon = Tab_Icon
-            Tab_Label.Position = UDim2.new(0, 38, 0, 0)
-            Tab_Label.Size = UDim2.new(1, -44, 1, 0)
+            Tab_Label.Position = UDim2.new(0, 34, 0, 0)
+            Tab_Label.Size = UDim2.new(1, -40, 1, 0)
         else
-            Tab_Label.Position = UDim2.new(0, 14, 0, 0)
-            Tab_Label.Size = UDim2.new(1, -20, 1, 0)
+            Tab_Label.Position = UDim2.new(0, 12, 0, 0)
+            Tab_Label.Size = UDim2.new(1, -18, 1, 0)
         end
 
         local Tab_Indicator = Instance.new("Frame")
-        Tab_Indicator.Size = UDim2.new(0, 4, 0, 0)
+        Tab_Indicator.Size = UDim2.new(0, 3, 0, 0)
         Tab_Indicator.Position = UDim2.new(0, 0, 0.5, 0)
         Tab_Indicator.BorderSizePixel = 0
         Tab_Indicator.Parent = Tab_Button
@@ -1008,35 +1009,35 @@ function Library_Api:CreateWindow(Window_Name)
         Bind_Color(Page_Scrolling_Frame, "ScrollBarImageColor3", "accentColor")
 
         local Left_Column_Frame = Instance.new("Frame")
-        Left_Column_Frame.Size = UDim2.new(0.5, -14, 1, 0)
-        Left_Column_Frame.Position = UDim2.new(0, 10, 0, 10)
+        Left_Column_Frame.Size = UDim2.new(0.5, -12, 1, 0)
+        Left_Column_Frame.Position = UDim2.new(0, 8, 0, 8)
         Left_Column_Frame.BackgroundTransparency = 1
         Left_Column_Frame.Parent = Page_Scrolling_Frame
 
         local Right_Column_Frame = Instance.new("Frame")
-        Right_Column_Frame.Size = UDim2.new(0.5, -14, 1, 0)
-        Right_Column_Frame.Position = UDim2.new(0.5, 4, 0, 10)
+        Right_Column_Frame.Size = UDim2.new(0.5, -12, 1, 0)
+        Right_Column_Frame.Position = UDim2.new(0.5, 4, 0, 8)
         Right_Column_Frame.BackgroundTransparency = 1
         Right_Column_Frame.Parent = Page_Scrolling_Frame
 
         local Left_Column_Layout = Instance.new("UIListLayout")
-        Left_Column_Layout.Padding = UDim.new(0, 10)
+        Left_Column_Layout.Padding = UDim.new(0, 8)
         Left_Column_Layout.Parent = Left_Column_Frame
 
         local Right_Column_Layout = Instance.new("UIListLayout")
-        Right_Column_Layout.Padding = UDim.new(0, 10)
+        Right_Column_Layout.Padding = UDim.new(0, 8)
         Right_Column_Layout.Parent = Right_Column_Frame
 
         local function Update_Canvas()
             local Max_Column_Height = math.max(Left_Column_Layout.AbsoluteContentSize.Y, Right_Column_Layout.AbsoluteContentSize.Y)
-            Animate_Element(Page_Scrolling_Frame, {CanvasSize = UDim2.new(0, 0, 0, Max_Column_Height + 35)}, 0.25)
+            Animate_Element(Page_Scrolling_Frame, {CanvasSize = UDim2.new(0, 0, 0, Max_Column_Height + 30)}, 0.25)
         end
 
         Left_Column_Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Canvas)
         Right_Column_Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Update_Canvas)
 
         Tab_Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            Animate_Element(Tab_Scrolling_Frame, {CanvasSize = UDim2.new(0, 0, 0, Tab_Layout.AbsoluteContentSize.Y + 15)}, 0.25)
+            Animate_Element(Tab_Scrolling_Frame, {CanvasSize = UDim2.new(0, 0, 0, Tab_Layout.AbsoluteContentSize.Y + 12)}, 0.25)
         end)
 
         function Tab_Data:Activate()
@@ -1044,7 +1045,7 @@ function Library_Api:CreateWindow(Window_Name)
             if Window_Context.Active_Tab then
                 Animate_Element(Window_Context.Active_Tab.Btn, {BackgroundTransparency = 1}, 0.25)
                 Set_Theme_State(Window_Context.Active_Tab.Lbl, "TextColor3", "textDarkColor")
-                Animate_Element(Window_Context.Active_Tab.Ind, {Size = UDim2.new(0, 4, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.25)
+                Animate_Element(Window_Context.Active_Tab.Ind, {Size = UDim2.new(0, 3, 0, 0), Position = UDim2.new(0, 0, 0.5, 0)}, 0.25)
                 Window_Context.Active_Tab.Page.Visible = false
             end
             
@@ -1056,7 +1057,7 @@ function Library_Api:CreateWindow(Window_Name)
             Page_Scrolling_Frame.Visible = true
             Animate_Element(Tab_Button, {BackgroundTransparency = 0.11}, 0.25)
             Set_Theme_State(Tab_Label, "TextColor3", "textWhiteColor")
-            Animate_Element(Tab_Indicator, {Size = UDim2.new(0, 4, 0, 24), Position = UDim2.new(0, 0, 0.5, -12)}, 0.25)
+            Animate_Element(Tab_Indicator, {Size = UDim2.new(0, 3, 0, 20), Position = UDim2.new(0, 0, 0.5, -10)}, 0.25)
         end
 
         Tab_Button.MouseButton1Click:Connect(function() Tab_Data:Activate() end)
@@ -1074,21 +1075,21 @@ function Library_Api:CreateWindow(Window_Name)
 
             function Elements:Label_Create(Name, Initial_Value)
                 local Label_Bg = Instance.new("Frame")
-                Label_Bg.Size = UDim2.new(1, 0, 0, 30)
+                Label_Bg.Size = UDim2.new(1, 0, 0, 26)
                 Label_Bg.Parent = Target_Container
                 Bind_Color(Label_Bg, "BackgroundColor3", "elementBackground")
                 Register_Transparency(Label_Bg, 0.21)
 
                 local Label_Corner = Instance.new("UICorner")
-                Label_Corner.CornerRadius = UDim.new(0, 6)
+                Label_Corner.CornerRadius = UDim.new(0, 4)
                 Label_Corner.Parent = Label_Bg
 
                 local Title_Label = Instance.new("TextLabel")
                 Title_Label.Size = UDim2.new(0.5, 0, 1, 0)
-                Title_Label.Position = UDim2.new(0, 10, 0, 0)
+                Title_Label.Position = UDim2.new(0, 8, 0, 0)
                 Title_Label.BackgroundTransparency = 1
                 Title_Label.Text = Name
-                Title_Label.TextSize = 14
+                Title_Label.TextSize = 12
                 Title_Label.Font = Main_Font
                 Title_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Title_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1097,11 +1098,11 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Value_Label = Instance.new("TextLabel")
                 Value_Label.AnchorPoint = Vector2.new(1, 0)
-                Value_Label.Size = UDim2.new(0.5, -10, 1, 0)
-                Value_Label.Position = UDim2.new(1, -10, 0, 0)
+                Value_Label.Size = UDim2.new(0.5, -8, 1, 0)
+                Value_Label.Position = UDim2.new(1, -8, 0, 0)
                 Value_Label.BackgroundTransparency = 1
                 Value_Label.Text = Initial_Value or ""
-                Value_Label.TextSize = 14
+                Value_Label.TextSize = 12
                 Value_Label.Font = Bold_Font
                 Value_Label.TextXAlignment = Enum.TextXAlignment.Right
                 Value_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1117,10 +1118,10 @@ function Library_Api:CreateWindow(Window_Name)
 
             function Elements:Subtext_Create(Text)
                 local Subtext_Label = Instance.new("TextLabel")
-                Subtext_Label.Size = UDim2.new(1, -14, 0, 18)
+                Subtext_Label.Size = UDim2.new(1, -10, 0, 14)
                 Subtext_Label.BackgroundTransparency = 1
                 Subtext_Label.Text = Text
-                Subtext_Label.TextSize = 13
+                Subtext_Label.TextSize = 12
                 Subtext_Label.Font = Main_Font
                 Subtext_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Subtext_Label.TextWrapped = true
@@ -1132,14 +1133,14 @@ function Library_Api:CreateWindow(Window_Name)
                 Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or false)
 
                 local Toggle_Button = Instance.new("TextButton")
-                Toggle_Button.Size = UDim2.new(1, 0, 0, 24)
+                Toggle_Button.Size = UDim2.new(1, 0, 0, 22)
                 Toggle_Button.BackgroundTransparency = 1
                 Toggle_Button.Text = ""
                 Toggle_Button.Parent = Target_Container
 
                 local Checkbox_Frame = Instance.new("Frame")
-                Checkbox_Frame.Size = UDim2.new(0, 20, 0, 20)
-                Checkbox_Frame.Position = UDim2.new(0, 2, 0.5, -10)
+                Checkbox_Frame.Size = UDim2.new(0, 18, 0, 18)
+                Checkbox_Frame.Position = UDim2.new(0, 2, 0.5, -9)
                 Checkbox_Frame.Parent = Toggle_Button
                 Bind_Color(Checkbox_Frame, "BackgroundColor3", "elementBackground")
                 Register_Transparency(Checkbox_Frame, 0.21)
@@ -1149,11 +1150,11 @@ function Library_Api:CreateWindow(Window_Name)
                 Checkbox_Corner.Parent = Checkbox_Frame
 
                 local Toggle_Label = Instance.new("TextLabel")
-                Toggle_Label.Size = UDim2.new(1, -32, 1, 0)
-                Toggle_Label.Position = UDim2.new(0, 30, 0, 0)
+                Toggle_Label.Size = UDim2.new(1, -30, 1, 0)
+                Toggle_Label.Position = UDim2.new(0, 26, 0, 0)
                 Toggle_Label.BackgroundTransparency = 1
                 Toggle_Label.Text = Name
-                Toggle_Label.TextSize = 14
+                Toggle_Label.TextSize = 12
                 Toggle_Label.Font = Main_Font
                 Toggle_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Toggle_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1189,16 +1190,16 @@ function Library_Api:CreateWindow(Window_Name)
                 Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or Snap_Value(Default or Min, Step)
 
                 local Slider_Frame = Instance.new("Frame")
-                Slider_Frame.Size = UDim2.new(1, 0, 0, 42)
+                Slider_Frame.Size = UDim2.new(1, 0, 0, 38)
                 Slider_Frame.BackgroundTransparency = 1
                 Slider_Frame.Parent = Target_Container
 
                 local Slider_Label = Instance.new("TextLabel")
-                Slider_Label.Size = UDim2.new(1, -70, 0, 18)
+                Slider_Label.Size = UDim2.new(1, -64, 0, 16)
                 Slider_Label.Position = UDim2.new(0, 2, 0, 0)
                 Slider_Label.BackgroundTransparency = 1
                 Slider_Label.Text = Name
-                Slider_Label.TextSize = 14
+                Slider_Label.TextSize = 12
                 Slider_Label.Font = Main_Font
                 Slider_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Slider_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1207,11 +1208,11 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Value_Text_Box = Instance.new("TextBox")
                 Value_Text_Box.AnchorPoint = Vector2.new(1, 0)
-                Value_Text_Box.Size = UDim2.new(0, 60, 0, 18)
+                Value_Text_Box.Size = UDim2.new(0, 54, 0, 16)
                 Value_Text_Box.Position = UDim2.new(1, -4, 0, 0)
                 Value_Text_Box.BackgroundTransparency = 1
                 Value_Text_Box.Text = Format_Value(Library_Api.Flags[Flag], Step)
-                Value_Text_Box.TextSize = 14
+                Value_Text_Box.TextSize = 12
                 Value_Text_Box.Font = Main_Font
                 Value_Text_Box.TextXAlignment = Enum.TextXAlignment.Right
                 Value_Text_Box.ClearTextOnFocus = false
@@ -1219,15 +1220,15 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Value_Text_Box, "TextColor3", "textWhiteColor")
 
                 local function UpdateValSize(text)
-                    local w = GetTextWidth(text, 14, Main_Font)
-                    w = math.max(40, w + 12)
-                    Value_Text_Box.Size = UDim2.new(0, w, 0, 18)
-                    Slider_Label.Size = UDim2.new(1, -(w + 20), 0, 18)
+                    local w = GetTextWidth(text, 12, Main_Font)
+                    w = math.max(34, w + 10)
+                    Value_Text_Box.Size = UDim2.new(0, w, 0, 16)
+                    Slider_Label.Size = UDim2.new(1, -(w + 16), 0, 16)
                 end
 
                 local Slider_Background = Instance.new("TextButton")
-                Slider_Background.Size = UDim2.new(1, -4, 0, 10)
-                Slider_Background.Position = UDim2.new(0, 2, 0, 26)
+                Slider_Background.Size = UDim2.new(1, -4, 0, 8)
+                Slider_Background.Position = UDim2.new(0, 2, 0, 24)
                 Slider_Background.Text = ""
                 Slider_Background.AutoButtonColor = false
                 Slider_Background.Parent = Slider_Frame
@@ -1235,7 +1236,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Register_Transparency(Slider_Background, 0.21)
                 
                 local Slider_Background_Corner = Instance.new("UICorner")
-                Slider_Background_Corner.CornerRadius = UDim.new(0, 5)
+                Slider_Background_Corner.CornerRadius = UDim.new(0, 4)
                 Slider_Background_Corner.Parent = Slider_Background
 
                 local Slider_Fill = Instance.new("Frame")
@@ -1244,12 +1245,12 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Slider_Fill, "BackgroundColor3", "accentColor")
                 
                 local Slider_Fill_Corner = Instance.new("UICorner")
-                Slider_Fill_Corner.CornerRadius = UDim.new(0, 5)
+                Slider_Fill_Corner.CornerRadius = UDim.new(0, 4)
                 Slider_Fill_Corner.Parent = Slider_Fill
 
                 local Slider_Knob = Instance.new("Frame")
                 Slider_Knob.AnchorPoint = Vector2.new(0.5, 0.5)
-                Slider_Knob.Size = UDim2.new(0, 16, 0, 16)
+                Slider_Knob.Size = UDim2.new(0, 14, 0, 14)
                 Slider_Knob.ZIndex = 2
                 Slider_Knob.Parent = Slider_Background
                 Bind_Color(Slider_Knob, "BackgroundColor3", "textWhiteColor")
@@ -1325,16 +1326,16 @@ function Library_Api:CreateWindow(Window_Name)
                 end
 
                 local Range_Slider_Frame = Instance.new("Frame")
-                Range_Slider_Frame.Size = UDim2.new(1, 0, 0, 42)
+                Range_Slider_Frame.Size = UDim2.new(1, 0, 0, 38)
                 Range_Slider_Frame.BackgroundTransparency = 1
                 Range_Slider_Frame.Parent = Target_Container
 
                 local Range_Slider_Label = Instance.new("TextLabel")
-                Range_Slider_Label.Size = UDim2.new(1, -120, 0, 18)
+                Range_Slider_Label.Size = UDim2.new(1, -110, 0, 16)
                 Range_Slider_Label.Position = UDim2.new(0, 2, 0, 0)
                 Range_Slider_Label.BackgroundTransparency = 1
                 Range_Slider_Label.Text = Name
-                Range_Slider_Label.TextSize = 14
+                Range_Slider_Label.TextSize = 12
                 Range_Slider_Label.Font = Main_Font
                 Range_Slider_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Range_Slider_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1343,26 +1344,26 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Value_Label = Instance.new("TextLabel")
                 Value_Label.AnchorPoint = Vector2.new(1, 0)
-                Value_Label.Size = UDim2.new(0, 110, 0, 18)
+                Value_Label.Size = UDim2.new(0, 100, 0, 16)
                 Value_Label.Position = UDim2.new(1, -4, 0, 0)
                 Value_Label.BackgroundTransparency = 1
                 Value_Label.Text = ""
-                Value_Label.TextSize = 14
+                Value_Label.TextSize = 12
                 Value_Label.Font = Main_Font
                 Value_Label.TextXAlignment = Enum.TextXAlignment.Right
                 Value_Label.Parent = Range_Slider_Frame
                 Bind_Color(Value_Label, "TextColor3", "textWhiteColor")
 
                 local function UpdateValSize(text)
-                    local w = GetTextWidth(text, 14, Main_Font)
-                    w = math.max(70, w + 12)
-                    Value_Label.Size = UDim2.new(0, w, 0, 18)
-                    Range_Slider_Label.Size = UDim2.new(1, -(w + 20), 0, 18)
+                    local w = GetTextWidth(text, 12, Main_Font)
+                    w = math.max(64, w + 10)
+                    Value_Label.Size = UDim2.new(0, w, 0, 16)
+                    Range_Slider_Label.Size = UDim2.new(1, -(w + 16), 0, 16)
                 end
 
                 local Range_Slider_Background = Instance.new("TextButton")
-                Range_Slider_Background.Size = UDim2.new(1, -4, 0, 10)
-                Range_Slider_Background.Position = UDim2.new(0, 2, 0, 26)
+                Range_Slider_Background.Size = UDim2.new(1, -4, 0, 8)
+                Range_Slider_Background.Position = UDim2.new(0, 2, 0, 24)
                 Range_Slider_Background.Text = ""
                 Range_Slider_Background.AutoButtonColor = false
                 Range_Slider_Background.Parent = Range_Slider_Frame
@@ -1370,7 +1371,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Register_Transparency(Range_Slider_Background, 0.21)
                 
                 local Range_Slider_Background_Corner = Instance.new("UICorner")
-                Range_Slider_Background_Corner.CornerRadius = UDim.new(0, 5)
+                Range_Slider_Background_Corner.CornerRadius = UDim.new(0, 4)
                 Range_Slider_Background_Corner.Parent = Range_Slider_Background
 
                 local Range_Slider_Fill = Instance.new("Frame")
@@ -1378,12 +1379,12 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Range_Slider_Fill, "BackgroundColor3", "accentColor")
                 
                 local Range_Slider_Fill_Corner = Instance.new("UICorner")
-                Range_Slider_Fill_Corner.CornerRadius = UDim.new(0, 5)
+                Range_Slider_Fill_Corner.CornerRadius = UDim.new(0, 4)
                 Range_Slider_Fill_Corner.Parent = Range_Slider_Fill
 
                 local Min_Range_Knob = Instance.new("Frame")
                 Min_Range_Knob.AnchorPoint = Vector2.new(0.5, 0.5)
-                Min_Range_Knob.Size = UDim2.new(0, 16, 0, 16)
+                Min_Range_Knob.Size = UDim2.new(0, 14, 0, 14)
                 Min_Range_Knob.ZIndex = 2
                 Min_Range_Knob.Parent = Range_Slider_Background
                 Bind_Color(Min_Range_Knob, "BackgroundColor3", "textWhiteColor")
@@ -1391,7 +1392,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Max_Range_Knob = Instance.new("Frame")
                 Max_Range_Knob.AnchorPoint = Vector2.new(0.5, 0.5)
-                Max_Range_Knob.Size = UDim2.new(0, 16, 0, 16)
+                Max_Range_Knob.Size = UDim2.new(0, 14, 0, 14)
                 Max_Range_Knob.ZIndex = 2
                 Max_Range_Knob.Parent = Range_Slider_Background
                 Bind_Color(Max_Range_Knob, "BackgroundColor3", "textWhiteColor")
@@ -1474,19 +1475,19 @@ function Library_Api:CreateWindow(Window_Name)
                 Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or "")
 
                 local Textbox_Frame = Instance.new("Frame")
-                Textbox_Frame.Size = UDim2.new(1, 0, 0, 42)
+                Textbox_Frame.Size = UDim2.new(1, 0, 0, 38)
                 Textbox_Frame.BackgroundTransparency = 1
                 Textbox_Frame.Parent = Target_Container
 
-                local labelWidth = GetTextWidth(Name, 14, Main_Font)
-                labelWidth = math.clamp(labelWidth + 12, 60, 180)
+                local labelWidth = GetTextWidth(Name, 12, Main_Font)
+                labelWidth = math.clamp(labelWidth + 10, 56, 170)
 
                 local Textbox_Label = Instance.new("TextLabel")
                 Textbox_Label.Size = UDim2.new(0, labelWidth, 1, 0)
                 Textbox_Label.Position = UDim2.new(0, 2, 0, 0)
                 Textbox_Label.BackgroundTransparency = 1
                 Textbox_Label.Text = Name
-                Textbox_Label.TextSize = 14
+                Textbox_Label.TextSize = 12
                 Textbox_Label.Font = Main_Font
                 Textbox_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Textbox_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1495,22 +1496,22 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Textbox_Input_Background = Instance.new("Frame")
                 Textbox_Input_Background.AnchorPoint = Vector2.new(1, 0.5)
-                Textbox_Input_Background.Size = UDim2.new(1, -(labelWidth + 18), 0, 30)
+                Textbox_Input_Background.Size = UDim2.new(1, -(labelWidth + 14), 0, 26)
                 Textbox_Input_Background.Position = UDim2.new(1, -4, 0.5, 0)
                 Textbox_Input_Background.Parent = Textbox_Frame
                 Bind_Color(Textbox_Input_Background, "BackgroundColor3", "elementBackground")
                 Register_Transparency(Textbox_Input_Background, 0.21)
                 
                 local Textbox_Input_Background_Corner = Instance.new("UICorner")
-                Textbox_Input_Background_Corner.CornerRadius = UDim.new(0, 6)
+                Textbox_Input_Background_Corner.CornerRadius = UDim.new(0, 4)
                 Textbox_Input_Background_Corner.Parent = Textbox_Input_Background
 
                 local Input_Text_Box = Instance.new("TextBox")
-                Input_Text_Box.Size = UDim2.new(1, -16, 1, 0)
-                Input_Text_Box.Position = UDim2.new(0, 8, 0, 0)
+                Input_Text_Box.Size = UDim2.new(1, -12, 1, 0)
+                Input_Text_Box.Position = UDim2.new(0, 6, 0, 0)
                 Input_Text_Box.BackgroundTransparency = 1
                 Input_Text_Box.Text = ""
-                Input_Text_Box.TextSize = 14
+                Input_Text_Box.TextSize = 12
                 Input_Text_Box.Font = Main_Font
                 Input_Text_Box.ClearTextOnFocus = false
                 Input_Text_Box.TextXAlignment = Enum.TextXAlignment.Left
@@ -1552,24 +1553,24 @@ function Library_Api:CreateWindow(Window_Name)
                 local Is_Listening = false
 
                 local Keybind_Frame = Instance.new("Frame")
-                Keybind_Frame.Size = UDim2.new(1, 0, 0, 36)
+                Keybind_Frame.Size = UDim2.new(1, 0, 0, 32)
                 Keybind_Frame.BackgroundTransparency = 1
                 Keybind_Frame.Parent = Target_Container
 
                 local Keybind_Icon = Instance.new("ImageLabel")
-                Keybind_Icon.Size = UDim2.new(0, 18, 0, 18)
-                Keybind_Icon.Position = UDim2.new(0, 2, 0.5, -9)
+                Keybind_Icon.Size = UDim2.new(0, 16, 0, 16)
+                Keybind_Icon.Position = UDim2.new(0, 2, 0.5, -8)
                 Keybind_Icon.BackgroundTransparency = 1
                 Keybind_Icon.Image = "rbxassetid://127939607767683"
                 Keybind_Icon.Parent = Keybind_Frame
                 Bind_Color(Keybind_Icon, "ImageColor3", "textDarkColor")
 
                 local Keybind_Label = Instance.new("TextLabel")
-                Keybind_Label.Size = UDim2.new(1, -120, 1, 0)
-                Keybind_Label.Position = UDim2.new(0, 28, 0, 0)
+                Keybind_Label.Size = UDim2.new(1, -110, 1, 0)
+                Keybind_Label.Position = UDim2.new(0, 26, 0, 0)
                 Keybind_Label.BackgroundTransparency = 1
                 Keybind_Label.Text = Name
-                Keybind_Label.TextSize = 14
+                Keybind_Label.TextSize = 12
                 Keybind_Label.Font = Main_Font
                 Keybind_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Keybind_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1578,10 +1579,10 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Keybind_Button = Instance.new("TextButton")
                 Keybind_Button.AnchorPoint = Vector2.new(1, 0.5)
-                Keybind_Button.Size = UDim2.new(0, 80, 0, 26)
+                Keybind_Button.Size = UDim2.new(0, 76, 0, 24)
                 Keybind_Button.Position = UDim2.new(1, -4, 0.5, 0)
                 Keybind_Button.Text = ""
-                Keybind_Button.TextSize = 13
+                Keybind_Button.TextSize = 12
                 Keybind_Button.Font = Bold_Font
                 Keybind_Button.AutoButtonColor = false
                 Keybind_Button.Parent = Keybind_Frame
@@ -1590,14 +1591,14 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Keybind_Button, "TextColor3", "textDarkColor")
 
                 local Keybind_Button_Corner = Instance.new("UICorner")
-                Keybind_Button_Corner.CornerRadius = UDim.new(0, 6)
+                Keybind_Button_Corner.CornerRadius = UDim.new(0, 4)
                 Keybind_Button_Corner.Parent = Keybind_Button
 
                 local function UpdateKeybindSize(text)
-                    local w = GetTextWidth(text, 13, Bold_Font)
-                    w = math.clamp(w + 24, 60, 140)
-                    Animate_Element(Keybind_Button, {Size = UDim2.new(0, w, 0, 26)}, 0.2)
-                    Keybind_Label.Size = UDim2.new(1, -(w + 40), 1, 0)
+                    local w = GetTextWidth(text, 12, Bold_Font)
+                    w = math.clamp(w + 20, 56, 130)
+                    Animate_Element(Keybind_Button, {Size = UDim2.new(0, w, 0, 24)}, 0.2)
+                    Keybind_Label.Size = UDim2.new(1, -(w + 36), 1, 0)
                 end
 
                 Library_Api.Registry[Flag] = function(New_Bind)
@@ -1655,18 +1656,18 @@ function Library_Api:CreateWindow(Window_Name)
                 local Is_Dropdown_Open = false
 
                 local Dropdown_Frame = Instance.new("Frame")
-                Dropdown_Frame.Size = UDim2.new(1, 0, 0, 56)
+                Dropdown_Frame.Size = UDim2.new(1, 0, 0, 50)
                 Dropdown_Frame.BackgroundTransparency = 1
                 Dropdown_Frame.ClipsDescendants = true
                 Dropdown_Frame.ZIndex = 5
                 Dropdown_Frame.Parent = Target_Container
 
                 local Dropdown_Label = Instance.new("TextLabel")
-                Dropdown_Label.Size = UDim2.new(1, -10, 0, 20)
+                Dropdown_Label.Size = UDim2.new(1, -10, 0, 18)
                 Dropdown_Label.Position = UDim2.new(0, 2, 0, 0)
                 Dropdown_Label.BackgroundTransparency = 1
                 Dropdown_Label.Text = Name
-                Dropdown_Label.TextSize = 14
+                Dropdown_Label.TextSize = 12
                 Dropdown_Label.Font = Main_Font
                 Dropdown_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Dropdown_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1674,8 +1675,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Dropdown_Label, "TextColor3", "textWhiteColor")
 
                 local Dropdown_Main_Button = Instance.new("TextButton")
-                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 32)
-                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 22)
+                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 28)
+                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 20)
                 Dropdown_Main_Button.Text = ""
                 Dropdown_Main_Button.AutoButtonColor = false
                 Dropdown_Main_Button.Parent = Dropdown_Frame
@@ -1683,15 +1684,15 @@ function Library_Api:CreateWindow(Window_Name)
                 Register_Transparency(Dropdown_Main_Button, 0.21)
                 
                 local Dropdown_Main_Button_Corner = Instance.new("UICorner")
-                Dropdown_Main_Button_Corner.CornerRadius = UDim.new(0, 6)
+                Dropdown_Main_Button_Corner.CornerRadius = UDim.new(0, 4)
                 Dropdown_Main_Button_Corner.Parent = Dropdown_Main_Button
 
                 local Selected_Option_Label = Instance.new("TextLabel")
-                Selected_Option_Label.Size = UDim2.new(1, -40, 1, 0)
-                Selected_Option_Label.Position = UDim2.new(0, 12, 0, 0)
+                Selected_Option_Label.Size = UDim2.new(1, -36, 1, 0)
+                Selected_Option_Label.Position = UDim2.new(0, 10, 0, 0)
                 Selected_Option_Label.BackgroundTransparency = 1
                 Selected_Option_Label.Text = ""
-                Selected_Option_Label.TextSize = 14
+                Selected_Option_Label.TextSize = 12
                 Selected_Option_Label.Font = Main_Font
                 Selected_Option_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Selected_Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1699,8 +1700,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Selected_Option_Label, "TextColor3", "textDarkColor")
 
                 local Dropdown_Arrow_Icon = Instance.new("ImageLabel")
-                Dropdown_Arrow_Icon.Size = UDim2.new(0, 18, 0, 18)
-                Dropdown_Arrow_Icon.Position = UDim2.new(1, -26, 0.5, -9)
+                Dropdown_Arrow_Icon.Size = UDim2.new(0, 16, 0, 16)
+                Dropdown_Arrow_Icon.Position = UDim2.new(1, -24, 0.5, -8)
                 Dropdown_Arrow_Icon.BackgroundTransparency = 1
                 Dropdown_Arrow_Icon.Image = "rbxassetid://10492813580"
                 Dropdown_Arrow_Icon.Parent = Dropdown_Main_Button
@@ -1708,7 +1709,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Dropdown_Option_List_Frame = Instance.new("ScrollingFrame")
                 Dropdown_Option_List_Frame.Size = UDim2.new(1, -4, 0, 0)
-                Dropdown_Option_List_Frame.Position = UDim2.new(0, 2, 0, 58)
+                Dropdown_Option_List_Frame.Position = UDim2.new(0, 2, 0, 52)
                 Dropdown_Option_List_Frame.BorderSizePixel = 0
                 Dropdown_Option_List_Frame.ScrollBarThickness = 2
                 Dropdown_Option_List_Frame.ClipsDescendants = true
@@ -1720,7 +1721,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Register_Transparency(Dropdown_Option_List_Frame, 0.21)
                 
                 local Dropdown_Option_List_Corner = Instance.new("UICorner")
-                Dropdown_Option_List_Corner.CornerRadius = UDim.new(0, 6)
+                Dropdown_Option_List_Corner.CornerRadius = UDim.new(0, 4)
                 Dropdown_Option_List_Corner.Parent = Dropdown_Option_List_Frame
 
                 local Dropdown_Option_List_Layout = Instance.new("UIListLayout")
@@ -1730,11 +1731,11 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local function Toggle_Dropdown_State()
                     Is_Dropdown_Open = not Is_Dropdown_Open
-                    local Max_List_Height = math.min(#Options * 28 + (#Options * 4), 160)
+                    local Max_List_Height = math.min(#Options * 26 + (#Options * 4), 140)
                     local Target_List_Height = Is_Dropdown_Open and Max_List_Height or 0
                     Animate_Element(Dropdown_Arrow_Icon, {Rotation = Is_Dropdown_Open and 180 or 0}, 0.25)
                     Animate_Element(Dropdown_Option_List_Frame, {Size = UDim2.new(1, -4, 0, Target_List_Height)}, 0.25)
-                    Animate_Element(Dropdown_Frame, {Size = UDim2.new(1, 0, 0, 56 + Target_List_Height + (Is_Dropdown_Open and 6 or 0))}, 0.25)
+                    Animate_Element(Dropdown_Frame, {Size = UDim2.new(1, 0, 0, 50 + Target_List_Height + (Is_Dropdown_Open and 4 or 0))}, 0.25)
                 end
 
                 Dropdown_Main_Button.MouseEnter:Connect(function()
@@ -1753,7 +1754,7 @@ function Library_Api:CreateWindow(Window_Name)
                     end
                     for _, Option in ipairs(Options) do
                         local Option_Button = Instance.new("TextButton")
-                        Option_Button.Size = UDim2.new(1, 0, 0, 28)
+                        Option_Button.Size = UDim2.new(1, 0, 0, 26)
                         Option_Button.BackgroundTransparency = 1
                         Option_Button.Text = ""
                         Option_Button.ZIndex = 11
@@ -1761,11 +1762,11 @@ function Library_Api:CreateWindow(Window_Name)
                         Bind_Color(Option_Button, "BackgroundColor3", "elementHoverBackground")
 
                         local Option_Label = Instance.new("TextLabel")
-                        Option_Label.Size = UDim2.new(1, -24, 1, 0)
-                        Option_Label.Position = UDim2.new(0, 12, 0, 0)
+                        Option_Label.Size = UDim2.new(1, -20, 1, 0)
+                        Option_Label.Position = UDim2.new(0, 10, 0, 0)
                         Option_Label.BackgroundTransparency = 1
                         Option_Label.Text = Option
-                        Option_Label.TextSize = 14
+                        Option_Label.TextSize = 12
                         Option_Label.Font = Main_Font
                         Option_Label.TextXAlignment = Enum.TextXAlignment.Left
                         Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1794,7 +1795,7 @@ function Library_Api:CreateWindow(Window_Name)
                             Auto_Save()
                         end)
                     end
-                    Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 28 + (#Options * 4))
+                    Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 26 + (#Options * 4))
                 end
 
                 Library_Api.Registry[Flag] = function(New_Val)
@@ -1829,18 +1830,18 @@ function Library_Api:CreateWindow(Window_Name)
                 local Is_Dropdown_Open = false
 
                 local Dropdown_Frame = Instance.new("Frame")
-                Dropdown_Frame.Size = UDim2.new(1, 0, 0, 56)
+                Dropdown_Frame.Size = UDim2.new(1, 0, 0, 50)
                 Dropdown_Frame.BackgroundTransparency = 1
                 Dropdown_Frame.ClipsDescendants = true
                 Dropdown_Frame.ZIndex = 5
                 Dropdown_Frame.Parent = Target_Container
 
                 local Dropdown_Label = Instance.new("TextLabel")
-                Dropdown_Label.Size = UDim2.new(1, -10, 0, 20)
+                Dropdown_Label.Size = UDim2.new(1, -10, 0, 18)
                 Dropdown_Label.Position = UDim2.new(0, 2, 0, 0)
                 Dropdown_Label.BackgroundTransparency = 1
                 Dropdown_Label.Text = Name
-                Dropdown_Label.TextSize = 14
+                Dropdown_Label.TextSize = 12
                 Dropdown_Label.Font = Main_Font
                 Dropdown_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Dropdown_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1848,8 +1849,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Dropdown_Label, "TextColor3", "textWhiteColor")
 
                 local Dropdown_Main_Button = Instance.new("TextButton")
-                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 32)
-                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 22)
+                Dropdown_Main_Button.Size = UDim2.new(1, -4, 0, 28)
+                Dropdown_Main_Button.Position = UDim2.new(0, 2, 0, 20)
                 Dropdown_Main_Button.Text = ""
                 Dropdown_Main_Button.AutoButtonColor = false
                 Dropdown_Main_Button.Parent = Dropdown_Frame
@@ -1857,14 +1858,14 @@ function Library_Api:CreateWindow(Window_Name)
                 Register_Transparency(Dropdown_Main_Button, 0.21)
                 
                 local Dropdown_Main_Button_Corner = Instance.new("UICorner")
-                Dropdown_Main_Button_Corner.CornerRadius = UDim.new(0, 6)
+                Dropdown_Main_Button_Corner.CornerRadius = UDim.new(0, 4)
                 Dropdown_Main_Button_Corner.Parent = Dropdown_Main_Button
 
                 local Selected_Option_Label = Instance.new("TextLabel")
-                Selected_Option_Label.Size = UDim2.new(1, -40, 1, 0)
-                Selected_Option_Label.Position = UDim2.new(0, 12, 0, 0)
+                Selected_Option_Label.Size = UDim2.new(1, -36, 1, 0)
+                Selected_Option_Label.Position = UDim2.new(0, 10, 0, 0)
                 Selected_Option_Label.BackgroundTransparency = 1
-                Selected_Option_Label.TextSize = 14
+                Selected_Option_Label.TextSize = 12
                 Selected_Option_Label.Font = Main_Font
                 Selected_Option_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Selected_Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1872,8 +1873,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Selected_Option_Label, "TextColor3", "textDarkColor")
 
                 local Dropdown_Arrow_Icon = Instance.new("ImageLabel")
-                Dropdown_Arrow_Icon.Size = UDim2.new(0, 18, 0, 18)
-                Dropdown_Arrow_Icon.Position = UDim2.new(1, -26, 0.5, -9)
+                Dropdown_Arrow_Icon.Size = UDim2.new(0, 16, 0, 16)
+                Dropdown_Arrow_Icon.Position = UDim2.new(1, -24, 0.5, -8)
                 Dropdown_Arrow_Icon.BackgroundTransparency = 1
                 Dropdown_Arrow_Icon.Image = "rbxassetid://10492813580"
                 Dropdown_Arrow_Icon.Parent = Dropdown_Main_Button
@@ -1881,7 +1882,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Dropdown_Option_List_Frame = Instance.new("ScrollingFrame")
                 Dropdown_Option_List_Frame.Size = UDim2.new(1, -4, 0, 0)
-                Dropdown_Option_List_Frame.Position = UDim2.new(0, 2, 0, 58)
+                Dropdown_Option_List_Frame.Position = UDim2.new(0, 2, 0, 52)
                 Dropdown_Option_List_Frame.BorderSizePixel = 0
                 Dropdown_Option_List_Frame.ScrollBarThickness = 2
                 Dropdown_Option_List_Frame.ClipsDescendants = true
@@ -1893,7 +1894,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Register_Transparency(Dropdown_Option_List_Frame, 0.21)
                 
                 local Dropdown_Option_List_Corner = Instance.new("UICorner")
-                Dropdown_Option_List_Corner.CornerRadius = UDim.new(0, 6)
+                Dropdown_Option_List_Corner.CornerRadius = UDim.new(0, 4)
                 Dropdown_Option_List_Corner.Parent = Dropdown_Option_List_Frame
 
                 local Dropdown_Option_List_Layout = Instance.new("UIListLayout")
@@ -1903,11 +1904,11 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local function Toggle_Dropdown_State()
                     Is_Dropdown_Open = not Is_Dropdown_Open
-                    local Max_List_Height = math.min(#Options * 28 + (#Options * 4), 160)
+                    local Max_List_Height = math.min(#Options * 26 + (#Options * 4), 140)
                     local Target_List_Height = Is_Dropdown_Open and Max_List_Height or 0
                     Animate_Element(Dropdown_Arrow_Icon, {Rotation = Is_Dropdown_Open and 180 or 0}, 0.25)
                     Animate_Element(Dropdown_Option_List_Frame, {Size = UDim2.new(1, -4, 0, Target_List_Height)}, 0.25)
-                    Animate_Element(Dropdown_Frame, {Size = UDim2.new(1, 0, 0, 56 + Target_List_Height + (Is_Dropdown_Open and 6 or 0))}, 0.25)
+                    Animate_Element(Dropdown_Frame, {Size = UDim2.new(1, 0, 0, 50 + Target_List_Height + (Is_Dropdown_Open and 4 or 0))}, 0.25)
                 end
 
                 Dropdown_Main_Button.MouseEnter:Connect(function()
@@ -1927,7 +1928,7 @@ function Library_Api:CreateWindow(Window_Name)
                     local currArr = type(Library_Api.Flags[Flag]) == "table" and Library_Api.Flags[Flag] or {}
                     for _, Option in ipairs(Options) do
                         local Option_Button = Instance.new("TextButton")
-                        Option_Button.Size = UDim2.new(1, 0, 0, 28)
+                        Option_Button.Size = UDim2.new(1, 0, 0, 26)
                         Option_Button.BackgroundTransparency = 1
                         Option_Button.Text = ""
                         Option_Button.ZIndex = 11
@@ -1935,11 +1936,11 @@ function Library_Api:CreateWindow(Window_Name)
                         Bind_Color(Option_Button, "BackgroundColor3", "elementHoverBackground")
 
                         local Option_Label = Instance.new("TextLabel")
-                        Option_Label.Size = UDim2.new(1, -24, 1, 0)
-                        Option_Label.Position = UDim2.new(0, 12, 0, 0)
+                        Option_Label.Size = UDim2.new(1, -20, 1, 0)
+                        Option_Label.Position = UDim2.new(0, 10, 0, 0)
                         Option_Label.BackgroundTransparency = 1
                         Option_Label.Text = Option
-                        Option_Label.TextSize = 14
+                        Option_Label.TextSize = 12
                         Option_Label.Font = Main_Font
                         Option_Label.TextXAlignment = Enum.TextXAlignment.Left
                         Option_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -1977,7 +1978,7 @@ function Library_Api:CreateWindow(Window_Name)
                             Auto_Save()
                         end)
                     end
-                    Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 28 + (#Options * 4))
+                    Dropdown_Option_List_Frame.CanvasSize = UDim2.new(0, 0, 0, #Options * 26 + (#Options * 4))
                 end
 
                 Library_Api.Registry[Flag] = function(New_Array)
@@ -2019,22 +2020,22 @@ function Library_Api:CreateWindow(Window_Name)
                 local Hue, Saturation, Value = Library_Api.Flags[Flag]:ToHSV()
 
                 local Color_Picker_Frame = Instance.new("Frame")
-                Color_Picker_Frame.Size = UDim2.new(1, 0, 0, 28)
+                Color_Picker_Frame.Size = UDim2.new(1, 0, 0, 26)
                 Color_Picker_Frame.BackgroundTransparency = 1
                 Color_Picker_Frame.ClipsDescendants = true
                 Color_Picker_Frame.Parent = Target_Container
 
                 local Color_Picker_Top_Area = Instance.new("Frame")
-                Color_Picker_Top_Area.Size = UDim2.new(1, 0, 0, 28)
+                Color_Picker_Top_Area.Size = UDim2.new(1, 0, 0, 26)
                 Color_Picker_Top_Area.BackgroundTransparency = 1
                 Color_Picker_Top_Area.Parent = Color_Picker_Frame
 
                 local Color_Picker_Label = Instance.new("TextLabel")
-                Color_Picker_Label.Size = UDim2.new(1, -50, 1, 0)
+                Color_Picker_Label.Size = UDim2.new(1, -46, 1, 0)
                 Color_Picker_Label.Position = UDim2.new(0, 2, 0, 0)
                 Color_Picker_Label.BackgroundTransparency = 1
                 Color_Picker_Label.Text = Name
-                Color_Picker_Label.TextSize = 14
+                Color_Picker_Label.TextSize = 12
                 Color_Picker_Label.Font = Main_Font
                 Color_Picker_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Color_Picker_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -2043,7 +2044,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Color_Preview_Button = Instance.new("TextButton")
                 Color_Preview_Button.AnchorPoint = Vector2.new(1, 0.5)
-                Color_Preview_Button.Size = UDim2.new(0, 36, 0, 18)
+                Color_Preview_Button.Size = UDim2.new(0, 32, 0, 16)
                 Color_Preview_Button.Position = UDim2.new(1, -4, 0.5, 0)
                 Color_Preview_Button.BackgroundColor3 = Library_Api.Flags[Flag]
                 Color_Preview_Button.Text = ""
@@ -2055,8 +2056,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Color_Preview_Button_Corner.Parent = Color_Preview_Button
 
                 local Expanded_Picker_Frame = Instance.new("Frame")
-                Expanded_Picker_Frame.Size = UDim2.new(1, -4, 0, 130)
-                Expanded_Picker_Frame.Position = UDim2.new(0, 2, 0, 34)
+                Expanded_Picker_Frame.Size = UDim2.new(1, -4, 0, 120)
+                Expanded_Picker_Frame.Position = UDim2.new(0, 2, 0, 30)
                 Expanded_Picker_Frame.Parent = Color_Picker_Frame
                 Bind_Color(Expanded_Picker_Frame, "BackgroundColor3", "elementBackground")
                 Register_Transparency(Expanded_Picker_Frame, 0.21)
@@ -2066,8 +2067,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Expanded_Picker_Corner.Parent = Expanded_Picker_Frame
 
                 local Saturation_Value_Map = Instance.new("TextButton")
-                Saturation_Value_Map.Size = UDim2.new(1, -20, 0, 90)
-                Saturation_Value_Map.Position = UDim2.new(0, 10, 0, 10)
+                Saturation_Value_Map.Size = UDim2.new(1, -16, 0, 84)
+                Saturation_Value_Map.Position = UDim2.new(0, 8, 0, 8)
                 Saturation_Value_Map.AutoButtonColor = false
                 Saturation_Value_Map.Text = ""
                 Saturation_Value_Map.BackgroundColor3 = Color3.fromHSV(math.clamp(Hue, 0, 1), 1, 1)
@@ -2097,7 +2098,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Saturation_Value_Map_Cursor = Instance.new("Frame")
                 Saturation_Value_Map_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
-                Saturation_Value_Map_Cursor.Size = UDim2.new(0, 8, 0, 8)
+                Saturation_Value_Map_Cursor.Size = UDim2.new(0, 6, 0, 6)
                 Saturation_Value_Map_Cursor.Position = UDim2.new(math.clamp(Saturation, 0, 1), 0, math.clamp(1 - Value, 0, 1), 0)
                 Saturation_Value_Map_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 Saturation_Value_Map_Cursor.ZIndex = 2
@@ -2105,8 +2106,8 @@ function Library_Api:CreateWindow(Window_Name)
                 local Saturation_Value_Map_Cursor_Corner = Instance.new("UICorner"); Saturation_Value_Map_Cursor_Corner.CornerRadius = UDim.new(1, 0); Saturation_Value_Map_Cursor_Corner.Parent = Saturation_Value_Map_Cursor
 
                 local Hue_Map = Instance.new("TextButton")
-                Hue_Map.Size = UDim2.new(1, -20, 0, 12)
-                Hue_Map.Position = UDim2.new(0, 10, 0, 108)
+                Hue_Map.Size = UDim2.new(1, -16, 0, 12)
+                Hue_Map.Position = UDim2.new(0, 8, 0, 100)
                 Hue_Map.Text = ""
                 Hue_Map.AutoButtonColor = false
                 Hue_Map.BackgroundColor3 = Color3.new(1, 1, 1)
@@ -2127,7 +2128,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 local Hue_Map_Cursor = Instance.new("Frame")
                 Hue_Map_Cursor.AnchorPoint = Vector2.new(0.5, 0.5)
-                Hue_Map_Cursor.Size = UDim2.new(0, 4, 1, 6)
+                Hue_Map_Cursor.Size = UDim2.new(0, 4, 1, 4)
                 Hue_Map_Cursor.Position = UDim2.new(math.clamp(Hue, 0, 1), 0, 0.5, 0)
                 Hue_Map_Cursor.BackgroundColor3 = Color3.new(1, 1, 1)
                 Hue_Map_Cursor.ZIndex = 2
@@ -2204,7 +2205,7 @@ function Library_Api:CreateWindow(Window_Name)
 
                 Color_Preview_Button.MouseButton1Click:Connect(function()
                     Is_Color_Picker_Open = not Is_Color_Picker_Open
-                    Animate_Element(Color_Picker_Frame, {Size = UDim2.new(1, 0, 0, Is_Color_Picker_Open and 172 or 28)}, 0.25)
+                    Animate_Element(Color_Picker_Frame, {Size = UDim2.new(1, 0, 0, Is_Color_Picker_Open and 156 or 26)}, 0.25)
                 end)
                 
                 task.spawn(Library_Api.Registry[Flag], Library_Api.Flags[Flag])
@@ -2212,7 +2213,7 @@ function Library_Api:CreateWindow(Window_Name)
 
             function Elements:Button_Create(Name, Tooltip, Callback)
                 local Button_Frame = Instance.new("Frame")
-                Button_Frame.Size = UDim2.new(1, 0, 0, 32)
+                Button_Frame.Size = UDim2.new(1, 0, 0, 28)
                 Button_Frame.BackgroundTransparency = 1
                 Button_Frame.Parent = Target_Container
 
@@ -2220,7 +2221,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Action_Button.Size = UDim2.new(1, -4, 1, 0)
                 Action_Button.Position = UDim2.new(0, 2, 0, 0)
                 Action_Button.Text = Name
-                Action_Button.TextSize = 14
+                Action_Button.TextSize = 12
                 Action_Button.Font = Bold_Font
                 Action_Button.AutoButtonColor = false
                 Action_Button.TextTruncate = Enum.TextTruncate.AtEnd
@@ -2230,7 +2231,7 @@ function Library_Api:CreateWindow(Window_Name)
                 Register_Transparency(Action_Button, 0.21)
                 
                 local Action_Button_Corner = Instance.new("UICorner")
-                Action_Button_Corner.CornerRadius = UDim.new(0, 6)
+                Action_Button_Corner.CornerRadius = UDim.new(0, 4)
                 Action_Button_Corner.Parent = Action_Button
 
                 Action_Button.MouseEnter:Connect(function()
@@ -2250,15 +2251,15 @@ function Library_Api:CreateWindow(Window_Name)
 
             function Elements:SubButton_Create(Name, Tooltip, Callback)
                 local Sub_Button_Frame = Instance.new("Frame")
-                Sub_Button_Frame.Size = UDim2.new(1, 0, 0, 26)
+                Sub_Button_Frame.Size = UDim2.new(1, 0, 0, 24)
                 Sub_Button_Frame.BackgroundTransparency = 1
                 Sub_Button_Frame.Parent = Target_Container
 
                 local Sub_Button_Action = Instance.new("TextButton")
-                Sub_Button_Action.Size = UDim2.new(1, -16, 1, 0)
-                Sub_Button_Action.Position = UDim2.new(0, 8, 0, 0)
+                Sub_Button_Action.Size = UDim2.new(1, -12, 1, 0)
+                Sub_Button_Action.Position = UDim2.new(0, 6, 0, 0)
                 Sub_Button_Action.Text = Name
-                Sub_Button_Action.TextSize = 13
+                Sub_Button_Action.TextSize = 11
                 Sub_Button_Action.Font = Main_Font
                 Sub_Button_Action.AutoButtonColor = false
                 Sub_Button_Action.TextTruncate = Enum.TextTruncate.AtEnd
@@ -2279,9 +2280,9 @@ function Library_Api:CreateWindow(Window_Name)
                     Show_Tooltip("")
                     Animate_Element(Sub_Button_Action, {BackgroundTransparency = Library_Api.Global_Settings.Transparency and 0.21 or 0}, 0.2)
                 end)
-                Sub_Button_Action.MouseButton1Down:Connect(function() Animate_Element(Sub_Button_Action, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.15) end)
+                Sub_Button_Action.MouseButton1Down:Connect(function() Animate_Element(Sub_Button_Action, {Size = UDim2.new(0.96, -12, 0.85, 0), Position = UDim2.new(0.02, 6, 0.075, 0)}, 0.15) end)
                 Sub_Button_Action.MouseButton1Up:Connect(function()
-                    Animate_Element(Sub_Button_Action, {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0)}, 0.15)
+                    Animate_Element(Sub_Button_Action, {Size = UDim2.new(1, -12, 1, 0), Position = UDim2.new(0, 6, 0, 0)}, 0.15)
                     if type(Callback) == "function" then task.spawn(Callback) end
                 end)
             end
@@ -2290,13 +2291,13 @@ function Library_Api:CreateWindow(Window_Name)
                 Library_Api.Flags[Flag] = Library_Api.Flags[Flag] ~= nil and Library_Api.Flags[Flag] or (Default or false)
 
                 local Module_Frame = Instance.new("Frame")
-                Module_Frame.Size = UDim2.new(1, 0, 0, 56)
+                Module_Frame.Size = UDim2.new(1, 0, 0, 48)
                 Module_Frame.BackgroundTransparency = 1
                 Module_Frame.ClipsDescendants = true
                 Module_Frame.Parent = Target_Container
 
                 local Module_Toggle_Button = Instance.new("TextButton")
-                Module_Toggle_Button.Size = UDim2.new(1, -4, 0, 52)
+                Module_Toggle_Button.Size = UDim2.new(1, -4, 0, 44)
                 Module_Toggle_Button.Position = UDim2.new(0, 2, 0, 0)
                 Module_Toggle_Button.Text = ""
                 Module_Toggle_Button.AutoButtonColor = false
@@ -2305,12 +2306,12 @@ function Library_Api:CreateWindow(Window_Name)
                 Register_Transparency(Module_Toggle_Button, 0.21)
                 
                 local Module_Toggle_Button_Corner = Instance.new("UICorner")
-                Module_Toggle_Button_Corner.CornerRadius = UDim.new(0, 6)
+                Module_Toggle_Button_Corner.CornerRadius = UDim.new(0, 4)
                 Module_Toggle_Button_Corner.Parent = Module_Toggle_Button
 
                 local Module_Checkbox_Frame = Instance.new("Frame")
-                Module_Checkbox_Frame.Size = UDim2.new(0, 20, 0, 20)
-                Module_Checkbox_Frame.Position = UDim2.new(0, 14, 0.5, -10)
+                Module_Checkbox_Frame.Size = UDim2.new(0, 16, 0, 16)
+                Module_Checkbox_Frame.Position = UDim2.new(0, 10, 0.5, -8)
                 Module_Checkbox_Frame.Parent = Module_Toggle_Button
                 Bind_Color(Module_Checkbox_Frame, "BackgroundColor3", "sectionBackground")
                 Register_Transparency(Module_Checkbox_Frame, 0.21)
@@ -2320,11 +2321,11 @@ function Library_Api:CreateWindow(Window_Name)
                 Module_Checkbox_Corner.Parent = Module_Checkbox_Frame
 
                 local Module_Label = Instance.new("TextLabel")
-                Module_Label.Size = UDim2.new(1, -55, 0, 18)
-                Module_Label.Position = UDim2.new(0, 44, 0, 6)
+                Module_Label.Size = UDim2.new(1, -45, 0, 16)
+                Module_Label.Position = UDim2.new(0, 36, 0, 4)
                 Module_Label.BackgroundTransparency = 1
                 Module_Label.Text = Name
-                Module_Label.TextSize = 15
+                Module_Label.TextSize = 13
                 Module_Label.Font = Bold_Font
                 Module_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Module_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -2332,11 +2333,11 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Module_Label, "TextColor3", "textDarkColor")
 
                 local Module_Description_Label = Instance.new("TextLabel")
-                Module_Description_Label.Size = UDim2.new(1, -55, 0, 26)
-                Module_Description_Label.Position = UDim2.new(0, 44, 0, 22)
+                Module_Description_Label.Size = UDim2.new(1, -45, 0, 22)
+                Module_Description_Label.Position = UDim2.new(0, 36, 0, 20)
                 Module_Description_Label.BackgroundTransparency = 1
                 Module_Description_Label.Text = Description_Text
-                Module_Description_Label.TextSize = 13
+                Module_Description_Label.TextSize = 11
                 Module_Description_Label.Font = Main_Font
                 Module_Description_Label.TextXAlignment = Enum.TextXAlignment.Left
                 Module_Description_Label.TextYAlignment = Enum.TextYAlignment.Top
@@ -2345,8 +2346,8 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Module_Description_Label, "TextColor3", "textDarkColor")
 
                 local Module_Arrow_Icon = Instance.new("ImageLabel")
-                Module_Arrow_Icon.Size = UDim2.new(0, 16, 0, 16)
-                Module_Arrow_Icon.Position = UDim2.new(1, -24, 0.5, -8)
+                Module_Arrow_Icon.Size = UDim2.new(0, 14, 0, 14)
+                Module_Arrow_Icon.Position = UDim2.new(1, -22, 0.5, -7)
                 Module_Arrow_Icon.BackgroundTransparency = 1
                 Module_Arrow_Icon.Image = "rbxassetid://10492813580"
                 Module_Arrow_Icon.Rotation = 0
@@ -2354,21 +2355,21 @@ function Library_Api:CreateWindow(Window_Name)
                 Bind_Color(Module_Arrow_Icon, "ImageColor3", "textDarkColor")
 
                 local Module_Content_Frame = Instance.new("Frame")
-                Module_Content_Frame.Size = UDim2.new(1, -16, 0, 0)
-                Module_Content_Frame.Position = UDim2.new(0, 12, 0, 58)
+                Module_Content_Frame.Size = UDim2.new(1, -12, 0, 0)
+                Module_Content_Frame.Position = UDim2.new(0, 10, 0, 50)
                 Module_Content_Frame.BackgroundTransparency = 1
                 Module_Content_Frame.Parent = Module_Frame
 
                 local Module_Content_Layout = Instance.new("UIListLayout")
-                Module_Content_Layout.Padding = UDim.new(0, 10)
+                Module_Content_Layout.Padding = UDim.new(0, 8)
                 Module_Content_Layout.Parent = Module_Content_Frame
 
                 local function Synchronize_Module_Size()
                     if Library_Api.Flags[Flag] then
-                        Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 56 + Module_Content_Layout.AbsoluteContentSize.Y + 10)}, 0.25)
+                        Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 48 + Module_Content_Layout.AbsoluteContentSize.Y + 8)}, 0.25)
                         Animate_Element(Module_Arrow_Icon, {Rotation = 180}, 0.25)
                     else
-                        Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 56)}, 0.25)
+                        Animate_Element(Module_Frame, {Size = UDim2.new(1, 0, 0, 48)}, 0.25)
                         Animate_Element(Module_Arrow_Icon, {Rotation = 0}, 0.25)
                     end
                 end
@@ -2407,7 +2408,7 @@ function Library_Api:CreateWindow(Window_Name)
 
         function Tab_Data:Section_Create(Column_Side, Section_Title)
             local Section_Background_Frame = Instance.new("Frame")
-            Section_Background_Frame.Size = UDim2.new(1, 0, 0, 44)
+            Section_Background_Frame.Size = UDim2.new(1, 0, 0, 40)
             Section_Background_Frame.ClipsDescendants = true
             Section_Background_Frame.Parent = (Column_Side == "Left") and Left_Column_Frame or Right_Column_Frame
             Bind_Color(Section_Background_Frame, "BackgroundColor3", "sectionBackground")
@@ -2421,20 +2422,20 @@ function Library_Api:CreateWindow(Window_Name)
             Bind_Color(Section_Accent_Line, "BackgroundColor3", "elementBackground")
             
             local Section_Background_Corner = Instance.new("UICorner")
-            Section_Background_Corner.CornerRadius = UDim.new(0, 8)
+            Section_Background_Corner.CornerRadius = UDim.new(0, 6)
             Section_Background_Corner.Parent = Section_Background_Frame
 
             local Section_Header_Frame = Instance.new("Frame")
-            Section_Header_Frame.Size = UDim2.new(1, 0, 0, 30)
+            Section_Header_Frame.Size = UDim2.new(1, 0, 0, 26)
             Section_Header_Frame.BackgroundTransparency = 1
             Section_Header_Frame.Parent = Section_Background_Frame
 
             local Section_Label = Instance.new("TextLabel")
-            Section_Label.Size = UDim2.new(1, -24, 1, 0)
-            Section_Label.Position = UDim2.new(0, 12, 0, 0)
+            Section_Label.Size = UDim2.new(1, -20, 1, 0)
+            Section_Label.Position = UDim2.new(0, 10, 0, 0)
             Section_Label.BackgroundTransparency = 1
             Section_Label.Text = Section_Title
-            Section_Label.TextSize = 14
+            Section_Label.TextSize = 13
             Section_Label.Font = Bold_Font
             Section_Label.TextXAlignment = Enum.TextXAlignment.Left
             Section_Label.TextTruncate = Enum.TextTruncate.AtEnd
@@ -2442,27 +2443,27 @@ function Library_Api:CreateWindow(Window_Name)
             Bind_Color(Section_Label, "TextColor3", "textWhiteColor")
 
             local Section_Separator_Line = Instance.new("Frame")
-            Section_Separator_Line.Size = UDim2.new(1, -24, 0, 1)
-            Section_Separator_Line.Position = UDim2.new(0, 12, 1, 0)
+            Section_Separator_Line.Size = UDim2.new(1, -20, 0, 1)
+            Section_Separator_Line.Position = UDim2.new(0, 10, 1, 0)
             Section_Separator_Line.BorderSizePixel = 0
             Section_Separator_Line.Parent = Section_Header_Frame
             Bind_Color(Section_Separator_Line, "BackgroundColor3", "elementBackground")
 
             local Section_Content_Frame = Instance.new("Frame")
-            Section_Content_Frame.Size = UDim2.new(1, -20, 1, -40)
-            Section_Content_Frame.Position = UDim2.new(0, 10, 0, 36)
+            Section_Content_Frame.Size = UDim2.new(1, -16, 1, -34)
+            Section_Content_Frame.Position = UDim2.new(0, 8, 0, 30)
             Section_Content_Frame.BackgroundTransparency = 1
             Section_Content_Frame.Parent = Section_Background_Frame
 
             local Section_Content_Layout = Instance.new("UIListLayout")
             Section_Content_Layout.SortOrder = Enum.SortOrder.LayoutOrder
-            Section_Content_Layout.Padding = UDim.new(0, 10)
+            Section_Content_Layout.Padding = UDim.new(0, 8)
             Section_Content_Layout.Parent = Section_Content_Frame
 
             Section_Content_Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                Animate_Element(Section_Background_Frame, {Size = UDim2.new(1, 0, 0, Section_Content_Layout.AbsoluteContentSize.Y + 46)}, 0.25)
+                Animate_Element(Section_Background_Frame, {Size = UDim2.new(1, 0, 0, Section_Content_Layout.AbsoluteContentSize.Y + 38)}, 0.25)
             end)
-            Section_Background_Frame.Size = UDim2.new(1, 0, 0, Section_Content_Layout.AbsoluteContentSize.Y + 46)
+            Section_Background_Frame.Size = UDim2.new(1, 0, 0, Section_Content_Layout.AbsoluteContentSize.Y + 38)
 
             return Element_Injector(Section_Content_Frame)
         end
