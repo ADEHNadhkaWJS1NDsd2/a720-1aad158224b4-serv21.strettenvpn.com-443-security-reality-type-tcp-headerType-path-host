@@ -149,7 +149,18 @@ local function Make_Draggable_Cool_Snake_Case(dragArea, frame, clickCallback)
             local delta_Cool_Snake_Case = dragInput.Position - dragStart
             if delta_Cool_Snake_Case.Magnitude > Drag_Dead_Zone then
                 Actually_Dragging = true
-                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta_Cool_Snake_Case.X, startPos.Y.Scale, startPos.Y.Offset + delta_Cool_Snake_Case.Y)
+                local scaleObj = frame:FindFirstChildWhichIsA("UIScale")
+                local sMult = scaleObj and scaleObj.Scale or 1
+                local vp = workspace.CurrentCamera.ViewportSize
+                local newX = startPos.X.Offset + (delta_Cool_Snake_Case.X / sMult)
+                local newY = startPos.Y.Offset + (delta_Cool_Snake_Case.Y / sMult)
+                local maxX = (vp.X / sMult) - 50
+                local maxY = (vp.Y / sMult) - 50
+                local minX = -(frame.AbsoluteSize.X / sMult) + 50
+                local minY = 0
+                newX = math.clamp(newX, minX, maxX)
+                newY = math.clamp(newY, minY, maxY)
+                frame.Position = UDim2.new(startPos.X.Scale, newX, startPos.Y.Scale, newY)
             end
         end
     end)
@@ -157,7 +168,7 @@ local function Make_Draggable_Cool_Snake_Case(dragArea, frame, clickCallback)
     table.insert(Library.Connections, c3)
     table.insert(Library.Connections, c4)
 end
-local function MakeResizable(resizeBtn, frame, minSize)
+local function MakeResizable(resizeBtn, frame, min_Size_Cool_Snake_Case, max_Size_Cool_Snake_Case)
     local dragging = false
     local dragInput, dragStart, startSize, startPos, scaleMult
     local c1 = resizeBtn.InputBegan:Connect(function(input)
@@ -187,8 +198,8 @@ local function MakeResizable(resizeBtn, frame, minSize)
     local c4 = RunService.RenderStepped:Connect(function()
         if dragging and dragInput then
             local delta = dragInput.Position - dragStart
-            local newX = math.max(minSize.X, startSize.X.Offset + (delta.X / scaleMult))
-            local newY = math.max(minSize.Y, startSize.Y.Offset + (delta.Y / scaleMult))
+            local newX = math.clamp(startSize.X.Offset + (delta.X / scaleMult), min_Size_Cool_Snake_Case.X, max_Size_Cool_Snake_Case.X)
+            local newY = math.clamp(startSize.Y.Offset + (delta.Y / scaleMult), min_Size_Cool_Snake_Case.Y, max_Size_Cool_Snake_Case.Y)
             local diffX = (newX - startSize.X.Offset) * scaleMult
             local diffY = (newY - startSize.Y.Offset) * scaleMult
             frame.Size = UDim2.new(0, newX, 0, newY)
@@ -200,17 +211,11 @@ local function MakeResizable(resizeBtn, frame, minSize)
     table.insert(Library.Connections, c4)
 end
 local function Get_Base_Scale_Cool_Snake_Case()
-    local vp = Library.ScreenGui and Library.ScreenGui.AbsoluteSize or workspace.CurrentCamera.ViewportSize
-    if vp.X < 1 or vp.Y < 1 then return 1 end
-    local base_X, base_Y = 650, 400
-    local s_X = vp.X / base_X
-    local s_Y = vp.Y / base_Y
-    local s_Min = math.min(s_X, s_Y)
+    local vp_Cool_Snake_Case = workspace.CurrentCamera.ViewportSize
+    if vp_Cool_Snake_Case.X < 1 or vp_Cool_Snake_Case.Y < 1 then return 1 end
     if Is_Mobile_Device_Cool_Snake_Case then
-        return math.clamp(s_Min * 0.95, 0.4, 1.5)
-    end
-    if s_Min < 1 then
-        return math.clamp(s_Min * 0.95, 0.4, 1)
+        local s_Min_Cool_Snake_Case = math.min(vp_Cool_Snake_Case.X / 800, vp_Cool_Snake_Case.Y / 400)
+        return math.clamp(s_Min_Cool_Snake_Case * 0.95, 0.4, 1)
     end
     return 1
 end
@@ -1015,10 +1020,10 @@ function Library:CreateWindow(options)
     Corner(MiniButton, 23)
     Stroke(MiniButton, Theme.Accent, 2, 0.3)
     RegisterTheme(MiniButton, "ImageColor")
-    local function CreateBaseFrame(name)
+    local function Create_Base_Frame_Cool_Snake_Case(name)
         local Frame = Instance.new("Frame")
         Frame.Name = name
-        Frame.Size = UDim2.new(0, 650, 0, 400)
+        Frame.Size = UDim2.new(0, 600, 0, 350)
         Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
         Frame.AnchorPoint = Vector2.new(0.5, 0.5)
         Frame.BackgroundColor3 = Theme.Background
@@ -1029,8 +1034,8 @@ function Library:CreateWindow(options)
         Frame.Parent = ScreenGui
         Frame.Active = false
         local SizeConstraint = Instance.new("UISizeConstraint")
-        SizeConstraint.MaxSize = Vector2.new(1400, 900)
-        SizeConstraint.MinSize = Vector2.new(300, 250)
+        SizeConstraint.MaxSize = Vector2.new(850, 600)
+        SizeConstraint.MinSize = Vector2.new(450, 300)
         SizeConstraint.Parent = Frame
         Corner(Frame, 6)
         Stroke(Frame, Theme.Stroke, 1, 0)
@@ -1043,19 +1048,21 @@ function Library:CreateWindow(options)
         BgNoise.TileSize = UDim2.new(0, 100, 0, 100)
         BgNoise.Parent = Frame
         Corner(BgNoise, 6)
-        local DragHeader = Instance.new("Frame")
-        DragHeader.Name = "DragHeader"
-        DragHeader.Size = UDim2.new(1, 0, 0, 60)
-        DragHeader.BackgroundTransparency = 1
-        DragHeader.Parent = Frame
         local Scale = Instance.new("UIScale")
         Scale.Scale = 1
         Scale.Parent = Frame
-        Make_Draggable_Cool_Snake_Case(DragHeader, Frame, nil)
+        local DragArea_Cool_Snake_Case = Instance.new("TextButton")
+        DragArea_Cool_Snake_Case.Name = "DragArea"
+        DragArea_Cool_Snake_Case.Size = UDim2.new(1, 0, 1, 0)
+        DragArea_Cool_Snake_Case.BackgroundTransparency = 1
+        DragArea_Cool_Snake_Case.Text = ""
+        DragArea_Cool_Snake_Case.ZIndex = 0
+        DragArea_Cool_Snake_Case.Parent = Frame
+        Make_Draggable_Cool_Snake_Case(DragArea_Cool_Snake_Case, Frame, nil)
         return Frame, Scale
     end
-    local MainWindow, MainScale = CreateBaseFrame("MainWindow")
-    local SettingsWindow, SetScale = CreateBaseFrame("SettingsWindow")
+    local MainWindow, MainScale = Create_Base_Frame_Cool_Snake_Case("MainWindow")
+    local SettingsWindow, SetScale = Create_Base_Frame_Cool_Snake_Case("SettingsWindow")
     Library._MainWindow = MainWindow
     Library._MainScale = MainScale
     Library._SettingsWindow = SettingsWindow
@@ -1086,14 +1093,14 @@ function Library:CreateWindow(options)
     end)
     table.insert(Library.Connections, c2)
     table.insert(Library.Connections, c3)
-    MakeResizable(Resizer, MainWindow, Vector2.new(300, 250))
+    MakeResizable(Resizer, MainWindow, Vector2.new(450, 300), Vector2.new(850, 600))
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
         Bar.Size = UDim2.new(0, 180, 1, 0)
         Bar.BackgroundColor3 = Theme.Sidebar
         Bar.BorderSizePixel = 0
         Bar.Parent = parent
-        Bar.Active = false
+        Bar.Active = true
         Corner(Bar, 6)
         local Div = Instance.new("Frame")
         Div.Size = UDim2.new(0, 1, 1, 0)
@@ -1133,19 +1140,16 @@ function Library:CreateWindow(options)
             local Logo = Instance.new("TextLabel")
             Logo.Text = Config.Name
             Logo.RichText = true
-            Logo.Position = UDim2.new(0, 10, 0, 15)
-            Logo.Size = UDim2.new(1, -10, 0, 30)
+            Logo.Position = UDim2.new(0, 15, 0, 15)
+            Logo.Size = UDim2.new(1, -30, 0, 30)
             Logo.Font = Config.FontBold
-            Logo.TextScaled = true
+            Logo.TextScaled = false
+            Logo.TextSize = 20
             Logo.TextColor3 = Theme.Accent
             Logo.TextXAlignment = Enum.TextXAlignment.Left
             Logo.BackgroundTransparency = 1
             Logo.Parent = Bar
             RegisterTheme(Logo, "TextColor")
-            local Logo_Constraint = Instance.new("UITextSizeConstraint")
-            Logo_Constraint.MaxTextSize = 22
-            Logo_Constraint.MinTextSize = 12
-            Logo_Constraint.Parent = Logo
             local Logo_Stroke = Instance.new("UIStroke")
             Logo_Stroke.Color = Theme.Stroke
             Logo_Stroke.Thickness = 1
@@ -1774,8 +1778,8 @@ function Library:CreateWindow(options)
             table.insert(Library.Connections, h4)
             local pc1 = Preview.MouseButton1Click:Connect(function()
                 isOpen = not isOpen
-                Section.Container.ZIndex = isOpen and 10 or 1
-                ContainerFrame.ZIndex = isOpen and 10 or 5
+                Section.Container.ZIndex = isOpen and 50 or 1
+                ContainerFrame.ZIndex = isOpen and 50 or 5
                 if isOpen then
                     PickerCont.Visible = true
                     Tween(ContainerFrame, {Size = UDim2.new(1, 0, 0, 200)}, 0.2)
