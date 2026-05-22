@@ -51,7 +51,7 @@ local Theme = {
 local ThemeRegistry = {}
 setmetatable(ThemeRegistry, { __mode = "k" })
 local Is_Mobile_Device_Cool_Snake_Case = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
-local Base_Size_Cool_Snake_Case = Is_Mobile_Device_Cool_Snake_Case and UDim2.new(0.85, 0, 0.85, 0) or UDim2.new(0, 600, 0, 350)
+local Base_Size_Cool_Snake_Case = Is_Mobile_Device_Cool_Snake_Case and UDim2.new(0.95, 0, 0.9, 0) or UDim2.new(0.6, 0, 0.6, 0)
 local function RegisterTheme(instance, propType)
     ThemeRegistry[instance] = propType
     return instance
@@ -96,6 +96,13 @@ local function Stroke(parent, color, thickness, transparency)
     s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     s.Parent = parent
     return s
+end
+local function Apply_Text_Scaling_Cool_Snake_Case(Target_Element_Cool_Snake_Case, Max_Size_Cool_Snake_Case, Min_Size_Cool_Snake_Case)
+    Target_Element_Cool_Snake_Case.TextScaled = true
+    local Constraint_Cool_Snake_Case = Instance.new("UITextSizeConstraint")
+    Constraint_Cool_Snake_Case.MaxTextSize = Max_Size_Cool_Snake_Case or 13
+    Constraint_Cool_Snake_Case.MinTextSize = Min_Size_Cool_Snake_Case or 8
+    Constraint_Cool_Snake_Case.Parent = Target_Element_Cool_Snake_Case
 end
 local function RoundToIncrement(value, increment)
     if increment <= 0 then return value end
@@ -172,7 +179,7 @@ local function Make_Resizable_Cool_Snake_Case(Resize_Btn_Cool_Snake_Case, Target
             Is_Dragging_Cool_Snake_Case = true
             Drag_Input_Cool_Snake_Case = input
             Drag_Start_Cool_Snake_Case = input.Position
-            Start_Size_Cool_Snake_Case = Target_Frame_Cool_Snake_Case.Size
+            Start_Size_Cool_Snake_Case = Target_Frame_Cool_Snake_Case.AbsoluteSize
             Start_Pos_Cool_Snake_Case = Target_Frame_Cool_Snake_Case.Position
             local c2
             c2 = input.Changed:Connect(function()
@@ -191,12 +198,12 @@ local function Make_Resizable_Cool_Snake_Case(Resize_Btn_Cool_Snake_Case, Target
     local c4 = RunService.RenderStepped:Connect(function()
         if Is_Dragging_Cool_Snake_Case and Drag_Input_Cool_Snake_Case then
             local Delta_Cool_Snake_Case = Drag_Input_Cool_Snake_Case.Position - Drag_Start_Cool_Snake_Case
-            local New_X_Cool_Snake_Case = math.clamp(Start_Size_Cool_Snake_Case.X.Offset + Delta_Cool_Snake_Case.X, Min_Size_Cool_Snake_Case.X, Max_Size_Cool_Snake_Case.X)
-            local New_Y_Cool_Snake_Case = math.clamp(Start_Size_Cool_Snake_Case.Y.Offset + Delta_Cool_Snake_Case.Y, Min_Size_Cool_Snake_Case.Y, Max_Size_Cool_Snake_Case.Y)
-            local Diff_X_Cool_Snake_Case = (New_X_Cool_Snake_Case - Start_Size_Cool_Snake_Case.X.Offset)
-            local Diff_Y_Cool_Snake_Case = (New_Y_Cool_Snake_Case - Start_Size_Cool_Snake_Case.Y.Offset)
+            local New_X_Cool_Snake_Case = math.clamp(Start_Size_Cool_Snake_Case.X + Delta_Cool_Snake_Case.X, Min_Size_Cool_Snake_Case.X, Max_Size_Cool_Snake_Case.X)
+            local New_Y_Cool_Snake_Case = math.clamp(Start_Size_Cool_Snake_Case.Y + Delta_Cool_Snake_Case.Y, Min_Size_Cool_Snake_Case.Y, Max_Size_Cool_Snake_Case.Y)
             Target_Frame_Cool_Snake_Case.Size = UDim2.new(0, New_X_Cool_Snake_Case, 0, New_Y_Cool_Snake_Case)
-            Target_Frame_Cool_Snake_Case.Position = UDim2.new(Start_Pos_Cool_Snake_Case.X.Scale, Start_Pos_Cool_Snake_Case.X.Offset + (Diff_X_Cool_Snake_Case / 2), Start_Pos_Cool_Snake_Case.Y.Scale, Start_Pos_Cool_Snake_Case.Y.Offset + (Diff_Y_Cool_Snake_Case / 2))
+            local Diff_X_Cool_Snake_Case = New_X_Cool_Snake_Case - Start_Size_Cool_Snake_Case.X
+            local Diff_Y_Cool_Snake_Case = New_Y_Cool_Snake_Case - Start_Size_Cool_Snake_Case.Y
+            Target_Frame_Cool_Snake_Case.Position = UDim2.new(0.5, Start_Pos_Cool_Snake_Case.X.Offset + (Diff_X_Cool_Snake_Case / 2), 0.5, Start_Pos_Cool_Snake_Case.Y.Offset + (Diff_Y_Cool_Snake_Case / 2))
         end
     end)
     table.insert(Library.Connections, c1)
@@ -330,10 +337,10 @@ TooltipLabel.BackgroundTransparency = 0.05
 TooltipLabel.BackgroundColor3 = Theme.Container
 TooltipLabel.TextColor3 = Theme.Text
 TooltipLabel.Font = Config_Cool_Snake_Case.FontMain
-TooltipLabel.TextSize = 12
 TooltipLabel.Visible = false
 TooltipLabel.Parent = TooltipGui
 TooltipLabel.ZIndex = 1000
+Apply_Text_Scaling_Cool_Snake_Case(TooltipLabel, 12, 8)
 Corner(TooltipLabel, 4)
 Stroke(TooltipLabel, Theme.Stroke, 1)
 local function ApplyTooltip(guiObj, text)
@@ -408,9 +415,9 @@ function Library:Notify(title, text, duration)
     NTitle.Text = title
     NTitle.TextColor3 = Theme.Accent
     NTitle.Font = Config_Cool_Snake_Case.FontBold
-    NTitle.TextSize = 13
     NTitle.TextXAlignment = Enum.TextXAlignment.Left
     NTitle.Parent = NotifFrame
+    Apply_Text_Scaling_Cool_Snake_Case(NTitle, 13, 8)
     RegisterTheme(NTitle, "TextColor")
     local NText = Instance.new("TextLabel")
     NText.Size = UDim2.new(1, -20, 0, 20)
@@ -419,9 +426,9 @@ function Library:Notify(title, text, duration)
     NText.Text = text
     NText.TextColor3 = Theme.Text
     NText.Font = Config_Cool_Snake_Case.FontMain
-    NText.TextSize = 12
     NText.TextXAlignment = Enum.TextXAlignment.Left
     NText.Parent = NotifFrame
+    Apply_Text_Scaling_Cool_Snake_Case(NText, 12, 8)
     local TimebarBg = Instance.new("Frame")
     TimebarBg.Size = UDim2.new(1, 0, 0, 2)
     TimebarBg.Position = UDim2.new(0, 0, 1, -2)
@@ -481,10 +488,10 @@ function Library:InitWatermark()
     Label.Size = UDim2.new(1, 0, 1, 0)
     Label.BackgroundTransparency = 1
     Label.Font = Config_Cool_Snake_Case.FontBold
-    Label.TextSize = 12
     Label.TextColor3 = Theme.Text
     Label.RichText = true
     Label.Parent = Frame
+    Apply_Text_Scaling_Cool_Snake_Case(Label, 12, 8)
     local lastUpdate = 0
     local frames = 0
     local conn
@@ -546,8 +553,8 @@ function Library:CreateKeybindList()
     Title.Text = "Keybinds"
     Title.TextColor3 = Theme.Accent
     Title.Font = Config_Cool_Snake_Case.FontBold
-    Title.TextSize = 12
     Title.Parent = Header
+    Apply_Text_Scaling_Cool_Snake_Case(Title, 12, 8)
     RegisterTheme(Title, "TextColor")
     local Container = Instance.new("Frame")
     Container.Size = UDim2.new(1, 0, 0, 0)
@@ -582,9 +589,9 @@ function Library:UpdateKeybindList(name, key, active, mode)
             LName.Text = name
             LName.TextColor3 = Theme.Text
             LName.Font = Config_Cool_Snake_Case.FontMain
-            LName.TextSize = 12
             LName.TextXAlignment = Enum.TextXAlignment.Left
             LName.Parent = Item
+            Apply_Text_Scaling_Cool_Snake_Case(LName, 12, 8)
             local LKey = Instance.new("TextLabel")
             LKey.Name = "LKey"
             LKey.Size = UDim2.new(0.4, -5, 1, 0)
@@ -593,9 +600,9 @@ function Library:UpdateKeybindList(name, key, active, mode)
             LKey.Text = "[" .. tostring(key) .. "]"
             LKey.TextColor3 = Theme.TextDark
             LKey.Font = Config_Cool_Snake_Case.FontMain
-            LKey.TextSize = 12
             LKey.TextXAlignment = Enum.TextXAlignment.Right
             LKey.Parent = Item
+            Apply_Text_Scaling_Cool_Snake_Case(LKey, 12, 8)
         else
             local lkey = existing:FindFirstChild("LKey")
             if lkey then lkey.Text = "[" .. tostring(key) .. "]" end
@@ -631,13 +638,13 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     local DLabel = Instance.new("TextLabel")
     DLabel.Text = text
     DLabel.Font = Config_Cool_Snake_Case.FontMain
-    DLabel.TextSize = 13
     DLabel.TextColor3 = customParent and Theme.TextDark or Theme.Text
     DLabel.Size = UDim2.new(1, 0, 0, 16)
     DLabel.Position = UDim2.new(0, 5, 0, 0)
     DLabel.TextXAlignment = Enum.TextXAlignment.Left
     DLabel.BackgroundTransparency = 1
     DLabel.Parent = DropFrame
+    Apply_Text_Scaling_Cool_Snake_Case(DLabel, 13, 8)
     local Interactive = Instance.new("TextButton")
     Interactive.Size = UDim2.new(1, 0, 0, 26)
     Interactive.Position = UDim2.new(0, 0, 0, 20)
@@ -650,7 +657,6 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     Stroke(Interactive, Theme.Stroke, 1, 0.5)
     local SelectedText = Instance.new("TextLabel")
     SelectedText.Font = Config_Cool_Snake_Case.FontMain
-    SelectedText.TextSize = 13
     SelectedText.TextColor3 = Theme.Text
     SelectedText.Size = UDim2.new(1, -25, 1, 0)
     SelectedText.Position = UDim2.new(0, 8, 0, 0)
@@ -660,6 +666,7 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
     SelectedText.ClipsDescendants = false
     SelectedText.TextTruncate = Enum.TextTruncate.AtEnd
     SelectedText.Parent = Interactive
+    Apply_Text_Scaling_Cool_Snake_Case(SelectedText, 13, 8)
     local Arrow = Instance.new("ImageLabel")
     Arrow.Image = "rbxassetid://10709790948"
     Arrow.Size = UDim2.new(0, 18, 0, 18)
@@ -741,9 +748,9 @@ local function CreateDropdownElement(text, flag, options, default, tooltipText, 
             OptBtn.BackgroundTransparency = 1
             OptBtn.Text = opt
             OptBtn.Font = Config_Cool_Snake_Case.FontMain
-            OptBtn.TextSize = 12
             OptBtn.Parent = ListFrame
             OptBtn.ZIndex = 52
+            Apply_Text_Scaling_Cool_Snake_Case(OptBtn, 12, 8)
             if IsSelected(opt) then
                 OptBtn.TextColor3 = Theme.Accent
             else
@@ -862,17 +869,16 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     local Label = Instance.new("TextLabel")
     Label.Text = text
     Label.Font = Config_Cool_Snake_Case.FontMain
-    Label.TextSize = 13
     Label.TextColor3 = Theme.Text
     Label.Size = UDim2.new(0.6, 0, 0, 16)
     Label.Position = UDim2.new(0, 5, 0, 0)
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.BackgroundTransparency = 1
     Label.Parent = Frame
+    Apply_Text_Scaling_Cool_Snake_Case(Label, 13, 8)
     local ValLabel = Instance.new("TextBox")
     ValLabel.Text = FormatNumber(val, increment)
     ValLabel.Font = Config_Cool_Snake_Case.FontMain
-    ValLabel.TextSize = 13
     ValLabel.TextColor3 = Theme.Text
     ValLabel.Size = UDim2.new(0.4, -5, 0, 16)
     ValLabel.Position = UDim2.new(0.6, 0, 0, 0)
@@ -880,6 +886,7 @@ local function CreateSliderElement(text, flag, min, max, default, increment, too
     ValLabel.BackgroundTransparency = 1
     ValLabel.ClearTextOnFocus = true
     ValLabel.Parent = Frame
+    Apply_Text_Scaling_Cool_Snake_Case(ValLabel, 13, 8)
     local Bar = Instance.new("Frame")
     Bar.Size = UDim2.new(1, 0, 0, 6)
     Bar.Position = UDim2.new(0, 0, 0, 24)
@@ -1019,7 +1026,7 @@ function Library:CreateWindow(options)
         Frame.Active = false
         if not Is_Mobile_Device_Cool_Snake_Case then
             local SizeConstraint = Instance.new("UISizeConstraint")
-            SizeConstraint.MaxSize = Vector2.new(850, 600)
+            SizeConstraint.MaxSize = Vector2.new(800, 600)
             SizeConstraint.MinSize = Vector2.new(450, 300)
             SizeConstraint.Parent = Frame
         end
@@ -1036,7 +1043,7 @@ function Library:CreateWindow(options)
         Corner(BgNoise, 6)
         local DragArea_Cool_Snake_Case = Instance.new("TextButton")
         DragArea_Cool_Snake_Case.Name = "DragArea"
-        DragArea_Cool_Snake_Case.Size = UDim2.new(1, 0, 1, 0)
+        DragArea_Cool_Snake_Case.Size = UDim2.new(1, 0, 0, 60)
         DragArea_Cool_Snake_Case.BackgroundTransparency = 1
         DragArea_Cool_Snake_Case.Text = ""
         DragArea_Cool_Snake_Case.ZIndex = 0
@@ -1075,7 +1082,7 @@ function Library:CreateWindow(options)
     end)
     table.insert(Library.Connections, c2)
     table.insert(Library.Connections, c3)
-    Make_Resizable_Cool_Snake_Case(Resizer, Main_Window_Cool_Snake_Case, Vector2.new(450, 300), Vector2.new(850, 600))
+    Make_Resizable_Cool_Snake_Case(Resizer, Main_Window_Cool_Snake_Case, Vector2.new(450, 300), Vector2.new(800, 600))
     local function CreateSidebar(parent, isSettings)
         local Bar = Instance.new("Frame")
         Bar.Size = UDim2.new(0.3, 0, 1, 0)
@@ -1085,6 +1092,14 @@ function Library:CreateWindow(options)
         Bar.Parent = parent
         Bar.Active = false
         Corner(Bar, 6)
+        local DragArea_Sidebar_Cool_Snake_Case = Instance.new("TextButton")
+        DragArea_Sidebar_Cool_Snake_Case.Name = "SidebarDragArea"
+        DragArea_Sidebar_Cool_Snake_Case.Size = UDim2.new(1, 0, 1, 0)
+        DragArea_Sidebar_Cool_Snake_Case.BackgroundTransparency = 1
+        DragArea_Sidebar_Cool_Snake_Case.Text = ""
+        DragArea_Sidebar_Cool_Snake_Case.ZIndex = 0
+        DragArea_Sidebar_Cool_Snake_Case.Parent = Bar
+        Make_Draggable_Cool_Snake_Case(DragArea_Sidebar_Cool_Snake_Case, parent, nil)
         local Div = Instance.new("Frame")
         Div.Size = UDim2.new(0, 1, 1, 0)
         Div.Position = UDim2.new(1, 0, 0, 0)
@@ -1098,12 +1113,12 @@ function Library:CreateWindow(options)
             BackBtn.BackgroundColor3 = Theme.Container
             BackBtn.Text = " < Back to Menu"
             BackBtn.Font = Config_Cool_Snake_Case.FontBold
-            BackBtn.TextSize = 13
-            if Is_Mobile_Device_Cool_Snake_Case then BackBtn.TextScaled = true end
             BackBtn.TextColor3 = Theme.TextDark
             BackBtn.TextXAlignment = Enum.TextXAlignment.Left
             BackBtn.AutoButtonColor = false
             BackBtn.Parent = Bar
+            BackBtn.ZIndex = 2
+            Apply_Text_Scaling_Cool_Snake_Case(BackBtn, 13, 8)
             Corner(BackBtn, 4)
             Stroke(BackBtn, Theme.Stroke, 1, 0.5)
             local c4 = BackBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(BackBtn, {TextColor3 = Theme.Accent}) end end)
@@ -1115,24 +1130,23 @@ function Library:CreateWindow(options)
             Title.Size = UDim2.new(1, -20, 0, 30)
             Title.Position = UDim2.new(0, 10, 0, 55)
             Title.Font = Config_Cool_Snake_Case.FontBold
-            Title.TextSize = 22
-            if Is_Mobile_Device_Cool_Snake_Case then Title.TextScaled = true end
             Title.TextColor3 = Theme.Text
             Title.TextXAlignment = Enum.TextXAlignment.Left
             Title.BackgroundTransparency = 1
             Title.Parent = Bar
+            Apply_Text_Scaling_Cool_Snake_Case(Title, 22, 12)
             return Bar, nil, BackBtn
         else
             local Logo = Instance.new("TextLabel")
             Logo.Text = Config_Cool_Snake_Case.Name
-            Logo.Position = UDim2.new(0, 15, 0, 15)
+            Logo.Position = UDim2.new(0, 10, 0, 15)
             Logo.Size = UDim2.new(1, -20, 0, 30)
             Logo.Font = Config_Cool_Snake_Case.FontBold
-            Logo.TextScaled = true
             Logo.TextColor3 = Theme.Accent
             Logo.TextXAlignment = Enum.TextXAlignment.Left
             Logo.BackgroundTransparency = 1
             Logo.Parent = Bar
+            Apply_Text_Scaling_Cool_Snake_Case(Logo, 20, 10)
             RegisterTheme(Logo, "TextColor")
             local Logo_Stroke_Cool_Snake_Case = Instance.new("UIStroke")
             Logo_Stroke_Cool_Snake_Case.Color = Theme.Stroke
@@ -1148,6 +1162,7 @@ function Library:CreateWindow(options)
             Container.AutomaticCanvasSize = Enum.AutomaticSize.Y
             Container.ClipsDescendants = true
             Container.Active = true
+            Container.ZIndex = 2
             Container.Parent = Bar
             RegisterTheme(Container, "ScrollBar")
             local List = Instance.new("UIListLayout")
@@ -1171,6 +1186,7 @@ function Library:CreateWindow(options)
     ProfileBtn.BorderSizePixel = 0
     ProfileBtn.Text = ""
     ProfileBtn.AutoButtonColor = false
+    ProfileBtn.ZIndex = 2
     ProfileBtn.Parent = MainBar
     local SideAvatar = Instance.new("ImageLabel")
     SideAvatar.Size = UDim2.new(0, 36, 0, 36)
@@ -1179,32 +1195,35 @@ function Library:CreateWindow(options)
     SideAvatar.BackgroundColor3 = Theme.Container
     local s2, av2 = pcall(function() return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
     SideAvatar.Image = s2 and av2 or "rbxassetid://0"
+    SideAvatar.ZIndex = 3
     SideAvatar.Parent = ProfileBtn
     Corner(SideAvatar, 18)
     local AvS = Stroke(SideAvatar, Theme.Accent, 1)
     RegisterTheme(AvS, "BorderColor")
     local SideName = Instance.new("TextLabel")
-    SideName.Size = UDim2.new(0, 100, 0, 16)
+    SideName.Size = UDim2.new(1, -65, 0, 16)
     SideName.Position = UDim2.new(0, 60, 0.5, -9)
     SideName.AnchorPoint = Vector2.new(0, 0.5)
     SideName.BackgroundTransparency = 1
     SideName.Text = LocalPlayer.Name
     SideName.TextColor3 = Theme.Text
     SideName.Font = Config_Cool_Snake_Case.FontBold
-    SideName.TextSize = 13
     SideName.TextXAlignment = Enum.TextXAlignment.Left
+    SideName.ZIndex = 3
     SideName.Parent = ProfileBtn
+    Apply_Text_Scaling_Cool_Snake_Case(SideName, 13, 8)
     local SideSub = Instance.new("TextLabel")
-    SideSub.Size = UDim2.new(0, 100, 0, 14)
+    SideSub.Size = UDim2.new(1, -65, 0, 14)
     SideSub.Position = UDim2.new(0, 60, 0.5, 9)
     SideSub.AnchorPoint = Vector2.new(0, 0.5)
     SideSub.BackgroundTransparency = 1
     SideSub.Text = "Settings"
     SideSub.TextColor3 = Theme.TextDark
     SideSub.Font = Config_Cool_Snake_Case.FontMain
-    SideSub.TextSize = 11
     SideSub.TextXAlignment = Enum.TextXAlignment.Left
+    SideSub.ZIndex = 3
     SideSub.Parent = ProfileBtn
+    Apply_Text_Scaling_Cool_Snake_Case(SideSub, 11, 8)
     local IsSettings = false
     local animating = false
     local function ToggleMain()
@@ -1214,18 +1233,17 @@ function Library:CreateWindow(options)
         if Library.Open then
             if IsSettings then
                 Settings_Window_Cool_Snake_Case.Visible = true
-                Tween(Settings_Window_Cool_Snake_Case, {Size = Base_Size_Cool_Snake_Case, BackgroundTransparency = 0.1}, 0.2).Completed:Wait()
+                Tween(Settings_Window_Cool_Snake_Case, {BackgroundTransparency = 0.1}, 0.2).Completed:Wait()
             else
                 Main_Window_Cool_Snake_Case.Visible = true
-                Tween(Main_Window_Cool_Snake_Case, {Size = Base_Size_Cool_Snake_Case, BackgroundTransparency = 0.1}, 0.2).Completed:Wait()
+                Tween(Main_Window_Cool_Snake_Case, {BackgroundTransparency = 0.1}, 0.2).Completed:Wait()
             end
         else
-            local target_Scale_Cool_Snake_Case = UDim2.new(Base_Size_Cool_Snake_Case.X.Scale * 0.9, Base_Size_Cool_Snake_Case.X.Offset * 0.9, Base_Size_Cool_Snake_Case.Y.Scale * 0.9, Base_Size_Cool_Snake_Case.Y.Offset * 0.9)
             if IsSettings then
-                Tween(Settings_Window_Cool_Snake_Case, {Size = target_Scale_Cool_Snake_Case, BackgroundTransparency = 1}, 0.15).Completed:Wait()
+                Tween(Settings_Window_Cool_Snake_Case, {BackgroundTransparency = 1}, 0.15).Completed:Wait()
                 Settings_Window_Cool_Snake_Case.Visible = false
             else
-                Tween(Main_Window_Cool_Snake_Case, {Size = target_Scale_Cool_Snake_Case, BackgroundTransparency = 1}, 0.15).Completed:Wait()
+                Tween(Main_Window_Cool_Snake_Case, {BackgroundTransparency = 1}, 0.15).Completed:Wait()
                 Main_Window_Cool_Snake_Case.Visible = false
             end
             TooltipLabel.Visible = false
@@ -1240,6 +1258,7 @@ function Library:CreateWindow(options)
         Settings_Window_Cool_Snake_Case.Size = Main_Window_Cool_Snake_Case.Size
         Main_Window_Cool_Snake_Case.Visible = false
         Settings_Window_Cool_Snake_Case.Visible = true
+        Tween(Settings_Window_Cool_Snake_Case, {BackgroundTransparency = 0.1}, 0)
         IsSettings = true
         Library._IsSettings = true
         animating = false
@@ -1251,6 +1270,7 @@ function Library:CreateWindow(options)
         Main_Window_Cool_Snake_Case.Size = Settings_Window_Cool_Snake_Case.Size
         Settings_Window_Cool_Snake_Case.Visible = false
         Main_Window_Cool_Snake_Case.Visible = true
+        Tween(Main_Window_Cool_Snake_Case, {BackgroundTransparency = 0.1}, 0)
         IsSettings = false
         Library._IsSettings = false
         animating = false
@@ -1270,8 +1290,8 @@ function Library:CreateWindow(options)
     MainPages.Size = UDim2.new(0.7, 0, 1, 0)
     MainPages.Position = UDim2.new(0.3, 0, 0, 0)
     if not Is_Mobile_Device_Cool_Snake_Case then
-        MainPages.Size = UDim2.new(1, -181, 1, 0)
-        MainPages.Position = UDim2.new(0, 181, 0, 0)
+        MainPages.Size = UDim2.new(1, -180, 1, 0)
+        MainPages.Position = UDim2.new(0, 180, 0, 0)
     end
     MainPages.BackgroundTransparency = 1
     MainPages.Parent = Main_Window_Cool_Snake_Case
@@ -1289,13 +1309,13 @@ function Library:CreateWindow(options)
         local Title = Instance.new("TextLabel")
         Title.Text = text
         Title.Font = Config_Cool_Snake_Case.FontBold
-        Title.TextSize = 12
         Title.TextColor3 = Theme.TextDark
         Title.Size = UDim2.new(1, -20, 0, 30)
         Title.Position = UDim2.new(0, 10, 0, 0)
         Title.BackgroundTransparency = 1
         Title.TextXAlignment = Enum.TextXAlignment.Left
         Title.Parent = Container
+        Apply_Text_Scaling_Cool_Snake_Case(Title, 12, 8)
         local Content = Instance.new("Frame")
         Content.Name = "Content"
         Content.Size = UDim2.new(1, -10, 0, 0)
@@ -1326,13 +1346,13 @@ function Library:CreateWindow(options)
             Lbl.BackgroundTransparency = 1
             Lbl.Text = tostring(ltext)
             Lbl.Font = Config_Cool_Snake_Case.FontMain
-            Lbl.TextSize = 13
             Lbl.TextColor3 = options.Color or Theme.Text
             Lbl.TextXAlignment = options.Alignment or Enum.TextXAlignment.Left
             Lbl.TextYAlignment = Enum.TextYAlignment.Top
             Lbl.RichText = true
             Lbl.TextWrapped = true
             Lbl.Parent = Frame
+            Apply_Text_Scaling_Cool_Snake_Case(Lbl, 13, 8)
             local function UpdateHeight()
                 local textHeight = Lbl.TextBounds.Y
                 if textHeight > 16 then Frame.Size = UDim2.new(1, 0, 0, textHeight + 10) else Frame.Size = UDim2.new(1, 0, 0, 26) end
@@ -1350,10 +1370,10 @@ function Library:CreateWindow(options)
             Btn.BackgroundColor3 = Theme.Container
             Btn.Text = text
             Btn.Font = Config_Cool_Snake_Case.FontMain
-            Btn.TextSize = 13
             Btn.TextColor3 = Theme.Text
             Btn.AutoButtonColor = false
             Btn.Parent = Content
+            Apply_Text_Scaling_Cool_Snake_Case(Btn, 13, 8)
             Corner(Btn, 4)
             local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
             local bc1 = Btn.MouseEnter:Connect(function() if Can_Hover() then Tween(Btn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end end)
@@ -1392,13 +1412,13 @@ function Library:CreateWindow(options)
             local Label = Instance.new("TextLabel")
             Label.Text = text
             Label.Font = Config_Cool_Snake_Case.FontMain
-            Label.TextSize = 13
             Label.TextColor3 = Theme.Text
             Label.Size = UDim2.new(1, -30, 1, 0)
             Label.Position = UDim2.new(0, 10, 0, 0)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.BackgroundTransparency = 1
             Label.Parent = Btn
+            Apply_Text_Scaling_Cool_Snake_Case(Label, 13, 8)
             local Box = Instance.new("Frame")
             Box.Size = UDim2.new(0, 18, 0, 18)
             Box.Position = UDim2.new(1, -10, 0.5, 0)
@@ -1489,13 +1509,13 @@ function Library:CreateWindow(options)
             local Label = Instance.new("TextLabel")
             Label.Text = text
             Label.Font = Config_Cool_Snake_Case.FontMain
-            Label.TextSize = 13
             Label.TextColor3 = Theme.Text
             Label.Size = UDim2.new(1, 0, 0, 20)
             Label.Position = UDim2.new(0, 5, 0, 0)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.BackgroundTransparency = 1
             Label.Parent = Frame
+            Apply_Text_Scaling_Cool_Snake_Case(Label, 13, 8)
             local BoxCont = Instance.new("Frame")
             BoxCont.Size = UDim2.new(1, 0, 0, 28)
             BoxCont.Position = UDim2.new(0, 0, 0, 22)
@@ -1511,12 +1531,12 @@ function Library:CreateWindow(options)
             Input.PlaceholderText = placeholder
             Input.PlaceholderColor3 = Theme.TextDark
             Input.Font = Config_Cool_Snake_Case.FontMain
-            Input.TextSize = 13
             Input.TextXAlignment = Enum.TextXAlignment.Left
             local currentText = Library.Flags[flag] or ""
             Input.Text = currentText
             Input.ClearTextOnFocus = false
             Input.Parent = BoxCont
+            Apply_Text_Scaling_Cool_Snake_Case(Input, 13, 8)
             local ic1 = Input.FocusLost:Connect(function(enter)
                 if enter then
                     Library.Flags[flag] = Input.Text
@@ -1560,13 +1580,13 @@ function Library:CreateWindow(options)
             local Label = Instance.new("TextLabel")
             Label.Text = text
             Label.Font = Config_Cool_Snake_Case.FontMain
-            Label.TextSize = 13
             Label.TextColor3 = Theme.Text
             Label.Size = UDim2.new(0.6, 0, 1, 0)
             Label.Position = UDim2.new(0, 5, 0, 0)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.BackgroundTransparency = 1
             Label.Parent = Frame
+            Apply_Text_Scaling_Cool_Snake_Case(Label, 13, 8)
             local Preview = Instance.new("TextButton")
             Preview.Size = UDim2.new(0, 40, 0, 20)
             Preview.Position = UDim2.new(1, -5, 0.5, 0)
@@ -1635,10 +1655,10 @@ function Library:CreateWindow(options)
             HexInput.BackgroundColor3 = Theme.Container
             HexInput.TextColor3 = Theme.Text
             HexInput.Font = Config_Cool_Snake_Case.FontMain
-            HexInput.TextSize = 12
             HexInput.Text = "#" .. color:ToHex()
             HexInput.Parent = PickerCont
             HexInput.ZIndex = 11
+            Apply_Text_Scaling_Cool_Snake_Case(HexInput, 12, 8)
             Corner(HexInput, 4)
             Stroke(HexInput, Theme.Stroke, 1)
             local function Update()
@@ -1744,8 +1764,8 @@ function Library:CreateWindow(options)
             table.insert(Library.Connections, h4)
             local pc1 = Preview.MouseButton1Click:Connect(function()
                 isOpen = not isOpen
-                Section.Container.ZIndex = isOpen and 10 or 1
-                ContainerFrame.ZIndex = isOpen and 10 or 5
+                Section.Container.ZIndex = isOpen and 50 or 1
+                ContainerFrame.ZIndex = isOpen and 50 or 5
                 if isOpen then
                     PickerCont.Visible = true
                     Tween(ContainerFrame, {Size = UDim2.new(1, 0, 0, 200)}, 0.2)
@@ -1768,10 +1788,12 @@ function Library:CreateWindow(options)
     end
     local function PopulateSettings()
         local SetPage = Instance.new("ScrollingFrame")
-        SetPage.Size = UDim2.new(1, -200, 1, -20)
-        if Is_Mobile_Device_Cool_Snake_Case then SetPage.Size = UDim2.new(0.7, -20, 1, -20) end
-        SetPage.Position = UDim2.new(0, 190, 0, 10)
-        if Is_Mobile_Device_Cool_Snake_Case then SetPage.Position = UDim2.new(0.3, 10, 0, 10) end
+        SetPage.Size = UDim2.new(0.7, -20, 1, -20)
+        SetPage.Position = UDim2.new(0.3, 10, 0, 10)
+        if not Is_Mobile_Device_Cool_Snake_Case then
+            SetPage.Size = UDim2.new(1, -200, 1, -20)
+            SetPage.Position = UDim2.new(0, 190, 0, 10)
+        end
         SetPage.BackgroundTransparency = 1
         SetPage.ScrollBarThickness = 2
         SetPage.ScrollBarImageColor3 = Theme.Accent
@@ -1829,13 +1851,13 @@ function Library:CreateWindow(options)
         local CNameLabel = Instance.new("TextLabel")
         CNameLabel.Text = "Config Name"
         CNameLabel.Font = Config_Cool_Snake_Case.FontMain
-        CNameLabel.TextSize = 13
         CNameLabel.TextColor3 = Theme.Text
         CNameLabel.Size = UDim2.new(1, 0, 0, 20)
         CNameLabel.Position = UDim2.new(0, 5, 0, 0)
         CNameLabel.TextXAlignment = Enum.TextXAlignment.Left
         CNameLabel.BackgroundTransparency = 1
         CNameLabel.Parent = CNameFrame
+        Apply_Text_Scaling_Cool_Snake_Case(CNameLabel, 13, 8)
         local CNameBoxCont = Instance.new("Frame")
         CNameBoxCont.Size = UDim2.new(1, 0, 0, 28)
         CNameBoxCont.Position = UDim2.new(0, 0, 0, 22)
@@ -1851,11 +1873,11 @@ function Library:CreateWindow(options)
         CNameInput.PlaceholderText = "Type config name..."
         CNameInput.PlaceholderColor3 = Theme.TextDark
         CNameInput.Font = Config_Cool_Snake_Case.FontMain
-        CNameInput.TextSize = 13
         CNameInput.TextXAlignment = Enum.TextXAlignment.Left
         CNameInput.Text = ""
         CNameInput.ClearTextOnFocus = false
         CNameInput.Parent = CNameBoxCont
+        Apply_Text_Scaling_Cool_Snake_Case(CNameInput, 13, 8)
         local c2 = CNameInput:GetPropertyChangedSignal("Text"):Connect(function()
             configNameInput = CNameInput.Text
         end)
@@ -1868,13 +1890,13 @@ function Library:CreateWindow(options)
         local CDLabel = Instance.new("TextLabel")
         CDLabel.Text = "Select Config"
         CDLabel.Font = Config_Cool_Snake_Case.FontMain
-        CDLabel.TextSize = 13
         CDLabel.TextColor3 = Theme.Text
         CDLabel.Size = UDim2.new(1, 0, 0, 16)
         CDLabel.Position = UDim2.new(0, 5, 0, 0)
         CDLabel.TextXAlignment = Enum.TextXAlignment.Left
         CDLabel.BackgroundTransparency = 1
         CDLabel.Parent = ConfigDropdownFrame
+        Apply_Text_Scaling_Cool_Snake_Case(CDLabel, 13, 8)
         local CDInteractive = Instance.new("TextButton")
         CDInteractive.Size = UDim2.new(1, 0, 0, 26)
         CDInteractive.Position = UDim2.new(0, 0, 0, 20)
@@ -1887,7 +1909,6 @@ function Library:CreateWindow(options)
         Stroke(CDInteractive, Theme.Stroke, 1, 0.5)
         local CDSelectedText = Instance.new("TextLabel")
         CDSelectedText.Font = Config_Cool_Snake_Case.FontMain
-        CDSelectedText.TextSize = 13
         CDSelectedText.TextColor3 = Theme.Text
         CDSelectedText.Size = UDim2.new(1, -25, 1, 0)
         CDSelectedText.Position = UDim2.new(0, 8, 0, 0)
@@ -1897,6 +1918,7 @@ function Library:CreateWindow(options)
         CDSelectedText.ClipsDescendants = false
         CDSelectedText.TextTruncate = Enum.TextTruncate.AtEnd
         CDSelectedText.Parent = CDInteractive
+        Apply_Text_Scaling_Cool_Snake_Case(CDSelectedText, 13, 8)
         local CDArrow = Instance.new("ImageLabel")
         CDArrow.Image = "rbxassetid://10709790948"
         CDArrow.Size = UDim2.new(0, 18, 0, 18)
@@ -1954,10 +1976,10 @@ function Library:CreateWindow(options)
                 OptBtn.BackgroundTransparency = 1
                 OptBtn.Text = opt
                 OptBtn.Font = Config_Cool_Snake_Case.FontMain
-                OptBtn.TextSize = 12
                 OptBtn.Parent = CDListFrame
                 OptBtn.ZIndex = 52
                 OptBtn.TextColor3 = (selectedConfigName == opt) and Theme.Accent or Theme.TextDark
+                Apply_Text_Scaling_Cool_Snake_Case(OptBtn, 12, 8)
                 cdOptionBtns[opt] = OptBtn
                 local c5 = OptBtn.MouseEnter:Connect(function()
                     if selectedConfigName ~= opt and Can_Hover() then Tween(OptBtn, {BackgroundTransparency = 0.8, TextColor3 = Theme.Accent}) end
@@ -2011,11 +2033,11 @@ function Library:CreateWindow(options)
         CreateBtn.BackgroundColor3 = Theme.Container
         CreateBtn.Text = "Create New Config"
         CreateBtn.Font = Config_Cool_Snake_Case.FontMain
-        CreateBtn.TextSize = 13
         CreateBtn.TextColor3 = Theme.Text
         CreateBtn.AutoButtonColor = false
         CreateBtn.LayoutOrder = 3
         CreateBtn.Parent = ConfigContent
+        Apply_Text_Scaling_Cool_Snake_Case(CreateBtn, 13, 8)
         Corner(CreateBtn, 4)
         local cs1 = Stroke(CreateBtn, Theme.Stroke, 1, 0.5)
         local c9 = CreateBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(CreateBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs1, {Color = Theme.Accent}) end end)
@@ -2054,11 +2076,11 @@ function Library:CreateWindow(options)
         LoadBtn.BackgroundColor3 = Theme.Container
         LoadBtn.Text = "Load Config"
         LoadBtn.Font = Config_Cool_Snake_Case.FontMain
-        LoadBtn.TextSize = 13
         LoadBtn.TextColor3 = Theme.Text
         LoadBtn.AutoButtonColor = false
         LoadBtn.LayoutOrder = 4
         LoadBtn.Parent = ConfigContent
+        Apply_Text_Scaling_Cool_Snake_Case(LoadBtn, 13, 8)
         Corner(LoadBtn, 4)
         local cs2 = Stroke(LoadBtn, Theme.Stroke, 1, 0.5)
         local c12 = LoadBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(LoadBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs2, {Color = Theme.Accent}) end end)
@@ -2087,11 +2109,11 @@ function Library:CreateWindow(options)
         RewriteBtn.BackgroundColor3 = Theme.Container
         RewriteBtn.Text = "Rewrite Config"
         RewriteBtn.Font = Config_Cool_Snake_Case.FontMain
-        RewriteBtn.TextSize = 13
         RewriteBtn.TextColor3 = Theme.Text
         RewriteBtn.AutoButtonColor = false
         RewriteBtn.LayoutOrder = 5
         RewriteBtn.Parent = ConfigContent
+        Apply_Text_Scaling_Cool_Snake_Case(RewriteBtn, 13, 8)
         Corner(RewriteBtn, 4)
         local cs3 = Stroke(RewriteBtn, Theme.Stroke, 1, 0.5)
         local c15 = RewriteBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(RewriteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs3, {Color = Theme.Accent}) end end)
@@ -2120,11 +2142,11 @@ function Library:CreateWindow(options)
         DeleteBtn.BackgroundColor3 = Theme.Container
         DeleteBtn.Text = "Delete Config"
         DeleteBtn.Font = Config_Cool_Snake_Case.FontMain
-        DeleteBtn.TextSize = 13
         DeleteBtn.TextColor3 = Theme.Text
         DeleteBtn.AutoButtonColor = false
         DeleteBtn.LayoutOrder = 6
         DeleteBtn.Parent = ConfigContent
+        Apply_Text_Scaling_Cool_Snake_Case(DeleteBtn, 13, 8)
         Corner(DeleteBtn, 4)
         local cs4 = Stroke(DeleteBtn, Theme.Stroke, 1, 0.5)
         local c18 = DeleteBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(DeleteBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs4, {Color = Theme.Accent}) end end)
@@ -2154,11 +2176,11 @@ function Library:CreateWindow(options)
         RefreshBtn.BackgroundColor3 = Theme.Container
         RefreshBtn.Text = "Refresh Config List"
         RefreshBtn.Font = Config_Cool_Snake_Case.FontMain
-        RefreshBtn.TextSize = 13
         RefreshBtn.TextColor3 = Theme.Text
         RefreshBtn.AutoButtonColor = false
         RefreshBtn.LayoutOrder = 7
         RefreshBtn.Parent = ConfigContent
+        Apply_Text_Scaling_Cool_Snake_Case(RefreshBtn, 13, 8)
         Corner(RefreshBtn, 4)
         local cs5 = Stroke(RefreshBtn, Theme.Stroke, 1, 0.5)
         local c21 = RefreshBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(RefreshBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs5, {Color = Theme.Accent}) end end)
@@ -2175,11 +2197,11 @@ function Library:CreateWindow(options)
         ResetBtn.BackgroundColor3 = Theme.Container
         ResetBtn.Text = "Reset to Defaults"
         ResetBtn.Font = Config_Cool_Snake_Case.FontMain
-        ResetBtn.TextSize = 13
         ResetBtn.TextColor3 = Theme.Text
         ResetBtn.AutoButtonColor = false
         ResetBtn.LayoutOrder = 8
         ResetBtn.Parent = ConfigContent
+        Apply_Text_Scaling_Cool_Snake_Case(ResetBtn, 13, 8)
         Corner(ResetBtn, 4)
         local cs6 = Stroke(ResetBtn, Theme.Stroke, 1, 0.5)
         local c24 = ResetBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(ResetBtn, {BackgroundColor3 = Theme.Stroke}) Tween(cs6, {Color = Theme.Accent}) end end)
@@ -2224,13 +2246,13 @@ function Library:CreateWindow(options)
         local Title = Instance.new("TextLabel")
         Title.Text = name
         Title.Font = Config_Cool_Snake_Case.FontMain
-        Title.TextSize = 14
         Title.TextColor3 = Theme.TextDark
         Title.Size = UDim2.new(1, -20, 1, 0)
         Title.Position = UDim2.new(0, iconId and 35 or 15, 0, 0)
         Title.TextXAlignment = Enum.TextXAlignment.Left
         Title.BackgroundTransparency = 1
         Title.Parent = TabBtn
+        Apply_Text_Scaling_Cool_Snake_Case(Title, 14, 8)
         if iconId then
             local Ico = Instance.new("ImageLabel")
             Ico.Size = UDim2.new(0, 20, 0, 20)
@@ -2327,13 +2349,13 @@ function Library:CreateWindow(options)
             local STitle = Instance.new("TextLabel")
             STitle.Text = text
             STitle.Font = Config_Cool_Snake_Case.FontBold
-            STitle.TextSize = 12
             STitle.TextColor3 = Theme.TextDark
             STitle.Size = UDim2.new(1, -20, 0, 25)
             STitle.Position = UDim2.new(0, 10, 0, 0)
             STitle.BackgroundTransparency = 1
             STitle.TextXAlignment = Enum.TextXAlignment.Left
             STitle.Parent = Container
+            Apply_Text_Scaling_Cool_Snake_Case(STitle, 12, 8)
             local Content = Instance.new("Frame")
             Content.Size = UDim2.new(1, -10, 0, 0)
             Content.Position = UDim2.new(0, 5, 0, 25)
@@ -2366,13 +2388,13 @@ function Library:CreateWindow(options)
                 Lbl.BackgroundTransparency = 1
                 Lbl.Text = tostring(ltext)
                 Lbl.Font = Config_Cool_Snake_Case.FontMain
-                Lbl.TextSize = 13
                 Lbl.TextColor3 = options.Color or Theme.Text
                 Lbl.TextXAlignment = options.Alignment or Enum.TextXAlignment.Left
                 Lbl.TextYAlignment = Enum.TextYAlignment.Top
                 Lbl.RichText = true
                 Lbl.TextWrapped = true
                 Lbl.Parent = Frame
+                Apply_Text_Scaling_Cool_Snake_Case(Lbl, 13, 8)
                 local function UpdateHeight()
                     local textHeight = Lbl.TextBounds.Y
                     if textHeight > 16 then Frame.Size = UDim2.new(1, 0, 0, textHeight + 10) else Frame.Size = UDim2.new(1, 0, 0, 26) end
@@ -2412,13 +2434,13 @@ function Library:CreateWindow(options)
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
                 Label.Font = Config_Cool_Snake_Case.FontMain
-                Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(1, -30, 1, 0)
                 Label.Position = UDim2.new(0, 10, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Btn
+                Apply_Text_Scaling_Cool_Snake_Case(Label, 13, 8)
                 local Box = Instance.new("Frame")
                 Box.Size = UDim2.new(0, 18, 0, 18)
                 Box.Position = UDim2.new(1, -10, 0.5, 0)
@@ -2505,10 +2527,10 @@ function Library:CreateWindow(options)
                     SBtn.BackgroundColor3 = Theme.Container
                     SBtn.Text = txt
                     SBtn.Font = Config_Cool_Snake_Case.FontMain
-                    SBtn.TextSize = 12
                     SBtn.TextColor3 = Theme.Text
                     SBtn.AutoButtonColor = false
                     SBtn.Parent = SubContainer
+                    Apply_Text_Scaling_Cool_Snake_Case(SBtn, 12, 8)
                     Corner(SBtn, 4)
                     local s = Stroke(SBtn, Theme.Stroke, 1, 0.5)
                     local tbc1 = SBtn.MouseEnter:Connect(function() if Can_Hover() then Tween(SBtn, {BackgroundColor3 = Theme.Stroke}) Tween(s, {Color = Theme.Accent}) end end)
@@ -2534,22 +2556,22 @@ function Library:CreateWindow(options)
                     local SLabel = Instance.new("TextLabel")
                     SLabel.Text = txt
                     SLabel.Font = Config_Cool_Snake_Case.FontMain
-                    SLabel.TextSize = 12
                     SLabel.TextColor3 = Theme.TextDark
                     SLabel.Size = UDim2.new(1, 0, 0, 16)
                     SLabel.TextXAlignment = Enum.TextXAlignment.Left
                     SLabel.BackgroundTransparency = 1
                     SLabel.Parent = SFrame
+                    Apply_Text_Scaling_Cool_Snake_Case(SLabel, 12, 8)
                     local SValue = Instance.new("TextBox")
                     SValue.Text = FormatNumber(val, inc)
                     SValue.Font = Config_Cool_Snake_Case.FontMain
-                    SValue.TextSize = 12
                     SValue.TextColor3 = Theme.Text
                     SValue.Size = UDim2.new(1, 0, 0, 16)
                     SValue.TextXAlignment = Enum.TextXAlignment.Right
                     SValue.BackgroundTransparency = 1
                     SValue.ClearTextOnFocus = true
                     SValue.Parent = SFrame
+                    Apply_Text_Scaling_Cool_Snake_Case(SValue, 12, 8)
                     local SlideBg = Instance.new("Frame")
                     SlideBg.Size = UDim2.new(1, 0, 0, 6)
                     SlideBg.Position = UDim2.new(0, 0, 0, 22)
@@ -2650,9 +2672,9 @@ function Library:CreateWindow(options)
                     KeyBtn.Text = "[" .. (ToggleObj.KeybindValue.Name) .. "]"
                     KeyBtn.TextColor3 = Theme.TextDark
                     KeyBtn.Font = Config_Cool_Snake_Case.FontMain
-                    KeyBtn.TextSize = 11
                     KeyBtn.TextXAlignment = Enum.TextXAlignment.Right
                     KeyBtn.Parent = Btn
+                    Apply_Text_Scaling_Cool_Snake_Case(KeyBtn, 11, 8)
                     local binding = false
                     local kb1 = KeyBtn.MouseButton1Click:Connect(function()
                         if binding then return end
@@ -2692,9 +2714,9 @@ function Library:CreateWindow(options)
                         mBtn.Text = md
                         mBtn.TextColor3 = Theme.TextDark
                         mBtn.Font = Config_Cool_Snake_Case.FontMain
-                        mBtn.TextSize = 11
                         mBtn.Parent = ModeGui
                         mBtn.ZIndex = 101
+                        Apply_Text_Scaling_Cool_Snake_Case(mBtn, 11, 8)
                         local mb1 = mBtn.MouseButton1Click:Connect(function()
                             ToggleObj.KeybindMode = md
                             ModeGui.Visible = false
@@ -2758,13 +2780,13 @@ function Library:CreateWindow(options)
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
                 Label.Font = Config_Cool_Snake_Case.FontMain
-                Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(0.6, 0, 1, 0)
                 Label.Position = UDim2.new(0, 5, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
+                Apply_Text_Scaling_Cool_Snake_Case(Label, 13, 8)
                 local KeyBtn = Instance.new("TextButton")
                 KeyBtn.Size = UDim2.new(0, 80, 0, 20)
                 KeyBtn.Position = UDim2.new(1, -5, 0.5, 0)
@@ -2772,10 +2794,10 @@ function Library:CreateWindow(options)
                 KeyBtn.BackgroundColor3 = Theme.Container
                 KeyBtn.Text = "[" .. key.Name .. "]"
                 KeyBtn.Font = Config_Cool_Snake_Case.FontMain
-                KeyBtn.TextSize = 12
                 KeyBtn.TextColor3 = Theme.TextDark
                 KeyBtn.AutoButtonColor = false
                 KeyBtn.Parent = Frame
+                Apply_Text_Scaling_Cool_Snake_Case(KeyBtn, 12, 8)
                 Corner(KeyBtn, 4)
                 Stroke(KeyBtn, Theme.Stroke, 1, 0.5)
                 local toggled = (kMode == "Always")
@@ -2824,9 +2846,9 @@ function Library:CreateWindow(options)
                     mBtn.Text = md
                     mBtn.TextColor3 = Theme.TextDark
                     mBtn.Font = Config_Cool_Snake_Case.FontMain
-                    mBtn.TextSize = 11
                     mBtn.Parent = ModeGui
                     mBtn.ZIndex = 101
+                    Apply_Text_Scaling_Cool_Snake_Case(mBtn, 11, 8)
                     local c2 = mBtn.MouseButton1Click:Connect(function()
                         kMode = md
                         Library.Flags[flag] = {Key = key, Mode = kMode}
@@ -2898,10 +2920,10 @@ function Library:CreateWindow(options)
                 Btn.BackgroundColor3 = Theme.Container
                 Btn.Text = text
                 Btn.Font = Config_Cool_Snake_Case.FontMain
-                Btn.TextSize = 13
                 Btn.TextColor3 = Theme.Text
                 Btn.AutoButtonColor = false
                 Btn.Parent = Content
+                Apply_Text_Scaling_Cool_Snake_Case(Btn, 13, 8)
                 table.insert(secData.Items, {Name = text, Instance = Btn})
                 Corner(Btn, 4)
                 local s = Stroke(Btn, Theme.Stroke, 1, 0.5)
@@ -2926,13 +2948,13 @@ function Library:CreateWindow(options)
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
                 Label.Font = Config_Cool_Snake_Case.FontMain
-                Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(1, 0, 0, 16)
                 Label.Position = UDim2.new(0, 5, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
+                Apply_Text_Scaling_Cool_Snake_Case(Label, 13, 8)
                 local BoxCont = Instance.new("Frame")
                 BoxCont.Size = UDim2.new(1, 0, 0, 26)
                 BoxCont.Position = UDim2.new(0, 0, 0, 20)
@@ -2948,12 +2970,12 @@ function Library:CreateWindow(options)
                 Input.PlaceholderText = placeholder or "Type here..."
                 Input.PlaceholderColor3 = Theme.TextDark
                 Input.Font = Config_Cool_Snake_Case.FontMain
-                Input.TextSize = 13
                 Input.TextXAlignment = Enum.TextXAlignment.Left
                 local currentText = Library.Flags[flag] or ""
                 Input.Text = currentText
                 Input.ClearTextOnFocus = false
                 Input.Parent = BoxCont
+                Apply_Text_Scaling_Cool_Snake_Case(Input, 13, 8)
                 local c1 = Input.Focused:Connect(function() if Can_Hover() then Tween(s, {Color = Theme.Accent}) end end)
                 local c2 = Input.FocusLost:Connect(function(enter)
                     if Can_Hover() then Tween(s, {Color = Theme.Stroke}) end
@@ -2998,13 +3020,13 @@ function Library:CreateWindow(options)
                 local Label = Instance.new("TextLabel")
                 Label.Text = text
                 Label.Font = Config_Cool_Snake_Case.FontMain
-                Label.TextSize = 13
                 Label.TextColor3 = Theme.Text
                 Label.Size = UDim2.new(0.6, 0, 1, 0)
                 Label.Position = UDim2.new(0, 5, 0, 0)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.BackgroundTransparency = 1
                 Label.Parent = Frame
+                Apply_Text_Scaling_Cool_Snake_Case(Label, 13, 8)
                 local Preview = Instance.new("TextButton")
                 Preview.Size = UDim2.new(0, 40, 0, 20)
                 Preview.Position = UDim2.new(1, -5, 0.5, 0)
@@ -3071,10 +3093,10 @@ function Library:CreateWindow(options)
                 HexInput.BackgroundColor3 = Theme.Container
                 HexInput.TextColor3 = Theme.Text
                 HexInput.Font = Config_Cool_Snake_Case.FontMain
-                HexInput.TextSize = 12
                 HexInput.Text = "#" .. color:ToHex()
                 HexInput.Parent = PickerCont
                 HexInput.ZIndex = 51
+                Apply_Text_Scaling_Cool_Snake_Case(HexInput, 12, 8)
                 Corner(HexInput, 4)
                 Stroke(HexInput, Theme.Stroke, 1)
                 local function Update()
@@ -3182,7 +3204,6 @@ function Library:CreateWindow(options)
                     isOpen = not isOpen
                     Section.Container.ZIndex = isOpen and 50 or 1
                     ContainerFrame.ZIndex = isOpen and 50 or 5
-                    if Page then Page.ScrollingEnabled = not isOpen end
                     if isOpen then
                         PickerCont.Visible = true
                         Tween(ContainerFrame, {Size = UDim2.new(1, 0, 0, 200)}, 0.2)
@@ -3220,8 +3241,8 @@ function Library:CreateWindow(options)
     task.defer(function()
         Library:LoadConfig("_autosave")
     end)
-    MainScale.Scale = Get_Base_Scale_Cool_Snake_Case()
     Main_Window_Cool_Snake_Case.Visible = true
+    Tween(Main_Window_Cool_Snake_Case, {BackgroundTransparency = 0.1}, 0)
     return WindowObj
 end
 return Library
