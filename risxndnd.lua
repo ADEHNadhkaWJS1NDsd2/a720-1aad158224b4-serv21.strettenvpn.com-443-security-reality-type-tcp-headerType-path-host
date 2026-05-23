@@ -2224,7 +2224,10 @@ function Library:CreateWindow(options)
         Page.ScrollBarThickness = 0
         Page.Visible = false
         Page.Active = true
-        Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        Page.ScrollingEnabled = true
+        Page.ScrollingDirection = Enum.ScrollingDirection.Y
+        Page.ElasticBehavior = Enum.ElasticBehavior.Always
+        Page.CanvasSize = UDim2.new(0, 0, 0, 0)
         Page.Parent = MainPages
         local TabBtn = Instance.new("TextButton")
         TabBtn.Size = UDim2.new(1, 0, 0, 36)
@@ -2316,6 +2319,13 @@ function Library:CreateWindow(options)
         RightList.SortOrder = Enum.SortOrder.LayoutOrder
         RightList.Padding = UDim.new(0, 10)
         RightList.Parent = RightCol
+        local function UpdatePageCanvas()
+            Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
+        end
+        local lpConn = LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdatePageCanvas)
+        local rpConn = RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdatePageCanvas)
+        table.insert(Library.Connections, lpConn)
+        table.insert(Library.Connections, rpConn)
         function Tab:Section(text, side)
             local Section = {}
             local ParentCol = (side == "Right" and RightCol or LeftCol)
