@@ -1,4 +1,4 @@
-local UserInputService = game:GetService("UserInputService")
+=local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -2221,13 +2221,10 @@ function Library:CreateWindow(options)
         Page.Size = UDim2.new(1, -20, 1, -20)
         Page.Position = UDim2.new(0, 10, 0, 10)
         Page.BackgroundTransparency = 1
-        Page.ScrollBarThickness = 0
+        Page.ScrollBarThickness = 2
         Page.Visible = false
         Page.Active = true
-        Page.ScrollingEnabled = true
-        Page.ScrollingDirection = Enum.ScrollingDirection.Y
-        Page.ElasticBehavior = Enum.ElasticBehavior.Always
-        Page.CanvasSize = UDim2.new(0, 0, 0, 0)
+        Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
         Page.Parent = MainPages
         local TabBtn = Instance.new("TextButton")
         TabBtn.Size = UDim2.new(1, 0, 0, 36)
@@ -2299,33 +2296,47 @@ function Library:CreateWindow(options)
             if TabBtn:FindFirstChild("ImageLabel") then TabBtn.ImageLabel.ImageColor3 = Theme.Text end
             Indicator.BackgroundTransparency = 0
         end
+        local vp = workspace.CurrentCamera.ViewportSize
+        local isMobile = (vp.X / math.max(vp.Y, 1)) < 1.4 or vp.X < 700
         local LeftCol = Instance.new("Frame")
-        LeftCol.Size = UDim2.new(0.5, -5, 0, 0)
-        LeftCol.Position = UDim2.new(0, 0, 0, 0)
-        LeftCol.BackgroundTransparency = 1
-        LeftCol.AutomaticSize = Enum.AutomaticSize.Y
-        LeftCol.Parent = Page
+        local RightCol = Instance.new("Frame")
+        if isMobile then
+            local PageList = Instance.new("UIListLayout")
+            PageList.SortOrder = Enum.SortOrder.LayoutOrder
+            PageList.Padding = UDim.new(0, 0)
+            PageList.Parent = Page
+            LeftCol.Size = UDim2.new(1, 0, 0, 0)
+            LeftCol.Position = UDim2.new(0, 0, 0, 0)
+            LeftCol.LayoutOrder = 1
+            LeftCol.BackgroundTransparency = 1
+            LeftCol.AutomaticSize = Enum.AutomaticSize.Y
+            LeftCol.Parent = Page
+            RightCol.Size = UDim2.new(1, 0, 0, 0)
+            RightCol.Position = UDim2.new(0, 0, 0, 0)
+            RightCol.LayoutOrder = 2
+            RightCol.BackgroundTransparency = 1
+            RightCol.AutomaticSize = Enum.AutomaticSize.Y
+            RightCol.Parent = Page
+        else
+            LeftCol.Size = UDim2.new(0.5, -5, 0, 0)
+            LeftCol.Position = UDim2.new(0, 0, 0, 0)
+            LeftCol.BackgroundTransparency = 1
+            LeftCol.AutomaticSize = Enum.AutomaticSize.Y
+            LeftCol.Parent = Page
+            RightCol.Size = UDim2.new(0.5, -5, 0, 0)
+            RightCol.Position = UDim2.new(0.5, 5, 0, 0)
+            RightCol.BackgroundTransparency = 1
+            RightCol.AutomaticSize = Enum.AutomaticSize.Y
+            RightCol.Parent = Page
+        end
         local LeftList = Instance.new("UIListLayout")
         LeftList.SortOrder = Enum.SortOrder.LayoutOrder
         LeftList.Padding = UDim.new(0, 10)
         LeftList.Parent = LeftCol
-        local RightCol = Instance.new("Frame")
-        RightCol.Size = UDim2.new(0.5, -5, 0, 0)
-        RightCol.Position = UDim2.new(0.5, 5, 0, 0)
-        RightCol.BackgroundTransparency = 1
-        RightCol.AutomaticSize = Enum.AutomaticSize.Y
-        RightCol.Parent = Page
         local RightList = Instance.new("UIListLayout")
         RightList.SortOrder = Enum.SortOrder.LayoutOrder
         RightList.Padding = UDim.new(0, 10)
         RightList.Parent = RightCol
-        local function UpdatePageCanvas()
-            Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
-        end
-        local lpConn = LeftList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdatePageCanvas)
-        local rpConn = RightList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdatePageCanvas)
-        table.insert(Library.Connections, lpConn)
-        table.insert(Library.Connections, rpConn)
         function Tab:Section(text, side)
             local Section = {}
             local ParentCol = (side == "Right" and RightCol or LeftCol)
@@ -2360,7 +2371,11 @@ function Library:CreateWindow(options)
             List.Parent = Content
             local function UpdateSize()
                 Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 35)
-                Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
+                if isMobile then
+                    Page.CanvasSize = UDim2.new(0, 0, 0, LeftList.AbsoluteContentSize.Y + RightList.AbsoluteContentSize.Y + 20)
+                else
+                    Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
+                end
             end
             local c4 = List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
             table.insert(Library.Connections, c4)
