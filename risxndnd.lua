@@ -51,7 +51,7 @@ local Theme = {
 local ThemeRegistry = {}
 setmetatable(ThemeRegistry, { __mode = "k" })
 local Is_Mobile_Device_Cool_Snake_Case = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
-local Base_Size_Cool_Snake_Case = Is_Mobile_Device_Cool_Snake_Case and UDim2.new(0.95, 0, 0.9, 0) or UDim2.new(0.6, 0, 0.6, 0)
+local Base_Size_Cool_Snake_Case = Is_Mobile_Device_Cool_Snake_Case and UDim2.new(0.7, 0, 0.7, 0) or UDim2.new(0.45, 0, 0.5, 0)
 local function RegisterTheme(instance, propType)
     ThemeRegistry[instance] = propType
     return instance
@@ -125,7 +125,7 @@ local function Can_Hover()
 end
 local function Make_Draggable_Cool_Snake_Case(Drag_Area_Cool_Snake_Case, Target_Frame_Cool_Snake_Case, Click_Callback_Cool_Snake_Case)
     local Is_Dragging_Cool_Snake_Case = false
-    local Drag_Input_Cool_Snake_Case, Drag_Start_Cool_Snake_Case, Start_Pos_Cool_Snake_Case
+    local Drag_Input_Cool_Snake_Case, Drag_Start_Cool_Snake_Case, Start_Pos_Cool_Snake_Case, Drag_Time_Cool_Snake_Case
     local Drag_Dead_Zone_Cool_Snake_Case = Is_Mobile_Device_Cool_Snake_Case and 10 or 5
     local Actually_Dragging_Cool_Snake_Case = false
     local c1 = Drag_Area_Cool_Snake_Case.InputBegan:Connect(function(input)
@@ -134,11 +134,12 @@ local function Make_Draggable_Cool_Snake_Case(Drag_Area_Cool_Snake_Case, Target_
             Actually_Dragging_Cool_Snake_Case = false
             Drag_Start_Cool_Snake_Case = input.Position
             Start_Pos_Cool_Snake_Case = Target_Frame_Cool_Snake_Case.Position
+            Drag_Time_Cool_Snake_Case = os.clock()
             local c2
             c2 = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     Is_Dragging_Cool_Snake_Case = false
-                    if not Actually_Dragging_Cool_Snake_Case and Click_Callback_Cool_Snake_Case then
+                    if not Actually_Dragging_Cool_Snake_Case and Click_Callback_Cool_Snake_Case and (os.clock() - Drag_Time_Cool_Snake_Case < 0.4) then
                         Click_Callback_Cool_Snake_Case()
                     end
                     Actually_Dragging_Cool_Snake_Case = false
@@ -209,6 +210,42 @@ local function Make_Resizable_Cool_Snake_Case(Resize_Btn_Cool_Snake_Case, Target
     table.insert(Library.Connections, c1)
     table.insert(Library.Connections, c3)
     table.insert(Library.Connections, c4)
+end
+local function Create_Drag_Zones_Cool_Snake_Case(Parent_Frame_Cool_Snake_Case)
+    local Zones_List_Cool_Snake_Case = {}
+    local Z_Top = Instance.new("TextButton")
+    Z_Top.Size = UDim2.new(1, 0, 0, 40)
+    Z_Top.BackgroundTransparency = 1
+    Z_Top.Text = ""
+    Z_Top.ZIndex = 5
+    Z_Top.Parent = Parent_Frame_Cool_Snake_Case
+    table.insert(Zones_List_Cool_Snake_Case, Z_Top)
+    local Z_Bottom = Instance.new("TextButton")
+    Z_Bottom.Size = UDim2.new(1, 0, 0, 30)
+    Z_Bottom.Position = UDim2.new(0, 0, 1, -30)
+    Z_Bottom.BackgroundTransparency = 1
+    Z_Bottom.Text = ""
+    Z_Bottom.ZIndex = 5
+    Z_Bottom.Parent = Parent_Frame_Cool_Snake_Case
+    table.insert(Zones_List_Cool_Snake_Case, Z_Bottom)
+    local Z_Left = Instance.new("TextButton")
+    Z_Left.Size = UDim2.new(0, 30, 1, 0)
+    Z_Left.BackgroundTransparency = 1
+    Z_Left.Text = ""
+    Z_Left.ZIndex = 5
+    Z_Left.Parent = Parent_Frame_Cool_Snake_Case
+    table.insert(Zones_List_Cool_Snake_Case, Z_Left)
+    local Z_Right = Instance.new("TextButton")
+    Z_Right.Size = UDim2.new(0, 30, 1, 0)
+    Z_Right.Position = UDim2.new(1, -30, 0, 0)
+    Z_Right.BackgroundTransparency = 1
+    Z_Right.Text = ""
+    Z_Right.ZIndex = 5
+    Z_Right.Parent = Parent_Frame_Cool_Snake_Case
+    table.insert(Zones_List_Cool_Snake_Case, Z_Right)
+    for _, Z_Cool_Snake_Case in ipairs(Zones_List_Cool_Snake_Case) do
+        Make_Draggable_Cool_Snake_Case(Z_Cool_Snake_Case, Parent_Frame_Cool_Snake_Case, nil)
+    end
 end
 function Library:Unload()
     for _, conn in ipairs(Library.Connections) do pcall(function() conn:Disconnect() end) end
@@ -1041,14 +1078,7 @@ function Library:CreateWindow(options)
         BgNoise.TileSize = UDim2.new(0, 100, 0, 100)
         BgNoise.Parent = Frame
         Corner(BgNoise, 6)
-        local DragArea_Cool_Snake_Case = Instance.new("TextButton")
-        DragArea_Cool_Snake_Case.Name = "DragArea"
-        DragArea_Cool_Snake_Case.Size = UDim2.new(1, 0, 0, 60)
-        DragArea_Cool_Snake_Case.BackgroundTransparency = 1
-        DragArea_Cool_Snake_Case.Text = ""
-        DragArea_Cool_Snake_Case.ZIndex = 0
-        DragArea_Cool_Snake_Case.Parent = Frame
-        Make_Draggable_Cool_Snake_Case(DragArea_Cool_Snake_Case, Frame, nil)
+        Create_Drag_Zones_Cool_Snake_Case(Frame)
         return Frame
     end
     local Main_Window_Cool_Snake_Case = Create_Base_Frame_Cool_Snake_Case("MainWindow")
@@ -1139,18 +1169,19 @@ function Library:CreateWindow(options)
         else
             local Logo = Instance.new("TextLabel")
             Logo.Text = Config_Cool_Snake_Case.Name
-            Logo.Position = UDim2.new(0, 10, 0, 15)
-            Logo.Size = UDim2.new(1, -20, 0, 30)
+            Logo.Position = UDim2.new(0, 15, 0, 15)
+            Logo.Size = UDim2.new(1, -30, 0, 24)
             Logo.Font = Config_Cool_Snake_Case.FontBold
+            Logo.TextScaled = false
+            Logo.TextSize = 18
             Logo.TextColor3 = Theme.Accent
             Logo.TextXAlignment = Enum.TextXAlignment.Left
             Logo.BackgroundTransparency = 1
             Logo.Parent = Bar
-            Apply_Text_Scaling_Cool_Snake_Case(Logo, 20, 10)
             RegisterTheme(Logo, "TextColor")
             local Logo_Stroke_Cool_Snake_Case = Instance.new("UIStroke")
             Logo_Stroke_Cool_Snake_Case.Color = Theme.Stroke
-            Logo_Stroke_Cool_Snake_Case.Thickness = 1.5
+            Logo_Stroke_Cool_Snake_Case.Thickness = 1.2
             Logo_Stroke_Cool_Snake_Case.Parent = Logo
             local Container = Instance.new("ScrollingFrame")
             Container.Size = UDim2.new(1, 0, 1, -130)
@@ -1233,24 +1264,45 @@ function Library:CreateWindow(options)
         if Library.Open then
             if IsSettings then
                 Settings_Window_Cool_Snake_Case.Visible = true
-                Tween(Settings_Window_Cool_Snake_Case, {BackgroundTransparency = 0.1}, 0.2).Completed:Wait()
+                Tween(Settings_Window_Cool_Snake_Case, {Size = Base_Size_Cool_Snake_Case, BackgroundTransparency = 0.1}, 0.2).Completed:Wait()
             else
                 Main_Window_Cool_Snake_Case.Visible = true
-                Tween(Main_Window_Cool_Snake_Case, {BackgroundTransparency = 0.1}, 0.2).Completed:Wait()
+                Tween(Main_Window_Cool_Snake_Case, {Size = Base_Size_Cool_Snake_Case, BackgroundTransparency = 0.1}, 0.2).Completed:Wait()
             end
         else
+            local target_Scale_Cool_Snake_Case = UDim2.new(Base_Size_Cool_Snake_Case.X.Scale * 0.9, Base_Size_Cool_Snake_Case.X.Offset * 0.9, Base_Size_Cool_Snake_Case.Y.Scale * 0.9, Base_Size_Cool_Snake_Case.Y.Offset * 0.9)
             if IsSettings then
-                Tween(Settings_Window_Cool_Snake_Case, {BackgroundTransparency = 1}, 0.15).Completed:Wait()
+                Tween(Settings_Window_Cool_Snake_Case, {Size = target_Scale_Cool_Snake_Case, BackgroundTransparency = 1}, 0.15).Completed:Wait()
                 Settings_Window_Cool_Snake_Case.Visible = false
             else
-                Tween(Main_Window_Cool_Snake_Case, {BackgroundTransparency = 1}, 0.15).Completed:Wait()
+                Tween(Main_Window_Cool_Snake_Case, {Size = target_Scale_Cool_Snake_Case, BackgroundTransparency = 1}, 0.15).Completed:Wait()
                 Main_Window_Cool_Snake_Case.Visible = false
             end
             TooltipLabel.Visible = false
         end
         animating = false
     end
-    Make_Draggable_Cool_Snake_Case(MiniButton, MiniButton, ToggleMain)
+    local Toggle_Conns_Cool_Snake_Case = {}
+    local function Bind_Toggle_Cool_Snake_Case()
+        for _, conn in ipairs(Toggle_Conns_Cool_Snake_Case) do conn:Disconnect() end
+        table.clear(Toggle_Conns_Cool_Snake_Case)
+        local btn_start
+        table.insert(Toggle_Conns_Cool_Snake_Case, MiniButton.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                btn_start = os.clock()
+            end
+        end))
+        table.insert(Toggle_Conns_Cool_Snake_Case, MiniButton.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if btn_start and (os.clock() - btn_start < 0.4) then
+                    ToggleMain()
+                end
+                btn_start = nil
+            end
+        end))
+    end
+    Bind_Toggle_Cool_Snake_Case()
+    Make_Draggable_Cool_Snake_Case(MiniButton, MiniButton, nil)
     local function SwitchToSettings()
         if animating then return end
         animating = true
@@ -1258,7 +1310,6 @@ function Library:CreateWindow(options)
         Settings_Window_Cool_Snake_Case.Size = Main_Window_Cool_Snake_Case.Size
         Main_Window_Cool_Snake_Case.Visible = false
         Settings_Window_Cool_Snake_Case.Visible = true
-        Tween(Settings_Window_Cool_Snake_Case, {BackgroundTransparency = 0.1}, 0)
         IsSettings = true
         Library._IsSettings = true
         animating = false
@@ -1270,7 +1321,6 @@ function Library:CreateWindow(options)
         Main_Window_Cool_Snake_Case.Size = Settings_Window_Cool_Snake_Case.Size
         Settings_Window_Cool_Snake_Case.Visible = false
         Main_Window_Cool_Snake_Case.Visible = true
-        Tween(Main_Window_Cool_Snake_Case, {BackgroundTransparency = 0.1}, 0)
         IsSettings = false
         Library._IsSettings = false
         animating = false
@@ -2502,21 +2552,21 @@ function Library:CreateWindow(options)
                     end
                 end
                 ToggleObj.UpdateAnim = ToggleAnim
-                local c5 = SubList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                local tlc1 = SubList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
                     if toggled then
                         local h = SubList.AbsoluteContentSize.Y
                         if h > 0 then h = h + 6 end
                         SubContainer.Size = UDim2.new(1, 0, 0, h)
                     end
                 end)
-                table.insert(Library.Connections, c5)
-                local c6 = Btn.MouseButton1Click:Connect(function()
+                table.insert(Library.Connections, tlc1)
+                local tlc2 = Btn.MouseButton1Click:Connect(function()
                     toggled = not toggled
                     Library.Unsaved = true
                     ToggleAnim()
                     callback(toggled)
                 end)
-                table.insert(Library.Connections, c6)
+                table.insert(Library.Connections, tlc2)
                 if toggled then ToggleAnim() end
                 ApplyTooltip(Btn, tooltipText)
                 task.spawn(callback, toggled)
