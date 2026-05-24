@@ -1153,21 +1153,21 @@ function Library:CreateWindow(options)
             Logo.BackgroundTransparency = 1
             Logo.Parent = Bar
             RegisterTheme(Logo, "TextColor")
-            local LogoStroke = Instance.new("UIStroke")
-            LogoStroke.Color = Theme.Accent
-            LogoStroke.Thickness = 1
-            LogoStroke.Transparency = 0.6
-            LogoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-            LogoStroke.Parent = Logo
-            RegisterTheme(LogoStroke, "BorderColor")
+            local LogoBar = Instance.new("Frame")
+            LogoBar.Size = UDim2.new(0, 3, 0, 22)
+            LogoBar.Position = UDim2.new(0, 8, 0, 35)
+            LogoBar.AnchorPoint = Vector2.new(0, 0.5)
+            LogoBar.BackgroundColor3 = Theme.Accent
+            LogoBar.BorderSizePixel = 0
+            LogoBar.Parent = Bar
+            Corner(LogoBar, 2)
+            RegisterTheme(LogoBar, "BackgroundColor")
             local LogoUnder = Instance.new("Frame")
             LogoUnder.Size = UDim2.new(1, -15, 0, 1)
-            LogoUnder.Position = UDim2.new(0, 15, 0, 50)
-            LogoUnder.BackgroundColor3 = Theme.Accent
-            LogoUnder.BackgroundTransparency = 0.6
+            LogoUnder.Position = UDim2.new(0, 8, 0, 52)
+            LogoUnder.BackgroundColor3 = Theme.Stroke
             LogoUnder.BorderSizePixel = 0
             LogoUnder.Parent = Bar
-            RegisterTheme(LogoUnder, "BackgroundColor")
             local Container = Instance.new("ScrollingFrame")
             Container.Size = UDim2.new(1, 0, 1, -130)
             Container.Position = UDim2.new(0, 0, 0, 60)
