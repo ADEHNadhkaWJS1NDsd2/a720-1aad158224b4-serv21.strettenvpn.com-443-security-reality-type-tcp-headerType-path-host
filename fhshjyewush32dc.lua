@@ -1153,6 +1153,21 @@ function Library:CreateWindow(options)
             Logo.BackgroundTransparency = 1
             Logo.Parent = Bar
             RegisterTheme(Logo, "TextColor")
+            local LogoStroke = Instance.new("UIStroke")
+            LogoStroke.Color = Theme.Accent
+            LogoStroke.Thickness = 1
+            LogoStroke.Transparency = 0.6
+            LogoStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
+            LogoStroke.Parent = Logo
+            RegisterTheme(LogoStroke, "BorderColor")
+            local LogoUnder = Instance.new("Frame")
+            LogoUnder.Size = UDim2.new(1, -15, 0, 1)
+            LogoUnder.Position = UDim2.new(0, 15, 0, 50)
+            LogoUnder.BackgroundColor3 = Theme.Accent
+            LogoUnder.BackgroundTransparency = 0.6
+            LogoUnder.BorderSizePixel = 0
+            LogoUnder.Parent = Bar
+            RegisterTheme(LogoUnder, "BackgroundColor")
             local Container = Instance.new("ScrollingFrame")
             Container.Size = UDim2.new(1, 0, 1, -130)
             Container.Position = UDim2.new(0, 0, 0, 60)
@@ -1333,7 +1348,8 @@ function Library:CreateWindow(options)
         List.SortOrder = Enum.SortOrder.LayoutOrder
         List.Parent = Content
         local lc1 = List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 40)
+            local sc = (Library._MainScale and Library._MainScale.Scale > 0) and Library._MainScale.Scale or 1
+            Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y / sc + 40)
         end)
         table.insert(Library.Connections, lc1)
         function Section:Label(ltext, options)
@@ -1464,7 +1480,8 @@ function Library:CreateWindow(options)
                 if toggled then
                     SubContainer.Visible = true
                     SubContainer.ClipsDescendants = true
-                    local h = SubList.AbsoluteContentSize.Y
+                    local sc2 = (Library._MainScale and Library._MainScale.Scale > 0) and Library._MainScale.Scale or 1
+                    local h = SubList.AbsoluteContentSize.Y / sc2
                     if h > 0 then h = h + 6 end
                     currentTween = TweenService:Create(SubContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, h)})
                     currentTween:Play()
@@ -1488,7 +1505,8 @@ function Library:CreateWindow(options)
             ToggleObj.UpdateAnim = ToggleAnim
             local tlc1 = SubList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
                 if toggled then
-                    local h = SubList.AbsoluteContentSize.Y
+                    local sc3 = (Library._MainScale and Library._MainScale.Scale > 0) and Library._MainScale.Scale or 1
+                    local h = SubList.AbsoluteContentSize.Y / sc3
                     if h > 0 then h = h + 6 end
                     SubContainer.Size = UDim2.new(1, 0, 0, h)
                 end
@@ -2297,13 +2315,13 @@ function Library:CreateWindow(options)
             Indicator.BackgroundTransparency = 0
         end
         local vp = workspace.CurrentCamera.ViewportSize
-        local isMobile = (vp.X / math.max(vp.Y, 1)) < 1.4 or vp.X < 700
+        local isMobile = vp.X < 700 or (vp.X / math.max(vp.Y, 1)) < 1.3
         local LeftCol = Instance.new("Frame")
         local RightCol = Instance.new("Frame")
         if isMobile then
             local PageList = Instance.new("UIListLayout")
             PageList.SortOrder = Enum.SortOrder.LayoutOrder
-            PageList.Padding = UDim.new(0, 0)
+            PageList.Padding = UDim.new(0, 10)
             PageList.Parent = Page
             LeftCol.Size = UDim2.new(1, 0, 0, 0)
             LeftCol.Position = UDim2.new(0, 0, 0, 0)
@@ -2370,11 +2388,12 @@ function Library:CreateWindow(options)
             List.SortOrder = Enum.SortOrder.LayoutOrder
             List.Parent = Content
             local function UpdateSize()
-                Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y + 35)
+                local sc = (Library._MainScale and Library._MainScale.Scale > 0) and Library._MainScale.Scale or 1
+                Container.Size = UDim2.new(1, 0, 0, List.AbsoluteContentSize.Y / sc + 35)
                 if isMobile then
-                    Page.CanvasSize = UDim2.new(0, 0, 0, LeftList.AbsoluteContentSize.Y + RightList.AbsoluteContentSize.Y + 20)
+                    Page.CanvasSize = UDim2.new(0, 0, 0, (LeftList.AbsoluteContentSize.Y + RightList.AbsoluteContentSize.Y) / sc + 30)
                 else
-                    Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) + 20)
+                    Page.CanvasSize = UDim2.new(0, 0, 0, math.max(LeftList.AbsoluteContentSize.Y, RightList.AbsoluteContentSize.Y) / sc + 20)
                 end
             end
             local c4 = List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
