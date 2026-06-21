@@ -1,4 +1,3 @@
-
 local Http_Service = game:GetService("HttpService")
 local Run_Service = game:GetService("RunService")
 local Players_Service = game:GetService("Players")
@@ -66,6 +65,7 @@ end
 
 local Config = {
     AutoParry = false,
+    PanicSpam = false,
     TrainingBallsSupport = false,
     AutoSpam = false,
     TriggerBot = false,
@@ -1288,6 +1288,7 @@ end
 local Tab_Combat = Library_Data:CreateTab("Combat")
 local Sec_Combat_Parry = Tab_Combat:CreateSection("Auto Parry", "Left")
 Sec_Combat_Parry:CreateToggle("Auto Parry", "AutoParry", false)
+Sec_Combat_Parry:CreateToggle("Panic Spam", "PanicSpam", false)
 Sec_Combat_Parry:CreateDropdown("Parry Method", "ParryMethod", {"Click", "Key"}, "Click")
 Sec_Combat_Parry:CreateKeybind("Parry Bind", "ParryKeybind", "None")
 Sec_Combat_Parry:CreateToggle("Training Balls", "TrainingBallsSupport", false)
@@ -2218,7 +2219,7 @@ end)
 local Is_Parried = false
 local Speed_Divisor_Factor = 1.1
 local Effective_Divisor = 1.05
-local Parry_Range = 10
+local Parry_Range = 5
 local Base_Extrapolation_Frames = 2.5
 
 local Accumulated_Spam_Time = 0
@@ -2322,7 +2323,7 @@ local function Check_Is_Spam(Spam_Params)
         return false
     end
 
-    if Spam_Params.Parries < 7 then
+    if Spam_Params.Parries < 5 then
         return false
     end
     
@@ -2581,6 +2582,51 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             for _ = 1, math.min(Click_Count, 20) do
                 Execute_Parry()
             end
+        end
+    elseif Config.PanicSpam then
+        local Is_Enemy_Close = Distance_To_Nearest_Player <= 25
+        local Ball_Dot_To_Me = (Ball_Velocity.Magnitude > 0.01 and Ball_Velocity.Unit or Vector3.zero):Dot(Direction_To_Player)
+        local Dynamic_Dot_Threshold = Fast_Max(0.40, (Current_Distance / 25) * 0.75)
+        local Angle_To_Player = math.deg(math.acos(Fast_Clamp(Ball_Dot_To_Me, -1, 1)))
+        local Dynamic_Angle_Threshold = Fast_Clamp(180 - (Current_Distance * 2), 25, 75)
+        local Is_Heading_Towards = (Angle_To_Player <= Dynamic_Angle_Threshold) or (Ball_Dot_To_Me > Dynamic_Dot_Threshold)
+        local Is_Extremely_Close = Current_Distance <= 15
+        local Is_Approaching = Current_Distance < Last_Distance
+        local Current_Target_Attr = Real_Ball:GetAttribute("target") or Real_Ball:GetAttribute("Target")
+        local Is_Target_Me = Current_Target_Attr == Local_Player.Name or Current_Target_Attr == Local_Player.Character or Current_Target_Attr == Local_Player
+        
+        local Enemy_Look_Dot = 0
+        local Alive_Folder = Workspace_Service:FindFirstChild("Alive")
+        if Alive_Folder then
+            for _, Obj in ipairs(Alive_Folder:GetChildren()) do
+                if Obj ~= Player_Character and Obj.Name ~= Local_Player.Name then
+                    local Enemy_Humanoid = Obj:FindFirstChildWhichIsA("Humanoid")
+                    local Enemy_Root = Obj:FindFirstChild("HumanoidRootPart") or Obj.PrimaryPart
+                    if Enemy_Humanoid and Enemy_Humanoid.Health > 0 and Enemy_Root then
+                        local Dist_To_Enemy = (Enemy_Root.Position - Root_Position).Magnitude
+                        if Dist_To_Enemy < 25 then
+                            local Direction_To_Me = (Root_Position - Enemy_Root.Position).Unit
+                            Enemy_Look_Dot = Enemy_Root.CFrame.LookVector:Dot(Direction_To_Me)
+                        end
+                    end
+                end
+            end
+        end
+
+        local Is_Clash = Is_Enemy_Close and Current_Speed > 35 and Enemy_Look_Dot > 0.65 and (Is_Approaching or Is_Extremely_Close) and (Is_Heading_Towards or Is_Extremely_Close)
+        
+        if Is_Clash and Is_Target_Me then
+            local Spam_Interval_Panic = 1 / Config.SpamRate
+            Accumulated_Spam_Time = Accumulated_Spam_Time + Current_Delta_Time
+            if Accumulated_Spam_Time >= Spam_Interval_Panic then
+                local Click_Count = Fast_Floor(Accumulated_Spam_Time / Spam_Interval_Panic)
+                Accumulated_Spam_Time = Accumulated_Spam_Time - (Click_Count * Spam_Interval_Panic)
+                for _ = 1, math.min(Click_Count, 15) do
+                    Execute_Parry()
+                end
+            end
+        else
+            Accumulated_Spam_Time = 0
         end
     else
         Accumulated_Spam_Time = 0
