@@ -2553,7 +2553,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Current_From_Attr = Real_Ball:GetAttribute("from") or Real_Ball:GetAttribute("From")
     if Current_From_Attr ~= nil and Current_From_Attr ~= Cached_From then
         local Time_Difference = Current_Time - Last_From_Change
-        if Time_Difference <= 0.35 then
+        if Time_Difference <= 0.65 then
             Ball_Parries = Ball_Parries + 1
         else
             Ball_Parries = 1
