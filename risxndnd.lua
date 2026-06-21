@@ -65,16 +65,18 @@ end
 
 local Config = {
     AutoParry = false,
+    PanicSpam = false,
     TrainingBallsSupport = false,
     AutoSpam = false,
     TriggerBot = false,
+    DontClickOnSpawn = true,
     ParryKeybind = "None",
     SpamKeybind = "None",
     TriggerKeybind = "None",
     ParryMethod = "Click",
-    SpamRate = 100,
-    TriggerMinDelay = 0,
-    TriggerMaxDelay = 0,
+    SpamRate = 200,
+    SpamSensitivity = 1.0,
+    TriggerDelay = 0,
     HideKeybind = "F2",
     RenderBallStats = false,
     ShowHotkeyList = true,
@@ -82,14 +84,8 @@ local Config = {
     SpamBindMode = "Toggle",
     TriggerBindMode = "Toggle",
     ThemePreset = "Nightfall",
-    ConfigName = "default",
-    SelectedConfig = "default",
-    ParryRange = 1,
-    DontClickOnSpawn = false,
     InfinityDetection = false,
-    SlashesOfFuryDetection = false,
-    AutoSaveConfig = false,
-    AutoLoadConfig = false,
+    SlashesOfFuryDetection = false
 }
 
 local function Normalize_Keybind_Value(Value_In)
@@ -189,16 +185,8 @@ local Runtime_State = {
     Target_Dot = 0
 }
 
-local function Math_Clamp(Val_In, Min_Val, Max_Val)
-    return Fast_Max(Min_Val, math.min(Max_Val, Val_In))
-end
-
-local function Math_Round(Num_Val)
-    return Fast_Floor(Num_Val + 0.5)
-end
-
 local function Vector_2_Round(X_Val, Y_Val)
-    return Vector2.new(Math_Round(X_Val), Math_Round(Y_Val))
+    return Vector2.new(Fast_Floor(X_Val + 0.5), Fast_Floor(Y_Val + 0.5))
 end
 
 local function Math_Lerp(A_Val, B_Val, T_Val)
@@ -216,8 +204,8 @@ end
 
 local function Hsv_To_Color3(H_Val, S_Val, V_Val)
     H_Val = ((H_Val or 0) % 1 + 1) % 1
-    S_Val = Math_Clamp(S_Val or 0, 0, 1)
-    V_Val = Math_Clamp(V_Val or 0, 0, 1)
+    S_Val = Fast_Clamp(S_Val or 0, 0, 1)
+    V_Val = Fast_Clamp(V_Val or 0, 0, 1)
     local C_Val = V_Val * S_Val
     local Hp_Val = H_Val * 6
     local X_Val = C_Val * (1 - math.abs((Hp_Val % 2) - 1))
@@ -255,7 +243,7 @@ end
 
 local function Color3_To_Hex(Color_Val)
     if not Color_Val then return "#FFFFFF" end
-    return string.format("#%02X%02X%02X", Math_Clamp(Math_Round(Color_Val.R * 255), 0, 255), Math_Clamp(Math_Round(Color_Val.G * 255), 0, 255), Math_Clamp(Math_Round(Color_Val.B * 255), 0, 255))
+    return string.format("#%02X%02X%02X", Fast_Clamp(Fast_Floor(Color_Val.R * 255 + 0.5), 0, 255), Fast_Clamp(Fast_Floor(Color_Val.G * 255 + 0.5), 0, 255), Fast_Clamp(Fast_Floor(Color_Val.B * 255 + 0.5), 0, 255))
 end
 
 local Create_Drawing
@@ -285,7 +273,7 @@ local function Update_Grid_Squares(Grid_Array, Cols_Val, Rows_Val, X_Val, Y_Val,
             local Y1_Val = Y_Val + (Row_Idx * Cell_H)
             Sq_Val.Visible = true
             Sq_Val.Position = Vector_2_Round(X0_Val, Y0_Val)
-            Sq_Val.Size = Vector_2_Round(Fast_Max(1, Math_Round(X1_Val - X0_Val)), Fast_Max(1, Math_Round(Y1_Val - Y0_Val)))
+            Sq_Val.Size = Vector_2_Round(Fast_Max(1, Fast_Floor(X1_Val - X0_Val + 0.5)), Fast_Max(1, Fast_Floor(Y1_Val - Y0_Val + 0.5)))
             Sq_Val.Color = Color_Func(Col_Idx, Row_Idx, Cols_Val, Rows_Val)
             Sq_Val.Transparency = 1
         end
@@ -321,9 +309,9 @@ local function Parse_Slider_Input(Text_Value)
 end
 
 local function Clamp_Slider_Value(Value_In, Min_Val, Max_Val, Step_Val)
-    local Clamped_Val = Math_Clamp(Value_In, Min_Val, Max_Val)
+    local Clamped_Val = Fast_Clamp(Value_In, Min_Val, Max_Val)
     local Snapped_Val = Snap_Value(Clamped_Val, Step_Val)
-    return Math_Clamp(Snapped_Val, Min_Val, Max_Val)
+    return Fast_Clamp(Snapped_Val, Min_Val, Max_Val)
 end
 
 local function Commit_Slider_Input(Slider_Obj)
@@ -347,7 +335,7 @@ local function Get_Context_Menu_Position(Item_Obj)
     local Context_Y = Item_Obj.ButtonPos.Y + Item_Obj.ButtonSize.Y + 6
     if Context_X + Menu_W > Viewport_Val.X then Context_X = Item_Obj.ButtonPos.X + Item_Obj.ButtonSize.X - Menu_W end
     if Context_Y + Menu_H > Viewport_Val.Y then Context_Y = Item_Obj.ButtonPos.Y - Menu_H - 6 end
-    return Vector_2_Round(Math_Clamp(Context_X, 0, Viewport_Val.X - Menu_W), Math_Clamp(Context_Y, 0, Viewport_Val.Y - Menu_H))
+    return Vector_2_Round(Fast_Clamp(Context_X, 0, Viewport_Val.X - Menu_W), Fast_Clamp(Context_Y, 0, Viewport_Val.Y - Menu_H))
 end
 
 local function Is_Mouse_In_Bounds(Pos_In, Bounds_Pos, Bounds_Size)
@@ -522,7 +510,7 @@ local function Make_Rounded_Box(Color_Val, Transparency_Val)
 end
 
 local function Update_Rounded_Box(Box_Obj, Pos_Val, Size_Val, Radius_Val, Color_Val, Transparency_Val, Visible_State)
-    Radius_Val = Math_Clamp(Radius_Val or 4, 0, Fast_Floor(math.min(Size_Val.X, Size_Val.Y) / 2))
+    Radius_Val = Fast_Clamp(Radius_Val or 4, 0, Fast_Floor(math.min(Size_Val.X, Size_Val.Y) / 2))
     local X_Val, Y_Val = Pos_Val.X, Pos_Val.Y
     local W_Val, H_Val = Size_Val.X, Size_Val.Y
     Set_Rounded_Color(Box_Obj, Color_Val, Transparency_Val or 1)
@@ -593,8 +581,8 @@ end
 local function Clamp_Window_Position(Position_Val, Size_Val)
     local Camera_Obj = Workspace_Service.CurrentCamera
     local Viewport_Val = Camera_Obj and Camera_Obj.ViewportSize or Vector2.new(1920, 1080)
-    local X_Val = Math_Clamp(Position_Val.X, 0, Fast_Max(0, Viewport_Val.X - Size_Val.X))
-    local Y_Val = Math_Clamp(Position_Val.Y, 0, Fast_Max(0, Viewport_Val.Y - Size_Val.Y))
+    local X_Val = Fast_Clamp(Position_Val.X, 0, Fast_Max(0, Viewport_Val.X - Size_Val.X))
+    local Y_Val = Fast_Clamp(Position_Val.Y, 0, Fast_Max(0, Viewport_Val.Y - Size_Val.Y))
     return Vector_2_Round(X_Val, Y_Val)
 end
 
@@ -692,80 +680,18 @@ local Theme_Presets = {
 local Palette_Keys = {"Background", "Sidebar", "Section", "Element", "Hover", "Outline", "OutlineLight", "Accent", "Accent2", "Text", "SubText"}
 local Config_Dirty = false
 local Save_Queue_Tick = 0
-local Is_Config_Loading = false
 local Config_Loaded = false
 
 if type(isfolder) == "function" and type(makefolder) == "function" and not isfolder("NightfallConfigs") then
     pcall(function() makefolder("NightfallConfigs") end)
 end
 
-local Global_Settings_Path = "NightfallConfigs/Nightfall_Settings.json"
-
-local function Save_Global_Settings()
-    if type(writefile) ~= "function" then return false end
-    local Data_Val = {
-        SelectedConfig = tostring(Config.SelectedConfig or Config.ConfigName or "default"),
-        ConfigName = tostring(Config.ConfigName or Config.SelectedConfig or "default"),
-        AutoSaveConfig = Config.AutoSaveConfig == true,
-        AutoLoadConfig = Config.AutoLoadConfig == true
-    }
-    local Ok_State, Encoded_Val = pcall(function() return Http_Service:JSONEncode(Data_Val) end)
-    if Ok_State then pcall(function() writefile(Global_Settings_Path, Encoded_Val) end) return true end
-    return false
-end
-
-local function Load_Global_Settings()
-    if not (type(isfile) == "function" and type(readfile) == "function" and isfile(Global_Settings_Path)) then return false end
-    local Ok_State, Decoded_Val = pcall(function() return Http_Service:JSONDecode(readfile(Global_Settings_Path)) end)
-    if Ok_State and type(Decoded_Val) == "table" then
-        if type(Decoded_Val.SelectedConfig) == "string" and Decoded_Val.SelectedConfig ~= "" then Config.SelectedConfig = Decoded_Val.SelectedConfig end
-        if type(Decoded_Val.ConfigName) == "string" and Decoded_Val.ConfigName ~= "" then Config.ConfigName = Decoded_Val.ConfigName end
-        Config.AutoSaveConfig = Decoded_Val.AutoSaveConfig == true
-        Config.AutoLoadConfig = Decoded_Val.AutoLoadConfig == true
-        return true
-    end
-    return false
-end
-
-local function Get_Config_Base_Name()
-    local Name_Val = tostring(Config.ConfigName or "default")
-    Name_Val = Name_Val:gsub("[^%w%-%._]", "_")
-    if Name_Val == "" then Name_Val = "default" end
-    return Name_Val
-end
-
 local function Get_Config_Path()
-    return "NightfallConfigs/" .. Get_Config_Base_Name() .. ".json"
+    return "NightfallConfigs/AutoSave.json"
 end
 
 local function Get_Layout_Path()
-    return "NightfallConfigs/" .. Get_Config_Base_Name() .. "_layout.json"
-end
-
-local function Get_Available_Configs()
-    local Names_Array = {}
-    local Seen_Table = {}
-    local function Add_Val(Name_Val)
-        Name_Val = tostring(Name_Val or ""):gsub("[^%w%-%._]", "_")
-        if Name_Val == "" then return end
-        if not Seen_Table[Name_Val] then Seen_Table[Name_Val] = true table.insert(Names_Array, Name_Val) end
-    end
-    Add_Val(Config.SelectedConfig or Config.ConfigName or "default")
-    Add_Val(Config.ConfigName or "default")
-    if type(listfiles) == "function" then
-        local Ok_State, Files_Array = pcall(function() return listfiles("NightfallConfigs") end)
-        if Ok_State and type(Files_Array) == "table" then
-            for _, File_Path in ipairs(Files_Array) do
-                local Name_Val = tostring(File_Path):match("([^/\\]+)%.json$")
-                if Name_Val and not Name_Val:match("_layout$") and Name_Val ~= "Nightfall_Settings" then 
-                    Add_Val(Name_Val) 
-                end
-            end
-        end
-    end
-    if #Names_Array == 0 then Add_Val("default") end
-    table.sort(Names_Array, function(A_Val, B_Val) return tostring(A_Val):lower() < tostring(B_Val):lower() end)
-    return Names_Array
+    return "NightfallConfigs/AutoSave_layout.json"
 end
 
 local function Apply_Palette(Palette_Table)
@@ -787,7 +713,7 @@ local function Sync_Theme_Editor_State()
                             Item_Obj.Hue = H_Val
                             Item_Obj.Sat = S_Val
                             Item_Obj.Val = V_Val
-                            Item_Obj.Alpha = Math_Clamp(Config[Item_Obj.Flag].Alpha or 1, 0, 1)
+                            Item_Obj.Alpha = Fast_Clamp(Config[Item_Obj.Flag].Alpha or 1, 0, 1)
                         end
                     end
                 end
@@ -797,10 +723,8 @@ local function Sync_Theme_Editor_State()
 end
 
 local function Queue_Save_Config()
-    if Config.AutoSaveConfig then
-        Config_Dirty = true
-        Save_Queue_Tick = os.clock()
-    end
+    Config_Dirty = true
+    Save_Queue_Tick = Fast_Clock()
 end
 
 local function Apply_Theme_Preset(Theme_Name, Keep_Accent)
@@ -808,8 +732,8 @@ local function Apply_Theme_Preset(Theme_Name, Keep_Accent)
     if not Preset_Val then Preset_Val = Theme_Presets.Nightfall Theme_Name = "Nightfall" end
     local Accent_Val = Library_Data.Palette.Accent
     local Accent_2_Val = Library_Data.Palette.Accent2
-    local Accent_Alpha = type(Config.UiAccentColor) == "table" and Math_Clamp(Config.UiAccentColor.Alpha or 1, 0, 1) or 1
-    local Accent_2_Alpha = type(Config.UiAccent2Color) == "table" and Math_Clamp(Config.UiAccent2Color.Alpha or 1, 0, 1) or 1
+    local Accent_Alpha = type(Config.UiAccentColor) == "table" and Fast_Clamp(Config.UiAccentColor.Alpha or 1, 0, 1) or 1
+    local Accent_2_Alpha = type(Config.UiAccent2Color) == "table" and Fast_Clamp(Config.UiAccent2Color.Alpha or 1, 0, 1) or 1
     Apply_Palette(Preset_Val)
     if Keep_Accent then Library_Data.Palette.Accent = Accent_Val Library_Data.Palette.Accent2 = Accent_2_Val end
     Config.ThemePreset = Theme_Name
@@ -824,7 +748,7 @@ local function Save_Current_Config()
     local Data_Val = {}
     for Key_Val, Value_In in pairs(Config) do
         local T_Val = type(Value_In)
-        if Key_Val ~= "SelectedConfig" and (T_Val == "boolean" or T_Val == "number" or T_Val == "string") then
+        if T_Val == "boolean" or T_Val == "number" or T_Val == "string" then
             Data_Val[Key_Val] = Value_In
         end
     end
@@ -844,46 +768,18 @@ local function Save_Current_Config()
     }
     local Ok2_State, Layout_Encoded = pcall(function() return Http_Service:JSONEncode(Layout_Val) end)
     if not Ok2_State then return false end
-    Config.SelectedConfig = Config.ConfigName
     pcall(function() writefile(Get_Config_Path(), Encoded_Val) end)
     pcall(function() writefile(Get_Layout_Path(), Layout_Encoded) end)
-    Save_Global_Settings()
-    Is_Config_Loading = false
     return true
 end
 
-local function Delete_Named_Config(Name_Val)
-    local Target_Val = tostring(Name_Val or "")
-    Target_Val = Target_Val:gsub("[^%w%-%._]", "_")
-    if Target_Val == "" then return false end
-    local Old_Config_Name = Config.ConfigName
-    Config.ConfigName = Target_Val
-    local Cfg_Path = Get_Config_Path()
-    local Layout_Path = Get_Layout_Path()
-    Config.ConfigName = Old_Config_Name
-    local Deleted_Val = false
-    if type(delfile) == "function" then
-        if type(isfile) == "function" and isfile(Cfg_Path) then pcall(function() delfile(Cfg_Path) end) Deleted_Val = true end
-        if type(isfile) == "function" and isfile(Layout_Path) then pcall(function() delfile(Layout_Path) end) end
-    end
-    local Available_Val = Get_Available_Configs()
-    local Fallback_Val = Available_Val[1] or "default"
-    if Config.SelectedConfig == Target_Val then Config.SelectedConfig = Fallback_Val end
-    if Config.ConfigName == Target_Val then Config.ConfigName = Fallback_Val end
-    Save_Global_Settings()
-    return Deleted_Val
-end
-
-local function Load_Named_Config(Name_Val)
-    local Old_Name = Config.ConfigName
-    Is_Config_Loading = true
-    if Name_Val and Name_Val ~= "" then Config.ConfigName = tostring(Name_Val) end
+local function Load_Config()
     local Path_Val = Get_Config_Path()
-    if not (type(isfile) == "function" and type(readfile) == "function" and isfile(Path_Val)) then Config.ConfigName = Old_Name Is_Config_Loading = false return false end
+    if not (type(isfile) == "function" and type(readfile) == "function" and isfile(Path_Val)) then return false end
     local Ok_State, Decoded_Val = pcall(function() return Http_Service:JSONDecode(readfile(Path_Val)) end)
-    if not Ok_State or type(Decoded_Val) ~= "table" then Config.ConfigName = Old_Name Is_Config_Loading = false return false end
+    if not Ok_State or type(Decoded_Val) ~= "table" then return false end
     for Key_Val, Value_In in pairs(Decoded_Val) do
-        if Key_Val ~= "UiAccentColor" and Key_Val ~= "UiAccent2Color" and Key_Val ~= "SelectedConfig" and Key_Val ~= "AutoSaveConfig" and Key_Val ~= "AutoLoadConfig" and type(Value_In) ~= "table" then
+        if Key_Val ~= "UiAccentColor" and Key_Val ~= "UiAccent2Color" and type(Value_In) ~= "table" then
             Config[Key_Val] = Value_In
         end
     end
@@ -914,20 +810,11 @@ local function Load_Named_Config(Name_Val)
             if Layout_Val.StatsX and Layout_Val.StatsY then Library_Data.StatsPosition = Vector2.new(Layout_Val.StatsX, Layout_Val.StatsY) end
         end
     end
-    Config.SelectedConfig = Config.ConfigName
-    Save_Global_Settings()
-    Is_Config_Loading = false
     return true
 end
 
-Load_Global_Settings()
 if not Config_Loaded then
-    if Config.AutoLoadConfig then
-        Load_Named_Config(Config.SelectedConfig or Config.ConfigName)
-    end
-    Config_Loaded = true
-else
-    Apply_Theme_Preset(Config.ThemePreset or "Nightfall", false)
+    Load_Config()
     Config_Loaded = true
 end
 
@@ -1066,7 +953,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 local Is_Editing = Library_Data.State.ActiveSliderInput == self
                 self.Label.Visible = true
                 self.Label.Position = Vector_2_Round(X_Val + 2, Y_Val)
-                local Display_Text = Is_Editing and (((os.clock() % 1) < 0.5) and (self.InputBuffer .. "_") or self.InputBuffer) or Format_Slider_Value(Config[self.Flag], self.Step)
+                local Display_Text = Is_Editing and (((Fast_Clock() % 1) < 0.5) and (self.InputBuffer .. "_") or self.InputBuffer) or Format_Slider_Value(Config[self.Flag], self.Step)
                 self.ValueLabel.Visible = true
                 self.ValueLabel.Text = Display_Text
                 self.ValueLabel.Color = Is_Editing and Library_Data.Palette.Accent or Library_Data.Palette.SubText
@@ -1081,7 +968,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 Update_Rounded_Box(self.Stroke, self.BarPos, self.BarSize, 3, Library_Data.Palette.Outline, 1, true)
                 Update_Rounded_Box(self.Background, Vector_2_Round(X_Val + 3, Bar_Y + 1), Vector_2_Round(Bar_Width - 2, 4), 3, Library_Data.Palette.Element, 1, true)
                 local Range_Val = Fast_Max(self.Max - self.Min, 0.0001)
-                local Pct_Val = Math_Clamp((Config[self.Flag] - self.Min) / Range_Val, 0, 1)
+                local Pct_Val = Fast_Clamp((Config[self.Flag] - self.Min) / Range_Val, 0, 1)
                 local Fill_W = Fast_Max((Bar_Width - 2) * Pct_Val, 0)
                 Update_Rounded_Box(self.Fill, Vector_2_Round(X_Val + 3, Bar_Y + 1), Vector_2_Round(Fill_W, 4), 3, Library_Data.Palette.Accent, 1, Fill_W > 0)
                 Update_Rounded_Box(self.Knob, Vector_2_Round(X_Val + 3 + Fill_W - 4, Bar_Y - 1), Vector_2_Round(8, 8), 4, Library_Data.Palette.Text, 1, true)
@@ -1156,7 +1043,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 if math.abs(self.ListHeight - self.TargetListHeight) < 0.5 then self.ListHeight = self.TargetListHeight end
                 self.OpenAlpha = Math_Lerp(self.OpenAlpha, self.IsOpen and 1 or 0, 0.3)
                 if math.abs(self.OpenAlpha - (self.IsOpen and 1 or 0)) < 0.02 then self.OpenAlpha = self.IsOpen and 1 or 0 end
-                local Draw_List_Height = Fast_Max(0, Math_Round(self.ListHeight))
+                local Draw_List_Height = Fast_Max(0, Fast_Floor(self.ListHeight + 0.5))
                 local List_Visible = Draw_List_Height > 1 and self.OpenAlpha > 0.02
                 self.ListPos = Vector_2_Round(self.ButtonPos.X, self.ButtonPos.Y + self.ButtonSize.Y + 2)
                 self.ListSize = Vector_2_Round(self.ButtonSize.X, Draw_List_Height)
@@ -1198,13 +1085,13 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
             local Initial_Alpha = Default_Alpha
             if Initial_Alpha == nil then Initial_Alpha = 1 end
             if type(Config[Flag_Val]) ~= "table" or not Config[Flag_Val].Color then
-                Config[Flag_Val] = {Color = Initial_Color, Alpha = Math_Clamp(Initial_Alpha, 0, 1)}
+                Config[Flag_Val] = {Color = Initial_Color, Alpha = Fast_Clamp(Initial_Alpha, 0, 1)}
             end
             local H_Val, S_Val, V_Val = Color3_To_Hsv(Config[Flag_Val].Color)
             local Color_Picker = {
                 Type = "ColorPicker", Height = 36, Flag = Flag_Val, Callback = Callback_Func,
                 IsOpen = false, Hue = H_Val, Sat = S_Val, Val = V_Val,
-                Alpha = Math_Clamp(Config[Flag_Val].Alpha or 1, 0, 1),
+                Alpha = Fast_Clamp(Config[Flag_Val].Alpha or 1, 0, 1),
                 GridCols = 16, GridRows = 10, HueSteps = 16,
                 Label = Create_Drawing("Text", {Text = Name_Val, Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 Stroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
@@ -1234,7 +1121,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 local State_Val = Config[self.Flag]
                 if type(State_Val) ~= "table" then State_Val = {} Config[self.Flag] = State_Val end
                 State_Val.Color = Hsv_To_Color3(self.Hue, self.Sat, self.Val)
-                State_Val.Alpha = Math_Clamp(self.Alpha, 0, 1)
+                State_Val.Alpha = Fast_Clamp(self.Alpha, 0, 1)
                 if self.Callback then self.Callback(State_Val) end
             end
             function Color_Picker:Update(X_Val, Y_Val, W_Val)
@@ -1382,7 +1269,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 Update_Rounded_Box(self.Stroke, self.BoxPos, self.BoxSize, 4, Is_Active and Library_Data.Palette.Accent or Library_Data.Palette.Outline, 1, true)
                 Update_Rounded_Box(self.Background, Vector_2_Round(self.BoxPos.X + 1, self.BoxPos.Y + 1), Vector_2_Round(Box_Width - 2, 22), 4, Library_Data.Palette.Element, 1, true)
                 local Display_Str = tostring(Config[self.Flag])
-                if Is_Active and os.clock() % 1 < 0.5 then Display_Str = Display_Str .. "_" end
+                if Is_Active and Fast_Clock() % 1 < 0.5 then Display_Str = Display_Str .. "_" end
                 self.ValueLabel.Visible = true
                 self.ValueLabel.Text = Display_Str
                 self.ValueLabel.Color = Is_Active and Library_Data.Palette.Text or Library_Data.Palette.SubText
@@ -1402,6 +1289,7 @@ end
 local Tab_Combat = Library_Data:CreateTab("Combat")
 local Sec_Combat_Parry = Tab_Combat:CreateSection("Auto Parry", "Left")
 Sec_Combat_Parry:CreateToggle("Auto Parry", "AutoParry", false)
+Sec_Combat_Parry:CreateToggle("Panic Spam", "PanicSpam", false)
 Sec_Combat_Parry:CreateDropdown("Parry Method", "ParryMethod", {"Click", "Key"}, "Click")
 Sec_Combat_Parry:CreateKeybind("Parry Bind", "ParryKeybind", "None")
 Sec_Combat_Parry:CreateToggle("Training Balls", "TrainingBallsSupport", false)
@@ -1409,41 +1297,23 @@ Sec_Combat_Parry:CreateToggle("Training Balls", "TrainingBallsSupport", false)
 local Sec_Combat_Spam = Tab_Combat:CreateSection("Auto Spam", "Right")
 Sec_Combat_Spam:CreateToggle("Auto Spam", "AutoSpam", false)
 Sec_Combat_Spam:CreateKeybind("Spam Bind", "SpamKeybind", "None")
-Sec_Combat_Spam:CreateSlider("Spam Rate", "SpamRate", 10, 200, 100, 1)
+Sec_Combat_Spam:CreateSlider("Spam Rate", "SpamRate", 200, 500, 200, 1)
+Sec_Combat_Spam:CreateSlider("Spam Sensitivity", "SpamSensitivity", 0.5, 1.5, 1.0, 0.1)
 
 local Sec_Combat_Trigger = Tab_Combat:CreateSection("Trigger Bot", "Right")
 Sec_Combat_Trigger:CreateToggle("Trigger Bot", "TriggerBot", false)
+Sec_Combat_Trigger:CreateToggle("Ignore Ball Spawn", "DontClickOnSpawn", true)
 Sec_Combat_Trigger:CreateKeybind("Trigger Bind", "TriggerKeybind", "None")
-Sec_Combat_Trigger:CreateSlider("Min Delay (ms)", "TriggerMinDelay", 0, 5, 0, 1)
-Sec_Combat_Trigger:CreateSlider("Max Delay (ms)", "TriggerMaxDelay", 0, 10, 0, 1)
-Sec_Combat_Trigger:CreateToggle("Dont Click On Ball Spawn", "DontClickOnSpawn", false)
+Sec_Combat_Trigger:CreateSlider("Delay (ms)", "TriggerDelay", 0, 100, 0, 1)
 
 local Tab_Visuals = Library_Data:CreateTab("Visuals")
-local Sec_Vis_Main = Tab_Visuals:CreateSection("Visual Settings", "Left")
+local Sec_Vis_Main = Tab_Visuals:CreateSection("Visuals", "Left")
 Sec_Vis_Main:CreateToggle("Ball Stats", "RenderBallStats", false)
 
 local Tab_Settings = Library_Data:CreateTab("Settings")
 local Sec_Settings_Config = Tab_Settings:CreateSection("Configuration", "Left")
 Sec_Settings_Config:CreateKeybind("Menu Bind", "HideKeybind", "F2")
 Sec_Settings_Config:CreateToggle("Show Hotkey List", "ShowHotkeyList", Config.ShowHotkeyList)
-
-local Sec_Configs_Main = Tab_Settings:CreateSection("Config Manager", "Right")
-local Config_Dropdown = Sec_Configs_Main:CreateDropdown("Configs", "SelectedConfig", Get_Available_Configs(), Config.SelectedConfig)
-Sec_Configs_Main:CreateTextbox("Config Name", "ConfigName", Config.ConfigName)
-Sec_Configs_Main:CreateToggle("Auto Save", "AutoSaveConfig", Config.AutoSaveConfig)
-Sec_Configs_Main:CreateToggle("Auto Load", "AutoLoadConfig", Config.AutoLoadConfig)
-Sec_Configs_Main:CreateButton("Save Config", function()
-    Save_Current_Config()
-    Config_Dropdown:SetOptions(Get_Available_Configs(), true)
-end)
-Sec_Configs_Main:CreateButton("Load Config", function()
-    Load_Named_Config(Config.SelectedConfig)
-    Config_Dropdown:SetOptions(Get_Available_Configs(), true)
-end)
-Sec_Configs_Main:CreateButton("Delete Config", function()
-    Delete_Named_Config(Config.SelectedConfig)
-    Config_Dropdown:SetOptions(Get_Available_Configs(), true)
-end)
 
 local Sec_Themes_Main = Tab_Settings:CreateSection("Theme Presets", "Left")
 Sec_Themes_Main:CreateDropdown("Preset", "ThemePreset", {"Nightfall", "Bloodmoon", "Ocean", "Mint"}, Config.ThemePreset or "Nightfall")
@@ -1612,7 +1482,7 @@ local function Apply_Held_Backspace()
         return
     end
     
-    local Now_Val = os.clock()
+    local Now_Val = Fast_Clock()
     if not Library_Data.State.BackspaceHeld then
         Library_Data.State.BackspaceHeld = true
         Library_Data.State.BackspaceNextRepeat = Now_Val + 0.42
@@ -1765,7 +1635,7 @@ end)
 local Frame_Counter = 0
 
 Run_Service.Heartbeat:Connect(function()
-    if Config_Dirty and Config.AutoSaveConfig and (os.clock() - Save_Queue_Tick > 1.5) then
+    if Config_Dirty and (Fast_Clock() - Save_Queue_Tick > 1.5) then
         Save_Current_Config()
         Config_Dirty = false
     end
@@ -1824,9 +1694,9 @@ Run_Service.RenderStepped:Connect(function()
 
     if Library_Data.State.ActiveKeybind then
         if not Library_Data._rebindIgnoreUntil then
-            Library_Data._rebindIgnoreUntil = os.clock() + 0.22
+            Library_Data._rebindIgnoreUntil = Fast_Clock() + 0.22
         end
-        if os.clock() > Library_Data._rebindIgnoreUntil then
+        if Fast_Clock() > Library_Data._rebindIgnoreUntil then
             for Code_Val, Name_Val in pairs(Key_Codes) do
                 if Check_Key_Pressed(Code_Val) then
                     local Flag_Name = Library_Data.State.ActiveKeybind.Flag
@@ -2188,10 +2058,6 @@ Run_Service.RenderStepped:Connect(function()
                         Config[Dropdown_Obj.Flag] = Dropdown_Obj.Options[Picked_Option]
                         if Dropdown_Obj.Flag == "ThemePreset" then
                             Apply_Theme_Preset(Config[Dropdown_Obj.Flag], false)
-                        elseif Dropdown_Obj.Flag == "SelectedConfig" then
-                            Config.SelectedConfig = tostring(Config[Dropdown_Obj.Flag])
-                            Config.ConfigName = Config.SelectedConfig
-                            Load_Named_Config(Config.SelectedConfig)
                         else
                             Queue_Save_Config()
                         end
@@ -2249,7 +2115,7 @@ Run_Service.RenderStepped:Connect(function()
                             end
                         end
                         if Library_Data.State.ActiveSlider == Item_Obj then
-                            local Mouse_X = Math_Clamp(Library_Data.Input.MousePos.X - Item_Obj.BarPos.X, 0, Item_Obj.BarSize.X)
+                            local Mouse_X = Fast_Clamp(Library_Data.Input.MousePos.X - Item_Obj.BarPos.X, 0, Item_Obj.BarSize.X)
                             local Pct_Val = Mouse_X / Item_Obj.BarSize.X
                             local Range_Val = Item_Obj.Max - Item_Obj.Min
                             local New_Value = Item_Obj.Min + (Range_Val * Pct_Val)
@@ -2278,13 +2144,13 @@ Run_Service.RenderStepped:Connect(function()
                         if Library_Data.State.ActiveColorDrag and Library_Data.State.ActiveColorDrag.Item == Item_Obj then
                             local Drag_Type = Library_Data.State.ActiveColorDrag.Type
                             if Drag_Type == "SV" then
-                                local Mouse_X = Math_Clamp(Library_Data.Input.MousePos.X - Item_Obj.SVPos.X, 0, Item_Obj.SVSize.X)
-                                local Mouse_Y = Math_Clamp(Library_Data.Input.MousePos.Y - Item_Obj.SVPos.Y, 0, Item_Obj.SVSize.Y)
+                                local Mouse_X = Fast_Clamp(Library_Data.Input.MousePos.X - Item_Obj.SVPos.X, 0, Item_Obj.SVSize.X)
+                                local Mouse_Y = Fast_Clamp(Library_Data.Input.MousePos.X - Item_Obj.SVPos.Y, 0, Item_Obj.SVSize.Y)
                                 Item_Obj.Sat = Mouse_X / Item_Obj.SVSize.X
                                 Item_Obj.Val = 1 - (Mouse_Y / Item_Obj.SVSize.Y)
                                 Queue_Save_Config()
                             elseif Drag_Type == "Hue" then
-                                local Mouse_X = Math_Clamp(Library_Data.Input.MousePos.X - Item_Obj.HuePos.X, 0, Item_Obj.HueSize.X)
+                                local Mouse_X = Fast_Clamp(Library_Data.Input.MousePos.X - Item_Obj.HuePos.X, 0, Item_Obj.HueSize.X)
                                 Item_Obj.Hue = Mouse_X / Item_Obj.HueSize.X
                                 Queue_Save_Config()
                             end
@@ -2295,7 +2161,7 @@ Run_Service.RenderStepped:Connect(function()
                             if Library_Data.State.ActiveSliderInput then Commit_Slider_Input(Library_Data.State.ActiveSliderInput) Library_Data.State.ActiveSliderInput = nil end
                             Library_Data.State.ActiveTextbox = nil
                             Library_Data.State.ActiveKeybind = Item_Obj
-                            Library_Data._rebindIgnoreUntil = os.clock() + 0.22
+                            Library_Data._rebindIgnoreUntil = Fast_Clock() + 0.22
                         elseif Library_Data.Input.Mouse2Clicked and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Item_Obj.ButtonPos, Item_Obj.ButtonSize) then
                             Library_Data.State.ActiveKeybind = nil
                             if Library_Data.State.ActiveSliderInput then Commit_Slider_Input(Library_Data.State.ActiveSliderInput) Library_Data.State.ActiveSliderInput = nil end
@@ -2353,66 +2219,86 @@ Run_Service.RenderStepped:Connect(function()
 end)
 
 local Is_Parried = false
-local ScheduledTriggerTime = 0
 local Speed_Divisor_Factor = 1.1
 local Effective_Divisor = 1.05
-local Parry_Range = 1
-local Base_Extrapolation_Frames = 2
-
-local Infinity_Force_Disabled = false
-local Fury_Triggered = false
-
+local Parry_Range = 10
+local Base_Extrapolation_Frames = 2.5
 local Aero_Active = false
 local Aero_Start_Time = 0
 local Last_Speed = 0
-
 local Last_Ball_Instance = nil
 local Last_Distance = 9999
 
-local Pull_Time = 0
-local Pull_Duration = 0.1
+local Configuration = {
+    Spam_Min_Distance_Speed_Divisor = 6.5,
+    Spam_Max_Speed_Divisor = 5.0,
+    Spam_Min_Distance = 95.0,
+    Spam_Max_Distance = 30.0,
+    Spam_Threshold = 5
+}
 
-local function Is_Pull_Active()
-    return (os.clock() - Pull_Time) <= Pull_Duration
-end
+local Min_Tb_Delay = 1 
+local Max_Tb_Delay = 50
+local Scheduled_Trigger_Time = 0
+local Cooldown_End_Time = 0 
 
-Run_Service.Heartbeat:Connect(function()
-    local Runtime_Folder = Workspace_Service:FindFirstChild("Runtime")
-    local Current_Children = Runtime_Folder and Runtime_Folder:GetChildren() or Workspace_Service:GetChildren()
-    for _, Current_Child in ipairs(Current_Children) do
-        local Child_Name = Current_Child.Name
-        if Child_Name == "Pull" or Child_Name == "MaxPull" then
-            Pull_Time = os.clock()
-            break
-        end
-    end
-end)
+local Accumulated_Spam_Time = 0
+local Ball_Parries = 0
+local Last_From_Change = 0
+local Cached_From = nil
 
 local function Get_Real_Ball()
     local Alive_Folder = Workspace_Service:FindFirstChild("Alive")
     local Dead_Folder = Workspace_Service:FindFirstChild("Dead")
+    local Target_Folder = nil
 
     if Alive_Folder and Alive_Folder:FindFirstChild(Local_Player.Name) then
-        local Balls_Folder = Workspace_Service:FindFirstChild("Balls")
-        if Balls_Folder then
-            for _, Current_Ball in ipairs(Balls_Folder:GetChildren()) do
-                if Current_Ball:IsA("BasePart") then
-                    return Current_Ball
-                end
+        Target_Folder = Workspace_Service:FindFirstChild("Balls")
+    elseif Dead_Folder and Dead_Folder:FindFirstChild(Local_Player.Name) then
+        if Config.TrainingBallsSupport then
+            Target_Folder = Workspace_Service:FindFirstChild("TrainingBalls")
+        end
+    end
+
+    if Target_Folder then
+        for _, Current_Ball in ipairs(Target_Folder:GetChildren()) do
+            if Current_Ball:IsA("BasePart") and Current_Ball:GetAttribute("realBall") == true then
+                return Current_Ball
             end
         end
-    elseif Dead_Folder and Dead_Folder:FindFirstChild(Local_Player.Name) then
-        local Training_Folder = Workspace_Service:FindFirstChild("TrainingBalls")
-        if Config.TrainingBallsSupport and Training_Folder then
-            for _, Current_Ball in ipairs(Training_Folder:GetChildren()) do
-                if Current_Ball:IsA("BasePart") then
-                    return Current_Ball
-                end
+        for _, Current_Ball in ipairs(Target_Folder:GetChildren()) do
+            if Current_Ball:IsA("BasePart") then
+                return Current_Ball
             end
         end
     end
-    
     return nil
+end
+
+local function Get_Memory_Ping()
+    local Success_State, Ping_Result = pcall(function()
+        return memory_read("double", Stats_Service.Network.ServerStatsItem["Data Ping"].Address + 0xC8)
+    end)
+    return Success_State and Ping_Result or 50
+end
+
+local function Check_Is_Target(Target_Name)
+    local Character_Instance = Local_Player.Character
+    if Character_Instance and Character_Instance:FindFirstChild('Highlight') then return true end
+    
+    if not Target_Name then return false end
+    local My_Name = string.lower(Local_Player.Name or "")
+    local My_Display = string.lower(Local_Player.DisplayName or Local_Player.Name or "")
+    local Tgt_Str = string.lower(tostring(Target_Name))
+    
+    if Tgt_Str == My_Name or Tgt_Str == My_Display then return true end
+    
+    local Clean_Target = string.gsub(Tgt_Str, '%.%.%.$', '')
+    if #Clean_Target >= 3 then
+        if string.sub(My_Name, 1, #Clean_Target) == Clean_Target or string.sub(My_Display, 1, #Clean_Target) == Clean_Target then return true end
+        if string.find(My_Name, Clean_Target, 1, true) or string.find(My_Display, Clean_Target, 1, true) then return true end
+    end
+    return false
 end
 
 local function Execute_Parry()
@@ -2426,43 +2312,51 @@ local function Execute_Parry()
     end
 end
 
-local Spam_Accumulator = 0
-Run_Service.RenderStepped:Connect(function(Delta)
-    if Config.AutoSpam and Config.SpamRate and Config.SpamRate > 0 then
-        local Player_Character = Local_Player.Character
-        local Is_Alive = false
-        if Workspace_Service:FindFirstChild("Alive") and Player_Character and Player_Character.Parent == Workspace_Service.Alive then
-            Is_Alive = true
-        end
-        if Is_Alive then
-            Spam_Accumulator = Spam_Accumulator + Delta
-            local Time_Per_Click = 1 / Config.SpamRate
-            while Spam_Accumulator >= Time_Per_Click do
-                Spam_Accumulator = Spam_Accumulator - Time_Per_Click
-                Execute_Parry()
+local function Scan_For_Nearest_Entity(Player_Position)
+    local Nearest_Entity = nil
+    local Minimum_Distance = math.huge
+    for _, Target_Player in ipairs(Players_Service:GetPlayers()) do
+        if Target_Player ~= Local_Player and Target_Player.Character then
+            local Root_Part = Target_Player.Character:FindFirstChild("HumanoidRootPart") or Target_Player.Character.PrimaryPart
+            local Humanoid_Part = Target_Player.Character:FindFirstChild("Humanoid")
+            if Root_Part and Humanoid_Part and Humanoid_Part.Health > 0 then
+                local Current_Distance = (Player_Position - Root_Part.Position).Magnitude
+                if Current_Distance < Minimum_Distance then
+                    Minimum_Distance = Current_Distance
+                    Nearest_Entity = Target_Player
+                end
             end
-        else
-            Spam_Accumulator = 0
         end
-    else
-        Spam_Accumulator = 0
     end
-end)
+    return Nearest_Entity, Minimum_Distance
+end
 
-local function CheckIsTarget(Target_Name)
-    local Character_Instance = Local_Player.Character
-    if Character_Instance and Character_Instance:FindFirstChild('Highlight') then return true end
-    if not Target_Name then return false end
-    local My_Name = string.lower(Local_Player.Name or "")
-    local My_Display = string.lower(Local_Player.DisplayName or Local_Player.Name or "")
-    local Tgt_Str = string.lower(tostring(Target_Name))
-    if Tgt_Str == My_Name or Tgt_Str == My_Display then return true end
-    local Clean_Target = string.gsub(Tgt_Str, '%.%.%.$', '')
-    if #Clean_Target >= 3 then
-        if string.sub(My_Name, 1, #Clean_Target) == Clean_Target or string.sub(My_Display, 1, #Clean_Target) == Clean_Target then return true end
-        if string.find(My_Name, Clean_Target, 1, true) or string.find(My_Display, Clean_Target, 1, true) then return true end
+local function Check_Is_Spam(Spam_Params)
+    local Scaled_Ping = Spam_Params.Ping / 10
+    local Base_Range = Scaled_Ping + math.min(Spam_Params.Speed / Configuration.Spam_Min_Distance_Speed_Divisor, Configuration.Spam_Min_Distance)
+    local Range_Val = Base_Range * Config.SpamSensitivity
+    
+    if Spam_Params.Entity_Distance > Range_Val then
+        return false, Spam_Params.Parries
     end
-    return false
+    
+    if Spam_Params.Ball_Distance > Range_Val then
+        return false, Spam_Params.Parries
+    end
+    
+    local Maximum_Speed = Configuration.Spam_Max_Speed_Divisor - math.min(Spam_Params.Speed / Configuration.Spam_Max_Speed_Divisor, Configuration.Spam_Max_Speed_Divisor)
+    local Maximum_Dot = math.clamp(Spam_Params.Dot, -1, 0) * Maximum_Speed
+    local Accuracy_Val = math.min(Range_Val - Maximum_Dot, Configuration.Spam_Max_Distance) * Config.SpamSensitivity
+    
+    if Spam_Params.Ball_Distance > Accuracy_Val then
+        return false, Spam_Params.Parries
+    end
+
+    if Spam_Params.Parries < Configuration.Spam_Threshold then
+        return false, Spam_Params.Parries
+    end
+    
+    return true, Spam_Params.Parries
 end
 
 Run_Service.Heartbeat:Connect(function(Delta_Time)
@@ -2496,12 +2390,12 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Is_Detected then
             if Config.AutoParry then
                 Config.AutoParry = false
-                Infinity_Force_Disabled = true
+                Config._InfinityDisabled = true
             end
         else
-            if Infinity_Force_Disabled then
+            if Config._InfinityDisabled then
                 Config.AutoParry = true
-                Infinity_Force_Disabled = false
+                Config._InfinityDisabled = false
             end
         end
     end
@@ -2539,8 +2433,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                 end
             end
         end
-        if Is_Fury and not Fury_Triggered then
-            Fury_Triggered = true
+        if Is_Fury and not Config._FuryTriggered then
+            Config._FuryTriggered = true
             task.spawn(function()
                 while Config.SlashesOfFuryDetection do
                     local Still_Fury = false
@@ -2587,47 +2481,29 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                     Execute_Parry()
                     task.wait(0.15)
                 end
-                Fury_Triggered = false
+                Config._FuryTriggered = false
             end)
         end
         if not Is_Fury then
-            Fury_Triggered = false
+            Config._FuryTriggered = false
         end
     end
 
     local Real_Ball = Get_Real_Ball()
-    local Current_Time = os.clock()
+    local Current_Time = Fast_Clock()
+    local Current_Delta_Time = Delta_Time or 0.016
 
     if not Real_Ball then
+        if (Current_Time - Last_From_Change) > 0.5 then
+            Cached_From = nil
+            Ball_Parries = 0
+        end
         Is_Parried = false
-        ScheduledTriggerTime = 0
         Aero_Active = false
         Last_Speed = 0
         Last_Ball_Instance = nil
         Last_Distance = 9999
-        Runtime_State.Target_Speed = 0
-        Runtime_State.Target_Distance = 0
-        Runtime_State.Target_Dot = 0
-        return
-    end
-
-    local Is_TK_Active = false
-    local Body_Part = Real_Ball:FindFirstChild("Body")
-    if Body_Part and Body_Part:FindFirstChild("At2") then
-        Is_TK_Active = true
-    end
-
-    if Is_Pull_Active() or Is_TK_Active then
-        Is_Parried = false
-        ScheduledTriggerTime = 0
-        Aero_Active = false
-        Last_Speed = Real_Ball.AssemblyLinearVelocity and Real_Ball.AssemblyLinearVelocity.Magnitude or 0
-        Last_Ball_Instance = Real_Ball
-        if Local_Player.Character and Local_Player.Character.PrimaryPart then
-            Last_Distance = (Local_Player.Character.PrimaryPart.Position - Real_Ball.Position).Magnitude
-        else
-            Last_Distance = 9999
-        end
+        Accumulated_Spam_Time = 0
         Runtime_State.Target_Speed = 0
         Runtime_State.Target_Distance = 0
         Runtime_State.Target_Dot = 0
@@ -2637,41 +2513,42 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     if Real_Ball ~= Last_Ball_Instance then
         Last_Ball_Instance = Real_Ball
         Last_Distance = 9999
+        Accumulated_Spam_Time = 0
     end
 
     local Player_Character = Local_Player.Character
-    if not Player_Character or not Player_Character.PrimaryPart then
-        return
-    end
+    if not Player_Character or not Player_Character.PrimaryPart then return end
 
     local Root_Part = Player_Character.PrimaryPart
 
     if Player_Character:FindFirstChild("SingularityCape") or Root_Part:FindFirstChild("SingularityCape") then
         Is_Parried = false
-        ScheduledTriggerTime = 0
+        Accumulated_Spam_Time = 0
         return
     end
 
     local Root_Position = Root_Part.Position
+    if typeof(Root_Position) ~= "Vector3" then return end
+
     local Ball_Position = Real_Ball.Position
+    if typeof(Ball_Position) ~= "Vector3" then return end
 
     local Delta_Vector = Root_Position - Ball_Position
     local Current_Distance = Delta_Vector.Magnitude
-    
-    if Current_Distance == 0 then
-        return
-    end
 
-    local Ball_Velocity_Vector = Real_Ball.AssemblyLinearVelocity
-    local Current_Speed = Ball_Velocity_Vector.Magnitude
+    if Current_Distance == 0 then return end
 
-    local To_Player_Dir = Delta_Vector.Unit
-    local Velocity_Dir = Ball_Velocity_Vector.Magnitude > 0 and Ball_Velocity_Vector.Unit or Vector3.new(0, 0, 0)
-    local Dot_Product = To_Player_Dir:Dot(Velocity_Dir)
+    local Ball_Velocity = Real_Ball.AssemblyLinearVelocity
+    if typeof(Ball_Velocity) ~= "Vector3" then Ball_Velocity = Vector3.new(0, 0, 0) end
+    local Current_Speed = Ball_Velocity.Magnitude
+
+    local Velocity_Dir = Ball_Velocity.Magnitude > 0.01 and Ball_Velocity.Unit or Vector3.zero
+    local Direction_To_Player_Stat = Delta_Vector.Unit
+    local Dot_Product_Stat = Direction_To_Player_Stat:Dot(Velocity_Dir)
 
     Runtime_State.Target_Speed = Current_Speed
     Runtime_State.Target_Distance = Current_Distance
-    Runtime_State.Target_Dot = Dot_Product
+    Runtime_State.Target_Dot = Dot_Product_Stat
 
     Current_Speed = Last_Speed + (Current_Speed - Last_Speed) * 0.25
 
@@ -2688,7 +2565,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             Aero_Active = true
             Aero_Start_Time = Current_Time
         end
-        if (Current_Time - Aero_Start_Time) < 0.2 or Ball_Velocity_Vector.Y > 10 then
+        if (Current_Time - Aero_Start_Time) < 0.2 or Ball_Velocity.Y > 10 then
             Is_Aero_Wait = true
         end
     else
@@ -2697,99 +2574,152 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Is_Aero_Wait then
         Last_Speed = Current_Speed
+        Accumulated_Spam_Time = 0
         return
     end
 
-    local Target_Attribute = Real_Ball:GetAttribute("target") or Real_Ball:GetAttribute("Target")
-    local isTargetingLocalPlayer = CheckIsTarget(Target_Attribute)
+    local Current_From_Attr = Real_Ball:GetAttribute("from") or Real_Ball:GetAttribute("From")
 
-    local Is_Alive = false
-    if Workspace_Service:FindFirstChild("Alive") and Player_Character.Parent == Workspace_Service.Alive then
-        Is_Alive = true
+    if Current_From_Attr ~= nil and Current_From_Attr ~= Cached_From then
+        local Time_Difference = Current_Time - Last_From_Change
+        if Time_Difference <= 0.35 then
+            Ball_Parries = Ball_Parries + 1
+        else
+            Ball_Parries = 1
+        end
+        Cached_From = Current_From_Attr
+        Last_From_Change = Current_Time
     end
 
-    if Config.TriggerBot and Is_Alive and not Is_Aero_Wait then
-        if isTargetingLocalPlayer then
-            if ScheduledTriggerTime == 0 then
-                local minD = Config.TriggerMinDelay or 0
-                local maxD = Config.TriggerMaxDelay or 0
-                if minD > maxD then minD = maxD end
-                local randomizedDelay = math.random(minD, maxD) / 1000
-                ScheduledTriggerTime = Current_Time + randomizedDelay
-            end
-        else
-            ScheduledTriggerTime = 0
-        end
+    local Current_Target_Attr = Real_Ball:GetAttribute("target") or Real_Ball:GetAttribute("Target")
+    local Network_Ping = Get_Memory_Ping()
+    local Is_Target_Me = (Current_Target_Attr == Local_Player.Name or Current_Target_Attr == Local_Player.Character or Current_Target_Attr == Local_Player)
 
-        if isTargetingLocalPlayer and ScheduledTriggerTime > 0 and Current_Time >= ScheduledTriggerTime then
-            Execute_Parry()
-            ScheduledTriggerTime = 0
+    local Direction_To_Player = (Root_Position - Ball_Position).Unit
+    local Trajectory_Dot_Product = Direction_To_Player:Dot(Velocity_Dir)
+    local Nearest_Player, Distance_To_Nearest_Player = Scan_For_Nearest_Entity(Root_Position)
+
+    local Spam_Params = {
+        Speed = Current_Speed,
+        Parries = Ball_Parries,
+        Ball_Distance = Current_Distance,
+        Entity_Distance = Distance_To_Nearest_Player,
+        Dot = Trajectory_Dot_Product,
+        Ping = Network_Ping
+    }
+
+    local Auto_Spam_Active = false
+    if Config.AutoSpam then
+        Auto_Spam_Active, _ = Check_Is_Spam(Spam_Params)
+    end
+
+    if Auto_Spam_Active then
+        local Spam_Interval = 1 / Fast_Max(Config.SpamRate, 1)
+        Accumulated_Spam_Time = Accumulated_Spam_Time + Current_Delta_Time
+        if Accumulated_Spam_Time >= Spam_Interval then
+            local Click_Count = Fast_Floor(Accumulated_Spam_Time / Spam_Interval)
+            Accumulated_Spam_Time = Accumulated_Spam_Time % Spam_Interval
+            for I_Idx = 1, Click_Count do
+                Execute_Parry()
+            end
+        end
+        Is_Parried = true
+        Last_Speed = Current_Speed
+        Last_Distance = Current_Distance
+        return
+    else
+        Accumulated_Spam_Time = 0
+    end
+
+    if Config.TriggerBot then
+        local Application_Tick = Fast_Clock()
+        if Application_Tick >= Cooldown_End_Time then
+            local Is_Targeting_Local_Player = Check_Is_Target(Current_Target_Attr)
+            if not (Config.DontClickOnSpawn and Ball_Parries == 0) then
+                if Is_Targeting_Local_Player then
+                    if Scheduled_Trigger_Time == 0 then
+                        local Randomized_Delay = math.random(math.min(Min_Tb_Delay, Max_Tb_Delay), math.max(Min_Tb_Delay, Max_Tb_Delay)) / 1000
+                        Scheduled_Trigger_Time = Application_Tick + Randomized_Delay
+                    end
+                else
+                    Scheduled_Trigger_Time = 0
+                end
+                
+                if Is_Targeting_Local_Player and Scheduled_Trigger_Time > 0 then
+                    if Application_Tick >= Scheduled_Trigger_Time then
+                        Is_Parried = true
+                        Execute_Parry()
+                        Scheduled_Trigger_Time = 0
+                        Cooldown_End_Time = Application_Tick + 0.4
+                    end
+                end
+            else
+                Scheduled_Trigger_Time = 0
+            end
         end
     else
-        ScheduledTriggerTime = 0
+        Scheduled_Trigger_Time = 0
     end
 
-    if not isTargetingLocalPlayer then
+    if Is_Target_Me then
+        if Is_Parried then
+            Last_Speed = Current_Speed
+            Last_Distance = Current_Distance
+            return
+        end
+        
+        local Speed_Difference = math.max(Current_Speed - 9.5, 0)
+        local Speed_Divisor_Base = 2.4 + (Speed_Difference * 0.002)
+        local Speed_Divisor = Speed_Divisor_Base * Speed_Divisor_Factor * Effective_Divisor
+
+        local Distance_Per_Tick = Current_Speed * Current_Delta_Time
+        local Dynamic_Frames = Base_Extrapolation_Frames + (Current_Speed / 60)
+        local Frame_Distance_Compensation = Distance_Per_Tick * Dynamic_Frames
+        
+        local Final_Threshold = math.max((Current_Speed / Speed_Divisor), Parry_Range) + Frame_Distance_Compensation
+
+        local Segment_Vector = Ball_Velocity * Current_Delta_Time * Dynamic_Frames
+        local Player_To_Ball_Vector = Root_Position - Ball_Position
+        local Segment_Length_Squared = Segment_Vector.X^2 + Segment_Vector.Y^2 + Segment_Vector.Z^2
+        
+        local T_Factor = 0
+        if Segment_Length_Squared > 0 then
+            T_Factor = math.clamp(Player_To_Ball_Vector:Dot(Segment_Vector) / Segment_Length_Squared, 0, 1)
+        end
+        
+        local Closest_Point_On_Line = Ball_Position + (Segment_Vector * T_Factor)
+        local Distance_To_Line = (Root_Position - Closest_Point_On_Line).Magnitude
+
+        local Dot_Product = 0
+        if Current_Distance > 0.01 and Current_Speed > 0.01 then
+            Dot_Product = (Delta_Vector.Unit):Dot(Velocity_Dir)
+        end
+
+        local Is_Curved = false
+        local Close_Range_Threshold = math.max(20, Final_Threshold * 0.5)
+
+        if Current_Speed > 10 and Current_Distance > Close_Range_Threshold then
+            local Dot_Threshold_Base = 0.82
+            local Distance_Factor_Curved = math.clamp((Current_Distance - Close_Range_Threshold) / 25, 0, 1)
+            local Dot_Threshold = Dot_Threshold_Base * Distance_Factor_Curved
+
+            if Dot_Product < Dot_Threshold then
+                Is_Curved = true
+            end
+        end
+
+        local Is_Moving_Away = Current_Distance > Last_Distance + 0.15
+
+        if Distance_To_Line <= Final_Threshold and not Is_Curved and not Is_Moving_Away then
+            if Config.AutoParry then
+                Is_Parried = true
+                Execute_Parry()
+            end
+        end
+    else
         Is_Parried = false
-        Last_Speed = Current_Speed
-        Last_Distance = Current_Distance
-        return
-    end
-
-    if Is_Parried then
-        Last_Speed = Current_Speed
-        Last_Distance = Current_Distance
-        return 
     end
 
     Last_Speed = Current_Speed
-
-    local Current_Delta_Time = Delta_Time or 0.016
-    local Ping_Value = 0
-    
-    if type(memory_read) == "function" then
-        pcall(function()
-            Ping_Value = memory_read("double", Stats_Service.Network.ServerStatsItem["Data Ping"].Address + 0xC8)
-        end)
-    else
-        pcall(function()
-            Ping_Value = tonumber(Stats_Service.Network.ServerStatsItem["Data Ping"]:GetValue()) or 0
-        end)
-    end
-    
-    local Ping_Vector = Velocity_Dir * (Ping_Value / 10)
-    local Frame_Vector = Ball_Velocity_Vector * Current_Delta_Time * Base_Extrapolation_Frames
-    
-    local Future_Ball_Position = Ball_Position + Frame_Vector + Ping_Vector
-    local Virtual_Distance = (Root_Position - Future_Ball_Position).Magnitude
-
-    local Speed_Difference = math.max(Current_Speed - 9.5, 0)
-    local Speed_Divisor_Base = 2.4 + (Speed_Difference * 0.002)
-    local Speed_Divisor = Speed_Divisor_Base * Speed_Divisor_Factor * Effective_Divisor
-
-    local Final_Threshold = math.max((Current_Speed / Speed_Divisor), Parry_Range)
-
-    local Is_Curved = false
-    local Close_Range_Threshold = math.max(20, Final_Threshold * 0.5)
-    
-    if Current_Speed > 10 and Current_Distance > Close_Range_Threshold then
-        local Dot_Threshold_Base = 0.82
-        local Distance_Factor_Curved = math.clamp((Current_Distance - Close_Range_Threshold) / 25, 0, 1)
-        local Dot_Threshold = Dot_Threshold_Base * Distance_Factor_Curved
-
-        if Dot_Product < Dot_Threshold then
-            Is_Curved = true
-        end
-    end
-
-    local Is_Moving_Away = Current_Distance > Last_Distance + 0.15
-
-    if Virtual_Distance <= Final_Threshold and not Is_Curved and not Is_Moving_Away then
-        if Config.AutoParry then
-            Is_Parried = true
-            Execute_Parry()
-        end
-    end
-
     Last_Distance = Current_Distance
 end)
