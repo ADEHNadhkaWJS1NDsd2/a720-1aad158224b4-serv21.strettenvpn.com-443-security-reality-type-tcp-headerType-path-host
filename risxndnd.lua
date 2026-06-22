@@ -230,10 +230,12 @@ local Visuals_Data = {
     Sphere_Lines = {},
     Ball_Trail_Pos = {},
     Ball_Lines = {},
-    Esp_Texts = {}
+    Esp_Texts = {},
+    Trail_Time = 0
 }
 
 local Trail_Length_Limit = 60
+local Trail_Refresh_Rate = 0.01
 
 local function Create_Esp_Text()
     local Text_Obj = Drawing.new("Text")
@@ -430,8 +432,9 @@ local function Update_And_Render_Trail(Best_Pos)
         return
     end
 
-    local Last_Pos = Visuals_Data.Ball_Trail_Pos[1]
-    if not Last_Pos or Get_Distance_Squared(Last_Pos, Best_Pos) > 0.05 then
+    local Current_Time = Fast_Clock()
+    if Current_Time - Visuals_Data.Trail_Time >= Trail_Refresh_Rate then
+        Visuals_Data.Trail_Time = Current_Time
         table.insert(Visuals_Data.Ball_Trail_Pos, 1, Best_Pos)
         if #Visuals_Data.Ball_Trail_Pos > Trail_Length_Limit then 
             table.remove(Visuals_Data.Ball_Trail_Pos) 
@@ -627,7 +630,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Smoothed_Server_Fps = Smoothed_Server_Fps + ((1 / Tick_Delta) - Smoothed_Server_Fps) * 0.1
     end
 
-    local Lag_Compensation_Factor = Fast_Clamp(math.pow(60 / Fast_Max(Smoothed_Server_Fps, 10), 1.2), 1, 4)
+    local Lag_Compensation_Factor = Fast_Clamp(math.pow(60 / Fast_Max(Smoothed_Server_Fps, 10), 1.15), 1, 3.5)
     local Current_Delta_Time = Delta_Time or 0.016
 
     if Config_State.Infinity_Detection then
@@ -1030,17 +1033,15 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Scheduled_Trigger_Time = 0
     end
 
-    local Speed_Difference = Fast_Max(Current_Speed - 10.0, 0)
-    local Speed_Divisor_Base = 2.5 + (math.log10(Speed_Difference + 1) * math.pow(Speed_Difference, 0.4) * 0.08)
+    local Speed_Difference = Fast_Max(Current_Speed - 9.5, 0)
+    local Speed_Divisor_Base = 2.4 + (math.log10(Speed_Difference + 1) * math.pow(Speed_Difference, 0.45) * 0.08)
     local Speed_Divisor = Speed_Divisor_Base * Speed_Divisor_Factor * Effective_Divisor
 
-    local Exponential_Decay_Rate = Fast_Max(25, math.pow(Current_Speed, 0.9))
-    local Distance_Multiplier = 1.0 + (math.exp(-Current_Distance / Exponential_Decay_Rate) * 1.5)
+    local Exponential_Decay_Rate = Fast_Max(30, math.pow(Current_Speed, 0.85))
+    local Distance_Multiplier = 1.0 + (math.exp(-Current_Distance / Exponential_Decay_Rate) * 1.8)
 
-    local Ping_Frames = Network_Ping / (1000 / 60)
-    local Speed_Scale = Fast_Clamp(math.log10(Current_Speed + 1) * 0.5, 0, 2)
-    local Dynamic_Frames = (Base_Extrapolation_Frames + (Ping_Frames * 0.5) + Speed_Scale) * Lag_Compensation_Factor
     local Distance_Per_Tick = Current_Speed * Current_Delta_Time * Lag_Compensation_Factor
+    local Dynamic_Frames = (Base_Extrapolation_Frames + (math.log10(Current_Speed + 10) * 0.6)) * Lag_Compensation_Factor
     local Frame_Distance_Compensation = Distance_Per_Tick * Dynamic_Frames
     
     local Final_Threshold = (Fast_Max((Current_Speed / Speed_Divisor), Parry_Range_Threshold) + Frame_Distance_Compensation) * Distance_Multiplier
@@ -1072,12 +1073,11 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         end
 
         local Is_Curved = false
-        local Close_Range_Threshold = Fast_Max(15, Final_Threshold * 0.55)
+        local Close_Range_Threshold = Fast_Max(20, Final_Threshold * 0.5)
 
-        if Current_Speed > 15 and Current_Distance > Close_Range_Threshold then
-            local Speed_Weight = Fast_Clamp(Current_Speed / 150, 0, 1)
-            local Dot_Threshold_Base = 0.88 - (Speed_Weight * 0.2)
-            local Distance_Factor_Curved = math.pow(Fast_Clamp((Current_Distance - Close_Range_Threshold) / 35, 0, 1), 1.25)
+        if Current_Speed > 10 and Current_Distance > Close_Range_Threshold then
+            local Dot_Threshold_Base = 0.82
+            local Distance_Factor_Curved = math.pow(Fast_Clamp((Current_Distance - Close_Range_Threshold) / 25, 0, 1), 1.5)
             local Dot_Threshold = Dot_Threshold_Base * Distance_Factor_Curved
 
             if Dot_Product < Dot_Threshold then
