@@ -70,7 +70,7 @@ local Runtime_State = {
     Target_Speed = 0,
     Target_Distance = 0,
     Target_Dot = 0,
-    Parry_Range = 0
+    Parry_Range = 10
 }
 
 local Offsets_Data = {
@@ -268,7 +268,7 @@ if type(Drawing) == "table" and Drawing.new then
     end
 end
 
-local Smooth_Parry_Radius = 0
+local Smooth_Parry_Radius = 10
 local Has_M1_Click = type(mouse1click) == "function"
 
 local function Get_Screen_Position(World_Pos)
@@ -480,7 +480,7 @@ local Is_Parried = false
 local Speed_Divisor_Factor = 1.1
 local Effective_Divisor = 1.05
 local Base_Extrapolation_Frames = 2.5
-local Parry_Range_Threshold = 5
+local Parry_Range_Threshold = 0
 local Aero_Active = false
 local Aero_Start_Time = 0
 local Last_Speed = 0
@@ -565,7 +565,7 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
         local Root_Part = Local_Player.Character.HumanoidRootPart
         if Root_Part and Root_Part.Parent then
             local Root_Pos = Root_Part.Position - Vector3.new(0, 3, 0)
-            local Target_Radius = Runtime_State.Parry_Range or 0
+            local Target_Radius = Runtime_State.Parry_Range or 10
             Smooth_Parry_Radius = Smooth_Parry_Radius + (Target_Radius - Smooth_Parry_Radius) * Fast_Clamp(Delta_Time * 15, 0, 1)
             
             local Radius_Val = Fast_Max(Smooth_Parry_Radius, 5)
@@ -823,7 +823,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Runtime_State.Target_Speed = 0
         Runtime_State.Target_Distance = 0
         Runtime_State.Target_Dot = 0
-        Runtime_State.Parry_Range = 0
+        Runtime_State.Parry_Range = 10
         return
     end
 
@@ -868,7 +868,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     Current_Speed = Last_Speed + (Current_Speed - Last_Speed) * 0.25
 
-    if Current_Speed < 0.1 then
+    if Current_Speed < 5 then
         Last_Speed = Current_Speed
         return
     end
@@ -898,7 +898,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Current_From_Attr ~= nil and Current_From_Attr ~= Cached_From then
         local Time_Difference = Current_Time - Last_From_Change
-        if Time_Difference <= 0.45 then
+        if Time_Difference <= 0.65 then
             Ball_Parries = Ball_Parries + 1
         else
             Ball_Parries = 1
