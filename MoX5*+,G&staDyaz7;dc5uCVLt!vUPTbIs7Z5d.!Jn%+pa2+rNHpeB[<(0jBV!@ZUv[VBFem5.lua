@@ -1,4 +1,3 @@
-
 if _G.Nightfall_Drawings then
     for _, Drawing_Obj in pairs(_G.Nightfall_Drawings) do
         pcall(function() Drawing_Obj:Remove() end)
@@ -21,6 +20,7 @@ local Fast_Clamp = math.clamp
 local Fast_Sqrt = math.sqrt
 local Fast_Clock = os.clock
 local V3_Zero = Vector3.zero
+local Pi_2 = math.pi * 2
 
 local Lib_Instance = loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.lua"))()
 if type(Lib_Instance) ~= "table" then Lib_Instance = INSui end
@@ -420,9 +420,14 @@ local function Get_Trail_Color_And_Opacity(Offset_Val, Index_Val, Total_Val)
 end
 
 local function Update_And_Render_Trail(Best_Pos)
-    if not Config_State.Ball_Trail or not Best_Pos then
+    if not Config_State.Ball_Trail then
         for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do Line_Obj.Visible = false end
-        if not Best_Pos then Visuals_Data.Ball_Trail_Pos = {} end
+        return
+    end
+
+    if not Best_Pos then
+        for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do Line_Obj.Visible = false end
+        table.clear(Visuals_Data.Ball_Trail_Pos)
         return
     end
 
@@ -503,55 +508,54 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
     local Best_Ball_Pos = Real_Ball_Visuals and Real_Ball_Visuals.Position or nil
     Update_And_Render_Trail(Best_Ball_Pos)
 
-    local Current_Players = Players_Service:GetPlayers()
-    for _, Target_Player in pairs(Current_Players) do
-        if Target_Player == Local_Player then continue end
-        
-        local Char_Obj = Target_Player.Character
-        local Head_Obj = Char_Obj and Char_Obj:FindFirstChild("Head")
-        local Ability_Val = Target_Player:GetAttribute("CurrentlyEquippedAbility")
-        
-        if Config_State.Ability_Esp and Head_Obj and Ability_Val then
-            if not Visuals_Data.Esp_Texts[Target_Player] then
-                Visuals_Data.Esp_Texts[Target_Player] = Create_Esp_Text()
-            end
+    if Config_State.Ability_Esp then
+        local Current_Players = Players_Service:GetPlayers()
+        for _, Target_Player in ipairs(Current_Players) do
+            if Target_Player == Local_Player then continue end
             
-            local Pos_Val, On_Screen = Get_Screen_Position(Head_Obj.Position + Vector3.new(0, 2, 0))
-            local Text_Obj = Visuals_Data.Esp_Texts[Target_Player]
+            local Char_Obj = Target_Player.Character
+            local Head_Obj = Char_Obj and Char_Obj:FindFirstChild("Head")
+            local Ability_Val = Target_Player:GetAttribute("CurrentlyEquippedAbility")
             
-            if On_Screen then
-                Text_Obj.Position = Pos_Val
-                Text_Obj.Text = tostring(Ability_Val)
-                if Config_State.Rainbow_Mode then
-                    local R_Val = (math.sin(Current_Render_Time * 2.5) * 0.5 + 0.5) * 0.95 + 0.05
-                    local G_Val = (math.sin(Current_Render_Time * 2.5 + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
-                    local B_Val = (math.sin(Current_Render_Time * 2.5 + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
-                    Text_Obj.Color = Color3.new(R_Val, G_Val, B_Val)
-                else
-                    Text_Obj.Color = Config_State.Esp_Color
+            if Head_Obj and Ability_Val then
+                if not Visuals_Data.Esp_Texts[Target_Player] then
+                    Visuals_Data.Esp_Texts[Target_Player] = Create_Esp_Text()
                 end
-                Text_Obj.Visible = true
+                
+                local Pos_Val, On_Screen = Get_Screen_Position(Head_Obj.Position + Vector3.new(0, 2, 0))
+                local Text_Obj = Visuals_Data.Esp_Texts[Target_Player]
+                
+                if On_Screen then
+                    Text_Obj.Position = Pos_Val
+                    Text_Obj.Text = tostring(Ability_Val)
+                    if Config_State.Rainbow_Mode then
+                        local R_Val = (math.sin(Current_Render_Time * 2.5) * 0.5 + 0.5) * 0.95 + 0.05
+                        local G_Val = (math.sin(Current_Render_Time * 2.5 + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
+                        local B_Val = (math.sin(Current_Render_Time * 2.5 + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
+                        Text_Obj.Color = Color3.new(R_Val, G_Val, B_Val)
+                    else
+                        Text_Obj.Color = Config_State.Esp_Color
+                    end
+                    Text_Obj.Visible = true
+                else
+                    Text_Obj.Visible = false
+                end
             else
-                Text_Obj.Visible = false
-            end
-        else
-            if Visuals_Data.Esp_Texts[Target_Player] then
-                Visuals_Data.Esp_Texts[Target_Player].Visible = false
+                if Visuals_Data.Esp_Texts[Target_Player] then
+                    Visuals_Data.Esp_Texts[Target_Player].Visible = false
+                end
             end
         end
-    end
 
-    for Player_Key, Text_Obj in pairs(Visuals_Data.Esp_Texts) do
-        local Found_Player = false
-        for _, P_Obj in pairs(Current_Players) do
-            if P_Obj == Player_Key then
-                Found_Player = true
-                break
+        for Player_Key, Text_Obj in pairs(Visuals_Data.Esp_Texts) do
+            if not Player_Key.Parent then
+                Text_Obj:Remove()
+                Visuals_Data.Esp_Texts[Player_Key] = nil
             end
         end
-        if not Found_Player then
-            Text_Obj:Remove()
-            Visuals_Data.Esp_Texts[Player_Key] = nil
+    else
+        for Player_Key, Text_Obj in pairs(Visuals_Data.Esp_Texts) do
+            Text_Obj.Visible = false
         end
     end
 
@@ -564,7 +568,7 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
             
             local Radius_Val = Fast_Max(Smooth_Parry_Radius, 5)
             local Segments_Count = 40
-            local Angle_Step = (math.pi * 2) / Segments_Count
+            local Angle_Step = Pi_2 / Segments_Count
             
             for I_Idx = 1, Segments_Count do
                 local Line_Obj = Visuals_Data.Sphere_Lines[I_Idx]
@@ -584,7 +588,7 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
                         Line_Obj.To = P2_Pos
                         
                         if Config_State.Rainbow_Mode then
-                            local Offset_T = Current_Render_Time * 2.5 + (I_Idx / Segments_Count) * math.pi * 2
+                            local Offset_T = Current_Render_Time * 2.5 + (I_Idx / Segments_Count) * Pi_2
                             local Vis_R = (math.sin(Offset_T) * 0.5 + 0.5) * 0.95 + 0.05
                             local Vis_G = (math.sin(Offset_T + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
                             local Vis_B = (math.sin(Offset_T + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
@@ -601,7 +605,7 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
     else
         for I_Idx = 1, 40 do 
             local Line_Obj = Visuals_Data.Sphere_Lines[I_Idx]
-            if Line_Obj then
+            if Line_Obj and Line_Obj.Visible then
                 Line_Obj.Visible = false 
             end
         end
@@ -624,7 +628,6 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Smoothed_Server_Fps = Smoothed_Server_Fps + ((1 / Tick_Delta) - Smoothed_Server_Fps) * 0.1
     end
 
-    local Lag_Compensation_Factor = Fast_Clamp(math.pow(60 / Fast_Max(Smoothed_Server_Fps, 10), 1.2), 1, 3.5)
     local Current_Delta_Time = Delta_Time or 0.016
 
     if Config_State.Infinity_Detection then
@@ -909,6 +912,11 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Trajectory_Dot_Product = Direction_To_Player:Dot(Velocity_Dir)
     local Nearest_Player, Distance_To_Nearest_Player = Scan_For_Nearest_Entity(Root_Position)
 
+    local Dead_Folder = Workspace_Service:FindFirstChild("Dead")
+    local Is_Dead = Dead_Folder and Dead_Folder:FindFirstChild(Local_Player.Name) ~= nil
+    local Is_Training_Ball = Real_Ball.Parent and Real_Ball.Parent.Name == "TrainingBalls"
+    local Can_Attack = (not Is_Dead) and (not Is_Training_Ball)
+
     local Spam_Params = {
         Speed = Current_Speed,
         Parries = Ball_Parries,
@@ -919,7 +927,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     }
 
     local Auto_Spam_Active = false
-    if Config_State.Auto_Spam then
+    if Config_State.Auto_Spam and Can_Attack then
         Auto_Spam_Active, _ = Check_Is_Spam(Spam_Params)
     end
 
@@ -998,7 +1006,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         end
     end
 
-    if Config_State.Trigger_Bot then
+    if Config_State.Trigger_Bot and Can_Attack then
         local Application_Tick = Fast_Clock()
         if Application_Tick >= Cooldown_End_Time then
             if not (Config_State.Dont_Click_On_Spawn and Ball_Parries == 0) then
@@ -1027,32 +1035,30 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Scheduled_Trigger_Time = 0
     end
 
-    local Speed_Difference = Fast_Max(Current_Speed - 10, 0)
-    local Speed_Divisor_Base = 2.4 + (math.pow(Speed_Difference, 0.35) * 0.15) + (math.log10(Speed_Difference + 1) * 0.45)
-    local Speed_Divisor = Speed_Divisor_Base * Speed_Divisor_Factor * Effective_Divisor
+    local Parry_Accuracy_Value = 85
+    local Base_Extrapolation_Factor = 2
+    local Static_Parry_Range = 0
 
-    local Server_Tick_Rate = Fast_Max(Smoothed_Server_Fps, 10)
-    local Ping_Sec = Network_Ping / 1000
-    local Shadow_Distance = Current_Speed * (Ping_Sec * math.pow(1.1, Ping_Sec * 10) + (1 / Server_Tick_Rate))
+    local Ping_Num = Get_Memory_Ping()
+    local Adjusted_Ping = Ping_Num / 10
 
-    local Speed_Delta = Fast_Max(Current_Speed - Last_Speed, 0)
-    local Accelerated_Speed = Current_Speed + (Speed_Delta * math.exp(-Current_Delta_Time))
-    local Distance_Per_Tick = Accelerated_Speed * Current_Delta_Time * Lag_Compensation_Factor
-    
-    local Distance_Dampening = math.exp(-Current_Distance / Fast_Max(Current_Speed * 0.5, 20))
-    local Dynamic_Frames = Base_Extrapolation_Frames + (math.log10(Current_Speed + 10) * 0.7)
-    Dynamic_Frames = Dynamic_Frames * Lag_Compensation_Factor * (1 - (Distance_Dampening * 0.15))
+    local Distance_Per_Tick = Current_Speed * Current_Delta_Time
+    local Frame_Compensation = Distance_Per_Tick * Base_Extrapolation_Factor
 
-    local Projection_Magnitude = Fast_Min(Distance_Per_Tick * Dynamic_Frames, Fast_Clamp(Current_Speed * 0.4, 10, 80))
-    local Projected_Ball_Position = Ball_Position + (Velocity_Dir * Projection_Magnitude)
-    
-    local Projected_Delta_Vector = Root_Position - Projected_Ball_Position
-    local Projected_Distance = Projected_Delta_Vector.Magnitude
-    local Projected_Direction = Projected_Distance > 0.01 and Projected_Delta_Vector.Unit or V3_Zero
+    local Speed_Divisor_Multiplier = (0.7 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.005) - (Frame_Compensation * 0.005)
 
-    local Distance_Multiplier = 1.0 + (math.exp(-Current_Distance / Fast_Max(Current_Speed, 30)) * 0.5)
-    local Final_Threshold = (Fast_Max((Current_Speed / Speed_Divisor), Parry_Range_Threshold) + Shadow_Distance) * Distance_Multiplier
-    local Final_Threshold_Sq = Final_Threshold * Final_Threshold
+    local Dot_Product_Parry = 0
+    if Current_Distance > 0.01 and Current_Speed > 0.01 then
+        Dot_Product_Parry = Direction_To_Player_Stat:Dot(Velocity_Dir)
+    end
+
+    local Speed_Difference_Parry = Fast_Min(Fast_Max(Current_Speed - 9.5, 0), 820)
+    local Speed_Divisor_Base_Parry = 2.4 + (Speed_Difference_Parry * 0.002)
+    local Speed_Divisor_Parry = Speed_Divisor_Base_Parry * Speed_Divisor_Multiplier
+
+    local Base_Parry_Accuracy = Adjusted_Ping + Fast_Max(Current_Speed / Speed_Divisor_Parry, 9.5)
+    local Final_Threshold = Base_Parry_Accuracy + Frame_Compensation + Static_Parry_Range
+
     Runtime_State.Parry_Range = Final_Threshold
 
     if Is_Target_Me then
@@ -1061,47 +1067,23 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             Last_Distance = Current_Distance
             return
         end
-        
-        local Segment_Vector = Ball_Velocity * Current_Delta_Time * Dynamic_Frames
-        local Player_To_Proj_Vector = Root_Position - Projected_Ball_Position
-        local Segment_Length_Squared = Segment_Vector.X * Segment_Vector.X + Segment_Vector.Y * Segment_Vector.Y + Segment_Vector.Z * Segment_Vector.Z
-        
-        local T_Factor = 0
-        if Segment_Length_Squared > 0 then
-            T_Factor = Fast_Clamp(Player_To_Proj_Vector:Dot(Segment_Vector) / Segment_Length_Squared, 0, 1)
-        end
-        
-        local Closest_Point_On_Line = Projected_Ball_Position + (Segment_Vector * T_Factor)
-        local Distance_To_Line_Sq = Get_Distance_Squared(Root_Position, Closest_Point_On_Line)
 
-        local Speed = Current_Speed
-        local Distance = Projected_Distance
-        local Velocity = Ball_Velocity
-        local Ball_Direction = Velocity.Magnitude > 0.01 and Velocity.Unit or V3_Zero
-        local Dot = Projected_Direction:Dot(Ball_Direction)
-        local Speed_Threshold = Fast_Min(Speed / 100, 40)
-        local Angle_Threshold = 40 * Fast_Max(Dot, 0)
-        local Ball_Distance_Threshold = 15 - Fast_Min(Distance / 1000, 15) - Angle_Threshold + Speed_Threshold
-
-        local Is_Curved = false
         local Close_Range_Threshold = Fast_Max(20, Final_Threshold * 0.5)
+        local Is_Curved = false
 
-        if Speed > 10 and Distance > Close_Range_Threshold then
-            local Distance_Factor_Curved = math.pow(Fast_Clamp((Distance - Close_Range_Threshold) / 25, 0, 1), 1.5)
-            local Base_Dot_Threshold = 0.82 * Distance_Factor_Curved
-            
-            if Dot < Base_Dot_Threshold then
-                Is_Curved = true
-            end
-            
-            if Distance > Ball_Distance_Threshold and Dot < 0.65 then
+        if Current_Speed > 10 and Current_Distance > Close_Range_Threshold then
+            local Dot_Threshold_Base = 0.82
+            local Distance_Factor_Curved = math.pow(Fast_Clamp((Current_Distance - Close_Range_Threshold) / 25, 0, 1), 1.5)
+            local Dot_Threshold = Dot_Threshold_Base * Distance_Factor_Curved
+
+            if Dot_Product_Parry < Dot_Threshold then
                 Is_Curved = true
             end
         end
 
-        local Is_Moving_Away = Projected_Distance > Last_Distance + Projection_Magnitude + 0.15
+        local Is_Moving_Away = Current_Distance > Last_Distance + 0.15
 
-        if Distance_To_Line_Sq <= Final_Threshold_Sq and not Is_Curved and not Is_Moving_Away then
+        if Current_Distance <= Final_Threshold and not Is_Moving_Away and not Is_Curved then
             if Config_State.Auto_Parry then
                 Is_Parried = true
                 Execute_Parry()
