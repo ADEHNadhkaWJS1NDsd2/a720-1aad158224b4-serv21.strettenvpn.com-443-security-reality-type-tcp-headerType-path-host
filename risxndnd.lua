@@ -230,12 +230,10 @@ local Visuals_Data = {
     Sphere_Lines = {},
     Ball_Trail_Pos = {},
     Ball_Lines = {},
-    Esp_Texts = {},
-    Trail_Time = 0
+    Esp_Texts = {}
 }
 
 local Trail_Length_Limit = 60
-local Trail_Refresh_Rate = 0.01
 
 local function Create_Esp_Text()
     local Text_Obj = Drawing.new("Text")
@@ -432,9 +430,8 @@ local function Update_And_Render_Trail(Best_Pos)
         return
     end
 
-    local Current_Time = Fast_Clock()
-    if Current_Time - Visuals_Data.Trail_Time >= Trail_Refresh_Rate then
-        Visuals_Data.Trail_Time = Current_Time
+    local Last_Pos = Visuals_Data.Ball_Trail_Pos[1]
+    if not Last_Pos or Get_Distance_Squared(Last_Pos, Best_Pos) > 0.05 then
         table.insert(Visuals_Data.Ball_Trail_Pos, 1, Best_Pos)
         if #Visuals_Data.Ball_Trail_Pos > Trail_Length_Limit then 
             table.remove(Visuals_Data.Ball_Trail_Pos) 
@@ -474,6 +471,12 @@ local function Update_And_Render_Trail(Best_Pos)
             Visuals_Data.Ball_Lines[I_Idx].Visible = false
         end
     end
+end
+
+local Pull_Time = 0
+local Pull_Duration = 0.1
+local function Is_Pull_Active()
+    return (Fast_Clock() - Pull_Time) <= Pull_Duration
 end
 
 local Is_Parried = false
@@ -619,6 +622,16 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Tick_Delta = Current_Time - Last_Tick_Time
     Last_Tick_Time = Current_Time
 
+    local Runtime_Folder = Workspace_Service:FindFirstChild("Runtime")
+    local Children_List = Runtime_Folder and Runtime_Folder:GetChildren() or Workspace_Service:GetChildren()
+    for _, Child_Obj in ipairs(Children_List) do
+        local Child_Name = Child_Obj.Name
+        if Child_Name == "Pull" or Child_Name == "MaxPull" then
+            Pull_Time = Fast_Clock()
+            break
+        end
+    end
+
     local Current_Char = Local_Player.Character
     if Current_Char and Current_Char ~= Cached_Character then
         Cached_Character = Current_Char
@@ -635,7 +648,6 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Config_State.Infinity_Detection then
         local Is_Detected = false
-        local Runtime_Folder = Workspace_Service:FindFirstChild("Runtime")
         if Runtime_Folder then
             if Runtime_Folder:FindFirstChild("InfinityFX") or Runtime_Folder:FindFirstChild("TrueInfinityFX") then
                 Is_Detected = true
@@ -827,18 +839,31 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         return
     end
 
+    local Player_Character = Local_Player.Character
+    if not Player_Character or not Player_Character.PrimaryPart then return end
+
+    local Root_Part = Player_Character.PrimaryPart
+    if not Root_Part or not Root_Part.Parent then return end
+
+    local Is_TK_Active = false
+    local Body_Part = Real_Ball:FindFirstChild("Body")
+    if Body_Part and Body_Part:FindFirstChild("At2") then
+        Is_TK_Active = true
+    end
+
+    if Is_Pull_Active() or Is_TK_Active then
+        Is_Parried = false
+        Last_Speed = Real_Ball.AssemblyLinearVelocity.Magnitude
+        Last_Distance = (Root_Part.Position - Real_Ball.Position).Magnitude
+        return
+    end
+
     if Real_Ball ~= Last_Ball_Instance then
         Last_Ball_Instance = Real_Ball
         Last_Distance = 9999
         Accumulated_Spam_Time = 0
         Panic_Accumulated_Time = 0
     end
-
-    local Player_Character = Local_Player.Character
-    if not Player_Character or not Player_Character.PrimaryPart then return end
-
-    local Root_Part = Player_Character.PrimaryPart
-    if not Root_Part or not Root_Part.Parent then return end
 
     if Player_Character:FindFirstChild("SingularityCape") or Root_Part:FindFirstChild("SingularityCape") then
         Is_Parried = false
