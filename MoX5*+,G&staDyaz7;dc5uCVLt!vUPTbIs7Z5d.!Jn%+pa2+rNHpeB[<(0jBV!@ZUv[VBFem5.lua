@@ -22,10 +22,16 @@ local Fast_Clock = os.clock
 local V3_Zero = Vector3.zero
 local Pi_2 = math.pi * 2
 
-local Lib_Instance = loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.lua"))()
-if type(Lib_Instance) ~= "table" then Lib_Instance = INSui end
+local Lib_Instance
+for _ = 1, 6 do
+    local ok, res = pcall(function() return loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.lua"))() end)
+    if ok and type(res) == "table" then Lib_Instance = res; break end
+    if type(INSui) == "table" then Lib_Instance = INSui; break end
+    task.wait(0.4)
+end
+if type(Lib_Instance) ~= "table" then return warn("INS ui failed to load") end
 
-Lib_Instance:ApplyThemePreset("Indigo")
+Lib_Instance:SetTheme("Indigo")
 
 local Win_App = Lib_Instance:CreateWindow({
     title = "Nightfall | Recode",
@@ -1042,17 +1048,19 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Ping_Num = Get_Memory_Ping()
     local Adjusted_Ping = Ping_Num / 10
 
-    local Distance_Per_Tick = Current_Speed * Current_Delta_Time
+    local Distance_Per_Tick = Current_Speed * Tick_Delta
     local Frame_Compensation = Distance_Per_Tick * Base_Extrapolation_Factor
 
-    local Speed_Divisor_Multiplier = (0.7 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.005) - (Frame_Compensation * 0.005)
+    local Segment_Line_Distance = Current_Speed * (Tick_Delta + (Adjusted_Ping / 100)) * Base_Extrapolation_Factor
+
+    local Speed_Divisor_Multiplier = (0.7 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.005) - (Segment_Line_Distance * 0.005)
 
     local Dot_Product_Parry = 0
     if Current_Distance > 0.01 and Current_Speed > 0.01 then
         Dot_Product_Parry = Direction_To_Player_Stat:Dot(Velocity_Dir)
     end
 
-    local Speed_Difference_Parry = Fast_Min(Fast_Max(Current_Speed - 9.5, 0), 820)
+    local Speed_Difference_Parry = Fast_Max(Current_Speed - 9.5, 0)
     local Speed_Divisor_Base_Parry = 2.4 + (Speed_Difference_Parry * 0.002)
     local Speed_Divisor_Parry = Speed_Divisor_Base_Parry * Speed_Divisor_Multiplier
 
@@ -1069,14 +1077,19 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         end
 
         local Close_Range_Threshold = Fast_Max(20, Final_Threshold * 0.5)
+
+        local Speed_Threshold = Fast_Min(Current_Speed / 100, 40)
+        local Angle_Threshold = 40 * Fast_Max(Dot_Product_Parry, 0)
+        local Ball_Distance_Threshold = 15 - Fast_Min(Current_Distance / 1000, 15) - Angle_Threshold + Speed_Threshold
+
         local Is_Curved = false
 
-        if Current_Speed > 10 and Current_Distance > Close_Range_Threshold then
+        if Current_Speed > 10 then
             local Dot_Threshold_Base = 0.82
             local Distance_Factor_Curved = math.pow(Fast_Clamp((Current_Distance - Close_Range_Threshold) / 25, 0, 1), 1.5)
             local Dot_Threshold = Dot_Threshold_Base * Distance_Factor_Curved
 
-            if Dot_Product_Parry < Dot_Threshold then
+            if Current_Distance > Close_Range_Threshold and Dot_Product_Parry < Dot_Threshold then
                 Is_Curved = true
             end
         end
