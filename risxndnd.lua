@@ -230,10 +230,12 @@ local Visuals_Data = {
     Sphere_Lines = {},
     Ball_Trail_Pos = {},
     Ball_Lines = {},
-    Esp_Texts = {}
+    Esp_Texts = {},
+    Trail_Time = 0
 }
 
 local Trail_Length_Limit = 60
+local Trail_Refresh_Rate = 0.01
 
 local function Create_Esp_Text()
     local Text_Obj = Drawing.new("Text")
@@ -430,8 +432,9 @@ local function Update_And_Render_Trail(Best_Pos)
         return
     end
 
-    local Last_Pos = Visuals_Data.Ball_Trail_Pos[1]
-    if not Last_Pos or Get_Distance_Squared(Last_Pos, Best_Pos) > 0.05 then
+    local Current_Time = Fast_Clock()
+    if Current_Time - Visuals_Data.Trail_Time >= Trail_Refresh_Rate then
+        Visuals_Data.Trail_Time = Current_Time
         table.insert(Visuals_Data.Ball_Trail_Pos, 1, Best_Pos)
         if #Visuals_Data.Ball_Trail_Pos > Trail_Length_Limit then 
             table.remove(Visuals_Data.Ball_Trail_Pos) 
@@ -471,12 +474,6 @@ local function Update_And_Render_Trail(Best_Pos)
             Visuals_Data.Ball_Lines[I_Idx].Visible = false
         end
     end
-end
-
-local Pull_Time = 0
-local Pull_Duration = 0.1
-local function Is_Pull_Active()
-    return (Fast_Clock() - Pull_Time) <= Pull_Duration
 end
 
 local Is_Parried = false
@@ -622,16 +619,6 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Tick_Delta = Current_Time - Last_Tick_Time
     Last_Tick_Time = Current_Time
 
-    local Runtime_Folder = Workspace_Service:FindFirstChild("Runtime")
-    local Children_List = Runtime_Folder and Runtime_Folder:GetChildren() or Workspace_Service:GetChildren()
-    for _, Child_Obj in ipairs(Children_List) do
-        local Child_Name = Child_Obj.Name
-        if Child_Name == "Pull" or Child_Name == "MaxPull" then
-            Pull_Time = Fast_Clock()
-            break
-        end
-    end
-
     local Current_Char = Local_Player.Character
     if Current_Char and Current_Char ~= Cached_Character then
         Cached_Character = Current_Char
@@ -648,6 +635,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Config_State.Infinity_Detection then
         local Is_Detected = false
+        local Runtime_Folder = Workspace_Service:FindFirstChild("Runtime")
         if Runtime_Folder then
             if Runtime_Folder:FindFirstChild("InfinityFX") or Runtime_Folder:FindFirstChild("TrueInfinityFX") then
                 Is_Detected = true
@@ -839,31 +827,18 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         return
     end
 
-    local Player_Character = Local_Player.Character
-    if not Player_Character or not Player_Character.PrimaryPart then return end
-
-    local Root_Part = Player_Character.PrimaryPart
-    if not Root_Part or not Root_Part.Parent then return end
-
-    local Is_TK_Active = false
-    local Body_Part = Real_Ball:FindFirstChild("Body")
-    if Body_Part and Body_Part:FindFirstChild("At2") then
-        Is_TK_Active = true
-    end
-
-    if Is_Pull_Active() or Is_TK_Active then
-        Is_Parried = false
-        Last_Speed = Real_Ball.AssemblyLinearVelocity.Magnitude
-        Last_Distance = (Root_Part.Position - Real_Ball.Position).Magnitude
-        return
-    end
-
     if Real_Ball ~= Last_Ball_Instance then
         Last_Ball_Instance = Real_Ball
         Last_Distance = 9999
         Accumulated_Spam_Time = 0
         Panic_Accumulated_Time = 0
     end
+
+    local Player_Character = Local_Player.Character
+    if not Player_Character or not Player_Character.PrimaryPart then return end
+
+    local Root_Part = Player_Character.PrimaryPart
+    if not Root_Part or not Root_Part.Parent then return end
 
     if Player_Character:FindFirstChild("SingularityCape") or Root_Part:FindFirstChild("SingularityCape") then
         Is_Parried = false
@@ -923,7 +898,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Current_From_Attr ~= nil and Current_From_Attr ~= Cached_From then
         local Time_Difference = Current_Time - Last_From_Change
-        if Time_Difference <= 0.35 then
+        if Time_Difference <= 0.65 then
             Ball_Parries = Ball_Parries + 1
         else
             Ball_Parries = 1
@@ -1065,11 +1040,23 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Exponential_Decay_Rate = Fast_Max(30, math.pow(Current_Speed, 0.85))
     local Distance_Multiplier = 1.0 + (math.exp(-Current_Distance / Exponential_Decay_Rate) * 1.8)
 
-    local Distance_Per_Tick = Current_Speed * Current_Delta_Time * Lag_Compensation_Factor
+    local Server_Tick_Rate = Fast_Max(Smoothed_Server_Fps, 10)
+    local Ping_Sec = Network_Ping / 1000
+    local Shadow_Distance = Current_Speed * (Ping_Sec + (1 / Server_Tick_Rate))
+
+    local Speed_Delta = Fast_Max(Current_Speed - Last_Speed, 0)
+    local Accelerated_Speed = Current_Speed + Speed_Delta
+    local Distance_Per_Tick = Accelerated_Speed * Current_Delta_Time * Lag_Compensation_Factor
     local Dynamic_Frames = (Base_Extrapolation_Frames + (math.log10(Current_Speed + 10) * 0.6)) * Lag_Compensation_Factor
-    local Frame_Distance_Compensation = Distance_Per_Tick * Dynamic_Frames
+
+    local Projection_Magnitude = Fast_Min(Distance_Per_Tick * Dynamic_Frames, Fast_Clamp(Current_Speed * 0.35, 10, 70))
+    local Projected_Ball_Position = Ball_Position + (Velocity_Dir * Projection_Magnitude)
     
-    local Final_Threshold = (Fast_Max((Current_Speed / Speed_Divisor), Parry_Range_Threshold) + Frame_Distance_Compensation) * Distance_Multiplier
+    local Projected_Delta_Vector = Root_Position - Projected_Ball_Position
+    local Projected_Distance = Projected_Delta_Vector.Magnitude
+    local Projected_Direction = Projected_Distance > 0.01 and Projected_Delta_Vector.Unit or V3_Zero
+
+    local Final_Threshold = (Fast_Max((Current_Speed / Speed_Divisor), Parry_Range_Threshold) + Shadow_Distance) * Distance_Multiplier
     local Final_Threshold_Sq = Final_Threshold * Final_Threshold
     Runtime_State.Parry_Range = Final_Threshold
 
@@ -1081,36 +1068,43 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         end
         
         local Segment_Vector = Ball_Velocity * Current_Delta_Time * Dynamic_Frames
-        local Player_To_Ball_Vector = Root_Position - Ball_Position
+        local Player_To_Proj_Vector = Root_Position - Projected_Ball_Position
         local Segment_Length_Squared = Segment_Vector.X * Segment_Vector.X + Segment_Vector.Y * Segment_Vector.Y + Segment_Vector.Z * Segment_Vector.Z
         
         local T_Factor = 0
         if Segment_Length_Squared > 0 then
-            T_Factor = Fast_Clamp(Player_To_Ball_Vector:Dot(Segment_Vector) / Segment_Length_Squared, 0, 1)
+            T_Factor = Fast_Clamp(Player_To_Proj_Vector:Dot(Segment_Vector) / Segment_Length_Squared, 0, 1)
         end
         
-        local Closest_Point_On_Line = Ball_Position + (Segment_Vector * T_Factor)
+        local Closest_Point_On_Line = Projected_Ball_Position + (Segment_Vector * T_Factor)
         local Distance_To_Line_Sq = Get_Distance_Squared(Root_Position, Closest_Point_On_Line)
 
-        local Dot_Product = 0
-        if Current_Distance > 0.01 and Current_Speed > 0.01 then
-            Dot_Product = (Delta_Vector.Unit):Dot(Velocity_Dir)
-        end
+        local Speed = Current_Speed
+        local Distance = Projected_Distance
+        local Velocity = Ball_Velocity
+        local Ball_Direction = Velocity.Magnitude > 0.01 and Velocity.Unit or V3_Zero
+        local Dot = Projected_Direction:Dot(Ball_Direction)
+        local Speed_Threshold = Fast_Min(Speed / 100, 40)
+        local Angle_Threshold = 40 * Fast_Max(Dot, 0)
+        local Ball_Distance_Threshold = 15 - Fast_Min(Distance / 1000, 15) - Angle_Threshold + Speed_Threshold
 
         local Is_Curved = false
         local Close_Range_Threshold = Fast_Max(20, Final_Threshold * 0.5)
 
-        if Current_Speed > 10 and Current_Distance > Close_Range_Threshold then
-            local Dot_Threshold_Base = 0.82
-            local Distance_Factor_Curved = math.pow(Fast_Clamp((Current_Distance - Close_Range_Threshold) / 25, 0, 1), 1.5)
-            local Dot_Threshold = Dot_Threshold_Base * Distance_Factor_Curved
-
-            if Dot_Product < Dot_Threshold then
+        if Speed > 10 and Distance > Close_Range_Threshold then
+            local Distance_Factor_Curved = math.pow(Fast_Clamp((Distance - Close_Range_Threshold) / 25, 0, 1), 1.5)
+            local Base_Dot_Threshold = 0.82 * Distance_Factor_Curved
+            
+            if Dot < Base_Dot_Threshold then
+                Is_Curved = true
+            end
+            
+            if Distance > Ball_Distance_Threshold and Dot < 0.65 then
                 Is_Curved = true
             end
         end
 
-        local Is_Moving_Away = Current_Distance > Last_Distance + 0.15
+        local Is_Moving_Away = Projected_Distance > Last_Distance + Projection_Magnitude + 0.15
 
         if Distance_To_Line_Sq <= Final_Threshold_Sq and not Is_Curved and not Is_Moving_Away then
             if Config_State.Auto_Parry then
@@ -1132,4 +1126,4 @@ task.spawn(function()
         if Config_State.Korblox then pcall(function() Apply_Korblox(true) end) end
         if task and task.wait then task.wait(1) else wait(1) end
     end
-end)
+end)    
