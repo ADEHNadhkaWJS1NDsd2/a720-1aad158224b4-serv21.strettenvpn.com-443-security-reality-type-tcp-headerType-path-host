@@ -119,7 +119,7 @@ Vis_Main_Section:Toggle("Ball Trail", false, function(Value_In) Config_State.Bal
 Vis_Main_Section:Toggle("Ability ESP", false, function(Value_In) Config_State.Ability_Esp = Value_In end):AddColorpicker("ESP Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Esp_Color = Color_Val end)
 Vis_Main_Section:Toggle("Rainbow Mode", false, function(Value_In) Config_State.Rainbow_Mode = Value_In end)
 
-local Vis_Avatar_Section = Visuals_Tab:Section("Avatar", "Right")
+local Vis_Avatar_Section = Visuals_Tab:Section("Avatar Mods", "Right")
 
 local function Apply_Headless(State_Val)
     local Char_Obj = Local_Player.Character
@@ -480,7 +480,7 @@ local Is_Parried = false
 local Speed_Divisor_Factor = 1.1
 local Effective_Divisor = 1.05
 local Base_Extrapolation_Frames = 2.5
-local Parry_Range_Threshold = 10
+local Parry_Range_Threshold = 0
 local Aero_Active = false
 local Aero_Start_Time = 0
 local Last_Speed = 0
@@ -1126,4 +1126,4 @@ task.spawn(function()
         if Config_State.Korblox then pcall(function() Apply_Korblox(true) end) end
         if task and task.wait then task.wait(1) else wait(1) end
     end
-end)    
+end)
