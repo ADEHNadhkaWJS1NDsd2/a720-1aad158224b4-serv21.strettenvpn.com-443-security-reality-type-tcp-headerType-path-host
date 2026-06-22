@@ -119,7 +119,7 @@ Vis_Main_Section:Toggle("Ball Trail", false, function(Value_In) Config_State.Bal
 Vis_Main_Section:Toggle("Ability ESP", false, function(Value_In) Config_State.Ability_Esp = Value_In end):AddColorpicker("ESP Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Esp_Color = Color_Val end)
 Vis_Main_Section:Toggle("Rainbow Mode", false, function(Value_In) Config_State.Rainbow_Mode = Value_In end)
 
-local Vis_Avatar_Section = Visuals_Tab:Section("Avatar Mods", "Right")
+local Vis_Avatar_Section = Visuals_Tab:Section("Avatar", "Right")
 
 local function Apply_Headless(State_Val)
     local Char_Obj = Local_Player.Character
