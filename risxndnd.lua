@@ -70,7 +70,7 @@ local Runtime_State = {
     Target_Speed = 0,
     Target_Distance = 0,
     Target_Dot = 0,
-    Parry_Range = 10
+    Parry_Range = 0
 }
 
 local Offsets_Data = {
@@ -268,23 +268,16 @@ if type(Drawing) == "table" and Drawing.new then
     end
 end
 
-local Smooth_Parry_Radius = 10
+local Smooth_Parry_Radius = 0
 local Has_M1_Click = type(mouse1click) == "function"
 
 local function Get_Screen_Position(World_Pos)
-    if type(WorldToScreen) == "function" then
-        local Screen_Pos, Is_Visible = WorldToScreen(World_Pos)
+    local Success, Screen_Pos, Is_Visible = pcall(function()
+        return WorldToScreen(World_Pos)
+    end)
+    if Success and Screen_Pos then
         return Screen_Pos, Is_Visible
     end
-    
-    local Camera_Object = Workspace_Service.CurrentCamera
-    if not Camera_Object then return Vector2.new(0, 0), false end
-    
-    local Success_State, P2d_Val = pcall(function() return Camera_Object:WorldToViewportPoint(World_Pos) end)
-    if Success_State and P2d_Val then
-        return Vector2.new(P2d_Val.X, P2d_Val.Y), P2d_Val.Z > 0
-    end
-    
     return Vector2.new(0, 0), false
 end
 
@@ -348,15 +341,6 @@ local function Check_Is_Target(Target_Name)
     return false
 end
 
-local function Execute_Parry()
-    if Has_M1_Click then
-        mouse1click()
-    else
-        Virtual_Input_Manager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-        Virtual_Input_Manager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-    end
-end
-
 local function Get_Distance_Squared(V1_Pos, V2_Pos)
     local Dx_Val = V1_Pos.X - V2_Pos.X
     local Dy_Val = V1_Pos.Y - V2_Pos.Y
@@ -381,6 +365,15 @@ local function Scan_For_Nearest_Entity(Player_Position)
         end
     end
     return Nearest_Entity, Fast_Sqrt(Minimum_Distance_Sq)
+end
+
+local function Execute_Parry()
+    if Has_M1_Click then
+        mouse1click()
+    else
+        Virtual_Input_Manager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        Virtual_Input_Manager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    end
 end
 
 local Configuration_Spam = {
@@ -480,7 +473,7 @@ local Is_Parried = false
 local Speed_Divisor_Factor = 1.1
 local Effective_Divisor = 1.05
 local Base_Extrapolation_Frames = 2.5
-local Parry_Range_Threshold = 0
+local Parry_Range_Threshold = 10
 local Aero_Active = false
 local Aero_Start_Time = 0
 local Last_Speed = 0
@@ -565,7 +558,7 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
         local Root_Part = Local_Player.Character.HumanoidRootPart
         if Root_Part and Root_Part.Parent then
             local Root_Pos = Root_Part.Position - Vector3.new(0, 3, 0)
-            local Target_Radius = Runtime_State.Parry_Range or 10
+            local Target_Radius = Runtime_State.Parry_Range or 0
             Smooth_Parry_Radius = Smooth_Parry_Radius + (Target_Radius - Smooth_Parry_Radius) * Fast_Clamp(Delta_Time * 15, 0, 1)
             
             local Radius_Val = Fast_Max(Smooth_Parry_Radius, 5)
@@ -630,7 +623,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Smoothed_Server_Fps = Smoothed_Server_Fps + ((1 / Tick_Delta) - Smoothed_Server_Fps) * 0.1
     end
 
-    local Lag_Compensation_Factor = Fast_Clamp(math.pow(60 / Fast_Max(Smoothed_Server_Fps, 10), 1.15), 1, 3.5)
+    local Lag_Compensation_Factor = Fast_Clamp(math.pow(60 / Fast_Max(Smoothed_Server_Fps, 10), 1.2), 1, 3.5)
     local Current_Delta_Time = Delta_Time or 0.016
 
     if Config_State.Infinity_Detection then
@@ -823,7 +816,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Runtime_State.Target_Speed = 0
         Runtime_State.Target_Distance = 0
         Runtime_State.Target_Dot = 0
-        Runtime_State.Parry_Range = 10
+        Runtime_State.Parry_Range = 0
         return
     end
 
@@ -868,7 +861,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     Current_Speed = Last_Speed + (Current_Speed - Last_Speed) * 0.25
 
-    if Current_Speed < 5 then
+    if Current_Speed < 0.1 then
         Last_Speed = Current_Speed
         return
     end
@@ -898,7 +891,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Current_From_Attr ~= nil and Current_From_Attr ~= Cached_From then
         local Time_Difference = Current_Time - Last_From_Change
-        if Time_Difference <= 0.65 then
+        if Time_Difference <= 0.35 then
             Ball_Parries = Ball_Parries + 1
         else
             Ball_Parries = 1
@@ -1022,7 +1015,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                         Is_Parried = true
                         Execute_Parry()
                         Scheduled_Trigger_Time = 0
-                        Cooldown_End_Time = Application_Tick + 0.4
+                        Cooldown_End_Time = Application_Tick + 0.01
                     end
                 end
             else
@@ -1033,29 +1026,30 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Scheduled_Trigger_Time = 0
     end
 
-    local Speed_Difference = Fast_Max(Current_Speed - 9.5, 0)
-    local Speed_Divisor_Base = 2.4 + (math.log10(Speed_Difference + 1) * math.pow(Speed_Difference, 0.45) * 0.08)
+    local Speed_Difference = Fast_Max(Current_Speed - 10, 0)
+    local Speed_Divisor_Base = 2.4 + (math.pow(Speed_Difference, 0.35) * 0.15) + (math.log10(Speed_Difference + 1) * 0.45)
     local Speed_Divisor = Speed_Divisor_Base * Speed_Divisor_Factor * Effective_Divisor
-
-    local Exponential_Decay_Rate = Fast_Max(30, math.pow(Current_Speed, 0.85))
-    local Distance_Multiplier = 1.0 + (math.exp(-Current_Distance / Exponential_Decay_Rate) * 1.8)
 
     local Server_Tick_Rate = Fast_Max(Smoothed_Server_Fps, 10)
     local Ping_Sec = Network_Ping / 1000
-    local Shadow_Distance = Current_Speed * (Ping_Sec + (1 / Server_Tick_Rate))
+    local Shadow_Distance = Current_Speed * (Ping_Sec * math.pow(1.1, Ping_Sec * 10) + (1 / Server_Tick_Rate))
 
     local Speed_Delta = Fast_Max(Current_Speed - Last_Speed, 0)
-    local Accelerated_Speed = Current_Speed + Speed_Delta
+    local Accelerated_Speed = Current_Speed + (Speed_Delta * math.exp(-Current_Delta_Time))
     local Distance_Per_Tick = Accelerated_Speed * Current_Delta_Time * Lag_Compensation_Factor
-    local Dynamic_Frames = (Base_Extrapolation_Frames + (math.log10(Current_Speed + 10) * 0.6)) * Lag_Compensation_Factor
+    
+    local Distance_Dampening = math.exp(-Current_Distance / Fast_Max(Current_Speed * 0.5, 20))
+    local Dynamic_Frames = Base_Extrapolation_Frames + (math.log10(Current_Speed + 10) * 0.7)
+    Dynamic_Frames = Dynamic_Frames * Lag_Compensation_Factor * (1 - (Distance_Dampening * 0.15))
 
-    local Projection_Magnitude = Fast_Min(Distance_Per_Tick * Dynamic_Frames, Fast_Clamp(Current_Speed * 0.35, 10, 70))
+    local Projection_Magnitude = Fast_Min(Distance_Per_Tick * Dynamic_Frames, Fast_Clamp(Current_Speed * 0.4, 10, 80))
     local Projected_Ball_Position = Ball_Position + (Velocity_Dir * Projection_Magnitude)
     
     local Projected_Delta_Vector = Root_Position - Projected_Ball_Position
     local Projected_Distance = Projected_Delta_Vector.Magnitude
     local Projected_Direction = Projected_Distance > 0.01 and Projected_Delta_Vector.Unit or V3_Zero
 
+    local Distance_Multiplier = 1.0 + (math.exp(-Current_Distance / Fast_Max(Current_Speed, 30)) * 0.5)
     local Final_Threshold = (Fast_Max((Current_Speed / Speed_Divisor), Parry_Range_Threshold) + Shadow_Distance) * Distance_Multiplier
     local Final_Threshold_Sq = Final_Threshold * Final_Threshold
     Runtime_State.Parry_Range = Final_Threshold
