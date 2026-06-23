@@ -111,7 +111,7 @@ local Combat_Tab = Win_App:Tab("Combat", "swords")
 local Parry_Section = Combat_Tab:Section("Auto Parry", "Left")
 Parry_Section:Toggle("Auto Parry", false, function(Value_In) Config_State.Auto_Parry = Value_In end):AddKeybind("None", "Toggle")
 Parry_Section:Toggle("Panic Spam", false, function(Value_In) Config_State.Panic_Spam = Value_In end)
-Parry_Section:Dropdown("Parry Method", {"Click"}, {"Click", "Key"}, false, function(Value_In) Config_State.Parry_Method = type(Value_In) == "table" and Value_In[1] or Value_In end)
+Parry_Section:Dropdown("Parry Method", {"Click", "Key"}, {"Click"}, false, function(Value_In) Config_State.Parry_Method = type(Value_In) == "table" and Value_In[1] or Value_In end)
 Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Training_Balls_Support = Value_In end)
 
 local Spam_Section = Combat_Tab:Section("Auto Spam", "Right")
@@ -128,20 +128,20 @@ local Visuals_Tab = Win_App:Tab("Visuals", "eye")
 
 local Vis_Main_Section = Visuals_Tab:Section("Visuals", "Left")
 Vis_Main_Section:Toggle("Range Visualiser", false, function(Value_In) Config_State.Parry_Visualizer = Value_In end):AddColorpicker("Vis Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Visualizer_Color = Color_Val end)
-Vis_Main_Section:Slider("Vis Thickness", 2, 0.1, 1, 10, "", function(Value_In) Config_State.Vis_Thickness = Value_In end)
-Vis_Main_Section:Slider("Vis Transparency", 1, 0.1, 0.1, 1, "", function(Value_In) Config_State.Vis_Transparency = Value_In end)
+Vis_Main_Section:Slider("Vis Thickness", 2.0, 0.1, 1.0, 10.0, "", function(Value_In) Config_State.Vis_Thickness = Value_In end)
+Vis_Main_Section:Slider("Vis Transparency", 1.0, 0.1, 0.1, 1.0, "", function(Value_In) Config_State.Vis_Transparency = Value_In end)
 Vis_Main_Section:Slider("Vis Segments", 40, 1, 10, 100, "", function(Value_In) Config_State.Vis_Segments = Value_In end)
 
 Vis_Main_Section:Toggle("Ability ESP", false, function(Value_In) Config_State.Ability_Esp = Value_In end):AddColorpicker("ESP Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Esp_Color = Color_Val end)
 Vis_Main_Section:Slider("ESP Text Size", 18, 1, 10, 40, "", function(Value_In) Config_State.Esp_Text_Size = Value_In end)
-Vis_Main_Section:Slider("ESP Offset Y", 2, 0.5, 0, 10, "", function(Value_In) Config_State.Esp_Offset_Y = Value_In end)
+Vis_Main_Section:Slider("ESP Offset Y", 2.0, 0.5, 0.0, 10.0, "", function(Value_In) Config_State.Esp_Offset_Y = Value_In end)
 
 Vis_Main_Section:Toggle("Rainbow Mode", false, function(Value_In) Config_State.Rainbow_Mode = Value_In end)
 
 local Vis_Trail_Section = Visuals_Tab:Section("Ball Trail", "Right")
 Vis_Trail_Section:Toggle("Enable Trail", false, function(Value_In) Config_State.Ball_Trail = Value_In end):AddColorpicker("Trail Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Trail_Color = Color_Val end)
 Vis_Trail_Section:Slider("Trail Length", 60, 1, 10, 100, "", function(Value_In) Config_State.Trail_Length = Value_In end)
-Vis_Trail_Section:Slider("Trail Thickness", 2, 0.1, 1, 10, "", function(Value_In) Config_State.Trail_Thickness = Value_In end)
+Vis_Trail_Section:Slider("Trail Thickness", 2.0, 0.1, 1.0, 10.0, "", function(Value_In) Config_State.Trail_Thickness = Value_In end)
 
 local Vis_Avatar_Section = Visuals_Tab:Section("Avatar", "Right")
 
@@ -383,16 +383,18 @@ local function Scan_For_Nearest_Entity(Player_Position)
 end
 
 local function Execute_Parry()
-    if Config_State.Parry_Method == "Click" then
-        if typeof(mouse1click) == "function" then
-            mouse1click()
+    task.spawn(function()
+        if Config_State.Parry_Method == "Click" then
+            if typeof(mouse1click) == "function" then
+                mouse1click()
+            end
+        elseif Config_State.Parry_Method == "Key" then
+            if typeof(keypress) == "function" and typeof(keyrelease) == "function" then
+                keypress(0x46)
+                keyrelease(0x46)
+            end
         end
-    elseif Config_State.Parry_Method == "Key" then
-        if typeof(keypress) == "function" and typeof(keyrelease) == "function" then
-            keypress(0x46)
-            keyrelease(0x46)
-        end
-    end
+    end)
 end
 
 local Configuration_Spam = {
@@ -497,10 +499,7 @@ local Aero_Start_Time = 0
 local Last_Speed = 0
 local Last_Ball_Instance = nil
 local Last_Distance = 9999
-local Min_Tb_Delay = 1 
-local Max_Tb_Delay = 50
 local Scheduled_Trigger_Time = 0
-local Cooldown_End_Time = 0 
 local Accumulated_Spam_Time = 0
 local Panic_Accumulated_Time = 0
 local Ball_Parries = 0
@@ -1049,25 +1048,24 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     end
 
     if Config_State.Trigger_Bot and Can_Attack then
-        local Application_Tick = Fast_Clock()
-        if Application_Tick >= Cooldown_End_Time then
-            if Can_Trigger then
-                if Scheduled_Trigger_Time == 0 then
-                    local Randomized_Delay = math.random(Fast_Min(Min_Tb_Delay, Max_Tb_Delay), Fast_Max(Min_Tb_Delay, Max_Tb_Delay)) / 1000
-                    Scheduled_Trigger_Time = Application_Tick + Randomized_Delay
-                end
-            else
-                Scheduled_Trigger_Time = 0
+        if Can_Trigger and not Is_Parried then
+            local Application_Tick = Fast_Clock()
+            if Scheduled_Trigger_Time == 0 then
+                local Target_Ping = Network_Ping / 10
+                local Server_Tick = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+                local Compensation_Time = (Target_Ping / 1000) + Current_Delta_Time + Server_Tick
+                local Base_Delay = Config_State.Trigger_Delay / 1000
+                local Final_Delay = Fast_Max(0, Base_Delay - Compensation_Time)
+                Scheduled_Trigger_Time = Application_Tick + Final_Delay
             end
             
-            if Can_Trigger and Scheduled_Trigger_Time > 0 then
-                if Application_Tick >= Scheduled_Trigger_Time then
-                    Is_Parried = true
-                    Execute_Parry()
-                    Scheduled_Trigger_Time = 0
-                    Cooldown_End_Time = Application_Tick + 0.01
-                end
+            if Scheduled_Trigger_Time > 0 and Application_Tick >= Scheduled_Trigger_Time then
+                Is_Parried = true
+                Execute_Parry()
+                Scheduled_Trigger_Time = 0
             end
+        elseif not Can_Trigger then
+            Scheduled_Trigger_Time = 0
         end
     else
         Scheduled_Trigger_Time = 0
@@ -1110,9 +1108,17 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Dot_Limit_Threshold = 55.0
 
         if Current_Speed > 15 then
-            local Dot_Threshold_Base = 0.82
-            local Distance_Factor_Curved = math.pow(Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1), 1.5)
-            local Dot_Threshold = Dot_Threshold_Base * Distance_Factor_Curved
+            local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
+            local Max_Dot_Threshold = 0.85
+            local Min_Dot_Threshold = 0.25
+            local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
+            
+            local Target_Ping = Network_Ping / 10
+            local Server_Tick = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+            local Curve_Compensation = (Target_Ping / 1000) + Current_Delta_Time + Server_Tick
+            
+            local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
+            
             if Current_Distance > Close_Range_Threshold and Dot_Product_Parry < Dot_Threshold then
                 Is_Curved = true
             end
