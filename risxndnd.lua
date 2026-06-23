@@ -1109,8 +1109,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         if Current_Speed > 15 then
             local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
-            local Max_Dot_Threshold = 0.85
-            local Min_Dot_Threshold = 0.25
+            local Max_Dot_Threshold = 0.82
+            local Min_Dot_Threshold = 0.35
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
             
             local Target_Ping = Network_Ping / 10
