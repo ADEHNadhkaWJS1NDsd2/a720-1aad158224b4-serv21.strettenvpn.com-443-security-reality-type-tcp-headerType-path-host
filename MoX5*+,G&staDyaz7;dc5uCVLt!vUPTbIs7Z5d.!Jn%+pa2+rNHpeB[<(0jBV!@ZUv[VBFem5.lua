@@ -10,7 +10,6 @@ local Run_Service = game:GetService("RunService")
 local Players_Service = game:GetService("Players")
 local Workspace_Service = game:GetService("Workspace")
 local Stats_Service = game:GetService("Stats")
-local Virtual_Input_Manager = game:GetService("VirtualInputManager")
 
 local Local_Player = Players_Service.LocalPlayer or Players_Service.PlayerAdded:Wait()
 local Fast_Max = math.max
@@ -29,7 +28,7 @@ for _ = 1, 6 do
     if type(INSui) == "table" then Lib_Instance = INSui; break end
     task.wait(0.4)
 end
-if type(Lib_Instance) ~= "table" then return warn("INS ui failed to load") end
+if type(Lib_Instance) ~= "table" then return end
 
 Lib_Instance:SetTheme("Indigo")
 
@@ -50,7 +49,6 @@ local Config_State = {
     Spam_Rate = 200,
     Spam_Sensitivity = 1.0,
     Trigger_Bot = false,
-    Dont_Click_On_Spawn = true,
     Trigger_Delay = 0,
     Parry_Visualizer = false,
     Visualizer_Color = Color3.fromRGB(122, 134, 255),
@@ -105,7 +103,7 @@ local Combat_Tab = Win_App:Tab("Combat", "swords")
 local Parry_Section = Combat_Tab:Section("Auto Parry", "Left")
 Parry_Section:Toggle("Auto Parry", false, function(Value_In) Config_State.Auto_Parry = Value_In end):AddKeybind("None", "Toggle")
 Parry_Section:Toggle("Panic Spam", false, function(Value_In) Config_State.Panic_Spam = Value_In end)
-Parry_Section:Dropdown("Parry Method", {"Click"}, {"Click", "Key"}, false, function(Value_In) Config_State.Parry_Method = Value_In end)
+Parry_Section:Dropdown("Parry Method", {"Click"}, {"Click"}, false, function(Value_In) Config_State.Parry_Method = Value_In end)
 Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Training_Balls_Support = Value_In end)
 
 local Spam_Section = Combat_Tab:Section("Auto Spam", "Right")
@@ -115,7 +113,6 @@ Spam_Section:Slider("Spam Sensitivity", 1.0, 0.1, 0.1, 2.0, "", function(Value_I
 
 local Trigger_Section = Combat_Tab:Section("Trigger Bot", "Right")
 Trigger_Section:Toggle("Trigger Bot", false, function(Value_In) Config_State.Trigger_Bot = Value_In end):AddKeybind("None", "Toggle")
-Trigger_Section:Toggle("Ignore Ball Spawn", true, function(Value_In) Config_State.Dont_Click_On_Spawn = Value_In end)
 Trigger_Section:Slider("Delay", 0, 1, 0, 100, "ms", function(Value_In) Config_State.Trigger_Delay = Value_In end)
 
 local Visuals_Tab = Win_App:Tab("Visuals", "eye")
@@ -245,7 +242,9 @@ local Trail_Length_Limit = 60
 local Trail_Refresh_Rate = 0.01
 
 local function Create_Esp_Text()
-    local Text_Obj = Drawing.new("Text")
+    if not Drawing or not Drawing.new then return nil end
+    local Success, Text_Obj = pcall(function() return Drawing.new("Text") end)
+    if not Success or not Text_Obj then return nil end
     Text_Obj.Size = 18
     Text_Obj.Center = true
     Text_Obj.Outline = true
@@ -259,32 +258,58 @@ if type(Drawing) == "table" and Drawing.new then
     for I_Idx = 1, 40 do
         pcall(function()
             local Line_Obj = Drawing.new("Line")
-            Line_Obj.Thickness = 2
-            Line_Obj.Visible = false
-            Visuals_Data.Sphere_Lines[I_Idx] = Line_Obj
-            table.insert(_G.Nightfall_Drawings, Line_Obj)
+            if Line_Obj then
+                Line_Obj.Thickness = 2
+                Line_Obj.Visible = false
+                Visuals_Data.Sphere_Lines[I_Idx] = Line_Obj
+                table.insert(_G.Nightfall_Drawings, Line_Obj)
+            end
         end)
     end
     for I_Idx = 1, Trail_Length_Limit do
         pcall(function()
             local Line_Obj = Drawing.new("Line")
-            Line_Obj.Visible = false
-            Visuals_Data.Ball_Lines[I_Idx] = Line_Obj
-            table.insert(_G.Nightfall_Drawings, Line_Obj)
+            if Line_Obj then
+                Line_Obj.Visible = false
+                Visuals_Data.Ball_Lines[I_Idx] = Line_Obj
+                table.insert(_G.Nightfall_Drawings, Line_Obj)
+            end
         end)
     end
 end
 
 local Smooth_Parry_Radius = 0
-local Has_M1_Click = type(mouse1click) == "function"
+local Offset_Vector = Vector3.new(0, 2, 0)
 
 local function Get_Screen_Position(World_Pos)
-    local Success, Screen_Pos, Is_Visible = pcall(function()
+    if not World_Pos then return Vector2.new(0,0), false end
+    
+    local Success, Screen_Pos = pcall(function()
         return WorldToScreen(World_Pos)
     end)
-    if Success and Screen_Pos then
-        return Screen_Pos, Is_Visible
+    
+    local Is_Visible = true
+    local Camera = Workspace_Service.CurrentCamera
+    
+    if Camera then
+        local CF = Camera.CFrame
+        if CF then
+            local Cam_Pos = CF.Position
+            local Dir_To_Point = (World_Pos - Cam_Pos).Unit
+            if CF.LookVector:Dot(Dir_To_Point) <= 0 then
+                Is_Visible = false
+            end
+        end
     end
+
+    if Success and Screen_Pos then
+        if typeof(Screen_Pos) == "Vector3" then
+            return Vector2.new(Screen_Pos.X, Screen_Pos.Y), Is_Visible
+        elseif typeof(Screen_Pos) == "Vector2" then
+            return Screen_Pos, Is_Visible
+        end
+    end
+    
     return Vector2.new(0, 0), false
 end
 
@@ -361,12 +386,14 @@ local function Scan_For_Nearest_Entity(Player_Position)
     for _, Target_Player in ipairs(Players_Service:GetPlayers()) do
         if Target_Player ~= Local_Player and Target_Player.Character then
             local Root_Part = Target_Player.Character:FindFirstChild("HumanoidRootPart") or Target_Player.Character.PrimaryPart
-            local Humanoid_Part = Target_Player.Character:FindFirstChild("Humanoid")
-            if Root_Part and Humanoid_Part and Humanoid_Part.Health > 0 then
-                local Current_Dist_Sq = Get_Distance_Squared(Player_Position, Root_Part.Position)
-                if Current_Dist_Sq < Minimum_Distance_Sq then
-                    Minimum_Distance_Sq = Current_Dist_Sq
-                    Nearest_Entity = Target_Player
+            if Root_Part and Root_Part:IsA("BasePart") then
+                local Humanoid_Part = Target_Player.Character:FindFirstChild("Humanoid")
+                if Humanoid_Part and Humanoid_Part.Health > 0 then
+                    local Current_Dist_Sq = Get_Distance_Squared(Player_Position, Root_Part.Position)
+                    if Current_Dist_Sq < Minimum_Distance_Sq then
+                        Minimum_Distance_Sq = Current_Dist_Sq
+                        Nearest_Entity = Target_Player
+                    end
                 end
             end
         end
@@ -375,11 +402,8 @@ local function Scan_For_Nearest_Entity(Player_Position)
 end
 
 local function Execute_Parry()
-    if Has_M1_Click then
+    if typeof(mouse1click) == "function" then
         mouse1click()
-    else
-        Virtual_Input_Manager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-        Virtual_Input_Manager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
     end
 end
 
@@ -399,8 +423,7 @@ local function Check_Is_Spam(Spam_Params)
     if Spam_Params.Entity_Distance > Range_Val then return false, Spam_Params.Parries end
     if Spam_Params.Ball_Distance > Range_Val then return false, Spam_Params.Parries end
     
-    local Maximum_Speed = Configuration_Spam.Spam_Max_Speed_Divisor - Fast_Min(Spam_Params.Speed / Configuration_Spam.Spam_Max_Speed_Divisor, Configuration_Spam.Spam_Max_Speed_Divisor)
-    local Maximum_Dot = Fast_Clamp(Spam_Params.Dot, -1, 0) * Maximum_Speed
+    local Maximum_Dot = Fast_Clamp(Spam_Params.Dot, -1, 0)
     local Accuracy_Val = Fast_Min(Range_Val - Maximum_Dot, Configuration_Spam.Spam_Max_Distance) * Config_State.Spam_Sensitivity
     
     if Spam_Params.Ball_Distance > Accuracy_Val then return false, Spam_Params.Parries end
@@ -427,12 +450,16 @@ end
 
 local function Update_And_Render_Trail(Best_Pos)
     if not Config_State.Ball_Trail then
-        for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do Line_Obj.Visible = false end
+        for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do
+            if Line_Obj then Line_Obj.Visible = false end
+        end
         return
     end
 
     if not Best_Pos then
-        for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do Line_Obj.Visible = false end
+        for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do
+            if Line_Obj then Line_Obj.Visible = false end
+        end
         table.clear(Visuals_Data.Ball_Trail_Pos)
         return
     end
@@ -448,7 +475,9 @@ local function Update_And_Render_Trail(Best_Pos)
 
     local Total_Pos = #Visuals_Data.Ball_Trail_Pos
     if Total_Pos < 2 then
-        for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do Line_Obj.Visible = false end
+        for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do
+            if Line_Obj then Line_Obj.Visible = false end
+        end
         return
     end
 
@@ -458,34 +487,39 @@ local function Update_And_Render_Trail(Best_Pos)
         local Line_Obj = Visuals_Data.Ball_Lines[I_Idx - 1]
         if not Line_Obj then break end
 
-        local P1_Pos, P1_On_Screen = Get_Screen_Position(Visuals_Data.Ball_Trail_Pos[I_Idx - 1])
-        local P2_Pos, P2_On_Screen = Get_Screen_Position(Visuals_Data.Ball_Trail_Pos[I_Idx])
+        local Pos_1 = Visuals_Data.Ball_Trail_Pos[I_Idx - 1]
+        local Pos_2 = Visuals_Data.Ball_Trail_Pos[I_Idx]
 
-        if P1_On_Screen and P2_On_Screen then
-            local Color_Val, Opacity_Val = Get_Trail_Color_And_Opacity(Base_Offset, I_Idx, Total_Pos)
-            Line_Obj.From = P1_Pos
-            Line_Obj.To = P2_Pos
-            Line_Obj.Color = Color_Val
-            Line_Obj.Transparency = Opacity_Val
-            Line_Obj.Thickness = 2.0 + math.pow(1.0 - (I_Idx / Total_Pos), 1.5) * 4.5
-            Line_Obj.Visible = true
+        if Pos_1 and Pos_2 then
+            local P1_Pos, P1_On_Screen = Get_Screen_Position(Pos_1)
+            local P2_Pos, P2_On_Screen = Get_Screen_Position(Pos_2)
+
+            if P1_On_Screen and P2_On_Screen then
+                local Color_Val, Opacity_Val = Get_Trail_Color_And_Opacity(Base_Offset, I_Idx, Total_Pos)
+                Line_Obj.From = P1_Pos
+                Line_Obj.To = P2_Pos
+                Line_Obj.Color = Color_Val
+                Line_Obj.Transparency = Opacity_Val
+                Line_Obj.Thickness = 2.0 + math.pow(1.0 - (I_Idx / Total_Pos), 1.5) * 4.5
+                Line_Obj.Visible = true
+            else
+                Line_Obj.Visible = false
+            end
         else
             Line_Obj.Visible = false
         end
     end
 
     for I_Idx = Total_Pos, #Visuals_Data.Ball_Lines do
-        if Visuals_Data.Ball_Lines[I_Idx] then
-            Visuals_Data.Ball_Lines[I_Idx].Visible = false
+        local Line_Obj = Visuals_Data.Ball_Lines[I_Idx]
+        if Line_Obj then
+            Line_Obj.Visible = false
         end
     end
 end
 
 local Is_Parried = false
-local Speed_Divisor_Factor = 1.1
-local Effective_Divisor = 1.05
-local Base_Extrapolation_Frames = 2.5
-local Parry_Range_Threshold = 10
+local Parry_Range_Threshold = 0
 local Aero_Active = false
 local Aero_Start_Time = 0
 local Last_Speed = 0
@@ -511,29 +545,37 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
     local Current_Render_Time = Fast_Clock()
 
     local Real_Ball_Visuals = Get_Real_Ball()
-    local Best_Ball_Pos = Real_Ball_Visuals and Real_Ball_Visuals.Position or nil
+    local Best_Ball_Pos = nil
+    if Real_Ball_Visuals and Real_Ball_Visuals:IsA("BasePart") then
+        Best_Ball_Pos = Real_Ball_Visuals.Position
+    end
     Update_And_Render_Trail(Best_Ball_Pos)
 
     if Config_State.Ability_Esp then
         local Current_Players = Players_Service:GetPlayers()
-        for _, Target_Player in ipairs(Current_Players) do
+        
+        for I_Idx = 1, #Current_Players do
+            local Target_Player = Current_Players[I_Idx]
             if Target_Player == Local_Player then continue end
             
+            local Player_Name = Target_Player.Name
             local Char_Obj = Target_Player.Character
             local Head_Obj = Char_Obj and Char_Obj:FindFirstChild("Head")
             local Ability_Val = Target_Player:GetAttribute("CurrentlyEquippedAbility")
             
-            if Head_Obj and Ability_Val then
-                if not Visuals_Data.Esp_Texts[Target_Player] then
-                    Visuals_Data.Esp_Texts[Target_Player] = Create_Esp_Text()
+            if Head_Obj and Head_Obj:IsA("BasePart") and Ability_Val then
+                local Text_Obj = Visuals_Data.Esp_Texts[Player_Name]
+                if not Text_Obj then
+                    Text_Obj = Create_Esp_Text()
+                    Visuals_Data.Esp_Texts[Player_Name] = Text_Obj
                 end
                 
-                local Pos_Val, On_Screen = Get_Screen_Position(Head_Obj.Position + Vector3.new(0, 2, 0))
-                local Text_Obj = Visuals_Data.Esp_Texts[Target_Player]
+                local Pos_Val, On_Screen = Get_Screen_Position(Head_Obj.Position + Offset_Vector)
                 
                 if On_Screen then
                     Text_Obj.Position = Pos_Val
                     Text_Obj.Text = tostring(Ability_Val)
+                    
                     if Config_State.Rainbow_Mode then
                         local R_Val = (math.sin(Current_Render_Time * 2.5) * 0.5 + 0.5) * 0.95 + 0.05
                         local G_Val = (math.sin(Current_Render_Time * 2.5 + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
@@ -542,32 +584,36 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
                     else
                         Text_Obj.Color = Config_State.Esp_Color
                     end
+                    
                     Text_Obj.Visible = true
                 else
                     Text_Obj.Visible = false
                 end
             else
-                if Visuals_Data.Esp_Texts[Target_Player] then
-                    Visuals_Data.Esp_Texts[Target_Player].Visible = false
+                local Text_Obj = Visuals_Data.Esp_Texts[Player_Name]
+                if Text_Obj then
+                    Text_Obj.Visible = false
                 end
             end
         end
 
         for Player_Key, Text_Obj in pairs(Visuals_Data.Esp_Texts) do
-            if not Player_Key.Parent then
-                Text_Obj:Remove()
+            if not Players_Service:FindFirstChild(Player_Key) then
+                if Text_Obj then Text_Obj:Remove() end
                 Visuals_Data.Esp_Texts[Player_Key] = nil
             end
         end
     else
         for Player_Key, Text_Obj in pairs(Visuals_Data.Esp_Texts) do
-            Text_Obj.Visible = false
+            if Text_Obj then
+                Text_Obj.Visible = false
+            end
         end
     end
 
-    if Config_State.Parry_Visualizer and Local_Player.Character and Local_Player.Character:FindFirstChild("HumanoidRootPart") then
-        local Root_Part = Local_Player.Character.HumanoidRootPart
-        if Root_Part and Root_Part.Parent then
+    if Config_State.Parry_Visualizer and Local_Player.Character then
+        local Root_Part = Local_Player.Character:FindFirstChild("HumanoidRootPart")
+        if Root_Part and Root_Part:IsA("BasePart") then
             local Root_Pos = Root_Part.Position - Vector3.new(0, 3, 0)
             local Target_Radius = Runtime_State.Parry_Range or 0
             Smooth_Parry_Radius = Smooth_Parry_Radius + (Target_Radius - Smooth_Parry_Radius) * Fast_Clamp(Delta_Time * 15, 0, 1)
@@ -626,8 +672,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Current_Char = Local_Player.Character
     if Current_Char and Current_Char ~= Cached_Character then
         Cached_Character = Current_Char
-        if Config_State.Headless then Apply_Headless(true) end
-        if Config_State.Korblox then Apply_Korblox(true) end
+        if Config_State.Headless then pcall(function() Apply_Headless(true) end) end
+        if Config_State.Korblox then pcall(function() Apply_Korblox(true) end) end
     end
 
     if Tick_Delta > 0 then
@@ -697,7 +743,10 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Current_Balls_Folder then
             for _, Current_Ball in ipairs(Current_Balls_Folder:GetChildren()) do
                 if Current_Ball:FindFirstChild("ComboCounter") then
-                    Is_Fury = true
+                    local Target_Attr = Current_Ball:GetAttribute("target") or Current_Ball:GetAttribute("Target")
+                    if Check_Is_Target(Target_Attr) then
+                        Is_Fury = true
+                    end
                     break
                 end
             end
@@ -713,14 +762,6 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                 local Fury_Timer = Player_Gui:FindFirstChild("FuryTimer")
                 if Fury_Timer and Fury_Timer.Enabled then
                     Is_Fury = true
-                end
-            end
-        end
-        if not Is_Fury then
-            for _, Current_Plr in ipairs(Players_Service:GetPlayers()) do
-                if Current_Plr.Character and Current_Plr.Character:FindFirstChild("FuryHighlight") then
-                    Is_Fury = true
-                    break
                 end
             end
         end
@@ -750,7 +791,10 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                         for _, Current_Ball in ipairs(Current_Balls:GetChildren()) do
                             local Combo_Obj = Current_Ball:FindFirstChild("ComboCounter")
                             if Combo_Obj then
-                                Still_Fury = true
+                                local Target_Attr = Current_Ball:GetAttribute("target") or Current_Ball:GetAttribute("Target")
+                                if Check_Is_Target(Target_Attr) then
+                                    Still_Fury = true
+                                end
                                 local Text_Label = Combo_Obj:FindFirstChild("TextLabel")
                                 if Text_Label then
                                     Current_Combo = tonumber(Text_Label.Text) or 0
@@ -770,14 +814,6 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                             local Fury_Timer = Player_Gui:FindFirstChild("FuryTimer")
                             if Fury_Timer and Fury_Timer.Enabled then
                                 Still_Fury = true
-                            end
-                        end
-                    end
-                    if not Still_Fury then
-                        for _, Current_Plr in ipairs(Players_Service:GetPlayers()) do
-                            if Current_Plr.Character and Current_Plr.Character:FindFirstChild("FuryHighlight") then
-                                Still_Fury = true
-                                break
                             end
                         end
                     end
@@ -807,6 +843,20 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if not Is_Fury then
             Config_State.Fury_Triggered = false
         end
+    else
+        if Config_State.Fury_Disabled_Parry then
+            Config_State.Auto_Parry = true
+            Config_State.Fury_Disabled_Parry = false
+        end
+        if Config_State.Fury_Disabled_Spam then
+            Config_State.Auto_Spam = true
+            Config_State.Fury_Disabled_Spam = false
+        end
+        if Config_State.Fury_Disabled_Trigger then
+            Config_State.Trigger_Bot = true
+            Config_State.Fury_Disabled_Trigger = false
+        end
+        Config_State.Fury_Triggered = false
     end
 
     local Real_Ball = Get_Real_Ball()
@@ -838,10 +888,10 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     end
 
     local Player_Character = Local_Player.Character
-    if not Player_Character or not Player_Character.PrimaryPart then return end
+    if not Player_Character then return end
 
     local Root_Part = Player_Character.PrimaryPart
-    if not Root_Part or not Root_Part.Parent then return end
+    if not Root_Part or not Root_Part:IsA("BasePart") or not Root_Part.Parent then return end
 
     if Player_Character:FindFirstChild("SingularityCape") or Root_Part:FindFirstChild("SingularityCape") then
         Is_Parried = false
@@ -971,12 +1021,15 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                 if Obj_Val ~= Player_Character and Obj_Val.Name ~= Local_Player.Name then
                     local Enemy_Humanoid = Obj_Val:FindFirstChildWhichIsA("Humanoid")
                     local Enemy_Root = Obj_Val:FindFirstChild("HumanoidRootPart") or Obj_Val.PrimaryPart
-                    if Enemy_Humanoid and Enemy_Humanoid.Health > 0 and Enemy_Root then
+                    if Enemy_Humanoid and Enemy_Humanoid.Health > 0 and Enemy_Root and Enemy_Root:IsA("BasePart") then
                         local Dist_Sq = Get_Distance_Squared(Enemy_Root.Position, Root_Position)
                         if Dist_Sq < Closest_Enemy_Distance_Sq then
                             Closest_Enemy_Distance_Sq = Dist_Sq
-                            local Direction_To_Me = (Root_Position - Enemy_Root.Position).Unit
-                            Enemy_Look_Dot = Enemy_Root.CFrame.LookVector:Dot(Direction_To_Me)
+                            local CF_Val = Enemy_Root.CFrame
+                            if CF_Val then
+                                local Direction_To_Me = (Root_Position - Enemy_Root.Position).Unit
+                                Enemy_Look_Dot = CF_Val.LookVector:Dot(Direction_To_Me)
+                            end
                         end
                     end
                 end
@@ -1015,26 +1068,22 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     if Config_State.Trigger_Bot and Can_Attack then
         local Application_Tick = Fast_Clock()
         if Application_Tick >= Cooldown_End_Time then
-            if not (Config_State.Dont_Click_On_Spawn and Ball_Parries == 0) then
-                if Is_Target_Me then
-                    if Scheduled_Trigger_Time == 0 then
-                        local Randomized_Delay = math.random(Fast_Min(Min_Tb_Delay, Max_Tb_Delay), Fast_Max(Min_Tb_Delay, Max_Tb_Delay)) / 1000
-                        Scheduled_Trigger_Time = Application_Tick + Randomized_Delay
-                    end
-                else
-                    Scheduled_Trigger_Time = 0
-                end
-                
-                if Is_Target_Me and Scheduled_Trigger_Time > 0 then
-                    if Application_Tick >= Scheduled_Trigger_Time then
-                        Is_Parried = true
-                        Execute_Parry()
-                        Scheduled_Trigger_Time = 0
-                        Cooldown_End_Time = Application_Tick + 0.01
-                    end
+            if Is_Target_Me then
+                if Scheduled_Trigger_Time == 0 then
+                    local Randomized_Delay = math.random(Fast_Min(Min_Tb_Delay, Max_Tb_Delay), Fast_Max(Min_Tb_Delay, Max_Tb_Delay)) / 1000
+                    Scheduled_Trigger_Time = Application_Tick + Randomized_Delay
                 end
             else
                 Scheduled_Trigger_Time = 0
+            end
+            
+            if Is_Target_Me and Scheduled_Trigger_Time > 0 then
+                if Application_Tick >= Scheduled_Trigger_Time then
+                    Is_Parried = true
+                    Execute_Parry()
+                    Scheduled_Trigger_Time = 0
+                    Cooldown_End_Time = Application_Tick + 0.01
+                end
             end
         end
     else
@@ -1043,14 +1092,13 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     local Parry_Accuracy_Value = 85
     local Base_Extrapolation_Factor = 2
-    local Static_Parry_Range = 0
+    local Static_Parry_Range = Parry_Range_Threshold
 
     local Ping_Num = Get_Memory_Ping()
     local Adjusted_Ping = Ping_Num / 10
 
     local Distance_Per_Tick = Current_Speed * Tick_Delta
     local Frame_Compensation = Distance_Per_Tick * Base_Extrapolation_Factor
-
     local Segment_Line_Distance = Current_Speed * (Tick_Delta + (Adjusted_Ping / 100)) * Base_Extrapolation_Factor
 
     local Speed_Divisor_Multiplier = (0.7 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.005) - (Segment_Line_Distance * 0.005)
