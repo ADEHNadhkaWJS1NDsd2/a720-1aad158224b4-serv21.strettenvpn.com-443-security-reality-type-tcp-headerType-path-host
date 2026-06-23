@@ -506,7 +506,7 @@ local Ball_Parries = 0
 local Last_From_Change = 0
 local Cached_From = nil
 
-local Last_Tick_Time = Fast_Clock()
+local Last_Game_Time = Workspace_Service.DistributedGameTime
 local Smoothed_Server_Fps = 60
 local Cached_Character = nil
 local Cached_Alive_Folder = nil
@@ -637,8 +637,7 @@ end)
 
 Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Current_Time = Fast_Clock()
-    local Tick_Delta = Current_Time - Last_Tick_Time
-    Last_Tick_Time = Current_Time
+    local Current_Delta_Time = Delta_Time or 0.016
 
     local Current_Char = Local_Player.Character
     if Current_Char and Current_Char ~= Cached_Character then
@@ -647,11 +646,15 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Config_State.Korblox then pcall(function() Apply_Korblox(true) end) end
     end
 
-    if Tick_Delta > 0 then
-        Smoothed_Server_Fps = Smoothed_Server_Fps + ((1 / Tick_Delta) - Smoothed_Server_Fps) * 0.1
+    local Current_Game_Time = Workspace_Service.DistributedGameTime
+    if Current_Game_Time ~= Last_Game_Time then
+        local Server_Tick_Delta = Current_Game_Time - Last_Game_Time
+        Last_Game_Time = Current_Game_Time
+        if Server_Tick_Delta > 0 then
+            local Current_Server_Fps = 1 / Server_Tick_Delta
+            Smoothed_Server_Fps = Smoothed_Server_Fps + (Current_Server_Fps - Smoothed_Server_Fps) * 0.1
+        end
     end
-
-    local Current_Delta_Time = Delta_Time or 0.016
 
     if Config_State.Infinity_Detection then
         local Is_Detected = false
@@ -1082,9 +1085,9 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Adjusted_Ping = Ping_Num / 10
 
         local Tickrate_Compensation = 60 / Fast_Max(Smoothed_Server_Fps, 1)
-        local Distance_Per_Tick = Current_Speed * Tick_Delta
+        local Distance_Per_Tick = Current_Speed * Current_Delta_Time
         local Frame_Compensation = Distance_Per_Tick * Base_Extrapolation_Factor * Tickrate_Compensation
-        local Segment_Line_Distance = Current_Speed * (Tick_Delta + (Adjusted_Ping / 100)) * Base_Extrapolation_Factor * Tickrate_Compensation
+        local Segment_Line_Distance = Current_Speed * (Current_Delta_Time + (Adjusted_Ping / 100)) * Base_Extrapolation_Factor * Tickrate_Compensation
         local Speed_Divisor_Multiplier = (0.85 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.001) - (Segment_Line_Distance * 0.002)
         
         local Dot_Product_Parry = 0
