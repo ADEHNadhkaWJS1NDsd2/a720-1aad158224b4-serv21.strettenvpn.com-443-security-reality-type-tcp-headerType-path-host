@@ -46,6 +46,7 @@ local Config_State = {
     Panic_Spam = false,
     Training_Balls_Support = false,
     Auto_Spam = false,
+    Manual_Spam = false,
     Spam_Rate = 200,
     Spam_Sensitivity = 3,
     Trigger_Bot = false,
@@ -116,6 +117,7 @@ Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Tr
 
 local Spam_Section = Combat_Tab:Section("Auto Spam", "Right")
 Spam_Section:Toggle("Auto Spam", false, function(Value_In) Config_State.Auto_Spam = Value_In end):AddKeybind("None", "Toggle")
+Spam_Section:Toggle("Manual Spam", false, function(Value_In) Config_State.Manual_Spam = Value_In end):AddKeybind("None", "Toggle")
 Spam_Section:Slider("Spam Rate", 200, 10, 10, 500, "cps", function(Value_In) Config_State.Spam_Rate = Value_In end)
 Spam_Section:Slider("Spam Sensitivity", 3, 1, 3, 5, "", function(Value_In) Config_State.Spam_Sensitivity = Value_In end)
 
@@ -326,7 +328,7 @@ local function Get_Memory_Ping()
     local Success_State, Ping_Result = pcall(function()
         return memory_read("double", Stats_Service.Network.ServerStatsItem["Data Ping"].Address + 0xC8)
     end)
-    return Success_State and Ping_Result or 50
+    return (Success_State and type(Ping_Result) == "number") and Ping_Result or 50
 end
 
 local function Check_Is_Target(Target_Name)
@@ -494,6 +496,7 @@ local Last_Distance = 9999
 local Scheduled_Trigger_Time = 0
 local Accumulated_Spam_Time = 0
 local Panic_Accumulated_Time = 0
+local Manual_Accumulated_Time = 0
 local Ball_Parries = 0
 local Last_From_Change = 0
 local Cached_From = nil
@@ -504,7 +507,7 @@ local Cached_Character = nil
 local Cached_Alive_Folder = nil
 
 Run_Service.RenderStepped:Connect(function(Delta_Time)
-    Delta_Time = Delta_Time or 0.016
+    if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
     local Current_Render_Time = Fast_Clock()
 
     local Real_Ball_Visuals = Get_Real_Ball()
@@ -629,7 +632,8 @@ end)
 
 Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Current_Time = Fast_Clock()
-    local Current_Delta_Time = Delta_Time or 0.016
+    if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
+    local Current_Delta_Time = Delta_Time
 
     local Current_Char = Local_Player.Character
     if Current_Char and Current_Char ~= Cached_Character then
@@ -646,6 +650,25 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             local Current_Server_Fps = 1 / Server_Tick_Delta
             Smoothed_Server_Fps = Smoothed_Server_Fps + (Current_Server_Fps - Smoothed_Server_Fps) * 0.1
         end
+    end
+
+    if Config_State.Manual_Spam then
+        local Target_Cps = 200
+        local Tickrate_Compensation = 60 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
+        local Spam_Interval = 1 / Target_Cps
+
+        Manual_Accumulated_Time = Manual_Accumulated_Time + Server_Aligned_Delta
+
+        if Manual_Accumulated_Time >= Spam_Interval then
+            local Click_Count = Fast_Floor(Manual_Accumulated_Time / Spam_Interval)
+            Manual_Accumulated_Time = Manual_Accumulated_Time % Spam_Interval
+            for I_Idx = 1, Fast_Min(Click_Count, 10) do
+                Execute_Parry()
+            end
+        end
+    else
+        Manual_Accumulated_Time = 0
     end
 
     if Config_State.Infinity_Detection then
@@ -1137,8 +1160,9 @@ end)
 
 task.spawn(function()
     while true do
+        local Fallback_Delta = task.wait(1)
+        if type(Fallback_Delta) ~= "number" then Fallback_Delta = 1 end
         if Config_State.Headless then pcall(function() Apply_Headless(true) end) end
         if Config_State.Korblox then pcall(function() Apply_Korblox(true) end) end
-        if task and task.wait then task.wait(1) else wait(1) end
     end
 end)
