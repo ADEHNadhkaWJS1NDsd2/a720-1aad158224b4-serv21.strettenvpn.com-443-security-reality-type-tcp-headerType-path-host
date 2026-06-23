@@ -111,7 +111,7 @@ local Combat_Tab = Win_App:Tab("Combat", "swords")
 local Parry_Section = Combat_Tab:Section("Auto Parry", "Left")
 Parry_Section:Toggle("Auto Parry", false, function(Value_In) Config_State.Auto_Parry = Value_In end):AddKeybind("None", "Toggle")
 Parry_Section:Toggle("Panic Spam", false, function(Value_In) Config_State.Panic_Spam = Value_In end)
-Parry_Section:Dropdown("Parry Method", {"Click"}, {"Click"}, false, function(Value_In) Config_State.Parry_Method = Value_In end)
+Parry_Section:Dropdown("Parry Method", {"Click", "Key"}, {"Click"}, false, function(Value_In) Config_State.Parry_Method = Value_In end)
 Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Training_Balls_Support = Value_In end)
 
 local Spam_Section = Combat_Tab:Section("Auto Spam", "Right")
@@ -383,8 +383,15 @@ local function Scan_For_Nearest_Entity(Player_Position)
 end
 
 local function Execute_Parry()
-    if typeof(mouse1click) == "function" then
-        mouse1click()
+    if Config_State.Parry_Method == "Click" then
+        if typeof(mouse1click) == "function" then
+            mouse1click()
+        end
+    elseif Config_State.Parry_Method == "Key" then
+        if typeof(keypress) == "function" and typeof(keyrelease) == "function" then
+            keypress(0x46)
+            keyrelease(0x46)
+        end
     end
 end
 
