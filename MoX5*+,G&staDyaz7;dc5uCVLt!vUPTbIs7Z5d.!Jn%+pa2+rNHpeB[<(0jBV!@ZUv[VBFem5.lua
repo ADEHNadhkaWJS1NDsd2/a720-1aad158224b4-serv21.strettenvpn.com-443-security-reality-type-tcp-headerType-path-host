@@ -1091,17 +1091,22 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     end
 
     local Parry_Accuracy_Value = 85
-    local Base_Extrapolation_Factor = 2
     local Static_Parry_Range = Parry_Range_Threshold
 
     local Ping_Num = Get_Memory_Ping()
     local Adjusted_Ping = Ping_Num / 10
 
-    local Distance_Per_Tick = Current_Speed * Tick_Delta
-    local Frame_Compensation = Distance_Per_Tick * Base_Extrapolation_Factor
-    local Segment_Line_Distance = Current_Speed * (Tick_Delta + (Adjusted_Ping / 100)) * Base_Extrapolation_Factor
+    local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 20)
+    local Tickrate_Factor = 60 / Fast_Max(Smoothed_Server_Fps, 20)
+    local Speed_Scale = Fast_Clamp(Current_Speed / 60, 0.5, 4.0)
+    local Distance_Scale = Fast_Clamp(100 / Fast_Max(Current_Distance, 10), 0.5, 3.0)
+    local Dynamic_Extrapolation = (1.0 + (Speed_Scale * 0.4) + (Distance_Scale * 0.3)) * Tickrate_Factor
 
-    local Speed_Divisor_Multiplier = (0.7 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.005) - (Segment_Line_Distance * 0.005)
+    local Distance_Per_Tick = Current_Speed * Server_Tick_Time
+    local Frame_Compensation = Distance_Per_Tick * Dynamic_Extrapolation
+    local Segment_Line_Distance = Current_Speed * (Server_Tick_Time + (Adjusted_Ping / 100)) * Dynamic_Extrapolation
+
+    local Speed_Divisor_Multiplier = (1.1 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.01) - (Segment_Line_Distance * 0.002)
 
     local Dot_Product_Parry = 0
     if Current_Distance > 0.01 and Current_Speed > 0.01 then
