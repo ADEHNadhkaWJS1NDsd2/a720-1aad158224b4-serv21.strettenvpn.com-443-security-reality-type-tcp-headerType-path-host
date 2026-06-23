@@ -111,13 +111,13 @@ local Combat_Tab = Win_App:Tab("Combat", "swords")
 local Parry_Section = Combat_Tab:Section("Auto Parry", "Left")
 Parry_Section:Toggle("Auto Parry", false, function(Value_In) Config_State.Auto_Parry = Value_In end):AddKeybind("None", "Toggle")
 Parry_Section:Toggle("Panic Spam", false, function(Value_In) Config_State.Panic_Spam = Value_In end)
-Parry_Section:Dropdown("Parry Method", {"Click", "Key"}, {"Click"}, false, function(Value_In) Config_State.Parry_Method = Value_In end)
+Parry_Section:Dropdown("Parry Method", {"Click"}, {"Click", "Key"}, false, function(Value_In) Config_State.Parry_Method = type(Value_In) == "table" and Value_In[1] or Value_In end)
 Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Training_Balls_Support = Value_In end)
 
 local Spam_Section = Combat_Tab:Section("Auto Spam", "Right")
 Spam_Section:Toggle("Auto Spam", false, function(Value_In) Config_State.Auto_Spam = Value_In end):AddKeybind("None", "Toggle")
 Spam_Section:Slider("Spam Rate", 200, 10, 10, 500, "cps", function(Value_In) Config_State.Spam_Rate = Value_In end)
-Spam_Section:Slider("Spam Sensitivity", 3, 3, 1, 5, "", function(Value_In) Config_State.Spam_Sensitivity = Value_In end)
+Spam_Section:Slider("Spam Sensitivity", 3, 1, 3, 5, "", function(Value_In) Config_State.Spam_Sensitivity = Value_In end)
 
 local Trigger_Section = Combat_Tab:Section("Trigger Bot", "Right")
 Trigger_Section:Toggle("Trigger Bot", false, function(Value_In) Config_State.Trigger_Bot = Value_In end):AddKeybind("None", "Toggle")
@@ -128,20 +128,20 @@ local Visuals_Tab = Win_App:Tab("Visuals", "eye")
 
 local Vis_Main_Section = Visuals_Tab:Section("Visuals", "Left")
 Vis_Main_Section:Toggle("Range Visualiser", false, function(Value_In) Config_State.Parry_Visualizer = Value_In end):AddColorpicker("Vis Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Visualizer_Color = Color_Val end)
-Vis_Main_Section:Slider("Vis Thickness", 2.0, 1.0, 1.0, 10.0, "", function(Value_In) Config_State.Vis_Thickness = Value_In end)
-Vis_Main_Section:Slider("Vis Transparency", 1.0, 0.1, 0.1, 1.0, "", function(Value_In) Config_State.Vis_Transparency = Value_In end)
-Vis_Main_Section:Slider("Vis Segments", 40, 10, 10, 100, "", function(Value_In) Config_State.Vis_Segments = Value_In end)
+Vis_Main_Section:Slider("Vis Thickness", 2, 0.1, 1, 10, "", function(Value_In) Config_State.Vis_Thickness = Value_In end)
+Vis_Main_Section:Slider("Vis Transparency", 1, 0.1, 0.1, 1, "", function(Value_In) Config_State.Vis_Transparency = Value_In end)
+Vis_Main_Section:Slider("Vis Segments", 40, 1, 10, 100, "", function(Value_In) Config_State.Vis_Segments = Value_In end)
 
 Vis_Main_Section:Toggle("Ability ESP", false, function(Value_In) Config_State.Ability_Esp = Value_In end):AddColorpicker("ESP Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Esp_Color = Color_Val end)
-Vis_Main_Section:Slider("ESP Text Size", 18, 10, 10, 40, "", function(Value_In) Config_State.Esp_Text_Size = Value_In end)
-Vis_Main_Section:Slider("ESP Offset Y", 2.0, 0.0, 0.5, 10.0, "", function(Value_In) Config_State.Esp_Offset_Y = Value_In end)
+Vis_Main_Section:Slider("ESP Text Size", 18, 1, 10, 40, "", function(Value_In) Config_State.Esp_Text_Size = Value_In end)
+Vis_Main_Section:Slider("ESP Offset Y", 2, 0.5, 0, 10, "", function(Value_In) Config_State.Esp_Offset_Y = Value_In end)
 
 Vis_Main_Section:Toggle("Rainbow Mode", false, function(Value_In) Config_State.Rainbow_Mode = Value_In end)
 
 local Vis_Trail_Section = Visuals_Tab:Section("Ball Trail", "Right")
 Vis_Trail_Section:Toggle("Enable Trail", false, function(Value_In) Config_State.Ball_Trail = Value_In end):AddColorpicker("Trail Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Trail_Color = Color_Val end)
-Vis_Trail_Section:Slider("Trail Length", 60, 10, 10, 100, "", function(Value_In) Config_State.Trail_Length = Value_In end)
-Vis_Trail_Section:Slider("Trail Thickness", 2.0, 1.0, 1.0, 10.0, "", function(Value_In) Config_State.Trail_Thickness = Value_In end)
+Vis_Trail_Section:Slider("Trail Length", 60, 1, 10, 100, "", function(Value_In) Config_State.Trail_Length = Value_In end)
+Vis_Trail_Section:Slider("Trail Thickness", 2, 0.1, 1, 10, "", function(Value_In) Config_State.Trail_Thickness = Value_In end)
 
 local Vis_Avatar_Section = Visuals_Tab:Section("Avatar", "Right")
 
