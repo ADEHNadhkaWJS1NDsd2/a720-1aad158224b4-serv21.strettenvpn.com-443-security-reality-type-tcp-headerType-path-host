@@ -989,7 +989,11 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Auto_Spam_Active then
         local Target_Cps = Fast_Max(Config_State.Spam_Rate, 1)
-        Accumulated_Spam_Time = Accumulated_Spam_Time + (Current_Delta_Time * Target_Cps)
+        local Server_Rate = Fast_Max(Smoothed_Server_Fps, 20)
+        local Sync_Factor = Server_Rate / 60
+        local Optimal_Cps = Target_Cps * Sync_Factor
+
+        Accumulated_Spam_Time = Accumulated_Spam_Time + (Current_Delta_Time * Optimal_Cps)
         local Click_Count = Fast_Floor(Accumulated_Spam_Time)
         if Click_Count > 0 then
             Accumulated_Spam_Time = Accumulated_Spam_Time - Click_Count
@@ -1052,7 +1056,11 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Is_Clash = Is_Enemy_Close and Current_Speed > 35 and Enemy_Look_Dot > 0.55 and (Is_Approaching or Is_Extremely_Close) and (Is_Heading_Towards or Is_Extremely_Close)
 
         if Is_Clash then
-            Panic_Accumulated_Time = Panic_Accumulated_Time + (Current_Delta_Time * Target_Cps)
+            local Server_Rate = Fast_Max(Smoothed_Server_Fps, 20)
+            local Sync_Factor = Server_Rate / 60
+            local Optimal_Panic_Cps = Target_Cps * Sync_Factor
+
+            Panic_Accumulated_Time = Panic_Accumulated_Time + (Current_Delta_Time * Optimal_Panic_Cps)
             local Click_Count = Fast_Floor(Panic_Accumulated_Time)
             if Click_Count > 0 then
                 Panic_Accumulated_Time = Panic_Accumulated_Time - Click_Count
@@ -1106,7 +1114,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Frame_Compensation = Distance_Per_Tick * Dynamic_Extrapolation
     local Segment_Line_Distance = Current_Speed * (Server_Tick_Time + (Adjusted_Ping / 100)) * Dynamic_Extrapolation
 
-    local Speed_Divisor_Multiplier = (1.1 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.01) - (Segment_Line_Distance * 0.002)
+    local Speed_Divisor_Multiplier = (0.7 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.005) - (Segment_Line_Distance * 0.002)
 
     local Dot_Product_Parry = 0
     if Current_Distance > 0.01 and Current_Speed > 0.01 then
