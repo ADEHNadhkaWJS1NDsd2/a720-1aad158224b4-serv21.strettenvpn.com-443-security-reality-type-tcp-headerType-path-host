@@ -23,8 +23,8 @@ local Pi_2 = math.pi * 2
 
 local Lib_Instance
 for _ = 1, 6 do
-    local ok, res = pcall(function() return loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.lua"))() end)
-    if ok and type(res) == "table" then Lib_Instance = res; break end
+    local Ok_Status, Res_Data = pcall(function() return loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.lua"))() end)
+    if Ok_Status and type(Res_Data) == "table" then Lib_Instance = Res_Data; break end
     if type(INSui) == "table" then Lib_Instance = INSui; break end
     task.wait(0.4)
 end
@@ -254,12 +254,10 @@ local Visuals_Data = {
     Sphere_Lines = {},
     Ball_Trail_Pos = {},
     Ball_Lines = {},
-    Esp_Texts = {},
-    Trail_Time = 0
+    Esp_Texts = {}
 }
 
 local Max_Trail_Lines = 100
-local Trail_Refresh_Rate = 0.01
 
 local function Create_Esp_Text()
     if not Drawing or not Drawing.new then return nil end
@@ -300,21 +298,14 @@ local Smooth_Parry_Radius = 0
 
 local function Get_Screen_Position(World_Pos)
     if not World_Pos then return Vector2.new(0, 0), false end
-    local Success, Pos_2D, Is_Visible = pcall(WorldToScreen, World_Pos)
-    if not Success or not Pos_2D then 
-        return Vector2.new(0, 0), false 
-    end
-    local Camera = Workspace_Service.CurrentCamera
-    if Camera then
-        local Cam_CF = Camera.CFrame
-        if Cam_CF then
-            local To_Point = World_Pos - Cam_CF.Position
-            if Cam_CF.LookVector:Dot(To_Point.Unit) <= 0 then
-                Is_Visible = false
-            end
+    local Success_Call, Pos_Data, Is_Visible = pcall(WorldToScreen, World_Pos)
+    if Success_Call and Pos_Data then
+        if typeof(Pos_Data) == "Vector3" then
+            return Vector2.new(Pos_Data.X, Pos_Data.Y), Pos_Data.Z > 0
         end
+        return Pos_Data, Is_Visible
     end
-    return Pos_2D, Is_Visible
+    return Vector2.new(0, 0), false
 end
 
 local function Get_Real_Ball()
@@ -443,14 +434,15 @@ local function Update_And_Render_Trail(Best_Pos)
         table.clear(Visuals_Data.Ball_Trail_Pos)
         return
     end
-    local Current_Time = Fast_Clock()
-    if Current_Time - Visuals_Data.Trail_Time >= Trail_Refresh_Rate then
-        Visuals_Data.Trail_Time = Current_Time
+    
+    local Last_Tracked_Pos = Visuals_Data.Ball_Trail_Pos[1]
+    if not Last_Tracked_Pos or (Last_Tracked_Pos - Best_Pos).Magnitude > 0.5 then
         table.insert(Visuals_Data.Ball_Trail_Pos, 1, Best_Pos)
         while #Visuals_Data.Ball_Trail_Pos > Config_State.Trail_Length do
             table.remove(Visuals_Data.Ball_Trail_Pos)
         end
     end
+
     local Total_Pos = #Visuals_Data.Ball_Trail_Pos
     if Total_Pos < 2 then
         for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do
@@ -523,61 +515,61 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
     Update_And_Render_Trail(Best_Ball_Pos)
 
     if Config_State.Ability_Esp then
-        local current_players = Players_Service:GetPlayers()
-        for i = 1, #current_players do
-            local player = current_players[i]
-            if player == Local_Player then continue end
-            local playerName = player.Name
-            local character = player.Character
-            local humanoid = character and character:FindFirstChild("Humanoid")
-            local isAlive = humanoid and humanoid.Health > 0
-            local head = character and character:FindFirstChild("Head")
-            local ability = player:GetAttribute("CurrentlyEquippedAbility")
+        local Current_Players_List = Players_Service:GetPlayers()
+        for I_Idx = 1, #Current_Players_List do
+            local Target_Player = Current_Players_List[I_Idx]
+            if Target_Player == Local_Player then continue end
+            local Player_Name_Str = Target_Player.Name
+            local Target_Character = Target_Player.Character
+            local Target_Humanoid = Target_Character and Target_Character:FindFirstChild("Humanoid")
+            local Is_Entity_Alive = Target_Humanoid and Target_Humanoid.Health > 0
+            local Target_Head = Target_Character and Target_Character:FindFirstChild("Head")
+            local Target_Ability = Target_Player:GetAttribute("CurrentlyEquippedAbility")
             
-            if isAlive and head and ability then
-                local textObj = Visuals_Data.Esp_Texts[playerName]
-                if not textObj then
-                    textObj = Create_Esp_Text()
-                    Visuals_Data.Esp_Texts[playerName] = textObj
+            if Is_Entity_Alive and Target_Head and Target_Ability then
+                local Text_Drawing = Visuals_Data.Esp_Texts[Player_Name_Str]
+                if not Text_Drawing then
+                    Text_Drawing = Create_Esp_Text()
+                    Visuals_Data.Esp_Texts[Player_Name_Str] = Text_Drawing
                 end
                 
                 local Current_Offset_Vector = Vector3.new(0, Config_State.Esp_Offset_Y, 0)
-                local pos, onScreen = Get_Screen_Position(head.Position + Current_Offset_Vector)
+                local Screen_Coords, Is_On_Screen = Get_Screen_Position(Target_Head.Position + Current_Offset_Vector)
                 
-                if onScreen and pos.X > 0 and pos.Y > 0 then
-                    textObj.Size = Config_State.Esp_Text_Size
-                    textObj.Position = pos
-                    textObj.Text = tostring(ability)
+                if Is_On_Screen and Screen_Coords.X > 0 and Screen_Coords.Y > 0 then
+                    Text_Drawing.Size = Config_State.Esp_Text_Size
+                    Text_Drawing.Position = Screen_Coords
+                    Text_Drawing.Text = tostring(Target_Ability)
                     if Config_State.Rainbow_Mode then
-                        local r = (math.sin(Current_Render_Time * 2.5) * 0.5 + 0.5) * 0.95 + 0.05
-                        local g = (math.sin(Current_Render_Time * 2.5 + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
-                        local b = (math.sin(Current_Render_Time * 2.5 + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
-                        textObj.Color = Color3.new(r, g, b)
+                        local Color_R = (math.sin(Current_Render_Time * 2.5) * 0.5 + 0.5) * 0.95 + 0.05
+                        local Color_G = (math.sin(Current_Render_Time * 2.5 + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
+                        local Color_B = (math.sin(Current_Render_Time * 2.5 + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
+                        Text_Drawing.Color = Color3.new(Color_R, Color_G, Color_B)
                     else
-                        textObj.Color = Config_State.Esp_Color
+                        Text_Drawing.Color = Config_State.Esp_Color
                     end
-                    textObj.Visible = true
+                    Text_Drawing.Visible = true
                 else
-                    textObj.Visible = false
+                    Text_Drawing.Visible = false
                 end
             else
-                local textObj = Visuals_Data.Esp_Texts[playerName]
-                if textObj then
-                    textObj.Visible = false
+                local Text_Drawing = Visuals_Data.Esp_Texts[Player_Name_Str]
+                if Text_Drawing then
+                    Text_Drawing.Visible = false
                 end
             end
         end
 
-        for playerName, textObj in pairs(Visuals_Data.Esp_Texts) do
-            if not Players_Service:FindFirstChild(playerName) then
-                if textObj then textObj:Remove() end
-                Visuals_Data.Esp_Texts[playerName] = nil
+        for Key_Name, Text_Drawing in pairs(Visuals_Data.Esp_Texts) do
+            if not Players_Service:FindFirstChild(Key_Name) then
+                if Text_Drawing then Text_Drawing:Remove() end
+                Visuals_Data.Esp_Texts[Key_Name] = nil
             end
         end
     else
-        for playerName, textObj in pairs(Visuals_Data.Esp_Texts) do
-            if textObj then
-                textObj.Visible = false
+        for Key_Name, Text_Drawing in pairs(Visuals_Data.Esp_Texts) do
+            if Text_Drawing then
+                Text_Drawing.Visible = false
             end
         end
     end
@@ -587,7 +579,7 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
         if Root_Part and Root_Part:IsA("BasePart") then
             local Root_Pos = Root_Part.Position - Vector3.new(0, 3, 0)
             local Target_Radius = Runtime_State.Parry_Range or 0
-            Smooth_Parry_Radius = Smooth_Parry_Radius + (Target_Radius - Smooth_Parry_Radius) * Fast_Clamp(Delta_Time * 15, 0, 1)
+            Smooth_Parry_Radius = Smooth_Parry_Radius + (Target_Radius - Smooth_Parry_Radius) * Fast_Clamp(Delta_Time * 20, 0, 1)
             local Radius_Val = Fast_Max(Smooth_Parry_Radius, 5)
             local Segments_Count = Fast_Clamp(Config_State.Vis_Segments, 10, 100)
             local Angle_Step = Pi_2 / Segments_Count
