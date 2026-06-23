@@ -23,8 +23,8 @@ local Pi_2 = math.pi * 2
 
 local Lib_Instance
 for _ = 1, 6 do
-    local ok, res = pcall(function() return loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.lua"))() end)
-    if ok and type(res) == "table" then Lib_Instance = res; break end
+    local Ok_Status, Res_Data = pcall(function() return loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.lua"))() end)
+    if Ok_Status and type(Res_Data) == "table" then Lib_Instance = Res_Data; break end
     if type(INSui) == "table" then Lib_Instance = INSui; break end
     task.wait(0.4)
 end
@@ -46,6 +46,7 @@ local Config_State = {
     Panic_Spam = false,
     Training_Balls_Support = false,
     Auto_Spam = false,
+    Manual_Spam = false,
     Spam_Rate = 200,
     Spam_Sensitivity = 3,
     Trigger_Bot = false,
@@ -111,11 +112,12 @@ local Combat_Tab = Win_App:Tab("Combat", "swords")
 local Parry_Section = Combat_Tab:Section("Auto Parry", "Left")
 Parry_Section:Toggle("Auto Parry", false, function(Value_In) Config_State.Auto_Parry = Value_In end):AddKeybind("None", "Toggle")
 Parry_Section:Toggle("Panic Spam", false, function(Value_In) Config_State.Panic_Spam = Value_In end)
-Parry_Section:Dropdown("Parry Method", {"Click", "Key"}, {"Click"}, false, function(Value_In) Config_State.Parry_Method = type(Value_In) == "table" and Value_In[1] or Value_In end)
+Parry_Section:Dropdown("Parry Method", {"Click"}, {"Click", "Key"}, false, function(Value_In) Config_State.Parry_Method = type(Value_In) == "table" and Value_In[1] or Value_In end)
 Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Training_Balls_Support = Value_In end)
 
 local Spam_Section = Combat_Tab:Section("Auto Spam", "Right")
 Spam_Section:Toggle("Auto Spam", false, function(Value_In) Config_State.Auto_Spam = Value_In end):AddKeybind("None", "Toggle")
+Spam_Section:Toggle("Manual Spam", false, function(Value_In) Config_State.Manual_Spam = Value_In end):AddKeybind("None", "Toggle")
 Spam_Section:Slider("Spam Rate", 200, 10, 10, 500, "cps", function(Value_In) Config_State.Spam_Rate = Value_In end)
 Spam_Section:Slider("Spam Sensitivity", 3, 1, 3, 5, "", function(Value_In) Config_State.Spam_Sensitivity = Value_In end)
 
@@ -254,12 +256,10 @@ local Visuals_Data = {
     Sphere_Lines = {},
     Ball_Trail_Pos = {},
     Ball_Lines = {},
-    Esp_Texts = {},
-    Trail_Time = 0
+    Esp_Texts = {}
 }
 
 local Max_Trail_Lines = 100
-local Trail_Refresh_Rate = 0.01
 
 local function Create_Esp_Text()
     if not Drawing or not Drawing.new then return nil end
@@ -300,21 +300,14 @@ local Smooth_Parry_Radius = 0
 
 local function Get_Screen_Position(World_Pos)
     if not World_Pos then return Vector2.new(0, 0), false end
-    local Success, Pos_2D, Is_Visible = pcall(WorldToScreen, World_Pos)
-    if not Success or not Pos_2D then 
-        return Vector2.new(0, 0), false 
-    end
-    local Camera = Workspace_Service.CurrentCamera
-    if Camera then
-        local Cam_CF = Camera.CFrame
-        if Cam_CF then
-            local To_Point = World_Pos - Cam_CF.Position
-            if Cam_CF.LookVector:Dot(To_Point.Unit) <= 0 then
-                Is_Visible = false
-            end
+    local Success_Call, Pos_Data, Is_Visible = pcall(WorldToScreen, World_Pos)
+    if Success_Call and Pos_Data then
+        if typeof(Pos_Data) == "Vector3" then
+            return Vector2.new(Pos_Data.X, Pos_Data.Y), Pos_Data.Z > 0
         end
+        return Pos_Data, Is_Visible
     end
-    return Pos_2D, Is_Visible
+    return Vector2.new(0, 0), false
 end
 
 local function Get_Real_Ball()
@@ -335,7 +328,7 @@ local function Get_Memory_Ping()
     local Success_State, Ping_Result = pcall(function()
         return memory_read("double", Stats_Service.Network.ServerStatsItem["Data Ping"].Address + 0xC8)
     end)
-    return Success_State and Ping_Result or 50
+    return (Success_State and type(Ping_Result) == "number") and Ping_Result or 50
 end
 
 local function Check_Is_Target(Target_Name)
@@ -443,14 +436,15 @@ local function Update_And_Render_Trail(Best_Pos)
         table.clear(Visuals_Data.Ball_Trail_Pos)
         return
     end
-    local Current_Time = Fast_Clock()
-    if Current_Time - Visuals_Data.Trail_Time >= Trail_Refresh_Rate then
-        Visuals_Data.Trail_Time = Current_Time
+    
+    local Last_Tracked_Pos = Visuals_Data.Ball_Trail_Pos[1]
+    if not Last_Tracked_Pos or (Last_Tracked_Pos - Best_Pos).Magnitude > 0.5 then
         table.insert(Visuals_Data.Ball_Trail_Pos, 1, Best_Pos)
         while #Visuals_Data.Ball_Trail_Pos > Config_State.Trail_Length do
             table.remove(Visuals_Data.Ball_Trail_Pos)
         end
     end
+
     local Total_Pos = #Visuals_Data.Ball_Trail_Pos
     if Total_Pos < 2 then
         for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do
@@ -502,17 +496,18 @@ local Last_Distance = 9999
 local Scheduled_Trigger_Time = 0
 local Accumulated_Spam_Time = 0
 local Panic_Accumulated_Time = 0
+local Manual_Accumulated_Time = 0
 local Ball_Parries = 0
 local Last_From_Change = 0
 local Cached_From = nil
 
-local Last_Tick_Time = Fast_Clock()
+local Last_Game_Time = Workspace_Service.DistributedGameTime
 local Smoothed_Server_Fps = 60
 local Cached_Character = nil
 local Cached_Alive_Folder = nil
 
 Run_Service.RenderStepped:Connect(function(Delta_Time)
-    Delta_Time = Delta_Time or 0.016
+    if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
     local Current_Render_Time = Fast_Clock()
 
     local Real_Ball_Visuals = Get_Real_Ball()
@@ -523,61 +518,61 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
     Update_And_Render_Trail(Best_Ball_Pos)
 
     if Config_State.Ability_Esp then
-        local current_players = Players_Service:GetPlayers()
-        for i = 1, #current_players do
-            local player = current_players[i]
-            if player == Local_Player then continue end
-            local playerName = player.Name
-            local character = player.Character
-            local humanoid = character and character:FindFirstChild("Humanoid")
-            local isAlive = humanoid and humanoid.Health > 0
-            local head = character and character:FindFirstChild("Head")
-            local ability = player:GetAttribute("CurrentlyEquippedAbility")
+        local Current_Players_List = Players_Service:GetPlayers()
+        for I_Idx = 1, #Current_Players_List do
+            local Target_Player = Current_Players_List[I_Idx]
+            if Target_Player == Local_Player then continue end
+            local Player_Name_Str = Target_Player.Name
+            local Target_Character = Target_Player.Character
+            local Target_Humanoid = Target_Character and Target_Character:FindFirstChild("Humanoid")
+            local Is_Entity_Alive = Target_Humanoid and Target_Humanoid.Health > 0
+            local Target_Head = Target_Character and Target_Character:FindFirstChild("Head")
+            local Target_Ability = Target_Player:GetAttribute("CurrentlyEquippedAbility")
             
-            if isAlive and head and ability then
-                local textObj = Visuals_Data.Esp_Texts[playerName]
-                if not textObj then
-                    textObj = Create_Esp_Text()
-                    Visuals_Data.Esp_Texts[playerName] = textObj
+            if Is_Entity_Alive and Target_Head and Target_Ability then
+                local Text_Drawing = Visuals_Data.Esp_Texts[Player_Name_Str]
+                if not Text_Drawing then
+                    Text_Drawing = Create_Esp_Text()
+                    Visuals_Data.Esp_Texts[Player_Name_Str] = Text_Drawing
                 end
                 
                 local Current_Offset_Vector = Vector3.new(0, Config_State.Esp_Offset_Y, 0)
-                local pos, onScreen = Get_Screen_Position(head.Position + Current_Offset_Vector)
+                local Screen_Coords, Is_On_Screen = Get_Screen_Position(Target_Head.Position + Current_Offset_Vector)
                 
-                if onScreen and pos.X > 0 and pos.Y > 0 then
-                    textObj.Size = Config_State.Esp_Text_Size
-                    textObj.Position = pos
-                    textObj.Text = tostring(ability)
+                if Is_On_Screen and Screen_Coords.X > 0 and Screen_Coords.Y > 0 then
+                    Text_Drawing.Size = Config_State.Esp_Text_Size
+                    Text_Drawing.Position = Screen_Coords
+                    Text_Drawing.Text = tostring(Target_Ability)
                     if Config_State.Rainbow_Mode then
-                        local r = (math.sin(Current_Render_Time * 2.5) * 0.5 + 0.5) * 0.95 + 0.05
-                        local g = (math.sin(Current_Render_Time * 2.5 + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
-                        local b = (math.sin(Current_Render_Time * 2.5 + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
-                        textObj.Color = Color3.new(r, g, b)
+                        local Color_R = (math.sin(Current_Render_Time * 2.5) * 0.5 + 0.5) * 0.95 + 0.05
+                        local Color_G = (math.sin(Current_Render_Time * 2.5 + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
+                        local Color_B = (math.sin(Current_Render_Time * 2.5 + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
+                        Text_Drawing.Color = Color3.new(Color_R, Color_G, Color_B)
                     else
-                        textObj.Color = Config_State.Esp_Color
+                        Text_Drawing.Color = Config_State.Esp_Color
                     end
-                    textObj.Visible = true
+                    Text_Drawing.Visible = true
                 else
-                    textObj.Visible = false
+                    Text_Drawing.Visible = false
                 end
             else
-                local textObj = Visuals_Data.Esp_Texts[playerName]
-                if textObj then
-                    textObj.Visible = false
+                local Text_Drawing = Visuals_Data.Esp_Texts[Player_Name_Str]
+                if Text_Drawing then
+                    Text_Drawing.Visible = false
                 end
             end
         end
 
-        for playerName, textObj in pairs(Visuals_Data.Esp_Texts) do
-            if not Players_Service:FindFirstChild(playerName) then
-                if textObj then textObj:Remove() end
-                Visuals_Data.Esp_Texts[playerName] = nil
+        for Key_Name, Text_Drawing in pairs(Visuals_Data.Esp_Texts) do
+            if not Players_Service:FindFirstChild(Key_Name) then
+                if Text_Drawing then Text_Drawing:Remove() end
+                Visuals_Data.Esp_Texts[Key_Name] = nil
             end
         end
     else
-        for playerName, textObj in pairs(Visuals_Data.Esp_Texts) do
-            if textObj then
-                textObj.Visible = false
+        for Key_Name, Text_Drawing in pairs(Visuals_Data.Esp_Texts) do
+            if Text_Drawing then
+                Text_Drawing.Visible = false
             end
         end
     end
@@ -587,7 +582,7 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
         if Root_Part and Root_Part:IsA("BasePart") then
             local Root_Pos = Root_Part.Position - Vector3.new(0, 3, 0)
             local Target_Radius = Runtime_State.Parry_Range or 0
-            Smooth_Parry_Radius = Smooth_Parry_Radius + (Target_Radius - Smooth_Parry_Radius) * Fast_Clamp(Delta_Time * 15, 0, 1)
+            Smooth_Parry_Radius = Smooth_Parry_Radius + (Target_Radius - Smooth_Parry_Radius) * Fast_Clamp(Delta_Time * 20, 0, 1)
             local Radius_Val = Fast_Max(Smooth_Parry_Radius, 5)
             local Segments_Count = Fast_Clamp(Config_State.Vis_Segments, 10, 100)
             local Angle_Step = Pi_2 / Segments_Count
@@ -637,8 +632,8 @@ end)
 
 Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Current_Time = Fast_Clock()
-    local Tick_Delta = Current_Time - Last_Tick_Time
-    Last_Tick_Time = Current_Time
+    if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
+    local Current_Delta_Time = Delta_Time
 
     local Current_Char = Local_Player.Character
     if Current_Char and Current_Char ~= Cached_Character then
@@ -647,11 +642,35 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Config_State.Korblox then pcall(function() Apply_Korblox(true) end) end
     end
 
-    if Tick_Delta > 0 then
-        Smoothed_Server_Fps = Smoothed_Server_Fps + ((1 / Tick_Delta) - Smoothed_Server_Fps) * 0.1
+    local Current_Game_Time = Workspace_Service.DistributedGameTime
+    if Current_Game_Time ~= Last_Game_Time then
+        local Server_Tick_Delta = Current_Game_Time - Last_Game_Time
+        Last_Game_Time = Current_Game_Time
+        if Server_Tick_Delta > 0 then
+            local Current_Server_Fps = 1 / Server_Tick_Delta
+            Smoothed_Server_Fps = Smoothed_Server_Fps + (Current_Server_Fps - Smoothed_Server_Fps) * 0.1
+        end
     end
 
-    local Current_Delta_Time = Delta_Time or 0.016
+    if Config_State.Manual_Spam then
+        local Target_Cps = 200
+        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Tickrate_Compensation = 60 * Server_Tick_Time
+        local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
+        local Spam_Interval = 1 / Target_Cps
+
+        Manual_Accumulated_Time = Manual_Accumulated_Time + Server_Aligned_Delta
+
+        if Manual_Accumulated_Time >= Spam_Interval then
+            local Click_Count = Fast_Floor(Manual_Accumulated_Time / Spam_Interval)
+            Manual_Accumulated_Time = Manual_Accumulated_Time % Spam_Interval
+            for I_Idx = 1, Fast_Min(Click_Count, 10) do
+                Execute_Parry()
+            end
+        end
+    else
+        Manual_Accumulated_Time = 0
+    end
 
     if Config_State.Infinity_Detection then
         local Is_Detected = false
@@ -957,7 +976,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Auto_Spam_Active then
         local Target_Cps = Fast_Max(Config_State.Spam_Rate, 1)
-        local Tickrate_Compensation = 60 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Tickrate_Compensation = 60 * Server_Tick_Time
         local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
         local Spam_Interval = 1 / Target_Cps
 
@@ -980,7 +1000,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Config_State.Panic_Spam then
         local Target_Cps = 200
-        local Tickrate_Compensation = 60 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Tickrate_Compensation = 60 * Server_Tick_Time
         local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
         local Panic_Interval = 1 / Target_Cps
         
@@ -1052,8 +1073,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             local Application_Tick = Fast_Clock()
             if Scheduled_Trigger_Time == 0 then
                 local Target_Ping = Network_Ping / 10
-                local Server_Tick = 1 / Fast_Max(Smoothed_Server_Fps, 1)
-                local Compensation_Time = (Target_Ping / 1000) + Current_Delta_Time + Server_Tick
+                local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+                local Compensation_Time = (Target_Ping / 1000) + Current_Delta_Time + Server_Tick_Time
                 local Base_Delay = Config_State.Trigger_Delay / 1000
                 local Final_Delay = Fast_Max(0, Base_Delay - Compensation_Time)
                 Scheduled_Trigger_Time = Application_Tick + Final_Delay
@@ -1080,13 +1101,17 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         local Ping_Num = Get_Memory_Ping()
         local Adjusted_Ping = Ping_Num / 10
+        local Ping_Seconds = Adjusted_Ping / 1000
 
-        local Tickrate_Compensation = 60 / Fast_Max(Smoothed_Server_Fps, 1)
-        local Distance_Per_Tick = Current_Speed * Tick_Delta
-        local Frame_Compensation = Distance_Per_Tick * Base_Extrapolation_Factor * Tickrate_Compensation
-        local Segment_Line_Distance = Current_Speed * (Tick_Delta + (Adjusted_Ping / 100)) * Base_Extrapolation_Factor * Tickrate_Compensation
-        local Speed_Divisor_Multiplier = (0.85 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.001) - (Segment_Line_Distance * 0.002)
-        
+        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Subtick_Time = Current_Delta_Time % Server_Tick_Time
+        local Subtick_Distance = Current_Speed * Subtick_Time
+        local Interpolation_Distance = Current_Speed * (Ping_Seconds + 0.05)
+        local Extrapolation_Distance = (Current_Speed * Server_Tick_Time) * Base_Extrapolation_Factor
+        local Segment_Line_Distance = Extrapolation_Distance + Interpolation_Distance
+
+        local Speed_Divisor_Multiplier = (0.9 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.001) - (Segment_Line_Distance * 0.002)
+
         local Dot_Product_Parry = 0
         if Current_Distance > 0.01 and Current_Speed > 0.01 then
             Dot_Product_Parry = Direction_To_Player_Stat:Dot(Velocity_Dir)
@@ -1097,7 +1122,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Speed_Divisor_Parry = Speed_Divisor_Base_Parry * Speed_Divisor_Multiplier
 
         local Base_Parry_Accuracy = Adjusted_Ping + Fast_Max(Current_Speed / Speed_Divisor_Parry, 15)
-        local Final_Threshold = Base_Parry_Accuracy + Frame_Compensation + Parry_Range_Threshold
+        local Final_Threshold = Base_Parry_Accuracy + Extrapolation_Distance + Interpolation_Distance + Subtick_Distance + Parry_Range_Threshold
 
         Runtime_State.Parry_Range = Final_Threshold
 
@@ -1110,12 +1135,11 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Current_Speed > 15 then
             local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
             local Max_Dot_Threshold = 0.85
-            local Min_Dot_Threshold = 0.25
+            local Min_Dot_Threshold = 0.5
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
             
             local Target_Ping = Network_Ping / 10
-            local Server_Tick = 1 / Fast_Max(Smoothed_Server_Fps, 1)
-            local Curve_Compensation = (Target_Ping / 1000) + Current_Delta_Time + Server_Tick
+            local Curve_Compensation = (Target_Ping / 1000) + Current_Delta_Time + Server_Tick_Time
             
             local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
             
@@ -1142,8 +1166,9 @@ end)
 
 task.spawn(function()
     while true do
+        local Fallback_Delta = task.wait(1)
+        if type(Fallback_Delta) ~= "number" then Fallback_Delta = 1 end
         if Config_State.Headless then pcall(function() Apply_Headless(true) end) end
         if Config_State.Korblox then pcall(function() Apply_Korblox(true) end) end
-        if task and task.wait then task.wait(1) else wait(1) end
     end
 end)
