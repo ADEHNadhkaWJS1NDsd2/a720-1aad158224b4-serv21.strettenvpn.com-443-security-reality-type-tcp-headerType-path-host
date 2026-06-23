@@ -1110,7 +1110,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Extrapolation_Distance = (Current_Speed * Server_Tick_Time) * Base_Extrapolation_Factor
         local Segment_Line_Distance = Extrapolation_Distance + Interpolation_Distance
 
-        local Speed_Divisor_Multiplier = (0.9 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.001) - (Segment_Line_Distance * 0.002)
+        local Speed_Divisor_Multiplier = (0.85 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.001) - (Segment_Line_Distance * 0.002)
 
         local Dot_Product_Parry = 0
         if Current_Distance > 0.01 and Current_Speed > 0.01 then
