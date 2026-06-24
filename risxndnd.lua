@@ -53,16 +53,16 @@ local Config_State = {
     Trigger_Delay = 0,
     Trigger_Ignore_Spawn = false,
     Parry_Visualizer = false,
-    Visualizer_Color = Color3.fromRGB(122, 134, 255),
+    Visualizer_Color = Color3.fromRGB(220, 30, 30),
     Vis_Thickness = 2.0,
     Vis_Transparency = 1.0,
     Vis_Segments = 40,
     Ability_Esp = false,
-    Esp_Color = Color3.fromRGB(122, 134, 255),
+    Esp_Color = Color3.fromRGB(220, 30, 30),
     Esp_Text_Size = 18,
     Esp_Offset_Y = 2.0,
     Ball_Trail = false,
-    Trail_Color = Color3.fromRGB(122, 134, 255),
+    Trail_Color = Color3.fromRGB(220, 30, 30),
     Trail_Length = 60,
     Trail_Thickness = 2.0,
     Rainbow_Mode = false,
@@ -84,7 +84,7 @@ local Runtime_State = {
     Target_Speed = 0,
     Target_Distance = 0,
     Target_Dot = 0,
-    Parry_Range = 0
+    Parry_Range = 15
 }
 
 local Offsets_Data = {
@@ -129,19 +129,19 @@ Trigger_Section:Toggle("Ignore Ball Spawn", false, function(Value_In) Config_Sta
 local Visuals_Tab = Win_App:Tab("Visuals", "eye")
 
 local Vis_Main_Section = Visuals_Tab:Section("Visuals", "Left")
-Vis_Main_Section:Toggle("Range Visualiser", false, function(Value_In) Config_State.Parry_Visualizer = Value_In end):AddColorpicker("Vis Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Visualizer_Color = Color_Val end)
+Vis_Main_Section:Toggle("Range Visualiser", false, function(Value_In) Config_State.Parry_Visualizer = Value_In end):AddColorpicker("Vis Color", Color3.fromRGB(220, 30, 30), function(Color_Val) Config_State.Visualizer_Color = Color_Val end)
 Vis_Main_Section:Slider("Vis Thickness", 2.0, 0.1, 1.0, 10.0, "", function(Value_In) Config_State.Vis_Thickness = Value_In end)
 Vis_Main_Section:Slider("Vis Transparency", 1.0, 0.1, 0.1, 1.0, "", function(Value_In) Config_State.Vis_Transparency = Value_In end)
 Vis_Main_Section:Slider("Vis Segments", 40, 1, 10, 100, "", function(Value_In) Config_State.Vis_Segments = Value_In end)
 
-Vis_Main_Section:Toggle("Ability ESP", false, function(Value_In) Config_State.Ability_Esp = Value_In end):AddColorpicker("ESP Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Esp_Color = Color_Val end)
+Vis_Main_Section:Toggle("Ability ESP", false, function(Value_In) Config_State.Ability_Esp = Value_In end):AddColorpicker("ESP Color", Color3.fromRGB(220, 30, 30), function(Color_Val) Config_State.Esp_Color = Color_Val end)
 Vis_Main_Section:Slider("ESP Text Size", 18, 1, 10, 40, "", function(Value_In) Config_State.Esp_Text_Size = Value_In end)
 Vis_Main_Section:Slider("ESP Offset Y", 2.0, 0.5, 0.0, 10.0, "", function(Value_In) Config_State.Esp_Offset_Y = Value_In end)
 
 Vis_Main_Section:Toggle("Rainbow Mode", false, function(Value_In) Config_State.Rainbow_Mode = Value_In end)
 
 local Vis_Trail_Section = Visuals_Tab:Section("Ball Trail", "Right")
-Vis_Trail_Section:Toggle("Enable Trail", false, function(Value_In) Config_State.Ball_Trail = Value_In end):AddColorpicker("Trail Color", Color3.fromRGB(122, 134, 255), function(Color_Val) Config_State.Trail_Color = Color_Val end)
+Vis_Trail_Section:Toggle("Enable Trail", false, function(Value_In) Config_State.Ball_Trail = Value_In end):AddColorpicker("Trail Color", Color3.fromRGB(220, 30, 30), function(Color_Val) Config_State.Trail_Color = Color_Val end)
 Vis_Trail_Section:Slider("Trail Length", 60, 1, 10, 100, "", function(Value_In) Config_State.Trail_Length = Value_In end)
 Vis_Trail_Section:Slider("Trail Thickness", 2.0, 0.1, 1.0, 10.0, "", function(Value_In) Config_State.Trail_Thickness = Value_In end)
 
@@ -149,16 +149,16 @@ local Vis_Avatar_Section = Visuals_Tab:Section("Avatar", "Right")
 
 local function Apply_Headless(State_Val)
     local Char_Obj = Local_Player.Character
-    if not Char_Obj then return end
+    if not Char_Obj or typeof(Char_Obj) ~= "Instance" then return end
     local Head_Obj = Char_Obj:FindFirstChild("Head")
-    if Head_Obj then
+    if Head_Obj and typeof(Head_Obj) == "Instance" and Head_Obj:IsA("BasePart") then
         if State_Val then
             pcall(function() Head_Obj.Size = Vector3.new(0.01, 0.01, 0.01) end)
             if Head_Obj.Address and Head_Obj.Address ~= 0 then
                 Write_Float(Head_Obj.Address + Offsets_Data.Transparency, 1.0)
             end
             for _, Child_Obj in ipairs(Head_Obj:GetChildren()) do
-                if Child_Obj.ClassName == "Decal" or Child_Obj.Name == "face" or Child_Obj.Name == "Face" or Child_Obj.ClassName:match("Mesh") then
+                if typeof(Child_Obj) == "Instance" and (Child_Obj.ClassName == "Decal" or Child_Obj.Name == "face" or Child_Obj.Name == "Face" or Child_Obj.ClassName:match("Mesh")) then
                     pcall(function() Child_Obj.Texture = "" end)
                     pcall(function() Child_Obj.Transparency = 1 end)
                     pcall(function() Child_Obj.Parent = nil end)
@@ -179,7 +179,7 @@ end
 
 local function Apply_Korblox(State_Val)
     local Char_Obj = Local_Player.Character
-    if not Char_Obj then return end
+    if not Char_Obj or typeof(Char_Obj) ~= "Instance" then return end
     local Right_Leg_Names = {
         RightUpperLeg = true,
         RightLowerLeg = true,
@@ -188,13 +188,13 @@ local function Apply_Korblox(State_Val)
     }
     if State_Val then
         for _, Part_Obj in ipairs(Char_Obj:GetChildren()) do
-            if Right_Leg_Names[Part_Obj.Name] then
+            if typeof(Part_Obj) == "Instance" and Right_Leg_Names[Part_Obj.Name] and Part_Obj:IsA("BasePart") then
                 pcall(function() Part_Obj.Size = Vector3.new(0.01, 0.01, 0.01) end)
                 if Part_Obj.Address and Part_Obj.Address ~= 0 then
                     Write_Float(Part_Obj.Address + Offsets_Data.Transparency, 1.0)
                 end
                 for _, Child_Obj in ipairs(Part_Obj:GetChildren()) do
-                    if Child_Obj.ClassName:match("Mesh") or Child_Obj.ClassName == "Decal" or Child_Obj.ClassName == "Texture" then
+                    if typeof(Child_Obj) == "Instance" and (Child_Obj.ClassName:match("Mesh") or Child_Obj.ClassName == "Decal" or Child_Obj.ClassName == "Texture") then
                         pcall(function() Child_Obj.Texture = "" end)
                         pcall(function() Child_Obj.Transparency = 1 end)
                         pcall(function() Child_Obj.Parent = nil end)
@@ -204,7 +204,7 @@ local function Apply_Korblox(State_Val)
                         end
                     end
                 end
-            elseif Part_Obj.ClassName == "CharacterMesh" then
+            elseif typeof(Part_Obj) == "Instance" and Part_Obj.ClassName == "CharacterMesh" then
                 pcall(function()
                     if tostring(Part_Obj.BodyPart):match("RightLeg") then
                         if Part_Obj.Address and Part_Obj.Address ~= 0 then
@@ -212,12 +212,12 @@ local function Apply_Korblox(State_Val)
                         end
                     end
                 end)
-            elseif Part_Obj.ClassName == "Accessory" then
+            elseif typeof(Part_Obj) == "Instance" and Part_Obj.ClassName == "Accessory" then
                 pcall(function()
                     local Handle_Obj = Part_Obj:FindFirstChild("Handle")
-                    if Handle_Obj then
+                    if Handle_Obj and typeof(Handle_Obj) == "Instance" then
                         local Weld_Obj = Handle_Obj:FindFirstChildOfClass("Weld") or Handle_Obj:FindFirstChildOfClass("Motor6D")
-                        if Weld_Obj and Weld_Obj.Part1 and Right_Leg_Names[Weld_Obj.Part1.Name] then
+                        if Weld_Obj and typeof(Weld_Obj) == "Instance" and Weld_Obj.Part1 and Right_Leg_Names[Weld_Obj.Part1.Name] then
                             if Part_Obj.Address and Part_Obj.Address ~= 0 then
                                 Write_Pointer(Part_Obj.Address + Offsets_Data.Parent, 0)
                             end
@@ -228,7 +228,7 @@ local function Apply_Korblox(State_Val)
         end
     else
         for _, Part_Obj in ipairs(Char_Obj:GetChildren()) do
-            if Right_Leg_Names[Part_Obj.Name] then
+            if typeof(Part_Obj) == "Instance" and Right_Leg_Names[Part_Obj.Name] and Part_Obj:IsA("BasePart") then
                 pcall(function() Part_Obj.Size = Vector3.new(1, 1, 1) end)
             end
         end
@@ -296,29 +296,40 @@ if type(Drawing) == "table" and Drawing.new then
     end
 end
 
-local Smooth_Parry_Radius = 0
+local Smooth_Parry_Radius = 15
 
 local function Get_Screen_Position(World_Pos)
-    if not World_Pos then return Vector2.new(0, 0), false end
-    local Success_Call, Pos_Data, Is_Visible = pcall(WorldToScreen, World_Pos)
-    if Success_Call and Pos_Data then
-        if typeof(Pos_Data) == "Vector3" then
-            return Vector2.new(Pos_Data.X, Pos_Data.Y), Pos_Data.Z > 0
+    if not World_Pos or typeof(World_Pos) ~= "Vector3" then return Vector2.new(0, 0), false end
+    local Success_Call, Pos_Data = pcall(WorldToScreen, World_Pos)
+    if not Success_Call or not Pos_Data then return Vector2.new(0, 0), false end
+    local Pos_2D = Vector2.new(Pos_Data.X, Pos_Data.Y)
+    local Is_On_Screen = true
+    if typeof(Pos_Data) == "Vector3" then
+        Is_On_Screen = Pos_Data.Z > 0
+    else
+        local Cam_Obj = Workspace_Service.CurrentCamera
+        if Cam_Obj and typeof(Cam_Obj) == "Instance" and Cam_Obj:IsA("Camera") then
+            local Cam_CF = Cam_Obj.CFrame
+            if Cam_CF then
+                local To_Point = World_Pos - Cam_CF.Position
+                if To_Point.Magnitude > 0.1 then
+                    Is_On_Screen = Cam_CF.LookVector:Dot(To_Point.Unit) > 0
+                end
+            end
         end
-        return Pos_Data, Is_Visible
     end
-    return Vector2.new(0, 0), false
+    return Pos_2D, Is_On_Screen
 end
 
 local function Get_Real_Ball()
     local Alive_Folder = Workspace_Service:FindFirstChild("Alive")
-    local Target_Folder = Alive_Folder and Alive_Folder:FindFirstChild(Local_Player.Name) and Workspace_Service:FindFirstChild("Balls") or Workspace_Service:FindFirstChild("TrainingBalls")
-    if Target_Folder then
+    local Target_Folder = Alive_Folder and typeof(Alive_Folder) == "Instance" and Alive_Folder:FindFirstChild(Local_Player.Name) and Workspace_Service:FindFirstChild("Balls") or Workspace_Service:FindFirstChild("TrainingBalls")
+    if Target_Folder and typeof(Target_Folder) == "Instance" then
         for _, Ball in ipairs(Target_Folder:GetChildren()) do
-            if Ball:IsA("BasePart") and Ball:GetAttribute("realBall") == true then return Ball end
+            if typeof(Ball) == "Instance" and Ball:IsA("BasePart") and Ball:GetAttribute("realBall") == true then return Ball end
         end
         for _, Ball in ipairs(Target_Folder:GetChildren()) do
-            if Ball:IsA("BasePart") then return Ball end
+            if typeof(Ball) == "Instance" and Ball:IsA("BasePart") then return Ball end
         end
     end
     return nil
@@ -333,7 +344,7 @@ end
 
 local function Check_Is_Target(Target_Name)
     local Character_Instance = Local_Player.Character
-    if Character_Instance and Character_Instance:FindFirstChild('Highlight') then return true end
+    if Character_Instance and typeof(Character_Instance) == "Instance" and Character_Instance:FindFirstChild('Highlight') then return true end
     if not Target_Name then return false end
     local My_Name = string.lower(Local_Player.Name or "")
     local My_Display = string.lower(Local_Player.DisplayName or Local_Player.Name or "")
@@ -355,14 +366,15 @@ local function Get_Distance_Squared(V1_Pos, V2_Pos)
 end
 
 local function Scan_For_Nearest_Entity(Player_Position)
+    if not Player_Position or typeof(Player_Position) ~= "Vector3" then return nil, math.huge end
     local Nearest_Entity = nil
     local Minimum_Distance_Sq = math.huge
     for _, Target_Player in ipairs(Players_Service:GetPlayers()) do
-        if Target_Player ~= Local_Player and Target_Player.Character then
+        if Target_Player ~= Local_Player and Target_Player.Character and typeof(Target_Player.Character) == "Instance" then
             local Root_Part = Target_Player.Character:FindFirstChild("HumanoidRootPart") or Target_Player.Character.PrimaryPart
-            if Root_Part and Root_Part:IsA("BasePart") then
+            if Root_Part and typeof(Root_Part) == "Instance" and Root_Part:IsA("BasePart") then
                 local Humanoid_Part = Target_Player.Character:FindFirstChild("Humanoid")
-                if Humanoid_Part and Humanoid_Part.Health > 0 then
+                if Humanoid_Part and typeof(Humanoid_Part) == "Instance" and Humanoid_Part.Health > 0 then
                     local Current_Dist_Sq = Get_Distance_Squared(Player_Position, Root_Part.Position)
                     if Current_Dist_Sq < Minimum_Distance_Sq then
                         Minimum_Distance_Sq = Current_Dist_Sq
@@ -422,14 +434,14 @@ local function Get_Trail_Color_And_Opacity(Offset_Val, Index_Val, Total_Val)
     return Color3.new(R_Val, G_Val, B_Val), Opacity_Val
 end
 
-local function Update_And_Render_Trail(Best_Pos)
+local function Update_And_Render_Trail(Current_Ball_Pos)
     if not Config_State.Ball_Trail then
         for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do
             if Line_Obj then Line_Obj.Visible = false end
         end
         return
     end
-    if not Best_Pos then
+    if not Current_Ball_Pos or typeof(Current_Ball_Pos) ~= "Vector3" then
         for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do
             if Line_Obj then Line_Obj.Visible = false end
         end
@@ -438,8 +450,8 @@ local function Update_And_Render_Trail(Best_Pos)
     end
     
     local Last_Tracked_Pos = Visuals_Data.Ball_Trail_Pos[1]
-    if not Last_Tracked_Pos or (Last_Tracked_Pos - Best_Pos).Magnitude > 0.5 then
-        table.insert(Visuals_Data.Ball_Trail_Pos, 1, Best_Pos)
+    if not Last_Tracked_Pos or (Last_Tracked_Pos - Current_Ball_Pos).Magnitude > 0.2 then
+        table.insert(Visuals_Data.Ball_Trail_Pos, 1, Current_Ball_Pos)
         while #Visuals_Data.Ball_Trail_Pos > Config_State.Trail_Length do
             table.remove(Visuals_Data.Ball_Trail_Pos)
         end
@@ -458,7 +470,7 @@ local function Update_And_Render_Trail(Best_Pos)
         if not Line_Obj then break end
         local Pos_1 = Visuals_Data.Ball_Trail_Pos[I_Idx - 1]
         local Pos_2 = Visuals_Data.Ball_Trail_Pos[I_Idx]
-        if Pos_1 and Pos_2 then
+        if Pos_1 and Pos_2 and typeof(Pos_1) == "Vector3" and typeof(Pos_2) == "Vector3" then
             local P1_Pos, P1_On_Screen = Get_Screen_Position(Pos_1)
             local P2_Pos, P2_On_Screen = Get_Screen_Position(Pos_2)
             if P1_On_Screen and P2_On_Screen then
@@ -503,19 +515,19 @@ local Cached_From = nil
 
 local Last_Game_Time = Workspace_Service.DistributedGameTime
 local Smoothed_Server_Fps = 60
-local Cached_Character = nil
-local Cached_Alive_Folder = nil
 
 Run_Service.RenderStepped:Connect(function(Delta_Time)
     if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
     local Current_Render_Time = Fast_Clock()
 
     local Real_Ball_Visuals = Get_Real_Ball()
-    local Best_Ball_Pos = nil
-    if Real_Ball_Visuals and Real_Ball_Visuals:IsA("BasePart") then
-        Best_Ball_Pos = Real_Ball_Visuals.Position
+    local Current_Ball_Pos = nil
+    
+    if Real_Ball_Visuals and typeof(Real_Ball_Visuals) == "Instance" and Real_Ball_Visuals:IsA("BasePart") then
+        Current_Ball_Pos = Real_Ball_Visuals.Position
     end
-    Update_And_Render_Trail(Best_Ball_Pos)
+    
+    Update_And_Render_Trail(Current_Ball_Pos)
 
     if Config_State.Ability_Esp then
         local Current_Players_List = Players_Service:GetPlayers()
@@ -524,20 +536,21 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
             if Target_Player == Local_Player then continue end
             local Player_Name_Str = Target_Player.Name
             local Target_Character = Target_Player.Character
-            local Target_Humanoid = Target_Character and Target_Character:FindFirstChild("Humanoid")
-            local Is_Entity_Alive = Target_Humanoid and Target_Humanoid.Health > 0
-            local Target_Head = Target_Character and Target_Character:FindFirstChild("Head")
+            local Target_Humanoid = Target_Character and typeof(Target_Character) == "Instance" and Target_Character:FindFirstChild("Humanoid")
+            local Is_Entity_Alive = Target_Humanoid and typeof(Target_Humanoid) == "Instance" and Target_Humanoid.Health > 0
+            local Target_Head = Target_Character and typeof(Target_Character) == "Instance" and Target_Character:FindFirstChild("Head")
             local Target_Ability = Target_Player:GetAttribute("CurrentlyEquippedAbility")
             
-            if Is_Entity_Alive and Target_Head and Target_Ability then
+            if Is_Entity_Alive and Target_Head and typeof(Target_Head) == "Instance" and Target_Head:IsA("BasePart") and Target_Ability then
                 local Text_Drawing = Visuals_Data.Esp_Texts[Player_Name_Str]
                 if not Text_Drawing then
                     Text_Drawing = Create_Esp_Text()
                     Visuals_Data.Esp_Texts[Player_Name_Str] = Text_Drawing
                 end
                 
+                local Head_Pos = Target_Head.Position
                 local Current_Offset_Vector = Vector3.new(0, Config_State.Esp_Offset_Y, 0)
-                local Screen_Coords, Is_On_Screen = Get_Screen_Position(Target_Head.Position + Current_Offset_Vector)
+                local Screen_Coords, Is_On_Screen = Get_Screen_Position(Head_Pos + Current_Offset_Vector)
                 
                 if Is_On_Screen and Screen_Coords.X > 0 and Screen_Coords.Y > 0 then
                     Text_Drawing.Size = Config_State.Esp_Text_Size
@@ -577,46 +590,45 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
         end
     end
 
-    if Config_State.Parry_Visualizer and Local_Player.Character then
-        local Root_Part = Local_Player.Character:FindFirstChild("HumanoidRootPart")
-        if Root_Part and Root_Part:IsA("BasePart") then
-            local Root_Pos = Root_Part.Position - Vector3.new(0, 3, 0)
-            local Target_Radius = Runtime_State.Parry_Range or 0
-            Smooth_Parry_Radius = Smooth_Parry_Radius + (Target_Radius - Smooth_Parry_Radius) * Fast_Clamp(Delta_Time * 20, 0, 1)
-            local Radius_Val = Fast_Max(Smooth_Parry_Radius, 5)
-            local Segments_Count = Fast_Clamp(Config_State.Vis_Segments, 10, 100)
-            local Angle_Step = Pi_2 / Segments_Count
-            for I_Idx = 1, 100 do
-                local Line_Obj = Visuals_Data.Sphere_Lines[I_Idx]
-                if Line_Obj then
-                    if I_Idx <= Segments_Count then
-                        local Angle_1 = (I_Idx - 1) * Angle_Step
-                        local Angle_2 = I_Idx * Angle_Step
-                        local P1_3d = Root_Pos + Vector3.new(math.cos(Angle_1) * Radius_Val, 0, math.sin(Angle_1) * Radius_Val)
-                        local P2_3d = Root_Pos + Vector3.new(math.cos(Angle_2) * Radius_Val, 0, math.sin(Angle_2) * Radius_Val)
-                        local P1_Pos, On_Screen_1 = Get_Screen_Position(P1_3d)
-                        local P2_Pos, On_Screen_2 = Get_Screen_Position(P2_3d)
-                        if On_Screen_1 and On_Screen_2 then
-                            Line_Obj.Visible = true
-                            Line_Obj.From = P1_Pos
-                            Line_Obj.To = P2_Pos
-                            Line_Obj.Thickness = Config_State.Vis_Thickness
-                            Line_Obj.Transparency = Config_State.Vis_Transparency
-                            if Config_State.Rainbow_Mode then
-                                local Offset_T = Current_Render_Time * 2.5 + (I_Idx / Segments_Count) * Pi_2
-                                local Vis_R = (math.sin(Offset_T) * 0.5 + 0.5) * 0.95 + 0.05
-                                local Vis_G = (math.sin(Offset_T + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
-                                local Vis_B = (math.sin(Offset_T + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
-                                Line_Obj.Color = Color3.new(Vis_R, Vis_G, Vis_B)
-                            else
-                                Line_Obj.Color = Config_State.Visualizer_Color
-                            end
+    local Local_Char = Local_Player.Character
+    local Root_Part_Vis = Local_Char and typeof(Local_Char) == "Instance" and Local_Char:FindFirstChild("HumanoidRootPart")
+    if Config_State.Parry_Visualizer and Root_Part_Vis and typeof(Root_Part_Vis) == "Instance" and Root_Part_Vis:IsA("BasePart") then
+        local Root_Pos = Root_Part_Vis.Position - Vector3.new(0, 3, 0)
+        local Target_Radius = Runtime_State.Parry_Range or 15
+        Smooth_Parry_Radius = Smooth_Parry_Radius + (Target_Radius - Smooth_Parry_Radius) * Fast_Clamp(Delta_Time * 20, 0, 1)
+        local Radius_Val = Fast_Max(Smooth_Parry_Radius, 5)
+        local Segments_Count = Fast_Clamp(Config_State.Vis_Segments, 10, 100)
+        local Angle_Step = Pi_2 / Segments_Count
+        for I_Idx = 1, 100 do
+            local Line_Obj = Visuals_Data.Sphere_Lines[I_Idx]
+            if Line_Obj then
+                if I_Idx <= Segments_Count then
+                    local Angle_1 = (I_Idx - 1) * Angle_Step
+                    local Angle_2 = I_Idx * Angle_Step
+                    local P1_3d = Root_Pos + Vector3.new(math.cos(Angle_1) * Radius_Val, 0, math.sin(Angle_1) * Radius_Val)
+                    local P2_3d = Root_Pos + Vector3.new(math.cos(Angle_2) * Radius_Val, 0, math.sin(Angle_2) * Radius_Val)
+                    local P1_Pos, On_Screen_1 = Get_Screen_Position(P1_3d)
+                    local P2_Pos, On_Screen_2 = Get_Screen_Position(P2_3d)
+                    if On_Screen_1 and On_Screen_2 then
+                        Line_Obj.Visible = true
+                        Line_Obj.From = P1_Pos
+                        Line_Obj.To = P2_Pos
+                        Line_Obj.Thickness = Config_State.Vis_Thickness
+                        Line_Obj.Transparency = Config_State.Vis_Transparency
+                        if Config_State.Rainbow_Mode then
+                            local Offset_T = Current_Render_Time * 2.5 + (I_Idx / Segments_Count) * Pi_2
+                            local Vis_R = (math.sin(Offset_T) * 0.5 + 0.5) * 0.95 + 0.05
+                            local Vis_G = (math.sin(Offset_T + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
+                            local Vis_B = (math.sin(Offset_T + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
+                            Line_Obj.Color = Color3.new(Vis_R, Vis_G, Vis_B)
                         else
-                            Line_Obj.Visible = false
+                            Line_Obj.Color = Config_State.Visualizer_Color
                         end
                     else
                         Line_Obj.Visible = false
                     end
+                else
+                    Line_Obj.Visible = false
                 end
             end
         end
@@ -635,11 +647,20 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
     local Current_Delta_Time = Delta_Time
 
-    local Current_Char = Local_Player.Character
-    if Current_Char and Current_Char ~= Cached_Character then
-        Cached_Character = Current_Char
-        if Config_State.Headless then pcall(function() Apply_Headless(true) end) end
-        if Config_State.Korblox then pcall(function() Apply_Korblox(true) end) end
+    local Player_Character_Obj = Local_Player.Character
+    if Player_Character_Obj and typeof(Player_Character_Obj) == "Instance" then
+        if Config_State.Headless then
+            local Target_Head = Player_Character_Obj:FindFirstChild("Head")
+            if Target_Head and typeof(Target_Head) == "Instance" and Target_Head:IsA("BasePart") and Target_Head.Size.X > 0.1 then
+                pcall(function() Apply_Headless(true) end)
+            end
+        end
+        if Config_State.Korblox then
+            local Target_Right_Leg = Player_Character_Obj:FindFirstChild("RightUpperLeg") or Player_Character_Obj:FindFirstChild("Right Leg")
+            if Target_Right_Leg and typeof(Target_Right_Leg) == "Instance" and Target_Right_Leg:IsA("BasePart") and Target_Right_Leg.Size.X > 0.1 then
+                pcall(function() Apply_Korblox(true) end)
+            end
+        end
     end
 
     local Current_Game_Time = Workspace_Service.DistributedGameTime
@@ -675,24 +696,24 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     if Config_State.Infinity_Detection then
         local Is_Detected = false
         local Runtime_Folder = Workspace_Service:FindFirstChild("Runtime")
-        if Runtime_Folder then
+        if Runtime_Folder and typeof(Runtime_Folder) == "Instance" then
             if Runtime_Folder:FindFirstChild("InfinityFX") or Runtime_Folder:FindFirstChild("TrueInfinityFX") then
                 Is_Detected = true
             end
         end
         local Current_Balls_Folder = Workspace_Service:FindFirstChild("Balls")
-        if Current_Balls_Folder then
+        if Current_Balls_Folder and typeof(Current_Balls_Folder) == "Instance" then
             for _, Current_Ball in ipairs(Current_Balls_Folder:GetChildren()) do
                 if typeof(Current_Ball) == "Instance" and Current_Ball:IsA("BasePart") then
                     local Body_Part = Current_Ball:FindFirstChild("Body")
-                    if Body_Part and Body_Part:FindFirstChild("WEMAZOOKIEGO") then
+                    if Body_Part and typeof(Body_Part) == "Instance" and Body_Part:FindFirstChild("WEMAZOOKIEGO") then
                         Is_Detected = true
                         break
                     end
                 end
             end
         end
-        if Local_Player.Character then
+        if Local_Player.Character and typeof(Local_Player.Character) == "Instance" then
             if Local_Player.Character:FindFirstChild("Parry") then
                 Is_Detected = true
             end
@@ -730,9 +751,9 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     if Config_State.Slashes_Of_Fury_Detection then
         local Is_Fury = false
         local Current_Balls_Folder = Workspace_Service:FindFirstChild("Balls")
-        if Current_Balls_Folder then
+        if Current_Balls_Folder and typeof(Current_Balls_Folder) == "Instance" then
             for _, Current_Ball in ipairs(Current_Balls_Folder:GetChildren()) do
-                if Current_Ball:FindFirstChild("ComboCounter") then
+                if typeof(Current_Ball) == "Instance" and Current_Ball:FindFirstChild("ComboCounter") then
                     local Target_Attr = Current_Ball:GetAttribute("target") or Current_Ball:GetAttribute("Target")
                     if Check_Is_Target(Target_Attr) then
                         Is_Fury = true
@@ -741,16 +762,16 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                 end
             end
         end
-        if not Is_Fury and Local_Player.Character then
+        if not Is_Fury and Local_Player.Character and typeof(Local_Player.Character) == "Instance" then
             if Local_Player.Character:GetAttribute("FuryCatch") == true then
                 Is_Fury = true
             end
         end
         if not Is_Fury then
             local Player_Gui = Local_Player:FindFirstChild("PlayerGui")
-            if Player_Gui then
+            if Player_Gui and typeof(Player_Gui) == "Instance" then
                 local Fury_Timer = Player_Gui:FindFirstChild("FuryTimer")
-                if Fury_Timer and Fury_Timer.Enabled then
+                if Fury_Timer and typeof(Fury_Timer) == "Instance" and Fury_Timer.Enabled then
                     Is_Fury = true
                 end
             end
@@ -775,32 +796,32 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                     local Still_Fury = false
                     local Current_Combo = 0
                     local Current_Balls = Workspace_Service:FindFirstChild("Balls")
-                    if Current_Balls then
+                    if Current_Balls and typeof(Current_Balls) == "Instance" then
                         for _, Current_Ball in ipairs(Current_Balls:GetChildren()) do
-                            local Combo_Obj = Current_Ball:FindFirstChild("ComboCounter")
-                            if Combo_Obj then
+                            local Combo_Obj = typeof(Current_Ball) == "Instance" and Current_Ball:FindFirstChild("ComboCounter")
+                            if Combo_Obj and typeof(Combo_Obj) == "Instance" then
                                 local Target_Attr = Current_Ball:GetAttribute("target") or Current_Ball:GetAttribute("Target")
                                 if Check_Is_Target(Target_Attr) then
                                     Still_Fury = true
                                 end
                                 local Text_Label = Combo_Obj:FindFirstChild("TextLabel")
-                                if Text_Label then
+                                if Text_Label and typeof(Text_Label) == "Instance" then
                                     Current_Combo = tonumber(Text_Label.Text) or 0
                                 end
                                 break
                             end
                         end
                     end
-                    if not Still_Fury and Local_Player.Character then
+                    if not Still_Fury and Local_Player.Character and typeof(Local_Player.Character) == "Instance" then
                         if Local_Player.Character:GetAttribute("FuryCatch") == true then
                             Still_Fury = true
                         end
                     end
                     if not Still_Fury then
                         local Player_Gui = Local_Player:FindFirstChild("PlayerGui")
-                        if Player_Gui then
+                        if Player_Gui and typeof(Player_Gui) == "Instance" then
                             local Fury_Timer = Player_Gui:FindFirstChild("FuryTimer")
-                            if Fury_Timer and Fury_Timer.Enabled then
+                            if Fury_Timer and typeof(Fury_Timer) == "Instance" and Fury_Timer.Enabled then
                                 Still_Fury = true
                             end
                         end
@@ -847,7 +868,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     local Real_Ball = Get_Real_Ball()
 
-    if not Real_Ball or not Real_Ball.Parent then
+    if not Real_Ball or typeof(Real_Ball) ~= "Instance" or not Real_Ball:IsA("BasePart") or not Real_Ball.Parent then
         if (Current_Time - Last_From_Change) > 0.5 then
             Cached_From = nil
             Ball_Parries = 0
@@ -862,7 +883,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Runtime_State.Target_Speed = 0
         Runtime_State.Target_Distance = 0
         Runtime_State.Target_Dot = 0
-        Runtime_State.Parry_Range = 0
+        Runtime_State.Parry_Range = 15
         return
     end
 
@@ -874,10 +895,10 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     end
 
     local Player_Character = Local_Player.Character
-    if not Player_Character then return end
+    if not Player_Character or typeof(Player_Character) ~= "Instance" then return end
 
     local Root_Part = Player_Character.PrimaryPart
-    if not Root_Part or not Root_Part:IsA("BasePart") or not Root_Part.Parent then return end
+    if not Root_Part or typeof(Root_Part) ~= "Instance" or not Root_Part:IsA("BasePart") or not Root_Part.Parent then return end
 
     if Player_Character:FindFirstChild("SingularityCape") or Root_Part:FindFirstChild("SingularityCape") then
         Is_Parried = false
@@ -956,7 +977,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Nearest_Player, Distance_To_Nearest_Player = Scan_For_Nearest_Entity(Root_Position)
 
     local Dead_Folder = Workspace_Service:FindFirstChild("Dead")
-    local Is_Dead = Dead_Folder and Dead_Folder:FindFirstChild(Local_Player.Name) ~= nil
+    local Is_Dead = Dead_Folder and typeof(Dead_Folder) == "Instance" and Dead_Folder:FindFirstChild(Local_Player.Name) ~= nil
     local Is_Training_Ball = Real_Ball.Parent and Real_Ball.Parent.Name == "TrainingBalls"
     local Can_Attack = (not Is_Dead) and (not Is_Training_Ball)
 
@@ -976,8 +997,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Auto_Spam_Active then
         local Target_Cps = Fast_Max(Config_State.Spam_Rate, 1)
-        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
-        local Tickrate_Compensation = 60 * Server_Tick_Time
+        local Server_Tick_Rate = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Tickrate_Compensation = 60 * Server_Tick_Rate
         local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
         local Spam_Interval = 1 / Target_Cps
 
@@ -1000,8 +1021,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Config_State.Panic_Spam then
         local Target_Cps = 200
-        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
-        local Tickrate_Compensation = 60 * Server_Tick_Time
+        local Server_Tick_Rate = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Tickrate_Compensation = 60 * Server_Tick_Rate
         local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
         local Panic_Interval = 1 / Target_Cps
         
@@ -1014,12 +1035,12 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             Cached_Alive_Folder = Workspace_Service:FindFirstChild("Alive")
         end
         
-        if Cached_Alive_Folder then
+        if Cached_Alive_Folder and typeof(Cached_Alive_Folder) == "Instance" then
             for _, Obj_Val in ipairs(Cached_Alive_Folder:GetChildren()) do
-                if Obj_Val ~= Player_Character and Obj_Val.Name ~= Local_Player.Name then
+                if typeof(Obj_Val) == "Instance" and Obj_Val ~= Player_Character and Obj_Val.Name ~= Local_Player.Name then
                     local Enemy_Humanoid = Obj_Val:FindFirstChildWhichIsA("Humanoid")
                     local Enemy_Root = Obj_Val:FindFirstChild("HumanoidRootPart") or Obj_Val.PrimaryPart
-                    if Enemy_Humanoid and Enemy_Humanoid.Health > 0 and Enemy_Root and Enemy_Root:IsA("BasePart") then
+                    if Enemy_Humanoid and typeof(Enemy_Humanoid) == "Instance" and Enemy_Humanoid.Health > 0 and Enemy_Root and typeof(Enemy_Root) == "Instance" and Enemy_Root:IsA("BasePart") then
                         local Dist_Sq = Get_Distance_Squared(Enemy_Root.Position, Root_Position)
                         if Dist_Sq < Closest_Enemy_Distance_Sq then
                             Closest_Enemy_Distance_Sq = Dist_Sq
@@ -1068,13 +1089,14 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Can_Trigger = false
     end
 
+    local Server_Tick_Rate = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+
     if Config_State.Trigger_Bot and Can_Attack then
         if Can_Trigger and not Is_Parried then
             local Application_Tick = Fast_Clock()
             if Scheduled_Trigger_Time == 0 then
-                local Target_Ping = Network_Ping / 10
-                local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
-                local Compensation_Time = (Target_Ping / 1000) + Current_Delta_Time + Server_Tick_Time
+                local Target_Ping_Sec = (Network_Ping / 10) / 1000
+                local Compensation_Time = Target_Ping_Sec + Current_Delta_Time + Server_Tick_Rate
                 local Base_Delay = Config_State.Trigger_Delay / 1000
                 local Final_Delay = Fast_Max(0, Base_Delay - Compensation_Time)
                 Scheduled_Trigger_Time = Application_Tick + Final_Delay
@@ -1099,28 +1121,20 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             return
         end
 
-        local Ping_Num = Get_Memory_Ping()
-        local Adjusted_Ping = Ping_Num / 10
-
-        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
-        local Distance_Per_Server_Tick = Current_Speed * Server_Tick_Time
-        local Frame_Compensation = Distance_Per_Server_Tick * Base_Extrapolation_Factor
-        local Segment_Line_Distance = Current_Speed * (Server_Tick_Time + (Adjusted_Ping / 100)) * Base_Extrapolation_Factor
-        local Speed_Divisor_Multiplier = (0.85 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.001) - (Segment_Line_Distance * 0.002)
+        local Target_Ping_Sec = (Network_Ping / 10) / 1000
+        
+        local Subtick_Shift = Current_Speed * (Current_Delta_Time + Server_Tick_Rate + Target_Ping_Sec)
+        local Subtick_Distance = Fast_Max(Current_Distance - Subtick_Shift, 0)
+        
+        local Speed_Divisor = 2.4 + (Fast_Max(Current_Speed - 15, 0) * 0.002)
+        local Final_Threshold = 15 + (Current_Speed / Speed_Divisor) + Parry_Range_Threshold
+        
+        Runtime_State.Parry_Range = Final_Threshold + Subtick_Shift
         
         local Dot_Product_Parry = 0
         if Current_Distance > 0.01 and Current_Speed > 0.01 then
             Dot_Product_Parry = Direction_To_Player_Stat:Dot(Velocity_Dir)
         end
-
-        local Speed_Difference_Parry = Fast_Max(Current_Speed - 15, 0)
-        local Speed_Divisor_Base_Parry = 2.4 + (Speed_Difference_Parry * 0.002)
-        local Speed_Divisor_Parry = Speed_Divisor_Base_Parry * Speed_Divisor_Multiplier
-
-        local Base_Parry_Accuracy = Adjusted_Ping + Fast_Max(Current_Speed / Speed_Divisor_Parry, 15)
-        local Final_Threshold = Base_Parry_Accuracy + Frame_Compensation + Parry_Range_Threshold
-
-        Runtime_State.Parry_Range = Final_Threshold
 
         local Close_Range_Threshold = Fast_Max(20, Final_Threshold * 0.5)
 
@@ -1130,13 +1144,11 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         if Current_Speed > 15 then
             local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
-            local Max_Dot_Threshold = 0.82
-            local Min_Dot_Threshold = 0.35
+            local Max_Dot_Threshold = 0.85
+            local Min_Dot_Threshold = 0.5
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
             
-            local Target_Ping = Network_Ping / 10
-            local Curve_Compensation = (Target_Ping / 1000) + Current_Delta_Time + Server_Tick_Time
-            
+            local Curve_Compensation = (Target_Ping_Sec + Current_Delta_Time + Server_Tick_Rate)
             local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
             
             if Current_Distance > Close_Range_Threshold and Dot_Product_Parry < Dot_Threshold then
@@ -1146,7 +1158,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         local Is_Moving_Away = Current_Distance > Last_Distance + 0.15
 
-        if Current_Distance <= Final_Threshold and not Is_Moving_Away and not Is_Curved then
+        if Subtick_Distance <= Final_Threshold and not Is_Moving_Away and not Is_Curved then
             if Config_State.Auto_Parry then
                 Is_Parried = true
                 Execute_Parry()
@@ -1158,13 +1170,4 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     Last_Speed = Current_Speed
     Last_Distance = Current_Distance
-end)
-
-task.spawn(function()
-    while true do
-        local Fallback_Delta = task.wait(1)
-        if type(Fallback_Delta) ~= "number" then Fallback_Delta = 1 end
-        if Config_State.Headless then pcall(function() Apply_Headless(true) end) end
-        if Config_State.Korblox then pcall(function() Apply_Korblox(true) end) end
-    end
 end)
