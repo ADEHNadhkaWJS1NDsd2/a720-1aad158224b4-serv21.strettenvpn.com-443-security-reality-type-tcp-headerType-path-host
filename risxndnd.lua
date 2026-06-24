@@ -653,26 +653,19 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     end
 
     if Config_State.Manual_Spam then
-        local Target_Cps = Fast_Max(Config_State.Spam_Rate, 1)
+        local Target_Cps = 200
+        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Tickrate_Compensation = 60 * Server_Tick_Time
+        local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
         local Spam_Interval = 1 / Target_Cps
-        Manual_Accumulated_Time = Manual_Accumulated_Time + Current_Delta_Time
+
+        Manual_Accumulated_Time = Manual_Accumulated_Time + Server_Aligned_Delta
 
         if Manual_Accumulated_Time >= Spam_Interval then
             local Click_Count = Fast_Floor(Manual_Accumulated_Time / Spam_Interval)
-            Manual_Accumulated_Time = Manual_Accumulated_Time - (Click_Count * Spam_Interval)
-            Click_Count = Fast_Min(Click_Count, 8)
-            
-            if Click_Count > 0 then
-                task.spawn(function()
-                    if Config_State.Parry_Method == "Click" and typeof(mouse1click) == "function" then
-                        for _ = 1, Click_Count do mouse1click() end
-                    elseif Config_State.Parry_Method == "Key" and typeof(keypress) == "function" and typeof(keyrelease) == "function" then
-                        for _ = 1, Click_Count do
-                            keypress(0x46)
-                            keyrelease(0x46)
-                        end
-                    end
-                end)
+            Manual_Accumulated_Time = Manual_Accumulated_Time % Spam_Interval
+            for I_Idx = 1, Fast_Min(Click_Count, 10) do
+                Execute_Parry()
             end
         end
     else
@@ -983,26 +976,18 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Auto_Spam_Active then
         local Target_Cps = Fast_Max(Config_State.Spam_Rate, 1)
+        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Tickrate_Compensation = 60 * Server_Tick_Time
+        local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
         local Spam_Interval = 1 / Target_Cps
 
-        Accumulated_Spam_Time = Accumulated_Spam_Time + Current_Delta_Time
+        Accumulated_Spam_Time = Accumulated_Spam_Time + Server_Aligned_Delta
 
         if Accumulated_Spam_Time >= Spam_Interval then
             local Click_Count = Fast_Floor(Accumulated_Spam_Time / Spam_Interval)
-            Accumulated_Spam_Time = Accumulated_Spam_Time - (Click_Count * Spam_Interval)
-            Click_Count = Fast_Min(Click_Count, 8)
-            
-            if Click_Count > 0 then
-                task.spawn(function()
-                    if Config_State.Parry_Method == "Click" and typeof(mouse1click) == "function" then
-                        for _ = 1, Click_Count do mouse1click() end
-                    elseif Config_State.Parry_Method == "Key" and typeof(keypress) == "function" and typeof(keyrelease) == "function" then
-                        for _ = 1, Click_Count do
-                            keypress(0x46)
-                            keyrelease(0x46)
-                        end
-                    end
-                end)
+            Accumulated_Spam_Time = Accumulated_Spam_Time % Spam_Interval
+            for I_Idx = 1, Click_Count do
+                Execute_Parry()
             end
         end
         Is_Parried = true
@@ -1015,7 +1000,10 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Config_State.Panic_Spam then
         local Target_Cps = 200
-        local Spam_Interval = 1 / Target_Cps
+        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+        local Tickrate_Compensation = 60 * Server_Tick_Time
+        local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
+        local Panic_Interval = 1 / Target_Cps
         
         local Panic_Max_Distance = 25
         local Danger_Zone_Radius = 15
@@ -1062,23 +1050,12 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Is_Clash = Is_Enemy_Close and Current_Speed > 35 and Enemy_Look_Dot > 0.55 and (Is_Approaching or Is_Extremely_Close) and (Is_Heading_Towards or Is_Extremely_Close)
 
         if Is_Clash then
-            Panic_Accumulated_Time = Panic_Accumulated_Time + Current_Delta_Time
-            if Panic_Accumulated_Time >= Spam_Interval then
-                local Click_Count = Fast_Floor(Panic_Accumulated_Time / Spam_Interval)
-                Panic_Accumulated_Time = Panic_Accumulated_Time - (Click_Count * Spam_Interval)
-                Click_Count = Fast_Min(Click_Count, 8)
-                
-                if Click_Count > 0 then
-                    task.spawn(function()
-                        if Config_State.Parry_Method == "Click" and typeof(mouse1click) == "function" then
-                            for _ = 1, Click_Count do mouse1click() end
-                        elseif Config_State.Parry_Method == "Key" and typeof(keypress) == "function" and typeof(keyrelease) == "function" then
-                            for _ = 1, Click_Count do
-                                keypress(0x46)
-                                keyrelease(0x46)
-                            end
-                        end
-                    end)
+            Panic_Accumulated_Time = Panic_Accumulated_Time + Server_Aligned_Delta
+            if Panic_Accumulated_Time >= Panic_Interval then
+                local Click_Count = Fast_Floor(Panic_Accumulated_Time / Panic_Interval)
+                Panic_Accumulated_Time = Panic_Accumulated_Time % Panic_Interval
+                for I_Idx = 1, Fast_Min(Click_Count, 15) do
+                    Execute_Parry()
                 end
             end
         else
@@ -1124,17 +1101,13 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         local Ping_Num = Get_Memory_Ping()
         local Adjusted_Ping = Ping_Num / 10
-        local Ping_Seconds = Adjusted_Ping / 1000
 
         local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
-        local Subtick_Time = Current_Delta_Time % Server_Tick_Time
-        local Subtick_Distance = Current_Speed * Subtick_Time
-        local Interpolation_Distance = Current_Speed * (Ping_Seconds + 0.05)
-        local Extrapolation_Distance = (Current_Speed * Server_Tick_Time) * Base_Extrapolation_Factor
-        local Segment_Line_Distance = Extrapolation_Distance + Interpolation_Distance
-
+        local Distance_Per_Server_Tick = Current_Speed * Server_Tick_Time
+        local Frame_Compensation = Distance_Per_Server_Tick * Base_Extrapolation_Factor
+        local Segment_Line_Distance = Current_Speed * (Server_Tick_Time + (Adjusted_Ping / 100)) * Base_Extrapolation_Factor
         local Speed_Divisor_Multiplier = (0.85 + (Parry_Accuracy_Value - 1) * (0.35 / 99)) - (Adjusted_Ping * 0.001) - (Segment_Line_Distance * 0.002)
-
+        
         local Dot_Product_Parry = 0
         if Current_Distance > 0.01 and Current_Speed > 0.01 then
             Dot_Product_Parry = Direction_To_Player_Stat:Dot(Velocity_Dir)
@@ -1145,7 +1118,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Speed_Divisor_Parry = Speed_Divisor_Base_Parry * Speed_Divisor_Multiplier
 
         local Base_Parry_Accuracy = Adjusted_Ping + Fast_Max(Current_Speed / Speed_Divisor_Parry, 15)
-        local Final_Threshold = Base_Parry_Accuracy + Extrapolation_Distance + Interpolation_Distance + Subtick_Distance + Parry_Range_Threshold
+        local Final_Threshold = Base_Parry_Accuracy + Frame_Compensation + Parry_Range_Threshold
 
         Runtime_State.Parry_Range = Final_Threshold
 
@@ -1157,8 +1130,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         if Current_Speed > 15 then
             local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
-            local Max_Dot_Threshold = 0.85
-            local Min_Dot_Threshold = 0.55
+            local Max_Dot_Threshold = 0.82
+            local Min_Dot_Threshold = 0.35
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
             
             local Target_Ping = Network_Ping / 10
