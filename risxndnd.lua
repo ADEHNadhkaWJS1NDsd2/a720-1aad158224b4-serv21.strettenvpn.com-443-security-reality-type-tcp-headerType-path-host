@@ -1206,9 +1206,9 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         local Tick_Multiplier = Fast_Clamp(Server_Tick_Rate * 55, 0.95, 1.65)
         local Base_Tickrate_Factor = 1.1 + (Smoothed_Server_Fps / 150) * (Runtime_State.Parry_Range / 55)
-        local Speed_Divisor = (2.4 + (Fast_Max(Effective_Speed - 15, 0) * 0.002)) * Base_Tickrate_Factor
+        local Speed_Divisor = (2.4 + (Fast_Max(Effective_Speed - 6.5, 0) * 0.002)) * Base_Tickrate_Factor
         
-        local Base_Threshold = 15 + ((Effective_Speed / Speed_Divisor) * Tick_Multiplier)
+        local Base_Threshold = 10 + ((Effective_Speed / Speed_Divisor) * Tick_Multiplier)
 
         local Latency_Factor = Ping_Sec_Clamped + Current_Delta_Time + Server_Tick_Rate
         local Distance_Scale = Fast_Clamp(Current_Distance / 35, 0.15, 1.0)
@@ -1240,7 +1240,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             local Curve_Compensation = Latency_Factor
             local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
             
-            if Current_Distance > Close_Range_Threshold and Dot_Product_Parry < Dot_Threshold then
+            if Current_Distance > Close_Range_Threshold * 2 and Dot_Product_Parry < Dot_Threshold then
                 Is_Curved = true
             end
         end
