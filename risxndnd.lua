@@ -1170,7 +1170,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Can_Trigger and not Is_Parried then
             local Application_Tick = Fast_Clock()
             if Scheduled_Trigger_Time == 0 then
-                -- Improved compensation: ping + delta time + server tickrate + ball speed factor
+                    
                 local Ping_Sec = (Network_Ping / 10) / 1000
                 local Ball_Speed_Factor = Fast_Clamp(Effective_Speed / 80, 0.6, 1.35)
                 local Compensation = Ping_Sec + (Current_Delta_Time * 1.15) + Server_Tick_Rate
