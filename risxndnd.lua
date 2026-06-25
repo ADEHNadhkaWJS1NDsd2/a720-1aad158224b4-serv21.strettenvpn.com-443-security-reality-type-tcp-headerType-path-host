@@ -34,11 +34,11 @@ local function LerpVector2(A, B, T)
 end
 
 local Lib_Instance
-for _ = 1, 10 do
+for _ = 1, 6 do
     local Ok_Status, Res_Data = pcall(function() return loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.lua"))() end)
     if Ok_Status and type(Res_Data) == "table" then Lib_Instance = Res_Data; break end
     if type(INSui) == "table" then Lib_Instance = INSui; break end
-    task.wait(0.5)
+    task.wait(0.4)
 end
 if type(Lib_Instance) ~= "table" then return end
 
@@ -49,7 +49,6 @@ local Win_App = Lib_Instance:CreateWindow({
     subtitle = "credits to inspecttor for ui",
     size = Vector2.new(700, 552),
     configName = "nightfall",
-    configFolder = "NightfallConfigs",
     menuKey = "RightShift",
     badge = "v2"
 })
@@ -1170,13 +1169,15 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Can_Trigger and not Is_Parried then
             local Application_Tick = Fast_Clock()
             if Scheduled_Trigger_Time == 0 then
-                local Target_Ping_Sec = (Network_Ping / 10) / 1000
-                local Compensation_Time = Target_Ping_Sec + Current_Delta_Time + Server_Tick_Rate
+                -- Improved compensation: ping + delta time + server tickrate + ball speed factor
+                local Ping_Sec = (Network_Ping / 10) / 1000
+                local Ball_Speed_Factor = Fast_Clamp(Effective_Speed / 80, 0.6, 1.35)
+                local Compensation = Ping_Sec + (Current_Delta_Time * 1.15) + Server_Tick_Rate
                 local Base_Delay = Config_State.Trigger_Delay / 1000
-                local Final_Delay = Fast_Max(0, Base_Delay - Compensation_Time)
+                local Final_Delay = Fast_Max(0, (Base_Delay * Ball_Speed_Factor) - Compensation)
                 Scheduled_Trigger_Time = Application_Tick + Final_Delay
             end
-            
+
             if Scheduled_Trigger_Time > 0 and Application_Tick >= Scheduled_Trigger_Time then
                 Is_Parried = true
                 Execute_Parry()
@@ -1206,7 +1207,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Base_Tickrate_Factor = 1.1 + (Smoothed_Server_Fps / 150) * (Runtime_State.Parry_Range / 55)
         local Speed_Divisor = (2.4 + (Fast_Max(Effective_Speed - 15, 0) * 0.002)) * Base_Tickrate_Factor
         
-        local Base_Threshold = 10 + ((Effective_Speed / Speed_Divisor) * Tick_Multiplier)
+        local Base_Threshold = 5 + ((Effective_Speed / Speed_Divisor) * Tick_Multiplier)
 
         local Latency_Factor = Ping_Sec_Clamped + Current_Delta_Time + Server_Tick_Rate
         local Distance_Scale = Fast_Clamp(Current_Distance / 35, 0.15, 1.0)
