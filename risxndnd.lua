@@ -1208,7 +1208,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Base_Tickrate_Factor = 1.1 + (Smoothed_Server_Fps / 150) * (Runtime_State.Parry_Range / 55)
         local Speed_Divisor = (2.4 + (Fast_Max(Effective_Speed - 15, 0) * 0.002)) * Base_Tickrate_Factor
         
-        local Base_Threshold = 20 + ((Effective_Speed / Speed_Divisor) * Tick_Multiplier)
+        local Base_Threshold = 15 + ((Effective_Speed / Speed_Divisor) * Tick_Multiplier)
 
         local Latency_Factor = Ping_Sec_Clamped + Current_Delta_Time + Server_Tick_Rate
         local Distance_Scale = Fast_Clamp(Current_Distance / 35, 0.15, 1.0)
@@ -1228,13 +1228,13 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Close_Range_Threshold = Fast_Max(20, Unified_Threshold * 0.5)
 
         local Is_Curved = false
-        local Dot_Distance_Threshold = 30.0
+        local Dot_Distance_Threshold = 35.0
         local Dot_Limit_Threshold = 55.0
 
         if Current_Speed > 15 then
             local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
             local Max_Dot_Threshold = 0.85
-            local Min_Dot_Threshold = 0.5
+            local Min_Dot_Threshold = 0.45
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
             
             local Curve_Compensation = Latency_Factor
