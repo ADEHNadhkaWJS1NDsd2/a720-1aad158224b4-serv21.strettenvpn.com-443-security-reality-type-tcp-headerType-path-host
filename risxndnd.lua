@@ -48,7 +48,8 @@ local Win_App = Lib_Instance:CreateWindow({
     title = "Nightfall | Recode",
     subtitle = "credits to inspecttor for ui",
     size = Vector2.new(700, 552),
-    configName = "nightfall",
+    configName = "Nightfall",
+    configFolder = "NigthfallConfigs",
     menuKey = "RightShift",
     badge = "v2"
 })
