@@ -1217,7 +1217,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Acceleration_Bonus = Speed_Delta * Latency_Factor * Kps_Mitigation
 
         local Unified_Threshold = Base_Threshold + Velocity_Bonus + Acceleration_Bonus + Parry_Range_Threshold
-        Unified_Threshold = Fast_Max(Unified_Threshold, 11 + (Kps_Intensity * 1.5))
+        Unified_Threshold = Fast_Max(Unified_Threshold, 15 + (Kps_Intensity * 1.5))
 
         Runtime_State.Parry_Range = Unified_Threshold
 
@@ -1228,13 +1228,13 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Close_Range_Threshold = Fast_Max(20, Unified_Threshold * 0.5)
 
         local Is_Curved = false
-        local Dot_Distance_Threshold = 35.0
-        local Dot_Limit_Threshold = 55.0
+        local Dot_Distance_Threshold = 25
+        local Dot_Limit_Threshold = 55
 
         if Current_Speed > 15 then
             local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
-            local Max_Dot_Threshold = 0.85
-            local Min_Dot_Threshold = 0.45
+            local Max_Dot_Threshold = 0.55
+            local Min_Dot_Threshold = 0.25
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
             
             local Curve_Compensation = Latency_Factor
@@ -1245,7 +1245,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             end
         end
 
-        local Is_Moving_Away = Current_Distance > Last_Distance + 0.15
+        local Is_Moving_Away = Current_Distance > Last_Distance + 0.25
 
         if Current_Distance <= Unified_Threshold and not Is_Moving_Away and not Is_Curved then
             if Config_State.Auto_Parry then
