@@ -290,26 +290,6 @@ Vis_Avatar_Section:Toggle("Korblox", false, function(Value_In)
     Apply_Korblox(Value_In)
 end)
 
-task.spawn(function()
-    while task.wait(0.5) do
-        local Char_Obj = Local_Player.Character
-        if Char_Obj and typeof(Char_Obj) == "Instance" then
-            if Config_State.Headless then
-                local Target_Head = Char_Obj:FindFirstChild("Head")
-                if Target_Head and typeof(Target_Head) == "Instance" and Target_Head:IsA("BasePart") and Target_Head.Size.X > 0.1 then
-                    pcall(function() Apply_Headless(true) end)
-                end
-            end
-            if Config_State.Korblox then
-                local Target_Right_Leg = Char_Obj:FindFirstChild("RightUpperLeg") or Char_Obj:FindFirstChild("Right Leg")
-                if Target_Right_Leg and typeof(Target_Right_Leg) == "Instance" and Target_Right_Leg:IsA("BasePart") and Target_Right_Leg.Size.X > 0.1 then
-                    pcall(function() Apply_Korblox(true) end)
-                end
-            end
-        end
-    end
-end)
-
 local Detections_Tab = Win_App:Tab("Detections", "shield")
 local Det_Main_Section = Detections_Tab:Section("Detections", "Left", "")
 Det_Main_Section:Toggle("Infinity Detection", false, function(Value_In) Config_State.Infinity_Detection = Value_In end)
@@ -595,6 +575,8 @@ local Cached_Alive_Folder = nil
 
 local Smooth_Visual_Root_Pos = nil
 local Esp_Smoothed_Positions = {}
+local Cached_Character = nil
+local Character_Fully_Loaded = false
 
 Run_Service.RenderStepped:Connect(function(Delta_Time)
     if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
@@ -753,6 +735,44 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if typeof(Child_Obj) == "Instance" and (Child_Obj.Name == "Pull" or Child_Obj.Name == "MaxPull") then
             Pull_Time = Current_Time
             break
+        end
+    end
+
+    local Player_Character_Obj = Local_Player.Character
+
+    if Player_Character_Obj ~= Cached_Character then
+        Cached_Character = Player_Character_Obj
+        Character_Fully_Loaded = false
+    end
+
+    if Player_Character_Obj and typeof(Player_Character_Obj) == "Instance" and not Character_Fully_Loaded then
+        local HRP = Player_Character_Obj:FindFirstChild("HumanoidRootPart")
+        if HRP and typeof(HRP) == "Instance" then
+            Character_Fully_Loaded = true
+            task.spawn(function()
+                task.wait(0.5)
+                if Config_State.Headless then
+                    pcall(function() Apply_Headless(true) end)
+                end
+                if Config_State.Korblox then
+                    pcall(function() Apply_Korblox(true) end)
+                end
+            end)
+        end
+    end
+
+    if Player_Character_Obj and typeof(Player_Character_Obj) == "Instance" and Character_Fully_Loaded then
+        if Config_State.Headless then
+            local Target_Head = Player_Character_Obj:FindFirstChild("Head")
+            if Target_Head and typeof(Target_Head) == "Instance" and Target_Head:IsA("BasePart") and Target_Head.Size.X > 0.1 then
+                pcall(function() Apply_Headless(true) end)
+            end
+        end
+        if Config_State.Korblox then
+            local Target_Right_Leg = Player_Character_Obj:FindFirstChild("RightUpperLeg") or Player_Character_Obj:FindFirstChild("Right Leg")
+            if Target_Right_Leg and typeof(Target_Right_Leg) == "Instance" and Target_Right_Leg:IsA("BasePart") and Target_Right_Leg.Size.X > 0.1 then
+                pcall(function() Apply_Korblox(true) end)
+            end
         end
     end
 
@@ -1258,7 +1278,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         end
         Accuracy_Value = Fast_Clamp(Accuracy_Value, 1, 100)
 
-        local Accuracy_Multiplier = 0.7 + (Accuracy_Value - 1) * (0.35 / 99)
+        local Accuracy_Scale = (Accuracy_Value - 1) / 99
+        local Accuracy_Multiplier = 0.7 + (Accuracy_Scale * 0.35)
 
         local Dynamic_Scaling = Fast_Max(Effective_Speed - 9.5, 0) * 0.002
         local Final_Speed_Divisor = (2.4 + Dynamic_Scaling) * Accuracy_Multiplier
@@ -1269,7 +1290,10 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Extrapolation_Distance = Effective_Speed * Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
         
         local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 9.5)
-        local Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5)
+        local Low_Accuracy_Delay = (1 - Accuracy_Scale) * 1.75 
+        
+        local Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) - Low_Accuracy_Delay
+        Unified_Threshold = Fast_Max(Unified_Threshold, 9.5)
         
         Runtime_State.Parry_Range = Unified_Threshold
 
@@ -1277,7 +1301,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Direction_To_Player = Current_Distance > 0 and (Root_Position - Ball_Position).Unit or V3_Zero
         local Dot_Product_Parry = Velocity_Unit:Dot(Direction_To_Player)
 
-        local Close_Range_Threshold = Fast_Max(20, Unified_Threshold * 0.5)
+        local Close_Range_Threshold = Fast_Max(20, Unified_Threshold * 0.6)
 
         local Is_Curved = false
         local Dot_Distance_Threshold = 35.0
@@ -1286,16 +1310,15 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Current_Speed > 15 then
             local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
             
-            local Accuracy_Scale = (Accuracy_Value - 1) / 99
-            local Max_Dot_Threshold = 0.85 - (0.15 * (1 - Accuracy_Scale))
-            local Min_Dot_Threshold = 0.45 - (0.15 * (1 - Accuracy_Scale))
+            local Max_Dot_Threshold = 0.85 - (0.1 * (1 - Accuracy_Scale))
+            local Min_Dot_Threshold = 0.45 - (0.1 * (1 - Accuracy_Scale))
             
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
             
             local Curve_Compensation = Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
             local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
             
-            local Curve_Tolerance = 1.0 + (1.0 * (1 - Accuracy_Scale))
+            local Curve_Tolerance = 1.0 - (0.45 * (1 - Accuracy_Scale))
             
             if Current_Distance > Close_Range_Threshold * Curve_Tolerance and Dot_Product_Parry < Dot_Threshold then
                 Is_Curved = true
