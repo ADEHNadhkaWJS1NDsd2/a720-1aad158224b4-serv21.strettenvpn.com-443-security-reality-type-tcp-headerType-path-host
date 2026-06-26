@@ -34,10 +34,23 @@ local function LerpVector2(A, B, T)
 end
 
 local Lib_Instance
-for _ = 1, 6 do
-    local Ok_Status, Res_Data = pcall(function() return loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.lua"))() end)
-    if Ok_Status and type(Res_Data) == "table" then Lib_Instance = Res_Data; break end
-    if type(INSui) == "table" then Lib_Instance = INSui; break end
+local Loader_Url = "https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.lua"
+for I_Idx = 1, 10 do
+    local Cache_Buster = ""
+    pcall(function() Cache_Buster = "?cb=" .. tostring((math.floor((Fast_Clock() or 1) * 1000) + I_Idx * 7919) % 2000000000) end)
+    local Ok_Status, Res_Data = pcall(function() return game:HttpGet(Loader_Url .. Cache_Buster) end)
+    if Ok_Status and type(Res_Data) == "string" and #Res_Data > 1000 and Res_Data:find("INSUI_FILE_END", 1, true) then
+        local Loaded_Func = loadstring(Res_Data)
+        if Loaded_Func then
+            local Ok_Eval, Eval_Res = pcall(Loaded_Func)
+            if Ok_Eval and type(Eval_Res) == "table" and type(Eval_Res.CreateWindow) == "function" then Lib_Instance = Eval_Res; break end
+            
+            local Public_Inst
+            pcall(function() Public_Inst = getgenv().INSui end);      if type(Public_Inst) == "table" and type(Public_Inst.CreateWindow) == "function" then Lib_Instance = Public_Inst; break end
+            pcall(function() Public_Inst = _G.INSui end);             if type(Public_Inst) == "table" and type(Public_Inst.CreateWindow) == "function" then Lib_Instance = Public_Inst; break end
+            pcall(function() Public_Inst = (shared or {}).INSui end); if type(Public_Inst) == "table" and type(Public_Inst.CreateWindow) == "function" then Lib_Instance = Public_Inst; break end
+        end
+    end
     task.wait(0.4)
 end
 if type(Lib_Instance) ~= "table" then return end
@@ -56,6 +69,10 @@ local Win_App = Lib_Instance:CreateWindow({
 
 local Config_State = {
     Auto_Parry = false,
+    Accuracy = 100,
+    Random_Accuracy = false,
+    Random_Accuracy_Min = 80,
+    Random_Accuracy_Max = 100,
     Panic_Spam = false,
     Training_Balls_Support = false,
     Auto_Spam = false,
@@ -97,7 +114,8 @@ local Runtime_State = {
     Target_Speed = 0,
     Target_Distance = 0,
     Target_Dot = 0,
-    Parry_Range = 15
+    Parry_Range = 15,
+    Generated_Accuracy = 100
 }
 
 local Offsets_Data = {
@@ -120,28 +138,42 @@ local function Write_Pointer(Addr_Val, Ptr_Val)
     end
 end
 
+local function Generate_Random_Accuracy()
+    local Min_Acc = Fast_Min(Config_State.Random_Accuracy_Min, Config_State.Random_Accuracy_Max)
+    local Max_Acc = Fast_Max(Config_State.Random_Accuracy_Min, Config_State.Random_Accuracy_Max)
+    Runtime_State.Generated_Accuracy = math.random(Min_Acc, Max_Acc)
+end
+
 local Combat_Tab = Win_App:Tab("Combat", "swords")
 
-local Parry_Section = Combat_Tab:Section("Auto Parry", "Left")
+local Parry_Section = Combat_Tab:Section("Auto Parry", "Left", "")
 Parry_Section:Toggle("Auto Parry", false, function(Value_In) Config_State.Auto_Parry = Value_In end):AddKeybind("None", "Toggle")
+Parry_Section:Slider("Accuracy", 100, 1, 1, 100, "%", function(Value_In) Config_State.Accuracy = Value_In end)
+
+local Random_Acc_Toggle = Parry_Section:Toggle("Random Accuracy", false, function(Value_In) Config_State.Random_Accuracy = Value_In end)
+Parry_Section:RangeSlider("Random Parry Accuracy", 80, 100, 1, 1, 100, "%", function(Min_Val, Max_Val)
+    Config_State.Random_Accuracy_Min = Min_Val
+    Config_State.Random_Accuracy_Max = Max_Val
+end):DependsOn(Random_Acc_Toggle)
+
 Parry_Section:Toggle("Panic Spam", false, function(Value_In) Config_State.Panic_Spam = Value_In end)
 Parry_Section:Dropdown("Parry Method", {"Click"}, {"Click", "Key"}, false, function(Value_In) Config_State.Parry_Method = type(Value_In) == "table" and Value_In[1] or Value_In end)
 Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Training_Balls_Support = Value_In end)
 
-local Spam_Section = Combat_Tab:Section("Auto Spam", "Right")
+local Spam_Section = Combat_Tab:Section("Auto Spam", "Right", "")
 Spam_Section:Toggle("Auto Spam", false, function(Value_In) Config_State.Auto_Spam = Value_In end):AddKeybind("None", "Toggle")
 Spam_Section:Toggle("Manual Spam", false, function(Value_In) Config_State.Manual_Spam = Value_In end):AddKeybind("None", "Toggle")
-Spam_Section:Slider("Spam Rate", 200, 10, 10, 500, "cps", function(Value_In) Config_State.Spam_Rate = Value_In end)
-Spam_Section:Slider("Spam Sensitivity", 3, 1, 3, 5, "", function(Value_In) Config_State.Spam_Sensitivity = Value_In end)
+Spam_Section:Slider("Spam Rate", 200, 200, 200, 500, "cps", function(Value_In) Config_State.Spam_Rate = Value_In end)
+Spam_Section:Slider("Spam Sensitivity", 3, 1, 1, 5, "", function(Value_In) Config_State.Spam_Sensitivity = Value_In end)
 
-local Trigger_Section = Combat_Tab:Section("Trigger Bot", "Right")
+local Trigger_Section = Combat_Tab:Section("Trigger Bot", "Right", "")
 Trigger_Section:Toggle("Trigger Bot", false, function(Value_In) Config_State.Trigger_Bot = Value_In end):AddKeybind("None", "Toggle")
 Trigger_Section:Slider("Delay", 0, 1, 0, 100, "ms", function(Value_In) Config_State.Trigger_Delay = Value_In end)
 Trigger_Section:Toggle("Ignore Ball Spawn", false, function(Value_In) Config_State.Trigger_Ignore_Spawn = Value_In end)
 
 local Visuals_Tab = Win_App:Tab("Visuals", "eye")
 
-local Vis_Main_Section = Visuals_Tab:Section("Visuals", "Left")
+local Vis_Main_Section = Visuals_Tab:Section("Visuals", "Left", "")
 Vis_Main_Section:Toggle("Range Visualiser", false, function(Value_In) Config_State.Parry_Visualizer = Value_In end):AddColorpicker("Vis Color", Color3.fromRGB(220, 30, 30), function(Color_Val) Config_State.Visualizer_Color = Color_Val end)
 Vis_Main_Section:Slider("Vis Thickness", 2.0, 0.1, 1.0, 10.0, "", function(Value_In) Config_State.Vis_Thickness = Value_In end)
 Vis_Main_Section:Slider("Vis Transparency", 1.0, 0.1, 0.1, 1.0, "", function(Value_In) Config_State.Vis_Transparency = Value_In end)
@@ -153,12 +185,12 @@ Vis_Main_Section:Slider("ESP Offset Y", 2.0, 0.5, 0.0, 10.0, "", function(Value_
 
 Vis_Main_Section:Toggle("Rainbow Mode", false, function(Value_In) Config_State.Rainbow_Mode = Value_In end)
 
-local Vis_Trail_Section = Visuals_Tab:Section("Ball Trail", "Right")
+local Vis_Trail_Section = Visuals_Tab:Section("Ball Trail", "Right", "")
 Vis_Trail_Section:Toggle("Enable Trail", false, function(Value_In) Config_State.Ball_Trail = Value_In end):AddColorpicker("Trail Color", Color3.fromRGB(220, 30, 30), function(Color_Val) Config_State.Trail_Color = Color_Val end)
 Vis_Trail_Section:Slider("Trail Length", 60, 1, 10, 100, "", function(Value_In) Config_State.Trail_Length = Value_In end)
 Vis_Trail_Section:Slider("Trail Thickness", 2.0, 0.1, 1.0, 10.0, "", function(Value_In) Config_State.Trail_Thickness = Value_In end)
 
-local Vis_Avatar_Section = Visuals_Tab:Section("Avatar", "Right")
+local Vis_Avatar_Section = Visuals_Tab:Section("Avatar", "Right", "")
 
 local function Apply_Headless(State_Val)
     local Char_Obj = Local_Player.Character
@@ -259,7 +291,7 @@ Vis_Avatar_Section:Toggle("Korblox", false, function(Value_In)
 end)
 
 local Detections_Tab = Win_App:Tab("Detections", "shield")
-local Det_Main_Section = Detections_Tab:Section("Detections", "Left")
+local Det_Main_Section = Detections_Tab:Section("Detections", "Left", "")
 Det_Main_Section:Toggle("Infinity Detection", false, function(Value_In) Config_State.Infinity_Detection = Value_In end)
 Det_Main_Section:Toggle("Slashes of Fury Detection", false, function(Value_In) Config_State.Slashes_Of_Fury_Detection = Value_In end)
 
@@ -313,7 +345,21 @@ local Smooth_Parry_Radius = 15
 
 local function Get_Real_Ball()
     local Alive_Folder = Workspace_Service:FindFirstChild("Alive")
-    local Target_Folder = Alive_Folder and typeof(Alive_Folder) == "Instance" and Alive_Folder:FindFirstChild(Local_Player.Name) and Workspace_Service:FindFirstChild("Balls") or Workspace_Service:FindFirstChild("TrainingBalls")
+    local Dead_Folder = Workspace_Service:FindFirstChild("Dead")
+    local Target_Folder = nil
+
+    if Alive_Folder and typeof(Alive_Folder) == "Instance" and Alive_Folder:FindFirstChild(Local_Player.Name) then
+        Target_Folder = Workspace_Service:FindFirstChild("Balls")
+    elseif Dead_Folder and typeof(Dead_Folder) == "Instance" and Dead_Folder:FindFirstChild(Local_Player.Name) then
+        if Config_State.Training_Balls_Support then
+            Target_Folder = Workspace_Service:FindFirstChild("TrainingBalls")
+        else
+            Target_Folder = Workspace_Service:FindFirstChild("Balls")
+        end
+    else
+        Target_Folder = Workspace_Service:FindFirstChild("Balls")
+    end
+
     if Target_Folder and typeof(Target_Folder) == "Instance" then
         for _, Ball in ipairs(Target_Folder:GetChildren()) do
             if typeof(Ball) == "Instance" and Ball:IsA("BasePart") and Ball:GetAttribute("realBall") == true then return Ball end
@@ -380,13 +426,13 @@ end
 local function Execute_Parry()
     task.spawn(function()
         if Config_State.Parry_Method == "Click" then
-            if typeof(mouse1click) == "function" then
-                mouse1click()
+            if typeof(Mouse1Click) == "function" then
+                Mouse1Click()
             end
         elseif Config_State.Parry_Method == "Key" then
-            if typeof(keypress) == "function" and typeof(keyrelease) == "function" then
-                keypress(0x46)
-                keyrelease(0x46)
+            if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then
+                KeyPress(0x46)
+                KeyRelease(0x46)
             end
         end
     end)
@@ -394,13 +440,13 @@ end
 
 local function Execute_Parry_Direct()
     if Config_State.Parry_Method == "Click" then
-        if typeof(mouse1click) == "function" then
-            mouse1click()
+        if typeof(Mouse1Click) == "function" then
+            Mouse1Click()
         end
     elseif Config_State.Parry_Method == "Key" then
-        if typeof(keypress) == "function" and typeof(keyrelease) == "function" then
-            keypress(0x46)
-            keyrelease(0x46)
+        if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then
+            KeyPress(0x46)
+            KeyRelease(0x46)
         end
     end
 end
@@ -523,12 +569,13 @@ local Cached_From = nil
 local Current_Kps = 0
 local Smoothed_Kps = 0
 
-local Last_Game_Time = Workspace_Service.DistributedGameTime
 local Smoothed_Server_Fps = 60
+local Last_Game_Time = Workspace_Service.DistributedGameTime
 local Cached_Alive_Folder = nil
 
 local Smooth_Visual_Root_Pos = nil
 local Esp_Smoothed_Positions = {}
+local Cached_Character = nil
 
 Run_Service.RenderStepped:Connect(function(Delta_Time)
     if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
@@ -691,6 +738,22 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     end
 
     local Player_Character_Obj = Local_Player.Character
+
+    if Player_Character_Obj ~= Cached_Character then
+        Cached_Character = Player_Character_Obj
+        if Player_Character_Obj and typeof(Player_Character_Obj) == "Instance" then
+            task.spawn(function()
+                task.wait(0.5)
+                if Config_State.Headless then
+                    pcall(function() Apply_Headless(true) end)
+                end
+                if Config_State.Korblox then
+                    pcall(function() Apply_Korblox(true) end)
+                end
+            end)
+        end
+    end
+
     if Player_Character_Obj and typeof(Player_Character_Obj) == "Instance" then
         if Config_State.Headless then
             local Target_Head = Player_Character_Obj:FindFirstChild("Head")
@@ -717,19 +780,17 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     end
 
     if Config_State.Manual_Spam then
-        local Target_Cps = 1000
-        local Server_Tick_Time = 1 / Fast_Max(Smoothed_Server_Fps, 1)
-        local Tickrate_Compensation = 60 * Server_Tick_Time
-        local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
-        local Spam_Interval = 1 / Target_Cps
-
-        Manual_Accumulated_Time = Manual_Accumulated_Time + Server_Aligned_Delta
-
+        local Target_Spam_Rate = Fast_Clamp(Config_State.Spam_Rate, 200, 500)
+        local Spam_Interval = 1 / Target_Spam_Rate
+        Manual_Accumulated_Time = Manual_Accumulated_Time + Current_Delta_Time
+        
         if Manual_Accumulated_Time >= Spam_Interval then
             local Click_Count = Fast_Floor(Manual_Accumulated_Time / Spam_Interval)
             Manual_Accumulated_Time = Manual_Accumulated_Time % Spam_Interval
-            for I_Idx = 1, Fast_Min(Click_Count, 12) do
-                Execute_Parry()
+            
+            Click_Count = Fast_Min(Click_Count, 2)
+            for I_Idx = 1, Click_Count do
+                task.spawn(Execute_Parry_Direct)
             end
         end
     else
@@ -937,6 +998,9 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Last_Distance = 9999
         Accumulated_Spam_Time = 0
         Panic_Accumulated_Time = 0
+        if Config_State.Random_Accuracy then
+            Generate_Random_Accuracy()
+        end
     end
 
     local Player_Character = Local_Player.Character
@@ -1040,6 +1104,10 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         Cached_From = Current_From_Attr
         Last_From_Change = Current_Time
+        
+        if Config_State.Random_Accuracy then
+            Generate_Random_Accuracy()
+        end
     end
 
     local Current_Target_Attr = Real_Ball:GetAttribute("target") or Real_Ball:GetAttribute("Target")
@@ -1071,19 +1139,17 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     end
 
     if Auto_Spam_Active then
-        local Target_Cps = Fast_Max(Config_State.Spam_Rate, 1)
-        local Server_Tick_Rate = 1 / Fast_Max(Smoothed_Server_Fps, 1)
-        local Tickrate_Compensation = 60 * Server_Tick_Rate
-        local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
-        local Spam_Interval = 1 / Target_Cps
-
-        Accumulated_Spam_Time = Accumulated_Spam_Time + Server_Aligned_Delta
+        local Target_Spam_Rate = Fast_Clamp(Config_State.Spam_Rate, 200, 500)
+        local Spam_Interval = 1 / Target_Spam_Rate
+        Accumulated_Spam_Time = Accumulated_Spam_Time + Current_Delta_Time
 
         if Accumulated_Spam_Time >= Spam_Interval then
             local Click_Count = Fast_Floor(Accumulated_Spam_Time / Spam_Interval)
             Accumulated_Spam_Time = Accumulated_Spam_Time % Spam_Interval
+            
+            Click_Count = Fast_Min(Click_Count, 2)
             for I_Idx = 1, Click_Count do
-                Execute_Parry()
+                task.spawn(Execute_Parry_Direct)
             end
         end
         Is_Parried = true
@@ -1096,9 +1162,6 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Config_State.Panic_Spam then
         local Target_Cps = 200
-        local Server_Tick_Rate = 1 / Fast_Max(Smoothed_Server_Fps, 1)
-        local Tickrate_Compensation = 60 * Server_Tick_Rate
-        local Server_Aligned_Delta = Current_Delta_Time * Tickrate_Compensation
         local Panic_Interval = 1 / Target_Cps
         
         local Panic_Max_Distance = 25
@@ -1146,12 +1209,14 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Is_Clash = Is_Enemy_Close and Current_Speed > 35 and Enemy_Look_Dot > 0.55 and (Is_Approaching or Is_Extremely_Close) and (Is_Heading_Towards or Is_Extremely_Close)
 
         if Is_Clash then
-            Panic_Accumulated_Time = Panic_Accumulated_Time + Server_Aligned_Delta
+            Panic_Accumulated_Time = Panic_Accumulated_Time + Current_Delta_Time
             if Panic_Accumulated_Time >= Panic_Interval then
                 local Click_Count = Fast_Floor(Panic_Accumulated_Time / Panic_Interval)
                 Panic_Accumulated_Time = Panic_Accumulated_Time % Panic_Interval
-                for I_Idx = 1, Fast_Min(Click_Count, 15) do
-                    Execute_Parry()
+                
+                Click_Count = Fast_Min(Click_Count, 2)
+                for I_Idx = 1, Click_Count do
+                    task.spawn(Execute_Parry_Direct)
                 end
             end
         else
@@ -1170,10 +1235,9 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Can_Trigger and not Is_Parried then
             local Application_Tick = Fast_Clock()
             if Scheduled_Trigger_Time == 0 then
-                    
                 local Ping_Sec = (Network_Ping / 10) / 1000
                 local Ball_Speed_Factor = Fast_Clamp(Effective_Speed / 80, 0.6, 1.35)
-                local Compensation = Ping_Sec + (Current_Delta_Time * 1.15) + Server_Tick_Rate
+                local Compensation = Ping_Sec + Current_Delta_Time + Server_Tick_Rate
                 local Base_Delay = Config_State.Trigger_Delay / 1000
                 local Final_Delay = Fast_Max(0, (Base_Delay * Ball_Speed_Factor) - Compensation)
                 Scheduled_Trigger_Time = Application_Tick + Final_Delay
@@ -1198,27 +1262,28 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             return
         end
 
-        local Target_Ping_Sec = (Network_Ping / 10) / 1000
-        local Ping_Sec_Clamped = Fast_Clamp(Target_Ping_Sec, 0, 0.15)
-        
         local Kps_Intensity = Fast_Clamp(Smoothed_Kps, 0, 20) / 20
         local Kps_Mitigation = 1 - (Kps_Intensity * 0.55)
 
-        local Tick_Multiplier = Fast_Clamp(Server_Tick_Rate * 55, 0.95, 1.65)
-        local Base_Tickrate_Factor = 1.1 + (Smoothed_Server_Fps / 150) * (Runtime_State.Parry_Range / 55)
-        local Speed_Divisor = (2.4 + (Fast_Max(Effective_Speed - 6.5, 0) * 0.002)) * Base_Tickrate_Factor
+        local Accuracy_Value = Config_State.Accuracy
+        if Config_State.Random_Accuracy then
+            Accuracy_Value = Runtime_State.Generated_Accuracy or Config_State.Random_Accuracy_Max
+        end
+        Accuracy_Value = Fast_Clamp(Accuracy_Value, 1, 100)
+
+        local Accuracy_Multiplier = 0.7 + (Accuracy_Value - 1) * (0.35 / 99)
+
+        local Dynamic_Scaling = Fast_Max(Effective_Speed - 9.5, 0) * 0.002
+        local Final_Speed_Divisor = (2.4 + Dynamic_Scaling) * Accuracy_Multiplier
+
+        local Base_Extrapolation_Factor = 2.4 + Dynamic_Scaling
+        local Final_Extrapolation_Factor = Base_Extrapolation_Factor * Accuracy_Multiplier
         
-        local Base_Threshold = 10 + ((Effective_Speed / Speed_Divisor) * Tick_Multiplier)
-
-        local Latency_Factor = Ping_Sec_Clamped + Current_Delta_Time + Server_Tick_Rate
-        local Distance_Scale = Fast_Clamp(Current_Distance / 35, 0.15, 1.0)
+        local Extrapolation_Distance = Effective_Speed * Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
         
-        local Velocity_Bonus = Effective_Speed * Latency_Factor * Distance_Scale * Kps_Mitigation
-        local Acceleration_Bonus = Speed_Delta * Latency_Factor * Kps_Mitigation
-
-        local Unified_Threshold = Base_Threshold + Velocity_Bonus + Acceleration_Bonus + Parry_Range_Threshold
-        Unified_Threshold = Fast_Max(Unified_Threshold, 15 + (Kps_Intensity * 1.5))
-
+        local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 9.5)
+        local Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5)
+        
         Runtime_State.Parry_Range = Unified_Threshold
 
         local Velocity_Unit = Current_Speed > 0 and Velocity_Dir or V3_Zero
@@ -1228,29 +1293,34 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Close_Range_Threshold = Fast_Max(20, Unified_Threshold * 0.5)
 
         local Is_Curved = false
-        local Dot_Distance_Threshold = 25
-        local Dot_Limit_Threshold = 55
+        local Dot_Distance_Threshold = 35.0
+        local Dot_Limit_Threshold = 55.0
 
         if Current_Speed > 15 then
             local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
-            local Max_Dot_Threshold = 0.55
-            local Min_Dot_Threshold = 0.25
+            
+            local Accuracy_Scale = (Accuracy_Value - 1) / 99
+            local Max_Dot_Threshold = 0.85 - (0.15 * (1 - Accuracy_Scale))
+            local Min_Dot_Threshold = 0.45 - (0.15 * (1 - Accuracy_Scale))
+            
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
             
-            local Curve_Compensation = Latency_Factor
+            local Curve_Compensation = Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
             local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
             
-            if Current_Distance > Close_Range_Threshold * 2 and Dot_Product_Parry < Dot_Threshold then
+            local Curve_Tolerance = 1.0 + (1.0 * (1 - Accuracy_Scale))
+            
+            if Current_Distance > Close_Range_Threshold * Curve_Tolerance and Dot_Product_Parry < Dot_Threshold then
                 Is_Curved = true
             end
         end
 
-        local Is_Moving_Away = Current_Distance > Last_Distance + 0.25
+        local Is_Moving_Away = Current_Distance > Last_Distance + 0.15
 
         if Current_Distance <= Unified_Threshold and not Is_Moving_Away and not Is_Curved then
             if Config_State.Auto_Parry then
                 Is_Parried = true
-                Execute_Parry()
+                Execute_Parry_Direct()
             end
         end
     else
