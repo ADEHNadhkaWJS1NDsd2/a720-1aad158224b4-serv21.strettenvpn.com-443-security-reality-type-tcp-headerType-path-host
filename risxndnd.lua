@@ -151,7 +151,7 @@ Parry_Section:Toggle("Auto Parry", false, function(Value_In) Config_State.Auto_P
 Parry_Section:Slider("Accuracy", 100, 1, 1, 100, "%", function(Value_In) Config_State.Accuracy = Value_In end)
 
 local Random_Acc_Toggle = Parry_Section:Toggle("Random Accuracy", false, function(Value_In) Config_State.Random_Accuracy = Value_In end)
-Parry_Section:RangeSlider("Random Parry Accuracy", 80, 100, 1, 1, 100, "%", function(Min_Val, Max_Val)
+Parry_Section:RangeSlider("Random Range", 80, 100, 1, 1, 100, "%", function(Min_Val, Max_Val)
     Config_State.Random_Accuracy_Min = Min_Val
     Config_State.Random_Accuracy_Max = Max_Val
 end):DependsOn(Random_Acc_Toggle)
@@ -288,6 +288,26 @@ end)
 Vis_Avatar_Section:Toggle("Korblox", false, function(Value_In) 
     Config_State.Korblox = Value_In 
     Apply_Korblox(Value_In)
+end)
+
+task.spawn(function()
+    while task.wait(0.5) do
+        local Char_Obj = Local_Player.Character
+        if Char_Obj and typeof(Char_Obj) == "Instance" then
+            if Config_State.Headless then
+                local Target_Head = Char_Obj:FindFirstChild("Head")
+                if Target_Head and typeof(Target_Head) == "Instance" and Target_Head:IsA("BasePart") and Target_Head.Size.X > 0.1 then
+                    pcall(function() Apply_Headless(true) end)
+                end
+            end
+            if Config_State.Korblox then
+                local Target_Right_Leg = Char_Obj:FindFirstChild("RightUpperLeg") or Char_Obj:FindFirstChild("Right Leg")
+                if Target_Right_Leg and typeof(Target_Right_Leg) == "Instance" and Target_Right_Leg:IsA("BasePart") and Target_Right_Leg.Size.X > 0.1 then
+                    pcall(function() Apply_Korblox(true) end)
+                end
+            end
+        end
+    end
 end)
 
 local Detections_Tab = Win_App:Tab("Detections", "shield")
@@ -575,7 +595,6 @@ local Cached_Alive_Folder = nil
 
 local Smooth_Visual_Root_Pos = nil
 local Esp_Smoothed_Positions = {}
-local Cached_Character = nil
 
 Run_Service.RenderStepped:Connect(function(Delta_Time)
     if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
@@ -734,38 +753,6 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if typeof(Child_Obj) == "Instance" and (Child_Obj.Name == "Pull" or Child_Obj.Name == "MaxPull") then
             Pull_Time = Current_Time
             break
-        end
-    end
-
-    local Player_Character_Obj = Local_Player.Character
-
-    if Player_Character_Obj ~= Cached_Character then
-        Cached_Character = Player_Character_Obj
-        if Player_Character_Obj and typeof(Player_Character_Obj) == "Instance" then
-            task.spawn(function()
-                task.wait(0.5)
-                if Config_State.Headless then
-                    pcall(function() Apply_Headless(true) end)
-                end
-                if Config_State.Korblox then
-                    pcall(function() Apply_Korblox(true) end)
-                end
-            end)
-        end
-    end
-
-    if Player_Character_Obj and typeof(Player_Character_Obj) == "Instance" then
-        if Config_State.Headless then
-            local Target_Head = Player_Character_Obj:FindFirstChild("Head")
-            if Target_Head and typeof(Target_Head) == "Instance" and Target_Head:IsA("BasePart") and Target_Head.Size.X > 0.1 then
-                pcall(function() Apply_Headless(true) end)
-            end
-        end
-        if Config_State.Korblox then
-            local Target_Right_Leg = Player_Character_Obj:FindFirstChild("RightUpperLeg") or Player_Character_Obj:FindFirstChild("Right Leg")
-            if Target_Right_Leg and typeof(Target_Right_Leg) == "Instance" and Target_Right_Leg:IsA("BasePart") and Target_Right_Leg.Size.X > 0.1 then
-                pcall(function() Apply_Korblox(true) end)
-            end
         end
     end
 
