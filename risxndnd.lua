@@ -47,7 +47,7 @@ for I_Idx = 1, 10 do
             
             local Public_Inst
             pcall(function() Public_Inst = getgenv().INSui end);      if type(Public_Inst) == "table" and type(Public_Inst.CreateWindow) == "function" then Lib_Instance = Public_Inst; break end
-            pcall(function() Public_Inst = _G.INSui end);             if type(Public_Inst) == "table" and type(Public_Inst.CreateWindow) == "function" then Lib_Instance = Public_Inst; break end
+            pcall(function() Public_Inst = _G.INSui end);              if type(Public_Inst) == "table" and type(Public_Inst.CreateWindow) == "function" then Lib_Instance = Public_Inst; break end
             pcall(function() Public_Inst = (shared or {}).INSui end); if type(Public_Inst) == "table" and type(Public_Inst.CreateWindow) == "function" then Lib_Instance = Public_Inst; break end
         end
     end
@@ -148,10 +148,10 @@ local Combat_Tab = Win_App:Tab("Combat", "swords")
 
 local Parry_Section = Combat_Tab:Section("Auto Parry", "Left", "")
 Parry_Section:Toggle("Auto Parry", false, function(Value_In) Config_State.Auto_Parry = Value_In end):AddKeybind("None", "Toggle")
-Parry_Section:Slider("Accuracy", 100, 1, 1, 100, "%", function(Value_In) Config_State.Accuracy = Value_In end)
+Parry_Section:Slider("Accuracy", 100, 1, 50, 100, "%", function(Value_In) Config_State.Accuracy = Value_In end)
 
 local Random_Acc_Toggle = Parry_Section:Toggle("Random Accuracy", false, function(Value_In) Config_State.Random_Accuracy = Value_In end)
-Parry_Section:RangeSlider("Random Range", 80, 100, 1, 1, 100, "%", function(Min_Val, Max_Val)
+Parry_Section:RangeSlider("Random Range", 80, 100, 1, 50, 100, "%", function(Min_Val, Max_Val)
     Config_State.Random_Accuracy_Min = Min_Val
     Config_State.Random_Accuracy_Max = Max_Val
 end):DependsOn(Random_Acc_Toggle)
@@ -1276,24 +1276,21 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Config_State.Random_Accuracy then
             Accuracy_Value = Runtime_State.Generated_Accuracy or Config_State.Random_Accuracy_Max
         end
-        Accuracy_Value = Fast_Clamp(Accuracy_Value, 1, 100)
+        Accuracy_Value = Fast_Clamp(Accuracy_Value, 50, 100)
 
-        local Accuracy_Scale = (Accuracy_Value - 1) / 99
-        local Accuracy_Multiplier = 0.7 + (Accuracy_Scale * 0.35)
+        local Accuracy_Scale = (Accuracy_Value - 50) / 50
+        local Accuracy_Multiplier = 0.75 + (Accuracy_Scale * 0.25)
 
-        local Dynamic_Scaling = Fast_Max(Effective_Speed - 9.5, 0) * 0.002
-        local Final_Speed_Divisor = (2.4 + Dynamic_Scaling) * Accuracy_Multiplier
-
-        local Base_Extrapolation_Factor = 2.4 + Dynamic_Scaling
-        local Final_Extrapolation_Factor = Base_Extrapolation_Factor * Accuracy_Multiplier
+        local Dynamic_Scaling = Fast_Max(Effective_Speed - 10, 0) * 0.002
+        local Final_Speed_Divisor = (2.5 + Dynamic_Scaling) * Accuracy_Multiplier
+        local Final_Extrapolation_Factor = (2.5 + Dynamic_Scaling) * Accuracy_Multiplier
         
         local Extrapolation_Distance = Effective_Speed * Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
-        
-        local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 9.5)
-        local Low_Accuracy_Delay = (1 - Accuracy_Scale) * 1.75 
+        local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 10)
+        local Low_Accuracy_Delay = (1 - Accuracy_Scale) * 3.0
         
         local Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) - Low_Accuracy_Delay
-        Unified_Threshold = Fast_Max(Unified_Threshold, 9.5)
+        Unified_Threshold = Fast_Max(Unified_Threshold, 10)
         
         Runtime_State.Parry_Range = Unified_Threshold
 
@@ -1301,26 +1298,15 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Direction_To_Player = Current_Distance > 0 and (Root_Position - Ball_Position).Unit or V3_Zero
         local Dot_Product_Parry = Velocity_Unit:Dot(Direction_To_Player)
 
-        local Close_Range_Threshold = Fast_Max(20, Unified_Threshold * 0.6)
-
+        local Speed_Threshold_Curve = Fast_Min(Current_Speed / 100, 40)
+        local Angle_Threshold_Curve = 40 * Fast_Max(Dot_Product_Parry, 0)
+        local Ball_Distance_Threshold = 15 - Fast_Min(Current_Distance / 1000, 15) - Angle_Threshold_Curve + Speed_Threshold_Curve
+        local Curve_Accuracy_Slop = (1 - Accuracy_Scale) * 15
+        
         local Is_Curved = false
-        local Dot_Distance_Threshold = 35.0
-        local Dot_Limit_Threshold = 55.0
-
         if Current_Speed > 15 then
-            local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
-            
-            local Max_Dot_Threshold = 0.85 - (0.1 * (1 - Accuracy_Scale))
-            local Min_Dot_Threshold = 0.55 - (0.1 * (1 - Accuracy_Scale))
-            
-            local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
-            
-            local Curve_Compensation = Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
-            local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
-            
-            local Curve_Tolerance = 1.0 - (0.55 * (1 - Accuracy_Scale))
-            
-            if Current_Distance > Close_Range_Threshold * Curve_Tolerance and Dot_Product_Parry < Dot_Threshold then
+            local Dynamic_Dot = 0.85 - (Accuracy_Scale * 0.15)
+            if Dot_Product_Parry < Dynamic_Dot and Current_Distance > Ball_Distance_Threshold + Curve_Accuracy_Slop then
                 Is_Curved = true
             end
         end
@@ -1340,3 +1326,4 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     Last_Speed = Effective_Speed
     Last_Distance = Current_Distance
 end)
+
