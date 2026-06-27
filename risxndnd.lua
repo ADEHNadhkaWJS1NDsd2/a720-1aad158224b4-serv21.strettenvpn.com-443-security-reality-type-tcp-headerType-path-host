@@ -171,7 +171,7 @@ Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Tr
 local Spam_Section = Combat_Tab:Section("Auto Spam", "Right", "")
 Spam_Section:Toggle("Auto Spam", false, function(Value_In) Config_State.Auto_Spam = Value_In end):AddKeybind("None", "Toggle")
 Spam_Section:Toggle("Manual Spam", false, function(Value_In) Config_State.Manual_Spam = Value_In end):AddKeybind("None", "Toggle")
-Spam_Section:Slider("Spam Rate", 200, 100, 200, 1000, "cps", function(Value_In) Config_State.Spam_Rate = Value_In end)
+Spam_Section:Slider("Spam Rate", 200, 100, 200, 5000, "cps", function(Value_In) Config_State.Spam_Rate = Value_In end)
 Spam_Section:Slider("Spam Sensitivity", 3, 1, 1, 5, "", function(Value_In) Config_State.Spam_Sensitivity = Value_In end)
 
 local Trigger_Section = Combat_Tab:Section("Trigger Bot", "Right", "")
