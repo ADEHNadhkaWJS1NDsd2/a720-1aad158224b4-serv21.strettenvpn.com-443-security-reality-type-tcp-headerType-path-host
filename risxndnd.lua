@@ -1293,24 +1293,18 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Accuracy_Scale = (Accuracy_Value - 1) / 99
         local Accuracy_Multiplier = 0.7 + (Accuracy_Scale * 0.35)
 
-        local Speed_Difference = Fast_Max(Effective_Speed - 9.5, 0)
-        local Dynamic_Scaling = (Speed_Difference * 0.002) + (math.pow(Speed_Difference, 1.05) * 0.00005)
-
+        local Dynamic_Scaling = Fast_Max(Effective_Speed - 9.5, 0) * 0.002
         local Final_Speed_Divisor = (2.4 + Dynamic_Scaling) * Accuracy_Multiplier
 
         local Base_Extrapolation_Factor = 2.4 + Dynamic_Scaling
         local Final_Extrapolation_Factor = Base_Extrapolation_Factor * Accuracy_Multiplier
         
-        local Anticipated_Speed = Effective_Speed + (Speed_Delta * Final_Extrapolation_Factor)
-        local Extrapolation_Distance = Anticipated_Speed * Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
+        local Extrapolation_Distance = Effective_Speed * Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
         
         local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 9.5)
+        local Low_Accuracy_Delay = (1 - Accuracy_Scale) * 1.45
         
-        local Penalty_Multiplier = 1.0 - (0.35 * (1 - Accuracy_Scale))
-        Base_Distance = Base_Distance * Penalty_Multiplier
-
-        local Ping_Distance = Network_Ping / 10
-        local Unified_Threshold = Base_Distance + Extrapolation_Distance + Ping_Distance + (Kps_Intensity * 1.5)
+        local Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) - Low_Accuracy_Delay
         Unified_Threshold = Fast_Max(Unified_Threshold, 9.5)
         
         Runtime_State.Parry_Range = Unified_Threshold
@@ -1336,10 +1330,9 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             local Curve_Compensation = Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
             local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
             
-            local Curve_Tolerance = 0.9 - (0.35 * (1 - Accuracy_Scale))
-            local Curve_Check_Range = Fast_Max(Close_Range_Threshold * Curve_Tolerance, 15.0)
+            local Curve_Tolerance = 0.9 - (0.45 * (1 - Accuracy_Scale))
             
-            if Current_Distance > Curve_Check_Range and Dot_Product_Parry < Dot_Threshold then
+            if Current_Distance > Close_Range_Threshold * Curve_Tolerance and Dot_Product_Parry < Dot_Threshold then
                 Is_Curved = true
             end
         end
