@@ -118,6 +118,14 @@ local Runtime_State = {
     Generated_Accuracy = 100
 }
 
+local Auto_Spam_Interval = 1 / 200
+local Manual_Spam_Interval = 1 / 200
+local Panic_Spam_Interval = 1 / 400
+
+local Next_Auto_Click = 0
+local Next_Manual_Click = 0
+local Next_Panic_Click = 0
+
 local Offsets_Data = {
     Transparency = 0xF0,
     Parent = 0x70,
@@ -171,7 +179,12 @@ Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Tr
 local Spam_Section = Combat_Tab:Section("Auto Spam", "Right", "")
 Spam_Section:Toggle("Auto Spam", false, function(Value_In) Config_State.Auto_Spam = Value_In end):AddKeybind("None", "Toggle")
 Spam_Section:Toggle("Manual Spam", false, function(Value_In) Config_State.Manual_Spam = Value_In end):AddKeybind("None", "Toggle")
-Spam_Section:Slider("Spam Rate", 200, 100, 200, 5000, "cps", function(Value_In) Config_State.Spam_Rate = Value_In end)
+Spam_Section:Slider("Spam Rate", 200, 100, 200, 1000, "cps", function(Value_In) 
+    Config_State.Spam_Rate = Value_In 
+    local Calculated_Interval = 1 / Fast_Max(Value_In, 1)
+    Auto_Spam_Interval = Calculated_Interval
+    Manual_Spam_Interval = Calculated_Interval
+end)
 Spam_Section:Slider("Spam Sensitivity", 3, 1, 1, 5, "", function(Value_In) Config_State.Spam_Sensitivity = Value_In end)
 
 local Trigger_Section = Combat_Tab:Section("Trigger Bot", "Right", "")
@@ -431,21 +444,6 @@ local function Scan_For_Nearest_Entity(Player_Position)
     return Nearest_Entity, Fast_Sqrt(Minimum_Distance_Sq)
 end
 
-local function Execute_Parry()
-    task.spawn(function()
-        if Config_State.Parry_Method == "Click" then
-            if typeof(Mouse1Click) == "function" then
-                Mouse1Click()
-            end
-        elseif Config_State.Parry_Method == "Key" then
-            if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then
-                KeyPress(0x46)
-                KeyRelease(0x46)
-            end
-        end
-    end)
-end
-
 local function Execute_Parry_Direct()
     if Config_State.Parry_Method == "Click" then
         if typeof(Mouse1Click) == "function" then
@@ -459,6 +457,10 @@ local function Execute_Parry_Direct()
     end
 end
 
+local function Execute_Parry()
+    task.spawn(Execute_Parry_Direct)
+end
+
 local Configuration_Spam = {
     Spam_Min_Distance_Speed_Divisor = 6.5,
     Spam_Max_Speed_Divisor = 5.0,
@@ -467,14 +469,22 @@ local Configuration_Spam = {
 }
 
 local function Check_Is_Spam(Spam_Params)
+    if Spam_Params.Is_Moving_Away then return false, 0 end
+    if Spam_Params.Parries < Config_State.Spam_Sensitivity then return false, Spam_Params.Parries end
+    
     local Scaled_Ping = Spam_Params.Ping / 10
     local Range_Val = Scaled_Ping + Fast_Min(Spam_Params.Speed / Configuration_Spam.Spam_Min_Distance_Speed_Divisor, Configuration_Spam.Spam_Min_Distance)
+    
+    local Is_Snap = (Spam_Params.Dot > 0.75) and (Spam_Params.Dot_Delta > 0.15) and (Spam_Params.Ball_Distance <= Range_Val * 1.75)
+    if Is_Snap then return true, Spam_Params.Parries end
+    
     if Spam_Params.Entity_Distance > Range_Val then return false, Spam_Params.Parries end
     if Spam_Params.Ball_Distance > Range_Val then return false, Spam_Params.Parries end
+    
     local Maximum_Dot = Fast_Clamp(Spam_Params.Dot, -1, 0)
     local Accuracy_Val = Fast_Min(Range_Val - Maximum_Dot, Configuration_Spam.Spam_Max_Distance)
     if Spam_Params.Ball_Distance > Accuracy_Val then return false, Spam_Params.Parries end
-    if Spam_Params.Parries < Config_State.Spam_Sensitivity then return false, Spam_Params.Parries end
+    
     return true, Spam_Params.Parries
 end
 
@@ -566,13 +576,14 @@ local Aero_Start_Time = 0
 local Last_Speed = 0
 local Last_Ball_Instance = nil
 local Last_Distance = 9999
+local Last_Dot_Product = 0
 local Scheduled_Trigger_Time = 0
-local Accumulated_Spam_Time = 0
-local Panic_Accumulated_Time = 0
-local Manual_Accumulated_Time = 0
+
 local Ball_Parries = 0
 local Last_From_Change = 0
 local Cached_From = nil
+local Cached_Target = nil
+local Active_Target = nil
 
 local Current_Kps = 0
 local Smoothed_Kps = 0
@@ -607,8 +618,7 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
             
             local Player_Name_Str = Target_Player.Name
             local Target_Character = Target_Player.Character
-            local Target_Humanoid = Target_Character and typeof(Target_Character) == "Instance" and Target_Character:FindFirstChild("Humanoid")
-            local Is_Entity_Alive = Target_Humanoid and typeof(Target_Humanoid) == "Instance" and Target_Humanoid.Health > 0
+            local Target_Humanoid = Target_Character and typeof(Target_Character) == "Instance" and Target_Humanoid.Health > 0
             local Target_Head = Target_Character and typeof(Target_Character) == "Instance" and Target_Character:FindFirstChild("Head")
             local Target_Ability = Target_Player:GetAttribute("CurrentlyEquippedAbility")
             
@@ -794,24 +804,6 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         end
     end
 
-    if Config_State.Manual_Spam then
-        local Target_Spam_Rate = Fast_Clamp(Config_State.Spam_Rate, 200, 500)
-        local Spam_Interval = 1 / Target_Spam_Rate
-        Manual_Accumulated_Time = Manual_Accumulated_Time + Current_Delta_Time
-        
-        if Manual_Accumulated_Time >= Spam_Interval then
-            local Click_Count = Fast_Floor(Manual_Accumulated_Time / Spam_Interval)
-            Manual_Accumulated_Time = Manual_Accumulated_Time % Spam_Interval
-            
-            Click_Count = Fast_Min(Click_Count, 2)
-            for I_Idx = 1, Click_Count do
-                task.spawn(Execute_Parry_Direct)
-            end
-        end
-    else
-        Manual_Accumulated_Time = 0
-    end
-
     if Config_State.Infinity_Detection then
         local Is_Detected = false
         local Infinity_Runtime_Folder = Workspace_Service:FindFirstChild("Runtime")
@@ -948,7 +940,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                     if not Still_Fury or Current_Combo >= 34 then
                         break
                     end
-                    Execute_Parry()
+                    Execute_Parry_Direct()
                     task.wait(0.15)
                 end
                 if Config_State.Fury_Disabled_Parry then
@@ -990,6 +982,8 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     if not Real_Ball or typeof(Real_Ball) ~= "Instance" or not Real_Ball:IsA("BasePart") or not Real_Ball.Parent then
         if (Current_Time - Last_From_Change) > 0.5 then
             Cached_From = nil
+            Cached_Target = nil
+            Active_Target = nil
             Ball_Parries = 0
             Current_Kps = 0
             Smoothed_Kps = 0
@@ -999,8 +993,10 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Last_Speed = 0
         Last_Ball_Instance = nil
         Last_Distance = 9999
-        Accumulated_Spam_Time = 0
-        Panic_Accumulated_Time = 0
+        Last_Dot_Product = 0
+        Next_Auto_Click = 0
+        Next_Manual_Click = 0
+        Next_Panic_Click = 0
         Runtime_State.Target_Speed = 0
         Runtime_State.Target_Distance = 0
         Runtime_State.Target_Dot = 0
@@ -1011,8 +1007,10 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     if Real_Ball ~= Last_Ball_Instance then
         Last_Ball_Instance = Real_Ball
         Last_Distance = 9999
-        Accumulated_Spam_Time = 0
-        Panic_Accumulated_Time = 0
+        Last_Dot_Product = 0
+        Next_Auto_Click = 0
+        Next_Manual_Click = 0
+        Next_Panic_Click = 0
         if Config_State.Random_Accuracy then
             Generate_Random_Accuracy()
         end
@@ -1026,8 +1024,9 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Player_Character:FindFirstChild("SingularityCape") or Root_Part:FindFirstChild("SingularityCape") then
         Is_Parried = false
-        Accumulated_Spam_Time = 0
-        Panic_Accumulated_Time = 0
+        Next_Auto_Click = 0
+        Next_Manual_Click = 0
+        Next_Panic_Click = 0
         return
     end
 
@@ -1044,8 +1043,9 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Temp_Velocity = Real_Ball.AssemblyLinearVelocity
         Last_Speed = typeof(Temp_Velocity) == "Vector3" and Temp_Velocity.Magnitude or 0
         Last_Distance = (Root_Part.Position - Real_Ball.Position).Magnitude
-        Accumulated_Spam_Time = 0
-        Panic_Accumulated_Time = 0
+        Next_Auto_Click = 0
+        Next_Manual_Click = 0
+        Next_Panic_Click = 0
         Scheduled_Trigger_Time = 0
         return
     end
@@ -1071,6 +1071,11 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Velocity_Dir = Ball_Velocity.Magnitude > 0.01 and Ball_Velocity.Unit or V3_Zero
     local Direction_To_Player_Stat = Delta_Vector.Unit
     local Dot_Product_Stat = Direction_To_Player_Stat:Dot(Velocity_Dir)
+    
+    local Dot_Delta = Dot_Product_Stat - Last_Dot_Product
+    Last_Dot_Product = Dot_Product_Stat
+
+    local Is_Moving_Away = Current_Distance > Last_Distance + 0.25
 
     Runtime_State.Target_Speed = Current_Speed
     Runtime_State.Target_Distance = Current_Distance
@@ -1098,39 +1103,54 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     if Is_Aero_Wait then
         Last_Speed = Effective_Speed
-        Accumulated_Spam_Time = 0
+        Next_Auto_Click = 0
+        Next_Manual_Click = 0
+        Next_Panic_Click = 0
         return
     end
 
     local Current_From_Attr = Real_Ball:GetAttribute("from") or Real_Ball:GetAttribute("From")
-
     if Current_From_Attr ~= nil and Current_From_Attr ~= Cached_From then
-        local Time_Since_Last = Current_Time - Last_From_Change
-        if Time_Since_Last <= 0.35 then
-            Ball_Parries = Ball_Parries + 1
-        else
-            Ball_Parries = 1
-        end
-
-        if Time_Since_Last > 0 then
-            Current_Kps = 1 / Time_Since_Last
-            Smoothed_Kps = Smoothed_Kps + (Current_Kps - Smoothed_Kps) * 0.25
-        end
-
         Cached_From = Current_From_Attr
-        Last_From_Change = Current_Time
-        
-        if Config_State.Random_Accuracy then
-            local Jitter_Chance = math.random()
-            if Jitter_Chance > 0.3 then
-                Generate_Random_Accuracy()
+        task.spawn(function()
+            task.wait(0.1)
+            if Real_Ball and Real_Ball.Parent then
+                local Current_Wait_Time = Fast_Clock()
+                local Time_Since_Last = Current_Wait_Time - Last_From_Change
+                if Time_Since_Last <= 0.45 then
+                    Ball_Parries = Ball_Parries + 1
+                else
+                    Ball_Parries = 1
+                end
+
+                if Time_Since_Last > 0 then
+                    Current_Kps = 1 / Time_Since_Last
+                    Smoothed_Kps = Smoothed_Kps + (Current_Kps - Smoothed_Kps) * 0.25
+                end
+
+                Last_From_Change = Current_Wait_Time
+                
+                if Config_State.Random_Accuracy then
+                    local Jitter_Chance = math.random()
+                    if Jitter_Chance > 0.3 then
+                        Generate_Random_Accuracy()
+                    end
+                end
             end
-        end
+        end)
+    end
+    
+    local Raw_Target = Real_Ball:GetAttribute("target") or Real_Ball:GetAttribute("Target")
+    if Raw_Target ~= nil and Raw_Target ~= Cached_Target then
+        Cached_Target = Raw_Target
+        task.spawn(function()
+            task.wait(0.1)
+            Active_Target = Raw_Target
+        end)
     end
 
-    local Current_Target_Attr = Real_Ball:GetAttribute("target") or Real_Ball:GetAttribute("Target")
     local Is_Target_Me = false
-    if (Player_Character and Player_Character:FindFirstChild("Highlight")) or Check_Is_Target(Current_Target_Attr) then
+    if (Player_Character and Player_Character:FindFirstChild("Highlight")) or Check_Is_Target(Active_Target) then
         Is_Target_Me = true
     end
 
@@ -1142,13 +1162,27 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Is_Training_Ball = Real_Ball.Parent and Real_Ball.Parent.Name == "TrainingBalls"
     local Can_Attack = (not Is_Dead) and (not Is_Training_Ball)
 
+    if Config_State.Manual_Spam then
+        if Next_Manual_Click == 0 then
+            Next_Manual_Click = Current_Time
+        end
+        while Current_Time >= Next_Manual_Click do
+            Execute_Parry_Direct()
+            Next_Manual_Click = Next_Manual_Click + Manual_Spam_Interval
+        end
+    else
+        Next_Manual_Click = 0
+    end
+
     local Spam_Params = {
         Speed = Effective_Speed,
         Parries = Ball_Parries,
         Ball_Distance = Current_Distance,
         Entity_Distance = Distance_To_Nearest_Player,
         Dot = Dot_Product_Stat,
-        Ping = Network_Ping
+        Dot_Delta = Dot_Delta,
+        Ping = Network_Ping,
+        Is_Moving_Away = Is_Moving_Away
     }
 
     local Auto_Spam_Active = false
@@ -1156,32 +1190,23 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Auto_Spam_Active, _ = Check_Is_Spam(Spam_Params)
     end
 
-    if Auto_Spam_Active then
-        local Target_Spam_Rate = Fast_Clamp(Config_State.Spam_Rate, 200, 500)
-        local Spam_Interval = 1 / Target_Spam_Rate
-        Accumulated_Spam_Time = Accumulated_Spam_Time + Current_Delta_Time
-
-        if Accumulated_Spam_Time >= Spam_Interval then
-            local Click_Count = Fast_Floor(Accumulated_Spam_Time / Spam_Interval)
-            Accumulated_Spam_Time = Accumulated_Spam_Time % Spam_Interval
-            
-            Click_Count = Fast_Min(Click_Count, 2)
-            for I_Idx = 1, Click_Count do
-                task.spawn(Execute_Parry_Direct)
-            end
+    if Auto_Spam_Active and not Is_Moving_Away and not (Current_Distance > Last_Distance) then
+        if Next_Auto_Click == 0 then
+            Next_Auto_Click = Current_Time
+        end
+        while Current_Time >= Next_Auto_Click do
+            Execute_Parry_Direct()
+            Next_Auto_Click = Next_Auto_Click + Auto_Spam_Interval
         end
         Is_Parried = true
         Last_Speed = Effective_Speed
         Last_Distance = Current_Distance
         return
     else
-        Accumulated_Spam_Time = 0
+        Next_Auto_Click = 0
     end
 
     if Config_State.Panic_Spam then
-        local Target_Cps = 200
-        local Panic_Interval = 1 / Target_Cps
-        
         local Panic_Max_Distance = 25
         local Danger_Zone_Radius = 15
         local Closest_Enemy_Distance_Sq = math.huge
@@ -1224,22 +1249,21 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Is_Extremely_Close = Current_Distance <= Danger_Zone_Radius
         local Is_Approaching = Current_Distance < Last_Distance
 
-        local Is_Clash = Is_Enemy_Close and Current_Speed > 35 and Enemy_Look_Dot > 0.55 and (Is_Approaching or Is_Extremely_Close) and (Is_Heading_Towards or Is_Extremely_Close)
+        local Is_Clash = Is_Enemy_Close and Current_Speed > 35 and Enemy_Look_Dot > 0.55 and (Is_Approaching or Is_Extremely_Close) and (Is_Heading_Towards or Is_Extremely_Close) and not Is_Moving_Away
 
         if Is_Clash then
-            Panic_Accumulated_Time = Panic_Accumulated_Time + Current_Delta_Time
-            if Panic_Accumulated_Time >= Panic_Interval then
-                local Click_Count = Fast_Floor(Panic_Accumulated_Time / Panic_Interval)
-                Panic_Accumulated_Time = Panic_Accumulated_Time % Panic_Interval
-                
-                Click_Count = Fast_Min(Click_Count, 2)
-                for I_Idx = 1, Click_Count do
-                    task.spawn(Execute_Parry_Direct)
-                end
+            if Next_Panic_Click == 0 then
+                Next_Panic_Click = Current_Time
+            end
+            while Current_Time >= Next_Panic_Click do
+                Execute_Parry_Direct()
+                Next_Panic_Click = Next_Panic_Click + Panic_Spam_Interval
             end
         else
-            Panic_Accumulated_Time = 0
+            Next_Panic_Click = 0
         end
+    else
+        Next_Panic_Click = 0
     end
 
     local Can_Trigger = Is_Target_Me
@@ -1336,8 +1360,6 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
                 Is_Curved = true
             end
         end
-
-        local Is_Moving_Away = Current_Distance > Last_Distance + 0.15
 
         if Current_Distance <= Unified_Threshold and not Is_Moving_Away and not Is_Curved then
             if Config_State.Auto_Parry then
