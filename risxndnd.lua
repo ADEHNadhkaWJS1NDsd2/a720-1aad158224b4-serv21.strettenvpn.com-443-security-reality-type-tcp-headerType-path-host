@@ -107,7 +107,11 @@ local Config_State = {
     Fury_Disabled_Parry = false,
     Fury_Disabled_Spam = false,
     Fury_Disabled_Trigger = false,
-    Fury_Triggered = false
+    Fury_Triggered = false,
+    Orbit_Ball = false,
+    Orbit_Radius = 25,
+    Orbit_Speed = 50,
+    Orbit_Height = 5
 }
 
 local Runtime_State = {
@@ -175,6 +179,10 @@ end):DependsOn(Random_Acc_Toggle)
 Parry_Section:Toggle("Panic Spam", false, function(Value_In) Config_State.Panic_Spam = Value_In end)
 Parry_Section:Dropdown("Parry Method", {"Click"}, {"Click", "Key"}, false, function(Value_In) Config_State.Parry_Method = type(Value_In) == "table" and Value_In[1] or Value_In end)
 Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Training_Balls_Support = Value_In end)
+Parry_Section:Toggle("Orbit Ball", false, function(Value_In) Config_State.Orbit_Ball = Value_In end):AddKeybind("None", "Toggle")
+Parry_Section:Slider("Orbit Radius", 25, 1, 5, 100, "", function(Value_In) Config_State.Orbit_Radius = Value_In end)
+Parry_Section:Slider("Orbit Speed", 50, 1, 10, 200, "", function(Value_In) Config_State.Orbit_Speed = Value_In end)
+Parry_Section:Slider("Orbit Height", 5, 0.5, -30, 50, "", function(Value_In) Config_State.Orbit_Height = Value_In end)
 
 local Spam_Section = Combat_Tab:Section("Auto Spam", "Right", "")
 Spam_Section:Toggle("Auto Spam", false, function(Value_In) Config_State.Auto_Spam = Value_In end):AddKeybind("None", "Toggle")
@@ -184,6 +192,7 @@ Spam_Section:Slider("Spam Rate", 300, 100, 200, 3000, "cps", function(Value_In)
     local Calculated_Interval = 1 / Fast_Max(Value_In, 1)
     Auto_Spam_Interval = Calculated_Interval
     Manual_Spam_Interval = Calculated_Interval
+    Panic_Spam_Interval = Calculated_Interval
 end)
 Spam_Section:Slider("Spam Sensitivity", 3, 1, 1, 5, "", function(Value_In) Config_State.Spam_Sensitivity = Value_In end)
 
@@ -1112,32 +1121,27 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Current_From_Attr = Real_Ball:GetAttribute("from") or Real_Ball:GetAttribute("From")
     if Current_From_Attr ~= nil and Current_From_Attr ~= Cached_From then
         Cached_From = Current_From_Attr
-        task.spawn(function()
-            task.wait(0.1)
-            if Real_Ball and Real_Ball.Parent then
-                local Current_Wait_Time = Fast_Clock()
-                local Time_Since_Last = Current_Wait_Time - Last_From_Change
-                if Time_Since_Last <= 0.45 then
-                    Ball_Parries = Ball_Parries + 1
-                else
-                    Ball_Parries = 1
-                end
+        local Current_Wait_Time = Fast_Clock()
+        local Time_Since_Last = Current_Wait_Time - Last_From_Change
+        if Time_Since_Last <= 0.45 then
+            Ball_Parries = Ball_Parries + 1
+        else
+            Ball_Parries = 1
+        end
 
-                if Time_Since_Last > 0 then
-                    Current_Kps = 1 / Time_Since_Last
-                    Smoothed_Kps = Smoothed_Kps + (Current_Kps - Smoothed_Kps) * 0.25
-                end
+        if Time_Since_Last > 0 then
+            Current_Kps = 1 / Time_Since_Last
+            Smoothed_Kps = Smoothed_Kps + (Current_Kps - Smoothed_Kps) * 0.25
+        end
 
-                Last_From_Change = Current_Wait_Time
-                
-                if Config_State.Random_Accuracy then
-                    local Jitter_Chance = math.random()
-                    if Jitter_Chance > 0.3 then
-                        Generate_Random_Accuracy()
-                    end
-                end
+        Last_From_Change = Current_Wait_Time
+
+        if Config_State.Random_Accuracy then
+            local Jitter_Chance = math.random()
+            if Jitter_Chance > 0.3 then
+                Generate_Random_Accuracy()
             end
-        end)
+        end
     end
     
     local Raw_Target = Real_Ball:GetAttribute("target") or Real_Ball:GetAttribute("Target")
@@ -1150,7 +1154,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     end
 
     local Is_Target_Me = false
-    if (Player_Character and Player_Character:FindFirstChild("Highlight")) or Check_Is_Target(Active_Target) then
+    if Player_Character and Player_Character:FindFirstChild("Highlight") then
         Is_Target_Me = true
     end
 
@@ -1163,16 +1167,13 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Can_Attack = (not Is_Dead) and (not Is_Training_Ball)
 
     if Config_State.Manual_Spam then
-        if Next_Manual_Click == 0 then
-            Next_Manual_Click = Current_Time
-        end
-        while Current_Time >= Next_Manual_Click do
+        if Current_Time >= Next_Manual_Click then
             if Config_State.Parry_Method == "Click" then
                 if typeof(Mouse1Click) == "function" then Mouse1Click() end
             else
                 if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then KeyPress(0x46) KeyRelease(0x46) end
             end
-            Next_Manual_Click = Next_Manual_Click + Manual_Spam_Interval
+            Next_Manual_Click = Current_Time + Manual_Spam_Interval
         end
     else
         Next_Manual_Click = 0
@@ -1326,22 +1327,23 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Accuracy_Value = Fast_Clamp(Accuracy_Value, 1, 100)
 
         local Accuracy_Scale = (Accuracy_Value - 1) / 99
-        local Accuracy_Multiplier = 0.7 + (Accuracy_Scale * 0.35)
+        local Quadratic_Scale = Accuracy_Scale * Accuracy_Scale
+        local Accuracy_Multiplier = 0.68 + (Quadratic_Scale * 0.42)
 
         local Dynamic_Scaling = Fast_Max(Effective_Speed - 9.5, 0) * 0.002
         local Final_Speed_Divisor = (2.4 + Dynamic_Scaling) * Accuracy_Multiplier
 
         local Base_Extrapolation_Factor = 2.4 + Dynamic_Scaling
         local Final_Extrapolation_Factor = Base_Extrapolation_Factor * Accuracy_Multiplier
-        
+
         local Extrapolation_Distance = Effective_Speed * Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
-        
+
         local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 9.5)
-        local Low_Accuracy_Delay = (1 - Accuracy_Scale) * 1.45
-        
+        local Low_Accuracy_Delay = math.pow(1 - Accuracy_Scale, 1.65) * 1.55
+
         local Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) - Low_Accuracy_Delay
         Unified_Threshold = Fast_Max(Unified_Threshold, 9.5)
-        
+
         Runtime_State.Parry_Range = Unified_Threshold
 
         local Velocity_Unit = Current_Speed > 0 and Velocity_Dir or V3_Zero
@@ -1356,17 +1358,17 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         if Current_Speed > 15 then
             local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
-            
+
             local Max_Dot_Threshold = 0.85 - (0.1 * (1 - Accuracy_Scale))
             local Min_Dot_Threshold = 0.55 - (0.1 * (1 - Accuracy_Scale))
-            
+
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
-            
+
             local Curve_Compensation = Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
             local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
-            
+
             local Curve_Tolerance = 0.9 - (0.45 * (1 - Accuracy_Scale))
-            
+
             if Current_Distance > Close_Range_Threshold * Curve_Tolerance and Dot_Product_Parry < Dot_Threshold then
                 Is_Curved = true
             end
@@ -1384,4 +1386,29 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
     Last_Speed = Effective_Speed
     Last_Distance = Current_Distance
+end)
+
+Run_Service.RenderStepped:Connect(function(DeltaTime)
+    if not Config_State.Orbit_Ball then return end
+    local RealBall = Get_Real_Ball()
+    if not RealBall or typeof(RealBall) ~= "Instance" or not RealBall:IsA("BasePart") or not RealBall.Parent then return end
+    local Character = Local_Player.Character
+    if not Character or typeof(Character) ~= "Instance" then return end
+    local RootPart = Character.PrimaryPart
+    if not RootPart or typeof(RootPart) ~= "Instance" or not RootPart:IsA("BasePart") or not RootPart.Parent then
+        RootPart = Character:FindFirstChild("HumanoidRootPart")
+        if not RootPart or typeof(RootPart) ~= "Instance" or not RootPart:IsA("BasePart") or not RootPart.Parent then return end
+    end
+    local BallPosition = RealBall.Position
+    local TimeValue = os.clock() * (Config_State.Orbit_Speed / 10)
+    local OrbitPosition = Vector3.new(
+        BallPosition.X + math.cos(TimeValue) * Config_State.Orbit_Radius,
+        BallPosition.Y + Config_State.Orbit_Height,
+        BallPosition.Z + math.sin(TimeValue) * Config_State.Orbit_Radius
+    )
+    local TargetCFrame = CFrame.lookAt(OrbitPosition, BallPosition)
+    local LerpAlpha = math.clamp(DeltaTime * 22, 0, 0.35)
+    pcall(function()
+        RootPart.CFrame = RootPart.CFrame:Lerp(TargetCFrame, LerpAlpha)
+    end)
 end)
