@@ -1317,8 +1317,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Accuracy_Value = Fast_Clamp(Accuracy_Value, 1, 100)
 
         local Accuracy_Scale = (Accuracy_Value - 1) / 99
-        local Quadratic_Scale = Accuracy_Scale * Accuracy_Scale
-        local Accuracy_Multiplier = 0.68 + (Quadratic_Scale * 0.42)
+        local Accuracy_Multiplier = 0.7 + (Accuracy_Scale * 0.35)
 
         local Dynamic_Scaling = Fast_Max(Effective_Speed - 9.5, 0) * 0.002
         local Final_Speed_Divisor = (2.4 + Dynamic_Scaling) * Accuracy_Multiplier
@@ -1329,7 +1328,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Extrapolation_Distance = Effective_Speed * Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
 
         local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 9.5)
-        local Low_Accuracy_Delay = math.pow(1 - Accuracy_Scale, 1.65) * 1.55
+        local Low_Accuracy_Delay = (1 - Accuracy_Scale) * 1.4
 
         local Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) - Low_Accuracy_Delay
         Unified_Threshold = Fast_Max(Unified_Threshold, 9.5)
