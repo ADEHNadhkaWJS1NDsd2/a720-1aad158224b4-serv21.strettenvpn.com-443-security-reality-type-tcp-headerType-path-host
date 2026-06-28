@@ -153,15 +153,7 @@ end
 local function Generate_Random_Accuracy()
     local Min_Acc = Fast_Min(Config_State.Random_Accuracy_Min, Config_State.Random_Accuracy_Max)
     local Max_Acc = Fast_Max(Config_State.Random_Accuracy_Min, Config_State.Random_Accuracy_Max)
-    
-    local U1 = Fast_Max(math.random(), 0.000001)
-    local U2 = math.random()
-    local Z0 = Fast_Sqrt(-2.0 * math.log(U1)) * math.cos(Pi_2 * U2)
-    
-    local Mean = (Min_Acc + Max_Acc) / 2
-    local Std_Dev = Fast_Max((Max_Acc - Min_Acc) / 4, 1)
-    
-    Runtime_State.Generated_Accuracy = Fast_Clamp(Mean + (Z0 * Std_Dev), Min_Acc, Max_Acc)
+    Runtime_State.Generated_Accuracy = math.random(Min_Acc, Max_Acc)
 end
 
 local Combat_Tab = Win_App:Tab("Combat", "swords")
@@ -409,6 +401,7 @@ local function Get_Memory_Ping()
 end
 
 local function Check_Is_Target(Target_Name)
+    if not Local_Player then return false end
     local Character_Instance = Local_Player.Character
     if Character_Instance and typeof(Character_Instance) == "Instance" and Character_Instance:FindFirstChild('Highlight') then return true end
     if not Target_Name then return false end
@@ -436,7 +429,8 @@ local function Scan_For_Nearest_Entity(Player_Position)
     local Nearest_Entity = nil
     local Minimum_Distance_Sq = math.huge
     for _, Target_Player in ipairs(Players_Service:GetPlayers()) do
-        if Target_Player ~= Local_Player and Target_Player.Character and typeof(Target_Player.Character) == "Instance" then
+        if not Target_Player or typeof(Target_Player) ~= "Instance" or Target_Player == Local_Player then continue end
+        if Target_Player.Character and typeof(Target_Player.Character) == "Instance" then
             local Root_Part = Target_Player.Character:FindFirstChild("HumanoidRootPart") or Target_Player.Character.PrimaryPart
             if Root_Part and typeof(Root_Part) == "Instance" and Root_Part:IsA("BasePart") then
                 local Humanoid_Part = Target_Player.Character:FindFirstChild("Humanoid")
@@ -623,15 +617,15 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
         local Current_Players_List = Players_Service:GetPlayers()
         for I_Idx = 1, #Current_Players_List do
             local Target_Player = Current_Players_List[I_Idx]
-            if Target_Player == Local_Player then continue end
+            if not Target_Player or typeof(Target_Player) ~= "Instance" or Target_Player == Local_Player then continue end
             
             local Player_Name_Str = Target_Player.Name
             local Target_Character = Target_Player.Character
-            local Target_Humanoid = Target_Character and typeof(Target_Character) == "Instance" and Target_Humanoid.Health > 0
+            local Target_Humanoid = Target_Character and typeof(Target_Character) == "Instance" and Target_Character:FindFirstChildWhichIsA("Humanoid")
             local Target_Head = Target_Character and typeof(Target_Character) == "Instance" and Target_Character:FindFirstChild("Head")
             local Target_Ability = Target_Player:GetAttribute("CurrentlyEquippedAbility")
             
-            if Is_Entity_Alive and Target_Head and typeof(Target_Head) == "Instance" and Target_Head:IsA("BasePart") and Target_Ability then
+            if Target_Humanoid and Target_Humanoid.Health > 0 and Target_Head and typeof(Target_Head) == "Instance" and Target_Head:IsA("BasePart") and Target_Ability then
                 local Head_Pos = Target_Head.Position
                 local Current_Offset_Vector = Vector3.new(0, Config_State.Esp_Offset_Y, 0)
                 local Target_3D = Head_Pos + Current_Offset_Vector
@@ -1137,10 +1131,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Last_From_Change = Current_Wait_Time
 
         if Config_State.Random_Accuracy then
-            local Jitter_Chance = math.random()
-            if Jitter_Chance > 0.3 then
-                Generate_Random_Accuracy()
-            end
+            Generate_Random_Accuracy()
         end
     end
     
@@ -1321,14 +1312,12 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 
         local Accuracy_Value = Config_State.Accuracy
         if Config_State.Random_Accuracy then
-            local Time_Jitter = math.sin(Current_Time * 15) * 1.5
-            Accuracy_Value = Runtime_State.Generated_Accuracy + Time_Jitter
+            Accuracy_Value = Runtime_State.Generated_Accuracy
         end
         Accuracy_Value = Fast_Clamp(Accuracy_Value, 1, 100)
 
         local Accuracy_Scale = (Accuracy_Value - 1) / 99
-        local Quadratic_Scale = Accuracy_Scale * Accuracy_Scale
-        local Accuracy_Multiplier = 0.68 + (Quadratic_Scale * 0.42)
+        local Accuracy_Multiplier = 0.7 + (Accuracy_Scale * 0.35)
 
         local Dynamic_Scaling = Fast_Max(Effective_Speed - 9.5, 0) * 0.002
         local Final_Speed_Divisor = (2.4 + Dynamic_Scaling) * Accuracy_Multiplier
@@ -1339,7 +1328,7 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Extrapolation_Distance = Effective_Speed * Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
 
         local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 9.5)
-        local Low_Accuracy_Delay = math.pow(1 - Accuracy_Scale, 1.65) * 1.55
+        local Low_Accuracy_Delay = (1 - Accuracy_Scale) * 1.4
 
         local Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) - Low_Accuracy_Delay
         Unified_Threshold = Fast_Max(Unified_Threshold, 9.5)
