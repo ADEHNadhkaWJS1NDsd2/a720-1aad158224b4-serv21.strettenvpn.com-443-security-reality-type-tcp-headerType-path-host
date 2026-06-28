@@ -179,7 +179,7 @@ Parry_Section:Toggle("Training Balls", false, function(Value_In) Config_State.Tr
 local Spam_Section = Combat_Tab:Section("Auto Spam", "Right", "")
 Spam_Section:Toggle("Auto Spam", false, function(Value_In) Config_State.Auto_Spam = Value_In end):AddKeybind("None", "Toggle")
 Spam_Section:Toggle("Manual Spam", false, function(Value_In) Config_State.Manual_Spam = Value_In end):AddKeybind("None", "Toggle")
-Spam_Section:Slider("Spam Rate", 200, 100, 200, 1000, "cps", function(Value_In) 
+Spam_Section:Slider("Spam Rate", 300, 100, 200, 3000, "cps", function(Value_In) 
     Config_State.Spam_Rate = Value_In 
     local Calculated_Interval = 1 / Fast_Max(Value_In, 1)
     Auto_Spam_Interval = Calculated_Interval
@@ -1167,7 +1167,11 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             Next_Manual_Click = Current_Time
         end
         while Current_Time >= Next_Manual_Click do
-            Execute_Parry_Direct()
+            if Config_State.Parry_Method == "Click" then
+                if typeof(Mouse1Click) == "function" then Mouse1Click() end
+            else
+                if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then KeyPress(0x46) KeyRelease(0x46) end
+            end
             Next_Manual_Click = Next_Manual_Click + Manual_Spam_Interval
         end
     else
@@ -1195,7 +1199,11 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             Next_Auto_Click = Current_Time
         end
         while Current_Time >= Next_Auto_Click do
-            Execute_Parry_Direct()
+            if Config_State.Parry_Method == "Click" then
+                if typeof(Mouse1Click) == "function" then Mouse1Click() end
+            else
+                if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then KeyPress(0x46) KeyRelease(0x46) end
+            end
             Next_Auto_Click = Next_Auto_Click + Auto_Spam_Interval
         end
         Is_Parried = true
@@ -1271,17 +1279,20 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Can_Trigger = false
     end
 
-    local Server_Tick_Rate = 1 / Fast_Max(Smoothed_Server_Fps, 1)
+    local Server_Tick_Rate = 1 / Fast_Max(Smoothed_Server_Fps, 30)
 
     if Config_State.Trigger_Bot and Can_Attack then
         if Can_Trigger and not Is_Parried then
             local Application_Tick = Fast_Clock()
             if Scheduled_Trigger_Time == 0 then
-                local Ping_Sec = (Network_Ping / 10) / 1000
-                local Ball_Speed_Factor = Fast_Clamp(Effective_Speed / 80, 0.6, 1.35)
-                local Compensation = Ping_Sec + Current_Delta_Time + Server_Tick_Rate
-                local Base_Delay = Config_State.Trigger_Delay / 1000
-                local Final_Delay = Fast_Max(0, (Base_Delay * Ball_Speed_Factor) - Compensation)
+                local Ping_Sec = Network_Ping / 1000
+                local Ball_Speed_Factor = Fast_Clamp(Effective_Speed / 70, 0.55, 1.5)
+                local Delta_Compensation = Current_Delta_Time * 1.8
+                local Tick_Compensation = Server_Tick_Rate * 1.5
+                local Speed_Compensation = Fast_Clamp(Effective_Speed / 100, 0, 0.025)
+                local Total_Compensation = Ping_Sec + Delta_Compensation + Tick_Compensation + Speed_Compensation
+                local Base_Delay = (Config_State.Trigger_Delay / 1000) * Ball_Speed_Factor
+                local Final_Delay = Fast_Max(0, Base_Delay - Total_Compensation * 0.95)
                 Scheduled_Trigger_Time = Application_Tick + Final_Delay
             end
 
