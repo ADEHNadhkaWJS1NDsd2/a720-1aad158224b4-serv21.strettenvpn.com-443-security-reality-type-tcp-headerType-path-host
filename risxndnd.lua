@@ -70,6 +70,7 @@ local Win_App = Lib_Instance:CreateWindow({
 local Config_State = {
     Auto_Parry = false,
     Accuracy = 100,
+    Auto_Parry_Type = "Default",
     Random_Accuracy = false,
     Random_Accuracy_Min = 80,
     Random_Accuracy_Max = 100,
@@ -167,6 +168,8 @@ Parry_Section:RangeSlider("Random Parry Accuracy", 80, 100, 1, 1, 100, "%", func
     Config_State.Random_Accuracy_Min = Min_Val
     Config_State.Random_Accuracy_Max = Max_Val
 end):DependsOn(Random_Acc_Toggle)
+
+Parry_Section:Dropdown("Auto Parry Type", {"Default"}, {"Default", "Geometric", "Quadratic"}, false, function(Value_In) Config_State.Auto_Parry_Type = type(Value_In) == "table" and Value_In[1] or Value_In end)
 
 Parry_Section:Toggle("Panic Spam", false, function(Value_In) Config_State.Panic_Spam = Value_In end)
 Parry_Section:Dropdown("Parry Method", {"Click"}, {"Click", "Key"}, false, function(Value_In) Config_State.Parry_Method = type(Value_In) == "table" and Value_In[1] or Value_In end)
@@ -1330,8 +1333,21 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 9.5)
         local Low_Accuracy_Delay = (1 - Accuracy_Scale) * 1.4
 
-        local Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) - Low_Accuracy_Delay
-        Unified_Threshold = Fast_Max(Unified_Threshold, 9.5)
+        local Parry_Type = Config_State.Auto_Parry_Type or "Default"
+        local Unified_Threshold
+        if Parry_Type == "Geometric" then
+            local Geom_Factor = Fast_Max(Effective_Speed / 38, 0.9) ^ 0.72
+            Unified_Threshold = (Base_Distance * Geom_Factor) + (Extrapolation_Distance * 0.82) + (Kps_Intensity * 1.35) - (Low_Accuracy_Delay * 0.6)
+            Unified_Threshold = Fast_Max(Unified_Threshold, 8.0)
+        elseif Parry_Type == "Quadratic" then
+            local Quad_Speed_Term = (Effective_Speed * Effective_Speed) / 1350
+            local Quad_Extra = Quad_Speed_Term * Accuracy_Multiplier * 0.9
+            Unified_Threshold = Base_Distance + Extrapolation_Distance + Quad_Extra + (Kps_Intensity * 1.65) - Low_Accuracy_Delay
+            Unified_Threshold = Fast_Max(Unified_Threshold, 10.5)
+        else
+            Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) - Low_Accuracy_Delay
+            Unified_Threshold = Fast_Max(Unified_Threshold, 9.5)
+        end
 
         Runtime_State.Parry_Range = Unified_Threshold
 
