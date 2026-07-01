@@ -188,6 +188,9 @@ Spam_Section:Slider("Spam Rate", 300, 100, 200, 3000, "cps", function(Value_In)
     Auto_Spam_Interval = Calculated_Interval
     Manual_Spam_Interval = Calculated_Interval
     Panic_Spam_Interval = Calculated_Interval
+    Next_Auto_Click = 0
+    Next_Manual_Click = 0
+    Next_Panic_Click = 0
 end)
 Spam_Section:Slider("Spam Sensitivity", 3, 1, 1, 5, "", function(Value_In) Config_State.Spam_Sensitivity = Value_In end)
 
@@ -204,7 +207,8 @@ Vis_Main_Section:Slider("Vis Thickness", 2.0, 0.1, 1.0, 10.0, "", function(Value
 Vis_Main_Section:Slider("Vis Transparency", 1.0, 0.1, 0.1, 1.0, "", function(Value_In) Config_State.Vis_Transparency = Value_In end)
 Vis_Main_Section:Slider("Vis Segments", 40, 1, 10, 100, "", function(Value_In) Config_State.Vis_Segments = Value_In end)
 
-Vis_Main_Section:Toggle("Ability ESP", false, function(Value_In) Config_State.Ability_Esp = Value_In end):AddColorpicker("ESP Color", Color3.fromRGB(220, 30, 30), function(Color_Val) Config_State.Esp_Color = Color_Val end)
+Vis_Main_Section:Toggle("Ability ESP", false, function(Value_In) Config_State.Ability_Esp = Value_In end)
+Vis_Main_Section:Colorpicker("ESP Color", Color3.fromRGB(220, 30, 30), function(c, a) Config_State.Esp_Color = c or Color3.fromRGB(220, 30, 30) end)
 Vis_Main_Section:Slider("ESP Text Size", 18, 1, 10, 40, "", function(Value_In) Config_State.Esp_Text_Size = Value_In end)
 Vis_Main_Section:Slider("ESP Offset Y", 2.0, 0.5, 0.0, 10.0, "", function(Value_In) Config_State.Esp_Offset_Y = Value_In end)
 
@@ -212,7 +216,7 @@ Vis_Main_Section:Toggle("Rainbow Mode", false, function(Value_In) Config_State.R
 
 local Vis_Trail_Section = Visuals_Tab:Section("Ball Trail", "Right", "")
 Vis_Trail_Section:Toggle("Enable Trail", false, function(Value_In) Config_State.Ball_Trail = Value_In end):AddColorpicker("Trail Color", Color3.fromRGB(220, 30, 30), function(Color_Val) Config_State.Trail_Color = Color_Val end)
-Vis_Trail_Section:Slider("Trail Length", 60, 1, 10, 100, "", function(Value_In) Config_State.Trail_Length = Value_In end)
+Vis_Trail_Section:Slider("Trail Length", 60, 1, 3, 100, "", function(Value_In) Config_State.Trail_Length = Value_In end)
 Vis_Trail_Section:Slider("Trail Thickness", 2.0, 0.1, 1.0, 10.0, "", function(Value_In) Config_State.Trail_Thickness = Value_In end)
 
 local Vis_Avatar_Section = Visuals_Tab:Section("Avatar", "Right", "")
@@ -338,6 +342,9 @@ local function Create_Esp_Text()
     Text_Obj.Center = true
     Text_Obj.Outline = true
     Text_Obj.Font = 2
+    Text_Obj.Transparency = 0
+    Text_Obj.ZIndex = 2
+    Text_Obj.Color = Config_State.Esp_Color or Color3.fromRGB(220, 30, 30)
     Text_Obj.Visible = false
     table.insert(_G.Nightfall_Drawings, Text_Obj)
     return Text_Obj
@@ -386,9 +393,6 @@ local function Get_Real_Ball()
     end
 
     if Target_Folder and typeof(Target_Folder) == "Instance" then
-        for _, Ball in ipairs(Target_Folder:GetChildren()) do
-            if typeof(Ball) == "Instance" and Ball:IsA("BasePart") and Ball:GetAttribute("realBall") == true then return Ball end
-        end
         for _, Ball in ipairs(Target_Folder:GetChildren()) do
             if typeof(Ball) == "Instance" and Ball:IsA("BasePart") then return Ball end
         end
@@ -512,6 +516,7 @@ local function Update_And_Render_Trail(Current_Ball_Pos)
         for _, Line_Obj in ipairs(Visuals_Data.Ball_Lines) do
             if Line_Obj then Line_Obj.Visible = false end
         end
+        table.clear(Visuals_Data.Ball_Trail_Pos)
         return
     end
     if not Current_Ball_Pos or typeof(Current_Ball_Pos) ~= "Vector3" then
@@ -525,9 +530,10 @@ local function Update_And_Render_Trail(Current_Ball_Pos)
     local Last_Tracked_Pos = Visuals_Data.Ball_Trail_Pos[1]
     if not Last_Tracked_Pos or (Last_Tracked_Pos - Current_Ball_Pos).Magnitude > 0.05 then
         table.insert(Visuals_Data.Ball_Trail_Pos, 1, Current_Ball_Pos)
-        while #Visuals_Data.Ball_Trail_Pos > Config_State.Trail_Length do
-            table.remove(Visuals_Data.Ball_Trail_Pos)
-        end
+    end
+
+    while #Visuals_Data.Ball_Trail_Pos > Config_State.Trail_Length do
+        table.remove(Visuals_Data.Ball_Trail_Pos)
     end
 
     local Total_Pos = #Visuals_Data.Ball_Trail_Pos
@@ -628,7 +634,7 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
             local Target_Head = Target_Character and typeof(Target_Character) == "Instance" and Target_Character:FindFirstChild("Head")
             local Target_Ability = Target_Player:GetAttribute("CurrentlyEquippedAbility")
             
-            if Target_Humanoid and Target_Humanoid.Health > 0 and Target_Head and typeof(Target_Head) == "Instance" and Target_Head:IsA("BasePart") and Target_Ability then
+            if Target_Humanoid and Target_Humanoid.Health > 0 and Target_Head and typeof(Target_Head) == "Instance" and Target_Head:IsA("BasePart") and Target_Ability and tostring(Target_Ability) ~= "" then
                 local Head_Pos = Target_Head.Position
                 local Current_Offset_Vector = Vector3.new(0, Config_State.Esp_Offset_Y, 0)
                 local Target_3D = Head_Pos + Current_Offset_Vector
@@ -640,26 +646,36 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
                         Text_Drawing = Create_Esp_Text()
                         Visuals_Data.Esp_Texts[Player_Name_Str] = Text_Drawing
                     end
-                        if Text_Drawing then
-                            Text_Drawing.Size = Config_State.Esp_Text_Size
-                            local Smoothed_Pos = Screen_Coords
-                            if Esp_Smoothed_Positions[Player_Name_Str] then
-                                local Lerp_Alpha = Fast_Clamp(Delta_Time * 32, 0, 1)
-                                Smoothed_Pos = LerpVector2(Esp_Smoothed_Positions[Player_Name_Str], Screen_Coords, Lerp_Alpha)
-                            end
-                            Esp_Smoothed_Positions[Player_Name_Str] = Smoothed_Pos
-                            Text_Drawing.Position = Smoothed_Pos
-                            Text_Drawing.Text = tostring(Target_Ability)
-                            if Config_State.Rainbow_Mode then
-                                local Color_R = (math.sin(Current_Render_Time * 2.5) * 0.5 + 0.5) * 0.95 + 0.05
-                                local Color_G = (math.sin(Current_Render_Time * 2.5 + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
-                                local Color_B = (math.sin(Current_Render_Time * 2.5 + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
-                                Text_Drawing.Color = Color3.new(Color_R, Color_G, Color_B)
-                            else
-                                Text_Drawing.Color = Config_State.Esp_Color
-                            end
-                            Text_Drawing.Visible = true
+                    if Text_Drawing then
+                        local Draw_Color = Config_State.Esp_Color
+                        if (not Draw_Color) or (typeof(Draw_Color) ~= "Color3") then
+                            Draw_Color = Color3.fromRGB(220, 30, 30)
                         end
+                        Text_Drawing.Color = Draw_Color
+
+                        Text_Drawing.Size = Config_State.Esp_Text_Size
+
+                        local Smoothed_Pos = Screen_Coords
+                        if Esp_Smoothed_Positions[Player_Name_Str] then
+                            local Lerp_Alpha = Fast_Clamp(Delta_Time * 32, 0, 1)
+                            Smoothed_Pos = LerpVector2(Esp_Smoothed_Positions[Player_Name_Str], Screen_Coords, Lerp_Alpha)
+                        end
+                        Esp_Smoothed_Positions[Player_Name_Str] = Smoothed_Pos
+                        Text_Drawing.Position = Smoothed_Pos
+                        Text_Drawing.Text = tostring(Target_Ability)
+
+                        if Config_State.Rainbow_Mode then
+                            local Time_Val = Current_Render_Time * 2.5
+                            local R_Val = (math.sin(Time_Val) * 0.5 + 0.5) * 0.95 + 0.05
+                            local G_Val = (math.sin(Time_Val + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
+                            local B_Val = (math.sin(Time_Val + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
+                            Text_Drawing.Color = Color3.new(R_Val, G_Val, B_Val)
+                        else
+                            Text_Drawing.Color = Draw_Color
+                        end
+
+                        Text_Drawing.Visible = true
+                    end
                 else
                     local Text_Drawing = Visuals_Data.Esp_Texts[Player_Name_Str]
                     if Text_Drawing then Text_Drawing.Visible = false end
@@ -1161,13 +1177,25 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     local Can_Attack = (not Is_Dead) and (not Is_Training_Ball)
 
     if Config_State.Manual_Spam then
-        if Current_Time >= Next_Manual_Click then
-            if Config_State.Parry_Method == "Click" then
+        if Next_Manual_Click == 0 then
+            Next_Manual_Click = Current_Time - Manual_Spam_Interval * 5
+        end
+        local Click_Action
+        if Config_State.Parry_Method == "Click" then
+            Click_Action = function()
                 if typeof(Mouse1Click) == "function" then Mouse1Click() end
-            else
+            end
+        else
+            Click_Action = function()
                 if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then KeyPress(0x46) KeyRelease(0x46) end
             end
-            Next_Manual_Click = Current_Time + Manual_Spam_Interval
+        end
+        local Max_Clicks_Per_Frame = 12
+        local Clicks_Done = 0
+        while Current_Time >= Next_Manual_Click and Clicks_Done < Max_Clicks_Per_Frame do
+            Click_Action()
+            Next_Manual_Click = Next_Manual_Click + Manual_Spam_Interval
+            Clicks_Done = Clicks_Done + 1
         end
     else
         Next_Manual_Click = 0
@@ -1320,32 +1348,31 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         Accuracy_Value = Fast_Clamp(Accuracy_Value, 1, 100)
 
         local Accuracy_Scale = (Accuracy_Value - 1) / 99
-        local Accuracy_Multiplier = 0.7 + (Accuracy_Scale * 0.35)
+        local Accuracy_Multiplier = 0.82 + (Accuracy_Scale * 0.35)
 
         local Dynamic_Scaling = Fast_Max(Effective_Speed - 9.5, 0) * 0.002
-        local Final_Speed_Divisor = (2.4 + Dynamic_Scaling) * Accuracy_Multiplier
+        local Speed_Divisor_Base = 2.4 + Dynamic_Scaling
+        local Final_Speed_Divisor = Speed_Divisor_Base * Accuracy_Multiplier
 
-        local Base_Extrapolation_Factor = 2.4 + Dynamic_Scaling
-        local Final_Extrapolation_Factor = Base_Extrapolation_Factor * Accuracy_Multiplier
-
-        local Extrapolation_Distance = Effective_Speed * Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
+        local Extra_Factor = 2.5 + Dynamic_Scaling * 0.45
+        local Extrapolation_Distance = Effective_Speed * Current_Delta_Time * Extra_Factor * Kps_Mitigation
 
         local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 9.5)
-        local Low_Accuracy_Delay = (1 - Accuracy_Scale) * 1.4
+        local Early_Boost = (1 - Accuracy_Scale) * 3.65
 
         local Parry_Type = Config_State.Auto_Parry_Type or "Default"
         local Unified_Threshold
         if Parry_Type == "Geometric" then
             local Geom_Factor = Fast_Max(Effective_Speed / 38, 0.9) ^ 0.72
-            Unified_Threshold = (Base_Distance * Geom_Factor) + (Extrapolation_Distance * 0.82) + (Kps_Intensity * 1.35) - (Low_Accuracy_Delay * 0.6)
+            Unified_Threshold = (Base_Distance * Geom_Factor) + (Extrapolation_Distance * 0.82) + (Kps_Intensity * 1.35) + (Early_Boost * 0.55)
             Unified_Threshold = Fast_Max(Unified_Threshold, 8.0)
         elseif Parry_Type == "Quadratic" then
             local Quad_Speed_Term = (Effective_Speed * Effective_Speed) / 1350
-            local Quad_Extra = Quad_Speed_Term * Accuracy_Multiplier * 0.9
-            Unified_Threshold = Base_Distance + Extrapolation_Distance + Quad_Extra + (Kps_Intensity * 1.65) - Low_Accuracy_Delay
+            local Quad_Extra = Quad_Speed_Term * 0.85
+            Unified_Threshold = Base_Distance + Extrapolation_Distance + Quad_Extra + (Kps_Intensity * 1.65) + Early_Boost
             Unified_Threshold = Fast_Max(Unified_Threshold, 10.5)
         else
-            Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) - Low_Accuracy_Delay
+            Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) + Early_Boost
             Unified_Threshold = Fast_Max(Unified_Threshold, 9.5)
         end
 
@@ -1364,15 +1391,15 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         if Current_Speed > 15 then
             local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
 
-            local Max_Dot_Threshold = 0.85 - (0.1 * (1 - Accuracy_Scale))
-            local Min_Dot_Threshold = 0.55 - (0.1 * (1 - Accuracy_Scale))
+            local Max_Dot_Threshold = 0.82 - (0.05 * (1 - Accuracy_Scale))
+            local Min_Dot_Threshold = 0.55 - (0.05 * (1 - Accuracy_Scale))
 
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
 
-            local Curve_Compensation = Current_Delta_Time * Final_Extrapolation_Factor * Kps_Mitigation
+            local Curve_Compensation = Current_Delta_Time * Extra_Factor * Kps_Mitigation
             local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
 
-            local Curve_Tolerance = 0.9 - (0.45 * (1 - Accuracy_Scale))
+            local Curve_Tolerance = 1.1 - (0.4 * (1 - Accuracy_Scale))
 
             if Current_Distance > Close_Range_Threshold * Curve_Tolerance and Dot_Product_Parry < Dot_Threshold then
                 Is_Curved = true
@@ -1393,27 +1420,29 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
     Last_Distance = Current_Distance
 end)
 
-Run_Service.RenderStepped:Connect(function(DeltaTime)
-    if not Config_State.Orbit_Ball then return end
-    local RealBall = Get_Real_Ball()
-    if not RealBall or typeof(RealBall) ~= "Instance" or not RealBall:IsA("BasePart") or not RealBall.Parent then return end
-    local Character = Local_Player.Character
-    if not Character or typeof(Character) ~= "Instance" then return end
-    local RootPart = Character.PrimaryPart
-    if not RootPart or typeof(RootPart) ~= "Instance" or not RootPart:IsA("BasePart") or not RootPart.Parent then
-        RootPart = Character:FindFirstChild("HumanoidRootPart")
-        if not RootPart or typeof(RootPart) ~= "Instance" or not RootPart:IsA("BasePart") or not RootPart.Parent then return end
-    end
-    local BallPosition = RealBall.Position
-    local TimeValue = os.clock() * (Config_State.Orbit_Speed / 10)
-    local OrbitPosition = Vector3.new(
-        BallPosition.X + math.cos(TimeValue) * Config_State.Orbit_Radius,
-        BallPosition.Y + Config_State.Orbit_Height,
-        BallPosition.Z + math.sin(TimeValue) * Config_State.Orbit_Radius
-    )
-    local TargetCFrame = CFrame.lookAt(OrbitPosition, BallPosition)
-    local LerpAlpha = math.clamp(DeltaTime * 22, 0, 0.35)
+Run_Service.RenderStepped:Connect(function(Delta_Time)
     pcall(function()
-        RootPart.CFrame = RootPart.CFrame:Lerp(TargetCFrame, LerpAlpha)
+        if not Config_State.Orbit_Ball then return end
+        local Real_Ball = Get_Real_Ball()
+        if not Real_Ball or typeof(Real_Ball) ~= "Instance" or not Real_Ball:IsA("BasePart") or not Real_Ball.Parent then return end
+        local Character_Obj = Local_Player.Character
+        if not Character_Obj or typeof(Character_Obj) ~= "Instance" then return end
+        local Root_Part = Character_Obj.PrimaryPart
+        if not Root_Part or typeof(Root_Part) ~= "Instance" or not Root_Part:IsA("BasePart") or not Root_Part.Parent then
+            Root_Part = Character_Obj:FindFirstChild("HumanoidRootPart")
+            if not Root_Part or typeof(Root_Part) ~= "Instance" or not Root_Part:IsA("BasePart") or not Root_Part.Parent then return end
+        end
+        local Ball_Position = Real_Ball.Position
+        local Time_Value = os.clock() * (Config_State.Orbit_Speed / 10)
+        local Orbit_Position = Vector3.new(
+            Ball_Position.X + math.cos(Time_Value) * Config_State.Orbit_Radius,
+            Ball_Position.Y + Config_State.Orbit_Height,
+            Ball_Position.Z + math.sin(Time_Value) * Config_State.Orbit_Radius
+        )
+        local Target_Cframe = CFrame.lookAt(Orbit_Position, Ball_Position)
+        local Lerp_Alpha = math.clamp(Delta_Time * 22, 0, 0.35)
+        pcall(function()
+            Root_Part.CFrame = Root_Part.CFrame:Lerp(Target_Cframe, Lerp_Alpha)
+        end)
     end)
 end)
