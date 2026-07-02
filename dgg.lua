@@ -232,10 +232,13 @@ local function SaveConfiguration(FileName)
         for Key, Val in pairs(LibraryApi.Flags) do
             if typeof(Val) == "Color3" then
                 SerializedData[Key] = {Type = "Color3", R = Val.R, G = Val.G, B = Val.B}
-            elseif typeof(Val) == "EnumItem" then
-                SerializedData[Key] = {Type = "KeyCode", Name = Val.Name}
-            elseif type(Val) == "table" and Val.Key and Val.Mode then
-                SerializedData[Key] = {Type = "Keybind", Key = Val.Key.Name, Mode = Val.Mode}
+            elseif type(Val) == "table" and Val.Type == "Keybind" and Val.Value then
+                SerializedData[Key] = {
+                    Type = "Keybind",
+                    InputType = Val.Type,
+                    Name = Val.Value.Name,
+                    Mode = Val.Mode
+                }
             elseif type(Val) == "table" and Val.Min and Val.Max then
                 SerializedData[Key] = {Type = "Range", Min = Val.Min, Max = Val.Max}
             elseif type(Val) == "table" then
@@ -259,10 +262,15 @@ local function LoadConfiguration(FileName)
                     if type(Val) == "table" then
                         if Val.Type == "Color3" then
                             LibraryApi.Flags[Key] = Color3.new(Val.R, Val.G, Val.B)
-                        elseif Val.Type == "KeyCode" then
-                            LibraryApi.Flags[Key] = Enum.KeyCode[Val.Name] or Enum.KeyCode.Unknown
                         elseif Val.Type == "Keybind" then
-                            LibraryApi.Flags[Key] = {Key = Enum.KeyCode[Val.Key] or Enum.KeyCode.Unknown, Mode = Val.Mode or "Toggle"}
+                            local InputValue
+                            if Val.InputType == "KeyCode" then
+                                InputValue = Enum.KeyCode[Val.Name] or Enum.KeyCode.Unknown
+                                LibraryApi.Flags[Key] = {Type = "KeyCode", Value = InputValue, Mode = Val.Mode or "Toggle"}
+                            elseif Val.InputType == "UserInputType" then
+                                InputValue = Enum.UserInputType[Val.Name] or Enum.UserInputType.None
+                                LibraryApi.Flags[Key] = {Type = "UserInputType", Value = InputValue, Mode = Val.Mode or "Toggle"}
+                            end
                         elseif Val.Type == "Range" then
                             LibraryApi.Flags[Key] = {Min = Val.Min, Max = Val.Max}
                         elseif Val.Type == "Multi" then
@@ -1159,14 +1167,34 @@ function LibraryApi:CreateWindow(WindowName)
             end
 
             function Elements:KeybindCreate(Name, Flag, Default, Tooltip, Callback)
-                if type(LibraryApi.Flags[Flag]) ~= "table" or not LibraryApi.Flags[Flag].Key then
-                    local OldKey = LibraryApi.Flags[Flag] or Default or Enum.KeyCode.Unknown
-                    LibraryApi.Flags[Flag] = {Key = OldKey, Mode = "Toggle"}
+                if type(LibraryApi.Flags[Flag]) ~= "table" or not LibraryApi.Flags[Flag].Value then
+                    local Old = LibraryApi.Flags[Flag]
+                    if typeof(Old) == "EnumItem" then
+                        if Old.EnumType == Enum.KeyCode then
+                            LibraryApi.Flags[Flag] = {Type = "KeyCode", Value = Old, Mode = "Toggle"}
+                        else
+                            LibraryApi.Flags[Flag] = {Type = "UserInputType", Value = Old, Mode = "Toggle"}
+                        end
+                    else
+                        LibraryApi.Flags[Flag] = {Type = "KeyCode", Value = Default or Enum.KeyCode.Unknown, Mode = "Toggle"}
+                    end
                 end
-                
+
                 local KeybindData = LibraryApi.Flags[Flag]
                 local IsListening = false
                 local Modes = {"Hold", "Toggle", "Always"}
+
+                local function GetInputDisplay()
+                    if KeybindData.Type == "KeyCode" then
+                        return KeybindData.Value.Name or "None"
+                    elseif KeybindData.Type == "UserInputType" then
+                        if KeybindData.Value == Enum.UserInputType.MouseButton1 then return "Mouse1"
+                        elseif KeybindData.Value == Enum.UserInputType.MouseButton2 then return "Mouse2"
+                        elseif KeybindData.Value == Enum.UserInputType.MouseButton3 then return "Mouse3"
+                        else return KeybindData.Value.Name end
+                    end
+                    return "None"
+                end
 
                 local KeybindFrame = Instance.new("Frame")
                 KeybindFrame.Size = UDim2.new(1, 0, 0, 30)
@@ -1185,11 +1213,11 @@ function LibraryApi:CreateWindow(WindowName)
                 KeybindLabel.Parent = KeybindFrame
 
                 local KeybindButton = Instance.new("TextButton")
-                KeybindButton.Size = UDim2.new(0, 90, 0, 22)
-                KeybindButton.Position = UDim2.new(1, -94, 0.5, -11)
+                KeybindButton.Size = UDim2.new(0, 95, 0, 22)
+                KeybindButton.Position = UDim2.new(1, -99, 0.5, -11)
                 SetColor(KeybindButton, "BackgroundColor3", "elementBackground")
                 KeybindButton.BackgroundTransparency = 0.21847
-                KeybindButton.Text = "[ " .. (KeybindData.Key.Name or "None") .. " ] " .. KeybindData.Mode
+                KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
                 SetColor(KeybindButton, "TextColor3", "textDarkColor")
                 KeybindButton.TextSize = 10
                 KeybindButton.Font = BoldFont
@@ -1227,7 +1255,7 @@ function LibraryApi:CreateWindow(WindowName)
                     end
                     local NextIndex = (CurrentIndex % #Modes) + 1
                     KeybindData.Mode = Modes[NextIndex]
-                    KeybindButton.Text = "[ " .. (KeybindData.Key.Name or "None") .. " ] " .. KeybindData.Mode
+                    KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
                     AnimateElement(KeybindButtonStroke, {Color = ColorsTable.accentColor}, 0.15)
                     task.delay(0.15, function()
                         if KeybindButton and KeybindButton.Parent then
@@ -1238,19 +1266,33 @@ function LibraryApi:CreateWindow(WindowName)
 
                 UserInputService.InputBegan:Connect(function(Input)
                     if IsListening then
+                        local NewBind = nil
                         if Input.KeyCode ~= Enum.KeyCode.Unknown and Input.KeyCode ~= Enum.KeyCode.Escape then
-                            KeybindData.Key = Input.KeyCode
-                            KeybindButton.Text = "[ " .. Input.KeyCode.Name .. " ] " .. KeybindData.Mode
+                            NewBind = {Type = "KeyCode", Value = Input.KeyCode}
+                        elseif Input.UserInputType == Enum.UserInputType.MouseButton1 or
+                               Input.UserInputType == Enum.UserInputType.MouseButton2 or
+                               Input.UserInputType == Enum.UserInputType.MouseButton3 then
+                            NewBind = {Type = "UserInputType", Value = Input.UserInputType}
                         elseif Input.KeyCode == Enum.KeyCode.Escape then
-                            KeybindData.Key = Enum.KeyCode.Unknown
-                            KeybindButton.Text = "[ None ] " .. KeybindData.Mode
+                            NewBind = {Type = "KeyCode", Value = Enum.KeyCode.Unknown}
                         end
-                        IsListening = false
-                        AnimateElement(KeybindButtonStroke, {Color = ColorsTable.borderColor}, 0.3)
-                        AnimateElement(KeybindButton, {TextColor3 = ColorsTable.textDarkColor}, 0.3)
-                        if Callback then task.spawn(Callback, KeybindData) end
+                        if NewBind then
+                            KeybindData.Type = NewBind.Type
+                            KeybindData.Value = NewBind.Value
+                            KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
+                            IsListening = false
+                            AnimateElement(KeybindButtonStroke, {Color = ColorsTable.borderColor}, 0.3)
+                            AnimateElement(KeybindButton, {TextColor3 = ColorsTable.textDarkColor}, 0.3)
+                            if Callback then task.spawn(Callback, KeybindData) end
+                        end
                     else
-                        if Input.KeyCode == KeybindData.Key and Input.KeyCode ~= Enum.KeyCode.Unknown then
+                        local Matches = false
+                        if KeybindData.Type == "KeyCode" and Input.KeyCode == KeybindData.Value then
+                            Matches = true
+                        elseif KeybindData.Type == "UserInputType" and Input.UserInputType == KeybindData.Value then
+                            Matches = true
+                        end
+                        if Matches and KeybindData.Value ~= Enum.KeyCode.Unknown then
                             if Callback then task.spawn(Callback, KeybindData) end
                         end
                     end
@@ -2149,8 +2191,17 @@ function LibraryApi:CreateWindow(WindowName)
     MenuSection:ButtonCreate("Unload Script", "Removes the UI completely", function() ScreenGui:Destroy() end)
 
     UserInputService.InputBegan:Connect(function(Input, GameProcessedEvent)
-        if not GameProcessedEvent and Input.KeyCode == (LibraryApi.Flags["MenuToggleKey"] and LibraryApi.Flags["MenuToggleKey"].Key or Enum.KeyCode.Delete) then
-            MainBackground.Visible = not MainBackground.Visible
+        if not GameProcessedEvent then
+            local MenuBind = LibraryApi.Flags["MenuToggleKey"]
+            local Matches = false
+            if MenuBind and MenuBind.Type == "KeyCode" and Input.KeyCode == MenuBind.Value then
+                Matches = true
+            elseif MenuBind and MenuBind.Type == "UserInputType" and Input.UserInputType == MenuBind.Value then
+                Matches = true
+            end
+            if Matches then
+                MainBackground.Visible = not MainBackground.Visible
+            end
         end
     end)
 
