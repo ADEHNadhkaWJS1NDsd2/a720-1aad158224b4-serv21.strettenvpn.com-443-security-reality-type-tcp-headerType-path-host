@@ -204,7 +204,7 @@ runService.RenderStepped:Connect(function()
                 tooltipFrame.Visible = false
             end
         end)
-    end
+    end)
 end)
 
 function LibraryApi:Notify(config)
@@ -277,7 +277,7 @@ function LibraryApi:Notify(config)
             notificationFrame:Destroy()
         end)
     end)
-end
+end)
 
 function LibraryApi:CreateWindow(windowName)
     local mainBackground = Instance.new("Frame")
@@ -291,6 +291,8 @@ function LibraryApi:CreateWindow(windowName)
 
     local uiScaleModifier = Instance.new("UIScale")
     uiScaleModifier.Parent = mainBackground
+
+    local Settings_Panel = nil
     
     local mainCorner = Instance.new("UICorner")
     mainCorner.CornerRadius = UDim.new(0, 6)
@@ -495,7 +497,7 @@ function LibraryApi:CreateWindow(windowName)
     contentAreaFrame.BackgroundTransparency = 1
     contentAreaFrame.Parent = mainBackground
 
-    local Settings_Panel = Instance.new("Frame")
+    Settings_Panel = Instance.new("Frame")
     Settings_Panel.Size = UDim2.new(0, 350, 1, -37)
     Settings_Panel.Position = UDim2.new(1, 0, 0, 37)
     Settings_Panel.BackgroundColor3 = colors.mainBackground
@@ -908,7 +910,7 @@ function LibraryApi:CreateWindow(windowName)
 
     userInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-            isDragging = false 
+            isDragging = false
         end
     end)
 
@@ -1208,7 +1210,7 @@ function LibraryApi:CreateWindow(windowName)
 
                 userInputService.InputEnded:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-                        isSliding = false 
+                        isSliding = false
                     end
                 end)
 
@@ -1657,7 +1659,7 @@ function LibraryApi:CreateWindow(windowName)
                             animateElement(optionLabel, {TextColor3 = colors.textWhiteColor}, 0.25) 
                         end
                     end)
-                    optionButton.MouseLeave:Connect(function()
+                    optionButton.MouseLeave:Connect(function())
                         animateElement(optionButton, {BackgroundTransparency = 1}, 0.25)
                         if LibraryApi.Flags[flag] ~= option then
                             animateElement(optionLabel, {TextColor3 = colors.textDarkColor}, 0.25)
@@ -1930,9 +1932,9 @@ function LibraryApi:CreateWindow(windowName)
                     animateElement(subButtonStroke, {Color = colors.borderLightColor}, 0.25)
                     animateElement(subButtonAction, {TextColor3 = colors.textWhiteColor}, 0.25)
                 end)
-                subButtonAction.MouseLeave:Connect(function()
+                subButtonAction.MouseLeave:Connect(function())
                     showTooltip("")
-                    animateElement(subButtonAction, {BackgroundColor3 = colors.sectionBackground}, 0.25)
+                    animateElement(subButtonAction, {BackgroundColor3 = colors.elementBackground}, 0.25)
                     animateElement(subButtonStroke, {Color = colors.borderColor}, 0.25)
                     animateElement(subButtonAction, {TextColor3 = colors.textDarkColor}, 0.25)
                 end)
