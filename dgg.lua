@@ -1259,40 +1259,63 @@ function LibraryApi:CreateWindow(WindowName)
                 end)
 
                 KeybindButton.MouseButton2Click:Connect(function()
+                    for _, Child in ipairs(ScreenGui:GetChildren()) do
+                        if Child.Name == "KeybindModeMenu" then Child:Destroy() end
+                    end
+
                     local ContextMenu = Instance.new("Frame")
-                    ContextMenu.Size = UDim2.new(0, 110, 0, 0)
-                    ContextMenu.Position = UDim2.new(0, KeybindButton.AbsolutePosition.X, 0, KeybindButton.AbsolutePosition.Y + KeybindButton.AbsoluteSize.Y + 4)
-                    ContextMenu.BackgroundTransparency = 0.1
+                    ContextMenu.Name = "KeybindModeMenu"
+                    ContextMenu.Size = UDim2.new(0, 118, 0, 92)
+                    ContextMenu.Position = UDim2.new(0, KeybindButton.AbsolutePosition.X - 10, 0, KeybindButton.AbsolutePosition.Y + KeybindButton.AbsoluteSize.Y + 6)
                     SetColor(ContextMenu, "BackgroundColor3", "elementBackground")
+                    ContextMenu.BackgroundTransparency = 0.08
                     ContextMenu.BorderSizePixel = 0
-                    ContextMenu.ZIndex = 3000
+                    ContextMenu.ZIndex = 3500
                     ContextMenu.Parent = ScreenGui
                     
                     local MenuCorner = Instance.new("UICorner")
-                    MenuCorner.CornerRadius = UDim.new(0, 6)
+                    MenuCorner.CornerRadius = UDim.new(0, 8)
                     MenuCorner.Parent = ContextMenu
                     
                     local MenuStroke = Instance.new("UIStroke")
                     SetColor(MenuStroke, "Color", "accentColor")
-                    MenuStroke.Thickness = 1
+                    MenuStroke.Thickness = 1.5
+                    MenuStroke.Transparency = 0.3
                     MenuStroke.Parent = ContextMenu
+
+                    ApplyAcrylicEffect(ContextMenu, 0.92, UDim.new(0, 8))
 
                     local MenuLayout = Instance.new("UIListLayout")
                     MenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
-                    MenuLayout.Padding = UDim.new(0, 2)
+                    MenuLayout.Padding = UDim.new(0, 3)
                     MenuLayout.Parent = ContextMenu
+
+                    local TitleLabel = Instance.new("TextLabel")
+                    TitleLabel.Size = UDim2.new(1, 0, 0, 22)
+                    TitleLabel.BackgroundTransparency = 1
+                    TitleLabel.Text = "Select Mode"
+                    SetColor(TitleLabel, "TextColor3", "textWhiteColor")
+                    TitleLabel.TextSize = 11
+                    TitleLabel.Font = BoldFont
+                    TitleLabel.ZIndex = 3501
+                    TitleLabel.Parent = ContextMenu
 
                     for _, ModeName in ipairs(Modes) do
                         local ModeBtn = Instance.new("TextButton")
-                        ModeBtn.Size = UDim2.new(1, 0, 0, 26)
+                        ModeBtn.Size = UDim2.new(1, -8, 0, 24)
+                        ModeBtn.Position = UDim2.new(0, 4, 0, 0)
                         ModeBtn.BackgroundTransparency = 1
                         ModeBtn.Text = ModeName
                         SetColor(ModeBtn, "TextColor3", KeybindData.Mode == ModeName and "accentColor" or "textWhiteColor")
                         ModeBtn.TextSize = 12
                         ModeBtn.Font = MainFont
-                        ModeBtn.ZIndex = 3001
+                        ModeBtn.ZIndex = 3501
                         ModeBtn.Parent = ContextMenu
                         
+                        local BtnCorner = Instance.new("UICorner")
+                        BtnCorner.CornerRadius = UDim.new(0, 5)
+                        BtnCorner.Parent = ModeBtn
+
                         ModeBtn.MouseButton1Click:Connect(function()
                             KeybindData.Mode = ModeName
                             KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
@@ -1301,34 +1324,12 @@ function LibraryApi:CreateWindow(WindowName)
                         end)
                         
                         ModeBtn.MouseEnter:Connect(function()
-                            AnimateElement(ModeBtn, {BackgroundTransparency = 0.3}, 0.15)
+                            AnimateElement(ModeBtn, {BackgroundTransparency = 0.25, BackgroundColor3 = ColorsTable.elementHoverBackground}, 0.12)
                         end)
                         ModeBtn.MouseLeave:Connect(function()
-                            AnimateElement(ModeBtn, {BackgroundTransparency = 1}, 0.15)
+                            AnimateElement(ModeBtn, {BackgroundTransparency = 1, BackgroundColor3 = ColorsTable.elementBackground}, 0.12)
                         end)
                     end
-                    
-                    ContextMenu.Size = UDim2.new(0, 110, 0, #Modes * 28 + 8)
-                    
-                    task.delay(0.1, function()
-                        local Connection
-                        Connection = UserInputService.InputBegan:Connect(function(Input)
-                            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                                if not ContextMenu or not ContextMenu.Parent then
-                                    Connection:Disconnect()
-                                    return
-                                end
-                                local MousePos = UserInputService:GetMouseLocation()
-                                local AbsPos = ContextMenu.AbsolutePosition
-                                local AbsSize = ContextMenu.AbsoluteSize
-                                if not (MousePos.X >= AbsPos.X and MousePos.X <= AbsPos.X + AbsSize.X and
-                                        MousePos.Y >= AbsPos.Y and MousePos.Y <= AbsPos.Y + AbsSize.Y) then
-                                    if ContextMenu and ContextMenu.Parent then ContextMenu:Destroy() end
-                                    Connection:Disconnect()
-                                end
-                            end
-                        end)
-                    end)
                 end)
 
                 UserInputService.InputBegan:Connect(function(Input)
