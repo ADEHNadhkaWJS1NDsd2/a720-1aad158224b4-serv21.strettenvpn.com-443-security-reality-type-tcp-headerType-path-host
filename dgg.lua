@@ -391,7 +391,7 @@ function LibraryApi:CreateWindow(windowName)
     sidebarBorder.Parent = sidebarFrame
 
     local tabScrollingFrame = Instance.new("ScrollingFrame")
-    tabScrollingFrame.Size = UDim2.new(1, -10, 1, -10)
+    tabScrollingFrame.Size = UDim2.new(1, -10, 1, -65)
     tabScrollingFrame.Position = UDim2.new(0, 5, 0, 5)
     tabScrollingFrame.BackgroundTransparency = 1
     tabScrollingFrame.BorderSizePixel = 0
@@ -403,11 +403,401 @@ function LibraryApi:CreateWindow(windowName)
     tabLayout.Padding = UDim.new(0, 4)
     tabLayout.Parent = tabScrollingFrame
 
+    local Profile_Container = Instance.new("Frame")
+    Profile_Container.Size = UDim2.new(1, -10, 0, 55)
+    Profile_Container.Position = UDim2.new(0, 5, 1, -60)
+    Profile_Container.BackgroundTransparency = 1
+    Profile_Container.Parent = sidebarFrame
+
+    local Profile_Button = Instance.new("TextButton")
+    Profile_Button.Size = UDim2.new(1, 0, 1, 0)
+    Profile_Button.BackgroundColor3 = colors.elementHoverBackground
+    Profile_Button.BackgroundTransparency = 1
+    Profile_Button.Text = ""
+    Profile_Button.AutoButtonColor = false
+    Profile_Button.Parent = Profile_Container
+
+    local Profile_Corner = Instance.new("UICorner")
+    Profile_Corner.CornerRadius = UDim.new(0, 6)
+    Profile_Corner.Parent = Profile_Button
+
+    local Avatar_Frame = Instance.new("Frame")
+    Avatar_Frame.Size = UDim2.new(0, 40, 0, 40)
+    Avatar_Frame.Position = UDim2.new(0, 8, 0.5, -20)
+    Avatar_Frame.BackgroundColor3 = colors.elementBackground
+    Avatar_Frame.Parent = Profile_Button
+
+    local Avatar_Corner = Instance.new("UICorner")
+    Avatar_Corner.CornerRadius = UDim.new(1, 0)
+    Avatar_Corner.Parent = Avatar_Frame
+
+    local Avatar_Image = Instance.new("ImageLabel")
+    Avatar_Image.Size = UDim2.new(1, 0, 1, 0)
+    Avatar_Image.BackgroundTransparency = 1
+    Avatar_Image.Image = ""
+    Avatar_Image.Parent = Avatar_Frame
+
+    local successAvatar, avatarUrl = pcall(function()
+        return playersService:GetUserThumbnailAsync(playersService.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+    end)
+    if successAvatar then
+        Avatar_Image.Image = avatarUrl
+    end
+
+    local Username_Label = Instance.new("TextLabel")
+    Username_Label.Size = UDim2.new(1, -60, 0, 20)
+    Username_Label.Position = UDim2.new(0, 55, 0.5, -15)
+    Username_Label.BackgroundTransparency = 1
+    Username_Label.Text = playersService.LocalPlayer.Name
+    Username_Label.TextColor3 = colors.textWhiteColor
+    Username_Label.TextSize = 13
+    Username_Label.Font = boldFont
+    Username_Label.TextXAlignment = Enum.TextXAlignment.Left
+    Username_Label.Parent = Profile_Button
+
+    local UserId_Label = Instance.new("TextLabel")
+    UserId_Label.Size = UDim2.new(1, -60, 0, 16)
+    UserId_Label.Position = UDim2.new(0, 55, 0.5, 5)
+    UserId_Label.BackgroundTransparency = 1
+    UserId_Label.Text = "@" .. tostring(playersService.LocalPlayer.UserId)
+    UserId_Label.TextColor3 = colors.textDarkColor
+    UserId_Label.TextSize = 11
+    UserId_Label.Font = mainFont
+    UserId_Label.TextXAlignment = Enum.TextXAlignment.Left
+    UserId_Label.Parent = Profile_Button
+
+    Profile_Button.MouseEnter:Connect(function()
+        animateElement(Profile_Button, {BackgroundTransparency = 0.11847}, 0.25)
+    end)
+    Profile_Button.MouseLeave:Connect(function()
+        animateElement(Profile_Button, {BackgroundTransparency = 1}, 0.25)
+    end)
+
+    Profile_Button.MouseButton1Click:Connect(function()
+        if Settings_Panel then
+            local isOpen = Settings_Panel.Visible
+            if isOpen then
+                animateElement(Settings_Panel, {Position = UDim2.new(1, 0, 0, 37)}, 0.35)
+                task.delay(0.35, function()
+                    if Settings_Panel then Settings_Panel.Visible = false end
+                end)
+            else
+                Settings_Panel.Visible = true
+                Settings_Panel.Position = UDim2.new(1, 0, 0, 37)
+                animateElement(Settings_Panel, {Position = UDim2.new(1, -350, 0, 37)}, 0.35)
+            end
+        end
+    end)
+
     local contentAreaFrame = Instance.new("Frame")
     contentAreaFrame.Size = UDim2.new(1, -151, 1, -37)
     contentAreaFrame.Position = UDim2.new(0, 151, 0, 37)
     contentAreaFrame.BackgroundTransparency = 1
     contentAreaFrame.Parent = mainBackground
+
+    local Settings_Panel = Instance.new("Frame")
+    Settings_Panel.Size = UDim2.new(0, 350, 1, -37)
+    Settings_Panel.Position = UDim2.new(1, 0, 0, 37)
+    Settings_Panel.BackgroundColor3 = colors.mainBackground
+    Settings_Panel.BackgroundTransparency = 0.18374
+    Settings_Panel.BorderSizePixel = 0
+    Settings_Panel.Visible = false
+    Settings_Panel.Parent = mainBackground
+
+    local Settings_Corner = Instance.new("UICorner")
+    Settings_Corner.CornerRadius = UDim.new(0, 6)
+    Settings_Corner.Parent = Settings_Panel
+
+    local Settings_Stroke = Instance.new("UIStroke")
+    Settings_Stroke.Color = colors.borderColor
+    Settings_Stroke.Parent = Settings_Panel
+
+    applyAcrylicEffect(Settings_Panel, 0.88741, UDim.new(0, 6))
+
+    local Settings_Header = Instance.new("Frame")
+    Settings_Header.Size = UDim2.new(1, 0, 0, 36)
+    Settings_Header.BackgroundColor3 = colors.sidebarBackground
+    Settings_Header.BackgroundTransparency = 0.21847
+    Settings_Header.Parent = Settings_Panel
+
+    local Settings_Header_Corner = Instance.new("UICorner")
+    Settings_Header_Corner.CornerRadius = UDim.new(0, 6)
+    Settings_Header_Corner.Parent = Settings_Header
+
+    local Settings_Header_Hider = Instance.new("Frame")
+    Settings_Header_Hider.Size = UDim2.new(1, 0, 0, 6)
+    Settings_Header_Hider.Position = UDim2.new(0, 0, 1, -6)
+    Settings_Header_Hider.BackgroundColor3 = colors.sidebarBackground
+    Settings_Header_Hider.BackgroundTransparency = 0.21847
+    Settings_Header_Hider.Parent = Settings_Header
+
+    local Settings_Title = Instance.new("TextLabel")
+    Settings_Title.Size = UDim2.new(1, -50, 1, 0)
+    Settings_Title.Position = UDim2.new(0, 15, 0, 0)
+    Settings_Title.BackgroundTransparency = 1
+    Settings_Title.Text = "Profile & Settings"
+    Settings_Title.TextColor3 = colors.textWhiteColor
+    Settings_Title.TextSize = 14
+    Settings_Title.Font = boldFont
+    Settings_Title.TextXAlignment = Enum.TextXAlignment.Left
+    Settings_Title.Parent = Settings_Header
+
+    local Close_Button = Instance.new("TextButton")
+    Close_Button.Size = UDim2.new(0, 30, 0, 30)
+    Close_Button.Position = UDim2.new(1, -35, 0.5, -15)
+    Close_Button.BackgroundTransparency = 1
+    Close_Button.Text = "X"
+    Close_Button.TextColor3 = colors.textDarkColor
+    Close_Button.TextSize = 16
+    Close_Button.Font = boldFont
+    Close_Button.Parent = Settings_Header
+
+    Close_Button.MouseButton1Click:Connect(function()
+        animateElement(Settings_Panel, {Position = UDim2.new(1, 0, 0, 37)}, 0.35)
+        task.delay(0.35, function()
+            Settings_Panel.Visible = false
+        end)
+    end)
+
+    local Panel_Avatar_Frame = Instance.new("Frame")
+    Panel_Avatar_Frame.Size = UDim2.new(0, 80, 0, 80)
+    Panel_Avatar_Frame.Position = UDim2.new(0, 20, 0, 50)
+    Panel_Avatar_Frame.BackgroundColor3 = colors.elementBackground
+    Panel_Avatar_Frame.Parent = Settings_Panel
+
+    local Panel_Avatar_Corner = Instance.new("UICorner")
+    Panel_Avatar_Corner.CornerRadius = UDim.new(1, 0)
+    Panel_Avatar_Corner.Parent = Panel_Avatar_Frame
+
+    local Panel_Avatar_Image = Instance.new("ImageLabel")
+    Panel_Avatar_Image.Size = UDim2.new(1, 0, 1, 0)
+    Panel_Avatar_Image.BackgroundTransparency = 1
+    Panel_Avatar_Image.Image = Avatar_Image.Image
+    Panel_Avatar_Image.Parent = Panel_Avatar_Frame
+
+    local Panel_Username = Instance.new("TextLabel")
+    Panel_Username.Size = UDim2.new(1, -120, 0, 24)
+    Panel_Username.Position = UDim2.new(0, 115, 0, 55)
+    Panel_Username.BackgroundTransparency = 1
+    Panel_Username.Text = playersService.LocalPlayer.Name
+    Panel_Username.TextColor3 = colors.textWhiteColor
+    Panel_Username.TextSize = 16
+    Panel_Username.Font = boldFont
+    Panel_Username.TextXAlignment = Enum.TextXAlignment.Left
+    Panel_Username.Parent = Settings_Panel
+
+    local Panel_UserId = Instance.new("TextLabel")
+    Panel_UserId.Size = UDim2.new(1, -120, 0, 18)
+    Panel_UserId.Position = UDim2.new(0, 115, 0, 82)
+    Panel_UserId.BackgroundTransparency = 1
+    Panel_UserId.Text = "User ID: " .. tostring(playersService.LocalPlayer.UserId)
+    Panel_UserId.TextColor3 = colors.textDarkColor
+    Panel_UserId.TextSize = 12
+    Panel_UserId.Font = mainFont
+    Panel_UserId.TextXAlignment = Enum.TextXAlignment.Left
+    Panel_UserId.Parent = Settings_Panel
+
+    local Separator = Instance.new("Frame")
+    Separator.Size = UDim2.new(1, -40, 0, 1)
+    Separator.Position = UDim2.new(0, 20, 0, 145)
+    Separator.BackgroundColor3 = colors.borderColor
+    Separator.BorderSizePixel = 0
+    Separator.Parent = Settings_Panel
+
+    local Config_Title = Instance.new("TextLabel")
+    Config_Title.Size = UDim2.new(1, -40, 0, 20)
+    Config_Title.Position = UDim2.new(0, 20, 0, 155)
+    Config_Title.BackgroundTransparency = 1
+    Config_Title.Text = "Config System"
+    Config_Title.TextColor3 = colors.textWhiteColor
+    Config_Title.TextSize = 13
+    Config_Title.Font = boldFont
+    Config_Title.TextXAlignment = Enum.TextXAlignment.Left
+    Config_Title.Parent = Settings_Panel
+
+    local Save_Config_Button = Instance.new("TextButton")
+    Save_Config_Button.Size = UDim2.new(1, -40, 0, 28)
+    Save_Config_Button.Position = UDim2.new(0, 20, 0, 180)
+    Save_Config_Button.BackgroundColor3 = colors.elementBackground
+    Save_Config_Button.BackgroundTransparency = 0.21847
+    Save_Config_Button.Text = "Save Current Config"
+    Save_Config_Button.TextColor3 = colors.textWhiteColor
+    Save_Config_Button.TextSize = 12
+    Save_Config_Button.Font = mainFont
+    Save_Config_Button.AutoButtonColor = false
+    Save_Config_Button.Parent = Settings_Panel
+
+    local Save_Corner = Instance.new("UICorner")
+    Save_Corner.CornerRadius = UDim.new(0, 4)
+    Save_Corner.Parent = Save_Config_Button
+
+    Save_Config_Button.MouseButton1Click:Connect(function()
+        saveConfiguration()
+        Library:Notify({Title = "Moonshade", Text = "Config saved successfully", Type = "Success"})
+    end)
+
+    local Reload_Config_Button = Instance.new("TextButton")
+    Reload_Config_Button.Size = UDim2.new(1, -40, 0, 28)
+    Reload_Config_Button.Position = UDim2.new(0, 20, 0, 215)
+    Reload_Config_Button.BackgroundColor3 = colors.elementBackground
+    Reload_Config_Button.BackgroundTransparency = 0.21847
+    Reload_Config_Button.Text = "Reload Config from File"
+    Reload_Config_Button.TextColor3 = colors.textWhiteColor
+    Reload_Config_Button.TextSize = 12
+    Reload_Config_Button.Font = mainFont
+    Reload_Config_Button.AutoButtonColor = false
+    Reload_Config_Button.Parent = Settings_Panel
+
+    local Reload_Corner = Instance.new("UICorner")
+    Reload_Corner.CornerRadius = UDim.new(0, 4)
+    Reload_Corner.Parent = Reload_Config_Button
+
+    Reload_Config_Button.MouseButton1Click:Connect(function()
+        loadConfiguration()
+        Library:Notify({Title = "Moonshade", Text = "Config reloaded", Type = "Info"})
+    end)
+
+    local Clear_Config_Button = Instance.new("TextButton")
+    Clear_Config_Button.Size = UDim2.new(1, -40, 0, 28)
+    Clear_Config_Button.Position = UDim2.new(0, 20, 0, 250)
+    Clear_Config_Button.BackgroundColor3 = colors.elementBackground
+    Clear_Config_Button.BackgroundTransparency = 0.21847
+    Clear_Config_Button.Text = "Clear Saved Config"
+    Clear_Config_Button.TextColor3 = colors.textWhiteColor
+    Clear_Config_Button.TextSize = 12
+    Clear_Config_Button.Font = mainFont
+    Clear_Config_Button.AutoButtonColor = false
+    Clear_Config_Button.Parent = Settings_Panel
+
+    local Clear_Corner = Instance.new("UICorner")
+    Clear_Corner.CornerRadius = UDim.new(0, 4)
+    Clear_Corner.Parent = Clear_Config_Button
+
+    Clear_Config_Button.MouseButton1Click:Connect(function()
+        pcall(function()
+            local fullPath = LibraryApi.FolderName .. "/" .. LibraryApi.ConfigName
+            if isfile(fullPath) then
+                delfile(fullPath)
+            end
+        end)
+        Library:Notify({Title = "Moonshade", Text = "Config cleared. Rejoin to reset", Type = "Warning"})
+    end)
+
+    local Theme_Title = Instance.new("TextLabel")
+    Theme_Title.Size = UDim2.new(1, -40, 0, 20)
+    Theme_Title.Position = UDim2.new(0, 20, 0, 290)
+    Theme_Title.BackgroundTransparency = 1
+    Theme_Title.Text = "Theme Menu"
+    Theme_Title.TextColor3 = colors.textWhiteColor
+    Theme_Title.TextSize = 13
+    Theme_Title.Font = boldFont
+    Theme_Title.TextXAlignment = Enum.TextXAlignment.Left
+    Theme_Title.Parent = Settings_Panel
+
+    local function Update_Accent_Theme()
+        for _, child in ipairs(topBar:GetChildren()) do
+            if child:IsA("UIGradient") then
+                child.Color = ColorSequence.new{
+                    ColorSequenceKeypoint.new(0, colors.accentGradientColor1),
+                    ColorSequenceKeypoint.new(1, colors.accentGradientColor2)
+                }
+                break
+            end
+        end
+        Library:Notify({Title = "Moonshade", Text = "Theme preset applied", Type = "Success"})
+    end
+
+    local Preset_Default = Instance.new("TextButton")
+    Preset_Default.Size = UDim2.new(1, -40, 0, 26)
+    Preset_Default.Position = UDim2.new(0, 20, 0, 315)
+    Preset_Default.BackgroundColor3 = colors.elementBackground
+    Preset_Default.BackgroundTransparency = 0.21847
+    Preset_Default.Text = "Default Blue"
+    Preset_Default.TextColor3 = colors.textWhiteColor
+    Preset_Default.TextSize = 12
+    Preset_Default.Font = mainFont
+    Preset_Default.AutoButtonColor = false
+    Preset_Default.Parent = Settings_Panel
+
+    local Preset_Default_Corner = Instance.new("UICorner")
+    Preset_Default_Corner.CornerRadius = UDim.new(0, 4)
+    Preset_Default_Corner.Parent = Preset_Default
+
+    Preset_Default.MouseButton1Click:Connect(function()
+        colors.accentColor = Color3.new(0.423529, 0.576470, 0.988235)
+        colors.accentGradientColor1 = Color3.new(0.423529, 0.576470, 0.988235)
+        colors.accentGradientColor2 = Color3.new(0.619607, 0.462745, 0.988235)
+        Update_Accent_Theme()
+    end)
+
+    local Preset_Purple = Instance.new("TextButton")
+    Preset_Purple.Size = UDim2.new(1, -40, 0, 26)
+    Preset_Purple.Position = UDim2.new(0, 20, 0, 346)
+    Preset_Purple.BackgroundColor3 = colors.elementBackground
+    Preset_Purple.BackgroundTransparency = 0.21847
+    Preset_Purple.Text = "Purple Dream"
+    Preset_Purple.TextColor3 = colors.textWhiteColor
+    Preset_Purple.TextSize = 12
+    Preset_Purple.Font = mainFont
+    Preset_Purple.AutoButtonColor = false
+    Preset_Purple.Parent = Settings_Panel
+
+    local Preset_Purple_Corner = Instance.new("UICorner")
+    Preset_Purple_Corner.CornerRadius = UDim.new(0, 4)
+    Preset_Purple_Corner.Parent = Preset_Purple
+
+    Preset_Purple.MouseButton1Click:Connect(function()
+        colors.accentColor = Color3.new(0.619607, 0.462745, 0.988235)
+        colors.accentGradientColor1 = Color3.new(0.619607, 0.462745, 0.988235)
+        colors.accentGradientColor2 = Color3.new(0.423529, 0.576470, 0.988235)
+        Update_Accent_Theme()
+    end)
+
+    local Preset_Green = Instance.new("TextButton")
+    Preset_Green.Size = UDim2.new(1, -40, 0, 26)
+    Preset_Green.Position = UDim2.new(0, 20, 0, 377)
+    Preset_Green.BackgroundColor3 = colors.elementBackground
+    Preset_Green.BackgroundTransparency = 0.21847
+    Preset_Green.Text = "Neon Green"
+    Preset_Green.TextColor3 = colors.textWhiteColor
+    Preset_Green.TextSize = 12
+    Preset_Green.Font = mainFont
+    Preset_Green.AutoButtonColor = false
+    Preset_Green.Parent = Settings_Panel
+
+    local Preset_Green_Corner = Instance.new("UICorner")
+    Preset_Green_Corner.CornerRadius = UDim.new(0, 4)
+    Preset_Green_Corner.Parent = Preset_Green
+
+    Preset_Green.MouseButton1Click:Connect(function()
+        colors.accentColor = Color3.new(0.2, 0.8, 0.4)
+        colors.accentGradientColor1 = Color3.new(0.2, 0.8, 0.4)
+        colors.accentGradientColor2 = Color3.new(0.1, 0.6, 0.3)
+        Update_Accent_Theme()
+    end)
+
+    local Preset_Red = Instance.new("TextButton")
+    Preset_Red.Size = UDim2.new(1, -40, 0, 26)
+    Preset_Red.Position = UDim2.new(0, 20, 0, 408)
+    Preset_Red.BackgroundColor3 = colors.elementBackground
+    Preset_Red.BackgroundTransparency = 0.21847
+    Preset_Red.Text = "Crimson Red"
+    Preset_Red.TextColor3 = colors.textWhiteColor
+    Preset_Red.TextSize = 12
+    Preset_Red.Font = mainFont
+    Preset_Red.AutoButtonColor = false
+    Preset_Red.Parent = Settings_Panel
+
+    local Preset_Red_Corner = Instance.new("UICorner")
+    Preset_Red_Corner.CornerRadius = UDim.new(0, 4)
+    Preset_Red_Corner.Parent = Preset_Red
+
+    Preset_Red.MouseButton1Click:Connect(function()
+        colors.accentColor = Color3.new(0.9, 0.3, 0.3)
+        colors.accentGradientColor1 = Color3.new(0.9, 0.3, 0.3)
+        colors.accentGradientColor2 = Color3.new(0.7, 0.2, 0.2)
+        Update_Accent_Theme()
+    end)
 
     local mobileToggleButton = Instance.new("ImageButton")
     mobileToggleButton.Size = UDim2.new(0, 50, 0, 50)
@@ -633,7 +1023,7 @@ function LibraryApi:CreateWindow(windowName)
             animateElement(tabLabel, {TextColor3 = colors.textWhiteColor}, 0.3)
             if tabData.Icon then animateElement(tabData.Icon, {ImageColor3 = colors.accentColor}, 0.3) end
             animateElement(tabIndicator, {Size = UDim2.new(0, 2, 0, 16), Position = UDim2.new(0, 0, 0.5, -8)}, 0.3)
-        end
+        end)
 
         tabButton.MouseButton1Click:Connect(function() tabData:Activate() end)
 
