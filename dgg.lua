@@ -532,16 +532,14 @@ function LibraryApi:CreateWindow(windowName)
 
     local windowContext = { Tabs = {}, Active_Tab = nil }
 
-    function windowContext:Tab_Create(tabName, iconId)
+    function windowContext:Tab_Create(tabName, iconId, isBottom)
         local tabData = {}
 
         local tabButton = Instance.new("TextButton")
-        tabButton.Size = UDim2.new(1, 0, 0, 32)
         tabButton.BackgroundColor3 = colors.elementHoverBackground
         tabButton.BackgroundTransparency = 1
         tabButton.Text = ""
         tabButton.AutoButtonColor = false
-        tabButton.Parent = tabScrollingFrame
         
         local buttonCorner = Instance.new("UICorner")
         buttonCorner.CornerRadius = UDim.new(0, 4)
@@ -549,27 +547,51 @@ function LibraryApi:CreateWindow(windowName)
 
         local tabLabel = Instance.new("TextLabel")
         tabLabel.BackgroundTransparency = 1
-        tabLabel.Text = tabName
         tabLabel.TextColor3 = colors.textDarkColor
         tabLabel.TextSize = 12
         tabLabel.Font = mainFont
         tabLabel.TextXAlignment = Enum.TextXAlignment.Left
         tabLabel.Parent = tabButton
 
-        if iconId and iconId ~= "" then
+        if isBottom then
+            tabButton.Parent = sidebarFrame
+            tabButton.Size = UDim2.new(1, -10, 0, 36)
+            tabButton.Position = UDim2.new(0, 5, 1, -41)
+            tabScrollingFrame.Size = UDim2.new(1, -10, 1, -52)
+            
             local tabIcon = Instance.new("ImageLabel")
-            tabIcon.Size = UDim2.new(0, 14, 0, 14)
-            tabIcon.Position = UDim2.new(0, 12, 0.5, -7)
+            tabIcon.Size = UDim2.new(0, 24, 0, 24)
+            tabIcon.Position = UDim2.new(0, 6, 0.5, -12)
             tabIcon.BackgroundTransparency = 1
-            tabIcon.Image = iconId
-            tabIcon.ImageColor3 = colors.textDarkColor
+            tabIcon.Image = success and avatarImage or ""
             tabIcon.Parent = tabButton
-            tabData.Icon = tabIcon
-            tabLabel.Position = UDim2.new(0, 34, 0, 0)
-            tabLabel.Size = UDim2.new(1, -44, 1, 0)
+            
+            local iconCorner = Instance.new("UICorner")
+            iconCorner.CornerRadius = UDim.new(1, 0)
+            iconCorner.Parent = tabIcon
+            
+            tabLabel.Position = UDim2.new(0, 38, 0, 0)
+            tabLabel.Size = UDim2.new(1, -40, 1, 0)
+            tabLabel.Text = playersService.LocalPlayer.Name
         else
-            tabLabel.Position = UDim2.new(0, 12, 0, 0)
-            tabLabel.Size = UDim2.new(1, -20, 1, 0)
+            tabButton.Parent = tabScrollingFrame
+            tabButton.Size = UDim2.new(1, 0, 0, 32)
+            tabLabel.Text = tabName
+            if iconId and iconId ~= "" then
+                local tabIcon = Instance.new("ImageLabel")
+                tabIcon.Size = UDim2.new(0, 14, 0, 14)
+                tabIcon.Position = UDim2.new(0, 12, 0.5, -7)
+                tabIcon.BackgroundTransparency = 1
+                tabIcon.Image = iconId
+                tabIcon.ImageColor3 = colors.textDarkColor
+                tabIcon.Parent = tabButton
+                tabData.Icon = tabIcon
+                tabLabel.Position = UDim2.new(0, 34, 0, 0)
+                tabLabel.Size = UDim2.new(1, -44, 1, 0)
+            else
+                tabLabel.Position = UDim2.new(0, 12, 0, 0)
+                tabLabel.Size = UDim2.new(1, -20, 1, 0)
+            end
         end
 
         local tabIndicator = Instance.new("Frame")
@@ -1736,8 +1758,19 @@ function LibraryApi:CreateWindow(windowName)
         return sectionApi
     end
 
+    local profileTab = windowContext:Tab_Create("Profile", nil, true)
+    
+    local configSection = profileTab:Section_Create("Left", "System & Configuration")
+    configSection:Textbox_Create("Config Name", "ConfigSaveName", "AutoSave", "Name of the file to save/load", function(val) LibraryApi.ConfigName = val .. "Config.json" end)
+    configSection:Button_Create("Save Data", "Saves all changes locally", function() saveConfiguration(); LibraryApi:Notify({Title = "System", Text = "Configuration has been saved", Duration = 3, Type = "Success"}) end)
+    configSection:Button_Create("Load Data", "Loads saved changes", function() loadConfiguration(); LibraryApi:Notify({Title = "System", Text = "Configuration has been loaded", Duration = 3, Type = "Info"}) end)
+    
+    local menuSection = profileTab:Section_Create("Right", "Menu Controls")
+    menuSection:Keybind_Create("Menu Toggle Bind", "MenuToggleKey", Enum.KeyCode.Delete, "Key to hide/show menu", function() end)
+    menuSection:Button_Create("Unload Script", "Removes the UI completely", function() screenGui:Destroy() end)
+
     userInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-        if not gameProcessedEvent and input.KeyCode == Enum.KeyCode.Delete then
+        if not gameProcessedEvent and input.KeyCode == (LibraryApi.Flags["MenuToggleKey"] or Enum.KeyCode.Delete) then
             mainBackground.Visible = not mainBackground.Visible
         end
     end)
