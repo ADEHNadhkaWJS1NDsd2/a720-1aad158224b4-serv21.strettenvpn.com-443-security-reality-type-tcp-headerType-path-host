@@ -18,7 +18,7 @@ local ColorsTable = {
     sidebarBackground = Color3.fromRGB(18, 25, 18),
     sectionBackground = Color3.fromRGB(22, 30, 22),
     elementBackground = Color3.fromRGB(25, 35, 25),
-    elementHoverBackground = Color3.fromRGB(27, 37, 27),
+    elementHoverBackground = Color3.fromRGB(30, 45, 30),
     borderColor = Color3.fromRGB(35, 50, 35),
     borderLightColor = Color3.fromRGB(50, 75, 50),
     accentColor = Color3.fromRGB(65, 255, 115),
@@ -39,7 +39,7 @@ local PresetThemes = {
         sidebarBackground = Color3.fromRGB(18, 25, 18),
         sectionBackground = Color3.fromRGB(22, 30, 22),
         elementBackground = Color3.fromRGB(25, 35, 25),
-        elementHoverBackground = Color3.fromRGB(27, 37, 27),
+        elementHoverBackground = Color3.fromRGB(30, 45, 30),
         borderColor = Color3.fromRGB(35, 50, 35),
         borderLightColor = Color3.fromRGB(50, 75, 50),
         accentColor = Color3.fromRGB(65, 255, 115),
@@ -53,7 +53,7 @@ local PresetThemes = {
         sidebarBackground = Color3.fromRGB(18, 18, 30),
         sectionBackground = Color3.fromRGB(22, 22, 35),
         elementBackground = Color3.fromRGB(25, 25, 40),
-        elementHoverBackground = Color3.fromRGB(27, 37, 27),
+        elementHoverBackground = Color3.fromRGB(35, 35, 55),
         borderColor = Color3.fromRGB(35, 35, 50),
         borderLightColor = Color3.fromRGB(50, 50, 75),
         accentColor = Color3.fromRGB(100, 130, 255),
@@ -67,7 +67,7 @@ local PresetThemes = {
         sidebarBackground = Color3.fromRGB(30, 18, 18),
         sectionBackground = Color3.fromRGB(35, 22, 22),
         elementBackground = Color3.fromRGB(40, 25, 25),
-        elementHoverBackground = Color3.fromRGB(27, 37, 27),
+        elementHoverBackground = Color3.fromRGB(55, 30, 30),
         borderColor = Color3.fromRGB(50, 30, 30),
         borderLightColor = Color3.fromRGB(75, 40, 40),
         accentColor = Color3.fromRGB(255, 65, 65),
@@ -108,7 +108,7 @@ local function UpdateTheme()
     end
 end
 
-local MainFont = Enum.Font.GothamBold
+local MainFont = Enum.Font.GothamMedium
 local BoldFont = Enum.Font.GothamBold
 
 local ScreenGui = Instance.new("ScreenGui")
@@ -1265,7 +1265,7 @@ function LibraryApi:CreateWindow(WindowName)
 
                     local ContextMenu = Instance.new("Frame")
                     ContextMenu.Name = "KeybindModeMenu"
-                    ContextMenu.Size = UDim2.new(0, 118, 0, 92)
+                    ContextMenu.Size = UDim2.new(0, 118, 0, 110)
                     ContextMenu.Position = UDim2.new(0, KeybindButton.AbsolutePosition.X - 10, 0, KeybindButton.AbsolutePosition.Y + KeybindButton.AbsoluteSize.Y + 6)
                     SetColor(ContextMenu, "BackgroundColor3", "elementBackground")
                     ContextMenu.BackgroundTransparency = 0.08
@@ -1285,10 +1285,16 @@ function LibraryApi:CreateWindow(WindowName)
 
                     ApplyAcrylicEffect(ContextMenu, 0.92, UDim.new(0, 8))
 
+                    local MenuContent = Instance.new("Frame")
+                    MenuContent.Size = UDim2.new(1, 0, 1, 0)
+                    MenuContent.BackgroundTransparency = 1
+                    MenuContent.ZIndex = 3501
+                    MenuContent.Parent = ContextMenu
+
                     local MenuLayout = Instance.new("UIListLayout")
                     MenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
                     MenuLayout.Padding = UDim.new(0, 3)
-                    MenuLayout.Parent = ContextMenu
+                    MenuLayout.Parent = MenuContent
 
                     local TitleLabel = Instance.new("TextLabel")
                     TitleLabel.Size = UDim2.new(1, 0, 0, 22)
@@ -1297,21 +1303,22 @@ function LibraryApi:CreateWindow(WindowName)
                     SetColor(TitleLabel, "TextColor3", "textWhiteColor")
                     TitleLabel.TextSize = 11
                     TitleLabel.Font = BoldFont
-                    TitleLabel.ZIndex = 3501
-                    TitleLabel.Parent = ContextMenu
+                    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                    TitleLabel.ZIndex = 3502
+                    TitleLabel.Parent = MenuContent
 
                     for _, ModeName in ipairs(Modes) do
                         local ModeBtn = Instance.new("TextButton")
                         ModeBtn.Size = UDim2.new(1, -8, 0, 24)
-                        ModeBtn.Position = UDim2.new(0, 4, 0, 0)
                         ModeBtn.BackgroundColor3 = ColorsTable.elementBackground
                         ModeBtn.BackgroundTransparency = 1
                         ModeBtn.Text = ModeName
                         SetColor(ModeBtn, "TextColor3", KeybindData.Mode == ModeName and "accentColor" or "textWhiteColor")
                         ModeBtn.TextSize = 12
                         ModeBtn.Font = MainFont
-                        ModeBtn.ZIndex = 3501
-                        ModeBtn.Parent = ContextMenu
+                        ModeBtn.TextXAlignment = Enum.TextXAlignment.Left
+                        ModeBtn.ZIndex = 3502
+                        ModeBtn.Parent = MenuContent
                         
                         local BtnCorner = Instance.new("UICorner")
                         BtnCorner.CornerRadius = UDim.new(0, 5)
@@ -1331,26 +1338,6 @@ function LibraryApi:CreateWindow(WindowName)
                             AnimateElement(ModeBtn, {BackgroundTransparency = 1, BackgroundColor3 = ColorsTable.elementBackground}, 0.12)
                         end)
                     end
-
-                    task.delay(0.05, function()
-                        if ContextMenu and ContextMenu.Parent then
-                            local CloseConn
-                            CloseConn = UserInputService.InputBegan:Connect(function(Input)
-                                if ContextMenu and ContextMenu.Parent and (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) then
-                                    local MousePos = UserInputService:GetMouseLocation()
-                                    local MenuPos = ContextMenu.AbsolutePosition
-                                    local MenuSize = ContextMenu.AbsoluteSize
-                                    local IsInside = MousePos.X >= MenuPos.X and MousePos.X <= MenuPos.X + MenuSize.X and MousePos.Y >= MenuPos.Y and MousePos.Y <= MenuPos.Y + MenuSize.Y
-                                    if not IsInside then
-                                        ContextMenu:Destroy()
-                                        if CloseConn then CloseConn:Disconnect() end
-                                    end
-                                elseif not ContextMenu or not ContextMenu.Parent then
-                                    if CloseConn then CloseConn:Disconnect() end
-                                end
-                            end)
-                        end
-                    end)
                 end)
 
                 UserInputService.InputBegan:Connect(function(Input)
