@@ -280,6 +280,15 @@ local function LoadConfiguration(FileName)
                         LibraryApi.Flags[Key] = Val
                     end
                 end
+                for K, V in pairs(LibraryApi.Flags) do
+                    if type(K) == "string" and string.sub(K, 1, 11) == "ThemeColor_" then
+                        local Real = string.sub(K, 12)
+                        if ColorsTable[Real] ~= nil then
+                            ColorsTable[Real] = V
+                        end
+                    end
+                end
+                UpdateTheme()
             end
         end
     end)
@@ -623,7 +632,9 @@ function LibraryApi:CreateWindow(WindowName)
     end)
 
     local WindowContext = { Tabs = {}, ActiveTab = nil }
-
+    if LibraryApi.SelectedConfig ~= nil and LibraryApi.SelectedConfig ~= "" then
+        LoadConfiguration(LibraryApi.SelectedConfig)
+    end
     function WindowContext:TabCreate(TabName, IconId, IsBottom)
         local TabData = {}
 
