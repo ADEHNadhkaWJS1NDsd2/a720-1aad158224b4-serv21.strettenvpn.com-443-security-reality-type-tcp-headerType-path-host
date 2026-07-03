@@ -10,7 +10,9 @@ local PlayersService = game:GetService("Players")
 local LibraryApi = {
     Flags = {},
     FolderName = "RadiantConfigs",
-    SelectedConfig = ""
+    SelectedConfig = "",
+    AutoSave = true,
+    AutoLoad = true
 }
 
 local ElementRegistry = {}
@@ -28,6 +30,23 @@ local function RegisterElement(Flag, UpdateFunction)
         ElementRegistry[Flag] = {}
     end
     table.insert(ElementRegistry[Flag], UpdateFunction)
+end
+
+local LastAutoSaveTime = 0
+
+local function TryAutoSave()
+    if not LibraryApi.AutoSave then return end
+    local now = os.clock()
+    if now - LastAutoSaveTime < 0.75 then return end
+    LastAutoSaveTime = now
+    local name = LibraryApi.SelectedConfig
+    if not name or name == "" then name = "Default" end
+    pcall(function()
+        SaveConfiguration(name)
+        if writefile then
+            writefile(LibraryApi.FolderName .. "/LastConfig.txt", name)
+        end
+    end)
 end
 
 local ColorsTable = {
@@ -855,6 +874,7 @@ function LibraryApi:CreateWindow(WindowName)
                     AnimateElement(CheckboxStroke, {Color = NewState and ColorsTable.accentColor or ColorsTable.borderColor}, 0.3)
                     AnimateElement(ToggleLabel, {TextColor3 = NewState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor}, 0.3)
                     if Callback then task.spawn(Callback, NewState) end
+                    TryAutoSave()
                 end)
 
                 local function UpdateToggleVisual()
@@ -956,6 +976,7 @@ function LibraryApi:CreateWindow(WindowName)
                         AnimateElement(SliderKnob, {Position = UDim2.new(Percentage, 0, 0.5, 0)}, 0.15)
                         ValueTextBox.Text = FormatValue(SnappedValue, Step)
                         if Callback then task.spawn(Callback, SnappedValue) end
+                        TryAutoSave()
                     end
                 end
 
@@ -1141,6 +1162,7 @@ function LibraryApi:CreateWindow(WindowName)
                         end
                         UpdateRangeSliderVisuals()
                         if Callback then task.spawn(Callback, LibraryApi.Flags[Flag]) end
+                        TryAutoSave()
                     end
                 end)
             end
@@ -1211,6 +1233,7 @@ function LibraryApi:CreateWindow(WindowName)
                     AnimateElement(InputTextBox, {TextColor3 = ColorsTable.textDarkColor}, 0.25)
                     LibraryApi.Flags[Flag] = InputTextBox.Text
                     if Callback then task.spawn(Callback, InputTextBox.Text) end
+                    TryAutoSave()
                 end)
 
                 local function UpdateTextboxVisual()
@@ -1411,6 +1434,7 @@ function LibraryApi:CreateWindow(WindowName)
                             AnimateElement(KeybindButtonStroke, {Color = ColorsTable.borderColor}, 0.3)
                             AnimateElement(KeybindButton, {TextColor3 = ColorsTable.textDarkColor}, 0.3)
                             if Callback then task.spawn(Callback, KeybindData) end
+                            TryAutoSave()
                         end
                     else
                         local Matches = false
@@ -1593,6 +1617,7 @@ function LibraryApi:CreateWindow(WindowName)
                             end
                             AnimateElement(OptionLabel, {TextColor3 = ColorsTable.accentColor}, 0.3)
                             if Callback then task.spawn(Callback, Option) end
+                            TryAutoSave()
                         end)
                     end
                     DropdownOptionListFrame.CanvasSize = UDim2.new(0, 0, 0, #CurrentOptions * 24)
@@ -1800,6 +1825,7 @@ function LibraryApi:CreateWindow(WindowName)
                             end
                             UpdateSelectedText()
                             if Callback then task.spawn(Callback, LibraryApi.Flags[Flag]) end
+                            TryAutoSave()
                         end)
                     end
                     MultiOptionListFrame.CanvasSize = UDim2.new(0, 0, 0, #CurrentOptions * 24)
@@ -1927,6 +1953,7 @@ function LibraryApi:CreateWindow(WindowName)
                     SaturationValueMapCursor.Position = UDim2.new(1 - Saturation, 0, 1 - Value, 0)
                     HueMapCursor.Position = UDim2.new(Hue, 0, 0.5, 0)
                     if Callback then task.spawn(Callback, CurrentColor) end
+                    TryAutoSave()
                 end
 
                 local IsSlidingSaturationValue = false
@@ -2201,6 +2228,7 @@ function LibraryApi:CreateWindow(WindowName)
                     AnimateElement(ModuleLabel, {TextColor3 = NewState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor}, 0.3)
                     SynchronizeModuleSize()
                     if Callback then task.spawn(Callback, NewState) end
+                    TryAutoSave()
                 end)
 
                 local function UpdateModuleVisual()
@@ -2385,6 +2413,22 @@ function LibraryApi:CreateWindow(WindowName)
             end
         end
     end)
+
+    if LibraryApi.AutoLoad then
+        pcall(function()
+            if isfile and isfile(LibraryApi.FolderName .. "/LastConfig.txt") then
+                local lastName = readfile(LibraryApi.FolderName .. "/LastConfig.txt")
+                if lastName and lastName ~= "" then
+                    LoadConfiguration(lastName)
+                    LibraryApi.SelectedConfig = lastName
+                    LibraryApi:UpdateUI()
+                    if ConfigDropdown then
+                        ConfigDropdown:Refresh(GetConfigList())
+                    end
+                end
+            end
+        end)
+    end
 
     return WindowContext
 end
