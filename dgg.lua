@@ -13,6 +13,23 @@ local LibraryApi = {
     SelectedConfig = ""
 }
 
+local ElementRegistry = {}
+
+function LibraryApi:UpdateUI()
+    for Flag, UpdaterList in pairs(ElementRegistry) do
+        for _, Updater in ipairs(UpdaterList) do
+            pcall(Updater)
+        end
+    end
+end
+
+local function RegisterElement(Flag, UpdateFunction)
+    if ElementRegistry[Flag] == nil then
+        ElementRegistry[Flag] = {}
+    end
+    table.insert(ElementRegistry[Flag], UpdateFunction)
+end
+
 local ColorsTable = {
     mainBackground = Color3.fromRGB(15, 20, 15),
     sidebarBackground = Color3.fromRGB(18, 25, 18),
@@ -106,6 +123,7 @@ local function UpdateTheme()
             end
         end
     end
+    LibraryApi:UpdateUI()
 end
 
 local MainFont = Enum.Font.GothamMedium
@@ -280,15 +298,6 @@ local function LoadConfiguration(FileName)
                         LibraryApi.Flags[Key] = Val
                     end
                 end
-                for K, V in pairs(LibraryApi.Flags) do
-                    if type(K) == "string" and string.sub(K, 1, 11) == "ThemeColor_" then
-                        local Real = string.sub(K, 12)
-                        if ColorsTable[Real] ~= nil then
-                            ColorsTable[Real] = V
-                        end
-                    end
-                end
-                UpdateTheme()
             end
         end
     end)
@@ -632,9 +641,7 @@ function LibraryApi:CreateWindow(WindowName)
     end)
 
     local WindowContext = { Tabs = {}, ActiveTab = nil }
-    if LibraryApi.SelectedConfig ~= nil and LibraryApi.SelectedConfig ~= "" then
-        LoadConfiguration(LibraryApi.SelectedConfig)
-    end
+
     function WindowContext:TabCreate(TabName, IconId, IsBottom)
         local TabData = {}
 
@@ -849,6 +856,15 @@ function LibraryApi:CreateWindow(WindowName)
                     AnimateElement(ToggleLabel, {TextColor3 = NewState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor}, 0.3)
                     if Callback then task.spawn(Callback, NewState) end
                 end)
+
+                local function UpdateToggleVisual()
+                    local CurrentState = LibraryApi.Flags[Flag]
+                    CheckboxFrame.BackgroundColor3 = CurrentState and ColorsTable.accentColor or ColorsTable.elementBackground
+                    CheckboxStroke.Color = CurrentState and ColorsTable.accentColor or ColorsTable.borderColor
+                    ToggleLabel.TextColor3 = CurrentState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor
+                end
+                UpdateToggleVisual()
+                RegisterElement(Flag, UpdateToggleVisual)
             end
 
             function Elements:SliderCreate(Name, Flag, Min, Max, Default, Step, Tooltip, Callback)
@@ -972,6 +988,16 @@ function LibraryApi:CreateWindow(WindowName)
                         ValueTextBox.Text = FormatValue(LibraryApi.Flags[Flag], Step)
                     end
                 end)
+
+                local function UpdateSliderVisual()
+                    local CurrentValue = LibraryApi.Flags[Flag]
+                    local Percentage = (CurrentValue - Min) / (Max - Min)
+                    SliderFill.Size = UDim2.new(Percentage, 0, 1, 0)
+                    SliderKnob.Position = UDim2.new(Percentage, 0, 0.5, 0)
+                    ValueTextBox.Text = FormatValue(CurrentValue, Step)
+                end
+                UpdateSliderVisual()
+                RegisterElement(Flag, UpdateSliderVisual)
             end
 
             function Elements:RangeSliderCreate(Name, Flag, Min, Max, DefaultMin, DefaultMax, Step, Tooltip, Callback)
@@ -1058,6 +1084,7 @@ function LibraryApi:CreateWindow(WindowName)
                     ValueLabel.Text = FormatValue(LibraryApi.Flags[Flag].Min, Step) .. " - " .. FormatValue(LibraryApi.Flags[Flag].Max, Step)
                 end
                 UpdateRangeSliderVisuals()
+                RegisterElement(Flag, UpdateRangeSliderVisuals)
 
                 RangeSliderBackground.MouseEnter:Connect(function()
                     ShowTooltip(Tooltip)
@@ -1185,6 +1212,12 @@ function LibraryApi:CreateWindow(WindowName)
                     LibraryApi.Flags[Flag] = InputTextBox.Text
                     if Callback then task.spawn(Callback, InputTextBox.Text) end
                 end)
+
+                local function UpdateTextboxVisual()
+                    InputTextBox.Text = LibraryApi.Flags[Flag] or ""
+                end
+                UpdateTextboxVisual()
+                RegisterElement(Flag, UpdateTextboxVisual)
             end
 
             function Elements:KeybindCreate(Name, Flag, Default, Tooltip, Callback)
@@ -1391,6 +1424,25 @@ function LibraryApi:CreateWindow(WindowName)
                         end
                     end
                 end)
+
+                local function UpdateKeybindVisual()
+                    local CurrentData = LibraryApi.Flags[Flag]
+                    local function GetCurrentDisplay()
+                        if not CurrentData or not CurrentData.Value then return "None" end
+                        if CurrentData.Type == "KeyCode" then
+                            return CurrentData.Value.Name or "None"
+                        elseif CurrentData.Type == "UserInputType" then
+                            if CurrentData.Value == Enum.UserInputType.MouseButton1 then return "Mouse1"
+                            elseif CurrentData.Value == Enum.UserInputType.MouseButton2 then return "Mouse2"
+                            elseif CurrentData.Value == Enum.UserInputType.MouseButton3 then return "Mouse3"
+                            else return CurrentData.Value.Name end
+                        end
+                        return "None"
+                    end
+                    KeybindButton.Text = "[ " .. GetCurrentDisplay() .. " ] " .. (CurrentData and CurrentData.Mode or "Toggle")
+                end
+                UpdateKeybindVisual()
+                RegisterElement(Flag, UpdateKeybindVisual)
             end
 
             function Elements:DropdownCreate(Name, Flag, Options, Default, Tooltip, Callback)
@@ -1547,6 +1599,12 @@ function LibraryApi:CreateWindow(WindowName)
                 end
 
                 DropdownApi:Refresh(CurrentOptions)
+
+                local function UpdateDropdownVisual()
+                    SelectedOptionLabel.Text = LibraryApi.Flags[Flag] or ""
+                end
+                UpdateDropdownVisual()
+                RegisterElement(Flag, UpdateDropdownVisual)
                 return DropdownApi
             end
 
@@ -1749,6 +1807,12 @@ function LibraryApi:CreateWindow(WindowName)
                 end
 
                 MultiApi:Refresh(CurrentOptions)
+
+                local function UpdateMultiDropdownVisual()
+                    UpdateSelectedText()
+                end
+                UpdateMultiDropdownVisual()
+                RegisterElement(Flag, UpdateMultiDropdownVisual)
                 return MultiApi
             end
 
@@ -1927,6 +1991,17 @@ function LibraryApi:CreateWindow(WindowName)
                     AnimateElement(ColorPreviewButtonStroke, {Color = IsColorPickerOpen and ColorsTable.accentColor or ColorsTable.borderColor}, 0.3)
                     AnimateElement(ColorPickerFrame, {Size = UDim2.new(1, 0, 0, IsColorPickerOpen and 224 or 24)}, 0.3)
                 end)
+
+                local function UpdateColorPickerVisual()
+                    local CurrentColor = LibraryApi.Flags[Flag]
+                    Hue, Saturation, Value = CurrentColor:ToHSV()
+                    ColorPreviewButton.BackgroundColor3 = CurrentColor
+                    SaturationValueMap.ImageColor3 = Color3.fromHSV(Hue, 1, 1)
+                    SaturationValueMapCursor.Position = UDim2.new(1 - Saturation, 0, 1 - Value, 0)
+                    HueMapCursor.Position = UDim2.new(Hue, 0, 0.5, 0)
+                end
+                UpdateColorPickerVisual()
+                RegisterElement(Flag, UpdateColorPickerVisual)
             end
 
             function Elements:ButtonCreate(Name, Tooltip, Callback)
@@ -2128,6 +2203,16 @@ function LibraryApi:CreateWindow(WindowName)
                     if Callback then task.spawn(Callback, NewState) end
                 end)
 
+                local function UpdateModuleVisual()
+                    local CurrentState = LibraryApi.Flags[Flag]
+                    ModuleCheckboxFrame.BackgroundColor3 = CurrentState and ColorsTable.accentColor or ColorsTable.sectionBackground
+                    ModuleToggleButtonStroke.Color = CurrentState and ColorsTable.accentColor or ColorsTable.borderColor
+                    ModuleLabel.TextColor3 = CurrentState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor
+                    SynchronizeModuleSize()
+                end
+                UpdateModuleVisual()
+                RegisterElement(Flag, UpdateModuleVisual)
+
                 return ElementInjector(ModuleContentFrame)
             end
 
@@ -2232,6 +2317,7 @@ function LibraryApi:CreateWindow(WindowName)
         local Name = LibraryApi.Flags["SelectedConfig"]
         if Name and Name ~= "" then
             LoadConfiguration(Name)
+            LibraryApi:UpdateUI()
             LibraryApi:Notify({Title = "System", Text = "Loaded configuration: " .. Name, Duration = 3, Type = "Info"})
         else
             LibraryApi:Notify({Title = "Error", Text = "No configuration selected to load.", Duration = 3, Type = "Error"})
