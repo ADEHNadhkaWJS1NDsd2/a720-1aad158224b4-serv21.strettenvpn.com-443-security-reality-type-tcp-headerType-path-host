@@ -1259,13 +1259,15 @@ function LibraryApi:CreateWindow(WindowName)
                 end)
 
                 KeybindButton.MouseButton2Click:Connect(function()
+                    if KeybindData.Value == Enum.UserInputType.MouseButton2 then return end
+
                     for _, Child in ipairs(ScreenGui:GetChildren()) do
                         if Child.Name == "KeybindModeMenu" then Child:Destroy() end
                     end
 
                     local ContextMenu = Instance.new("Frame")
                     ContextMenu.Name = "KeybindModeMenu"
-                    ContextMenu.Size = UDim2.new(0, 118, 0, 110)
+                    ContextMenu.Size = UDim2.new(0, 140, 0, 120)
                     ContextMenu.Position = UDim2.new(0, KeybindButton.AbsolutePosition.X - 10, 0, KeybindButton.AbsolutePosition.Y + KeybindButton.AbsoluteSize.Y + 6)
                     SetColor(ContextMenu, "BackgroundColor3", "elementBackground")
                     ContextMenu.BackgroundTransparency = 0.08
@@ -1291,6 +1293,11 @@ function LibraryApi:CreateWindow(WindowName)
                     MenuContent.ZIndex = 3501
                     MenuContent.Parent = ContextMenu
 
+                    local ContentPadding = Instance.new("UIPadding")
+                    ContentPadding.PaddingLeft = UDim.new(0, 8)
+                    ContentPadding.PaddingRight = UDim.new(0, 8)
+                    ContentPadding.Parent = MenuContent
+
                     local MenuLayout = Instance.new("UIListLayout")
                     MenuLayout.SortOrder = Enum.SortOrder.LayoutOrder
                     MenuLayout.Padding = UDim.new(0, 3)
@@ -1309,7 +1316,7 @@ function LibraryApi:CreateWindow(WindowName)
 
                     for _, ModeName in ipairs(Modes) do
                         local ModeBtn = Instance.new("TextButton")
-                        ModeBtn.Size = UDim2.new(1, -8, 0, 24)
+                        ModeBtn.Size = UDim2.new(1, -16, 0, 24)
                         ModeBtn.BackgroundColor3 = ColorsTable.elementBackground
                         ModeBtn.BackgroundTransparency = 1
                         ModeBtn.Text = ModeName
