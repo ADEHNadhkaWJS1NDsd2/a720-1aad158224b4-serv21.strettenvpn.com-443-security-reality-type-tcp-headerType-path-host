@@ -18,7 +18,7 @@ local ColorsTable = {
     sidebarBackground = Color3.fromRGB(18, 25, 18),
     sectionBackground = Color3.fromRGB(22, 30, 22),
     elementBackground = Color3.fromRGB(25, 35, 25),
-    elementHoverBackground = Color3.fromRGB(27, 38, 27),
+    elementHoverBackground = Color3.fromRGB(27, 37, 27),
     borderColor = Color3.fromRGB(35, 50, 35),
     borderLightColor = Color3.fromRGB(50, 75, 50),
     accentColor = Color3.fromRGB(65, 255, 115),
@@ -39,7 +39,7 @@ local PresetThemes = {
         sidebarBackground = Color3.fromRGB(18, 25, 18),
         sectionBackground = Color3.fromRGB(22, 30, 22),
         elementBackground = Color3.fromRGB(25, 35, 25),
-        elementHoverBackground = Color3.fromRGB(27, 38, 27),
+        elementHoverBackground = Color3.fromRGB(27, 37, 27),
         borderColor = Color3.fromRGB(35, 50, 35),
         borderLightColor = Color3.fromRGB(50, 75, 50),
         accentColor = Color3.fromRGB(65, 255, 115),
@@ -53,7 +53,7 @@ local PresetThemes = {
         sidebarBackground = Color3.fromRGB(18, 18, 30),
         sectionBackground = Color3.fromRGB(22, 22, 35),
         elementBackground = Color3.fromRGB(25, 25, 40),
-        elementHoverBackground = Color3.fromRGB(28, 28, 45),
+        elementHoverBackground = Color3.fromRGB(27, 37, 27),
         borderColor = Color3.fromRGB(35, 35, 50),
         borderLightColor = Color3.fromRGB(50, 50, 75),
         accentColor = Color3.fromRGB(100, 130, 255),
@@ -67,7 +67,7 @@ local PresetThemes = {
         sidebarBackground = Color3.fromRGB(30, 18, 18),
         sectionBackground = Color3.fromRGB(35, 22, 22),
         elementBackground = Color3.fromRGB(40, 25, 25),
-        elementHoverBackground = Color3.fromRGB(45, 27, 27),
+        elementHoverBackground = Color3.fromRGB(27, 37, 27),
         borderColor = Color3.fromRGB(50, 30, 30),
         borderLightColor = Color3.fromRGB(75, 40, 40),
         accentColor = Color3.fromRGB(255, 65, 65),
@@ -122,7 +122,7 @@ local TooltipFrame = Instance.new("Frame")
 SetColor(TooltipFrame, "BackgroundColor3", "tooltipBackground")
 TooltipFrame.BackgroundTransparency = 0.158372
 TooltipFrame.Size = UDim2.new(0, 0, 0, 24)
-TooltipFrame.ZIndex = 4000
+TooltipFrame.ZIndex = 2000
 TooltipFrame.Visible = false
 TooltipFrame.Parent = ScreenGui
 
@@ -143,9 +143,9 @@ TooltipText.BackgroundTransparency = 1
 SetColor(TooltipText, "TextColor3", "textWhiteColor")
 TooltipText.TextTransparency = 1
 TooltipText.TextSize = 12
-TooltipText.Font = BoldFont
+TooltipText.Font = MainFont
 TooltipText.TextXAlignment = Enum.TextXAlignment.Left
-TooltipText.ZIndex = 4001
+TooltipText.ZIndex = 2001
 TooltipText.Parent = TooltipFrame
 
 local NotificationContainer = Instance.new("Frame")
@@ -192,7 +192,7 @@ local function ShowTooltip(TextString)
         TooltipTargetText = ""
         return
     end
-    local TextBounds = TextService:GetTextSize(TextString, 12, BoldFont, Vector2.new(500, 24))
+    local TextBounds = TextService:GetTextSize(TextString, 12, MainFont, Vector2.new(500, 24))
     TooltipFrame.Size = UDim2.new(0, TextBounds.X + 16, 0, 24)
     TooltipText.Text = TextString
     TooltipTargetText = TextString
@@ -360,7 +360,7 @@ function LibraryApi:Notify(Config)
     TextLabel.Text = Text
     SetColor(TextLabel, "TextColor3", "textDarkColor")
     TextLabel.TextSize = 12
-    TextLabel.Font = BoldFont
+    TextLabel.Font = MainFont
     TextLabel.TextXAlignment = Enum.TextXAlignment.Left
     TextLabel.TextWrapped = true
     TextLabel.ZIndex = 1502
@@ -641,7 +641,7 @@ function LibraryApi:CreateWindow(WindowName)
         TabLabel.BackgroundTransparency = 1
         SetColor(TabLabel, "TextColor3", "textDarkColor")
         TabLabel.TextSize = 12
-        TabLabel.Font = BoldFont
+        TabLabel.Font = MainFont
         TabLabel.TextXAlignment = Enum.TextXAlignment.Left
         TabLabel.Parent = TabButton
 
@@ -781,7 +781,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SubtextLabel.Text = Text
                 SetColor(SubtextLabel, "TextColor3", "textDarkColor")
                 SubtextLabel.TextSize = 11
-                SubtextLabel.Font = BoldFont
+                SubtextLabel.Font = MainFont
                 SubtextLabel.TextXAlignment = Enum.TextXAlignment.Left
                 SubtextLabel.Parent = TargetContainer
             end
@@ -817,7 +817,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ToggleLabel.Text = Name
                 SetColor(ToggleLabel, "TextColor3", LibraryApi.Flags[Flag] and "textWhiteColor" or "textDarkColor")
                 ToggleLabel.TextSize = 12
-                ToggleLabel.Font = BoldFont
+                ToggleLabel.Font = MainFont
                 ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
                 ToggleLabel.Parent = ToggleButton
 
@@ -855,7 +855,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SliderLabel.Text = Name
                 SetColor(SliderLabel, "TextColor3", "textWhiteColor")
                 SliderLabel.TextSize = 12
-                SliderLabel.Font = BoldFont
+                SliderLabel.Font = MainFont
                 SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
                 SliderLabel.Parent = SliderFrame
 
@@ -866,7 +866,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ValueTextBox.Text = FormatValue(LibraryApi.Flags[Flag], Step)
                 SetColor(ValueTextBox, "TextColor3", "textWhiteColor")
                 ValueTextBox.TextSize = 12
-                ValueTextBox.Font = BoldFont
+                ValueTextBox.Font = MainFont
                 ValueTextBox.TextXAlignment = Enum.TextXAlignment.Right
                 ValueTextBox.ClearTextOnFocus = false
                 ValueTextBox.Parent = SliderFrame
@@ -980,7 +980,7 @@ function LibraryApi:CreateWindow(WindowName)
                 RangeSliderLabel.Text = Name
                 SetColor(RangeSliderLabel, "TextColor3", "textWhiteColor")
                 RangeSliderLabel.TextSize = 12
-                RangeSliderLabel.Font = BoldFont
+                RangeSliderLabel.Font = MainFont
                 RangeSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
                 RangeSliderLabel.Parent = RangeSliderFrame
 
@@ -991,7 +991,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ValueLabel.Text = FormatValue(LibraryApi.Flags[Flag].Min, Step) .. " - " .. FormatValue(LibraryApi.Flags[Flag].Max, Step)
                 SetColor(ValueLabel, "TextColor3", "textWhiteColor")
                 ValueLabel.TextSize = 12
-                ValueLabel.Font = BoldFont
+                ValueLabel.Font = MainFont
                 ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
                 ValueLabel.Parent = RangeSliderFrame
 
@@ -1122,7 +1122,7 @@ function LibraryApi:CreateWindow(WindowName)
                 TextboxLabel.Text = Name
                 SetColor(TextboxLabel, "TextColor3", "textWhiteColor")
                 TextboxLabel.TextSize = 12
-                TextboxLabel.Font = BoldFont
+                TextboxLabel.Font = MainFont
                 TextboxLabel.TextXAlignment = Enum.TextXAlignment.Left
                 TextboxLabel.Parent = TextboxFrame
 
@@ -1148,7 +1148,7 @@ function LibraryApi:CreateWindow(WindowName)
                 InputTextBox.Text = LibraryApi.Flags[Flag]
                 SetColor(InputTextBox, "TextColor3", "textDarkColor")
                 InputTextBox.TextSize = 12
-                InputTextBox.Font = BoldFont
+                InputTextBox.Font = MainFont
                 InputTextBox.ClearTextOnFocus = false
                 InputTextBox.TextXAlignment = Enum.TextXAlignment.Left
                 InputTextBox.ClipsDescendants = true
@@ -1218,7 +1218,7 @@ function LibraryApi:CreateWindow(WindowName)
                 KeybindLabel.Text = Name
                 SetColor(KeybindLabel, "TextColor3", "textWhiteColor")
                 KeybindLabel.TextSize = 12
-                KeybindLabel.Font = BoldFont
+                KeybindLabel.Font = MainFont
                 KeybindLabel.TextXAlignment = Enum.TextXAlignment.Left
                 KeybindLabel.Parent = KeybindFrame
 
@@ -1271,7 +1271,6 @@ function LibraryApi:CreateWindow(WindowName)
                     ContextMenu.BackgroundTransparency = 0.08
                     ContextMenu.BorderSizePixel = 0
                     ContextMenu.ZIndex = 3500
-                    ContextMenu.Active = true
                     ContextMenu.Parent = ScreenGui
                     
                     local MenuCorner = Instance.new("UICorner")
@@ -1305,11 +1304,12 @@ function LibraryApi:CreateWindow(WindowName)
                         local ModeBtn = Instance.new("TextButton")
                         ModeBtn.Size = UDim2.new(1, -8, 0, 24)
                         ModeBtn.Position = UDim2.new(0, 4, 0, 0)
+                        ModeBtn.BackgroundColor3 = ColorsTable.elementBackground
                         ModeBtn.BackgroundTransparency = 1
                         ModeBtn.Text = ModeName
                         SetColor(ModeBtn, "TextColor3", KeybindData.Mode == ModeName and "accentColor" or "textWhiteColor")
                         ModeBtn.TextSize = 12
-                        ModeBtn.Font = BoldFont
+                        ModeBtn.Font = MainFont
                         ModeBtn.ZIndex = 3501
                         ModeBtn.Parent = ContextMenu
                         
@@ -1325,12 +1325,32 @@ function LibraryApi:CreateWindow(WindowName)
                         end)
                         
                         ModeBtn.MouseEnter:Connect(function()
-                            AnimateElement(ModeBtn, {BackgroundTransparency = 0.6, BackgroundColor3 = ColorsTable.elementHoverBackground}, 0.12)
+                            AnimateElement(ModeBtn, {BackgroundTransparency = 0.25, BackgroundColor3 = ColorsTable.elementHoverBackground}, 0.12)
                         end)
                         ModeBtn.MouseLeave:Connect(function()
                             AnimateElement(ModeBtn, {BackgroundTransparency = 1, BackgroundColor3 = ColorsTable.elementBackground}, 0.12)
                         end)
                     end
+
+                    task.delay(0.05, function()
+                        if ContextMenu and ContextMenu.Parent then
+                            local CloseConn
+                            CloseConn = UserInputService.InputBegan:Connect(function(Input)
+                                if ContextMenu and ContextMenu.Parent and (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) then
+                                    local MousePos = UserInputService:GetMouseLocation()
+                                    local MenuPos = ContextMenu.AbsolutePosition
+                                    local MenuSize = ContextMenu.AbsoluteSize
+                                    local IsInside = MousePos.X >= MenuPos.X and MousePos.X <= MenuPos.X + MenuSize.X and MousePos.Y >= MenuPos.Y and MousePos.Y <= MenuPos.Y + MenuSize.Y
+                                    if not IsInside then
+                                        ContextMenu:Destroy()
+                                        if CloseConn then CloseConn:Disconnect() end
+                                    end
+                                elseif not ContextMenu or not ContextMenu.Parent then
+                                    if CloseConn then CloseConn:Disconnect() end
+                                end
+                            end)
+                        end
+                    end)
                 end)
 
                 UserInputService.InputBegan:Connect(function(Input)
@@ -1387,7 +1407,7 @@ function LibraryApi:CreateWindow(WindowName)
                 DropdownLabel.Text = Name
                 SetColor(DropdownLabel, "TextColor3", "textWhiteColor")
                 DropdownLabel.TextSize = 12
-                DropdownLabel.Font = BoldFont
+                DropdownLabel.Font = MainFont
                 DropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
                 DropdownLabel.Parent = DropdownFrame
 
@@ -1415,7 +1435,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SelectedOptionLabel.Text = LibraryApi.Flags[Flag] or ""
                 SetColor(SelectedOptionLabel, "TextColor3", "textDarkColor")
                 SelectedOptionLabel.TextSize = 12
-                SelectedOptionLabel.Font = BoldFont
+                SelectedOptionLabel.Font = MainFont
                 SelectedOptionLabel.TextXAlignment = Enum.TextXAlignment.Left
                 SelectedOptionLabel.Parent = DropdownMainButton
 
@@ -1492,12 +1512,12 @@ function LibraryApi:CreateWindow(WindowName)
                         OptionLabel.Text = Option
                         SetColor(OptionLabel, "TextColor3", LibraryApi.Flags[Flag] == Option and "accentColor" or "textDarkColor")
                         OptionLabel.TextSize = 12
-                        OptionLabel.Font = BoldFont
+                        OptionLabel.Font = MainFont
                         OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
                         OptionLabel.Parent = OptionButton
 
                         OptionButton.MouseEnter:Connect(function() 
-                            AnimateElement(OptionButton, {BackgroundTransparency = 0.6}, 0.25)
+                            AnimateElement(OptionButton, {BackgroundTransparency = 0.21847}, 0.25)
                             if LibraryApi.Flags[Flag] ~= Option then AnimateElement(OptionLabel, {TextColor3 = ColorsTable.textWhiteColor}, 0.25) end
                         end)
                         OptionButton.MouseLeave:Connect(function()
@@ -1545,7 +1565,7 @@ function LibraryApi:CreateWindow(WindowName)
                 MultiLabel.Text = Name
                 SetColor(MultiLabel, "TextColor3", "textWhiteColor")
                 MultiLabel.TextSize = 12
-                MultiLabel.Font = BoldFont
+                MultiLabel.Font = MainFont
                 MultiLabel.TextXAlignment = Enum.TextXAlignment.Left
                 MultiLabel.Parent = MultiFrame
 
@@ -1572,7 +1592,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SelectedTextLabel.BackgroundTransparency = 1
                 SetColor(SelectedTextLabel, "TextColor3", "textDarkColor")
                 SelectedTextLabel.TextSize = 11
-                SelectedTextLabel.Font = BoldFont
+                SelectedTextLabel.Font = MainFont
                 SelectedTextLabel.TextXAlignment = Enum.TextXAlignment.Left
                 SelectedTextLabel.Parent = MultiMainButton
 
@@ -1682,12 +1702,12 @@ function LibraryApi:CreateWindow(WindowName)
                         OptionLabel.Text = Option
                         SetColor(OptionLabel, "TextColor3", "textDarkColor")
                         OptionLabel.TextSize = 12
-                        OptionLabel.Font = BoldFont
+                        OptionLabel.Font = MainFont
                         OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
                         OptionLabel.Parent = OptionButton
 
                         OptionButton.MouseEnter:Connect(function()
-                            AnimateElement(OptionButton, {BackgroundTransparency = 0.6}, 0.25)
+                            AnimateElement(OptionButton, {BackgroundTransparency = 0.21847}, 0.25)
                             AnimateElement(OptionLabel, {TextColor3 = ColorsTable.textWhiteColor}, 0.25)
                         end)
                         OptionButton.MouseLeave:Connect(function()
@@ -1745,7 +1765,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ColorPickerLabel.Text = Name
                 SetColor(ColorPickerLabel, "TextColor3", "textWhiteColor")
                 ColorPickerLabel.TextSize = 12
-                ColorPickerLabel.Font = BoldFont
+                ColorPickerLabel.Font = MainFont
                 ColorPickerLabel.TextXAlignment = Enum.TextXAlignment.Left
                 ColorPickerLabel.Parent = ColorPickerFrame
 
@@ -1961,7 +1981,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SubButtonAction.Text = Name
                 SetColor(SubButtonAction, "TextColor3", "textDarkColor")
                 SubButtonAction.TextSize = 11
-                SubButtonAction.Font = BoldFont
+                SubButtonAction.Font = MainFont
                 SubButtonAction.AutoButtonColor = false
                 SubButtonAction.Parent = SubButtonFrame
                 
@@ -2047,7 +2067,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ModuleDescriptionLabel.Text = DescriptionText
                 SetColor(ModuleDescriptionLabel, "TextColor3", "textDarkColor")
                 ModuleDescriptionLabel.TextSize = 11
-                ModuleDescriptionLabel.Font = BoldFont
+                ModuleDescriptionLabel.Font = MainFont
                 ModuleDescriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
                 ModuleDescriptionLabel.Parent = ModuleToggleButton
 
