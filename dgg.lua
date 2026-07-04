@@ -2118,14 +2118,18 @@ function LibraryApi:CreateWindow(WindowName)
             function Elements:ModuleCreate(Name, Flag, DescriptionText, Default, Tooltip, Callback)
                 LibraryApi.Flags[Flag] = LibraryApi.Flags[Flag] ~= nil and LibraryApi.Flags[Flag] or (Default or false)
 
+                local DescBounds = TextService:GetTextSize(DescriptionText, 11, MainFont, Vector2.new(9999, 60))
+                local DescHeight = math.clamp(DescBounds.Y, 14, 36)
+                local HeaderBaseHeight = 22 + DescHeight + 8
+
                 local ModuleFrame = Instance.new("Frame")
-                ModuleFrame.Size = UDim2.new(1, 0, 0, 46)
+                ModuleFrame.Size = UDim2.new(1, 0, 0, HeaderBaseHeight + 2)
                 ModuleFrame.BackgroundTransparency = 1
                 ModuleFrame.ClipsDescendants = true
                 ModuleFrame.Parent = TargetContainer
 
                 local ModuleToggleButton = Instance.new("TextButton")
-                ModuleToggleButton.Size = UDim2.new(1, -4, 0, 44)
+                ModuleToggleButton.Size = UDim2.new(1, -4, 0, HeaderBaseHeight)
                 ModuleToggleButton.Position = UDim2.new(0, 2, 0, 0)
                 SetColor(ModuleToggleButton, "BackgroundColor3", "elementBackground")
                 ModuleToggleButton.BackgroundTransparency = 0.21847
@@ -2143,7 +2147,7 @@ function LibraryApi:CreateWindow(WindowName)
 
                 local ModuleCheckboxFrame = Instance.new("Frame")
                 ModuleCheckboxFrame.Size = UDim2.new(0, 16, 0, 16)
-                ModuleCheckboxFrame.Position = UDim2.new(0, 14, 0.5, -8)
+                ModuleCheckboxFrame.Position = UDim2.new(0, 14, 0, 8)
                 SetColor(ModuleCheckboxFrame, "BackgroundColor3", LibraryApi.Flags[Flag] and "accentColor" or "sectionBackground")
                 ModuleCheckboxFrame.BackgroundTransparency = 0.21847
                 ModuleCheckboxFrame.Parent = ModuleToggleButton
@@ -2168,10 +2172,11 @@ function LibraryApi:CreateWindow(WindowName)
                 ModuleLabel.Parent = ModuleToggleButton
 
                 local ModuleDescriptionLabel = Instance.new("TextLabel")
-                ModuleDescriptionLabel.Size = UDim2.new(1, -45, 0, 14)
+                ModuleDescriptionLabel.Size = UDim2.new(1, -45, 0, DescHeight)
                 ModuleDescriptionLabel.Position = UDim2.new(0, 40, 0, 22)
                 ModuleDescriptionLabel.BackgroundTransparency = 1
                 ModuleDescriptionLabel.Text = DescriptionText
+                ModuleDescriptionLabel.TextWrapped = true
                 SetColor(ModuleDescriptionLabel, "TextColor3", "textDarkColor")
                 ModuleDescriptionLabel.TextSize = 11
                 ModuleDescriptionLabel.Font = MainFont
@@ -2180,7 +2185,7 @@ function LibraryApi:CreateWindow(WindowName)
 
                 local ModuleArrowIcon = Instance.new("ImageLabel")
                 ModuleArrowIcon.Size = UDim2.new(0, 14, 0, 14)
-                ModuleArrowIcon.Position = UDim2.new(1, -22, 0, 14)
+                ModuleArrowIcon.Position = UDim2.new(1, -22, 1, -18)
                 ModuleArrowIcon.BackgroundTransparency = 1
                 ModuleArrowIcon.Image = "rbxassetid://6031090656"
                 SetColor(ModuleArrowIcon, "ImageColor3", LibraryApi.Flags[Flag] and "accentColor" or "textDarkColor")
@@ -2189,7 +2194,7 @@ function LibraryApi:CreateWindow(WindowName)
 
                 local ModuleContentFrame = Instance.new("Frame")
                 ModuleContentFrame.Size = UDim2.new(1, -16, 0, 0)
-                ModuleContentFrame.Position = UDim2.new(0, 12, 0, 48)
+                ModuleContentFrame.Position = UDim2.new(0, 12, 0, HeaderBaseHeight + 4)
                 ModuleContentFrame.BackgroundTransparency = 1
                 ModuleContentFrame.Parent = ModuleFrame
 
@@ -2199,10 +2204,10 @@ function LibraryApi:CreateWindow(WindowName)
 
                 local function SynchronizeModuleSize()
                     if LibraryApi.Flags[Flag] then
-                        AnimateElement(ModuleFrame, {Size = UDim2.new(1, 0, 0, 46 + ModuleContentLayout.AbsoluteContentSize.Y + 8)}, 0.3)
+                        AnimateElement(ModuleFrame, {Size = UDim2.new(1, 0, 0, HeaderBaseHeight + ModuleContentLayout.AbsoluteContentSize.Y + 8)}, 0.3)
                         AnimateElement(ModuleArrowIcon, {Rotation = 180, ImageColor3 = ColorsTable.accentColor}, 0.3)
                     else
-                        AnimateElement(ModuleFrame, {Size = UDim2.new(1, 0, 0, 46)}, 0.3)
+                        AnimateElement(ModuleFrame, {Size = UDim2.new(1, 0, 0, HeaderBaseHeight)}, 0.3)
                         AnimateElement(ModuleArrowIcon, {Rotation = 0, ImageColor3 = ColorsTable.textDarkColor}, 0.3)
                     end
                 end
