@@ -12,7 +12,8 @@ local LibraryApi = {
     FolderName = "RadiantConfigs",
     SelectedConfig = "",
     AutoSave = true,
-    AutoLoad = true
+    AutoLoad = true,
+    WindowPosition = nil
 }
 
 local ElementRegistry = {}
@@ -39,7 +40,7 @@ local function TryAutoSave()
     local now = os.clock()
     if now - LastAutoSaveTime < 0.75 then return end
     LastAutoSaveTime = now
-    local name = LibraryApi.SelectedConfig
+    local name = LibraryApi.Flags["SelectedConfig"] or LibraryApi.SelectedConfig
     if not name or name == "" then name = "Default" end
     pcall(function()
         SaveConfiguration(name)
@@ -284,6 +285,14 @@ local function SaveConfiguration(FileName)
                 SerializedData[Key] = Val
             end
         end
+        if LibraryApi.WindowPosition then
+            SerializedData["_WindowPosition"] = {
+                ScaleX = LibraryApi.WindowPosition.X.Scale,
+                OffsetX = LibraryApi.WindowPosition.X.Offset,
+                ScaleY = LibraryApi.WindowPosition.Y.Scale,
+                OffsetY = LibraryApi.WindowPosition.Y.Offset
+            }
+        end
         writefile(LibraryApi.FolderName .. "/" .. FileName .. ".json", HttpService:JSONEncode(SerializedData))
     end)
 end
@@ -295,7 +304,12 @@ local function LoadConfiguration(FileName)
         if isfile(FullPath) then
             local DecodedData = HttpService:JSONDecode(readfile(FullPath))
             if type(DecodedData) == "table" then
+                if DecodedData["_WindowPosition"] then
+                    local Wp = DecodedData["_WindowPosition"]
+                    LibraryApi.WindowPosition = UDim2.new(Wp.ScaleX or 0.5, Wp.OffsetX or -360, Wp.ScaleY or 0.5, Wp.OffsetY or -240)
+                end
                 for Key, Val in pairs(DecodedData) do
+                    if Key == "_WindowPosition" then continue end
                     if type(Val) == "table" then
                         if Val.Type == "Color3" then
                             LibraryApi.Flags[Key] = Color3.new(Val.R, Val.G, Val.B)
@@ -403,11 +417,13 @@ function LibraryApi:Notify(Config)
     TextLabel.ZIndex = 1502
     TextLabel.Parent = NotificationFrame
 
-    AnimateElement(NotificationFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.45)
-
     task.delay(Duration, function()
-        local HideTween = AnimateElement(NotificationFrame, {Position = UDim2.new(1, 320, 0, 0)}, 0.45)
-        HideTween.Completed:Connect(function() NotificationFrame:Destroy() end)
+        AnimateElement(NotificationFrame, {BackgroundTransparency = 1}, 0.45)
+        task.delay(0.5, function()
+            if NotificationFrame and NotificationFrame.Parent then
+                NotificationFrame:Destroy()
+            end
+        end)
     end)
 end
 
@@ -648,6 +664,7 @@ function LibraryApi:CreateWindow(WindowName)
     UserInputService.InputEnded:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then 
             IsDragging = false 
+            LibraryApi.WindowPosition = TargetPosition
         end
     end)
 
@@ -2427,6 +2444,10 @@ function LibraryApi:CreateWindow(WindowName)
                     LoadConfiguration(lastName)
                     LibraryApi.SelectedConfig = lastName
                     LibraryApi:UpdateUI()
+                    if LibraryApi.WindowPosition then
+                        MainBackground.Position = LibraryApi.WindowPosition
+                        TargetPosition = LibraryApi.WindowPosition
+                    end
                     if ConfigDropdown then
                         ConfigDropdown:Refresh(GetConfigList())
                     end
