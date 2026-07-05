@@ -1420,6 +1420,7 @@ function LibraryApi:CreateWindow(WindowName)
                             KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
                             ContextMenu:Destroy()
                             if Callback then task.spawn(Callback, KeybindData) end
+                            if _G.UpdateKeybindsOverlay then _G.UpdateKeybindsOverlay() end
                         end)
                         
                         ModeBtn.MouseEnter:Connect(function()
@@ -1452,6 +1453,7 @@ function LibraryApi:CreateWindow(WindowName)
                             AnimateElement(KeybindButton, {TextColor3 = ColorsTable.textDarkColor}, 0.3)
                             if Callback then task.spawn(Callback, KeybindData) end
                             TryAutoSave()
+                            if _G.UpdateKeybindsOverlay then _G.UpdateKeybindsOverlay() end
                         end
                     else
                         local Matches = false
@@ -2460,3 +2462,273 @@ function LibraryApi:CreateWindow(WindowName)
 end
 
 return LibraryApi
+
+-- Keybinds Overlay
+local KeybindsOverlayFrame = Instance.new("Frame")
+KeybindsOverlayFrame.Name = "KeybindsOverlay"
+KeybindsOverlayFrame.Size = UDim2.new(0, 200, 0, 300) -- Placeholder size
+KeybindsOverlayFrame.Position = UDim2.new(0.5, -100, 0.5, -150) -- Centered
+SetColor(KeybindsOverlayFrame, "BackgroundColor3", "mainBackground")
+KeybindsOverlayFrame.BackgroundTransparency = 0.21847
+KeybindsOverlayFrame.BorderSizePixel = 0
+KeybindsOverlayFrame.ZIndex = 1000
+KeybindsOverlayFrame.Visible = true -- For testing, will be controlled by setting later
+KeybindsOverlayFrame.Parent = ScreenGui
+
+local KeybindsOverlayCorner = Instance.new("UICorner")
+KeybindsOverlayCorner.CornerRadius = UDim.new(0, 8)
+KeybindsOverlayCorner.Parent = KeybindsOverlayFrame
+
+local KeybindsOverlayStroke = Instance.new("UIStroke")
+SetColor(KeybindsOverlayStroke, "Color", "borderColor")
+KeybindsOverlayStroke.Parent = KeybindsOverlayFrame
+
+local KeybindsOverlayTitle = Instance.new("TextLabel")
+KeybindsOverlayTitle.Size = UDim2.new(1, 0, 0, 30)
+KeybindsOverlayTitle.BackgroundTransparency = 1
+KeybindsOverlayTitle.Text = "Keybinds"
+SetColor(KeybindsOverlayTitle, "TextColor3", "textWhiteColor")
+KeybindsOverlayTitle.TextSize = 16
+KeybindsOverlayTitle.Font = BoldFont
+KeybindsOverlayTitle.Parent = KeybindsOverlayFrame
+
+local KeybindsScrollingFrame = Instance.new("ScrollingFrame")
+KeybindsScrollingFrame.Size = UDim2.new(1, -10, 1, -40)
+KeybindsScrollingFrame.Position = UDim2.new(0, 5, 0, 35)
+KeybindsScrollingFrame.BackgroundTransparency = 1
+KeybindsScrollingFrame.BorderSizePixel = 0
+KeybindsScrollingFrame.ScrollBarThickness = 6
+SetColor(KeybindsScrollingFrame, "ScrollBarImageColor3", "accentColor")
+KeybindsScrollingFrame.Parent = KeybindsOverlayFrame
+
+local KeybindsListLayout = Instance.new("UIListLayout")
+KeybindsListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+KeybindsListLayout.Padding = UDim.new(0, 5)
+KeybindsListLayout.Parent = KeybindsScrollingFrame
+
+-- Function to update the keybinds overlay
+local function UpdateKeybindsOverlay()
+    for _, Child in ipairs(KeybindsScrollingFrame:GetChildren()) do
+        if Child:IsA("Frame") then
+            Child:Destroy()
+        end
+    end
+
+    for Flag, Data in pairs(LibraryApi.Flags) do
+        if type(Data) == "table" and Data.Type == "Keybind" and Data.Value then
+            local KeybindEntryFrame = Instance.new("Frame")
+            KeybindEntryFrame.Size = UDim2.new(1, 0, 0, 25)
+            KeybindEntryFrame.BackgroundTransparency = 1
+            KeybindEntryFrame.Parent = KeybindsScrollingFrame
+
+            local KeybindNameLabel = Instance.new("TextLabel")
+            KeybindNameLabel.Size = UDim2.new(0.6, 0, 1, 0)
+            KeybindNameLabel.BackgroundTransparency = 1
+            KeybindNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            KeybindNameLabel.Text = Flag -- Using Flag as the name for now
+            SetColor(KeybindNameLabel, "TextColor3", "textWhiteColor")
+            KeybindNameLabel.TextSize = 12
+            KeybindNameLabel.Font = MainFont
+            KeybindNameLabel.Parent = KeybindEntryFrame
+
+            local KeybindValueLabel = Instance.new("TextLabel")
+            KeybindValueLabel.Size = UDim2.new(0.4, 0, 1, 0)
+            KeybindValueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+            KeybindValueLabel.BackgroundTransparency = 1
+            KeybindValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+            local KeyDisplay = ""
+            if Data.Type == "KeyCode" then
+                KeyDisplay = Data.Value.Name
+            elseif Data.Type == "UserInputType" then
+                if Data.Value == Enum.UserInputType.MouseButton1 then KeyDisplay = "Mouse1"
+                elseif Data.Value == Enum.UserInputType.MouseButton2 then KeyDisplay = "Mouse2"
+                elseif Data.Value == Enum.UserInputType.MouseButton3 then KeyDisplay = "Mouse3"
+                else KeyDisplay = Data.Value.Name end
+            end
+            KeybindValueLabel.Text = KeyDisplay .. " [" .. Data.Mode .. "]"
+            SetColor(KeybindValueLabel, "TextColor3", "accentColor")
+            KeybindValueLabel.TextSize = 12
+            KeybindValueLabel.Font = BoldFont
+            KeybindValueLabel.Parent = KeybindEntryFrame
+        end
+    end
+    KeybindsScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, KeybindsListLayout.AbsoluteContentSize.Y)
+end
+
+-- Register the update function to be called when flags change (if possible, or manually call)
+-- For now, let's call it once to populate
+UpdateKeybindsOverlay()
+
+-- Add a toggle for the Keybinds Overlay in settings
+-- Assuming there's a Settings tab or similar where we can add this.
+-- I'll add a placeholder for now and integrate it properly once I find the settings creation logic.
+
+-- Placeholder for adding to settings (this part needs to be integrated into the existing settings creation flow)
+-- For demonstration, let's assume a 'Settings' tab exists and we can add a toggle to it.
+-- If not, I'll need to create a new tab or find where to add general settings.
+
+-- Example of how it might be added to a section:
+-- local SettingsSection = SettingsTab:SectionCreate("Left", "Overlay Settings")
+-- SettingsSection:ToggleCreate("Keybinds Overlay", "KeybindsOverlayEnabled", true, "Toggle visibility of the keybinds overlay", function(State)
+--     KeybindsOverlayFrame.Visible = State
+-- end)
+
+-- For now, I'll just add a flag to LibraryApi to control visibility and update the overlay based on it.
+LibraryApi.Flags["KeybindsOverlayEnabled"] = true -- Default to true as requested
+KeybindsOverlayFrame.Visible = LibraryApi.Flags["KeybindsOverlayEnabled"]
+
+RegisterElement("KeybindsOverlayEnabled", function()
+    KeybindsOverlayFrame.Visible = LibraryApi.Flags["KeybindsOverlayEnabled"]
+end)
+
+-- Also need to update the overlay when any keybind changes. This requires modifying the KeybindCreate function.
+-- I will modify the KeybindCreate function to call UpdateKeybindsOverlay when a keybind is changed.
+
+
+-- Keybinds Overlay UI and Logic
+local KeybindsOverlay -- This will hold the main Keybinds Overlay Frame
+
+local function UpdateKeybindsOverlayContent()
+    if not KeybindsOverlay or not KeybindsOverlay:FindFirstChild("KeybindsScrollingFrame") then return end
+    local KeybindsScrollingFrame = KeybindsOverlay:FindFirstChild("KeybindsScrollingFrame")
+    local KeybindsListLayout = KeybindsScrollingFrame:FindFirstChildOfClass("UIListLayout")
+    if not KeybindsListLayout then return end
+
+    -- Clear existing entries
+    for _, Child in ipairs(KeybindsScrollingFrame:GetChildren()) do
+        if Child:IsA("Frame") then
+            Child:Destroy()
+        end
+    end
+
+    -- Populate with current keybinds
+    for Flag, Data in pairs(LibraryApi.Flags) do
+        if type(Data) == "table" and Data.Type == "Keybind" and Data.Value then
+            local KeybindEntryFrame = Instance.new("Frame")
+            KeybindEntryFrame.Size = UDim2.new(1, 0, 0, 25)
+            KeybindEntryFrame.BackgroundTransparency = 1
+            KeybindEntryFrame.Parent = KeybindsScrollingFrame
+
+            local KeybindNameLabel = Instance.new("TextLabel")
+            KeybindNameLabel.Size = UDim2.new(0.6, 0, 1, 0)
+            KeybindNameLabel.BackgroundTransparency = 1
+            KeybindNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            KeybindNameLabel.Text = Flag -- Display the flag name as the keybind name
+            SetColor(KeybindNameLabel, "TextColor3", "textWhiteColor")
+            KeybindNameLabel.TextSize = 12
+            KeybindNameLabel.Font = MainFont
+            KeybindNameLabel.Parent = KeybindEntryFrame
+
+            local KeybindValueLabel = Instance.new("TextLabel")
+            KeybindValueLabel.Size = UDim2.new(0.4, 0, 1, 0)
+            KeybindValueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+            KeybindValueLabel.BackgroundTransparency = 1
+            KeybindValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+            local KeyDisplay = ""
+            if Data.Type == "KeyCode" then
+                KeyDisplay = Data.Value.Name
+            elseif Data.Type == "UserInputType" then
+                if Data.Value == Enum.UserInputType.MouseButton1 then KeyDisplay = "Mouse1"
+                elseif Data.Value == Enum.UserInputType.MouseButton2 then KeyDisplay = "Mouse2"
+                elseif Data.Value == Enum.UserInputType.MouseButton3 then KeyDisplay = "Mouse3"
+                else KeyDisplay = Data.Value.Name end
+            end
+            KeybindValueLabel.Text = KeyDisplay .. " [" .. Data.Mode .. "]"
+            SetColor(KeybindValueLabel, "TextColor3", "accentColor")
+            KeybindValueLabel.TextSize = 12
+            KeybindValueLabel.Font = BoldFont
+            KeybindValueLabel.Parent = KeybindEntryFrame
+        end
+    end
+    KeybindsScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, KeybindsListLayout.AbsoluteContentSize.Y)
+end
+
+local function _init_KeybindsOverlay()
+    KeybindsOverlay = Instance.new("Frame")
+    KeybindsOverlay.Name = "KeybindsOverlay"
+    KeybindsOverlay.Size = UDim2.new(0, 200, 0, 300)
+    KeybindsOverlay.Position = UDim2.new(0.5, -100, 0.5, -150)
+    SetColor(KeybindsOverlay, "BackgroundColor3", "mainBackground")
+    KeybindsOverlay.BackgroundTransparency = 0.21847
+    KeybindsOverlay.BorderSizePixel = 0
+    KeybindsOverlay.ZIndex = 1000
+    -- Default to true, but check if it's already saved in LibraryApi.Flags
+    LibraryApi.Flags["KeybindsOverlayEnabled"] = LibraryApi.Flags["KeybindsOverlayEnabled"] ~= nil and LibraryApi.Flags["KeybindsOverlayEnabled"] or true
+    KeybindsOverlay.Visible = LibraryApi.Flags["KeybindsOverlayEnabled"]
+    KeybindsOverlay.Parent = ScreenGui
+
+    local KeybindsOverlayCorner = Instance.new("UICorner")
+    KeybindsOverlayCorner.CornerRadius = UDim.new(0, 8)
+    KeybindsOverlayCorner.Parent = KeybindsOverlay
+
+    local KeybindsOverlayStroke = Instance.new("UIStroke")
+    SetColor(KeybindsOverlayStroke, "Color", "borderColor")
+    KeybindsOverlayStroke.Parent = KeybindsOverlay
+
+    local KeybindsOverlayTitle = Instance.new("TextLabel")
+    KeybindsOverlayTitle.Size = UDim2.new(1, 0, 0, 30)
+    KeybindsOverlayTitle.BackgroundTransparency = 1
+    KeybindsOverlayTitle.Text = "Keybinds"
+    SetColor(KeybindsOverlayTitle, "TextColor3", "textWhiteColor")
+    KeybindsOverlayTitle.TextSize = 16
+    KeybindsOverlayTitle.Font = BoldFont
+    KeybindsOverlayTitle.Parent = KeybindsOverlay
+
+    local KeybindsScrollingFrame = Instance.new("ScrollingFrame")
+    KeybindsScrollingFrame.Name = "KeybindsScrollingFrame"
+    KeybindsScrollingFrame.Size = UDim2.new(1, -10, 1, -40)
+    KeybindsScrollingFrame.Position = UDim2.new(0, 5, 0, 35)
+    KeybindsScrollingFrame.BackgroundTransparency = 1
+    KeybindsScrollingFrame.BorderSizePixel = 0
+    KeybindsScrollingFrame.ScrollBarThickness = 6
+    SetColor(KeybindsScrollingFrame, "ScrollBarImageColor3", "accentColor")
+    KeybindsScrollingFrame.Parent = KeybindsOverlay
+
+    local KeybindsListLayout = Instance.new("UIListLayout")
+    KeybindsListLayout.Name = "KeybindsListLayout"
+    KeybindsListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    KeybindsListLayout.Padding = UDim.new(0, 5)
+    KeybindsListLayout.Parent = KeybindsScrollingFrame
+
+    -- Initial population
+    UpdateKeybindsOverlayContent()
+
+    -- Register element to update visibility
+    RegisterElement("KeybindsOverlayEnabled", function()
+        if KeybindsOverlay then
+            KeybindsOverlay.Visible = LibraryApi.Flags["KeybindsOverlayEnabled"]
+        end
+    end)
+
+    -- Expose the update function globally so KeybindCreate can call it
+    _G.UpdateKeybindsOverlay = UpdateKeybindsOverlayContent
+end
+
+-- Override the RegisterElement function to also call UpdateKeybindsOverlayContent for keybind flags
+local OriginalRegisterElement = RegisterElement
+RegisterElement = function(Flag, UpdateFunction)
+    OriginalRegisterElement(Flag, UpdateFunction)
+    if type(LibraryApi.Flags[Flag]) == "table" and LibraryApi.Flags[Flag].Type == "Keybind" then
+        if _G.UpdateKeybindsOverlay then
+            _G.UpdateKeybindsOverlay()
+        end
+    end
+end
+
+-- Find the ProfileTab creation and insert the Settings tab and Keybinds Overlay initialization there
+-- This ensures WindowContext is fully initialized before we try to add to it.
+local OriginalWindowContextTabCreate = WindowContext.TabCreate
+function WindowContext:TabCreate(TabName, IconId, IsBottom)
+    local TabData = OriginalWindowContextTabCreate(self, TabName, IconId, IsBottom)
+    if TabName == "radiant.rip" then -- Assuming 'radiant.rip' is the last tab created before the main loop starts
+        local SettingsTab = OriginalWindowContextTabCreate(self, "Settings", "rbxassetid://6031090656") -- Gear icon for settings
+        local SettingsElements = ElementInjector(SettingsTab.Page.LeftColumnFrame)
+        SettingsElements:ToggleCreate("Keybinds Overlay", "KeybindsOverlayEnabled", true, "Toggle visibility of the keybinds overlay", function(State)
+            if KeybindsOverlay then
+                KeybindsOverlay.Visible = State
+            end
+        end)
+        _init_KeybindsOverlay()
+    end
+    return TabData
+end
