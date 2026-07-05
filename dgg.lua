@@ -2732,3 +2732,6 @@ function WindowContext:TabCreate(TabName, IconId, IsBottom)
     end
     return TabData
 end
+
+
+return LibraryApi
