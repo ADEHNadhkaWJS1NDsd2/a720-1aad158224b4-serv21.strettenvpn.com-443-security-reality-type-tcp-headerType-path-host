@@ -254,7 +254,7 @@ local function GetConfigList()
     if isfolder and isfolder(LibraryApi.FolderName) then
         if listfiles then
             for _, FilePath in ipairs(listfiles(LibraryApi.FolderName)) do
-                local FileName = FilePath:match("([^/\\]+)%.json$")
+                local FileName = FilePath:match("([^/\$+)%.json$")
                 if FileName then table.insert(ConfigList, FileName) end
             end
         end
@@ -355,6 +355,178 @@ RunService.RenderStepped:Connect(function()
         end)
     end
 end)
+
+local KeybindOverlayList = {}
+
+local function GetKeybindDisplayString(Data)
+    if not Data or not Data.Value then return "None" end
+    if Data.Type == "KeyCode" then
+        return Data.Value.Name or "None"
+    elseif Data.Type == "UserInputType" then
+        if Data.Value == Enum.UserInputType.MouseButton1 then return "Mouse1"
+        elseif Data.Value == Enum.UserInputType.MouseButton2 then return "Mouse2"
+        elseif Data.Value == Enum.UserInputType.MouseButton3 then return "Mouse3"
+        else return Data.Value.Name end
+    end
+    return "None"
+end
+
+local KeybindOverlay = Instance.new("Frame")
+KeybindOverlay.Name = "KeybindOverlay"
+KeybindOverlay.Size = UDim2.new(0, 210, 0, 40)
+KeybindOverlay.Position = UDim2.new(0, 20, 0, 120)
+SetColor(KeybindOverlay, "BackgroundColor3", "mainBackground")
+KeybindOverlay.BackgroundTransparency = 0.18374
+KeybindOverlay.BorderSizePixel = 0
+KeybindOverlay.Active = true
+KeybindOverlay.ZIndex = 1400
+KeybindOverlay.Visible = false
+KeybindOverlay.Parent = ScreenGui
+
+local KeybindOverlayCorner = Instance.new("UICorner")
+KeybindOverlayCorner.CornerRadius = UDim.new(0, 8)
+KeybindOverlayCorner.Parent = KeybindOverlay
+
+local KeybindOverlayStroke = Instance.new("UIStroke")
+SetColor(KeybindOverlayStroke, "Color", "borderColor")
+KeybindOverlayStroke.Parent = KeybindOverlay
+
+ApplyAcrylicEffect(KeybindOverlay, 0.9, UDim.new(0, 8))
+
+local KeybindOverlayAccent = Instance.new("Frame")
+KeybindOverlayAccent.Size = UDim2.new(1, 0, 0, 2)
+KeybindOverlayAccent.BackgroundColor3 = Color3.new(1, 1, 1)
+KeybindOverlayAccent.BorderSizePixel = 0
+KeybindOverlayAccent.ZIndex = 1402
+KeybindOverlayAccent.Parent = KeybindOverlay
+
+local KeybindOverlayAccentCorner = Instance.new("UICorner")
+KeybindOverlayAccentCorner.CornerRadius = UDim.new(0, 8)
+KeybindOverlayAccentCorner.Parent = KeybindOverlayAccent
+
+local KeybindOverlayAccentGradient = Instance.new("UIGradient")
+SetGradient(KeybindOverlayAccentGradient, "accentGradient1", "accentGradient2")
+KeybindOverlayAccentGradient.Parent = KeybindOverlayAccent
+
+local KeybindOverlayHeader = Instance.new("Frame")
+KeybindOverlayHeader.Size = UDim2.new(1, 0, 0, 26)
+KeybindOverlayHeader.Position = UDim2.new(0, 0, 0, 2)
+SetColor(KeybindOverlayHeader, "BackgroundColor3", "sidebarBackground")
+KeybindOverlayHeader.BackgroundTransparency = 0.21847
+KeybindOverlayHeader.BorderSizePixel = 0
+KeybindOverlayHeader.ZIndex = 1401
+KeybindOverlayHeader.Parent = KeybindOverlay
+
+local KeybindOverlayTitle = Instance.new("TextLabel")
+KeybindOverlayTitle.Size = UDim2.new(1, -16, 1, 0)
+KeybindOverlayTitle.Position = UDim2.new(0, 10, 0, 0)
+KeybindOverlayTitle.BackgroundTransparency = 1
+KeybindOverlayTitle.Text = "Keybinds"
+SetColor(KeybindOverlayTitle, "TextColor3", "textWhiteColor")
+KeybindOverlayTitle.TextSize = 12
+KeybindOverlayTitle.Font = BoldFont
+KeybindOverlayTitle.TextXAlignment = Enum.TextXAlignment.Left
+KeybindOverlayTitle.ZIndex = 1402
+KeybindOverlayTitle.Parent = KeybindOverlayHeader
+
+local KeybindOverlayHeaderBorder = Instance.new("Frame")
+KeybindOverlayHeaderBorder.Size = UDim2.new(1, 0, 0, 1)
+KeybindOverlayHeaderBorder.Position = UDim2.new(0, 0, 1, 0)
+SetColor(KeybindOverlayHeaderBorder, "BackgroundColor3", "borderColor")
+KeybindOverlayHeaderBorder.BorderSizePixel = 0
+KeybindOverlayHeaderBorder.ZIndex = 1402
+KeybindOverlayHeaderBorder.Parent = KeybindOverlayHeader
+
+local KeybindOverlayListFrame = Instance.new("Frame")
+KeybindOverlayListFrame.Size = UDim2.new(1, -16, 0, 0)
+KeybindOverlayListFrame.Position = UDim2.new(0, 8, 0, 34)
+KeybindOverlayListFrame.BackgroundTransparency = 1
+KeybindOverlayListFrame.ZIndex = 1402
+KeybindOverlayListFrame.Parent = KeybindOverlay
+
+local KeybindOverlayLayout = Instance.new("UIListLayout")
+KeybindOverlayLayout.SortOrder = Enum.SortOrder.LayoutOrder
+KeybindOverlayLayout.Padding = UDim.new(0, 4)
+KeybindOverlayLayout.Parent = KeybindOverlayListFrame
+
+local IsKeybindOverlayDragging = false
+local KeybindOverlayDragInput = nil
+local KeybindOverlayDragStart = nil
+local KeybindOverlayStartPos = nil
+
+KeybindOverlay.InputBegan:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+        IsKeybindOverlayDragging = true
+        KeybindOverlayDragStart = Input.Position
+        KeybindOverlayStartPos = KeybindOverlay.Position
+    end
+end)
+
+KeybindOverlay.InputChanged:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
+        KeybindOverlayDragInput = Input
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+        IsKeybindOverlayDragging = false
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if IsKeybindOverlayDragging and KeybindOverlayDragInput then
+        local Delta = KeybindOverlayDragInput.Position - KeybindOverlayDragStart
+        KeybindOverlay.Position = UDim2.new(KeybindOverlayStartPos.X.Scale, KeybindOverlayStartPos.X.Offset + Delta.X, KeybindOverlayStartPos.Y.Scale, KeybindOverlayStartPos.Y.Offset + Delta.Y)
+    end
+    KeybindOverlay.Size = UDim2.new(0, 210, 0, 40 + KeybindOverlayLayout.AbsoluteContentSize.Y)
+    KeybindOverlay.Visible = (LibraryApi.Flags["KeybindOverlayEnabled"] ~= false) and #KeybindOverlayList > 0
+end)
+
+local function AddKeybindToOverlay(Name, Flag)
+    local EntryFrame = Instance.new("Frame")
+    EntryFrame.Size = UDim2.new(1, 0, 0, 16)
+    EntryFrame.BackgroundTransparency = 1
+    EntryFrame.ZIndex = 1402
+    EntryFrame.Parent = KeybindOverlayListFrame
+
+    local NameLabel = Instance.new("TextLabel")
+    NameLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.Text = Name
+    SetColor(NameLabel, "TextColor3", "textWhiteColor")
+    NameLabel.TextSize = 11
+    NameLabel.Font = MainFont
+    NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    NameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    NameLabel.ZIndex = 1403
+    NameLabel.Parent = EntryFrame
+
+    local KeyLabel = Instance.new("TextLabel")
+    KeyLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    KeyLabel.Position = UDim2.new(0.5, 0, 0, 0)
+    KeyLabel.BackgroundTransparency = 1
+    SetColor(KeyLabel, "TextColor3", "accentColor")
+    KeyLabel.TextSize = 11
+    KeyLabel.Font = BoldFont
+    KeyLabel.TextXAlignment = Enum.TextXAlignment.Right
+    KeyLabel.ZIndex = 1403
+    KeyLabel.Parent = EntryFrame
+
+    local ModeLabel = Instance.new("TextLabel")
+    ModeLabel.Size = UDim2.new(1, 0, 0, 0)
+    ModeLabel.BackgroundTransparency = 1
+    ModeLabel.Visible = false
+    ModeLabel.Parent = EntryFrame
+
+    local function UpdateEntry()
+        local Data = LibraryApi.Flags[Flag]
+        KeyLabel.Text = "[ " .. GetKeybindDisplayString(Data) .. " ] " .. (Data and Data.Mode or "Toggle")
+    end
+    UpdateEntry()
+    RegisterElement(Flag, UpdateEntry)
+    table.insert(KeybindOverlayList, {Frame = EntryFrame, Update = UpdateEntry})
+end
 
 function LibraryApi:Notify(Config)
     local Title = Config.Title or "Notification"
@@ -1418,6 +1590,7 @@ function LibraryApi:CreateWindow(WindowName)
                         ModeBtn.MouseButton1Click:Connect(function()
                             KeybindData.Mode = ModeName
                             KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
+                            LibraryApi:UpdateUI()
                             ContextMenu:Destroy()
                             if Callback then task.spawn(Callback, KeybindData) end
                         end)
@@ -1448,6 +1621,7 @@ function LibraryApi:CreateWindow(WindowName)
                             KeybindData.Value = NewBind.Value
                             KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
                             IsListening = false
+                            LibraryApi:UpdateUI()
                             AnimateElement(KeybindButtonStroke, {Color = ColorsTable.borderColor}, 0.3)
                             AnimateElement(KeybindButton, {TextColor3 = ColorsTable.textDarkColor}, 0.3)
                             if Callback then task.spawn(Callback, KeybindData) end
@@ -1484,6 +1658,7 @@ function LibraryApi:CreateWindow(WindowName)
                 end
                 UpdateKeybindVisual()
                 RegisterElement(Flag, UpdateKeybindVisual)
+                AddKeybindToOverlay(Name, Flag)
             end
 
             function Elements:DropdownCreate(Name, Flag, Options, Default, Tooltip, Callback)
@@ -2419,6 +2594,7 @@ function LibraryApi:CreateWindow(WindowName)
 
     local MenuSection = ProfileTab:SectionCreate("Right", "Menu Controls")
     MenuSection:KeybindCreate("Menu Toggle Bind", "MenuToggleKey", Enum.KeyCode.Delete, "Key to hide/show menu", function() end)
+    MenuSection:ToggleCreate("Keybinds Overlay", "KeybindOverlayEnabled", true, "Show or hide the on-screen keybinds list", function(State) end)
     MenuSection:ButtonCreate("Unload Script", "Removes the UI completely", function() ScreenGui:Destroy() end)
 
     UserInputService.InputBegan:Connect(function(Input, GameProcessedEvent)
