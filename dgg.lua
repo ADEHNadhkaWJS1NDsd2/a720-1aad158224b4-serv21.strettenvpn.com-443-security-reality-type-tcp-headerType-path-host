@@ -480,7 +480,11 @@ RunService.RenderStepped:Connect(function()
         KeybindOverlay.Position = UDim2.new(KeybindOverlayStartPos.X.Scale, KeybindOverlayStartPos.X.Offset + Delta.X, KeybindOverlayStartPos.Y.Scale, KeybindOverlayStartPos.Y.Offset + Delta.Y)
     end
     KeybindOverlay.Size = UDim2.new(0, 210, 0, 40 + KeybindOverlayLayout.AbsoluteContentSize.Y)
-    KeybindOverlay.Visible = (LibraryApi.Flags["KeybindOverlayEnabled"] ~= false) and #KeybindOverlayList > 0
+    local VisibleCount = 0
+    for _, Entry in ipairs(KeybindOverlayList) do
+        if Entry.Frame and Entry.Frame.Visible then VisibleCount = VisibleCount + 1 end
+    end
+    KeybindOverlay.Visible = (LibraryApi.Flags["KeybindOverlayEnabled"] ~= false) and VisibleCount > 0
 end)
 
 local function AddKeybindToOverlay(Name, Flag)
@@ -521,7 +525,13 @@ local function AddKeybindToOverlay(Name, Flag)
 
     local function UpdateEntry()
         local Data = LibraryApi.Flags[Flag]
-        KeyLabel.Text = "[ " .. GetKeybindDisplayString(Data) .. " ] " .. (Data and Data.Mode or "Toggle")
+        local Display = GetKeybindDisplayString(Data)
+        local Active = Data and Data.Value ~= nil
+            and Data.Value ~= Enum.KeyCode.Unknown
+            and Data.Value ~= Enum.UserInputType.None
+            and Display ~= "None" and Display ~= "Unknown"
+        EntryFrame.Visible = Active
+        KeyLabel.Text = "[ " .. Display .. " ] " .. (Data and Data.Mode or "Toggle")
     end
     UpdateEntry()
     RegisterElement(Flag, UpdateEntry)
