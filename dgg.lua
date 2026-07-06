@@ -254,7 +254,7 @@ local function GetConfigList()
     if isfolder and isfolder(LibraryApi.FolderName) then
         if listfiles then
             for _, FilePath in ipairs(listfiles(LibraryApi.FolderName)) do
-                local FileName = FilePath:match("([^/\$+)%.json$")
+                local FileName = FilePath:match("([^/\\]+)%.json$")
                 if FileName then table.insert(ConfigList, FileName) end
             end
         end
@@ -1618,7 +1618,7 @@ function LibraryApi:CreateWindow(WindowName)
                             KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
                             LibraryApi:UpdateUI()
                             ContextMenu:Destroy()
-                            if Callback then task.spawn(Callback, KeybindData) end
+                            if Callback then task.spawn(Callback, KeybindData.State) end
                         end)
                         
                         ModeBtn.MouseEnter:Connect(function()
@@ -1630,7 +1630,7 @@ function LibraryApi:CreateWindow(WindowName)
                     end
                 end)
 
-                UserInputService.InputBegan:Connect(function(Input)
+                UserInputService.InputBegan:Connect(function(Input, GameProcessed)
                     if IsListening then
                         local NewBind = nil
                         if Input.KeyCode ~= Enum.KeyCode.Unknown and Input.KeyCode ~= Enum.KeyCode.Escape then
@@ -1650,21 +1650,46 @@ function LibraryApi:CreateWindow(WindowName)
                             LibraryApi:UpdateUI()
                             AnimateElement(KeybindButtonStroke, {Color = ColorsTable.borderColor}, 0.3)
                             AnimateElement(KeybindButton, {TextColor3 = ColorsTable.textDarkColor}, 0.3)
-                            if Callback then task.spawn(Callback, KeybindData) end
+                            if Callback then task.spawn(Callback, KeybindData.State) end
                             TryAutoSave()
                         end
                     else
+                        if GameProcessed then return end 
+
                         local Matches = false
                         if KeybindData.Type == "KeyCode" and Input.KeyCode == KeybindData.Value then
                             Matches = true
                         elseif KeybindData.Type == "UserInputType" and Input.UserInputType == KeybindData.Value then
                             Matches = true
                         end
+
                         if Matches and KeybindData.Value ~= Enum.KeyCode.Unknown then
                             if KeybindData.Mode == "Toggle" then
                                 KeybindData.State = not (KeybindData.State or false)
+                            elseif KeybindData.Mode == "Hold" or KeybindData.Mode == "Always" then
+                                KeybindData.State = true
                             end
-                            if Callback then task.spawn(Callback, KeybindData) end
+                            
+                            if Callback then task.spawn(Callback, KeybindData.State) end
+                            LibraryApi:UpdateUI()
+                        end
+                    end
+                end)
+
+                UserInputService.InputEnded:Connect(function(Input, GameProcessed)
+                    if IsListening then return end
+
+                    local Matches = false
+                    if KeybindData.Type == "KeyCode" and Input.KeyCode == KeybindData.Value then
+                        Matches = true
+                    elseif KeybindData.Type == "UserInputType" and Input.UserInputType == KeybindData.Value then
+                        Matches = true
+                    end
+
+                    if Matches and KeybindData.Value ~= Enum.KeyCode.Unknown then
+                        if KeybindData.Mode == "Hold" then
+                            KeybindData.State = false
+                            if Callback then task.spawn(Callback, KeybindData.State) end
                             LibraryApi:UpdateUI()
                         end
                     end
