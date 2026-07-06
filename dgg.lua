@@ -317,10 +317,14 @@ local function LoadConfiguration(FileName)
                             local InputValue
                             if Val.InputType == "KeyCode" then
                                 InputValue = Enum.KeyCode[Val.Name] or Enum.KeyCode.Unknown
-                                LibraryApi.Flags[Key] = {Type = "KeyCode", Value = InputValue, Mode = Val.Mode or "Toggle"}
+                                local kb = {Type = "KeyCode", Value = InputValue, Mode = Val.Mode or "Toggle"}
+                                if kb.Mode == "Toggle" then kb.State = false end
+                                LibraryApi.Flags[Key] = kb
                             elseif Val.InputType == "UserInputType" then
                                 InputValue = Enum.UserInputType[Val.Name] or Enum.UserInputType.None
-                                LibraryApi.Flags[Key] = {Type = "UserInputType", Value = InputValue, Mode = Val.Mode or "Toggle"}
+                                local kb = {Type = "UserInputType", Value = InputValue, Mode = Val.Mode or "Toggle"}
+                                if kb.Mode == "Toggle" then kb.State = false end
+                                LibraryApi.Flags[Key] = kb
                             end
                         elseif Val.Type == "Range" then
                             LibraryApi.Flags[Key] = {Min = Val.Min, Max = Val.Max}
@@ -360,6 +364,7 @@ local KeybindOverlayList = {}
 
 local function GetKeybindDisplayString(Data)
     if not Data or not Data.Value then return "None" end
+    if Data.Value == Enum.KeyCode.Unknown or Data.Value == Enum.UserInputType.None then return "None" end
     if Data.Type == "KeyCode" then
         return Data.Value.Name or "None"
     elseif Data.Type == "UserInputType" then
@@ -529,9 +534,19 @@ local function AddKeybindToOverlay(Name, Flag)
         local Active = Data and Data.Value ~= nil
             and Data.Value ~= Enum.KeyCode.Unknown
             and Data.Value ~= Enum.UserInputType.None
-            and Display ~= "None" and Display ~= "Unknown"
+            and Display ~= "None"
         EntryFrame.Visible = Active
-        KeyLabel.Text = "[ " .. Display .. " ] " .. (Data and Data.Mode or "Toggle")
+        local modeText = (Data and Data.Mode or "Toggle")
+        local stateText = ""
+        if Data and Data.Mode == "Toggle" and Data.State ~= nil then
+            stateText = Data.State and " ON" or " OFF"
+        end
+        KeyLabel.Text = "[ " .. Display .. " ] " .. modeText .. stateText
+        if Data and Data.Mode == "Toggle" and Data.State ~= nil then
+            KeyLabel.TextColor3 = Data.State and ColorsTable.accentColor or ColorsTable.textDarkColor
+        else
+            KeyLabel.TextColor3 = ColorsTable.accentColor
+        end
     end
     UpdateEntry()
     RegisterElement(Flag, UpdateEntry)
@@ -1055,6 +1070,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ToggleLabel.TextSize = 12
                 ToggleLabel.Font = MainFont
                 ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                ToggleLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 ToggleLabel.Parent = ToggleButton
 
                 ToggleButton.MouseEnter:Connect(function()
@@ -1457,10 +1473,13 @@ function LibraryApi:CreateWindow(WindowName)
                 end
 
                 local KeybindData = LibraryApi.Flags[Flag]
+                if KeybindData.Mode == "Toggle" and KeybindData.State == nil then KeybindData.State = false end
                 local IsListening = false
                 local Modes = {"Hold", "Toggle", "Always"}
 
                 local function GetInputDisplay()
+                    if not KeybindData or not KeybindData.Value then return "None" end
+                    if KeybindData.Value == Enum.KeyCode.Unknown or KeybindData.Value == Enum.UserInputType.None then return "None" end
                     if KeybindData.Type == "KeyCode" then
                         return KeybindData.Value.Name or "None"
                     elseif KeybindData.Type == "UserInputType" then
@@ -1486,6 +1505,7 @@ function LibraryApi:CreateWindow(WindowName)
                 KeybindLabel.TextSize = 12
                 KeybindLabel.Font = MainFont
                 KeybindLabel.TextXAlignment = Enum.TextXAlignment.Left
+                KeybindLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 KeybindLabel.Parent = KeybindFrame
 
                 local KeybindButton = Instance.new("TextButton")
@@ -1645,7 +1665,11 @@ function LibraryApi:CreateWindow(WindowName)
                             Matches = true
                         end
                         if Matches and KeybindData.Value ~= Enum.KeyCode.Unknown then
+                            if KeybindData.Mode == "Toggle" then
+                                KeybindData.State = not (KeybindData.State or false)
+                            end
                             if Callback then task.spawn(Callback, KeybindData) end
+                            LibraryApi:UpdateUI()
                         end
                     end
                 end)
@@ -1654,6 +1678,7 @@ function LibraryApi:CreateWindow(WindowName)
                     local CurrentData = LibraryApi.Flags[Flag]
                     local function GetCurrentDisplay()
                         if not CurrentData or not CurrentData.Value then return "None" end
+                        if CurrentData.Value == Enum.KeyCode.Unknown or CurrentData.Value == Enum.UserInputType.None then return "None" end
                         if CurrentData.Type == "KeyCode" then
                             return CurrentData.Value.Name or "None"
                         elseif CurrentData.Type == "UserInputType" then
@@ -2152,7 +2177,7 @@ function LibraryApi:CreateWindow(WindowName)
                     LibraryApi.Flags[Flag] = CurrentColor
                     SaturationValueMap.ImageColor3 = Color3.fromHSV(Hue, 1, 1)
                     ColorPreviewButton.BackgroundColor3 = CurrentColor
-                    SaturationValueMapCursor.Position = UDim2.new(1 - Saturation, 0, 1 - Value, 0)
+                    SaturationValueMap.Cursor.Position = UDim2.new(1 - Saturation, 0, 1 - Value, 0)
                     HueMapCursor.Position = UDim2.new(Hue, 0, 0.5, 0)
                     if Callback then task.spawn(Callback, CurrentColor) end
                     TryAutoSave()
