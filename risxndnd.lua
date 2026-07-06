@@ -1357,15 +1357,27 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
             return
         end
 
+        local Velocity_Unit = Current_Speed > 0 and Velocity_Dir or V3_Zero
+        local Direction_To_Player = Current_Distance > 0 and (Root_Position - Ball_Position).Unit or V3_Zero
+        local Dot_Product_Parry = Velocity_Unit:Dot(Direction_To_Player)
+
+        local Ping_Sec = Network_Ping / 1000
+        local Is_Point_Blank = false
+        local Fatal_Distance = Effective_Speed * (Current_Delta_Time + Ping_Sec) + 4.5
+        
+        if Current_Distance <= Fatal_Distance and Dot_Product_Parry > 0.4 then
+            Is_Point_Blank = true
+        end
+
+        local Is_Snap = false
+        if Current_Distance < 25 and Dot_Delta > 0.2 and Dot_Product_Parry > 0.5 then
+            Is_Snap = true
+        end
+
         local Kps_Intensity = Fast_Clamp(Smoothed_Kps, 0, 20) / 20
         local Kps_Mitigation = 1 - (Kps_Intensity * 0.55)
 
-        local Accuracy_Value = Config_State.Accuracy
-        if Config_State.Random_Accuracy then
-            Accuracy_Value = Runtime_State.Generated_Accuracy
-        end
-        Accuracy_Value = Fast_Clamp(Accuracy_Value, 1, 100)
-
+        local Accuracy_Value = Fast_Clamp(Config_State.Random_Accuracy and Runtime_State.Generated_Accuracy or Config_State.Accuracy, 1, 100)
         local Accuracy_Scale = (Accuracy_Value - 1) / 99
         local Accuracy_Multiplier = 0.82 + (Accuracy_Scale * 0.35)
 
@@ -1379,47 +1391,42 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Base_Distance = Fast_Max(Effective_Speed / Final_Speed_Divisor, 9.5)
         local Early_Boost = (1 - Accuracy_Scale) * 3.65
 
-        local Unified_Threshold = Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) + Early_Boost
-        Unified_Threshold = Fast_Max(Unified_Threshold, 9.5)
+        local Unified_Threshold = Fast_Max(Base_Distance + Extrapolation_Distance + (Kps_Intensity * 1.5) + Early_Boost, 9.5)
         
         local Close_Range_Threshold = Fast_Max(15, Unified_Threshold * 0.5)
         
         local Curve_Multiplier = 1.0
-        if Current_Distance > Close_Range_Threshold then
+        if Current_Distance > Close_Range_Threshold and not Is_Point_Blank and not Is_Snap then
             Curve_Multiplier = Get_Curve_Multiplier(Real_Ball, Root_Position, Ball_Velocity)
         end
         
         Unified_Threshold = Unified_Threshold * Curve_Multiplier
-
         Runtime_State.Parry_Range = Unified_Threshold
 
-        local Velocity_Unit = Current_Speed > 0 and Velocity_Dir or V3_Zero
-        local Direction_To_Player = Current_Distance > 0 and (Root_Position - Ball_Position).Unit or V3_Zero
-        local Dot_Product_Parry = Velocity_Unit:Dot(Direction_To_Player)
-
         local Is_Curved = false
-        local Dot_Distance_Threshold = 35.0
-        local Dot_Limit_Threshold = 55.0
-
         if Current_Speed > 15 then
-            local Distance_Ratio = Fast_Clamp((Current_Distance - Dot_Distance_Threshold) / Dot_Limit_Threshold, 0, 1)
+            local Distance_Ratio = Fast_Clamp((Current_Distance - 35.0) / 55.0, 0, 1)
             local Max_Dot_Threshold = 0.82 - (0.05 * (1 - Accuracy_Scale))
             local Min_Dot_Threshold = 0.55 - (0.05 * (1 - Accuracy_Scale))
             local Dynamic_Dot = Min_Dot_Threshold + (Max_Dot_Threshold - Min_Dot_Threshold) * math.pow(Distance_Ratio, 1.5)
             local Curve_Compensation = Current_Delta_Time * Extra_Factor * Kps_Mitigation
             local Dot_Threshold = Dynamic_Dot - (Curve_Compensation * 0.15)
-            local Curve_Tolerance = 1.1 - (0.4 * (1 - Accuracy_Scale))
-
-            if Current_Distance > Close_Range_Threshold * Curve_Tolerance and Dot_Product_Parry < Dot_Threshold then
+            
+            if Current_Distance > Close_Range_Threshold * (1.1 - (0.4 * (1 - Accuracy_Scale))) and Dot_Product_Parry < Dot_Threshold then
                 Is_Curved = true
             end
         end
 
-        if Current_Distance <= 25.0 then
+        if Current_Distance <= 30.0 then
             Is_Curved = false
         end
 
-        if Current_Distance <= Unified_Threshold and not Is_Moving_Away and not Is_Curved then
+        if Is_Point_Blank or Is_Snap then
+            if Config_State.Auto_Parry then
+                Is_Parried = true
+                Execute_Parry_Direct()
+            end
+        elseif Current_Distance <= Unified_Threshold and not Is_Moving_Away and not Is_Curved then
             if Config_State.Auto_Parry then
                 Is_Parried = true
                 Execute_Parry_Direct()
