@@ -317,14 +317,10 @@ local function LoadConfiguration(FileName)
                             local InputValue
                             if Val.InputType == "KeyCode" then
                                 InputValue = Enum.KeyCode[Val.Name] or Enum.KeyCode.Unknown
-                                local kb = {Type = "KeyCode", Value = InputValue, Mode = Val.Mode or "Toggle"}
-                                if kb.Mode == "Toggle" then kb.State = false end
-                                LibraryApi.Flags[Key] = kb
+                                LibraryApi.Flags[Key] = {Type = "KeyCode", Value = InputValue, Mode = Val.Mode or "Toggle"}
                             elseif Val.InputType == "UserInputType" then
                                 InputValue = Enum.UserInputType[Val.Name] or Enum.UserInputType.None
-                                local kb = {Type = "UserInputType", Value = InputValue, Mode = Val.Mode or "Toggle"}
-                                if kb.Mode == "Toggle" then kb.State = false end
-                                LibraryApi.Flags[Key] = kb
+                                LibraryApi.Flags[Key] = {Type = "UserInputType", Value = InputValue, Mode = Val.Mode or "Toggle"}
                             end
                         elseif Val.Type == "Range" then
                             LibraryApi.Flags[Key] = {Min = Val.Min, Max = Val.Max}
@@ -2112,6 +2108,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ExpandedPickerFrame.Position = UDim2.new(0, 2, 0, 28)
                 SetColor(ExpandedPickerFrame, "BackgroundColor3", "elementBackground")
                 ExpandedPickerFrame.BackgroundTransparency = 0.21847
+                ExpandedPickerFrame.Visible = false
                 ExpandedPickerFrame.Parent = ColorPickerFrame
                 
                 local ExpandedPickerCorner = Instance.new("UICorner")
@@ -2177,7 +2174,7 @@ function LibraryApi:CreateWindow(WindowName)
                     LibraryApi.Flags[Flag] = CurrentColor
                     SaturationValueMap.ImageColor3 = Color3.fromHSV(Hue, 1, 1)
                     ColorPreviewButton.BackgroundColor3 = CurrentColor
-                    SaturationValueMap.Cursor.Position = UDim2.new(1 - Saturation, 0, 1 - Value, 0)
+                    SaturationValueMapCursor.Position = UDim2.new(1 - Saturation, 0, 1 - Value, 0)
                     HueMapCursor.Position = UDim2.new(Hue, 0, 0.5, 0)
                     if Callback then task.spawn(Callback, CurrentColor) end
                     TryAutoSave()
@@ -2242,6 +2239,7 @@ function LibraryApi:CreateWindow(WindowName)
                     HueMapCursor.Position = UDim2.new(Hue, 0, 0.5, 0)
                     ColorPreviewButton.BackgroundColor3 = CurrentColor
                     IsColorPickerOpen = not IsColorPickerOpen
+                    ExpandedPickerFrame.Visible = IsColorPickerOpen
                     AnimateElement(ColorPreviewButtonStroke, {Color = IsColorPickerOpen and ColorsTable.accentColor or ColorsTable.borderColor}, 0.3)
                     AnimateElement(ColorPickerFrame, {Size = UDim2.new(1, 0, 0, IsColorPickerOpen and 224 or 24)}, 0.3)
                 end)
