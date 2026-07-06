@@ -553,7 +553,8 @@ function LibraryApi:Notify(Config)
     local Title = Config.Title or "Notification"
     local Text = Config.Text or ""
     local Duration = Config.Duration or 3
-    local NotificationType = Config.Type or "info"
+    local RawType = Config.Type or "Info"
+    local NotificationType = RawType:sub(1, 1):upper() .. RawType:sub(2):lower()
     
     local NotificationFrame = Instance.new("Frame")
     NotificationFrame.Size = UDim2.new(1, 0, 0, 60)
@@ -571,12 +572,16 @@ function LibraryApi:Notify(Config)
     SetColor(NotificationStroke, "Color", "borderLightColor")
     NotificationStroke.Parent = NotificationFrame
 
-    ApplyAcrylicEffect(NotificationFrame, 0.91238, UDim.new(0, 6))
+    local AcrylicBlur = ApplyAcrylicEffect(NotificationFrame, 0.91238, UDim.new(0, 6))
 
     local LineFrame = Instance.new("Frame")
     LineFrame.Size = UDim2.new(0, 3, 1, -12)
     LineFrame.Position = UDim2.new(0, 6, 0, 6)
-    SetColor(LineFrame, "BackgroundColor3", "notification_" .. string.lower(NotificationType))
+    
+    local LineColorKey = "notification" .. NotificationType
+    if not ColorsTable[LineColorKey] then LineColorKey = "notificationInfo" end
+    SetColor(LineFrame, "BackgroundColor3", LineColorKey)
+    
     LineFrame.BorderSizePixel = 0
     LineFrame.ZIndex = 1502
     LineFrame.Parent = NotificationFrame
@@ -612,6 +617,12 @@ function LibraryApi:Notify(Config)
 
     task.delay(Duration, function()
         AnimateElement(NotificationFrame, {BackgroundTransparency = 1}, 0.45)
+        AnimateElement(NotificationStroke, {Transparency = 1}, 0.45)
+        AnimateElement(LineFrame, {BackgroundTransparency = 1}, 0.45)
+        AnimateElement(TitleLabel, {TextTransparency = 1}, 0.45)
+        AnimateElement(TextLabel, {TextTransparency = 1}, 0.45)
+        if AcrylicBlur then AnimateElement(AcrylicBlur, {ImageTransparency = 1}, 0.45) end
+        
         task.delay(0.5, function()
             if NotificationFrame and NotificationFrame.Parent then
                 NotificationFrame:Destroy()
