@@ -183,6 +183,7 @@ TooltipText.TextTransparency = 1
 TooltipText.TextSize = 12
 TooltipText.Font = MainFont
 TooltipText.TextXAlignment = Enum.TextXAlignment.Left
+TooltipText.TextTruncate = Enum.TextTruncate.AtEnd
 TooltipText.ZIndex = 2001
 TooltipText.Parent = TooltipFrame
 
@@ -374,7 +375,7 @@ end
 
 local KeybindOverlay = Instance.new("Frame")
 KeybindOverlay.Name = "KeybindOverlay"
-KeybindOverlay.Size = UDim2.new(0, 210, 0, 40)
+KeybindOverlay.Size = UDim2.new(0, 260, 0, 40)
 KeybindOverlay.Position = UDim2.new(0, 20, 0, 120)
 SetColor(KeybindOverlay, "BackgroundColor3", "mainBackground")
 KeybindOverlay.BackgroundTransparency = 0.18374
@@ -480,7 +481,7 @@ RunService.RenderStepped:Connect(function()
         local Delta = KeybindOverlayDragInput.Position - KeybindOverlayDragStart
         KeybindOverlay.Position = UDim2.new(KeybindOverlayStartPos.X.Scale, KeybindOverlayStartPos.X.Offset + Delta.X, KeybindOverlayStartPos.Y.Scale, KeybindOverlayStartPos.Y.Offset + Delta.Y)
     end
-    KeybindOverlay.Size = UDim2.new(0, 210, 0, 40 + KeybindOverlayLayout.AbsoluteContentSize.Y)
+    KeybindOverlay.Size = UDim2.new(0, 260, 0, 40 + KeybindOverlayLayout.AbsoluteContentSize.Y)
     local VisibleCount = 0
     for _, Entry in ipairs(KeybindOverlayList) do
         if Entry.Frame and Entry.Frame.Visible then VisibleCount = VisibleCount + 1 end
@@ -496,7 +497,7 @@ local function AddKeybindToOverlay(Name, Flag)
     EntryFrame.Parent = KeybindOverlayListFrame
 
     local NameLabel = Instance.new("TextLabel")
-    NameLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    NameLabel.Size = UDim2.new(0.65, -5, 1, 0)
     NameLabel.BackgroundTransparency = 1
     NameLabel.Text = Name
     SetColor(NameLabel, "TextColor3", "textWhiteColor")
@@ -508,13 +509,14 @@ local function AddKeybindToOverlay(Name, Flag)
     NameLabel.Parent = EntryFrame
 
     local KeyLabel = Instance.new("TextLabel")
-    KeyLabel.Size = UDim2.new(0.5, 0, 1, 0)
-    KeyLabel.Position = UDim2.new(0.5, 0, 0, 0)
+    KeyLabel.Size = UDim2.new(0.35, 0, 1, 0)
+    KeyLabel.Position = UDim2.new(0.65, 5, 0, 0)
     KeyLabel.BackgroundTransparency = 1
     SetColor(KeyLabel, "TextColor3", "accentColor")
     KeyLabel.TextSize = 11
     KeyLabel.Font = BoldFont
     KeyLabel.TextXAlignment = Enum.TextXAlignment.Right
+    KeyLabel.TextTruncate = Enum.TextTruncate.AtEnd
     KeyLabel.ZIndex = 1403
     KeyLabel.Parent = EntryFrame
 
@@ -599,6 +601,7 @@ function LibraryApi:Notify(Config)
     TitleLabel.TextSize = 13
     TitleLabel.Font = BoldFont
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
     TitleLabel.ZIndex = 1502
     TitleLabel.Parent = NotificationFrame
 
@@ -612,6 +615,7 @@ function LibraryApi:Notify(Config)
     TextLabel.Font = MainFont
     TextLabel.TextXAlignment = Enum.TextXAlignment.Left
     TextLabel.TextWrapped = true
+    TextLabel.TextTruncate = Enum.TextTruncate.AtEnd
     TextLabel.ZIndex = 1502
     TextLabel.Parent = NotificationFrame
 
@@ -703,6 +707,7 @@ function LibraryApi:CreateWindow(WindowName)
     TitleLabel.TextSize = 13
     TitleLabel.Font = BoldFont
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
     TitleLabel.Parent = TopBar
 
     local SidebarFrame = Instance.new("Frame")
@@ -901,6 +906,7 @@ function LibraryApi:CreateWindow(WindowName)
         TabLabel.TextSize = 12
         TabLabel.Font = MainFont
         TabLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TabLabel.TextTruncate = Enum.TextTruncate.AtEnd
         TabLabel.Parent = TabButton
 
         if IsBottom then
@@ -1041,6 +1047,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SubtextLabel.TextSize = 11
                 SubtextLabel.Font = MainFont
                 SubtextLabel.TextXAlignment = Enum.TextXAlignment.Left
+                SubtextLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 SubtextLabel.Parent = TargetContainer
             end
 
@@ -1095,7 +1102,13 @@ function LibraryApi:CreateWindow(WindowName)
                     AnimateElement(CheckboxFrame, {BackgroundColor3 = NewState and ColorsTable.accentColor or ColorsTable.elementBackground}, 0.3)
                     AnimateElement(CheckboxStroke, {Color = NewState and ColorsTable.accentColor or ColorsTable.borderColor}, 0.3)
                     AnimateElement(ToggleLabel, {TextColor3 = NewState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor}, 0.3)
-                    if Callback then task.spawn(Callback, NewState) end
+                    
+                    if Callback then
+                        task.spawn(function()
+                            pcall(Callback, NewState)
+                            LibraryApi:UpdateUI()
+                        end)
+                    end
                     TryAutoSave()
                 end)
 
@@ -1126,6 +1139,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SliderLabel.TextSize = 12
                 SliderLabel.Font = MainFont
                 SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+                SliderLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 SliderLabel.Parent = SliderFrame
 
                 local ValueTextBox = Instance.new("TextBox")
@@ -1197,7 +1211,13 @@ function LibraryApi:CreateWindow(WindowName)
                         AnimateElement(SliderFill, {Size = UDim2.new(Percentage, 0, 1, 0)}, 0.15)
                         AnimateElement(SliderKnob, {Position = UDim2.new(Percentage, 0, 0.5, 0)}, 0.15)
                         ValueTextBox.Text = FormatValue(SnappedValue, Step)
-                        if Callback then task.spawn(Callback, SnappedValue) end
+                        
+                        if Callback then
+                            task.spawn(function()
+                                pcall(Callback, SnappedValue)
+                                LibraryApi:UpdateUI()
+                            end)
+                        end
                         TryAutoSave()
                     end
                 end
@@ -1262,6 +1282,7 @@ function LibraryApi:CreateWindow(WindowName)
                 RangeSliderLabel.TextSize = 12
                 RangeSliderLabel.Font = MainFont
                 RangeSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+                RangeSliderLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 RangeSliderLabel.Parent = RangeSliderFrame
 
                 local ValueLabel = Instance.new("TextLabel")
@@ -1383,7 +1404,12 @@ function LibraryApi:CreateWindow(WindowName)
                             end
                         end
                         UpdateRangeSliderVisuals()
-                        if Callback then task.spawn(Callback, LibraryApi.Flags[Flag]) end
+                        if Callback then
+                            task.spawn(function()
+                                pcall(Callback, LibraryApi.Flags[Flag])
+                                LibraryApi:UpdateUI()
+                            end)
+                        end
                         TryAutoSave()
                     end
                 end)
@@ -1406,6 +1432,7 @@ function LibraryApi:CreateWindow(WindowName)
                 TextboxLabel.TextSize = 12
                 TextboxLabel.Font = MainFont
                 TextboxLabel.TextXAlignment = Enum.TextXAlignment.Left
+                TextboxLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 TextboxLabel.Parent = TextboxFrame
 
                 local TextboxInputBackground = Instance.new("Frame")
@@ -1454,7 +1481,13 @@ function LibraryApi:CreateWindow(WindowName)
                     AnimateElement(TextboxInputBackgroundStroke, {Color = ColorsTable.borderColor}, 0.25)
                     AnimateElement(InputTextBox, {TextColor3 = ColorsTable.textDarkColor}, 0.25)
                     LibraryApi.Flags[Flag] = InputTextBox.Text
-                    if Callback then task.spawn(Callback, InputTextBox.Text) end
+                    
+                    if Callback then
+                        task.spawn(function()
+                            pcall(Callback, InputTextBox.Text)
+                            LibraryApi:UpdateUI()
+                        end)
+                    end
                     TryAutoSave()
                 end)
 
@@ -1629,7 +1662,12 @@ function LibraryApi:CreateWindow(WindowName)
                             KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
                             LibraryApi:UpdateUI()
                             ContextMenu:Destroy()
-                            if Callback then task.spawn(Callback, KeybindData.State) end
+                            if Callback then
+                                task.spawn(function()
+                                    pcall(Callback, KeybindData.State)
+                                    LibraryApi:UpdateUI()
+                                end)
+                            end
                         end)
                         
                         ModeBtn.MouseEnter:Connect(function()
@@ -1661,7 +1699,13 @@ function LibraryApi:CreateWindow(WindowName)
                             LibraryApi:UpdateUI()
                             AnimateElement(KeybindButtonStroke, {Color = ColorsTable.borderColor}, 0.3)
                             AnimateElement(KeybindButton, {TextColor3 = ColorsTable.textDarkColor}, 0.3)
-                            if Callback then task.spawn(Callback, KeybindData.State) end
+                            
+                            if Callback then
+                                task.spawn(function()
+                                    pcall(Callback, KeybindData.State)
+                                    LibraryApi:UpdateUI()
+                                end)
+                            end
                             TryAutoSave()
                         end
                     else
@@ -1681,8 +1725,14 @@ function LibraryApi:CreateWindow(WindowName)
                                 KeybindData.State = true
                             end
                             
-                            if Callback then task.spawn(Callback, KeybindData.State) end
-                            LibraryApi:UpdateUI()
+                            if Callback then
+                                task.spawn(function()
+                                    pcall(Callback, KeybindData.State)
+                                    LibraryApi:UpdateUI()
+                                end)
+                            else
+                                LibraryApi:UpdateUI()
+                            end
                         end
                     end
                 end)
@@ -1700,8 +1750,15 @@ function LibraryApi:CreateWindow(WindowName)
                     if Matches and KeybindData.Value ~= Enum.KeyCode.Unknown then
                         if KeybindData.Mode == "Hold" then
                             KeybindData.State = false
-                            if Callback then task.spawn(Callback, KeybindData.State) end
-                            LibraryApi:UpdateUI()
+                            
+                            if Callback then
+                                task.spawn(function()
+                                    pcall(Callback, KeybindData.State)
+                                    LibraryApi:UpdateUI()
+                                end)
+                            else
+                                LibraryApi:UpdateUI()
+                            end
                         end
                     end
                 end)
@@ -1749,6 +1806,7 @@ function LibraryApi:CreateWindow(WindowName)
                 DropdownLabel.TextSize = 12
                 DropdownLabel.Font = MainFont
                 DropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+                DropdownLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 DropdownLabel.Parent = DropdownFrame
 
                 local DropdownMainButton = Instance.new("TextButton")
@@ -1777,6 +1835,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SelectedOptionLabel.TextSize = 12
                 SelectedOptionLabel.Font = MainFont
                 SelectedOptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                SelectedOptionLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 SelectedOptionLabel.Parent = DropdownMainButton
 
                 local DropdownArrowIcon = Instance.new("ImageLabel")
@@ -1854,6 +1913,7 @@ function LibraryApi:CreateWindow(WindowName)
                         OptionLabel.TextSize = 12
                         OptionLabel.Font = MainFont
                         OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                        OptionLabel.TextTruncate = Enum.TextTruncate.AtEnd
                         OptionLabel.Parent = OptionButton
 
                         OptionButton.MouseEnter:Connect(function() 
@@ -1875,7 +1935,13 @@ function LibraryApi:CreateWindow(WindowName)
                                 end
                             end
                             AnimateElement(OptionLabel, {TextColor3 = ColorsTable.accentColor}, 0.3)
-                            if Callback then task.spawn(Callback, Option) end
+                            
+                            if Callback then
+                                task.spawn(function()
+                                    pcall(Callback, Option)
+                                    LibraryApi:UpdateUI()
+                                end)
+                            end
                             TryAutoSave()
                         end)
                     end
@@ -1914,6 +1980,7 @@ function LibraryApi:CreateWindow(WindowName)
                 MultiLabel.TextSize = 12
                 MultiLabel.Font = MainFont
                 MultiLabel.TextXAlignment = Enum.TextXAlignment.Left
+                MultiLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 MultiLabel.Parent = MultiFrame
 
                 local MultiMainButton = Instance.new("TextButton")
@@ -1941,6 +2008,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SelectedTextLabel.TextSize = 11
                 SelectedTextLabel.Font = MainFont
                 SelectedTextLabel.TextXAlignment = Enum.TextXAlignment.Left
+                SelectedTextLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 SelectedTextLabel.Parent = MultiMainButton
 
                 local MultiArrowIcon = Instance.new("ImageLabel")
@@ -2051,6 +2119,7 @@ function LibraryApi:CreateWindow(WindowName)
                         OptionLabel.TextSize = 12
                         OptionLabel.Font = MainFont
                         OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                        OptionLabel.TextTruncate = Enum.TextTruncate.AtEnd
                         OptionLabel.Parent = OptionButton
 
                         OptionButton.MouseEnter:Connect(function()
@@ -2083,7 +2152,13 @@ function LibraryApi:CreateWindow(WindowName)
                                 AnimateElement(CheckStroke, {Color = ColorsTable.accentColor}, 0.2)
                             end
                             UpdateSelectedText()
-                            if Callback then task.spawn(Callback, LibraryApi.Flags[Flag]) end
+                            
+                            if Callback then
+                                task.spawn(function()
+                                    pcall(Callback, LibraryApi.Flags[Flag])
+                                    LibraryApi:UpdateUI()
+                                end)
+                            end
                             TryAutoSave()
                         end)
                     end
@@ -2121,6 +2196,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ColorPickerLabel.TextSize = 12
                 ColorPickerLabel.Font = MainFont
                 ColorPickerLabel.TextXAlignment = Enum.TextXAlignment.Left
+                ColorPickerLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 ColorPickerLabel.Parent = ColorPickerFrame
 
                 local ColorPreviewButton = Instance.new("TextButton")
@@ -2212,7 +2288,13 @@ function LibraryApi:CreateWindow(WindowName)
                     ColorPreviewButton.BackgroundColor3 = CurrentColor
                     SaturationValueMapCursor.Position = UDim2.new(1 - Saturation, 0, 1 - Value, 0)
                     HueMapCursor.Position = UDim2.new(Hue, 0, 0.5, 0)
-                    if Callback then task.spawn(Callback, CurrentColor) end
+                    
+                    if Callback then
+                        task.spawn(function()
+                            pcall(Callback, CurrentColor)
+                            LibraryApi:UpdateUI()
+                        end)
+                    end
                     TryAutoSave()
                 end
 
@@ -2331,7 +2413,12 @@ function LibraryApi:CreateWindow(WindowName)
                 ActionButton.MouseButton1Down:Connect(function() AnimateElement(ActionButton, {Size = UDim2.new(0.96, 0, 0.85, 0), Position = UDim2.new(0.02, 0, 0.075, 0)}, 0.15) end)
                 ActionButton.MouseButton1Up:Connect(function()
                     AnimateElement(ActionButton, {Size = UDim2.new(1, -4, 1, 0), Position = UDim2.new(0, 2, 0, 0)}, 0.15)
-                    if Callback then task.spawn(Callback) end
+                    if Callback then
+                        task.spawn(function()
+                            pcall(Callback)
+                            LibraryApi:UpdateUI()
+                        end)
+                    end
                 end)
             end
 
@@ -2372,7 +2459,12 @@ function LibraryApi:CreateWindow(WindowName)
                 SubButtonAction.MouseButton1Down:Connect(function() AnimateElement(SubButtonAction, {Size = UDim2.new(0.96, -16, 0.85, 0), Position = UDim2.new(0.02, 8, 0.075, 0)}, 0.15) end)
                 SubButtonAction.MouseButton1Up:Connect(function()
                     AnimateElement(SubButtonAction, {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 8, 0, 0)}, 0.15)
-                    if Callback then task.spawn(Callback) end
+                    if Callback then
+                        task.spawn(function()
+                            pcall(Callback)
+                            LibraryApi:UpdateUI()
+                        end)
+                    end
                 end)
             end
 
@@ -2430,6 +2522,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ModuleLabel.TextSize = 13
                 ModuleLabel.Font = BoldFont
                 ModuleLabel.TextXAlignment = Enum.TextXAlignment.Left
+                ModuleLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 ModuleLabel.Parent = ModuleToggleButton
 
                 local ModuleDescriptionLabel = Instance.new("TextLabel")
@@ -2442,6 +2535,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ModuleDescriptionLabel.TextSize = 11
                 ModuleDescriptionLabel.Font = MainFont
                 ModuleDescriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
+                ModuleDescriptionLabel.TextTruncate = Enum.TextTruncate.AtEnd
                 ModuleDescriptionLabel.Parent = ModuleToggleButton
 
                 local ModuleArrowIcon = Instance.new("ImageLabel")
@@ -2493,7 +2587,13 @@ function LibraryApi:CreateWindow(WindowName)
                     AnimateElement(ModuleToggleButtonStroke, {Color = NewState and ColorsTable.accentColor or ColorsTable.borderColor}, 0.3)
                     AnimateElement(ModuleLabel, {TextColor3 = NewState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor}, 0.3)
                     SynchronizeModuleSize()
-                    if Callback then task.spawn(Callback, NewState) end
+                    
+                    if Callback then
+                        task.spawn(function()
+                            pcall(Callback, NewState)
+                            LibraryApi:UpdateUI()
+                        end)
+                    end
                     TryAutoSave()
                 end)
 
@@ -2544,6 +2644,7 @@ function LibraryApi:CreateWindow(WindowName)
             SectionLabel.TextSize = 12
             SectionLabel.Font = BoldFont
             SectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+            SectionLabel.TextTruncate = Enum.TextTruncate.AtEnd
             SectionLabel.Parent = SectionHeaderFrame
 
             local SectionSeparatorLine = Instance.new("Frame")
