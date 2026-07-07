@@ -199,7 +199,7 @@ TooltipText.TextTransparency = 1
 TooltipText.TextSize = 12
 TooltipText.Font = MainFont
 TooltipText.TextXAlignment = Enum.TextXAlignment.Left
-TooltipText.TextTruncate = Enum.TextTruncate.AtEnd
+TooltipText.
 TooltipText.ZIndex = 2001
 TooltipText.Parent = TooltipFrame
 
@@ -444,7 +444,7 @@ SetColor(KeybindOverlayTitle, "TextColor3", "textWhiteColor")
 KeybindOverlayTitle.TextSize = 12
 KeybindOverlayTitle.Font = BoldFont
 KeybindOverlayTitle.TextXAlignment = Enum.TextXAlignment.Left
-KeybindOverlayTitle.TextTruncate = Enum.TextTruncate.AtEnd
+KeybindOverlayTitle.
 KeybindOverlayTitle.ZIndex = 1402
 KeybindOverlayTitle.Parent = KeybindOverlayHeader
 
@@ -530,7 +530,7 @@ local function AddKeybindToOverlay(Name, Flag)
     NameLabel.TextSize = 11
     NameLabel.Font = MainFont
     NameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    NameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    NameLabel.
     NameLabel.ZIndex = 1403
     NameLabel.Parent = EntryFrame
 
@@ -542,7 +542,7 @@ local function AddKeybindToOverlay(Name, Flag)
     KeyLabel.TextSize = 11
     KeyLabel.Font = BoldFont
     KeyLabel.TextXAlignment = Enum.TextXAlignment.Right
-    KeyLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    KeyLabel.
     KeyLabel.ZIndex = 1403
     KeyLabel.Parent = EntryFrame
 
@@ -632,7 +632,7 @@ function LibraryApi:Notify(Config)
     TitleLabel.TextSize = 13
     TitleLabel.Font = BoldFont
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    TitleLabel.
     TitleLabel.ZIndex = 1502
     TitleLabel.Parent = NotificationFrame
 
@@ -646,7 +646,7 @@ function LibraryApi:Notify(Config)
     TextLabel.Font = MainFont
     TextLabel.TextXAlignment = Enum.TextXAlignment.Left
     TextLabel.TextWrapped = true
-    TextLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    TextLabel.
     TextLabel.ZIndex = 1502
     TextLabel.Parent = NotificationFrame
 
@@ -738,7 +738,7 @@ function LibraryApi:CreateWindow(WindowName)
     TitleLabel.TextSize = 13
     TitleLabel.Font = BoldFont
     TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TitleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    TitleLabel.
     TitleLabel.Parent = TopBar
 
     local SidebarFrame = Instance.new("Frame")
@@ -937,7 +937,7 @@ function LibraryApi:CreateWindow(WindowName)
         TabLabel.TextSize = 12
         TabLabel.Font = MainFont
         TabLabel.TextXAlignment = Enum.TextXAlignment.Left
-        TabLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        TabLabel.
         TabLabel.Parent = TabButton
 
         if IsBottom then
@@ -1078,7 +1078,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SubtextLabel.TextSize = 11
                 SubtextLabel.Font = MainFont
                 SubtextLabel.TextXAlignment = Enum.TextXAlignment.Left
-                SubtextLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                SubtextLabel.
                 SubtextLabel.Parent = TargetContainer
             end
 
@@ -1116,7 +1116,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ToggleLabel.TextSize = 12
                 ToggleLabel.Font = MainFont
                 ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-                ToggleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                ToggleLabel.
                 ToggleLabel.Parent = ToggleButton
 
                 ToggleButton.MouseEnter:Connect(function()
@@ -1163,7 +1163,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SliderLabel.TextSize = 12
                 SliderLabel.Font = MainFont
                 SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-                SliderLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                SliderLabel.
                 SliderLabel.Parent = SliderFrame
 
                 local ValueTextBox = Instance.new("TextBox")
@@ -1298,7 +1298,7 @@ function LibraryApi:CreateWindow(WindowName)
                 RangeSliderLabel.TextSize = 12
                 RangeSliderLabel.Font = MainFont
                 RangeSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
-                RangeSliderLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                RangeSliderLabel.
                 RangeSliderLabel.Parent = RangeSliderFrame
 
                 local ValueLabel = Instance.new("TextLabel")
@@ -1444,7 +1444,7 @@ function LibraryApi:CreateWindow(WindowName)
                 TextboxLabel.TextSize = 12
                 TextboxLabel.Font = MainFont
                 TextboxLabel.TextXAlignment = Enum.TextXAlignment.Left
-                TextboxLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                TextboxLabel.
                 TextboxLabel.Parent = TextboxFrame
 
                 local TextboxInputBackground = Instance.new("Frame")
@@ -1558,7 +1558,7 @@ function LibraryApi:CreateWindow(WindowName)
                 KeybindLabel.TextSize = 12
                 KeybindLabel.Font = MainFont
                 KeybindLabel.TextXAlignment = Enum.TextXAlignment.Left
-                KeybindLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                KeybindLabel.
                 KeybindLabel.Parent = KeybindFrame
 
                 local KeybindButton = Instance.new("TextButton")
@@ -1714,6 +1714,10 @@ function LibraryApi:CreateWindow(WindowName)
                     else
                         if GameProcessed then return end 
 
+                        if KeybindData.ParentModuleFlag and KeybindData.ParentModuleFlag ~= Flag and not LibraryApi.Flags[KeybindData.ParentModuleFlag] then
+                            return
+                        end
+
                         local Matches = false
                         if KeybindData.Type == "KeyCode" and Input.KeyCode == KeybindData.Value then
                             Matches = true
@@ -1742,6 +1746,10 @@ function LibraryApi:CreateWindow(WindowName)
 
                 UserInputService.InputEnded:Connect(function(Input, GameProcessed)
                     if IsListening then return end
+
+                    if KeybindData.ParentModuleFlag and KeybindData.ParentModuleFlag ~= Flag and not LibraryApi.Flags[KeybindData.ParentModuleFlag] then
+                        return
+                    end
 
                     local Matches = false
                     if KeybindData.Type == "KeyCode" and Input.KeyCode == KeybindData.Value then
@@ -1792,7 +1800,7 @@ function LibraryApi:CreateWindow(WindowName)
                 DropdownLabel.TextSize = 12
                 DropdownLabel.Font = MainFont
                 DropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
-                DropdownLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                DropdownLabel.
                 DropdownLabel.Parent = DropdownFrame
 
                 local DropdownMainButton = Instance.new("TextButton")
@@ -1822,7 +1830,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SelectedOptionLabel.TextSize = 12
                 SelectedOptionLabel.Font = MainFont
                 SelectedOptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-                SelectedOptionLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                SelectedOptionLabel.
                 SelectedOptionLabel.Parent = DropdownMainButton
 
                 local DropdownArrowIcon = Instance.new("ImageLabel")
@@ -1900,7 +1908,7 @@ function LibraryApi:CreateWindow(WindowName)
                         OptionLabel.TextSize = 12
                         OptionLabel.Font = MainFont
                         OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-                        OptionLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                        OptionLabel.
                         OptionLabel.Parent = OptionButton
 
                         OptionButton.MouseEnter:Connect(function() 
@@ -1965,7 +1973,7 @@ function LibraryApi:CreateWindow(WindowName)
                 MultiLabel.TextSize = 12
                 MultiLabel.Font = MainFont
                 MultiLabel.TextXAlignment = Enum.TextXAlignment.Left
-                MultiLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                MultiLabel.
                 MultiLabel.Parent = MultiFrame
 
                 local MultiMainButton = Instance.new("TextButton")
@@ -1994,7 +2002,7 @@ function LibraryApi:CreateWindow(WindowName)
                 SelectedTextLabel.TextSize = 11
                 SelectedTextLabel.Font = MainFont
                 SelectedTextLabel.TextXAlignment = Enum.TextXAlignment.Left
-                SelectedTextLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                SelectedTextLabel.
                 SelectedTextLabel.Parent = MultiMainButton
 
                 local MultiArrowIcon = Instance.new("ImageLabel")
@@ -2105,7 +2113,7 @@ function LibraryApi:CreateWindow(WindowName)
                         OptionLabel.TextSize = 12
                         OptionLabel.Font = MainFont
                         OptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-                        OptionLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                        OptionLabel.
                         OptionLabel.Parent = OptionButton
 
                         OptionButton.MouseEnter:Connect(function()
@@ -2180,7 +2188,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ColorPickerLabel.TextSize = 12
                 ColorPickerLabel.Font = MainFont
                 ColorPickerLabel.TextXAlignment = Enum.TextXAlignment.Left
-                ColorPickerLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                ColorPickerLabel.
                 ColorPickerLabel.Parent = ColorPickerFrame
 
                 local ColorPreviewButton = Instance.new("TextButton")
@@ -2503,7 +2511,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ModuleLabel.TextSize = 13
                 ModuleLabel.Font = BoldFont
                 ModuleLabel.TextXAlignment = Enum.TextXAlignment.Left
-                ModuleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                ModuleLabel.
                 ModuleLabel.Parent = ModuleToggleButton
 
                 local ModuleDescriptionLabel = Instance.new("TextLabel")
@@ -2516,7 +2524,7 @@ function LibraryApi:CreateWindow(WindowName)
                 ModuleDescriptionLabel.TextSize = 11
                 ModuleDescriptionLabel.Font = MainFont
                 ModuleDescriptionLabel.TextXAlignment = Enum.TextXAlignment.Left
-                ModuleDescriptionLabel.TextTruncate = Enum.TextTruncate.AtEnd
+                ModuleDescriptionLabel.
                 ModuleDescriptionLabel.Parent = ModuleToggleButton
 
                 local ModuleArrowIcon = Instance.new("ImageLabel")
@@ -2578,7 +2586,17 @@ function LibraryApi:CreateWindow(WindowName)
                 UpdateModuleVisual()
                 RegisterElement(Flag, UpdateModuleVisual)
 
-                return ElementInjector(ModuleContentFrame)
+                local ModuleElements = ElementInjector(ModuleContentFrame)
+                local ModuleKeybindCreate = ModuleElements.KeybindCreate
+                ModuleElements.KeybindCreate = function(KbName, KbFlag, KbDefault, KbTooltip, KbCallback)
+                    ModuleKeybindCreate(KbName, KbFlag, KbDefault, KbTooltip, KbCallback)
+                    local KbBindFlag = KbFlag .. "_KeybindConfig"
+                    local KbData = LibraryApi.Flags[KbBindFlag]
+                    if type(KbData) == "table" then
+                        KbData.ParentModuleFlag = Flag
+                    end
+                end
+                return ModuleElements
             end
 
             return Elements
@@ -2615,7 +2633,7 @@ function LibraryApi:CreateWindow(WindowName)
             SectionLabel.TextSize = 12
             SectionLabel.Font = BoldFont
             SectionLabel.TextXAlignment = Enum.TextXAlignment.Left
-            SectionLabel.TextTruncate = Enum.TextTruncate.AtEnd
+            SectionLabel.
             SectionLabel.Parent = SectionHeaderFrame
 
             local SectionSeparatorLine = Instance.new("Frame")
