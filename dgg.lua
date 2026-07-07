@@ -17,6 +17,29 @@ local LibraryApi = {
 }
 
 local ElementRegistry = {}
+local CallbackRegistry = {}
+
+local function RegisterElement(Flag, UpdateFunction)
+    if ElementRegistry[Flag] == nil then
+        ElementRegistry[Flag] = {}
+    end
+    table.insert(ElementRegistry[Flag], UpdateFunction)
+end
+
+local function RegisterCallback(Flag, Callback)
+    if Callback then
+        if not CallbackRegistry[Flag] then CallbackRegistry[Flag] = {} end
+        table.insert(CallbackRegistry[Flag], Callback)
+    end
+end
+
+local function TriggerCallbacks(Flag, Value)
+    if CallbackRegistry[Flag] then
+        for _, Cb in ipairs(CallbackRegistry[Flag]) do
+            task.spawn(function() pcall(Cb, Value) end)
+        end
+    end
+end
 
 function LibraryApi:UpdateUI()
     for Flag, UpdaterList in pairs(ElementRegistry) do
@@ -24,13 +47,6 @@ function LibraryApi:UpdateUI()
             pcall(Updater)
         end
     end
-end
-
-local function RegisterElement(Flag, UpdateFunction)
-    if ElementRegistry[Flag] == nil then
-        ElementRegistry[Flag] = {}
-    end
-    table.insert(ElementRegistry[Flag], UpdateFunction)
 end
 
 local LastAutoSaveTime = 0
@@ -263,7 +279,7 @@ local function GetConfigList()
     return ConfigList
 end
 
-local function SaveConfiguration(FileName)
+function SaveConfiguration(FileName)
     pcall(function()
         if not isfolder or not writefile then return end
         if not isfolder(LibraryApi.FolderName) then makefolder(LibraryApi.FolderName) end
@@ -271,7 +287,7 @@ local function SaveConfiguration(FileName)
         for Key, Val in pairs(LibraryApi.Flags) do
             if typeof(Val) == "Color3" then
                 SerializedData[Key] = {Type = "Color3", R = Val.R, G = Val.G, B = Val.B}
-            elseif type(Val) == "table" and Val.Type == "Keybind" and Val.Value then
+            elseif type(Val) == "table" and (Val.Type == "KeyCode" or Val.Type == "UserInputType") and Val.Value then
                 SerializedData[Key] = {
                     Type = "Keybind",
                     InputType = Val.Type,
@@ -298,7 +314,7 @@ local function SaveConfiguration(FileName)
     end)
 end
 
-local function LoadConfiguration(FileName)
+function LoadConfiguration(FileName)
     pcall(function()
         if not isfolder or not isfile or not readfile then return end
         local FullPath = LibraryApi.FolderName .. "/" .. FileName .. ".json"
@@ -375,7 +391,7 @@ end
 
 local KeybindOverlay = Instance.new("Frame")
 KeybindOverlay.Name = "KeybindOverlay"
-KeybindOverlay.Size = UDim2.new(0, 260, 0, 40)
+KeybindOverlay.Size = UDim2.new(0, 210, 0, 40)
 KeybindOverlay.Position = UDim2.new(0, 20, 0, 120)
 SetColor(KeybindOverlay, "BackgroundColor3", "mainBackground")
 KeybindOverlay.BackgroundTransparency = 0.18374
@@ -428,6 +444,7 @@ SetColor(KeybindOverlayTitle, "TextColor3", "textWhiteColor")
 KeybindOverlayTitle.TextSize = 12
 KeybindOverlayTitle.Font = BoldFont
 KeybindOverlayTitle.TextXAlignment = Enum.TextXAlignment.Left
+KeybindOverlayTitle.TextTruncate = Enum.TextTruncate.AtEnd
 KeybindOverlayTitle.ZIndex = 1402
 KeybindOverlayTitle.Parent = KeybindOverlayHeader
 
@@ -481,11 +498,19 @@ RunService.RenderStepped:Connect(function()
         local Delta = KeybindOverlayDragInput.Position - KeybindOverlayDragStart
         KeybindOverlay.Position = UDim2.new(KeybindOverlayStartPos.X.Scale, KeybindOverlayStartPos.X.Offset + Delta.X, KeybindOverlayStartPos.Y.Scale, KeybindOverlayStartPos.Y.Offset + Delta.Y)
     end
-    KeybindOverlay.Size = UDim2.new(0, 260, 0, 40 + KeybindOverlayLayout.AbsoluteContentSize.Y)
+    
+    local MaxWidth = 210
     local VisibleCount = 0
     for _, Entry in ipairs(KeybindOverlayList) do
-        if Entry.Frame and Entry.Frame.Visible then VisibleCount = VisibleCount + 1 end
+        if Entry.Frame and Entry.Frame.Visible then 
+            VisibleCount = VisibleCount + 1 
+            local ReqWidth = Entry.Frame:GetAttribute("ReqWidth")
+            if ReqWidth and ReqWidth > MaxWidth then
+                MaxWidth = ReqWidth
+            end
+        end
     end
+    KeybindOverlay.Size = UDim2.new(0, MaxWidth, 0, 40 + KeybindOverlayLayout.AbsoluteContentSize.Y)
     KeybindOverlay.Visible = (LibraryApi.Flags["KeybindOverlayEnabled"] ~= false) and VisibleCount > 0
 end)
 
@@ -497,7 +522,8 @@ local function AddKeybindToOverlay(Name, Flag)
     EntryFrame.Parent = KeybindOverlayListFrame
 
     local NameLabel = Instance.new("TextLabel")
-    NameLabel.Size = UDim2.new(0.65, -5, 1, 0)
+    NameLabel.Size = UDim2.new(1, -100, 1, 0)
+    NameLabel.Position = UDim2.new(0, 0, 0, 0)
     NameLabel.BackgroundTransparency = 1
     NameLabel.Text = Name
     SetColor(NameLabel, "TextColor3", "textWhiteColor")
@@ -509,8 +535,8 @@ local function AddKeybindToOverlay(Name, Flag)
     NameLabel.Parent = EntryFrame
 
     local KeyLabel = Instance.new("TextLabel")
-    KeyLabel.Size = UDim2.new(0.35, 0, 1, 0)
-    KeyLabel.Position = UDim2.new(0.65, 5, 0, 0)
+    KeyLabel.Size = UDim2.new(0, 100, 1, 0)
+    KeyLabel.Position = UDim2.new(1, -100, 0, 0)
     KeyLabel.BackgroundTransparency = 1
     SetColor(KeyLabel, "TextColor3", "accentColor")
     KeyLabel.TextSize = 11
@@ -520,34 +546,39 @@ local function AddKeybindToOverlay(Name, Flag)
     KeyLabel.ZIndex = 1403
     KeyLabel.Parent = EntryFrame
 
-    local ModeLabel = Instance.new("TextLabel")
-    ModeLabel.Size = UDim2.new(1, 0, 0, 0)
-    ModeLabel.BackgroundTransparency = 1
-    ModeLabel.Visible = false
-    ModeLabel.Parent = EntryFrame
-
     local function UpdateEntry()
-        local Data = LibraryApi.Flags[Flag]
+        local BindFlag = Flag .. "_KeybindConfig"
+        local Data = LibraryApi.Flags[BindFlag]
         local Display = GetKeybindDisplayString(Data)
         local Active = Data and Data.Value ~= nil
             and Data.Value ~= Enum.KeyCode.Unknown
             and Data.Value ~= Enum.UserInputType.None
             and Display ~= "None"
         EntryFrame.Visible = Active
+        
         local modeText = (Data and Data.Mode or "Toggle")
         local stateText = ""
-        if Data and Data.Mode == "Toggle" and Data.State ~= nil then
-            stateText = Data.State and " ON" or " OFF"
+        local mainFlagValue = LibraryApi.Flags[Flag]
+        if Data and Data.Mode == "Toggle" and mainFlagValue ~= nil then
+            stateText = mainFlagValue and " ON" or " OFF"
         end
-        KeyLabel.Text = "[ " .. Display .. " ] " .. modeText .. stateText
-        if Data and Data.Mode == "Toggle" and Data.State ~= nil then
-            KeyLabel.TextColor3 = Data.State and ColorsTable.accentColor or ColorsTable.textDarkColor
+        
+        local TextRight = "[ " .. Display .. " ] " .. modeText .. stateText
+        KeyLabel.Text = TextRight
+        
+        local NWidth = TextService:GetTextSize(Name, 11, MainFont, Vector2.new(9999, 16)).X
+        local KWidth = TextService:GetTextSize(TextRight, 11, BoldFont, Vector2.new(9999, 16)).X
+        EntryFrame:SetAttribute("ReqWidth", NWidth + KWidth + 40)
+
+        if Data and Data.Mode == "Toggle" and mainFlagValue ~= nil then
+            KeyLabel.TextColor3 = mainFlagValue and ColorsTable.accentColor or ColorsTable.textDarkColor
         else
             KeyLabel.TextColor3 = ColorsTable.accentColor
         end
     end
     UpdateEntry()
     RegisterElement(Flag, UpdateEntry)
+    RegisterElement(Flag .. "_KeybindConfig", UpdateEntry)
     table.insert(KeybindOverlayList, {Frame = EntryFrame, Update = UpdateEntry})
 end
 
@@ -1053,6 +1084,7 @@ function LibraryApi:CreateWindow(WindowName)
 
             function Elements:ToggleCreate(Name, Flag, Default, Tooltip, Callback)
                 LibraryApi.Flags[Flag] = LibraryApi.Flags[Flag] ~= nil and LibraryApi.Flags[Flag] or (Default or false)
+                RegisterCallback(Flag, Callback)
 
                 local ToggleButton = Instance.new("TextButton")
                 ToggleButton.Size = UDim2.new(1, 0, 0, 16)
@@ -1098,25 +1130,16 @@ function LibraryApi:CreateWindow(WindowName)
 
                 ToggleButton.MouseButton1Click:Connect(function()
                     LibraryApi.Flags[Flag] = not LibraryApi.Flags[Flag]
-                    local NewState = LibraryApi.Flags[Flag]
-                    AnimateElement(CheckboxFrame, {BackgroundColor3 = NewState and ColorsTable.accentColor or ColorsTable.elementBackground}, 0.3)
-                    AnimateElement(CheckboxStroke, {Color = NewState and ColorsTable.accentColor or ColorsTable.borderColor}, 0.3)
-                    AnimateElement(ToggleLabel, {TextColor3 = NewState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor}, 0.3)
-                    
-                    if Callback then
-                        task.spawn(function()
-                            pcall(Callback, NewState)
-                            LibraryApi:UpdateUI()
-                        end)
-                    end
+                    LibraryApi:UpdateUI()
+                    TriggerCallbacks(Flag, LibraryApi.Flags[Flag])
                     TryAutoSave()
                 end)
 
                 local function UpdateToggleVisual()
                     local CurrentState = LibraryApi.Flags[Flag]
-                    CheckboxFrame.BackgroundColor3 = CurrentState and ColorsTable.accentColor or ColorsTable.elementBackground
-                    CheckboxStroke.Color = CurrentState and ColorsTable.accentColor or ColorsTable.borderColor
-                    ToggleLabel.TextColor3 = CurrentState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor
+                    AnimateElement(CheckboxFrame, {BackgroundColor3 = CurrentState and ColorsTable.accentColor or ColorsTable.elementBackground}, 0.3)
+                    AnimateElement(CheckboxStroke, {Color = CurrentState and ColorsTable.accentColor or ColorsTable.borderColor}, 0.3)
+                    AnimateElement(ToggleLabel, {TextColor3 = CurrentState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor}, 0.3)
                 end
                 UpdateToggleVisual()
                 RegisterElement(Flag, UpdateToggleVisual)
@@ -1124,6 +1147,7 @@ function LibraryApi:CreateWindow(WindowName)
 
             function Elements:SliderCreate(Name, Flag, Min, Max, Default, Step, Tooltip, Callback)
                 LibraryApi.Flags[Flag] = LibraryApi.Flags[Flag] ~= nil and LibraryApi.Flags[Flag] or SnapValue(Default or Min, Step)
+                RegisterCallback(Flag, Callback)
 
                 local SliderFrame = Instance.new("Frame")
                 SliderFrame.Size = UDim2.new(1, 0, 0, 36)
@@ -1207,17 +1231,8 @@ function LibraryApi:CreateWindow(WindowName)
                     local SnappedValue = SnapValue(ClampedValue, Step)
                     if LibraryApi.Flags[Flag] ~= SnappedValue then
                         LibraryApi.Flags[Flag] = SnappedValue
-                        local Percentage = (SnappedValue - Min) / (Max - Min)
-                        AnimateElement(SliderFill, {Size = UDim2.new(Percentage, 0, 1, 0)}, 0.15)
-                        AnimateElement(SliderKnob, {Position = UDim2.new(Percentage, 0, 0.5, 0)}, 0.15)
-                        ValueTextBox.Text = FormatValue(SnappedValue, Step)
-                        
-                        if Callback then
-                            task.spawn(function()
-                                pcall(Callback, SnappedValue)
-                                LibraryApi:UpdateUI()
-                            end)
-                        end
+                        LibraryApi:UpdateUI()
+                        TriggerCallbacks(Flag, SnappedValue)
                         TryAutoSave()
                     end
                 end
@@ -1255,8 +1270,8 @@ function LibraryApi:CreateWindow(WindowName)
                 local function UpdateSliderVisual()
                     local CurrentValue = LibraryApi.Flags[Flag]
                     local Percentage = (CurrentValue - Min) / (Max - Min)
-                    SliderFill.Size = UDim2.new(Percentage, 0, 1, 0)
-                    SliderKnob.Position = UDim2.new(Percentage, 0, 0.5, 0)
+                    AnimateElement(SliderFill, {Size = UDim2.new(Percentage, 0, 1, 0)}, 0.15)
+                    AnimateElement(SliderKnob, {Position = UDim2.new(Percentage, 0, 0.5, 0)}, 0.15)
                     ValueTextBox.Text = FormatValue(CurrentValue, Step)
                 end
                 UpdateSliderVisual()
@@ -1267,6 +1282,7 @@ function LibraryApi:CreateWindow(WindowName)
                 if not LibraryApi.Flags[Flag] then
                     LibraryApi.Flags[Flag] = {Min = SnapValue(DefaultMin or Min, Step), Max = SnapValue(DefaultMax or Max, Step)}
                 end
+                RegisterCallback(Flag, Callback)
 
                 local RangeSliderFrame = Instance.new("Frame")
                 RangeSliderFrame.Size = UDim2.new(1, 0, 0, 36)
@@ -1403,13 +1419,8 @@ function LibraryApi:CreateWindow(WindowName)
                                 LibraryApi.Flags[Flag].Max = LibraryApi.Flags[Flag].Min
                             end
                         end
-                        UpdateRangeSliderVisuals()
-                        if Callback then
-                            task.spawn(function()
-                                pcall(Callback, LibraryApi.Flags[Flag])
-                                LibraryApi:UpdateUI()
-                            end)
-                        end
+                        LibraryApi:UpdateUI()
+                        TriggerCallbacks(Flag, LibraryApi.Flags[Flag])
                         TryAutoSave()
                     end
                 end)
@@ -1417,6 +1428,7 @@ function LibraryApi:CreateWindow(WindowName)
 
             function Elements:TextboxCreate(Name, Flag, Default, Tooltip, Callback)
                 LibraryApi.Flags[Flag] = LibraryApi.Flags[Flag] ~= nil and LibraryApi.Flags[Flag] or (Default or "")
+                RegisterCallback(Flag, Callback)
 
                 local TextboxFrame = Instance.new("Frame")
                 TextboxFrame.Size = UDim2.new(1, 0, 0, 36)
@@ -1481,13 +1493,8 @@ function LibraryApi:CreateWindow(WindowName)
                     AnimateElement(TextboxInputBackgroundStroke, {Color = ColorsTable.borderColor}, 0.25)
                     AnimateElement(InputTextBox, {TextColor3 = ColorsTable.textDarkColor}, 0.25)
                     LibraryApi.Flags[Flag] = InputTextBox.Text
-                    
-                    if Callback then
-                        task.spawn(function()
-                            pcall(Callback, InputTextBox.Text)
-                            LibraryApi:UpdateUI()
-                        end)
-                    end
+                    LibraryApi:UpdateUI()
+                    TriggerCallbacks(Flag, InputTextBox.Text)
                     TryAutoSave()
                 end)
 
@@ -1499,21 +1506,27 @@ function LibraryApi:CreateWindow(WindowName)
             end
 
             function Elements:KeybindCreate(Name, Flag, Default, Tooltip, Callback)
-                if type(LibraryApi.Flags[Flag]) ~= "table" or not LibraryApi.Flags[Flag].Value then
-                    local Old = LibraryApi.Flags[Flag]
-                    if typeof(Old) == "EnumItem" then
-                        if Old.EnumType == Enum.KeyCode then
-                            LibraryApi.Flags[Flag] = {Type = "KeyCode", Value = Old, Mode = "Toggle"}
+                local BindFlag = Flag .. "_KeybindConfig"
+                
+                if type(LibraryApi.Flags[BindFlag]) ~= "table" or not LibraryApi.Flags[BindFlag].Value then
+                    local DefaultVal = Default or Enum.KeyCode.Unknown
+                    if typeof(DefaultVal) == "EnumItem" then
+                        if DefaultVal.EnumType == Enum.KeyCode then
+                            LibraryApi.Flags[BindFlag] = {Type = "KeyCode", Value = DefaultVal, Mode = "Toggle"}
                         else
-                            LibraryApi.Flags[Flag] = {Type = "UserInputType", Value = Old, Mode = "Toggle"}
+                            LibraryApi.Flags[BindFlag] = {Type = "UserInputType", Value = DefaultVal, Mode = "Toggle"}
                         end
                     else
-                        LibraryApi.Flags[Flag] = {Type = "KeyCode", Value = Default or Enum.KeyCode.Unknown, Mode = "Toggle"}
+                        LibraryApi.Flags[BindFlag] = {Type = "KeyCode", Value = Enum.KeyCode.Unknown, Mode = "Toggle"}
                     end
                 end
 
-                local KeybindData = LibraryApi.Flags[Flag]
-                if KeybindData.Mode == "Toggle" and KeybindData.State == nil then KeybindData.State = false end
+                if LibraryApi.Flags[Flag] == nil then
+                    LibraryApi.Flags[Flag] = false
+                end
+                RegisterCallback(Flag, Callback)
+
+                local KeybindData = LibraryApi.Flags[BindFlag]
                 local IsListening = false
                 local Modes = {"Hold", "Toggle", "Always"}
 
@@ -1537,7 +1550,7 @@ function LibraryApi:CreateWindow(WindowName)
                 KeybindFrame.Parent = TargetContainer
 
                 local KeybindLabel = Instance.new("TextLabel")
-                KeybindLabel.Size = UDim2.new(1, -100, 1, 0)
+                KeybindLabel.Size = UDim2.new(1, -110, 1, 0)
                 KeybindLabel.Position = UDim2.new(0, 2, 0, 0)
                 KeybindLabel.BackgroundTransparency = 1
                 KeybindLabel.Text = Name
@@ -1549,8 +1562,8 @@ function LibraryApi:CreateWindow(WindowName)
                 KeybindLabel.Parent = KeybindFrame
 
                 local KeybindButton = Instance.new("TextButton")
-                KeybindButton.Size = UDim2.new(0, 95, 0, 22)
-                KeybindButton.Position = UDim2.new(1, -99, 0.5, -11)
+                KeybindButton.Size = UDim2.new(0, 105, 0, 22)
+                KeybindButton.Position = UDim2.new(1, -109, 0.5, -11)
                 SetColor(KeybindButton, "BackgroundColor3", "elementBackground")
                 KeybindButton.BackgroundTransparency = 0.21847
                 KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
@@ -1662,12 +1675,8 @@ function LibraryApi:CreateWindow(WindowName)
                             KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. KeybindData.Mode
                             LibraryApi:UpdateUI()
                             ContextMenu:Destroy()
-                            if Callback then
-                                task.spawn(function()
-                                    pcall(Callback, KeybindData.State)
-                                    LibraryApi:UpdateUI()
-                                end)
-                            end
+                            TriggerCallbacks(Flag, LibraryApi.Flags[Flag])
+                            TryAutoSave()
                         end)
                         
                         ModeBtn.MouseEnter:Connect(function()
@@ -1699,13 +1708,7 @@ function LibraryApi:CreateWindow(WindowName)
                             LibraryApi:UpdateUI()
                             AnimateElement(KeybindButtonStroke, {Color = ColorsTable.borderColor}, 0.3)
                             AnimateElement(KeybindButton, {TextColor3 = ColorsTable.textDarkColor}, 0.3)
-                            
-                            if Callback then
-                                task.spawn(function()
-                                    pcall(Callback, KeybindData.State)
-                                    LibraryApi:UpdateUI()
-                                end)
-                            end
+                            TriggerCallbacks(Flag, LibraryApi.Flags[Flag])
                             TryAutoSave()
                         end
                     else
@@ -1720,19 +1723,19 @@ function LibraryApi:CreateWindow(WindowName)
 
                         if Matches and KeybindData.Value ~= Enum.KeyCode.Unknown then
                             if KeybindData.Mode == "Toggle" then
-                                KeybindData.State = not (KeybindData.State or false)
+                                local currentState = LibraryApi.Flags[Flag]
+                                if type(currentState) == "boolean" then
+                                    LibraryApi.Flags[Flag] = not currentState
+                                else
+                                    LibraryApi.Flags[Flag] = not (LibraryApi.Flags[Flag] or false)
+                                end
                             elseif KeybindData.Mode == "Hold" or KeybindData.Mode == "Always" then
-                                KeybindData.State = true
+                                LibraryApi.Flags[Flag] = true
                             end
                             
-                            if Callback then
-                                task.spawn(function()
-                                    pcall(Callback, KeybindData.State)
-                                    LibraryApi:UpdateUI()
-                                end)
-                            else
-                                LibraryApi:UpdateUI()
-                            end
+                            LibraryApi:UpdateUI()
+                            TriggerCallbacks(Flag, LibraryApi.Flags[Flag])
+                            TryAutoSave()
                         end
                     end
                 end)
@@ -1749,44 +1752,27 @@ function LibraryApi:CreateWindow(WindowName)
 
                     if Matches and KeybindData.Value ~= Enum.KeyCode.Unknown then
                         if KeybindData.Mode == "Hold" then
-                            KeybindData.State = false
-                            
-                            if Callback then
-                                task.spawn(function()
-                                    pcall(Callback, KeybindData.State)
-                                    LibraryApi:UpdateUI()
-                                end)
-                            else
-                                LibraryApi:UpdateUI()
-                            end
+                            LibraryApi.Flags[Flag] = false
+                            LibraryApi:UpdateUI()
+                            TriggerCallbacks(Flag, LibraryApi.Flags[Flag])
+                            TryAutoSave()
                         end
                     end
                 end)
 
                 local function UpdateKeybindVisual()
-                    local CurrentData = LibraryApi.Flags[Flag]
-                    local function GetCurrentDisplay()
-                        if not CurrentData or not CurrentData.Value then return "None" end
-                        if CurrentData.Value == Enum.KeyCode.Unknown or CurrentData.Value == Enum.UserInputType.None then return "None" end
-                        if CurrentData.Type == "KeyCode" then
-                            return CurrentData.Value.Name or "None"
-                        elseif CurrentData.Type == "UserInputType" then
-                            if CurrentData.Value == Enum.UserInputType.MouseButton1 then return "Mouse1"
-                            elseif CurrentData.Value == Enum.UserInputType.MouseButton2 then return "Mouse2"
-                            elseif CurrentData.Value == Enum.UserInputType.MouseButton3 then return "Mouse3"
-                            else return CurrentData.Value.Name end
-                        end
-                        return "None"
-                    end
-                    KeybindButton.Text = "[ " .. GetCurrentDisplay() .. " ] " .. (CurrentData and CurrentData.Mode or "Toggle")
+                    local CurrentData = LibraryApi.Flags[BindFlag]
+                    KeybindButton.Text = "[ " .. GetInputDisplay() .. " ] " .. (CurrentData and CurrentData.Mode or "Toggle")
                 end
                 UpdateKeybindVisual()
-                RegisterElement(Flag, UpdateKeybindVisual)
+                RegisterElement(BindFlag, UpdateKeybindVisual)
                 AddKeybindToOverlay(Name, Flag)
             end
 
             function Elements:DropdownCreate(Name, Flag, Options, Default, Tooltip, Callback)
                 LibraryApi.Flags[Flag] = LibraryApi.Flags[Flag] ~= nil and LibraryApi.Flags[Flag] or (Default or Options[1])
+                RegisterCallback(Flag, Callback)
+
                 local IsDropdownOpen = false
                 local CurrentOptions = Options
                 local DropdownApi = {}
@@ -1816,6 +1802,7 @@ function LibraryApi:CreateWindow(WindowName)
                 DropdownMainButton.BackgroundTransparency = 0.21847
                 DropdownMainButton.Text = ""
                 DropdownMainButton.AutoButtonColor = false
+                DropdownMainButton.ClipsDescendants = true
                 DropdownMainButton.Parent = DropdownFrame
                 
                 local DropdownMainButtonCorner = Instance.new("UICorner")
@@ -1936,12 +1923,8 @@ function LibraryApi:CreateWindow(WindowName)
                             end
                             AnimateElement(OptionLabel, {TextColor3 = ColorsTable.accentColor}, 0.3)
                             
-                            if Callback then
-                                task.spawn(function()
-                                    pcall(Callback, Option)
-                                    LibraryApi:UpdateUI()
-                                end)
-                            end
+                            LibraryApi:UpdateUI()
+                            TriggerCallbacks(Flag, Option)
                             TryAutoSave()
                         end)
                     end
@@ -1961,6 +1944,8 @@ function LibraryApi:CreateWindow(WindowName)
             function Elements:MultiDropdownCreate(Name, Flag, Options, Default, Tooltip, Callback)
                 LibraryApi.Flags[Flag] = LibraryApi.Flags[Flag] or (Default or {})
                 if type(LibraryApi.Flags[Flag]) ~= "table" then LibraryApi.Flags[Flag] = {} end
+                RegisterCallback(Flag, Callback)
+
                 local IsOpen = false
                 local CurrentOptions = Options
                 local MultiApi = {}
@@ -1990,6 +1975,7 @@ function LibraryApi:CreateWindow(WindowName)
                 MultiMainButton.BackgroundTransparency = 0.21847
                 MultiMainButton.Text = ""
                 MultiMainButton.AutoButtonColor = false
+                MultiMainButton.ClipsDescendants = true
                 MultiMainButton.Parent = MultiFrame
                 
                 local MultiMainButtonCorner = Instance.new("UICorner")
@@ -2153,12 +2139,8 @@ function LibraryApi:CreateWindow(WindowName)
                             end
                             UpdateSelectedText()
                             
-                            if Callback then
-                                task.spawn(function()
-                                    pcall(Callback, LibraryApi.Flags[Flag])
-                                    LibraryApi:UpdateUI()
-                                end)
-                            end
+                            LibraryApi:UpdateUI()
+                            TriggerCallbacks(Flag, LibraryApi.Flags[Flag])
                             TryAutoSave()
                         end)
                     end
@@ -2178,6 +2160,8 @@ function LibraryApi:CreateWindow(WindowName)
 
             function Elements:ColorPickerCreate(Name, Flag, Default, Tooltip, Callback)
                 LibraryApi.Flags[Flag] = LibraryApi.Flags[Flag] ~= nil and LibraryApi.Flags[Flag] or (Default or Color3.new(1, 1, 1))
+                RegisterCallback(Flag, Callback)
+
                 local IsColorPickerOpen = false
                 local Hue, Saturation, Value = LibraryApi.Flags[Flag]:ToHSV()
 
@@ -2289,12 +2273,8 @@ function LibraryApi:CreateWindow(WindowName)
                     SaturationValueMapCursor.Position = UDim2.new(1 - Saturation, 0, 1 - Value, 0)
                     HueMapCursor.Position = UDim2.new(Hue, 0, 0.5, 0)
                     
-                    if Callback then
-                        task.spawn(function()
-                            pcall(Callback, CurrentColor)
-                            LibraryApi:UpdateUI()
-                        end)
-                    end
+                    LibraryApi:UpdateUI()
+                    TriggerCallbacks(Flag, CurrentColor)
                     TryAutoSave()
                 end
 
@@ -2378,6 +2358,7 @@ function LibraryApi:CreateWindow(WindowName)
                 local ButtonFrame = Instance.new("Frame")
                 ButtonFrame.Size = UDim2.new(1, 0, 0, 30)
                 ButtonFrame.BackgroundTransparency = 1
+                ButtonFrame.ClipsDescendants = true
                 ButtonFrame.Parent = TargetContainer
 
                 local ActionButton = Instance.new("TextButton")
@@ -2416,7 +2397,6 @@ function LibraryApi:CreateWindow(WindowName)
                     if Callback then
                         task.spawn(function()
                             pcall(Callback)
-                            LibraryApi:UpdateUI()
                         end)
                     end
                 end)
@@ -2426,6 +2406,7 @@ function LibraryApi:CreateWindow(WindowName)
                 local SubButtonFrame = Instance.new("Frame")
                 SubButtonFrame.Size = UDim2.new(1, 0, 0, 22)
                 SubButtonFrame.BackgroundTransparency = 1
+                SubButtonFrame.ClipsDescendants = true
                 SubButtonFrame.Parent = TargetContainer
 
                 local SubButtonAction = Instance.new("TextButton")
@@ -2462,7 +2443,6 @@ function LibraryApi:CreateWindow(WindowName)
                     if Callback then
                         task.spawn(function()
                             pcall(Callback)
-                            LibraryApi:UpdateUI()
                         end)
                     end
                 end)
@@ -2470,9 +2450,10 @@ function LibraryApi:CreateWindow(WindowName)
 
             function Elements:ModuleCreate(Name, Flag, DescriptionText, Default, Tooltip, Callback)
                 LibraryApi.Flags[Flag] = LibraryApi.Flags[Flag] ~= nil and LibraryApi.Flags[Flag] or (Default or false)
+                RegisterCallback(Flag, Callback)
 
-                local DescBounds = TextService:GetTextSize(DescriptionText, 11, MainFont, Vector2.new(9999, 60))
-                local DescHeight = math.clamp(DescBounds.Y, 14, 36)
+                local DescBounds = TextService:GetTextSize(DescriptionText, 11, MainFont, Vector2.new(240, 9999))
+                local DescHeight = math.clamp(DescBounds.Y, 14, 150)
                 local HeaderBaseHeight = 22 + DescHeight + 8
 
                 local ModuleFrame = Instance.new("Frame")
@@ -2582,26 +2563,16 @@ function LibraryApi:CreateWindow(WindowName)
 
                 ModuleToggleButton.MouseButton1Click:Connect(function()
                     LibraryApi.Flags[Flag] = not LibraryApi.Flags[Flag]
-                    local NewState = LibraryApi.Flags[Flag]
-                    AnimateElement(ModuleCheckboxFrame, {BackgroundColor3 = NewState and ColorsTable.accentColor or ColorsTable.sectionBackground}, 0.3)
-                    AnimateElement(ModuleToggleButtonStroke, {Color = NewState and ColorsTable.accentColor or ColorsTable.borderColor}, 0.3)
-                    AnimateElement(ModuleLabel, {TextColor3 = NewState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor}, 0.3)
-                    SynchronizeModuleSize()
-                    
-                    if Callback then
-                        task.spawn(function()
-                            pcall(Callback, NewState)
-                            LibraryApi:UpdateUI()
-                        end)
-                    end
+                    LibraryApi:UpdateUI()
+                    TriggerCallbacks(Flag, LibraryApi.Flags[Flag])
                     TryAutoSave()
                 end)
 
                 local function UpdateModuleVisual()
                     local CurrentState = LibraryApi.Flags[Flag]
-                    ModuleCheckboxFrame.BackgroundColor3 = CurrentState and ColorsTable.accentColor or ColorsTable.sectionBackground
-                    ModuleToggleButtonStroke.Color = CurrentState and ColorsTable.accentColor or ColorsTable.borderColor
-                    ModuleLabel.TextColor3 = CurrentState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor
+                    AnimateElement(ModuleCheckboxFrame, {BackgroundColor3 = CurrentState and ColorsTable.accentColor or ColorsTable.sectionBackground}, 0.3)
+                    AnimateElement(ModuleToggleButtonStroke, {Color = CurrentState and ColorsTable.accentColor or ColorsTable.borderColor}, 0.3)
+                    AnimateElement(ModuleLabel, {TextColor3 = CurrentState and ColorsTable.textWhiteColor or ColorsTable.textDarkColor}, 0.3)
                     SynchronizeModuleSize()
                 end
                 UpdateModuleVisual()
@@ -2769,7 +2740,8 @@ function LibraryApi:CreateWindow(WindowName)
 
     UserInputService.InputBegan:Connect(function(Input, GameProcessedEvent)
         if not GameProcessedEvent then
-            local MenuBind = LibraryApi.Flags["MenuToggleKey"]
+            local BindFlag = "MenuToggleKey_KeybindConfig"
+            local MenuBind = LibraryApi.Flags[BindFlag]
             local Matches = false
             if MenuBind and MenuBind.Type == "KeyCode" and Input.KeyCode == MenuBind.Value then
                 Matches = true
