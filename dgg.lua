@@ -2823,6 +2823,14 @@ local Library = {
                         OtherTab.Items["TabBtn"]:Tween({TextColor3 = Library.Theme["Dark Text"]})
                         OtherTab.Items["TabHighlight"]:Tween({BackgroundTransparency = 1})
                         OtherTab.Items["SubtabContainer"].Instance.Visible = false
+                        for _, PageData in OtherTab.Pages do
+                            if PageData.Active then
+                                PageData.Active = false
+                                PageData.Debounce = false
+                                PageData.Items["Page"].Instance.Visible = false
+                                PageData.Items["Page"].Instance.Parent = Library.UnusedHolder.Instance
+                            end
+                        end
                     end
                 end
                 Tab.Active = true
