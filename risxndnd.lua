@@ -40,35 +40,35 @@ local function Get_Curve_Multiplier(Ball_Inst, Root_Pos, Current_Velocity)
     local Prev_Vel = Ball_Prev_Velocity[Ball_Inst]
     if not Prev_Vel then
         Ball_Prev_Velocity[Ball_Inst] = Current_Velocity
-        Anti_Curve_Data[Ball_Inst] = { smoothAx = 0, smoothAy = 0, smoothAz = 0, frames = 0 }
+        Anti_Curve_Data[Ball_Inst] = { SmoothAx = 0, SmoothAy = 0, SmoothAz = 0, Frames = 0 }
         return 1.0
     end
-    local ax = Current_Velocity.X - Prev_Vel.X
-    local ay = Current_Velocity.Y - Prev_Vel.Y
-    local az = Current_Velocity.Z - Prev_Vel.Z
+    local Ax = Current_Velocity.X - Prev_Vel.X
+    local Ay = Current_Velocity.Y - Prev_Vel.Y
+    local Az = Current_Velocity.Z - Prev_Vel.Z
     Ball_Prev_Velocity[Ball_Inst] = Current_Velocity
     local Data = Anti_Curve_Data[Ball_Inst]
-    Data.smoothAx = Data.smoothAx * 0.7 + ax * 0.3
-    Data.smoothAy = Data.smoothAy * 0.7 + ay * 0.3
-    Data.smoothAz = Data.smoothAz * 0.7 + az * 0.3
-    local accelMag = math.sqrt(Data.smoothAx^2 + Data.smoothAy^2 + Data.smoothAz^2)
-    if accelMag < 0.1 then Data.frames = 0 return 1.0 end
-    local dx = Root_Pos.X - Ball_Inst.Position.X
-    local dy = Root_Pos.Y - Ball_Inst.Position.Y
-    local dz = Root_Pos.Z - Ball_Inst.Position.Z
-    local dist = math.sqrt(dx^2 + dy^2 + dz^2)
-    if dist < 15.0 then Data.frames = 0 return 1.0 end
-    local radialAccel = Data.smoothAx*(dx/dist) + Data.smoothAy*(dy/dist) + Data.smoothAz*(dz/dist)
-    local lateralAccelSq = math.max(accelMag^2 - radialAccel^2, 0)
-    local lateralAccel = math.sqrt(lateralAccelSq)
-    if lateralAccel > 60 and radialAccel > 0 then
-        Data.frames = Data.frames + 1
-        if Data.frames >= 3 then
-            local severity = math.min(lateralAccel / 120, 1.0)
-            return 1.0 + 0.3 * severity
+    Data.SmoothAx = Data.SmoothAx * 0.7 + Ax * 0.3
+    Data.SmoothAy = Data.SmoothAy * 0.7 + Ay * 0.3
+    Data.SmoothAz = Data.SmoothAz * 0.7 + Az * 0.3
+    local Accel_Mag = math.sqrt(Data.SmoothAx^2 + Data.SmoothAy^2 + Data.SmoothAz^2)
+    if Accel_Mag < 0.1 then Data.Frames = 0 return 1.0 end
+    local Dx = Root_Pos.X - Ball_Inst.Position.X
+    local Dy = Root_Pos.Y - Ball_Inst.Position.Y
+    local Dz = Root_Pos.Z - Ball_Inst.Position.Z
+    local Dist = math.sqrt(Dx^2 + Dy^2 + Dz^2)
+    if Dist < 10.0 then Data.Frames = 0 return 1.0 end
+    local Radial_Accel = Data.SmoothAx*(Dx/Dist) + Data.SmoothAy*(Dy/Dist) + Data.SmoothAz*(Dz/Dist)
+    local Lateral_Accel_Sq = math.max(Accel_Mag^2 - Radial_Accel^2, 0)
+    local Lateral_Accel = math.sqrt(Lateral_Accel_Sq)
+    if Lateral_Accel > 40 and Radial_Accel > -10 then
+        Data.Frames = Data.Frames + 1
+        if Data.Frames >= 2 then
+            local Severity = math.min(Lateral_Accel / 100, 1.0)
+            return 1.0 + 0.5 * Severity
         end
     else
-        Data.frames = 0
+        Data.Frames = 0
     end
     return 1.0
 end
@@ -1362,15 +1362,20 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
         local Dot_Product_Parry = Velocity_Unit:Dot(Direction_To_Player)
 
         local Ping_Sec = Network_Ping / 1000
+        local Reaction_Time = Ping_Sec + Current_Delta_Time + Server_Tick_Rate
+        local Time_To_Impact = Current_Distance / Fast_Max(Effective_Speed, 1)
+
         local Is_Point_Blank = false
-        local Fatal_Distance = Effective_Speed * (Current_Delta_Time + Ping_Sec) + 4.5
+        local Fatal_Distance = Effective_Speed * Reaction_Time + 5.5
         
-        if Current_Distance <= Fatal_Distance and Dot_Product_Parry > 0.4 then
+        if Current_Distance <= Fatal_Distance and Dot_Product_Parry > 0.25 then
+            Is_Point_Blank = true
+        elseif Time_To_Impact <= Reaction_Time and Dot_Product_Parry > 0.1 then
             Is_Point_Blank = true
         end
 
         local Is_Snap = false
-        if Current_Distance < 25 and Dot_Delta > 0.2 and Dot_Product_Parry > 0.5 then
+        if Current_Distance < 30 and Dot_Delta > 0.15 and Dot_Product_Parry > 0.4 then
             Is_Snap = true
         end
 
