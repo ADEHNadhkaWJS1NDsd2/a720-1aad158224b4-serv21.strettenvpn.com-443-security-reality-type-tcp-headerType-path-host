@@ -175,17 +175,22 @@ local Next_Panic_Click = 0
 local Offsets_Data = {
     Transparency = 0xD0,
     Parent = 0x68,
-    Decal_Texture = 0x180
+    Decal_Texture = 0x180,
+    Stats_Value = 0xC8
 }
 
+local function Is_Valid_Address(Addr_Val)
+    return Addr_Val and type(Addr_Val) == "number" and Addr_Val > 0xFFF
+end
+
 local function Write_Float(Addr_Val, Float_Val)
-    if Addr_Val and Addr_Val ~= 0 then
+    if Is_Valid_Address(Addr_Val) then
         pcall(memory_write, "float", Addr_Val, Float_Val)
     end
 end
 
 local function Write_Pointer(Addr_Val, Ptr_Val)
-    if Addr_Val and Addr_Val ~= 0 then
+    if Is_Valid_Address(Addr_Val) then
         if not pcall(memory_write, "uint64", Addr_Val, Ptr_Val) then
             pcall(memory_write, "pointer", Addr_Val, Ptr_Val)
         end
@@ -267,7 +272,7 @@ local function Apply_Headless(State_Val)
     if Head_Obj and typeof(Head_Obj) == "Instance" and Head_Obj:IsA("BasePart") then
         if State_Val then
             pcall(function() Head_Obj.Size = Vector3.new(0.01, 0.01, 0.01) end)
-            if Head_Obj.Address and Head_Obj.Address ~= 0 then
+            if Is_Valid_Address(Head_Obj.Address) then
                 Write_Float(Head_Obj.Address + Offsets_Data.Transparency, 1.0)
             end
             for _, Child_Obj in ipairs(Head_Obj:GetChildren()) do
@@ -276,7 +281,7 @@ local function Apply_Headless(State_Val)
                     pcall(function() Child_Obj.Transparency = 1 end)
                     pcall(function() Child_Obj.Parent = nil end)
                     pcall(function() game:GetService("Debris"):AddItem(Child_Obj, 0) end)
-                    if Child_Obj.Address and Child_Obj.Address ~= 0 then
+                    if Is_Valid_Address(Child_Obj.Address) then
                         if Child_Obj.ClassName == "Decal" or Child_Obj.Name == "face" or Child_Obj.Name == "Face" then
                             pcall(memory_write, "uint64", Child_Obj.Address + Offsets_Data.Decal_Texture + 0x10, 0)
                         end
@@ -303,7 +308,7 @@ local function Apply_Korblox(State_Val)
         for _, Part_Obj in ipairs(Char_Obj:GetChildren()) do
             if typeof(Part_Obj) == "Instance" and Right_Leg_Names[Part_Obj.Name] and Part_Obj:IsA("BasePart") then
                 pcall(function() Part_Obj.Size = Vector3.new(0.01, 0.01, 0.01) end)
-                if Part_Obj.Address and Part_Obj.Address ~= 0 then
+                if Is_Valid_Address(Part_Obj.Address) then
                     Write_Float(Part_Obj.Address + Offsets_Data.Transparency, 1.0)
                 end
                 for _, Child_Obj in ipairs(Part_Obj:GetChildren()) do
@@ -312,7 +317,7 @@ local function Apply_Korblox(State_Val)
                         pcall(function() Child_Obj.Transparency = 1 end)
                         pcall(function() Child_Obj.Parent = nil end)
                         pcall(function() game:GetService("Debris"):AddItem(Child_Obj, 0) end)
-                        if Child_Obj.Address and Child_Obj.Address ~= 0 then
+                        if Is_Valid_Address(Child_Obj.Address) then
                             Write_Pointer(Child_Obj.Address + Offsets_Data.Parent, 0)
                         end
                     end
@@ -320,7 +325,7 @@ local function Apply_Korblox(State_Val)
             elseif typeof(Part_Obj) == "Instance" and Part_Obj.ClassName == "CharacterMesh" then
                 pcall(function()
                     if tostring(Part_Obj.BodyPart):match("RightLeg") then
-                        if Part_Obj.Address and Part_Obj.Address ~= 0 then
+                        if Is_Valid_Address(Part_Obj.Address) then
                             Write_Pointer(Part_Obj.Address + Offsets_Data.Parent, 0)
                         end
                     end
@@ -331,7 +336,7 @@ local function Apply_Korblox(State_Val)
                     if Handle_Obj and typeof(Handle_Obj) == "Instance" then
                         local Weld_Obj = Handle_Obj:FindFirstChildOfClass("Weld") or Handle_Obj:FindFirstChildOfClass("Motor6D")
                         if Weld_Obj and typeof(Weld_Obj) == "Instance" and Weld_Obj.Part1 and Right_Leg_Names[Weld_Obj.Part1.Name] then
-                            if Part_Obj.Address and Part_Obj.Address ~= 0 then
+                            if Is_Valid_Address(Part_Obj.Address) then
                                 Write_Pointer(Part_Obj.Address + Offsets_Data.Parent, 0)
                             end
                         end
@@ -439,7 +444,11 @@ end
 
 local function Get_Memory_Ping()
     local Success_State, Ping_Result = pcall(function()
-        return memory_read("double", Stats_Service.Network.ServerStatsItem["Data Ping"].Address + 0xC8)
+        local Ping_Stats_Item = Stats_Service.Network.ServerStatsItem["Data Ping"]
+        if Is_Valid_Address(Ping_Stats_Item.Address) then
+            return memory_read("double", Ping_Stats_Item.Address + Offsets_Data.Stats_Value)
+        end
+        return 50
     end)
     return (Success_State and type(Ping_Result) == "number") and Ping_Result or 50
 end
