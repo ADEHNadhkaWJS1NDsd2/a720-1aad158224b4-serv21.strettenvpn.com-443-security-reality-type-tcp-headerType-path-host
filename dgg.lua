@@ -12,7 +12,7 @@ if not getgenv().LibraryUnloading then
     getgenv().LibraryUnloading = false
 end
 
-local Directory = "nexonix"
+local Directory = "radiant.rip"
 local Folders = {
     "/Configs",
     "/Assets",
@@ -28,7 +28,7 @@ for _, Folder in Folders do
     end
 end
 
-Library.Directory = "nexonix"
+Library.Directory = "radiant.rip"
 Library.Folders = {
     Configs = "/Configs",
     Assets = "/Assets",
@@ -54,7 +54,7 @@ local Mouse = cloneref(LocalPlayer:GetMouse())
 local Library = { 
     Flags = { },
     MenuKeybind = tostring(Enum.KeyCode.X),
-    Directory = "nexonix",
+    Directory = "radiant.rip",
     Folders = {
         Assets = "/Assets",
         Configs = "/Configs"
@@ -1716,7 +1716,7 @@ local Library = {
         Library.Watermark = function(Self, Params)
             Params = Params or { }
             local Watermark = {
-                Name = Params.Name or Params.name or "Nexonix",
+                Name = Params.Name or Params.name or "radiant.rip",
                 Logo = Params.Logo or Params.logo or "rbxassetid://77749228793011",
                 Items = { }
             }
@@ -2823,14 +2823,6 @@ local Library = {
                         OtherTab.Items["TabBtn"]:Tween({TextColor3 = Library.Theme["Dark Text"]})
                         OtherTab.Items["TabHighlight"]:Tween({BackgroundTransparency = 1})
                         OtherTab.Items["SubtabContainer"].Instance.Visible = false
-                        for _, PageData in OtherTab.Pages do
-                            if PageData.Active then
-                                PageData.Active = false
-                                PageData.Debounce = false
-                                PageData.Items["Page"].Instance.Visible = false
-                                PageData.Items["Page"].Instance.Parent = Library.UnusedHolder.Instance
-                            end
-                        end
                     end
                 end
                 Tab.Active = true
