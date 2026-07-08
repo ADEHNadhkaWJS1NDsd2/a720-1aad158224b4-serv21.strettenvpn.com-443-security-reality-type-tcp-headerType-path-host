@@ -26,13 +26,6 @@ local Fast_Clock = os.clock
 local V3_Zero = Vector3.zero
 local Pi_2 = math.pi * 2
 
-local function WorldToScreen(Position)
-    local Camera_Instance = Workspace_Service.CurrentCamera
-    if not Camera_Instance then return Vector2.new(0, 0), false end
-    local Viewport_Point, Is_On_Screen = Camera_Instance:WorldToViewportPoint(Position)
-    return Vector2.new(Viewport_Point.X, Viewport_Point.Y), Is_On_Screen
-end
-
 local Ball_Prev_Velocity = {}
 local Anti_Curve_Data = {}
 
