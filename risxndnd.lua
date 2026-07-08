@@ -651,13 +651,8 @@ local Smooth_Visual_Root_Pos = nil
 local Esp_Smoothed_Positions = {}
 local Cached_Character = nil
 local Character_Fully_Loaded = false
-local Render_Stepped_Started = false
-local Heartbeat_Started = false
 
 Run_Service.RenderStepped:Connect(function(Delta_Time)
-    if not Render_Stepped_Started then
-        Render_Stepped_Started = true
-    end
     if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
     local Current_Render_Time = Fast_Clock()
     local Real_Ball_Visuals = Get_Real_Ball()
@@ -805,9 +800,6 @@ Run_Service.RenderStepped:Connect(function(Delta_Time)
 end)
 
 Run_Service.Heartbeat:Connect(function(Delta_Time)
-    if not Heartbeat_Started then
-        Heartbeat_Started = true
-    end
     local Current_Time = Fast_Clock()
     if type(Delta_Time) ~= "number" then Delta_Time = 0.016 end
     local Current_Delta_Time = Delta_Time
@@ -1470,9 +1462,6 @@ Run_Service.Heartbeat:Connect(function(Delta_Time)
 end)
 
 Run_Service.RenderStepped:Connect(function(Delta_Time)
-    if not Render_Stepped_Started then
-        Render_Stepped_Started = true
-    end
     pcall(function()
         if not Config_State.Orbit_Ball then return end
         local Real_Ball = Get_Real_Ball()
