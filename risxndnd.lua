@@ -173,9 +173,9 @@ local Next_Manual_Click = 0
 local Next_Panic_Click = 0
 
 local Offsets_Data = {
-    Transparency = 0xF0,
-    Parent = 0x70,
-    Decal_Texture = 0x198
+    Transparency = 0xD0,
+    Parent = 0x68,
+    Decal_Texture = 0x180
 }
 
 local function Write_Float(Addr_Val, Float_Val)
