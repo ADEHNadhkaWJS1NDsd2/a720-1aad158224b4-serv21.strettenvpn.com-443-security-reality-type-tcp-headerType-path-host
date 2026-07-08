@@ -2148,9 +2148,9 @@ local Library = {
                 
                 Items["SidebarFix"] = Library:Create("Frame", {
                     Name = "\0",
-                    Parent = Items["Sidebar"].Instance,
+                    Parent = Items["MainFrame"].Instance,
                     Size = UDim2.new(0, 16, 1, 0),
-                    Position = UDim2.new(1, -16, 0, 0),
+                    Position = UDim2.new(0, 75 - 16, 0, 0),
                     BackgroundColor3 = Library.Theme["Inline"],
                     BorderSizePixel = 0
                 }):AddToTheme({BackgroundColor3 = 'Inline'})
