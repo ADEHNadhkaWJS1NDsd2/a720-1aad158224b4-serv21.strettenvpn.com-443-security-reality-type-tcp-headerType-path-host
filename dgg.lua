@@ -548,8 +548,13 @@ local Library = {
     end
 
     Library.Round = function(Self, Number, Float)
-        local Multiplier = 1 / (Float or 1)
-        return math.floor(Number * Multiplier) / Multiplier
+        if type(Number) ~= "number" or Number ~= Number then Number = 0 end
+        local f = Float or 1
+        if type(f) ~= "number" or f ~= f or f == 0 then f = 1 end
+        local Multiplier = 1 / f
+        local result = math.floor(Number * Multiplier) / Multiplier
+        if result ~= result then result = Number end
+        return result
     end
 
     Library.GetConfig = function(Self)
@@ -3645,7 +3650,12 @@ local Library = {
 
             function Slider:Set(Value)
                 Slider.Value = Library:Round(math.clamp(Value, Slider.Min, Slider.Max), Slider.Decimals)
-                Items["Accent"]:Tween({Size = UDim2.new((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min), 0, 1, 0)}, TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out))
+                local pct = 0
+                if Slider.Max ~= Slider.Min then
+                    pct = (Slider.Value - Slider.Min) / (Slider.Max - Slider.Min)
+                end
+                pct = math.clamp(pct, 0, 1)
+                Items["Accent"]:Tween({Size = UDim2.new(pct, 0, 1, 0)}, TweenInfo.new(Library.Animation.Time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out))
                 Items["Value"].Instance.Text = string.format("%s%s", Slider.Value, Slider.Suffix)
                 Flags[Slider.Flag] = Slider.Value
                 Library:SafeCall(Slider.Callback, Slider.Value)
@@ -3656,7 +3666,10 @@ local Library = {
             end
 
             function Slider:GetSize(Input)
-                local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
+                local slider = Items["RealSlider"].Instance
+                local sizeX = slider.AbsoluteSize.X
+                local SizeX = sizeX > 0 and (Input.Position.X - slider.AbsolutePosition.X) / sizeX or 0
+                SizeX = math.clamp(SizeX, 0, 1)
                 local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
                 return Value
             end
