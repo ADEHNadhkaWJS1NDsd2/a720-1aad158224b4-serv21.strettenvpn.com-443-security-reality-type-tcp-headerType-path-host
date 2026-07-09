@@ -754,6 +754,8 @@ local SmoothVisualRootPosition = nil
 local EspSmoothedPositions = {}
 local CachedCharacter = nil
 local CharacterFullyLoaded = false
+local PullActive = false
+local LastPullTime = 0
 
 RunService.RenderStepped:Connect(function(DeltaTime)
     if type(DeltaTime) ~= "number" then DeltaTime = 0.016 end
@@ -1161,6 +1163,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         RuntimeState.TargetDistance = 0
         RuntimeState.TargetDot = 0
         RuntimeState.ParryRange = 15
+        PullActive = false
         return
     end
 
@@ -1202,15 +1205,19 @@ RunService.Heartbeat:Connect(function(DeltaTime)
 
     local IsPullActive = (CurrentTime - PullTime) <= 0.1
 
-    if IsPullActive or IsTkActive then
+    if IsPullActive then
         IsParried = false
-        local TempVelocity = RealBall.AssemblyLinearVelocity
-        LastSpeed = typeof(TempVelocity) == "Vector3" and TempVelocity.Magnitude or 0
-        LastDistance = (RootPart.Position - RealBall.Position).Magnitude
         NextAutoClick = 0
         NextManualClick = 0
         NextPanicClick = 0
         ScheduledTriggerTime = 0
+        PullActive = true
+        LastPullTime = CurrentTime
+        return
+    end
+
+    if PullActive then
+        IsParried = false
         return
     end
 
@@ -1288,6 +1295,9 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             SmoothedKps = SmoothedKps + (CurrentKps - SmoothedKps) * 0.25
         end
         LastFromChange = CurrentWaitTime
+        if PullActive then
+            PullActive = false
+        end
         if ConfigState.RandomAccuracy then
             GenerateRandomAccuracy()
         end
@@ -1320,18 +1330,24 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             NextManualClick = CurrentTime
         end
         local ClicksToPerform = 0
-        local MaxClicksPerFrame = 12
+        local MaxClicksPerFrame = 120
+        local YieldEvery = 15
         while CurrentTime >= NextManualClick and ClicksToPerform < MaxClicksPerFrame do
-            if ConfigState.ParryMethod == "Click" then
-                if typeof(Mouse1Click) == "function" then Mouse1Click() end
-            else
-                if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then 
-                    KeyPress(0x46) 
-                    KeyRelease(0x46) 
+            if isrbxactive() then
+                if ConfigState.ParryMethod == "Click" then
+                    if typeof(Mouse1Click) == "function" then Mouse1Click() end
+                else
+                    if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then 
+                        KeyPress(0x46) 
+                        KeyRelease(0x46) 
+                    end
                 end
             end
             NextManualClick = NextManualClick + ManualSpamInterval
             ClicksToPerform = ClicksToPerform + 1
+            if ClicksToPerform % YieldEvery == 0 then
+                task.wait()
+            end
         end
     else
         ManualSpamAccumulator = 0
@@ -1485,18 +1501,18 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         local IsPointBlank = false
         local FatalDistance = EffectiveSpeed * ReactionTime + 7.5
 
-        if CurrentDistance <= 15 then
+        if CurrentDistance <= 18 then
             if DotProductParry > 0.05 then
                 IsPointBlank = true
             end
-        elseif CurrentDistance <= FatalDistance and DotProductParry > 0.2 then
+        elseif CurrentDistance <= FatalDistance and DotProductParry > 0.18 then
             IsPointBlank = true
         elseif TimeToImpact <= ReactionTime and DotProductParry > 0.08 then
             IsPointBlank = true
         end
 
         local IsSnap = false
-        if CurrentDistance < 30 and DotDelta > 0.1 and DotProductParry > 0.35 then
+        if CurrentDistance < 28 and DotDelta > 0.12 and DotProductParry > 0.35 then
             IsSnap = true
         end
 
@@ -1506,7 +1522,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         local PredictedDistance = GetDistanceBetween(RootPosition, PredictedBallPos)
         
         local SpeedFactor = FastClamp(EffectiveSpeed / 85, 0.6, 1.45)
-        local DynamicPredictedThreshold = 20 + (SpeedFactor * 6)
+        local DynamicPredictedThreshold = 14 + (SpeedFactor * 6)
         
         local UpclosePredictedHit = PredictedDistance <= DynamicPredictedThreshold and DotProductParry > 0.22
         
@@ -1523,7 +1539,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             AccuracyValue = FastClamp(AccuracyValue + ExtraJitter, 1, 100)
         end
         local AccuracyScale = (AccuracyValue - 1) / 99
-        local AccuracyMultiplier = 0.7 + (AccuracyScale * 0.35)
+        local AccuracyMultiplier = 0.82 + (AccuracyScale * 0.35)
 
         local DynamicScaling = FastMax(EffectiveSpeed - 9.5, 0) * 0.002
         local SpeedDivisorBase = 2.4 + DynamicScaling
@@ -1537,7 +1553,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
 
         local UnifiedThreshold = FastMax(BaseDistance + ExtrapolationDistance + (KpsIntensity * 1.5) + EarlyBoost, 9.5)
         
-        local CloseRangeThreshold = FastMax(20, UnifiedThreshold * 0.65)
+        local CloseRangeThreshold = FastMax(15, UnifiedThreshold * 0.5)
         
         local CurveMultiplier = 1.0
         if CurrentDistance > CloseRangeThreshold and not IsPointBlank and not IsSnap then
@@ -1560,7 +1576,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         local IsCurved = false
         if CurrentSpeed > 15 then
             local DistanceRatio = FastClamp((CurrentDistance - 35.0) / 55.0, 0, 1)
-            local MaxDotThreshold = 0.85 - (0.05 * (1 - AccuracyScale))
+            local MaxDotThreshold = 0.82 - (0.05 * (1 - AccuracyScale))
             local MinDotThreshold = 0.55 - (0.05 * (1 - AccuracyScale))
             local DynamicDot = MinDotThreshold + (MaxDotThreshold - MinDotThreshold) * math.pow(DistanceRatio, 1.5)
             local CurveCompensation = CurrentDeltaTime * ExtraFactor * KpsMitigation
@@ -1571,8 +1587,18 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             end
         end
 
-        if CurrentDistance <= 25.0 then
+        if CurrentDistance <= 22 then
             IsCurved = false
+        end
+
+        if not IsPointBlank and not IsSnap and CurrentDistance <= 14 and DotProductParry > 0.03 and not IsMovingAway then
+            if ConfigState.AutoParry then
+                IsParried = true
+                ExecuteParryDirect()
+            end
+            LastSpeed = EffectiveSpeed
+            LastDistance = CurrentDistance
+            return
         end
 
         if ConfigState.AutoParryType == "Old" then
