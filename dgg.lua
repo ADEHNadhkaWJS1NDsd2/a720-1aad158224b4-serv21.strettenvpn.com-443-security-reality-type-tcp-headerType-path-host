@@ -2786,13 +2786,35 @@ local Library = {
                 Parent = Tab.Window.Items["Sidebar"].Instance,
                 Size = UDim2.new(0, 40, 0, 40),
                 BackgroundTransparency = 1,
-                Text = Tab.Icon,
+                Text = "",
                 TextColor3 = Library.Theme["Dark Text"],
-                Font = Enum.Font.GothamBold,
-                TextSize = 20,
                 AutoButtonColor = false,
                 BorderSizePixel = 0
             }):AddToTheme({TextColor3 = 'Dark Text'})
+
+            local icon = Tab.Icon or "⚔"
+            local iconStr = tostring(icon)
+            if iconStr:match("^%d+$") or iconStr:match("^rbxassetid://") or iconStr:match("^http") then
+                local asset = iconStr
+                if iconStr:match("^%d+$") then
+                    asset = "rbxassetid://" .. iconStr
+                end
+                Items["TabIcon"] = Library:Create("ImageLabel", {
+                    Parent = Items["TabBtn"].Instance,
+                    Size = UDim2.new(0, 26, 0, 26),
+                    AnchorPoint = Vector2.new(0.5, 0.5),
+                    Position = UDim2.new(0.5, 0, 0.5, 0),
+                    BackgroundTransparency = 1,
+                    Image = asset,
+                    ImageColor3 = Library.Theme["Dark Text"],
+                    ScaleType = Enum.ScaleType.Fit
+                }):AddToTheme({ImageColor3 = 'Dark Text'})
+            else
+                Items["TabBtn"].Instance.Text = iconStr
+                Items["TabBtn"].Instance.Font = Enum.Font.GothamBold
+                Items["TabBtn"].Instance.TextSize = 20
+            end
+
             Items["TabHighlight"] = Library:Create("Frame", {
                 Parent = Items["TabBtn"].Instance,
                 Size = UDim2.new(0, 3, 0, 22),
@@ -2827,6 +2849,9 @@ local Library = {
                     if OtherTab.Active then
                         OtherTab.Active = false
                         OtherTab.Items["TabBtn"]:Tween({TextColor3 = Library.Theme["Dark Text"]})
+                        if OtherTab.Items["TabIcon"] then
+                            OtherTab.Items["TabIcon"]:Tween({ImageColor3 = Library.Theme["Dark Text"]})
+                        end
                         OtherTab.Items["TabHighlight"]:Tween({BackgroundTransparency = 1})
                         OtherTab.Items["SubtabContainer"].Instance.Visible = false
                         for _, OtherPage in OtherTab.Pages do
@@ -2843,6 +2868,9 @@ local Library = {
                 end
                 Tab.Active = true
                 Tab.Items["TabBtn"]:Tween({TextColor3 = Library.Theme["Text"]})
+                if Tab.Items["TabIcon"] then
+                    Tab.Items["TabIcon"]:Tween({ImageColor3 = Library.Theme["Text"]})
+                end
                 Tab.Items["TabHighlight"]:Tween({BackgroundTransparency = 0})
                 Tab.Items["SubtabContainer"].Instance.Visible = true
 
