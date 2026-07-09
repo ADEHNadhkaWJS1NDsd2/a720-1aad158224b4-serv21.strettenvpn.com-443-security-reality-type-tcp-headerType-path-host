@@ -53,7 +53,7 @@ end
 
 local BallPreviousVelocity = {}
 local AntiCurveData = {}
-local BallVelocityHistory = {} -- New: for trajectory analysis from old versions
+local BallVelocityHistory = {}
 local BallLastPosition = {}
 local BallWarpBoostUntil = {}
 
@@ -74,7 +74,6 @@ local function GetCurveMultiplier(BallInstance, RootPosition, CurrentVelocity)
         table.remove(History, 1)
     end
 
-    -- Simple acceleration smoothing (kept for stability)
     local PreviousVelocity = BallPreviousVelocity[BallInstance]
     if not PreviousVelocity then
         BallPreviousVelocity[BallInstance] = CurrentVelocity
@@ -116,7 +115,6 @@ local function GetCurveMultiplier(BallInstance, RootPosition, CurrentVelocity)
     local LateralAccelerationSq = math.max(AccelerationMagnitude^2 - RadialAcceleration^2, 0)
     local LateralAcceleration = math.sqrt(LateralAccelerationSq)
 
-    -- Trajectory angular deviation (from old strong scripts)
     local AngularDeviation = 0
     if #History >= 4 then
         for i = 2, #History do
@@ -163,7 +161,7 @@ local function DetectPositionWarp(BallInstance, DeltaTime)
         return false
     end
     local PrevPos = BallLastPosition[BallInstance]
-    local PrevVel = BallPreviousVelocity[BallInstance] or V3_New(0,0,0)
+    local PrevVel = BallPreviousVelocity[BallInstance] or Vector3.new(0,0,0)
     if GetVectorMagnitude(PrevVel) < 5 then
         BallLastPosition[BallInstance] = BallInstance.Position
         return false
@@ -316,7 +314,7 @@ local CombatTab = WindowApp:Tab("Combat", "swords")
 local ParrySection = CombatTab:Section("Auto Parry", "Left", "")
 ParrySection:Toggle("Auto Parry", false, function(Value) ConfigState.AutoParry = Value end):AddKeybind("None", "Toggle")
 ParrySection:Slider("Accuracy", 100, 1, 1, 100, "%", function(Value) ConfigState.Accuracy = Value end)
-ParrySection:Dropdown("Auto Parry Type", {"New", "Old"}, false, function(Value) 
+ParrySection:Dropdown("Auto Parry Type", "New", {"New", "Old"}, false, function(Value) 
     ConfigState.AutoParryType = type(Value) == "table" and Value[1] or Value 
 end)
 
@@ -364,7 +362,7 @@ VisMainSection:Slider("Vis Transparency", 1.0, 0.1, 0.1, 1.0, "", function(Value
 VisMainSection:Slider("Vis Segments", 40, 1, 10, 100, "", function(Value) ConfigState.VisSegments = Value end)
 
 VisMainSection:Toggle("Ability ESP", false, function(Value) ConfigState.AbilityEsp = Value end)
-VisMainSection:Colorpicker("ESP Color", Color3.fromRGB(220, 30, 30), function(Color, Alpha) ConfigState.EspColor = Color or Color3.fromRGB(220, 30, 30) end)
+VisMainSection:Colorpicker("ESP Color", Color3.fromRGB(220, 30, 30), function(Color, Alpha) ConfigState.EspColor = Color or Color3.fromRGB(220, 30, 30) end, 1)
 VisMainSection:Slider("ESP Text Size", 18, 1, 10, 40, "", function(Value) ConfigState.EspTextSize = Value end)
 VisMainSection:Slider("ESP Offset Y", 2.0, 0.5, 0.0, 10.0, "", function(Value) ConfigState.EspOffsetY = Value end)
 
@@ -1318,10 +1316,12 @@ RunService.Heartbeat:Connect(function(DeltaTime)
     local CanAttack = (not IsDead) and (not IsTrainingBall)
 
     if ConfigState.ManualSpam then
-        ManualSpamAccumulator = ManualSpamAccumulator + CurrentDeltaTime
+        if NextManualClick == 0 then
+            NextManualClick = CurrentTime
+        end
         local ClicksToPerform = 0
-        local MaxClicksPerFrame = 80
-        while ManualSpamAccumulator >= ManualSpamInterval and ClicksToPerform < MaxClicksPerFrame do
+        local MaxClicksPerFrame = 12
+        while CurrentTime >= NextManualClick and ClicksToPerform < MaxClicksPerFrame do
             if ConfigState.ParryMethod == "Click" then
                 if typeof(Mouse1Click) == "function" then Mouse1Click() end
             else
@@ -1330,7 +1330,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
                     KeyRelease(0x46) 
                 end
             end
-            ManualSpamAccumulator = ManualSpamAccumulator - ManualSpamInterval
+            NextManualClick = NextManualClick + ManualSpamInterval
             ClicksToPerform = ClicksToPerform + 1
         end
     else
