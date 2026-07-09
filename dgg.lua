@@ -2363,6 +2363,7 @@ local Library = {
                     if Item.Page ~= Window.Current then continue end
                     local Holder = Item.Holder
                     if not Holder then continue end
+                    if not Item.OriginalSize or not Item.FadeObjects then continue end
                     local Matched = Query == "" or Normalize(Item.Name):find(Query, 1, true) ~= nil
                     if Matched and not Item.Visible then
                         Item.Visible = true
@@ -2823,6 +2824,16 @@ local Library = {
                         OtherTab.Items["TabBtn"]:Tween({TextColor3 = Library.Theme["Dark Text"]})
                         OtherTab.Items["TabHighlight"]:Tween({BackgroundTransparency = 1})
                         OtherTab.Items["SubtabContainer"].Instance.Visible = false
+                        for _, OtherPage in OtherTab.Pages do
+                            if OtherPage.Active then
+                                OtherPage.Items["Inactive"]:Tween({TextColor3 = Library.Theme["Dark Text"]})
+                                OtherPage.Items["Indicator"]:Tween({BackgroundTransparency = 1})
+                                OtherPage.Items["Page"]:FadeDescendants(false, function()
+                                    OtherPage.Items["Page"].Instance.Parent = Library.UnusedHolder.Instance
+                                end)
+                                break
+                            end
+                        end
                     end
                 end
                 Tab.Active = true
@@ -2831,15 +2842,18 @@ local Library = {
                 Tab.Items["SubtabContainer"].Instance.Visible = true
 
                 if #Tab.Pages > 0 then
-                    local HasActive = false
+                    local TargetPage = nil
                     for _, PageData in Tab.Pages do
                         if PageData.Active then 
-                            HasActive = true 
+                            TargetPage = PageData
                             break 
                         end
                     end
-                    if not HasActive then
-                        Tab.Pages[1]:Turn()
+                    if not TargetPage then
+                        TargetPage = Tab.Pages[1]
+                    end
+                    if TargetPage then
+                        TargetPage:Turn()
                     end
                 end
             end
@@ -2938,13 +2952,13 @@ local Library = {
             Page.ColumnsData[1] = Items["LeftColumn"]
             Page.ColumnsData[2] = Items["RightColumn"]
             Page.Items = Items
-            Library.SearchItems[Page] = { }
 
             function Page:Turn()
-                if Page.Active or Page.Debounce then return end
+                if Page.Debounce then return end
+                if Page.Active and Page.Items["Page"].Instance.Parent == Page.Window.Items["PageArea"].Instance then return end
                 Page.Debounce = true
                 for _, OtherPage in Page.Tab.Pages do
-                    if OtherPage.Active then
+                    if OtherPage.Active and OtherPage ~= Page then
                         OtherPage.Active = false
                         OtherPage.Items["Inactive"]:Tween({TextColor3 = Library.Theme["Dark Text"]})
                         OtherPage.Items["Indicator"]:Tween({BackgroundTransparency = 1})
@@ -2957,6 +2971,9 @@ local Library = {
                 Page.Items["Page"].Instance.Visible = true
                 Page.Items["Page"]:FadeDescendants(true, function()
                     Page.Debounce = false
+                    if Page.Window.Items and Page.Window.Items["Input"] then
+                        Page.Window.Items["Input"].Instance.Text = ""
+                    end
                 end)
                 Page.Items["Inactive"]:Tween({TextColor3 = Library.Theme["Accent"]})
                 Page.Items["Indicator"]:Tween({BackgroundTransparency = 0.2})
