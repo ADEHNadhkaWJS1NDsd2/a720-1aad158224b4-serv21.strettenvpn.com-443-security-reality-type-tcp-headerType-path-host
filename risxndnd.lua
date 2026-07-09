@@ -1485,18 +1485,18 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         local IsPointBlank = false
         local FatalDistance = EffectiveSpeed * ReactionTime + 7.5
 
-        if CurrentDistance <= 18 then
+        if CurrentDistance <= 15 then
             if DotProductParry > 0.05 then
                 IsPointBlank = true
             end
-        elseif CurrentDistance <= FatalDistance and DotProductParry > 0.18 then
+        elseif CurrentDistance <= FatalDistance and DotProductParry > 0.2 then
             IsPointBlank = true
         elseif TimeToImpact <= ReactionTime and DotProductParry > 0.08 then
             IsPointBlank = true
         end
 
         local IsSnap = false
-        if CurrentDistance < 28 and DotDelta > 0.12 and DotProductParry > 0.35 then
+        if CurrentDistance < 30 and DotDelta > 0.1 and DotProductParry > 0.35 then
             IsSnap = true
         end
 
@@ -1506,7 +1506,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         local PredictedDistance = GetDistanceBetween(RootPosition, PredictedBallPos)
         
         local SpeedFactor = FastClamp(EffectiveSpeed / 85, 0.6, 1.45)
-        local DynamicPredictedThreshold = 14 + (SpeedFactor * 6)
+        local DynamicPredictedThreshold = 20 + (SpeedFactor * 6)
         
         local UpclosePredictedHit = PredictedDistance <= DynamicPredictedThreshold and DotProductParry > 0.22
         
@@ -1523,7 +1523,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             AccuracyValue = FastClamp(AccuracyValue + ExtraJitter, 1, 100)
         end
         local AccuracyScale = (AccuracyValue - 1) / 99
-        local AccuracyMultiplier = 0.82 + (AccuracyScale * 0.35)
+        local AccuracyMultiplier = 0.7 + (AccuracyScale * 0.35)
 
         local DynamicScaling = FastMax(EffectiveSpeed - 9.5, 0) * 0.002
         local SpeedDivisorBase = 2.4 + DynamicScaling
@@ -1537,7 +1537,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
 
         local UnifiedThreshold = FastMax(BaseDistance + ExtrapolationDistance + (KpsIntensity * 1.5) + EarlyBoost, 9.5)
         
-        local CloseRangeThreshold = FastMax(15, UnifiedThreshold * 0.5)
+        local CloseRangeThreshold = FastMax(20, UnifiedThreshold * 0.65)
         
         local CurveMultiplier = 1.0
         if CurrentDistance > CloseRangeThreshold and not IsPointBlank and not IsSnap then
@@ -1560,7 +1560,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         local IsCurved = false
         if CurrentSpeed > 15 then
             local DistanceRatio = FastClamp((CurrentDistance - 35.0) / 55.0, 0, 1)
-            local MaxDotThreshold = 0.82 - (0.05 * (1 - AccuracyScale))
+            local MaxDotThreshold = 0.85 - (0.05 * (1 - AccuracyScale))
             local MinDotThreshold = 0.55 - (0.05 * (1 - AccuracyScale))
             local DynamicDot = MinDotThreshold + (MaxDotThreshold - MinDotThreshold) * math.pow(DistanceRatio, 1.5)
             local CurveCompensation = CurrentDeltaTime * ExtraFactor * KpsMitigation
@@ -1571,7 +1571,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             end
         end
 
-        if CurrentDistance <= 30.0 then
+        if CurrentDistance <= 25.0 then
             IsCurved = false
         end
 
@@ -1611,6 +1611,8 @@ end)
 RunService.RenderStepped:Connect(function(DeltaTime)
     pcall(function()
         if not ConfigState.OrbitBall then return end
+        local AliveFolder = WorkspaceService:FindFirstChild("Alive")
+        if not AliveFolder or typeof(AliveFolder) ~= "Instance" or not AliveFolder:FindFirstChild(LocalPlayer.Name) then return end
         local RealBall = GetRealBall()
         if not RealBall or typeof(RealBall) ~= "Instance" or not RealBall:IsA("BasePart") or not RealBall.Parent then return end
         local CharacterObject = LocalPlayer.Character
@@ -1621,14 +1623,14 @@ RunService.RenderStepped:Connect(function(DeltaTime)
             if not RootPart or typeof(RootPart) ~= "Instance" or not RootPart:IsA("BasePart") or not RootPart.Parent then return end
         end
         local BallPosition = RealBall.Position
-        local TimeValue = os.clock() * (ConfigState.OrbitSpeed / 10)
+        local TimeValue = os.clock() * (ConfigState.OrbitSpeed / 50)
         local OrbitPosition = Vector3.new(
             BallPosition.X + math.cos(TimeValue) * ConfigState.OrbitRadius,
             BallPosition.Y + ConfigState.OrbitHeight,
             BallPosition.Z + math.sin(TimeValue) * ConfigState.OrbitRadius
         )
         local TargetCframe = CFrame.lookAt(OrbitPosition, BallPosition)
-        local LerpAlpha = math.clamp(DeltaTime * 22, 0, 0.35)
+        local LerpAlpha = math.clamp(DeltaTime * 35, 0, 0.65)
         pcall(function()
             RootPart.CFrame = RootPart.CFrame:Lerp(TargetCframe, LerpAlpha)
         end)
