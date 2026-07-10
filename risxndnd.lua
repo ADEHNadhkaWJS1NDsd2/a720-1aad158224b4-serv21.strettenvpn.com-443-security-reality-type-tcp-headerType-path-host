@@ -17,38 +17,29 @@ local Mouse1Click = mouse1click
 local KeyPress = keypress
 local KeyRelease = keyrelease
 
-local FastMax = math.max
-local FastMin = math.min
-local FastFloor = math.floor
-local FastClamp = math.clamp
-local FastSqrt = math.sqrt
-local FastClock = os.clock
-local Vector3Zero = Vector3.zero
-local TwoPi = math.pi * 2
-
 local function GetDistanceBetween(PositionA, PositionB)
     if not PositionA or not PositionB then return 9999 end
-    local Dx = PositionA.X - PositionB.X
-    local Dy = PositionA.Y - PositionB.Y
-    local Dz = PositionA.Z - PositionB.Z
-    return FastSqrt(Dx*Dx + Dy*Dy + Dz*Dz)
+    local DeltaX = PositionA.X - PositionB.X
+    local DeltaY = PositionA.Y - PositionB.Y
+    local DeltaZ = PositionA.Z - PositionB.Z
+    return math.sqrt(DeltaX * DeltaX + DeltaY * DeltaY + DeltaZ * DeltaZ)
 end
 
-local function GetVectorMagnitude(Vector)
-    if not Vector then return 0 end
-    return FastSqrt(Vector.X*Vector.X + Vector.Y*Vector.Y + Vector.Z*Vector.Z)
+local function GetVectorMagnitude(VectorValue)
+    if not VectorValue then return 0 end
+    return math.sqrt(VectorValue.X * VectorValue.X + VectorValue.Y * VectorValue.Y + VectorValue.Z * VectorValue.Z)
 end
 
-local function NormalizeVector(Vector)
-    if not Vector then return Vector3Zero end
-    local Magnitude = GetVectorMagnitude(Vector)
-    if Magnitude < 0.0001 then return Vector3Zero end
-    return Vector.new(Vector.X / Magnitude, Vector.Y / Magnitude, Vector.Z / Magnitude)
+local function NormalizeVector(VectorValue)
+    if not VectorValue then return Vector3.zero end
+    local Magnitude = GetVectorMagnitude(VectorValue)
+    if Magnitude < 0.0001 then return Vector3.zero end
+    return Vector3.new(VectorValue.X / Magnitude, VectorValue.Y / Magnitude, VectorValue.Z / Magnitude)
 end
 
 local function GetDotProduct(VectorA, VectorB)
     if not VectorA or not VectorB then return 0 end
-    return VectorA.X*VectorB.X + VectorA.Y*VectorB.Y + VectorA.Z*VectorB.Z
+    return VectorA.X * VectorB.X + VectorA.Y * VectorB.Y + VectorA.Z * VectorB.Z
 end
 
 local BallPreviousVelocity = {}
@@ -86,15 +77,15 @@ local function GetCurveMultiplier(BallInstance, RootPosition, CurrentVelocity)
         return 1.0
     end
 
-    local Ax = CurrentVelocity.X - PreviousVelocity.X
-    local Ay = CurrentVelocity.Y - PreviousVelocity.Y
-    local Az = CurrentVelocity.Z - PreviousVelocity.Z
+    local AccelerationX = CurrentVelocity.X - PreviousVelocity.X
+    local AccelerationY = CurrentVelocity.Y - PreviousVelocity.Y
+    local AccelerationZ = CurrentVelocity.Z - PreviousVelocity.Z
     BallPreviousVelocity[BallInstance] = CurrentVelocity
 
     local Data = AntiCurveData[BallInstance]
-    Data.SmoothAx = Data.SmoothAx * 0.7 + Ax * 0.3
-    Data.SmoothAy = Data.SmoothAy * 0.7 + Ay * 0.3
-    Data.SmoothAz = Data.SmoothAz * 0.7 + Az * 0.3
+    Data.SmoothAx = Data.SmoothAx * 0.7 + AccelerationX * 0.3
+    Data.SmoothAy = Data.SmoothAy * 0.7 + AccelerationY * 0.3
+    Data.SmoothAz = Data.SmoothAz * 0.7 + AccelerationZ * 0.3
 
     local AccelerationMagnitude = math.sqrt(Data.SmoothAx^2 + Data.SmoothAy^2 + Data.SmoothAz^2)
     if AccelerationMagnitude < 0.1 then
@@ -102,26 +93,26 @@ local function GetCurveMultiplier(BallInstance, RootPosition, CurrentVelocity)
         return 1.0
     end
 
-    local Dx = RootPosition.X - BallInstance.Position.X
-    local Dy = RootPosition.Y - BallInstance.Position.Y
-    local Dz = RootPosition.Z - BallInstance.Position.Z
-    local Distance = math.sqrt(Dx^2 + Dy^2 + Dz^2)
+    local DeltaX = RootPosition.X - BallInstance.Position.X
+    local DeltaY = RootPosition.Y - BallInstance.Position.Y
+    local DeltaZ = RootPosition.Z - BallInstance.Position.Z
+    local Distance = math.sqrt(DeltaX^2 + DeltaY^2 + DeltaZ^2)
     if Distance < 12 then
         Data.Frames = 0
         return 1.0
     end
 
-    local RadialAcceleration = Data.SmoothAx * (Dx / Distance) + Data.SmoothAy * (Dy / Distance) + Data.SmoothAz * (Dz / Distance)
+    local RadialAcceleration = Data.SmoothAx * (DeltaX / Distance) + Data.SmoothAy * (DeltaY / Distance) + Data.SmoothAz * (DeltaZ / Distance)
     local LateralAccelerationSq = math.max(AccelerationMagnitude^2 - RadialAcceleration^2, 0)
     local LateralAcceleration = math.sqrt(LateralAccelerationSq)
 
     local AngularDeviation = 0
     if #History >= 4 then
-        for i = 2, #History do
-            local PrevDir = NormalizeVector(History[i-1])
-            local CurrDir = NormalizeVector(History[i])
-            local DotVal = math.clamp(GetDotProduct(PrevDir, CurrDir), -1, 1)
-            local Angle = math.deg(math.acos(DotVal))
+        for Index = 2, #History do
+            local PreviousDirection = NormalizeVector(History[Index-1])
+            local CurrentDirection = NormalizeVector(History[Index])
+            local DotValue = math.clamp(GetDotProduct(PreviousDirection, CurrentDirection), -1, 1)
+            local Angle = math.deg(math.acos(DotValue))
             if Angle == Angle then
                 AngularDeviation = AngularDeviation + (Angle / 25)
             end
@@ -160,14 +151,14 @@ local function DetectPositionWarp(BallInstance, DeltaTime)
         BallLastPosition[BallInstance] = BallInstance.Position
         return false
     end
-    local PrevPos = BallLastPosition[BallInstance]
-    local PrevVel = BallPreviousVelocity[BallInstance] or Vector3.new(0,0,0)
-    if GetVectorMagnitude(PrevVel) < 5 then
+    local PreviousPosition = BallLastPosition[BallInstance]
+    local PreviousVelocity = BallPreviousVelocity[BallInstance] or Vector3.new(0,0,0)
+    if GetVectorMagnitude(PreviousVelocity) < 5 then
         BallLastPosition[BallInstance] = BallInstance.Position
         return false
     end
-    local ExpectedPos = PrevPos + PrevVel * DeltaTime
-    local Deviation = GetDistanceBetween(BallInstance.Position, ExpectedPos)
+    local ExpectedPosition = PreviousPosition + PreviousVelocity * DeltaTime
+    local Deviation = GetDistanceBetween(BallInstance.Position, ExpectedPosition)
     BallLastPosition[BallInstance] = BallInstance.Position
     return Deviation > 4.5
 end
@@ -176,7 +167,7 @@ local LibraryInstance
 local LoaderUrl = "https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.min.lua"
 for Index = 1, 10 do
     local CacheBuster = ""
-    pcall(function() CacheBuster = "?cb=" .. tostring((math.floor((FastClock() or 1) * 1000) + Index * 7919) % 2000000000) end)
+    pcall(function() CacheBuster = "?cb=" .. tostring((math.floor((os.clock() or 1) * 1000) + Index * 7919) % 2000000000) end)
     local Success, ResponseData = pcall(function() return game:HttpGet(LoaderUrl .. CacheBuster) end)
     if Success and type(ResponseData) == "string" and #ResponseData > 1000 then
         local LoadedFunction = loadstring(ResponseData)
@@ -219,7 +210,7 @@ local ConfigState = {
     TrainingBallsSupport = false,
     AutoSpam = false,
     ManualSpam = false,
-    SpamRate = 200,
+    SpamRate = 300,
     SpamSensitivity = 3,
     TriggerBot = false,
     TriggerDelay = 0,
@@ -264,9 +255,9 @@ local RuntimeState = {
     GeneratedAccuracy = 100
 }
 
-local AutoSpamInterval = 1 / 200
-local ManualSpamInterval = 1 / 200
-local PanicSpamInterval = 1 / 400
+local AutoSpamInterval = 1 / ConfigState.SpamRate
+local ManualSpamInterval = 1 / ConfigState.SpamRate
+local PanicSpamInterval = 1 / ConfigState.SpamRate
 
 local NextAutoClick = 0
 local NextManualClick = 0
@@ -299,12 +290,12 @@ local function WritePointer(AddressValue, PointerValue)
 end
 
 local function GenerateRandomAccuracy()
-    local MinAcc = FastMin(ConfigState.RandomAccuracyMin, ConfigState.RandomAccuracyMax)
-    local MaxAcc = FastMax(ConfigState.RandomAccuracyMin, ConfigState.RandomAccuracyMax)
+    local MinimumAccuracy = math.min(ConfigState.RandomAccuracyMin, ConfigState.RandomAccuracyMax)
+    local MaximumAccuracy = math.max(ConfigState.RandomAccuracyMin, ConfigState.RandomAccuracyMax)
     
-    local BaseRandom = MinAcc + (math.random() * (MaxAcc - MinAcc))
+    local BaseRandom = MinimumAccuracy + (math.random() * (MaximumAccuracy - MinimumAccuracy))
     local Jitter = (math.random() - 0.5) * 4.5
-    local FinalValue = FastClamp(BaseRandom + Jitter, MinAcc, MaxAcc)
+    local FinalValue = math.clamp(BaseRandom + Jitter, MinimumAccuracy, MaximumAccuracy)
     
     RuntimeState.GeneratedAccuracy = FinalValue
 end
@@ -337,7 +328,7 @@ SpamSection:Toggle("Auto Spam", false, function(Value) ConfigState.AutoSpam = Va
 SpamSection:Toggle("Manual Spam", false, function(Value) ConfigState.ManualSpam = Value end):AddKeybind("None", "Toggle")
 SpamSection:Slider("Spam Rate", 300, 100, 200, 3000, "cps", function(Value) 
     ConfigState.SpamRate = Value 
-    local CalculatedInterval = 1 / FastMax(Value, 1)
+    local CalculatedInterval = 1 / math.max(Value, 1)
     AutoSpamInterval = CalculatedInterval
     ManualSpamInterval = CalculatedInterval
     PanicSpamInterval = CalculatedInterval
@@ -581,10 +572,10 @@ local function CheckIsTarget(TargetName)
 end
 
 local function GetDistanceSquared(V1Position, V2Position)
-    local DxValue = V1Position.X - V2Position.X
-    local DyValue = V1Position.Y - V2Position.Y
-    local DzValue = V1Position.Z - V2Position.Z
-    return DxValue * DxValue + DyValue * DyValue + DzValue * DzValue
+    local DeltaX = V1Position.X - V2Position.X
+    local DeltaY = V1Position.Y - V2Position.Y
+    local DeltaZ = V1Position.Z - V2Position.Z
+    return DeltaX * DeltaX + DeltaY * DeltaY + DeltaZ * DeltaZ
 end
 
 local function ScanForNearestEntity(PlayerPosition)
@@ -607,7 +598,7 @@ local function ScanForNearestEntity(PlayerPosition)
             end
         end
     end
-    return NearestEntity, FastSqrt(MinimumDistanceSq)
+    return NearestEntity, math.sqrt(MinimumDistanceSq)
 end
 
 local function ExecuteParryDirect()
@@ -638,28 +629,28 @@ local function CheckIsSpam(SpamParameters)
     if SpamParameters.IsMovingAway then return false, 0 end
     if SpamParameters.Parries < ConfigState.SpamSensitivity then return false, SpamParameters.Parries end
     local ScaledPing = SpamParameters.Ping / 10
-    local RangeValue = ScaledPing + FastMin(SpamParameters.Speed / SpamConfiguration.SpamMinDistanceSpeedDivisor, SpamConfiguration.SpamMinDistance)
+    local RangeValue = ScaledPing + math.min(SpamParameters.Speed / SpamConfiguration.SpamMinDistanceSpeedDivisor, SpamConfiguration.SpamMinDistance)
     local IsSnap = (SpamParameters.Dot > 0.75) and (SpamParameters.DotDelta > 0.15) and (SpamParameters.BallDistance <= RangeValue * 1.75)
     if IsSnap then return true, SpamParameters.Parries end
     if SpamParameters.EntityDistance > RangeValue then return false, SpamParameters.Parries end
     if SpamParameters.BallDistance > RangeValue then return false, SpamParameters.Parries end
-    local MaximumDot = FastClamp(SpamParameters.Dot, -1, 0)
-    local AccuracyValue = FastMin(RangeValue - MaximumDot, SpamConfiguration.SpamMaxDistance)
+    local MaximumDot = math.clamp(SpamParameters.Dot, -1, 0)
+    local AccuracyValue = math.min(RangeValue - MaximumDot, SpamConfiguration.SpamMaxDistance)
     if SpamParameters.BallDistance > AccuracyValue then return false, SpamParameters.Parries end
     return true, SpamParameters.Parries
 end
 
 local function GetTrailColorAndOpacity(OffsetValue, IndexValue, TotalValue)
     local AlphaValue = 1.0 - math.pow(IndexValue / TotalValue, 1.5)
-    local OpacityValue = FastMax(AlphaValue * AlphaValue * AlphaValue, 0.05)
+    local OpacityValue = math.max(AlphaValue * AlphaValue * AlphaValue, 0.05)
     if not ConfigState.RainbowMode then
         return ConfigState.TrailColor, OpacityValue
     end
-    local TimeValue = FastClock() * 2.5 + OffsetValue + IndexValue * 0.1
-    local RValue = (math.sin(TimeValue) * 0.5 + 0.5) * 0.95 + 0.05
-    local GValue = (math.sin(TimeValue + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
-    local BValue = (math.sin(TimeValue + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
-    return Color3.new(RValue, GValue, BValue), OpacityValue
+    local TimeValue = os.clock() * 2.5 + OffsetValue + IndexValue * 0.1
+    local RedValue = (math.sin(TimeValue) * 0.5 + 0.5) * 0.95 + 0.05
+    local GreenValue = (math.sin(TimeValue + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
+    local BlueValue = (math.sin(TimeValue + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
+    return Color3.new(RedValue, GreenValue, BlueValue), OpacityValue
 end
 
 local function UpdateAndRenderTrail(CurrentBallPosition)
@@ -695,7 +686,7 @@ local function UpdateAndRenderTrail(CurrentBallPosition)
         return
     end
     
-    local BaseOffset = FastClock() * 1.5
+    local BaseOffset = os.clock() * 1.5
     for Index = 2, TotalPositions do
         local LineObject = VisualsData.BallLines[Index - 1]
         if not LineObject then break end
@@ -757,7 +748,7 @@ local LastPullTime = 0
 
 RunService.RenderStepped:Connect(function(DeltaTime)
     if type(DeltaTime) ~= "number" then DeltaTime = 0.016 end
-    local CurrentRenderTime = FastClock()
+    local CurrentRenderTime = os.clock()
     local RealBallVisuals = GetRealBall()
     local CurrentBallPosition = nil
     
@@ -800,7 +791,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
                         TextDrawing.Size = ConfigState.EspTextSize
                         local SmoothedPosition = ScreenCoordinates
                         if EspSmoothedPositions[PlayerNameString] then
-                            local LerpAlpha = FastClamp(DeltaTime * 32, 0, 1)
+                            local LerpAlpha = math.clamp(DeltaTime * 32, 0, 1)
                             SmoothedPosition = LerpVector2(EspSmoothedPositions[PlayerNameString], ScreenCoordinates, LerpAlpha)
                         end
                         EspSmoothedPositions[PlayerNameString] = SmoothedPosition
@@ -808,10 +799,10 @@ RunService.RenderStepped:Connect(function(DeltaTime)
                         TextDrawing.Text = tostring(TargetAbility)
                         if ConfigState.RainbowMode then
                             local TimeValue = CurrentRenderTime * 2.5
-                            local RValue = (math.sin(TimeValue) * 0.5 + 0.5) * 0.95 + 0.05
-                            local GValue = (math.sin(TimeValue + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
-                            local BValue = (math.sin(TimeValue + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
-                            TextDrawing.Color = Color3.new(RValue, GValue, BValue)
+                            local RedValue = (math.sin(TimeValue) * 0.5 + 0.5) * 0.95 + 0.05
+                            local GreenValue = (math.sin(TimeValue + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
+                            local BlueValue = (math.sin(TimeValue + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
+                            TextDrawing.Color = Color3.new(RedValue, GreenValue, BlueValue)
                         else
                             TextDrawing.Color = DrawColor
                         end
@@ -850,15 +841,15 @@ RunService.RenderStepped:Connect(function(DeltaTime)
        if SmoothVisualRootPosition == nil then
            SmoothVisualRootPosition = RootPositionRaw
        else
-           local LerpAlpha = FastClamp(DeltaTime * 18, 0, 1)
+           local LerpAlpha = math.clamp(DeltaTime * 18, 0, 1)
            SmoothVisualRootPosition = SmoothVisualRootPosition:Lerp(RootPositionRaw, LerpAlpha)
        end
        local RootPosition = SmoothVisualRootPosition
        local TargetRadius = RuntimeState.ParryRange or 15
-       SmoothParryRadius = SmoothParryRadius + (TargetRadius - SmoothParryRadius) * FastClamp(DeltaTime * 20, 0, 1)
-       local RadiusValue = FastMax(SmoothParryRadius, 5)
-        local SegmentsCount = FastClamp(ConfigState.VisSegments, 10, 100)
-        local AngleStep = TwoPi / SegmentsCount
+       SmoothParryRadius = SmoothParryRadius + (TargetRadius - SmoothParryRadius) * math.clamp(DeltaTime * 20, 0, 1)
+       local RadiusValue = math.max(SmoothParryRadius, 5)
+        local SegmentsCount = math.clamp(ConfigState.VisSegments, 10, 100)
+        local AngleStep = (math.pi * 2) / SegmentsCount
         for Index = 1, 100 do
             local LineObject = VisualsData.SphereLines[Index]
             if LineObject then
@@ -876,7 +867,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
                         LineObject.Thickness = ConfigState.VisThickness
                         LineObject.Transparency = ConfigState.VisTransparency
                         if ConfigState.RainbowMode then
-                            local OffsetT = CurrentRenderTime * 2.5 + (Index / SegmentsCount) * TwoPi
+                            local OffsetT = CurrentRenderTime * 2.5 + (Index / SegmentsCount) * (math.pi * 2)
                             local VisR = (math.sin(OffsetT) * 0.5 + 0.5) * 0.95 + 0.05
                             local VisG = (math.sin(OffsetT + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
                             local VisB = (math.sin(OffsetT + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
@@ -903,7 +894,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
 end)
 
 RunService.Heartbeat:Connect(function(DeltaTime)
-    local CurrentTime = FastClock()
+    local CurrentTime = os.clock()
     if type(DeltaTime) ~= "number" then DeltaTime = 0.016 end
     local CurrentDeltaTime = DeltaTime
 
@@ -1225,17 +1216,17 @@ RunService.Heartbeat:Connect(function(DeltaTime)
     if CurrentDistance == 0 then return end
 
     local BallVelocity = RealBall.AssemblyLinearVelocity
-    if typeof(BallVelocity) ~= "Vector3" then BallVelocity = Vector3Zero end
+    if typeof(BallVelocity) ~= "Vector3" then BallVelocity = Vector3.zero end
     local CurrentSpeed = BallVelocity.Magnitude
 
     local ApproachSpeed = 0
     if LastDistance ~= 9999 then
-        ApproachSpeed = FastMax((LastDistance - CurrentDistance) / CurrentDeltaTime, 0)
+        ApproachSpeed = math.max((LastDistance - CurrentDistance) / CurrentDeltaTime, 0)
     end
-    local EffectiveSpeed = FastMax(CurrentSpeed, ApproachSpeed)
-    local SpeedDelta = FastMax(EffectiveSpeed - LastSpeed, 0)
+    local EffectiveSpeed = math.max(CurrentSpeed, ApproachSpeed)
+    local SpeedDelta = math.max(EffectiveSpeed - LastSpeed, 0)
 
-    local VelocityDirection = BallVelocity.Magnitude > 0.01 and BallVelocity.Unit or Vector3Zero
+    local VelocityDirection = BallVelocity.Magnitude > 0.01 and BallVelocity.Unit or Vector3.zero
     local DirectionToPlayerStat = DeltaVector.Unit
     local DotProductStat = DirectionToPlayerStat:Dot(VelocityDirection)
     
@@ -1279,7 +1270,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
     local CurrentFromAttribute = RealBall:GetAttribute("from") or RealBall:GetAttribute("From")
     if CurrentFromAttribute ~= nil and CurrentFromAttribute ~= CachedFrom then
         CachedFrom = CurrentFromAttribute
-        local CurrentWaitTime = FastClock()
+        local CurrentWaitTime = os.clock()
         local TimeSinceLast = CurrentWaitTime - LastFromChange
         if TimeSinceLast <= 0.45 then
             BallParries = BallParries + 1
@@ -1316,10 +1307,9 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         if NextManualClick == 0 then
             NextManualClick = CurrentTime
         end
-        local ClicksToPerform = 0
-        local MaxClicksPerFrame = 120
-        local YieldEvery = 15
-        while CurrentTime >= NextManualClick and ClicksToPerform < MaxClicksPerFrame do
+        local ClicksThisFrame = 0
+        local MaxClicksPerFrame = 45
+        while CurrentTime >= NextManualClick and ClicksThisFrame < MaxClicksPerFrame do
             if isrbxactive() then
                 if ConfigState.ParryMethod == "Click" then
                     if typeof(Mouse1Click) == "function" then Mouse1Click() end
@@ -1331,10 +1321,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
                 end
             end
             NextManualClick = NextManualClick + ManualSpamInterval
-            ClicksToPerform = ClicksToPerform + 1
-            if ClicksToPerform % YieldEvery == 0 then
-                task.wait()
-            end
+            ClicksThisFrame = ClicksThisFrame + 1
         end
     else
         ManualSpamAccumulator = 0
@@ -1407,14 +1394,14 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             end
         end
 
-        local ClosestEnemyDistance = FastSqrt(ClosestEnemyDistanceSq)
+        local ClosestEnemyDistance = math.sqrt(ClosestEnemyDistanceSq)
         local IsEnemyClose = ClosestEnemyDistance <= PanicMaxDistance
-        local BallDirection = BallVelocity.Magnitude > 0.01 and BallVelocity.Unit or Vector3Zero
+        local BallDirection = BallVelocity.Magnitude > 0.01 and BallVelocity.Unit or Vector3.zero
         local BallDotToMe = BallDirection:Dot(DirectionToPlayerStat)
 
-        local DynamicDotThreshold = FastMax(0.40, (CurrentDistance / PanicMaxDistance) * 0.75)
-        local AngleToPlayer = math.deg(math.acos(FastClamp(BallDotToMe, -1, 1)))
-        local DynamicAngleThreshold = FastClamp(180 - (CurrentDistance * 2), 25, 75)
+        local DynamicDotThreshold = math.max(0.40, (CurrentDistance / PanicMaxDistance) * 0.75)
+        local AngleToPlayer = math.deg(math.acos(math.clamp(BallDotToMe, -1, 1)))
+        local DynamicAngleThreshold = math.clamp(180 - (CurrentDistance * 2), 25, 75)
 
         local IsHeadingTowards = (AngleToPlayer <= DynamicAngleThreshold) or (BallDotToMe > DynamicDotThreshold)
         local IsExtremelyClose = CurrentDistance <= DangerZoneRadius
@@ -1442,20 +1429,20 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         CanTrigger = false
     end
 
-    local ServerTickRate = 1 / FastMax(SmoothedServerFps, 30)
+    local ServerTickRate = 1 / math.max(SmoothedServerFps, 30)
 
     if ConfigState.TriggerBot and CanAttack then
         if CanTrigger and not IsParried then
-            local ApplicationTick = FastClock()
+            local ApplicationTick = os.clock()
             if ScheduledTriggerTime == 0 then
                 local PingSeconds = NetworkPing / 1000
-                local BallSpeedFactor = FastClamp(EffectiveSpeed / 70, 0.55, 1.5)
+                local BallSpeedFactor = math.clamp(EffectiveSpeed / 70, 0.55, 1.5)
                 local DeltaCompensation = CurrentDeltaTime * 1.8
                 local TickCompensation = ServerTickRate * 1.5
-                local SpeedCompensation = FastClamp(EffectiveSpeed / 100, 0, 0.025)
+                local SpeedCompensation = math.clamp(EffectiveSpeed / 100, 0, 0.025)
                 local TotalCompensation = PingSeconds + DeltaCompensation + TickCompensation + SpeedCompensation
                 local BaseDelay = (ConfigState.TriggerDelay / 1000) * BallSpeedFactor
-                local FinalDelay = FastMax(0, BaseDelay - TotalCompensation * 0.95)
+                local FinalDelay = math.max(0, BaseDelay - TotalCompensation * 0.95)
                 ScheduledTriggerTime = ApplicationTick + FinalDelay
             end
             if ScheduledTriggerTime > 0 and ApplicationTick >= ScheduledTriggerTime then
@@ -1477,13 +1464,13 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             return
         end
 
-        local VelocityUnit = CurrentSpeed > 0 and VelocityDirection or Vector3Zero
-        local DirectionToPlayer = CurrentDistance > 0 and (RootPosition - BallPosition).Unit or Vector3Zero
+        local VelocityUnit = CurrentSpeed > 0 and VelocityDirection or Vector3.zero
+        local DirectionToPlayer = CurrentDistance > 0 and (RootPosition - BallPosition).Unit or Vector3.zero
         local DotProductParry = VelocityUnit:Dot(DirectionToPlayer)
 
         local PingSeconds = NetworkPing / 1000
         local ReactionTime = PingSeconds + CurrentDeltaTime + ServerTickRate
-        local TimeToImpact = CurrentDistance / FastMax(EffectiveSpeed, 1)
+        local TimeToImpact = CurrentDistance / math.max(EffectiveSpeed, 1)
 
         local IsPointBlank = false
         local FatalDistance = EffectiveSpeed * ReactionTime + 7.5
@@ -1508,8 +1495,8 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         local PredictedBallPos = BallPosition + (BallVelocity * PredictionTime)
         local PredictedDistance = GetDistanceBetween(RootPosition, PredictedBallPos)
         
-        local SpeedFactor = FastClamp(EffectiveSpeed / 85, 0.6, 1.45)
-        local DynamicPredictedThreshold = 14 + (SpeedFactor * 6)
+        local SpeedFactor = math.clamp(EffectiveSpeed / 85, 0.6, 1.45)
+        local DynamicPredictedThreshold = 16 + (SpeedFactor * 7)
         
         local UpclosePredictedHit = PredictedDistance <= DynamicPredictedThreshold and DotProductParry > 0.22
         
@@ -1517,30 +1504,30 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         local ShortTermDistance = GetDistanceBetween(RootPosition, ShortTermPrediction)
         local VeryClosePredictedHit = ShortTermDistance <= 11 and DotProductParry > 0.15 and EffectiveSpeed > 55
 
-        local KpsIntensity = FastClamp(SmoothedKps, 0, 20) / 20
+        local KpsIntensity = math.clamp(SmoothedKps, 0, 20) / 20
         local KpsMitigation = 1 - (KpsIntensity * 0.55)
 
         local AccuracyValue = ConfigState.RandomAccuracy and RuntimeState.GeneratedAccuracy or ConfigState.Accuracy
         if ConfigState.RandomAccuracy then
             local ExtraJitter = (math.random() - 0.5) * 3.2
-            AccuracyValue = FastClamp(AccuracyValue + ExtraJitter, 1, 100)
+            AccuracyValue = math.clamp(AccuracyValue + ExtraJitter, 1, 100)
         end
         local AccuracyScale = (AccuracyValue - 1) / 99
         local AccuracyMultiplier = 0.82 + (AccuracyScale * 0.35)
 
-        local DynamicScaling = FastMax(EffectiveSpeed - 9.5, 0) * 0.002
+        local DynamicScaling = math.max(EffectiveSpeed - 9.5, 0) * 0.002
         local SpeedDivisorBase = 2.4 + DynamicScaling
         local FinalSpeedDivisor = SpeedDivisorBase * AccuracyMultiplier
 
         local ExtraFactor = 2.5 + DynamicScaling * 0.45
         local ExtrapolationDistance = EffectiveSpeed * CurrentDeltaTime * ExtraFactor * KpsMitigation
 
-        local BaseDistance = FastMax(EffectiveSpeed / FinalSpeedDivisor, 9.5)
+        local BaseDistance = math.max(EffectiveSpeed / FinalSpeedDivisor, 9.5)
         local EarlyBoost = (1 - AccuracyScale) * 3.65
 
-        local UnifiedThreshold = FastMax(BaseDistance + ExtrapolationDistance + (KpsIntensity * 1.5) + EarlyBoost, 9.5)
+        local UnifiedThreshold = math.max(BaseDistance + ExtrapolationDistance + (KpsIntensity * 1.5) + EarlyBoost, 9.5)
         
-        local CloseRangeThreshold = FastMax(15, UnifiedThreshold * 0.5)
+        local CloseRangeThreshold = math.max(15, UnifiedThreshold * 0.5)
         
         local CurveMultiplier = 1.0
         if CurrentDistance > CloseRangeThreshold and not IsPointBlank and not IsSnap then
@@ -1557,12 +1544,22 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             WarpBoost = 1.35
         end
 
-        UnifiedThreshold = UnifiedThreshold * CurveMultiplier * WarpBoost
+        local AccelBoost = 1.0
+        if SpeedDelta > 15 then
+            AccelBoost = 1.12
+        end
+
+        UnifiedThreshold = UnifiedThreshold * CurveMultiplier * WarpBoost * AccelBoost
+
+        if CurrentDistance < 25 then
+            UnifiedThreshold = UnifiedThreshold * 1.08
+        end
+
         RuntimeState.ParryRange = UnifiedThreshold
 
         local IsCurved = false
         if CurrentSpeed > 15 then
-            local DistanceRatio = FastClamp((CurrentDistance - 35.0) / 55.0, 0, 1)
+            local DistanceRatio = math.clamp((CurrentDistance - 35.0) / 55.0, 0, 1)
             local MaxDotThreshold = 0.82 - (0.05 * (1 - AccuracyScale))
             local MinDotThreshold = 0.55 - (0.05 * (1 - AccuracyScale))
             local DynamicDot = MinDotThreshold + (MaxDotThreshold - MinDotThreshold) * math.pow(DistanceRatio, 1.5)
