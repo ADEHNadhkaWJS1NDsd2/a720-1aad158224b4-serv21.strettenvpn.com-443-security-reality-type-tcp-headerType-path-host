@@ -743,8 +743,6 @@ local ScheduledTriggerTime = 0
 local BallParries = 0
 local LastFromChange = 0
 local CachedFrom = nil
-local CachedTarget = nil
-local ActiveTarget = nil
 local CurrentKps = 0
 local SmoothedKps = 0
 local SmoothedServerFps = 60
@@ -1144,8 +1142,6 @@ RunService.Heartbeat:Connect(function(DeltaTime)
     if not RealBall or typeof(RealBall) ~= "Instance" or not RealBall:IsA("BasePart") or not RealBall.Parent then
         if (CurrentTime - LastFromChange) > 0.5 then
             CachedFrom = nil
-            CachedTarget = nil
-            ActiveTarget = nil
             BallParries = 0
             CurrentKps = 0
             SmoothedKps = 0
@@ -1303,15 +1299,6 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         end
     end
     
-    local RawTarget = RealBall:GetAttribute("target") or RealBall:GetAttribute("Target")
-    if RawTarget ~= nil and RawTarget ~= CachedTarget then
-        CachedTarget = RawTarget
-        task.spawn(function()
-            task.wait(0.1)
-            ActiveTarget = RawTarget
-        end)
-    end
-
     local IsTargetMe = false
     if PlayerCharacter and PlayerCharacter:FindFirstChild("Highlight") then
         IsTargetMe = true
