@@ -210,7 +210,6 @@ local ConfigState = {
     TrainingBallsSupport = false,
     AutoSpam = false,
     ManualSpam = false,
-    SpamRate = 300,
     SpamSensitivity = 3,
     TriggerBot = false,
     TriggerDelay = 0,
@@ -255,9 +254,9 @@ local RuntimeState = {
     GeneratedAccuracy = 100
 }
 
-local AutoSpamInterval = 1 / ConfigState.SpamRate
-local ManualSpamInterval = 1 / ConfigState.SpamRate
-local PanicSpamInterval = 1 / ConfigState.SpamRate
+local AutoSpamInterval = 1 / 200
+local ManualSpamInterval = 1 / 3000
+local PanicSpamInterval = 1 / 200
 
 local NextAutoClick = 0
 local NextManualClick = 0
@@ -326,17 +325,6 @@ ParrySection:Slider("Orbit Height", 5, 0.5, -30, 50, "", function(Value) ConfigS
 local SpamSection = CombatTab:Section("Auto Spam", "Right", "")
 SpamSection:Toggle("Auto Spam", false, function(Value) ConfigState.AutoSpam = Value end):AddKeybind("None", "Toggle")
 SpamSection:Toggle("Manual Spam", false, function(Value) ConfigState.ManualSpam = Value end):AddKeybind("None", "Toggle")
-SpamSection:Slider("Spam Rate", 300, 100, 200, 3000, "cps", function(Value) 
-    ConfigState.SpamRate = Value 
-    local CalculatedInterval = 1 / math.max(Value, 1)
-    AutoSpamInterval = CalculatedInterval
-    ManualSpamInterval = CalculatedInterval
-    PanicSpamInterval = CalculatedInterval
-    NextAutoClick = 0
-    NextManualClick = 0
-    NextPanicClick = 0
-    ManualSpamAccumulator = 0
-end)
 SpamSection:Slider("Spam Sensitivity", 3, 1, 1, 5, "", function(Value) ConfigState.SpamSensitivity = Value end)
 
 local TriggerSection = CombatTab:Section("Trigger Bot", "Right", "")
@@ -814,9 +802,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
                 end
             else
                 local TextDrawing = VisualsData.EspTexts[PlayerNameString]
-                if TextDrawing then
-                    TextDrawing.Visible = false
-                end
+                if TextDrawing then TextDrawing.Visible = false end
             end
         end
         for KeyName, TextDrawing in pairs(VisualsData.EspTexts) do
@@ -1307,24 +1293,25 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         if NextManualClick == 0 then
             NextManualClick = CurrentTime
         end
-        local ClicksThisFrame = 0
-        local MaxClicksPerFrame = 45
-        while CurrentTime >= NextManualClick and ClicksThisFrame < MaxClicksPerFrame do
+        local clicksToPerform = 0
+        local maxPerFrame = 6
+        while CurrentTime >= NextManualClick and clicksToPerform < maxPerFrame do
+            clicksToPerform = clicksToPerform + 1
+            NextManualClick = NextManualClick + ManualSpamInterval
+        end
+        for i = 1, clicksToPerform do
             if isrbxactive() then
                 if ConfigState.ParryMethod == "Click" then
                     if typeof(Mouse1Click) == "function" then Mouse1Click() end
                 else
-                    if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then 
-                        KeyPress(0x46) 
-                        KeyRelease(0x46) 
+                    if typeof(KeyPress) == "function" and typeof(KeyRelease) == "function" then
+                        KeyPress(0x46)
+                        KeyRelease(0x46)
                     end
                 end
             end
-            NextManualClick = NextManualClick + ManualSpamInterval
-            ClicksThisFrame = ClicksThisFrame + 1
         end
     else
-        ManualSpamAccumulator = 0
         NextManualClick = 0
     end
 
