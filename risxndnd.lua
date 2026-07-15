@@ -1572,13 +1572,17 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             return
         end
 
+        local LookAheadTime = PingSeconds + (CurrentDeltaTime * 2.5)
+        local FutureBallPos = BallPosition + (BallVelocity * LookAheadTime)
+        local FutureDistance = GetDistanceBetween(RootPosition, FutureBallPos)
+
         if ConfigState.AutoParryType == "Old" then
             if IsPointBlank or IsSnap then
                 if ConfigState.AutoParry then
                     IsParried = true
                     ExecuteParryDirect()
                 end
-            elseif CurrentDistance <= UnifiedThreshold and not IsMovingAway and not IsCurved then
+            elseif FutureDistance <= UnifiedThreshold and not IsMovingAway and not IsCurved then
                 if ConfigState.AutoParry then
                     IsParried = true
                     ExecuteParryDirect()
@@ -1590,7 +1594,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
                     IsParried = true
                     ExecuteParryDirect()
                 end
-            elseif CurrentDistance <= UnifiedThreshold and not IsMovingAway and not IsCurved then
+            elseif FutureDistance <= UnifiedThreshold and not IsMovingAway and not IsCurved then
                 if ConfigState.AutoParry then
                     IsParried = true
                     ExecuteParryDirect()
