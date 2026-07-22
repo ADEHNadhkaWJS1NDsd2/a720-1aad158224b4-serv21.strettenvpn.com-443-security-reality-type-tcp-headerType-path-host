@@ -118,7 +118,7 @@ end
 local LastParryTime = 0
 local PositionBuffer = {}
 local TimeBuffer = {}
-BufferSize = 15
+BufferSize = 10
 MaxSpeedLimit = 500
 MinSpeedLimit = 35
 
