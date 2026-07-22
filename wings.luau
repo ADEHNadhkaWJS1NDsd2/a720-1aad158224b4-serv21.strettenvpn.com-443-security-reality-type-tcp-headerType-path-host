@@ -8,6 +8,7 @@ local Camera = Workspace.CurrentCamera
 local BasePartPrimitiveOffset = 0x128
 local PrimitiveRotationOffset = 0xC8
 local PrimitivePositionOffset = 0xEC
+local PrimitiveAssemblyLinearVelocityOffset = 0xF8
 
 local DefaultColor = Color3.fromRGB(112, 64, 225)
 
@@ -19,13 +20,14 @@ local R15AttachmentHeight = 0.48
 local R6AttachmentHeight = 0.12
 local FallbackAttachmentHeight = 0.38
 
-local PositionSmoothing = 48
-local RotationSmoothing = 34
-local TeleportDistance = 12
-
 local FlapSpeed = 1.45
 local FlapStrength = 0.72
 local FeatherWaveStrength = 0.034
+
+local PredictionTime = 0.045
+local PositionCorrectionRate = 26
+local PositionSnapDistance = 8
+local MaximumPredictionDistance = 1.75
 
 local PreviousController = _G.NightfallWingsController
 
@@ -50,7 +52,8 @@ local ActiveCharacter = nil
 local CachedRootPart = nil
 local CachedPrimitiveAddress = 0
 local AnimationTime = 0
-local SmoothedTransform = nil
+local RenderPosition = nil
+local StableBack = nil
 
 local Palette = {}
 
@@ -80,10 +83,6 @@ local function SmoothStep(Value)
     return Alpha * Alpha * (3 - 2 * Alpha)
 end
 
-local function GetSmoothAlpha(Rate, DeltaTime)
-    return 1 - math.exp(-Rate * DeltaTime)
-end
-
 local function MixColor(A, B, Alpha)
     return Color3.new(
         LerpNumber(A.R, B.R, Alpha),
@@ -99,59 +98,17 @@ local function BuildPalette(BaseColor)
     local Ice = Color3.fromRGB(192, 230, 255)
     local White = Color3.fromRGB(255, 252, 255)
 
-    Palette.Core = MixColor(
-        BaseColor,
-        Violet,
-        0.24
-    )
-
-    Palette.Dark = MixColor(
-        BaseColor,
-        Night,
-        0.62
-    )
-
-    Palette.Shadow = MixColor(
-        BaseColor,
-        DeepIndigo,
-        0.52
-    )
-
-    Palette.Light = MixColor(
-        BaseColor,
-        White,
-        0.58
-    )
-
-    Palette.Highlight = MixColor(
-        BaseColor,
-        Ice,
-        0.72
-    )
-
-    Palette.Edge = MixColor(
-        BaseColor,
-        White,
-        0.78
-    )
-
-    Palette.Shaft = MixColor(
-        BaseColor,
-        Ice,
-        0.54
-    )
-
-    Palette.Glow = MixColor(
-        BaseColor,
-        Violet,
-        0.48
-    )
+    Palette.Core = MixColor(BaseColor, Violet, 0.24)
+    Palette.Dark = MixColor(BaseColor, Night, 0.62)
+    Palette.Shadow = MixColor(BaseColor, DeepIndigo, 0.52)
+    Palette.Light = MixColor(BaseColor, White, 0.58)
+    Palette.Highlight = MixColor(BaseColor, Ice, 0.72)
+    Palette.Edge = MixColor(BaseColor, White, 0.78)
+    Palette.Shaft = MixColor(BaseColor, Ice, 0.54)
+    Palette.Glow = MixColor(BaseColor, Violet, 0.48)
 end
 
-local function RegisterDrawing(
-    DrawingObject,
-    Role
-)
+local function RegisterDrawing(DrawingObject, Role)
     Drawings[#Drawings + 1] = DrawingObject
     DrawingRoles[DrawingObject] = Role
 
@@ -175,11 +132,7 @@ end
 
 BuildPalette(DefaultColor)
 
-local function CreateTriangle(
-    Role,
-    Transparency,
-    ZIndex
-)
+local function CreateTriangle(Role, Transparency, ZIndex)
     local Triangle = Drawing.new("Triangle")
 
     Triangle.Color = Palette[Role]
@@ -187,18 +140,10 @@ local function CreateTriangle(
     Triangle.ZIndex = ZIndex
     Triangle.Visible = false
 
-    return RegisterDrawing(
-        Triangle,
-        Role
-    )
+    return RegisterDrawing(Triangle, Role)
 end
 
-local function CreateLine(
-    Role,
-    Thickness,
-    Transparency,
-    ZIndex
-)
+local function CreateLine(Role, Thickness, Transparency, ZIndex)
     local Line = Drawing.new("Line")
 
     Line.Color = Palette[Role]
@@ -207,66 +152,25 @@ local function CreateLine(
     Line.ZIndex = ZIndex
     Line.Visible = false
 
-    return RegisterDrawing(
-        Line,
-        Role
-    )
+    return RegisterDrawing(Line, Role)
 end
 
-local function CreateStroke(
-    MainRole,
-    Thickness,
-    Transparency,
-    GlowThickness,
-    GlowTransparency,
-    ZIndex
-)
+local function CreateStroke(MainRole, Thickness, Transparency, GlowThickness, GlowTransparency, ZIndex)
     return {
-        Glow = CreateLine(
-            "Glow",
-            GlowThickness,
-            GlowTransparency,
-            ZIndex
-        ),
-
-        Main = CreateLine(
-            MainRole,
-            Thickness,
-            Transparency,
-            ZIndex + 1
-        )
+        Glow = CreateLine("Glow", GlowThickness, GlowTransparency, ZIndex),
+        Main = CreateLine(MainRole, Thickness, Transparency, ZIndex + 1)
     }
 end
 
-local function CreateFeather(
-    LeftRole,
-    RightRole,
-    ZIndex,
-    HasShaft
-)
+local function CreateFeather(LeftRole, RightRole, ZIndex, HasShaft)
     local Feather = {
-        Left = CreateTriangle(
-            LeftRole,
-            0.93,
-            ZIndex
-        ),
-
-        Right = CreateTriangle(
-            RightRole,
-            0.93,
-            ZIndex
-        ),
-
+        Left = CreateTriangle(LeftRole, 0.93, ZIndex),
+        Right = CreateTriangle(RightRole, 0.93, ZIndex),
         Shaft = nil
     }
 
     if HasShaft then
-        Feather.Shaft = CreateLine(
-            "Shaft",
-            1,
-            0.67,
-            ZIndex + 1
-        )
+        Feather.Shaft = CreateLine("Shaft", 1, 0.67, ZIndex + 1)
     end
 
     return Feather
@@ -292,16 +196,9 @@ local function HideAll()
     end
 end
 
-local function DrawLineObject(
-    Line,
-    WorldA,
-    WorldB
-)
-    local ScreenA, VisibleA =
-        WorldToScreen(WorldA)
-
-    local ScreenB, VisibleB =
-        WorldToScreen(WorldB)
+local function DrawLineObject(Line, WorldA, WorldB)
+    local ScreenA, VisibleA = WorldToScreen(WorldA)
+    local ScreenB, VisibleB = WorldToScreen(WorldB)
 
     if not VisibleA or not VisibleB then
         Line.Visible = false
@@ -315,47 +212,25 @@ local function DrawLineObject(
     return true
 end
 
-local function DrawStroke(
-    Stroke,
-    WorldA,
-    WorldB
-)
-    local MainVisible = DrawLineObject(
-        Stroke.Main,
-        WorldA,
-        WorldB
-    )
+local function DrawStroke(Stroke, WorldA, WorldB)
+    local MainVisible = DrawLineObject(Stroke.Main, WorldA, WorldB)
 
     if MainVisible then
-        DrawLineObject(
-            Stroke.Glow,
-            WorldA,
-            WorldB
-        )
+        DrawLineObject(Stroke.Glow, WorldA, WorldB)
     else
         Stroke.Glow.Visible = false
     end
 end
 
-local function DrawFeather(
-    Feather,
-    RootPosition,
-    TipPosition,
-    Width,
-    PlaneNormal,
-    Bend,
-    Curve
-)
-    local Direction =
-        TipPosition - RootPosition
+local function DrawFeather(Feather, RootPosition, TipPosition, Width, PlaneNormal, Bend, Curve)
+    local Direction = TipPosition - RootPosition
 
     if Direction.Magnitude < 0.001 then
         HideFeather(Feather)
         return
     end
 
-    local WidthDirection =
-        PlaneNormal:Cross(Direction)
+    local WidthDirection = PlaneNormal:Cross(Direction)
 
     if WidthDirection.Magnitude < 0.001 then
         HideFeather(Feather)
@@ -370,31 +245,15 @@ local function DrawFeather(
         + PlaneNormal * Bend
         + WidthDirection * Curve
 
-    local LeftPosition =
-        WidePosition
-        + WidthDirection * Width
+    local LeftPosition = WidePosition + WidthDirection * Width
+    local RightPosition = WidePosition - WidthDirection * Width
 
-    local RightPosition =
-        WidePosition
-        - WidthDirection * Width
+    local ScreenRoot, VisibleRoot = WorldToScreen(RootPosition)
+    local ScreenLeft, VisibleLeft = WorldToScreen(LeftPosition)
+    local ScreenRight, VisibleRight = WorldToScreen(RightPosition)
+    local ScreenTip, VisibleTip = WorldToScreen(TipPosition)
 
-    local ScreenRoot, VisibleRoot =
-        WorldToScreen(RootPosition)
-
-    local ScreenLeft, VisibleLeft =
-        WorldToScreen(LeftPosition)
-
-    local ScreenRight, VisibleRight =
-        WorldToScreen(RightPosition)
-
-    local ScreenTip, VisibleTip =
-        WorldToScreen(TipPosition)
-
-    if not VisibleRoot
-        or not VisibleLeft
-        or not VisibleRight
-        or not VisibleTip
-    then
+    if not VisibleRoot or not VisibleLeft or not VisibleRight or not VisibleTip then
         HideFeather(Feather)
         return
     end
@@ -416,11 +275,7 @@ local function DrawFeather(
     end
 end
 
-local function GetAlternatingRole(
-    Index,
-    FirstRole,
-    SecondRole
-)
+local function GetAlternatingRole(Index, FirstRole, SecondRole)
     if Index % 2 == 0 then
         return FirstRole
     end
@@ -440,16 +295,8 @@ local function CreateWing()
 
     for Index = 1, 8 do
         Wing.Primary[Index] = CreateFeather(
-            GetAlternatingRole(
-                Index,
-                "Core",
-                "Shadow"
-            ),
-            GetAlternatingRole(
-                Index,
-                "Light",
-                "Highlight"
-            ),
+            GetAlternatingRole(Index, "Core", "Shadow"),
+            GetAlternatingRole(Index, "Light", "Highlight"),
             3,
             true
         )
@@ -457,16 +304,8 @@ local function CreateWing()
 
     for Index = 1, 7 do
         Wing.Secondary[Index] = CreateFeather(
-            GetAlternatingRole(
-                Index,
-                "Light",
-                "Core"
-            ),
-            GetAlternatingRole(
-                Index,
-                "Highlight",
-                "Light"
-            ),
+            GetAlternatingRole(Index, "Light", "Core"),
+            GetAlternatingRole(Index, "Highlight", "Light"),
             5,
             true
         )
@@ -474,16 +313,8 @@ local function CreateWing()
 
     for Index = 1, 6 do
         Wing.Coverts[Index] = CreateFeather(
-            GetAlternatingRole(
-                Index,
-                "Core",
-                "Light"
-            ),
-            GetAlternatingRole(
-                Index,
-                "Light",
-                "Highlight"
-            ),
+            GetAlternatingRole(Index, "Core", "Light"),
+            GetAlternatingRole(Index, "Light", "Highlight"),
             7,
             false
         )
@@ -491,16 +322,8 @@ local function CreateWing()
 
     for Index = 1, 5 do
         Wing.Upper[Index] = CreateFeather(
-            GetAlternatingRole(
-                Index,
-                "Highlight",
-                "Light"
-            ),
-            GetAlternatingRole(
-                Index,
-                "Light",
-                "Highlight"
-            ),
+            GetAlternatingRole(Index, "Highlight", "Light"),
+            GetAlternatingRole(Index, "Light", "Highlight"),
             9,
             false
         )
@@ -508,16 +331,8 @@ local function CreateWing()
 
     for Index = 1, 4 do
         Wing.Inner[Index] = CreateFeather(
-            GetAlternatingRole(
-                Index,
-                "Light",
-                "Core"
-            ),
-            GetAlternatingRole(
-                Index,
-                "Highlight",
-                "Light"
-            ),
+            GetAlternatingRole(Index, "Light", "Core"),
+            GetAlternatingRole(Index, "Highlight", "Light"),
             11,
             false
         )
@@ -554,10 +369,7 @@ local function IsValidVector(Value)
 end
 
 local function ReadFloat(Address)
-    return memory_read(
-        "float",
-        Address
-    )
+    return memory_read("float", Address)
 end
 
 local function ReadVector3(Address)
@@ -580,21 +392,16 @@ local function GetPrimitiveAddress(RootPart)
 
     local InstanceAddress = RootPart.Address
 
-    if not InstanceAddress
-        or InstanceAddress == 0
-    then
+    if not InstanceAddress or InstanceAddress == 0 then
         return 0
     end
 
     local PrimitiveAddress = memory_read(
         "uintptr_t",
-        InstanceAddress
-        + BasePartPrimitiveOffset
+        InstanceAddress + BasePartPrimitiveOffset
     )
 
-    if not PrimitiveAddress
-        or PrimitiveAddress < 0x10000
-    then
+    if not PrimitiveAddress or PrimitiveAddress < 0x10000 then
         return 0
     end
 
@@ -604,16 +411,14 @@ local function GetPrimitiveAddress(RootPart)
 end
 
 local function ReadRootTransform(RootPart)
-    local PrimitiveAddress =
-        GetPrimitiveAddress(RootPart)
+    local PrimitiveAddress = GetPrimitiveAddress(RootPart)
 
     if PrimitiveAddress == 0 then
         return nil
     end
 
     local Position = ReadVector3(
-        PrimitiveAddress
-        + PrimitivePositionOffset
+        PrimitiveAddress + PrimitivePositionOffset
     )
 
     if not IsValidVector(Position) then
@@ -621,9 +426,19 @@ local function ReadRootTransform(RootPart)
         return nil
     end
 
-    local RotationAddress =
+    local Velocity = ReadVector3(
         PrimitiveAddress
-        + PrimitiveRotationOffset
+        + PrimitiveAssemblyLinearVelocityOffset
+    )
+
+    if not IsValidVector(Velocity)
+        or Velocity.Magnitude > 5000
+    then
+        Velocity = Vector3.new(0, 0, 0)
+    end
+
+    local RotationAddress =
+        PrimitiveAddress + PrimitiveRotationOffset
 
     local M00 = ReadFloat(RotationAddress)
     local M01 = ReadFloat(RotationAddress + 0x4)
@@ -651,28 +466,11 @@ local function ReadRootTransform(RootPart)
         return nil
     end
 
-    local RightRaw = Vector3.new(
-        M00,
-        M10,
-        M20
-    )
-
-    local UpRaw = Vector3.new(
-        M01,
-        M11,
-        M21
-    )
-
-    local BackRaw = Vector3.new(
-        M02,
-        M12,
-        M22
-    )
+    local RightRaw = Vector3.new(M00, M10, M20)
+    local BackRaw = Vector3.new(M02, M12, M22)
 
     if RightRaw.Magnitude < 0.5
         or RightRaw.Magnitude > 1.5
-        or UpRaw.Magnitude < 0.5
-        or UpRaw.Magnitude > 1.5
         or BackRaw.Magnitude < 0.5
         or BackRaw.Magnitude > 1.5
     then
@@ -680,185 +478,132 @@ local function ReadRootTransform(RootPart)
         return nil
     end
 
-    local Right = RightRaw.Unit
+    local Up = Vector3.new(0, 1, 0)
 
-    local UpProjected =
-        UpRaw
-        - Right * Right:Dot(UpRaw)
+    local FlatBack = Vector3.new(
+        BackRaw.X,
+        0,
+        BackRaw.Z
+    )
 
-    if UpProjected.Magnitude < 0.5 then
-        CachedPrimitiveAddress = 0
-        return nil
-    end
+    if FlatBack.Magnitude < 0.5 then
+        local FlatRight = Vector3.new(
+            RightRaw.X,
+            0,
+            RightRaw.Z
+        )
 
-    local Up = UpProjected.Unit
-    local Back = Right:Cross(Up)
-
-    if Back.Magnitude < 0.5 then
-        CachedPrimitiveAddress = 0
-        return nil
-    end
-
-    Back = Back.Unit
-
-    if Back:Dot(BackRaw.Unit) < 0 then
-        Back = -Back
-        Right = Up:Cross(Back)
-
-        if Right.Magnitude < 0.5 then
+        if FlatRight.Magnitude < 0.5 then
             CachedPrimitiveAddress = 0
             return nil
         end
 
-        Right = Right.Unit
+        local Right = FlatRight.Unit
+        local Back = Right:Cross(Up)
+
+        if Back.Magnitude < 0.5 then
+            CachedPrimitiveAddress = 0
+            return nil
+        end
+
+        Back = Back.Unit
+
+        return {
+            Position = Position,
+            Velocity = Velocity,
+            Right = Right,
+            Up = Up,
+            Back = Back
+        }
     end
 
-    if Up.Y < 0 then
-        Right = -Right
-        Up = -Up
-        Back = Right:Cross(Up).Unit
-    end
+    local Back = FlatBack.Unit
+    local Right = Up:Cross(Back)
 
-    Up = Back:Cross(Right)
-
-    if Up.Magnitude < 0.5 then
+    if Right.Magnitude < 0.5 then
         CachedPrimitiveAddress = 0
         return nil
     end
 
-    Up = Up.Unit
+    Right = Right.Unit
+    Back = Right:Cross(Up).Unit
 
     return {
         Position = Position,
+        Velocity = Velocity,
         Right = Right,
         Up = Up,
         Back = Back
     }
 end
 
-local function NormalizeOrFallback(
-    Value,
-    Fallback
-)
-    if Value.Magnitude < 0.001 then
-        return Fallback
+local function GetRenderPosition(Transform, DeltaTime)
+    local Prediction =
+        Transform.Velocity * PredictionTime
+
+    if Prediction.Magnitude
+        > MaximumPredictionDistance
+    then
+        Prediction =
+            Prediction.Unit
+            * MaximumPredictionDistance
     end
 
-    return Value.Unit
+    local TargetPosition =
+        Transform.Position + Prediction
+
+    if not RenderPosition
+        or (
+            TargetPosition
+            - RenderPosition
+        ).Magnitude > PositionSnapDistance
+    then
+        RenderPosition = TargetPosition
+        return RenderPosition
+    end
+
+    RenderPosition =
+        RenderPosition
+        + Transform.Velocity * DeltaTime
+
+    local CorrectionAlpha =
+        1
+        - math.exp(
+            -PositionCorrectionRate
+            * DeltaTime
+        )
+
+    RenderPosition =
+        LerpVector(
+            RenderPosition,
+            TargetPosition,
+            CorrectionAlpha
+        )
+
+    return RenderPosition
 end
 
-local function SmoothRootTransform(
-    Transform,
-    DeltaTime
-)
-    if not SmoothedTransform then
-        SmoothedTransform = {
-            Position = Transform.Position,
-            Right = Transform.Right,
-            Up = Transform.Up,
-            Back = Transform.Back
-        }
+local function StabilizeBasis(Transform)
+    local Back = Transform.Back
+    local Right = Transform.Right
 
-        return SmoothedTransform
-    end
-
-    if (
-        Transform.Position
-        - SmoothedTransform.Position
-    ).Magnitude > TeleportDistance then
-        SmoothedTransform.Position =
-            Transform.Position
-
-        SmoothedTransform.Right =
-            Transform.Right
-
-        SmoothedTransform.Up =
-            Transform.Up
-
-        SmoothedTransform.Back =
-            Transform.Back
-
-        return SmoothedTransform
-    end
-
-    local PositionAlpha =
-        GetSmoothAlpha(
-            PositionSmoothing,
-            DeltaTime
-        )
-
-    local RotationAlpha =
-        GetSmoothAlpha(
-            RotationSmoothing,
-            DeltaTime
-        )
-
-    SmoothedTransform.Position =
-        LerpVector(
-            SmoothedTransform.Position,
-            Transform.Position,
-            PositionAlpha
-        )
-
-    local Right = NormalizeOrFallback(
-        LerpVector(
-            SmoothedTransform.Right,
-            Transform.Right,
-            RotationAlpha
-        ),
-        Transform.Right
-    )
-
-    local UpCandidate = NormalizeOrFallback(
-        LerpVector(
-            SmoothedTransform.Up,
-            Transform.Up,
-            RotationAlpha
-        ),
-        Transform.Up
-    )
-
-    local UpProjected =
-        UpCandidate
-        - Right * Right:Dot(UpCandidate)
-
-    local Up = NormalizeOrFallback(
-        UpProjected,
-        Transform.Up
-    )
-
-    local Back = Right:Cross(Up)
-
-    Back = NormalizeOrFallback(
-        Back,
-        Transform.Back
-    )
-
-    if Back:Dot(Transform.Back) < 0 then
+    if StableBack
+        and Back:Dot(StableBack) < -0.85
+    then
         Back = -Back
-        Right = NormalizeOrFallback(
-            Up:Cross(Back),
-            Transform.Right
-        )
+        Right = -Right
     end
 
-    Up = NormalizeOrFallback(
-        Back:Cross(Right),
-        Transform.Up
-    )
+    StableBack = Back
 
-    SmoothedTransform.Right = Right
-    SmoothedTransform.Up = Up
-    SmoothedTransform.Back = Back
+    Transform.Back = Back
+    Transform.Right = Right
 
-    return SmoothedTransform
+    return Transform
 end
 
 local function GetRootPart(Character)
-    local RootPart =
-        Character:FindFirstChild(
-            "HumanoidRootPart"
-        )
+    local RootPart = Character:FindFirstChild("HumanoidRootPart")
 
     if RootPart then
         return RootPart
@@ -879,39 +624,19 @@ local function GetAttachmentHeight(Character)
     return FallbackAttachmentHeight
 end
 
-local function CalculateWingPoints(
-    Origin,
-    SideVector,
-    Up,
-    Back,
-    Flap,
-    Fold
-)
-    local Raised =
-        math.max(Flap, 0)
-
-    local Lowered =
-        math.max(-Flap, 0)
+local function CalculateWingPoints(Origin, SideVector, Up, Back, Flap, Fold)
+    local Raised = math.max(Flap, 0)
+    local Lowered = math.max(-Flap, 0)
 
     local Root =
         Origin
-        + SideVector
-        * (RootGap * Scale)
+        + SideVector * (RootGap * Scale)
 
     local Shoulder =
         Origin
-        + SideVector
-        * (
-            (1.24 - Fold * 0.06)
-            * Scale
-        )
-        + Up
-        * (
-            (0.62 + Flap * 0.14)
-            * Scale
-        )
-        + Back
-        * (0.06 * Scale)
+        + SideVector * ((1.24 - Fold * 0.06) * Scale)
+        + Up * ((0.62 + Flap * 0.14) * Scale)
+        + Back * (0.06 * Scale)
 
     local Elbow =
         Origin
@@ -925,16 +650,8 @@ local function CalculateWingPoints(
             )
             * Scale
         )
-        + Up
-        * (
-            (2.76 + Flap * 0.62)
-            * Scale
-        )
-        + Back
-        * (
-            (0.18 + Fold * 0.13)
-            * Scale
-        )
+        + Up * ((2.76 + Flap * 0.62) * Scale)
+        + Back * ((0.18 + Fold * 0.13) * Scale)
 
     local Wrist =
         Origin
@@ -948,11 +665,7 @@ local function CalculateWingPoints(
             )
             * Scale
         )
-        + Up
-        * (
-            (2.38 + Flap * 0.91)
-            * Scale
-        )
+        + Up * ((2.38 + Flap * 0.91) * Scale)
         + Back
         * (
             (
@@ -975,11 +688,7 @@ local function CalculateWingPoints(
             )
             * Scale
         )
-        + Up
-        * (
-            (1.34 + Flap * 1.18)
-            * Scale
-        )
+        + Up * ((1.34 + Flap * 1.18) * Scale)
         + Back
         * (
             (
@@ -1002,11 +711,7 @@ local function CalculateWingPoints(
             )
             * Scale
         )
-        + Up
-        * (
-            (-0.12 + Flap * 0.79)
-            * Scale
-        )
+        + Up * ((-0.12 + Flap * 0.79) * Scale)
         + Back
         * (
             (
@@ -1019,21 +724,9 @@ local function CalculateWingPoints(
 
     local LowerInner =
         Origin
-        + SideVector
-        * (
-            (2.14 - Fold * 0.10)
-            * Scale
-        )
-        + Up
-        * (
-            (-0.48 + Flap * 0.22)
-            * Scale
-        )
-        + Back
-        * (
-            (0.23 + Fold * 0.08)
-            * Scale
-        )
+        + SideVector * ((2.14 - Fold * 0.10) * Scale)
+        + Up * ((-0.48 + Flap * 0.22) * Scale)
+        + Back * ((0.23 + Fold * 0.08) * Scale)
 
     return {
         Root = Root,
@@ -1063,31 +756,25 @@ local function RenderLayer(
             (Index - 1)
             / math.max(Count - 1, 1)
 
-        local RootPosition =
-            RootFunction(Alpha)
+        local RootPosition = RootFunction(Alpha)
 
         local DelayedFlap =
             math.sin(
                 FlapPhase
-                - Alpha
-                * Configuration.FlapDelay
+                - Alpha * Configuration.FlapDelay
             )
 
         local Ripple =
             math.sin(
-                CurrentTime
-                * Configuration.RippleSpeed
-                - Alpha
-                * Configuration.RippleDelay
-                + Index
-                * Configuration.RippleSpacing
+                CurrentTime * Configuration.RippleSpeed
+                - Alpha * Configuration.RippleDelay
+                + Index * Configuration.RippleSpacing
             )
             * Configuration.RippleStrength
 
         local FineRipple =
             math.sin(
-                CurrentTime
-                * Configuration.FineSpeed
+                CurrentTime * Configuration.FineSpeed
                 + Index * 0.73
             )
             * Configuration.FineStrength
@@ -1126,12 +813,8 @@ local function RenderLayer(
             * (
                 (
                     Outward
-                    + Ripple
-                    * Configuration.OutwardRipple
-                    - math.max(
-                        DelayedFlap,
-                        0
-                    )
+                    + Ripple * Configuration.OutwardRipple
+                    - math.max(DelayedFlap, 0)
                     * Alpha
                     * Configuration.FoldInfluence
                 )
@@ -1141,8 +824,7 @@ local function RenderLayer(
             * (
                 (
                     Downward
-                    - Ripple
-                    * Configuration.UpRipple
+                    - Ripple * Configuration.UpRipple
                     - DelayedFlap
                     * Alpha
                     * Configuration.FlapInfluence
@@ -1154,10 +836,7 @@ local function RenderLayer(
                 (
                     Depth
                     + FineRipple
-                    + math.max(
-                        DelayedFlap,
-                        0
-                    )
+                    + math.max(DelayedFlap, 0)
                     * Alpha
                     * Configuration.DepthInfluence
                 )
@@ -1175,9 +854,7 @@ local function RenderLayer(
                 Configuration.BendEnd,
                 Alpha
             ) * Scale,
-            Ripple
-            * Configuration.CurveInfluence
-            * Scale
+            Ripple * Configuration.CurveInfluence * Scale
         )
     end
 end
@@ -1455,7 +1132,6 @@ function Controller:SetColor(Value)
     end
 
     self.Color = Value
-
     BuildPalette(Value)
     ApplyPalette()
 end
@@ -1465,11 +1141,7 @@ function Controller:SetScale(Value)
         return
     end
 
-    Scale = Clamp(
-        Value,
-        0.6,
-        1.8
-    )
+    Scale = Clamp(Value, 0.6, 1.8)
 end
 
 function Controller:Stop()
@@ -1481,8 +1153,7 @@ function Controller:Stop()
     self.Enabled = false
 
     for Index = 1, #Drawings do
-        local DrawingObject =
-            Drawings[Index]
+        local DrawingObject = Drawings[Index]
 
         DrawingObject.Visible = false
 
@@ -1493,7 +1164,8 @@ function Controller:Stop()
 
     Drawings = {}
     DrawingRoles = {}
-    SmoothedTransform = nil
+    RenderPosition = nil
+    StableBack = nil
 
     if _G.NightfallWingsController == self then
         _G.NightfallWingsController = nil
@@ -1513,24 +1185,18 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         DeltaTime = 0.016
     end
 
-    DeltaTime = Clamp(
-        DeltaTime,
-        0.001,
-        0.05
-    )
+    DeltaTime = Clamp(DeltaTime, 0.001, 0.05)
 
     Camera = Workspace.CurrentCamera
 
-    local Character =
-        LocalPlayer.Character
+    local Character = LocalPlayer.Character
 
     if not Character or not Camera then
         HideAll()
         return
     end
 
-    local RootPart =
-        GetRootPart(Character)
+    local RootPart = GetRootPart(Character)
 
     if not RootPart then
         HideAll()
@@ -1541,41 +1207,32 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         ActiveCharacter = Character
         CachedRootPart = nil
         CachedPrimitiveAddress = 0
-        SmoothedTransform = nil
+        RenderPosition = nil
+        StableBack = nil
     end
 
-    local RawTransform =
-        ReadRootTransform(RootPart)
+    local Transform = ReadRootTransform(RootPart)
 
-    if not RawTransform then
+    if not Transform then
         HideAll()
         return
     end
 
-    local Transform =
-        SmoothRootTransform(
-            RawTransform,
+    Transform = StabilizeBasis(Transform)
+
+    local AnchoredPosition =
+        GetRenderPosition(
+            Transform,
             DeltaTime
         )
 
-    AnimationTime =
-        AnimationTime + DeltaTime
+    AnimationTime = AnimationTime + DeltaTime
 
-    local FlapPhase =
-        AnimationTime * FlapSpeed
+    local FlapPhase = AnimationTime * FlapSpeed
 
-    local MainWave =
-        math.sin(FlapPhase)
-
-    local HarmonicWave =
-        math.sin(
-            FlapPhase * 2 - 0.88
-        )
-
-    local SlowWave =
-        math.sin(
-            FlapPhase * 0.5 + 0.31
-        )
+    local MainWave = math.sin(FlapPhase)
+    local HarmonicWave = math.sin(FlapPhase * 2 - 0.88)
+    local SlowWave = math.sin(FlapPhase * 0.5 + 0.31)
 
     local Flap =
         (
@@ -1590,8 +1247,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
             0.5
             + 0.5
             * math.sin(
-                FlapPhase
-                - math.pi * 0.5
+                FlapPhase - math.pi * 0.5
             )
         )
 
@@ -1603,7 +1259,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         GetAttachmentHeight(Character)
 
     local Origin =
-        Transform.Position
+        AnchoredPosition
         + Up * AttachmentHeight
         + Back * BackOffset
 
