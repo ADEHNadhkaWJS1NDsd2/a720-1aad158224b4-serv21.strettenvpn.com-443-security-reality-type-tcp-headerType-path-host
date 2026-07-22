@@ -14,7 +14,7 @@ local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/neaxusxgo
 
 local AutoParryEnabled = false
 local TTIThreshold = 0.15
-local MinSpeedLimit, MaxSpeedLimit, BufferSize = 35, 500, 15
+local MinSpeedLimit, MaxSpeedLimit, BufferSize = 35, 500, 10
 
 
 local WindowApp = Lib:CreateWindow({
