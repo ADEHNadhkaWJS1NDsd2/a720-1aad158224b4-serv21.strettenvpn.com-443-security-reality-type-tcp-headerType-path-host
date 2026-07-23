@@ -133,6 +133,7 @@ local Library do
         KeyList = nil,
 
         CurrentColorpicker = nil,
+        CurrentKeybind = nil,
         InputRouterReady = false,
         Unloading = false,
         Unloaded = false
@@ -1234,6 +1235,7 @@ local Library do
         self.Holder = nil
         self.NotifHolder = nil
         self.KeyList = nil
+        self.CurrentKeybind = nil
         self.SliderConnection = nil
         self.ColorpickerConnection = nil
         self.ColorpickerInputConnection = nil
@@ -3561,7 +3563,7 @@ local Library do
                 "Frame",
                 {
                     Parent =
-                        Data.Parent.Instance,
+                        Library.Holder.Instance,
                     BorderColor3 =
                         FromRGB(
                             10,
@@ -3576,10 +3578,10 @@ local Library do
                     Name = "\0",
                     Position =
                         UDim2New(
-                            1,
                             0,
-                            1,
-                            5
+                            0,
+                            0,
+                            0
                         ),
                     Size =
                         UDim2New(
@@ -3590,6 +3592,8 @@ local Library do
                         ),
                     BorderSizePixel = 2,
                     Visible = false,
+                    Active = true,
+                    ZIndex = 2000,
                     BackgroundColor3 =
                         FromRGB(
                             15,
@@ -3650,7 +3654,8 @@ local Library do
                                 0,
                                 15
                             ),
-                        TextSize = 13
+                        TextSize = 13,
+                        ZIndex = 2001
                     }
                 )
 
@@ -3772,6 +3777,12 @@ local Library do
         function Keybind:SetVisibility(
             Bool
         )
+            if not Bool then
+                Keybind:SetOpen(
+                    false
+                )
+            end
+
             Data.Parent.Instance.Visible =
                 Bool
         end
@@ -3782,20 +3793,129 @@ local Library do
             Bool =
                 Bool == true
 
+            if Bool
+                and Library.CurrentKeybind
+                and Library.CurrentKeybind
+                    ~= Keybind
+            then
+                Library.CurrentKeybind:
+                    SetOpen(
+                        false
+                    )
+            end
+
+            local Window =
+                Items[
+                    "Window"
+                ].Instance
+
+            if Bool then
+                local Button =
+                    Items[
+                        "KeyButton"
+                    ].Instance
+
+                local ButtonPosition =
+                    Button.AbsolutePosition
+
+                local ButtonSize =
+                    Button.AbsoluteSize
+
+                local WindowSize =
+                    Window.AbsoluteSize
+
+                local ViewportSize =
+                    Workspace.CurrentCamera
+                    and Workspace.CurrentCamera.ViewportSize
+                    or Vector2New(
+                        1920,
+                        1080
+                    )
+
+                local X =
+                    MathClamp(
+                        ButtonPosition.X
+                        + ButtonSize.X
+                        - WindowSize.X,
+                        4,
+                        math.max(
+                            ViewportSize.X
+                            - WindowSize.X
+                            - 4,
+                            4
+                        )
+                    )
+
+                local Below =
+                    ButtonPosition.Y
+                    + ButtonSize.Y
+                    + 4
+
+                local Above =
+                    ButtonPosition.Y
+                    - WindowSize.Y
+                    - 4
+
+                local Y =
+                    Below
+                    + WindowSize.Y
+                        <= ViewportSize.Y
+                    and Below
+                    or math.max(
+                        Above,
+                        4
+                    )
+
+                Window.Position =
+                    UDim2New(
+                        0,
+                        X,
+                        0,
+                        Y
+                    )
+
+                Window.Visible =
+                    true
+
+                Window.Active =
+                    true
+
+                Window.ZIndex =
+                    2000
+
+                for _,
+                    Descendant in ipairs(
+                        Window:GetDescendants()
+                    )
+                do
+                    if Descendant:IsA(
+                        "GuiObject"
+                    )
+                    then
+                        Descendant.ZIndex =
+                            2001
+                    end
+                end
+
+                Library.CurrentKeybind =
+                    Keybind
+            else
+                Window.Visible =
+                    false
+
+                Window.Active =
+                    false
+
+                if Library.CurrentKeybind
+                    == Keybind
+                then
+                    Library.CurrentKeybind =
+                        nil
+                end
+            end
+
             Keybind.IsOpen =
                 Bool
-
-            Items[
-                "Window"
-            ].Instance.Visible =
-                Bool
-
-            Items[
-                "Window"
-            ].Instance.ZIndex =
-                Bool
-                and 16
-                or 1
         end
 
         function Keybind:SetMode(
@@ -4035,8 +4155,14 @@ local Library do
         Items[
             "KeyButton"
         ]:Connect(
-            "MouseButton2Down",
-            function()
+            "InputBegan",
+            function(Input)
+                if Input.UserInputType
+                    ~= Enum.UserInputType.MouseButton2
+                then
+                    return
+                end
+
                 Keybind:SetOpen(
                     not Keybind.IsOpen
                 )
@@ -4073,6 +4199,18 @@ local Library do
                 if GameProcessed
                     and UserInputService:
                         GetFocusedTextBox()
+                then
+                    return
+                end
+
+                if Input.UserInputType
+                        == Enum.UserInputType.MouseButton2
+                    and Library:
+                        IsMouseOverFrame(
+                            Items[
+                                "KeyButton"
+                            ]
+                        )
                 then
                     return
                 end
