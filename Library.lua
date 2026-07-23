@@ -112,7 +112,6 @@ local Library do
         ActiveColorpicker = nil,
         ColorpickerConnection = nil,
         ColorpickerInputConnection = nil,
-        ColorpickerRouterConnection = nil,
         ColorpickerOverlay = nil,
         Colorpickers = {},
         InputListeners = {
@@ -159,13 +158,13 @@ local Library do
         ["Ampersand"]         = "&",
         ["Quote"]             = "'",
         ["LeftParenthesis"]   = "(",
-        ["RightParenthesis"]  = " )",
+        ["RightParenthesis"]  = ")",
         ["Asterisk"]          = "*",
         ["Plus"]              = "+",
         ["Comma"]             = ",",
         ["Minus"]             = "-",
         ["Period"]            = ".",
-        ["Slash"]             = "`",
+        ["Slash"]             = "/",
         ["Three"]             = "3",
         ["Seven"]             = "7",
         ["Eight"]             = "8",
@@ -1238,7 +1237,6 @@ local Library do
         self.SliderConnection = nil
         self.ColorpickerConnection = nil
         self.ColorpickerInputConnection = nil
-        self.ColorpickerRouterConnection = nil
         self.ColorpickerOverlay = nil
         self.InputRouterReady = false
 
@@ -2550,79 +2548,6 @@ local Library do
             TableInsert(
                 Library.CoreConnections,
                 OverlayConnection
-            )
-        end
-
-        if not Library.ColorpickerRouterConnection then
-            local RouterConnection =
-                UserInputService.InputBegan:
-                Connect(function(Input)
-                    if Library.Unloaded then
-                        return
-                    end
-
-                    if Input.UserInputType
-                            ~= Enum.UserInputType.MouseButton1
-                        and Input.UserInputType
-                            ~= Enum.UserInputType.Touch
-                    then
-                        return
-                    end
-
-                    local Position =
-                        UserInputService:
-                        GetMouseLocation()
-
-                    for Index =
-                        #Library.Colorpickers,
-                        1,
-                        -1
-                    do
-                        local Picker =
-                            Library.Colorpickers[
-                                Index
-                            ]
-
-                        local Button =
-                            Picker
-                            and Picker.Button
-
-                        if Button
-                            and Button.Parent
-                            and Button.Visible
-                        then
-                            local AbsolutePosition =
-                                Button.AbsolutePosition
-
-                            local AbsoluteSize =
-                                Button.AbsoluteSize
-
-                            if Position.X
-                                    >= AbsolutePosition.X
-                                and Position.X
-                                    <= AbsolutePosition.X
-                                        + AbsoluteSize.X
-                                and Position.Y
-                                    >= AbsolutePosition.Y
-                                and Position.Y
-                                    <= AbsolutePosition.Y
-                                        + AbsoluteSize.Y
-                            then
-                                Picker:
-                                    ToggleOpen()
-
-                                return
-                            end
-                        end
-                    end
-                end)
-
-            Library.ColorpickerRouterConnection =
-                RouterConnection
-
-            TableInsert(
-                Library.CoreConnections,
-                RouterConnection
             )
         end
 
