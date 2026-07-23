@@ -536,51 +536,76 @@ local Library do
                 or Gui
 
             local Dragging = false
+            local DragInput = nil
             local DragStart = nil
             local StartPosition = nil
-            local TargetPosition = nil
 
             Library:Connect(
                 DragHandle.InputBegan,
                 function(Input)
                     if Input.UserInputType
-                            == Enum.UserInputType.MouseButton1
-                        or Input.UserInputType
-                            == Enum.UserInputType.Touch
-                    then
-                        Dragging = true
-                        DragStart =
-                            Input.Position
-
-                        StartPosition =
-                            Gui.Position
-
-                        TargetPosition =
-                            StartPosition
-                    end
-                end
-            )
-
-            Library:Connect(
-                UserInputService.InputChanged,
-                function(Input)
-                    if not Dragging then
-                        return
-                    end
-
-                    if Input.UserInputType
-                            ~= Enum.UserInputType.MouseMovement
+                            ~= Enum.UserInputType.MouseButton1
                         and Input.UserInputType
                             ~= Enum.UserInputType.Touch
                     then
                         return
                     end
 
+                    Dragging = true
+                    DragStart =
+                        Vector2New(
+                            Input.Position.X,
+                            Input.Position.Y
+                        )
+
+                    StartPosition =
+                        Gui.Position
+
+                    if Input.UserInputType
+                        == Enum.UserInputType.Touch
+                    then
+                        DragInput =
+                            Input
+                    end
+                end
+            )
+
+            Library:Connect(
+                DragHandle.InputChanged,
+                function(Input)
+                    if Input.UserInputType
+                            == Enum.UserInputType.MouseMovement
+                        or Input.UserInputType
+                            == Enum.UserInputType.Touch
+                    then
+                        DragInput =
+                            Input
+                    end
+                end
+            )
+
+            local ChangedConnection =
+                UserInputService.InputChanged:
+                Connect(function(Input)
+                    if Library.Unloaded
+                        or not Dragging
+                        or Input ~= DragInput
+                        or not Gui.Parent
+                    then
+                        return
+                    end
+
+                    local CurrentPosition =
+                        Vector2New(
+                            Input.Position.X,
+                            Input.Position.Y
+                        )
+
                     local Delta =
-                        Input.Position
+                        CurrentPosition
                         - DragStart
 
-                    TargetPosition =
+                    Gui.Position =
                         UDim2New(
                             StartPosition.X.Scale,
                             StartPosition.X.Offset
@@ -589,55 +614,31 @@ local Library do
                             StartPosition.Y.Offset
                                 + Delta.Y
                         )
-                end
+                end)
+
+            TableInsert(
+                Library.CoreConnections,
+                ChangedConnection
             )
 
-            Library:Connect(
-                UserInputService.InputEnded,
-                function(Input)
+            local EndedConnection =
+                UserInputService.InputEnded:
+                Connect(function(Input)
                     if Input.UserInputType
-                            == Enum.UserInputType.MouseButton1
-                        or Input.UserInputType
-                            == Enum.UserInputType.Touch
-                    then
-                        Dragging = false
-
-                        if TargetPosition then
-                            Gui.Position =
-                                TargetPosition
-                        end
-                    end
-                end
-            )
-
-            Library:Connect(
-                RunService.RenderStepped,
-                function(DeltaTime)
-                    if not Dragging
-                        or not TargetPosition
-                        or not Gui.Parent
+                            ~= Enum.UserInputType.MouseButton1
+                        and Input.UserInputType
+                            ~= Enum.UserInputType.Touch
                     then
                         return
                     end
 
-                    local Alpha =
-                        1
-                        - math.exp(
-                            -32
-                            * math.clamp(
-                                DeltaTime,
-                                0,
-                                0.05
-                            )
-                        )
+                    Dragging = false
+                    DragInput = nil
+                end)
 
-                    Gui.Position =
-                        Gui.Position:
-                        Lerp(
-                            TargetPosition,
-                            Alpha
-                        )
-                end
+            TableInsert(
+                Library.CoreConnections,
+                EndedConnection
             )
 
             return self
@@ -4155,11 +4156,9 @@ local Library do
         Items[
             "KeyButton"
         ]:Connect(
-            "InputBegan",
-            function(Input)
-                if Input.UserInputType
-                    ~= Enum.UserInputType.MouseButton2
-                then
+            "MouseButton2Click",
+            function()
+                if Keybind.Picking then
                     return
                 end
 
