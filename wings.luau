@@ -47,6 +47,7 @@ local CachedAnchorPart = nil
 local CachedPrimitiveAddress = 0
 local SmoothedPosition = nil
 local SmoothedBack = nil
+local FrameProjector = nil
 local AnimationTime = 0
 local RenderRevision = 0
 
@@ -195,11 +196,139 @@ local function HideAll()
     end
 end
 
-local function DrawLineObject(Line, WorldA, WorldB)
-    local ScreenA, VisibleA = WorldToScreen(WorldA)
-    local ScreenB, VisibleB = WorldToScreen(WorldB)
+local function BuildFrameProjector(
+    Origin,
+    Right,
+    Up,
+    Back
+)
+    local ScreenOrigin, OriginVisible =
+        WorldToScreen(Origin)
 
-    if not VisibleA or not VisibleB then
+    if not OriginVisible then
+        FrameProjector = nil
+        return false
+    end
+
+    local Step = 0.25
+
+    local function ReadAxis(Axis)
+        local PositivePoint, PositiveVisible =
+            WorldToScreen(
+                Origin + Axis * Step
+            )
+
+        if PositiveVisible then
+            return Vector2.new(
+                (
+                    PositivePoint.X
+                    - ScreenOrigin.X
+                ) / Step,
+                (
+                    PositivePoint.Y
+                    - ScreenOrigin.Y
+                ) / Step
+            )
+        end
+
+        local NegativePoint, NegativeVisible =
+            WorldToScreen(
+                Origin - Axis * Step
+            )
+
+        if NegativeVisible then
+            return Vector2.new(
+                (
+                    ScreenOrigin.X
+                    - NegativePoint.X
+                ) / Step,
+                (
+                    ScreenOrigin.Y
+                    - NegativePoint.Y
+                ) / Step
+            )
+        end
+
+        return nil
+    end
+
+    local ScreenRight =
+        ReadAxis(Right)
+
+    local ScreenUp =
+        ReadAxis(Up)
+
+    local ScreenBack =
+        ReadAxis(Back)
+
+    if not ScreenRight
+        or not ScreenUp
+        or not ScreenBack
+    then
+        FrameProjector = nil
+        return false
+    end
+
+    FrameProjector = {
+        Origin = Origin,
+        Right = Right,
+        Up = Up,
+        Back = Back,
+        ScreenOrigin = ScreenOrigin,
+        ScreenRight = ScreenRight,
+        ScreenUp = ScreenUp,
+        ScreenBack = ScreenBack
+    }
+
+    return true
+end
+
+local function ProjectRigidPoint(WorldPoint)
+    local Projector =
+        FrameProjector
+
+    if not Projector then
+        return nil
+    end
+
+    local Delta =
+        WorldPoint - Projector.Origin
+
+    local RightAmount =
+        Delta:Dot(Projector.Right)
+
+    local UpAmount =
+        Delta:Dot(Projector.Up)
+
+    local BackAmount =
+        Delta:Dot(Projector.Back)
+
+    return Vector2.new(
+        Projector.ScreenOrigin.X
+        + Projector.ScreenRight.X
+        * RightAmount
+        + Projector.ScreenUp.X
+        * UpAmount
+        + Projector.ScreenBack.X
+        * BackAmount,
+        Projector.ScreenOrigin.Y
+        + Projector.ScreenRight.Y
+        * RightAmount
+        + Projector.ScreenUp.Y
+        * UpAmount
+        + Projector.ScreenBack.Y
+        * BackAmount
+    )
+end
+
+local function DrawLineObject(Line, WorldA, WorldB)
+    local ScreenA =
+        ProjectRigidPoint(WorldA)
+
+    local ScreenB =
+        ProjectRigidPoint(WorldB)
+
+    if not ScreenA or not ScreenB then
         Line.Visible = false
         return false
     end
@@ -247,12 +376,23 @@ local function DrawFeather(Feather, RootPosition, TipPosition, Width, PlaneNorma
     local LeftPosition = WidePosition + WidthDirection * Width
     local RightPosition = WidePosition - WidthDirection * Width
 
-    local ScreenRoot, VisibleRoot = WorldToScreen(RootPosition)
-    local ScreenLeft, VisibleLeft = WorldToScreen(LeftPosition)
-    local ScreenRight, VisibleRight = WorldToScreen(RightPosition)
-    local ScreenTip, VisibleTip = WorldToScreen(TipPosition)
+    local ScreenRoot =
+        ProjectRigidPoint(RootPosition)
 
-    if not VisibleRoot or not VisibleLeft or not VisibleRight or not VisibleTip then
+    local ScreenLeft =
+        ProjectRigidPoint(LeftPosition)
+
+    local ScreenRight =
+        ProjectRigidPoint(RightPosition)
+
+    local ScreenTip =
+        ProjectRigidPoint(TipPosition)
+
+    if not ScreenRoot
+        or not ScreenLeft
+        or not ScreenRight
+        or not ScreenTip
+    then
         HideFeather(Feather)
         return
     end
@@ -383,29 +523,38 @@ local function GetPrimitiveAddress(Part)
     if CachedAnchorPart ~= Part then
         CachedAnchorPart = Part
         CachedPrimitiveAddress = 0
-        StableBack = nil
+        SmoothedPosition = nil
+        SmoothedBack = nil
     end
 
     if CachedPrimitiveAddress ~= 0 then
         return CachedPrimitiveAddress
     end
 
-    local InstanceAddress = Part.Address
+    local InstanceAddress =
+        Part.Address
 
-    if not InstanceAddress or InstanceAddress == 0 then
+    if not InstanceAddress
+        or InstanceAddress == 0
+    then
         return 0
     end
 
-    local PrimitiveAddress = memory_read(
-        "uintptr_t",
-        InstanceAddress + BasePartPrimitiveOffset
-    )
+    local PrimitiveAddress =
+        memory_read(
+            "uintptr_t",
+            InstanceAddress
+            + BasePartPrimitiveOffset
+        )
 
-    if not PrimitiveAddress or PrimitiveAddress < 0x10000 then
+    if not PrimitiveAddress
+        or PrimitiveAddress < 0x10000
+    then
         return 0
     end
 
-    CachedPrimitiveAddress = PrimitiveAddress
+    CachedPrimitiveAddress =
+        PrimitiveAddress
 
     return PrimitiveAddress
 end
@@ -426,10 +575,35 @@ local function ReadPartPosition(Part)
     return Position
 end
 
-local function ReadPartTransform(
-    Part,
-    DeltaTime
+local function LerpMicroNoise(
+    Previous,
+    Current,
+    Threshold,
+    Alpha
 )
+    if not Previous then
+        return Current
+    end
+
+    local Difference =
+        (
+            Current - Previous
+        ).Magnitude
+
+    if Difference > Threshold then
+        return Previous:Lerp(
+            Current,
+            1
+        )
+    end
+
+    return Previous:Lerp(
+        Current,
+        Alpha
+    )
+end
+
+local function ReadPartTransform(Part)
     local PrimitiveAddress =
         GetPrimitiveAddress(Part)
 
@@ -437,10 +611,10 @@ local function ReadPartTransform(
         return nil
     end
 
-    local PositionA =
+    local CurrentPosition =
         ReadPartPosition(Part)
 
-    if not PositionA then
+    if not CurrentPosition then
         return nil
     end
 
@@ -448,14 +622,33 @@ local function ReadPartTransform(
         PrimitiveAddress
         + PrimitiveRotationOffset
 
-    local M00 = ReadFloat(RotationAddress)
-    local M02 = ReadFloat(RotationAddress + 0x8)
+    local M00 =
+        ReadFloat(RotationAddress)
 
-    local M10 = ReadFloat(RotationAddress + 0xC)
-    local M12 = ReadFloat(RotationAddress + 0x14)
+    local M02 =
+        ReadFloat(
+            RotationAddress + 0x8
+        )
 
-    local M20 = ReadFloat(RotationAddress + 0x18)
-    local M22 = ReadFloat(RotationAddress + 0x20)
+    local M10 =
+        ReadFloat(
+            RotationAddress + 0xC
+        )
+
+    local M12 =
+        ReadFloat(
+            RotationAddress + 0x14
+        )
+
+    local M20 =
+        ReadFloat(
+            RotationAddress + 0x18
+        )
+
+    local M22 =
+        ReadFloat(
+            RotationAddress + 0x20
+        )
 
     if not IsValidNumber(M00)
         or not IsValidNumber(M02)
@@ -468,57 +661,22 @@ local function ReadPartTransform(
         return nil
     end
 
-    local PositionB =
-        ReadPartPosition(Part)
-
-    if not PositionB
-        or (
-            PositionB
-            - PositionA
-        ).Magnitude > 2
-    then
-        return nil
-    end
-
-    local CurrentPosition =
-        (
-            PositionA
-            + PositionB
-        ) * 0.5
-
-    local TargetPosition =
-        CurrentPosition
-
-    local BackRaw =
-        Vector3.new(
-            M02,
-            M12,
-            M22
-        )
-
-    local RightRaw =
-        Vector3.new(
-            M00,
-            M10,
-            M20
-        )
-
     local Up =
         Vector3.new(0, 1, 0)
 
     local Back =
         Vector3.new(
-            BackRaw.X,
+            M02,
             0,
-            BackRaw.Z
+            M22
         )
 
     if Back.Magnitude < 0.5 then
         local RightFallback =
             Vector3.new(
-                RightRaw.X,
+                M00,
                 0,
-                RightRaw.Z
+                M20
             )
 
         if RightFallback.Magnitude < 0.5 then
@@ -536,11 +694,9 @@ local function ReadPartTransform(
             CachedPrimitiveAddress = 0
             return nil
         end
-
-        Back = Back.Unit
-    else
-        Back = Back.Unit
     end
+
+    Back = Back.Unit
 
     if SmoothedBack
         and Back:Dot(SmoothedBack) < 0
@@ -548,46 +704,27 @@ local function ReadPartTransform(
         Back = -Back
     end
 
-    local PositionAlpha =
-        Clamp(
-            DeltaTime * 38,
-            0,
-            1
+    SmoothedPosition =
+        LerpMicroNoise(
+            SmoothedPosition,
+            CurrentPosition,
+            0.004,
+            0.35
         )
 
-    local RotationAlpha =
-        Clamp(
-            DeltaTime * 30,
-            0,
-            1
+    SmoothedBack =
+        LerpMicroNoise(
+            SmoothedBack,
+            Back,
+            0.002,
+            0.35
         )
 
-    if not SmoothedPosition then
-        SmoothedPosition =
-            TargetPosition
-    else
-        SmoothedPosition =
-            SmoothedPosition:Lerp(
-                TargetPosition,
-                PositionAlpha
-            )
-    end
-
-    if not SmoothedBack then
+    if SmoothedBack.Magnitude < 0.001 then
         SmoothedBack = Back
     else
-        local MixedBack =
-            SmoothedBack:Lerp(
-                Back,
-                RotationAlpha
-            )
-
-        if MixedBack.Magnitude < 0.001 then
-            SmoothedBack = Back
-        else
-            SmoothedBack =
-                MixedBack.Unit
-        end
+        SmoothedBack =
+            SmoothedBack.Unit
     end
 
     local Right =
@@ -1218,6 +1355,7 @@ function Controller:Stop()
     CachedPrimitiveAddress = 0
     SmoothedPosition = nil
     SmoothedBack = nil
+    FrameProjector = nil
 
     if _G.NightfallWingsController == self then
         _G.NightfallWingsController = nil
@@ -1268,7 +1406,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
     end
 
     local Transform =
-        ReadPartTransform(AnchorPart, DeltaTime)
+        ReadPartTransform(AnchorPart)
 
     if not Transform then
         HideAll()
@@ -1311,6 +1449,16 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         Transform.Position
         + Up * AttachmentHeight
         + Back * BackOffset
+
+    if not BuildFrameProjector(
+        Origin,
+        Right,
+        Up,
+        Back
+    ) then
+        HideAll()
+        return
+    end
 
     local LeftPoints =
         CalculateWingPoints(
