@@ -45,10 +45,29 @@ local DrawingRoles = {}
 local ActiveCharacter = nil
 local CachedAnchorPart = nil
 local CachedPrimitiveAddress = 0
-local SmoothedCameraPosition = nil
-local SmoothedCameraUp = nil
-local SmoothedCameraBack = nil
 local CameraState = nil
+local BufferFromPosition = nil
+local BufferToPosition = nil
+local BufferFromUp = nil
+local BufferToUp = nil
+local BufferFromBack = nil
+local BufferToBack = nil
+local BufferStartTime = 0
+local BufferDuration = 1 / 60
+local SampleInterval = 1 / 60
+local LastAcceptedTime = 0
+local LastObservedRootPosition = nil
+local LastObservedCameraPosition = nil
+local LastObservedCameraLook = nil
+local LastObservedCameraUp = nil
+local LastObservedWorldBack = nil
+local PendingPosition = nil
+local PendingUp = nil
+local PendingBack = nil
+local PendingSince = 0
+local PendingRootChanged = false
+local PendingCameraChanged = false
+local PendingRotationChanged = false
 local LastValidFrameTime = 0
 local AnimationTime = 0
 local RenderRevision = 0
@@ -309,37 +328,315 @@ local function WorldVectorToCamera(
     )
 end
 
-local function SmoothVector(
+local function VectorChanged(
     Current,
-    Target,
-    DeltaTime,
-    BaseRate,
-    DistanceRate
+    Previous,
+    Epsilon
 )
-    if not Current then
-        return Target
+    if not Current
+        or not Previous
+    then
+        return true
     end
 
-    local Distance =
-        (
-            Target - Current
-        ).Magnitude
+    return (
+        Current - Previous
+    ).Magnitude > Epsilon
+end
+
+local function ReadBufferedTransform(
+    Now
+)
+    if not BufferToPosition
+        or not BufferToUp
+        or not BufferToBack
+    then
+        return nil
+    end
 
     local Alpha =
         Clamp(
-            DeltaTime
-            * (
-                BaseRate
-                + Distance * DistanceRate
+            (
+                Now
+                - BufferStartTime
+            )
+            / math.max(
+                BufferDuration,
+                0.001
             ),
             0,
             1
         )
 
-    return Current:Lerp(
-        Target,
-        Alpha
-    )
+    local Position =
+        BufferFromPosition:Lerp(
+            BufferToPosition,
+            Alpha
+        )
+
+    local Up =
+        BufferFromUp:Lerp(
+            BufferToUp,
+            Alpha
+        )
+
+    local Back =
+        BufferFromBack:Lerp(
+            BufferToBack,
+            Alpha
+        )
+
+    if Up.Magnitude < 0.001
+        or Back.Magnitude < 0.001
+    then
+        return nil
+    end
+
+    Up = Up.Unit
+    Back = Back.Unit
+
+    local Right =
+        Up:Cross(Back)
+
+    if Right.Magnitude < 0.001 then
+        return nil
+    end
+
+    Right = Right.Unit
+    Back = Right:Cross(Up)
+
+    if Back.Magnitude < 0.001 then
+        return nil
+    end
+
+    Back = Back.Unit
+
+    return Position,
+        Right,
+        Up,
+        Back
+end
+
+local function CommitBufferedTransform(
+    Now,
+    Position,
+    Up,
+    Back
+)
+    local CurrentPosition,
+        CurrentRight,
+        CurrentUp,
+        CurrentBack =
+        ReadBufferedTransform(Now)
+
+    if not CurrentPosition then
+        CurrentPosition = Position
+        CurrentUp = Up
+        CurrentBack = Back
+    end
+
+    if Back:Dot(CurrentBack) < 0 then
+        Back = -Back
+    end
+
+    if LastAcceptedTime > 0 then
+        local Interval =
+            Clamp(
+                Now - LastAcceptedTime,
+                1 / 120,
+                1 / 30
+            )
+
+        SampleInterval =
+            LerpNumber(
+                SampleInterval,
+                Interval,
+                0.25
+            )
+    end
+
+    BufferFromPosition =
+        CurrentPosition
+
+    BufferToPosition =
+        Position
+
+    BufferFromUp =
+        CurrentUp
+
+    BufferToUp =
+        Up
+
+    BufferFromBack =
+        CurrentBack
+
+    BufferToBack =
+        Back
+
+    BufferStartTime =
+        Now
+
+    BufferDuration =
+        Clamp(
+            SampleInterval * 1.10,
+            1 / 100,
+            1 / 30
+        )
+
+    LastAcceptedTime =
+        Now
+end
+
+local function QueueBufferedTransform(
+    Now,
+    RootPosition,
+    State,
+    WorldUp,
+    WorldBack
+)
+    local RootChanged =
+        VectorChanged(
+            RootPosition,
+            LastObservedRootPosition,
+            0.000001
+        )
+
+    local CameraChanged =
+        VectorChanged(
+            State.Position,
+            LastObservedCameraPosition,
+            0.000001
+        )
+        or VectorChanged(
+            State.Look,
+            LastObservedCameraLook,
+            0.000001
+        )
+        or VectorChanged(
+            State.Up,
+            LastObservedCameraUp,
+            0.000001
+        )
+
+    local RotationChanged =
+        VectorChanged(
+            WorldBack,
+            LastObservedWorldBack,
+            0.00001
+        )
+
+    LastObservedRootPosition =
+        RootPosition
+
+    LastObservedCameraPosition =
+        State.Position
+
+    LastObservedCameraLook =
+        State.Look
+
+    LastObservedCameraUp =
+        State.Up
+
+    LastObservedWorldBack =
+        WorldBack
+
+    if RootChanged
+        or CameraChanged
+        or RotationChanged
+        or not BufferToPosition
+    then
+        PendingPosition =
+            WorldPointToCamera(
+                RootPosition,
+                State
+            )
+
+        PendingUp =
+            WorldVectorToCamera(
+                WorldUp,
+                State
+            )
+
+        PendingBack =
+            WorldVectorToCamera(
+                WorldBack,
+                State
+            )
+
+        if PendingSince == 0 then
+            PendingSince = Now
+        end
+
+        PendingRootChanged =
+            PendingRootChanged
+            or RootChanged
+
+        PendingCameraChanged =
+            PendingCameraChanged
+            or CameraChanged
+
+        PendingRotationChanged =
+            PendingRotationChanged
+            or RotationChanged
+    end
+
+    local PendingReady =
+        PendingPosition
+        and (
+            not BufferToPosition
+            or (
+                PendingRootChanged
+                and PendingCameraChanged
+            )
+            or (
+                PendingRotationChanged
+                and not PendingRootChanged
+                and not PendingCameraChanged
+            )
+            or Now - PendingSince >= 0.018
+        )
+
+    if PendingReady then
+        CommitBufferedTransform(
+            Now,
+            PendingPosition,
+            PendingUp,
+            PendingBack
+        )
+
+        PendingPosition = nil
+        PendingUp = nil
+        PendingBack = nil
+        PendingSince = 0
+        PendingRootChanged = false
+        PendingCameraChanged = false
+        PendingRotationChanged = false
+    end
+end
+
+local function ResetBufferedTransform()
+    BufferFromPosition = nil
+    BufferToPosition = nil
+    BufferFromUp = nil
+    BufferToUp = nil
+    BufferFromBack = nil
+    BufferToBack = nil
+    BufferStartTime = 0
+    BufferDuration = 1 / 60
+    SampleInterval = 1 / 60
+    LastAcceptedTime = 0
+    LastObservedRootPosition = nil
+    LastObservedCameraPosition = nil
+    LastObservedCameraLook = nil
+    LastObservedCameraUp = nil
+    LastObservedWorldBack = nil
+    PendingPosition = nil
+    PendingUp = nil
+    PendingBack = nil
+    PendingSince = 0
+    PendingRootChanged = false
+    PendingCameraChanged = false
+    PendingRotationChanged = false
 end
 
 local function ProjectCameraPoint(CameraPoint)
@@ -1329,10 +1626,8 @@ function Controller:Stop()
     DrawingRoles = {}
     CachedAnchorPart = nil
     CachedPrimitiveAddress = 0
-    SmoothedCameraPosition = nil
-    SmoothedCameraUp = nil
-    SmoothedCameraBack = nil
     CameraState = nil
+    ResetBufferedTransform()
     LastValidFrameTime = 0
 
     if _G.NightfallWingsController == self then
@@ -1384,10 +1679,8 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         ActiveCharacter = Character
         CachedAnchorPart = nil
         CachedPrimitiveAddress = 0
-        SmoothedCameraPosition = nil
-        SmoothedCameraUp = nil
-        SmoothedCameraBack = nil
         CameraState = nil
+        ResetBufferedTransform()
     end
 
     local State =
@@ -1407,92 +1700,29 @@ RunService.RenderStepped:Connect(function(DeltaTime)
 
     CameraState = State
 
-    local TargetCameraPosition =
-        WorldPointToCamera(
-            Transform.Position,
-            State
-        )
+    local Now =
+        tick()
 
-    local TargetCameraUp =
-        WorldVectorToCamera(
-            Transform.Up,
-            State
-        )
+    QueueBufferedTransform(
+        Now,
+        Transform.Position,
+        State,
+        Transform.Up,
+        Transform.Back
+    )
 
-    local TargetCameraBack =
-        WorldVectorToCamera(
-            Transform.Back,
-            State
-        )
+    local Position,
+        Right,
+        Up,
+        Back =
+        ReadBufferedTransform(Now)
 
-    if SmoothedCameraBack
-        and TargetCameraBack:Dot(
-            SmoothedCameraBack
-        ) < 0
-    then
-        TargetCameraBack =
-            -TargetCameraBack
-    end
-
-    SmoothedCameraPosition =
-        SmoothVector(
-            SmoothedCameraPosition,
-            TargetCameraPosition,
-            DeltaTime,
-            18,
-            48
-        )
-
-    SmoothedCameraUp =
-        SmoothVector(
-            SmoothedCameraUp,
-            TargetCameraUp,
-            DeltaTime,
-            20,
-            70
-        )
-
-    SmoothedCameraBack =
-        SmoothVector(
-            SmoothedCameraBack,
-            TargetCameraBack,
-            DeltaTime,
-            20,
-            70
-        )
-
-    if SmoothedCameraUp.Magnitude < 0.001
-        or SmoothedCameraBack.Magnitude < 0.001
+    if not Position
+        or not Right
     then
         HoldLastFrame()
         return
     end
-
-    local Up =
-        SmoothedCameraUp.Unit
-
-    local Back =
-        SmoothedCameraBack.Unit
-
-    local Right =
-        Up:Cross(Back)
-
-    if Right.Magnitude < 0.001 then
-        HoldLastFrame()
-        return
-    end
-
-    Right = Right.Unit
-    Back = Right:Cross(Up)
-
-    if Back.Magnitude < 0.001 then
-        HoldLastFrame()
-        return
-    end
-
-    Back = Back.Unit
-    SmoothedCameraUp = Up
-    SmoothedCameraBack = Back
 
     AnimationTime =
         AnimationTime + DeltaTime
@@ -1537,7 +1767,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         )
 
     local Origin =
-        SmoothedCameraPosition
+        Position
         + Up * AttachmentHeight
         + Back * BackOffset
 
@@ -1582,7 +1812,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
     )
 
     LastValidFrameTime =
-        tick()
+        Now
 
     if not Controller.Enabled
         or FrameRevision ~= RenderRevision
