@@ -46,21 +46,15 @@ local ActiveCharacter = nil
 local CachedAnchorPart = nil
 local CachedPrimitiveAddress = 0
 local CameraState = nil
-local BufferFromPosition = nil
-local BufferToPosition = nil
-local BufferFromUp = nil
-local BufferToUp = nil
-local BufferFromBack = nil
-local BufferToBack = nil
-local BufferStartTime = 0
-local BufferDuration = 1 / 60
-local SampleInterval = 1 / 60
-local LastAcceptedTime = 0
+local TransformSamples = {}
+local InterpolationDelay = 0.050
 local LastObservedRootPosition = nil
 local LastObservedCameraPosition = nil
 local LastObservedCameraLook = nil
 local LastObservedCameraUp = nil
 local LastObservedWorldBack = nil
+local LastRootChangeTime = 0
+local LastCameraChangeTime = 0
 local PendingPosition = nil
 local PendingUp = nil
 local PendingBack = nil
@@ -68,6 +62,7 @@ local PendingSince = 0
 local PendingRootChanged = false
 local PendingCameraChanged = false
 local PendingRotationChanged = false
+local LastSampleTime = 0
 local LastValidFrameTime = 0
 local AnimationTime = 0
 local RenderRevision = 0
@@ -344,52 +339,87 @@ local function VectorChanged(
     ).Magnitude > Epsilon
 end
 
-local function ReadBufferedTransform(
-    Now
+local function ResetTransformSamples()
+    TransformSamples = {}
+    LastObservedRootPosition = nil
+    LastObservedCameraPosition = nil
+    LastObservedCameraLook = nil
+    LastObservedCameraUp = nil
+    LastObservedWorldBack = nil
+    LastRootChangeTime = 0
+    LastCameraChangeTime = 0
+    PendingPosition = nil
+    PendingUp = nil
+    PendingBack = nil
+    PendingSince = 0
+    PendingRootChanged = false
+    PendingCameraChanged = false
+    PendingRotationChanged = false
+    LastSampleTime = 0
+end
+
+local function PushTransformSample(
+    Now,
+    Position,
+    Up,
+    Back
 )
-    if not BufferToPosition
-        or not BufferToUp
-        or not BufferToBack
-    then
-        return nil
+    local LastSample =
+        TransformSamples[
+            #TransformSamples
+        ]
+
+    if LastSample then
+        if Back:Dot(
+            LastSample.Back
+        ) < 0
+        then
+            Back = -Back
+        end
+
+        if Up:Dot(
+            LastSample.Up
+        ) < 0
+        then
+            Up = -Up
+        end
+
+        local Distance =
+            (
+                Position
+                - LastSample.Position
+            ).Magnitude
+
+        if Distance > 8 then
+            TransformSamples = {}
+            LastSample = nil
+        end
     end
 
-    local Alpha =
-        Clamp(
-            (
-                Now
-                - BufferStartTime
+    if LastSample then
+        Position =
+            LastSample.Position:Lerp(
+                Position,
+                0.68
             )
-            / math.max(
-                BufferDuration,
-                0.001
-            ),
-            0,
-            1
-        )
 
-    local Position =
-        BufferFromPosition:Lerp(
-            BufferToPosition,
-            Alpha
-        )
+        Up =
+            LastSample.Up:Lerp(
+                Up,
+                0.58
+            )
 
-    local Up =
-        BufferFromUp:Lerp(
-            BufferToUp,
-            Alpha
-        )
-
-    local Back =
-        BufferFromBack:Lerp(
-            BufferToBack,
-            Alpha
-        )
+        Back =
+            LastSample.Back:Lerp(
+                Back,
+                0.52
+            )
+    end
 
     if Up.Magnitude < 0.001
         or Back.Magnitude < 0.001
     then
-        return nil
+        return
     end
 
     Up = Up.Unit
@@ -399,95 +429,38 @@ local function ReadBufferedTransform(
         Up:Cross(Back)
 
     if Right.Magnitude < 0.001 then
-        return nil
+        return
     end
 
     Right = Right.Unit
     Back = Right:Cross(Up)
 
     if Back.Magnitude < 0.001 then
-        return nil
+        return
     end
 
     Back = Back.Unit
 
-    return Position,
-        Right,
-        Up,
-        Back
-end
+    TransformSamples[
+        #TransformSamples + 1
+    ] = {
+        Time = Now,
+        Position = Position,
+        Up = Up,
+        Back = Back
+    }
 
-local function CommitBufferedTransform(
-    Now,
-    Position,
-    Up,
-    Back
-)
-    local CurrentPosition,
-        CurrentRight,
-        CurrentUp,
-        CurrentBack =
-        ReadBufferedTransform(Now)
-
-    if not CurrentPosition then
-        CurrentPosition = Position
-        CurrentUp = Up
-        CurrentBack = Back
-    end
-
-    if Back:Dot(CurrentBack) < 0 then
-        Back = -Back
-    end
-
-    if LastAcceptedTime > 0 then
-        local Interval =
-            Clamp(
-                Now - LastAcceptedTime,
-                1 / 120,
-                1 / 30
-            )
-
-        SampleInterval =
-            LerpNumber(
-                SampleInterval,
-                Interval,
-                0.25
-            )
-    end
-
-    BufferFromPosition =
-        CurrentPosition
-
-    BufferToPosition =
-        Position
-
-    BufferFromUp =
-        CurrentUp
-
-    BufferToUp =
-        Up
-
-    BufferFromBack =
-        CurrentBack
-
-    BufferToBack =
-        Back
-
-    BufferStartTime =
-        Now
-
-    BufferDuration =
-        Clamp(
-            SampleInterval * 1.10,
-            1 / 100,
-            1 / 30
+    while #TransformSamples > 12 do
+        table.remove(
+            TransformSamples,
+            1
         )
+    end
 
-    LastAcceptedTime =
-        Now
+    LastSampleTime = Now
 end
 
-local function QueueBufferedTransform(
+local function QueueTransformSample(
     Now,
     RootPosition,
     State,
@@ -525,6 +498,14 @@ local function QueueBufferedTransform(
             0.00001
         )
 
+    if RootChanged then
+        LastRootChangeTime = Now
+    end
+
+    if CameraChanged then
+        LastCameraChangeTime = Now
+    end
+
     LastObservedRootPosition =
         RootPosition
 
@@ -543,7 +524,7 @@ local function QueueBufferedTransform(
     if RootChanged
         or CameraChanged
         or RotationChanged
-        or not BufferToPosition
+        or #TransformSamples == 0
     then
         PendingPosition =
             WorldPointToCamera(
@@ -580,56 +561,57 @@ local function QueueBufferedTransform(
             or RotationChanged
     end
 
-    local PendingReady =
-        PendingPosition
-        and (
-            not BufferToPosition
-            or (
-                PendingRootChanged
-                and PendingCameraChanged
-            )
-            or (
-                PendingRotationChanged
-                and not PendingRootChanged
-                and not PendingCameraChanged
-            )
-            or Now - PendingSince >= 0.018
-        )
-
-    if PendingReady then
-        CommitBufferedTransform(
-            Now,
-            PendingPosition,
-            PendingUp,
-            PendingBack
-        )
-
-        PendingPosition = nil
-        PendingUp = nil
-        PendingBack = nil
-        PendingSince = 0
-        PendingRootChanged = false
-        PendingCameraChanged = false
-        PendingRotationChanged = false
+    if not PendingPosition then
+        return
     end
-end
 
-local function ResetBufferedTransform()
-    BufferFromPosition = nil
-    BufferToPosition = nil
-    BufferFromUp = nil
-    BufferToUp = nil
-    BufferFromBack = nil
-    BufferToBack = nil
-    BufferStartTime = 0
-    BufferDuration = 1 / 60
-    SampleInterval = 1 / 60
-    LastAcceptedTime = 0
-    LastObservedRootPosition = nil
-    LastObservedCameraPosition = nil
-    LastObservedCameraLook = nil
-    LastObservedCameraUp = nil
-    LastObservedWorldBack = nil
+    local PendingAge =
+        Now - PendingSince
+
+    local RootIsStationary =
+        Now - LastRootChangeTime
+        >= 0.040
+
+    local CameraIsStationary =
+        Now - LastCameraChangeTime
+        >= 0.040
+
+    local Ready =
+        #TransformSamples == 0
+        or (
+            PendingRootChanged
+            and PendingCameraChanged
+        )
+        or (
+            PendingRootChanged
+            and CameraIsStationary
+            and PendingAge >= 0.014
+        )
+        or (
+            PendingCameraChanged
+            and RootIsStationary
+            and PendingAge >= 0.014
+        )
+        or (
+            PendingRotationChanged
+            and not PendingRootChanged
+            and not PendingCameraChanged
+            and Now - LastSampleTime
+                >= 1 / 60
+        )
+        or PendingAge >= 0.030
+
+    if not Ready then
+        return
+    end
+
+    PushTransformSample(
+        Now,
+        PendingPosition,
+        PendingUp,
+        PendingBack
+    )
+
     PendingPosition = nil
     PendingUp = nil
     PendingBack = nil
@@ -637,6 +619,127 @@ local function ResetBufferedTransform()
     PendingRootChanged = false
     PendingCameraChanged = false
     PendingRotationChanged = false
+end
+
+local function ReadDelayedTransform(
+    Now
+)
+    local Count =
+        #TransformSamples
+
+    if Count == 0 then
+        return nil
+    end
+
+    local TargetTime =
+        Now - InterpolationDelay
+
+    while #TransformSamples >= 3
+        and TransformSamples[2].Time
+            <= TargetTime
+    do
+        table.remove(
+            TransformSamples,
+            1
+        )
+    end
+
+    local SampleA =
+        TransformSamples[1]
+
+    local SampleB =
+        TransformSamples[2]
+
+    if not SampleB
+        or TargetTime <= SampleA.Time
+    then
+        local Up =
+            SampleA.Up
+
+        local Back =
+            SampleA.Back
+
+        local Right =
+            Up:Cross(Back)
+
+        if Right.Magnitude < 0.001 then
+            return nil
+        end
+
+        Right = Right.Unit
+        Back = Right:Cross(Up).Unit
+
+        return SampleA.Position,
+            Right,
+            Up,
+            Back
+    end
+
+    local Duration =
+        SampleB.Time
+        - SampleA.Time
+
+    local Alpha =
+        Clamp(
+            (
+                TargetTime
+                - SampleA.Time
+            )
+            / math.max(
+                Duration,
+                0.001
+            ),
+            0,
+            1
+        )
+
+    local Position =
+        SampleA.Position:Lerp(
+            SampleB.Position,
+            Alpha
+        )
+
+    local Up =
+        SampleA.Up:Lerp(
+            SampleB.Up,
+            Alpha
+        )
+
+    local Back =
+        SampleA.Back:Lerp(
+            SampleB.Back,
+            Alpha
+        )
+
+    if Up.Magnitude < 0.001
+        or Back.Magnitude < 0.001
+    then
+        return nil
+    end
+
+    Up = Up.Unit
+    Back = Back.Unit
+
+    local Right =
+        Up:Cross(Back)
+
+    if Right.Magnitude < 0.001 then
+        return nil
+    end
+
+    Right = Right.Unit
+    Back = Right:Cross(Up)
+
+    if Back.Magnitude < 0.001 then
+        return nil
+    end
+
+    Back = Back.Unit
+
+    return Position,
+        Right,
+        Up,
+        Back
 end
 
 local function ProjectCameraPoint(CameraPoint)
@@ -1627,7 +1730,7 @@ function Controller:Stop()
     CachedAnchorPart = nil
     CachedPrimitiveAddress = 0
     CameraState = nil
-    ResetBufferedTransform()
+    ResetTransformSamples()
     LastValidFrameTime = 0
 
     if _G.NightfallWingsController == self then
@@ -1680,7 +1783,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         CachedAnchorPart = nil
         CachedPrimitiveAddress = 0
         CameraState = nil
-        ResetBufferedTransform()
+        ResetTransformSamples()
     end
 
     local State =
@@ -1703,7 +1806,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
     local Now =
         tick()
 
-    QueueBufferedTransform(
+    QueueTransformSample(
         Now,
         Transform.Position,
         State,
@@ -1715,7 +1818,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         Right,
         Up,
         Back =
-        ReadBufferedTransform(Now)
+        ReadDelayedTransform(Now)
 
     if not Position
         or not Right
