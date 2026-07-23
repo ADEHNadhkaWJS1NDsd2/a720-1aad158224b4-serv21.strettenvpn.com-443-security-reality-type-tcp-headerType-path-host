@@ -34,7 +34,8 @@ end
 local Controller = {
     Running = true,
     Enabled = true,
-    Color = DefaultColor
+    Color = DefaultColor,
+    SwingSpeed = FlapSpeed
 }
 
 _G.NightfallWingsController = Controller
@@ -47,6 +48,7 @@ local CachedAnchorPart = nil
 local CachedPrimitiveAddress = 0
 local StableBack = nil
 local AnimationTime = 0
+local RenderRevision = 0
 
 local Palette = {}
 
@@ -185,7 +187,11 @@ end
 
 local function HideAll()
     for Index = 1, #Drawings do
-        Drawings[Index].Visible = false
+        local DrawingObject = Drawings[Index]
+
+        pcall(function()
+            DrawingObject.Visible = false
+        end)
     end
 end
 
@@ -1063,10 +1069,29 @@ local function RenderWing(
 end
 
 function Controller:SetEnabled(Value)
-    self.Enabled = Value == true
+    local NewState = Value == true
 
-    if not self.Enabled then
+    if self.Enabled == NewState then
+        if not NewState then
+            HideAll()
+        end
+
+        return
+    end
+
+    self.Enabled = NewState
+    RenderRevision = RenderRevision + 1
+
+    if not NewState then
         HideAll()
+
+        task.defer(function()
+            if self.Running
+                and not self.Enabled
+            then
+                HideAll()
+            end
+        end)
     end
 end
 
@@ -1088,6 +1113,15 @@ function Controller:SetScale(Value)
     Scale = Clamp(Value, 0.6, 1.8)
 end
 
+function Controller:SetSwingSpeed(Value)
+    if type(Value) ~= "number" then
+        return
+    end
+
+    FlapSpeed = Clamp(Value, 0.1, 6)
+    self.SwingSpeed = FlapSpeed
+end
+
 function Controller:Stop()
     if not self.Running then
         return
@@ -1095,6 +1129,7 @@ function Controller:Stop()
 
     self.Running = false
     self.Enabled = false
+    RenderRevision = RenderRevision + 1
 
     for Index = 1, #Drawings do
         local DrawingObject = Drawings[Index]
@@ -1123,8 +1158,11 @@ RunService.RenderStepped:Connect(function(DeltaTime)
     end
 
     if not Controller.Enabled then
+        HideAll()
         return
     end
+
+    local FrameRevision = RenderRevision
 
     if type(DeltaTime) ~= "number" then
         DeltaTime = 0.016
@@ -1240,6 +1278,12 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         AnimationTime + 0.018,
         FlapPhase + 0.012
     )
+
+    if not Controller.Enabled
+        or FrameRevision ~= RenderRevision
+    then
+        HideAll()
+    end
 end)
 
 return Controller
