@@ -8,7 +8,6 @@ local Camera = Workspace.CurrentCamera
 local BasePartPrimitiveOffset = 0x128
 local PrimitiveRotationOffset = 0xC8
 local PrimitivePositionOffset = 0xEC
-local PrimitiveAssemblyLinearVelocityOffset = 0xF8
 
 local DefaultColor = Color3.fromRGB(112, 64, 225)
 
@@ -23,11 +22,6 @@ local FallbackAttachmentHeight = 0.38
 local FlapSpeed = 1.45
 local FlapStrength = 0.72
 local FeatherWaveStrength = 0.034
-
-local PredictionTime = 0.045
-local PositionCorrectionRate = 26
-local PositionSnapDistance = 8
-local MaximumPredictionDistance = 1.75
 
 local PreviousController = _G.NightfallWingsController
 
@@ -49,11 +43,10 @@ local Drawings = {}
 local DrawingRoles = {}
 
 local ActiveCharacter = nil
-local CachedRootPart = nil
+local CachedAnchorPart = nil
 local CachedPrimitiveAddress = 0
-local AnimationTime = 0
-local RenderPosition = nil
 local StableBack = nil
+local AnimationTime = 0
 
 local Palette = {}
 
@@ -380,17 +373,18 @@ local function ReadVector3(Address)
     )
 end
 
-local function GetPrimitiveAddress(RootPart)
-    if CachedRootPart ~= RootPart then
-        CachedRootPart = RootPart
+local function GetPrimitiveAddress(Part)
+    if CachedAnchorPart ~= Part then
+        CachedAnchorPart = Part
         CachedPrimitiveAddress = 0
+        StableBack = nil
     end
 
     if CachedPrimitiveAddress ~= 0 then
         return CachedPrimitiveAddress
     end
 
-    local InstanceAddress = RootPart.Address
+    local InstanceAddress = Part.Address
 
     if not InstanceAddress or InstanceAddress == 0 then
         return 0
@@ -410,31 +404,35 @@ local function GetPrimitiveAddress(RootPart)
     return PrimitiveAddress
 end
 
-local function ReadRootTransform(RootPart)
-    local PrimitiveAddress = GetPrimitiveAddress(RootPart)
+local function StabilizeBasis(Right, Back)
+    if StableBack
+        and Back:Dot(StableBack) < -0.85
+    then
+        Right = -Right
+        Back = -Back
+    end
+
+    StableBack = Back
+
+    return Right, Back
+end
+
+local function ReadPartTransform(Part)
+    local PrimitiveAddress = GetPrimitiveAddress(Part)
 
     if PrimitiveAddress == 0 then
         return nil
     end
 
-    local Position = ReadVector3(
+    local PositionAddress =
         PrimitiveAddress + PrimitivePositionOffset
-    )
 
-    if not IsValidVector(Position) then
+    local PositionA =
+        ReadVector3(PositionAddress)
+
+    if not IsValidVector(PositionA) then
         CachedPrimitiveAddress = 0
         return nil
-    end
-
-    local Velocity = ReadVector3(
-        PrimitiveAddress
-        + PrimitiveAssemblyLinearVelocityOffset
-    )
-
-    if not IsValidVector(Velocity)
-        or Velocity.Magnitude > 5000
-    then
-        Velocity = Vector3.new(0, 0, 0)
     end
 
     local RotationAddress =
@@ -466,6 +464,16 @@ local function ReadRootTransform(RootPart)
         return nil
     end
 
+    local PositionB =
+        ReadVector3(PositionAddress)
+
+    if not IsValidVector(PositionB)
+        or (PositionB - PositionA).Magnitude > 1.5
+    then
+        CachedPrimitiveAddress = 0
+        return nil
+    end
+
     local RightRaw = Vector3.new(M00, M10, M20)
     local BackRaw = Vector3.new(M02, M12, M22)
 
@@ -486,7 +494,21 @@ local function ReadRootTransform(RootPart)
         BackRaw.Z
     )
 
-    if FlatBack.Magnitude < 0.5 then
+    local Right = nil
+    local Back = nil
+
+    if FlatBack.Magnitude >= 0.5 then
+        Back = FlatBack.Unit
+        Right = Up:Cross(Back)
+
+        if Right.Magnitude < 0.5 then
+            CachedPrimitiveAddress = 0
+            return nil
+        end
+
+        Right = Right.Unit
+        Back = Right:Cross(Up).Unit
+    else
         local FlatRight = Vector3.new(
             RightRaw.X,
             0,
@@ -498,8 +520,8 @@ local function ReadRootTransform(RootPart)
             return nil
         end
 
-        local Right = FlatRight.Unit
-        local Back = Right:Cross(Up)
+        Right = FlatRight.Unit
+        Back = Right:Cross(Up)
 
         if Back.Magnitude < 0.5 then
             CachedPrimitiveAddress = 0
@@ -507,121 +529,43 @@ local function ReadRootTransform(RootPart)
         end
 
         Back = Back.Unit
-
-        return {
-            Position = Position,
-            Velocity = Velocity,
-            Right = Right,
-            Up = Up,
-            Back = Back
-        }
     end
 
-    local Back = FlatBack.Unit
-    local Right = Up:Cross(Back)
-
-    if Right.Magnitude < 0.5 then
-        CachedPrimitiveAddress = 0
-        return nil
-    end
-
-    Right = Right.Unit
-    Back = Right:Cross(Up).Unit
+    Right, Back =
+        StabilizeBasis(Right, Back)
 
     return {
-        Position = Position,
-        Velocity = Velocity,
+        Position = PositionB,
         Right = Right,
         Up = Up,
         Back = Back
     }
 end
 
-local function GetRenderPosition(Transform, DeltaTime)
-    local Prediction =
-        Transform.Velocity * PredictionTime
+local function GetWingAnchor(Character)
+    local UpperTorso =
+        Character:FindFirstChild("UpperTorso")
 
-    if Prediction.Magnitude
-        > MaximumPredictionDistance
-    then
-        Prediction =
-            Prediction.Unit
-            * MaximumPredictionDistance
+    local Torso =
+        Character:FindFirstChild("Torso")
+
+    if Torso and not UpperTorso then
+        return Torso, true
     end
 
-    local TargetPosition =
-        Transform.Position + Prediction
+    local RootPart =
+        Character:FindFirstChild("HumanoidRootPart")
+        or Character.PrimaryPart
 
-    if not RenderPosition
-        or (
-            TargetPosition
-            - RenderPosition
-        ).Magnitude > PositionSnapDistance
-    then
-        RenderPosition = TargetPosition
-        return RenderPosition
-    end
-
-    RenderPosition =
-        RenderPosition
-        + Transform.Velocity * DeltaTime
-
-    local CorrectionAlpha =
-        1
-        - math.exp(
-            -PositionCorrectionRate
-            * DeltaTime
-        )
-
-    RenderPosition =
-        LerpVector(
-            RenderPosition,
-            TargetPosition,
-            CorrectionAlpha
-        )
-
-    return RenderPosition
+    return RootPart, false
 end
 
-local function StabilizeBasis(Transform)
-    local Back = Transform.Back
-    local Right = Transform.Right
-
-    if StableBack
-        and Back:Dot(StableBack) < -0.85
-    then
-        Back = -Back
-        Right = -Right
-    end
-
-    StableBack = Back
-
-    Transform.Back = Back
-    Transform.Right = Right
-
-    return Transform
-end
-
-local function GetRootPart(Character)
-    local RootPart = Character:FindFirstChild("HumanoidRootPart")
-
-    if RootPart then
-        return RootPart
-    end
-
-    return Character.PrimaryPart
-end
-
-local function GetAttachmentHeight(Character)
-    if Character:FindFirstChild("UpperTorso") then
-        return R15AttachmentHeight
-    end
-
-    if Character:FindFirstChild("Torso") then
+local function GetAttachmentHeight(IsR6)
+    if IsR6 then
         return R6AttachmentHeight
     end
 
-    return FallbackAttachmentHeight
+    return R15AttachmentHeight
 end
 
 local function CalculateWingPoints(Origin, SideVector, Up, Back, Flap, Fold)
@@ -1164,7 +1108,8 @@ function Controller:Stop()
 
     Drawings = {}
     DrawingRoles = {}
-    RenderPosition = nil
+    CachedAnchorPart = nil
+    CachedPrimitiveAddress = 0
     StableBack = nil
 
     if _G.NightfallWingsController == self then
@@ -1196,35 +1141,28 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         return
     end
 
-    local RootPart = GetRootPart(Character)
+    local AnchorPart, IsR6 =
+        GetWingAnchor(Character)
 
-    if not RootPart then
+    if not AnchorPart then
         HideAll()
         return
     end
 
     if ActiveCharacter ~= Character then
         ActiveCharacter = Character
-        CachedRootPart = nil
+        CachedAnchorPart = nil
         CachedPrimitiveAddress = 0
-        RenderPosition = nil
         StableBack = nil
     end
 
-    local Transform = ReadRootTransform(RootPart)
+    local Transform =
+        ReadPartTransform(AnchorPart)
 
     if not Transform then
         HideAll()
         return
     end
-
-    Transform = StabilizeBasis(Transform)
-
-    local AnchoredPosition =
-        GetRenderPosition(
-            Transform,
-            DeltaTime
-        )
 
     AnimationTime = AnimationTime + DeltaTime
 
@@ -1256,10 +1194,10 @@ RunService.RenderStepped:Connect(function(DeltaTime)
     local Back = Transform.Back
 
     local AttachmentHeight =
-        GetAttachmentHeight(Character)
+        GetAttachmentHeight(IsR6)
 
     local Origin =
-        AnchoredPosition
+        Transform.Position
         + Up * AttachmentHeight
         + Back * BackOffset
 
