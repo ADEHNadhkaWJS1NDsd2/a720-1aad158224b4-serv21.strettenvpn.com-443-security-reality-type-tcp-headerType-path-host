@@ -47,7 +47,6 @@ local CachedAnchorPart = nil
 local CachedPrimitiveAddress = 0
 local SmoothedPosition = nil
 local SmoothedBack = nil
-local FrameProjector = nil
 local AnimationTime = 0
 local RenderRevision = 0
 
@@ -196,87 +195,15 @@ local function HideAll()
     end
 end
 
-local function BeginProjectionFrame()
-    local Success, CameraCFrame, ViewportSize, FieldOfView =
-        pcall(function()
-            return Camera.CFrame,
-                Camera.ViewportSize,
-                Camera.FieldOfView
-        end)
-
-    if not Success
-        or typeof(CameraCFrame) ~= "CFrame"
-        or typeof(ViewportSize) ~= "Vector2"
-        or type(FieldOfView) ~= "number"
-        or ViewportSize.X <= 0
-        or ViewportSize.Y <= 0
-        or FieldOfView <= 1
-        or FieldOfView >= 179
-    then
-        FrameProjector = nil
-        return false
-    end
-
-    local FocalLength =
-        (
-            ViewportSize.Y * 0.5
-        )
-        / math.tan(
-            FieldOfView
-            * math.pi
-            / 360
-        )
-
-    FrameProjector = {
-        CameraCFrame = CameraCFrame,
-        CenterX = ViewportSize.X * 0.5,
-        CenterY = ViewportSize.Y * 0.5,
-        FocalLength = FocalLength
-    }
-
-    return true
-end
-
 local function ProjectRigidPoint(WorldPoint)
-    local Projector =
-        FrameProjector
+    local ScreenPoint, OnScreen =
+        WorldToScreen(WorldPoint)
 
-    if not Projector then
+    if not OnScreen then
         return nil
     end
 
-    local Success, CameraPoint =
-        pcall(function()
-            return Projector.CameraCFrame:PointToObjectSpace(
-                WorldPoint
-            )
-        end)
-
-    if not Success
-        or typeof(CameraPoint) ~= "Vector3"
-    then
-        return nil
-    end
-
-    local Depth =
-        -CameraPoint.Z
-
-    if Depth <= 0.03 then
-        return nil
-    end
-
-    local ScaleValue =
-        Projector.FocalLength
-        / Depth
-
-    return Vector2.new(
-        Projector.CenterX
-        + CameraPoint.X
-        * ScaleValue,
-        Projector.CenterY
-        - CameraPoint.Y
-        * ScaleValue
-    )
+    return ScreenPoint
 end
 
 local function DrawLineObject(Line, WorldA, WorldB)
@@ -1324,7 +1251,6 @@ function Controller:Stop()
     CachedPrimitiveAddress = 0
     SmoothedPosition = nil
     SmoothedBack = nil
-    FrameProjector = nil
 
     if _G.NightfallWingsController == self then
         _G.NightfallWingsController = nil
@@ -1418,11 +1344,6 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         Transform.Position
         + Up * AttachmentHeight
         + Back * BackOffset
-
-    if not BeginProjectionFrame() then
-        HideAll()
-        return
-    end
 
     local LeftPoints =
         CalculateWingPoints(
