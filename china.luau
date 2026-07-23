@@ -1382,10 +1382,53 @@ function Controller:Stop()
     end
 end
 
-RunService.RenderStepped:Connect(function(DeltaTime)
+local RenderFps = 180
+local RenderInterval = 1 / RenderFps
+local LastRenderClock = os.clock()
+
+function Controller:SetFps(Value)
+    if type(Value) ~= "number" then
+        return
+    end
+
+    RenderFps =
+        Clamp(
+            math.floor(Value + 0.5),
+            30,
+            360
+        )
+
+    RenderInterval =
+        1 / RenderFps
+end
+
+function Controller:GetFps()
+    return RenderFps
+end
+
+RunService.RenderStepped:Connect(function(RenderDeltaTime)
     if not Controller.Running then
         return
     end
+
+    local CurrentClock =
+        os.clock()
+
+    local FrameElapsed =
+        CurrentClock
+        - LastRenderClock
+
+    if FrameElapsed
+        < RenderInterval
+    then
+        return
+    end
+
+    LastRenderClock =
+        CurrentClock
+
+    local DeltaTime =
+        FrameElapsed
 
     if not Controller.Enabled then
         HideAll()
