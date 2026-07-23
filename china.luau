@@ -42,6 +42,7 @@ local PrimitiveCache = {}
 local ActiveCharacter = nil
 local SmoothedPosition = nil
 local SmoothedBack = nil
+local FrameProjector = nil
 
 local Palette = {}
 
@@ -364,21 +365,39 @@ local function ReadPartPosition(Part)
     return Position
 end
 
-local function ReadPartTransform(
-    Part,
-    DeltaTime
+local function LerpMicroNoise(
+    Previous,
+    Current,
+    Threshold,
+    Alpha
 )
+    if not Previous then
+        return Current
+    end
+
+    local Difference =
+        (
+            Current - Previous
+        ).Magnitude
+
+    if Difference > Threshold then
+        return Previous:Lerp(
+            Current,
+            1
+        )
+    end
+
+    return Previous:Lerp(
+        Current,
+        Alpha
+    )
+end
+
+local function ReadHorizontalBasis(Part)
     local PrimitiveAddress =
         GetPrimitiveAddress(Part)
 
     if PrimitiveAddress == 0 then
-        return nil
-    end
-
-    local PositionA =
-        ReadPartPosition(Part)
-
-    if not PositionA then
         return nil
     end
 
@@ -394,16 +413,6 @@ local function ReadPartTransform(
             RotationAddress + 0x8
         )
 
-    local M10 =
-        ReadFloat(
-            RotationAddress + 0xC
-        )
-
-    local M12 =
-        ReadFloat(
-            RotationAddress + 0x14
-        )
-
     local M20 =
         ReadFloat(
             RotationAddress + 0x18
@@ -416,8 +425,6 @@ local function ReadPartTransform(
 
     if not IsValidNumber(M00)
         or not IsValidNumber(M02)
-        or not IsValidNumber(M10)
-        or not IsValidNumber(M12)
         or not IsValidNumber(M20)
         or not IsValidNumber(M22)
     then
@@ -425,26 +432,8 @@ local function ReadPartTransform(
         return nil
     end
 
-    local PositionB =
-        ReadPartPosition(Part)
-
-    if not PositionB
-        or (
-            PositionB
-            - PositionA
-        ).Magnitude > 2
-    then
-        return nil
-    end
-
-    local CurrentPosition =
-        (
-            PositionA
-            + PositionB
-        ) * 0.5
-
-    local TargetPosition =
-        CurrentPosition
+    local Up =
+        Vector3.new(0, 1, 0)
 
     local Back =
         Vector3.new(
@@ -453,22 +442,12 @@ local function ReadPartTransform(
             M22
         )
 
-    local RightRaw =
-        Vector3.new(
-            M00,
-            M10,
-            M20
-        )
-
-    local Up =
-        Vector3.new(0, 1, 0)
-
     if Back.Magnitude < 0.5 then
         local RightFallback =
             Vector3.new(
-                RightRaw.X,
+                M00,
                 0,
-                RightRaw.Z
+                M20
             )
 
         if RightFallback.Magnitude < 0.5 then
@@ -486,11 +465,9 @@ local function ReadPartTransform(
             PrimitiveCache[Part] = nil
             return nil
         end
-
-        Back = Back.Unit
-    else
-        Back = Back.Unit
     end
+
+    Back = Back.Unit
 
     if SmoothedBack
         and Back:Dot(SmoothedBack) < 0
@@ -498,46 +475,19 @@ local function ReadPartTransform(
         Back = -Back
     end
 
-    local PositionAlpha =
-        Clamp(
-            DeltaTime * 42,
-            0,
-            1
+    SmoothedBack =
+        LerpMicroNoise(
+            SmoothedBack,
+            Back,
+            0.002,
+            0.35
         )
 
-    local RotationAlpha =
-        Clamp(
-            DeltaTime * 32,
-            0,
-            1
-        )
-
-    if not SmoothedPosition then
-        SmoothedPosition =
-            TargetPosition
-    else
-        SmoothedPosition =
-            SmoothedPosition:Lerp(
-                TargetPosition,
-                PositionAlpha
-            )
-    end
-
-    if not SmoothedBack then
+    if SmoothedBack.Magnitude < 0.001 then
         SmoothedBack = Back
     else
-        local MixedBack =
-            SmoothedBack:Lerp(
-                Back,
-                RotationAlpha
-            )
-
-        if MixedBack.Magnitude < 0.001 then
-            SmoothedBack = Back
-        else
-            SmoothedBack =
-                MixedBack.Unit
-        end
+        SmoothedBack =
+            SmoothedBack.Unit
     end
 
     local Right =
@@ -559,42 +509,24 @@ local function ReadPartTransform(
     StableBack = StableBack.Unit
     SmoothedBack = StableBack
 
-    return {
-        Position = SmoothedPosition,
-        Right = Right,
-        Up = Up,
-        Back = StableBack
-    }
+    return Right, Up, StableBack
 end
 
-local function GetCharacterParts(Character)
+local function GetHatParts(Character)
     local Head =
         Character:FindFirstChild(
             "Head"
         )
 
-    if Head then
-        return Head
-    end
-
-    return Character:FindFirstChild(
-        "HumanoidRootPart"
-    ) or Character.PrimaryPart
-end
-
-local function GetCharacterParts(Character)
-    local Head =
-        Character:FindFirstChild("Head")
-
     local UpperTorso =
-        Character:FindFirstChild("UpperTorso")
+        Character:FindFirstChild(
+            "UpperTorso"
+        )
 
     local Torso =
-        Character:FindFirstChild("Torso")
-
-    if Torso and not UpperTorso then
-        return Head, Torso, true
-    end
+        Character:FindFirstChild(
+            "Torso"
+        )
 
     local RootPart =
         Character:FindFirstChild(
@@ -602,18 +534,140 @@ local function GetCharacterParts(Character)
         )
         or Character.PrimaryPart
 
-    return Head, RootPart, false
+    if not Head then
+        Head = RootPart
+    end
+
+    if Torso and not UpperTorso then
+        return Head, Torso
+    end
+
+    return Head, UpperTorso or RootPart or Head
 end
 
-local function ProjectPoint(WorldPoint)
-    local ScreenPoint, Visible =
-        WorldToScreen(WorldPoint)
+local function BuildFrameProjector(
+    Origin,
+    Right,
+    Up,
+    Back
+)
+    local ScreenOrigin, OriginVisible =
+        WorldToScreen(Origin)
 
-    if not Visible then
+    if not OriginVisible then
+        FrameProjector = nil
+        return false
+    end
+
+    local Step = 0.25
+
+    local function ReadAxis(Axis)
+        local PositivePoint, PositiveVisible =
+            WorldToScreen(
+                Origin + Axis * Step
+            )
+
+        if PositiveVisible then
+            return Vector2.new(
+                (
+                    PositivePoint.X
+                    - ScreenOrigin.X
+                ) / Step,
+                (
+                    PositivePoint.Y
+                    - ScreenOrigin.Y
+                ) / Step
+            )
+        end
+
+        local NegativePoint, NegativeVisible =
+            WorldToScreen(
+                Origin - Axis * Step
+            )
+
+        if NegativeVisible then
+            return Vector2.new(
+                (
+                    ScreenOrigin.X
+                    - NegativePoint.X
+                ) / Step,
+                (
+                    ScreenOrigin.Y
+                    - NegativePoint.Y
+                ) / Step
+            )
+        end
+
         return nil
     end
 
-    return ScreenPoint
+    local ScreenRight =
+        ReadAxis(Right)
+
+    local ScreenUp =
+        ReadAxis(Up)
+
+    local ScreenBack =
+        ReadAxis(Back)
+
+    if not ScreenRight
+        or not ScreenUp
+        or not ScreenBack
+    then
+        FrameProjector = nil
+        return false
+    end
+
+    FrameProjector = {
+        Origin = Origin,
+        Right = Right,
+        Up = Up,
+        Back = Back,
+        ScreenOrigin = ScreenOrigin,
+        ScreenRight = ScreenRight,
+        ScreenUp = ScreenUp,
+        ScreenBack = ScreenBack
+    }
+
+    return true
+end
+
+local function ProjectPoint(WorldPoint)
+    local Projector =
+        FrameProjector
+
+    if not Projector then
+        return nil
+    end
+
+    local Delta =
+        WorldPoint - Projector.Origin
+
+    local RightAmount =
+        Delta:Dot(Projector.Right)
+
+    local UpAmount =
+        Delta:Dot(Projector.Up)
+
+    local BackAmount =
+        Delta:Dot(Projector.Back)
+
+    return Vector2.new(
+        Projector.ScreenOrigin.X
+        + Projector.ScreenRight.X
+        * RightAmount
+        + Projector.ScreenUp.X
+        * UpAmount
+        + Projector.ScreenBack.X
+        * BackAmount,
+        Projector.ScreenOrigin.Y
+        + Projector.ScreenRight.Y
+        * RightAmount
+        + Projector.ScreenUp.Y
+        * UpAmount
+        + Projector.ScreenBack.Y
+        * BackAmount
+    )
 end
 
 local function SetLine(
@@ -920,6 +974,7 @@ function Controller:Stop()
     PrimitiveCache = {}
     SmoothedPosition = nil
     SmoothedBack = nil
+    FrameProjector = nil
 
     if _G.NightfallChinaHatController == self then
         _G.NightfallChinaHatController = nil
@@ -964,30 +1019,57 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         SmoothedBack = nil
     end
 
-    local AnchorPart =
-        GetCharacterParts(Character)
+    local PositionPart,
+        OrientationPart =
+        GetHatParts(Character)
 
-    if not AnchorPart then
+    if not PositionPart
+        or not OrientationPart
+    then
         HideAll()
         return
     end
 
-    local Transform =
-        ReadPartTransform(
-            AnchorPart,
-            DeltaTime
+    local CurrentPosition =
+        ReadPartPosition(
+            PositionPart
         )
 
-    if not Transform then
+    local Right, Up, Back =
+        ReadHorizontalBasis(
+            OrientationPart
+        )
+
+    if not CurrentPosition
+        or not Right
+    then
+        HideAll()
+        return
+    end
+
+    SmoothedPosition =
+        LerpMicroNoise(
+            SmoothedPosition,
+            CurrentPosition,
+            0.004,
+            0.35
+        )
+
+    if not BuildFrameProjector(
+        SmoothedPosition,
+        Right,
+        Up,
+        Back
+    ) then
         HideAll()
         return
     end
 
     RenderHat(
-        Transform.Position,
-        Transform.Right,
-        Transform.Up,
-        Transform.Back
+        SmoothedPosition,
+        Right,
+        Up,
+        Back
     )
 end)
 
