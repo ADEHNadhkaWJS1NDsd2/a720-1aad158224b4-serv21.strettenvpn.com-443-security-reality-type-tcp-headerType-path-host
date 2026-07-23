@@ -42,7 +42,6 @@ local PrimitiveCache = {}
 local ActiveCharacter = nil
 local SmoothedPosition = nil
 local SmoothedBack = nil
-local FrameProjector = nil
 
 local Palette = {}
 
@@ -539,87 +538,15 @@ local function GetHatParts(Character)
     return Head, UpperTorso or RootPart or Head
 end
 
-local function BeginProjectionFrame()
-    local Success, CameraCFrame, ViewportSize, FieldOfView =
-        pcall(function()
-            return Camera.CFrame,
-                Camera.ViewportSize,
-                Camera.FieldOfView
-        end)
-
-    if not Success
-        or typeof(CameraCFrame) ~= "CFrame"
-        or typeof(ViewportSize) ~= "Vector2"
-        or type(FieldOfView) ~= "number"
-        or ViewportSize.X <= 0
-        or ViewportSize.Y <= 0
-        or FieldOfView <= 1
-        or FieldOfView >= 179
-    then
-        FrameProjector = nil
-        return false
-    end
-
-    local FocalLength =
-        (
-            ViewportSize.Y * 0.5
-        )
-        / math.tan(
-            FieldOfView
-            * math.pi
-            / 360
-        )
-
-    FrameProjector = {
-        CameraCFrame = CameraCFrame,
-        CenterX = ViewportSize.X * 0.5,
-        CenterY = ViewportSize.Y * 0.5,
-        FocalLength = FocalLength
-    }
-
-    return true
-end
-
 local function ProjectPoint(WorldPoint)
-    local Projector =
-        FrameProjector
+    local ScreenPoint, OnScreen =
+        WorldToScreen(WorldPoint)
 
-    if not Projector then
+    if not OnScreen then
         return nil
     end
 
-    local Success, CameraPoint =
-        pcall(function()
-            return Projector.CameraCFrame:PointToObjectSpace(
-                WorldPoint
-            )
-        end)
-
-    if not Success
-        or typeof(CameraPoint) ~= "Vector3"
-    then
-        return nil
-    end
-
-    local Depth =
-        -CameraPoint.Z
-
-    if Depth <= 0.03 then
-        return nil
-    end
-
-    local ScaleValue =
-        Projector.FocalLength
-        / Depth
-
-    return Vector2.new(
-        Projector.CenterX
-        + CameraPoint.X
-        * ScaleValue,
-        Projector.CenterY
-        - CameraPoint.Y
-        * ScaleValue
-    )
+    return ScreenPoint
 end
 
 local function SetLine(
@@ -926,7 +853,6 @@ function Controller:Stop()
     PrimitiveCache = {}
     SmoothedPosition = nil
     SmoothedBack = nil
-    FrameProjector = nil
 
     if _G.NightfallChinaHatController == self then
         _G.NightfallChinaHatController = nil
@@ -1023,11 +949,6 @@ RunService.RenderStepped:Connect(function(DeltaTime)
                 CurrentPosition,
                 PositionAlpha
             )
-    end
-
-    if not BeginProjectionFrame() then
-        HideAll()
-        return
     end
 
     RenderHat(
