@@ -109,9 +109,6 @@ local Library do
         ActiveTweens = setmetatable({}, {__mode = "k"}),
         ActiveSlider = nil,
         SliderConnection = nil,
-        ActiveColorpicker = nil,
-        ColorpickerConnection = nil,
-        ColorpickerInputConnection = nil,
         InputListeners = {
             Began = {},
             Changed = {},
@@ -132,7 +129,6 @@ local Library do
 
         CurrentColorpicker = nil,
         InputRouterReady = false,
-        Unloading = false,
         Unloaded = false
     }
 
@@ -864,23 +860,17 @@ local Library do
             end
         end
 
-        CustomFont:New("Tahoma", 400, "Regular", {
+        CustomFont:New("Windows-XP-Tahoma", 200, "Regular", {
             Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/windows-xp-tahoma.ttf"
         })
 
-        Library.Font =
-            CustomFont:Get("Tahoma")
-            or Font.fromEnum(
-                Enum.Font.Arial
-            )
+        Library.Font = CustomFont:Get("Windows-XP-Tahoma")
     end
 
     Library.Holder = Instances:Create("ScreenGui", {
         Parent = gethui(),
         Name = "\0",
-        ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Global,
-        DisplayOrder = 2147483646
+        ResetOnSpawn = false
     })
 
     Library.NotifHolder = Instances:Create("Frame", {
@@ -971,64 +961,24 @@ local Library do
     local function DisconnectRecord(
         Record
     )
-        if Record == nil then
-            return false
+        if not Record then
+            return
         end
 
-        local RecordType =
-            typeof(
-                Record
-            )
+        local Connection =
+            Record.Connection
+            or Record
 
-        if RecordType
-            == "RBXScriptConnection"
+        if Connection
+            and type(
+                Connection.Disconnect
+            ) == "function"
         then
             pcall(function()
-                Record:
+                Connection:
                     Disconnect()
             end)
-
-            return true
         end
-
-        if type(Record)
-            ~= "table"
-        then
-            return false
-        end
-
-        local NestedConnection =
-            rawget(
-                Record,
-                "Connection"
-            )
-
-        if NestedConnection
-            ~= nil
-        then
-            return DisconnectRecord(
-                NestedConnection
-            )
-        end
-
-        local DisconnectMethod =
-            rawget(
-                Record,
-                "Disconnect"
-            )
-
-        if type(DisconnectMethod)
-            == "function"
-        then
-            pcall(
-                DisconnectMethod,
-                Record
-            )
-
-            return true
-        end
-
-        return false
     end
 
     local function EnsureInputRouter()
@@ -1090,70 +1040,39 @@ local Library do
     end
 
     Library.Unload = function(self)
-        if self.Unloaded
-            or self.Unloading
-        then
+        if self.Unloaded then
             return
         end
 
-        self.Unloading = true
         self.Unloaded = true
 
-        local CurrentColorpicker =
-            self.CurrentColorpicker
-
-        self.CurrentColorpicker =
-            nil
-
-        self.ActiveColorpicker =
-            nil
-
-        self.ActiveSlider =
-            nil
-
-        if CurrentColorpicker
+        if self.CurrentColorpicker
             and type(
-                CurrentColorpicker.SetOpen
+                self.CurrentColorpicker.SetOpen
             ) == "function"
         then
             pcall(function()
-                CurrentColorpicker:
+                self.CurrentColorpicker:
                     SetOpen(
                         false
                     )
             end)
         end
 
-        for Index =
-            #self.Connections,
-            1,
-            -1
-        do
+        for _, Record in ipairs(
+            self.Connections
+        ) do
             DisconnectRecord(
-                self.Connections[
-                    Index
-                ]
+                Record
             )
-
-            self.Connections[
-                Index
-            ] = nil
         end
 
-        for Index =
-            #self.CoreConnections,
-            1,
-            -1
-        do
+        for _, Connection in ipairs(
+            self.CoreConnections
+        ) do
             DisconnectRecord(
-                self.CoreConnections[
-                    Index
-                ]
+                Connection
             )
-
-            self.CoreConnections[
-                Index
-            ] = nil
         end
 
         for Item,
@@ -1161,27 +1080,15 @@ local Library do
                 self.ActiveTweens
             )
         do
-            if type(ItemTweens)
-                == "table"
-            then
-                for Property,
-                    ActiveTween in pairs(
-                        ItemTweens
-                    )
-                do
-                    if typeof(ActiveTween)
-                        == "Tween"
-                    then
-                        pcall(function()
-                            ActiveTween:
-                                Cancel()
-                        end)
-                    end
-
-                    ItemTweens[
-                        Property
-                    ] = nil
-                end
+            for _,
+                ActiveTween in pairs(
+                    ItemTweens
+                )
+            do
+                pcall(function()
+                    ActiveTween:
+                        Cancel()
+                end)
             end
 
             self.ActiveTweens[
@@ -1192,19 +1099,11 @@ local Library do
         local RunningThread =
             coroutine.running()
 
-        for Index =
-            #self.Threads,
-            1,
-            -1
-        do
-            local Thread =
-                self.Threads[
-                    Index
-                ]
-
+        for _, Thread in ipairs(
+            self.Threads
+        ) do
             if Thread
-                and Thread
-                    ~= RunningThread
+                and Thread ~= RunningThread
             then
                 pcall(function()
                     task.cancel(
@@ -1212,96 +1111,59 @@ local Library do
                     )
                 end)
             end
-
-            self.Threads[
-                Index
-            ] = nil
         end
+
+        if self.Holder
+            and self.Holder.Instance
+        then
+            pcall(function()
+                self.Holder.Instance:
+                    Destroy()
+            end)
+        end
+
+        table.clear(
+            self.Connections
+        )
+
+        table.clear(
+            self.CoreConnections
+        )
+
+        table.clear(
+            self.Threads
+        )
+
+        table.clear(
+            self.ThemeItems
+        )
+
+        table.clear(
+            self.ThemeMap
+        )
+
+        table.clear(
+            self.SetFlags
+        )
+
+        table.clear(
+            self.Flags
+        )
 
         for _,
             Listeners in pairs(
                 self.InputListeners
             )
         do
-            if type(Listeners)
-                == "table"
-            then
-                for Name,
-                    Listener in pairs(
-                        Listeners
-                    )
-                do
-                    if type(Listener)
-                        == "table"
-                    then
-                        Listener.Connected =
-                            false
-                    end
-
-                    Listeners[
-                        Name
-                    ] = nil
-                end
-            end
+            table.clear(
+                Listeners
+            )
         end
-
-        local Holder =
-            self.Holder
 
         self.Holder = nil
         self.NotifHolder = nil
         self.KeyList = nil
-        self.SliderConnection = nil
-        self.ColorpickerConnection = nil
-        self.ColorpickerInputConnection = nil
-        self.InputRouterReady = false
-
-        if Holder then
-            local HolderInstance =
-                Holder.Instance
-                or Holder
-
-            if typeof(HolderInstance)
-                == "Instance"
-            then
-                pcall(function()
-                    HolderInstance:
-                        Destroy()
-                end)
-            end
-        end
-
-        if type(self.ThemeItems)
-            == "table"
-        then
-            table.clear(
-                self.ThemeItems
-            )
-        end
-
-        if type(self.ThemeMap)
-            == "table"
-        then
-            table.clear(
-                self.ThemeMap
-            )
-        end
-
-        if type(self.SetFlags)
-            == "table"
-        then
-            table.clear(
-                self.SetFlags
-            )
-        end
-
-        if type(self.Flags)
-            == "table"
-        then
-            table.clear(
-                self.Flags
-            )
-        end
+        self.CurrentColorpicker = nil
 
         if getgenv().Library
             == self
@@ -1309,8 +1171,6 @@ local Library do
             getgenv().Library =
                 nil
         end
-
-        self.Unloading = false
     end
 
     Library.Thread = function(
@@ -1832,7 +1692,7 @@ local Library do
                 Position = UDim2New(0, 0, 0, 1),
                 BorderSizePixel = 0,
                 AutomaticSize = Enum.AutomaticSize.X,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
 
@@ -1905,7 +1765,7 @@ local Library do
                 Position = UDim2New(0, 13, 0, 2),
                 BorderSizePixel = 0,
                 AutomaticSize = Enum.AutomaticSize.X,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
 
@@ -2071,7 +1931,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, 0, 0, -1),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
 
@@ -2112,7 +1972,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
                 AutomaticSize = Enum.AutomaticSize.X,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  NewKey:AddToTheme({TextColor3 = "Text"})
 
@@ -2176,13 +2036,10 @@ local Library do
                 AnchorPoint = Vector2New(1, 0.5),
                 Name = "\0",
                 Position = UDim2New(1, 0, 0.5, 0),
-                Size = UDim2New(0, 22, 0, 12),
+                Size = UDim2New(0, 20, 0, 10),
                 BorderSizePixel = 0,
                 TextSize = 14,
-                BackgroundColor3 = FromRGB(255, 0, 0),
-                ZIndex = 50,
-                Active = true,
-                Selectable = false
+                BackgroundColor3 = FromRGB(255, 0, 0)
             })
 
             Colorpicker.CalculateCount = function(self, Index, YScale, YOffset)
@@ -2224,12 +2081,10 @@ local Library do
                 Visible = false,
                 Size = UDim2New(0, 238, 0, 224),
                 BorderSizePixel = 2,
-                BackgroundColor3 = FromRGB(15, 15, 20),
-                ZIndex = 1000,
-                Active = true,
-                Modal = false
+                BackgroundColor3 = FromRGB(15, 15, 20)
             })  Items["ColorpickerWindow"]:AddToTheme({BackgroundColor3 = "Background"})
 
+            Items["ColorpickerWindow"]:MakeDraggable()
             Items["ColorpickerWindow"]:MakeResizeable(Vector2New(200, 180), Vector2New(9999, 9999))
 
             Instances:Create("UIStroke", {
@@ -2252,13 +2107,9 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, -2, 0, -3),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
-
-            Items["ColorpickerWindow"]:MakeDraggable(
-                Items["Title"]
-            )
 
             Instances:Create("UIStroke", {
                 Parent = Items["Title"].Instance,
@@ -2454,8 +2305,11 @@ local Library do
             }):AddToTheme({Color = "Outline"})
         end
 
-        Colorpicker.SlidingMode = nil
-        Colorpicker.OpenedAt = 0
+        local SlidingPalette = false
+        local SlidingHue = false
+        local SlidingAlpha = false
+
+        local Debounce = false
 
         function Colorpicker:SetOpen(
             Bool
@@ -2474,147 +2328,45 @@ local Library do
                     )
             end
 
-            local Window =
-                Items[
-                    "ColorpickerWindow"
-                ].Instance
-
             Colorpicker.IsOpen =
                 Bool
 
+            Items[
+                "ColorpickerWindow"
+            ].Instance.Visible =
+                Bool
+
             if Bool then
-                local ParentPosition =
-                    Data.Parent.Instance
-                        .AbsolutePosition
-
-                local ParentSize =
-                    Data.Parent.Instance
-                        .AbsoluteSize
-
-                local ViewportSize =
-                    Workspace.CurrentCamera
-                    and Workspace.CurrentCamera
-                        .ViewportSize
-                    or Vector2New(
-                        1920,
-                        1080
-                    )
-
-                local WindowSize =
-                    Vector2New(
-                        238,
-                        224
-                    )
-
-                local X =
-                    MathClamp(
-                        ParentPosition.X
-                        + ParentSize.X
-                        - WindowSize.X,
-                        6,
-                        math.max(
-                            ViewportSize.X
-                            - WindowSize.X
-                            - 6,
-                            6
-                        )
-                    )
-
-                local Below =
-                    ParentPosition.Y
-                    + ParentSize.Y
-                    + 5
-
-                local Above =
-                    ParentPosition.Y
-                    - WindowSize.Y
-                    - 5
-
-                local Y =
-                    Below
-                    + WindowSize.Y
-                        <= ViewportSize.Y
-                    and Below
-                    or math.max(
-                        Above,
-                        6
-                    )
-
-                Window.Position =
+                Items[
+                    "ColorpickerWindow"
+                ].Instance.Position =
                     UDim2New(
                         0,
-                        X,
+                        Data.Parent.Instance
+                            .AbsolutePosition.X,
                         0,
-                        Y
+                        Data.Parent.Instance
+                            .AbsolutePosition.Y
+                            + 15
                     )
 
-                Window.Visible =
-                    true
-
-                Window.Active =
-                    true
-
-                Window.Modal =
-                    true
-
-                Window.ZIndex =
-                    1000
-
-                for _,
-                    Descendant in ipairs(
-                        Window:
-                        GetDescendants()
-                    )
-                do
-                    if Descendant:IsA(
-                        "GuiObject"
-                    )
-                    then
-                        Descendant.ZIndex =
-                            math.max(
-                                Descendant.ZIndex,
-                                1001
-                            )
-                    end
-                end
-
-                Colorpicker.OpenedAt =
-                    os.clock()
+                Items[
+                    "ColorpickerWindow"
+                ].Instance.ZIndex =
+                    10001
 
                 Library.CurrentColorpicker =
                     Colorpicker
-            else
-                Colorpicker.SlidingMode =
+            elseif Library.CurrentColorpicker
+                == Colorpicker
+            then
+                Library.CurrentColorpicker =
                     nil
-
-                if Library.ActiveColorpicker
-                    == Colorpicker
-                then
-                    Library.ActiveColorpicker =
-                        nil
-                end
-
-                Window.Modal =
-                    false
-
-                Window.Active =
-                    false
-
-                Window.Visible =
-                    false
-
-                if Library.CurrentColorpicker
-                    == Colorpicker
-                then
-                    Library.CurrentColorpicker =
-                        nil
-                end
             end
         end
 
         function Colorpicker:Get()
-            return Colorpicker.Color,
-                Colorpicker.Alpha
+            return Colorpicker.Value
         end
 
         function Colorpicker:SetVisibility(Bool)
@@ -2793,334 +2545,224 @@ local Library do
             end
         end
 
-        function Colorpicker:UpdateFromMouse()
-            local MousePosition =
-                UserInputService:
-                GetMouseLocation()
-
-            if Colorpicker.SlidingMode
-                == "Palette"
+        function Colorpicker:SlidePalette(
+            Input
+        )
+            if not Input
+                or not SlidingPalette
             then
-                local Position =
-                    Items[
-                        "Palette"
-                    ].Instance.AbsolutePosition
+                return
+            end
 
-                local Size =
-                    Items[
-                        "Palette"
-                    ].Instance.AbsoluteSize
-
-                if Size.X <= 0
-                    or Size.Y <= 0
-                then
-                    return
-                end
-
-                local SlideX =
-                    MathClamp(
-                        (
-                            MousePosition.X
-                            - Position.X
-                        ) / Size.X,
-                        0,
-                        0.989
-                    )
-
-                local SlideY =
-                    MathClamp(
-                        (
-                            MousePosition.Y
-                            - Position.Y
-                        ) / Size.Y,
-                        0,
-                        0.989
-                    )
-
-                self.Saturation =
-                    1 - SlideX
-
-                self.Value =
-                    1 - SlideY
-
+            local Position =
                 Items[
-                    "PaletteDragger"
-                ].Instance.Position =
-                    UDim2New(
-                        SlideX,
-                        0,
-                        SlideY,
-                        0
-                    )
+                    "Palette"
+                ].Instance.AbsolutePosition
 
-                self:Update()
-            elseif Colorpicker.SlidingMode
-                == "Hue"
-            then
-                local Position =
-                    Items[
-                        "Hue"
-                    ].Instance.AbsolutePosition
-
-                local Size =
-                    Items[
-                        "Hue"
-                    ].Instance.AbsoluteSize
-
-                if Size.Y <= 0 then
-                    return
-                end
-
-                local PositionY =
-                    MathClamp(
-                        (
-                            MousePosition.Y
-                            - Position.Y
-                        ) / Size.Y,
-                        0,
-                        0.994
-                    )
-
-                self.Hue =
-                    PositionY
-
+            local Size =
                 Items[
-                    "HueDragger"
-                ].Instance.Position =
-                    UDim2New(
-                        0,
-                        0,
-                        PositionY,
-                        0
-                    )
+                    "Palette"
+                ].Instance.AbsoluteSize
 
-                self:Update()
-            elseif Colorpicker.SlidingMode
-                == "Alpha"
+            local SlideX =
+                MathClamp(
+                    (
+                        Input.Position.X
+                        - Position.X
+                    ) / Size.X,
+                    0,
+                    0.989
+                )
+
+            local SlideY =
+                MathClamp(
+                    (
+                        Input.Position.Y
+                        - Position.Y
+                    ) / Size.Y,
+                    0,
+                    0.989
+                )
+
+            self.Saturation =
+                1 - SlideX
+
+            self.Value =
+                1 - SlideY
+
+            Items[
+                "PaletteDragger"
+            ].Instance.Position =
+                UDim2New(
+                    SlideX,
+                    0,
+                    SlideY,
+                    0
+                )
+
+            self:Update()
+        end
+
+        function Colorpicker:SlideHue(
+            Input
+        )
+            if not Input
+                or not SlidingHue
             then
-                local Position =
-                    Items[
-                        "Alpha"
-                    ].Instance.AbsolutePosition
+                return
+            end
 
-                local Size =
-                    Items[
-                        "Alpha"
-                    ].Instance.AbsoluteSize
-
-                if Size.X <= 0 then
-                    return
-                end
-
-                local PositionX =
-                    MathClamp(
-                        (
-                            MousePosition.X
-                            - Position.X
-                        ) / Size.X,
-                        0,
-                        0.994
-                    )
-
-                self.Alpha =
-                    PositionX
-
+            local Position =
                 Items[
-                    "AlphaDragger"
-                ].Instance.Position =
-                    UDim2New(
-                        PositionX,
-                        0,
-                        0,
-                        0
-                    )
+                    "Hue"
+                ].Instance.AbsolutePosition
 
-                self:Update(
-                    true
+            local Size =
+                Items[
+                    "Hue"
+                ].Instance.AbsoluteSize
+
+            local PositionY =
+                MathClamp(
+                    (
+                        Input.Position.Y
+                        - Position.Y
+                    ) / Size.Y,
+                    0,
+                    0.994
                 )
-            end
+
+            self.Hue =
+                PositionY
+
+            Items[
+                "HueDragger"
+            ].Instance.Position =
+                UDim2New(
+                    0,
+                    0,
+                    PositionY,
+                    0
+                )
+
+            self:Update()
         end
 
-        function Colorpicker:BeginSlide(
-            Mode
+        function Colorpicker:SlideAlpha(
+            Input
         )
-            Colorpicker.SlidingMode =
-                Mode
-
-            Library.ActiveColorpicker =
-                Colorpicker
-
-            Colorpicker:
-                UpdateFromMouse()
-        end
-
-        function Colorpicker:EndSlide()
-            Colorpicker.SlidingMode =
-                nil
-
-            if Library.ActiveColorpicker
-                == Colorpicker
+            if not Input
+                or not SlidingAlpha
             then
-                Library.ActiveColorpicker =
-                    nil
+                return
             end
+
+            local Position =
+                Items[
+                    "Alpha"
+                ].Instance.AbsolutePosition
+
+            local Size =
+                Items[
+                    "Alpha"
+                ].Instance.AbsoluteSize
+
+            local PositionX =
+                MathClamp(
+                    (
+                        Input.Position.X
+                        - Position.X
+                    ) / Size.X,
+                    0,
+                    0.994
+                )
+
+            self.Alpha =
+                PositionX
+
+            Items[
+                "AlphaDragger"
+            ].Instance.Position =
+                UDim2New(
+                    PositionX,
+                    0,
+                    0,
+                    0
+                )
+
+            self:Update(
+                true
+            )
         end
 
-        Items[
-            "ColorpickerButton"
-        ]:Connect(
-            "Activated",
-            function()
-                task.defer(function()
-                    if Library.Unloaded then
-                        return
-                    end
+        Items["ColorpickerButton"]:Connect("MouseButton1Down", function()
+            Colorpicker:SetOpen(not Colorpicker.IsOpen)
+        end)
 
-                    Colorpicker:SetOpen(
-                        not Colorpicker.IsOpen
-                    )
-                end)
+        Items["Palette"]:Connect("InputBegan", function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                SlidingPalette = true
+                Colorpicker:SlidePalette(Input)
             end
-        )
+        end)
 
-        Items[
-            "Palette"
-        ]:Connect(
-            "InputBegan",
-            function(Input)
-                if Input.UserInputType
-                        == Enum.UserInputType.MouseButton1
-                    or Input.UserInputType
-                        == Enum.UserInputType.Touch
-                then
-                    Colorpicker:
-                        BeginSlide(
-                            "Palette"
-                        )
+        Items["Palette"]:Connect("InputEnded", function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                SlidingPalette = false
+            end
+        end)
+
+        Items["Hue"]:Connect("InputBegan", function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                SlidingHue = true
+                Colorpicker:SlideHue(Input)
+            end
+        end)
+
+        Items["Hue"]:Connect("InputEnded", function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                SlidingHue = false
+            end
+        end)
+
+        Items["Alpha"]:Connect("InputBegan", function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                SlidingAlpha = true
+                Colorpicker:SlideAlpha(Input)
+            end
+        end)
+
+        Items["Alpha"]:Connect("InputEnded", function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                SlidingAlpha = false
+            end
+        end)
+
+        Library:Connect(UserInputService.InputChanged, function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseMovement then
+                if SlidingPalette then
+                    Colorpicker:SlidePalette(Input)
+                end
+
+                if SlidingHue then
+                    Colorpicker:SlideHue(Input)
+                end
+
+                if SlidingAlpha then
+                    Colorpicker:SlideAlpha(Input)
                 end
             end
-        )
+        end)
 
-        Items[
-            "Hue"
-        ]:Connect(
-            "InputBegan",
-            function(Input)
-                if Input.UserInputType
-                        == Enum.UserInputType.MouseButton1
-                    or Input.UserInputType
-                        == Enum.UserInputType.Touch
-                then
-                    Colorpicker:
-                        BeginSlide(
-                            "Hue"
-                        )
-                end
-            end
-        )
-
-        Items[
-            "Alpha"
-        ]:Connect(
-            "InputBegan",
-            function(Input)
-                if Input.UserInputType
-                        == Enum.UserInputType.MouseButton1
-                    or Input.UserInputType
-                        == Enum.UserInputType.Touch
-                then
-                    Colorpicker:
-                        BeginSlide(
-                            "Alpha"
-                        )
-                end
-            end
-        )
-
-        Library:Connect(
-            UserInputService.InputBegan,
-            function(Input)
-                if not Colorpicker.IsOpen then
+        Library:Connect(UserInputService.InputBegan, function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                if Library:IsMouseOverFrame(Items["ColorpickerWindow"]) then
                     return
                 end
 
-                if Input.UserInputType
-                        ~= Enum.UserInputType.MouseButton1
-                    and Input.UserInputType
-                        ~= Enum.UserInputType.Touch
-                then
-                    return
-                end
-
-                if os.clock()
-                    - Colorpicker.OpenedAt
-                    < 0.18
-                then
-                    return
-                end
-
-                if Library:IsMouseOverFrame(
-                    Items[
-                        "ColorpickerWindow"
-                    ]
-                )
-                    or Library:IsMouseOverFrame(
-                        Items[
-                            "ColorpickerButton"
-                        ]
-                    )
-                then
-                    return
-                end
-
-                Colorpicker:SetOpen(
-                    false
-                )
+                Colorpicker:SetOpen(false)
             end
-        )
-
-        if not Library.ColorpickerConnection then
-            Library.ColorpickerConnection =
-                Library:Connect(
-                    RunService.RenderStepped,
-                    function()
-                        local Active =
-                            Library.ActiveColorpicker
-
-                        if Active
-                            and Active.IsOpen
-                            and Active.SlidingMode
-                        then
-                            Active:
-                                UpdateFromMouse()
-                        end
-                    end,
-                    "Library_Colorpicker_Renderer"
-                )
-        end
-
-        if not Library.ColorpickerInputConnection then
-            Library.ColorpickerInputConnection =
-                Library:Connect(
-                    UserInputService.InputEnded,
-                    function(Input)
-                        if Input.UserInputType
-                                == Enum.UserInputType.MouseButton1
-                            or Input.UserInputType
-                                == Enum.UserInputType.Touch
-                        then
-                            local Active =
-                                Library.ActiveColorpicker
-
-                            if Active then
-                                Active:
-                                    EndSlide()
-                            end
-                        end
-                    end,
-                    "Library_Colorpicker_InputEnded"
-                )
-        end
+        end)
 
         if Data.Default then
             Colorpicker:Set(Data.Default, Data.Alpha)
@@ -3389,7 +3031,7 @@ local Library do
                             0
                         ),
                     BorderSizePixel = 0,
-                    TextSize = 13
+                    TextSize = 12
                 }
             )
 
@@ -3518,7 +3160,7 @@ local Library do
                                 0,
                                 15
                             ),
-                        TextSize = 13
+                        TextSize = 12
                     }
                 )
 
@@ -4077,7 +3719,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, 6, 0, 1),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
 
@@ -4256,7 +3898,7 @@ local Library do
                 Position = UDim2New(0, 0, 0, -1),
                 BorderSizePixel = 0,
                 BorderColor3 = FromRGB(0, 0, 0),
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -4760,7 +4402,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, 4, 0, 2),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -4915,7 +4557,7 @@ local Library do
                     Position = UDim2New(0, 0, 0, -1),
                     BorderSizePixel = 0,
                     BorderColor3 = FromRGB(0, 0, 0),
-                    TextSize = 13,
+                    TextSize = 12,
                     BackgroundColor3 = FromRGB(255, 255, 255)
                 })  SubItems["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -5135,7 +4777,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, 4, 0, 2),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -5300,7 +4942,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
                 BorderColor3 = FromRGB(0, 0, 0),
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -5522,7 +5164,7 @@ local Library do
                 TextTruncate = Enum.TextTruncate.AtEnd,
                 Position = UDim2New(0, 0, 0, -1),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -5617,7 +5259,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Size = UDim2New(1, 0, 0, 13),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -5680,7 +5322,7 @@ local Library do
                 Position = UDim2New(0, 0, 0, -1),
                 Size = UDim2New(1, 0, 1, 0),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Value"]:AddToTheme({TextColor3 = "Text"})
 
@@ -5896,7 +5538,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Size = UDim2New(1, 0, 0, 13),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -5944,7 +5586,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Right,
                 Position = UDim2New(0, -4, 0, -1),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Open"]:AddToTheme({TextColor3 = "Text"})
 
@@ -5967,7 +5609,7 @@ local Library do
                 TextTruncate = Enum.TextTruncate.AtEnd,
                 Position = UDim2New(0, 5, 0, -1),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Value"]:AddToTheme({TextColor3 = "Text"})
 
@@ -6108,7 +5750,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
                 ZIndex = 5,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })
 
@@ -6330,7 +5972,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment[Label.Alignment],
                 Size = UDim2New(1, 0, 1, 0),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -6431,7 +6073,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Size = UDim2New(1, 0, 0, 13),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -6480,7 +6122,7 @@ local Library do
                 PlaceholderColor3 = FromRGB(178, 178, 178),
                 TextXAlignment = Enum.TextXAlignment.Left,
                 PlaceholderText = Textbox.Placeholder,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Inline"]:AddToTheme({TextColor3 = "Text"})
 
@@ -6721,7 +6363,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Center,
                 BorderSizePixel = 0,
                 ZIndex = 5,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })
 
