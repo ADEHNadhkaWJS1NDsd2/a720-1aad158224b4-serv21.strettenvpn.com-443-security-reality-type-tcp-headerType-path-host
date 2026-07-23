@@ -23,6 +23,7 @@ local Library do
     local HttpService = game:GetService("HttpService")
     local TweenService = game:GetService("TweenService")
     local RunService = game:GetService("RunService")
+    local GuiService = game:GetService("GuiService")
     local CoreGui = cloneref and cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")
 
     gethui = gethui or function()
@@ -867,6 +868,30 @@ local Library do
         ZIndexBehavior = Enum.ZIndexBehavior.Global,
         DisplayOrder = 2147483646
     })
+
+    Library.GetPointerPosition = function(self)
+        local PointerPosition =
+            UserInputService:
+            GetMouseLocation()
+
+        local Holder =
+            self.Holder
+            and self.Holder.Instance
+
+        if Holder
+            and not Holder.IgnoreGuiInset
+        then
+            local TopLeftInset =
+                GuiService:
+                GetGuiInset()
+
+            PointerPosition =
+                PointerPosition
+                - TopLeftInset
+        end
+
+        return PointerPosition
+    end
 
     Library.NotifHolder = Instances:Create("Frame", {
         Parent = Library.Holder.Instance,
@@ -1762,8 +1787,8 @@ local Library do
         end
 
         local MousePosition =
-            UserInputService:
-            GetMouseLocation()
+            Library:
+            GetPointerPosition()
 
         local Position =
             Frame.AbsolutePosition
@@ -2361,6 +2386,7 @@ local Library do
 
             Items["PaletteDragger"] = Instances:Create("Frame", {
                 Parent = Items["Palette"].Instance,
+                AnchorPoint = Vector2New(0.5, 0.5),
                 Name = "\0",
                 BorderColor3 = FromRGB(0, 0, 0),
                 Size = UDim2New(0, 2, 0, 2),
@@ -2837,8 +2863,7 @@ local Library do
             ].Instance.Position =
                 UDim2New(
                     MathClamp(
-                        1
-                        - self.Saturation,
+                        self.Saturation,
                         0,
                         0.989
                     ),
@@ -2937,8 +2962,8 @@ local Library do
 
         function Colorpicker:UpdateFromMouse()
             local MousePosition =
-                UserInputService:
-                GetMouseLocation()
+                Library:
+                GetPointerPosition()
 
             if Colorpicker.SlidingMode
                 == "Palette"
@@ -2980,7 +3005,7 @@ local Library do
                     )
 
                 self.Saturation =
-                    1 - SlideX
+                    SlideX
 
                 self.Value =
                     1 - SlideY
@@ -6021,8 +6046,8 @@ local Library do
 
         function Slider:UpdateFromMouse()
             local MousePosition =
-                UserInputService:
-                GetMouseLocation()
+                Library:
+                GetPointerPosition()
 
             local AbsolutePosition =
                 Items[
