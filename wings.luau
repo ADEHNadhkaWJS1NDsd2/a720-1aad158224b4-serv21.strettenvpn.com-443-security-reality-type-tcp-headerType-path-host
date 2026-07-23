@@ -7,7 +7,6 @@ local Camera = Workspace.CurrentCamera
 
 local BasePartPrimitiveOffset = 0x128
 local PrimitiveRotationOffset = 0xC8
-local PrimitivePositionOffset = 0xEC
 
 local DefaultColor = Color3.fromRGB(112, 64, 225)
 
@@ -44,8 +43,10 @@ local Drawings = {}
 local DrawingRoles = {}
 
 local ActiveCharacter = nil
-local PrimitiveCache = {}
-local StableBack = nil
+local CachedAnchorPart = nil
+local CachedPrimitiveAddress = 0
+local SmoothedPosition = nil
+local SmoothedBack = nil
 local AnimationTime = 0
 local RenderRevision = 0
 
@@ -379,95 +380,95 @@ local function ReadVector3(Address)
 end
 
 local function GetPrimitiveAddress(Part)
-    local CachedAddress =
-        PrimitiveCache[Part]
+    if CachedAnchorPart ~= Part then
+        CachedAnchorPart = Part
+        CachedPrimitiveAddress = 0
+        StableBack = nil
+    end
 
-    if CachedAddress
-        and CachedAddress >= 0x10000
-    then
-        return CachedAddress
+    if CachedPrimitiveAddress ~= 0 then
+        return CachedPrimitiveAddress
     end
 
     local InstanceAddress = Part.Address
 
-    if not InstanceAddress
-        or InstanceAddress == 0
-    then
+    if not InstanceAddress or InstanceAddress == 0 then
         return 0
     end
 
-    local PrimitiveAddress =
-        memory_read(
-            "uintptr_t",
-            InstanceAddress
-            + BasePartPrimitiveOffset
-        )
+    local PrimitiveAddress = memory_read(
+        "uintptr_t",
+        InstanceAddress + BasePartPrimitiveOffset
+    )
 
-    if not PrimitiveAddress
-        or PrimitiveAddress < 0x10000
-    then
+    if not PrimitiveAddress or PrimitiveAddress < 0x10000 then
         return 0
     end
 
-    PrimitiveCache[Part] =
-        PrimitiveAddress
+    CachedPrimitiveAddress = PrimitiveAddress
 
     return PrimitiveAddress
 end
 
-local function ReadStablePosition(Part)
+local function ReadPartPosition(Part)
+    local Success, Position =
+        pcall(function()
+            return Part.Position
+        end)
+
+    if not Success
+        or typeof(Position) ~= "Vector3"
+        or not IsValidVector(Position)
+    then
+        return nil
+    end
+
+    return Position
+end
+
+local function ReadPartVelocity(Part)
+    local Success, Velocity =
+        pcall(function()
+            return Part.AssemblyLinearVelocity
+        end)
+
+    if Success
+        and typeof(Velocity) == "Vector3"
+        and IsValidVector(Velocity)
+    then
+        return Velocity
+    end
+
+    Success, Velocity =
+        pcall(function()
+            return Part.Velocity
+        end)
+
+    if Success
+        and typeof(Velocity) == "Vector3"
+        and IsValidVector(Velocity)
+    then
+        return Velocity
+    end
+
+    return Vector3.zero
+end
+
+local function ReadPartTransform(
+    Part,
+    DeltaTime
+)
     local PrimitiveAddress =
         GetPrimitiveAddress(Part)
 
     if PrimitiveAddress == 0 then
         return nil
     end
-
-    local PositionAddress =
-        PrimitiveAddress
-        + PrimitivePositionOffset
 
     local PositionA =
-        ReadVector3(PositionAddress)
+        ReadPartPosition(Part)
 
-    local PositionB =
-        ReadVector3(PositionAddress)
-
-    if not IsValidVector(PositionA)
-        or not IsValidVector(PositionB)
-        or (
-            PositionB
-            - PositionA
-        ).Magnitude > 1.25
-    then
-        PrimitiveCache[Part] = nil
-        return nil
-    end
-
-    return (
-        PositionA
-        + PositionB
-    ) * 0.5
-end
-
-local function StabilizeBasis(Right, Back)
-    if StableBack
-        and Back:Dot(StableBack) < -0.85
-    then
-        Right = -Right
-        Back = -Back
-    end
-
-    StableBack = Back
-
-    return Right, Back
-end
-
-local function ReadHorizontalBasis(Part)
-    local PrimitiveAddress =
-        GetPrimitiveAddress(Part)
-
-    if PrimitiveAddress == 0 then
+    if not PositionA then
         return nil
     end
 
@@ -491,16 +492,34 @@ local function ReadHorizontalBasis(Part)
         or not IsValidNumber(M20)
         or not IsValidNumber(M22)
     then
-        PrimitiveCache[Part] = nil
+        CachedPrimitiveAddress = 0
         return nil
     end
 
-    local RightRaw =
-        Vector3.new(
-            M00,
-            M10,
-            M20
-        )
+    local PositionB =
+        ReadPartPosition(Part)
+
+    if not PositionB
+        or (
+            PositionB
+            - PositionA
+        ).Magnitude > 2
+    then
+        return nil
+    end
+
+    local CurrentPosition =
+        (
+            PositionA
+            + PositionB
+        ) * 0.5
+
+    local Velocity =
+        ReadPartVelocity(Part)
+
+    local TargetPosition =
+        CurrentPosition
+        + Velocity * 0.012
 
     local BackRaw =
         Vector3.new(
@@ -509,70 +528,133 @@ local function ReadHorizontalBasis(Part)
             M22
         )
 
+    local RightRaw =
+        Vector3.new(
+            M00,
+            M10,
+            M20
+        )
+
     local Up =
         Vector3.new(0, 1, 0)
 
-    local FlatBack =
+    local Back =
         Vector3.new(
             BackRaw.X,
             0,
             BackRaw.Z
         )
 
-    local Right = nil
-    local Back = nil
-
-    if FlatBack.Magnitude >= 0.5 then
-        Back = FlatBack.Unit
-        Right = Up:Cross(Back)
-
-        if Right.Magnitude < 0.5 then
-            PrimitiveCache[Part] = nil
-            return nil
-        end
-
-        Right = Right.Unit
-        Back = Right:Cross(Up).Unit
-    else
-        local FlatRight =
+    if Back.Magnitude < 0.5 then
+        local RightFallback =
             Vector3.new(
                 RightRaw.X,
                 0,
                 RightRaw.Z
             )
 
-        if FlatRight.Magnitude < 0.5 then
-            PrimitiveCache[Part] = nil
+        if RightFallback.Magnitude < 0.5 then
+            CachedPrimitiveAddress = 0
             return nil
         end
 
-        Right = FlatRight.Unit
-        Back = Right:Cross(Up)
+        local Right =
+            RightFallback.Unit
+
+        Back =
+            Right:Cross(Up)
 
         if Back.Magnitude < 0.5 then
-            PrimitiveCache[Part] = nil
+            CachedPrimitiveAddress = 0
             return nil
         end
 
         Back = Back.Unit
+    else
+        Back = Back.Unit
     end
 
-    Right, Back =
-        StabilizeBasis(
-            Right,
-            Back
+    if SmoothedBack
+        and Back:Dot(SmoothedBack) < 0
+    then
+        Back = -Back
+    end
+
+    local PositionAlpha =
+        Clamp(
+            DeltaTime * 38,
+            0,
+            1
         )
 
-    return Right, Up, Back
+    local RotationAlpha =
+        Clamp(
+            DeltaTime * 30,
+            0,
+            1
+        )
+
+    if not SmoothedPosition
+        or (
+            TargetPosition
+            - SmoothedPosition
+        ).Magnitude > 12
+    then
+        SmoothedPosition =
+            TargetPosition
+    else
+        SmoothedPosition =
+            SmoothedPosition:Lerp(
+                TargetPosition,
+                PositionAlpha
+            )
+    end
+
+    if not SmoothedBack then
+        SmoothedBack = Back
+    else
+        local MixedBack =
+            SmoothedBack:Lerp(
+                Back,
+                RotationAlpha
+            )
+
+        if MixedBack.Magnitude < 0.001 then
+            SmoothedBack = Back
+        else
+            SmoothedBack =
+                MixedBack.Unit
+        end
+    end
+
+    local Right =
+        Up:Cross(SmoothedBack)
+
+    if Right.Magnitude < 0.001 then
+        return nil
+    end
+
+    Right = Right.Unit
+
+    local StableBack =
+        Right:Cross(Up)
+
+    if StableBack.Magnitude < 0.001 then
+        return nil
+    end
+
+    StableBack = StableBack.Unit
+    SmoothedBack = StableBack
+
+    return {
+        Position = SmoothedPosition,
+        Right = Right,
+        Up = Up,
+        Back = StableBack
+    }
 end
 
-local function GetWingAnchorParts(Character)
-    local RootPart =
-        Character:FindFirstChild(
-            "HumanoidRootPart"
-        )
-        or Character.PrimaryPart
-
+local function GetWingAnchor(Character)
     local UpperTorso =
         Character:FindFirstChild(
             "UpperTorso"
@@ -584,14 +666,20 @@ local function GetWingAnchorParts(Character)
         )
 
     if Torso and not UpperTorso then
-        return RootPart or Torso,
-            Torso,
-            true
+        return Torso, true
     end
 
-    return RootPart,
-        RootPart,
-        false
+    if UpperTorso then
+        return UpperTorso, false
+    end
+
+    local RootPart =
+        Character:FindFirstChild(
+            "HumanoidRootPart"
+        )
+        or Character.PrimaryPart
+
+    return RootPart, false
 end
 
 local function GetAttachmentHeight(IsR6)
@@ -1112,14 +1200,6 @@ function Controller:SetEnabled(Value)
 
     if not NewState then
         HideAll()
-
-        task.defer(function()
-            if self.Running
-                and not self.Enabled
-            then
-                HideAll()
-            end
-        end)
     end
 end
 
@@ -1171,8 +1251,10 @@ function Controller:Stop()
 
     Drawings = {}
     DrawingRoles = {}
-    PrimitiveCache = {}
-    StableBack = nil
+    CachedAnchorPart = nil
+    CachedPrimitiveAddress = 0
+    SmoothedPosition = nil
+    SmoothedBack = nil
 
     if _G.NightfallWingsController == self then
         _G.NightfallWingsController = nil
@@ -1206,56 +1288,29 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         return
     end
 
-    local PositionPart,
-        OrientationPart,
-        IsR6 =
-        GetWingAnchorParts(Character)
+    local AnchorPart, IsR6 =
+        GetWingAnchor(Character)
 
-    if not PositionPart
-        or not OrientationPart
-    then
+    if not AnchorPart then
         HideAll()
         return
     end
 
     if ActiveCharacter ~= Character then
         ActiveCharacter = Character
-        PrimitiveCache = {}
-        StableBack = nil
+        CachedAnchorPart = nil
+        CachedPrimitiveAddress = 0
+        SmoothedPosition = nil
+        SmoothedBack = nil
     end
 
-    local PositionA =
-        ReadStablePosition(
-            PositionPart
-        )
+    local Transform =
+        ReadPartTransform(AnchorPart, DeltaTime)
 
-    local Right, Up, Back =
-        ReadHorizontalBasis(
-            OrientationPart
-        )
-
-    local PositionB =
-        ReadStablePosition(
-            PositionPart
-        )
-
-    if not PositionA
-        or not PositionB
-        or not Right
-        or (
-            PositionB
-            - PositionA
-        ).Magnitude > 1.5
-    then
+    if not Transform then
         HideAll()
         return
     end
-
-    local AnchorPosition =
-        (
-            PositionA
-            + PositionB
-        ) * 0.5
 
     AnimationTime = AnimationTime + DeltaTime
 
@@ -1282,11 +1337,15 @@ RunService.RenderStepped:Connect(function(DeltaTime)
             )
         )
 
+    local Right = Transform.Right
+    local Up = Transform.Up
+    local Back = Transform.Back
+
     local AttachmentHeight =
         GetAttachmentHeight(IsR6)
 
     local Origin =
-        AnchorPosition
+        Transform.Position
         + Up * AttachmentHeight
         + Back * BackOffset
 
