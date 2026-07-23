@@ -7,7 +7,6 @@ local Camera = Workspace.CurrentCamera
 
 local BasePartPrimitiveOffset = 0x128
 local PrimitiveRotationOffset = 0xC8
-local PrimitivePositionOffset = 0xEC
 
 local DefaultColor = Color3.fromRGB(112, 64, 225)
 
@@ -41,7 +40,8 @@ local DrawingRoles = {}
 local PrimitiveCache = {}
 
 local ActiveCharacter = nil
-local StableBack = nil
+local SmoothedPosition = nil
+local SmoothedBack = nil
 
 local Palette = {}
 
@@ -348,7 +348,54 @@ local function GetPrimitiveAddress(Part)
     return PrimitiveAddress
 end
 
-local function ReadStablePosition(Part)
+local function ReadPartPosition(Part)
+    local Success, Position =
+        pcall(function()
+            return Part.Position
+        end)
+
+    if not Success
+        or typeof(Position) ~= "Vector3"
+        or not IsValidVector(Position)
+    then
+        return nil
+    end
+
+    return Position
+end
+
+local function ReadPartVelocity(Part)
+    local Success, Velocity =
+        pcall(function()
+            return Part.AssemblyLinearVelocity
+        end)
+
+    if Success
+        and typeof(Velocity) == "Vector3"
+        and IsValidVector(Velocity)
+    then
+        return Velocity
+    end
+
+    Success, Velocity =
+        pcall(function()
+            return Part.Velocity
+        end)
+
+    if Success
+        and typeof(Velocity) == "Vector3"
+        and IsValidVector(Velocity)
+    then
+        return Velocity
+    end
+
+    return Vector3.zero
+end
+
+local function ReadPartTransform(
+    Part,
+    DeltaTime
+)
     local PrimitiveAddress =
         GetPrimitiveAddress(Part)
 
@@ -356,38 +403,10 @@ local function ReadStablePosition(Part)
         return nil
     end
 
-    local PositionAddress =
-        PrimitiveAddress
-        + PrimitivePositionOffset
-
     local PositionA =
-        ReadVector3(PositionAddress)
+        ReadPartPosition(Part)
 
-    local PositionB =
-        ReadVector3(PositionAddress)
-
-    if not IsValidVector(PositionA)
-        or not IsValidVector(PositionB)
-        or (
-            PositionB
-            - PositionA
-        ).Magnitude > 1.25
-    then
-        PrimitiveCache[Part] = nil
-        return nil
-    end
-
-    return (
-        PositionA
-        + PositionB
-    ) * 0.5
-end
-
-local function ReadHorizontalBasis(RootPart)
-    local PrimitiveAddress =
-        GetPrimitiveAddress(RootPart)
-
-    if PrimitiveAddress == 0 then
+    if not PositionA then
         return nil
     end
 
@@ -395,9 +414,17 @@ local function ReadHorizontalBasis(RootPart)
         PrimitiveAddress
         + PrimitiveRotationOffset
 
+    local M00 =
+        ReadFloat(RotationAddress)
+
     local M02 =
         ReadFloat(
             RotationAddress + 0x8
+        )
+
+    local M10 =
+        ReadFloat(
+            RotationAddress + 0xC
         )
 
     local M12 =
@@ -405,66 +432,206 @@ local function ReadHorizontalBasis(RootPart)
             RotationAddress + 0x14
         )
 
+    local M20 =
+        ReadFloat(
+            RotationAddress + 0x18
+        )
+
     local M22 =
         ReadFloat(
             RotationAddress + 0x20
         )
 
-    if not IsValidNumber(M02)
+    if not IsValidNumber(M00)
+        or not IsValidNumber(M02)
+        or not IsValidNumber(M10)
         or not IsValidNumber(M12)
+        or not IsValidNumber(M20)
         or not IsValidNumber(M22)
     then
-        PrimitiveCache[RootPart] = nil
+        PrimitiveCache[Part] = nil
         return nil
     end
 
-    local BackRaw =
-        Vector3.new(
-            M02,
-            M12,
-            M22
-        )
+    local PositionB =
+        ReadPartPosition(Part)
+
+    if not PositionB
+        or (
+            PositionB
+            - PositionA
+        ).Magnitude > 2
+    then
+        return nil
+    end
+
+    local CurrentPosition =
+        (
+            PositionA
+            + PositionB
+        ) * 0.5
+
+    local Velocity =
+        ReadPartVelocity(Part)
+
+    local TargetPosition =
+        CurrentPosition
+        + Velocity * 0.012
 
     local Back =
         Vector3.new(
-            BackRaw.X,
+            M02,
             0,
-            BackRaw.Z
+            M22
         )
 
-    if Back.Magnitude < 0.5 then
-        return nil
-    end
-
-    Back = Back.Unit
-
-    if StableBack
-        and Back:Dot(StableBack) < -0.85
-    then
-        Back = -Back
-    end
-
-    StableBack = Back
+    local RightRaw =
+        Vector3.new(
+            M00,
+            M10,
+            M20
+        )
 
     local Up =
         Vector3.new(0, 1, 0)
 
-    local Right =
-        Up:Cross(Back)
+    if Back.Magnitude < 0.5 then
+        local RightFallback =
+            Vector3.new(
+                RightRaw.X,
+                0,
+                RightRaw.Z
+            )
 
-    if Right.Magnitude < 0.5 then
+        if RightFallback.Magnitude < 0.5 then
+            PrimitiveCache[Part] = nil
+            return nil
+        end
+
+        local Right =
+            RightFallback.Unit
+
+        Back =
+            Right:Cross(Up)
+
+        if Back.Magnitude < 0.5 then
+            PrimitiveCache[Part] = nil
+            return nil
+        end
+
+        Back = Back.Unit
+    else
+        Back = Back.Unit
+    end
+
+    if SmoothedBack
+        and Back:Dot(SmoothedBack) < 0
+    then
+        Back = -Back
+    end
+
+    local PositionAlpha =
+        Clamp(
+            DeltaTime * 42,
+            0,
+            1
+        )
+
+    local RotationAlpha =
+        Clamp(
+            DeltaTime * 32,
+            0,
+            1
+        )
+
+    if not SmoothedPosition
+        or (
+            TargetPosition
+            - SmoothedPosition
+        ).Magnitude > 12
+    then
+        SmoothedPosition =
+            TargetPosition
+    else
+        SmoothedPosition =
+            SmoothedPosition:Lerp(
+                TargetPosition,
+                PositionAlpha
+            )
+    end
+
+    if not SmoothedBack then
+        SmoothedBack = Back
+    else
+        local MixedBack =
+            SmoothedBack:Lerp(
+                Back,
+                RotationAlpha
+            )
+
+        if MixedBack.Magnitude < 0.001 then
+            SmoothedBack = Back
+        else
+            SmoothedBack =
+                MixedBack.Unit
+        end
+    end
+
+    local Right =
+        Up:Cross(SmoothedBack)
+
+    if Right.Magnitude < 0.001 then
         return nil
     end
 
     Right = Right.Unit
-    Back = Right:Cross(Up).Unit
 
-    return Right, Up, Back
+    local StableBack =
+        Right:Cross(Up)
+
+    if StableBack.Magnitude < 0.001 then
+        return nil
+    end
+
+    StableBack = StableBack.Unit
+    SmoothedBack = StableBack
+
+    return {
+        Position = SmoothedPosition,
+        Right = Right,
+        Up = Up,
+        Back = StableBack
+    }
+end
+
+local function GetCharacterParts(Character)
+    local Head =
+        Character:FindFirstChild(
+            "Head"
+        )
+
+    if Head then
+        return Head
+    end
+
+    return Character:FindFirstChild(
+        "HumanoidRootPart"
+    ) or Character.PrimaryPart
 end
 
 local function GetCharacterParts(Character)
     local Head =
         Character:FindFirstChild("Head")
+
+    local UpperTorso =
+        Character:FindFirstChild("UpperTorso")
+
+    local Torso =
+        Character:FindFirstChild("Torso")
+
+    if Torso and not UpperTorso then
+        return Head, Torso, true
+    end
 
     local RootPart =
         Character:FindFirstChild(
@@ -472,27 +639,7 @@ local function GetCharacterParts(Character)
         )
         or Character.PrimaryPart
 
-    local UpperTorso =
-        Character:FindFirstChild(
-            "UpperTorso"
-        )
-
-    local Torso =
-        Character:FindFirstChild(
-            "Torso"
-        )
-
-    if Torso and not UpperTorso then
-        return Head,
-            RootPart or Torso,
-            Torso,
-            true
-    end
-
-    return Head,
-        Head,
-        RootPart,
-        false
+    return Head, RootPart, false
 end
 
 local function ProjectPoint(WorldPoint)
@@ -808,14 +955,15 @@ function Controller:Stop()
     Drawings = {}
     DrawingRoles = {}
     PrimitiveCache = {}
-    StableBack = nil
+    SmoothedPosition = nil
+    SmoothedBack = nil
 
     if _G.NightfallChinaHatController == self then
         _G.NightfallChinaHatController = nil
     end
 end
 
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(DeltaTime)
     if not Controller.Running then
         return
     end
@@ -835,72 +983,48 @@ RunService.RenderStepped:Connect(function()
         return
     end
 
+    if type(DeltaTime) ~= "number" then
+        DeltaTime = 0.016
+    end
+
+    DeltaTime =
+        Clamp(
+            DeltaTime,
+            0.001,
+            0.05
+        )
+
     if ActiveCharacter ~= Character then
         ActiveCharacter = Character
         PrimitiveCache = {}
-        StableBack = nil
+        SmoothedPosition = nil
+        SmoothedBack = nil
     end
 
-    local Head,
-        PositionPart,
-        OrientationPart,
-        IsR6 =
+    local AnchorPart =
         GetCharacterParts(Character)
 
-    if not Head
-        or not PositionPart
-        or not OrientationPart
-    then
+    if not AnchorPart then
         HideAll()
         return
     end
 
-    local PositionA =
-        ReadStablePosition(
-            PositionPart
+    local Transform =
+        ReadPartTransform(
+            AnchorPart,
+            DeltaTime
         )
 
-    local Right, Up, Back =
-        ReadHorizontalBasis(
-            OrientationPart
-        )
-
-    local PositionB =
-        ReadStablePosition(
-            PositionPart
-        )
-
-    if not PositionA
-        or not PositionB
-        or not Right
-        or (
-            PositionB
-            - PositionA
-        ).Magnitude > 1.5
-    then
+    if not Transform then
         HideAll()
         return
     end
-
-    local BasePosition =
-        (
-            PositionA
-            + PositionB
-        ) * 0.5
-
-    local HeadPosition =
-        IsR6
-        and (
-            BasePosition
-            + Up * 1.5
-        )
-        or BasePosition
 
     RenderHat(
-        HeadPosition,
-        Right,
-        Up,
-        Back
+        Transform.Position,
+        Transform.Right,
+        Transform.Up,
+        Transform.Back
     )
 end)
 
