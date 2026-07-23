@@ -364,34 +364,6 @@ local function ReadPartPosition(Part)
     return Position
 end
 
-local function ReadPartVelocity(Part)
-    local Success, Velocity =
-        pcall(function()
-            return Part.AssemblyLinearVelocity
-        end)
-
-    if Success
-        and typeof(Velocity) == "Vector3"
-        and IsValidVector(Velocity)
-    then
-        return Velocity
-    end
-
-    Success, Velocity =
-        pcall(function()
-            return Part.Velocity
-        end)
-
-    if Success
-        and typeof(Velocity) == "Vector3"
-        and IsValidVector(Velocity)
-    then
-        return Velocity
-    end
-
-    return Vector3.zero
-end
-
 local function ReadPartTransform(
     Part,
     DeltaTime
@@ -471,12 +443,8 @@ local function ReadPartTransform(
             + PositionB
         ) * 0.5
 
-    local Velocity =
-        ReadPartVelocity(Part)
-
     local TargetPosition =
         CurrentPosition
-        + Velocity * 0.012
 
     local Back =
         Vector3.new(
@@ -544,12 +512,7 @@ local function ReadPartTransform(
             1
         )
 
-    if not SmoothedPosition
-        or (
-            TargetPosition
-            - SmoothedPosition
-        ).Magnitude > 12
-    then
+    if not SmoothedPosition then
         SmoothedPosition =
             TargetPosition
     else
