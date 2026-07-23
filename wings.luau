@@ -196,88 +196,42 @@ local function HideAll()
     end
 end
 
-local function BuildFrameProjector(
-    Origin,
-    Right,
-    Up,
-    Back
-)
-    local ScreenOrigin, OriginVisible =
-        WorldToScreen(Origin)
+local function BeginProjectionFrame()
+    local Success, CameraCFrame, ViewportSize, FieldOfView =
+        pcall(function()
+            return Camera.CFrame,
+                Camera.ViewportSize,
+                Camera.FieldOfView
+        end)
 
-    if not OriginVisible then
-        FrameProjector = nil
-        return false
-    end
-
-    local Step = 0.25
-
-    local function ReadAxis(Axis)
-        local PositivePoint, PositiveVisible =
-            WorldToScreen(
-                Origin + Axis * Step
-            )
-
-        if PositiveVisible then
-            return Vector2.new(
-                (
-                    PositivePoint.X
-                    - ScreenOrigin.X
-                ) / Step,
-                (
-                    PositivePoint.Y
-                    - ScreenOrigin.Y
-                ) / Step
-            )
-        end
-
-        local NegativePoint, NegativeVisible =
-            WorldToScreen(
-                Origin - Axis * Step
-            )
-
-        if NegativeVisible then
-            return Vector2.new(
-                (
-                    ScreenOrigin.X
-                    - NegativePoint.X
-                ) / Step,
-                (
-                    ScreenOrigin.Y
-                    - NegativePoint.Y
-                ) / Step
-            )
-        end
-
-        return nil
-    end
-
-    local ScreenRight =
-        ReadAxis(Right)
-
-    local ScreenUp =
-        ReadAxis(Up)
-
-    local ScreenBack =
-        ReadAxis(Back)
-
-    if not ScreenRight
-        or not ScreenUp
-        or not ScreenBack
+    if not Success
+        or typeof(CameraCFrame) ~= "CFrame"
+        or typeof(ViewportSize) ~= "Vector2"
+        or type(FieldOfView) ~= "number"
+        or ViewportSize.X <= 0
+        or ViewportSize.Y <= 0
+        or FieldOfView <= 1
+        or FieldOfView >= 179
     then
         FrameProjector = nil
         return false
     end
 
+    local FocalLength =
+        (
+            ViewportSize.Y * 0.5
+        )
+        / math.tan(
+            FieldOfView
+            * math.pi
+            / 360
+        )
+
     FrameProjector = {
-        Origin = Origin,
-        Right = Right,
-        Up = Up,
-        Back = Back,
-        ScreenOrigin = ScreenOrigin,
-        ScreenRight = ScreenRight,
-        ScreenUp = ScreenUp,
-        ScreenBack = ScreenBack
+        CameraCFrame = CameraCFrame,
+        CenterX = ViewportSize.X * 0.5,
+        CenterY = ViewportSize.Y * 0.5,
+        FocalLength = FocalLength
     }
 
     return true
@@ -291,33 +245,37 @@ local function ProjectRigidPoint(WorldPoint)
         return nil
     end
 
-    local Delta =
-        WorldPoint - Projector.Origin
+    local Success, CameraPoint =
+        pcall(function()
+            return Projector.CameraCFrame:PointToObjectSpace(
+                WorldPoint
+            )
+        end)
 
-    local RightAmount =
-        Delta:Dot(Projector.Right)
+    if not Success
+        or typeof(CameraPoint) ~= "Vector3"
+    then
+        return nil
+    end
 
-    local UpAmount =
-        Delta:Dot(Projector.Up)
+    local Depth =
+        -CameraPoint.Z
 
-    local BackAmount =
-        Delta:Dot(Projector.Back)
+    if Depth <= 0.03 then
+        return nil
+    end
+
+    local ScaleValue =
+        Projector.FocalLength
+        / Depth
 
     return Vector2.new(
-        Projector.ScreenOrigin.X
-        + Projector.ScreenRight.X
-        * RightAmount
-        + Projector.ScreenUp.X
-        * UpAmount
-        + Projector.ScreenBack.X
-        * BackAmount,
-        Projector.ScreenOrigin.Y
-        + Projector.ScreenRight.Y
-        * RightAmount
-        + Projector.ScreenUp.Y
-        * UpAmount
-        + Projector.ScreenBack.Y
-        * BackAmount
+        Projector.CenterX
+        + CameraPoint.X
+        * ScaleValue,
+        Projector.CenterY
+        - CameraPoint.Y
+        * ScaleValue
     )
 end
 
@@ -575,35 +533,21 @@ local function ReadPartPosition(Part)
     return Position
 end
 
-local function LerpMicroNoise(
-    Previous,
-    Current,
-    Threshold,
-    Alpha
+local function GetLerpAlpha(
+    Rate,
+    DeltaTime
 )
-    if not Previous then
-        return Current
-    end
-
-    local Difference =
-        (
-            Current - Previous
-        ).Magnitude
-
-    if Difference > Threshold then
-        return Previous:Lerp(
-            Current,
-            1
-        )
-    end
-
-    return Previous:Lerp(
-        Current,
-        Alpha
+    return Clamp(
+        1
+        - math.exp(
+            -Rate * DeltaTime
+        ),
+        0,
+        1
     )
 end
 
-local function ReadPartTransform(Part)
+local function ReadPartTransform(Part, DeltaTime)
     local PrimitiveAddress =
         GetPrimitiveAddress(Part)
 
@@ -704,21 +648,46 @@ local function ReadPartTransform(Part)
         Back = -Back
     end
 
-    SmoothedPosition =
-        LerpMicroNoise(
-            SmoothedPosition,
-            CurrentPosition,
-            0.004,
-            0.35
+    local PositionAlpha =
+        GetLerpAlpha(
+            28,
+            DeltaTime
         )
 
-    SmoothedBack =
-        LerpMicroNoise(
-            SmoothedBack,
-            Back,
-            0.002,
-            0.35
+    local RotationAlpha =
+        GetLerpAlpha(
+            22,
+            DeltaTime
         )
+
+    if not SmoothedPosition then
+        SmoothedPosition =
+            CurrentPosition
+    else
+        if (
+            CurrentPosition
+            - SmoothedPosition
+        ).Magnitude > 8
+        then
+            PositionAlpha = 1
+        end
+
+        SmoothedPosition =
+            SmoothedPosition:Lerp(
+                CurrentPosition,
+                PositionAlpha
+            )
+    end
+
+    if not SmoothedBack then
+        SmoothedBack = Back
+    else
+        SmoothedBack =
+            SmoothedBack:Lerp(
+                Back,
+                RotationAlpha
+            )
+    end
 
     if SmoothedBack.Magnitude < 0.001 then
         SmoothedBack = Back
@@ -1406,7 +1375,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
     end
 
     local Transform =
-        ReadPartTransform(AnchorPart)
+        ReadPartTransform(AnchorPart, DeltaTime)
 
     if not Transform then
         HideAll()
@@ -1450,12 +1419,7 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         + Up * AttachmentHeight
         + Back * BackOffset
 
-    if not BuildFrameProjector(
-        Origin,
-        Right,
-        Up,
-        Back
-    ) then
+    if not BeginProjectionFrame() then
         HideAll()
         return
     end
