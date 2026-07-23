@@ -348,7 +348,7 @@ local function GetPrimitiveAddress(Part)
     return PrimitiveAddress
 end
 
-local function ReadPartPosition(Part)
+local function ReadStablePosition(Part)
     local PrimitiveAddress =
         GetPrimitiveAddress(Part)
 
@@ -356,18 +356,31 @@ local function ReadPartPosition(Part)
         return nil
     end
 
-    local Position =
-        ReadVector3(
-            PrimitiveAddress
-            + PrimitivePositionOffset
-        )
+    local PositionAddress =
+        PrimitiveAddress
+        + PrimitivePositionOffset
 
-    if not IsValidVector(Position) then
+    local PositionA =
+        ReadVector3(PositionAddress)
+
+    local PositionB =
+        ReadVector3(PositionAddress)
+
+    if not IsValidVector(PositionA)
+        or not IsValidVector(PositionB)
+        or (
+            PositionB
+            - PositionA
+        ).Magnitude > 1.25
+    then
         PrimitiveCache[Part] = nil
         return nil
     end
 
-    return Position
+    return (
+        PositionA
+        + PositionB
+    ) * 0.5
 end
 
 local function ReadHorizontalBasis(RootPart)
@@ -453,23 +466,33 @@ local function GetCharacterParts(Character)
     local Head =
         Character:FindFirstChild("Head")
 
-    local UpperTorso =
-        Character:FindFirstChild("UpperTorso")
-
-    local Torso =
-        Character:FindFirstChild("Torso")
-
-    if Torso and not UpperTorso then
-        return Head, Torso, true
-    end
-
     local RootPart =
         Character:FindFirstChild(
             "HumanoidRootPart"
         )
         or Character.PrimaryPart
 
-    return Head, RootPart, false
+    local UpperTorso =
+        Character:FindFirstChild(
+            "UpperTorso"
+        )
+
+    local Torso =
+        Character:FindFirstChild(
+            "Torso"
+        )
+
+    if Torso and not UpperTorso then
+        return Head,
+            RootPart or Torso,
+            Torso,
+            true
+    end
+
+    return Head,
+        Head,
+        RootPart,
+        false
 end
 
 local function ProjectPoint(WorldPoint)
@@ -798,6 +821,7 @@ RunService.RenderStepped:Connect(function()
     end
 
     if not Controller.Enabled then
+        HideAll()
         return
     end
 
@@ -817,42 +841,60 @@ RunService.RenderStepped:Connect(function()
         StableBack = nil
     end
 
-    local Head, OrientationPart, IsR6 =
+    local Head,
+        PositionPart,
+        OrientationPart,
+        IsR6 =
         GetCharacterParts(Character)
 
-    if not Head or not OrientationPart then
+    if not Head
+        or not PositionPart
+        or not OrientationPart
+    then
         HideAll()
         return
     end
+
+    local PositionA =
+        ReadStablePosition(
+            PositionPart
+        )
 
     local Right, Up, Back =
-        ReadHorizontalBasis(OrientationPart)
+        ReadHorizontalBasis(
+            OrientationPart
+        )
 
-    if not Right then
+    local PositionB =
+        ReadStablePosition(
+            PositionPart
+        )
+
+    if not PositionA
+        or not PositionB
+        or not Right
+        or (
+            PositionB
+            - PositionA
+        ).Magnitude > 1.5
+    then
         HideAll()
         return
     end
 
-    local HeadPosition = nil
+    local BasePosition =
+        (
+            PositionA
+            + PositionB
+        ) * 0.5
 
-    if IsR6 then
-        local TorsoPosition =
-            ReadPartPosition(OrientationPart)
-
-        if TorsoPosition then
-            HeadPosition =
-                TorsoPosition
-                + Up * 1.5
-        end
-    else
-        HeadPosition =
-            ReadPartPosition(Head)
-    end
-
-    if not HeadPosition then
-        HideAll()
-        return
-    end
+    local HeadPosition =
+        IsR6
+        and (
+            BasePosition
+            + Up * 1.5
+        )
+        or BasePosition
 
     RenderHat(
         HeadPosition,
