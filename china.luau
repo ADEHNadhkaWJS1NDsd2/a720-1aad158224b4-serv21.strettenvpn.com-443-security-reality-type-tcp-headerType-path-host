@@ -40,8 +40,11 @@ local DrawingRoles = {}
 local PrimitiveCache = {}
 
 local ActiveCharacter = nil
-local SmoothedPosition = nil
-local SmoothedBack = nil
+local SmoothedCameraPosition = nil
+local SmoothedCameraUp = nil
+local SmoothedCameraBack = nil
+local CameraState = nil
+local LastValidFrameTime = 0
 
 local Palette = {}
 
@@ -255,6 +258,12 @@ local function HideAll()
     end
 end
 
+local function HoldLastFrame()
+    if tick() - LastValidFrameTime > 0.20 then
+        HideAll()
+    end
+end
+
 local function SafeMemoryRead(
     TypeName,
     Address
@@ -364,21 +373,7 @@ local function ReadPartPosition(Part)
     return Position
 end
 
-local function GetLerpAlpha(
-    Rate,
-    DeltaTime
-)
-    return Clamp(
-        1
-        - math.exp(
-            -Rate * DeltaTime
-        ),
-        0,
-        1
-    )
-end
-
-local function ReadHorizontalBasis(Part, DeltaTime)
+local function ReadHorizontalBasis(Part)
     local PrimitiveAddress =
         GetPrimitiveAddress(Part)
 
@@ -445,71 +440,34 @@ local function ReadHorizontalBasis(Part, DeltaTime)
 
         Back =
             Right:Cross(Up)
+    end
 
-        if Back.Magnitude < 0.5 then
-            PrimitiveCache[Part] = nil
-            return nil
-        end
+    if Back.Magnitude < 0.5 then
+        PrimitiveCache[Part] = nil
+        return nil
     end
 
     Back = Back.Unit
 
-    if SmoothedBack
-        and Back:Dot(SmoothedBack) < 0
-    then
-        Back = -Back
-    end
-
-    local RotationAlpha =
-        GetLerpAlpha(
-            24,
-            DeltaTime
-        )
-
-    if not SmoothedBack then
-        SmoothedBack = Back
-    else
-        SmoothedBack =
-            SmoothedBack:Lerp(
-                Back,
-                RotationAlpha
-            )
-    end
-
-    if SmoothedBack.Magnitude < 0.001 then
-        SmoothedBack = Back
-    else
-        SmoothedBack =
-            SmoothedBack.Unit
-    end
-
     local Right =
-        Up:Cross(SmoothedBack)
+        Up:Cross(Back)
 
     if Right.Magnitude < 0.001 then
         return nil
     end
 
     Right = Right.Unit
+    Back = Right:Cross(Up).Unit
 
-    local StableBack =
-        Right:Cross(Up)
-
-    if StableBack.Magnitude < 0.001 then
-        return nil
-    end
-
-    StableBack = StableBack.Unit
-    SmoothedBack = StableBack
-
-    return Right, Up, StableBack
+    return Right, Up, Back
 end
 
 local function GetHatParts(Character)
-    local Head =
+    local RootPart =
         Character:FindFirstChild(
-            "Head"
+            "HumanoidRootPart"
         )
+        or Character.PrimaryPart
 
     local UpperTorso =
         Character:FindFirstChild(
@@ -521,32 +479,196 @@ local function GetHatParts(Character)
             "Torso"
         )
 
-    local RootPart =
+    local IsR6 =
+        Torso ~= nil
+        and UpperTorso == nil
+
+    if IsR6 then
+        return RootPart,
+            RootPart,
+            1.5
+    end
+
+    local Head =
         Character:FindFirstChild(
-            "HumanoidRootPart"
+            "Head"
         )
-        or Character.PrimaryPart
 
-    if not Head then
-        Head = RootPart
-    end
-
-    if Torso and not UpperTorso then
-        return Head, Torso
-    end
-
-    return Head, UpperTorso or RootPart or Head
+    return Head or RootPart,
+        RootPart or Head,
+        0
 end
 
-local function ProjectPoint(WorldPoint)
-    local ScreenPoint, OnScreen =
-        WorldToScreen(WorldPoint)
+local function ReadCameraState()
+    Camera = Workspace.CurrentCamera
 
-    if not OnScreen then
+    if not Camera then
         return nil
     end
 
-    return ScreenPoint
+    local Success,
+        CameraCFrame,
+        ViewportSize,
+        FieldOfView =
+        pcall(function()
+            return Camera.CFrame,
+                Camera.ViewportSize,
+                Camera.FieldOfView
+        end)
+
+    if not Success
+        or typeof(CameraCFrame) ~= "CFrame"
+        or typeof(ViewportSize) ~= "Vector2"
+        or type(FieldOfView) ~= "number"
+        or ViewportSize.X <= 0
+        or ViewportSize.Y <= 0
+        or FieldOfView <= 1
+        or FieldOfView >= 179
+    then
+        return nil
+    end
+
+    local Position =
+        CameraCFrame.Position
+
+    local Right =
+        CameraCFrame.RightVector
+
+    local Up =
+        CameraCFrame.UpVector
+
+    local Look =
+        CameraCFrame.LookVector
+
+    if not IsValidVector(Position)
+        or not IsValidVector(Right)
+        or not IsValidVector(Up)
+        or not IsValidVector(Look)
+    then
+        return nil
+    end
+
+    local FocalLength =
+        ViewportSize.Y
+        / (
+            2
+            * math.tan(
+                math.rad(FieldOfView) * 0.5
+            )
+        )
+
+    if not IsValidNumber(FocalLength)
+        or FocalLength <= 0
+    then
+        return nil
+    end
+
+    return {
+        Position = Position,
+        Right = Right,
+        Up = Up,
+        Look = Look,
+        CenterX = ViewportSize.X * 0.5,
+        CenterY = ViewportSize.Y * 0.5,
+        Width = ViewportSize.X,
+        Height = ViewportSize.Y,
+        FocalLength = FocalLength
+    }
+end
+
+local function WorldPointToCamera(
+    WorldPoint,
+    State
+)
+    local Delta =
+        WorldPoint - State.Position
+
+    return Vector3.new(
+        Delta:Dot(State.Right),
+        Delta:Dot(State.Up),
+        Delta:Dot(State.Look)
+    )
+end
+
+local function WorldVectorToCamera(
+    WorldVector,
+    State
+)
+    return Vector3.new(
+        WorldVector:Dot(State.Right),
+        WorldVector:Dot(State.Up),
+        WorldVector:Dot(State.Look)
+    )
+end
+
+local function SmoothVector(
+    Current,
+    Target,
+    DeltaTime,
+    BaseRate,
+    DistanceRate
+)
+    if not Current then
+        return Target
+    end
+
+    local Distance =
+        (
+            Target - Current
+        ).Magnitude
+
+    local Alpha =
+        Clamp(
+            DeltaTime
+            * (
+                BaseRate
+                + Distance * DistanceRate
+            ),
+            0,
+            1
+        )
+
+    return Current:Lerp(
+        Target,
+        Alpha
+    )
+end
+
+local function ProjectPoint(CameraPoint)
+    local State =
+        CameraState
+
+    if not State
+        or not CameraPoint
+        or CameraPoint.Z <= 0.05
+    then
+        return nil
+    end
+
+    local InverseDepth =
+        State.FocalLength
+        / CameraPoint.Z
+
+    local ScreenX =
+        State.CenterX
+        + CameraPoint.X * InverseDepth
+
+    local ScreenY =
+        State.CenterY
+        - CameraPoint.Y * InverseDepth
+
+    if not IsValidNumber(ScreenX)
+        or not IsValidNumber(ScreenY)
+        or math.abs(ScreenX) > State.Width * 8
+        or math.abs(ScreenY) > State.Height * 8
+    then
+        return nil
+    end
+
+    return Vector2.new(
+        ScreenX,
+        ScreenY
+    )
 end
 
 local function SetLine(
@@ -851,8 +973,11 @@ function Controller:Stop()
     Drawings = {}
     DrawingRoles = {}
     PrimitiveCache = {}
-    SmoothedPosition = nil
-    SmoothedBack = nil
+    SmoothedCameraPosition = nil
+    SmoothedCameraUp = nil
+    SmoothedCameraBack = nil
+    CameraState = nil
+    LastValidFrameTime = 0
 
     if _G.NightfallChinaHatController == self then
         _G.NightfallChinaHatController = nil
@@ -869,13 +994,11 @@ RunService.RenderStepped:Connect(function(DeltaTime)
         return
     end
 
-    Camera = Workspace.CurrentCamera
-
     local Character =
         LocalPlayer.Character
 
-    if not Character or not Camera then
-        HideAll()
+    if not Character then
+        HoldLastFrame()
         return
     end
 
@@ -893,70 +1016,150 @@ RunService.RenderStepped:Connect(function(DeltaTime)
     if ActiveCharacter ~= Character then
         ActiveCharacter = Character
         PrimitiveCache = {}
-        SmoothedPosition = nil
-        SmoothedBack = nil
+        SmoothedCameraPosition = nil
+        SmoothedCameraUp = nil
+        SmoothedCameraBack = nil
+        CameraState = nil
     end
 
     local PositionPart,
-        OrientationPart =
+        OrientationPart,
+        HeightFromRoot =
         GetHatParts(Character)
 
     if not PositionPart
         or not OrientationPart
     then
-        HideAll()
+        HoldLastFrame()
         return
     end
+
+    local State =
+        ReadCameraState()
 
     local CurrentPosition =
         ReadPartPosition(
             PositionPart
         )
 
-    local Right, Up, Back =
+    local WorldRight,
+        WorldUp,
+        WorldBack =
         ReadHorizontalBasis(
-            OrientationPart,
-            DeltaTime
+            OrientationPart
         )
 
-    if not CurrentPosition
-        or not Right
+    if not State
+        or not CurrentPosition
+        or not WorldRight
     then
-        HideAll()
+        HoldLastFrame()
         return
     end
 
-    local PositionAlpha =
-        GetLerpAlpha(
-            30,
-            DeltaTime
+    CameraState = State
+
+    local TargetCameraPosition =
+        WorldPointToCamera(
+            CurrentPosition,
+            State
         )
 
-    if not SmoothedPosition then
-        SmoothedPosition =
-            CurrentPosition
-    else
-        if (
-            CurrentPosition
-            - SmoothedPosition
-        ).Magnitude > 8
-        then
-            PositionAlpha = 1
-        end
+    local TargetCameraUp =
+        WorldVectorToCamera(
+            WorldUp,
+            State
+        )
 
-        SmoothedPosition =
-            SmoothedPosition:Lerp(
-                CurrentPosition,
-                PositionAlpha
-            )
+    local TargetCameraBack =
+        WorldVectorToCamera(
+            WorldBack,
+            State
+        )
+
+    TargetCameraPosition =
+        TargetCameraPosition
+        + TargetCameraUp
+        * HeightFromRoot
+
+    if SmoothedCameraBack
+        and TargetCameraBack:Dot(
+            SmoothedCameraBack
+        ) < 0
+    then
+        TargetCameraBack =
+            -TargetCameraBack
     end
 
+    SmoothedCameraPosition =
+        SmoothVector(
+            SmoothedCameraPosition,
+            TargetCameraPosition,
+            DeltaTime,
+            20,
+            55
+        )
+
+    SmoothedCameraUp =
+        SmoothVector(
+            SmoothedCameraUp,
+            TargetCameraUp,
+            DeltaTime,
+            22,
+            75
+        )
+
+    SmoothedCameraBack =
+        SmoothVector(
+            SmoothedCameraBack,
+            TargetCameraBack,
+            DeltaTime,
+            22,
+            75
+        )
+
+    if SmoothedCameraUp.Magnitude < 0.001
+        or SmoothedCameraBack.Magnitude < 0.001
+    then
+        HoldLastFrame()
+        return
+    end
+
+    local Up =
+        SmoothedCameraUp.Unit
+
+    local Back =
+        SmoothedCameraBack.Unit
+
+    local Right =
+        Up:Cross(Back)
+
+    if Right.Magnitude < 0.001 then
+        HoldLastFrame()
+        return
+    end
+
+    Right = Right.Unit
+    Back = Right:Cross(Up)
+
+    if Back.Magnitude < 0.001 then
+        HoldLastFrame()
+        return
+    end
+
+    Back = Back.Unit
+    SmoothedCameraUp = Up
+    SmoothedCameraBack = Back
+
     RenderHat(
-        SmoothedPosition,
+        SmoothedCameraPosition,
         Right,
         Up,
         Back
     )
+
+    LastValidFrameTime =
+        tick()
 end)
 
 return Controller
