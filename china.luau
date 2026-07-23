@@ -16,6 +16,7 @@ local BrimRadius = 1.55
 local InnerRadius = 1.08
 local BrimHeight = 0.58
 local ApexHeight = 1.30
+local HeightOffset = 0
 local SegmentCount = 32
 local SpokeStep = 2
 
@@ -452,13 +453,23 @@ local function GetCharacterParts(Character)
     local Head =
         Character:FindFirstChild("Head")
 
+    local UpperTorso =
+        Character:FindFirstChild("UpperTorso")
+
+    local Torso =
+        Character:FindFirstChild("Torso")
+
+    if Torso and not UpperTorso then
+        return Head, Torso, true
+    end
+
     local RootPart =
         Character:FindFirstChild(
             "HumanoidRootPart"
         )
         or Character.PrimaryPart
 
-    return Head, RootPart
+    return Head, RootPart, false
 end
 
 local function ProjectPoint(WorldPoint)
@@ -607,11 +618,25 @@ local function RenderHat(
 )
     local Center =
         HeadPosition
-        + Up * (BrimHeight * Scale)
+        + Up
+        * (
+            (
+                BrimHeight
+                + HeightOffset
+            )
+            * Scale
+        )
 
     local Apex =
         HeadPosition
-        + Up * (ApexHeight * Scale)
+        + Up
+        * (
+            (
+                ApexHeight
+                + HeightOffset
+            )
+            * Scale
+        )
 
     local OuterPoints =
         BuildProjectedRing(
@@ -696,6 +721,48 @@ function Controller:SetScale(Value)
     )
 end
 
+function Controller:SetHeight(Value)
+    if type(Value) ~= "number" then
+        return
+    end
+
+    HeightOffset = Clamp(
+        Value,
+        -1.25,
+        2.5
+    )
+end
+
+function Controller:SetRadius(Value)
+    if type(Value) ~= "number" then
+        return
+    end
+
+    BrimRadius = Clamp(
+        Value,
+        0.75,
+        3.25
+    )
+
+    InnerRadius = Clamp(
+        BrimRadius * 0.70,
+        0.5,
+        2.5
+    )
+end
+
+function Controller:SetConeHeight(Value)
+    if type(Value) ~= "number" then
+        return
+    end
+
+    ApexHeight = Clamp(
+        Value,
+        0.7,
+        3.5
+    )
+end
+
 function Controller:Stop()
     if not self.Running then
         return
@@ -750,26 +817,39 @@ RunService.RenderStepped:Connect(function()
         StableBack = nil
     end
 
-    local Head, RootPart =
+    local Head, OrientationPart, IsR6 =
         GetCharacterParts(Character)
 
-    if not Head or not RootPart then
-        HideAll()
-        return
-    end
-
-    local HeadPosition =
-        ReadPartPosition(Head)
-
-    if not HeadPosition then
+    if not Head or not OrientationPart then
         HideAll()
         return
     end
 
     local Right, Up, Back =
-        ReadHorizontalBasis(RootPart)
+        ReadHorizontalBasis(OrientationPart)
 
     if not Right then
+        HideAll()
+        return
+    end
+
+    local HeadPosition = nil
+
+    if IsR6 then
+        local TorsoPosition =
+            ReadPartPosition(OrientationPart)
+
+        if TorsoPosition then
+            HeadPosition =
+                TorsoPosition
+                + Up * 1.5
+        end
+    else
+        HeadPosition =
+            ReadPartPosition(Head)
+    end
+
+    if not HeadPosition then
         HideAll()
         return
     end
