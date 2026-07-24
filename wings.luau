@@ -3,7 +3,11 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
+
+local BasePartPrimitiveOffset = 0x128
+local PrimitiveRotationOffset = 0xC8
+local CachedAnchorPart = nil
+local CachedPrimitiveAddress = 0
 
 local PreviousController = _G.NightfallWingsController
 
@@ -399,30 +403,29 @@ end
 local function ProjectPoint(
     WorldPoint
 )
-    Camera =
-        Workspace.CurrentCamera
-
-    if not Camera then
-        return nil
-    end
-
-    local ScreenPoint,
-        OnScreen =
-        Camera:
-        WorldToViewportPoint(
-            WorldPoint
-        )
-
-    if not OnScreen
-        or ScreenPoint.Z <= 0
+    if type(WorldToScreen)
+        ~= "function"
     then
         return nil
     end
 
-    return Vector2.new(
-        ScreenPoint.X,
-        ScreenPoint.Y
-    )
+    local Success,
+        ScreenPoint,
+        OnScreen =
+        pcall(
+            WorldToScreen,
+            WorldPoint
+        )
+
+    if not Success
+        or typeof(ScreenPoint)
+            ~= "Vector2"
+        or OnScreen == false
+    then
+        return nil
+    end
+
+    return ScreenPoint
 end
 
 local function DrawLineBetween(
@@ -609,6 +612,263 @@ local function DrawFeather(
     end
 end
 
+local function IsValidNumber(
+    Value
+)
+    return type(Value)
+            == "number"
+        and Value == Value
+        and Value ~= math.huge
+        and Value ~= -math.huge
+        and math.abs(Value)
+            < 10000000
+end
+
+local function IsValidVector(
+    Value
+)
+    return Value
+        and IsValidNumber(
+            Value.X
+        )
+        and IsValidNumber(
+            Value.Y
+        )
+        and IsValidNumber(
+            Value.Z
+        )
+end
+
+local function ReadFloat(
+    Address
+)
+    local Success,
+        Value =
+        pcall(
+            memory_read,
+            "float",
+            Address
+        )
+
+    if Success
+        and IsValidNumber(
+            Value
+        )
+    then
+        return Value
+    end
+
+    return nil
+end
+
+local function GetPrimitiveAddress(
+    Part
+)
+    if CachedAnchorPart
+        ~= Part
+    then
+        CachedAnchorPart =
+            Part
+
+        CachedPrimitiveAddress =
+            0
+    end
+
+    if CachedPrimitiveAddress
+        ~= 0
+    then
+        return CachedPrimitiveAddress
+    end
+
+    local InstanceAddress =
+        Part
+        and Part.Address
+        or 0
+
+    if type(InstanceAddress)
+            ~= "number"
+        or InstanceAddress
+            < 0x10000
+    then
+        return 0
+    end
+
+    local Success,
+        PrimitiveAddress =
+        pcall(
+            memory_read,
+            "uintptr_t",
+            InstanceAddress
+                + BasePartPrimitiveOffset
+        )
+
+    if not Success
+        or type(PrimitiveAddress)
+            ~= "number"
+        or PrimitiveAddress
+            < 0x10000
+    then
+        return 0
+    end
+
+    CachedPrimitiveAddress =
+        PrimitiveAddress
+
+    return PrimitiveAddress
+end
+
+local function ReadPartTransform(
+    Part
+)
+    local PrimitiveAddress =
+        GetPrimitiveAddress(
+            Part
+        )
+
+    if PrimitiveAddress == 0 then
+        return nil
+    end
+
+    local Position =
+        Part.Position
+
+    if typeof(Position)
+            ~= "Vector3"
+        or not IsValidVector(
+            Position
+        )
+    then
+        return nil
+    end
+
+    local RotationAddress =
+        PrimitiveAddress
+        + PrimitiveRotationOffset
+
+    local M00 =
+        ReadFloat(
+            RotationAddress
+        )
+
+    local M02 =
+        ReadFloat(
+            RotationAddress
+                + 0x8
+        )
+
+    local M20 =
+        ReadFloat(
+            RotationAddress
+                + 0x18
+        )
+
+    local M22 =
+        ReadFloat(
+            RotationAddress
+                + 0x20
+        )
+
+    if not M00
+        or not M02
+        or not M20
+        or not M22
+    then
+        CachedPrimitiveAddress =
+            0
+
+        return nil
+    end
+
+    local UpVector =
+        Vector3.new(
+            0,
+            1,
+            0
+        )
+
+    local BackVector =
+        Vector3.new(
+            M02,
+            0,
+            M22
+        )
+
+    if BackVector.Magnitude
+        < 0.5
+    then
+        local RightFallback =
+            Vector3.new(
+                M00,
+                0,
+                M20
+            )
+
+        if RightFallback.Magnitude
+            < 0.5
+        then
+            CachedPrimitiveAddress =
+                0
+
+            return nil
+        end
+
+        local RightVector =
+            RightFallback.Unit
+
+        BackVector =
+            RightVector:
+            Cross(
+                UpVector
+            )
+    end
+
+    if BackVector.Magnitude
+        < 0.5
+    then
+        CachedPrimitiveAddress =
+            0
+
+        return nil
+    end
+
+    BackVector =
+        BackVector.Unit
+
+    local RightVector =
+        UpVector:
+        Cross(
+            BackVector
+        )
+
+    if RightVector.Magnitude
+        < 0.001
+    then
+        return nil
+    end
+
+    RightVector =
+        RightVector.Unit
+
+    BackVector =
+        RightVector:
+        Cross(
+            UpVector
+        )
+
+    if BackVector.Magnitude
+        < 0.001
+    then
+        return nil
+    end
+
+    return {
+        Position = Position,
+        Right = RightVector,
+        Up = UpVector,
+        Back = BackVector.Unit
+    }
+end
+
 local function GetWingAnchor()
     local Character =
         LocalPlayer.Character
@@ -637,9 +897,9 @@ local function GetWingAnchor()
         )
 
     local AnchorPart =
-        UpperTorso
+        RootPart
+        or UpperTorso
         or Torso
-        or RootPart
 
     if not AnchorPart
         or not AnchorPart:IsA(
@@ -1464,6 +1724,12 @@ function Controller:Stop()
 
     Drawings = {}
 
+    CachedAnchorPart =
+        nil
+
+    CachedPrimitiveAddress =
+        0
+
     if _G.NightfallWingsController
         == self
     then
@@ -1520,20 +1786,28 @@ Connect(function(DeltaTime)
         return
     end
 
-    local AnchorFrame =
-        AnchorPart.CFrame
+    local Transform =
+        ReadPartTransform(
+            AnchorPart
+        )
+
+    if not Transform then
+        HideAll()
+
+        return
+    end
 
     local Position =
-        AnchorFrame.Position
+        Transform.Position
 
     local RightVector =
-        AnchorFrame.RightVector
+        Transform.Right
 
     local UpVector =
-        AnchorFrame.UpVector
+        Transform.Up
 
     local BackVector =
-        -AnchorFrame.LookVector
+        Transform.Back
 
     local AttachmentHeight =
         IsR6
