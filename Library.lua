@@ -5106,11 +5106,11 @@ local Library do
 
         local HUD = {
             Visible = Data.Visible == true,
-            Health = 100,
-            MaxHealth = 100,
             FollowTarget = Data.FollowTarget == true,
             PreviewMode = false,
             ManualPosition = Data.Position or UDim2New(0.5, 0, 1, -92),
+            FullSize = Data.Size or UDim2New(0, 282, 0, 78),
+            FollowSize = Data.FollowSize or UDim2New(0, 190, 0, 54),
             InternalPositionWrite = false,
             CurrentPlayer = nil,
             ThumbnailToken = 0
@@ -5124,12 +5124,13 @@ local Library do
             Name = "\0",
             AnchorPoint = Vector2New(0.5, 0.5),
             Position = HUD.ManualPosition,
-            Size = Data.Size or UDim2New(0, 330, 0, 108),
+            Size = HUD.FullSize,
             BorderSizePixel = 2,
             BorderColor3 = Library.Theme.Border,
             BackgroundColor3 = Library.Theme.Background,
             Visible = HUD.Visible,
             Active = true,
+            ClipsDescendants = false,
             ZIndex = 120
         })
         Items.Frame:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
@@ -5148,52 +5149,14 @@ local Library do
             Size = UDim2New(1, 0, 0, 2),
             BorderSizePixel = 0,
             BackgroundColor3 = Library.Theme.Accent,
-            ZIndex = 122
+            ZIndex = 123
         })
         Items.Accent:AddToTheme({BackgroundColor3 = "Accent"})
 
-        Items.Header = Instances:Create("Frame", {
-            Parent = Items.Frame.Instance,
-            Position = UDim2New(0, 0, 0, 2),
-            Size = UDim2New(1, 0, 0, 25),
-            BorderSizePixel = 0,
-            BackgroundColor3 = Library.Theme.Inline,
-            ZIndex = 121
-        })
-        Items.Header:AddToTheme({BackgroundColor3 = "Inline"})
-
-        Items.Title = Instances:Create("TextLabel", {
-            Parent = Items.Header.Instance,
-            Position = UDim2New(0, 9, 0, 4),
-            Size = UDim2New(1, -90, 0, 17),
-            BackgroundTransparency = 1,
-            FontFace = Library.Font,
-            Text = Data.Title or "Target HUD",
-            TextSize = 13,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextColor3 = Library.Theme.Text,
-            ZIndex = 123
-        })
-        Items.Title:AddToTheme({TextColor3 = "Text"})
-
-        Items.Mode = Instances:Create("TextLabel", {
-            Parent = Items.Header.Instance,
-            AnchorPoint = Vector2New(1, 0),
-            Position = UDim2New(1, -9, 0, 4),
-            Size = UDim2New(0, 76, 0, 17),
-            BackgroundTransparency = 1,
-            FontFace = Library.Font,
-            Text = "NO TARGET",
-            TextSize = 10,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            TextColor3 = FromRGB(145, 145, 155),
-            ZIndex = 123
-        })
-
         Items.Content = Instances:Create("Frame", {
             Parent = Items.Frame.Instance,
-            Position = UDim2New(0, 7, 0, 33),
-            Size = UDim2New(1, -14, 1, -40),
+            Position = UDim2New(0, 6, 0, 8),
+            Size = UDim2New(1, -12, 1, -14),
             BorderSizePixel = 1,
             BorderColor3 = Library.Theme.Outline,
             BackgroundColor3 = Library.Theme["Page Background"],
@@ -5203,8 +5166,8 @@ local Library do
 
         Items.AvatarBack = Instances:Create("Frame", {
             Parent = Items.Content.Instance,
-            Position = UDim2New(0, 7, 0, 7),
-            Size = UDim2New(0, 54, 0, 54),
+            Position = UDim2New(0, 6, 0, 6),
+            Size = UDim2New(0, 50, 0, 50),
             BorderSizePixel = 1,
             BorderColor3 = Library.Theme.Outline,
             BackgroundColor3 = Library.Theme.Element,
@@ -5225,12 +5188,12 @@ local Library do
 
         Items.Name = Instances:Create("TextLabel", {
             Parent = Items.Content.Instance,
-            Position = UDim2New(0, 70, 0, 6),
-            Size = UDim2New(1, -78, 0, 19),
+            Position = UDim2New(0, 64, 0, 5),
+            Size = UDim2New(1, -71, 0, 18),
             BackgroundTransparency = 1,
             FontFace = Library.Font,
-            Text = Data.Name or "No Target",
-            TextSize = 14,
+            Text = Data.Name or "",
+            TextSize = 13,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextColor3 = Library.Theme.Text,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -5240,11 +5203,11 @@ local Library do
 
         Items.Info = Instances:Create("TextLabel", {
             Parent = Items.Content.Instance,
-            Position = UDim2New(0, 70, 0, 25),
-            Size = UDim2New(1, -78, 0, 15),
+            Position = UDim2New(0, 64, 0, 23),
+            Size = UDim2New(1, -71, 0, 14),
             BackgroundTransparency = 1,
             FontFace = Library.Font,
-            Text = Data.Info or "Waiting for target",
+            Text = Data.Info or "",
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextColor3 = FromRGB(155, 155, 165),
@@ -5254,8 +5217,8 @@ local Library do
 
         Items.HealthBack = Instances:Create("Frame", {
             Parent = Items.Content.Instance,
-            Position = UDim2New(0, 70, 0, 45),
-            Size = UDim2New(1, -78, 0, 12),
+            Position = UDim2New(0, 64, 0, 42),
+            Size = UDim2New(1, -71, 0, 11),
             BorderSizePixel = 1,
             BorderColor3 = Library.Theme.Outline,
             BackgroundColor3 = Library.Theme.Inline,
@@ -5275,28 +5238,14 @@ local Library do
 
         Items.HealthText = Instances:Create("TextLabel", {
             Parent = Items.HealthBack.Instance,
-            Size = UDim2New(1, -6, 1, 0),
             Position = UDim2New(0, 3, 0, 0),
+            Size = UDim2New(1, -6, 1, 0),
             BackgroundTransparency = 1,
             FontFace = Library.Font,
-            Text = "100 / 100",
+            Text = "",
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Center,
             TextColor3 = FromRGB(245, 245, 245),
-            ZIndex = 124
-        })
-
-        Items.Follow = Instances:Create("TextLabel", {
-            Parent = Items.Content.Instance,
-            AnchorPoint = Vector2New(1, 0),
-            Position = UDim2New(1, -6, 0, 6),
-            Size = UDim2New(0, 64, 0, 15),
-            BackgroundTransparency = 1,
-            FontFace = Library.Font,
-            Text = "FIXED",
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            TextColor3 = FromRGB(145, 145, 155),
             ZIndex = 124
         })
 
@@ -5315,30 +5264,56 @@ local Library do
             HUD.InternalPositionWrite = false
         end
 
+        local function ApplyLayout()
+            local Compact = HUD.FollowTarget and not HUD.PreviewMode
+
+            Items.Frame.Instance.Size = Compact and HUD.FollowSize or HUD.FullSize
+            Items.Content.Instance.Position = Compact and UDim2New(0, 4, 0, 6) or UDim2New(0, 6, 0, 8)
+            Items.Content.Instance.Size = Compact and UDim2New(1, -8, 1, -10) or UDim2New(1, -12, 1, -14)
+
+            Items.AvatarBack.Instance.Position = Compact and UDim2New(0, 4, 0, 4) or UDim2New(0, 6, 0, 6)
+            Items.AvatarBack.Instance.Size = Compact and UDim2New(0, 38, 0, 38) or UDim2New(0, 50, 0, 50)
+
+            Items.Name.Instance.Position = Compact and UDim2New(0, 49, 0, 3) or UDim2New(0, 64, 0, 5)
+            Items.Name.Instance.Size = Compact and UDim2New(1, -54, 0, 17) or UDim2New(1, -71, 0, 18)
+            Items.Name.Instance.TextSize = Compact and 11 or 13
+
+            Items.Info.Instance.Visible = not Compact
+            Items.Info.Instance.Position = UDim2New(0, 64, 0, 23)
+            Items.Info.Instance.Size = UDim2New(1, -71, 0, 14)
+
+            Items.HealthBack.Instance.Position = Compact and UDim2New(0, 49, 0, 24) or UDim2New(0, 64, 0, 42)
+            Items.HealthBack.Instance.Size = Compact and UDim2New(1, -54, 0, 10) or UDim2New(1, -71, 0, 11)
+            Items.HealthText.Instance.TextSize = Compact and 8 or 9
+        end
+
         function HUD:SetVisibility(Value)
             HUD.Visible = Value == true
             Items.Frame.Instance.Visible = HUD.Visible
         end
 
         function HUD:SetHealth(Health, MaxHealth)
-            HUD.Health = math.max(0, tonumber(Health) or 0)
-            HUD.MaxHealth = math.max(1, tonumber(MaxHealth) or 100)
-
-            local Ratio = MathClamp(HUD.Health / HUD.MaxHealth, 0, 1)
+            local Current = math.max(0, tonumber(Health) or 0)
+            local Maximum = math.max(1, tonumber(MaxHealth) or 100)
+            local Ratio = MathClamp(Current / Maximum, 0, 1)
             local HealthColor = FromRGB(232, 75, 75):Lerp(FromRGB(76, 224, 139), Ratio)
 
             Items.Health.Instance.Size = UDim2New(Ratio, 0, 1, 0)
             Items.Health.Instance.BackgroundColor3 = HealthColor
-            Items.HealthText.Instance.Text = StringFormat(
-                "%d / %d  •  %d%%",
-                MathFloor(HUD.Health + 0.5),
-                MathFloor(HUD.MaxHealth + 0.5),
-                MathFloor(Ratio * 100 + 0.5)
-            )
+
+            if HUD.FollowTarget and not HUD.PreviewMode then
+                Items.HealthText.Instance.Text = StringFormat("%d%%", MathFloor(Ratio * 100 + 0.5))
+            else
+                Items.HealthText.Instance.Text = StringFormat(
+                    "%d / %d",
+                    MathFloor(Current + 0.5),
+                    MathFloor(Maximum + 0.5)
+                )
+            end
         end
 
         function HUD:SetName(Value)
-            Items.Name.Instance.Text = tostring(Value or "No Target")
+            Items.Name.Instance.Text = tostring(Value or "")
         end
 
         function HUD:SetInfo(Value)
@@ -5349,25 +5324,13 @@ local Library do
             Items.Avatar.Instance.Image = tostring(Value or "")
         end
 
-        function HUD:SetMode(Value)
-            local Mode = string.upper(tostring(Value or "NO TARGET"))
-            Items.Mode.Instance.Text = Mode
-
-            if Mode == "PREVIEW" then
-                Items.Mode.Instance.TextColor3 = Library.Theme.Accent
-            elseif Mode == "RAGE" then
-                Items.Mode.Instance.TextColor3 = FromRGB(255, 105, 105)
-            elseif Mode == "AIM" then
-                Items.Mode.Instance.TextColor3 = FromRGB(105, 190, 255)
-            else
-                Items.Mode.Instance.TextColor3 = FromRGB(145, 145, 155)
-            end
+        function HUD:SetMode(_)
         end
 
         function HUD:SetFollowTarget(Value)
             Value = Value == true
             if HUD.FollowTarget == Value then
-                Items.Follow.Instance.Text = Value and "FOLLOW" or "FIXED"
+                ApplyLayout()
                 return
             end
 
@@ -5376,8 +5339,7 @@ local Library do
             end
 
             HUD.FollowTarget = Value
-            Items.Follow.Instance.Text = Value and "FOLLOW" or "FIXED"
-            Items.Follow.Instance.TextColor3 = Value and Library.Theme.Accent or FromRGB(145, 145, 155)
+            ApplyLayout()
 
             if not Value or HUD.PreviewMode then
                 WritePosition(HUD.ManualPosition)
@@ -5386,22 +5348,16 @@ local Library do
 
         function HUD:SetPreviewMode(Value)
             Value = Value == true
-            if HUD.PreviewMode == Value then return end
+            if HUD.PreviewMode == Value then
+                ApplyLayout()
+                return
+            end
 
             HUD.PreviewMode = Value
+            ApplyLayout()
 
-            if Value then
+            if Value or not HUD.FollowTarget then
                 WritePosition(HUD.ManualPosition)
-                HUD:SetMode("PREVIEW")
-                Items.Follow.Instance.Text = "DRAG"
-                Items.Follow.Instance.TextColor3 = Library.Theme.Accent
-            else
-                Items.Follow.Instance.Text = HUD.FollowTarget and "FOLLOW" or "FIXED"
-                Items.Follow.Instance.TextColor3 = HUD.FollowTarget and Library.Theme.Accent or FromRGB(145, 145, 155)
-
-                if not HUD.FollowTarget then
-                    WritePosition(HUD.ManualPosition)
-                end
             end
         end
 
@@ -5422,25 +5378,25 @@ local Library do
             if not HUD.FollowTarget or HUD.PreviewMode then return false end
             if typeof(ScreenPosition) ~= "Vector2" or typeof(ViewportSize) ~= "Vector2" then return false end
 
-            Offset = typeof(Offset) == "Vector2" and Offset or Vector2New(0, -78)
+            Offset = typeof(Offset) == "Vector2" and Offset or Vector2New(0, -52)
 
             local FrameSize = Items.Frame.Instance.AbsoluteSize
             local HalfWidth = math.max(FrameSize.X * 0.5, 20)
             local HalfHeight = math.max(FrameSize.Y * 0.5, 20)
-            local X = MathClamp(ScreenPosition.X + Offset.X, HalfWidth + 8, ViewportSize.X - HalfWidth - 8)
-            local Y = MathClamp(ScreenPosition.Y + Offset.Y, HalfHeight + 8, ViewportSize.Y - HalfHeight - 8)
+            local X = MathClamp(ScreenPosition.X + Offset.X, HalfWidth + 6, ViewportSize.X - HalfWidth - 6)
+            local Y = MathClamp(ScreenPosition.Y + Offset.Y, HalfHeight + 6, ViewportSize.Y - HalfHeight - 6)
 
             WritePosition(UDim2New(0, X, 0, Y))
             return true
         end
 
-        function HUD:SetTarget(Player, Health, MaxHealth, Info, Mode)
-            HUD.CurrentPlayer = Player
-            HUD:SetName(Player and (Player.DisplayName or Player.Name) or "No Target")
+        function HUD:SetTarget(Player, Health, MaxHealth, Info)
+            HUD:SetName(Player and (Player.DisplayName or Player.Name) or "")
             HUD:SetHealth(Health or 0, MaxHealth or 100)
-            HUD:SetInfo(Info or "Waiting for target")
-            HUD:SetMode(Mode or (HUD.PreviewMode and "PREVIEW" or "TARGET"))
+            HUD:SetInfo(Info or "")
 
+            if HUD.CurrentPlayer == Player then return end
+            HUD.CurrentPlayer = Player
             HUD.ThumbnailToken = HUD.ThumbnailToken + 1
             local Token = HUD.ThumbnailToken
 
@@ -5475,7 +5431,8 @@ local Library do
 
         HUD.Frame = Items.Frame.Instance
         HUD.Items = Items
-        HUD:SetFollowTarget(HUD.FollowTarget)
+
+        ApplyLayout()
 
         return HUD
     end
