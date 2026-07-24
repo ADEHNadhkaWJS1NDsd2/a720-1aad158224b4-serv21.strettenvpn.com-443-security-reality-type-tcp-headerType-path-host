@@ -135,6 +135,8 @@ local Library do
 
         CurrentColorpicker = nil,
         CurrentKeybind = nil,
+        ActiveKeyPicker = nil,
+        SuppressKeybindInput = nil,
         InputRouterReady = false,
         Unloading = false,
         Unloaded = false
@@ -1487,7 +1489,10 @@ local Library do
         self.Holder = nil
         self.NotifHolder = nil
         self.KeyList = nil
+        if self.ActiveKeyPicker and type(self.ActiveKeyPicker.CancelPicking) == "function" then pcall(self.ActiveKeyPicker.CancelPicking, self.ActiveKeyPicker, false) end
         self.CurrentKeybind = nil
+        self.ActiveKeyPicker = nil
+        self.SuppressKeybindInput = nil
         self.SliderConnection = nil
         self.ColorpickerConnection = nil
         self.ColorpickerInputConnection = nil
@@ -3643,6 +3648,8 @@ local Library do
             Toggled = false,
             IsOpen = false,
             Picking = false,
+            PickStartedAt = 0,
+            SuppressUntil = 0,
             Class = "Keybind"
         }
 
@@ -4026,6 +4033,23 @@ local Library do
                 Keybind.Mode
         end
 
+        function Keybind:CancelPicking(RestoreText)
+            if not Keybind.Picking then return end
+
+            Keybind.Picking = false
+            if Library.ActiveKeyPicker == Keybind then Library.ActiveKeyPicker = nil end
+
+            if PickConnection then
+                DisconnectRecord(PickConnection)
+                PickConnection = nil
+            end
+
+            if RestoreText ~= false then
+                UpdateVisual()
+                Items["Text"]:ChangeItemTheme({TextColor3 = "Text"})
+            end
+        end
+
         function Keybind:SetVisibility(
             Bool
         )
@@ -4244,8 +4268,9 @@ local Library do
                     Resolved
                 )
 
-            Keybind.Picking =
-                false
+            Keybind.Picking = false
+            Keybind.SuppressUntil = os.clock() + 0.18
+            if Library.ActiveKeyPicker == Keybind then Library.ActiveKeyPicker = nil end
 
             Items[
                 "Text"
@@ -4333,76 +4358,50 @@ local Library do
             end
         end
 
-        Items[
-            "KeyButton"
-        ]:Connect(
-            "MouseButton1Click",
-            function()
-                if Keybind.Picking then
+        Items["KeyButton"]:Connect("MouseButton1Click", function()
+            if Keybind.Picking then
+                Keybind:CancelPicking(true)
+                return
+            end
+
+            if Library.ActiveKeyPicker and Library.ActiveKeyPicker ~= Keybind then
+                Library.ActiveKeyPicker:CancelPicking(true)
+            end
+
+            Library.ActiveKeyPicker = Keybind
+            Keybind.Picking = true
+            Keybind.PickStartedAt = os.clock()
+            Items["Text"].Instance.Text = "..."
+            Items["Text"]:ChangeItemTheme({TextColor3 = "Accent"})
+
+            if PickConnection then DisconnectRecord(PickConnection) end
+            PickConnection = Library:Connect(UserInputService.InputBegan, function(Input, GameProcessed)
+                if not Keybind.Picking or Library.ActiveKeyPicker ~= Keybind then return end
+                if os.clock() - Keybind.PickStartedAt < 0.05 then return end
+
+                if Data.Window and Data.Window.IsOpen == false then
+                    Keybind:CancelPicking(true)
                     return
                 end
 
-                Keybind.Picking =
-                    true
-
-                Items[
-                    "Text"
-                ].Instance.Text =
-                    "..."
-
-                Items[
-                    "Text"
-                ]:
-                    ChangeItemTheme({
-                        TextColor3 =
-                            "Accent"
-                    })
-
-                if PickConnection then
-                    DisconnectRecord(
-                        PickConnection
-                    )
-
-                    PickConnection =
-                        nil
+                if Input.KeyCode == Enum.KeyCode.Escape or Input.KeyCode == Library.MenuKeybind then
+                    Keybind:CancelPicking(true)
+                    return
                 end
 
-                PickConnection =
-                    Library:Connect(
-                        UserInputService.InputBegan,
-                        function(
-                        Input
-                    )
-                        local NewKey
+                if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    if not Library:IsMouseOverFrame(Items["KeyButton"]) then Keybind:CancelPicking(true) end
+                    return
+                end
 
-                        if Input.UserInputType
-                            == Enum.UserInputType.Keyboard
-                        then
-                            NewKey =
-                                Input.KeyCode
-                        else
-                            NewKey =
-                                Input.UserInputType
-                        end
+                local NewKey = Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode or Input.UserInputType
+                Library.SuppressKeybindInput = Input
+                Keybind:Set(NewKey, true)
 
-                        Keybind:Set(
-                            NewKey
-                        )
-
-                        if PickConnection then
-                            DisconnectRecord(
-                                PickConnection
-                            )
-
-                            PickConnection =
-                                nil
-                        end
-                    end,
-                    "Keybind_Picker_"
-                        .. Data.Flag
-                )
-            end
-        )
+                if Data.KeyChanged then Library:SafeCall(Data.KeyChanged, Keybind.Key) end
+                if PickConnection then DisconnectRecord(PickConnection); PickConnection = nil end
+            end, "Keybind_Picker_" .. Data.Flag)
+        end)
 
         Items[
             "KeyButton"
@@ -4425,9 +4424,8 @@ local Library do
                 Input,
                 GameProcessed
             )
-                if Keybind.Picking then
-                    return
-                end
+                if Keybind.Picking or Library.ActiveKeyPicker then return end
+                if Library.SuppressKeybindInput == Input or os.clock() < Keybind.SuppressUntil then return end
 
                 if Input.UserInputType
                     == Enum.UserInputType.MouseButton1
@@ -4488,6 +4486,7 @@ local Library do
         Library:Connect(
             UserInputService.InputEnded,
             function(Input)
+                if Library.SuppressKeybindInput == Input then Library.SuppressKeybindInput = nil end
                 if Keybind.Mode
                         == "Hold"
                     and InputMatchesKey(
@@ -4542,6 +4541,84 @@ local Library do
         end
 
         return Keybind
+    end
+
+    Library.ESPPreview = function(self, Data)
+        Data = Data or {}
+        local Preview, Items = {Visible = Data.Visible ~= false, Enabled = true}, {}
+        local Parent = Data.Parent and (Data.Parent.Instance or Data.Parent) or Library.Holder.Instance
+
+        Items.Frame = Instances:Create("Frame", {Parent = Parent, Name = "\0", Size = Data.Size or UDim2New(0, 210, 0, 300), Position = Data.Position or UDim2New(1, -230, 0.5, -150), BorderSizePixel = 2, BorderColor3 = Library.Theme.Border, BackgroundColor3 = Library.Theme.Background, Visible = Preview.Visible})
+        Items.Frame:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"}); Items.Frame:MakeDraggable()
+        Instances:Create("UIStroke", {Parent = Items.Frame.Instance, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, LineJoinMode = Enum.LineJoinMode.Miter, Color = Library.Theme.Outline}):AddToTheme({Color = "Outline"})
+        Items.Accent = Instances:Create("Frame", {Parent = Items.Frame.Instance, Size = UDim2New(1, 0, 0, 2), BorderSizePixel = 0, BackgroundColor3 = Library.Theme.Accent}); Items.Accent:AddToTheme({BackgroundColor3 = "Accent"})
+        Items.Title = Instances:Create("TextLabel", {Parent = Items.Frame.Instance, Position = UDim2New(0, 9, 0, 7), Size = UDim2New(1, -18, 0, 16), BackgroundTransparency = 1, FontFace = Library.Font, Text = Data.Title or "ESP Preview", TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Library.Theme.Text}); Items.Title:AddToTheme({TextColor3 = "Text"})
+
+        Items.Canvas = Instances:Create("Frame", {Parent = Items.Frame.Instance, Position = UDim2New(0, 10, 0, 30), Size = UDim2New(1, -20, 1, -40), BorderSizePixel = 1, BorderColor3 = Library.Theme.Outline, BackgroundColor3 = Library.Theme["Page Background"]}); Items.Canvas:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline"})
+        Items.Box = Instances:Create("Frame", {Parent = Items.Canvas.Instance, AnchorPoint = Vector2New(0.5, 0.5), Position = UDim2New(0.5, 0, 0.52, 0), Size = UDim2New(0, 86, 0, 174), BackgroundTransparency = 1, BorderSizePixel = 2, BorderColor3 = Library.Theme.Accent}); Items.Box:AddToTheme({BorderColor3 = "Accent"})
+        Items.Head = Instances:Create("Frame", {Parent = Items.Box.Instance, AnchorPoint = Vector2New(0.5, 0), Position = UDim2New(0.5, 0, 0, 18), Size = UDim2New(0, 34, 0, 34), BorderSizePixel = 0, BackgroundColor3 = FromRGB(62, 62, 70)})
+        Items.Body = Instances:Create("Frame", {Parent = Items.Box.Instance, AnchorPoint = Vector2New(0.5, 0), Position = UDim2New(0.5, 0, 0, 58), Size = UDim2New(0, 48, 0, 68), BorderSizePixel = 0, BackgroundColor3 = FromRGB(48, 48, 56)})
+        Items.Legs = Instances:Create("Frame", {Parent = Items.Box.Instance, AnchorPoint = Vector2New(0.5, 0), Position = UDim2New(0.5, 0, 0, 128), Size = UDim2New(0, 42, 0, 38), BorderSizePixel = 0, BackgroundColor3 = FromRGB(42, 42, 50)})
+        for _, Item in ipairs({Items.Head, Items.Body, Items.Legs}) do InstanceNew("UICorner", Item.Instance).CornerRadius = UDimNew(0, 3) end
+
+        Items.Name = Instances:Create("TextLabel", {Parent = Items.Canvas.Instance, AnchorPoint = Vector2New(0.5, 1), Position = UDim2New(0.5, 0, 0.52, -91), Size = UDim2New(0, 150, 0, 16), BackgroundTransparency = 1, FontFace = Library.Font, Text = Data.Name or "Enemy", TextSize = 13, TextColor3 = Library.Theme.Accent}); Items.Name:AddToTheme({TextColor3 = "Accent"})
+        Items.Distance = Instances:Create("TextLabel", {Parent = Items.Canvas.Instance, AnchorPoint = Vector2New(0.5, 0), Position = UDim2New(0.5, 0, 0.52, 91), Size = UDim2New(0, 150, 0, 16), BackgroundTransparency = 1, FontFace = Library.Font, Text = Data.Distance or "[24m]", TextSize = 12, TextColor3 = Library.Theme.Text}); Items.Distance:AddToTheme({TextColor3 = "Text"})
+        Items.HealthBack = Instances:Create("Frame", {Parent = Items.Box.Instance, AnchorPoint = Vector2New(1, 0), Position = UDim2New(0, -5, 0, 0), Size = UDim2New(0, 3, 1, 0), BorderSizePixel = 0, BackgroundColor3 = FromRGB(15, 15, 15)})
+        Items.Health = Instances:Create("Frame", {Parent = Items.HealthBack.Instance, AnchorPoint = Vector2New(0, 1), Position = UDim2New(0, 0, 1, 0), Size = UDim2New(1, 0, 1, 0), BorderSizePixel = 0, BackgroundColor3 = FromRGB(80, 220, 110)})
+        Items.Snapline = Instances:Create("Frame", {Parent = Items.Canvas.Instance, AnchorPoint = Vector2New(0.5, 1), Position = UDim2New(0.5, 0, 1, 0), Size = UDim2New(0, 1, 0.48, -5), BorderSizePixel = 0, BackgroundColor3 = Library.Theme.Accent}); Items.Snapline:AddToTheme({BackgroundColor3 = "Accent"})
+
+        function Preview:SetVisibility(Value) Preview.Visible = Value == true; Items.Frame.Instance.Visible = Preview.Visible end
+        function Preview:SetEnabled(Value) Preview.Enabled = Value == true; Items.Canvas.Instance.BackgroundTransparency = Preview.Enabled and 0 or 0.45; Items.Box.Instance.Visible = Preview.Enabled; Items.Name.Instance.Visible = Preview.Enabled; Items.Distance.Instance.Visible = Preview.Enabled; Items.Snapline.Instance.Visible = Preview.Enabled end
+        function Preview:SetColor(Color) Items.Box.Instance.BorderColor3 = Color; Items.Name.Instance.TextColor3 = Color; Items.Snapline.Instance.BackgroundColor3 = Color end
+        function Preview:SetHealth(Value) Items.Health.Instance.Size = UDim2New(1, 0, MathClamp(tonumber(Value) or 0, 0, 100) / 100, 0) end
+        function Preview:SetName(Value) Items.Name.Instance.Text = tostring(Value or "Enemy") end
+        function Preview:SetDistance(Value) Items.Distance.Instance.Text = tostring(Value or "[0m]") end
+        function Preview:SetSnapline(Value) Items.Snapline.Instance.Visible = Value == true and Preview.Enabled end
+        function Preview:Destroy() if Items.Frame and Items.Frame.Instance then Items.Frame.Instance:Destroy() end end
+        Preview.Frame, Preview.Items = Items.Frame.Instance, Items
+        return Preview
+    end
+
+    Library.TargetHUD = function(self, Data)
+        Data = Data or {}
+        local HUD, Items = {Visible = Data.Visible == true, Health = 100, MaxHealth = 100}, {}
+        local Parent = Data.Parent and (Data.Parent.Instance or Data.Parent) or Library.Holder.Instance
+
+        Items.Frame = Instances:Create("Frame", {Parent = Parent, Name = "\0", AnchorPoint = Vector2New(0.5, 1), Position = Data.Position or UDim2New(0.5, 0, 1, -80), Size = Data.Size or UDim2New(0, 290, 0, 82), BorderSizePixel = 2, BorderColor3 = Library.Theme.Border, BackgroundColor3 = Library.Theme.Background, Visible = HUD.Visible})
+        Items.Frame:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"}); Items.Frame:MakeDraggable()
+        Instances:Create("UIStroke", {Parent = Items.Frame.Instance, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, LineJoinMode = Enum.LineJoinMode.Miter, Color = Library.Theme.Outline}):AddToTheme({Color = "Outline"})
+        Items.Accent = Instances:Create("Frame", {Parent = Items.Frame.Instance, Size = UDim2New(1, 0, 0, 2), BorderSizePixel = 0, BackgroundColor3 = Library.Theme.Accent}); Items.Accent:AddToTheme({BackgroundColor3 = "Accent"})
+        Items.AvatarBack = Instances:Create("Frame", {Parent = Items.Frame.Instance, Position = UDim2New(0, 9, 0, 11), Size = UDim2New(0, 58, 0, 58), BorderSizePixel = 1, BorderColor3 = Library.Theme.Outline, BackgroundColor3 = Library.Theme["Page Background"]}); Items.AvatarBack:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline"})
+        Items.Avatar = Instances:Create("ImageLabel", {Parent = Items.AvatarBack.Instance, Position = UDim2New(0, 3, 0, 3), Size = UDim2New(1, -6, 1, -6), BackgroundTransparency = 1, Image = Data.Image or "rbxasset://textures/ui/GuiImagePlaceholder.png"})
+        Items.Name = Instances:Create("TextLabel", {Parent = Items.Frame.Instance, Position = UDim2New(0, 78, 0, 11), Size = UDim2New(1, -88, 0, 20), BackgroundTransparency = 1, FontFace = Library.Font, Text = Data.Name or "No Target", TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Library.Theme.Text}); Items.Name:AddToTheme({TextColor3 = "Text"})
+        Items.Info = Instances:Create("TextLabel", {Parent = Items.Frame.Instance, Position = UDim2New(0, 78, 0, 32), Size = UDim2New(1, -88, 0, 15), BackgroundTransparency = 1, FontFace = Library.Font, Text = Data.Info or "Distance: --  |  Armor: --", TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = FromRGB(155, 155, 165)})
+        Items.HealthBack = Instances:Create("Frame", {Parent = Items.Frame.Instance, Position = UDim2New(0, 78, 0, 53), Size = UDim2New(1, -88, 0, 12), BorderSizePixel = 1, BorderColor3 = Library.Theme.Outline, BackgroundColor3 = FromRGB(20, 20, 24)}); Items.HealthBack:AddToTheme({BorderColor3 = "Outline"})
+        Items.Health = Instances:Create("Frame", {Parent = Items.HealthBack.Instance, Size = UDim2New(1, 0, 1, 0), BorderSizePixel = 0, BackgroundColor3 = FromRGB(70, 210, 105)})
+        Items.HealthText = Instances:Create("TextLabel", {Parent = Items.HealthBack.Instance, Size = UDim2New(1, 0, 1, 0), BackgroundTransparency = 1, FontFace = Library.Font, Text = "100 / 100", TextSize = 10, TextColor3 = FromRGB(245, 245, 245)})
+
+        function HUD:SetVisibility(Value) HUD.Visible = Value == true; Items.Frame.Instance.Visible = HUD.Visible end
+        function HUD:SetHealth(Health, MaxHealth)
+            HUD.Health, HUD.MaxHealth = math.max(0, tonumber(Health) or 0), math.max(1, tonumber(MaxHealth) or 100)
+            local Ratio = MathClamp(HUD.Health / HUD.MaxHealth, 0, 1)
+            Items.Health.Instance.Size = UDim2New(Ratio, 0, 1, 0)
+            Items.HealthText.Instance.Text = StringFormat("%d / %d", MathFloor(HUD.Health + 0.5), MathFloor(HUD.MaxHealth + 0.5))
+        end
+        function HUD:SetName(Value) Items.Name.Instance.Text = tostring(Value or "No Target") end
+        function HUD:SetInfo(Value) Items.Info.Instance.Text = tostring(Value or "") end
+        function HUD:SetImage(Value) Items.Avatar.Instance.Image = tostring(Value or "") end
+        function HUD:SetTarget(Player, Health, MaxHealth, Info)
+            HUD:SetName(Player and (Player.DisplayName or Player.Name) or "No Target")
+            HUD:SetHealth(Health or 0, MaxHealth or 100); HUD:SetInfo(Info or "Distance: --  |  Armor: --")
+            if Player and Player.UserId then
+                Library:Thread(function()
+                    local Ok, Image = pcall(Players.GetUserThumbnailAsync, Players, Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+                    if Ok and Items.Avatar.Instance.Parent then Items.Avatar.Instance.Image = Image end
+                end)
+            end
+        end
+        function HUD:Destroy() if Items.Frame and Items.Frame.Instance then Items.Frame.Instance:Destroy() end end
+        HUD.Frame, HUD.Items = Items.Frame.Instance, Items
+        return HUD
     end
 
     Library.Window = function(self, Data)
