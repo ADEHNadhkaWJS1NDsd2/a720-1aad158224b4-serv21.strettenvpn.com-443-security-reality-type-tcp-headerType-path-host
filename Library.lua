@@ -4545,79 +4545,938 @@ local Library do
 
     Library.ESPPreview = function(self, Data)
         Data = Data or {}
-        local Preview, Items = {Visible = Data.Visible ~= false, Enabled = true}, {}
+
+        local Preview = {
+            Visible = Data.Visible ~= false,
+            Enabled = true,
+            Character = nil,
+            CharacterClone = nil,
+            PartState = {},
+            Settings = {},
+            Extra = {}
+        }
+
+        local Items = {}
         local Parent = Data.Parent and (Data.Parent.Instance or Data.Parent) or Library.Holder.Instance
 
-        Items.Frame = Instances:Create("Frame", {Parent = Parent, Name = "\0", Size = Data.Size or UDim2New(0, 210, 0, 300), Position = Data.Position or UDim2New(1, -230, 0.5, -150), BorderSizePixel = 2, BorderColor3 = Library.Theme.Border, BackgroundColor3 = Library.Theme.Background, Visible = Preview.Visible})
-        Items.Frame:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"}); Items.Frame:MakeDraggable()
-        Instances:Create("UIStroke", {Parent = Items.Frame.Instance, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, LineJoinMode = Enum.LineJoinMode.Miter, Color = Library.Theme.Outline}):AddToTheme({Color = "Outline"})
-        Items.Accent = Instances:Create("Frame", {Parent = Items.Frame.Instance, Size = UDim2New(1, 0, 0, 2), BorderSizePixel = 0, BackgroundColor3 = Library.Theme.Accent}); Items.Accent:AddToTheme({BackgroundColor3 = "Accent"})
-        Items.Title = Instances:Create("TextLabel", {Parent = Items.Frame.Instance, Position = UDim2New(0, 9, 0, 7), Size = UDim2New(1, -18, 0, 16), BackgroundTransparency = 1, FontFace = Library.Font, Text = Data.Title or "ESP Preview", TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Library.Theme.Text}); Items.Title:AddToTheme({TextColor3 = "Text"})
+        Items.Frame = Instances:Create("Frame", {
+            Parent = Parent,
+            Name = "\0",
+            Size = Data.Size or UDim2New(0, 270, 0, 410),
+            Position = Data.Position or UDim2New(1, -290, 0.5, -205),
+            BorderSizePixel = 2,
+            BorderColor3 = Library.Theme.Border,
+            BackgroundColor3 = Library.Theme.Background,
+            Visible = Preview.Visible,
+            ClipsDescendants = false
+        })
+        Items.Frame:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
+        Items.Frame:MakeDraggable()
 
-        Items.Canvas = Instances:Create("Frame", {Parent = Items.Frame.Instance, Position = UDim2New(0, 10, 0, 30), Size = UDim2New(1, -20, 1, -40), BorderSizePixel = 1, BorderColor3 = Library.Theme.Outline, BackgroundColor3 = Library.Theme["Page Background"]}); Items.Canvas:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline"})
-        Items.Box = Instances:Create("Frame", {Parent = Items.Canvas.Instance, AnchorPoint = Vector2New(0.5, 0.5), Position = UDim2New(0.5, 0, 0.52, 0), Size = UDim2New(0, 86, 0, 174), BackgroundTransparency = 1, BorderSizePixel = 2, BorderColor3 = Library.Theme.Accent}); Items.Box:AddToTheme({BorderColor3 = "Accent"})
-        Items.Head = Instances:Create("Frame", {Parent = Items.Box.Instance, AnchorPoint = Vector2New(0.5, 0), Position = UDim2New(0.5, 0, 0, 18), Size = UDim2New(0, 34, 0, 34), BorderSizePixel = 0, BackgroundColor3 = FromRGB(62, 62, 70)})
-        Items.Body = Instances:Create("Frame", {Parent = Items.Box.Instance, AnchorPoint = Vector2New(0.5, 0), Position = UDim2New(0.5, 0, 0, 58), Size = UDim2New(0, 48, 0, 68), BorderSizePixel = 0, BackgroundColor3 = FromRGB(48, 48, 56)})
-        Items.Legs = Instances:Create("Frame", {Parent = Items.Box.Instance, AnchorPoint = Vector2New(0.5, 0), Position = UDim2New(0.5, 0, 0, 128), Size = UDim2New(0, 42, 0, 38), BorderSizePixel = 0, BackgroundColor3 = FromRGB(42, 42, 50)})
-        for _, Item in ipairs({Items.Head, Items.Body, Items.Legs}) do InstanceNew("UICorner", Item.Instance).CornerRadius = UDimNew(0, 3) end
+        Instances:Create("UIStroke", {
+            Parent = Items.Frame.Instance,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            LineJoinMode = Enum.LineJoinMode.Miter,
+            Color = Library.Theme.Outline
+        }):AddToTheme({Color = "Outline"})
 
-        Items.Name = Instances:Create("TextLabel", {Parent = Items.Canvas.Instance, AnchorPoint = Vector2New(0.5, 1), Position = UDim2New(0.5, 0, 0.52, -91), Size = UDim2New(0, 150, 0, 16), BackgroundTransparency = 1, FontFace = Library.Font, Text = Data.Name or "Enemy", TextSize = 13, TextColor3 = Library.Theme.Accent}); Items.Name:AddToTheme({TextColor3 = "Accent"})
-        Items.Distance = Instances:Create("TextLabel", {Parent = Items.Canvas.Instance, AnchorPoint = Vector2New(0.5, 0), Position = UDim2New(0.5, 0, 0.52, 91), Size = UDim2New(0, 150, 0, 16), BackgroundTransparency = 1, FontFace = Library.Font, Text = Data.Distance or "[24m]", TextSize = 12, TextColor3 = Library.Theme.Text}); Items.Distance:AddToTheme({TextColor3 = "Text"})
-        Items.HealthBack = Instances:Create("Frame", {Parent = Items.Box.Instance, AnchorPoint = Vector2New(1, 0), Position = UDim2New(0, -5, 0, 0), Size = UDim2New(0, 3, 1, 0), BorderSizePixel = 0, BackgroundColor3 = FromRGB(15, 15, 15)})
-        Items.Health = Instances:Create("Frame", {Parent = Items.HealthBack.Instance, AnchorPoint = Vector2New(0, 1), Position = UDim2New(0, 0, 1, 0), Size = UDim2New(1, 0, 1, 0), BorderSizePixel = 0, BackgroundColor3 = FromRGB(80, 220, 110)})
-        Items.Snapline = Instances:Create("Frame", {Parent = Items.Canvas.Instance, AnchorPoint = Vector2New(0.5, 1), Position = UDim2New(0.5, 0, 1, 0), Size = UDim2New(0, 1, 0.48, -5), BorderSizePixel = 0, BackgroundColor3 = Library.Theme.Accent}); Items.Snapline:AddToTheme({BackgroundColor3 = "Accent"})
+        Items.Accent = Instances:Create("Frame", {
+            Parent = Items.Frame.Instance,
+            Size = UDim2New(1, 0, 0, 2),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Library.Theme.Accent
+        })
+        Items.Accent:AddToTheme({BackgroundColor3 = "Accent"})
 
-        function Preview:SetVisibility(Value) Preview.Visible = Value == true; Items.Frame.Instance.Visible = Preview.Visible end
-        function Preview:SetEnabled(Value) Preview.Enabled = Value == true; Items.Canvas.Instance.BackgroundTransparency = Preview.Enabled and 0 or 0.45; Items.Box.Instance.Visible = Preview.Enabled; Items.Name.Instance.Visible = Preview.Enabled; Items.Distance.Instance.Visible = Preview.Enabled; Items.Snapline.Instance.Visible = Preview.Enabled end
-        function Preview:SetColor(Color) Items.Box.Instance.BorderColor3 = Color; Items.Name.Instance.TextColor3 = Color; Items.Snapline.Instance.BackgroundColor3 = Color end
-        function Preview:SetHealth(Value) Items.Health.Instance.Size = UDim2New(1, 0, MathClamp(tonumber(Value) or 0, 0, 100) / 100, 0) end
-        function Preview:SetName(Value) Items.Name.Instance.Text = tostring(Value or "Enemy") end
-        function Preview:SetDistance(Value) Items.Distance.Instance.Text = tostring(Value or "[0m]") end
-        function Preview:SetSnapline(Value) Items.Snapline.Instance.Visible = Value == true and Preview.Enabled end
-        function Preview:Destroy() if Items.Frame and Items.Frame.Instance then Items.Frame.Instance:Destroy() end end
-        Preview.Frame, Preview.Items = Items.Frame.Instance, Items
+        Items.Title = Instances:Create("TextLabel", {
+            Parent = Items.Frame.Instance,
+            Position = UDim2New(0, 10, 0, 7),
+            Size = UDim2New(1, -80, 0, 17),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = Data.Title or "ESP Preview",
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextColor3 = Library.Theme.Text
+        })
+        Items.Title:AddToTheme({TextColor3 = "Text"})
+
+        Items.Status = Instances:Create("TextLabel", {
+            Parent = Items.Frame.Instance,
+            AnchorPoint = Vector2New(1, 0),
+            Position = UDim2New(1, -10, 0, 7),
+            Size = UDim2New(0, 60, 0, 17),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = "ENABLED",
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            TextColor3 = Library.Theme.Accent
+        })
+        Items.Status:AddToTheme({TextColor3 = "Accent"})
+
+        Items.Canvas = Instances:Create("Frame", {
+            Parent = Items.Frame.Instance,
+            Position = UDim2New(0, 10, 0, 31),
+            Size = UDim2New(1, -20, 1, -43),
+            BorderSizePixel = 1,
+            BorderColor3 = Library.Theme.Outline,
+            BackgroundColor3 = Library.Theme["Page Background"],
+            ClipsDescendants = true
+        })
+        Items.Canvas:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline"})
+
+        Items.Viewport = Instances:Create("ViewportFrame", {
+            Parent = Items.Canvas.Instance,
+            Position = UDim2New(0, 1, 0, 1),
+            Size = UDim2New(1, -2, 1, -2),
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            Ambient = FromRGB(185, 185, 195),
+            LightColor = FromRGB(255, 255, 255),
+            LightDirection = Vector3.new(-0.75, -1, -0.5),
+            ZIndex = 1
+        })
+
+        Items.World = Instances:Create("WorldModel", {Parent = Items.Viewport.Instance})
+        Items.Camera = Instances:Create("Camera", {
+            Parent = Items.Viewport.Instance,
+            FieldOfView = 32
+        })
+        Items.Viewport.Instance.CurrentCamera = Items.Camera.Instance
+
+        Items.ModelShade = Instances:Create("Frame", {
+            Parent = Items.Canvas.Instance,
+            AnchorPoint = Vector2New(0.5, 1),
+            Position = UDim2New(0.5, 0, 0.94, 0),
+            Size = UDim2New(0, 150, 0, 16),
+            BorderSizePixel = 0,
+            BackgroundColor3 = FromRGB(0, 0, 0),
+            BackgroundTransparency = 0.72,
+            ZIndex = 2
+        })
+        InstanceNew("UICorner", Items.ModelShade.Instance).CornerRadius = UDimNew(1, 0)
+
+        Items.BoxRoot = Instances:Create("Frame", {
+            Parent = Items.Canvas.Instance,
+            AnchorPoint = Vector2New(0.5, 0.5),
+            Position = UDim2New(0.5, 0, 0.52, 0),
+            Size = UDim2New(0, 126, 0, 274),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = 5
+        })
+
+        Items.Fill = Instances:Create("Frame", {
+            Parent = Items.BoxRoot.Instance,
+            Size = UDim2New(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            BackgroundColor3 = FromRGB(28, 82, 61),
+            BackgroundTransparency = 0.82,
+            ZIndex = 3
+        })
+
+        Items.FullOutline = Instances:Create("Frame", {
+            Parent = Items.BoxRoot.Instance,
+            Position = UDim2New(0, -1, 0, -1),
+            Size = UDim2New(1, 2, 1, 2),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 2,
+            BorderColor3 = FromRGB(4, 7, 6),
+            ZIndex = 4
+        })
+
+        Items.FullBox = Instances:Create("Frame", {
+            Parent = Items.BoxRoot.Instance,
+            Size = UDim2New(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 1,
+            BorderColor3 = Library.Theme.Accent,
+            ZIndex = 5
+        })
+        Items.FullBox:AddToTheme({BorderColor3 = "Accent"})
+
+        Items.Corners = {}
+        local CornerData = {
+            {UDim2New(0, 0, 0, 0), UDim2New(0.28, 0, 0, 2)},
+            {UDim2New(0, 0, 0, 0), UDim2New(0, 2, 0.18, 0)},
+            {UDim2New(0.72, 0, 0, 0), UDim2New(0.28, 0, 0, 2)},
+            {UDim2New(1, -2, 0, 0), UDim2New(0, 2, 0.18, 0)},
+            {UDim2New(0, 0, 1, -2), UDim2New(0.28, 0, 0, 2)},
+            {UDim2New(0, 0, 0.82, 0), UDim2New(0, 2, 0.18, 0)},
+            {UDim2New(0.72, 0, 1, -2), UDim2New(0.28, 0, 0, 2)},
+            {UDim2New(1, -2, 0.82, 0), UDim2New(0, 2, 0.18, 0)}
+        }
+
+        for Index, Geometry in ipairs(CornerData) do
+            local Segment = Instances:Create("Frame", {
+                Parent = Items.BoxRoot.Instance,
+                Position = Geometry[1],
+                Size = Geometry[2],
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Accent,
+                ZIndex = 6
+            })
+            Segment:AddToTheme({BackgroundColor3 = "Accent"})
+
+            Instances:Create("UIStroke", {
+                Parent = Segment.Instance,
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                LineJoinMode = Enum.LineJoinMode.Miter,
+                Thickness = 1,
+                Color = FromRGB(4, 7, 6)
+            })
+
+            Items.Corners[Index] = Segment
+        end
+
+        Items.Name = Instances:Create("TextLabel", {
+            Parent = Items.Canvas.Instance,
+            AnchorPoint = Vector2New(0.5, 1),
+            Position = UDim2New(0.5, 0, 0.52, -143),
+            Size = UDim2New(0, 210, 0, 18),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = Data.Name or "Local Player",
+            TextSize = 13,
+            TextColor3 = Library.Theme.Text,
+            ZIndex = 8
+        })
+        Items.Name:AddToTheme({TextColor3 = "Text"})
+
+        Items.Info = Instances:Create("TextLabel", {
+            Parent = Items.Canvas.Instance,
+            AnchorPoint = Vector2New(0.5, 0),
+            Position = UDim2New(0.5, 0, 0.52, 143),
+            Size = UDim2New(0, 220, 0, 18),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = "[24m]  |  Unarmed",
+            TextSize = 12,
+            TextColor3 = Library.Theme.Text,
+            ZIndex = 8
+        })
+        Items.Info:AddToTheme({TextColor3 = "Text"})
+
+        Items.Filter = Instances:Create("TextLabel", {
+            Parent = Items.Canvas.Instance,
+            Position = UDim2New(0, 7, 0, 7),
+            Size = UDim2New(1, -14, 0, 16),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = "MAX 1200 STUDS",
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            TextColor3 = FromRGB(145, 145, 155),
+            ZIndex = 8
+        })
+
+        Items.HealthBack = Instances:Create("Frame", {
+            Parent = Items.BoxRoot.Instance,
+            AnchorPoint = Vector2New(1, 0),
+            Position = UDim2New(0, -6, 0, 0),
+            Size = UDim2New(0, 4, 1, 0),
+            BorderSizePixel = 0,
+            BackgroundColor3 = FromRGB(12, 12, 14),
+            ZIndex = 7
+        })
+
+        Items.Health = Instances:Create("Frame", {
+            Parent = Items.HealthBack.Instance,
+            AnchorPoint = Vector2New(0, 1),
+            Position = UDim2New(0, 0, 1, 0),
+            Size = UDim2New(1, 0, 0.74, 0),
+            BorderSizePixel = 0,
+            BackgroundColor3 = FromRGB(80, 220, 110),
+            ZIndex = 8
+        })
+
+        Items.HealthText = Instances:Create("TextLabel", {
+            Parent = Items.BoxRoot.Instance,
+            AnchorPoint = Vector2New(1, 0.5),
+            Position = UDim2New(0, -12, 0.26, 0),
+            Size = UDim2New(0, 40, 0, 14),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = "74",
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            TextColor3 = FromRGB(80, 220, 110),
+            ZIndex = 8
+        })
+
+        Items.Highlight = InstanceNew("Highlight")
+        Items.Highlight.Name = "\0"
+        Items.Highlight.Enabled = false
+        Items.Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        Items.Highlight.Parent = Items.World.Instance
+
+        Items.SnaplineSegments = {}
+        for Index = 1, 16 do
+            Items.SnaplineSegments[Index] = Instances:Create("Frame", {
+                Parent = Items.Canvas.Instance,
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Position = UDim2New(0, 0, 0, 0),
+                Size = UDim2New(0, 0, 0, 1),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Accent,
+                Visible = false,
+                ZIndex = 7
+            })
+            Items.SnaplineSegments[Index]:AddToTheme({BackgroundColor3 = "Accent"})
+        end
+
+        local function SetLineSegment(Segment, PointA, PointB, Thickness, Color, Transparency)
+            local Delta = PointB - PointA
+            local Length = Delta.Magnitude
+
+            Segment.Instance.Position = UDim2New(0, (PointA.X + PointB.X) * 0.5, 0, (PointA.Y + PointB.Y) * 0.5)
+            Segment.Instance.Size = UDim2New(0, Length, 0, Thickness)
+            Segment.Instance.Rotation = math.deg(math.atan2(Delta.Y, Delta.X))
+            Segment.Instance.BackgroundColor3 = Color
+            Segment.Instance.BackgroundTransparency = Transparency
+            Segment.Instance.Visible = Preview.Enabled and Length > 0.5
+        end
+
+        local function UpdateSnapline()
+            for _, Segment in ipairs(Items.SnaplineSegments) do
+                Segment.Instance.Visible = false
+            end
+
+            local Settings = Preview.Settings
+            if not Preview.Enabled or not Settings.Tracers then return end
+
+            local Size = Items.Canvas.Instance.AbsoluteSize
+            if Size.X <= 1 or Size.Y <= 1 then
+                task.defer(UpdateSnapline)
+                return
+            end
+
+            local OriginY = Settings.TracerOrigin == "Top" and 0 or Settings.TracerOrigin == "Center" and Size.Y * 0.5 or Size.Y
+            local TargetY = Settings.TracerEnd == "Head" and Size.Y * 0.18 or Settings.TracerEnd == "Body" and Size.Y * 0.52 or Size.Y * 0.86
+            local Start = Vector2New(Size.X * 0.5, OriginY)
+            local Finish = Vector2New(Size.X * 0.5, TargetY)
+            local Thickness = tonumber(Settings.TracerThickness) or 1
+            local Color = Settings.TracerColor or Library.Theme.Accent
+            local Transparency = MathClamp(tonumber(Settings.TracerTransparency) or 0, 0, 1)
+
+            if Settings.TracerStyle ~= "Curved" then
+                SetLineSegment(Items.SnaplineSegments[1], Start, Finish, Thickness, Color, Transparency)
+                return
+            end
+
+            local Control = Vector2New(Start.X + math.min(55, Size.X * 0.23), (Start.Y + Finish.Y) * 0.5)
+            local Previous = Start
+
+            for Index = 1, 16 do
+                local T = Index / 16
+                local Inverse = 1 - T
+                local Current = Start * (Inverse * Inverse) + Control * (2 * Inverse * T) + Finish * (T * T)
+                SetLineSegment(Items.SnaplineSegments[Index], Previous, Current, Thickness, Color, Transparency)
+                Previous = Current
+            end
+        end
+
+        local function ClearCharacter()
+            if Preview.CharacterClone then
+                Preview.CharacterClone:Destroy()
+                Preview.CharacterClone = nil
+            end
+
+            Preview.Character = nil
+            Preview.PartState = {}
+            Items.Highlight.Adornee = nil
+        end
+
+        local function FitCharacterCamera()
+            local Clone = Preview.CharacterClone
+            if not Clone or not Clone.Parent then return end
+
+            Clone:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(180), 0))
+            local BoundsCFrame, BoundsSize = Clone:GetBoundingBox()
+            local Focus = BoundsCFrame.Position + Vector3.new(0, BoundsSize.Y * 0.02, 0)
+            local Distance = math.max(BoundsSize.Y * 1.3, BoundsSize.X * 2.25, BoundsSize.Z * 2.25, 7)
+
+            Items.Camera.Instance.CFrame = CFrame.new(Focus + Vector3.new(0, 0, Distance), Focus)
+        end
+
+        local function ApplyCharacterStyle()
+            local Settings = Preview.Settings
+            local Chams = Settings.Chams or {}
+            local Enabled = Preview.Enabled and Chams.Enabled == true
+
+            Items.Highlight.Enabled = Enabled
+            Items.Highlight.Adornee = Enabled and Preview.CharacterClone or nil
+            Items.Highlight.FillColor = Chams.FillColor or Library.Theme.Accent
+            Items.Highlight.OutlineColor = Chams.OutlineColor or Library.Theme.Text
+            Items.Highlight.FillTransparency = MathClamp(tonumber(Chams.FillTransparency) or 0.58, 0, 1)
+            Items.Highlight.OutlineTransparency = MathClamp(tonumber(Chams.OutlineTransparency) or 0.12, 0, 1)
+            Items.Highlight.DepthMode = Chams.ThroughWalls == false and Enum.HighlightDepthMode.Occluded or Enum.HighlightDepthMode.AlwaysOnTop
+
+            for Part, Original in pairs(Preview.PartState) do
+                if Part and Part.Parent then
+                    if Enabled and Chams.GlowEnabled then
+                        Part.Color = Chams.GlowColor or Chams.FillColor or Library.Theme.Accent
+                        Part.Material = Enum.Material.Neon
+                        Part.Transparency = MathClamp(tonumber(Chams.GlowTransparency) or 0.34, 0, 0.85)
+                    else
+                        Part.Color = Original.Color
+                        Part.Material = Original.Material
+                        Part.Transparency = Original.Transparency
+                    end
+                end
+            end
+        end
+
+        function Preview:SetCharacter(Character)
+            if Character == Preview.Character and Preview.CharacterClone and Preview.CharacterClone.Parent then return end
+            ClearCharacter()
+
+            if not Character or not Character.Parent then return end
+
+            local PreviousArchivable = Character.Archivable
+            Character.Archivable = true
+            local Success, Clone = pcall(Character.Clone, Character)
+            Character.Archivable = PreviousArchivable
+            if not Success or not Clone then return end
+
+            for _, Descendant in ipairs(Clone:GetDescendants()) do
+                if Descendant:IsA("LocalScript") or Descendant:IsA("Script") or Descendant:IsA("ModuleScript") then
+                    Descendant:Destroy()
+                elseif Descendant:IsA("BasePart") then
+                    Descendant.Anchored = true
+                    Descendant.CanCollide = false
+                    Descendant.CanTouch = false
+                    Descendant.CanQuery = false
+                    Descendant.CastShadow = false
+
+                    if Descendant.Name == "HumanoidRootPart" then
+                        Descendant.Transparency = 1
+                    else
+                        Preview.PartState[Descendant] = {
+                            Color = Descendant.Color,
+                            Material = Descendant.Material,
+                            Transparency = Descendant.Transparency
+                        }
+                    end
+                elseif Descendant:IsA("Humanoid") then
+                    Descendant.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+                    Descendant.BreakJointsOnDeath = false
+                    Descendant.AutoRotate = false
+                end
+            end
+
+            Clone.Name = "PreviewCharacter"
+            Clone.Parent = Items.World.Instance
+            Preview.Character = Character
+            Preview.CharacterClone = Clone
+
+            FitCharacterCamera()
+            ApplyCharacterStyle()
+        end
+
+        function Preview:Apply(Settings, Extra)
+            Preview.Settings = Settings or Preview.Settings or {}
+            Preview.Extra = Extra or Preview.Extra or {}
+
+            local Current = Preview.Settings
+            local Meta = Preview.Extra
+            local Health = MathClamp(tonumber(Meta.Health) or 74, 0, math.max(tonumber(Meta.MaxHealth) or 100, 1))
+            local MaxHealth = math.max(tonumber(Meta.MaxHealth) or 100, 1)
+            local HealthPercent = Health / MaxHealth
+            local BoxVisible = Preview.Enabled and Current.Boxes == true
+            local FullStyle = Current.BoxStyle == "Full"
+            local TextColor = Current.TextColor or Library.Theme.Text
+            local BoxColor = Current.BoxColor or Library.Theme.Accent
+            local OutlineColor = Current.OutlineColor or FromRGB(4, 7, 6)
+            local HealthColor = (Current.HealthLowColor or FromRGB(235, 72, 72)):Lerp(Current.HealthHighColor or FromRGB(73, 232, 155), HealthPercent)
+
+            Items.Status.Instance.Text = Preview.Enabled and "ENABLED" or "DISABLED"
+            Items.Status.Instance.TextColor3 = Preview.Enabled and Library.Theme.Accent or FromRGB(145, 145, 155)
+
+            Items.Fill.Instance.Visible = BoxVisible and Current.Fill == true
+            Items.Fill.Instance.BackgroundColor3 = Current.FillColor or FromRGB(28, 82, 61)
+            Items.Fill.Instance.BackgroundTransparency = MathClamp(tonumber(Current.FillTransparency) or 0.82, 0, 1)
+
+            Items.FullOutline.Instance.Visible = BoxVisible and FullStyle
+            Items.FullOutline.Instance.BorderColor3 = OutlineColor
+            Items.FullBox.Instance.Visible = BoxVisible and FullStyle
+            Items.FullBox.Instance.BorderColor3 = BoxColor
+
+            for _, Segment in ipairs(Items.Corners) do
+                Segment.Instance.Visible = BoxVisible and not FullStyle
+                Segment.Instance.BackgroundColor3 = BoxColor
+
+                local Stroke = Segment.Instance:FindFirstChildOfClass("UIStroke")
+                if Stroke then Stroke.Color = OutlineColor end
+            end
+
+            Items.Name.Instance.Visible = Preview.Enabled and Current.Names == true
+            Items.Name.Instance.Text = tostring(Meta.Name or "Local Player")
+            Items.Name.Instance.TextColor3 = TextColor
+            Items.Name.Instance.TextSize = tonumber(Current.TextSize) or 13
+
+            local Info = {}
+            if Current.Distance then table.insert(Info, tostring(Meta.Distance or "[24m]")) end
+            if Current.Weapon then table.insert(Info, tostring(Meta.Weapon or "Unarmed")) end
+            Items.Info.Instance.Visible = Preview.Enabled and #Info > 0
+            Items.Info.Instance.Text = table.concat(Info, "  |  ")
+            Items.Info.Instance.TextColor3 = TextColor
+            Items.Info.Instance.TextSize = math.max((tonumber(Current.TextSize) or 13) - 1, 10)
+
+            Items.HealthBack.Instance.Visible = Preview.Enabled and Current.HealthBar == true
+            Items.Health.Instance.Size = UDim2New(1, 0, HealthPercent, 0)
+            Items.Health.Instance.BackgroundColor3 = HealthColor
+
+            Items.HealthText.Instance.Visible = Preview.Enabled and Current.HealthText == true
+            Items.HealthText.Instance.Text = tostring(MathFloor(Health + 0.5))
+            Items.HealthText.Instance.TextColor3 = HealthColor
+            Items.HealthText.Instance.Position = UDim2New(0, -12, 1 - HealthPercent, 0)
+
+            local FilterText = Current.TeamCheck and "TEAM CHECK  •  " or ""
+            Items.Filter.Instance.Text = FilterText .. "MAX " .. tostring(MathFloor(tonumber(Current.MaxDistance) or 1200)) .. " STUDS"
+
+            ApplyCharacterStyle()
+            UpdateSnapline()
+        end
+
+        function Preview:SetVisibility(Value)
+            Preview.Visible = Value == true
+            Items.Frame.Instance.Visible = Preview.Visible
+        end
+
+        function Preview:SetEnabled(Value)
+            Preview.Enabled = Value == true
+            Preview:Apply(Preview.Settings, Preview.Extra)
+        end
+
+        function Preview:SetColor(Color)
+            Preview.Settings.BoxColor = Color
+            Preview:Apply(Preview.Settings, Preview.Extra)
+        end
+
+        function Preview:SetHealth(Value, MaxValue)
+            Preview.Extra.Health = tonumber(Value) or 0
+            Preview.Extra.MaxHealth = tonumber(MaxValue) or Preview.Extra.MaxHealth or 100
+            Preview:Apply(Preview.Settings, Preview.Extra)
+        end
+
+        function Preview:SetName(Value)
+            Preview.Extra.Name = tostring(Value or "Local Player")
+            Preview:Apply(Preview.Settings, Preview.Extra)
+        end
+
+        function Preview:SetDistance(Value)
+            Preview.Extra.Distance = tostring(Value or "[0m]")
+            Preview:Apply(Preview.Settings, Preview.Extra)
+        end
+
+        function Preview:SetSnapline(Value)
+            Preview.Settings.Tracers = Value == true
+            Preview:Apply(Preview.Settings, Preview.Extra)
+        end
+
+        function Preview:Refresh()
+            Preview:SetCharacter(Preview.Character)
+            Preview:Apply(Preview.Settings, Preview.Extra)
+        end
+
+        function Preview:Destroy()
+            ClearCharacter()
+            if Items.Frame and Items.Frame.Instance then Items.Frame.Instance:Destroy() end
+        end
+
+        Preview.Frame = Items.Frame.Instance
+        Preview.Items = Items
+
+        Preview:SetCharacter(Data.Character or LocalPlayer.Character)
+        Preview:Apply(Data.Settings or {}, {
+            Name = Data.Name or LocalPlayer.DisplayName or LocalPlayer.Name,
+            Distance = Data.Distance or "[24m]",
+            Weapon = Data.Weapon or "Unarmed",
+            Health = Data.Health or 74,
+            MaxHealth = Data.MaxHealth or 100
+        })
+
         return Preview
     end
 
     Library.TargetHUD = function(self, Data)
         Data = Data or {}
-        local HUD, Items = {Visible = Data.Visible == true, Health = 100, MaxHealth = 100}, {}
+
+        local HUD = {
+            Visible = Data.Visible == true,
+            Health = 100,
+            MaxHealth = 100,
+            FollowTarget = Data.FollowTarget == true,
+            PreviewMode = false,
+            ManualPosition = Data.Position or UDim2New(0.5, 0, 1, -92),
+            InternalPositionWrite = false,
+            CurrentPlayer = nil,
+            ThumbnailToken = 0
+        }
+
+        local Items = {}
         local Parent = Data.Parent and (Data.Parent.Instance or Data.Parent) or Library.Holder.Instance
 
-        Items.Frame = Instances:Create("Frame", {Parent = Parent, Name = "\0", AnchorPoint = Vector2New(0.5, 1), Position = Data.Position or UDim2New(0.5, 0, 1, -80), Size = Data.Size or UDim2New(0, 290, 0, 82), BorderSizePixel = 2, BorderColor3 = Library.Theme.Border, BackgroundColor3 = Library.Theme.Background, Visible = HUD.Visible})
-        Items.Frame:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"}); Items.Frame:MakeDraggable()
-        Instances:Create("UIStroke", {Parent = Items.Frame.Instance, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, LineJoinMode = Enum.LineJoinMode.Miter, Color = Library.Theme.Outline}):AddToTheme({Color = "Outline"})
-        Items.Accent = Instances:Create("Frame", {Parent = Items.Frame.Instance, Size = UDim2New(1, 0, 0, 2), BorderSizePixel = 0, BackgroundColor3 = Library.Theme.Accent}); Items.Accent:AddToTheme({BackgroundColor3 = "Accent"})
-        Items.AvatarBack = Instances:Create("Frame", {Parent = Items.Frame.Instance, Position = UDim2New(0, 9, 0, 11), Size = UDim2New(0, 58, 0, 58), BorderSizePixel = 1, BorderColor3 = Library.Theme.Outline, BackgroundColor3 = Library.Theme["Page Background"]}); Items.AvatarBack:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline"})
-        Items.Avatar = Instances:Create("ImageLabel", {Parent = Items.AvatarBack.Instance, Position = UDim2New(0, 3, 0, 3), Size = UDim2New(1, -6, 1, -6), BackgroundTransparency = 1, Image = Data.Image or "rbxasset://textures/ui/GuiImagePlaceholder.png"})
-        Items.Name = Instances:Create("TextLabel", {Parent = Items.Frame.Instance, Position = UDim2New(0, 78, 0, 11), Size = UDim2New(1, -88, 0, 20), BackgroundTransparency = 1, FontFace = Library.Font, Text = Data.Name or "No Target", TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Library.Theme.Text}); Items.Name:AddToTheme({TextColor3 = "Text"})
-        Items.Info = Instances:Create("TextLabel", {Parent = Items.Frame.Instance, Position = UDim2New(0, 78, 0, 32), Size = UDim2New(1, -88, 0, 15), BackgroundTransparency = 1, FontFace = Library.Font, Text = Data.Info or "Distance: --  |  Armor: --", TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = FromRGB(155, 155, 165)})
-        Items.HealthBack = Instances:Create("Frame", {Parent = Items.Frame.Instance, Position = UDim2New(0, 78, 0, 53), Size = UDim2New(1, -88, 0, 12), BorderSizePixel = 1, BorderColor3 = Library.Theme.Outline, BackgroundColor3 = FromRGB(20, 20, 24)}); Items.HealthBack:AddToTheme({BorderColor3 = "Outline"})
-        Items.Health = Instances:Create("Frame", {Parent = Items.HealthBack.Instance, Size = UDim2New(1, 0, 1, 0), BorderSizePixel = 0, BackgroundColor3 = FromRGB(70, 210, 105)})
-        Items.HealthText = Instances:Create("TextLabel", {Parent = Items.HealthBack.Instance, Size = UDim2New(1, 0, 1, 0), BackgroundTransparency = 1, FontFace = Library.Font, Text = "100 / 100", TextSize = 10, TextColor3 = FromRGB(245, 245, 245)})
+        Items.Frame = Instances:Create("Frame", {
+            Parent = Parent,
+            Name = "\0",
+            AnchorPoint = Vector2New(0.5, 0.5),
+            Position = HUD.ManualPosition,
+            Size = Data.Size or UDim2New(0, 330, 0, 108),
+            BorderSizePixel = 2,
+            BorderColor3 = Library.Theme.Border,
+            BackgroundColor3 = Library.Theme.Background,
+            Visible = HUD.Visible,
+            Active = true,
+            ZIndex = 120
+        })
+        Items.Frame:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
+        Items.Frame:MakeDraggable()
 
-        function HUD:SetVisibility(Value) HUD.Visible = Value == true; Items.Frame.Instance.Visible = HUD.Visible end
-        function HUD:SetHealth(Health, MaxHealth)
-            HUD.Health, HUD.MaxHealth = math.max(0, tonumber(Health) or 0), math.max(1, tonumber(MaxHealth) or 100)
-            local Ratio = MathClamp(HUD.Health / HUD.MaxHealth, 0, 1)
-            Items.Health.Instance.Size = UDim2New(Ratio, 0, 1, 0)
-            Items.HealthText.Instance.Text = StringFormat("%d / %d", MathFloor(HUD.Health + 0.5), MathFloor(HUD.MaxHealth + 0.5))
+        Instances:Create("UIStroke", {
+            Parent = Items.Frame.Instance,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            LineJoinMode = Enum.LineJoinMode.Miter,
+            Thickness = 1,
+            Color = Library.Theme.Outline
+        }):AddToTheme({Color = "Outline"})
+
+        Items.Accent = Instances:Create("Frame", {
+            Parent = Items.Frame.Instance,
+            Size = UDim2New(1, 0, 0, 2),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Library.Theme.Accent,
+            ZIndex = 122
+        })
+        Items.Accent:AddToTheme({BackgroundColor3 = "Accent"})
+
+        Items.Header = Instances:Create("Frame", {
+            Parent = Items.Frame.Instance,
+            Position = UDim2New(0, 0, 0, 2),
+            Size = UDim2New(1, 0, 0, 25),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Library.Theme.Inline,
+            ZIndex = 121
+        })
+        Items.Header:AddToTheme({BackgroundColor3 = "Inline"})
+
+        Items.Title = Instances:Create("TextLabel", {
+            Parent = Items.Header.Instance,
+            Position = UDim2New(0, 9, 0, 4),
+            Size = UDim2New(1, -90, 0, 17),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = Data.Title or "Target HUD",
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextColor3 = Library.Theme.Text,
+            ZIndex = 123
+        })
+        Items.Title:AddToTheme({TextColor3 = "Text"})
+
+        Items.Mode = Instances:Create("TextLabel", {
+            Parent = Items.Header.Instance,
+            AnchorPoint = Vector2New(1, 0),
+            Position = UDim2New(1, -9, 0, 4),
+            Size = UDim2New(0, 76, 0, 17),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = "NO TARGET",
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            TextColor3 = FromRGB(145, 145, 155),
+            ZIndex = 123
+        })
+
+        Items.Content = Instances:Create("Frame", {
+            Parent = Items.Frame.Instance,
+            Position = UDim2New(0, 7, 0, 33),
+            Size = UDim2New(1, -14, 1, -40),
+            BorderSizePixel = 1,
+            BorderColor3 = Library.Theme.Outline,
+            BackgroundColor3 = Library.Theme["Page Background"],
+            ZIndex = 121
+        })
+        Items.Content:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline"})
+
+        Items.AvatarBack = Instances:Create("Frame", {
+            Parent = Items.Content.Instance,
+            Position = UDim2New(0, 7, 0, 7),
+            Size = UDim2New(0, 54, 0, 54),
+            BorderSizePixel = 1,
+            BorderColor3 = Library.Theme.Outline,
+            BackgroundColor3 = Library.Theme.Element,
+            ZIndex = 122
+        })
+        Items.AvatarBack:AddToTheme({BackgroundColor3 = "Element", BorderColor3 = "Outline"})
+
+        Items.Avatar = Instances:Create("ImageLabel", {
+            Parent = Items.AvatarBack.Instance,
+            Position = UDim2New(0, 3, 0, 3),
+            Size = UDim2New(1, -6, 1, -6),
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            Image = Data.Image or "rbxasset://textures/ui/GuiImagePlaceholder.png",
+            ScaleType = Enum.ScaleType.Crop,
+            ZIndex = 123
+        })
+
+        Items.Name = Instances:Create("TextLabel", {
+            Parent = Items.Content.Instance,
+            Position = UDim2New(0, 70, 0, 6),
+            Size = UDim2New(1, -78, 0, 19),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = Data.Name or "No Target",
+            TextSize = 14,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextColor3 = Library.Theme.Text,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 123
+        })
+        Items.Name:AddToTheme({TextColor3 = "Text"})
+
+        Items.Info = Instances:Create("TextLabel", {
+            Parent = Items.Content.Instance,
+            Position = UDim2New(0, 70, 0, 25),
+            Size = UDim2New(1, -78, 0, 15),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = Data.Info or "Waiting for target",
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextColor3 = FromRGB(155, 155, 165),
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 123
+        })
+
+        Items.HealthBack = Instances:Create("Frame", {
+            Parent = Items.Content.Instance,
+            Position = UDim2New(0, 70, 0, 45),
+            Size = UDim2New(1, -78, 0, 12),
+            BorderSizePixel = 1,
+            BorderColor3 = Library.Theme.Outline,
+            BackgroundColor3 = Library.Theme.Inline,
+            ClipsDescendants = true,
+            ZIndex = 122
+        })
+        Items.HealthBack:AddToTheme({BackgroundColor3 = "Inline", BorderColor3 = "Outline"})
+
+        Items.Health = Instances:Create("Frame", {
+            Parent = Items.HealthBack.Instance,
+            Size = UDim2New(1, 0, 1, 0),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Library.Theme.Accent,
+            ZIndex = 123
+        })
+        Items.Health:AddToTheme({BackgroundColor3 = "Accent"})
+
+        Items.HealthText = Instances:Create("TextLabel", {
+            Parent = Items.HealthBack.Instance,
+            Size = UDim2New(1, -6, 1, 0),
+            Position = UDim2New(0, 3, 0, 0),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = "100 / 100",
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            TextColor3 = FromRGB(245, 245, 245),
+            ZIndex = 124
+        })
+
+        Items.Follow = Instances:Create("TextLabel", {
+            Parent = Items.Content.Instance,
+            AnchorPoint = Vector2New(1, 0),
+            Position = UDim2New(1, -6, 0, 6),
+            Size = UDim2New(0, 64, 0, 15),
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = "FIXED",
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            TextColor3 = FromRGB(145, 145, 155),
+            ZIndex = 124
+        })
+
+        Library:Connect(
+            Items.Frame.Instance:GetPropertyChangedSignal("Position"),
+            function()
+                if HUD.InternalPositionWrite or HUD.FollowTarget and not HUD.PreviewMode then return end
+                HUD.ManualPosition = Items.Frame.Instance.Position
+            end,
+            "TargetHUDManualPosition"
+        )
+
+        local function WritePosition(Position)
+            HUD.InternalPositionWrite = true
+            Items.Frame.Instance.Position = Position
+            HUD.InternalPositionWrite = false
         end
-        function HUD:SetName(Value) Items.Name.Instance.Text = tostring(Value or "No Target") end
-        function HUD:SetInfo(Value) Items.Info.Instance.Text = tostring(Value or "") end
-        function HUD:SetImage(Value) Items.Avatar.Instance.Image = tostring(Value or "") end
-        function HUD:SetTarget(Player, Health, MaxHealth, Info)
+
+        function HUD:SetVisibility(Value)
+            HUD.Visible = Value == true
+            Items.Frame.Instance.Visible = HUD.Visible
+        end
+
+        function HUD:SetHealth(Health, MaxHealth)
+            HUD.Health = math.max(0, tonumber(Health) or 0)
+            HUD.MaxHealth = math.max(1, tonumber(MaxHealth) or 100)
+
+            local Ratio = MathClamp(HUD.Health / HUD.MaxHealth, 0, 1)
+            local HealthColor = FromRGB(232, 75, 75):Lerp(FromRGB(76, 224, 139), Ratio)
+
+            Items.Health.Instance.Size = UDim2New(Ratio, 0, 1, 0)
+            Items.Health.Instance.BackgroundColor3 = HealthColor
+            Items.HealthText.Instance.Text = StringFormat(
+                "%d / %d  •  %d%%",
+                MathFloor(HUD.Health + 0.5),
+                MathFloor(HUD.MaxHealth + 0.5),
+                MathFloor(Ratio * 100 + 0.5)
+            )
+        end
+
+        function HUD:SetName(Value)
+            Items.Name.Instance.Text = tostring(Value or "No Target")
+        end
+
+        function HUD:SetInfo(Value)
+            Items.Info.Instance.Text = tostring(Value or "")
+        end
+
+        function HUD:SetImage(Value)
+            Items.Avatar.Instance.Image = tostring(Value or "")
+        end
+
+        function HUD:SetMode(Value)
+            local Mode = string.upper(tostring(Value or "NO TARGET"))
+            Items.Mode.Instance.Text = Mode
+
+            if Mode == "PREVIEW" then
+                Items.Mode.Instance.TextColor3 = Library.Theme.Accent
+            elseif Mode == "RAGE" then
+                Items.Mode.Instance.TextColor3 = FromRGB(255, 105, 105)
+            elseif Mode == "AIM" then
+                Items.Mode.Instance.TextColor3 = FromRGB(105, 190, 255)
+            else
+                Items.Mode.Instance.TextColor3 = FromRGB(145, 145, 155)
+            end
+        end
+
+        function HUD:SetFollowTarget(Value)
+            Value = Value == true
+            if HUD.FollowTarget == Value then
+                Items.Follow.Instance.Text = Value and "FOLLOW" or "FIXED"
+                return
+            end
+
+            if Value and not HUD.PreviewMode then
+                HUD.ManualPosition = Items.Frame.Instance.Position
+            end
+
+            HUD.FollowTarget = Value
+            Items.Follow.Instance.Text = Value and "FOLLOW" or "FIXED"
+            Items.Follow.Instance.TextColor3 = Value and Library.Theme.Accent or FromRGB(145, 145, 155)
+
+            if not Value or HUD.PreviewMode then
+                WritePosition(HUD.ManualPosition)
+            end
+        end
+
+        function HUD:SetPreviewMode(Value)
+            Value = Value == true
+            if HUD.PreviewMode == Value then return end
+
+            HUD.PreviewMode = Value
+
+            if Value then
+                WritePosition(HUD.ManualPosition)
+                HUD:SetMode("PREVIEW")
+                Items.Follow.Instance.Text = "DRAG"
+                Items.Follow.Instance.TextColor3 = Library.Theme.Accent
+            else
+                Items.Follow.Instance.Text = HUD.FollowTarget and "FOLLOW" or "FIXED"
+                Items.Follow.Instance.TextColor3 = HUD.FollowTarget and Library.Theme.Accent or FromRGB(145, 145, 155)
+
+                if not HUD.FollowTarget then
+                    WritePosition(HUD.ManualPosition)
+                end
+            end
+        end
+
+        function HUD:SetManualPosition(Position)
+            if typeof(Position) ~= "UDim2" then return end
+            HUD.ManualPosition = Position
+
+            if HUD.PreviewMode or not HUD.FollowTarget then
+                WritePosition(Position)
+            end
+        end
+
+        function HUD:GetManualPosition()
+            return HUD.ManualPosition
+        end
+
+        function HUD:SetFollowScreenPosition(ScreenPosition, ViewportSize, Offset)
+            if not HUD.FollowTarget or HUD.PreviewMode then return false end
+            if typeof(ScreenPosition) ~= "Vector2" or typeof(ViewportSize) ~= "Vector2" then return false end
+
+            Offset = typeof(Offset) == "Vector2" and Offset or Vector2New(0, -78)
+
+            local FrameSize = Items.Frame.Instance.AbsoluteSize
+            local HalfWidth = math.max(FrameSize.X * 0.5, 20)
+            local HalfHeight = math.max(FrameSize.Y * 0.5, 20)
+            local X = MathClamp(ScreenPosition.X + Offset.X, HalfWidth + 8, ViewportSize.X - HalfWidth - 8)
+            local Y = MathClamp(ScreenPosition.Y + Offset.Y, HalfHeight + 8, ViewportSize.Y - HalfHeight - 8)
+
+            WritePosition(UDim2New(0, X, 0, Y))
+            return true
+        end
+
+        function HUD:SetTarget(Player, Health, MaxHealth, Info, Mode)
+            HUD.CurrentPlayer = Player
             HUD:SetName(Player and (Player.DisplayName or Player.Name) or "No Target")
-            HUD:SetHealth(Health or 0, MaxHealth or 100); HUD:SetInfo(Info or "Distance: --  |  Armor: --")
+            HUD:SetHealth(Health or 0, MaxHealth or 100)
+            HUD:SetInfo(Info or "Waiting for target")
+            HUD:SetMode(Mode or (HUD.PreviewMode and "PREVIEW" or "TARGET"))
+
+            HUD.ThumbnailToken = HUD.ThumbnailToken + 1
+            local Token = HUD.ThumbnailToken
+
             if Player and Player.UserId then
                 Library:Thread(function()
-                    local Ok, Image = pcall(Players.GetUserThumbnailAsync, Players, Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
-                    if Ok and Items.Avatar.Instance.Parent then Items.Avatar.Instance.Image = Image end
+                    local Success, Image = pcall(
+                        Players.GetUserThumbnailAsync,
+                        Players,
+                        Player.UserId,
+                        Enum.ThumbnailType.HeadShot,
+                        Enum.ThumbnailSize.Size100x100
+                    )
+
+                    if Success
+                        and Token == HUD.ThumbnailToken
+                        and Items.Avatar.Instance.Parent
+                    then
+                        Items.Avatar.Instance.Image = Image
+                    end
                 end)
             end
         end
-        function HUD:Destroy() if Items.Frame and Items.Frame.Instance then Items.Frame.Instance:Destroy() end end
-        HUD.Frame, HUD.Items = Items.Frame.Instance, Items
+
+        function HUD:Destroy()
+            HUD.ThumbnailToken = HUD.ThumbnailToken + 1
+            Library:Disconnect("TargetHUDManualPosition")
+
+            if Items.Frame and Items.Frame.Instance then
+                Items.Frame.Instance:Destroy()
+            end
+        end
+
+        HUD.Frame = Items.Frame.Instance
+        HUD.Items = Items
+        HUD:SetFollowTarget(HUD.FollowTarget)
+
         return HUD
     end
 
