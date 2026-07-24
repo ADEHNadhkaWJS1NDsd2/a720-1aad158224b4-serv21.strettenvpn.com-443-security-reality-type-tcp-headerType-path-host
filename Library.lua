@@ -519,7 +519,8 @@ local Library do
 
         Instances.MakeDraggable = function(
             self,
-            Handle
+            Handle,
+            Smoothness
         )
             if not self.Instance then
                 return
@@ -536,10 +537,75 @@ local Library do
                 )
                 or Gui
 
+            if DragHandle:IsA(
+                "GuiObject"
+            ) then
+                DragHandle.Active =
+                    true
+            end
+
             local Dragging = false
-            local DragInput = nil
             local DragStart = nil
             local StartPosition = nil
+            local TargetPosition = nil
+            local ReleasedAt = 0
+
+            local MoveConnection = nil
+            local EndConnection = nil
+            local RenderConnection = nil
+
+            local DragSpeed =
+                tonumber(
+                    Smoothness
+                )
+                or 26
+
+            local function Disconnect(
+                Connection
+            )
+                if Connection then
+                    pcall(function()
+                        Connection:
+                            Disconnect()
+                    end)
+                end
+            end
+
+            local function StopConnections(
+                StopRender
+            )
+                Disconnect(
+                    MoveConnection
+                )
+
+                Disconnect(
+                    EndConnection
+                )
+
+                MoveConnection = nil
+                EndConnection = nil
+
+                if StopRender then
+                    Disconnect(
+                        RenderConnection
+                    )
+
+                    RenderConnection = nil
+                end
+            end
+
+            local function FinishDrag()
+                if not Dragging then
+                    return
+                end
+
+                Dragging = false
+                ReleasedAt = os.clock()
+
+                StopConnections(
+                    false
+                )
+            end
 
             Library:Connect(
                 DragHandle.InputBegan,
@@ -552,7 +618,13 @@ local Library do
                         return
                     end
 
+                    StopConnections(
+                        true
+                    )
+
                     Dragging = true
+                    ReleasedAt = 0
+
                     DragStart =
                         Vector2New(
                             Input.Position.X,
@@ -562,84 +634,135 @@ local Library do
                     StartPosition =
                         Gui.Position
 
-                    if Input.UserInputType
+                    TargetPosition =
+                        StartPosition
+
+                    local IsTouch =
+                        Input.UserInputType
                         == Enum.UserInputType.Touch
-                    then
-                        DragInput =
-                            Input
-                    end
+
+                    MoveConnection =
+                        UserInputService.InputChanged:
+                        Connect(function(ChangedInput)
+                            if Library.Unloaded
+                                or not Gui.Parent
+                            then
+                                FinishDrag()
+                                return
+                            end
+
+                            local IsMatchingInput =
+                                IsTouch
+                                and ChangedInput
+                                    == Input
+                                or not IsTouch
+                                and ChangedInput.UserInputType
+                                    == Enum.UserInputType.MouseMovement
+
+                            if not Dragging
+                                or not IsMatchingInput
+                            then
+                                return
+                            end
+
+                            local CurrentPosition =
+                                Vector2New(
+                                    ChangedInput.Position.X,
+                                    ChangedInput.Position.Y
+                                )
+
+                            local Delta =
+                                CurrentPosition
+                                - DragStart
+
+                            TargetPosition =
+                                UDim2New(
+                                    StartPosition.X.Scale,
+                                    StartPosition.X.Offset
+                                        + Delta.X,
+                                    StartPosition.Y.Scale,
+                                    StartPosition.Y.Offset
+                                        + Delta.Y
+                                )
+                        end)
+
+                    EndConnection =
+                        UserInputService.InputEnded:
+                        Connect(function(EndedInput)
+                            local IsMatchingEnd =
+                                IsTouch
+                                and EndedInput
+                                    == Input
+                                or not IsTouch
+                                and EndedInput.UserInputType
+                                    == Enum.UserInputType.MouseButton1
+
+                            if IsMatchingEnd then
+                                FinishDrag()
+                            end
+                        end)
+
+                    RenderConnection =
+                        RunService.RenderStepped:
+                        Connect(function(DeltaTime)
+                            if Library.Unloaded
+                                or not Gui.Parent
+                                or not TargetPosition
+                            then
+                                StopConnections(
+                                    true
+                                )
+
+                                return
+                            end
+
+                            local Alpha =
+                                1
+                                - math.exp(
+                                    -DragSpeed
+                                    * math.clamp(
+                                        DeltaTime,
+                                        0,
+                                        0.05
+                                    )
+                                )
+
+                            Gui.Position =
+                                Gui.Position:
+                                Lerp(
+                                    TargetPosition,
+                                    Alpha
+                                )
+
+                            if not Dragging then
+                                local Current =
+                                    Gui.Position
+
+                                local Distance =
+                                    math.abs(
+                                        TargetPosition.X.Offset
+                                        - Current.X.Offset
+                                    )
+                                    + math.abs(
+                                        TargetPosition.Y.Offset
+                                        - Current.Y.Offset
+                                    )
+
+                                if Distance < 0.35
+                                    or os.clock()
+                                        - ReleasedAt
+                                        > 0.18
+                                then
+                                    Gui.Position =
+                                        TargetPosition
+
+                                    StopConnections(
+                                        true
+                                    )
+                                end
+                            end
+                        end)
                 end
-            )
-
-            Library:Connect(
-                DragHandle.InputChanged,
-                function(Input)
-                    if Input.UserInputType
-                            == Enum.UserInputType.MouseMovement
-                        or Input.UserInputType
-                            == Enum.UserInputType.Touch
-                    then
-                        DragInput =
-                            Input
-                    end
-                end
-            )
-
-            local ChangedConnection =
-                UserInputService.InputChanged:
-                Connect(function(Input)
-                    if Library.Unloaded
-                        or not Dragging
-                        or Input ~= DragInput
-                        or not Gui.Parent
-                    then
-                        return
-                    end
-
-                    local CurrentPosition =
-                        Vector2New(
-                            Input.Position.X,
-                            Input.Position.Y
-                        )
-
-                    local Delta =
-                        CurrentPosition
-                        - DragStart
-
-                    Gui.Position =
-                        UDim2New(
-                            StartPosition.X.Scale,
-                            StartPosition.X.Offset
-                                + Delta.X,
-                            StartPosition.Y.Scale,
-                            StartPosition.Y.Offset
-                                + Delta.Y
-                        )
-                end)
-
-            TableInsert(
-                Library.CoreConnections,
-                ChangedConnection
-            )
-
-            local EndedConnection =
-                UserInputService.InputEnded:
-                Connect(function(Input)
-                    if Input.UserInputType
-                            ~= Enum.UserInputType.MouseButton1
-                        and Input.UserInputType
-                            ~= Enum.UserInputType.Touch
-                    then
-                        return
-                    end
-
-                    Dragging = false
-                    DragInput = nil
-                end)
-
-            TableInsert(
-                Library.CoreConnections,
-                EndedConnection
             )
 
             return self
@@ -648,7 +771,8 @@ local Library do
         Instances.MakeResizeable = function(
             self,
             Minimum,
-            Maximum
+            Maximum,
+            Smoothness
         )
             if not self.Instance then
                 return
@@ -661,6 +785,17 @@ local Library do
             local StartMouse = nil
             local StartSize = nil
             local TargetSize = nil
+            local ReleasedAt = 0
+
+            local MoveConnection = nil
+            local EndConnection = nil
+            local RenderConnection = nil
+
+            local ResizeSpeed =
+                tonumber(
+                    Smoothness
+                )
+                or 30
 
             local ResizeButton =
                 Instances:Create(
@@ -697,125 +832,216 @@ local Library do
                         BackgroundTransparency = 1,
                         AutoButtonColor = false,
                         Visible = true,
-                        Text = ""
+                        Text = "",
+                        Active = true
                     }
                 )
+
+            local function Disconnect(
+                Connection
+            )
+                if Connection then
+                    pcall(function()
+                        Connection:
+                            Disconnect()
+                    end)
+                end
+            end
+
+            local function StopConnections(
+                StopRender
+            )
+                Disconnect(
+                    MoveConnection
+                )
+
+                Disconnect(
+                    EndConnection
+                )
+
+                MoveConnection = nil
+                EndConnection = nil
+
+                if StopRender then
+                    Disconnect(
+                        RenderConnection
+                    )
+
+                    RenderConnection = nil
+                end
+            end
+
+            local function FinishResize()
+                if not Resizing then
+                    return
+                end
+
+                Resizing = false
+                ReleasedAt = os.clock()
+
+                StopConnections(
+                    false
+                )
+            end
 
             ResizeButton:Connect(
                 "InputBegan",
                 function(Input)
                     if Input.UserInputType
-                            == Enum.UserInputType.MouseButton1
-                        or Input.UserInputType
-                            == Enum.UserInputType.Touch
-                    then
-                        Resizing = true
-                        StartMouse =
-                            Input.Position
-
-                        StartSize =
-                            Gui.AbsoluteSize
-
-                        TargetSize =
-                            Gui.Size
-                    end
-                end
-            )
-
-            Library:Connect(
-                UserInputService.InputChanged,
-                function(Input)
-                    if not Resizing then
-                        return
-                    end
-
-                    if Input.UserInputType
-                            ~= Enum.UserInputType.MouseMovement
+                            ~= Enum.UserInputType.MouseButton1
                         and Input.UserInputType
                             ~= Enum.UserInputType.Touch
                     then
                         return
                     end
 
-                    local Delta =
-                        Input.Position
-                        - StartMouse
+                    StopConnections(
+                        true
+                    )
 
-                    local MaximumSize =
-                        Maximum
-                        or Gui.Parent.AbsoluteSize
+                    Resizing = true
+                    ReleasedAt = 0
+                    StartMouse = Input.Position
+                    StartSize = Gui.AbsoluteSize
+                    TargetSize = Gui.Size
 
-                    local Width =
-                        math.clamp(
-                            StartSize.X
-                                + Delta.X,
-                            Minimum.X,
-                            MaximumSize.X
-                        )
+                    local IsTouch =
+                        Input.UserInputType
+                        == Enum.UserInputType.Touch
 
-                    local Height =
-                        math.clamp(
-                            StartSize.Y
-                                + Delta.Y,
-                            Minimum.Y,
-                            MaximumSize.Y
-                        )
+                    MoveConnection =
+                        UserInputService.InputChanged:
+                        Connect(function(ChangedInput)
+                            if Library.Unloaded
+                                or not Gui.Parent
+                            then
+                                FinishResize()
+                                return
+                            end
 
-                    TargetSize =
-                        UDim2New(
-                            0,
-                            Width,
-                            0,
-                            Height
-                        )
-                end
-            )
+                            local IsMatchingInput =
+                                IsTouch
+                                and ChangedInput
+                                    == Input
+                                or not IsTouch
+                                and ChangedInput.UserInputType
+                                    == Enum.UserInputType.MouseMovement
 
-            Library:Connect(
-                UserInputService.InputEnded,
-                function(Input)
-                    if Input.UserInputType
-                            == Enum.UserInputType.MouseButton1
-                        or Input.UserInputType
-                            == Enum.UserInputType.Touch
-                    then
-                        Resizing = false
+                            if not Resizing
+                                or not IsMatchingInput
+                            then
+                                return
+                            end
 
-                        if TargetSize then
+                            local Delta =
+                                ChangedInput.Position
+                                - StartMouse
+
+                            local MaximumSize =
+                                Maximum
+                                or Gui.Parent.AbsoluteSize
+
+                            local Width =
+                                math.clamp(
+                                    StartSize.X
+                                        + Delta.X,
+                                    Minimum.X,
+                                    MaximumSize.X
+                                )
+
+                            local Height =
+                                math.clamp(
+                                    StartSize.Y
+                                        + Delta.Y,
+                                    Minimum.Y,
+                                    MaximumSize.Y
+                                )
+
+                            TargetSize =
+                                UDim2New(
+                                    0,
+                                    Width,
+                                    0,
+                                    Height
+                                )
+                        end)
+
+                    EndConnection =
+                        UserInputService.InputEnded:
+                        Connect(function(EndedInput)
+                            local IsMatchingEnd =
+                                IsTouch
+                                and EndedInput
+                                    == Input
+                                or not IsTouch
+                                and EndedInput.UserInputType
+                                    == Enum.UserInputType.MouseButton1
+
+                            if IsMatchingEnd then
+                                FinishResize()
+                            end
+                        end)
+
+                    RenderConnection =
+                        RunService.RenderStepped:
+                        Connect(function(DeltaTime)
+                            if Library.Unloaded
+                                or not Gui.Parent
+                                or not TargetSize
+                            then
+                                StopConnections(
+                                    true
+                                )
+
+                                return
+                            end
+
+                            local Alpha =
+                                1
+                                - math.exp(
+                                    -ResizeSpeed
+                                    * math.clamp(
+                                        DeltaTime,
+                                        0,
+                                        0.05
+                                    )
+                                )
+
                             Gui.Size =
-                                TargetSize
-                        end
-                    end
-                end
-            )
+                                Gui.Size:
+                                Lerp(
+                                    TargetSize,
+                                    Alpha
+                                )
 
-            Library:Connect(
-                RunService.RenderStepped,
-                function(DeltaTime)
-                    if not Resizing
-                        or not TargetSize
-                        or not Gui.Parent
-                    then
-                        return
-                    end
+                            if not Resizing then
+                                local Current =
+                                    Gui.Size
 
-                    local Alpha =
-                        1
-                        - math.exp(
-                            -30
-                            * math.clamp(
-                                DeltaTime,
-                                0,
-                                0.05
-                            )
-                        )
+                                local Distance =
+                                    math.abs(
+                                        TargetSize.X.Offset
+                                        - Current.X.Offset
+                                    )
+                                    + math.abs(
+                                        TargetSize.Y.Offset
+                                        - Current.Y.Offset
+                                    )
 
-                    Gui.Size =
-                        Gui.Size:
-                        Lerp(
-                            TargetSize,
-                            Alpha
-                        )
+                                if Distance < 0.35
+                                    or os.clock()
+                                        - ReleasedAt
+                                        > 0.18
+                                then
+                                    Gui.Size =
+                                        TargetSize
+
+                                    StopConnections(
+                                        true
+                                    )
+                                end
+                            end
+                        end)
                 end
             )
 
@@ -4331,11 +4557,12 @@ local Library do
             SubPages = { },
             Elements = { },
 
-            IsOpen = true
+            IsOpen = true,
+            AnimationToken = 0
         }
 
         local Items = { } do
-            Items["MainFrame"] = Instances:Create("Frame", {
+            Items["MainFrame"] = Instances:Create("CanvasGroup", {
                 Parent = Library.Holder.Instance,
                 AnchorPoint = Vector2New(0, 0),
                 Name = "\0",
@@ -4343,12 +4570,17 @@ local Library do
                 BorderColor3 = FromRGB(10, 10, 10),
                 Size = Window.Size,
                 BorderSizePixel = 2,
-                BackgroundColor3 = FromRGB(15, 15, 20)
+                BackgroundColor3 = FromRGB(15, 15, 20),
+                GroupTransparency = 0
             })  Items["MainFrame"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
 
             Items["MainFrame"].Instance.Position = UDim2New(0, Camera.ViewportSize.X / 4, 0, Camera.ViewportSize.Y / 4)
 
-            Items["MainFrame"]:MakeDraggable()
+            Items["MenuScale"] = Instances:Create("UIScale", {
+                Parent = Items["MainFrame"].Instance,
+                Scale = 1
+            })
+
             Items["MainFrame"]:MakeResizeable(Vector2New(Window.Size.X.Offset, Window.Size.Y.Offset), Vector2New(9999, 9999))
 
             Items["AccentBorder"] = Instances:Create("UIStroke", {
@@ -4380,6 +4612,11 @@ local Library do
                 LineJoinMode = Enum.LineJoinMode.Miter,
                 Name = "\0"
             }):AddToTheme({Color = "Text Border"})
+
+            Items["MainFrame"]:MakeDraggable(
+                Items["Title"],
+                26
+            )
 
             Items["Inline"] = Instances:Create("Frame", {
                 Parent = Items["MainFrame"].Instance,
@@ -4445,21 +4682,110 @@ local Library do
             Bool =
                 Bool == true
 
+            if Window.IsOpen
+                == Bool
+            then
+                return
+            end
+
             Window.IsOpen =
                 Bool
 
-            Items[
-                "MainFrame"
-            ].Instance.Visible =
-                Bool
+            Window.AnimationToken =
+                Window.AnimationToken
+                + 1
 
-            if not Bool
-                and Library.CurrentColorpicker
-            then
-                Library.CurrentColorpicker:
-                    SetOpen(
-                        false
+            local AnimationToken =
+                Window.AnimationToken
+
+            local MainFrame =
+                Items[
+                    "MainFrame"
+                ].Instance
+
+            local MenuScale =
+                Items[
+                    "MenuScale"
+                ].Instance
+
+            local AnimationInfo =
+                TweenInfo.new(
+                    Window.FadeSpeed,
+                    Bool
+                        and Enum.EasingStyle.Quint
+                        or Enum.EasingStyle.Quad,
+                    Bool
+                        and Enum.EasingDirection.Out
+                        or Enum.EasingDirection.In
+                )
+
+            if Bool then
+                MainFrame.Visible =
+                    true
+
+                MainFrame.Active =
+                    true
+
+                Tween:Create(
+                    MainFrame,
+                    AnimationInfo,
+                    {
+                        GroupTransparency = 0
+                    },
+                    true
+                )
+
+                Tween:Create(
+                    MenuScale,
+                    AnimationInfo,
+                    {
+                        Scale = 1
+                    },
+                    true
+                )
+            else
+                MainFrame.Active =
+                    false
+
+                Tween:Create(
+                    MainFrame,
+                    AnimationInfo,
+                    {
+                        GroupTransparency = 1
+                    },
+                    true
+                )
+
+                Tween:Create(
+                    MenuScale,
+                    AnimationInfo,
+                    {
+                        Scale = 0.965
+                    },
+                    true
+                )
+
+                if Library.CurrentColorpicker then
+                    Library.CurrentColorpicker:
+                        SetOpen(
+                            false
+                        )
+                end
+
+                Library:Thread(function()
+                    task.wait(
+                        Window.FadeSpeed
                     )
+
+                    if Window.AnimationToken
+                            == AnimationToken
+                        and not Window.IsOpen
+                        and MainFrame.Parent
+                    then
+                        MainFrame.Visible =
+                            false
+                    end
+                end)
             end
         end
 
