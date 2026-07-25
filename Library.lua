@@ -5262,7 +5262,7 @@ local Library do
             PreviewMode = false,
             ManualPosition = Data.Position or UDim2New(0.5, 0, 1, -92),
             FullSize = Data.Size or UDim2New(0, 282, 0, 78),
-            FollowSize = Data.FollowSize or UDim2New(0, 190, 0, 54),
+            FollowSize = Data.FollowSize or UDim2New(0, 148, 0, 40),
             InternalPositionWrite = false,
             CurrentPlayer = nil,
             ThumbnailToken = 0
@@ -5390,14 +5390,16 @@ local Library do
 
         Items.HealthText = Instances:Create("TextLabel", {
             Parent = Items.HealthBack.Instance,
-            Position = UDim2New(0, 3, 0, 0),
-            Size = UDim2New(1, -6, 1, 0),
+            Position = UDim2New(0, 2, 0, 0),
+            Size = UDim2New(1, -4, 1, 0),
             BackgroundTransparency = 1,
             FontFace = Library.Font,
             Text = "",
             TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Center,
-            TextColor3 = FromRGB(245, 245, 245),
+            TextColor3 = FromRGB(18, 18, 22),
+            TextStrokeColor3 = FromRGB(235, 235, 240),
+            TextStrokeTransparency = 0.78,
             ZIndex = 124
         })
 
@@ -5420,23 +5422,23 @@ local Library do
             local Compact = HUD.FollowTarget and not HUD.PreviewMode
 
             Items.Frame.Instance.Size = Compact and HUD.FollowSize or HUD.FullSize
-            Items.Content.Instance.Position = Compact and UDim2New(0, 4, 0, 6) or UDim2New(0, 6, 0, 8)
-            Items.Content.Instance.Size = Compact and UDim2New(1, -8, 1, -10) or UDim2New(1, -12, 1, -14)
+            Items.Content.Instance.Position = Compact and UDim2New(0, 3, 0, 5) or UDim2New(0, 6, 0, 8)
+            Items.Content.Instance.Size = Compact and UDim2New(1, -6, 1, -8) or UDim2New(1, -12, 1, -14)
 
-            Items.AvatarBack.Instance.Position = Compact and UDim2New(0, 4, 0, 4) or UDim2New(0, 6, 0, 6)
-            Items.AvatarBack.Instance.Size = Compact and UDim2New(0, 38, 0, 38) or UDim2New(0, 50, 0, 50)
+            Items.AvatarBack.Instance.Position = Compact and UDim2New(0, 3, 0, 2) or UDim2New(0, 6, 0, 6)
+            Items.AvatarBack.Instance.Size = Compact and UDim2New(0, 28, 0, 28) or UDim2New(0, 50, 0, 50)
 
-            Items.Name.Instance.Position = Compact and UDim2New(0, 49, 0, 3) or UDim2New(0, 64, 0, 5)
-            Items.Name.Instance.Size = Compact and UDim2New(1, -54, 0, 17) or UDim2New(1, -71, 0, 18)
-            Items.Name.Instance.TextSize = Compact and 11 or 13
+            Items.Name.Instance.Position = Compact and UDim2New(0, 36, 0, 0) or UDim2New(0, 64, 0, 5)
+            Items.Name.Instance.Size = Compact and UDim2New(1, -39, 0, 14) or UDim2New(1, -71, 0, 18)
+            Items.Name.Instance.TextSize = Compact and 9 or 13
 
             Items.Info.Instance.Visible = not Compact
             Items.Info.Instance.Position = UDim2New(0, 64, 0, 23)
             Items.Info.Instance.Size = UDim2New(1, -71, 0, 14)
 
-            Items.HealthBack.Instance.Position = Compact and UDim2New(0, 49, 0, 24) or UDim2New(0, 64, 0, 42)
-            Items.HealthBack.Instance.Size = Compact and UDim2New(1, -54, 0, 10) or UDim2New(1, -71, 0, 11)
-            Items.HealthText.Instance.TextSize = Compact and 8 or 9
+            Items.HealthBack.Instance.Position = Compact and UDim2New(0, 36, 0, 18) or UDim2New(0, 64, 0, 42)
+            Items.HealthBack.Instance.Size = Compact and UDim2New(1, -39, 0, 8) or UDim2New(1, -71, 0, 11)
+            Items.HealthText.Instance.TextSize = Compact and 7 or 9
         end
 
         function HUD:SetVisibility(Value)
@@ -5530,7 +5532,7 @@ local Library do
             if not HUD.FollowTarget or HUD.PreviewMode then return false end
             if typeof(ScreenPosition) ~= "Vector2" or typeof(ViewportSize) ~= "Vector2" then return false end
 
-            Offset = typeof(Offset) == "Vector2" and Offset or Vector2New(0, -52)
+            Offset = typeof(Offset) == "Vector2" and Offset or Vector2New(0, -42)
 
             local FrameSize = Items.Frame.Instance.AbsoluteSize
             local HalfWidth = math.max(FrameSize.X * 0.5, 20)
