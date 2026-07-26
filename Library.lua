@@ -1810,48 +1810,296 @@ local Library do
         self.ThemeMap[Item] = ThemeData
     end
 
-    Library.GetConfig = function(self)
-        local Config = { }
+    local function SerializeConfigValue(Value, Seen)
+        local ValueType = typeof(Value)
 
-        local Success, Result = Library:SafeCall(function()
-            for Index, Value in Library.Flags do
-                if type(Value) == "table" and Value.Key then
-                    Config[Index] = {Key = tostring(Value.Key), Mode = Value.Mode}
-                elseif type(Value) == "table" and Value.Color then
-                    Config[Index] = {Color = "#" .. Value.HexValue, Alpha = Value.Alpha}
-                else
-                    Config[Index] = Value
+        if ValueType == "Color3" then
+            return {
+                __Type = "Color3",
+                Hex = "#" .. Value:ToHex()
+            }
+        elseif ValueType == "EnumItem" then
+            return {
+                __Type = "EnumItem",
+                EnumType = tostring(Value.EnumType):gsub("^Enum%.", ""),
+                Name = Value.Name
+            }
+        elseif ValueType == "Vector2" then
+            return {
+                __Type = "Vector2",
+                X = Value.X,
+                Y = Value.Y
+            }
+        elseif ValueType == "Vector3" then
+            return {
+                __Type = "Vector3",
+                X = Value.X,
+                Y = Value.Y,
+                Z = Value.Z
+            }
+        elseif ValueType == "UDim" then
+            return {
+                __Type = "UDim",
+                Scale = Value.Scale,
+                Offset = Value.Offset
+            }
+        elseif ValueType == "UDim2" then
+            return {
+                __Type = "UDim2",
+                XScale = Value.X.Scale,
+                XOffset = Value.X.Offset,
+                YScale = Value.Y.Scale,
+                YOffset = Value.Y.Offset
+            }
+        elseif ValueType == "CFrame" then
+            return {
+                __Type = "CFrame",
+                Components = {Value:GetComponents()}
+            }
+        end
+
+        local LuaType = type(Value)
+
+        if LuaType == "nil"
+            or LuaType == "boolean"
+            or LuaType == "number"
+            or LuaType == "string"
+        then
+            return Value
+        end
+
+        if LuaType ~= "table" then
+            return nil
+        end
+
+        Seen = Seen or {}
+
+        if Seen[Value] then
+            return nil
+        end
+
+        Seen[Value] = true
+
+        local Result = {}
+
+        for Key, NestedValue in pairs(Value) do
+            local KeyType = type(Key)
+
+            if KeyType == "string"
+                or KeyType == "number"
+            then
+                local Serialized = SerializeConfigValue(NestedValue, Seen)
+
+                if Serialized ~= nil then
+                    Result[Key] = Serialized
                 end
             end
+        end
+
+        Seen[Value] = nil
+
+        return Result
+    end
+
+    local function DeserializeConfigValue(Value)
+        if type(Value) ~= "table" then
+            return Value
+        end
+
+        local TypeName = Value.__Type
+
+        if TypeName == "Color3" then
+            local Success, Result = pcall(FromHex, tostring(Value.Hex or "#FFFFFF"))
+            return Success and Result or FromRGB(255, 255, 255)
+        elseif TypeName == "EnumItem" then
+            local Success, Result = pcall(function()
+                local EnumType = Enum[tostring(Value.EnumType or "")]
+                return EnumType and EnumType[tostring(Value.Name or "")]
+            end)
+
+            return Success and Result or nil
+        elseif TypeName == "Vector2" then
+            return Vector2New(tonumber(Value.X) or 0, tonumber(Value.Y) or 0)
+        elseif TypeName == "Vector3" then
+            return Vector3.new(tonumber(Value.X) or 0, tonumber(Value.Y) or 0, tonumber(Value.Z) or 0)
+        elseif TypeName == "UDim" then
+            return UDimNew(tonumber(Value.Scale) or 0, tonumber(Value.Offset) or 0)
+        elseif TypeName == "UDim2" then
+            return UDim2New(
+                tonumber(Value.XScale) or 0,
+                tonumber(Value.XOffset) or 0,
+                tonumber(Value.YScale) or 0,
+                tonumber(Value.YOffset) or 0
+            )
+        elseif TypeName == "CFrame" then
+            local Components = Value.Components
+
+            if type(Components) == "table" then
+                local Success, Result = pcall(function()
+                    return CFrame.new(TableUnpack(Components))
+                end)
+
+                if Success then
+                    return Result
+                end
+            end
+
+            return CFrame.new()
+        end
+
+        local Result = {}
+
+        for Key, NestedValue in pairs(Value) do
+            if Key ~= "__Type" then
+                Result[Key] = DeserializeConfigValue(NestedValue)
+            end
+        end
+
+        return Result
+    end
+
+    local function IsKeybindConfig(Value)
+        return type(Value) == "table"
+            and (
+                Value.__Type == "Keybind"
+                or Value.Class == "Keybind"
+                or Value.Mode ~= nil
+                    and (
+                        Value.Key ~= nil
+                        or Value.Value ~= nil
+                        or Value.Toggled ~= nil
+                    )
+            )
+    end
+
+    local function IsColorpickerConfig(Value)
+        return type(Value) == "table"
+            and (
+                Value.__Type == "Colorpicker"
+                or Value.Class == "Colorpicker"
+                or Value.Color ~= nil
+                or Value.HexValue ~= nil
+            )
+    end
+
+    local function SerializeKeybind(Value)
+        local Key = Value.Key
+
+        return {
+            __Type = "Keybind",
+            Key = Key and tostring(Key) or "None",
+            Mode = tostring(Value.Mode or "Toggle"),
+            Toggled = Value.Toggled == true
+        }
+    end
+
+    local function SerializeColorpicker(Value)
+        local HexValue = Value.HexValue
+
+        if typeof(Value.Color) == "Color3" then
+            HexValue = Value.Color:ToHex()
+        end
+
+        HexValue = tostring(HexValue or "FFFFFF"):gsub("^#", "")
+
+        return {
+            __Type = "Colorpicker",
+            Color = "#" .. HexValue,
+            Alpha = MathClamp(tonumber(Value.Alpha) or 0, 0, 1)
+        }
+    end
+
+    Library.GetConfig = function(self)
+        local Config = {}
+
+        for Index, Value in pairs(self.Flags) do
+            if IsKeybindConfig(Value) then
+                Config[Index] = SerializeKeybind(Value)
+            elseif IsColorpickerConfig(Value) then
+                Config[Index] = SerializeColorpicker(Value)
+            else
+                Config[Index] = SerializeConfigValue(Value, {})
+            end
+        end
+
+        local Success, Encoded = pcall(function()
+            return HttpService:JSONEncode(Config)
         end)
 
-        return HttpService:JSONEncode(Config)
+        if not Success then
+            return nil, Encoded
+        end
+
+        return Encoded
     end
 
     Library.LoadConfig = function(self, Config)
-        local Decoded = HttpService:JSONDecode(Config)
+        if type(Config) ~= "string"
+            or Config == ""
+        then
+            return false, "Config is empty"
+        end
 
-        local Success, Result = Library:SafeCall(function()
-            for Index, Value in Decoded do
-                local SetFunction = Library.SetFlags[Index]
+        local DecodeSuccess, Decoded = pcall(function()
+            return HttpService:JSONDecode(Config)
+        end)
 
-                if not SetFunction then
-                    continue
-                end
+        if not DecodeSuccess
+            or type(Decoded) ~= "table"
+        then
+            return false, Decoded
+        end
 
-                if type(Value) == "table" and Value.Key then
-                    SetFunction(Value)
-                elseif type(Value) == "table" and Value.Color then
-                    SetFunction(Value.Color, Value.Alpha)
+        local DeferredKeybinds = {}
+
+        local function ApplyFlag(Index, Value)
+            local SetFunction = self.SetFlags[Index]
+
+            if type(SetFunction) ~= "function" then
+                return
+            end
+
+            if IsColorpickerConfig(Value) then
+                local ColorValue = Value.Color or Value.Hex or "#FFFFFF"
+                SetFunction(ColorValue, tonumber(Value.Alpha) or 0)
+            else
+                SetFunction(DeserializeConfigValue(Value))
+            end
+        end
+
+        local Success, Message = self:SafeCall(function()
+            for Index, Value in pairs(Decoded) do
+                if IsKeybindConfig(Value) then
+                    DeferredKeybinds[#DeferredKeybinds + 1] = {
+                        Index = Index,
+                        Value = Value
+                    }
                 else
-                    SetFunction(Value)
+                    ApplyFlag(Index, Value)
+                end
+            end
+
+            for _, Entry in ipairs(DeferredKeybinds) do
+                local Value = Entry.Value
+                local SetFunction = self.SetFlags[Entry.Index]
+
+                if type(SetFunction) == "function" then
+                    SetFunction({
+                        Key = Value.Key or Value.Value or "None",
+                        Mode = Value.Mode or "Toggle",
+                        Toggled = Value.Toggled == true
+                    })
                 end
             end
         end)
 
-        if Success then
-            Library:Notification("Successfully loaded config", 5, Color3.fromRGB(0, 255, 0))
+        if not Success then
+            return false, Message
         end
+
+        self:Notification("Successfully loaded config", 5, FromRGB(0, 255, 0))
+
+        return true
     end
 
     local function NormalizeConfigName(
@@ -1914,10 +2162,22 @@ local Library do
             .. "/"
             .. ConfigName
 
-        writefile(
-            Path,
-            self:GetConfig()
-        )
+        local ConfigData, ErrorMessage = self:GetConfig()
+
+        if not ConfigData then
+            return nil, ErrorMessage
+        end
+
+        local Success, Message = pcall(function()
+            writefile(
+                Path,
+                ConfigData
+            )
+        end)
+
+        if not Success then
+            return nil, Message
+        end
 
         return Path
     end
@@ -3179,10 +3439,16 @@ local Library do
             elseif type(Color)
                 == "string"
             then
-                Color =
-                    FromHex(
-                        Color
-                    )
+                local Success, ParsedColor = pcall(
+                    FromHex,
+                    Color
+                )
+
+                if not Success then
+                    return
+                end
+
+                Color = ParsedColor
             end
 
             if typeof(Color)
@@ -3197,8 +3463,12 @@ local Library do
                 Color:ToHSV()
 
             self.Alpha =
-                Alpha
-                or 0
+                MathClamp(
+                    tonumber(Alpha)
+                    or 0,
+                    0,
+                    1
+                )
 
             self.Color =
                 FromHSV(
@@ -3230,8 +3500,7 @@ local Library do
                     ),
                     0,
                     MathClamp(
-                        1
-                        - self.Value,
+                        self.Value,
                         0,
                         0.989
                     ),
@@ -3369,7 +3638,7 @@ local Library do
                     SlideX
 
                 self.Value =
-                    1 - SlideY
+                    SlideY
 
                 Items[
                     "PaletteDragger"
@@ -3663,54 +3932,57 @@ local Library do
         return Colorpicker
     end
 
-    local function ResolveKey(
-        Value
-    )
-        if typeof(Value)
-            == "EnumItem"
-        then
+    local function ResolveKey(Value)
+        if typeof(Value) == "EnumItem" then
             return Value
         end
 
-        if type(Value)
-            ~= "string"
+        if type(Value) == "table" then
+            Value = Value.Key or Value.Name or Value.Value
+        end
+
+        if type(Value) ~= "string" then
+            return nil
+        end
+
+        local Clean = Value:gsub("%s+", "")
+
+        if Clean == ""
+            or string.lower(Clean) == "none"
+            or string.lower(Clean) == "nil"
         then
             return nil
         end
 
-        local Clean =
-            Value:gsub(
-                "^Enum%.KeyCode%.",
-                ""
-            ):
-            gsub(
-                "^Enum%.UserInputType%.",
-                ""
-            )
+        Clean = Clean:
+            gsub("^Enum%.", ""):
+            gsub("^KeyCode%.", ""):
+            gsub("^UserInputType%.", "")
 
-        local Success,
-            Result =
-            pcall(function()
-                return Enum.KeyCode[
-                    Clean
-                ]
-            end)
+        local Alias = {
+            MB1 = "MouseButton1",
+            MB2 = "MouseButton2",
+            MB3 = "MouseButton3",
+            MOUSE1 = "MouseButton1",
+            MOUSE2 = "MouseButton2",
+            MOUSE3 = "MouseButton3"
+        }
 
-        if Success
-            and Result
-        then
+        Clean = Alias[string.upper(Clean)] or Clean
+
+        local Success, Result = pcall(function()
+            return Enum.KeyCode[Clean]
+        end)
+
+        if Success and Result then
             return Result
         end
 
-        Success,
-            Result =
-            pcall(function()
-                return Enum.UserInputType[
-                    Clean
-                ]
-            end)
+        Success, Result = pcall(function()
+            return Enum.UserInputType[Clean]
+        end)
 
-        if Success then
+        if Success and Result then
             return Result
         end
 
@@ -4371,58 +4643,51 @@ local Library do
             Value,
             Silent
         )
-            local NewKey =
-                Value
+            local NewKey = Value
+            local NewMode = Keybind.Mode
+            local NewState = nil
 
-            local NewMode =
-                Keybind.Mode
+            if type(Value) == "table" then
+                NewKey = Value.Key or Value.Value
+                NewMode = Value.Mode or NewMode
 
-            if type(Value)
-                == "table"
-            then
-                NewKey =
-                    Value.Key
-
-                NewMode =
-                    Value.Mode
-                    or NewMode
+                if Value.Toggled ~= nil then
+                    NewState = Value.Toggled == true
+                elseif Value.State ~= nil then
+                    NewState = Value.State == true
+                end
             end
 
-            local Resolved =
-                ResolveKey(
-                    NewKey
-                )
+            local Resolved = ResolveKey(NewKey)
 
-            if Resolved
-                == Enum.KeyCode.Backspace
-            then
+            if Resolved == Enum.KeyCode.Backspace then
                 Resolved = nil
             end
 
-            Keybind.Key =
-                Resolved
-
-            Keybind.Value =
-                FormatKey(
-                    Resolved
-                )
-
+            Keybind.Key = Resolved
+            Keybind.Value = FormatKey(Resolved)
             Keybind.Picking = false
             Keybind.SuppressUntil = os.clock() + 0.18
-            if Library.ActiveKeyPicker == Keybind then Library.ActiveKeyPicker = nil end
 
-            Items[
-                "Text"
-            ]:
-                ChangeItemTheme({
-                    TextColor3 =
-                        "Text"
-                })
+            if Library.ActiveKeyPicker == Keybind then
+                Library.ActiveKeyPicker = nil
+            end
 
-            Keybind:SetMode(
-                NewMode,
-                true
-            )
+            Items["Text"]:ChangeItemTheme({
+                TextColor3 = "Text"
+            })
+
+            Keybind:SetMode(NewMode, true)
+
+            if Keybind.Mode == "Toggle"
+                and NewState ~= nil
+            then
+                Keybind.Toggled = NewState
+            elseif Keybind.Mode == "Always" then
+                Keybind.Toggled = true
+            elseif Keybind.Mode == "Hold" then
+                Keybind.Toggled = false
+            end
 
             UpdateFlag()
             UpdateVisual()
