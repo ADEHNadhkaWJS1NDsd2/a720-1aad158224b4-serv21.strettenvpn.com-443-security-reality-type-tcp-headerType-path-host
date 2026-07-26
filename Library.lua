@@ -3527,13 +3527,13 @@ local Library do
             ].Instance.Position =
                 UDim2New(
                     MathClamp(
-                        self.Saturation,
+                        1 - self.Saturation,
                         0,
                         0.989
                     ),
                     0,
                     MathClamp(
-                        self.Value,
+                        1 - self.Value,
                         0,
                         0.989
                     ),
@@ -3668,10 +3668,10 @@ local Library do
                     )
 
                 self.Saturation =
-                    SlideX
+                    1 - SlideX
 
                 self.Value =
-                    SlideY
+                    1 - SlideY
 
                 Items[
                     "PaletteDragger"
