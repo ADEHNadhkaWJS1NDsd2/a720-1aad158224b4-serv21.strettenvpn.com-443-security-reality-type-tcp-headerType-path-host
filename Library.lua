@@ -124,6 +124,7 @@ local Library do
         ThemeItems = { },
 
         SetFlags = { },
+        KeybindMetadata = { },
 
         UnnamedConnections = 0,
         UnnamedFlags = 0,
@@ -1546,6 +1547,14 @@ local Library do
             )
         end
 
+        if type(self.KeybindMetadata)
+            == "table"
+        then
+            table.clear(
+                self.KeybindMetadata
+            )
+        end
+
         if type(self.Flags)
             == "table"
         then
@@ -2010,7 +2019,9 @@ local Library do
     end
 
     Library.GetConfig = function(self)
-        local Config = {}
+        local Config = {
+            __ConfigVersion = 2
+        }
 
         for Index, Value in pairs(self.Flags) do
             if IsKeybindConfig(Value) then
@@ -2051,6 +2062,7 @@ local Library do
         end
 
         local DeferredKeybinds = {}
+        local ConfigVersion = tonumber(Decoded.__ConfigVersion) or 1
 
         local function ApplyFlag(Index, Value)
             local SetFunction = self.SetFlags[Index]
@@ -2069,6 +2081,10 @@ local Library do
 
         local Success, Message = self:SafeCall(function()
             for Index, Value in pairs(Decoded) do
+                if Index == "__ConfigVersion" then
+                    continue
+                end
+
                 if IsKeybindConfig(Value) then
                     DeferredKeybinds[#DeferredKeybinds + 1] = {
                         Index = Index,
@@ -2084,8 +2100,25 @@ local Library do
                 local SetFunction = self.SetFlags[Entry.Index]
 
                 if type(SetFunction) == "function" then
+                    local KeyValue = Value.Key or Value.Value or "None"
+                    local Metadata = self.KeybindMetadata and self.KeybindMetadata[Entry.Index]
+
+                    if ConfigVersion < 2
+                        and Metadata
+                        and Metadata.HasExplicitDefault ~= true
+                    then
+                        local NormalizedKey = tostring(KeyValue):gsub("%s+", ""):lower()
+
+                        if NormalizedKey == "mb2"
+                            or NormalizedKey == "mousebutton2"
+                            or NormalizedKey == "enum.userinputtype.mousebutton2"
+                        then
+                            KeyValue = "None"
+                        end
+                    end
+
                     SetFunction({
-                        Key = Value.Key or Value.Value or "None",
+                        Key = KeyValue,
                         Mode = Value.Mode or "Toggle",
                         Toggled = Value.Toggled == true
                     })
@@ -4067,6 +4100,11 @@ local Library do
         Library.Flags[
             Data.Flag
         ] = {}
+
+        Library.KeybindMetadata[Data.Flag] = {
+            HasExplicitDefault = Data.HasExplicitDefault == true
+                or rawget(Data, "Default") ~= nil
+        }
 
         local KeyListItem
         local PickConnection
@@ -7341,6 +7379,14 @@ local Library do
         function Toggle:Keybind(Data)
             Data = Data or { }
 
+            local HasExplicitDefault = rawget(Data, "Default") ~= nil
+                or rawget(Data, "default") ~= nil
+            local DefaultValue = rawget(Data, "Default")
+
+            if DefaultValue == nil then
+                DefaultValue = rawget(Data, "default")
+            end
+
             local Keybind = {
                 Window = self.Window,
                 Tab = self.Tab,
@@ -7349,7 +7395,8 @@ local Library do
                 Parent = Items["Toggle"],
                 Name = Data.Name or Data.name or "Keybind",
                 Flag = Data.Flag or Data.flag or Library:NextFlag(),
-                Default = Data.Default or Data.default or "MB2",
+                Default = DefaultValue,
+                HasExplicitDefault = HasExplicitDefault,
                 Mode = Data.Mode or Data.mode or "Toggle",
                 Callback = function(Value)
                     Toggle:Set(Value)
@@ -8302,6 +8349,14 @@ local Library do
         function Label:Keybind(Data)
             Data = Data or { }
 
+            local HasExplicitDefault = rawget(Data, "Default") ~= nil
+                or rawget(Data, "default") ~= nil
+            local DefaultValue = rawget(Data, "Default")
+
+            if DefaultValue == nil then
+                DefaultValue = rawget(Data, "default")
+            end
+
             local Keybind = {
                 Window = self.Window,
                 Tab = self.Tab,
@@ -8310,7 +8365,8 @@ local Library do
                 Parent = Items["Label"],
                 Name = Data.Name or Data.name or "Keybind",
                 Flag = Data.Flag or Data.flag or Library:NextFlag(),
-                Default = Data.Default or Data.default or "MB2",
+                Default = DefaultValue,
+                HasExplicitDefault = HasExplicitDefault,
                 Mode = Data.Mode or Data.mode or "Toggle",
                 Callback = Data.Callback or Data.callback or function() end,
             }
