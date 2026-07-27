@@ -5005,7 +5005,9 @@ local Library do
             Visible = Data.Visible ~= false,
             Enabled = true,
             Character = nil,
+            LoadingCharacter = nil,
             CharacterClone = nil,
+            CharacterToken = 0,
             PartState = {},
             Settings = {},
             Extra = {}
@@ -5017,8 +5019,8 @@ local Library do
         Items.Frame = Instances:Create("Frame", {
             Parent = Parent,
             Name = "\0",
-            Size = Data.Size or UDim2New(0, 270, 0, 410),
-            Position = Data.Position or UDim2New(1, -290, 0.5, -205),
+            Size = Data.Size or UDim2New(0, 300, 0, 440),
+            Position = Data.Position or UDim2New(1, -320, 0.5, -220),
             BorderSizePixel = 2,
             BorderColor3 = Library.Theme.Border,
             BackgroundColor3 = Library.Theme.Background,
@@ -5096,7 +5098,7 @@ local Library do
         Items.World = Instances:Create("WorldModel", {Parent = Items.Viewport.Instance})
         Items.Camera = Instances:Create("Camera", {
             Parent = Items.Viewport.Instance,
-            FieldOfView = 32
+            FieldOfView = 28
         })
         Items.Viewport.Instance.CurrentCamera = Items.Camera.Instance
 
@@ -5116,7 +5118,7 @@ local Library do
             Parent = Items.Canvas.Instance,
             AnchorPoint = Vector2New(0.5, 0.5),
             Position = UDim2New(0.5, 0, 0.52, 0),
-            Size = UDim2New(0, 126, 0, 274),
+            Size = UDim2New(0, 142, 0, 300),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ZIndex = 5
@@ -5188,7 +5190,7 @@ local Library do
         Items.Name = Instances:Create("TextLabel", {
             Parent = Items.Canvas.Instance,
             AnchorPoint = Vector2New(0.5, 1),
-            Position = UDim2New(0.5, 0, 0.52, -143),
+            Position = UDim2New(0.5, 0, 0.52, -156),
             Size = UDim2New(0, 210, 0, 18),
             BackgroundTransparency = 1,
             FontFace = Library.Font,
@@ -5202,7 +5204,7 @@ local Library do
         Items.Info = Instances:Create("TextLabel", {
             Parent = Items.Canvas.Instance,
             AnchorPoint = Vector2New(0.5, 0),
-            Position = UDim2New(0.5, 0, 0.52, 143),
+            Position = UDim2New(0.5, 0, 0.52, 156),
             Size = UDim2New(0, 220, 0, 18),
             BackgroundTransparency = 1,
             FontFace = Library.Font,
@@ -5333,12 +5335,15 @@ local Library do
         end
 
         local function ClearCharacter()
+            Preview.CharacterToken = Preview.CharacterToken + 1
+
             if Preview.CharacterClone then
                 Preview.CharacterClone:Destroy()
                 Preview.CharacterClone = nil
             end
 
             Preview.Character = nil
+            Preview.LoadingCharacter = nil
             Preview.PartState = {}
             Items.Highlight.Adornee = nil
         end
@@ -5349,8 +5354,14 @@ local Library do
 
             Clone:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(180), 0))
             local BoundsCFrame, BoundsSize = Clone:GetBoundingBox()
-            local Focus = BoundsCFrame.Position + Vector3.new(0, BoundsSize.Y * 0.02, 0)
-            local Distance = math.max(BoundsSize.Y * 1.3, BoundsSize.X * 2.25, BoundsSize.Z * 2.25, 7)
+            local Focus = BoundsCFrame.Position + Vector3.new(0, BoundsSize.Y * 0.025, 0)
+            local ViewportSize = Items.Viewport.Instance.AbsoluteSize
+            local Aspect = ViewportSize.Y > 1 and ViewportSize.X / ViewportSize.Y or 0.68
+            local VerticalFov = math.rad(Items.Camera.Instance.FieldOfView)
+            local HorizontalFov = 2 * math.atan(math.tan(VerticalFov * 0.5) * math.max(Aspect, 0.25))
+            local HeightDistance = BoundsSize.Y * 0.5 / math.max(math.tan(VerticalFov * 0.5), 0.01)
+            local WidthDistance = BoundsSize.X * 0.5 / math.max(math.tan(HorizontalFov * 0.5), 0.01)
+            local Distance = math.max(HeightDistance, WidthDistance, BoundsSize.Z * 2, 6.5) * 1.10
 
             Items.Camera.Instance.CFrame = CFrame.new(Focus + Vector3.new(0, 0, Distance), Focus)
         end
@@ -5383,27 +5394,50 @@ local Library do
             end
         end
 
-        function Preview:SetCharacter(Character)
-            if Character == Preview.Character and Preview.CharacterClone and Preview.CharacterClone.Parent then return end
-            ClearCharacter()
+        local function CreateDescriptionModel(Character)
+            local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+            if not Humanoid then return nil end
 
-            if not Character or not Character.Parent then return end
+            local DescriptionSuccess, Description = pcall(Humanoid.GetAppliedDescription, Humanoid)
+            if not DescriptionSuccess or not Description then return nil end
 
+            local RigType = Humanoid.RigType
+            local Success, Model = pcall(function()
+                return Players:CreateHumanoidModelFromDescriptionAsync(Description, RigType)
+            end)
+
+            if not Success or not Model then
+                Success, Model = pcall(function()
+                    return Players:CreateHumanoidModelFromDescription(Description, RigType)
+                end)
+            end
+
+            return Success and Model or nil
+        end
+
+        local function CreateFallbackModel(Character)
             local PreviousArchivable = Character.Archivable
             Character.Archivable = true
             local Success, Clone = pcall(Character.Clone, Character)
             Character.Archivable = PreviousArchivable
-            if not Success or not Clone then return end
+            return Success and Clone or nil
+        end
+
+        local function PrepareCharacterModel(Clone)
+            local RootPart = Clone:FindFirstChild("HumanoidRootPart")
 
             for _, Descendant in ipairs(Clone:GetDescendants()) do
-                if Descendant:IsA("LocalScript") or Descendant:IsA("Script") or Descendant:IsA("ModuleScript") then
+                if Descendant:IsA("LocalScript") or Descendant:IsA("Script") or Descendant:IsA("ModuleScript") or Descendant:IsA("Animator") or Descendant:IsA("AnimationController") then
                     Descendant:Destroy()
+                elseif Descendant:IsA("Motor6D") then
+                    Descendant.Transform = CFrame.new()
                 elseif Descendant:IsA("BasePart") then
-                    Descendant.Anchored = true
+                    Descendant.Anchored = Descendant == RootPart
                     Descendant.CanCollide = false
                     Descendant.CanTouch = false
                     Descendant.CanQuery = false
-                    Descendant.CastShadow = false
+                    Descendant.CastShadow = true
+                    Descendant.Massless = Descendant ~= RootPart
 
                     if Descendant.Name == "HumanoidRootPart" then
                         Descendant.Transparency = 1
@@ -5418,16 +5452,48 @@ local Library do
                     Descendant.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
                     Descendant.BreakJointsOnDeath = false
                     Descendant.AutoRotate = false
+                    Descendant.PlatformStand = false
                 end
             end
 
+            if RootPart then Clone.PrimaryPart = RootPart end
             Clone.Name = "PreviewCharacter"
+            return Clone
+        end
+
+        function Preview:SetCharacter(Character)
+            if Character == Preview.Character and Preview.CharacterClone and Preview.CharacterClone.Parent then return end
+            if Character == Preview.LoadingCharacter then return end
+
+            ClearCharacter()
+            if not Character or not Character.Parent then return end
+
+            local Token = Preview.CharacterToken
+            Preview.LoadingCharacter = Character
+
+            local Clone = CreateDescriptionModel(Character) or CreateFallbackModel(Character)
+            if Token ~= Preview.CharacterToken or not Items.Frame.Instance.Parent then
+                if Clone then Clone:Destroy() end
+                return
+            end
+
+            Preview.LoadingCharacter = nil
+            if not Clone then return end
+
+            PrepareCharacterModel(Clone)
             Clone.Parent = Items.World.Instance
             Preview.Character = Character
             Preview.CharacterClone = Clone
 
             FitCharacterCamera()
             ApplyCharacterStyle()
+
+            task.defer(function()
+                if Token == Preview.CharacterToken and Preview.CharacterClone == Clone and Clone.Parent then
+                    FitCharacterCamera()
+                    ApplyCharacterStyle()
+                end
+            end)
         end
 
         function Preview:Apply(Settings, Extra)
@@ -5532,17 +5598,27 @@ local Library do
         end
 
         function Preview:Refresh()
-            Preview:SetCharacter(Preview.Character)
+            local Character = Preview.Character or Preview.LoadingCharacter
+            Preview.Character = nil
+            Preview.LoadingCharacter = nil
+            Preview:SetCharacter(Character)
             Preview:Apply(Preview.Settings, Preview.Extra)
         end
 
         function Preview:Destroy()
+            if Preview.ViewportSizeConnection then
+                Preview.ViewportSizeConnection:Disconnect()
+                Preview.ViewportSizeConnection = nil
+            end
             ClearCharacter()
             if Items.Frame and Items.Frame.Instance then Items.Frame.Instance:Destroy() end
         end
 
         Preview.Frame = Items.Frame.Instance
         Preview.Items = Items
+        Preview.ViewportSizeConnection = Items.Viewport.Instance:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+            task.defer(FitCharacterCamera)
+        end)
 
         Preview:SetCharacter(Data.Character or LocalPlayer.Character)
         Preview:Apply(Data.Settings or {}, {
