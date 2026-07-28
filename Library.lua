@@ -85,13 +85,13 @@ local Library do
 
         Glass = {
             Enabled = true,
-            BlurSize = 5,
+            BlurSize = 4,
             CornerRadius = 9,
-            WindowTransparency = 0.035,
-            PanelTransparency = 0.075,
-            ElementTransparency = 0.12,
-            PopupTransparency = 0.055,
-            FloatingTransparency = 0.06
+            WindowTransparency = 0,
+            PanelTransparency = 0.018,
+            ElementTransparency = 0.035,
+            PopupTransparency = 0.012,
+            FloatingTransparency = 0.008
         },
 
         GlassBlur = nil,
@@ -2852,7 +2852,7 @@ local Library do
         Items.Frame:AddToTheme({BackgroundColor3 = "Background"})
         Library:ApplyGlass(Items.Frame, "Floating", 10)
         Library:AddGlassShadow(Items.Frame, 13, 3)
-        Items.Frame.Instance.BackgroundTransparency = 0.035
+        Items.Frame.Instance.BackgroundTransparency = 0
         Items.Frame:MakeDraggable()
 
         local Padding = InstanceNew("UIPadding")
@@ -2962,7 +2962,7 @@ local Library do
                 Size = UDim2New(0, 40, 0, 16),
                 BorderSizePixel = 0,
                 BackgroundColor3 = Library.Theme.Element,
-                BackgroundTransparency = 0.08,
+                BackgroundTransparency = 0,
                 FontFace = Library.Font,
                 Text = tostring(Key or ""),
                 TextSize = 10,
@@ -2974,7 +2974,19 @@ local Library do
                 TextColor3 = "Text"
             })
             Library:ApplyGlass(NewKey.Key, "Element", 6)
-            NewKey.Key.Instance.BackgroundTransparency = 0.08
+            NewKey.Key.Instance.BackgroundTransparency = 0
+
+            NewKey.KeyStroke = InstanceNew("UIStroke")
+            NewKey.KeyStroke.ApplyStrokeMode =
+                Enum.ApplyStrokeMode.Border
+            NewKey.KeyStroke.LineJoinMode =
+                Enum.LineJoinMode.Round
+            NewKey.KeyStroke.Thickness = 1
+            NewKey.KeyStroke.Transparency = 0.18
+            NewKey.KeyStroke.Color =
+                Library.Theme.Outline
+            NewKey.KeyStroke.Parent =
+                NewKey.Key.Instance
 
             function NewKey:Set(NewMode, NewName, NewKeyValue)
                 NewKey.Name.Instance.Text = tostring(NewName or "")
@@ -2987,13 +2999,12 @@ local Library do
                 NewKey.Icon:Tween(nil, {
                     TextColor3 = Active
                         and Library.Theme.Accent
-                        or Library.Theme["Muted Text"]
+                        or Library.Theme["Glass Edge"]
                 })
 
                 NewKey.Name:Tween(nil, {
-                    TextColor3 = Active
-                        and Library.Theme.Text
-                        or Library.Theme["Muted Text"]
+                    TextColor3 = Library.Theme.Text,
+                    TextTransparency = 0
                 })
 
                 NewKey.Key:Tween(nil, {
@@ -3002,8 +3013,15 @@ local Library do
                         or Library.Theme.Element,
                     TextColor3 = Active
                         and Library.Theme.Background
-                        or Library.Theme.Text
+                        or Library.Theme.Text,
+                    TextTransparency = 0
                 })
+
+                NewKey.KeyStroke.Color = Active
+                    and Library.Theme["Glass Edge"]
+                    or Library.Theme.Outline
+                NewKey.KeyStroke.Transparency =
+                    Active and 0 or 0.12
             end
 
             return NewKey
@@ -5329,7 +5347,7 @@ local Library do
             Name = "\0",
             Size = Data.Size or UDim2New(0, 300, 0, 440),
             Position = Data.Position or UDim2New(1, -320, 0.5, -220),
-            BorderSizePixel = 2,
+            BorderSizePixel = 0,
             BorderColor3 = Library.Theme.Border,
             BackgroundColor3 = Library.Theme.Background,
             Visible = Preview.Visible,
@@ -5338,19 +5356,13 @@ local Library do
         Items.Frame:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
         Library:ApplyGlass(Items.Frame, "Window", 12)
         Library:AddGlassShadow(Items.Frame, 15, 3)
-        Items.Frame.Instance.BackgroundTransparency = 0.02
+        Items.Frame.Instance.BackgroundTransparency = 0
         Items.Frame:MakeDraggable()
-
-        Instances:Create("UIStroke", {
-            Parent = Items.Frame.Instance,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            LineJoinMode = Enum.LineJoinMode.Miter,
-            Color = Library.Theme.Outline
-        }):AddToTheme({Color = "Outline"})
 
         Items.Accent = Instances:Create("Frame", {
             Parent = Items.Frame.Instance,
-            Size = UDim2New(1, 0, 0, 1),
+            Position = UDim2New(0, 10, 0, 0),
+            Size = UDim2New(1, -20, 0, 1),
             BorderSizePixel = 0,
             BackgroundColor3 = Library.Theme.Accent
         })
@@ -5363,7 +5375,7 @@ local Library do
             BackgroundTransparency = 1,
             FontFace = Library.Font,
             Text = Data.Title or "ESP Preview",
-            TextSize = 13,
+            TextSize = 14,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextColor3 = Library.Theme.Text
         })
@@ -5377,7 +5389,7 @@ local Library do
             BackgroundTransparency = 1,
             FontFace = Library.Font,
             Text = "ENABLED",
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Right,
             TextColor3 = Library.Theme.Accent
         })
@@ -5387,14 +5399,14 @@ local Library do
             Parent = Items.Frame.Instance,
             Position = UDim2New(0, 10, 0, 31),
             Size = UDim2New(1, -20, 1, -43),
-            BorderSizePixel = 1,
+            BorderSizePixel = 0,
             BorderColor3 = Library.Theme.Outline,
             BackgroundColor3 = Library.Theme["Page Background"],
             ClipsDescendants = true
         })
         Items.Canvas:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline"})
         Library:ApplyGlass(Items.Canvas, "Panel", 8)
-        Items.Canvas.Instance.BackgroundTransparency = 0.055
+        Items.Canvas.Instance.BackgroundTransparency = 0.012
 
         Items.Viewport = Instances:Create("ViewportFrame", {
             Parent = Items.Canvas.Instance,
@@ -5994,7 +6006,7 @@ local Library do
         Items.Surface:AddToTheme({BackgroundColor3 = "Background"})
         Library:ApplyGlass(Items.Surface, "Window", 14)
         Library:AddGlassShadow(Items.Surface, 16, 3)
-        Items.Surface.Instance.BackgroundTransparency = 0.02
+        Items.Surface.Instance.BackgroundTransparency = 0
 
         Items.Tint = Instances:Create("Frame", {
             Parent = Items.Surface.Instance,
@@ -6060,11 +6072,11 @@ local Library do
             BackgroundTransparency = 1,
             FontFace = Library.Font,
             Text = Data.Name or "",
-            TextSize = 14,
+            TextSize = 15,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextColor3 = Library.Theme.Text,
             TextStrokeColor3 = FromRGB(0, 0, 0),
-            TextStrokeTransparency = 0.42,
+            TextStrokeTransparency = 0.18,
             TextTruncate = Enum.TextTruncate.AtEnd,
             ZIndex = 126
         })
@@ -6082,7 +6094,7 @@ local Library do
             TextXAlignment = Enum.TextXAlignment.Left,
             TextColor3 = Library.Theme["Muted Text"],
             TextStrokeColor3 = FromRGB(0, 0, 0),
-            TextStrokeTransparency = 0.58,
+            TextStrokeTransparency = 0.32,
             TextTruncate = Enum.TextTruncate.AtEnd,
             ZIndex = 126
         })
@@ -6091,20 +6103,23 @@ local Library do
         Items.Mode = Instances:Create("TextLabel", {
             Parent = Items.Surface.Instance,
             AnchorPoint = Vector2New(1, 0),
-            Position = UDim2New(1, -78, 0, 10),
-            Size = UDim2New(0, 48, 0, 17),
+            Position = UDim2New(1, -78, 0, 9),
+            Size = UDim2New(0, 54, 0, 19),
             BorderSizePixel = 0,
             BackgroundColor3 = Library.Theme.Accent,
-            BackgroundTransparency = 0.26,
-            FontFace = Library.Font,
+            BackgroundTransparency = 0,
+            Font = Enum.Font.GothamBold,
             Text = "",
-            TextSize = 9,
-            TextColor3 = Library.Theme.Text,
+            TextSize = 10,
+            TextColor3 = Library.Theme.Background,
             ZIndex = 126
         })
-        Items.Mode:AddToTheme({BackgroundColor3 = "Accent", TextColor3 = "Text"})
+        Items.Mode:AddToTheme({
+            BackgroundColor3 = "Accent",
+            TextColor3 = "Background"
+        })
         Library:ApplyGlass(Items.Mode, "Element", 8)
-        Items.Mode.Instance.BackgroundTransparency = 0.20
+        Items.Mode.Instance.BackgroundTransparency = 0
 
         Items.Inventory = Instances:Create("Frame", {
             Parent = Items.Surface.Instance,
@@ -6131,7 +6146,7 @@ local Library do
             })
             Slot.Frame:AddToTheme({BackgroundColor3 = "Element"})
             Library:ApplyGlass(Slot.Frame, "Element", 6)
-            Slot.Frame.Instance.BackgroundTransparency = 0.04
+            Slot.Frame.Instance.BackgroundTransparency = 0
 
             Slot.Image = Instances:Create("ImageLabel", {
                 Parent = Slot.Frame.Instance,
@@ -7837,7 +7852,7 @@ local Library do
             Items["Indicator"] = Instances:Create("Frame", {
                 Parent = Items["Toggle"].Instance,
                 Name = "\0",
-                Size = UDim2New(0, 12, 0, 12),
+                Size = UDim2New(0, 13, 0, 13),
                 BorderSizePixel = 0,
                 BackgroundColor3 = Library.Theme.Element,
                 BackgroundTransparency = 0
@@ -7853,7 +7868,7 @@ local Library do
             IndicatorStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             IndicatorStroke.LineJoinMode = Enum.LineJoinMode.Round
             IndicatorStroke.Thickness = 1
-            IndicatorStroke.Transparency = 0.16
+            IndicatorStroke.Transparency = 0
             Library:AddToTheme(IndicatorStroke, {
                 Color = "Outline"
             })
@@ -7863,9 +7878,9 @@ local Library do
                 Size = UDim2New(1, 0, 1, 0),
                 BorderSizePixel = 0,
                 BackgroundTransparency = 1,
-                FontFace = Library.Font,
+                Font = Enum.Font.GothamBold,
                 Text = "✓",
-                TextSize = 10,
+                TextSize = 11,
                 TextColor3 = Library.Theme.Background,
                 TextTransparency = 1,
                 ZIndex = Items["Indicator"].Instance.ZIndex + 1
@@ -7878,7 +7893,7 @@ local Library do
                 Parent = Items["Toggle"].Instance,
                 FontFace = Library.Font,
                 TextColor3 = Library.Theme.Text,
-                TextTransparency = 0.12,
+                TextTransparency = 0.04,
                 Text = Toggle.Name,
                 Name = "\0",
                 Size = UDim2New(1, 0, 1, 0),
@@ -7959,6 +7974,10 @@ local Library do
                 Items["Indicator"]:Tween(nil, {
                     BackgroundColor3 = Library.Theme.Accent
                 })
+                IndicatorStroke.Color =
+                    Library.Theme["Glass Edge"]
+                IndicatorStroke.Transparency = 0
+
                 Items["Check"]:Tween(nil, {
                     TextTransparency = 0
                 })
@@ -7973,11 +7992,15 @@ local Library do
                 Items["Indicator"]:Tween(nil, {
                     BackgroundColor3 = Library.Theme.Element
                 })
+                IndicatorStroke.Color =
+                    Library.Theme.Outline
+                IndicatorStroke.Transparency = 0
+
                 Items["Check"]:Tween(nil, {
                     TextTransparency = 1
                 })
                 Items["Text"]:Tween(nil, {
-                    TextTransparency = 0.12
+                    TextTransparency = 0.04
                 })
             end
 
