@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "MinimalClient-v4-Watermark",
+        Build = "MinimalClient-v5-SegmentedHUD-Fixed",
         Flags = { },
 
         Theme = {
@@ -2501,231 +2501,200 @@ local Library do
             "Watermark_"
             .. HttpService:GenerateGUID(false)
 
-        local TextColor =
-            Library.Theme.Text
-
-        local MutedColor =
-            Library.Theme["Muted Text"]
-
-        local IconColor =
-            Library.Theme.Accent:
-                Lerp(
-                    MutedColor,
-                    0.48
-                )
-
         Items.Frame = Instances:Create("Frame", {
             Parent = Library.Holder.Instance,
             Name = string.char(0),
             Position = UDim2New(0, 12, 0, 12),
-            Size = UDim2New(0, 230, 0, 42),
+            Size = UDim2New(0, 250, 0, 38),
             BorderSizePixel = 0,
-            BackgroundColor3 = Library.Theme.Background,
-            BackgroundTransparency = 0.16,
+            BackgroundTransparency = 1,
             Active = true,
             ClipsDescendants = false,
             ZIndex = 500
         })
-        Items.Frame:AddToTheme({
-            BackgroundColor3 = "Background"
-        })
-        Library:ApplyGlass(
-            Items.Frame,
-            "Floating",
-            6
-        )
         Items.Frame:MakeDraggable()
-
-        local Padding = InstanceNew("UIPadding")
-        Padding.PaddingLeft = UDimNew(0, 8)
-        Padding.PaddingRight = UDimNew(0, 8)
-        Padding.PaddingTop = UDimNew(0, 5)
-        Padding.PaddingBottom = UDimNew(0, 5)
-        Padding.Parent = Items.Frame.Instance
 
         local Rows = {}
         local RowLayouts = {}
         local Labels = {}
 
+        local function ThemeAccent(Object)
+            if Object:IsA("UIStroke") then
+                Object.Color = Library.Theme.Accent
+                Library:AddToTheme(Object, {Color = "Accent"})
+            else
+                Object.BackgroundColor3 = Library.Theme.Accent
+                Library:AddToTheme(Object, {BackgroundColor3 = "Accent"})
+            end
+        end
+
+        local function RoundedPart(Parent, Position, Size, Radius)
+            local Part = InstanceNew("Frame")
+            Part.Position = Position
+            Part.Size = Size
+            Part.BorderSizePixel = 0
+            Part.ZIndex = 504
+            Part.Parent = Parent
+            ThemeAccent(Part)
+
+            local Corner = InstanceNew("UICorner")
+            Corner.CornerRadius = UDimNew(0, Radius or 2)
+            Corner.Parent = Part
+
+            return Part
+        end
+
+        local function OutlinePart(Parent, Position, Size, Radius)
+            local Part = InstanceNew("Frame")
+            Part.Position = Position
+            Part.Size = Size
+            Part.BorderSizePixel = 0
+            Part.BackgroundTransparency = 1
+            Part.ZIndex = 504
+            Part.Parent = Parent
+
+            local Corner = InstanceNew("UICorner")
+            Corner.CornerRadius = UDimNew(0, Radius or 2)
+            Corner.Parent = Part
+
+            local Stroke = InstanceNew("UIStroke")
+            Stroke.Thickness = 1
+            Stroke.Transparency = 0.12
+            Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            Stroke.LineJoinMode = Enum.LineJoinMode.Round
+            Stroke.Parent = Part
+            ThemeAccent(Stroke)
+
+            return Part
+        end
+
+        local function CreateIcon(Parent, Kind)
+            local Holder = InstanceNew("Frame")
+            Holder.Name = "Icon"
+            Holder.Size = UDim2New(0, 12, 0, 12)
+            Holder.BackgroundTransparency = 1
+            Holder.BorderSizePixel = 0
+            Holder.ZIndex = 503
+            Holder.Parent = Parent
+
+            if Kind == "User" then
+                RoundedPart(Holder, UDim2New(0, 4, 0, 0), UDim2New(0, 4, 0, 4), 4)
+                RoundedPart(Holder, UDim2New(0, 2, 0, 6), UDim2New(0, 8, 0, 5), 3)
+            elseif Kind == "Monitor" then
+                OutlinePart(Holder, UDim2New(0, 0, 0, 1), UDim2New(0, 12, 0, 8), 2)
+                RoundedPart(Holder, UDim2New(0, 5, 0, 9), UDim2New(0, 2, 0, 2), 1)
+                RoundedPart(Holder, UDim2New(0, 3, 0, 11), UDim2New(0, 6, 0, 1), 1)
+            elseif Kind == "Cloud" then
+                RoundedPart(Holder, UDim2New(0, 1, 0, 6), UDim2New(0, 10, 0, 5), 3)
+                RoundedPart(Holder, UDim2New(0, 2, 0, 3), UDim2New(0, 5, 0, 6), 4)
+                RoundedPart(Holder, UDim2New(0, 6, 0, 4), UDim2New(0, 5, 0, 5), 4)
+            elseif Kind == "Position" then
+                local Shaft = RoundedPart(Holder, UDim2New(0, 5, 0, 1), UDim2New(0, 2, 0, 9), 1)
+                Shaft.Rotation = 38
+                local HeadA = RoundedPart(Holder, UDim2New(0, 6, 0, 1), UDim2New(0, 2, 0, 5), 1)
+                HeadA.Rotation = -8
+                local HeadB = RoundedPart(Holder, UDim2New(0, 8, 0, 3), UDim2New(0, 2, 0, 5), 1)
+                HeadB.Rotation = 82
+            elseif Kind == "Clock" then
+                OutlinePart(Holder, UDim2New(0, 1, 0, 1), UDim2New(0, 10, 0, 10), 5)
+                RoundedPart(Holder, UDim2New(0, 5, 0, 3), UDim2New(0, 2, 0, 4), 1)
+                local Hand = RoundedPart(Holder, UDim2New(0, 6, 0, 6), UDim2New(0, 4, 0, 1), 1)
+                Hand.Rotation = 20
+            elseif Kind == "Network" then
+                RoundedPart(Holder, UDim2New(0, 1, 0, 8), UDim2New(0, 2, 0, 3), 1)
+                RoundedPart(Holder, UDim2New(0, 5, 0, 5), UDim2New(0, 2, 0, 6), 1)
+                RoundedPart(Holder, UDim2New(0, 9, 0, 2), UDim2New(0, 2, 0, 9), 1)
+            end
+
+            return Holder
+        end
+
         local function CreateRow(Index)
             local Row = InstanceNew("Frame")
             Row.Name = "Row" .. tostring(Index)
-            Row.Position = UDim2New(
-                0,
-                0,
-                0,
-                (Index - 1) * 17
-            )
-            Row.Size = UDim2New(0, 0, 0, 14)
-            Row.AutomaticSize =
-                Enum.AutomaticSize.X
+            Row.Position = UDim2New(0, 0, 0, (Index - 1) * 20)
+            Row.Size = UDim2New(0, 0, 0, 18)
+            Row.AutomaticSize = Enum.AutomaticSize.X
             Row.BackgroundTransparency = 1
             Row.BorderSizePixel = 0
             Row.ZIndex = 501
             Row.Parent = Items.Frame.Instance
 
-            local Layout =
-                InstanceNew("UIListLayout")
-
-            Layout.FillDirection =
-                Enum.FillDirection.Horizontal
-            Layout.HorizontalAlignment =
-                Enum.HorizontalAlignment.Left
-            Layout.VerticalAlignment =
-                Enum.VerticalAlignment.Center
-            Layout.SortOrder =
-                Enum.SortOrder.LayoutOrder
-            Layout.Padding = UDimNew(0, 8)
+            local Layout = InstanceNew("UIListLayout")
+            Layout.FillDirection = Enum.FillDirection.Horizontal
+            Layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+            Layout.VerticalAlignment = Enum.VerticalAlignment.Center
+            Layout.SortOrder = Enum.SortOrder.LayoutOrder
+            Layout.Padding = UDimNew(0, 4)
             Layout.Parent = Row
 
             Rows[Index] = Row
             RowLayouts[Index] = Layout
-
             return Row
         end
 
-        local function CreateSegment(
-            Row,
-            Key,
-            Icon,
-            InitialText,
-            Color
-        )
-            local Segment =
-                InstanceNew("Frame")
-
+        local function CreateSegment(Row, Key, IconType, InitialText, IsTitle)
+            local Segment = InstanceNew("Frame")
             Segment.Name = Key
-            Segment.Size =
-                UDim2New(0, 0, 0, 14)
-            Segment.AutomaticSize =
-                Enum.AutomaticSize.X
-            Segment.BackgroundTransparency = 1
+            Segment.Size = UDim2New(0, 0, 0, 18)
+            Segment.AutomaticSize = Enum.AutomaticSize.X
             Segment.BorderSizePixel = 0
+            Segment.BackgroundColor3 = Library.Theme.Background
+            Segment.BackgroundTransparency = IsTitle and 0.04 or 0.10
             Segment.ZIndex = 502
             Segment.Parent = Row
+            Library:AddToTheme(Segment, {BackgroundColor3 = "Background"})
 
-            local Layout =
-                InstanceNew("UIListLayout")
+            local Corner = InstanceNew("UICorner")
+            Corner.CornerRadius = UDimNew(0, 4)
+            Corner.Parent = Segment
 
-            Layout.FillDirection =
-                Enum.FillDirection.Horizontal
-            Layout.HorizontalAlignment =
-                Enum.HorizontalAlignment.Left
-            Layout.VerticalAlignment =
-                Enum.VerticalAlignment.Center
-            Layout.SortOrder =
-                Enum.SortOrder.LayoutOrder
-            Layout.Padding =
-                UDimNew(
-                    0,
-                    Icon and 3 or 0
-                )
+            local Padding = InstanceNew("UIPadding")
+            Padding.PaddingLeft = UDimNew(0, 6)
+            Padding.PaddingRight = UDimNew(0, 6)
+            Padding.Parent = Segment
+
+            local Layout = InstanceNew("UIListLayout")
+            Layout.FillDirection = Enum.FillDirection.Horizontal
+            Layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+            Layout.VerticalAlignment = Enum.VerticalAlignment.Center
+            Layout.SortOrder = Enum.SortOrder.LayoutOrder
+            Layout.Padding = UDimNew(0, IconType and 4 or 0)
             Layout.Parent = Segment
 
-            if Icon then
-                local IconLabel =
-                    InstanceNew("TextLabel")
-
-                IconLabel.Name = "Icon"
-                IconLabel.Size =
-                    UDim2New(0, 11, 0, 14)
-                IconLabel.BackgroundTransparency = 1
-                IconLabel.BorderSizePixel = 0
-                IconLabel.Font =
-                    Enum.Font.GothamMedium
-                IconLabel.Text = Icon
-                IconLabel.TextSize = 10
-                IconLabel.TextColor3 =
-                    IconColor
-                IconLabel.TextXAlignment =
-                    Enum.TextXAlignment.Center
-                IconLabel.ZIndex = 503
-                IconLabel.Parent = Segment
+            if IconType then
+                CreateIcon(Segment, IconType)
             end
 
-            local Value =
-                InstanceNew("TextLabel")
-
+            local Value = InstanceNew("TextLabel")
             Value.Name = "Value"
-            Value.Size =
-                UDim2New(0, 0, 0, 14)
-            Value.AutomaticSize =
-                Enum.AutomaticSize.X
+            Value.Size = UDim2New(0, 0, 0, 16)
+            Value.AutomaticSize = Enum.AutomaticSize.X
             Value.BackgroundTransparency = 1
             Value.BorderSizePixel = 0
             Value.FontFace = Library.Font
-            Value.Text =
-                tostring(InitialText or "")
-            Value.TextSize = 10
-            Value.TextColor3 =
-                Color or MutedColor
-            Value.TextXAlignment =
-                Enum.TextXAlignment.Left
+            Value.Text = tostring(InitialText or "")
+            Value.TextSize = IsTitle and 10 or 9
+            Value.TextColor3 = IsTitle and Library.Theme.Text or Library.Theme["Muted Text"]
+            Value.TextXAlignment = Enum.TextXAlignment.Left
             Value.ZIndex = 503
             Value.Parent = Segment
+            Library:AddToTheme(Value, {TextColor3 = IsTitle and "Text" or "Muted Text"})
 
             Labels[Key] = Value
-            return Value
+            return Segment
         end
 
         local Row1 = CreateRow(1)
         local Row2 = CreateRow(2)
 
-        CreateSegment(
-            Row1,
-            "Title",
-            nil,
-            Watermark.Title,
-            IconColor
-        )
-
-        CreateSegment(
-            Row1,
-            "User",
-            "●",
-            LocalPlayer.Name,
-            TextColor
-        )
-
-        CreateSegment(
-            Row1,
-            "FPS",
-            "▣",
-            "0fps",
-            MutedColor
-        )
-
-        CreateSegment(
-            Row1,
-            "Ping",
-            "☁",
-            "0ms",
-            MutedColor
-        )
-
-        CreateSegment(
-            Row2,
-            "Position",
-            "➤",
-            "x0 y0 z0",
-            MutedColor
-        )
-
-        CreateSegment(
-            Row2,
-            "TPS",
-            "◔",
-            "0.0tps",
-            MutedColor
-        )
-
-        CreateSegment(
-            Row2,
-            "Network",
-            "⇅",
-            "0.00kbps",
-            MutedColor
-        )
+        CreateSegment(Row1, "Title", nil, Watermark.Title, true)
+        CreateSegment(Row1, "User", "User", LocalPlayer.Name, false)
+        CreateSegment(Row1, "FPS", "Monitor", "0fps", false)
+        CreateSegment(Row1, "Ping", "Cloud", "0ms", false)
+        CreateSegment(Row2, "Position", "Position", "x0 y0 z0", false)
+        CreateSegment(Row2, "TPS", "Clock", "0.0tps", false)
+        CreateSegment(Row2, "Network", "Network", "0.00kbps", false)
 
         local function AddConnection(
             Event,
@@ -2760,28 +2729,15 @@ local Library do
                 return
             end
 
-            local FirstWidth =
-                RowLayouts[1].
-                AbsoluteContentSize.X
-
-            local SecondWidth =
-                RowLayouts[2].
-                AbsoluteContentSize.X
-
             Items.Frame.Instance.Size =
                 UDim2New(
                     0,
                     math.max(
-                        math.ceil(
-                            math.max(
-                                FirstWidth,
-                                SecondWidth
-                            )
-                        ) + 16,
-                        120
+                        RowLayouts[1].AbsoluteContentSize.X,
+                        RowLayouts[2].AbsoluteContentSize.X
                     ),
                     0,
-                    42
+                    38
                 )
         end
 
@@ -9024,11 +8980,18 @@ local Library do
         Items.RealDropdown:AddToTheme({
             BackgroundColor3 = "Element"
         })
-        Library:ApplyGlass(
-            Items.RealDropdown,
-            "Element",
-            5
-        )
+        local FieldCorner = InstanceNew("UICorner")
+        FieldCorner.CornerRadius = UDimNew(0, 3)
+        FieldCorner.Parent = Items.RealDropdown.Instance
+
+        local FieldStroke = InstanceNew("UIStroke")
+        FieldStroke.Thickness = 1
+        FieldStroke.Transparency = 0.20
+        FieldStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        FieldStroke.LineJoinMode = Enum.LineJoinMode.Round
+        FieldStroke.Parent = Items.RealDropdown.Instance
+        Library:AddToTheme(FieldStroke, {Color = "Outline"})
+
         Items.RealDropdown.Instance.BackgroundTransparency = 0
 
         Items.Value = Instances:Create("TextLabel", {
@@ -9085,23 +9048,30 @@ local Library do
         Items.OptionHolder:AddToTheme({
             BackgroundColor3 = "Inline"
         })
-        Library:ApplyGlass(
-            Items.OptionHolder,
-            "Popup",
-            6
-        )
+        local PopupCorner = InstanceNew("UICorner")
+        PopupCorner.CornerRadius = UDimNew(0, 3)
+        PopupCorner.Parent = Items.OptionHolder.Instance
+
+        local PopupStroke = InstanceNew("UIStroke")
+        PopupStroke.Thickness = 1
+        PopupStroke.Transparency = 0.12
+        PopupStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        PopupStroke.LineJoinMode = Enum.LineJoinMode.Round
+        PopupStroke.Parent = Items.OptionHolder.Instance
+        Library:AddToTheme(PopupStroke, {Color = "Outline"})
+
         Items.OptionHolder.Instance.BackgroundTransparency = 0
 
         local OptionLayout = InstanceNew("UIListLayout")
-        OptionLayout.Padding = UDimNew(0, 2)
+        OptionLayout.Padding = UDimNew(0, 0)
         OptionLayout.SortOrder = Enum.SortOrder.LayoutOrder
         OptionLayout.Parent = Items.OptionHolder.Instance
 
         local OptionPadding = InstanceNew("UIPadding")
         OptionPadding.PaddingTop = UDimNew(0, 4)
         OptionPadding.PaddingBottom = UDimNew(0, 4)
-        OptionPadding.PaddingLeft = UDimNew(0, 4)
-        OptionPadding.PaddingRight = UDimNew(0, 4)
+        OptionPadding.PaddingLeft = UDimNew(0, 0)
+        OptionPadding.PaddingRight = UDimNew(0, 0)
         OptionPadding.Parent = Items.OptionHolder.Instance
 
         local function GetPopupPosition(Offset)
@@ -9210,7 +9180,7 @@ local Library do
                     DropdownTween,
                     {
                         TextColor3 =
-                            Library.Theme.Accent
+                            Library.Theme.Text
                     }
                 )
 
@@ -9410,11 +9380,19 @@ local Library do
                     "Hovered Element"
             })
 
-            Library:ApplyGlass(
-                OptionButton,
-                "Element",
-                4
-            )
+            local Marker =
+                Instances:Create("Frame", {
+                    Parent = OptionButton.Instance,
+                    Position = UDim2New(0, 0, 0, 3),
+                    Size = UDim2New(0, 2, 1, -6),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Library.Theme.Accent,
+                    BackgroundTransparency = 1,
+                    ZIndex = 902
+                })
+            Marker:AddToTheme({
+                BackgroundColor3 = "Accent"
+            })
 
             local OptionText =
                 Instances:Create("TextLabel", {
@@ -9444,24 +9422,29 @@ local Library do
                 Selected = false,
                 Name = Option,
                 Text = OptionText,
-                Button = OptionButton
+                Button = OptionButton,
+                Marker = Marker
             }
 
             function OptionData:Toggle(Active)
+                OptionData.Selected = Active == true
+
+                OptionData.Marker:Tween(
+                    DropdownTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0 or 1
+                    }
+                )
+
                 OptionData.Text:ChangeItemTheme({
-                    TextColor3 =
-                        Active
-                        and "Accent"
-                        or "Text"
+                    TextColor3 = "Text"
                 })
 
                 OptionData.Text:Tween(
                     DropdownTween,
                     {
-                        TextColor3 =
-                            Active
-                            and Library.Theme.Accent
-                            or Library.Theme.Text,
+                        TextColor3 = Library.Theme.Text,
                         TextTransparency =
                             Active and 0 or 0.08
                     }
@@ -9471,7 +9454,7 @@ local Library do
                     DropdownTween,
                     {
                         BackgroundTransparency =
-                            Active and 0.24 or 1
+                            Active and 0.60 or 1
                     }
                 )
             end
@@ -9484,7 +9467,7 @@ local Library do
                 OptionData.Button:Tween(
                     DropdownTween,
                     {
-                        BackgroundTransparency = 0.42
+                        BackgroundTransparency = 0.74
                     }
                 )
 
