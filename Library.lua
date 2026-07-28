@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "MinimalClient-v1",
+        Build = "MinimalClient-v2-Animations",
         Flags = { },
 
         Theme = {
@@ -6448,7 +6448,7 @@ local Library do
                 BorderColor3 = FromRGB(0, 0, 0),
                 Text = Window.Name,
                 Name = string.char(0),
-                Size = UDim2New(1, -92, 0, 20),
+                Size = UDim2New(1, -24, 0, 20),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, 12, 0, 7),
@@ -6467,24 +6467,6 @@ local Library do
                 Items["Title"],
                 30
             )
-
-            Items["Status"] = Instances:Create("TextLabel", {
-                Parent = Items["MainFrame"].Instance,
-                AnchorPoint = Vector2New(1, 0),
-                Position = UDim2New(1, -12, 0, 8),
-                Size = UDim2New(0, 68, 0, 18),
-                BorderSizePixel = 0,
-                BackgroundColor3 = Library.Theme.Element,
-                FontFace = Library.Font,
-                Text = "PRIVATE",
-                TextSize = 9,
-                TextColor3 = Library.Theme["Muted Text"]
-            })
-            Items["Status"]:AddToTheme({
-                BackgroundColor3 = "Element",
-                TextColor3 = "Muted Text"
-            })
-            Library:ApplyGlass(Items["Status"], "Element", 8)
 
             Items["Inline"] = Instances:Create("Frame", {
                 Parent = Items["MainFrame"].Instance,
@@ -6870,29 +6852,17 @@ local Library do
 
         local Debounce = false
 
-        function Page:Turn(
-            Bool
+        local PageTween = TweenInfo.new(
+            0.14,
+            Enum.EasingStyle.Quint,
+            Enum.EasingDirection.Out
         )
-            Bool =
-                Bool == true
 
-            Page.Active =
-                Bool
+        function Page:Turn(Bool)
+            Bool = Bool == true
+            Page.Active = Bool
 
-            Items[
-                "Page"
-            ].Instance.Visible =
-                Bool
-
-            Items[
-                "Hide"
-            ].Instance.Visible =
-                Bool
-
-            Items["Inactive"].Instance.BackgroundColor3 =
-                Bool
-                and Library.Theme["Hovered Element"]
-                or Library.Theme["Page Background"]
+            Items["Page"].Instance.Visible = Bool
 
             Items["Inactive"]:ChangeItemTheme({
                 BackgroundColor3 =
@@ -6901,21 +6871,113 @@ local Library do
                     or "Page Background"
             })
 
-            Items["Text"].Instance.TextColor3 =
-                Bool
-                and Library.Theme.Accent
-                or Library.Theme.Text
-
-            Items["Text"].Instance.TextTransparency =
-                Bool and 0 or 0.22
-
             Items["Text"]:ChangeItemTheme({
                 TextColor3 =
                     Bool
                     and "Accent"
                     or "Text"
             })
+
+            Items["Inactive"]:Tween(
+                PageTween,
+                {
+                    BackgroundColor3 =
+                        Bool
+                        and Library.Theme["Hovered Element"]
+                        or Library.Theme["Page Background"]
+                }
+            )
+
+            Items["Text"]:Tween(
+                PageTween,
+                {
+                    TextColor3 =
+                        Bool
+                        and Library.Theme.Accent
+                        or Library.Theme.Text,
+                    TextTransparency =
+                        Bool and 0 or 0.22
+                }
+            )
+
+            if Bool then
+                Items["Hide"].Instance.Visible = true
+                Items["Hide"].Instance.Size =
+                    UDim2New(0, 0, 0, 2)
+
+                Items["Hide"]:Tween(
+                    PageTween,
+                    {
+                        Size =
+                            UDim2New(0, 22, 0, 2)
+                    }
+                )
+            else
+                Items["Hide"]:Tween(
+                    PageTween,
+                    {
+                        Size =
+                            UDim2New(0, 0, 0, 2)
+                    }
+                )
+
+                task.delay(0.14, function()
+                    if not Page.Active
+                        and Items["Hide"].Instance
+                        and Items["Hide"].Instance.Parent
+                    then
+                        Items["Hide"].Instance.Visible =
+                            false
+                    end
+                end)
+            end
         end
+
+        Items["Inactive"]:OnHover(function()
+            if Page.Active then
+                return
+            end
+
+            Items["Inactive"]:Tween(
+                PageTween,
+                {
+                    BackgroundColor3 =
+                        Library.Theme["Hovered Element"]
+                }
+            )
+
+            Items["Text"]:Tween(
+                PageTween,
+                {
+                    TextTransparency = 0.04,
+                    TextColor3 =
+                        Library.Theme.Text
+                }
+            )
+        end)
+
+        Items["Inactive"]:OnHoverLeave(function()
+            if Page.Active then
+                return
+            end
+
+            Items["Inactive"]:Tween(
+                PageTween,
+                {
+                    BackgroundColor3 =
+                        Library.Theme["Page Background"]
+                }
+            )
+
+            Items["Text"]:Tween(
+                PageTween,
+                {
+                    TextTransparency = 0.22,
+                    TextColor3 =
+                        Library.Theme.Text
+                }
+            )
+        end)
 
         Items["Inactive"]:Connect("MouseButton1Down", function()
             for Index, Value in Page.Window.Pages do
@@ -8440,10 +8502,16 @@ local Library do
             Value = {},
             IsOpen = false,
             Options = {},
+            AnimationToken = 0,
             Class = "Dropdown"
         }
 
         local Items = {}
+        local DropdownTween = TweenInfo.new(
+            0.13,
+            Enum.EasingStyle.Quint,
+            Enum.EasingDirection.Out
+        )
 
         Items.Dropdown = Instances:Create("Frame", {
             Parent = Dropdown.Section.Elements.Content.Instance,
@@ -8494,11 +8562,11 @@ local Library do
             TextColor3 = Library.Theme.Text,
             Text = "—",
             Name = string.char(0),
-            Size = UDim2New(1, -25, 1, 0),
+            Size = UDim2New(1, -28, 1, 0),
             BackgroundTransparency = 1,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
-            Position = UDim2New(0, 6, 0, 0),
+            Position = UDim2New(0, 7, 0, 0),
             BorderSizePixel = 0,
             TextSize = 11,
             ZIndex = 2
@@ -8509,24 +8577,24 @@ local Library do
 
         Items.Open = Instances:Create("TextButton", {
             Parent = Items.RealDropdown.Instance,
-            FontFace = Library.Font,
+            Font = Enum.Font.GothamMedium,
             TextColor3 = Library.Theme["Muted Text"],
-            Text = "v",
+            Text = "+",
             AutoButtonColor = false,
             Name = string.char(0),
-            Size = UDim2New(1, 0, 1, 0),
+            AnchorPoint = Vector2New(1, 0),
+            Position = UDim2New(1, -5, 0, 0),
+            Size = UDim2New(0, 18, 1, 0),
             BackgroundTransparency = 1,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            Position = UDim2New(0, -6, 0, 0),
             BorderSizePixel = 0,
-            TextSize = 10,
+            TextSize = 13,
             ZIndex = 3
         })
         Items.Open:AddToTheme({
             TextColor3 = "Muted Text"
         })
 
-        Items.OptionHolder = Instances:Create("Frame", {
+        Items.OptionHolder = Instances:Create("CanvasGroup", {
             Parent = Library.Holder.Instance,
             Visible = false,
             Name = string.char(0),
@@ -8536,6 +8604,7 @@ local Library do
             AutomaticSize = Enum.AutomaticSize.Y,
             BackgroundColor3 = Library.Theme.Inline,
             BackgroundTransparency = 0,
+            GroupTransparency = 1,
             ZIndex = 900
         })
         Items.OptionHolder:AddToTheme({
@@ -8560,21 +8629,25 @@ local Library do
         OptionPadding.PaddingRight = UDimNew(0, 4)
         OptionPadding.Parent = Items.OptionHolder.Instance
 
+        local function GetPopupPosition(Offset)
+            local Real = Items.RealDropdown.Instance
+            local Position = Real.AbsolutePosition
+            local Size = Real.AbsoluteSize
+
+            return UDim2New(
+                0,
+                Position.X,
+                0,
+                Position.Y + Size.Y + (Offset or 3)
+            )
+        end
+
         local function UpdatePopupPosition()
-            local Real =
-                Items.RealDropdown.Instance
-            local Position =
-                Real.AbsolutePosition
             local Size =
-                Real.AbsoluteSize
+                Items.RealDropdown.Instance.AbsoluteSize
 
             Items.OptionHolder.Instance.Position =
-                UDim2New(
-                    0,
-                    Position.X,
-                    0,
-                    Position.Y + Size.Y + 3
-                )
+                GetPopupPosition(3)
 
             Items.OptionHolder.Instance.Size =
                 UDim2New(
@@ -8612,15 +8685,148 @@ local Library do
         function Dropdown:SetOpen(Bool)
             Bool = Bool == true
 
+            if Bool
+                and Library.OpenDropdown
+                and Library.OpenDropdown ~= Dropdown
+            then
+                Library.OpenDropdown:SetOpen(false)
+            end
+
+            Dropdown.AnimationToken =
+                Dropdown.AnimationToken + 1
+
+            local Token =
+                Dropdown.AnimationToken
+
             Dropdown.IsOpen = Bool
-            Items.OptionHolder.Instance.Visible = Bool
-            Items.Open.Instance.Text =
-                Bool and "^" or "v"
 
             if Bool then
-                UpdatePopupPosition()
+                Library.OpenDropdown = Dropdown
+
+                local Size =
+                    Items.RealDropdown.Instance.AbsoluteSize
+
+                Items.OptionHolder.Instance.Size =
+                    UDim2New(0, Size.X, 0, 0)
+
+                Items.OptionHolder.Instance.Position =
+                    GetPopupPosition(7)
+
+                Items.OptionHolder.Instance.GroupTransparency = 1
+                Items.OptionHolder.Instance.Visible = true
+
+                Items.OptionHolder:Tween(
+                    DropdownTween,
+                    {
+                        Position = GetPopupPosition(3),
+                        GroupTransparency = 0
+                    }
+                )
+
+                Items.RealDropdown:Tween(
+                    DropdownTween,
+                    {
+                        BackgroundColor3 =
+                            Library.Theme["Hovered Element"]
+                    }
+                )
+
+                Items.Open:Tween(
+                    DropdownTween,
+                    {
+                        TextColor3 =
+                            Library.Theme.Accent
+                    }
+                )
+
+                Items.Open.Instance.Text = "-"
+            else
+                if Library.OpenDropdown == Dropdown then
+                    Library.OpenDropdown = nil
+                end
+
+                Items.OptionHolder:Tween(
+                    DropdownTween,
+                    {
+                        Position = GetPopupPosition(7),
+                        GroupTransparency = 1
+                    }
+                )
+
+                Items.RealDropdown:Tween(
+                    DropdownTween,
+                    {
+                        BackgroundColor3 =
+                            Library.Theme.Element
+                    }
+                )
+
+                Items.Open:Tween(
+                    DropdownTween,
+                    {
+                        TextColor3 =
+                            Library.Theme["Muted Text"]
+                    }
+                )
+
+                Items.Open.Instance.Text = "+"
+
+                task.delay(0.13, function()
+                    if Token == Dropdown.AnimationToken
+                        and not Dropdown.IsOpen
+                        and Items.OptionHolder.Instance
+                        and Items.OptionHolder.Instance.Parent
+                    then
+                        Items.OptionHolder.Instance.Visible =
+                            false
+                    end
+                end)
             end
         end
+
+        Items.Open:OnHover(function()
+            if Dropdown.IsOpen then
+                return
+            end
+
+            Items.RealDropdown:Tween(
+                DropdownTween,
+                {
+                    BackgroundColor3 =
+                        Library.Theme["Hovered Element"]
+                }
+            )
+
+            Items.Open:Tween(
+                DropdownTween,
+                {
+                    TextColor3 =
+                        Library.Theme.Accent
+                }
+            )
+        end)
+
+        Items.Open:OnHoverLeave(function()
+            if Dropdown.IsOpen then
+                return
+            end
+
+            Items.RealDropdown:Tween(
+                DropdownTween,
+                {
+                    BackgroundColor3 =
+                        Library.Theme.Element
+                }
+            )
+
+            Items.Open:Tween(
+                DropdownTween,
+                {
+                    TextColor3 =
+                        Library.Theme["Muted Text"]
+                }
+            )
+        end)
 
         function Dropdown:Set(Option)
             if Dropdown.Multi then
@@ -8671,6 +8877,7 @@ local Library do
                 ) do
                     Value.Selected =
                         Value == OptionData
+
                     Value:Toggle(
                         Value == OptionData
                     )
@@ -8678,6 +8885,7 @@ local Library do
 
                 Dropdown.Value =
                     OptionData.Name
+
                 Items.Value.Instance.Text =
                     OptionData.Name
             end
@@ -8715,11 +8923,23 @@ local Library do
                     Text = "",
                     AutoButtonColor = false,
                     Name = string.char(0),
+                    BackgroundColor3 =
+                        Library.Theme["Hovered Element"],
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
-                    Size = UDim2New(1, 0, 0, 19),
+                    Size = UDim2New(1, 0, 0, 20),
                     ZIndex = 901
                 })
+            OptionButton:AddToTheme({
+                BackgroundColor3 =
+                    "Hovered Element"
+            })
+
+            Library:ApplyGlass(
+                OptionButton,
+                "Element",
+                4
+            )
 
             local OptionText =
                 Instances:Create("TextLabel", {
@@ -8731,9 +8951,9 @@ local Library do
                     TextTransparency = 0.08,
                     Text = tostring(Option),
                     Name = string.char(0),
-                    Size = UDim2New(1, -10, 1, 0),
+                    Size = UDim2New(1, -12, 1, 0),
                     Position =
-                        UDim2New(0, 5, 0, 0),
+                        UDim2New(0, 6, 0, 0),
                     BackgroundTransparency = 1,
                     TextXAlignment =
                         Enum.TextXAlignment.Left,
@@ -8760,24 +8980,66 @@ local Library do
                         or "Text"
                 })
 
-                OptionData.Text:Tween(nil, {
-                    TextColor3 =
-                        Active
-                        and Library.Theme.Accent
-                        or Library.Theme.Text,
-                    TextTransparency =
-                        Active and 0 or 0.08
-                })
+                OptionData.Text:Tween(
+                    DropdownTween,
+                    {
+                        TextColor3 =
+                            Active
+                            and Library.Theme.Accent
+                            or Library.Theme.Text,
+                        TextTransparency =
+                            Active and 0 or 0.08
+                    }
+                )
 
-                OptionData.Button:Tween(nil, {
-                    BackgroundTransparency =
-                        Active and 0 or 1,
-                    BackgroundColor3 =
-                        Library.Theme[
-                            "Hovered Element"
-                        ]
-                })
+                OptionData.Button:Tween(
+                    DropdownTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0.24 or 1
+                    }
+                )
             end
+
+            OptionButton:OnHover(function()
+                if OptionData.Selected then
+                    return
+                end
+
+                OptionData.Button:Tween(
+                    DropdownTween,
+                    {
+                        BackgroundTransparency = 0.42
+                    }
+                )
+
+                OptionData.Text:Tween(
+                    DropdownTween,
+                    {
+                        TextTransparency = 0
+                    }
+                )
+            end)
+
+            OptionButton:OnHoverLeave(function()
+                if OptionData.Selected then
+                    return
+                end
+
+                OptionData.Button:Tween(
+                    DropdownTween,
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
+
+                OptionData.Text:Tween(
+                    DropdownTween,
+                    {
+                        TextTransparency = 0.08
+                    }
+                )
+            end)
 
             function OptionData:Set()
                 if Dropdown.Multi then
