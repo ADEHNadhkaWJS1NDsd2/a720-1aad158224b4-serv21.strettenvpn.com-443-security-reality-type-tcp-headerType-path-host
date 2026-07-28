@@ -2030,7 +2030,11 @@ local Library do
     end
 
     Library.AddToTheme = function(self, Item, Properties)
-        Item = Item.Instance or Item
+        Item = self:ResolveInstance(Item)
+
+        if not Item then
+            return
+        end
 
         local ThemeData = {
             Item = Item,
@@ -2502,9 +2506,9 @@ local Library do
     end
 
     Library.ChangeItemTheme = function(self, Item, Properties)
-        Item = Item.Instance or Item
+        Item = self:ResolveInstance(Item)
 
-        if not self.ThemeMap[Item] then
+        if not Item or not self.ThemeMap[Item] then
             return
         end
 
@@ -2529,8 +2533,9 @@ local Library do
         Frame
     )
         Frame =
-            Frame.Instance
-            or Frame
+            self:ResolveInstance(
+                Frame
+            )
 
         if not Frame
             or not Frame.Parent
@@ -2955,7 +2960,10 @@ local Library do
     Library.InlineAddonLayouts = Library.InlineAddonLayouts or setmetatable({}, { __mode = "k" })
 
     Library.RegisterInlineAddon = function(self, Parent, Instance, Kind)
-        local ParentInstance = Parent and (Parent.Instance or Parent)
+        local ParentInstance =
+            Library:ResolveInstance(
+                Parent
+            )
 
         if typeof(ParentInstance) ~= "Instance" or typeof(Instance) ~= "Instance" then
             return
@@ -5250,7 +5258,11 @@ local Library do
         }
 
         local Items = {}
-        local Parent = Data.Parent and (Data.Parent.Instance or Data.Parent) or Library.Holder.Instance
+        local Parent =
+            Library:ResolveInstance(
+                Data.Parent
+            )
+            or Library.Holder.Instance
 
         Items.Frame = Instances:Create("Frame", {
             Parent = Parent,
@@ -5885,7 +5897,11 @@ local Library do
         }
 
         local Items = {}
-        local Parent = Data.Parent and (Data.Parent.Instance or Data.Parent) or Library.Holder.Instance
+        local Parent =
+            Library:ResolveInstance(
+                Data.Parent
+            )
+            or Library.Holder.Instance
 
         Items.Frame = Instances:Create("CanvasGroup", {
             Parent = Parent,
