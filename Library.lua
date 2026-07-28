@@ -65,34 +65,34 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantGlass-v7-SafeToggle",
+        Build = "EnergyInspired-v1",
         Flags = { },
 
         Theme = {
-            ["Background"] = FromRGB(9, 11, 12),
-            ["Inline"] = FromRGB(13, 16, 17),
-            ["Page Background"] = FromRGB(17, 20, 21),
-            ["Border"] = FromRGB(3, 5, 5),
-            ["Outline"] = FromRGB(39, 45, 45),
+            ["Background"] = FromRGB(11, 11, 17),
+            ["Inline"] = FromRGB(16, 17, 24),
+            ["Page Background"] = FromRGB(20, 22, 31),
+            ["Border"] = FromRGB(7, 8, 12),
+            ["Outline"] = FromRGB(41, 44, 57),
             ["Accent"] = FromRGB(54, 218, 145),
-            ["Element"] = FromRGB(23, 27, 28),
-            ["Hovered Element"] = FromRGB(31, 37, 37),
-            ["Text"] = FromRGB(226, 232, 230),
+            ["Element"] = FromRGB(25, 27, 37),
+            ["Hovered Element"] = FromRGB(32, 35, 47),
+            ["Text"] = FromRGB(235, 245, 252),
             ["Text Border"] = FromRGB(0, 0, 0),
-            ["Glass Edge"] = FromRGB(150, 224, 190),
-            ["Muted Text"] = FromRGB(158, 178, 169),
-            ["Danger"] = FromRGB(235, 72, 72)
+            ["Glass Edge"] = FromRGB(104, 225, 166),
+            ["Muted Text"] = FromRGB(137, 143, 160),
+            ["Danger"] = FromRGB(235, 82, 96)
         },
 
         Glass = {
-            Enabled = true,
-            BlurSize = 4,
-            CornerRadius = 9,
+            Enabled = false,
+            BlurSize = 0,
+            CornerRadius = 10,
             WindowTransparency = 0,
-            PanelTransparency = 0.018,
-            ElementTransparency = 0.035,
-            PopupTransparency = 0.012,
-            FloatingTransparency = 0.008
+            PanelTransparency = 0,
+            ElementTransparency = 0,
+            PopupTransparency = 0,
+            FloatingTransparency = 0.03
         },
 
         GlassBlur = nil,
@@ -1101,100 +1101,37 @@ local Library do
     end
 
     Library.ApplyGlass = function(self, Item, Kind, Radius)
-        if not self.Glass or self.Glass.Enabled ~= true then
-            return nil
-        end
-
         local Object = self:ResolveInstance(Item)
 
         if not Object or not Object:IsA("GuiObject") then
             return nil
         end
 
-        Kind = Kind or "Element"
-
-        local Transparency = self.Glass.ElementTransparency
-
-        if Kind == "Window" then
-            Transparency = self.Glass.WindowTransparency
-        elseif Kind == "Panel" then
-            Transparency = self.Glass.PanelTransparency
-        elseif Kind == "Popup" then
-            Transparency = self.Glass.PopupTransparency
-        elseif Kind == "Floating" then
-            Transparency = self.Glass.FloatingTransparency
-        end
-
-        if Object.BackgroundTransparency < 1 then
-            Object.BackgroundTransparency = Transparency
-        end
-
         Object.BorderSizePixel = 0
 
-        for _, Child in ipairs(Object:GetChildren()) do
-            if Child:IsA("UIStroke")
-                and Child.Name ~= "_GlassStroke"
-            then
-                Child.Transparency = math.max(
-                    tonumber(Child.Transparency) or 0,
-                    0.68
-                )
-                Child.LineJoinMode =
-                    Enum.LineJoinMode.Round
-            end
-        end
-
-        local Corner = Object:FindFirstChild("_GlassCorner")
-
+        local Corner = Object:FindFirstChild("_EnergyCorner")
         if not Corner then
             Corner = InstanceNew("UICorner")
-            Corner.Name = "_GlassCorner"
+            Corner.Name = "_EnergyCorner"
             Corner.Parent = Object
         end
+        Corner.CornerRadius = UDimNew(0, Radius or 10)
 
-        Corner.CornerRadius = UDimNew(
-            0,
-            Radius or self.Glass.CornerRadius or 9
-        )
-
-        local Stroke = Object:FindFirstChild("_GlassStroke")
-
+        local Stroke = Object:FindFirstChild("_EnergyStroke")
         if not Stroke then
             Stroke = InstanceNew("UIStroke")
-            Stroke.Name = "_GlassStroke"
+            Stroke.Name = "_EnergyStroke"
             Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             Stroke.LineJoinMode = Enum.LineJoinMode.Round
             Stroke.Thickness = 1
             Stroke.Parent = Object
-
-            self:AddToTheme(Stroke, {
-                Color = "Glass Edge"
-            })
+            self:AddToTheme(Stroke, {Color = "Outline"})
         end
 
         Stroke.Transparency =
-            Kind == "Window" and 0.30
-            or Kind == "Floating" and 0.38
-            or 0.56
-
-        local Gradient = Object:FindFirstChild("_GlassGradient")
-
-        if not Gradient then
-            Gradient = InstanceNew("UIGradient")
-            Gradient.Name = "_GlassGradient"
-            Gradient.Rotation = 112
-            Gradient.Color = RGBSequence({
-                RGBSequenceKeypoint(0, FromRGB(255, 255, 255)),
-                RGBSequenceKeypoint(0.52, FromRGB(218, 239, 229)),
-                RGBSequenceKeypoint(1, FromRGB(112, 172, 145))
-            })
-            Gradient.Transparency = NumSequence({
-                NumSequenceKeypoint(0, 0.88),
-                NumSequenceKeypoint(0.46, 0.955),
-                NumSequenceKeypoint(1, 0.992)
-            })
-            Gradient.Parent = Object
-        end
+            Kind == "Floating" and 0.28
+            or Kind == "Window" and 0.38
+            or 0.55
 
         return Object
     end
@@ -1216,10 +1153,10 @@ local Library do
         Shadow.Name = "_GlassShadow"
         Shadow.AnchorPoint = Vector2New(0.5, 0.5)
         Shadow.Position = UDim2New(0.5, 0, 0.5, Offset or 3)
-        Shadow.Size = UDim2New(1, 8, 1, 8)
+        Shadow.Size = UDim2New(1, 10, 1, 10)
         Shadow.BorderSizePixel = 0
         Shadow.BackgroundColor3 = FromRGB(0, 0, 0)
-        Shadow.BackgroundTransparency = 0.76
+        Shadow.BackgroundTransparency = 0.72
         Shadow.ZIndex = math.max(0, Object.ZIndex - 1)
         Shadow.Parent = Object
 
@@ -1259,12 +1196,6 @@ local Library do
     end
 
     Library.SetGlassBlur = function(self, Enabled)
-        local Blur = self:EnsureGlassBlur()
-
-        if not Blur then
-            return
-        end
-
         if self.GlassBlurTween then
             pcall(function()
                 self.GlassBlurTween:Cancel()
@@ -1272,21 +1203,10 @@ local Library do
             self.GlassBlurTween = nil
         end
 
-        local Target = Enabled and (self.Glass.BlurSize or 10) or 0
-
-        self.GlassBlurTween = TweenService:Create(
-            Blur,
-            TweenInfo.new(
-                0.22,
-                Enum.EasingStyle.Quint,
-                Enum.EasingDirection.Out
-            ),
-            {
-                Size = Target
-            }
-        )
-
-        self.GlassBlurTween:Play()
+        if self.GlassBlur then
+            self.GlassBlur.Size = 0
+            self.GlassBlur.Enabled = false
+        end
     end
 
     local SmoothFontSuccess,
@@ -2843,7 +2763,7 @@ local Library do
             Parent = Library.Holder.Instance,
             AnchorPoint = Vector2New(0, 0.5),
             Position = UDim2New(0, 18, 0.5, 0),
-            Size = UDim2New(0, 178, 0, 38),
+            Size = UDim2New(0, 162, 0, 36),
             AutomaticSize = Enum.AutomaticSize.Y,
             BorderSizePixel = 0,
             BackgroundColor3 = Library.Theme.Background,
@@ -5966,8 +5886,8 @@ local Library do
             FollowTarget = Data.FollowTarget == true,
             PreviewMode = false,
             ManualPosition = Data.Position or UDim2New(0.5, 0, 1, -96),
-            FullSize = Data.Size or UDim2New(0, 310, 0, 86),
-            FollowSize = Data.FollowSize or UDim2New(0, 196, 0, 56),
+            FullSize = Data.Size or UDim2New(0, 286, 0, 76),
+            FollowSize = Data.FollowSize or UDim2New(0, 184, 0, 52),
             CurrentPlayer = nil,
             ThumbnailToken = 0,
             InternalPositionWrite = false,
@@ -6526,13 +6446,13 @@ local Library do
                 Position = UDim2New(0, 0, 0, 0),
                 BorderColor3 = FromRGB(10, 10, 10),
                 Size = Window.Size,
-                BorderSizePixel = 2,
-                BackgroundColor3 = FromRGB(15, 15, 20),
+                BorderSizePixel = 0,
+                BackgroundColor3 = FromRGB(11, 11, 17),
                 GroupTransparency = 0
             })  Items["MainFrame"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
-            Library:ApplyGlass(Items["MainFrame"], "Window", 13)
-            Library:AddGlassShadow(Items["MainFrame"], 17, 7)
-            Library:SetGlassBlur(true)
+            Library:ApplyGlass(Items["MainFrame"], "Window", 12)
+            Library:AddGlassShadow(Items["MainFrame"], 15, 4)
+            Items["MainFrame"].Instance.BackgroundTransparency = 0
 
             Items["MainFrame"].Instance.Position = UDim2New(0, Camera.ViewportSize.X / 4, 0, Camera.ViewportSize.Y / 4)
 
@@ -6546,10 +6466,13 @@ local Library do
             Items["AccentBorder"] = Instances:Create("UIStroke", {
                 Parent = Items["MainFrame"].Instance,
                 ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = "\0",
-                Color = FromRGB(235, 157, 255)
-            })  Items["AccentBorder"]:AddToTheme({Color = "Accent"})
+                LineJoinMode = Enum.LineJoinMode.Round,
+                Name = " ",
+                Thickness = 1,
+                Transparency = 0.72,
+                Color = Library.Theme.Outline
+            })
+            Items["AccentBorder"]:AddToTheme({Color = "Outline"})
 
             Items["Title"] = Instances:Create("TextLabel", {
                 Parent = Items["MainFrame"].Instance,
@@ -6558,12 +6481,12 @@ local Library do
                 BorderColor3 = FromRGB(0, 0, 0),
                 Text = Window.Name,
                 Name = "\0",
-                Size = UDim2New(1, 0, 0, 15),
+                Size = UDim2New(1, -92, 0, 20),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2New(0, 6, 0, 1),
+                Position = UDim2New(0, 12, 0, 7),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 15,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
 
@@ -6575,34 +6498,45 @@ local Library do
 
             Items["MainFrame"]:MakeDraggable(
                 Items["Title"],
-                26
+                30
             )
+
+            Items["Status"] = Instances:Create("TextLabel", {
+                Parent = Items["MainFrame"].Instance,
+                AnchorPoint = Vector2New(1, 0),
+                Position = UDim2New(1, -12, 0, 8),
+                Size = UDim2New(0, 68, 0, 18),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Element,
+                FontFace = Library.Font,
+                Text = "PRIVATE",
+                TextSize = 9,
+                TextColor3 = Library.Theme["Muted Text"]
+            })
+            Items["Status"]:AddToTheme({
+                BackgroundColor3 = "Element",
+                TextColor3 = "Muted Text"
+            })
+            Library:ApplyGlass(Items["Status"], "Element", 8)
 
             Items["Inline"] = Instances:Create("Frame", {
                 Parent = Items["MainFrame"].Instance,
                 Name = "\0",
-                Position = UDim2New(0, 7, 0, 20),
+                Position = UDim2New(0, 10, 0, 34),
                 BorderColor3 = FromRGB(27, 27, 32),
-                Size = UDim2New(1, -14, 1, -27),
-                BorderSizePixel = 2,
-                BackgroundColor3 = FromRGB(20, 20, 25)
+                Size = UDim2New(1, -20, 1, -44),
+                BorderSizePixel = 0,
+                BackgroundColor3 = FromRGB(11, 11, 17),
+                BackgroundTransparency = 1
             })  Items["Inline"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Outline"})
-
-            Instances:Create("UIStroke", {
-                Parent = Items["Inline"].Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                Color = Library.Theme.Border,
-                Name = "\0"
-            }):AddToTheme({Color = "Border"})
 
             Items["Pages"] = Instances:Create("Frame", {
                 Parent = Items["Inline"].Instance,
                 Name = "\0",
                 BackgroundTransparency = 1,
-                Position = UDim2New(0, 7, 0, 7),
+                Position = UDim2New(0, 0, 0, 0),
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, -14, 0, 19),
+                Size = UDim2New(1, 0, 0, 24),
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })
@@ -6618,20 +6552,18 @@ local Library do
             Items["Content"] = Instances:Create("Frame", {
                 Parent = Items["Inline"].Instance,
                 Name = "\0",
-                Position = UDim2New(0, 7, 0, 26),
+                Position = UDim2New(0, 0, 0, 31),
                 BorderColor3 = FromRGB(10, 10, 10),
-                Size = UDim2New(1, -14, 1, -33),
-                BorderSizePixel = 2,
-                BackgroundColor3 = FromRGB(15, 15, 20)
+                Size = UDim2New(1, 0, 1, -31),
+                BorderSizePixel = 0,
+                BackgroundColor3 = FromRGB(16, 17, 24)
             })  Items["Content"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
 
-            Instances:Create("UIStroke", {
-                Parent = Items["Content"].Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                Color = Library.Theme.Outline,
-                Name = "\0"
-            }):AddToTheme({Color = "Outline"})
+            Library:ApplyGlass(
+                Items["Content"],
+                "Panel",
+                10
+            )
         end
 
         local Debounce = false
@@ -6813,25 +6745,18 @@ local Library do
                 AutoButtonColor = false,
                 Name = "\0",
                 Size = UDim2New(1, 0, 1, 0),
-                BorderSizePixel = 2,
+                BorderSizePixel = 0,
                 TextSize = 14,
-                BackgroundColor3 = FromRGB(30, 30, 35)
+                BackgroundColor3 = FromRGB(20, 22, 31)
             })  Items["Inactive"]:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Border"})
-            Library:ApplyGlass(Items["Inactive"], "Element", 7)
-
-            Instances:Create("UIStroke", {
-                Parent = Items["Inactive"].Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                Color = Library.Theme.Outline,
-                Name = "\0"
-            }):AddToTheme({Color = "Outline"})
+            Library:ApplyGlass(Items["Inactive"], "Element", 8)
+            Items["Inactive"].Instance.BackgroundTransparency = 0
 
             Items["Text"] = Instances:Create("TextLabel", {
                 Parent = Items["Inactive"].Instance,
                 FontFace = Library.Font,
                 TextColor3 = FromRGB(215, 215, 215),
-                TextTransparency = 0.47999998927116394,
+                TextTransparency = 0.18,
                 Text = Page.Name,
                 Name = "\0",
                 Size = UDim2New(1, 0, 1, 0),
@@ -6884,12 +6809,6 @@ local Library do
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(27, 27, 32)
             })  Items["MiscPixel2"]:AddToTheme({BackgroundColor3 = "Outline"})
-
-            Items["UIGradient"] = Instances:Create("UIGradient", {
-                Parent = Items["Inactive"].Instance,
-                Rotation = 90,
-                Color = RGBSequence{RGBSequenceKeypoint(0, FromRGB(255, 255, 255)), RGBSequenceKeypoint(1, FromRGB(108, 108, 108))}
-            })
 
             Items["Page"] = Instances:Create("Frame", {
                 Parent = Page.Window.Elements["Content"].Instance,
@@ -6999,29 +6918,32 @@ local Library do
             ].Instance.Visible =
                 Bool
 
-            Items[
-                "Text"
-            ].Instance.TextColor3 =
+            Items["Inactive"].Instance.BackgroundColor3 =
                 Bool
                 and Library.Theme.Accent
+                or Library.Theme["Page Background"]
+
+            Items["Inactive"]:ChangeItemTheme({
+                BackgroundColor3 =
+                    Bool
+                    and "Accent"
+                    or "Page Background"
+            })
+
+            Items["Text"].Instance.TextColor3 =
+                Bool
+                and Library.Theme.Background
                 or Library.Theme.Text
 
-            Items[
-                "Text"
-            ].Instance.TextTransparency =
-                Bool
-                and 0
-                or 0.5
+            Items["Text"].Instance.TextTransparency =
+                Bool and 0 or 0.18
 
-            Items[
-                "Text"
-            ]:
-                ChangeItemTheme({
-                    TextColor3 =
-                        Bool
-                        and "Accent"
-                        or "Text"
-                })
+            Items["Text"]:ChangeItemTheme({
+                TextColor3 =
+                    Bool
+                    and "Background"
+                    or "Text"
+            })
         end
 
         Items["Inactive"]:Connect("MouseButton1Down", function()
@@ -7300,18 +7222,12 @@ local Library do
                 Name = "\0",
                 Size = UDim2New(1, 0, 0, 25),
                 BorderColor3 = FromRGB(27, 27, 32),
-                BorderSizePixel = 2,
+                BorderSizePixel = 0,
                 AutomaticSize = Enum.AutomaticSize.Y,
-                BackgroundColor3 = FromRGB(20, 20, 25)
+                BackgroundColor3 = FromRGB(20, 22, 31)
             })  Items["Section"]:AddToTheme({BackgroundColor3 = "Inline", BorderColor3 = "Outline"})
             Library:ApplyGlass(Items["Section"], "Panel", 10)
-
-            Instances:Create("UIStroke", {
-                Parent = Items["Section"].Instance,
-                Color = FromRGB(10, 10, 10),
-                Name = "\0",
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            }):AddToTheme({Color = "Border"})
+            Items["Section"].Instance.BackgroundTransparency = 0
 
             Instances:Create("UIPadding", {
                 Parent = Items["Section"].Instance,
@@ -7322,16 +7238,11 @@ local Library do
                 Parent = Items["Section"].Instance,
                 Name = "\0",
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, 0, 0, 2),
+                Position = UDim2New(0, 8, 0, 0),
+                Size = UDim2New(0, 28, 0, 2),
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(235, 157, 255)
             })  Items["AccentLine"]:AddToTheme({BackgroundColor3 = "Accent"})
-
-            Instances:Create("UIGradient", {
-                Parent = Items["AccentLine"].Instance,
-                Rotation = 90,
-                Color = RGBSequence{RGBSequenceKeypoint(0, FromRGB(255, 255, 255)), RGBSequenceKeypoint(1, FromRGB(65, 65, 65))}
-            })
 
             Items["Text"] = Instances:Create("TextLabel", {
                 Parent = Items["Section"].Instance,
@@ -7343,9 +7254,9 @@ local Library do
                 Size = UDim2New(1, -12, 0, 15),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2New(0, 4, 0, 2),
+                Position = UDim2New(0, 10, 0, 5),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
@@ -7359,9 +7270,9 @@ local Library do
                 Parent = Items["Section"].Instance,
                 Name = "\0",
                 BackgroundTransparency = 1,
-                Position = UDim2New(0, 7, 0, 21),
+                Position = UDim2New(0, 10, 0, 26),
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, -14, 1, -20),
+                Size = UDim2New(1, -20, 1, -25),
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })
