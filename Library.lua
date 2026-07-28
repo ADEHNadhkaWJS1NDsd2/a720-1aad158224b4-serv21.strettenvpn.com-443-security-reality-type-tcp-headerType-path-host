@@ -68,30 +68,30 @@ local Library do
         Flags = { },
 
         Theme = {
-            ["Background"] = FromRGB(17, 19, 29),
-            ["Inline"] = FromRGB(24, 26, 39),
-            ["Page Background"] = FromRGB(28, 30, 45),
-            ["Border"] = FromRGB(8, 10, 17),
-            ["Outline"] = FromRGB(77, 75, 105),
-            ["Accent"] = FromRGB(167, 132, 255),
-            ["Element"] = FromRGB(40, 42, 59),
-            ["Hovered Element"] = FromRGB(53, 55, 76),
-            ["Text"] = FromRGB(242, 242, 248),
+            ["Background"] = FromRGB(9, 11, 12),
+            ["Inline"] = FromRGB(13, 16, 17),
+            ["Page Background"] = FromRGB(17, 20, 21),
+            ["Border"] = FromRGB(3, 5, 5),
+            ["Outline"] = FromRGB(39, 45, 45),
+            ["Accent"] = FromRGB(54, 218, 145),
+            ["Element"] = FromRGB(23, 27, 28),
+            ["Hovered Element"] = FromRGB(31, 37, 37),
+            ["Text"] = FromRGB(226, 232, 230),
             ["Text Border"] = FromRGB(0, 0, 0),
-            ["Glass Edge"] = FromRGB(211, 203, 255),
-            ["Muted Text"] = FromRGB(171, 174, 196),
-            ["Danger"] = FromRGB(255, 102, 124)
+            ["Glass Edge"] = FromRGB(150, 224, 190),
+            ["Muted Text"] = FromRGB(158, 178, 169),
+            ["Danger"] = FromRGB(235, 72, 72)
         },
 
         Glass = {
             Enabled = true,
-            BlurSize = 10,
+            BlurSize = 7,
             CornerRadius = 9,
-            WindowTransparency = 0.14,
-            PanelTransparency = 0.24,
-            ElementTransparency = 0.34,
-            PopupTransparency = 0.18,
-            FloatingTransparency = 0.20
+            WindowTransparency = 0.10,
+            PanelTransparency = 0.18,
+            ElementTransparency = 0.26,
+            PopupTransparency = 0.13,
+            FloatingTransparency = 0.14
         },
 
         GlassBlur = nil,
@@ -1128,6 +1128,21 @@ local Library do
             Object.BackgroundTransparency = Transparency
         end
 
+        Object.BorderSizePixel = 0
+
+        for _, Child in ipairs(Object:GetChildren()) do
+            if Child:IsA("UIStroke")
+                and Child.Name ~= "_GlassStroke"
+            then
+                Child.Transparency = math.max(
+                    tonumber(Child.Transparency) or 0,
+                    0.68
+                )
+                Child.LineJoinMode =
+                    Enum.LineJoinMode.Round
+            end
+        end
+
         local Corner = Object:FindFirstChild("_GlassCorner")
 
         if not Corner then
@@ -1169,13 +1184,13 @@ local Library do
             Gradient.Rotation = 112
             Gradient.Color = RGBSequence({
                 RGBSequenceKeypoint(0, FromRGB(255, 255, 255)),
-                RGBSequenceKeypoint(0.52, FromRGB(223, 216, 255)),
-                RGBSequenceKeypoint(1, FromRGB(148, 141, 201))
+                RGBSequenceKeypoint(0.52, FromRGB(218, 239, 229)),
+                RGBSequenceKeypoint(1, FromRGB(112, 172, 145))
             })
             Gradient.Transparency = NumSequence({
-                NumSequenceKeypoint(0, 0.84),
-                NumSequenceKeypoint(0.46, 0.93),
-                NumSequenceKeypoint(1, 0.985)
+                NumSequenceKeypoint(0, 0.88),
+                NumSequenceKeypoint(0.46, 0.955),
+                NumSequenceKeypoint(1, 0.992)
             })
             Gradient.Parent = Object
         end
@@ -1199,11 +1214,11 @@ local Library do
         local Shadow = InstanceNew("Frame")
         Shadow.Name = "_GlassShadow"
         Shadow.AnchorPoint = Vector2New(0.5, 0.5)
-        Shadow.Position = UDim2New(0.5, 0, 0.5, Offset or 5)
-        Shadow.Size = UDim2New(1, 14, 1, 14)
+        Shadow.Position = UDim2New(0.5, 0, 0.5, Offset or 3)
+        Shadow.Size = UDim2New(1, 8, 1, 8)
         Shadow.BorderSizePixel = 0
         Shadow.BackgroundColor3 = FromRGB(0, 0, 0)
-        Shadow.BackgroundTransparency = 0.62
+        Shadow.BackgroundTransparency = 0.76
         Shadow.ZIndex = math.max(0, Object.ZIndex - 1)
         Shadow.Parent = Object
 
@@ -2626,7 +2641,7 @@ local Library do
                 Name = "\0",
                 Position = UDim2New(0, -5, 0, -2),
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, 10, 0, 2),
+                Size = UDim2New(1, 10, 0, 1),
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(235, 157, 255)
             })  Items["AccentLine"]:AddToTheme({BackgroundColor3 = "Accent"})
@@ -2729,7 +2744,7 @@ local Library do
                 Name = "\0",
                 Position = UDim2New(0, -5, 0, -1),
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, 13, 0, 2),
+                Size = UDim2New(1, 13, 0, 1),
                 BorderSizePixel = 0,
                 BackgroundColor3 = Color
             })
@@ -2851,7 +2866,7 @@ local Library do
                 Name = "\0",
                 Position = UDim2New(0, -5, 0, -5),
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, 10, 0, 2),
+                Size = UDim2New(1, 10, 0, 1),
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(235, 157, 255)
             })  Items["AccentLine"]:AddToTheme({BackgroundColor3 = "Accent"})
@@ -5276,6 +5291,9 @@ local Library do
             ClipsDescendants = false
         })
         Items.Frame:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
+        Library:ApplyGlass(Items.Frame, "Window", 12)
+        Library:AddGlassShadow(Items.Frame, 15, 3)
+        Items.Frame.Instance.BackgroundTransparency = 0.08
         Items.Frame:MakeDraggable()
 
         Instances:Create("UIStroke", {
@@ -5287,7 +5305,7 @@ local Library do
 
         Items.Accent = Instances:Create("Frame", {
             Parent = Items.Frame.Instance,
-            Size = UDim2New(1, 0, 0, 2),
+            Size = UDim2New(1, 0, 0, 1),
             BorderSizePixel = 0,
             BackgroundColor3 = Library.Theme.Accent
         })
@@ -5330,6 +5348,8 @@ local Library do
             ClipsDescendants = true
         })
         Items.Canvas:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline"})
+        Library:ApplyGlass(Items.Canvas, "Panel", 8)
+        Items.Canvas.Instance.BackgroundTransparency = 0.12
 
         Items.Viewport = Instances:Create("ViewportFrame", {
             Parent = Items.Canvas.Instance,
@@ -5927,15 +5947,16 @@ local Library do
             ZIndex = 122
         })
         Items.Surface:AddToTheme({BackgroundColor3 = "Background"})
-        Library:ApplyGlass(Items.Surface, "Floating", 14)
-        Library:AddGlassShadow(Items.Surface, 17, 6)
+        Library:ApplyGlass(Items.Surface, "Window", 14)
+        Library:AddGlassShadow(Items.Surface, 16, 3)
+        Items.Surface.Instance.BackgroundTransparency = 0.08
 
         Items.Tint = Instances:Create("Frame", {
             Parent = Items.Surface.Instance,
             Size = UDim2New(1, 0, 1, 0),
             BorderSizePixel = 0,
             BackgroundColor3 = Library.Theme.Accent,
-            BackgroundTransparency = 0.91,
+            BackgroundTransparency = 0.965,
             ZIndex = 123
         })
         Items.Tint:AddToTheme({BackgroundColor3 = "Accent"})
@@ -6172,7 +6193,6 @@ local Library do
             BackgroundColor3 = Library.Theme.Accent,
             ZIndex = 126
         })
-        Items.HealthBar:AddToTheme({BackgroundColor3 = "Accent"})
 
         local HealthBarCorner = InstanceNew("UICorner")
         HealthBarCorner.CornerRadius = UDimNew(1, 0)
