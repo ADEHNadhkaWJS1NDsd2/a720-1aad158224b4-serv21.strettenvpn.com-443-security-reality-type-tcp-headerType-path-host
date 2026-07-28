@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "MinimalClient-v2-Animations",
+        Build = "MinimalClient-v3-NaturalTabs",
         Flags = { },
 
         Theme = {
@@ -6704,7 +6704,7 @@ local Library do
             Items["Text"] = Instances:Create("TextLabel", {
                 Parent = Items["Inactive"].Instance,
                 FontFace = Library.Font,
-                TextColor3 = FromRGB(215, 215, 215),
+                TextColor3 = Library.Theme["Muted Text"],
                 TextTransparency = 0.18,
                 Text = Page.Name,
                 Name = string.char(0),
@@ -6715,7 +6715,7 @@ local Library do
                 BorderColor3 = FromRGB(0, 0, 0),
                 TextSize = 13,
                 BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
+            })  Items["Text"]:AddToTheme({TextColor3 = "Muted Text"})
 
             Instances:Create("UIStroke", {
                 Parent = Items["Text"].Instance,
@@ -6723,23 +6723,8 @@ local Library do
                 Name = string.char(0)
             }):AddToTheme({Color = "Text Border"})
 
-            Items["Hide"] = Instances:Create("Frame", {
-                Parent = Items["Inactive"].Instance,
-                Visible = false,
-                AnchorPoint = Vector2New(0.5, 1),
-                Name = string.char(0),
-                Position = UDim2New(0.5, 0, 1, -1),
-                Size = UDim2New(0, 22, 0, 2),
-                ZIndex = 2,
-                BorderSizePixel = 0,
-                BackgroundColor3 = Library.Theme.Accent
-            })
-            Items["Hide"]:AddToTheme({
-                BackgroundColor3 = "Accent"
-            })
-
             Items["MiscPixel1"] = Instances:Create("Frame", {
-                Parent = Items["Hide"].Instance,
+                Parent = Items["Inactive"].Instance,
                 Visible = false,
                 Size = UDim2New(0, 1, 0, 1),
                 Name = string.char(0),
@@ -6751,7 +6736,7 @@ local Library do
             })  Items["MiscPixel1"]:AddToTheme({BackgroundColor3 = "Outline"})
 
             Items["MiscPixel2"] = Instances:Create("Frame", {
-                Parent = Items["Hide"].Instance,
+                Parent = Items["Inactive"].Instance,
                 Visible = false,
                 BorderColor3 = FromRGB(0, 0, 0),
                 AnchorPoint = Vector2New(1, 0),
@@ -6867,15 +6852,15 @@ local Library do
             Items["Inactive"]:ChangeItemTheme({
                 BackgroundColor3 =
                     Bool
-                    and "Hovered Element"
+                    and "Element"
                     or "Page Background"
             })
 
             Items["Text"]:ChangeItemTheme({
                 TextColor3 =
                     Bool
-                    and "Accent"
-                    or "Text"
+                    and "Text"
+                    or "Muted Text"
             })
 
             Items["Inactive"]:Tween(
@@ -6883,7 +6868,7 @@ local Library do
                 {
                     BackgroundColor3 =
                         Bool
-                        and Library.Theme["Hovered Element"]
+                        and Library.Theme.Element
                         or Library.Theme["Page Background"]
                 }
             )
@@ -6893,44 +6878,12 @@ local Library do
                 {
                     TextColor3 =
                         Bool
-                        and Library.Theme.Accent
-                        or Library.Theme.Text,
+                        and Library.Theme.Text
+                        or Library.Theme["Muted Text"],
                     TextTransparency =
-                        Bool and 0 or 0.22
+                        Bool and 0 or 0.08
                 }
             )
-
-            if Bool then
-                Items["Hide"].Instance.Visible = true
-                Items["Hide"].Instance.Size =
-                    UDim2New(0, 0, 0, 2)
-
-                Items["Hide"]:Tween(
-                    PageTween,
-                    {
-                        Size =
-                            UDim2New(0, 22, 0, 2)
-                    }
-                )
-            else
-                Items["Hide"]:Tween(
-                    PageTween,
-                    {
-                        Size =
-                            UDim2New(0, 0, 0, 2)
-                    }
-                )
-
-                task.delay(0.14, function()
-                    if not Page.Active
-                        and Items["Hide"].Instance
-                        and Items["Hide"].Instance.Parent
-                    then
-                        Items["Hide"].Instance.Visible =
-                            false
-                    end
-                end)
-            end
         end
 
         Items["Inactive"]:OnHover(function()
@@ -6949,7 +6902,7 @@ local Library do
             Items["Text"]:Tween(
                 PageTween,
                 {
-                    TextTransparency = 0.04,
+                    TextTransparency = 0,
                     TextColor3 =
                         Library.Theme.Text
                 }
@@ -6972,9 +6925,9 @@ local Library do
             Items["Text"]:Tween(
                 PageTween,
                 {
-                    TextTransparency = 0.22,
+                    TextTransparency = 0.08,
                     TextColor3 =
-                        Library.Theme.Text
+                        Library.Theme["Muted Text"]
                 }
             )
         end)
