@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "EnergyInspired-v1",
+        Build = "EnergyInspired-v2-SyntaxFixed",
         Flags = { },
 
         Theme = {
@@ -6467,7 +6467,7 @@ local Library do
                 Parent = Items["MainFrame"].Instance,
                 ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
                 LineJoinMode = Enum.LineJoinMode.Round,
-                Name = " ",
+                Name = "\0",
                 Thickness = 1,
                 Transparency = 0.72,
                 Color = Library.Theme.Outline
