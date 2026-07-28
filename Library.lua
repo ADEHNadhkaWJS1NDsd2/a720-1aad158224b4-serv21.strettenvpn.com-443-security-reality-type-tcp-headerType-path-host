@@ -85,13 +85,13 @@ local Library do
 
         Glass = {
             Enabled = true,
-            BlurSize = 7,
+            BlurSize = 5,
             CornerRadius = 9,
-            WindowTransparency = 0.10,
-            PanelTransparency = 0.18,
-            ElementTransparency = 0.26,
-            PopupTransparency = 0.13,
-            FloatingTransparency = 0.14
+            WindowTransparency = 0.035,
+            PanelTransparency = 0.075,
+            ElementTransparency = 0.12,
+            PopupTransparency = 0.055,
+            FloatingTransparency = 0.06
         },
 
         GlassBlur = nil,
@@ -2833,142 +2833,187 @@ local Library do
     end
 
     Library.KeybindList = function(self)
-        local KeybindList = { }
+        local KeybindList = {}
         self.KeyList = KeybindList
 
-        local Items = { } do
-            Items["KeybindList"] = Instances:Create("Frame", {
-                Parent = Library.Holder.Instance,
-                BorderColor3 = FromRGB(10, 10, 10),
-                AnchorPoint = Vector2New(0, 0.5),
-                Name = "\0",
-                Position = UDim2New(0, 15, 0.5, 0),
-                Size = UDim2New(0, 0, 0, 18),
-                BorderSizePixel = 2,
-                AutomaticSize = Enum.AutomaticSize.XY,
-                BackgroundColor3 = FromRGB(15, 15, 20)
-            })  Items["KeybindList"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
-            Library:ApplyGlass(Items["KeybindList"], "Floating", 10)
-            Library:AddGlassShadow(Items["KeybindList"], 13, 5)
+        local Items = {}
 
-            Items["KeybindList"]:MakeDraggable()
+        Items.Frame = Instances:Create("Frame", {
+            Parent = Library.Holder.Instance,
+            AnchorPoint = Vector2New(0, 0.5),
+            Position = UDim2New(0, 18, 0.5, 0),
+            Size = UDim2New(0, 178, 0, 38),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BorderSizePixel = 0,
+            BackgroundColor3 = Library.Theme.Background,
+            Visible = false,
+            ZIndex = 400
+        })
+        Items.Frame:AddToTheme({BackgroundColor3 = "Background"})
+        Library:ApplyGlass(Items.Frame, "Floating", 10)
+        Library:AddGlassShadow(Items.Frame, 13, 3)
+        Items.Frame.Instance.BackgroundTransparency = 0.035
+        Items.Frame:MakeDraggable()
 
-            Instances:Create("UIStroke", {
-                Parent = Items["KeybindList"].Instance,
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = "\0",
-                Color = FromRGB(27, 27, 32)
-            }):AddToTheme({Color = "Outline"})
+        local Padding = InstanceNew("UIPadding")
+        Padding.PaddingTop = UDimNew(0, 8)
+        Padding.PaddingBottom = UDimNew(0, 8)
+        Padding.PaddingLeft = UDimNew(0, 9)
+        Padding.PaddingRight = UDimNew(0, 9)
+        Padding.Parent = Items.Frame.Instance
 
-            Items["AccentLine"] = Instances:Create("Frame", {
-                Parent = Items["KeybindList"].Instance,
-                Name = "\0",
-                Position = UDim2New(0, -5, 0, -5),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, 10, 0, 1),
-                BorderSizePixel = 0,
-                BackgroundColor3 = FromRGB(235, 157, 255)
-            })  Items["AccentLine"]:AddToTheme({BackgroundColor3 = "Accent"})
+        Items.Header = Instances:Create("Frame", {
+            Parent = Items.Frame.Instance,
+            Size = UDim2New(1, 0, 0, 18),
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            ZIndex = 401
+        })
 
-            Instances:Create("UIGradient", {
-                Parent = Items["AccentLine"].Instance,
-                Rotation = 90,
-                Color = RGBSequence{RGBSequenceKeypoint(0, FromRGB(255, 255, 255)), RGBSequenceKeypoint(1, FromRGB(65, 65, 65))}
-            })
+        Items.HeaderIcon = Instances:Create("TextLabel", {
+            Parent = Items.Header.Instance,
+            Position = UDim2New(0, 0, 0, 0),
+            Size = UDim2New(0, 16, 0, 16),
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = "⌨",
+            TextSize = 13,
+            TextColor3 = Library.Theme.Accent,
+            ZIndex = 402
+        })
+        Items.HeaderIcon:AddToTheme({TextColor3 = "Accent"})
 
-            Instances:Create("UIPadding", {
-                Parent = Items["KeybindList"].Instance,
-                PaddingTop = UDimNew(0, 5),
-                PaddingBottom = UDimNew(0, 5),
-                PaddingRight = UDimNew(0, 5),
-                PaddingLeft = UDimNew(0, 5)
-            })
+        Items.Title = Instances:Create("TextLabel", {
+            Parent = Items.Header.Instance,
+            Position = UDim2New(0, 20, 0, 0),
+            Size = UDim2New(1, -20, 0, 16),
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            FontFace = Library.Font,
+            Text = "Hotkeys",
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextColor3 = Library.Theme.Text,
+            ZIndex = 402
+        })
+        Items.Title:AddToTheme({TextColor3 = "Text"})
 
-            Items["Title"] = Instances:Create("TextLabel", {
-                Parent = Items["KeybindList"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(215, 215, 215),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Text = "Keybinds",
-                Name = "\0",
-                Size = UDim2New(0, 100, 0, 15),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2New(0, 0, 0, -1),
-                BorderSizePixel = 0,
-                TextSize = 13,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
+        Items.Content = Instances:Create("Frame", {
+            Parent = Items.Frame.Instance,
+            Position = UDim2New(0, 0, 0, 22),
+            Size = UDim2New(1, 0, 0, 0),
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BorderSizePixel = 0,
+            BackgroundTransparency = 1,
+            ZIndex = 401
+        })
 
-            Instances:Create("UIStroke", {
-                Parent = Items["Title"].Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = "\0"
-            }):AddToTheme({Color = "Text Border"})
-
-            Items["Content"] = Instances:Create("Frame", {
-                Parent = Items["KeybindList"].Instance,
-                Name = "\0",
-                BackgroundTransparency = 1,
-                Position = UDim2New(0, 5, 0, 19),
-                BorderColor3 = FromRGB(0, 0, 0),
-                BorderSizePixel = 0,
-                AutomaticSize = Enum.AutomaticSize.XY,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })
-
-            Instances:Create("UIListLayout", {
-                Parent = Items["Content"].Instance,
-                Padding = UDimNew(0, 4),
-                SortOrder = Enum.SortOrder.LayoutOrder
-            })
-        end
+        local Layout = InstanceNew("UIListLayout")
+        Layout.Padding = UDimNew(0, 5)
+        Layout.SortOrder = Enum.SortOrder.LayoutOrder
+        Layout.Parent = Items.Content.Instance
 
         function KeybindList:Add(Mode, Name, Key)
-            local NewKey = Instances:Create("TextLabel", {
-                Parent = Items["Content"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(215, 215, 215),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Text = "(" .. Mode .. ") " .. Name .. " - " .. Key,
-                Name = "\0",
-                Size = UDim2New(0, 0, 0, 15),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
+            local NewKey = {}
+
+            NewKey.Frame = Instances:Create("Frame", {
+                Parent = Items.Content.Instance,
+                Size = UDim2New(1, 0, 0, 18),
                 BorderSizePixel = 0,
-                AutomaticSize = Enum.AutomaticSize.X,
-                TextSize = 13,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })  NewKey:AddToTheme({TextColor3 = "Text"})
+                BackgroundTransparency = 1,
+                ZIndex = 402
+            })
 
-            Instances:Create("UIStroke", {
-                Parent = NewKey.Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = "\0"
-            }):AddToTheme({Color = "Text Border"})
+            NewKey.Icon = Instances:Create("TextLabel", {
+                Parent = NewKey.Frame.Instance,
+                Position = UDim2New(0, 0, 0, 1),
+                Size = UDim2New(0, 14, 0, 14),
+                BorderSizePixel = 0,
+                BackgroundTransparency = 1,
+                FontFace = Library.Font,
+                Text = "◆",
+                TextSize = 9,
+                TextColor3 = Library.Theme.Accent,
+                ZIndex = 403
+            })
+            NewKey.Icon:AddToTheme({TextColor3 = "Accent"})
 
-            function NewKey:Set(Mode, Name, Key)
-                NewKey.Instance.Text = "(" .. Mode .. ") " .. Name .. " - " .. Key
+            NewKey.Name = Instances:Create("TextLabel", {
+                Parent = NewKey.Frame.Instance,
+                Position = UDim2New(0, 18, 0, 0),
+                Size = UDim2New(1, -60, 0, 16),
+                BorderSizePixel = 0,
+                BackgroundTransparency = 1,
+                FontFace = Library.Font,
+                Text = tostring(Name or ""),
+                TextSize = 11,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextColor3 = Library.Theme.Text,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                ZIndex = 403
+            })
+            NewKey.Name:AddToTheme({TextColor3 = "Text"})
+
+            NewKey.Key = Instances:Create("TextLabel", {
+                Parent = NewKey.Frame.Instance,
+                AnchorPoint = Vector2New(1, 0),
+                Position = UDim2New(1, 0, 0, 0),
+                Size = UDim2New(0, 40, 0, 16),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Element,
+                BackgroundTransparency = 0.08,
+                FontFace = Library.Font,
+                Text = tostring(Key or ""),
+                TextSize = 10,
+                TextColor3 = Library.Theme.Text,
+                ZIndex = 403
+            })
+            NewKey.Key:AddToTheme({
+                BackgroundColor3 = "Element",
+                TextColor3 = "Text"
+            })
+            Library:ApplyGlass(NewKey.Key, "Element", 6)
+            NewKey.Key.Instance.BackgroundTransparency = 0.08
+
+            function NewKey:Set(NewMode, NewName, NewKeyValue)
+                NewKey.Name.Instance.Text = tostring(NewName or "")
+                NewKey.Key.Instance.Text = tostring(NewKeyValue or "")
             end
 
             function NewKey:SetStatus(Status)
-                if Status == "Active" then
-                    NewKey:Tween(nil, {TextColor3 = Library.Theme.Accent})
-                    NewKey:ChangeItemTheme({TextColor3 = "Accent"})
-                else
-                    NewKey:Tween(nil, {TextColor3 = Library.Theme.Text})
-                    NewKey:ChangeItemTheme({TextColor3 = "Text"})
-                end
+                local Active = Status == "Active"
+
+                NewKey.Icon:Tween(nil, {
+                    TextColor3 = Active
+                        and Library.Theme.Accent
+                        or Library.Theme["Muted Text"]
+                })
+
+                NewKey.Name:Tween(nil, {
+                    TextColor3 = Active
+                        and Library.Theme.Text
+                        or Library.Theme["Muted Text"]
+                })
+
+                NewKey.Key:Tween(nil, {
+                    BackgroundColor3 = Active
+                        and Library.Theme.Accent
+                        or Library.Theme.Element,
+                    TextColor3 = Active
+                        and Library.Theme.Background
+                        or Library.Theme.Text
+                })
             end
 
             return NewKey
         end
 
         function KeybindList:SetVisibility(Bool)
-            Items["KeybindList"].Instance.Visible = Bool
+            Items.Frame.Instance.Visible = Bool == true
         end
 
+        KeybindList.Frame = Items.Frame.Instance
         return KeybindList
     end
 
@@ -5293,7 +5338,7 @@ local Library do
         Items.Frame:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
         Library:ApplyGlass(Items.Frame, "Window", 12)
         Library:AddGlassShadow(Items.Frame, 15, 3)
-        Items.Frame.Instance.BackgroundTransparency = 0.08
+        Items.Frame.Instance.BackgroundTransparency = 0.02
         Items.Frame:MakeDraggable()
 
         Instances:Create("UIStroke", {
@@ -5349,7 +5394,7 @@ local Library do
         })
         Items.Canvas:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Outline"})
         Library:ApplyGlass(Items.Canvas, "Panel", 8)
-        Items.Canvas.Instance.BackgroundTransparency = 0.12
+        Items.Canvas.Instance.BackgroundTransparency = 0.055
 
         Items.Viewport = Instances:Create("ViewportFrame", {
             Parent = Items.Canvas.Instance,
@@ -5949,7 +5994,7 @@ local Library do
         Items.Surface:AddToTheme({BackgroundColor3 = "Background"})
         Library:ApplyGlass(Items.Surface, "Window", 14)
         Library:AddGlassShadow(Items.Surface, 16, 3)
-        Items.Surface.Instance.BackgroundTransparency = 0.08
+        Items.Surface.Instance.BackgroundTransparency = 0.02
 
         Items.Tint = Instances:Create("Frame", {
             Parent = Items.Surface.Instance,
@@ -6018,6 +6063,8 @@ local Library do
             TextSize = 14,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextColor3 = Library.Theme.Text,
+            TextStrokeColor3 = FromRGB(0, 0, 0),
+            TextStrokeTransparency = 0.42,
             TextTruncate = Enum.TextTruncate.AtEnd,
             ZIndex = 126
         })
@@ -6034,6 +6081,8 @@ local Library do
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextColor3 = Library.Theme["Muted Text"],
+            TextStrokeColor3 = FromRGB(0, 0, 0),
+            TextStrokeTransparency = 0.58,
             TextTruncate = Enum.TextTruncate.AtEnd,
             ZIndex = 126
         })
@@ -6046,7 +6095,7 @@ local Library do
             Size = UDim2New(0, 48, 0, 17),
             BorderSizePixel = 0,
             BackgroundColor3 = Library.Theme.Accent,
-            BackgroundTransparency = 0.76,
+            BackgroundTransparency = 0.26,
             FontFace = Library.Font,
             Text = "",
             TextSize = 9,
@@ -6055,6 +6104,7 @@ local Library do
         })
         Items.Mode:AddToTheme({BackgroundColor3 = "Accent", TextColor3 = "Text"})
         Library:ApplyGlass(Items.Mode, "Element", 8)
+        Items.Mode.Instance.BackgroundTransparency = 0.20
 
         Items.Inventory = Instances:Create("Frame", {
             Parent = Items.Surface.Instance,
@@ -6081,6 +6131,7 @@ local Library do
             })
             Slot.Frame:AddToTheme({BackgroundColor3 = "Element"})
             Library:ApplyGlass(Slot.Frame, "Element", 6)
+            Slot.Frame.Instance.BackgroundTransparency = 0.04
 
             Slot.Image = Instances:Create("ImageLabel", {
                 Parent = Slot.Frame.Instance,
@@ -7777,7 +7828,7 @@ local Library do
                 AutoButtonColor = false,
                 BackgroundTransparency = 1,
                 Name = "\0",
-                Size = UDim2New(1, 0, 0, 11),
+                Size = UDim2New(1, 0, 0, 13),
                 BorderSizePixel = 0,
                 TextSize = 14,
                 BackgroundColor3 = FromRGB(255, 255, 255)
@@ -7786,57 +7837,75 @@ local Library do
             Items["Indicator"] = Instances:Create("Frame", {
                 Parent = Items["Toggle"].Instance,
                 Name = "\0",
-                BorderColor3 = FromRGB(10, 10, 10),
-                Size = UDim2New(0, 10, 0, 10),
-                BorderSizePixel = 2,
-                BackgroundColor3 = FromRGB(33, 33, 36)
-            })  Items["Indicator"]:AddToTheme({BackgroundColor3 = "Element", BorderColor3 = "Border"})
-            Library:ApplyGlass(Items["Indicator"], "Element", 5)
+                Size = UDim2New(0, 12, 0, 12),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Element,
+                BackgroundTransparency = 0
+            })
+            Items["Indicator"]:AddToTheme({
+                BackgroundColor3 = "Element"
+            })
+            Library:ApplyGlass(Items["Indicator"], "Element", 4)
+            Items["Indicator"].Instance.BackgroundTransparency = 0
 
-            Instances:Create("UIStroke", {
-                Parent = Items["Indicator"].Instance,
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = "\0",
-                Color = FromRGB(27, 27, 32)
-            }):AddToTheme({Color = "Outline"})
+            local IndicatorStroke = InstanceNew("UIStroke")
+            IndicatorStroke.Parent = Items["Indicator"].Instance
+            IndicatorStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            IndicatorStroke.LineJoinMode = Enum.LineJoinMode.Round
+            IndicatorStroke.Thickness = 1
+            IndicatorStroke.Transparency = 0.16
+            Library:AddToTheme(IndicatorStroke, {
+                Color = "Outline"
+            })
 
-            Instances:Create("UIGradient", {
+            Items["Check"] = Instances:Create("TextLabel", {
                 Parent = Items["Indicator"].Instance,
-                Rotation = 90,
-                Color = RGBSequence{RGBSequenceKeypoint(0, FromRGB(255, 255, 255)), RGBSequenceKeypoint(1, FromRGB(100, 100, 100))}
+                Size = UDim2New(1, 0, 1, 0),
+                BorderSizePixel = 0,
+                BackgroundTransparency = 1,
+                FontFace = Library.Font,
+                Text = "✓",
+                TextSize = 10,
+                TextColor3 = Library.Theme.Background,
+                TextTransparency = 1,
+                ZIndex = Items["Indicator"].Instance.ZIndex + 1
+            })
+            Items["Check"]:AddToTheme({
+                TextColor3 = "Background"
             })
 
             Items["Text"] = Instances:Create("TextLabel", {
                 Parent = Items["Toggle"].Instance,
                 FontFace = Library.Font,
-                TextColor3 = FromRGB(215, 215, 215),
-                TextTransparency = 0.48,
+                TextColor3 = Library.Theme.Text,
+                TextTransparency = 0.12,
                 Text = Toggle.Name,
                 Name = "\0",
                 Size = UDim2New(1, 0, 1, 0),
-                Position = UDim2New(0, 18, 0, -1),
+                Position = UDim2New(0, 20, 0, 0),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
                 BorderColor3 = FromRGB(0, 0, 0),
                 TextSize = 13,
                 BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
-
-            Instances:Create("UIStroke", {
-                Parent = Items["Text"].Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = "\0"
-            }):AddToTheme({Color = "Text Border"})
+            })
+            Items["Text"]:AddToTheme({
+                TextColor3 = "Text"
+            })
 
             Items["Toggle"]:OnHover(function()
                 if Toggle.Value then
                     return
                 end
 
-                Items["Indicator"]:Tween(nil, {BackgroundColor3 = Library.Theme["Hovered Element"]})
-                Items["Indicator"]:ChangeItemTheme({BackgroundColor3 = "Hovered Element", BorderColor3 = "Border"})
+                Items["Indicator"]:Tween(nil, {
+                    BackgroundColor3 =
+                        Library.Theme["Hovered Element"]
+                })
+                Items["Indicator"]:ChangeItemTheme({
+                    BackgroundColor3 = "Hovered Element"
+                })
             end)
 
             Items["Toggle"]:OnHoverLeave(function()
@@ -7844,8 +7913,13 @@ local Library do
                     return
                 end
 
-                Items["Indicator"]:Tween(nil, {BackgroundColor3 = Library.Theme["Element"]})
-                Items["Indicator"]:ChangeItemTheme({BackgroundColor3 = "Element", BorderColor3 = "Border"})
+                Items["Indicator"]:Tween(nil, {
+                    BackgroundColor3 =
+                        Library.Theme.Element
+                })
+                Items["Indicator"]:ChangeItemTheme({
+                    BackgroundColor3 = "Element"
+                })
             end)
         end
 
@@ -7878,15 +7952,33 @@ local Library do
             end
 
             if Toggle.Value then
-                Items["Indicator"]:ChangeItemTheme({BackgroundColor3 = "Accent"})
+                Items["Indicator"]:ChangeItemTheme({
+                    BackgroundColor3 = "Accent"
+                })
 
-                Items["Indicator"]:Tween(nil, {BackgroundColor3 = Library.Theme.Accent})
-                Items["Text"]:Tween(nil, {TextTransparency = 0})
+                Items["Indicator"]:Tween(nil, {
+                    BackgroundColor3 = Library.Theme.Accent
+                })
+                Items["Check"]:Tween(nil, {
+                    TextTransparency = 0
+                })
+                Items["Text"]:Tween(nil, {
+                    TextTransparency = 0
+                })
             else
-                Items["Indicator"]:ChangeItemTheme({BackgroundColor3 = "Element"})
+                Items["Indicator"]:ChangeItemTheme({
+                    BackgroundColor3 = "Element"
+                })
 
-                Items["Indicator"]:Tween(nil, {BackgroundColor3 = Library.Theme.Element})
-                Items["Text"]:Tween(nil, {TextTransparency = 0.48})
+                Items["Indicator"]:Tween(nil, {
+                    BackgroundColor3 = Library.Theme.Element
+                })
+                Items["Check"]:Tween(nil, {
+                    TextTransparency = 1
+                })
+                Items["Text"]:Tween(nil, {
+                    TextTransparency = 0.12
+                })
             end
 
             if Toggle.Callback then
