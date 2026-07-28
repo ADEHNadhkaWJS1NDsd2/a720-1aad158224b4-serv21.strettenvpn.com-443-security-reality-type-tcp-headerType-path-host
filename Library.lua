@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "EnergyInspired-v3-NoZeroEscapes",
+        Build = "MinimalClient-v1",
         Flags = { },
 
         Theme = {
@@ -1139,35 +1139,16 @@ local Library do
     Library.AddGlassShadow = function(self, Item, Radius, Offset)
         local Object = self:ResolveInstance(Item)
 
-        if not Object or not Object:IsA("GuiObject") then
-            return nil
+        if Object then
+            local Existing =
+                Object:FindFirstChild("_GlassShadow")
+
+            if Existing then
+                Existing:Destroy()
+            end
         end
 
-        local Existing = Object:FindFirstChild("_GlassShadow")
-
-        if Existing then
-            return Existing
-        end
-
-        local Shadow = InstanceNew("Frame")
-        Shadow.Name = "_GlassShadow"
-        Shadow.AnchorPoint = Vector2New(0.5, 0.5)
-        Shadow.Position = UDim2New(0.5, 0, 0.5, Offset or 3)
-        Shadow.Size = UDim2New(1, 10, 1, 10)
-        Shadow.BorderSizePixel = 0
-        Shadow.BackgroundColor3 = FromRGB(0, 0, 0)
-        Shadow.BackgroundTransparency = 0.72
-        Shadow.ZIndex = math.max(0, Object.ZIndex - 1)
-        Shadow.Parent = Object
-
-        local Corner = InstanceNew("UICorner")
-        Corner.CornerRadius = UDimNew(
-            0,
-            Radius or (self.Glass.CornerRadius or 9) + 4
-        )
-        Corner.Parent = Shadow
-
-        return Shadow
+        return nil
     end
 
     Library.EnsureGlassBlur = function(self)
@@ -2763,66 +2744,50 @@ local Library do
             Parent = Library.Holder.Instance,
             AnchorPoint = Vector2New(0, 0.5),
             Position = UDim2New(0, 18, 0.5, 0),
-            Size = UDim2New(0, 162, 0, 36),
+            Size = UDim2New(0, 150, 0, 31),
             AutomaticSize = Enum.AutomaticSize.Y,
             BorderSizePixel = 0,
             BackgroundColor3 = Library.Theme.Background,
+            BackgroundTransparency = 0,
             Visible = false,
             ZIndex = 400
         })
-        Items.Frame:AddToTheme({BackgroundColor3 = "Background"})
-        Library:ApplyGlass(Items.Frame, "Floating", 10)
-        Library:AddGlassShadow(Items.Frame, 13, 3)
-        Items.Frame.Instance.BackgroundTransparency = 0
+        Items.Frame:AddToTheme({
+            BackgroundColor3 = "Background"
+        })
+        Library:ApplyGlass(
+            Items.Frame,
+            "Floating",
+            8
+        )
         Items.Frame:MakeDraggable()
 
         local Padding = InstanceNew("UIPadding")
-        Padding.PaddingTop = UDimNew(0, 8)
-        Padding.PaddingBottom = UDimNew(0, 8)
-        Padding.PaddingLeft = UDimNew(0, 9)
-        Padding.PaddingRight = UDimNew(0, 9)
+        Padding.PaddingTop = UDimNew(0, 7)
+        Padding.PaddingBottom = UDimNew(0, 7)
+        Padding.PaddingLeft = UDimNew(0, 8)
+        Padding.PaddingRight = UDimNew(0, 8)
         Padding.Parent = Items.Frame.Instance
 
-        Items.Header = Instances:Create("Frame", {
-            Parent = Items.Frame.Instance,
-            Size = UDim2New(1, 0, 0, 18),
-            BorderSizePixel = 0,
-            BackgroundTransparency = 1,
-            ZIndex = 401
-        })
-
-        Items.HeaderIcon = Instances:Create("TextLabel", {
-            Parent = Items.Header.Instance,
-            Position = UDim2New(0, 0, 0, 0),
-            Size = UDim2New(0, 16, 0, 16),
-            BorderSizePixel = 0,
-            BackgroundTransparency = 1,
-            FontFace = Library.Font,
-            Text = "⌨",
-            TextSize = 13,
-            TextColor3 = Library.Theme.Accent,
-            ZIndex = 402
-        })
-        Items.HeaderIcon:AddToTheme({TextColor3 = "Accent"})
-
         Items.Title = Instances:Create("TextLabel", {
-            Parent = Items.Header.Instance,
-            Position = UDim2New(0, 20, 0, 0),
-            Size = UDim2New(1, -20, 0, 16),
+            Parent = Items.Frame.Instance,
+            Size = UDim2New(1, 0, 0, 15),
             BorderSizePixel = 0,
             BackgroundTransparency = 1,
             FontFace = Library.Font,
             Text = "Hotkeys",
-            TextSize = 12,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextColor3 = Library.Theme.Text,
-            ZIndex = 402
+            ZIndex = 401
         })
-        Items.Title:AddToTheme({TextColor3 = "Text"})
+        Items.Title:AddToTheme({
+            TextColor3 = "Text"
+        })
 
         Items.Content = Instances:Create("Frame", {
             Parent = Items.Frame.Instance,
-            Position = UDim2New(0, 0, 0, 22),
+            Position = UDim2New(0, 0, 0, 20),
             Size = UDim2New(1, 0, 0, 0),
             AutomaticSize = Enum.AutomaticSize.Y,
             BorderSizePixel = 0,
@@ -2831,128 +2796,130 @@ local Library do
         })
 
         local Layout = InstanceNew("UIListLayout")
-        Layout.Padding = UDimNew(0, 5)
+        Layout.Padding = UDimNew(0, 3)
         Layout.SortOrder = Enum.SortOrder.LayoutOrder
         Layout.Parent = Items.Content.Instance
 
         function KeybindList:Add(Mode, Name, Key)
-            local NewKey = {}
+            local NewKey = {
+                Mode = tostring(Mode or ""),
+                RawName = tostring(Name or ""),
+                RawKey = tostring(Key or "")
+            }
 
             NewKey.Frame = Instances:Create("Frame", {
                 Parent = Items.Content.Instance,
-                Size = UDim2New(1, 0, 0, 18),
+                Size = UDim2New(1, 0, 0, 16),
                 BorderSizePixel = 0,
                 BackgroundTransparency = 1,
                 ZIndex = 402
             })
 
-            NewKey.Icon = Instances:Create("TextLabel", {
-                Parent = NewKey.Frame.Instance,
-                Position = UDim2New(0, 0, 0, 1),
-                Size = UDim2New(0, 14, 0, 14),
-                BorderSizePixel = 0,
-                BackgroundTransparency = 1,
-                FontFace = Library.Font,
-                Text = "◆",
-                TextSize = 9,
-                TextColor3 = Library.Theme.Accent,
-                ZIndex = 403
-            })
-            NewKey.Icon:AddToTheme({TextColor3 = "Accent"})
-
             NewKey.Name = Instances:Create("TextLabel", {
                 Parent = NewKey.Frame.Instance,
-                Position = UDim2New(0, 18, 0, 0),
-                Size = UDim2New(1, -60, 0, 16),
+                Size = UDim2New(1, -40, 1, 0),
                 BorderSizePixel = 0,
                 BackgroundTransparency = 1,
                 FontFace = Library.Font,
-                Text = tostring(Name or ""),
-                TextSize = 11,
+                Text = NewKey.RawName,
+                TextSize = 10,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextColor3 = Library.Theme.Text,
                 TextTruncate = Enum.TextTruncate.AtEnd,
                 ZIndex = 403
             })
-            NewKey.Name:AddToTheme({TextColor3 = "Text"})
+            NewKey.Name:AddToTheme({
+                TextColor3 = "Text"
+            })
 
             NewKey.Key = Instances:Create("TextLabel", {
                 Parent = NewKey.Frame.Instance,
                 AnchorPoint = Vector2New(1, 0),
                 Position = UDim2New(1, 0, 0, 0),
-                Size = UDim2New(0, 40, 0, 16),
+                Size = UDim2New(0, 38, 1, 0),
                 BorderSizePixel = 0,
-                BackgroundColor3 = Library.Theme.Element,
-                BackgroundTransparency = 0,
+                BackgroundTransparency = 1,
                 FontFace = Library.Font,
-                Text = tostring(Key or ""),
+                Text = "",
                 TextSize = 10,
-                TextColor3 = Library.Theme.Text,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                TextColor3 = Library.Theme["Muted Text"],
                 ZIndex = 403
             })
             NewKey.Key:AddToTheme({
-                BackgroundColor3 = "Element",
-                TextColor3 = "Text"
+                TextColor3 = "Muted Text"
             })
-            Library:ApplyGlass(NewKey.Key, "Element", 6)
-            NewKey.Key.Instance.BackgroundTransparency = 0
 
-            NewKey.KeyStroke = InstanceNew("UIStroke")
-            NewKey.KeyStroke.ApplyStrokeMode =
-                Enum.ApplyStrokeMode.Border
-            NewKey.KeyStroke.LineJoinMode =
-                Enum.LineJoinMode.Round
-            NewKey.KeyStroke.Thickness = 1
-            NewKey.KeyStroke.Transparency = 0.18
-            NewKey.KeyStroke.Color =
-                Library.Theme.Outline
-            NewKey.KeyStroke.Parent =
-                NewKey.Key.Instance
+            local function FormatKey(Value)
+                Value = tostring(Value or "")
 
-            function NewKey:Set(NewMode, NewName, NewKeyValue)
-                NewKey.Name.Instance.Text = tostring(NewName or "")
-                NewKey.Key.Instance.Text = tostring(NewKeyValue or "")
+                if Value == ""
+                    or Value == "None"
+                    or Value == "Unknown"
+                then
+                    return "—"
+                end
+
+                return "[" .. Value .. "]"
+            end
+
+            function NewKey:Set(
+                NewMode,
+                NewName,
+                NewKeyValue
+            )
+                NewKey.Mode =
+                    tostring(NewMode or "")
+                NewKey.RawName =
+                    tostring(NewName or "")
+                NewKey.RawKey =
+                    tostring(NewKeyValue or "")
+
+                NewKey.Name.Instance.Text =
+                    NewKey.RawName
+                NewKey.Key.Instance.Text =
+                    FormatKey(NewKey.RawKey)
             end
 
             function NewKey:SetStatus(Status)
-                local Active = Status == "Active"
-
-                NewKey.Icon:Tween(nil, {
-                    TextColor3 = Active
-                        and Library.Theme.Accent
-                        or Library.Theme["Glass Edge"]
-                })
+                local Active =
+                    Status == "Active"
 
                 NewKey.Name:Tween(nil, {
-                    TextColor3 = Library.Theme.Text,
-                    TextTransparency = 0
+                    TextColor3 =
+                        Active
+                        and Library.Theme.Text
+                        or Library.Theme["Muted Text"],
+                    TextTransparency =
+                        Active and 0 or 0.08
                 })
 
                 NewKey.Key:Tween(nil, {
-                    BackgroundColor3 = Active
+                    TextColor3 =
+                        Active
                         and Library.Theme.Accent
-                        or Library.Theme.Element,
-                    TextColor3 = Active
-                        and Library.Theme.Background
-                        or Library.Theme.Text,
+                        or Library.Theme["Muted Text"],
                     TextTransparency = 0
                 })
-
-                NewKey.KeyStroke.Color = Active
-                    and Library.Theme["Glass Edge"]
-                    or Library.Theme.Outline
-                NewKey.KeyStroke.Transparency =
-                    Active and 0 or 0.12
             end
+
+            NewKey:Set(
+                NewKey.Mode,
+                NewKey.RawName,
+                NewKey.RawKey
+            )
 
             return NewKey
         end
 
         function KeybindList:SetVisibility(Bool)
-            Items.Frame.Instance.Visible = Bool == true
+            Items.Frame.Instance.Visible =
+                Bool == true
         end
 
-        KeybindList.Frame = Items.Frame.Instance
+        KeybindList.Frame =
+            Items.Frame.Instance
+
         return KeybindList
     end
 
@@ -6777,18 +6744,21 @@ local Library do
             Items["Hide"] = Instances:Create("Frame", {
                 Parent = Items["Inactive"].Instance,
                 Visible = false,
-                BorderColor3 = FromRGB(0, 0, 0),
-                AnchorPoint = Vector2New(0, 1),
+                AnchorPoint = Vector2New(0.5, 1),
                 Name = string.char(0),
-                Position = UDim2New(0, 0, 1, 0),
-                Size = UDim2New(1, 0, 0, 3),
+                Position = UDim2New(0.5, 0, 1, -1),
+                Size = UDim2New(0, 22, 0, 2),
                 ZIndex = 2,
                 BorderSizePixel = 0,
-                BackgroundColor3 = FromRGB(15, 15, 20)
-            })  Items["Hide"]:AddToTheme({BackgroundColor3 = "Background"})
+                BackgroundColor3 = Library.Theme.Accent
+            })
+            Items["Hide"]:AddToTheme({
+                BackgroundColor3 = "Accent"
+            })
 
             Items["MiscPixel1"] = Instances:Create("Frame", {
                 Parent = Items["Hide"].Instance,
+                Visible = false,
                 Size = UDim2New(0, 1, 0, 1),
                 Name = string.char(0),
                 Position = UDim2New(0, -1, 0, 1),
@@ -6800,6 +6770,7 @@ local Library do
 
             Items["MiscPixel2"] = Instances:Create("Frame", {
                 Parent = Items["Hide"].Instance,
+                Visible = false,
                 BorderColor3 = FromRGB(0, 0, 0),
                 AnchorPoint = Vector2New(1, 0),
                 Name = string.char(0),
@@ -6920,28 +6891,28 @@ local Library do
 
             Items["Inactive"].Instance.BackgroundColor3 =
                 Bool
-                and Library.Theme.Accent
+                and Library.Theme["Hovered Element"]
                 or Library.Theme["Page Background"]
 
             Items["Inactive"]:ChangeItemTheme({
                 BackgroundColor3 =
                     Bool
-                    and "Accent"
+                    and "Hovered Element"
                     or "Page Background"
             })
 
             Items["Text"].Instance.TextColor3 =
                 Bool
-                and Library.Theme.Background
+                and Library.Theme.Accent
                 or Library.Theme.Text
 
             Items["Text"].Instance.TextTransparency =
-                Bool and 0 or 0.18
+                Bool and 0 or 0.22
 
             Items["Text"]:ChangeItemTheme({
                 TextColor3 =
                     Bool
-                    and "Background"
+                    and "Accent"
                     or "Text"
             })
         end
@@ -7234,16 +7205,6 @@ local Library do
                 PaddingBottom = UDimNew(0, 6)
             })
 
-            Items["AccentLine"] = Instances:Create("Frame", {
-                Parent = Items["Section"].Instance,
-                Name = string.char(0),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Position = UDim2New(0, 8, 0, 0),
-                Size = UDim2New(0, 28, 0, 2),
-                BorderSizePixel = 0,
-                BackgroundColor3 = FromRGB(235, 157, 255)
-            })  Items["AccentLine"]:AddToTheme({BackgroundColor3 = "Accent"})
-
             Items["Text"] = Instances:Create("TextLabel", {
                 Parent = Items["Section"].Instance,
                 FontFace = Library.Font,
@@ -7254,7 +7215,7 @@ local Library do
                 Size = UDim2New(1, -12, 0, 15),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2New(0, 10, 0, 5),
+                Position = UDim2New(0, 10, 0, 4),
                 BorderSizePixel = 0,
                 TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
@@ -7270,9 +7231,9 @@ local Library do
                 Parent = Items["Section"].Instance,
                 Name = string.char(0),
                 BackgroundTransparency = 1,
-                Position = UDim2New(0, 10, 0, 26),
+                Position = UDim2New(0, 10, 0, 23),
                 BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, -20, 1, -25),
+                Size = UDim2New(1, -20, 1, -22),
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })
@@ -7764,7 +7725,7 @@ local Library do
             Items["Indicator"] = Instances:Create("Frame", {
                 Parent = Items["Toggle"].Instance,
                 Name = string.char(0),
-                Size = UDim2New(0, 13, 0, 13),
+                Size = UDim2New(0, 11, 0, 11),
                 BorderSizePixel = 0,
                 BackgroundColor3 = Library.Theme.Element,
                 BackgroundTransparency = 0
@@ -7793,22 +7754,6 @@ local Library do
                 }
             )
 
-            Items["Check"] = Instances:Create("TextLabel", {
-                Parent = Items["Indicator"].Instance,
-                Size = UDim2New(1, 0, 1, 0),
-                BorderSizePixel = 0,
-                BackgroundTransparency = 1,
-                Font = Enum.Font.GothamBold,
-                Text = "✓",
-                TextSize = 11,
-                TextColor3 = Library.Theme.Background,
-                TextTransparency = 1,
-                ZIndex = Items["Indicator"].Instance.ZIndex + 1
-            })
-            Items["Check"]:AddToTheme({
-                TextColor3 = "Background"
-            })
-
             Items["Text"] = Instances:Create("TextLabel", {
                 Parent = Items["Toggle"].Instance,
                 FontFace = Library.Font,
@@ -7817,7 +7762,7 @@ local Library do
                 Text = Toggle.Name,
                 Name = string.char(0),
                 Size = UDim2New(1, 0, 1, 0),
-                Position = UDim2New(0, 20, 0, 0),
+                Position = UDim2New(0, 17, 0, 0),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 BorderSizePixel = 0,
@@ -7953,13 +7898,10 @@ local Library do
 
                 if IndicatorStroke then
                     IndicatorStroke.Color =
-                        Library.Theme["Glass Edge"]
+                        Library.Theme.Accent
                     IndicatorStroke.Transparency = 0
                 end
 
-                Items["Check"]:Tween(nil, {
-                    TextTransparency = 0
-                })
                 Items["Text"]:Tween(nil, {
                     TextTransparency = 0
                 })
@@ -7980,9 +7922,6 @@ local Library do
                     IndicatorStroke.Transparency = 0
                 end
 
-                Items["Check"]:Tween(nil, {
-                    TextTransparency = 1
-                })
                 Items["Text"]:Tween(nil, {
                     TextTransparency = 0.04
                 })
@@ -8484,7 +8423,7 @@ local Library do
     end
 
     Library.Sections.Dropdown = function(self, Data)
-        Data = Data or { }
+        Data = Data or {}
 
         local Dropdown = {
             Window = self.Window,
@@ -8493,162 +8432,194 @@ local Library do
 
             Name = Data.Name or Data.name or "Dropdown",
             Flag = Data.Flag or Data.flag or Library:NextFlag(),
-            Items = Data.Items or Data.items or { "One", "Two", "Three" },
+            Items = Data.Items or Data.items or {"One", "Two", "Three"},
             Default = Data.Default or Data.default or nil,
             Callback = Data.Callback or Data.callback or function() end,
             Multi = Data.Multi or Data.multi or false,
 
-            Value = { },
+            Value = {},
             IsOpen = false,
-            Options = { },
-            Class = "Dropdown",
+            Options = {},
+            Class = "Dropdown"
         }
 
-        local Items = { } do
-            Items["Dropdown"] = Instances:Create("Frame", {
-                Parent = Dropdown.Section.Elements["Content"].Instance,
-                BackgroundTransparency = 1,
-                Name = string.char(0),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, 0, 0, 34),
-                BorderSizePixel = 0,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })
+        local Items = {}
 
-            Items["Text"] = Instances:Create("TextLabel", {
-                Parent = Items["Dropdown"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(215, 215, 215),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Text = Dropdown.Name,
-                Name = string.char(0),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Size = UDim2New(1, 0, 0, 13),
-                BorderSizePixel = 0,
-                TextSize = 13,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Text"]:AddToTheme({TextColor3 = "Text"})
+        Items.Dropdown = Instances:Create("Frame", {
+            Parent = Dropdown.Section.Elements.Content.Instance,
+            BackgroundTransparency = 1,
+            Name = string.char(0),
+            Size = UDim2New(1, 0, 0, 36),
+            BorderSizePixel = 0
+        })
 
-            Instances:Create("UIStroke", {
-                Parent = Items["Text"].Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = string.char(0)
-            }):AddToTheme({Color = "Text Border"})
+        Items.Text = Instances:Create("TextLabel", {
+            Parent = Items.Dropdown.Instance,
+            FontFace = Library.Font,
+            TextColor3 = Library.Theme.Text,
+            Text = Dropdown.Name,
+            Name = string.char(0),
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Size = UDim2New(1, 0, 0, 13),
+            BorderSizePixel = 0,
+            TextSize = 12
+        })
+        Items.Text:AddToTheme({
+            TextColor3 = "Text"
+        })
 
-            Items["RealDropdown"] = Instances:Create("Frame", {
-                Parent = Items["Dropdown"].Instance,
-                AnchorPoint = Vector2New(0, 1),
-                Name = string.char(0),
-                Position = UDim2New(0, 0, 1, 0),
-                BorderColor3 = FromRGB(10, 10, 10),
-                Size = UDim2New(1, 0, 0, 17),
-                BorderSizePixel = 2,
-                BackgroundColor3 = FromRGB(33, 33, 36)
-            })  Items["RealDropdown"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
-            Library:ApplyGlass(Items["RealDropdown"], "Element", 7)
+        Items.RealDropdown = Instances:Create("Frame", {
+            Parent = Items.Dropdown.Instance,
+            AnchorPoint = Vector2New(0, 1),
+            Name = string.char(0),
+            Position = UDim2New(0, 0, 1, 0),
+            Size = UDim2New(1, 0, 0, 20),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Library.Theme.Element
+        })
+        Items.RealDropdown:AddToTheme({
+            BackgroundColor3 = "Element"
+        })
+        Library:ApplyGlass(
+            Items.RealDropdown,
+            "Element",
+            5
+        )
+        Items.RealDropdown.Instance.BackgroundTransparency = 0
 
-            Instances:Create("UIGradient", {
-                Parent = Items["RealDropdown"].Instance,
-                Rotation = 90,
-                Color = RGBSequence{RGBSequenceKeypoint(0, FromRGB(255, 255, 255)), RGBSequenceKeypoint(1, FromRGB(100, 100, 100))}
-            })
+        Items.Value = Instances:Create("TextLabel", {
+            Parent = Items.RealDropdown.Instance,
+            FontFace = Library.Font,
+            TextColor3 = Library.Theme.Text,
+            Text = "—",
+            Name = string.char(0),
+            Size = UDim2New(1, -25, 1, 0),
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            Position = UDim2New(0, 6, 0, 0),
+            BorderSizePixel = 0,
+            TextSize = 11,
+            ZIndex = 2
+        })
+        Items.Value:AddToTheme({
+            TextColor3 = "Text"
+        })
 
-            Instances:Create("UIStroke", {
-                Parent = Items["RealDropdown"].Instance,
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = string.char(0),
-                Color = FromRGB(27, 27, 32)
-            }):AddToTheme({Color = "Outline"})
+        Items.Open = Instances:Create("TextButton", {
+            Parent = Items.RealDropdown.Instance,
+            FontFace = Library.Font,
+            TextColor3 = Library.Theme["Muted Text"],
+            Text = "v",
+            AutoButtonColor = false,
+            Name = string.char(0),
+            Size = UDim2New(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            Position = UDim2New(0, -6, 0, 0),
+            BorderSizePixel = 0,
+            TextSize = 10,
+            ZIndex = 3
+        })
+        Items.Open:AddToTheme({
+            TextColor3 = "Muted Text"
+        })
 
-            Items["Open"] = Instances:Create("TextButton", {
-                Parent = Items["RealDropdown"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(215, 215, 215),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Text = "+",
-                AutoButtonColor = false,
-                Name = string.char(0),
-                Size = UDim2New(1, 0, 1, 0),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Right,
-                Position = UDim2New(0, -4, 0, -1),
-                BorderSizePixel = 0,
-                TextSize = 13,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Open"]:AddToTheme({TextColor3 = "Text"})
+        Items.OptionHolder = Instances:Create("Frame", {
+            Parent = Library.Holder.Instance,
+            Visible = false,
+            Name = string.char(0),
+            Position = UDim2New(0, 0, 0, 0),
+            Size = UDim2New(0, 160, 0, 0),
+            BorderSizePixel = 0,
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundColor3 = Library.Theme.Inline,
+            BackgroundTransparency = 0,
+            ZIndex = 900
+        })
+        Items.OptionHolder:AddToTheme({
+            BackgroundColor3 = "Inline"
+        })
+        Library:ApplyGlass(
+            Items.OptionHolder,
+            "Popup",
+            6
+        )
+        Items.OptionHolder.Instance.BackgroundTransparency = 0
 
-            Instances:Create("UIStroke", {
-                Parent = Items["Open"].Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = string.char(0)
-            }):AddToTheme({Color = "Text Border"})
+        local OptionLayout = InstanceNew("UIListLayout")
+        OptionLayout.Padding = UDimNew(0, 2)
+        OptionLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        OptionLayout.Parent = Items.OptionHolder.Instance
 
-            Items["Value"] = Instances:Create("TextLabel", {
-                Parent = Items["RealDropdown"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(215, 215, 215),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Text = "--",
-                Name = string.char(0),
-                Size = UDim2New(1, -25, 1, 0),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextTruncate = Enum.TextTruncate.AtEnd,
-                Position = UDim2New(0, 5, 0, -1),
-                BorderSizePixel = 0,
-                TextSize = 13,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Value"]:AddToTheme({TextColor3 = "Text"})
+        local OptionPadding = InstanceNew("UIPadding")
+        OptionPadding.PaddingTop = UDimNew(0, 4)
+        OptionPadding.PaddingBottom = UDimNew(0, 4)
+        OptionPadding.PaddingLeft = UDimNew(0, 4)
+        OptionPadding.PaddingRight = UDimNew(0, 4)
+        OptionPadding.Parent = Items.OptionHolder.Instance
 
-            Instances:Create("UIStroke", {
-                Parent = Items["Value"].Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = string.char(0)
-            }):AddToTheme({Color = "Text Border"})
+        local function UpdatePopupPosition()
+            local Real =
+                Items.RealDropdown.Instance
+            local Position =
+                Real.AbsolutePosition
+            local Size =
+                Real.AbsoluteSize
 
-            Items["OptionHolder"] = Instances:Create("Frame", {
-                Parent = Items["Dropdown"].Instance,
-                Visible = false,
-                BorderColor3 = FromRGB(10, 10, 10),
-                Name = string.char(0),
-                Position = UDim2New(0, 0, 1, 5),
-                Size = UDim2New(1, 0, 0, 0),
-                BorderSizePixel = 2,
-                AutomaticSize = Enum.AutomaticSize.Y,
-                BackgroundColor3 = FromRGB(20, 20, 25)
-            })  Items["OptionHolder"]:AddToTheme({BackgroundColor3 = "Inline", BorderColor3 = "Border"})
-            Library:ApplyGlass(Items["OptionHolder"], "Popup", 9)
-            Library:AddGlassShadow(Items["OptionHolder"], 12, 5)
+            Items.OptionHolder.Instance.Position =
+                UDim2New(
+                    0,
+                    Position.X,
+                    0,
+                    Position.Y + Size.Y + 3
+                )
 
-            Instances:Create("UIStroke", {
-                Parent = Items["OptionHolder"].Instance,
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = string.char(0),
-                Color = FromRGB(27, 27, 32)
-            }):AddToTheme({Color = "Outline"})
+            Items.OptionHolder.Instance.Size =
+                UDim2New(
+                    0,
+                    Size.X,
+                    0,
+                    0
+                )
+        end
 
-            Instances:Create("UIListLayout", {
-                Parent = Items["OptionHolder"].Instance,
-                SortOrder = Enum.SortOrder.LayoutOrder
-            })
+        Library:Connect(
+            Items.RealDropdown.Instance:
+                GetPropertyChangedSignal(
+                    "AbsolutePosition"
+                ),
+            function()
+                if Dropdown.IsOpen then
+                    UpdatePopupPosition()
+                end
+            end
+        )
 
-            Instances:Create("UIPadding", {
-                Parent = Items["OptionHolder"].Instance,
-                PaddingBottom = UDimNew(0, 2)
-            })
+        Library:Connect(
+            Items.RealDropdown.Instance:
+                GetPropertyChangedSignal(
+                    "AbsoluteSize"
+                ),
+            function()
+                if Dropdown.IsOpen then
+                    UpdatePopupPosition()
+                end
+            end
+        )
 
-            Items["RealDropdown"]:OnHover(function()
-                Items["RealDropdown"]:Tween(nil, {BackgroundColor3 = Library.Theme["Hovered Element"]})
-                Items["RealDropdown"]:ChangeItemTheme({BackgroundColor3 = "Hovered Element", BorderColor3 = "Border"})
-            end)
+        function Dropdown:SetOpen(Bool)
+            Bool = Bool == true
 
-            Items["RealDropdown"]:OnHoverLeave(function()
-                Items["RealDropdown"]:Tween(nil, {BackgroundColor3 = Library.Theme["Background"]})
-                Items["RealDropdown"]:ChangeItemTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
-            end)
+            Dropdown.IsOpen = Bool
+            Items.OptionHolder.Instance.Visible = Bool
+            Items.Open.Instance.Text =
+                Bool and "^" or "v"
+
+            if Bool then
+                UpdatePopupPosition()
+            end
         end
 
         function Dropdown:Set(Option)
@@ -8657,48 +8628,68 @@ local Library do
                     return
                 end
 
-                Dropdown.Value = Option
-
-                for Index, Value in Option do
-                    local OptionData = Dropdown.Options[Value]
-
-                    if not OptionData then
-                        return
-                    end
-
-                    OptionData.Selected = true
-                    OptionData:Toggle("Active")
+                for _, OptionData in pairs(
+                    Dropdown.Options
+                ) do
+                    OptionData.Selected = false
+                    OptionData:Toggle(false)
                 end
 
-                Library.Flags[Dropdown.Flag] = Dropdown.Value
+                Dropdown.Value = {}
 
-                Items["Value"].Instance.Text = TableConcat(Option, ", ")
+                for _, Value in ipairs(Option) do
+                    local OptionData =
+                        Dropdown.Options[Value]
+
+                    if OptionData then
+                        OptionData.Selected = true
+                        OptionData:Toggle(true)
+                        table.insert(
+                            Dropdown.Value,
+                            Value
+                        )
+                    end
+                end
+
+                Items.Value.Instance.Text =
+                    #Dropdown.Value > 0
+                    and table.concat(
+                        Dropdown.Value,
+                        ", "
+                    )
+                    or "—"
             else
-                if not Dropdown.Options[Option] then
+                local OptionData =
+                    Dropdown.Options[Option]
+
+                if not OptionData then
                     return
                 end
 
-                local OptionData = Dropdown.Options[Option]
-
-                Dropdown.Value = OptionData.Name
-
-                OptionData.Selected = true
-                OptionData:Toggle("Active")
-
-                for Index, Value in Dropdown.Options do
-                    if Value ~= OptionData then
-                        Value.Selected = false
-                        Value:Toggle("Inactive")
-                    end
+                for _, Value in pairs(
+                    Dropdown.Options
+                ) do
+                    Value.Selected =
+                        Value == OptionData
+                    Value:Toggle(
+                        Value == OptionData
+                    )
                 end
 
-                Library.Flags[Dropdown.Flag] = Dropdown.Value
-
-                Items["Value"].Instance.Text = Option
+                Dropdown.Value =
+                    OptionData.Name
+                Items.Value.Instance.Text =
+                    OptionData.Name
             end
 
+            Library.Flags[Dropdown.Flag] =
+                Dropdown.Value
+
             if Dropdown.Callback then
-                Library:SafeCall(Dropdown.Callback, Option)
+                Library:SafeCall(
+                    Dropdown.Callback,
+                    Dropdown.Value
+                )
             end
         end
 
@@ -8707,51 +8698,52 @@ local Library do
         end
 
         function Dropdown:SetVisibility(Bool)
-            Items["Dropdown"].Instance.Visible = Bool
+            Items.Dropdown.Instance.Visible =
+                Bool == true
+
+            if not Bool then
+                Dropdown:SetOpen(false)
+            end
         end
 
         function Dropdown:Add(Option)
-            local OptionButton = Instances:Create("TextButton", {
-                Parent = Items["OptionHolder"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(0, 0, 0),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Text = "",
-                AutoButtonColor = false,
-                Name = string.char(0),
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                Size = UDim2New(1, 0, 0, 15),
-                ZIndex = 5,
-                TextSize = 14,
-                BackgroundColor3 = FromRGB(255, 255, 255)
+            local OptionButton =
+                Instances:Create("TextButton", {
+                    Parent =
+                        Items.OptionHolder.Instance,
+                    FontFace = Library.Font,
+                    Text = "",
+                    AutoButtonColor = false,
+                    Name = string.char(0),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    Size = UDim2New(1, 0, 0, 19),
+                    ZIndex = 901
+                })
+
+            local OptionText =
+                Instances:Create("TextLabel", {
+                    Parent =
+                        OptionButton.Instance,
+                    FontFace = Library.Font,
+                    TextColor3 =
+                        Library.Theme.Text,
+                    TextTransparency = 0.08,
+                    Text = tostring(Option),
+                    Name = string.char(0),
+                    Size = UDim2New(1, -10, 1, 0),
+                    Position =
+                        UDim2New(0, 5, 0, 0),
+                    BackgroundTransparency = 1,
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+                    BorderSizePixel = 0,
+                    ZIndex = 902,
+                    TextSize = 11
+                })
+            OptionText:AddToTheme({
+                TextColor3 = "Text"
             })
-
-            local OptionText = Instances:Create("TextLabel", {
-                Parent = OptionButton.Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(215, 215, 215),
-                TextTransparency = 0.48,
-                Text = Option,
-                Name = string.char(0),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, -5, 1, 0),
-                Position = UDim2New(0, 5, 0, 0),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                BorderSizePixel = 0,
-                ZIndex = 5,
-                TextSize = 13,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })
-
-            OptionText:AddToTheme({TextColor3 = "Text"})
-
-            Instances:Create("UIStroke", {
-                Parent = OptionText.Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = string.char(0)
-            }):AddToTheme({Color = "Text Border"})
 
             local OptionData = {
                 Selected = false,
@@ -8760,169 +8752,156 @@ local Library do
                 Button = OptionButton
             }
 
-            function OptionData:Toggle(State)
-                if State == "Active" then
-                    OptionData.Text:ChangeItemTheme({TextColor3 = "Accent"})
-                    OptionData.Text:Tween(nil, {TextColor3 = Library.Theme.Accent, TextTransparency = 0})
-                else
-                    OptionData.Text:ChangeItemTheme({TextColor3 = "Text"})
-                    OptionData.Text:Tween(nil, {TextColor3 = Library.Theme.Text, TextTransparency = 0.48})
-                end
+            function OptionData:Toggle(Active)
+                OptionData.Text:ChangeItemTheme({
+                    TextColor3 =
+                        Active
+                        and "Accent"
+                        or "Text"
+                })
+
+                OptionData.Text:Tween(nil, {
+                    TextColor3 =
+                        Active
+                        and Library.Theme.Accent
+                        or Library.Theme.Text,
+                    TextTransparency =
+                        Active and 0 or 0.08
+                })
+
+                OptionData.Button:Tween(nil, {
+                    BackgroundTransparency =
+                        Active and 0 or 1,
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Hovered Element"
+                        ]
+                })
             end
 
             function OptionData:Set()
-                OptionData.Selected = not OptionData.Selected
-
                 if Dropdown.Multi then
-                    local Index = TableFind(Dropdown.Value, OptionData.Name)
+                    OptionData.Selected =
+                        not OptionData.Selected
 
-                    if Index then
-                        TableRemove(Dropdown.Value, Index)
-                    else
-                        TableInsert(Dropdown.Value, OptionData.Name)
+                    local Index =
+                        table.find(
+                            Dropdown.Value,
+                            OptionData.Name
+                        )
+
+                    if OptionData.Selected
+                        and not Index
+                    then
+                        table.insert(
+                            Dropdown.Value,
+                            OptionData.Name
+                        )
+                    elseif not OptionData.Selected
+                        and Index
+                    then
+                        table.remove(
+                            Dropdown.Value,
+                            Index
+                        )
                     end
 
-                    Library.Flags[Dropdown.Flag] = Dropdown.Value
+                    OptionData:Toggle(
+                        OptionData.Selected
+                    )
 
-                    OptionData:Toggle(Index and "Inactive" or "Active")
-
-                    local TextFormat = #Dropdown.Value > 0 and TableConcat(Dropdown.Value, ", ") or "--"
-
-                    Items["Value"].Instance.Text = TextFormat
+                    Items.Value.Instance.Text =
+                        #Dropdown.Value > 0
+                        and table.concat(
+                            Dropdown.Value,
+                            ", "
+                        )
+                        or "—"
                 else
-                    if OptionData.Selected then
-                        Dropdown.Value = OptionData.Name
-
-                        Library.Flags[Dropdown.Flag] = Dropdown.Value
-
-                        OptionData:Toggle("Active")
-                        Items["Value"].Instance.Text = OptionData.Name
-
-                        for Index, Value in Dropdown.Options do
-                            if Value ~= OptionData then
-                                Value.Selected = false
-                                Value:Toggle("Inactive")
-                            end
-                        end
-                    else
-                        Dropdown.Value = nil
-
-                        OptionData:Toggle("Inactive")
-                        Items["Value"].Instance.Text = "--"
-                    end
+                    Dropdown:Set(
+                        OptionData.Name
+                    )
+                    Dropdown:SetOpen(false)
+                    return
                 end
 
+                Library.Flags[Dropdown.Flag] =
+                    Dropdown.Value
+
                 if Dropdown.Callback then
-                    Library:SafeCall(Dropdown.Callback, Dropdown.Value)
+                    Library:SafeCall(
+                        Dropdown.Callback,
+                        Dropdown.Value
+                    )
                 end
             end
 
-            OptionButton:Connect("MouseButton1Down", function()
-                OptionData:Set()
-            end)
+            OptionButton:Connect(
+                "MouseButton1Down",
+                function()
+                    OptionData:Set()
+                end
+            )
 
-            Dropdown.Options[Option] = OptionData
+            Dropdown.Options[Option] =
+                OptionData
+
             return OptionData
         end
 
         function Dropdown:Remove(Option)
-            if Dropdown.Options[Option] then
-                Dropdown.Options[Option].Button:Clean()
+            local OptionData =
+                Dropdown.Options[Option]
+
+            if not OptionData then
+                return
             end
+
+            OptionData.Button:Clean()
+            Dropdown.Options[Option] = nil
         end
 
         function Dropdown:Refresh(List)
-            for Index, Value in Dropdown.Options do
-                Dropdown:Remove(Value.Name)
+            local Existing = {}
+
+            for Name in pairs(
+                Dropdown.Options
+            ) do
+                table.insert(Existing, Name)
             end
 
-            for Index, Value in List do
+            for _, Name in ipairs(Existing) do
+                Dropdown:Remove(Name)
+            end
+
+            for _, Value in ipairs(List) do
                 Dropdown:Add(Value)
             end
         end
 
-        local Debounce = false
-
-        function Dropdown:SetOpen(
-            Bool
-        )
-            Bool =
-                Bool == true
-
-            Dropdown.IsOpen =
-                Bool
-
-            Items[
-                "OptionHolder"
-            ].Instance.Visible =
-                Bool
-
-            Items[
-                "OptionHolder"
-            ].Instance.ZIndex =
-                Bool
-                and 15
-                or 1
-
-            Items[
-                "Open"
-            ].Instance.Text =
-                Bool
-                and "-"
-                or "+"
-
-            Items[
-                "Open"
-            ].Instance.Position =
-                Bool
-                and UDim2New(
-                    0,
-                    -5,
-                    0,
-                    -1
-                )
-                or UDim2New(
-                    0,
-                    -4,
-                    0,
-                    -1
-                )
-
-            for _,
-                Descendant in ipairs(
-                    Items[
-                        "OptionHolder"
-                    ].Instance:
-                    GetDescendants()
-                )
-            do
-                if not StringFind(
-                    Descendant.ClassName,
-                    "UI"
-                ) then
-                    Descendant.ZIndex =
-                        Bool
-                        and 15
-                        or 1
-                end
-            end
-        end
-
-        for Index, Value in Dropdown.Items do
+        for _, Value in ipairs(
+            Dropdown.Items
+        ) do
             Dropdown:Add(Value)
         end
 
-        Items["Open"]:Connect("MouseButton1Down", function()
-            Dropdown:SetOpen(not Dropdown.IsOpen)
-        end)
+        Items.Open:Connect(
+            "MouseButton1Down",
+            function()
+                Dropdown:SetOpen(
+                    not Dropdown.IsOpen
+                )
+            end
+        )
 
-        if Dropdown.Default then
+        if Dropdown.Default ~= nil then
             Dropdown:Set(Dropdown.Default)
         end
 
-        Library.SetFlags[Dropdown.Flag] = function(Value)
-            Dropdown:Set(Value)
-        end
+        Library.SetFlags[Dropdown.Flag] =
+            function(Value)
+                Dropdown:Set(Value)
+            end
 
         return Dropdown
     end
