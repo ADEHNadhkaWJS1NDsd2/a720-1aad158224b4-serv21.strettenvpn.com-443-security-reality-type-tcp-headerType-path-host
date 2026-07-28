@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "MinimalClient-v5-SegmentedHUD-Fixed",
+        Build = "MinimalClient-v6-SettingsWidgets-StrictUI",
         Flags = { },
 
         Theme = {
@@ -2493,6 +2493,9 @@ local Library do
             UpdateElapsed = 0,
             FPS = 0,
             TPS = 0,
+            RenderDelta = 1 / 60,
+            HeartbeatDelta = 1 / 60,
+            Scale = 1,
             Destroyed = false
         }
 
@@ -2512,6 +2515,11 @@ local Library do
             ClipsDescendants = false,
             ZIndex = 500
         })
+        Items.Scale = Instances:Create("UIScale", {
+            Parent = Items.Frame.Instance,
+            Scale = 1
+        })
+
         Items.Frame:MakeDraggable()
 
         local Rows = {}
@@ -2698,28 +2706,33 @@ local Library do
 
         local function AddConnection(
             Event,
-            Callback,
-            Suffix
+            Callback
         )
-            local NameKey =
-                ConnectionPrefix
-                .. "_"
-                .. tostring(Suffix)
-
-            local Record =
-                Library:Connect(
-                    Event,
-                    Callback,
-                    NameKey
-                )
-
-            if Record then
-                Watermark.Connections[
-                    #Watermark.Connections + 1
-                ] = NameKey
+            if not Event
+                or type(Callback) ~= "function"
+            then
+                return nil
             end
 
-            return Record
+            local Connection =
+                Event:Connect(function(...)
+                    if Watermark.Destroyed then
+                        return
+                    end
+
+                    local Success, Message =
+                        pcall(Callback, ...)
+
+                    if not Success then
+                        warn(Message)
+                    end
+                end)
+
+            Watermark.Connections[
+                #Watermark.Connections + 1
+            ] = Connection
+
+            return Connection
         end
 
         local function UpdateWidth()
@@ -2742,7 +2755,7 @@ local Library do
         end
 
         local function ReadServerStat(Names)
-            local Result = 0
+            local Result = nil
 
             pcall(function()
                 local StatsService =
@@ -2763,33 +2776,73 @@ local Library do
                     return
                 end
 
-                for _, StatName in ipairs(
-                    Names
-                ) do
-                    local Item =
-                        ServerStats:
-                        FindFirstChild(
-                            StatName
+                local Wanted = {}
+
+                for _, StatName in ipairs(Names) do
+                    Wanted[
+                        string.lower(
+                            tostring(StatName)
                         )
+                    ] = true
+                end
 
-                    if Item then
-                        local Success,
-                            Value =
-                            pcall(function()
-                                return Item:GetValue()
-                            end)
+                local function ParseItem(Item)
+                    local Value
 
+                    pcall(function()
                         Value =
-                            Success
-                            and tonumber(Value)
-                            or nil
+                            tonumber(
+                                Item:GetValue()
+                            )
+                    end)
+
+                    if not Value then
+                        pcall(function()
+                            local ValueString =
+                                tostring(
+                                    Item:GetValueString()
+                                )
+
+                            Value = tonumber(
+                                ValueString:match(
+                                    "[-+]?%d+%.?%d*"
+                                )
+                            )
+                        end)
+                    end
+
+                    return Value
+                end
+
+                for _, Item in ipairs(
+                    ServerStats:GetChildren()
+                ) do
+                    local ItemName =
+                        string.lower(Item.Name)
+
+                    local Match =
+                        Wanted[ItemName] == true
+
+                    if not Match then
+                        for Name in pairs(Wanted) do
+                            if string.find(
+                                ItemName,
+                                Name,
+                                1,
+                                true
+                            ) then
+                                Match = true
+                                break
+                            end
+                        end
+                    end
+
+                    if Match then
+                        local Value = ParseItem(Item)
 
                         if Value then
                             Result =
-                                math.max(
-                                    Value,
-                                    0
-                                )
+                                math.max(Value, 0)
                             break
                         end
                     end
@@ -2816,7 +2869,7 @@ local Library do
             if Ping <= 0 then
                 Ping = ReadServerStat({
                     "Data Ping"
-                })
+                }) or 0
             end
 
             return math.clamp(
@@ -2841,8 +2894,15 @@ local Library do
                     "Data Send"
                 })
 
+            if Receive == nil
+                and Send == nil
+            then
+                return nil
+            end
+
             return math.max(
-                Receive + Send,
+                (Receive or 0)
+                + (Send or 0),
                 0
             )
         end
@@ -2915,11 +2975,16 @@ local Library do
                     )
                 )
 
+            local NetworkRate =
+                GetNetworkRate()
+
             Labels.Network.Text =
-                StringFormat(
+                NetworkRate
+                and StringFormat(
                     "%.2fkbps",
-                    GetNetworkRate()
+                    NetworkRate
                 )
+                or "--kbps"
 
             UpdateWidth()
         end
@@ -2944,54 +3009,55 @@ local Library do
 
         AddConnection(
             RunService.RenderStepped,
-            function()
-                Watermark.FrameCount =
-                    Watermark.FrameCount + 1
-            end,
-            "Render"
+            function(DeltaTime)
+                DeltaTime =
+                    tonumber(DeltaTime) or 0
+
+                if DeltaTime > 0 then
+                    Watermark.RenderDelta =
+                        Watermark.RenderDelta * 0.82
+                        + DeltaTime * 0.18
+
+                    Watermark.FPS =
+                        1 / math.max(
+                            Watermark.RenderDelta,
+                            1 / 1000
+                        )
+                end
+            end
         )
 
         AddConnection(
             RunService.Heartbeat,
             function(DeltaTime)
-                Watermark.HeartbeatCount =
-                    Watermark.HeartbeatCount + 1
+                DeltaTime =
+                    tonumber(DeltaTime) or 0
 
-                Watermark.SampleElapsed =
-                    Watermark.SampleElapsed
-                    + DeltaTime
+                if DeltaTime > 0 then
+                    Watermark.HeartbeatDelta =
+                        Watermark.HeartbeatDelta * 0.82
+                        + DeltaTime * 0.18
+
+                    Watermark.TPS =
+                        1 / math.max(
+                            Watermark.HeartbeatDelta,
+                            1 / 1000
+                        )
+                end
 
                 Watermark.UpdateElapsed =
                     Watermark.UpdateElapsed
                     + DeltaTime
 
-                if Watermark.SampleElapsed
-                    >= 0.5
-                then
-                    Watermark.FPS =
-                        Watermark.FrameCount
-                        / Watermark.SampleElapsed
-
-                    Watermark.TPS =
-                        Watermark.HeartbeatCount
-                        / Watermark.SampleElapsed
-
-                    Watermark.FrameCount = 0
-                    Watermark.HeartbeatCount = 0
-                    Watermark.SampleElapsed = 0
-                end
-
                 if Watermark.UpdateElapsed
                     >= 0.25
                 then
                     Watermark.UpdateElapsed =
-                        Watermark.UpdateElapsed
-                        % 0.25
+                        Watermark.UpdateElapsed % 0.25
 
                     UpdateMetrics()
                 end
-            end,
-            "Heartbeat"
+            end
         )
 
         function Watermark:SetVisibility(Bool)
@@ -3004,6 +3070,21 @@ local Library do
                 Items.Frame.Instance.Visible =
                     Watermark.Visible
             end
+        end
+
+        function Watermark:SetScale(Value)
+            Value = math.clamp(
+                tonumber(Value) or 1,
+                0.55,
+                1.75
+            )
+
+            Watermark.Scale = Value
+            Items.Scale.Instance.Scale = Value
+        end
+
+        function Watermark:GetScale()
+            return Watermark.Scale
         end
 
         function Watermark:SetText(Value)
@@ -3037,9 +3118,14 @@ local Library do
                 1,
                 -1
             do
-                Library:Disconnect(
+                local Connection =
                     Watermark.Connections[Index]
-                )
+
+                if typeof(Connection)
+                    == "RBXScriptConnection"
+                then
+                    Connection:Disconnect()
+                end
 
                 Watermark.Connections[Index] = nil
             end
@@ -5698,7 +5784,12 @@ local Library do
             CharacterToken = 0,
             PartState = {},
             Settings = {},
-            Extra = {}
+            Extra = {},
+            Scale = math.clamp(
+                tonumber(Data.Scale) or 1,
+                0.55,
+                1.75
+            )
         }
 
         local Items = {}
@@ -5723,6 +5814,11 @@ local Library do
         Library:ApplyGlass(Items.Frame, "Window", 12)
         Library:AddGlassShadow(Items.Frame, 15, 3)
         Items.Frame.Instance.BackgroundTransparency = 0
+        Items.Scale = Instances:Create("UIScale", {
+            Parent = Items.Frame.Instance,
+            Scale = Preview.Scale
+        })
+
         Items.Frame:MakeDraggable()
 
         Items.Accent = Instances:Create("Frame", {
@@ -6252,6 +6348,21 @@ local Library do
             UpdateSnapline()
         end
 
+        function Preview:SetScale(Value)
+            Value = math.clamp(
+                tonumber(Value) or 1,
+                0.55,
+                1.75
+            )
+
+            Preview.Scale = Value
+            Items.Scale.Instance.Scale = Value
+        end
+
+        function Preview:GetScale()
+            return Preview.Scale
+        end
+
         function Preview:SetVisibility(Value)
             Preview.Visible = Value == true
             Items.Frame.Instance.Visible = Preview.Visible
@@ -6336,7 +6447,12 @@ local Library do
             CurrentPlayer = nil,
             ThumbnailToken = 0,
             InternalPositionWrite = false,
-            Inventory = {}
+            Inventory = {},
+            Scale = math.clamp(
+                tonumber(Data.Scale) or 1,
+                0.55,
+                1.75
+            )
         }
 
         local Items = {}
@@ -6358,6 +6474,11 @@ local Library do
             Active = true,
             ClipsDescendants = false,
             ZIndex = 120
+        })
+
+        Items.Scale = Instances:Create("UIScale", {
+            Parent = Items.Frame.Instance,
+            Scale = HUD.Scale
         })
 
         Items.Frame:MakeDraggable()
@@ -6682,6 +6803,21 @@ local Library do
             end
         end
 
+        function HUD:SetScale(Value)
+            Value = math.clamp(
+                tonumber(Value) or 1,
+                0.55,
+                1.75
+            )
+
+            HUD.Scale = Value
+            Items.Scale.Instance.Scale = Value
+        end
+
+        function HUD:GetScale()
+            return HUD.Scale
+        end
+
         function HUD:SetVisibility(Value)
             HUD.Visible = Value == true
             Items.Frame.Instance.Visible = HUD.Visible
@@ -6895,7 +7031,7 @@ local Library do
                 BackgroundColor3 = FromRGB(11, 11, 17),
                 GroupTransparency = 0
             })  Items["MainFrame"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
-            Library:ApplyGlass(Items["MainFrame"], "Window", 12)
+            Library:ApplyGlass(Items["MainFrame"], "Window", 5)
             Library:AddGlassShadow(Items["MainFrame"], 15, 4)
             Items["MainFrame"].Instance.BackgroundTransparency = 0
 
@@ -6911,10 +7047,10 @@ local Library do
             Items["AccentBorder"] = Instances:Create("UIStroke", {
                 Parent = Items["MainFrame"].Instance,
                 ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                LineJoinMode = Enum.LineJoinMode.Round,
+                LineJoinMode = Enum.LineJoinMode.Miter,
                 Name = string.char(0),
                 Thickness = 1,
-                Transparency = 0.72,
+                Transparency = 0.48,
                 Color = Library.Theme.Outline
             })
             Items["AccentBorder"]:AddToTheme({Color = "Outline"})
@@ -6931,7 +7067,7 @@ local Library do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, 12, 0, 7),
                 BorderSizePixel = 0,
-                TextSize = 15,
+                TextSize = 13,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
 
@@ -6989,7 +7125,7 @@ local Library do
             Library:ApplyGlass(
                 Items["Content"],
                 "Panel",
-                10
+                4
             )
         end
 
@@ -7176,7 +7312,7 @@ local Library do
                 TextSize = 14,
                 BackgroundColor3 = FromRGB(20, 22, 31)
             })  Items["Inactive"]:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Border"})
-            Library:ApplyGlass(Items["Inactive"], "Element", 8)
+            Library:ApplyGlass(Items["Inactive"], "Element", 3)
             Items["Inactive"].Instance.BackgroundTransparency = 0
 
             Items["Text"] = Instances:Create("TextLabel", {
@@ -7690,7 +7826,7 @@ local Library do
                 AutomaticSize = Enum.AutomaticSize.Y,
                 BackgroundColor3 = FromRGB(20, 22, 31)
             })  Items["Section"]:AddToTheme({BackgroundColor3 = "Inline", BorderColor3 = "Outline"})
-            Library:ApplyGlass(Items["Section"], "Panel", 10)
+            Library:ApplyGlass(Items["Section"], "Panel", 4)
             Items["Section"].Instance.BackgroundTransparency = 0
 
             Instances:Create("UIPadding", {
@@ -8028,7 +8164,7 @@ local Library do
                 AutomaticSize = Enum.AutomaticSize.Y,
                 BackgroundColor3 = FromRGB(20, 20, 25)
             })  Items["Section"]:AddToTheme({BackgroundColor3 = "Inline", BorderColor3 = "Outline"})
-            Library:ApplyGlass(Items["Section"], "Panel", 10)
+            Library:ApplyGlass(Items["Section"], "Panel", 4)
 
             Items["Fade"] = Instances:Create("Frame", {
                 Parent = Items["Section"].Instance,
@@ -8226,7 +8362,7 @@ local Library do
             Items["Indicator"]:AddToTheme({
                 BackgroundColor3 = "Element"
             })
-            Library:ApplyGlass(Items["Indicator"], "Element", 4)
+            Library:ApplyGlass(Items["Indicator"], "Element", 2)
             Items["Indicator"].Instance.BackgroundTransparency = 0
 
             Items["IndicatorStroke"] = InstanceNew("UIStroke")
@@ -8237,7 +8373,7 @@ local Library do
             Items["IndicatorStroke"].ApplyStrokeMode =
                 Enum.ApplyStrokeMode.Border
             Items["IndicatorStroke"].LineJoinMode =
-                Enum.LineJoinMode.Round
+                Enum.LineJoinMode.Miter
             Items["IndicatorStroke"].Thickness = 1
             Items["IndicatorStroke"].Transparency = 0
             Library:AddToTheme(
