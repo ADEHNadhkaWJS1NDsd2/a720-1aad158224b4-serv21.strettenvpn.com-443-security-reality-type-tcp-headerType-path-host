@@ -65,6 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
+        Build = "RadiantGlass-v7-SafeToggle",
         Flags = { },
 
         Theme = {
@@ -7864,6 +7865,8 @@ local Library do
             Items["Indicator"].Instance.BackgroundTransparency = 0
 
             Items["IndicatorStroke"] = InstanceNew("UIStroke")
+            Items["IndicatorStroke"].Name =
+                "_RadiantToggleStroke"
             Items["IndicatorStroke"].Parent =
                 Items["Indicator"].Instance
             Items["IndicatorStroke"].ApplyStrokeMode =
@@ -7944,6 +7947,60 @@ local Library do
             end)
         end
 
+        local function EnsureIndicatorStroke()
+            local Stroke =
+                Items["IndicatorStroke"]
+
+            if typeof(Stroke) == "Instance"
+                and Stroke:IsA("UIStroke")
+                and Stroke.Parent
+            then
+                return Stroke
+            end
+
+            local Indicator =
+                Items["Indicator"]
+                and Items["Indicator"].Instance
+
+            if not Indicator then
+                return nil
+            end
+
+            Stroke =
+                Indicator:FindFirstChild(
+                    "_RadiantToggleStroke"
+                )
+                or Indicator:
+                    FindFirstChildOfClass(
+                        "UIStroke"
+                    )
+
+            if not Stroke then
+                Stroke = InstanceNew("UIStroke")
+                Stroke.Name =
+                    "_RadiantToggleStroke"
+                Stroke.ApplyStrokeMode =
+                    Enum.ApplyStrokeMode.Border
+                Stroke.LineJoinMode =
+                    Enum.LineJoinMode.Round
+                Stroke.Thickness = 1
+                Stroke.Transparency = 0
+                Stroke.Parent = Indicator
+
+                Library:AddToTheme(
+                    Stroke,
+                    {
+                        Color = "Outline"
+                    }
+                )
+            end
+
+            Items["IndicatorStroke"] =
+                Stroke
+
+            return Stroke
+        end
+
         function Toggle:Get()
             return Toggle.Value
         end
@@ -7980,9 +8037,14 @@ local Library do
                 Items["Indicator"]:Tween(nil, {
                     BackgroundColor3 = Library.Theme.Accent
                 })
-                Items["IndicatorStroke"].Color =
-                    Library.Theme["Glass Edge"]
-                Items["IndicatorStroke"].Transparency = 0
+                local IndicatorStroke =
+                    EnsureIndicatorStroke()
+
+                if IndicatorStroke then
+                    IndicatorStroke.Color =
+                        Library.Theme["Glass Edge"]
+                    IndicatorStroke.Transparency = 0
+                end
 
                 Items["Check"]:Tween(nil, {
                     TextTransparency = 0
@@ -7998,9 +8060,14 @@ local Library do
                 Items["Indicator"]:Tween(nil, {
                     BackgroundColor3 = Library.Theme.Element
                 })
-                Items["IndicatorStroke"].Color =
-                    Library.Theme.Outline
-                Items["IndicatorStroke"].Transparency = 0
+                local IndicatorStroke =
+                    EnsureIndicatorStroke()
+
+                if IndicatorStroke then
+                    IndicatorStroke.Color =
+                        Library.Theme.Outline
+                    IndicatorStroke.Transparency = 0
+                end
 
                 Items["Check"]:Tween(nil, {
                     TextTransparency = 1
