@@ -7863,15 +7863,21 @@ local Library do
             Library:ApplyGlass(Items["Indicator"], "Element", 4)
             Items["Indicator"].Instance.BackgroundTransparency = 0
 
-            local IndicatorStroke = InstanceNew("UIStroke")
-            IndicatorStroke.Parent = Items["Indicator"].Instance
-            IndicatorStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            IndicatorStroke.LineJoinMode = Enum.LineJoinMode.Round
-            IndicatorStroke.Thickness = 1
-            IndicatorStroke.Transparency = 0
-            Library:AddToTheme(IndicatorStroke, {
-                Color = "Outline"
-            })
+            Items["IndicatorStroke"] = InstanceNew("UIStroke")
+            Items["IndicatorStroke"].Parent =
+                Items["Indicator"].Instance
+            Items["IndicatorStroke"].ApplyStrokeMode =
+                Enum.ApplyStrokeMode.Border
+            Items["IndicatorStroke"].LineJoinMode =
+                Enum.LineJoinMode.Round
+            Items["IndicatorStroke"].Thickness = 1
+            Items["IndicatorStroke"].Transparency = 0
+            Library:AddToTheme(
+                Items["IndicatorStroke"],
+                {
+                    Color = "Outline"
+                }
+            )
 
             Items["Check"] = Instances:Create("TextLabel", {
                 Parent = Items["Indicator"].Instance,
@@ -7974,9 +7980,9 @@ local Library do
                 Items["Indicator"]:Tween(nil, {
                     BackgroundColor3 = Library.Theme.Accent
                 })
-                IndicatorStroke.Color =
+                Items["IndicatorStroke"].Color =
                     Library.Theme["Glass Edge"]
-                IndicatorStroke.Transparency = 0
+                Items["IndicatorStroke"].Transparency = 0
 
                 Items["Check"]:Tween(nil, {
                     TextTransparency = 0
@@ -7992,9 +7998,9 @@ local Library do
                 Items["Indicator"]:Tween(nil, {
                     BackgroundColor3 = Library.Theme.Element
                 })
-                IndicatorStroke.Color =
+                Items["IndicatorStroke"].Color =
                     Library.Theme.Outline
-                IndicatorStroke.Transparency = 0
+                Items["IndicatorStroke"].Transparency = 0
 
                 Items["Check"]:Tween(nil, {
                     TextTransparency = 1
