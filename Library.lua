@@ -5255,6 +5255,166 @@ function ApiSectionMethods:Keybind(Data)
     return ApiCreateKeybind(self.Section, Data or {})
 end
 
+function ApiSectionMethods:Button(Data)
+    Data = Data or {}
+    local Name = tostring(ApiRead(Data, "Name", "Button"))
+    local Callback = ApiRead(Data, "Callback")
+    local Row = CreateRow(self.Section.Body, 30)
+    local Button = Create("TextButton", {
+        Parent = Row,
+        Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = SurfaceAlt,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = Name,
+        TextColor3 = PrimaryText,
+        TextSize = 11,
+        ZIndex = 8
+    })
+    Corner(Button, 5)
+    Stroke(Button, Border, 0.18, 1)
+    RegisterControl(self.Section, Row, Name)
+    Bind(Button.MouseButton1Click:Connect(function()
+        if type(Callback) == "function" then
+            task.spawn(Callback)
+        end
+    end))
+    return Button
+end
+
+function ApiSectionMethods:Textbox(Data)
+    Data = Data or {}
+    local Name = tostring(ApiRead(Data, "Name", "Textbox"))
+    local Flag = ApiNormalizeFlag(Data, Name)
+    local Callback = ApiRead(Data, "Callback")
+    local Row = CreateRow(self.Section.Body, 32)
+    Create("TextLabel", {
+        Parent = Row,
+        Size = UDim2.new(0.42, -6, 1, 0),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSans,
+        Text = Name,
+        TextColor3 = PrimaryText,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 8
+    })
+    local Box = Create("TextBox", {
+        Parent = Row,
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, 0, 0.5, 0),
+        Size = UDim2.new(0.58, 0, 0, 24),
+        BackgroundColor3 = SurfaceAlt,
+        BorderSizePixel = 0,
+        ClearTextOnFocus = false,
+        Font = Enum.Font.BuilderSans,
+        PlaceholderText = tostring(ApiRead(Data, "Placeholder", "")),
+        PlaceholderColor3 = DisabledText,
+        Text = tostring(ApiRead(Data, "Default", "")),
+        TextColor3 = PrimaryText,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 9
+    })
+    Corner(Box, 5)
+    Stroke(Box, Border, 0.18, 1)
+    Create("UIPadding", {Parent = Box, PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
+    RegisterControl(self.Section, Row, Name)
+    local Object = {}
+    function Object:Set(Value)
+        Box.Text = tostring(Value or "")
+        Menu.Flags[Flag] = Box.Text
+        if type(Callback) == "function" then task.spawn(Callback, Box.Text) end
+    end
+    function Object:Get() return Box.Text end
+    Menu.Flags[Flag] = Box.Text
+    Menu.Setters[Flag] = Object.Set
+    Bind(Box.FocusLost:Connect(function() Object:Set(Box.Text) end))
+    return Object
+end
+
+function ApiSectionMethods:Listbox(Data)
+    Data = Data or {}
+    local Name = tostring(ApiRead(Data, "Name", "Listbox"))
+    local Flag = ApiNormalizeFlag(Data, Name)
+    local Callback = ApiRead(Data, "Callback")
+    local Row = CreateRow(self.Section.Body, tonumber(ApiRead(Data, "Height", 116)) or 116)
+    local Root = Create("Frame", {
+        Parent = Row,
+        Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = SurfaceAlt,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        ZIndex = 8
+    })
+    Corner(Root, 5)
+    Stroke(Root, Border, 0.18, 1)
+    local Scroll = Create("ScrollingFrame", {
+        Parent = Root,
+        Position = UDim2.fromOffset(4, 4),
+        Size = UDim2.new(1, -8, 1, -8),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        CanvasSize = UDim2.new(),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ScrollBarThickness = 2,
+        ScrollBarImageColor3 = Accent,
+        ZIndex = 9
+    })
+    local Layout = Create("UIListLayout", {Parent = Scroll, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder})
+    RegisterControl(self.Section, Row, Name)
+    local Object = {Items = {}, Value = nil}
+    function Object:SetItems(Items)
+        for _, Child in ipairs(Scroll:GetChildren()) do
+            if Child ~= Layout then Child:Destroy() end
+        end
+        Object.Items = type(Items) == "table" and Items or {}
+        for Index, Item in ipairs(Object.Items) do
+            local Text = tostring(Item)
+            local Entry = Create("TextButton", {
+                Parent = Scroll,
+                Size = UDim2.new(1, 0, 0, 24),
+                BackgroundColor3 = Surface,
+                BackgroundTransparency = 0.2,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Font = Enum.Font.BuilderSans,
+                Text = "  " .. Text,
+                TextColor3 = MutedText,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                LayoutOrder = Index,
+                ZIndex = 10
+            })
+            Corner(Entry, 4)
+            Bind(Entry.MouseButton1Click:Connect(function()
+                Object.Value = Text
+                Menu.Flags[Flag] = Text
+                for _, Other in ipairs(Scroll:GetChildren()) do
+                    if Other:IsA("TextButton") then
+                        Other.BackgroundColor3 = Surface
+                        Other.TextColor3 = MutedText
+                    end
+                end
+                Entry.BackgroundColor3 = Accent
+                Entry.TextColor3 = Color3.fromRGB(12, 14, 22)
+                if type(Callback) == "function" then task.spawn(Callback, Text) end
+            end))
+        end
+    end
+    function Object:Set(Value)
+        Object.Value = Value
+        Menu.Flags[Flag] = Value
+        if type(Callback) == "function" then task.spawn(Callback, Value) end
+    end
+    function Object:Get() return Object.Value end
+    Menu.Flags[Flag] = nil
+    Menu.Setters[Flag] = Object.Set
+    Object:SetItems(ApiRead(Data, "Items", {}))
+    return Object
+end
+
 local ApiSubPageMethods = {}
 ApiSubPageMethods.__index = ApiSubPageMethods
 
@@ -5358,6 +5518,9 @@ ApiSectionMethods.dropdown = ApiSectionMethods.Dropdown
 ApiSectionMethods.label = ApiSectionMethods.Label
 ApiSectionMethods.colorpicker = ApiSectionMethods.Colorpicker
 ApiSectionMethods.keybind = ApiSectionMethods.Keybind
+ApiSectionMethods.button = ApiSectionMethods.Button
+ApiSectionMethods.textbox = ApiSectionMethods.Textbox
+ApiSectionMethods.listbox = ApiSectionMethods.Listbox
 
 function Library:Watermark()
     return {
@@ -5387,6 +5550,91 @@ function Library:SetFlag(Name, Value)
     else
         self.Flags[Name] = Value
     end
+end
+
+function Library:Notification(Message, Duration, Color)
+    local Notice = Create("Frame", {
+        Parent = ScreenGui,
+        AnchorPoint = Vector2.new(1, 1),
+        Position = UDim2.new(1, -18, 1, -18),
+        Size = UDim2.fromOffset(280, 44),
+        BackgroundColor3 = Surface,
+        BorderSizePixel = 0,
+        ZIndex = 260
+    })
+    Corner(Notice, 6)
+    Stroke(Notice, typeof(Color) == "Color3" and Color or Accent, 0.08, 1)
+    Create("TextLabel", {
+        Parent = Notice,
+        Position = UDim2.fromOffset(12, 0),
+        Size = UDim2.new(1, -24, 1, 0),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = tostring(Message or "Notification"),
+        TextColor3 = PrimaryText,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 261
+    })
+    task.delay(tonumber(Duration) or 3, function()
+        if Notice and Notice.Parent then Notice:Destroy() end
+    end)
+    return Notice
+end
+
+function Library:GetConfig()
+    local Encoded = {}
+    for Name, Value in pairs(self.Flags) do
+        if typeof(Value) == "Color3" then
+            Encoded[Name] = {__type = "Color3", R = Value.R, G = Value.G, B = Value.B}
+        elseif typeof(Value) == "EnumItem" then
+            Encoded[Name] = {__type = "EnumItem", EnumType = tostring(Value.EnumType), Name = Value.Name}
+        elseif type(Value) == "boolean" or type(Value) == "number" or type(Value) == "string" then
+            Encoded[Name] = Value
+        end
+    end
+    return HttpService:JSONEncode(Encoded)
+end
+
+function Library:LoadConfig(Source)
+    local Success, Decoded = pcall(HttpService.JSONDecode, HttpService, tostring(Source or "{}"))
+    if not Success or type(Decoded) ~= "table" then return false end
+    for Name, Value in pairs(Decoded) do
+        if type(Value) == "table" and Value.__type == "Color3" then
+            Value = Color3.new(tonumber(Value.R) or 0, tonumber(Value.G) or 0, tonumber(Value.B) or 0)
+        elseif type(Value) == "table" and Value.__type == "EnumItem" then
+            local EnumName = tostring(Value.EnumType or ""):match("Enum%.(.+)")
+            local EnumType = EnumName and Enum[EnumName]
+            Value = EnumType and EnumType[Value.Name] or Value.Name
+        end
+        self:SetFlag(Name, Value)
+    end
+    return true
+end
+
+function Library:RefreshConfigsList(Listbox)
+    local Items = {}
+    local Folder = self.Folders and self.Folders.Configs
+    if type(Folder) == "string" and type(listfiles) == "function" and isfolder(Folder) then
+        local Success, Files = pcall(listfiles, Folder)
+        if Success and type(Files) == "table" then
+            for _, File in ipairs(Files) do
+                local Name = tostring(File):match("([^/\\]+)$")
+                if Name and Name:sub(-5):lower() == ".json" then table.insert(Items, Name) end
+            end
+        end
+    end
+    table.sort(Items)
+    if type(Listbox) == "table" and type(Listbox.SetItems) == "function" then Listbox:SetItems(Items) end
+    return Items
+end
+
+Library.Folders = Library.Folders or {}
+Library.Folders.Root = Library.Folders.Root or "Atramenta.rip"
+Library.Folders.Configs = Library.Folders.Configs or (Library.Folders.Root .. "/Configs")
+if type(isfolder) == "function" and type(makefolder) == "function" then
+    if not isfolder(Library.Folders.Root) then pcall(makefolder, Library.Folders.Root) end
+    if not isfolder(Library.Folders.Configs) then pcall(makefolder, Library.Folders.Configs) end
 end
 
 return Library
