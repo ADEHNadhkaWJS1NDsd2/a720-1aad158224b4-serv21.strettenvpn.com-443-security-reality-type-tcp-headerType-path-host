@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantLean-v5",
+        Build = "RadiantAdaptive-v6",
         Flags = { },
 
         Theme = {
@@ -1011,10 +1011,11 @@ local Library do
         end
 
         local Limit =
-            Kind == "Floating" and 3
-            or Kind == "Window" and 2
-            or Kind == "Popup" and 2
-            or 1
+            Kind == "Floating" and 6
+            or Kind == "Window" and 5
+            or Kind == "Popup" and 6
+            or Kind == "Panel" and 4
+            or 4
 
         Corner.CornerRadius = UDimNew(
             0,
@@ -1030,7 +1031,7 @@ local Library do
             Stroke = InstanceNew("UIStroke")
             Stroke.Name = "_RadiantLeanStroke"
             Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            Stroke.LineJoinMode = Enum.LineJoinMode.Miter
+            Stroke.LineJoinMode = Enum.LineJoinMode.Round
             Stroke.Thickness = 1
             Stroke.Parent = Object
 
@@ -1039,7 +1040,7 @@ local Library do
             })
         end
 
-        Stroke.LineJoinMode = Enum.LineJoinMode.Miter
+        Stroke.LineJoinMode = Enum.LineJoinMode.Round
         Stroke.Transparency =
             Kind == "Floating" and 0.42
             or Kind == "Window" and 0.50
@@ -3564,10 +3565,10 @@ local Library do
                 AnchorPoint = Vector2New(1, 0.5),
                 Name = string.char(0),
                 Position = UDim2New(1, 0, 0.5, 0),
-                Size = UDim2New(0, 22, 0, 12),
+                Size = UDim2New(0, 25, 0, 18),
                 BorderSizePixel = 0,
                 TextSize = 14,
-                BackgroundColor3 = FromRGB(255, 0, 0),
+                BackgroundColor3 = Library.Theme.Element,
                 ZIndex = 250,
                 Active = true,
                 Selectable = false
@@ -3588,19 +3589,67 @@ local Library do
 
             Colorpicker:CalculateCount(Data.Count)
 
-            Instances:Create("UIStroke", {
-                Parent = Items["ColorpickerButton"].Instance,
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = string.char(0),
-                Color = FromRGB(27, 27, 32)
-            }):AddToTheme({Color = "Outline"})
-
-            Instances:Create("UIGradient", {
-                Parent = Items["ColorpickerButton"].Instance,
-                Rotation = 90,
-                Color = RGBSequence{RGBSequenceKeypoint(0, FromRGB(255, 255, 255)), RGBSequenceKeypoint(1, FromRGB(100, 100, 100))}
+            Items["ColorpickerButton"]:AddToTheme({
+                BackgroundColor3 = "Element"
             })
+            Library:ApplyGlass(
+                Items["ColorpickerButton"],
+                "Element",
+                5
+            )
+
+            Items["PaletteBody"] = Instances:Create("Frame", {
+                Parent = Items["ColorpickerButton"].Instance,
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Position = UDim2New(0.5, 0, 0.5, 0),
+                Size = UDim2New(0, 15, 0, 11),
+                BorderSizePixel = 0,
+                BackgroundColor3 = FromRGB(255, 0, 0),
+                ZIndex = 252
+            })
+
+            local PaletteBodyCorner = InstanceNew("UICorner")
+            PaletteBodyCorner.CornerRadius = UDimNew(1, 0)
+            PaletteBodyCorner.Parent = Items["PaletteBody"].Instance
+
+            Items["PaletteHole"] = Instances:Create("Frame", {
+                Parent = Items["PaletteBody"].Instance,
+                AnchorPoint = Vector2New(1, 1),
+                Position = UDim2New(1, 0, 1, 0),
+                Size = UDim2New(0, 5, 0, 5),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Element,
+                ZIndex = 253
+            })
+            Items["PaletteHole"]:AddToTheme({
+                BackgroundColor3 = "Element"
+            })
+
+            local PaletteHoleCorner = InstanceNew("UICorner")
+            PaletteHoleCorner.CornerRadius = UDimNew(1, 0)
+            PaletteHoleCorner.Parent = Items["PaletteHole"].Instance
+
+            local PaletteDots = {
+                {2, 2, FromRGB(255, 255, 255)},
+                {7, 1, FromRGB(255, 221, 92)},
+                {4, 6, FromRGB(85, 157, 255)}
+            }
+
+            for Index, DotData in ipairs(PaletteDots) do
+                local Dot = Instances:Create("Frame", {
+                    Parent = Items["PaletteBody"].Instance,
+                    Name = "Dot" .. tostring(Index),
+                    Position = UDim2New(0, DotData[1], 0, DotData[2]),
+                    Size = UDim2New(0, 2, 0, 2),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = DotData[3],
+                    ZIndex = 254
+                })
+
+                local DotCorner = InstanceNew("UICorner")
+                DotCorner.CornerRadius = UDimNew(1, 0)
+                DotCorner.Parent = Dot.Instance
+            end
 
             Items["ColorpickerWindow"] = Instances:Create("TextButton", {
                 Parent = Library.Holder.Instance,
@@ -3610,17 +3659,18 @@ local Library do
                 Position = UDim2New(0, Data.Parent.Instance.AbsolutePosition.X, 0, Data.Parent.Instance.AbsolutePosition.Y + 15),
                 BorderColor3 = FromRGB(10, 10, 10),
                 Visible = false,
-                Size = UDim2New(0, 238, 0, 224),
-                BorderSizePixel = 2,
-                BackgroundColor3 = FromRGB(15, 15, 20),
+                Size = UDim2New(0, 282, 0, 286),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Background,
                 ZIndex = 1000,
                 Active = true,
                 Modal = false
             })  Items["ColorpickerWindow"]:AddToTheme({BackgroundColor3 = "Background"})
-            Library:ApplyGlass(Items["ColorpickerWindow"], "Popup", 11)
-            Library:AddGlassShadow(Items["ColorpickerWindow"], 14, 6)
-
-            Items["ColorpickerWindow"]:MakeResizeable(Vector2New(200, 180), Vector2New(9999, 9999))
+            Library:ApplyGlass(
+                Items["ColorpickerWindow"],
+                "Popup",
+                7
+            )
 
             Instances:Create("UIStroke", {
                 Parent = Items["ColorpickerWindow"].Instance,
@@ -3637,12 +3687,12 @@ local Library do
                 BorderColor3 = FromRGB(0, 0, 0),
                 Text = Data.Name,
                 Name = string.char(0),
-                Size = UDim2New(1, 0, 0, 15),
+                Size = UDim2New(1, -8, 0, 18),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2New(0, -2, 0, -3),
+                Position = UDim2New(0, 0, 0, 0),
                 BorderSizePixel = 0,
-                TextSize = 13,
+                TextSize = 12,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Title"]:AddToTheme({TextColor3 = "Text"})
 
@@ -3650,34 +3700,12 @@ local Library do
                 Items["Title"]
             )
 
-            Instances:Create("UIStroke", {
-                Parent = Items["Title"].Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = string.char(0)
-            }):AddToTheme({Color = "Text Border"})
-
-            Items["AccentLine"] = Instances:Create("Frame", {
-                Parent = Items["ColorpickerWindow"].Instance,
-                Name = string.char(0),
-                Position = UDim2New(0, -6, 0, -6),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, 12, 0, 2),
-                BorderSizePixel = 0,
-                BackgroundColor3 = FromRGB(235, 157, 255)
-            })  Items["AccentLine"]:AddToTheme({BackgroundColor3 = "Accent"})
-
-            Instances:Create("UIGradient", {
-                Parent = Items["AccentLine"].Instance,
-                Rotation = 90,
-                Color = RGBSequence{RGBSequenceKeypoint(0, FromRGB(255, 255, 255)), RGBSequenceKeypoint(1, FromRGB(65, 65, 65))}
-            })
-
             Instances:Create("UIPadding", {
                 Parent = Items["ColorpickerWindow"].Instance,
-                PaddingTop = UDimNew(0, 6),
-                PaddingBottom = UDimNew(0, 6),
-                PaddingRight = UDimNew(0, 6),
-                PaddingLeft = UDimNew(0, 6)
+                PaddingTop = UDimNew(0, 8),
+                PaddingBottom = UDimNew(0, 8),
+                PaddingRight = UDimNew(0, 8),
+                PaddingLeft = UDimNew(0, 8)
             })
 
             Items["Palette"] = Instances:Create("TextButton", {
@@ -3688,8 +3716,8 @@ local Library do
                 Text = "",
                 AutoButtonColor = false,
                 Name = string.char(0),
-                Position = UDim2New(0, 0, 0, 15),
-                Size = UDim2New(1, -26, 1, -40),
+                Position = UDim2New(0, 0, 0, 26),
+                Size = UDim2New(1, -30, 0, 150),
                 BorderSizePixel = 0,
                 TextSize = 14,
                 BackgroundColor3 = FromRGB(255, 0, 0)
@@ -3750,8 +3778,8 @@ local Library do
                 AnchorPoint = Vector2New(1, 0),
                 Image = Library:GetImage("Hue"),
                 Name = string.char(0),
-                Position = UDim2New(1, 0, 0, 15),
-                Size = UDim2New(0, 18, 1, -15),
+                Position = UDim2New(1, 0, 0, 26),
+                Size = UDim2New(0, 20, 0, 150),
                 BorderSizePixel = 0,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })
@@ -3790,8 +3818,8 @@ local Library do
                 AutoButtonColor = false,
                 AnchorPoint = Vector2New(0, 1),
                 Name = string.char(0),
-                Position = UDim2New(0, 0, 1, 0),
-                Size = UDim2New(1, -26, 0, 18),
+                Position = UDim2New(0, 0, 0, 184),
+                Size = UDim2New(1, 0, 0, 14),
                 BorderSizePixel = 0,
                 TextSize = 14,
                 BackgroundColor3 = FromRGB(255, 0, 0)
@@ -3843,6 +3871,95 @@ local Library do
                 Name = string.char(0),
                 Color = FromRGB(27, 27, 32)
             }):AddToTheme({Color = "Outline"})
+
+
+            local function CreateValueField(
+                Key,
+                Caption,
+                Position,
+                Size
+            )
+                local Field = Instances:Create("Frame", {
+                    Parent = Items["ColorpickerWindow"].Instance,
+                    Position = Position,
+                    Size = Size,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Library.Theme.Element,
+                    ZIndex = 1002
+                })
+                Field:AddToTheme({
+                    BackgroundColor3 = "Element"
+                })
+                Library:ApplyGlass(Field, "Element", 4)
+
+                local CaptionLabel = Instances:Create("TextLabel", {
+                    Parent = Field.Instance,
+                    Position = UDim2New(0, 7, 0, 0),
+                    Size = UDim2New(0, 34, 1, 0),
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    FontFace = Library.Font,
+                    Text = Caption,
+                    TextSize = 9,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextColor3 = Library.Theme["Muted Text"],
+                    ZIndex = 1003
+                })
+                CaptionLabel:AddToTheme({
+                    TextColor3 = "Muted Text"
+                })
+
+                local Input = Instances:Create("TextBox", {
+                    Parent = Field.Instance,
+                    Position = UDim2New(0, 40, 0, 0),
+                    Size = UDim2New(1, -47, 1, 0),
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    ClearTextOnFocus = false,
+                    FontFace = Library.Font,
+                    Text = "",
+                    TextSize = 9,
+                    TextXAlignment = Enum.TextXAlignment.Right,
+                    TextColor3 = Library.Theme.Text,
+                    PlaceholderColor3 = Library.Theme["Muted Text"],
+                    ZIndex = 1003
+                })
+                Input:AddToTheme({
+                    TextColor3 = "Text",
+                    PlaceholderColor3 = "Muted Text"
+                })
+
+                Items[Key] = Input
+                return Input
+            end
+
+            CreateValueField(
+                "HexInput",
+                "HEX",
+                UDim2New(0, 0, 0, 207),
+                UDim2New(0.5, -4, 0, 25)
+            )
+
+            CreateValueField(
+                "AlphaInput",
+                "ALPHA",
+                UDim2New(0.5, 4, 0, 207),
+                UDim2New(0.5, -4, 0, 25)
+            )
+
+            CreateValueField(
+                "RGBInput",
+                "RGB",
+                UDim2New(0, 0, 0, 238),
+                UDim2New(0.5, -4, 0, 25)
+            )
+
+            CreateValueField(
+                "HSVInput",
+                "HSV",
+                UDim2New(0.5, 4, 0, 238),
+                UDim2New(0.5, -4, 0, 25)
+            )
         end
 
         Colorpicker.Button =
@@ -4280,10 +4397,43 @@ local Library do
                 Alpha = self.Alpha
             }
 
-            Items[
-                "ColorpickerButton"
-            ].Instance.BackgroundColor3 =
-                self.Color
+            if Items["PaletteBody"] then
+                Items["PaletteBody"].Instance.BackgroundColor3 =
+                    self.Color
+            end
+
+            if Items["HexInput"] then
+                Items["HexInput"].Instance.Text =
+                    "#" .. self.HexValue
+            end
+
+            if Items["RGBInput"] then
+                Items["RGBInput"].Instance.Text =
+                    StringFormat(
+                        "%d, %d, %d",
+                        MathFloor(self.Color.R * 255 + 0.5),
+                        MathFloor(self.Color.G * 255 + 0.5),
+                        MathFloor(self.Color.B * 255 + 0.5)
+                    )
+            end
+
+            if Items["HSVInput"] then
+                Items["HSVInput"].Instance.Text =
+                    StringFormat(
+                        "%d, %d, %d",
+                        MathFloor(self.Hue * 360 + 0.5),
+                        MathFloor(self.Saturation * 100 + 0.5),
+                        MathFloor(self.Value * 100 + 0.5)
+                    )
+            end
+
+            if Items["AlphaInput"] then
+                Items["AlphaInput"].Instance.Text =
+                    StringFormat(
+                        "%d%%",
+                        MathFloor(self.Alpha * 100 + 0.5)
+                    )
+            end
 
             Items[
                 "Palette"
@@ -4481,6 +4631,151 @@ local Library do
                 Library.ActiveColorpicker =
                     nil
             end
+        end
+
+        local function ParseNumbers(Value)
+            local Numbers = { }
+
+            for Number in tostring(Value or ""):
+                gmatch("[-+]?%d*%.?%d+")
+            do
+                Numbers[#Numbers + 1] =
+                    tonumber(Number)
+            end
+
+            return Numbers
+        end
+
+        if Items["HexInput"] then
+            Items["HexInput"]:Connect(
+                "FocusLost",
+                function()
+                    local Value =
+                        Items["HexInput"].Instance.Text:
+                        gsub("#", ""):
+                        gsub("%s+", "")
+
+                    if #Value == 3 then
+                        Value =
+                            Value:sub(1, 1):rep(2)
+                            .. Value:sub(2, 2):rep(2)
+                            .. Value:sub(3, 3):rep(2)
+                    end
+
+                    local Success, Parsed =
+                        pcall(
+                            FromHex,
+                            "#" .. Value
+                        )
+
+                    if Success and Parsed then
+                        Colorpicker:Set(
+                            Parsed,
+                            Colorpicker.Alpha
+                        )
+                    else
+                        Colorpicker:Update()
+                    end
+                end
+            )
+        end
+
+        if Items["RGBInput"] then
+            Items["RGBInput"]:Connect(
+                "FocusLost",
+                function()
+                    local Values =
+                        ParseNumbers(
+                            Items["RGBInput"].Instance.Text
+                        )
+
+                    if #Values >= 3 then
+                        Colorpicker:Set(
+                            FromRGB(
+                                MathClamp(Values[1], 0, 255),
+                                MathClamp(Values[2], 0, 255),
+                                MathClamp(Values[3], 0, 255)
+                            ),
+                            Colorpicker.Alpha
+                        )
+                    else
+                        Colorpicker:Update()
+                    end
+                end
+            )
+        end
+
+        if Items["HSVInput"] then
+            Items["HSVInput"]:Connect(
+                "FocusLost",
+                function()
+                    local Values =
+                        ParseNumbers(
+                            Items["HSVInput"].Instance.Text
+                        )
+
+                    if #Values >= 3 then
+                        Colorpicker.Hue =
+                            (
+                                MathClamp(
+                                    Values[1],
+                                    0,
+                                    360
+                                )
+                                / 360
+                            )
+
+                        Colorpicker.Saturation =
+                            (
+                                MathClamp(
+                                    Values[2],
+                                    0,
+                                    100
+                                )
+                                / 100
+                            )
+
+                        Colorpicker.Value =
+                            (
+                                MathClamp(
+                                    Values[3],
+                                    0,
+                                    100
+                                )
+                                / 100
+                            )
+
+                        Colorpicker:Update()
+                    else
+                        Colorpicker:Update()
+                    end
+                end
+            )
+        end
+
+        if Items["AlphaInput"] then
+            Items["AlphaInput"]:Connect(
+                "FocusLost",
+                function()
+                    local Values =
+                        ParseNumbers(
+                            Items["AlphaInput"].Instance.Text
+                        )
+
+                    if #Values >= 1 then
+                        Colorpicker.Alpha =
+                            MathClamp(
+                                Values[1] / 100,
+                                0,
+                                1
+                            )
+
+                        Colorpicker:Update(true)
+                    else
+                        Colorpicker:Update()
+                    end
+                end
+            )
         end
 
         Items[
@@ -5697,6 +5992,11 @@ local Library do
             CharacterToken = 0,
             PartState = {},
             Settings = {},
+            Destroyed = false,
+            LoadingStartedAt = 0,
+            RetryAt = 0,
+            RetryAttempts = 0,
+            RetryAccumulator = 0,
             Extra = {},
             Scale = math.clamp(
                 tonumber(Data.Scale) or 1,
@@ -6161,39 +6461,188 @@ local Library do
             return Clone
         end
 
-        function Preview:SetCharacter(Character)
-            if Character == Preview.Character and Preview.CharacterClone and Preview.CharacterClone.Parent then return end
-            if Character == Preview.LoadingCharacter then return end
-
-            ClearCharacter()
-            if not Character or not Character.Parent then return end
-
-            local Token = Preview.CharacterToken
-            Preview.LoadingCharacter = Character
-
-            local Clone = CreateDescriptionModel(Character) or CreateFallbackModel(Character)
-            if Token ~= Preview.CharacterToken or not Items.Frame.Instance.Parent then
-                if Clone then Clone:Destroy() end
-                return
+        function Preview:SetCharacter(Character, Force)
+            if Preview.Destroyed then
+                return false
             end
 
-            Preview.LoadingCharacter = nil
-            if not Clone then return end
+            if Character == Preview.Character
+                and Preview.CharacterClone
+                and Preview.CharacterClone.Parent
+            then
+                return true
+            end
 
-            PrepareCharacterModel(Clone)
-            Clone.Parent = Items.World.Instance
-            Preview.Character = Character
-            Preview.CharacterClone = Clone
+            local Now = os.clock()
 
-            FitCharacterCamera()
-            ApplyCharacterStyle()
+            if not Character
+                or not Character.Parent
+            then
+                Preview.RetryAt =
+                    math.max(
+                        Preview.RetryAt,
+                        Now + 0.25
+                    )
 
-            task.defer(function()
-                if Token == Preview.CharacterToken and Preview.CharacterClone == Clone and Clone.Parent then
-                    FitCharacterCamera()
-                    ApplyCharacterStyle()
+                return false
+            end
+
+            local Humanoid =
+                Character:
+                    FindFirstChildOfClass(
+                        "Humanoid"
+                    )
+
+            local Root =
+                Character:
+                    FindFirstChild(
+                        "HumanoidRootPart"
+                    )
+
+            local Head =
+                Character:
+                    FindFirstChild(
+                        "Head"
+                    )
+
+            if not Humanoid
+                or not Root
+                or not Head
+            then
+                Preview.RetryAt =
+                    math.max(
+                        Preview.RetryAt,
+                        Now + 0.25
+                    )
+
+                return false
+            end
+
+            if Preview.LoadingCharacter
+                    == Character
+                and not Force
+                and Now
+                    - Preview.LoadingStartedAt
+                    < 2.5
+            then
+                return false
+            end
+
+            if not Force
+                and Now < Preview.RetryAt
+            then
+                return false
+            end
+
+            ClearCharacter()
+
+            local Token =
+                Preview.CharacterToken
+
+            Preview.LoadingCharacter =
+                Character
+
+            Preview.LoadingStartedAt =
+                Now
+
+            Preview.RetryAt =
+                Now + 0.35
+
+            Preview.RetryAttempts =
+                Preview.RetryAttempts + 1
+
+            Items.Status.Instance.Text =
+                "LOADING"
+
+            Library:Thread(function()
+                local Clone =
+                    CreateDescriptionModel(
+                        Character
+                    )
+                    or CreateFallbackModel(
+                        Character
+                    )
+
+                if Token
+                        ~= Preview.CharacterToken
+                    or Preview.Destroyed
+                    or not Items.Frame.Instance.Parent
+                then
+                    if Clone then
+                        Clone:Destroy()
+                    end
+
+                    return
                 end
+
+                Preview.LoadingCharacter =
+                    nil
+
+                if not Clone then
+                    Preview.RetryAt =
+                        os.clock()
+                        + math.min(
+                            1.25,
+                            0.25
+                            + Preview.RetryAttempts
+                            * 0.12
+                        )
+
+                    Items.Status.Instance.Text =
+                        "WAITING"
+
+                    return
+                end
+
+                PrepareCharacterModel(Clone)
+                Clone.Parent =
+                    Items.World.Instance
+
+                Preview.Character =
+                    Character
+
+                Preview.CharacterClone =
+                    Clone
+
+                Preview.RetryAttempts = 0
+                Preview.RetryAt = 0
+
+                FitCharacterCamera()
+                ApplyCharacterStyle()
+
+                Preview:Apply(
+                    Preview.Settings,
+                    Preview.Extra
+                )
+
+                task.defer(function()
+                    if Token
+                            == Preview.CharacterToken
+                        and Preview.CharacterClone
+                            == Clone
+                        and Clone.Parent
+                    then
+                        FitCharacterCamera()
+                        ApplyCharacterStyle()
+                    end
+                end)
             end)
+
+            return false
+        end
+
+        function Preview:EnsureCharacter(Character)
+            if Preview.CharacterClone
+                and Preview.CharacterClone.Parent
+                and Preview.Character == Character
+            then
+                return true
+            end
+
+            return Preview:SetCharacter(
+                Character,
+                false
+            )
         end
 
         function Preview:Apply(Settings, Extra)
@@ -6321,16 +6770,97 @@ local Library do
         end
 
         function Preview:Destroy()
-            if Preview.ViewportSizeConnection then
-                Preview.ViewportSizeConnection:Disconnect()
-                Preview.ViewportSizeConnection = nil
+            Preview.Destroyed = true
+
+            local Connections = {
+                "ViewportSizeConnection",
+                "CharacterAddedConnection",
+                "CharacterRemovingConnection",
+                "AppearanceConnection",
+                "RetryConnection"
+            }
+
+            for _, Key in ipairs(Connections) do
+                local Connection = Preview[Key]
+
+                if Connection then
+                    Connection:Disconnect()
+                    Preview[Key] = nil
+                end
             end
+
             ClearCharacter()
-            if Items.Frame and Items.Frame.Instance then Items.Frame.Instance:Destroy() end
+
+            if Items.Frame
+                and Items.Frame.Instance
+            then
+                Items.Frame.Instance:Destroy()
+            end
         end
 
         Preview.Frame = Items.Frame.Instance
         Preview.Items = Items
+
+        Preview.CharacterAddedConnection =
+            LocalPlayer.CharacterAdded:
+                Connect(function(Character)
+                    Preview.RetryAt = 0
+                    Preview:SetCharacter(
+                        Character,
+                        true
+                    )
+                end)
+
+        Preview.CharacterRemovingConnection =
+            LocalPlayer.CharacterRemoving:
+                Connect(function()
+                    ClearCharacter()
+                    Preview.RetryAt =
+                        os.clock() + 0.15
+                end)
+
+        if LocalPlayer.CharacterAppearanceLoaded then
+            Preview.AppearanceConnection =
+                LocalPlayer.CharacterAppearanceLoaded:
+                    Connect(function(Character)
+                        Preview.RetryAt = 0
+                        Preview:SetCharacter(
+                            Character,
+                            true
+                        )
+                    end)
+        end
+
+        Preview.RetryConnection =
+            RunService.Heartbeat:
+                Connect(function(DeltaTime)
+                    if Preview.Destroyed
+                        or not Preview.Visible
+                    then
+                        return
+                    end
+
+                    Preview.RetryAccumulator =
+                        Preview.RetryAccumulator
+                        + DeltaTime
+
+                    if Preview.RetryAccumulator
+                        < 0.25
+                    then
+                        return
+                    end
+
+                    Preview.RetryAccumulator = 0
+
+                    if not Preview.CharacterClone
+                        or not Preview.CharacterClone.Parent
+                    then
+                        Preview:EnsureCharacter(
+                            LocalPlayer.Character
+                        )
+                    end
+                end)
+
         Preview.ViewportSizeConnection = Items.Viewport.Instance:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
             task.defer(FitCharacterCamera)
         end)
@@ -6920,7 +7450,7 @@ local Library do
 
         local Window = {
             Name = Data.Name or Data.name or "Window",
-            Size = Data.Size or Data.size or UDim2New(0, 390, 0, 430),
+            Size = Data.Size or Data.size or UDim2New(0, 540, 0, 560),
             FadeSpeed = Data.FadeSpeed or Data.fadespeed or 0.25,
             Pages = { },
             SubPages = { },
@@ -7470,7 +8000,7 @@ local Library do
             Items["Inactive"]:AddToTheme({
                 BackgroundColor3 = "Element"
             })
-            Library:ApplyGlass(Items["Inactive"], "Element", 2)
+            Library:ApplyGlass(Items["Inactive"], "Element", 4)
 
             Items["Text"] = Instances:Create("TextLabel", {
                 Parent = Items["Inactive"].Instance,
@@ -7911,10 +8441,11 @@ local Library do
             Items["Section"] = Instances:Create("Frame", {
                 Parent = Section.Page.ColumnsData[Section.Side].Instance,
                 Name = string.char(0),
-                Size = UDim2New(1, 0, 0, 23),
+                Size = UDim2New(1, 0, 0, 0),
                 BorderSizePixel = 0,
                 AutomaticSize = Enum.AutomaticSize.Y,
-                BackgroundTransparency = 1
+                BackgroundTransparency = 1,
+                ClipsDescendants = false
             })
 
             Items["Title"] = Instances:Create("TextLabel", {
@@ -7953,8 +8484,10 @@ local Library do
                 BackgroundTransparency = 1,
                 Name = string.char(0),
                 Position = UDim2New(0, 0, 0, 22),
-                Size = UDim2New(1, 0, 1, -21),
-                BorderSizePixel = 0
+                Size = UDim2New(1, 0, 0, 0),
+                AutomaticSize = Enum.AutomaticSize.Y,
+                BorderSizePixel = 0,
+                ClipsDescendants = false
             })
 
             Instances:Create("UIListLayout", {
@@ -9267,7 +9800,7 @@ local Library do
 
         local Items = { }
         local PopupTween = TweenInfo.new(
-            0.06,
+            0.08,
             Enum.EasingStyle.Quad,
             Enum.EasingDirection.Out
         )
@@ -9276,7 +9809,7 @@ local Library do
             Parent = Dropdown.Section.Elements["Content"].Instance,
             BackgroundTransparency = 1,
             Name = string.char(0),
-            Size = UDim2New(1, 0, 0, 35),
+            Size = UDim2New(1, 0, 0, 37),
             BorderSizePixel = 0
         })
 
@@ -9288,25 +9821,30 @@ local Library do
             Name = string.char(0),
             BackgroundTransparency = 1,
             TextXAlignment = Enum.TextXAlignment.Left,
-            Size = UDim2New(1, 0, 0, 12),
+            Size = UDim2New(1, 0, 0, 13),
             BorderSizePixel = 0,
             TextSize = 11
         })
-        Items["Text"]:AddToTheme({TextColor3 = "Text"})
+        Items["Text"]:AddToTheme({
+            TextColor3 = "Text"
+        })
 
-        Items["Field"] = Instances:Create("Frame", {
+        Items["Field"] = Instances:Create("TextButton", {
             Parent = Items["Dropdown"].Instance,
             AnchorPoint = Vector2New(0, 1),
             Name = string.char(0),
             Position = UDim2New(0, 0, 1, 0),
-            Size = UDim2New(1, 0, 0, 20),
+            Size = UDim2New(1, 0, 0, 21),
             BorderSizePixel = 0,
-            BackgroundColor3 = Library.Theme["Page Background"]
+            BackgroundColor3 = Library.Theme["Page Background"],
+            AutoButtonColor = false,
+            Text = "",
+            Active = true
         })
         Items["Field"]:AddToTheme({
             BackgroundColor3 = "Page Background"
         })
-        Library:ApplyGlass(Items["Field"], "Element", 2)
+        Library:ApplyGlass(Items["Field"], "Element", 4)
 
         Items["Value"] = Instances:Create("TextLabel", {
             Parent = Items["Field"].Instance,
@@ -9314,8 +9852,8 @@ local Library do
             TextColor3 = Library.Theme.Text,
             Text = "—",
             Name = string.char(0),
-            Position = UDim2New(0, 6, 0, 0),
-            Size = UDim2New(1, -26, 1, 0),
+            Position = UDim2New(0, 7, 0, 0),
+            Size = UDim2New(1, -29, 1, 0),
             BackgroundTransparency = 1,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -9323,29 +9861,27 @@ local Library do
             TextSize = 10,
             ZIndex = 2
         })
-        Items["Value"]:AddToTheme({TextColor3 = "Text"})
+        Items["Value"]:AddToTheme({
+            TextColor3 = "Text"
+        })
 
-        Items["Open"] = Instances:Create("TextButton", {
+        Items["Open"] = Instances:Create("TextLabel", {
             Parent = Items["Field"].Instance,
             Font = Enum.Font.GothamMedium,
             TextColor3 = Library.Theme["Muted Text"],
             Text = "+",
-            AutoButtonColor = false,
             Name = string.char(0),
             AnchorPoint = Vector2New(1, 0.5),
-            Position = UDim2New(1, -2, 0.5, 0),
-            Size = UDim2New(0, 18, 0, 16),
-            BackgroundColor3 = Library.Theme.Element,
-            BackgroundTransparency = 0,
+            Position = UDim2New(1, -7, 0.5, 0),
+            Size = UDim2New(0, 15, 0, 16),
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
             TextSize = 12,
             ZIndex = 3
         })
         Items["Open"]:AddToTheme({
-            BackgroundColor3 = "Element",
             TextColor3 = "Muted Text"
         })
-        Library:ApplyGlass(Items["Open"], "Element", 2)
 
         Items["Popup"] = Instances:Create("CanvasGroup", {
             Parent = Library.Holder.Instance,
@@ -9360,8 +9896,10 @@ local Library do
             GroupTransparency = 1,
             ZIndex = 900
         })
-        Items["Popup"]:AddToTheme({BackgroundColor3 = "Inline"})
-        Library:ApplyGlass(Items["Popup"], "Popup", 2)
+        Items["Popup"]:AddToTheme({
+            BackgroundColor3 = "Inline"
+        })
+        Library:ApplyGlass(Items["Popup"], "Popup", 5)
 
         local PopupLayout = InstanceNew("UIListLayout")
         PopupLayout.Padding = UDimNew(0, 1)
@@ -9377,7 +9915,13 @@ local Library do
             local Field = Items["Field"].Instance
             local Position = Field.AbsolutePosition
             local Size = Field.AbsoluteSize
-            return UDim2New(0, Position.X, 0, Position.Y + Size.Y + 2)
+
+            return UDim2New(
+                0,
+                Position.X,
+                0,
+                Position.Y + Size.Y + 3
+            )
         end
 
         local function UpdatePopupPosition()
@@ -9411,7 +9955,10 @@ local Library do
         function Dropdown:SetOpen(Bool)
             Bool = Bool == true
 
-            if Bool and Library.OpenDropdown and Library.OpenDropdown ~= Dropdown then
+            if Bool
+                and Library.OpenDropdown
+                and Library.OpenDropdown ~= Dropdown
+            then
                 Library.OpenDropdown:SetOpen(false)
             end
 
@@ -9422,36 +9969,43 @@ local Library do
             if Bool then
                 Library.OpenDropdown = Dropdown
                 UpdatePopupPosition()
+
                 Items["Popup"].Instance.GroupTransparency = 1
                 Items["Popup"].Instance.Visible = true
-                Items["Popup"]:Tween(PopupTween, {GroupTransparency = 0})
 
-                Items["Open"]:ChangeItemTheme({
-                    BackgroundColor3 = "Accent",
-                    TextColor3 = "Background"
+                Items["Popup"]:Tween(PopupTween, {
+                    GroupTransparency = 0
                 })
+
+                Items["Field"]:Tween(PopupTween, {
+                    BackgroundColor3 = Library.Theme["Hovered Element"]
+                })
+
                 Items["Open"]:Tween(PopupTween, {
-                    BackgroundColor3 = Library.Theme.Accent,
-                    TextColor3 = Library.Theme.Background
+                    TextColor3 = Library.Theme.Accent
                 })
-                Items["Open"].Instance.Text = "-"
+
+                Items["Open"].Instance.Text = "−"
             else
                 if Library.OpenDropdown == Dropdown then
                     Library.OpenDropdown = nil
                 end
 
-                Items["Popup"]:Tween(PopupTween, {GroupTransparency = 1})
-                Items["Open"]:ChangeItemTheme({
-                    BackgroundColor3 = "Element",
-                    TextColor3 = "Muted Text"
+                Items["Popup"]:Tween(PopupTween, {
+                    GroupTransparency = 1
                 })
+
+                Items["Field"]:Tween(PopupTween, {
+                    BackgroundColor3 = Library.Theme["Page Background"]
+                })
+
                 Items["Open"]:Tween(PopupTween, {
-                    BackgroundColor3 = Library.Theme.Element,
                     TextColor3 = Library.Theme["Muted Text"]
                 })
+
                 Items["Open"].Instance.Text = "+"
 
-                task.delay(0.06, function()
+                task.delay(0.08, function()
                     if Token == Dropdown.AnimationToken
                         and not Dropdown.IsOpen
                         and Items["Popup"].Instance
@@ -9463,22 +10017,30 @@ local Library do
             end
         end
 
-        Items["Open"]:OnHover(function()
+        Items["Field"]:OnHover(function()
             if Dropdown.IsOpen then
                 return
             end
+
+            Items["Field"]:Tween(PopupTween, {
+                BackgroundColor3 = Library.Theme["Hovered Element"]
+            })
+
             Items["Open"]:Tween(PopupTween, {
-                BackgroundColor3 = Library.Theme["Hovered Element"],
                 TextColor3 = Library.Theme.Text
             })
         end)
 
-        Items["Open"]:OnHoverLeave(function()
+        Items["Field"]:OnHoverLeave(function()
             if Dropdown.IsOpen then
                 return
             end
+
+            Items["Field"]:Tween(PopupTween, {
+                BackgroundColor3 = Library.Theme["Page Background"]
+            })
+
             Items["Open"]:Tween(PopupTween, {
-                BackgroundColor3 = Library.Theme.Element,
                 TextColor3 = Library.Theme["Muted Text"]
             })
         end)
@@ -9498,6 +10060,7 @@ local Library do
 
                 for _, Value in ipairs(Option) do
                     local OptionData = Dropdown.Options[Value]
+
                     if OptionData then
                         OptionData.Selected = true
                         OptionData:Toggle(true)
@@ -9505,11 +10068,13 @@ local Library do
                     end
                 end
 
-                Items["Value"].Instance.Text = #Dropdown.Value > 0
+                Items["Value"].Instance.Text =
+                    #Dropdown.Value > 0
                     and table.concat(Dropdown.Value, ", ")
                     or "—"
             else
                 local OptionData = Dropdown.Options[Option]
+
                 if not OptionData then
                     return
                 end
@@ -9524,8 +10089,12 @@ local Library do
             end
 
             Library.Flags[Dropdown.Flag] = Dropdown.Value
+
             if Dropdown.Callback then
-                Library:SafeCall(Dropdown.Callback, Dropdown.Value)
+                Library:SafeCall(
+                    Dropdown.Callback,
+                    Dropdown.Value
+                )
             end
         end
 
@@ -9535,6 +10104,7 @@ local Library do
 
         function Dropdown:SetVisibility(Bool)
             Items["Dropdown"].Instance.Visible = Bool == true
+
             if not Bool then
                 Dropdown:SetOpen(false)
             end
@@ -9553,7 +10123,7 @@ local Library do
                 BackgroundColor3 = Library.Theme["Hovered Element"],
                 BackgroundTransparency = 1,
                 BorderSizePixel = 0,
-                Size = UDim2New(1, 0, 0, 19),
+                Size = UDim2New(1, 0, 0, 20),
                 ZIndex = 901,
                 TextSize = 10
             })
@@ -9563,8 +10133,8 @@ local Library do
             })
 
             local Padding = InstanceNew("UIPadding")
-            Padding.PaddingLeft = UDimNew(0, 7)
-            Padding.PaddingRight = UDimNew(0, 7)
+            Padding.PaddingLeft = UDimNew(0, 8)
+            Padding.PaddingRight = UDimNew(0, 8)
             Padding.Parent = OptionButton.Instance
 
             local OptionData = {
@@ -9575,13 +10145,18 @@ local Library do
 
             function OptionData:Toggle(Active)
                 OptionData.Selected = Active == true
+
                 OptionData.Button:ChangeItemTheme({
                     TextColor3 = Active and "Accent" or "Text"
                 })
+
                 OptionData.Button:Tween(PopupTween, {
-                    TextColor3 = Active and Library.Theme.Accent or Library.Theme.Text,
+                    TextColor3 = Active
+                        and Library.Theme.Accent
+                        or Library.Theme.Text,
+
                     TextTransparency = Active and 0 or 0.08,
-                    BackgroundTransparency = Active and 0.68 or 1
+                    BackgroundTransparency = Active and 0.78 or 1
                 })
             end
 
@@ -9589,8 +10164,9 @@ local Library do
                 if OptionData.Selected then
                     return
                 end
+
                 OptionData.Button:Tween(PopupTween, {
-                    BackgroundTransparency = 0.76,
+                    BackgroundTransparency = 0.82,
                     TextTransparency = 0
                 })
             end)
@@ -9599,6 +10175,7 @@ local Library do
                 if OptionData.Selected then
                     return
                 end
+
                 OptionData.Button:Tween(PopupTween, {
                     BackgroundTransparency = 1,
                     TextTransparency = 0.08
@@ -9608,22 +10185,39 @@ local Library do
             function OptionData:Set()
                 if Dropdown.Multi then
                     OptionData.Selected = not OptionData.Selected
-                    local Index = table.find(Dropdown.Value, OptionData.Name)
+                    local Index = table.find(
+                        Dropdown.Value,
+                        OptionData.Name
+                    )
 
                     if OptionData.Selected and not Index then
-                        table.insert(Dropdown.Value, OptionData.Name)
+                        table.insert(
+                            Dropdown.Value,
+                            OptionData.Name
+                        )
                     elseif not OptionData.Selected and Index then
-                        table.remove(Dropdown.Value, Index)
+                        table.remove(
+                            Dropdown.Value,
+                            Index
+                        )
                     end
 
-                    OptionData:Toggle(OptionData.Selected)
-                    Items["Value"].Instance.Text = #Dropdown.Value > 0
+                    OptionData:Toggle(
+                        OptionData.Selected
+                    )
+
+                    Items["Value"].Instance.Text =
+                        #Dropdown.Value > 0
                         and table.concat(Dropdown.Value, ", ")
                         or "—"
 
                     Library.Flags[Dropdown.Flag] = Dropdown.Value
+
                     if Dropdown.Callback then
-                        Library:SafeCall(Dropdown.Callback, Dropdown.Value)
+                        Library:SafeCall(
+                            Dropdown.Callback,
+                            Dropdown.Value
+                        )
                     end
                 else
                     Dropdown:Set(OptionData.Name)
@@ -9631,9 +10225,12 @@ local Library do
                 end
             end
 
-            OptionButton:Connect("MouseButton1Down", function()
-                OptionData:Set()
-            end)
+            OptionButton:Connect(
+                "MouseButton1Down",
+                function()
+                    OptionData:Set()
+                end
+            )
 
             Dropdown.Options[Option] = OptionData
             return OptionData
@@ -9641,21 +10238,26 @@ local Library do
 
         function Dropdown:Remove(Option)
             local OptionData = Dropdown.Options[Option]
+
             if not OptionData then
                 return
             end
+
             OptionData.Button:Clean()
             Dropdown.Options[Option] = nil
         end
 
         function Dropdown:Refresh(List)
             local Existing = { }
+
             for Name in pairs(Dropdown.Options) do
                 table.insert(Existing, Name)
             end
+
             for _, Name in ipairs(Existing) do
                 Dropdown:Remove(Name)
             end
+
             for _, Value in ipairs(List) do
                 Dropdown:Add(Value)
             end
@@ -9665,30 +10267,40 @@ local Library do
             Dropdown:Add(Value)
         end
 
-        -- Only this dedicated button opens or closes the popup.
-        Items["Open"]:Connect("MouseButton1Down", function()
-            Dropdown:SetOpen(not Dropdown.IsOpen)
-        end)
-
-        Library:Connect(UserInputService.InputBegan, function(Input)
-            if not Dropdown.IsOpen then
-                return
+        -- The whole field opens or closes the popup.
+        Items["Field"]:Connect(
+            "MouseButton1Down",
+            function()
+                Dropdown:SetOpen(
+                    not Dropdown.IsOpen
+                )
             end
+        )
 
-            if Input.UserInputType ~= Enum.UserInputType.MouseButton1
-                and Input.UserInputType ~= Enum.UserInputType.Touch
-            then
-                return
+        Library:Connect(
+            UserInputService.InputBegan,
+            function(Input)
+                if not Dropdown.IsOpen then
+                    return
+                end
+
+                if Input.UserInputType
+                        ~= Enum.UserInputType.MouseButton1
+                    and Input.UserInputType
+                        ~= Enum.UserInputType.Touch
+                then
+                    return
+                end
+
+                if Library:IsMouseOverFrame(Items["Popup"])
+                    or Library:IsMouseOverFrame(Items["Field"])
+                then
+                    return
+                end
+
+                Dropdown:SetOpen(false)
             end
-
-            if Library:IsMouseOverFrame(Items["Popup"])
-                or Library:IsMouseOverFrame(Items["Field"])
-            then
-                return
-            end
-
-            Dropdown:SetOpen(false)
-        end)
+        )
 
         if Dropdown.Default ~= nil then
             Dropdown:Set(Dropdown.Default)
