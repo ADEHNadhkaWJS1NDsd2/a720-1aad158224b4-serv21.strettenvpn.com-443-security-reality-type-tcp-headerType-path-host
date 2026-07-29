@@ -65,7 +65,7 @@ local Library
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v13.1-IconsHotkeysPolished",
+        Build = "RadiantAdaptive-v13.1.1-OnHoverLeaveFixed",
         Flags = { },
 
         Theme = {
@@ -3896,7 +3896,7 @@ local Library
                 )
             end)
 
-            NewKey.Frame:OnLeave(function()
+            NewKey.Frame:OnHoverLeave(function()
                 if NewKey.Active then
                     NewKey.More:Tween(
                         RowTween,
