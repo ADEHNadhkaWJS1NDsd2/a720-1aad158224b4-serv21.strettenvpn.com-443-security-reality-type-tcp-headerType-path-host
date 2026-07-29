@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v11.1-SectionNavigationFixed",
+        Build = "RadiantAdaptive-v11.2-SectionNavigationFixed",
         Flags = { },
 
         Theme = {
@@ -14101,8 +14101,6 @@ local Library do
 
         return Listbox
     end
-end
-
 end
 
 getgenv().Library = Library
