@@ -65,7 +65,7 @@ local Library
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v12.2-VectorIcons-PlayerWindow",
+        Build = "RadiantAdaptive-v13-HotkeysQuickSettings",
         Flags = { },
 
         Theme = {
@@ -152,6 +152,9 @@ local Library
         NotifHolder = nil,
         Font = nil,
         KeyList = nil,
+        ActiveWatermark = nil,
+        NotificationsHidden = false,
+        QuickSettingsWindow = nil,
 
         CurrentColorpicker = nil,
         CurrentKeybind = nil,
@@ -3006,12 +3009,21 @@ local Library
                 Watermark.Connections[Index] = nil
             end
 
+            if Library.ActiveWatermark
+                == Watermark
+            then
+                Library.ActiveWatermark = nil
+            end
+
             if Items.Frame
                 and Items.Frame.Instance
             then
                 Items.Frame.Instance:Destroy()
             end
         end
+
+        Library.ActiveWatermark =
+            Watermark
 
         Watermark.Frame =
             Items.Frame.Instance
@@ -3031,6 +3043,10 @@ local Library
     end
 
     Library.Notification = function(self, Text, Duration, Color, Icon)
+        if Library.NotificationsHidden then
+            return
+        end
+
         local Items = { } do
             Items["Notification"] = Instances:Create("Frame", {
                 Parent = Library.NotifHolder.Instance,
@@ -3175,133 +3191,696 @@ local Library
     end
 
     Library.KeybindList = function(self)
-        local KeybindList = {}
+        local KeybindList = {
+            Visible = false,
+            Pinned = false,
+            Rows = { },
+            Scale = 1
+        }
+
         self.KeyList = KeybindList
 
-        local Items = {}
+        local Items = { }
+        local RowTween =
+            TweenInfo.new(
+                0.10,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out
+            )
 
-        Items.Frame = Instances:Create("Frame", {
-            Parent = Library.Holder.Instance,
-            AnchorPoint = Vector2New(0, 0.5),
-            Position = UDim2New(0, 18, 0.5, 0),
-            Size = UDim2New(0, 150, 0, 31),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            BorderSizePixel = 0,
-            BackgroundColor3 = Library.Theme.Background,
-            BackgroundTransparency = 0,
-            Visible = false,
-            ZIndex = 400
-        })
+        Items.Frame =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent =
+                        Library.Holder.Instance,
+
+                    AnchorPoint =
+                        Vector2New(0, 0.5),
+
+                    Position =
+                        UDim2New(
+                            0,
+                            18,
+                            0.5,
+                            0
+                        ),
+
+                    Size =
+                        UDim2New(
+                            0,
+                            272,
+                            0,
+                            238
+                        ),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme.Background,
+
+                    Visible = false,
+                    ClipsDescendants = true,
+                    ZIndex = 400
+                }
+            )
+
         Items.Frame:AddToTheme({
             BackgroundColor3 = "Background"
         })
+
         Library:ApplyGlass(
             Items.Frame,
             "Floating",
-            8
+            6
         )
-        Items.Frame:MakeDraggable()
 
-        local Padding = InstanceNew("UIPadding")
-        Padding.PaddingTop = UDimNew(0, 7)
-        Padding.PaddingBottom = UDimNew(0, 7)
-        Padding.PaddingLeft = UDimNew(0, 8)
-        Padding.PaddingRight = UDimNew(0, 8)
-        Padding.Parent = Items.Frame.Instance
+        Items.Scale =
+            Instances:Create(
+                "UIScale",
+                {
+                    Parent =
+                        Items.Frame.Instance,
+                    Scale = 1
+                }
+            )
 
-        Items.Title = Instances:Create("TextLabel", {
-            Parent = Items.Frame.Instance,
-            Size = UDim2New(1, 0, 0, 15),
-            BorderSizePixel = 0,
-            BackgroundTransparency = 1,
-            FontFace = Library.Font,
-            Text = "Hotkeys",
-            TextSize = 11,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextColor3 = Library.Theme.Text,
-            ZIndex = 401
+        Items.Header =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent =
+                        Items.Frame.Instance,
+
+                    Size =
+                        UDim2New(1, 0, 0, 31),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme.Inline,
+
+                    ZIndex = 401
+                }
+            )
+
+        Items.Header:AddToTheme({
+            BackgroundColor3 = "Inline"
         })
+
+        Items.HeaderIcon =
+            Library:CreateVectorIcon(
+                Items.Header,
+                "list",
+                {
+                    Size = 16,
+                    Position =
+                        UDim2New(
+                            0,
+                            9,
+                            0.5,
+                            0
+                        ),
+                    AnchorPoint =
+                        Vector2New(0, 0.5),
+                    Theme = "Accent",
+                    ZIndex = 404
+                }
+            )
+
+        Items.Title =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent =
+                        Items.Header.Instance,
+
+                    Position =
+                        UDim2New(
+                            0,
+                            31,
+                            0,
+                            0
+                        ),
+
+                    Size =
+                        UDim2New(
+                            1,
+                            -64,
+                            1,
+                            0
+                        ),
+
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    FontFace = Library.Font,
+                    Text = "Keybind list",
+                    TextSize = 11,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    TextColor3 =
+                        Library.Theme.Text,
+
+                    ZIndex = 403
+                }
+            )
+
         Items.Title:AddToTheme({
             TextColor3 = "Text"
         })
 
-        Items.Content = Instances:Create("Frame", {
-            Parent = Items.Frame.Instance,
-            Position = UDim2New(0, 0, 0, 20),
-            Size = UDim2New(1, 0, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
-            BorderSizePixel = 0,
-            BackgroundTransparency = 1,
-            ZIndex = 401
+        Items.Pin =
+            Instances:Create(
+                "TextButton",
+                {
+                    Parent =
+                        Items.Header.Instance,
+
+                    AnchorPoint =
+                        Vector2New(1, 0.5),
+
+                    Position =
+                        UDim2New(
+                            1,
+                            -8,
+                            0.5,
+                            0
+                        ),
+
+                    Size =
+                        UDim2New(
+                            0,
+                            22,
+                            0,
+                            22
+                        ),
+
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    AutoButtonColor = false,
+                    Text = "",
+                    ZIndex = 404
+                }
+            )
+
+        Items.PinIcon =
+            Library:CreateVectorIcon(
+                Items.Pin,
+                "pin",
+                {
+                    Size = 14,
+                    Position =
+                        UDim2New(
+                            0.5,
+                            0,
+                            0.5,
+                            0
+                        ),
+                    AnchorPoint =
+                        Vector2New(0.5, 0.5),
+                    Theme = "Muted Text",
+                    ZIndex = 405
+                }
+            )
+
+        Items.Columns =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent =
+                        Items.Frame.Instance,
+
+                    Position =
+                        UDim2New(
+                            0,
+                            8,
+                            0,
+                            36
+                        ),
+
+                    Size =
+                        UDim2New(
+                            1,
+                            -16,
+                            0,
+                            22
+                        ),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Page Background"
+                        ],
+
+                    ZIndex = 401
+                }
+            )
+
+        Items.Columns:AddToTheme({
+            BackgroundColor3 =
+                "Page Background"
         })
 
-        local Layout = InstanceNew("UIListLayout")
-        Layout.Padding = UDimNew(0, 3)
-        Layout.SortOrder = Enum.SortOrder.LayoutOrder
-        Layout.Parent = Items.Content.Instance
+        local function HeaderLabel(
+            Text,
+            Position,
+            Size,
+            Alignment
+        )
+            local Label =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            Items.Columns.Instance,
 
-        function KeybindList:Add(Mode, Name, Key)
+                        Position = Position,
+                        Size = Size,
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+                        FontFace = Library.Font,
+                        Text = Text,
+                        TextSize = 9,
+
+                        TextXAlignment =
+                            Alignment,
+
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ],
+
+                        ZIndex = 402
+                    }
+                )
+
+            Label:AddToTheme({
+                TextColor3 = "Muted Text"
+            })
+
+            return Label
+        end
+
+        HeaderLabel(
+            "Function",
+            UDim2New(0, 8, 0, 0),
+            UDim2New(0, 126, 1, 0),
+            Enum.TextXAlignment.Left
+        )
+
+        HeaderLabel(
+            "Hotkey",
+            UDim2New(0, 136, 0, 0),
+            UDim2New(0, 48, 1, 0),
+            Enum.TextXAlignment.Left
+        )
+
+        HeaderLabel(
+            "Status",
+            UDim2New(0, 187, 0, 0),
+            UDim2New(1, -195, 1, 0),
+            Enum.TextXAlignment.Left
+        )
+
+        Items.Content =
+            Instances:Create(
+                "ScrollingFrame",
+                {
+                    Parent =
+                        Items.Frame.Instance,
+
+                    Position =
+                        UDim2New(
+                            0,
+                            8,
+                            0,
+                            59
+                        ),
+
+                    Size =
+                        UDim2New(
+                            1,
+                            -16,
+                            1,
+                            -67
+                        ),
+
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+
+                    ScrollBarImageColor3 =
+                        Library.Theme.Accent,
+
+                    ScrollBarThickness = 2,
+
+                    VerticalScrollBarInset =
+                        Enum.ScrollBarInset.ScrollBar,
+
+                    ScrollingDirection =
+                        Enum.ScrollingDirection.Y,
+
+                    ElasticBehavior =
+                        Enum.ElasticBehavior.Never,
+
+                    AutomaticCanvasSize =
+                        Enum.AutomaticSize.Y,
+
+                    CanvasSize =
+                        UDim2New(0, 0, 0, 0),
+
+                    ClipsDescendants = true,
+                    ZIndex = 401
+                }
+            )
+
+        Items.Content:AddToTheme({
+            ScrollBarImageColor3 = "Accent"
+        })
+
+        local Layout =
+            InstanceNew("UIListLayout")
+
+        Layout.Padding = UDimNew(0, 1)
+        Layout.SortOrder =
+            Enum.SortOrder.LayoutOrder
+        Layout.Parent =
+            Items.Content.Instance
+
+        Items.Frame:MakeDraggable(
+            Items.Header,
+            0
+        )
+
+        local function FormatKey(Value)
+            Value = tostring(Value or "")
+
+            if Value == ""
+                or Value == "None"
+                or Value == "Unknown"
+            then
+                return "—"
+            end
+
+            return Value
+        end
+
+        local function FormatMode(Value)
+            Value = tostring(Value or "Toggle")
+
+            if Value == "" then
+                return "Toggle"
+            end
+
+            return Value
+        end
+
+        function KeybindList:Add(
+            Mode,
+            Name,
+            Key
+        )
             local NewKey = {
-                Mode = tostring(Mode or ""),
+                Mode = tostring(Mode or "Toggle"),
                 RawName = tostring(Name or ""),
-                RawKey = tostring(Key or "")
+                RawKey = tostring(Key or ""),
+                Active = false
             }
 
-            NewKey.Frame = Instances:Create("Frame", {
-                Parent = Items.Content.Instance,
-                Size = UDim2New(1, 0, 0, 16),
-                BorderSizePixel = 0,
-                BackgroundTransparency = 1,
-                ZIndex = 402
+            NewKey.Frame =
+                Instances:Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Items.Content.Instance,
+
+                        Size =
+                            UDim2New(
+                                1,
+                                0,
+                                0,
+                                25
+                            ),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Element,
+
+                        BackgroundTransparency = 1,
+
+                        AutoButtonColor = false,
+                        Text = "",
+                        ZIndex = 402
+                    }
+                )
+
+            NewKey.Frame:AddToTheme({
+                BackgroundColor3 = "Element"
             })
 
-            NewKey.Name = Instances:Create("TextLabel", {
-                Parent = NewKey.Frame.Instance,
-                Size = UDim2New(1, -40, 1, 0),
-                BorderSizePixel = 0,
-                BackgroundTransparency = 1,
-                FontFace = Library.Font,
-                Text = NewKey.RawName,
-                TextSize = 10,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextColor3 = Library.Theme.Text,
-                TextTruncate = Enum.TextTruncate.AtEnd,
-                ZIndex = 403
+            NewKey.Marker =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            NewKey.Frame.Instance,
+
+                        Position =
+                            UDim2New(
+                                0,
+                                0,
+                                0,
+                                4
+                            ),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                2,
+                                1,
+                                -8
+                            ),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Accent,
+
+                        BackgroundTransparency = 1,
+                        ZIndex = 403
+                    }
+                )
+
+            NewKey.Marker:AddToTheme({
+                BackgroundColor3 = "Accent"
             })
+
+            NewKey.Name =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            NewKey.Frame.Instance,
+
+                        Position =
+                            UDim2New(
+                                0,
+                                8,
+                                0,
+                                0
+                            ),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                126,
+                                1,
+                                0
+                            ),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+                        FontFace = Library.Font,
+                        Text = NewKey.RawName,
+                        TextSize = 10,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        TextColor3 =
+                            Library.Theme.Text,
+
+                        TextTruncate =
+                            Enum.TextTruncate.AtEnd,
+
+                        ZIndex = 403
+                    }
+                )
+
             NewKey.Name:AddToTheme({
                 TextColor3 = "Text"
             })
 
-            NewKey.Key = Instances:Create("TextLabel", {
-                Parent = NewKey.Frame.Instance,
-                AnchorPoint = Vector2New(1, 0),
-                Position = UDim2New(1, 0, 0, 0),
-                Size = UDim2New(0, 38, 1, 0),
-                BorderSizePixel = 0,
-                BackgroundTransparency = 1,
-                FontFace = Library.Font,
-                Text = "",
-                TextSize = 10,
-                TextXAlignment = Enum.TextXAlignment.Right,
-                TextColor3 = Library.Theme["Muted Text"],
-                ZIndex = 403
-            })
+            NewKey.Key =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            NewKey.Frame.Instance,
+
+                        Position =
+                            UDim2New(
+                                0,
+                                136,
+                                0,
+                                0
+                            ),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                48,
+                                1,
+                                0
+                            ),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+                        FontFace = Library.Font,
+                        Text = FormatKey(NewKey.RawKey),
+                        TextSize = 10,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        TextColor3 =
+                            Library.Theme.Text,
+
+                        ZIndex = 403
+                    }
+                )
+
             NewKey.Key:AddToTheme({
+                TextColor3 = "Text"
+            })
+
+            NewKey.Status =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            NewKey.Frame.Instance,
+
+                        Position =
+                            UDim2New(
+                                0,
+                                187,
+                                0,
+                                0
+                            ),
+
+                        Size =
+                            UDim2New(
+                                1,
+                                -216,
+                                1,
+                                0
+                            ),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+                        FontFace = Library.Font,
+                        Text = FormatMode(NewKey.Mode),
+                        TextSize = 10,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ],
+
+                        ZIndex = 403
+                    }
+                )
+
+            NewKey.Status:AddToTheme({
                 TextColor3 = "Muted Text"
             })
 
-            local function FormatKey(Value)
-                Value = tostring(Value or "")
+            NewKey.More =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            NewKey.Frame.Instance,
 
-                if Value == ""
-                    or Value == "None"
-                    or Value == "Unknown"
-                then
-                    return "—"
-                end
+                        AnchorPoint =
+                            Vector2New(1, 0),
 
-                return "[" .. Value .. "]"
-            end
+                        Position =
+                            UDim2New(
+                                1,
+                                -5,
+                                0,
+                                0
+                            ),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                18,
+                                1,
+                                0
+                            ),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+                        FontFace = Library.Font,
+                        Text = "...",
+                        TextSize = 10,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Right,
+
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ],
+
+                        ZIndex = 403
+                    }
+                )
+
+            NewKey.More:AddToTheme({
+                TextColor3 = "Muted Text"
+            })
+
+            NewKey.Frame:OnHover(function()
+                NewKey.Frame:Tween(
+                    RowTween,
+                    {
+                        BackgroundTransparency =
+                            0.38
+                    }
+                )
+            end)
+
+            NewKey.Frame:OnHoverLeave(function()
+                NewKey.Frame:Tween(
+                    RowTween,
+                    {
+                        BackgroundTransparency =
+                            NewKey.Active
+                            and 0.48
+                            or 1
+                    }
+                )
+            end)
 
             function NewKey:Set(
                 NewMode,
@@ -3309,38 +3888,96 @@ local Library
                 NewKeyValue
             )
                 NewKey.Mode =
-                    tostring(NewMode or "")
+                    tostring(
+                        NewMode or "Toggle"
+                    )
+
                 NewKey.RawName =
-                    tostring(NewName or "")
+                    tostring(
+                        NewName or ""
+                    )
+
                 NewKey.RawKey =
-                    tostring(NewKeyValue or "")
+                    tostring(
+                        NewKeyValue or ""
+                    )
 
                 NewKey.Name.Instance.Text =
                     NewKey.RawName
+
                 NewKey.Key.Instance.Text =
-                    FormatKey(NewKey.RawKey)
+                    FormatKey(
+                        NewKey.RawKey
+                    )
+
+                NewKey.Status.Instance.Text =
+                    FormatMode(
+                        NewKey.Mode
+                    )
             end
 
             function NewKey:SetStatus(Status)
-                local Active =
+                NewKey.Active =
                     Status == "Active"
 
-                NewKey.Name:Tween(nil, {
-                    TextColor3 =
-                        Active
-                        and Library.Theme.Text
-                        or Library.Theme["Muted Text"],
-                    TextTransparency =
-                        Active and 0 or 0.08
-                })
+                NewKey.Marker:Tween(
+                    RowTween,
+                    {
+                        BackgroundTransparency =
+                            NewKey.Active
+                            and 0
+                            or 1
+                    }
+                )
 
-                NewKey.Key:Tween(nil, {
-                    TextColor3 =
-                        Active
-                        and Library.Theme.Accent
-                        or Library.Theme["Muted Text"],
-                    TextTransparency = 0
-                })
+                NewKey.Frame:Tween(
+                    RowTween,
+                    {
+                        BackgroundTransparency =
+                            NewKey.Active
+                            and 0.48
+                            or 1
+                    }
+                )
+
+                NewKey.Name:Tween(
+                    RowTween,
+                    {
+                        TextColor3 =
+                            NewKey.Active
+                            and Library.Theme.Text
+                            or Library.Theme[
+                                "Muted Text"
+                            ],
+
+                        TextTransparency =
+                            NewKey.Active
+                            and 0
+                            or 0.04
+                    }
+                )
+
+                NewKey.Key:Tween(
+                    RowTween,
+                    {
+                        TextColor3 =
+                            NewKey.Active
+                            and Library.Theme.Accent
+                            or Library.Theme.Text
+                    }
+                )
+
+                NewKey.Status:Tween(
+                    RowTween,
+                    {
+                        TextColor3 =
+                            NewKey.Active
+                            and Library.Theme.Text
+                            or Library.Theme[
+                                "Muted Text"
+                            ]
+                    }
+                )
             end
 
             NewKey:Set(
@@ -3349,16 +3986,63 @@ local Library
                 NewKey.RawKey
             )
 
+            KeybindList.Rows[
+                #KeybindList.Rows + 1
+            ] = NewKey
+
             return NewKey
         end
 
+        Items.Pin:OnHover(function()
+            Items.PinIcon:SetTheme("Text")
+        end)
+
+        Items.Pin:OnHoverLeave(function()
+            Items.PinIcon:SetTheme(
+                KeybindList.Pinned
+                and "Accent"
+                or "Muted Text"
+            )
+        end)
+
+        Items.Pin:Connect(
+            "MouseButton1Down",
+            function()
+                KeybindList.Pinned =
+                    not KeybindList.Pinned
+
+                Items.PinIcon:SetTheme(
+                    KeybindList.Pinned
+                    and "Accent"
+                    or "Muted Text"
+                )
+            end
+        )
+
         function KeybindList:SetVisibility(Bool)
-            Items.Frame.Instance.Visible =
+            KeybindList.Visible =
                 Bool == true
+
+            Items.Frame.Instance.Visible =
+                KeybindList.Visible
+        end
+
+        function KeybindList:SetScale(Value)
+            KeybindList.Scale =
+                math.clamp(
+                    tonumber(Value) or 1,
+                    0.65,
+                    1.5
+                )
+
+            Items.Scale.Instance.Scale =
+                KeybindList.Scale
         end
 
         KeybindList.Frame =
             Items.Frame.Instance
+
+        KeybindList.Items = Items
 
         return KeybindList
     end
@@ -7781,7 +8465,7 @@ local Library
 
         local Window = {
             Name = Data.Name or Data.name or "Window",
-            Size = Data.Size or Data.size or UDim2New(0, 540, 0, 560),
+            Size = Data.Size or Data.size or UDim2New(0, 720, 0, 470),
             FadeSpeed = Data.FadeSpeed or Data.fadespeed or 0.25,
             Pages = { },
             SubPages = { },
@@ -7825,13 +8509,13 @@ local Library
             })
 
             Items["MainFrame"]:MakeResizeable(
-                Vector2New(480, 380),
+                Vector2New(620, 400),
                 Vector2New(9999, 9999)
             )
 
-            local RailWidth = 104
-            local RailMinimum = 82
-            local RailMaximum = 190
+            local RailWidth = 138
+            local RailMinimum = 118
+            local RailMaximum = 210
             local RailGap = 10
 
             Items["Rail"] = Instances:Create("Frame", {
@@ -7940,7 +8624,7 @@ local Library
 
                 local DynamicMaximum = math.max(
                     RailMinimum,
-                    math.min(RailMaximum, FrameWidth - 330)
+                    math.min(RailMaximum, FrameWidth - 430)
                 )
 
                 RailWidth = math.clamp(
@@ -8105,28 +8789,1433 @@ local Library
                 Color = "Outline"
             })
 
-            Items["Title"] = Instances:Create("TextLabel", {
-                Parent = Items["Panel"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = Library.Theme.Text,
-                Text = Window.Name,
-                Name = string.char(0),
-                Size = UDim2New(1, -24, 0, 24),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Right,
-                Position = UDim2New(0, 12, 0, 5),
-                BorderSizePixel = 0,
-                TextSize = 14,
-                TextTransparency = 0
+            Items["Gear"] =
+                Instances:Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Items["Panel"].Instance,
+
+                        AnchorPoint =
+                            Vector2New(1, 0),
+
+                        Position =
+                            UDim2New(
+                                1,
+                                -7,
+                                0,
+                                5
+                            ),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                24,
+                                0,
+                                24
+                            ),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Element,
+
+                        BackgroundTransparency = 1,
+
+                        AutoButtonColor = false,
+                        Text = "",
+                        ZIndex = 701
+                    }
+                )
+
+            Items["Gear"]:AddToTheme({
+                BackgroundColor3 = "Element"
             })
+
+            Library:ApplyGlass(
+                Items["Gear"],
+                "Element",
+                4
+            )
+
+            Items["GearIcon"] =
+                Library:CreateVectorIcon(
+                    Items["Gear"],
+                    "gear",
+                    {
+                        Size = 15,
+
+                        Position =
+                            UDim2New(
+                                0.5,
+                                0,
+                                0.5,
+                                0
+                            ),
+
+                        AnchorPoint =
+                            Vector2New(0.5, 0.5),
+
+                        Theme = "Muted Text",
+                        ZIndex = 703
+                    }
+                )
+
+            Items["Title"] =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            Items["Panel"].Instance,
+
+                        FontFace = Library.Font,
+                        TextColor3 = Library.Theme.Text,
+                        Text = Window.Name,
+                        Name = string.char(0),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                150,
+                                0,
+                                24
+                            ),
+
+                        AnchorPoint =
+                            Vector2New(1, 0),
+
+                        BackgroundTransparency = 1,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Right,
+
+                        Position =
+                            UDim2New(
+                                1,
+                                -38,
+                                0,
+                                5
+                            ),
+
+                        BorderSizePixel = 0,
+                        TextSize = 14,
+                        TextTransparency = 0,
+                        ZIndex = 700
+                    }
+                )
+
             Items["Title"]:AddToTheme({
                 TextColor3 = "Text"
             })
 
+            Items["DragArea"] =
+                Instances:Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Items["Panel"].Instance,
+
+                        Position =
+                            UDim2New(0, 0, 0, 0),
+
+                        Size =
+                            UDim2New(1, -190, 0, 33),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+                        AutoButtonColor = false,
+                        Text = "",
+                        ZIndex = 699
+                    }
+                )
+
             Items["MainFrame"]:MakeDraggable(
-                Items["Title"],
+                Items["DragArea"],
                 32
             )
+
+            local QuickState = {
+                Open = false,
+                Submenu = nil,
+                MenuScale = 1,
+                Style =
+                    Data.Style
+                    or "Radiant Emerald",
+
+                HideWatermark = false,
+                HideNotifications = false,
+                HideKeybinds = false
+            }
+
+            Items["QuickPanel"] =
+                Instances:Create(
+                    "CanvasGroup",
+                    {
+                        Parent =
+                            Items["Panel"].Instance,
+
+                        AnchorPoint =
+                            Vector2New(1, 0),
+
+                        Position =
+                            UDim2New(
+                                1,
+                                -7,
+                                0,
+                                34
+                            ),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                190,
+                                0,
+                                216
+                            ),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Background,
+
+                        Visible = false,
+                        Active = true,
+                        GroupTransparency = 1,
+                        ClipsDescendants = true,
+                        ZIndex = 720
+                    }
+                )
+
+            Items["QuickPanel"]:AddToTheme({
+                BackgroundColor3 = "Background"
+            })
+
+            Library:ApplyGlass(
+                Items["QuickPanel"],
+                "Popup",
+                6
+            )
+
+            Items["QuickProfile"] =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            Items["QuickPanel"].Instance,
+
+                        Position =
+                            UDim2New(
+                                0,
+                                7,
+                                0,
+                                7
+                            ),
+
+                        Size =
+                            UDim2New(
+                                1,
+                                -14,
+                                0,
+                                45
+                            ),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme[
+                                "Page Background"
+                            ],
+
+                        ZIndex = 721
+                    }
+                )
+
+            Items["QuickProfile"]:AddToTheme({
+                BackgroundColor3 =
+                    "Page Background"
+            })
+
+            Library:ApplyGlass(
+                Items["QuickProfile"],
+                "Element",
+                5
+            )
+
+            Items["QuickAvatar"] =
+                Instances:Create(
+                    "ImageLabel",
+                    {
+                        Parent =
+                            Items["QuickProfile"].Instance,
+
+                        Position =
+                            UDim2New(
+                                0,
+                                7,
+                                0.5,
+                                -15
+                            ),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                30,
+                                0,
+                                30
+                            ),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+
+                        Image =
+                            "rbxthumb://type=AvatarHeadShot&id="
+                            .. tostring(LocalPlayer.UserId)
+                            .. "&w=100&h=100",
+
+                        ZIndex = 722
+                    }
+                )
+
+            local QuickAvatarCorner =
+                InstanceNew("UICorner")
+
+            QuickAvatarCorner.CornerRadius =
+                UDimNew(1, 0)
+
+            QuickAvatarCorner.Parent =
+                Items["QuickAvatar"].Instance
+
+            Items["QuickName"] =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            Items["QuickProfile"].Instance,
+
+                        Position =
+                            UDim2New(
+                                0,
+                                44,
+                                0,
+                                7
+                            ),
+
+                        Size =
+                            UDim2New(
+                                1,
+                                -51,
+                                0,
+                                15
+                            ),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+                        FontFace = Library.Font,
+
+                        Text =
+                            LocalPlayer.DisplayName
+                            or LocalPlayer.Name,
+
+                        TextSize = 10,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        TextColor3 =
+                            Library.Theme.Text,
+
+                        TextTruncate =
+                            Enum.TextTruncate.AtEnd,
+
+                        ZIndex = 722
+                    }
+                )
+
+            Items["QuickName"]:AddToTheme({
+                TextColor3 = "Text"
+            })
+
+            Items["QuickUser"] =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            Items["QuickProfile"].Instance,
+
+                        Position =
+                            UDim2New(
+                                0,
+                                44,
+                                0,
+                                22
+                            ),
+
+                        Size =
+                            UDim2New(
+                                1,
+                                -51,
+                                0,
+                                14
+                            ),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+                        FontFace = Library.Font,
+
+                        Text =
+                            "@"
+                            .. tostring(
+                                LocalPlayer.Name
+                            ),
+
+                        TextSize = 9,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ],
+
+                        TextTruncate =
+                            Enum.TextTruncate.AtEnd,
+
+                        ZIndex = 722
+                    }
+                )
+
+            Items["QuickUser"]:AddToTheme({
+                TextColor3 = "Muted Text"
+            })
+
+            Items["QuickRows"] =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            Items["QuickPanel"].Instance,
+
+                        Position =
+                            UDim2New(
+                                0,
+                                7,
+                                0,
+                                58
+                            ),
+
+                        Size =
+                            UDim2New(
+                                1,
+                                -14,
+                                1,
+                                -65
+                            ),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+                        ZIndex = 721
+                    }
+                )
+
+            local QuickRowsLayout =
+                InstanceNew("UIListLayout")
+
+            QuickRowsLayout.Padding =
+                UDimNew(0, 2)
+
+            QuickRowsLayout.SortOrder =
+                Enum.SortOrder.LayoutOrder
+
+            QuickRowsLayout.Parent =
+                Items["QuickRows"].Instance
+
+            local QuickTween =
+                TweenInfo.new(
+                    0.12,
+                    Enum.EasingStyle.Quad,
+                    Enum.EasingDirection.Out
+                )
+
+            local function CreateQuickRow(
+                Key,
+                Name,
+                IconName,
+                Value
+            )
+                local Row =
+                    Instances:Create(
+                        "TextButton",
+                        {
+                            Parent =
+                                Items["QuickRows"].Instance,
+
+                            Size =
+                                UDim2New(
+                                    1,
+                                    0,
+                                    0,
+                                    27
+                                ),
+
+                            BorderSizePixel = 0,
+
+                            BackgroundColor3 =
+                                Library.Theme.Element,
+
+                            BackgroundTransparency = 1,
+
+                            AutoButtonColor = false,
+                            Text = "",
+                            ZIndex = 722
+                        }
+                    )
+
+                Row:AddToTheme({
+                    BackgroundColor3 = "Element"
+                })
+
+                local Icon =
+                    Library:CreateVectorIcon(
+                        Row,
+                        IconName,
+                        {
+                            Size = 14,
+
+                            Position =
+                                UDim2New(
+                                    0,
+                                    7,
+                                    0.5,
+                                    0
+                                ),
+
+                            AnchorPoint =
+                                Vector2New(0, 0.5),
+
+                            Theme = "Muted Text",
+                            ZIndex = 724
+                        }
+                    )
+
+                local Label =
+                    Instances:Create(
+                        "TextLabel",
+                        {
+                            Parent = Row.Instance,
+
+                            Position =
+                                UDim2New(
+                                    0,
+                                    27,
+                                    0,
+                                    0
+                                ),
+
+                            Size =
+                                UDim2New(
+                                    1,
+                                    -78,
+                                    1,
+                                    0
+                                ),
+
+                            BorderSizePixel = 0,
+                            BackgroundTransparency = 1,
+                            FontFace = Library.Font,
+                            Text = Name,
+                            TextSize = 10,
+
+                            TextXAlignment =
+                                Enum.TextXAlignment.Left,
+
+                            TextColor3 =
+                                Library.Theme.Text,
+
+                            ZIndex = 723
+                        }
+                    )
+
+                Label:AddToTheme({
+                    TextColor3 = "Text"
+                })
+
+                local ValueLabel =
+                    Instances:Create(
+                        "TextLabel",
+                        {
+                            Parent = Row.Instance,
+
+                            AnchorPoint =
+                                Vector2New(1, 0),
+
+                            Position =
+                                UDim2New(
+                                    1,
+                                    -7,
+                                    0,
+                                    0
+                                ),
+
+                            Size =
+                                UDim2New(
+                                    0,
+                                    48,
+                                    1,
+                                    0
+                                ),
+
+                            BorderSizePixel = 0,
+                            BackgroundTransparency = 1,
+                            FontFace = Library.Font,
+                            Text = Value or "",
+                            TextSize = 9,
+
+                            TextXAlignment =
+                                Enum.TextXAlignment.Right,
+
+                            TextColor3 =
+                                Library.Theme[
+                                    "Muted Text"
+                                ],
+
+                            ZIndex = 723
+                        }
+                    )
+
+                ValueLabel:AddToTheme({
+                    TextColor3 = "Muted Text"
+                })
+
+                Row:OnHover(function()
+                    Row:Tween(
+                        QuickTween,
+                        {
+                            BackgroundTransparency =
+                                0.36
+                        }
+                    )
+
+                    Icon:SetTheme("Text")
+                end)
+
+                Row:OnHoverLeave(function()
+                    Row:Tween(
+                        QuickTween,
+                        {
+                            BackgroundTransparency = 1
+                        }
+                    )
+
+                    Icon:SetTheme("Muted Text")
+                end)
+
+                Items[Key] = {
+                    Row = Row,
+                    Icon = Icon,
+                    Label = Label,
+                    Value = ValueLabel
+                }
+
+                return Items[Key]
+            end
+
+            local ScaleRow =
+                CreateQuickRow(
+                    "QuickScale",
+                    "Menu Scale",
+                    "sliders",
+                    "100%"
+                )
+
+            local StyleRow =
+                CreateQuickRow(
+                    "QuickStyle",
+                    "Style",
+                    "palette",
+                    QuickState.Style
+                )
+
+            local function CreateQuickToggle(
+                Key,
+                Name,
+                IconName,
+                Getter,
+                Setter
+            )
+                local Entry =
+                    CreateQuickRow(
+                        Key,
+                        Name,
+                        IconName,
+                        ""
+                    )
+
+                Entry.Box =
+                    Instances:Create(
+                        "Frame",
+                        {
+                            Parent =
+                                Entry.Row.Instance,
+
+                            AnchorPoint =
+                                Vector2New(1, 0.5),
+
+                            Position =
+                                UDim2New(
+                                    1,
+                                    -8,
+                                    0.5,
+                                    0
+                                ),
+
+                            Size =
+                                UDim2New(
+                                    0,
+                                    12,
+                                    0,
+                                    12
+                                ),
+
+                            BorderSizePixel = 0,
+
+                            BackgroundColor3 =
+                                Library.Theme.Element,
+
+                            ZIndex = 725
+                        }
+                    )
+
+                Entry.Box:AddToTheme({
+                    BackgroundColor3 = "Element"
+                })
+
+                Library:ApplyGlass(
+                    Entry.Box,
+                    "Element",
+                    3
+                )
+
+                Entry.Fill =
+                    Instances:Create(
+                        "Frame",
+                        {
+                            Parent =
+                                Entry.Box.Instance,
+
+                            Position =
+                                UDim2New(
+                                    0,
+                                    3,
+                                    0,
+                                    3
+                                ),
+
+                            Size =
+                                UDim2New(
+                                    1,
+                                    -6,
+                                    1,
+                                    -6
+                                ),
+
+                            BorderSizePixel = 0,
+
+                            BackgroundColor3 =
+                                Library.Theme.Accent,
+
+                            BackgroundTransparency = 1,
+                            ZIndex = 726
+                        }
+                    )
+
+                Entry.Fill:AddToTheme({
+                    BackgroundColor3 = "Accent"
+                })
+
+                local FillCorner =
+                    InstanceNew("UICorner")
+
+                FillCorner.CornerRadius =
+                    UDimNew(0, 1)
+
+                FillCorner.Parent =
+                    Entry.Fill.Instance
+
+                local function Refresh()
+                    local Active =
+                        Getter() == true
+
+                    Entry.Fill:Tween(
+                        QuickTween,
+                        {
+                            BackgroundTransparency =
+                                Active and 0 or 1
+                        }
+                    )
+                end
+
+                Entry.Row:Connect(
+                    "MouseButton1Down",
+                    function()
+                        Setter(
+                            not Getter()
+                        )
+
+                        Refresh()
+                    end
+                )
+
+                Entry.Refresh = Refresh
+                Refresh()
+
+                return Entry
+            end
+
+            local HideWatermark =
+                CreateQuickToggle(
+                    "QuickHideWatermark",
+                    "Hide Watermark",
+                    "eyeoff",
+                    function()
+                        return QuickState.HideWatermark
+                    end,
+                    function(Value)
+                        QuickState.HideWatermark =
+                            Value == true
+
+                        if Library.SetFlags[
+                            "Watermark"
+                        ] then
+                            Library.SetFlags[
+                                "Watermark"
+                            ](
+                                not QuickState.
+                                    HideWatermark
+                            )
+                        elseif Library.ActiveWatermark then
+                            Library.ActiveWatermark:
+                                SetVisibility(
+                                    not QuickState.
+                                        HideWatermark
+                                )
+                        end
+                    end
+                )
+
+            local HideNotifications =
+                CreateQuickToggle(
+                    "QuickHideNotifications",
+                    "Hide Notifications",
+                    "belloff",
+                    function()
+                        return QuickState.
+                            HideNotifications
+                    end,
+                    function(Value)
+                        QuickState.
+                            HideNotifications =
+                            Value == true
+
+                        Library.NotificationsHidden =
+                            QuickState.
+                                HideNotifications
+                    end
+                )
+
+            local HideKeybinds =
+                CreateQuickToggle(
+                    "QuickHideKeybinds",
+                    "Hide Keybind List",
+                    "list",
+                    function()
+                        return QuickState.
+                            HideKeybinds
+                    end,
+                    function(Value)
+                        QuickState.
+                            HideKeybinds =
+                            Value == true
+
+                        if Library.SetFlags[
+                            "Keybind List"
+                        ] then
+                            Library.SetFlags[
+                                "Keybind List"
+                            ](
+                                not QuickState.
+                                    HideKeybinds
+                            )
+                        elseif Library.KeyList then
+                            Library.KeyList:
+                                SetVisibility(
+                                    not QuickState.
+                                        HideKeybinds
+                                )
+                        end
+                    end
+                )
+
+            Items["QuickSubmenu"] =
+                Instances:Create(
+                    "CanvasGroup",
+                    {
+                        Parent =
+                            Items["Panel"].Instance,
+
+                        AnchorPoint =
+                            Vector2New(1, 0),
+
+                        Position =
+                            UDim2New(
+                                1,
+                                -204,
+                                0,
+                                58
+                            ),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                124,
+                                0,
+                                0
+                            ),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Background,
+
+                        Visible = false,
+                        Active = true,
+                        GroupTransparency = 1,
+                        ClipsDescendants = true,
+                        ZIndex = 730
+                    }
+                )
+
+            Items["QuickSubmenu"]:AddToTheme({
+                BackgroundColor3 = "Background"
+            })
+
+            Library:ApplyGlass(
+                Items["QuickSubmenu"],
+                "Popup",
+                5
+            )
+
+            Items["QuickSubmenuRows"] =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            Items["QuickSubmenu"].
+                                Instance,
+
+                        Position =
+                            UDim2New(
+                                0,
+                                4,
+                                0,
+                                4
+                            ),
+
+                        Size =
+                            UDim2New(
+                                1,
+                                -8,
+                                1,
+                                -8
+                            ),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+                        ZIndex = 731
+                    }
+                )
+
+            local QuickSubLayout =
+                InstanceNew("UIListLayout")
+
+            QuickSubLayout.Padding =
+                UDimNew(0, 1)
+
+            QuickSubLayout.SortOrder =
+                Enum.SortOrder.LayoutOrder
+
+            QuickSubLayout.Parent =
+                Items["QuickSubmenuRows"].
+                    Instance
+
+            local function CloseSubmenu()
+                QuickState.Submenu = nil
+
+                Items["QuickSubmenu"]:Tween(
+                    QuickTween,
+                    {
+                        GroupTransparency = 1
+                    }
+                )
+
+                task.delay(
+                    0.12,
+                    function()
+                        if not QuickState.Submenu
+                            and Items[
+                                "QuickSubmenu"
+                            ].Instance
+                            and Items[
+                                "QuickSubmenu"
+                            ].Instance.Parent
+                        then
+                            Items[
+                                "QuickSubmenu"
+                            ].Instance.Visible =
+                                false
+                        end
+                    end
+                )
+            end
+
+            local function ClearSubmenuRows()
+                for _,
+                    Child in ipairs(
+                        Items[
+                            "QuickSubmenuRows"
+                        ].Instance:
+                            GetChildren()
+                    )
+                do
+                    if Child:IsA("GuiObject") then
+                        Child:Destroy()
+                    end
+                end
+            end
+
+            local function OpenSubmenu(
+                Kind,
+                Options,
+                Current,
+                Callback
+            )
+                QuickState.Submenu = Kind
+                ClearSubmenuRows()
+
+                local Height =
+                    #Options * 24 + 8
+
+                Items["QuickSubmenu"].
+                    Instance.Size =
+                    UDim2New(
+                        0,
+                        124,
+                        0,
+                        Height
+                    )
+
+                for _,
+                    Option in ipairs(Options)
+                do
+                    local Row =
+                        Instances:Create(
+                            "TextButton",
+                            {
+                                Parent =
+                                    Items[
+                                        "QuickSubmenuRows"
+                                    ].Instance,
+
+                                Size =
+                                    UDim2New(
+                                        1,
+                                        0,
+                                        0,
+                                        23
+                                    ),
+
+                                BorderSizePixel = 0,
+
+                                BackgroundColor3 =
+                                    Library.Theme.Element,
+
+                                BackgroundTransparency =
+                                    Option == Current
+                                    and 0.42
+                                    or 1,
+
+                                AutoButtonColor = false,
+                                Text = "",
+                                ZIndex = 732
+                            }
+                        )
+
+                    Row:AddToTheme({
+                        BackgroundColor3 =
+                            "Element"
+                    })
+
+                    local Marker =
+                        Instances:Create(
+                            "Frame",
+                            {
+                                Parent = Row.Instance,
+
+                                Position =
+                                    UDim2New(
+                                        0,
+                                        0,
+                                        0,
+                                        4
+                                    ),
+
+                                Size =
+                                    UDim2New(
+                                        0,
+                                        2,
+                                        1,
+                                        -8
+                                    ),
+
+                                BorderSizePixel = 0,
+
+                                BackgroundColor3 =
+                                    Library.Theme.Accent,
+
+                                BackgroundTransparency =
+                                    Option == Current
+                                    and 0
+                                    or 1,
+
+                                ZIndex = 733
+                            }
+                        )
+
+                    Marker:AddToTheme({
+                        BackgroundColor3 = "Accent"
+                    })
+
+                    local Label =
+                        Instances:Create(
+                            "TextLabel",
+                            {
+                                Parent = Row.Instance,
+
+                                Position =
+                                    UDim2New(
+                                        0,
+                                        9,
+                                        0,
+                                        0
+                                    ),
+
+                                Size =
+                                    UDim2New(
+                                        1,
+                                        -14,
+                                        1,
+                                        0
+                                    ),
+
+                                BorderSizePixel = 0,
+                                BackgroundTransparency = 1,
+                                FontFace = Library.Font,
+                                Text = tostring(Option),
+                                TextSize = 10,
+
+                                TextXAlignment =
+                                    Enum.TextXAlignment.Left,
+
+                                TextColor3 =
+                                    Option == Current
+                                    and Library.Theme.Accent
+                                    or Library.Theme.Text,
+
+                                ZIndex = 733
+                            }
+                        )
+
+                    Label:AddToTheme({
+                        TextColor3 =
+                            Option == Current
+                            and "Accent"
+                            or "Text"
+                    })
+
+                    Row:OnHover(function()
+                        Row:Tween(
+                            QuickTween,
+                            {
+                                BackgroundTransparency =
+                                    0.48
+                            }
+                        )
+                    end)
+
+                    Row:OnHoverLeave(function()
+                        Row:Tween(
+                            QuickTween,
+                            {
+                                BackgroundTransparency =
+                                    Option == Current
+                                    and 0.42
+                                    or 1
+                            }
+                        )
+                    end)
+
+                    Row:Connect(
+                        "MouseButton1Down",
+                        function()
+                            Callback(Option)
+                            CloseSubmenu()
+                        end
+                    )
+                end
+
+                Items["QuickSubmenu"].
+                    Instance.GroupTransparency = 1
+
+                Items["QuickSubmenu"].
+                    Instance.Visible = true
+
+                Items["QuickSubmenu"]:Tween(
+                    QuickTween,
+                    {
+                        GroupTransparency = 0
+                    }
+                )
+            end
+
+            ScaleRow.Row:Connect(
+                "MouseButton1Down",
+                function()
+                    OpenSubmenu(
+                        "Scale",
+                        {
+                            "75%",
+                            "90%",
+                            "100%",
+                            "110%",
+                            "125%"
+                        },
+                        ScaleRow.Value.Instance.Text,
+                        function(Option)
+                            local Number =
+                                tonumber(
+                                    tostring(Option):
+                                    gsub("%%", "")
+                                )
+                                or 100
+
+                            Window:SetMenuScale(
+                                Number / 100
+                            )
+                        end
+                    )
+                end
+            )
+
+            StyleRow.Row:Connect(
+                "MouseButton1Down",
+                function()
+                    OpenSubmenu(
+                        "Style",
+                        {
+                            "Radiant Emerald",
+                            "Deep Emerald",
+                            "Matrix"
+                        },
+                        QuickState.Style,
+                        function(Option)
+                            QuickState.Style =
+                                Option
+
+                            StyleRow.Value.
+                                Instance.Text =
+                                Option
+
+                            if type(
+                                Data.StyleCallback
+                            ) == "function"
+                            then
+                                Library:SafeCall(
+                                    Data.StyleCallback,
+                                    Option
+                                )
+                            end
+                        end
+                    )
+                end
+            )
+
+            function Window:SetMenuScale(Value)
+                QuickState.MenuScale =
+                    math.clamp(
+                        tonumber(Value) or 1,
+                        0.65,
+                        1.35
+                    )
+
+                Items["MenuScale"].
+                    Instance.Scale =
+                    QuickState.MenuScale
+
+                ScaleRow.Value.Instance.Text =
+                    tostring(
+                        math.floor(
+                            QuickState.MenuScale
+                            * 100
+                            + 0.5
+                        )
+                    )
+                    .. "%"
+            end
+
+            function Window:SetQuickOpen(Bool)
+                QuickState.Open =
+                    Bool == true
+
+                if QuickState.Open then
+                    Items["QuickPanel"].
+                        Instance.Visible = true
+
+                    Items["QuickPanel"].
+                        Instance.GroupTransparency = 1
+
+                    Items["QuickPanel"]:Tween(
+                        QuickTween,
+                        {
+                            GroupTransparency = 0
+                        }
+                    )
+
+                    Items["Gear"]:Tween(
+                        QuickTween,
+                        {
+                            BackgroundTransparency =
+                                0.28
+                        }
+                    )
+
+                    Items["GearIcon"]:
+                        SetTheme("Accent")
+                else
+                    CloseSubmenu()
+
+                    Items["QuickPanel"]:Tween(
+                        QuickTween,
+                        {
+                            GroupTransparency = 1
+                        }
+                    )
+
+                    Items["Gear"]:Tween(
+                        QuickTween,
+                        {
+                            BackgroundTransparency = 1
+                        }
+                    )
+
+                    Items["GearIcon"]:
+                        SetTheme("Muted Text")
+
+                    task.delay(
+                        0.12,
+                        function()
+                            if not QuickState.Open
+                                and Items[
+                                    "QuickPanel"
+                                ].Instance
+                                and Items[
+                                    "QuickPanel"
+                                ].Instance.Parent
+                            then
+                                Items[
+                                    "QuickPanel"
+                                ].Instance.Visible =
+                                    false
+                            end
+                        end
+                    )
+                end
+            end
+
+            Items["Gear"]:OnHover(function()
+                Items["Gear"]:Tween(
+                    QuickTween,
+                    {
+                        BackgroundTransparency =
+                            0.28
+                    }
+                )
+
+                Items["GearIcon"]:
+                    SetTheme(
+                        QuickState.Open
+                        and "Accent"
+                        or "Text"
+                    )
+            end)
+
+            Items["Gear"]:OnHoverLeave(function()
+                if QuickState.Open then
+                    return
+                end
+
+                Items["Gear"]:Tween(
+                    QuickTween,
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
+
+                Items["GearIcon"]:
+                    SetTheme("Muted Text")
+            end)
+
+            Items["Gear"]:Connect(
+                "MouseButton1Down",
+                function()
+                    Window:SetQuickOpen(
+                        not QuickState.Open
+                    )
+                end
+            )
+
+            Library:Connect(
+                UserInputService.InputBegan,
+                function(Input)
+                    if not QuickState.Open
+                        or Input.UserInputType
+                            ~= Enum.UserInputType.
+                                MouseButton1
+                    then
+                        return
+                    end
+
+                    if Library:IsMouseOverFrame(
+                        Items["QuickPanel"]
+                    )
+                        or Library:IsMouseOverFrame(
+                            Items["QuickSubmenu"]
+                        )
+                        or Library:IsMouseOverFrame(
+                            Items["Gear"]
+                        )
+                    then
+                        return
+                    end
+
+                    Window:SetQuickOpen(false)
+                end
+            )
+
+            Window.QuickSettings =
+                QuickState
+
+            Library.QuickSettingsWindow =
+                Window
 
             Items["Content"] = Instances:Create("Frame", {
                 Parent = Items["Panel"].Instance,
@@ -8217,7 +10306,8 @@ local Library
                     MenuScale,
                     AnimationInfo,
                     {
-                        Scale = 1
+                        Scale =
+                            QuickState.MenuScale
                     },
                     true
                 )
@@ -8240,7 +10330,9 @@ local Library
                     MenuScale,
                     AnimationInfo,
                     {
-                        Scale = 0.965
+                        Scale =
+                            QuickState.MenuScale
+                            * 0.965
                     },
                     true
                 )
@@ -8321,15 +10413,7 @@ local Library
 
         local Size =
             tonumber(Data.Size)
-            or 18
-
-        local Position =
-            Data.Position
-            or UDim2New(0, 6, 0.5, 0)
-
-        local AnchorPoint =
-            Data.AnchorPoint
-            or Vector2New(0, 0.5)
+            or 16
 
         local ParentInstance =
             Library:ResolveInstance(Parent)
@@ -8339,16 +10423,16 @@ local Library
             Instances:Create(
                 "Frame",
                 {
-                    Parent =
-                        ParentInstance,
-
+                    Parent = ParentInstance,
                     Name = string.char(0),
 
                     AnchorPoint =
-                        AnchorPoint,
+                        Data.AnchorPoint
+                        or Vector2New(0, 0.5),
 
                     Position =
-                        Position,
+                        Data.Position
+                        or UDim2New(0, 6, 0.5, 0),
 
                     Size =
                         UDim2New(
@@ -8367,13 +10451,20 @@ local Library
         Controller.Instance =
             Canvas.Instance
 
+        local Scale = Size / 16
+
+        local function P(Value)
+            return math.floor(
+                Value * Scale + 0.5
+            )
+        end
+
         local function Register(
             Object,
             Property
         )
             Object =
-                Library:
-                ResolveInstance(Object)
+                Library:ResolveInstance(Object)
                 or Object
 
             Library:AddToTheme(
@@ -8399,22 +10490,16 @@ local Library
             Radius
         )
             Object =
-                Library:
-                ResolveInstance(Object)
+                Library:ResolveInstance(Object)
                 or Object
 
             local Corner =
                 InstanceNew("UICorner")
 
             Corner.CornerRadius =
-                UDimNew(
-                    Radius == 1
-                    and 1
-                    or 0,
-                    Radius == 1
-                    and 0
-                    or Radius or 1
-                )
+                Radius == 1
+                and UDimNew(1, 0)
+                or UDimNew(0, P(Radius or 1))
 
             Corner.Parent = Object
         end
@@ -8434,22 +10519,20 @@ local Library
                         Parent =
                             Canvas.Instance,
 
-                        Name = string.char(0),
-
                         Position =
                             UDim2New(
                                 0,
-                                X,
+                                P(X),
                                 0,
-                                Y
+                                P(Y)
                             ),
 
                         Size =
                             UDim2New(
                                 0,
-                                Width,
+                                math.max(P(Width), 1),
                                 0,
-                                Height
+                                math.max(P(Height), 1)
                             ),
 
                         BorderSizePixel = 0,
@@ -8485,8 +10568,7 @@ local Library
             Y,
             Width,
             Height,
-            Radius,
-            Thickness
+            Radius
         )
             local Object =
                 Instances:Create(
@@ -8495,22 +10577,20 @@ local Library
                         Parent =
                             Canvas.Instance,
 
-                        Name = string.char(0),
-
                         Position =
                             UDim2New(
                                 0,
-                                X,
+                                P(X),
                                 0,
-                                Y
+                                P(Y)
                             ),
 
                         Size =
                             UDim2New(
                                 0,
-                                Width,
+                                P(Width),
                                 0,
-                                Height
+                                P(Height)
                             ),
 
                         BorderSizePixel = 0,
@@ -8536,7 +10616,7 @@ local Library
                 Enum.LineJoinMode.Round
 
             Stroke.Thickness =
-                Thickness or 1.35
+                math.max(1, 1.15 * Scale)
 
             Stroke.Parent =
                 Object.Instance
@@ -8553,8 +10633,7 @@ local Library
             X,
             Y,
             Diameter,
-            Filled,
-            Thickness
+            Filled
         )
             if Filled then
                 return Line(
@@ -8572,19 +10651,8 @@ local Library
                 Y,
                 Diameter,
                 Diameter,
-                1,
-                Thickness
+                1
             )
-        end
-
-        local function PixelScale(Value)
-            return Value
-                * Size
-                / 18
-        end
-
-        local function PX(Value)
-            return PixelScale(Value)
         end
 
         local Name =
@@ -8598,144 +10666,139 @@ local Library
         if Name == "crosshair"
             or Name == "aim"
         then
-            Circle(
-                PX(5),
-                PX(5),
-                PX(8),
-                false,
-                PX(1.2)
-            )
-
-            Line(PX(8.2), PX(0.5), PX(1.6), PX(4), 0, 1)
-            Line(PX(8.2), PX(13.5), PX(1.6), PX(4), 0, 1)
-            Line(PX(0.5), PX(8.2), PX(4), PX(1.6), 0, 1)
-            Line(PX(13.5), PX(8.2), PX(4), PX(1.6), 0, 1)
-            Circle(PX(7.4), PX(7.4), PX(3.2), true)
+            Circle(5, 5, 6, false)
+            Circle(7, 7, 2, true)
+            Line(7.5, 1, 1, 3, 0, 1)
+            Line(7.5, 12, 1, 3, 0, 1)
+            Line(1, 7.5, 3, 1, 0, 1)
+            Line(12, 7.5, 3, 1, 0, 1)
         elseif Name == "weapon"
             or Name == "gun"
         then
-            Line(PX(2), PX(5), PX(12), PX(4), 0, 2)
-            Line(PX(13), PX(6), PX(4), PX(2), 0, 1)
-            Line(PX(7), PX(8), PX(5), PX(2), 0, 1)
-            Line(PX(8), PX(8), PX(3), PX(7), -18, 2)
-            Line(PX(3), PX(4), PX(4), PX(1.5), 0, 1)
+            Line(2, 5, 10, 3, 0, 1)
+            Line(12, 6, 3, 1, 0, 1)
+            Line(5, 8, 5, 1, 0, 1)
+            Line(7, 8, 2, 6, -12, 1)
         elseif Name == "eye"
             or Name == "esp"
         then
-            Outline(
-                PX(1),
-                PX(4.5),
-                PX(16),
-                PX(9),
-                PX(5),
-                PX(1.25)
-            )
-
-            Circle(
-                PX(6),
-                PX(5),
-                PX(6),
-                false,
-                PX(1.25)
-            )
-
-            Circle(
-                PX(7.5),
-                PX(6.5),
-                PX(3),
-                true
-            )
+            Outline(1, 4, 14, 8, 4)
+            Circle(5.5, 4.5, 7, false)
+            Circle(7, 6, 3, true)
         elseif Name == "sparkles"
             or Name == "effects"
         then
-            Line(PX(8.2), PX(1), PX(1.6), PX(11), 0, 1)
-            Line(PX(3.5), PX(5.7), PX(11), PX(1.6), 0, 1)
-            Line(PX(5.3), PX(3), PX(1.5), PX(7), 45, 1)
-            Line(PX(11.2), PX(3), PX(1.5), PX(7), -45, 1)
-            Circle(PX(13), PX(12), PX(3), true)
+            Line(7.5, 1, 1, 10, 0, 1)
+            Line(3, 5.5, 10, 1, 0, 1)
+            Line(5, 3, 1, 6, 45, 1)
+            Line(10, 3, 1, 6, -45, 1)
+            Circle(12, 12, 2, true)
         elseif Name == "user"
             or Name == "local"
         then
-            Circle(PX(6), PX(1.5), PX(6), false, PX(1.3))
-            Outline(PX(3), PX(9), PX(12), PX(7), PX(4), PX(1.3))
-            Line(PX(4), PX(15), PX(10), PX(1.5), 0, 1)
-        elseif Name == "users"
-            or Name == "players"
-        then
-            Circle(PX(3.5), PX(2), PX(5), false, PX(1.2))
-            Circle(PX(10.5), PX(3), PX(4), false, PX(1.2))
-            Outline(PX(1), PX(9), PX(10), PX(7), PX(4), PX(1.2))
-            Outline(PX(9), PX(10), PX(8), PX(6), PX(4), PX(1.2))
+            Circle(5, 1, 6, false)
+            Outline(3, 9, 10, 6, 4)
         elseif Name == "move"
             or Name == "movement"
         then
-            Line(PX(8.2), PX(2), PX(1.6), PX(14), 0, 1)
-            Line(PX(2), PX(8.2), PX(14), PX(1.6), 0, 1)
-            Line(PX(6), PX(2), PX(5), PX(1.4), -45, 1)
-            Line(PX(7), PX(2), PX(5), PX(1.4), 45, 1)
-            Line(PX(12), PX(14.5), PX(5), PX(1.4), -45, 1)
-            Line(PX(11), PX(14.5), PX(5), PX(1.4), 45, 1)
-            Line(PX(2), PX(6), PX(5), PX(1.4), 45, 1)
-            Line(PX(2), PX(10), PX(5), PX(1.4), -45, 1)
+            Line(7.5, 2, 1, 12, 0, 1)
+            Line(2, 7.5, 12, 1, 0, 1)
+            Line(5.5, 2, 4, 1, -45, 1)
+            Line(7.5, 2, 4, 1, 45, 1)
+            Line(11, 13, 4, 1, -45, 1)
+            Line(9, 13, 4, 1, 45, 1)
         elseif Name == "camera"
         then
-            Outline(PX(1.5), PX(4.5), PX(15), PX(11), PX(3), PX(1.3))
-            Outline(PX(6), PX(6), PX(6), PX(6), 1, PX(1.3))
-            Line(PX(4), PX(2.5), PX(5), PX(2), 0, 1)
-            Circle(PX(13.5), PX(6.5), PX(1.8), true)
+            Outline(1, 4, 14, 10, 2)
+            Outline(5, 6, 6, 6, 1)
+            Line(4, 2, 5, 2, 0, 1)
         elseif Name == "sun"
             or Name == "lighting"
         then
-            Circle(PX(6), PX(6), PX(6), false, PX(1.3))
-            Line(PX(8.3), PX(0), PX(1.4), PX(4), 0, 1)
-            Line(PX(8.3), PX(14), PX(1.4), PX(4), 0, 1)
-            Line(PX(0), PX(8.3), PX(4), PX(1.4), 0, 1)
-            Line(PX(14), PX(8.3), PX(4), PX(1.4), 0, 1)
-            Line(PX(2.5), PX(2.5), PX(4), PX(1.3), 45, 1)
-            Line(PX(12), PX(2.5), PX(4), PX(1.3), -45, 1)
-            Line(PX(2.5), PX(13), PX(4), PX(1.3), -45, 1)
-            Line(PX(12), PX(13), PX(4), PX(1.3), 45, 1)
+            Circle(5, 5, 6, false)
+            Line(7.5, 0, 1, 3, 0, 1)
+            Line(7.5, 13, 1, 3, 0, 1)
+            Line(0, 7.5, 3, 1, 0, 1)
+            Line(13, 7.5, 3, 1, 0, 1)
         elseif Name == "cube"
             or Name == "world"
         then
-            Outline(PX(2), PX(4), PX(11), PX(11), PX(2), PX(1.2))
-            Outline(PX(5), PX(1), PX(11), PX(11), PX(2), PX(1.2))
-            Line(PX(3), PX(4), PX(4), PX(1.2), -45, 1)
-            Line(PX(12), PX(4), PX(4), PX(1.2), -45, 1)
-            Line(PX(12), PX(13), PX(4), PX(1.2), -45, 1)
+            Outline(2, 4, 10, 10, 1)
+            Outline(5, 1, 9, 9, 1)
+            Line(3, 4, 4, 1, -45, 1)
+            Line(11, 4, 4, 1, -45, 1)
         elseif Name == "briefcase"
             or Name == "farm"
         then
-            Outline(PX(1.5), PX(5), PX(15), PX(10), PX(2), PX(1.3))
-            Outline(PX(5.5), PX(2), PX(7), PX(4), PX(2), PX(1.3))
-            Line(PX(1.5), PX(9), PX(15), PX(1.3), 0, 1)
-            Line(PX(8), PX(8), PX(2), PX(3), 0, 1)
+            Outline(1, 5, 14, 9, 2)
+            Outline(5, 2, 6, 4, 2)
+            Line(1, 8, 14, 1, 0, 1)
+            Line(7, 7, 2, 3, 0, 1)
         elseif Name == "tool"
             or Name == "wrench"
         then
-            Line(PX(4), PX(10), PX(12), PX(2.2), -45, 1)
-            Circle(PX(1), PX(11), PX(5), false, PX(1.3))
-            Circle(PX(12), PX(1), PX(5), false, PX(1.3))
-            Line(PX(13), PX(1), PX(4), PX(2), -45, 1)
+            Line(4, 9, 10, 2, -45, 1)
+            Circle(1, 10, 5, false)
+            Circle(10, 1, 5, false)
         elseif Name == "sliders"
             or Name == "interface"
         then
-            Line(PX(1), PX(4), PX(16), PX(1.5), 0, 1)
-            Line(PX(1), PX(9), PX(16), PX(1.5), 0, 1)
-            Line(PX(1), PX(14), PX(16), PX(1.5), 0, 1)
-            Circle(PX(4), PX(2.5), PX(4), true)
-            Circle(PX(11), PX(7.5), PX(4), true)
-            Circle(PX(7), PX(12.5), PX(4), true)
+            Line(1, 3, 14, 1, 0, 1)
+            Line(1, 8, 14, 1, 0, 1)
+            Line(1, 13, 14, 1, 0, 1)
+            Circle(4, 1.5, 4, true)
+            Circle(10, 6.5, 4, true)
+            Circle(6, 11.5, 4, true)
         elseif Name == "file"
             or Name == "configs"
         then
-            Outline(PX(3), PX(1), PX(12), PX(16), PX(2), PX(1.3))
-            Line(PX(10), PX(1), PX(5), PX(1.3), 45, 1)
-            Line(PX(6), PX(7), PX(6), PX(1.3), 0, 1)
-            Line(PX(6), PX(10), PX(6), PX(1.3), 0, 1)
-            Line(PX(6), PX(13), PX(4), PX(1.3), 0, 1)
+            Outline(3, 1, 10, 14, 2)
+            Line(6, 6, 5, 1, 0, 1)
+            Line(6, 9, 5, 1, 0, 1)
+            Line(6, 12, 3, 1, 0, 1)
+        elseif Name == "gear"
+            or Name == "settings"
+        then
+            Circle(4, 4, 8, false)
+            Circle(6.5, 6.5, 3, true)
+            Line(7.5, 0, 1, 3, 0, 1)
+            Line(7.5, 13, 1, 3, 0, 1)
+            Line(0, 7.5, 3, 1, 0, 1)
+            Line(13, 7.5, 3, 1, 0, 1)
+        elseif Name == "list"
+        then
+            Circle(1, 2, 2, true)
+            Circle(1, 7, 2, true)
+            Circle(1, 12, 2, true)
+            Line(5, 2.5, 10, 1, 0, 1)
+            Line(5, 7.5, 10, 1, 0, 1)
+            Line(5, 12.5, 10, 1, 0, 1)
+        elseif Name == "pin"
+        then
+            Outline(4, 1, 8, 5, 2)
+            Line(7.5, 6, 1, 7, 0, 1)
+            Line(5, 5, 6, 1, 0, 1)
+            Line(6.5, 12, 3, 1, -45, 1)
+        elseif Name == "palette"
+        then
+            Circle(2, 2, 12, false)
+            Circle(4, 4, 2, true)
+            Circle(8, 3, 2, true)
+            Circle(10, 7, 2, true)
+            Circle(5, 9, 2, true)
+        elseif Name == "eyeoff"
+        then
+            Outline(1, 4, 14, 8, 4)
+            Circle(6, 5, 5, false)
+            Line(2, 13, 13, 1, -45, 1)
+        elseif Name == "belloff"
+        then
+            Outline(4, 2, 8, 10, 4)
+            Line(3, 11, 10, 1, 0, 1)
+            Line(7, 13, 2, 2, 0, 1)
+            Line(2, 13, 13, 1, -45, 1)
         else
-            Circle(PX(7), PX(7), PX(4), true)
+            Circle(6, 6, 4, true)
         end
 
         function Controller:SetTheme(Theme)
@@ -8759,7 +10822,8 @@ local Library
 
                 Part.Object[
                     Part.Property
-                ] = Library.Theme[Theme]
+                ] =
+                    Library.Theme[Theme]
             end
         end
 
@@ -12504,6 +14568,8 @@ local Library
             Callback = Data.Callback or Data.callback or function() end,
             GetStatus = Data.GetStatus or Data.getstatus,
             Height = Data.Height or Data.height or 338,
+            FillParent = Data.FillParent == true,
+            BaseZIndex = tonumber(Data.ZIndex) or 1,
             Selected = nil,
             Search = "",
             Rows = { },
@@ -12540,7 +14606,14 @@ local Library
                     Name = string.char(0),
 
                     Size =
-                        UDim2New(
+                        PlayerList.FillParent
+                        and UDim2New(
+                            1,
+                            0,
+                            1,
+                            0
+                        )
+                        or UDim2New(
                             1,
                             0,
                             0,
@@ -12549,7 +14622,8 @@ local Library
 
                     BorderSizePixel = 0,
                     BackgroundTransparency = 1,
-                    ClipsDescendants = false
+                    ClipsDescendants = false,
+                    ZIndex = PlayerList.BaseZIndex
                 }
             )
 
@@ -13611,6 +15685,63 @@ local Library
             )
         end
 
+        local function ApplyLayering()
+            local Root =
+                Items["Root"].Instance
+
+            if not Root
+                or not Root.Parent
+            then
+                return
+            end
+
+            Root.ZIndex =
+                PlayerList.BaseZIndex
+
+            local StatusPopup =
+                Items["StatusPopup"]
+                and Items["StatusPopup"].Instance
+                or nil
+
+            for _,
+                Object in ipairs(
+                    Root:GetDescendants()
+                )
+            do
+                if Object:IsA("GuiObject") then
+                    local Depth = 1
+                    local Parent =
+                        Object.Parent
+
+                    while Parent
+                        and Parent ~= Root
+                    do
+                        Depth += 1
+                        Parent = Parent.Parent
+                    end
+
+                    local PopupBoost = 0
+
+                    if StatusPopup
+                        and (
+                            Object == StatusPopup
+                            or Object:
+                                IsDescendantOf(
+                                    StatusPopup
+                                )
+                        )
+                    then
+                        PopupBoost = 40
+                    end
+
+                    Object.ZIndex =
+                        PlayerList.BaseZIndex
+                        + Depth
+                        + PopupBoost
+                end
+            end
+        end
+
         local function CreatePlayerRow(Player)
             local Row =
                 Instances:Create(
@@ -13822,6 +15953,7 @@ local Library
                 .. "]"
 
             ApplySearch()
+            ApplyLayering()
 
             if Previous
                 and Previous.Parent == Players
@@ -13948,6 +16080,7 @@ local Library
         )
 
         PlayerList:Refresh()
+        ApplyLayering()
 
         PlayerList.Items = Items
 
@@ -14280,7 +16413,8 @@ local Library
                     BorderSizePixel = 0,
                     BackgroundTransparency = 1,
                     ClipsDescendants = true,
-                    ZIndex = 301
+                    ZIndex = 301,
+                    Active = true
                 }
             )
 
@@ -14309,6 +16443,9 @@ local Library
                     Height =
                         Data.Height
                         or 354,
+
+                    FillParent = true,
+                    ZIndex = 302,
 
                     GetStatus =
                         Data.GetStatus,
