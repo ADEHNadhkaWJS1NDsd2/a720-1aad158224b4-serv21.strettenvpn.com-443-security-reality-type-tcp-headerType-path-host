@@ -65,7 +65,7 @@ local Library
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v13.2-DropdownDim-MenuFixed",
+        Build = "RadiantAdaptive-v13.3-AimIconDropdownRail",
         Flags = { },
 
         Theme = {
@@ -8545,7 +8545,7 @@ local Library
                 Vector2New(9999, 9999)
             )
 
-            local RailWidth = 148
+            local RailWidth = 156
             local RailMinimum = 118
             local RailMaximum = 210
             local RailGap = 10
@@ -8558,6 +8558,21 @@ local Library
                 BorderSizePixel = 0,
                 BackgroundColor3 = Library.Theme.Background
             })
+
+            Items["RailInset"] = Instances:Create("Frame", {
+                Parent = Items["Rail"].Instance,
+                Name = string.char(0),
+                Position = UDim2New(0, 6, 0, 6),
+                Size = UDim2New(1, -12, 1, -12),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme["Page Background"],
+                BackgroundTransparency = 0.22,
+                ZIndex = 0
+            })
+            Items["RailInset"]:AddToTheme({
+                BackgroundColor3 = "Page Background"
+            })
+            Library:ApplyGlass(Items["RailInset"], "Popup", 4)
             Items["Rail"]:AddToTheme({
                 BackgroundColor3 = "Background"
             })
@@ -8579,8 +8594,8 @@ local Library
                 Parent = Items["Rail"].Instance,
                 Name = string.char(0),
                 BackgroundTransparency = 1,
-                Position = UDim2New(0, 6, 0, 7),
-                Size = UDim2New(1, -12, 1, -14),
+                Position = UDim2New(0, 10, 0, 10),
+                Size = UDim2New(1, -20, 1, -20),
                 BorderSizePixel = 0
             })
 
@@ -8589,7 +8604,7 @@ local Library
                 FillDirection = Enum.FillDirection.Vertical,
                 HorizontalAlignment = Enum.HorizontalAlignment.Left,
                 VerticalAlignment = Enum.VerticalAlignment.Top,
-                Padding = UDimNew(0, 4),
+                Padding = UDimNew(0, 6),
                 SortOrder = Enum.SortOrder.LayoutOrder
             })
 
@@ -8616,62 +8631,6 @@ local Library
                 BackgroundColor3 = "Background"
             })
             Library:ApplyGlass(Items["Panel"], "Window", 4)
-
-            Items["PanelHeaderLine"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Items["Panel"].Instance,
-
-                        Name = string.char(0),
-                        Position =
-                            UDim2New(0, 8, 0, 33),
-
-                        Size =
-                            UDim2New(1, -16, 0, 1),
-
-                        BorderSizePixel = 0,
-                        BackgroundColor3 =
-                            Library.Theme.Outline,
-
-                        BackgroundTransparency = 0.58,
-                        ZIndex = 698
-                    }
-                )
-
-            Items["PanelHeaderLine"]:AddToTheme({
-                BackgroundColor3 = "Outline"
-            })
-
-            Items["PanelHeaderAccent"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Items["PanelHeaderLine"].
-                            Instance,
-
-                        Name = string.char(0),
-                        Position =
-                            UDim2New(0, 0, 0, 0),
-
-                        Size =
-                            UDim2New(0, 48, 1, 0),
-
-                        BorderSizePixel = 0,
-                        BackgroundColor3 =
-                            Library.Theme.Accent,
-
-                        BackgroundTransparency = 0.18,
-                        ZIndex = 699
-                    }
-                )
-
-            Items["PanelHeaderAccent"]:AddToTheme({
-                BackgroundColor3 = "Accent"
-            })
-
 
             Items["RailResize"] = Instances:Create("TextButton", {
                 Parent = Items["Surface"].Instance,
@@ -10851,7 +10810,20 @@ local Library
                 )
             )
 
-        if Name == "crosshair"
+        if Name == "aimtab"
+            or Name == "reticle"
+        then
+            Line(1.6, 4.2, 1.2, 4.0, 0, 1)
+            Line(1.6, 3.8, 4.0, 1.2, 0, 1)
+            Line(10.4, 3.8, 4.0, 1.2, 0, 1)
+            Line(13.2, 4.2, 1.2, 4.0, 0, 1)
+            Line(1.6, 10.6, 1.2, 4.0, 0, 1)
+            Line(1.6, 13.4, 4.0, 1.2, 0, 1)
+            Line(10.4, 13.4, 4.0, 1.2, 0, 1)
+            Line(13.2, 10.6, 1.2, 4.0, 0, 1)
+            Circle(6.0, 6.0, 4.0, false, 1.15)
+            Circle(7.0, 7.0, 2.0, true)
+        elseif Name == "crosshair"
             or Name == "aim"
         then
             Circle(4, 4, 8, false, 1.2)
@@ -11044,7 +11016,7 @@ local Library
                         Text = "",
                         AutoButtonColor = false,
                         Name = string.char(0),
-                        Size = UDim2New(1, 0, 0, 28),
+                        Size = UDim2New(1, 0, 0, 30),
                         BorderSizePixel = 0,
 
                         BackgroundColor3 =
@@ -11064,7 +11036,7 @@ local Library
                 4
             )
 
-            Items["Separator"] =
+            Items["Accent"] =
                 Instances:Create(
                     "Frame",
                     {
@@ -11074,25 +11046,25 @@ local Library
 
                         Name = string.char(0),
                         AnchorPoint =
-                            Vector2New(0, 1),
+                            Vector2New(0, 0.5),
 
                         Position =
-                            UDim2New(0, 7, 1, 0),
+                            UDim2New(0, 6, 0.5, 0),
 
                         Size =
-                            UDim2New(1, -14, 0, 1),
+                            UDim2New(0, 2, 0, 14),
 
                         BorderSizePixel = 0,
                         BackgroundColor3 =
-                            Library.Theme.Outline,
+                            Library.Theme.Accent,
 
-                        BackgroundTransparency = 0.82,
-                        ZIndex = 2
+                        BackgroundTransparency = 1,
+                        ZIndex = 3
                     }
                 )
 
-            Items["Separator"]:AddToTheme({
-                BackgroundColor3 = "Outline"
+            Items["Accent"]:AddToTheme({
+                BackgroundColor3 = "Accent"
             })
 
             Items["Text"] =
@@ -11114,10 +11086,10 @@ local Library
                         Name = string.char(0),
 
                         Position =
-                            UDim2New(0, 9, 0, 0),
+                            UDim2New(0, 14, 0, 0),
 
                         Size =
-                            UDim2New(1, -18, 1, 0),
+                            UDim2New(1, -22, 1, 0),
 
                         BackgroundTransparency = 1,
 
@@ -11452,10 +11424,27 @@ local Library
                 PageTween,
                 {
                     BackgroundTransparency =
-                        Bool and 0 or 1,
+                        Bool and 0.12 or 1,
 
                     BackgroundColor3 =
-                        Library.Theme.Element
+                        Bool
+                        and Library.Theme[
+                            "Hovered Element"
+                        ]
+                        or Library.Theme.Element
+                }
+            )
+
+            Items["Accent"]:Tween(
+                PageTween,
+                {
+                    BackgroundTransparency =
+                        Bool and 0 or 1,
+
+                    Size =
+                        Bool
+                        and UDim2New(0, 2, 0, 18)
+                        or UDim2New(0, 2, 0, 14)
                 }
             )
 
@@ -13479,7 +13468,7 @@ local Library
 
                     BackgroundTransparency = 1,
                     Name = string.char(0),
-                    Size = UDim2New(1, 0, 0, 39),
+                    Size = UDim2New(1, 0, 0, 42),
                     BorderSizePixel = 0
                 }
             )
@@ -13503,7 +13492,7 @@ local Library
                     TextXAlignment =
                         Enum.TextXAlignment.Left,
 
-                    Size = UDim2New(1, 0, 0, 13),
+                    Size = UDim2New(1, 0, 0, 14),
                     BorderSizePixel = 0,
                     TextSize = 11
                 }
@@ -13528,7 +13517,7 @@ local Library
                         UDim2New(0, 0, 1, 0),
 
                     Size =
-                        UDim2New(1, 0, 0, 23),
+                        UDim2New(1, 0, 0, 25),
 
                     BorderSizePixel = 0,
 
@@ -13550,6 +13539,30 @@ local Library
             "Element",
             4
         )
+
+        Items["FieldStroke"] =
+            Instances:Create(
+                "UIStroke",
+                {
+                    Parent =
+                        Items["Field"].Instance,
+
+                    ApplyStrokeMode =
+                        Enum.ApplyStrokeMode.Border,
+
+                    LineJoinMode =
+                        Enum.LineJoinMode.Round,
+
+                    Thickness = 1,
+                    Transparency = 0.54,
+                    Color =
+                        Library.Theme.Outline
+                }
+            )
+
+        Items["FieldStroke"]:AddToTheme({
+            Color = "Outline"
+        })
 
         Items["Value"] =
             Instances:Create(
@@ -13605,7 +13618,7 @@ local Library
                         UDim2New(1, 0, 0, 0),
 
                     Size =
-                        UDim2New(0, 25, 1, 0),
+                        UDim2New(0, 28, 1, 0),
 
                     BorderSizePixel = 0,
 
@@ -13676,7 +13689,7 @@ local Library
 
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
-                    TextSize = 12,
+                    TextSize = 13,
                     ZIndex = 4
                 }
             )
@@ -13698,7 +13711,7 @@ local Library
                         UDim2New(0, 0, 0, 0),
 
                     Size =
-                        UDim2New(0, 120, 0, 0),
+                        UDim2New(0, 132, 0, 0),
 
                     BorderSizePixel = 0,
                     BackgroundColor3 =
@@ -13725,7 +13738,7 @@ local Library
             InstanceNew("UIListLayout")
 
         PopupLayout.Padding =
-            UDimNew(0, 1)
+            UDimNew(0, 2)
 
         PopupLayout.SortOrder =
             Enum.SortOrder.LayoutOrder
@@ -13737,10 +13750,10 @@ local Library
             InstanceNew("UIPadding")
 
         PopupPadding.PaddingTop =
-            UDimNew(0, 3)
+            UDimNew(0, 4)
 
         PopupPadding.PaddingBottom =
-            UDimNew(0, 3)
+            UDimNew(0, 4)
 
         PopupPadding.Parent =
             Items["Popup"].Instance
@@ -13764,7 +13777,7 @@ local Library
             local Height =
                 math.min(
                     math.max(
-                        #Dropdown.Items * 22 + 6,
+                        #Dropdown.Items * 24 + 8,
                         28
                     ),
                     math.max(
