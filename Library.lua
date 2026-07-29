@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v9-KeybindCamera",
+        Build = "RadiantAdaptive-v11.1-SectionNavigationFixed",
         Flags = { },
 
         Theme = {
@@ -5267,7 +5267,7 @@ local Library do
 
         local ControlTween =
             TweenInfo.new(
-                0.14,
+                0.12,
                 Enum.EasingStyle.Quad,
                 Enum.EasingDirection.Out
             )
@@ -5280,26 +5280,28 @@ local Library do
                     FontFace = Library.Font,
                     Text = "",
                     AutoButtonColor = false,
-                    AnchorPoint = Vector2New(1, 0),
-                    Size = UDim2New(0, 0, 1, 1),
+                    AnchorPoint = Vector2New(1, 0.5),
+                    Size = UDim2New(0, 42, 0, 18),
                     Name = string.char(0),
-                    Position = UDim2New(1, 0, 0, 0),
+                    Position = UDim2New(1, 0, 0.5, 0),
                     BorderSizePixel = 0,
-                    AutomaticSize = Enum.AutomaticSize.X,
                     BackgroundColor3 =
-                        Library.Theme.Element,
+                        Library.Theme[
+                            "Page Background"
+                        ],
                     ZIndex = 20
                 }
             )
 
         Items["KeyButton"]:AddToTheme({
-            BackgroundColor3 = "Element"
+            BackgroundColor3 =
+                "Page Background"
         })
 
         Library:ApplyGlass(
             Items["KeyButton"],
             "Element",
-            4
+            3
         )
 
         Items["Text"] =
@@ -5307,14 +5309,20 @@ local Library do
                 "TextLabel",
                 {
                     Parent =
-                        Items["KeyButton"].Instance,
+                        Items["KeyButton"].
+                        Instance,
 
                     FontFace = Library.Font,
-                    TextColor3 = Library.Theme.Text,
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ],
+
                     Text = "None",
                     Name = string.char(0),
                     BackgroundTransparency = 1,
-                    Size = UDim2New(0, 30, 1, 0),
+                    Size = UDim2New(1, -8, 1, 0),
+                    Position = UDim2New(0, 4, 0, 0),
                     BorderSizePixel = 0,
                     TextSize = 10,
                     ZIndex = 21
@@ -5322,19 +5330,8 @@ local Library do
             )
 
         Items["Text"]:AddToTheme({
-            TextColor3 = "Text"
+            TextColor3 = "Muted Text"
         })
-
-        Instances:Create(
-            "UIPadding",
-            {
-                Parent =
-                    Items["KeyButton"].Instance,
-
-                PaddingRight = UDimNew(0, 7),
-                PaddingLeft = UDimNew(0, 7)
-            }
-        )
 
         Items["Window"] =
             Instances:Create(
@@ -5343,14 +5340,21 @@ local Library do
                     Parent =
                         Library.Holder.Instance,
 
-                    AnchorPoint = Vector2New(1, 0),
+                    AnchorPoint =
+                        Vector2New(1, 0),
+
                     Name = string.char(0),
-                    Position = UDim2New(0, 0, 0, 0),
-                    Size = UDim2New(0, 96, 0, 82),
+                    Position =
+                        UDim2New(0, 0, 0, 0),
+
+                    Size =
+                        UDim2New(0, 92, 0, 72),
+
                     BorderSizePixel = 0,
                     Visible = false,
                     Active = true,
                     ZIndex = 2000,
+
                     BackgroundColor3 =
                         Library.Theme.Background,
 
@@ -5365,23 +5369,17 @@ local Library do
         Library:ApplyGlass(
             Items["Window"],
             "Popup",
-            6
+            4
         )
 
         local WindowPadding =
             InstanceNew("UIPadding")
 
         WindowPadding.PaddingTop =
-            UDimNew(0, 5)
+            UDimNew(0, 3)
 
         WindowPadding.PaddingBottom =
-            UDimNew(0, 5)
-
-        WindowPadding.PaddingLeft =
-            UDimNew(0, 5)
-
-        WindowPadding.PaddingRight =
-            UDimNew(0, 5)
+            UDimNew(0, 3)
 
         WindowPadding.Parent =
             Items["Window"].Instance
@@ -5389,7 +5387,9 @@ local Library do
         local ModeLayout =
             InstanceNew("UIListLayout")
 
-        ModeLayout.Padding = UDimNew(0, 3)
+        ModeLayout.Padding =
+            UDimNew(0, 0)
+
         ModeLayout.SortOrder =
             Enum.SortOrder.LayoutOrder
 
@@ -5403,67 +5403,137 @@ local Library do
                 "Always"
             })
         do
-            local Button =
+            local Row =
                 Instances:Create(
                     "TextButton",
                     {
                         Parent =
-                            Items["Window"].Instance,
+                            Items["Window"].
+                            Instance,
 
                         FontFace = Library.Font,
-                        TextColor3 =
-                            Library.Theme.Text,
-
-                        Text = ModeName,
+                        Text = "",
                         AutoButtonColor = false,
                         Name = string.char(0),
                         BorderSizePixel = 0,
+
                         BackgroundColor3 =
                             Library.Theme.Element,
 
                         BackgroundTransparency = 1,
                         Size = UDim2New(1, 0, 0, 22),
-                        TextSize = 10,
                         ZIndex = 2001,
                         LayoutOrder = Index
                     }
                 )
 
-            Button:AddToTheme({
-                TextColor3 = "Text",
+            Row:AddToTheme({
                 BackgroundColor3 = "Element"
             })
 
-            Library:ApplyGlass(
-                Button,
-                "Element",
-                4
-            )
+            local Marker =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent = Row.Instance,
+                        Name = string.char(0),
+                        Position = UDim2New(0, 0, 0, 4),
+                        Size = UDim2New(0, 2, 1, -8),
+                        BorderSizePixel = 0,
 
-            Button:OnHover(function()
+                        BackgroundColor3 =
+                            Library.Theme.Accent,
+
+                        BackgroundTransparency = 1,
+                        ZIndex = 2002
+                    }
+                )
+
+            Marker:AddToTheme({
+                BackgroundColor3 = "Accent"
+            })
+
+            local Label =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent = Row.Instance,
+                        FontFace = Library.Font,
+
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ],
+
+                        Text = ModeName,
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 9, 0, 0),
+
+                        Size =
+                            UDim2New(1, -14, 1, 0),
+
+                        BackgroundTransparency = 1,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        BorderSizePixel = 0,
+                        TextSize = 10,
+                        ZIndex = 2002
+                    }
+                )
+
+            Label:AddToTheme({
+                TextColor3 = "Muted Text"
+            })
+
+            local ModeData = {
+                Button = Row,
+                Marker = Marker,
+                Label = Label
+            }
+
+            Modes[ModeName] = ModeData
+
+            Row:OnHover(function()
                 if Keybind.Mode == ModeName then
                     return
                 end
 
-                Button:Tween(
+                Row:Tween(
                     ControlTween,
                     {
-                        BackgroundTransparency = 0.30,
+                        BackgroundTransparency =
+                            0.48
+                    }
+                )
+
+                Label:Tween(
+                    ControlTween,
+                    {
                         TextColor3 =
                             Library.Theme.Text
                     }
                 )
             end)
 
-            Button:OnHoverLeave(function()
+            Row:OnHoverLeave(function()
                 if Keybind.Mode == ModeName then
                     return
                 end
 
-                Button:Tween(
+                Row:Tween(
                     ControlTween,
                     {
-                        BackgroundTransparency = 1,
+                        BackgroundTransparency = 1
+                    }
+                )
+
+                Label:Tween(
+                    ControlTween,
+                    {
                         TextColor3 =
                             Library.Theme[
                                 "Muted Text"
@@ -5471,8 +5541,6 @@ local Library do
                     }
                 )
             end)
-
-            Modes[ModeName] = Button
         end
 
         Items["KeyButton"]:OnHover(function()
@@ -5494,7 +5562,7 @@ local Library do
                 ControlTween,
                 {
                     TextColor3 =
-                        Library.Theme.Accent
+                        Library.Theme.Text
                 }
             )
         end)
@@ -5508,7 +5576,9 @@ local Library do
                 ControlTween,
                 {
                     BackgroundColor3 =
-                        Library.Theme.Element
+                        Library.Theme[
+                            "Page Background"
+                        ]
                 }
             )
 
@@ -5516,7 +5586,9 @@ local Library do
                 ControlTween,
                 {
                     TextColor3 =
-                        Library.Theme.Text
+                        Library.Theme[
+                            "Muted Text"
+                        ]
                 }
             )
         end)
@@ -5533,6 +5605,7 @@ local Library do
         local function UpdateFlag()
             Library.Flags[Data.Flag] = {
                 Mode = Keybind.Mode,
+
                 Key =
                     Keybind.Key
                     and tostring(Keybind.Key)
@@ -5546,46 +5619,45 @@ local Library do
             Items["Text"].Instance.Text =
                 Keybind.Value
 
-            Items["Text"].Instance.Size =
-                UDim2New(
-                    0,
-                    math.max(
-                        Items["Text"].
-                            Instance.
-                            TextBounds.X,
-                        20
-                    ),
-                    1,
-                    0
-                )
-
             for ModeName,
-                Button in pairs(Modes)
+                ModeData in pairs(Modes)
             do
                 local Active =
                     ModeName == Keybind.Mode
 
-                Button:ChangeItemTheme({
-                    TextColor3 =
-                        Active
-                        and "Accent"
-                        or "Muted Text",
+                ModeData.Marker:Tween(
+                    ControlTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0 or 1
+                    }
+                )
 
-                    BackgroundColor3 = "Element"
-                })
+                ModeData.Button:Tween(
+                    ControlTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0.42 or 1
+                    }
+                )
 
-                Button:Tween(
+                ModeData.Label:
+                    ChangeItemTheme({
+                        TextColor3 =
+                            Active
+                            and "Text"
+                            or "Muted Text"
+                    })
+
+                ModeData.Label:Tween(
                     ControlTween,
                     {
                         TextColor3 =
                             Active
-                            and Library.Theme.Accent
+                            and Library.Theme.Text
                             or Library.Theme[
                                 "Muted Text"
-                            ],
-
-                        BackgroundTransparency =
-                            Active and 0.14 or 1
+                            ]
                     }
                 )
             end
@@ -5638,7 +5710,10 @@ local Library do
             end
 
             if PickConnection then
-                DisconnectRecord(PickConnection)
+                DisconnectRecord(
+                    PickConnection
+                )
+
                 PickConnection = nil
             end
 
@@ -5647,14 +5722,17 @@ local Library do
 
                 Items["Text"]:
                     ChangeItemTheme({
-                        TextColor3 = "Text"
+                        TextColor3 =
+                            "Muted Text"
                     })
 
                 Items["KeyButton"]:Tween(
                     ControlTween,
                     {
                         BackgroundColor3 =
-                            Library.Theme.Element
+                            Library.Theme[
+                                "Page Background"
+                            ]
                     }
                 )
             end
@@ -5691,7 +5769,8 @@ local Library do
 
             if Bool then
                 local Button =
-                    Items["KeyButton"].Instance
+                    Items["KeyButton"].
+                    Instance
 
                 local ButtonPosition =
                     Button.AbsolutePosition
@@ -5700,7 +5779,7 @@ local Library do
                     Button.AbsoluteSize
 
                 local WindowSize =
-                    Vector2New(96, 82)
+                    Vector2New(92, 72)
 
                 local ViewportSize =
                     Workspace.CurrentCamera
@@ -5737,7 +5816,7 @@ local Library do
                         0,
                         X,
                         0,
-                        Y + 4
+                        Y + 3
                     )
 
                 Window.GroupTransparency = 1
@@ -5765,21 +5844,12 @@ local Library do
                 Items["Window"]:Tween(
                     ControlTween,
                     {
-                        Position =
-                            Window.Position
-                            + UDim2New(
-                                0,
-                                0,
-                                0,
-                                4
-                            ),
-
                         GroupTransparency = 1
                     }
                 )
 
                 task.delay(
-                    0.14,
+                    0.12,
                     function()
                         if Token
                                 == Keybind.PopupToken
@@ -5866,6 +5936,7 @@ local Library do
                 FormatKey(Resolved)
 
             Keybind.Picking = false
+
             Keybind.SuppressUntil =
                 os.clock() + 0.18
 
@@ -5877,7 +5948,8 @@ local Library do
 
             Items["Text"]:
                 ChangeItemTheme({
-                    TextColor3 = "Text"
+                    TextColor3 =
+                        "Muted Text"
                 })
 
             Keybind:SetMode(
@@ -6010,10 +6082,7 @@ local Library do
                             UserInputService.
                                 InputBegan,
 
-                            function(
-                                Input,
-                                GameProcessed
-                            )
+                            function(Input)
                                 if not Keybind.Picking
                                     or Library.
                                         ActiveKeyPicker
@@ -6107,13 +6176,11 @@ local Library do
             Connect(
                 "MouseButton2Click",
                 function()
-                    if Keybind.Picking then
-                        return
+                    if not Keybind.Picking then
+                        Keybind:SetOpen(
+                            not Keybind.IsOpen
+                        )
                     end
-
-                    Keybind:SetOpen(
-                        not Keybind.IsOpen
-                    )
                 end
             )
 
@@ -6137,15 +6204,13 @@ local Library do
                 if Input.UserInputType
                     == Enum.UserInputType.
                         MouseButton1
+                    and Keybind.IsOpen
+                    and not Library:
+                        IsMouseOverFrame(
+                            Items["Window"]
+                        )
                 then
-                    if Keybind.IsOpen
-                        and not Library:
-                            IsMouseOverFrame(
-                                Items["Window"]
-                            )
-                    then
-                        Keybind:SetOpen(false)
-                    end
+                    Keybind:SetOpen(false)
                 end
 
                 if GameProcessed
@@ -6201,15 +6266,19 @@ local Library do
         )
 
         for ModeName,
-            Button in pairs(Modes)
+            ModeData in pairs(Modes)
         do
-            Button:Connect(
-                "MouseButton1Down",
-                function()
-                    Keybind:SetMode(ModeName)
-                    Keybind:SetOpen(false)
-                end
-            )
+            ModeData.Button:
+                Connect(
+                    "MouseButton1Down",
+                    function()
+                        Keybind:SetMode(
+                            ModeName
+                        )
+
+                        Keybind:SetOpen(false)
+                    end
+                )
         end
 
         Keybind:Set(
@@ -8042,12 +8111,13 @@ local Library do
                 TextColor3 = Library.Theme.Text,
                 Text = Window.Name,
                 Name = string.char(0),
-                Size = UDim2New(1, -24, 0, 22),
+                Size = UDim2New(1, -24, 0, 24),
                 BackgroundTransparency = 1,
                 TextXAlignment = Enum.TextXAlignment.Right,
-                Position = UDim2New(0, 12, 0, 7),
+                Position = UDim2New(0, 12, 0, 5),
                 BorderSizePixel = 0,
-                TextSize = 11
+                TextSize = 14,
+                TextTransparency = 0
             })
             Items["Title"]:AddToTheme({
                 TextColor3 = "Text"
@@ -8246,167 +8316,428 @@ local Library do
             Active = false,
             AnimationToken = 0,
             ColumnsData = { },
+            SubPages = { },
             Elements = { }
         }
 
         local Items = { } do
-            Items["Inactive"] = Instances:Create("TextButton", {
-                Parent = Page.Window.Elements["Pages"].Instance,
-                FontFace = Library.Font,
-                Text = "",
-                AutoButtonColor = false,
-                Name = string.char(0),
-                Size = UDim2New(1, 0, 0, 28),
-                BorderSizePixel = 0,
-                BackgroundColor3 = Library.Theme.Element,
-                BackgroundTransparency = 1
-            })
+            Items["Inactive"] =
+                Instances:Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Page.Window.
+                            Elements["Pages"].
+                            Instance,
+
+                        FontFace = Library.Font,
+                        Text = "",
+                        AutoButtonColor = false,
+                        Name = string.char(0),
+                        Size = UDim2New(1, 0, 0, 28),
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Element,
+
+                        BackgroundTransparency = 1
+                    }
+                )
+
             Items["Inactive"]:AddToTheme({
                 BackgroundColor3 = "Element"
             })
-            Library:ApplyGlass(Items["Inactive"], "Element", 4)
 
-            Items["Text"] = Instances:Create("TextLabel", {
-                Parent = Items["Inactive"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = Library.Theme["Muted Text"],
-                Text = Page.Name,
-                Name = string.char(0),
-                Position = UDim2New(0, 9, 0, 0),
-                Size = UDim2New(1, -18, 1, 0),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                BorderSizePixel = 0,
-                TextSize = 11
-            })
+            Library:ApplyGlass(
+                Items["Inactive"],
+                "Element",
+                4
+            )
+
+            Items["Text"] =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            Items["Inactive"].
+                            Instance,
+
+                        FontFace = Library.Font,
+
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ],
+
+                        Text = Page.Name,
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 9, 0, 0),
+
+                        Size =
+                            UDim2New(1, -18, 1, 0),
+
+                        BackgroundTransparency = 1,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        BorderSizePixel = 0,
+                        TextSize = 11
+                    }
+                )
+
             Items["Text"]:AddToTheme({
                 TextColor3 = "Muted Text"
             })
 
-            Items["Page"] = Instances:Create("Frame", {
-                Parent = Page.Window.Elements["Content"].Instance,
-                BackgroundTransparency = 1,
-                Name = string.char(0),
-                Position = UDim2New(0, 0, 0, 0),
-                Size = UDim2New(1, 0, 1, 0),
-                BorderSizePixel = 0,
-                Visible = false,
-                ClipsDescendants = true
-            })
+            Items["Page"] =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            Page.Window.
+                            Elements["Content"].
+                            Instance,
+
+                        BackgroundTransparency = 1,
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 0, 0, 0),
+
+                        Size =
+                            UDim2New(1, 0, 1, 0),
+
+                        BorderSizePixel = 0,
+                        Visible = false,
+                        ClipsDescendants = true
+                    }
+                )
 
             if not Page.HasSubtabs then
-                Instances:Create("UIListLayout", {
-                    Parent = Items["Page"].Instance,
-                    FillDirection = Enum.FillDirection.Horizontal,
-                    HorizontalFlex = Enum.UIFlexAlignment.Fill,
-                    SortOrder = Enum.SortOrder.LayoutOrder,
-                    VerticalFlex = Enum.UIFlexAlignment.Fill,
-                    Padding = UDimNew(0, 6)
-                })
+                Instances:Create(
+                    "UIListLayout",
+                    {
+                        Parent =
+                            Items["Page"].Instance,
+
+                        FillDirection =
+                            Enum.FillDirection.Horizontal,
+
+                        HorizontalFlex =
+                            Enum.UIFlexAlignment.Fill,
+
+                        SortOrder =
+                            Enum.SortOrder.LayoutOrder,
+
+                        VerticalFlex =
+                            Enum.UIFlexAlignment.Fill,
+
+                        Padding =
+                            UDimNew(0, 6)
+                    }
+                )
 
                 for Index = 1, Page.Columns do
-                    local NewColumn = Instances:Create("ScrollingFrame", {
-                        Parent = Items["Page"].Instance,
-                        ScrollBarImageColor3 = Library.Theme.Accent,
-                        Active = true,
-                        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                        ScrollBarThickness = 2,
-                        VerticalScrollBarInset =
-                            Enum.ScrollBarInset.ScrollBar,
-                        ScrollingDirection =
-                            Enum.ScrollingDirection.Y,
-                        ElasticBehavior =
-                            Enum.ElasticBehavior.Never,
-                        Name = string.char(0),
-                        BackgroundTransparency = 1,
-                        Size = UDim2New(0, 100, 0, 100),
-                        BorderSizePixel = 0,
-                        ClipsDescendants = true,
-                        BottomImage = Library:GetImage("Scrollbar"),
-                        MidImage = Library:GetImage("Scrollbar"),
-                        TopImage = Library:GetImage("Scrollbar"),
-                        CanvasSize = UDim2New(0, 0, 0, 0)
-                    })
+                    local NewColumn =
+                        Instances:Create(
+                            "ScrollingFrame",
+                            {
+                                Parent =
+                                    Items["Page"].
+                                    Instance,
+
+                                ScrollBarImageColor3 =
+                                    Library.Theme.Accent,
+
+                                Active = true,
+
+                                AutomaticCanvasSize =
+                                    Enum.AutomaticSize.Y,
+
+                                ScrollBarThickness = 2,
+
+                                VerticalScrollBarInset =
+                                    Enum.ScrollBarInset.
+                                    ScrollBar,
+
+                                ScrollingDirection =
+                                    Enum.ScrollingDirection.Y,
+
+                                ElasticBehavior =
+                                    Enum.ElasticBehavior.Never,
+
+                                Name = string.char(0),
+
+                                BackgroundTransparency = 1,
+
+                                Size =
+                                    UDim2New(
+                                        0,
+                                        100,
+                                        0,
+                                        100
+                                    ),
+
+                                BorderSizePixel = 0,
+                                ClipsDescendants = true,
+
+                                BottomImage =
+                                    Library:
+                                    GetImage("Scrollbar"),
+
+                                MidImage =
+                                    Library:
+                                    GetImage("Scrollbar"),
+
+                                TopImage =
+                                    Library:
+                                    GetImage("Scrollbar"),
+
+                                CanvasSize =
+                                    UDim2New(0, 0, 0, 0)
+                            }
+                        )
+
                     NewColumn:AddToTheme({
-                        ScrollBarImageColor3 = "Accent"
+                        ScrollBarImageColor3 =
+                            "Accent"
                     })
 
-                    Instances:Create("UIPadding", {
-                        Parent = NewColumn.Instance,
-                        PaddingTop = UDimNew(0, 7),
-                        PaddingBottom = UDimNew(0, 7),
-                        PaddingRight = UDimNew(0, 9),
-                        PaddingLeft = UDimNew(0, 7)
-                    })
+                    Instances:Create(
+                        "UIPadding",
+                        {
+                            Parent =
+                                NewColumn.Instance,
 
-                    Instances:Create("UIListLayout", {
-                        Parent = NewColumn.Instance,
-                        Padding = UDimNew(0, 7),
-                        SortOrder = Enum.SortOrder.LayoutOrder
-                    })
+                            PaddingTop =
+                                UDimNew(0, 7),
 
-                    Page.ColumnsData[Index] = NewColumn
+                            PaddingBottom =
+                                UDimNew(0, 7),
+
+                            PaddingRight =
+                                UDimNew(0, 9),
+
+                            PaddingLeft =
+                                UDimNew(0, 7)
+                        }
+                    )
+
+                    Instances:Create(
+                        "UIListLayout",
+                        {
+                            Parent =
+                                NewColumn.Instance,
+
+                            Padding =
+                                UDimNew(0, 7),
+
+                            SortOrder =
+                                Enum.SortOrder.LayoutOrder
+                        }
+                    )
+
+                    Page.ColumnsData[Index] =
+                        NewColumn
                 end
             else
-                Items["Columns"] = Instances:Create("Frame", {
-                    Parent = Items["Page"].Instance,
-                    Name = string.char(0),
-                    Position = UDim2New(0, 7, 0, 43),
-                    Size = UDim2New(1, -14, 1, -50),
-                    BorderSizePixel = 0,
-                    BackgroundColor3 = Library.Theme.Background
-                })
-                Items["Columns"]:AddToTheme({
-                    BackgroundColor3 = "Background"
-                })
-                Library:ApplyGlass(Items["Columns"], "Panel", 2)
+                Items["SubTabs"] =
+                    Instances:Create(
+                        "Frame",
+                        {
+                            Parent =
+                                Items["Page"].
+                                Instance,
 
-                Items["SubTabs"] = Instances:Create("Frame", {
-                    Parent = Items["Page"].Instance,
-                    Name = string.char(0),
-                    BackgroundTransparency = 1,
-                    Position = UDim2New(0, 7, 0, 7),
-                    Size = UDim2New(1, -14, 0, 29),
-                    BorderSizePixel = 0
-                })
+                            Name = string.char(0),
 
-                Instances:Create("UIListLayout", {
-                    Parent = Items["SubTabs"].Instance,
-                    FillDirection = Enum.FillDirection.Horizontal,
-                    HorizontalFlex = Enum.UIFlexAlignment.Fill,
-                    Padding = UDimNew(0, 5),
-                    SortOrder = Enum.SortOrder.LayoutOrder
-                })
+                            BackgroundTransparency = 1,
+
+                            Position =
+                                UDim2New(0, 7, 0, 7),
+
+                            Size =
+                                UDim2New(1, -14, 0, 32),
+
+                            BorderSizePixel = 0,
+                            ClipsDescendants = true
+                        }
+                    )
+
+                Instances:Create(
+                    "UIListLayout",
+                    {
+                        Parent =
+                            Items["SubTabs"].
+                            Instance,
+
+                        FillDirection =
+                            Enum.FillDirection.Horizontal,
+
+                        HorizontalFlex =
+                            Enum.UIFlexAlignment.Fill,
+
+                        Padding =
+                            UDimNew(0, 5),
+
+                        SortOrder =
+                            Enum.SortOrder.LayoutOrder
+                    }
+                )
+
+                Items["Columns"] =
+                    Instances:Create(
+                        "Frame",
+                        {
+                            Parent =
+                                Items["Page"].
+                                Instance,
+
+                            Name = string.char(0),
+
+                            Position =
+                                UDim2New(0, 0, 0, 44),
+
+                            Size =
+                                UDim2New(1, 0, 1, -44),
+
+                            BorderSizePixel = 0,
+                            BackgroundTransparency = 1,
+                            ClipsDescendants = true
+                        }
+                    )
             end
+
+            Items["Transition"] =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            Items["Page"].
+                            Instance,
+
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 0, 0, 0),
+
+                        Size =
+                            UDim2New(1, 0, 1, 0),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme[
+                                "Page Background"
+                            ],
+
+                        BackgroundTransparency = 1,
+
+                        Visible = false,
+                        Active = false,
+                        ZIndex = 500
+                    }
+                )
+
+            Items["Transition"]:AddToTheme({
+                BackgroundColor3 =
+                    "Page Background"
+            })
         end
 
-        local PageTween = TweenInfo.new(
-            0.09,
-            Enum.EasingStyle.Quad,
-            Enum.EasingDirection.Out
-        )
+        local PageTween =
+            TweenInfo.new(
+                0.13,
+                Enum.EasingStyle.Quint,
+                Enum.EasingDirection.Out
+            )
 
         function Page:Turn(Bool)
             Bool = Bool == true
             Page.Active = Bool
-            Items["Page"].Instance.Visible = Bool
+            Page.AnimationToken += 1
 
-            Items["Inactive"]:Tween(PageTween, {
-                BackgroundTransparency = Bool and 0 or 1,
-                BackgroundColor3 = Bool
-                    and Library.Theme.Element
-                    or Library.Theme.Element
-            })
+            local Token =
+                Page.AnimationToken
 
-            Items["Text"]:Tween(PageTween, {
-                TextColor3 = Bool
-                    and Library.Theme.Text
-                    or Library.Theme["Muted Text"],
-                TextTransparency = Bool and 0 or 0.06
-            })
+            if Bool then
+                Items["Page"].Instance.Visible = true
+                Items["Page"].Instance.Position =
+                    UDim2New(0, 4, 0, 0)
+
+                Items["Transition"].Instance.Visible = true
+                Items["Transition"].Instance.
+                    BackgroundTransparency = 0.78
+
+                Items["Page"]:Tween(
+                    PageTween,
+                    {
+                        Position =
+                            UDim2New(0, 0, 0, 0)
+                    }
+                )
+
+                Items["Transition"]:Tween(
+                    PageTween,
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
+
+                task.delay(
+                    0.13,
+                    function()
+                        if Token == Page.AnimationToken
+                            and Page.Active
+                            and Items["Transition"].
+                                Instance
+                            and Items["Transition"].
+                                Instance.Parent
+                        then
+                            Items["Transition"].
+                                Instance.Visible = false
+                        end
+                    end
+                )
+            else
+                Items["Page"].Instance.Visible = false
+                Items["Transition"].Instance.Visible = false
+            end
+
+            Items["Inactive"]:Tween(
+                PageTween,
+                {
+                    BackgroundTransparency =
+                        Bool and 0 or 1,
+
+                    BackgroundColor3 =
+                        Library.Theme.Element
+                }
+            )
+
+            Items["Text"]:Tween(
+                PageTween,
+                {
+                    TextColor3 =
+                        Bool
+                        and Library.Theme.Text
+                        or Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    TextTransparency =
+                        Bool and 0 or 0.06
+                }
+            )
 
             Items["Text"]:ChangeItemTheme({
-                TextColor3 = Bool and "Text" or "Muted Text"
+                TextColor3 =
+                    Bool
+                    and "Text"
+                    or "Muted Text"
             })
         end
 
@@ -8415,15 +8746,27 @@ local Library do
                 return
             end
 
-            Items["Inactive"]:Tween(PageTween, {
-                BackgroundTransparency = 0.35,
-                BackgroundColor3 = Library.Theme["Hovered Element"]
-            })
+            Items["Inactive"]:Tween(
+                PageTween,
+                {
+                    BackgroundTransparency = 0.35,
 
-            Items["Text"]:Tween(PageTween, {
-                TextColor3 = Library.Theme.Text,
-                TextTransparency = 0
-            })
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Hovered Element"
+                        ]
+                }
+            )
+
+            Items["Text"]:Tween(
+                PageTween,
+                {
+                    TextColor3 =
+                        Library.Theme.Text,
+
+                    TextTransparency = 0
+                }
+            )
         end)
 
         Items["Inactive"]:OnHoverLeave(function()
@@ -8431,272 +8774,611 @@ local Library do
                 return
             end
 
-            Items["Inactive"]:Tween(PageTween, {
-                BackgroundTransparency = 1,
-                BackgroundColor3 = Library.Theme.Element
-            })
+            Items["Inactive"]:Tween(
+                PageTween,
+                {
+                    BackgroundTransparency = 1,
 
-            Items["Text"]:Tween(PageTween, {
-                TextColor3 = Library.Theme["Muted Text"],
-                TextTransparency = 0.04
-            })
+                    BackgroundColor3 =
+                        Library.Theme.Element
+                }
+            )
+
+            Items["Text"]:Tween(
+                PageTween,
+                {
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    TextTransparency = 0.04
+                }
+            )
         end)
 
-        Items["Inactive"]:Connect("MouseButton1Down", function()
-            for _, Value in Page.Window.Pages do
-                Value:Turn(Value == Page)
+        Items["Inactive"]:Connect(
+            "MouseButton1Down",
+            function()
+                for _,
+                    Value in Page.Window.Pages
+                do
+                    Value:Turn(
+                        Value == Page
+                    )
+                end
             end
-        end)
+        )
 
         if #Page.Window.Pages == 0 then
             Page:Turn(true)
         end
 
         Page.Elements = Items
-        TableInsert(Page.Window.Pages, Page)
 
-        return setmetatable(Page, Library.Pages)
+        TableInsert(
+            Page.Window.Pages,
+            Page
+        )
+
+        return setmetatable(
+            Page,
+            Library.Pages
+        )
     end
 
     Library.Pages.SubPage = function(self, Data)
         Data = Data or { }
 
+        local Name =
+            Data.Name
+            or Data.name
+            or "Section"
+
+        local Icon =
+            Data.Icon
+            or Data.icon
+            or string.sub(Name, 1, 1)
+
         local SubPage = {
             Window = self.Window,
             Page = self,
-
-            Icon = Data.Icon or Data.icon or "9080568477801",
+            Name = Name,
+            Icon = tostring(Icon),
             Columns = Data.Columns or Data.columns or 2,
-
             Active = false,
+            AnimationToken = 0,
             ColumnsData = { },
             Elements = { }
         }
 
         local Items = { } do
-            Items["Inactive"] = Instances:Create("TextButton", {
-                Parent = SubPage.Page.Elements["SubTabs"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(0, 0, 0),
-                BorderColor3 = FromRGB(10, 10, 10),
-                Text = "",
-                AutoButtonColor = false,
-                Name = string.char(0),
-                Size = UDim2New(1, 0, 1, -2),
-                BorderSizePixel = 2,
-                TextSize = 14,
-                BackgroundColor3 = FromRGB(30, 30, 35)
-            })  Items["Inactive"]:AddToTheme({BackgroundColor3 = "Page Background", BorderColor3 = "Border"})
-            Library:ApplyGlass(Items["Inactive"], "Element", 7)
+            Items["Inactive"] =
+                Instances:Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            SubPage.Page.
+                            Elements["SubTabs"].
+                            Instance,
 
-            Instances:Create("UIStroke", {
-                Parent = Items["Inactive"].Instance,
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = string.char(0),
-                Color = FromRGB(27, 27, 32)
-            }):AddToTheme({Color = "Outline"})
+                        FontFace = Library.Font,
+                        Text = "",
+                        AutoButtonColor = false,
+                        Name = string.char(0),
 
-            Items["Hide"] = Instances:Create("Frame", {
-                Parent = Items["Inactive"].Instance,
-                Visible = false,
-                BorderColor3 = FromRGB(0, 0, 0),
-                AnchorPoint = Vector2New(0, 1),
-                Name = string.char(0),
-                Position = UDim2New(0, 0, 1, 2),
-                Size = UDim2New(1, 0, 0, 2),
-                ZIndex = 5,
-                BorderSizePixel = 0,
-                BackgroundColor3 = FromRGB(20, 20, 25)
-            })  Items["Hide"]:AddToTheme({BackgroundColor3 = "Background"})
+                        Size =
+                            UDim2New(1, 0, 1, 0),
 
-            Items["MiscPixel1"] = Instances:Create("Frame", {
-                Parent = Items["Hide"].Instance,
-                Size = UDim2New(0, 1, 0, 1),
-                Name = string.char(0),
-                Position = UDim2New(0, -1, 0, 1),
-                BorderColor3 = FromRGB(0, 0, 0),
-                ZIndex = 5,
-                BorderSizePixel = 0,
-                BackgroundColor3 = FromRGB(27, 27, 32)
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Element,
+
+                        BackgroundTransparency = 1
+                    }
+                )
+
+            Items["Inactive"]:AddToTheme({
+                BackgroundColor3 = "Element"
             })
 
-            Items["MiscPixel2"] = Instances:Create("Frame", {
-                Parent = Items["Hide"].Instance,
-                BorderColor3 = FromRGB(0, 0, 0),
-                AnchorPoint = Vector2New(1, 0),
-                Name = string.char(0),
-                Position = UDim2New(1, 1, 0, 1),
-                Size = UDim2New(0, 1, 0, 1),
-                ZIndex = 5,
-                BorderSizePixel = 0,
-                BackgroundColor3 = FromRGB(27, 27, 32)
+            Library:ApplyGlass(
+                Items["Inactive"],
+                "Element",
+                4
+            )
+
+            Items["Icon"] =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            Items["Inactive"].
+                            Instance,
+
+                        FontFace = Library.Font,
+
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ],
+
+                        Text = SubPage.Icon,
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 7, 0, 0),
+
+                        Size =
+                            UDim2New(0, 20, 1, 0),
+
+                        BackgroundTransparency = 1,
+                        BorderSizePixel = 0,
+                        TextSize = 13
+                    }
+                )
+
+            Items["Icon"]:AddToTheme({
+                TextColor3 = "Muted Text"
             })
 
-            Items["Icon"] = Instances:Create("ImageLabel", {
-                Parent = Items["Inactive"].Instance,
-                ScaleType = Enum.ScaleType.Fit,
-                ImageTransparency = 0.35,
-                BorderColor3 = FromRGB(0, 0, 0),
-                Name = string.char(0),
-                AnchorPoint = Vector2New(0.5, 0.5),
-                Image = "rbxassetid://"..SubPage.Icon,
-                BackgroundTransparency = 1,
-                Position = UDim2New(0.5, 0, 0.5, 0),
-                Size = UDim2New(0, 30, 0, 30),
-                BorderSizePixel = 0,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Icon"]:AddToTheme({ImageColor3 = "Text"})
+            Items["Text"] =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent =
+                            Items["Inactive"].
+                            Instance,
 
-            Instances:Create("UIGradient", {
-                Parent = Items["Inactive"].Instance,
-                Rotation = 90,
-                Color = RGBSequence{RGBSequenceKeypoint(0, FromRGB(255, 255, 255)), RGBSequenceKeypoint(1, FromRGB(138, 138, 138))}
+                        FontFace = Library.Font,
+
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ],
+
+                        Text = SubPage.Name,
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 28, 0, 0),
+
+                        Size =
+                            UDim2New(1, -34, 1, 0),
+
+                        BackgroundTransparency = 1,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        TextTruncate =
+                            Enum.TextTruncate.AtEnd,
+
+                        BorderSizePixel = 0,
+                        TextSize = 10
+                    }
+                )
+
+            Items["Text"]:AddToTheme({
+                TextColor3 = "Muted Text"
             })
 
-            Items["Subtab"] = Instances:Create("Frame", {
-                Parent = SubPage.Page.Elements["Columns"].Instance,
-                BackgroundTransparency = 1,
-                Name = string.char(0),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, 0, 1, 0),
-                BorderSizePixel = 0,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })
+            Items["Subtab"] =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            SubPage.Page.
+                            Elements["Columns"].
+                            Instance,
 
-            Instances:Create("UIPadding", {
-                Parent = Items["Subtab"].Instance,
-                PaddingTop = UDimNew(0, 6),
-                PaddingRight = UDimNew(0, 6),
-                PaddingLeft = UDimNew(0, 6)
-            })
+                        BackgroundTransparency = 1,
+                        Name = string.char(0),
 
-            Instances:Create("UIListLayout", {
-                Parent = Items["Subtab"].Instance,
-                FillDirection = Enum.FillDirection.Horizontal,
-                HorizontalFlex = Enum.UIFlexAlignment.Fill,
-                SortOrder = Enum.SortOrder.LayoutOrder,
-                VerticalFlex = Enum.UIFlexAlignment.Fill
-            })
+                        Position =
+                            UDim2New(0, 0, 0, 0),
 
-            Instances:Create("UIStroke", {
-                Parent = Items["Subtab"].Instance,
-                Color = FromRGB(27, 27, 32),
-                Name = string.char(0),
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            }):AddToTheme({Color = "Outline"})
+                        Size =
+                            UDim2New(1, 0, 1, 0),
+
+                        BorderSizePixel = 0,
+                        Visible = false,
+                        ClipsDescendants = true
+                    }
+                )
+
+            Instances:Create(
+                "UIListLayout",
+                {
+                    Parent =
+                        Items["Subtab"].
+                        Instance,
+
+                    FillDirection =
+                        Enum.FillDirection.Horizontal,
+
+                    HorizontalFlex =
+                        Enum.UIFlexAlignment.Fill,
+
+                    SortOrder =
+                        Enum.SortOrder.LayoutOrder,
+
+                    VerticalFlex =
+                        Enum.UIFlexAlignment.Fill,
+
+                    Padding =
+                        UDimNew(0, 6)
+                }
+            )
 
             for Index = 1, SubPage.Columns do
-                local NewColumn = Instances:Create("ScrollingFrame", {
-                    Parent = Items["Subtab"].Instance,
-                    ScrollBarImageColor3 = FromRGB(235, 157, 255),
-                    Active = true,
-                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                    ScrollBarThickness = 1,
-                    Name = string.char(0),
-                    BackgroundTransparency = 1,
-                    Size = UDim2New(0, 100, 0, 100),
-                    BackgroundColor3 = FromRGB(255, 255, 255),
-                    BorderColor3 = FromRGB(0, 0, 0),
-                    BorderSizePixel = 0,
-                    CanvasSize = UDim2New(0, 0, 0, 0)
-                })  NewColumn:AddToTheme({ScrollBarImageColor3 = "Accent"})
+                local NewColumn =
+                    Instances:Create(
+                        "ScrollingFrame",
+                        {
+                            Parent =
+                                Items["Subtab"].
+                                Instance,
 
-                Instances:Create("UIPadding", {
-                    Parent = NewColumn.Instance,
-                    PaddingTop = UDimNew(0, 6),
-                    PaddingBottom = UDimNew(0, 6),
-                    PaddingRight = UDimNew(0, 6),
-                    PaddingLeft = UDimNew(0, 6)
+                            ScrollBarImageColor3 =
+                                Library.Theme.Accent,
+
+                            Active = true,
+
+                            AutomaticCanvasSize =
+                                Enum.AutomaticSize.Y,
+
+                            ScrollBarThickness = 2,
+
+                            VerticalScrollBarInset =
+                                Enum.ScrollBarInset.
+                                ScrollBar,
+
+                            ScrollingDirection =
+                                Enum.ScrollingDirection.Y,
+
+                            ElasticBehavior =
+                                Enum.ElasticBehavior.Never,
+
+                            Name = string.char(0),
+
+                            BackgroundTransparency = 1,
+
+                            Size =
+                                UDim2New(
+                                    0,
+                                    100,
+                                    0,
+                                    100
+                                ),
+
+                            BorderSizePixel = 0,
+                            ClipsDescendants = true,
+
+                            BottomImage =
+                                Library:
+                                GetImage("Scrollbar"),
+
+                            MidImage =
+                                Library:
+                                GetImage("Scrollbar"),
+
+                            TopImage =
+                                Library:
+                                GetImage("Scrollbar"),
+
+                            CanvasSize =
+                                UDim2New(0, 0, 0, 0)
+                        }
+                    )
+
+                NewColumn:AddToTheme({
+                    ScrollBarImageColor3 =
+                        "Accent"
                 })
 
-                Instances:Create("UIListLayout", {
-                    Parent = NewColumn.Instance,
-                    Padding = UDimNew(0, 8),
-                    SortOrder = Enum.SortOrder.LayoutOrder
-                })
+                Instances:Create(
+                    "UIPadding",
+                    {
+                        Parent =
+                            NewColumn.Instance,
 
-                SubPage.ColumnsData[Index] = NewColumn
+                        PaddingTop =
+                            UDimNew(0, 7),
+
+                        PaddingBottom =
+                            UDimNew(0, 7),
+
+                        PaddingRight =
+                            UDimNew(0, 9),
+
+                        PaddingLeft =
+                            UDimNew(0, 7)
+                    }
+                )
+
+                Instances:Create(
+                    "UIListLayout",
+                    {
+                        Parent =
+                            NewColumn.Instance,
+
+                        Padding =
+                            UDimNew(0, 7),
+
+                        SortOrder =
+                            Enum.SortOrder.LayoutOrder
+                    }
+                )
+
+                SubPage.ColumnsData[Index] =
+                    NewColumn
             end
+
+            Items["Transition"] =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            SubPage.Page.
+                            Elements["Columns"].
+                            Instance,
+
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 0, 0, 0),
+
+                        Size =
+                            UDim2New(1, 0, 1, 0),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme[
+                                "Page Background"
+                            ],
+
+                        BackgroundTransparency = 1,
+
+                        Visible = false,
+                        Active = false,
+                        ZIndex = 500
+                    }
+                )
+
+            Items["Transition"]:AddToTheme({
+                BackgroundColor3 =
+                    "Page Background"
+            })
         end
 
-        local Debounce = false
+        local SubTween =
+            TweenInfo.new(
+                0.12,
+                Enum.EasingStyle.Quint,
+                Enum.EasingDirection.Out
+            )
 
-        function SubPage:Turn(
-            Bool
-        )
-            Bool =
-                Bool == true
+        function SubPage:Turn(Bool)
+            Bool = Bool == true
+            SubPage.Active = Bool
+            SubPage.AnimationToken += 1
 
-            SubPage.Active =
-                Bool
+            local Token =
+                SubPage.AnimationToken
 
-            Items[
-                "Subtab"
-            ].Instance.Visible =
-                Bool
+            if Bool then
+                Items["Subtab"].Instance.Visible = true
+                Items["Subtab"].Instance.Position =
+                    UDim2New(0, 4, 0, 0)
 
-            Items[
-                "Hide"
-            ].Instance.Visible =
-                Bool
+                Items["Transition"].Instance.Visible = true
+                Items["Transition"].Instance.
+                    BackgroundTransparency = 0.80
 
-            Items[
-                "Icon"
-            ].Instance.ImageColor3 =
-                Bool
-                and Library.Theme.Accent
-                or Library.Theme.Text
+                Items["Subtab"]:Tween(
+                    SubTween,
+                    {
+                        Position =
+                            UDim2New(0, 0, 0, 0)
+                    }
+                )
 
-            Items[
-                "Icon"
-            ].Instance.ImageTransparency =
-                Bool
-                and 0
-                or 0.35
+                Items["Transition"]:Tween(
+                    SubTween,
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
 
-            Items[
-                "Icon"
-            ]:
-                ChangeItemTheme({
-                    ImageColor3 =
+                task.delay(
+                    0.12,
+                    function()
+                        if Token
+                                == SubPage.
+                                    AnimationToken
+                            and SubPage.Active
+                            and Items["Transition"].
+                                Instance
+                            and Items["Transition"].
+                                Instance.Parent
+                        then
+                            Items["Transition"].
+                                Instance.Visible = false
+                        end
+                    end
+                )
+            else
+                Items["Subtab"].Instance.Visible = false
+                Items["Transition"].Instance.Visible = false
+            end
+
+            Items["Inactive"]:Tween(
+                SubTween,
+                {
+                    BackgroundTransparency =
+                        Bool and 0.18 or 1
+                }
+            )
+
+            Items["Icon"]:Tween(
+                SubTween,
+                {
+                    TextColor3 =
                         Bool
-                        and "Accent"
-                        or "Text"
-                })
+                        and Library.Theme.Accent
+                        or Library.Theme[
+                            "Muted Text"
+                        ],
 
-            Items[
-                "Inactive"
-            ].Instance.Size =
-                Bool
-                and UDim2New(
-                    1,
-                    0,
-                    1,
-                    1
-                )
-                or UDim2New(
-                    1,
-                    0,
-                    1,
-                    -2
-                )
+                    TextTransparency =
+                        Bool and 0 or 0.08
+                }
+            )
+
+            Items["Text"]:Tween(
+                SubTween,
+                {
+                    TextColor3 =
+                        Bool
+                        and Library.Theme.Text
+                        or Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    TextTransparency =
+                        Bool and 0 or 0.08
+                }
+            )
+
+            Items["Icon"]:ChangeItemTheme({
+                TextColor3 =
+                    Bool
+                    and "Accent"
+                    or "Muted Text"
+            })
+
+            Items["Text"]:ChangeItemTheme({
+                TextColor3 =
+                    Bool
+                    and "Text"
+                    or "Muted Text"
+            })
         end
 
-        Items["Inactive"]:Connect("MouseButton1Down", function()
-            for Index, Value in SubPage.Window.SubPages do
-                Value:Turn(Value == SubPage)
+        Items["Inactive"]:OnHover(function()
+            if SubPage.Active then
+                return
             end
+
+            Items["Inactive"]:Tween(
+                SubTween,
+                {
+                    BackgroundTransparency = 0.45,
+
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Hovered Element"
+                        ]
+                }
+            )
+
+            Items["Icon"]:Tween(
+                SubTween,
+                {
+                    TextColor3 =
+                        Library.Theme.Text,
+
+                    TextTransparency = 0
+                }
+            )
+
+            Items["Text"]:Tween(
+                SubTween,
+                {
+                    TextColor3 =
+                        Library.Theme.Text,
+
+                    TextTransparency = 0
+                }
+            )
         end)
 
-        if #SubPage.Window.SubPages == 0 then
+        Items["Inactive"]:OnHoverLeave(function()
+            if SubPage.Active then
+                return
+            end
+
+            Items["Inactive"]:Tween(
+                SubTween,
+                {
+                    BackgroundTransparency = 1,
+
+                    BackgroundColor3 =
+                        Library.Theme.Element
+                }
+            )
+
+            Items["Icon"]:Tween(
+                SubTween,
+                {
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    TextTransparency = 0.08
+                }
+            )
+
+            Items["Text"]:Tween(
+                SubTween,
+                {
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    TextTransparency = 0.08
+                }
+            )
+        end)
+
+        Items["Inactive"]:Connect(
+            "MouseButton1Down",
+            function()
+                for _,
+                    Value in SubPage.Page.SubPages
+                do
+                    Value:Turn(
+                        Value == SubPage
+                    )
+                end
+            end
+        )
+
+        if #SubPage.Page.SubPages == 0 then
             SubPage:Turn(true)
         end
 
         SubPage.Elements = Items
 
-        TableInsert(SubPage.Window.SubPages, SubPage)
-        return setmetatable(SubPage, Library.Pages)
+        TableInsert(
+            SubPage.Page.SubPages,
+            SubPage
+        )
+
+        TableInsert(
+            SubPage.Window.SubPages,
+            SubPage
+        )
+
+        return setmetatable(
+            SubPage,
+            Library.Pages
+        )
     end
 
     Library.Pages.Section = function(self, Data)
@@ -10079,118 +10761,292 @@ local Library do
         }
 
         local Items = { }
-        local PopupTween = TweenInfo.new(
-            0.16,
-            Enum.EasingStyle.Quint,
-            Enum.EasingDirection.Out
-        )
 
-        Items["Dropdown"] = Instances:Create("Frame", {
-            Parent = Dropdown.Section.Elements["Content"].Instance,
-            BackgroundTransparency = 1,
-            Name = string.char(0),
-            Size = UDim2New(1, 0, 0, 37),
-            BorderSizePixel = 0
-        })
+        local PopupTween =
+            TweenInfo.new(
+                0.14,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out
+            )
 
-        Items["Text"] = Instances:Create("TextLabel", {
-            Parent = Items["Dropdown"].Instance,
-            FontFace = Library.Font,
-            TextColor3 = Library.Theme.Text,
-            Text = Dropdown.Name,
-            Name = string.char(0),
-            BackgroundTransparency = 1,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Size = UDim2New(1, 0, 0, 13),
-            BorderSizePixel = 0,
-            TextSize = 11
-        })
+        Items["Dropdown"] =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent =
+                        Dropdown.Section.
+                        Elements[
+                            "Content"
+                        ].
+                        Instance,
+
+                    BackgroundTransparency = 1,
+                    Name = string.char(0),
+                    Size = UDim2New(1, 0, 0, 39),
+                    BorderSizePixel = 0
+                }
+            )
+
+        Items["Text"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent =
+                        Items["Dropdown"].
+                        Instance,
+
+                    FontFace = Library.Font,
+                    TextColor3 =
+                        Library.Theme.Text,
+
+                    Text = Dropdown.Name,
+                    Name = string.char(0),
+                    BackgroundTransparency = 1,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    Size = UDim2New(1, 0, 0, 13),
+                    BorderSizePixel = 0,
+                    TextSize = 11
+                }
+            )
+
         Items["Text"]:AddToTheme({
             TextColor3 = "Text"
         })
 
-        Items["Field"] = Instances:Create("TextButton", {
-            Parent = Items["Dropdown"].Instance,
-            AnchorPoint = Vector2New(0, 1),
-            Name = string.char(0),
-            Position = UDim2New(0, 0, 1, 0),
-            Size = UDim2New(1, 0, 0, 21),
-            BorderSizePixel = 0,
-            BackgroundColor3 = Library.Theme["Page Background"],
-            AutoButtonColor = false,
-            Text = "",
-            Active = true
-        })
-        Items["Field"]:AddToTheme({
-            BackgroundColor3 = "Page Background"
-        })
-        Library:ApplyGlass(Items["Field"], "Element", 4)
+        Items["Field"] =
+            Instances:Create(
+                "TextButton",
+                {
+                    Parent =
+                        Items["Dropdown"].
+                        Instance,
 
-        Items["Value"] = Instances:Create("TextLabel", {
-            Parent = Items["Field"].Instance,
-            FontFace = Library.Font,
-            TextColor3 = Library.Theme.Text,
-            Text = "—",
-            Name = string.char(0),
-            Position = UDim2New(0, 7, 0, 0),
-            Size = UDim2New(1, -29, 1, 0),
-            BackgroundTransparency = 1,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            BorderSizePixel = 0,
-            TextSize = 10,
-            ZIndex = 2
+                    AnchorPoint = Vector2New(0, 1),
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 0, 1, 0),
+
+                    Size =
+                        UDim2New(1, 0, 0, 23),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme.Element,
+
+                    AutoButtonColor = false,
+                    Text = "",
+                    Active = true
+                }
+            )
+
+        Items["Field"]:AddToTheme({
+            BackgroundColor3 = "Element"
         })
+
+        Library:ApplyGlass(
+            Items["Field"],
+            "Element",
+            4
+        )
+
+        Items["Value"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent =
+                        Items["Field"].
+                        Instance,
+
+                    FontFace = Library.Font,
+                    TextColor3 =
+                        Library.Theme.Text,
+
+                    Text = "—",
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 8, 0, 0),
+
+                    Size =
+                        UDim2New(1, -34, 1, 0),
+
+                    BackgroundTransparency = 1,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    TextTruncate =
+                        Enum.TextTruncate.AtEnd,
+
+                    BorderSizePixel = 0,
+                    TextSize = 10,
+                    ZIndex = 2
+                }
+            )
+
         Items["Value"]:AddToTheme({
             TextColor3 = "Text"
         })
 
-        Items["Open"] = Instances:Create("TextLabel", {
-            Parent = Items["Field"].Instance,
-            Font = Enum.Font.GothamMedium,
-            TextColor3 = Library.Theme["Muted Text"],
-            Text = "+",
-            Name = string.char(0),
-            AnchorPoint = Vector2New(1, 0.5),
-            Position = UDim2New(1, -7, 0.5, 0),
-            Size = UDim2New(0, 15, 0, 16),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            TextSize = 12,
-            ZIndex = 3
+        Items["Action"] =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent =
+                        Items["Field"].
+                        Instance,
+
+                    AnchorPoint =
+                        Vector2New(1, 0),
+
+                    Position =
+                        UDim2New(1, 0, 0, 0),
+
+                    Size =
+                        UDim2New(0, 25, 1, 0),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Page Background"
+                        ],
+
+                    ZIndex = 2
+                }
+            )
+
+        Items["Action"]:AddToTheme({
+            BackgroundColor3 =
+                "Page Background"
         })
+
+        local Separator =
+            InstanceNew("Frame")
+
+        Separator.Position =
+            UDim2New(0, 0, 0, 4)
+
+        Separator.Size =
+            UDim2New(0, 1, 1, -8)
+
+        Separator.BorderSizePixel = 0
+
+        Separator.BackgroundColor3 =
+            Library.Theme.Outline
+
+        Separator.BackgroundTransparency =
+            0.30
+
+        Separator.ZIndex = 3
+        Separator.Parent =
+            Items["Action"].Instance
+
+        Library:AddToTheme(
+            Separator,
+            {
+                BackgroundColor3 =
+                    "Outline"
+            }
+        )
+
+        Items["Open"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent =
+                        Items["Action"].
+                        Instance,
+
+                    Font =
+                        Enum.Font.GothamMedium,
+
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    Text = "+",
+                    Name = string.char(0),
+
+                    Size =
+                        UDim2New(1, 0, 1, 0),
+
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    TextSize = 12,
+                    ZIndex = 4
+                }
+            )
+
         Items["Open"]:AddToTheme({
             TextColor3 = "Muted Text"
         })
 
-        Items["Popup"] = Instances:Create("CanvasGroup", {
-            Parent = Library.Holder.Instance,
-            Visible = false,
-            Name = string.char(0),
-            Position = UDim2New(0, 0, 0, 0),
-            Size = UDim2New(0, 120, 0, 0),
-            BorderSizePixel = 0,
-            AutomaticSize = Enum.AutomaticSize.None,
-            BackgroundColor3 = Library.Theme.Inline,
-            ClipsDescendants = true,
-            BackgroundTransparency = 0,
-            GroupTransparency = 1,
-            ZIndex = 900
-        })
+        Items["Popup"] =
+            Instances:Create(
+                "CanvasGroup",
+                {
+                    Parent =
+                        Library.Holder.Instance,
+
+                    Visible = false,
+                    Name = string.char(0),
+                    Position =
+                        UDim2New(0, 0, 0, 0),
+
+                    Size =
+                        UDim2New(0, 120, 0, 0),
+
+                    BorderSizePixel = 0,
+                    BackgroundColor3 =
+                        Library.Theme.Background,
+
+                    BackgroundTransparency = 0,
+                    ClipsDescendants = true,
+                    GroupTransparency = 1,
+                    ZIndex = 900
+                }
+            )
+
         Items["Popup"]:AddToTheme({
-            BackgroundColor3 = "Inline"
+            BackgroundColor3 = "Background"
         })
-        Library:ApplyGlass(Items["Popup"], "Popup", 5)
 
-        local PopupLayout = InstanceNew("UIListLayout")
-        PopupLayout.Padding = UDimNew(0, 1)
-        PopupLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        PopupLayout.Parent = Items["Popup"].Instance
+        Library:ApplyGlass(
+            Items["Popup"],
+            "Popup",
+            4
+        )
 
-        local PopupPadding = InstanceNew("UIPadding")
-        PopupPadding.PaddingTop = UDimNew(0, 3)
-        PopupPadding.PaddingBottom = UDimNew(0, 3)
-        PopupPadding.Parent = Items["Popup"].Instance
+        local PopupLayout =
+            InstanceNew("UIListLayout")
+
+        PopupLayout.Padding =
+            UDimNew(0, 1)
+
+        PopupLayout.SortOrder =
+            Enum.SortOrder.LayoutOrder
+
+        PopupLayout.Parent =
+            Items["Popup"].Instance
+
+        local PopupPadding =
+            InstanceNew("UIPadding")
+
+        PopupPadding.PaddingTop =
+            UDimNew(0, 3)
+
+        PopupPadding.PaddingBottom =
+            UDimNew(0, 3)
+
+        PopupPadding.Parent =
+            Items["Popup"].Instance
 
         local function GetPopupMetrics(Offset)
             local Field =
@@ -10204,22 +11060,19 @@ local Library do
 
             local Viewport =
                 Workspace.CurrentCamera
-                and Workspace.CurrentCamera.ViewportSize
+                and Workspace.CurrentCamera.
+                    ViewportSize
                 or Vector2New(1920, 1080)
 
-            local ContentHeight =
-                math.max(
-                    PopupLayout.AbsoluteContentSize.Y + 6,
-                    #Dropdown.Items * 21 + 6,
-                    27
-                )
-
-            local PopupHeight =
+            local Height =
                 math.min(
-                    ContentHeight,
+                    math.max(
+                        #Dropdown.Items * 22 + 6,
+                        28
+                    ),
                     math.max(
                         Viewport.Y - 12,
-                        27
+                        28
                     )
                 )
 
@@ -10228,7 +11081,9 @@ local Library do
                     Position.X,
                     6,
                     math.max(
-                        Viewport.X - Size.X - 6,
+                        Viewport.X
+                        - Size.X
+                        - 6,
                         6
                     )
                 )
@@ -10240,39 +11095,29 @@ local Library do
 
             local Above =
                 Position.Y
-                - PopupHeight
+                - Height
                 - (Offset or 3)
 
             local Y =
-                Below + PopupHeight
+                Below + Height
                     <= Viewport.Y - 6
                 and Below
-                or math.max(
-                    Above,
-                    6
-                )
+                or math.max(Above, 6)
 
             return
-                UDim2New(
-                    0,
-                    X,
-                    0,
-                    Y
-                ),
+                UDim2New(0, X, 0, Y),
                 UDim2New(
                     0,
                     Size.X,
                     0,
-                    PopupHeight
+                    Height
                 )
         end
 
         local function UpdatePopupPosition(Offset)
             local Position,
                 Size =
-                GetPopupMetrics(
-                    Offset
-                )
+                GetPopupMetrics(Offset)
 
             Items["Popup"].Instance.Position =
                 Position
@@ -10282,19 +11127,25 @@ local Library do
         end
 
         Library:Connect(
-            Items["Field"].Instance:GetPropertyChangedSignal("AbsolutePosition"),
+            Items["Field"].Instance:
+                GetPropertyChangedSignal(
+                    "AbsolutePosition"
+                ),
             function()
                 if Dropdown.IsOpen then
-                    UpdatePopupPosition()
+                    UpdatePopupPosition(3)
                 end
             end
         )
 
         Library:Connect(
-            Items["Field"].Instance:GetPropertyChangedSignal("AbsoluteSize"),
+            Items["Field"].Instance:
+                GetPropertyChangedSignal(
+                    "AbsoluteSize"
+                ),
             function()
                 if Dropdown.IsOpen then
-                    UpdatePopupPosition()
+                    UpdatePopupPosition(3)
                 end
             end
         )
@@ -10304,21 +11155,31 @@ local Library do
 
             if Bool
                 and Library.OpenDropdown
-                and Library.OpenDropdown ~= Dropdown
+                and Library.OpenDropdown
+                    ~= Dropdown
             then
-                Library.OpenDropdown:SetOpen(false)
+                Library.OpenDropdown:
+                    SetOpen(false)
             end
 
             Dropdown.AnimationToken += 1
-            local Token = Dropdown.AnimationToken
+
+            local Token =
+                Dropdown.AnimationToken
+
             Dropdown.IsOpen = Bool
 
             if Bool then
-                Library.OpenDropdown = Dropdown
-                UpdatePopupPosition(7)
+                Library.OpenDropdown =
+                    Dropdown
 
-                Items["Popup"].Instance.GroupTransparency = 1
-                Items["Popup"].Instance.Visible = true
+                UpdatePopupPosition(6)
+
+                Items["Popup"].Instance.
+                    GroupTransparency = 1
+
+                Items["Popup"].Instance.
+                    Visible = true
 
                 local FinalPosition,
                     FinalSize =
@@ -10327,49 +11188,106 @@ local Library do
                 Items["Popup"]:Tween(
                     PopupTween,
                     {
-                        Position = FinalPosition,
+                        Position =
+                            FinalPosition,
+
                         Size = FinalSize,
+
                         GroupTransparency = 0
                     }
                 )
 
-                Items["Field"]:Tween(PopupTween, {
-                    BackgroundColor3 = Library.Theme["Hovered Element"]
-                })
+                Items["Field"]:Tween(
+                    PopupTween,
+                    {
+                        BackgroundColor3 =
+                            Library.Theme[
+                                "Hovered Element"
+                            ]
+                    }
+                )
 
-                Items["Open"]:Tween(PopupTween, {
-                    TextColor3 = Library.Theme.Accent
-                })
+                Items["Action"]:Tween(
+                    PopupTween,
+                    {
+                        BackgroundColor3 =
+                            Library.Theme.Element
+                    }
+                )
 
-                Items["Open"].Instance.Text = "−"
+                Items["Open"]:Tween(
+                    PopupTween,
+                    {
+                        TextColor3 =
+                            Library.Theme.Accent
+                    }
+                )
+
+                Items["Open"].Instance.Text =
+                    "−"
             else
-                if Library.OpenDropdown == Dropdown then
+                if Library.OpenDropdown
+                    == Dropdown
+                then
                     Library.OpenDropdown = nil
                 end
 
-                Items["Popup"]:Tween(PopupTween, {
-                    GroupTransparency = 1
-                })
+                Items["Popup"]:Tween(
+                    PopupTween,
+                    {
+                        GroupTransparency = 1
+                    }
+                )
 
-                Items["Field"]:Tween(PopupTween, {
-                    BackgroundColor3 = Library.Theme["Page Background"]
-                })
+                Items["Field"]:Tween(
+                    PopupTween,
+                    {
+                        BackgroundColor3 =
+                            Library.Theme.Element
+                    }
+                )
 
-                Items["Open"]:Tween(PopupTween, {
-                    TextColor3 = Library.Theme["Muted Text"]
-                })
+                Items["Action"]:Tween(
+                    PopupTween,
+                    {
+                        BackgroundColor3 =
+                            Library.Theme[
+                                "Page Background"
+                            ]
+                    }
+                )
 
-                Items["Open"].Instance.Text = "+"
+                Items["Open"]:Tween(
+                    PopupTween,
+                    {
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ]
+                    }
+                )
 
-                task.delay(0.16, function()
-                    if Token == Dropdown.AnimationToken
-                        and not Dropdown.IsOpen
-                        and Items["Popup"].Instance
-                        and Items["Popup"].Instance.Parent
-                    then
-                        Items["Popup"].Instance.Visible = false
+                Items["Open"].Instance.Text =
+                    "+"
+
+                task.delay(
+                    0.14,
+                    function()
+                        if Token
+                                == Dropdown.
+                                    AnimationToken
+                            and not Dropdown.IsOpen
+                            and Items["Popup"].
+                                Instance
+                            and Items["Popup"].
+                                Instance.Parent
+                        then
+                            Items["Popup"].
+                                Instance.
+                                Visible = false
+                        end
                     end
-                end)
+                )
             end
         end
 
@@ -10378,13 +11296,23 @@ local Library do
                 return
             end
 
-            Items["Field"]:Tween(PopupTween, {
-                BackgroundColor3 = Library.Theme["Hovered Element"]
-            })
+            Items["Field"]:Tween(
+                PopupTween,
+                {
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Hovered Element"
+                        ]
+                }
+            )
 
-            Items["Open"]:Tween(PopupTween, {
-                TextColor3 = Library.Theme.Text
-            })
+            Items["Open"]:Tween(
+                PopupTween,
+                {
+                    TextColor3 =
+                        Library.Theme.Text
+                }
+            )
         end)
 
         Items["Field"]:OnHoverLeave(function()
@@ -10392,13 +11320,23 @@ local Library do
                 return
             end
 
-            Items["Field"]:Tween(PopupTween, {
-                BackgroundColor3 = Library.Theme["Page Background"]
-            })
+            Items["Field"]:Tween(
+                PopupTween,
+                {
+                    BackgroundColor3 =
+                        Library.Theme.Element
+                }
+            )
 
-            Items["Open"]:Tween(PopupTween, {
-                TextColor3 = Library.Theme["Muted Text"]
-            })
+            Items["Open"]:Tween(
+                PopupTween,
+                {
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ]
+                }
+            )
         end)
 
         function Dropdown:Set(Option)
@@ -10407,49 +11345,81 @@ local Library do
                     return
                 end
 
-                for _, OptionData in pairs(Dropdown.Options) do
+                for _,
+                    OptionData in pairs(
+                        Dropdown.Options
+                    )
+                do
                     OptionData.Selected = false
                     OptionData:Toggle(false)
                 end
 
                 Dropdown.Value = { }
 
-                for _, Value in ipairs(Option) do
-                    local OptionData = Dropdown.Options[Value]
+                for _,
+                    Value in ipairs(Option)
+                do
+                    local OptionData =
+                        Dropdown.Options[
+                            Value
+                        ]
 
                     if OptionData then
                         OptionData.Selected = true
                         OptionData:Toggle(true)
-                        table.insert(Dropdown.Value, Value)
+
+                        table.insert(
+                            Dropdown.Value,
+                            Value
+                        )
                     end
                 end
 
                 Items["Value"].Instance.Text =
                     #Dropdown.Value > 0
-                    and table.concat(Dropdown.Value, ", ")
+                    and table.concat(
+                        Dropdown.Value,
+                        ", "
+                    )
                     or "—"
             else
-                local OptionData = Dropdown.Options[Option]
+                local OptionData =
+                    Dropdown.Options[Option]
 
                 if not OptionData then
                     return
                 end
 
-                for _, Value in pairs(Dropdown.Options) do
-                    Value.Selected = Value == OptionData
-                    Value:Toggle(Value == OptionData)
+                for _,
+                    Value in pairs(
+                        Dropdown.Options
+                    )
+                do
+                    Value.Selected =
+                        Value == OptionData
+
+                    Value:Toggle(
+                        Value == OptionData
+                    )
                 end
 
-                Dropdown.Value = OptionData.Name
-                Items["Value"].Instance.Text = OptionData.Name
+                Dropdown.Value =
+                    OptionData.Name
+
+                Items["Value"].Instance.Text =
+                    OptionData.Name
             end
 
-            Items["Value"].Instance.TextTransparency = 0
-            Items["Value"].Instance.TextColor3 =
+            Items["Value"].Instance.
+                TextTransparency = 0
+
+            Items["Value"].Instance.
+                TextColor3 =
                 Library.Theme.Text
 
-            Library.Flags[Dropdown.Flag] =
-                Dropdown.Value
+            Library.Flags[
+                Dropdown.Flag
+            ] = Dropdown.Value
 
             if Dropdown.Callback then
                 Library:SafeCall(
@@ -10464,7 +11434,9 @@ local Library do
         end
 
         function Dropdown:SetVisibility(Bool)
-            Items["Dropdown"].Instance.Visible = Bool == true
+            Items["Dropdown"].Instance.
+                Visible =
+                Bool == true
 
             if not Bool then
                 Dropdown:SetOpen(false)
@@ -10472,92 +11444,208 @@ local Library do
         end
 
         function Dropdown:Add(Option)
-            local OptionButton = Instances:Create("TextButton", {
-                Parent = Items["Popup"].Instance,
-                FontFace = Library.Font,
-                Text = tostring(Option),
-                TextColor3 = Library.Theme.Text,
-                TextTransparency = 0.08,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                AutoButtonColor = false,
-                Name = string.char(0),
-                BackgroundColor3 = Library.Theme["Hovered Element"],
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                Size = UDim2New(1, 0, 0, 20),
-                ZIndex = 901,
-                TextSize = 10
-            })
-            OptionButton:AddToTheme({
-                BackgroundColor3 = "Hovered Element",
-                TextColor3 = "Text"
+            local Row =
+                Instances:Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Items["Popup"].
+                            Instance,
+
+                        FontFace = Library.Font,
+                        Text = "",
+                        AutoButtonColor = false,
+                        Name = string.char(0),
+
+                        BackgroundColor3 =
+                            Library.Theme.Element,
+
+                        BackgroundTransparency = 1,
+                        BorderSizePixel = 0,
+
+                        Size =
+                            UDim2New(1, 0, 0, 21),
+
+                        ZIndex = 901
+                    }
+                )
+
+            Row:AddToTheme({
+                BackgroundColor3 = "Element"
             })
 
-            local Padding = InstanceNew("UIPadding")
-            Padding.PaddingLeft = UDimNew(0, 8)
-            Padding.PaddingRight = UDimNew(0, 8)
-            Padding.Parent = OptionButton.Instance
+            local Marker =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent = Row.Instance,
+                        Position =
+                            UDim2New(0, 0, 0, 4),
+
+                        Size =
+                            UDim2New(0, 2, 1, -8),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Accent,
+
+                        BackgroundTransparency = 1,
+                        ZIndex = 902
+                    }
+                )
+
+            Marker:AddToTheme({
+                BackgroundColor3 = "Accent"
+            })
+
+            local Label =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent = Row.Instance,
+                        FontFace = Library.Font,
+
+                        TextColor3 =
+                            Library.Theme.Text,
+
+                        TextTransparency = 0.05,
+                        Text = tostring(Option),
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 8, 0, 0),
+
+                        Size =
+                            UDim2New(1, -14, 1, 0),
+
+                        BackgroundTransparency = 1,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        BorderSizePixel = 0,
+                        ZIndex = 902,
+                        TextSize = 10
+                    }
+                )
+
+            Label:AddToTheme({
+                TextColor3 = "Text"
+            })
 
             local OptionData = {
                 Selected = false,
                 Name = Option,
-                Button = OptionButton
+                Button = Row,
+                Marker = Marker,
+                Label = Label
             }
 
             function OptionData:Toggle(Active)
-                OptionData.Selected = Active == true
+                OptionData.Selected =
+                    Active == true
 
-                OptionData.Button:ChangeItemTheme({
-                    TextColor3 = Active and "Accent" or "Text"
-                })
+                OptionData.Marker:Tween(
+                    PopupTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0 or 1
+                    }
+                )
 
-                OptionData.Button:Tween(PopupTween, {
-                    TextColor3 = Active
-                        and Library.Theme.Accent
-                        or Library.Theme.Text,
+                OptionData.Button:Tween(
+                    PopupTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0.52 or 1
+                    }
+                )
 
-                    TextTransparency = Active and 0 or 0.08,
-                    BackgroundTransparency =
-                        Active and 0.68 or 1
-                })
+                OptionData.Label:
+                    ChangeItemTheme({
+                        TextColor3 =
+                            Active
+                            and "Accent"
+                            or "Text"
+                    })
+
+                OptionData.Label:Tween(
+                    PopupTween,
+                    {
+                        TextColor3 =
+                            Active
+                            and Library.Theme.Accent
+                            or Library.Theme.Text,
+
+                        TextTransparency =
+                            Active and 0 or 0.05
+                    }
+                )
             end
 
-            OptionButton:OnHover(function()
+            Row:OnHover(function()
                 if OptionData.Selected then
                     return
                 end
 
-                OptionData.Button:Tween(PopupTween, {
-                    BackgroundTransparency = 0.82,
-                    TextTransparency = 0
-                })
+                OptionData.Button:Tween(
+                    PopupTween,
+                    {
+                        BackgroundTransparency =
+                            0.68
+                    }
+                )
+
+                OptionData.Label:Tween(
+                    PopupTween,
+                    {
+                        TextTransparency = 0
+                    }
+                )
             end)
 
-            OptionButton:OnHoverLeave(function()
+            Row:OnHoverLeave(function()
                 if OptionData.Selected then
                     return
                 end
 
-                OptionData.Button:Tween(PopupTween, {
-                    BackgroundTransparency = 1,
-                    TextTransparency = 0.08
-                })
+                OptionData.Button:Tween(
+                    PopupTween,
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
+
+                OptionData.Label:Tween(
+                    PopupTween,
+                    {
+                        TextTransparency = 0.05
+                    }
+                )
             end)
 
             function OptionData:Set()
                 if Dropdown.Multi then
-                    OptionData.Selected = not OptionData.Selected
-                    local Index = table.find(
-                        Dropdown.Value,
-                        OptionData.Name
-                    )
+                    OptionData.Selected =
+                        not OptionData.Selected
 
-                    if OptionData.Selected and not Index then
+                    local Index =
+                        table.find(
+                            Dropdown.Value,
+                            OptionData.Name
+                        )
+
+                    if OptionData.Selected
+                        and not Index
+                    then
                         table.insert(
                             Dropdown.Value,
                             OptionData.Name
                         )
-                    elseif not OptionData.Selected and Index then
+                    elseif not OptionData.Selected
+                        and Index
+                    then
                         table.remove(
                             Dropdown.Value,
                             Index
@@ -10570,10 +11658,15 @@ local Library do
 
                     Items["Value"].Instance.Text =
                         #Dropdown.Value > 0
-                        and table.concat(Dropdown.Value, ", ")
+                        and table.concat(
+                            Dropdown.Value,
+                            ", "
+                        )
                         or "—"
 
-                    Library.Flags[Dropdown.Flag] = Dropdown.Value
+                    Library.Flags[
+                        Dropdown.Flag
+                    ] = Dropdown.Value
 
                     if Dropdown.Callback then
                         Library:SafeCall(
@@ -10582,24 +11675,30 @@ local Library do
                         )
                     end
                 else
-                    Dropdown:Set(OptionData.Name)
+                    Dropdown:Set(
+                        OptionData.Name
+                    )
+
                     Dropdown:SetOpen(false)
                 end
             end
 
-            OptionButton:Connect(
+            Row:Connect(
                 "MouseButton1Down",
                 function()
                     OptionData:Set()
                 end
             )
 
-            Dropdown.Options[Option] = OptionData
+            Dropdown.Options[Option] =
+                OptionData
+
             return OptionData
         end
 
         function Dropdown:Remove(Option)
-            local OptionData = Dropdown.Options[Option]
+            local OptionData =
+                Dropdown.Options[Option]
 
             if not OptionData then
                 return
@@ -10612,24 +11711,41 @@ local Library do
         function Dropdown:Refresh(List)
             local Existing = { }
 
-            for Name in pairs(Dropdown.Options) do
-                table.insert(Existing, Name)
+            for Name in pairs(
+                Dropdown.Options
+            )
+            do
+                table.insert(
+                    Existing,
+                    Name
+                )
             end
 
-            for _, Name in ipairs(Existing) do
+            for _,
+                Name in ipairs(Existing)
+            do
                 Dropdown:Remove(Name)
             end
 
-            for _, Value in ipairs(List) do
+            Dropdown.Items = List or { }
+
+            for _,
+                Value in ipairs(
+                    Dropdown.Items
+                )
+            do
                 Dropdown:Add(Value)
             end
         end
 
-        for _, Value in ipairs(Dropdown.Items) do
+        for _,
+            Value in ipairs(
+                Dropdown.Items
+            )
+        do
             Dropdown:Add(Value)
         end
 
-        -- The whole field opens or closes the popup.
         Items["Field"]:Connect(
             "MouseButton1Down",
             function()
@@ -10647,15 +11763,23 @@ local Library do
                 end
 
                 if Input.UserInputType
-                        ~= Enum.UserInputType.MouseButton1
+                        ~= Enum.UserInputType.
+                            MouseButton1
                     and Input.UserInputType
-                        ~= Enum.UserInputType.Touch
+                        ~= Enum.UserInputType.
+                            Touch
                 then
                     return
                 end
 
-                if Library:IsMouseOverFrame(Items["Popup"])
-                    or Library:IsMouseOverFrame(Items["Field"])
+                if Library:
+                    IsMouseOverFrame(
+                        Items["Popup"]
+                    )
+                    or Library:
+                    IsMouseOverFrame(
+                        Items["Field"]
+                    )
                 then
                     return
                 end
@@ -10665,10 +11789,14 @@ local Library do
         )
 
         if Dropdown.Default ~= nil then
-            Dropdown:Set(Dropdown.Default)
+            Dropdown:Set(
+                Dropdown.Default
+            )
         end
 
-        Library.SetFlags[Dropdown.Flag] = function(Value)
+        Library.SetFlags[
+            Dropdown.Flag
+        ] = function(Value)
             Dropdown:Set(Value)
         end
 
@@ -10943,8 +12071,1497 @@ local Library do
         return Textbox
     end
 
+    Library.Sections.PlayerList = function(self, Data)
+        Data = Data or { }
+
+        local PlayerList = {
+            Window = self.Window,
+            Page = self.Page,
+            Section = self,
+            Flag = Data.Flag or Data.flag or Library:NextFlag(),
+            Callback = Data.Callback or Data.callback or function() end,
+            GetStatus = Data.GetStatus or Data.getstatus,
+            Height = Data.Height or Data.height or 338,
+            Selected = nil,
+            Search = "",
+            Rows = { },
+            Statuses = { },
+            IsStatusOpen = false,
+            Class = "PlayerList"
+        }
+
+        local Items = { }
+
+        local PlayerTween =
+            TweenInfo.new(
+                0.12,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out
+            )
+
+        local StatusColors = {
+            None = Library.Theme["Muted Text"],
+            Priority = FromRGB(235, 184, 84),
+            Whitelist = Library.Theme.Accent,
+            Client = Library.Theme.Danger
+        }
+
+        Items["Root"] =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent =
+                        PlayerList.Section.
+                        Elements["Content"].
+                        Instance,
+
+                    Name = string.char(0),
+
+                    Size =
+                        UDim2New(
+                            1,
+                            0,
+                            0,
+                            PlayerList.Height
+                        ),
+
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    ClipsDescendants = false
+                }
+            )
+
+        Items["Left"] =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent = Items["Root"].Instance,
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 0, 0, 0),
+
+                    Size =
+                        UDim2New(0.57, -4, 1, 0),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Page Background"
+                        ],
+
+                    ClipsDescendants = true
+                }
+            )
+
+        Items["Left"]:AddToTheme({
+            BackgroundColor3 =
+                "Page Background"
+        })
+
+        Library:ApplyGlass(
+            Items["Left"],
+            "Panel",
+            5
+        )
+
+        Items["Right"] =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent = Items["Root"].Instance,
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0.57, 4, 0, 0),
+
+                    Size =
+                        UDim2New(0.43, -4, 1, 0),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Page Background"
+                        ],
+
+                    ClipsDescendants = false
+                }
+            )
+
+        Items["Right"]:AddToTheme({
+            BackgroundColor3 =
+                "Page Background"
+        })
+
+        Library:ApplyGlass(
+            Items["Right"],
+            "Panel",
+            5
+        )
+
+        Items["Count"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent = Items["Left"].Instance,
+                    FontFace = Library.Font,
+                    TextColor3 = Library.Theme.Text,
+                    Text = "Players [0]",
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 9, 0, 7),
+
+                    Size =
+                        UDim2New(1, -18, 0, 17),
+
+                    BackgroundTransparency = 1,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    BorderSizePixel = 0,
+                    TextSize = 11
+                }
+            )
+
+        Items["Count"]:AddToTheme({
+            TextColor3 = "Text"
+        })
+
+        Items["Search"] =
+            Instances:Create(
+                "TextBox",
+                {
+                    Parent = Items["Left"].Instance,
+                    FontFace = Library.Font,
+                    TextColor3 = Library.Theme.Text,
+                    PlaceholderColor3 =
+                        Library.Theme["Muted Text"],
+
+                    PlaceholderText = "Search player...",
+                    Text = "",
+                    ClearTextOnFocus = false,
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 9, 0, 29),
+
+                    Size =
+                        UDim2New(1, -18, 0, 25),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme.Element,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    TextSize = 10
+                }
+            )
+
+        Items["Search"]:AddToTheme({
+            TextColor3 = "Text",
+            PlaceholderColor3 = "Muted Text",
+            BackgroundColor3 = "Element"
+        })
+
+        Library:ApplyGlass(
+            Items["Search"],
+            "Element",
+            4
+        )
+
+        local SearchPadding =
+            InstanceNew("UIPadding")
+
+        SearchPadding.PaddingLeft =
+            UDimNew(0, 8)
+
+        SearchPadding.PaddingRight =
+            UDimNew(0, 8)
+
+        SearchPadding.Parent =
+            Items["Search"].Instance
+
+        Items["Header"] =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent = Items["Left"].Instance,
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 9, 0, 62),
+
+                    Size =
+                        UDim2New(1, -18, 0, 22),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme.Inline
+                }
+            )
+
+        Items["Header"]:AddToTheme({
+            BackgroundColor3 = "Inline"
+        })
+
+        Items["HeaderName"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent = Items["Header"].Instance,
+                    FontFace = Library.Font,
+
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    Text = "Name",
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 8, 0, 0),
+
+                    Size =
+                        UDim2New(0.68, -8, 1, 0),
+
+                    BackgroundTransparency = 1,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    BorderSizePixel = 0,
+                    TextSize = 9
+                }
+            )
+
+        Items["HeaderName"]:AddToTheme({
+            TextColor3 = "Muted Text"
+        })
+
+        Items["HeaderStatus"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent = Items["Header"].Instance,
+                    FontFace = Library.Font,
+
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    Text = "Status",
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0.68, 0, 0, 0),
+
+                    Size =
+                        UDim2New(0.32, -8, 1, 0),
+
+                    BackgroundTransparency = 1,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Right,
+
+                    BorderSizePixel = 0,
+                    TextSize = 9
+                }
+            )
+
+        Items["HeaderStatus"]:AddToTheme({
+            TextColor3 = "Muted Text"
+        })
+
+        Items["List"] =
+            Instances:Create(
+                "ScrollingFrame",
+                {
+                    Parent = Items["Left"].Instance,
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 9, 0, 85),
+
+                    Size =
+                        UDim2New(1, -18, 1, -94),
+
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+
+                    ScrollBarImageColor3 =
+                        Library.Theme.Accent,
+
+                    ScrollBarThickness = 2,
+
+                    VerticalScrollBarInset =
+                        Enum.ScrollBarInset.ScrollBar,
+
+                    ScrollingDirection =
+                        Enum.ScrollingDirection.Y,
+
+                    ElasticBehavior =
+                        Enum.ElasticBehavior.Never,
+
+                    AutomaticCanvasSize =
+                        Enum.AutomaticSize.Y,
+
+                    CanvasSize =
+                        UDim2New(0, 0, 0, 0),
+
+                    ClipsDescendants = true
+                }
+            )
+
+        Items["List"]:AddToTheme({
+            ScrollBarImageColor3 = "Accent"
+        })
+
+        local ListLayout =
+            InstanceNew("UIListLayout")
+
+        ListLayout.Padding = UDimNew(0, 1)
+        ListLayout.SortOrder =
+            Enum.SortOrder.LayoutOrder
+
+        ListLayout.Parent =
+            Items["List"].Instance
+
+        Items["SelectedTitle"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent = Items["Right"].Instance,
+                    FontFace = Library.Font,
+                    TextColor3 = Library.Theme.Text,
+                    Text = "Selected Player",
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 10, 0, 7),
+
+                    Size =
+                        UDim2New(1, -20, 0, 17),
+
+                    BackgroundTransparency = 1,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    BorderSizePixel = 0,
+                    TextSize = 11
+                }
+            )
+
+        Items["SelectedTitle"]:AddToTheme({
+            TextColor3 = "Text"
+        })
+
+        Items["Avatar"] =
+            Instances:Create(
+                "ImageLabel",
+                {
+                    Parent = Items["Right"].Instance,
+                    Name = string.char(0),
+
+                    AnchorPoint =
+                        Vector2New(0.5, 0),
+
+                    Position =
+                        UDim2New(0.5, 0, 0, 35),
+
+                    Size =
+                        UDim2New(0, 72, 0, 72),
+
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    Image = "",
+                    ScaleType = Enum.ScaleType.Fit
+                }
+            )
+
+        local AvatarCorner =
+            InstanceNew("UICorner")
+
+        AvatarCorner.CornerRadius =
+            UDimNew(1, 0)
+
+        AvatarCorner.Parent =
+            Items["Avatar"].Instance
+
+        Items["SelectedName"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent = Items["Right"].Instance,
+                    FontFace = Library.Font,
+                    TextColor3 = Library.Theme.Text,
+                    Text = "No player selected",
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 10, 0, 113),
+
+                    Size =
+                        UDim2New(1, -20, 0, 17),
+
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    TextSize = 10
+                }
+            )
+
+        Items["SelectedName"]:AddToTheme({
+            TextColor3 = "Text"
+        })
+
+        Items["SelectedId"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent = Items["Right"].Instance,
+                    FontFace = Library.Font,
+
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    Text = "—",
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 10, 0, 132),
+
+                    Size =
+                        UDim2New(1, -20, 0, 15),
+
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    TextSize = 9
+                }
+            )
+
+        Items["SelectedId"]:AddToTheme({
+            TextColor3 = "Muted Text"
+        })
+
+        Items["StatusLabel"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent = Items["Right"].Instance,
+                    FontFace = Library.Font,
+                    TextColor3 = Library.Theme.Text,
+                    Text = "Status",
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 10, 0, 165),
+
+                    Size =
+                        UDim2New(1, -20, 0, 15),
+
+                    BackgroundTransparency = 1,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    BorderSizePixel = 0,
+                    TextSize = 10
+                }
+            )
+
+        Items["StatusLabel"]:AddToTheme({
+            TextColor3 = "Text"
+        })
+
+        Items["StatusField"] =
+            Instances:Create(
+                "TextButton",
+                {
+                    Parent = Items["Right"].Instance,
+                    FontFace = Library.Font,
+                    Text = "",
+                    AutoButtonColor = false,
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 10, 0, 184),
+
+                    Size =
+                        UDim2New(1, -20, 0, 26),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme.Element
+                }
+            )
+
+        Items["StatusField"]:AddToTheme({
+            BackgroundColor3 = "Element"
+        })
+
+        Library:ApplyGlass(
+            Items["StatusField"],
+            "Element",
+            4
+        )
+
+        Items["StatusValue"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent =
+                        Items["StatusField"].Instance,
+
+                    FontFace = Library.Font,
+                    TextColor3 = Library.Theme.Text,
+                    Text = "None",
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 8, 0, 0),
+
+                    Size =
+                        UDim2New(1, -30, 1, 0),
+
+                    BackgroundTransparency = 1,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    BorderSizePixel = 0,
+                    TextSize = 10,
+                    ZIndex = 2
+                }
+            )
+
+        Items["StatusValue"]:AddToTheme({
+            TextColor3 = "Text"
+        })
+
+        Items["StatusArrow"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent =
+                        Items["StatusField"].Instance,
+
+                    FontFace = Library.Font,
+
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    Text = "+",
+                    Name = string.char(0),
+
+                    AnchorPoint =
+                        Vector2New(1, 0),
+
+                    Position =
+                        UDim2New(1, -6, 0, 0),
+
+                    Size =
+                        UDim2New(0, 18, 1, 0),
+
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    TextSize = 11,
+                    ZIndex = 2
+                }
+            )
+
+        Items["StatusArrow"]:AddToTheme({
+            TextColor3 = "Muted Text"
+        })
+
+        Items["StatusPopup"] =
+            Instances:Create(
+                "CanvasGroup",
+                {
+                    Parent = Items["Right"].Instance,
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 10, 0, 214),
+
+                    Size =
+                        UDim2New(1, -20, 0, 69),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme.Background,
+
+                    GroupTransparency = 1,
+                    Visible = false,
+                    ZIndex = 40
+                }
+            )
+
+        Items["StatusPopup"]:AddToTheme({
+            BackgroundColor3 = "Background"
+        })
+
+        Library:ApplyGlass(
+            Items["StatusPopup"],
+            "Popup",
+            4
+        )
+
+        local StatusLayout =
+            InstanceNew("UIListLayout")
+
+        StatusLayout.Padding =
+            UDimNew(0, 1)
+
+        StatusLayout.SortOrder =
+            Enum.SortOrder.LayoutOrder
+
+        StatusLayout.Parent =
+            Items["StatusPopup"].Instance
+
+        local StatusRows = { }
+
+        local function GetStatus(Player)
+            if not Player then
+                return "None"
+            end
+
+            if Player == LocalPlayer then
+                return "Client"
+            end
+
+            if PlayerList.GetStatus then
+                local Success,
+                    Result =
+                    pcall(
+                        PlayerList.GetStatus,
+                        Player
+                    )
+
+                if Success
+                    and (
+                        Result == "None"
+                        or Result == "Priority"
+                        or Result == "Whitelist"
+                    )
+                then
+                    return Result
+                end
+            end
+
+            return
+                PlayerList.Statuses[
+                    Player.UserId
+                ]
+                or "None"
+        end
+
+        local function ApplyStatusVisual(
+            Label,
+            Status
+        )
+            local Color =
+                StatusColors[Status]
+                or StatusColors.None
+
+            Label.Instance.Text = Status
+            Label.Instance.TextColor3 = Color
+        end
+
+        local function CloseStatus()
+            PlayerList.IsStatusOpen = false
+
+            Items["StatusArrow"].Instance.Text =
+                "+"
+
+            Items["StatusPopup"]:Tween(
+                PlayerTween,
+                {
+                    GroupTransparency = 1
+                }
+            )
+
+            task.delay(
+                0.12,
+                function()
+                    if not PlayerList.
+                        IsStatusOpen
+                        and Items["StatusPopup"].
+                            Instance
+                        and Items["StatusPopup"].
+                            Instance.Parent
+                    then
+                        Items["StatusPopup"].
+                            Instance.Visible = false
+                    end
+                end
+            )
+        end
+
+        local function OpenStatus()
+            if not PlayerList.Selected
+                or PlayerList.Selected
+                    == LocalPlayer
+            then
+                return
+            end
+
+            PlayerList.IsStatusOpen = true
+
+            Items["StatusPopup"].
+                Instance.Visible = true
+
+            Items["StatusPopup"].
+                Instance.GroupTransparency = 1
+
+            Items["StatusArrow"].Instance.Text =
+                "−"
+
+            Items["StatusPopup"]:Tween(
+                PlayerTween,
+                {
+                    GroupTransparency = 0
+                }
+            )
+        end
+
+        local function SetSelectedStatus(
+            Status,
+            Silent
+        )
+            local Player =
+                PlayerList.Selected
+
+            if not Player
+                or Player == LocalPlayer
+            then
+                return
+            end
+
+            Status =
+                Status == "Priority"
+                and "Priority"
+                or Status == "Whitelist"
+                and "Whitelist"
+                or "None"
+
+            PlayerList.Statuses[
+                Player.UserId
+            ] = Status
+
+            ApplyStatusVisual(
+                Items["StatusValue"],
+                Status
+            )
+
+            local Row =
+                PlayerList.Rows[
+                    Player.UserId
+                ]
+
+            if Row then
+                ApplyStatusVisual(
+                    Row.Status,
+                    Status
+                )
+            end
+
+            Library.Flags[
+                PlayerList.Flag
+            ] = {
+                Player = Player.Name,
+                UserId = Player.UserId,
+                Status = Status
+            }
+
+            for Name,
+                RowData in pairs(StatusRows)
+            do
+                local Active =
+                    Name == Status
+
+                RowData.Marker:Tween(
+                    PlayerTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0 or 1
+                    }
+                )
+
+                RowData.Button:Tween(
+                    PlayerTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0.48 or 1
+                    }
+                )
+            end
+
+            if not Silent
+                and PlayerList.Callback
+            then
+                Library:SafeCall(
+                    PlayerList.Callback,
+                    Player,
+                    Status
+                )
+            end
+        end
+
+        for Index,
+            Status in ipairs({
+                "None",
+                "Priority",
+                "Whitelist"
+            })
+        do
+            local Row =
+                Instances:Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Items["StatusPopup"].
+                            Instance,
+
+                        FontFace = Library.Font,
+                        Text = "",
+                        AutoButtonColor = false,
+                        Name = string.char(0),
+
+                        Size =
+                            UDim2New(1, 0, 0, 22),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Element,
+
+                        BackgroundTransparency = 1,
+
+                        LayoutOrder = Index,
+                        ZIndex = 41
+                    }
+                )
+
+            Row:AddToTheme({
+                BackgroundColor3 = "Element"
+            })
+
+            local Marker =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent = Row.Instance,
+
+                        Position =
+                            UDim2New(0, 0, 0, 4),
+
+                        Size =
+                            UDim2New(0, 2, 1, -8),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Accent,
+
+                        BackgroundTransparency = 1,
+                        ZIndex = 42
+                    }
+                )
+
+            Marker:AddToTheme({
+                BackgroundColor3 = "Accent"
+            })
+
+            local Label =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent = Row.Instance,
+                        FontFace = Library.Font,
+
+                        TextColor3 =
+                            StatusColors[Status],
+
+                        Text = Status,
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 8, 0, 0),
+
+                        Size =
+                            UDim2New(1, -14, 1, 0),
+
+                        BackgroundTransparency = 1,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        BorderSizePixel = 0,
+                        TextSize = 10,
+                        ZIndex = 42
+                    }
+                )
+
+            StatusRows[Status] = {
+                Button = Row,
+                Marker = Marker,
+                Label = Label
+            }
+
+            Row:OnHover(function()
+                Row:Tween(
+                    PlayerTween,
+                    {
+                        BackgroundTransparency =
+                            0.60
+                    }
+                )
+            end)
+
+            Row:OnHoverLeave(function()
+                local Current =
+                    PlayerList.Selected
+                    and GetStatus(
+                        PlayerList.Selected
+                    )
+                    or "None"
+
+                Row:Tween(
+                    PlayerTween,
+                    {
+                        BackgroundTransparency =
+                            Current == Status
+                            and 0.48
+                            or 1
+                    }
+                )
+            end)
+
+            Row:Connect(
+                "MouseButton1Down",
+                function()
+                    SetSelectedStatus(Status)
+                    CloseStatus()
+                end
+            )
+        end
+
+        function PlayerList:Select(Player)
+            PlayerList.Selected = Player
+
+            if not Player then
+                Items["Avatar"].Instance.Image = ""
+                Items["SelectedName"].Instance.Text =
+                    "No player selected"
+
+                Items["SelectedId"].Instance.Text =
+                    "—"
+
+                ApplyStatusVisual(
+                    Items["StatusValue"],
+                    "None"
+                )
+
+                CloseStatus()
+                return
+            end
+
+            Items["Avatar"].Instance.Image =
+                "rbxthumb://type=AvatarHeadShot&id="
+                .. tostring(Player.UserId)
+                .. "&w=150&h=150"
+
+            Items["SelectedName"].Instance.Text =
+                Player.Name
+
+            Items["SelectedId"].Instance.Text =
+                tostring(Player.UserId)
+
+            local Status =
+                GetStatus(Player)
+
+            ApplyStatusVisual(
+                Items["StatusValue"],
+                Status
+            )
+
+            for _,
+                RowData in pairs(
+                    PlayerList.Rows
+                )
+            do
+                local Active =
+                    RowData.Player == Player
+
+                RowData.Marker:Tween(
+                    PlayerTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0 or 1
+                    }
+                )
+
+                RowData.Button:Tween(
+                    PlayerTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0.48 or 1
+                    }
+                )
+            end
+
+            for Name,
+                RowData in pairs(StatusRows)
+            do
+                local Active =
+                    Name == Status
+
+                RowData.Marker:Tween(
+                    PlayerTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0 or 1
+                    }
+                )
+
+                RowData.Button:Tween(
+                    PlayerTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0.48 or 1
+                    }
+                )
+            end
+        end
+
+        local function ApplySearch()
+            local Search =
+                string.lower(
+                    PlayerList.Search
+                    or ""
+                )
+
+            for _,
+                RowData in pairs(
+                    PlayerList.Rows
+                )
+            do
+                RowData.Button.Instance.Visible =
+                    Search == ""
+                    or string.find(
+                        string.lower(
+                            RowData.Player.Name
+                        ),
+                        Search,
+                        1,
+                        true
+                    ) ~= nil
+            end
+        end
+
+        local function ClearRows()
+            for _,
+                RowData in pairs(
+                    PlayerList.Rows
+                )
+            do
+                RowData.Button:Clean()
+            end
+
+            table.clear(
+                PlayerList.Rows
+            )
+        end
+
+        local function CreatePlayerRow(Player)
+            local Row =
+                Instances:Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Items["List"].Instance,
+
+                        FontFace = Library.Font,
+                        Text = "",
+                        AutoButtonColor = false,
+                        Name = string.char(0),
+
+                        Size =
+                            UDim2New(1, 0, 0, 27),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Element,
+
+                        BackgroundTransparency = 1
+                    }
+                )
+
+            Row:AddToTheme({
+                BackgroundColor3 = "Element"
+            })
+
+            local Marker =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent = Row.Instance,
+
+                        Position =
+                            UDim2New(0, 0, 0, 4),
+
+                        Size =
+                            UDim2New(0, 2, 1, -8),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Accent,
+
+                        BackgroundTransparency = 1,
+                        ZIndex = 2
+                    }
+                )
+
+            Marker:AddToTheme({
+                BackgroundColor3 = "Accent"
+            })
+
+            local Name =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent = Row.Instance,
+                        FontFace = Library.Font,
+
+                        TextColor3 =
+                            Library.Theme.Text,
+
+                        Text = Player.Name,
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 8, 0, 0),
+
+                        Size =
+                            UDim2New(0.66, -8, 1, 0),
+
+                        BackgroundTransparency = 1,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        TextTruncate =
+                            Enum.TextTruncate.AtEnd,
+
+                        BorderSizePixel = 0,
+                        TextSize = 10
+                    }
+                )
+
+            Name:AddToTheme({
+                TextColor3 = "Text"
+            })
+
+            local Status =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent = Row.Instance,
+                        FontFace = Library.Font,
+
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ],
+
+                        Text = "None",
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0.66, 0, 0, 0),
+
+                        Size =
+                            UDim2New(0.34, -7, 1, 0),
+
+                        BackgroundTransparency = 1,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Right,
+
+                        BorderSizePixel = 0,
+                        TextSize = 9
+                    }
+                )
+
+            ApplyStatusVisual(
+                Status,
+                GetStatus(Player)
+            )
+
+            local RowData = {
+                Player = Player,
+                Button = Row,
+                Marker = Marker,
+                Name = Name,
+                Status = Status
+            }
+
+            Row:OnHover(function()
+                if PlayerList.Selected == Player then
+                    return
+                end
+
+                Row:Tween(
+                    PlayerTween,
+                    {
+                        BackgroundTransparency =
+                            0.62
+                    }
+                )
+            end)
+
+            Row:OnHoverLeave(function()
+                if PlayerList.Selected == Player then
+                    return
+                end
+
+                Row:Tween(
+                    PlayerTween,
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
+            end)
+
+            Row:Connect(
+                "MouseButton1Down",
+                function()
+                    PlayerList:Select(Player)
+                end
+            )
+
+            PlayerList.Rows[
+                Player.UserId
+            ] = RowData
+        end
+
+        function PlayerList:Refresh()
+            local Previous =
+                PlayerList.Selected
+
+            ClearRows()
+
+            local PlayerItems =
+                Players:GetPlayers()
+
+            table.sort(
+                PlayerItems,
+                function(A, B)
+                    if A == LocalPlayer then
+                        return true
+                    end
+
+                    if B == LocalPlayer then
+                        return false
+                    end
+
+                    return string.lower(A.Name)
+                        < string.lower(B.Name)
+                end
+            )
+
+            for _,
+                Player in ipairs(PlayerItems)
+            do
+                CreatePlayerRow(Player)
+            end
+
+            Items["Count"].Instance.Text =
+                "Players ["
+                .. tostring(#PlayerItems)
+                .. "]"
+
+            ApplySearch()
+
+            if Previous
+                and Previous.Parent == Players
+            then
+                PlayerList:Select(Previous)
+            elseif #PlayerItems > 0 then
+                PlayerList:Select(
+                    PlayerItems[1]
+                )
+            else
+                PlayerList:Select(nil)
+            end
+        end
+
+        Library:Connect(
+            Items["Search"].Instance:
+                GetPropertyChangedSignal("Text"),
+            function()
+                PlayerList.Search =
+                    Items["Search"].
+                    Instance.Text
+
+                ApplySearch()
+            end
+        )
+
+        Items["Search"]:OnHover(function()
+            Items["Search"]:Tween(
+                PlayerTween,
+                {
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Hovered Element"
+                        ]
+                }
+            )
+        end)
+
+        Items["Search"]:OnHoverLeave(function()
+            Items["Search"]:Tween(
+                PlayerTween,
+                {
+                    BackgroundColor3 =
+                        Library.Theme.Element
+                }
+            )
+        end)
+
+        Items["StatusField"]:OnHover(function()
+            Items["StatusField"]:Tween(
+                PlayerTween,
+                {
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Hovered Element"
+                        ]
+                }
+            )
+
+            Items["StatusArrow"]:Tween(
+                PlayerTween,
+                {
+                    TextColor3 =
+                        Library.Theme.Text
+                }
+            )
+        end)
+
+        Items["StatusField"]:OnHoverLeave(function()
+            if PlayerList.IsStatusOpen then
+                return
+            end
+
+            Items["StatusField"]:Tween(
+                PlayerTween,
+                {
+                    BackgroundColor3 =
+                        Library.Theme.Element
+                }
+            )
+
+            Items["StatusArrow"]:Tween(
+                PlayerTween,
+                {
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ]
+                }
+            )
+        end)
+
+        Items["StatusField"]:Connect(
+            "MouseButton1Down",
+            function()
+                if PlayerList.IsStatusOpen then
+                    CloseStatus()
+                else
+                    OpenStatus()
+                end
+            end
+        )
+
+        Library:Connect(
+            Players.PlayerAdded,
+            function()
+                task.defer(function()
+                    PlayerList:Refresh()
+                end)
+            end
+        )
+
+        Library:Connect(
+            Players.PlayerRemoving,
+            function(Player)
+                if PlayerList.Selected == Player then
+                    PlayerList.Selected = nil
+                end
+
+                task.defer(function()
+                    PlayerList:Refresh()
+                end)
+            end
+        )
+
+        PlayerList:Refresh()
+
+        PlayerList.Items = Items
+
+        Library.SetFlags[
+            PlayerList.Flag
+        ] = function(Value)
+            if type(Value) ~= "table" then
+                return
+            end
+
+            local Player =
+                Players:
+                FindFirstChild(
+                    tostring(
+                        Value.Player
+                        or ""
+                    )
+                )
+
+            if Player then
+                PlayerList:Select(Player)
+
+                if Value.Status then
+                    SetSelectedStatus(
+                        Value.Status,
+                        true
+                    )
+                end
+            end
+        end
+
+        return PlayerList
+    end
+
     Library.Sections.Listbox = function(self, Data)
-        Data = Data or {}
+        Data = Data or { }
 
         local Listbox = {
             Window = self.Window,
@@ -10953,107 +13570,208 @@ local Library do
 
             Items = Data.Items or Data.items or { },
             Multi = Data.Multi or Data.multi or false,
-            Default = Data.Default or Data.default or 1,
+            Default = Data.Default or Data.default,
             Flag = Data.Flag or Data.flag or Library:NextFlag(),
             Callback = Data.Callback or Data.callback or function() end,
-            Size = Data.Size or Data.size or 175,
+            Size = Data.Size or Data.size or 165,
 
-            Value = { },
+            Value = nil,
             Options = { },
-            Class = "Listbox",
+            Class = "Listbox"
         }
 
-        local Items = { } do
-            Items["Listbox"] = Instances:Create("Frame", {
-                Parent = Listbox.Section.Elements["Content"].Instance,
-                Name = string.char(0),
-                BackgroundTransparency = 1,
-                Size = UDim2New(1, 0, 0, Listbox.Size),
-                BorderColor3 = FromRGB(0, 0, 0),
-                BorderSizePixel = 0,
-                AutomaticSize = Enum.AutomaticSize.Y,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })
+        local Items = { }
 
-            Items["RealListbox"] = Instances:Create("ScrollingFrame", {
-                Parent = Items["Listbox"].Instance,
-                ScrollBarImageColor3 = FromRGB(235, 157, 255),
-                Active = true,
-                AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                ScrollBarThickness = 1,
-                AnchorPoint = Vector2New(0, 1),
-                Size = UDim2New(1, 0, 1, 0),
-                Name = string.char(0),
-                Position = UDim2New(0, 0, 1, 0),
-                BackgroundColor3 = FromRGB(15, 15, 20),
-                BorderColor3 = FromRGB(10, 10, 10),
-                BorderSizePixel = 2,
-                CanvasSize = UDim2New(0, 0, 0, 0)
-            })  Items["RealListbox"]:AddToTheme({ScrollBarImageColor3 = "Accent", BackgroundColor3 = "Background", BorderColor3 = "Border"})
+        local ListTween =
+            TweenInfo.new(
+                0.12,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out
+            )
 
-            Instances:Create("UIStroke", {
-                Parent = Items["RealListbox"].Instance,
-                Color = FromRGB(27, 27, 32),
-                Name = string.char(0),
-                ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            }):AddToTheme({Color = "Outline"})
+        Items["Listbox"] =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent =
+                        Listbox.Section.
+                        Elements[
+                            "Content"
+                        ].
+                        Instance,
 
-            Instances:Create("UIListLayout", {
-                Parent = Items["RealListbox"].Instance,
-                SortOrder = Enum.SortOrder.LayoutOrder
-            })
+                    Name = string.char(0),
+                    BackgroundTransparency = 1,
 
-            Instances:Create("UIPadding", {
-                Parent = Items["RealListbox"].Instance,
-                PaddingBottom = UDimNew(0, 5),
-                PaddingTop = UDimNew(0, 2)
-            })
+                    Size =
+                        UDim2New(
+                            1,
+                            0,
+                            0,
+                            Listbox.Size
+                        ),
+
+                    BorderSizePixel = 0
+                }
+            )
+
+        Items["RealListbox"] =
+            Instances:Create(
+                "ScrollingFrame",
+                {
+                    Parent =
+                        Items["Listbox"].
+                        Instance,
+
+                    ScrollBarImageColor3 =
+                        Library.Theme.Accent,
+
+                    Active = true,
+
+                    AutomaticCanvasSize =
+                        Enum.AutomaticSize.Y,
+
+                    ScrollBarThickness = 2,
+
+                    VerticalScrollBarInset =
+                        Enum.ScrollBarInset.ScrollBar,
+
+                    ScrollingDirection =
+                        Enum.ScrollingDirection.Y,
+
+                    ElasticBehavior =
+                        Enum.ElasticBehavior.Never,
+
+                    Size = UDim2New(1, 0, 1, 0),
+                    Name = string.char(0),
+
+                    BackgroundColor3 =
+                        Library.Theme[
+                            "Page Background"
+                        ],
+
+                    BorderSizePixel = 0,
+                    CanvasSize = UDim2New(0, 0, 0, 0),
+                    ClipsDescendants = true
+                }
+            )
+
+        Items["RealListbox"]:AddToTheme({
+            ScrollBarImageColor3 = "Accent",
+            BackgroundColor3 =
+                "Page Background"
+        })
+
+        Library:ApplyGlass(
+            Items["RealListbox"],
+            "Panel",
+            4
+        )
+
+        local Layout =
+            InstanceNew("UIListLayout")
+
+        Layout.Padding = UDimNew(0, 1)
+        Layout.SortOrder =
+            Enum.SortOrder.LayoutOrder
+
+        Layout.Parent =
+            Items["RealListbox"].
+            Instance
+
+        local Padding =
+            InstanceNew("UIPadding")
+
+        Padding.PaddingTop =
+            UDimNew(0, 3)
+
+        Padding.PaddingBottom =
+            UDimNew(0, 3)
+
+        Padding.Parent =
+            Items["RealListbox"].
+            Instance
+
+        local function Emit()
+            Library.Flags[Listbox.Flag] =
+                Listbox.Value
+
+            if Listbox.Callback then
+                Library:SafeCall(
+                    Listbox.Callback,
+                    Listbox.Value
+                )
+            end
         end
 
-        function Listbox:Set(Option)
+        local function ClearVisuals()
+            for _,
+                OptionData in pairs(
+                    Listbox.Options
+                )
+            do
+                OptionData.Selected = false
+                OptionData:Toggle(false)
+            end
+        end
+
+        function Listbox:Set(Option, Silent)
+            if Option == nil then
+                ClearVisuals()
+                Listbox.Value = nil
+                Library.Flags[Listbox.Flag] = nil
+
+                if not Silent then
+                    Emit()
+                end
+
+                return
+            end
+
             if Listbox.Multi then
                 if type(Option) ~= "table" then
                     return
                 end
 
-                Listbox.Value = Option
+                ClearVisuals()
+                Listbox.Value = { }
 
-                Library.Flags[Listbox.Flag] = Listbox.Value
+                for _,
+                    Value in ipairs(Option)
+                do
+                    local OptionData =
+                        Listbox.Options[Value]
 
-                for Index, Value in Option do
-                    local OptionData = Listbox.Options[Value]
+                    if OptionData then
+                        OptionData.Selected = true
+                        OptionData:Toggle(true)
 
-                    if not OptionData then
-                        return
+                        table.insert(
+                            Listbox.Value,
+                            Value
+                        )
                     end
-
-                    OptionData.Selected = true
-                    OptionData:Toggle("Active")
                 end
             else
-                if not Listbox.Options[Option] then
+                local OptionData =
+                    Listbox.Options[Option]
+
+                if not OptionData then
                     return
                 end
 
-                local OptionData = Listbox.Options[Option]
-
-                Listbox.Value = OptionData.Name
-
-                Library.Flags[Listbox.Flag] = Listbox.Value
+                ClearVisuals()
 
                 OptionData.Selected = true
-                OptionData:Toggle("Active")
-
-                for Index, Value in Listbox.Options do
-                    if Value ~= OptionData then
-                        Value.Selected = false
-                        Value:Toggle("Inactive")
-                    end
-                end
+                OptionData:Toggle(true)
+                Listbox.Value = OptionData.Name
             end
 
-            if Listbox.Callback then
-                Library:SafeCall(Listbox.Callback, Option)
+            Library.Flags[Listbox.Flag] =
+                Listbox.Value
+
+            if not Silent then
+                Emit()
             end
         end
 
@@ -11062,146 +13780,329 @@ local Library do
         end
 
         function Listbox:SetVisibility(Bool)
-            Items["Listbox"].Instance.Visible = Bool
+            Items["Listbox"].Instance.Visible =
+                Bool == true
         end
 
         function Listbox:Remove(Option)
-            if Listbox.Options[Option] then
-                Listbox.Options[Option].Button:Clean()
+            local OptionData =
+                Listbox.Options[Option]
+
+            if not OptionData then
+                return
             end
+
+            OptionData.Button:Clean()
+            Listbox.Options[Option] = nil
         end
 
-        function Listbox:Refresh(List)
-            for Index, Value in Listbox.Options do
-                Listbox:Remove(Value.Name)
+        function Listbox:Refresh(NewItems, Preserve)
+            local Previous =
+                Preserve ~= false
+                and Listbox.Value
+                or nil
+
+            local Existing = { }
+
+            for Name in pairs(
+                Listbox.Options
+            )
+            do
+                table.insert(
+                    Existing,
+                    Name
+                )
             end
 
-            for Index, Value in List do
+            for _,
+                Name in ipairs(Existing)
+            do
+                Listbox:Remove(Name)
+            end
+
+            Listbox.Items =
+                NewItems or { }
+
+            for _,
+                Value in ipairs(
+                    Listbox.Items
+                )
+            do
                 Listbox:Add(Value)
+            end
+
+            if Previous
+                and Listbox.Options[Previous]
+            then
+                Listbox:Set(
+                    Previous,
+                    true
+                )
+            else
+                Listbox:Set(
+                    nil,
+                    true
+                )
             end
         end
 
         function Listbox:Add(Option)
-            local OptionButton = Instances:Create("TextButton", {
-                Parent = Items["RealListbox"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(0, 0, 0),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Text = "",
-                AutoButtonColor = false,
-                Name = string.char(0),
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                Size = UDim2New(1, 0, 0, 15),
-                ZIndex = 5,
-                TextSize = 14,
-                BackgroundColor3 = FromRGB(255, 255, 255)
+            Option = tostring(Option)
+
+            local Row =
+                Instances:Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Items["RealListbox"].
+                            Instance,
+
+                        FontFace = Library.Font,
+                        Text = "",
+                        AutoButtonColor = false,
+                        Name = string.char(0),
+
+                        BackgroundColor3 =
+                            Library.Theme.Element,
+
+                        BackgroundTransparency = 1,
+                        BorderSizePixel = 0,
+
+                        Size =
+                            UDim2New(1, 0, 0, 22),
+
+                        ZIndex = 5
+                    }
+                )
+
+            Row:AddToTheme({
+                BackgroundColor3 = "Element"
             })
 
-            local OptionText = Instances:Create("TextLabel", {
-                Parent = OptionButton.Instance,
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(215, 215, 215),
-                TextTransparency = 0.48,
-                Text = Option,
-                Name = string.char(0),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Size = UDim2New(1, -5, 1, 0),
-                Position = UDim2New(0, 5, 0, 0),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Center,
-                BorderSizePixel = 0,
-                ZIndex = 5,
-                TextSize = 13,
-                BackgroundColor3 = FromRGB(255, 255, 255)
+            local Marker =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent = Row.Instance,
+                        Position =
+                            UDim2New(0, 0, 0, 4),
+
+                        Size =
+                            UDim2New(0, 2, 1, -8),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme.Accent,
+
+                        BackgroundTransparency = 1,
+                        ZIndex = 6
+                    }
+                )
+
+            Marker:AddToTheme({
+                BackgroundColor3 = "Accent"
             })
 
-            OptionText:AddToTheme({TextColor3 = "Text"})
+            local Text =
+                Instances:Create(
+                    "TextLabel",
+                    {
+                        Parent = Row.Instance,
+                        FontFace = Library.Font,
 
-            Instances:Create("UIStroke", {
-                Parent = OptionText.Instance,
-                LineJoinMode = Enum.LineJoinMode.Miter,
-                Name = string.char(0)
-            }):AddToTheme({Color = "Text Border"})
+                        TextColor3 =
+                            Library.Theme.Text,
+
+                        TextTransparency = 0.08,
+                        Text = Option,
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(0, 8, 0, 0),
+
+                        Size =
+                            UDim2New(1, -14, 1, 0),
+
+                        BackgroundTransparency = 1,
+
+                        TextXAlignment =
+                            Enum.TextXAlignment.Left,
+
+                        BorderSizePixel = 0,
+                        ZIndex = 6,
+                        TextSize = 10
+                    }
+                )
+
+            Text:AddToTheme({
+                TextColor3 = "Text"
+            })
 
             local OptionData = {
                 Selected = false,
                 Name = Option,
-                Text = OptionText,
-                Button = OptionButton
+                Text = Text,
+                Button = Row,
+                Marker = Marker
             }
 
-            function OptionData:Toggle(State)
-                if State == "Active" then
-                    OptionData.Text:ChangeItemTheme({TextColor3 = "Accent"})
-                    OptionData.Text:Tween(nil, {TextColor3 = Library.Theme.Accent, TextTransparency = 0})
-                else
-                    OptionData.Text:ChangeItemTheme({TextColor3 = "Text"})
-                    OptionData.Text:Tween(nil, {TextColor3 = Library.Theme.Text, TextTransparency = 0.48})
-                end
+            function OptionData:Toggle(Active)
+                OptionData.Selected =
+                    Active == true
+
+                OptionData.Marker:Tween(
+                    ListTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0 or 1
+                    }
+                )
+
+                OptionData.Button:Tween(
+                    ListTween,
+                    {
+                        BackgroundTransparency =
+                            Active and 0.50 or 1
+                    }
+                )
+
+                OptionData.Text:
+                    ChangeItemTheme({
+                        TextColor3 =
+                            Active
+                            and "Accent"
+                            or "Text"
+                    })
+
+                OptionData.Text:Tween(
+                    ListTween,
+                    {
+                        TextColor3 =
+                            Active
+                            and Library.Theme.Accent
+                            or Library.Theme.Text,
+
+                        TextTransparency =
+                            Active and 0 or 0.08
+                    }
+                )
             end
 
-            function OptionData:Set()
-                OptionData.Selected = not OptionData.Selected
-
-                if Listbox.Multi then
-                    local Index = TableFind(Listbox.Value, OptionData.Name)
-
-                    if Index then
-                        TableRemove(Listbox.Value, Index)
-                    else
-                        TableInsert(Listbox.Value, OptionData.Name)
-                    end
-
-                    OptionData:Toggle(Index and "Inactive" or "Active")
-
-                    local TextFormat = #Listbox.Value > 0 and TableConcat(Listbox.Value, ", ") or "--"
-                else
-                    if OptionData.Selected then
-                        Listbox.Value = OptionData.Name
-
-                        OptionData:Toggle("Active")
-
-                        for Index, Value in Listbox.Options do
-                            if Value ~= OptionData then
-                                Value.Selected = false
-                                Value:Toggle("Inactive")
-                            end
-                        end
-                    else
-                        Listbox.Value = nil
-
-                        OptionData:Toggle("Inactive")
-                    end
+            Row:OnHover(function()
+                if OptionData.Selected then
+                    return
                 end
 
-                if Listbox.Callback then
-                    Library:SafeCall(Listbox.Callback, Listbox.Value)
-                end
-            end
+                Row:Tween(
+                    ListTween,
+                    {
+                        BackgroundTransparency =
+                            0.68
+                    }
+                )
 
-            OptionButton:Connect("MouseButton1Down", function()
-                OptionData:Set()
+                Text:Tween(
+                    ListTween,
+                    {
+                        TextTransparency = 0
+                    }
+                )
             end)
 
-            Listbox.Options[Option] = OptionData
+            Row:OnHoverLeave(function()
+                if OptionData.Selected then
+                    return
+                end
+
+                Row:Tween(
+                    ListTween,
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
+
+                Text:Tween(
+                    ListTween,
+                    {
+                        TextTransparency = 0.08
+                    }
+                )
+            end)
+
+            Row:Connect(
+                "MouseButton1Down",
+                function()
+                    if Listbox.Multi then
+                        local Values =
+                            type(Listbox.Value)
+                                == "table"
+                            and table.clone(
+                                Listbox.Value
+                            )
+                            or { }
+
+                        local Index =
+                            table.find(
+                                Values,
+                                OptionData.Name
+                            )
+
+                        if Index then
+                            table.remove(
+                                Values,
+                                Index
+                            )
+                        else
+                            table.insert(
+                                Values,
+                                OptionData.Name
+                            )
+                        end
+
+                        Listbox:Set(Values)
+                    else
+                        Listbox:Set(
+                            OptionData.Name
+                        )
+                    end
+                end
+            )
+
+            Listbox.Options[Option] =
+                OptionData
+
             return OptionData
         end
 
-        for Index, Value in Listbox.Items do
+        for _,
+            Value in ipairs(
+                Listbox.Items
+            )
+        do
             Listbox:Add(Value)
         end
 
-        if Listbox.Default then
-            Listbox:Set(Listbox.Default)
+        if Listbox.Default ~= nil then
+            Listbox:Set(
+                Listbox.Default,
+                true
+            )
         end
 
-        Library.SetFlags[Listbox.Flag] = function(Value)
-            Listbox:Set(Value)
+        Library.SetFlags[
+            Listbox.Flag
+        ] = function(Value)
+            Listbox:Set(
+                Value,
+                true
+            )
         end
 
         return Listbox
     end
+end
+
 end
 
 getgenv().Library = Library
