@@ -16,7 +16,7 @@ then
     end)
 end
 
-local Library do
+local Library
     local UserInputService = game:GetService("UserInputService")
     local Players = game:GetService("Players")
     local Workspace = game:GetService("Workspace")
@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v11.2-SectionNavigationFixed",
+        Build = "RadiantAdaptive-v11.3.1-CompileFixed",
         Flags = { },
 
         Theme = {
@@ -14101,7 +14101,6 @@ local Library do
 
         return Listbox
     end
-end
 
 getgenv().Library = Library
 return Library
