@@ -40,7 +40,7 @@ local function ResolveIconAsset()
     if type(writefile) ~= "function" or type(CustomAsset) ~= "function" then
         return nil
     end
-    local FileName = "RadiantReferenceIcons.png"
+    local FileName = "AtramentaReferenceIcons.png"
     local Exists = type(isfile) == "function" and isfile(FileName)
     if not Exists then
         writefile(FileName, DecodeBase64(Base64Data))
@@ -98,7 +98,7 @@ do
     local GlowBase64Data = "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"
     local CustomAsset = getcustomasset or getsynasset
     if type(writefile) == "function" and type(CustomAsset) == "function" then
-        local GlowFileName = "RadiantReferenceGlow.png"
+        local GlowFileName = "AtramentaReferenceGlow.png"
         local GlowExists = type(isfile) == "function" and isfile(GlowFileName)
         if not GlowExists then
             pcall(function()
@@ -316,7 +316,7 @@ pcall(function()
     end
 end)
 
-local PositionFile = "RadiantReferencePositions.json"
+local PositionFile = "AtramentaReferencePositions.json"
 local SavedPositions = {}
 
 local function EncodePosition(Position)
@@ -387,14 +387,14 @@ local AccentAlpha = math.clamp(tonumber(SavedPositions.AccentAlpha) or 1, 0, 1)
 local ThemeColors = type(SavedPositions.ThemeColors) == "table" and SavedPositions.ThemeColors or {"#C9A35B", "#59B9B4", "#A65AC7"}
 
 pcall(function()
-    local Existing = Parent:FindFirstChild("RadiantReferenceMenuV11")
+    local Existing = Parent:FindFirstChild("AtramentaReferenceMenuV11")
     if Existing then
         Existing:Destroy()
     end
 end)
 
 local ScreenGui = Create("ScreenGui", {
-    Name = "RadiantReferenceMenuV11",
+    Name = "AtramentaReferenceMenuV11",
     Parent = Parent,
     IgnoreGuiInset = true,
     ResetOnSpawn = false,
@@ -4900,9 +4900,9 @@ end
 
 function Menu:InstallPublicApi()
 local Library = self
-local ApiInitialized = false
-local ApiPageOrder = {"Combat", "Visuals", "Movement", "World", "Utility", "Settings", "Players", "Cloud", "Config", "Misc"}
-local ApiPageIcons = {
+local ApiState = {Initialized = false, PageSlots = {}, Keybinds = {}}
+ApiState.PageOrder = {"Combat", "Visuals", "Movement", "World", "Utility", "Settings", "Players", "Cloud", "Config", "Misc"}
+ApiState.PageIcons = {
     Combat = "Pistol",
     Visuals = "Minus",
     Movement = "Shield",
@@ -4914,9 +4914,7 @@ local ApiPageIcons = {
     Config = "Gear",
     Misc = "Shield"
 }
-local ApiPageSlots = {}
-local ApiKeybinds = {}
-local ApiWindowObject
+ApiState.WindowObject = nil
 
 local function ApiRead(Data, Name, Fallback)
     if type(Data) ~= "table" then
@@ -4937,10 +4935,10 @@ local function ApiNormalizeFlag(Data, Name)
 end
 
 local function ApiClearBuiltInContent()
-    if ApiInitialized then
+    if ApiState.Initialized then
         return
     end
-    ApiInitialized = true
+    ApiState.Initialized = true
     for _, Section in pairs(Menu.Sections) do
         if Section.Root and Section.Root.Parent then
             Section.Root:Destroy()
@@ -4986,7 +4984,7 @@ local function ApiEnsureSidebarPage(Name)
         ZIndex = 7
     })
     Corner(Marker, 2)
-    local IconObject = Icon(Button, ApiPageIcons[Name] or "Gear", UDim2.fromOffset(20, 20), UDim2.fromScale(0.5, 0.5), MutedText, 7)
+    local IconObject = Icon(Button, ApiState.PageIcons[Name] or "Gear", UDim2.fromOffset(20, 20), UDim2.fromScale(0.5, 0.5), MutedText, 7)
     Existing = {Button = Button, Marker = Marker, Icon = IconObject}
     Menu.SidebarButtons[Name] = Existing
     Bind(Button.MouseButton1Click:Connect(function()
@@ -5001,10 +4999,10 @@ local function ApiGetPage(Name)
         Page = CreatePage(Name)
     end
     ApiEnsureSidebarPage(Name)
-    if not ApiPageSlots[Name] then
-        ApiPageSlots[Name] = {Left = 0, Right = 0, SubPages = {}, CurrentSubPage = nil}
+    if not ApiState.PageSlots[Name] then
+        ApiState.PageSlots[Name] = {Left = 0, Right = 0, SubPages = {}, CurrentSubPage = nil}
     end
-    return Page, ApiPageSlots[Name]
+    return Page, ApiState.PageSlots[Name]
 end
 
 local function ApiCreateLabel(Section, Data)
@@ -5148,7 +5146,7 @@ function ApiCreateKeybind(Section, Data, ExistingRow)
     end
     Menu.Flags[Flag] = Current
     Menu.Setters[Flag] = Object.Set
-    ApiKeybinds[Flag] = {Object = Object, Mode = Mode, Callback = Callback, Active = false}
+    ApiState.Keybinds[Flag] = {Object = Object, Mode = Mode, Callback = Callback, Active = false}
     Bind(Button.MouseButton1Click:Connect(function()
         Capturing = true
         Button.Text = "..."
@@ -5336,17 +5334,17 @@ end
 function Library:Window(Data)
     ApiClearBuiltInContent()
     Data = Data or {}
-    if ApiWindowObject then
-        return ApiWindowObject
+    if ApiState.WindowObject then
+        return ApiState.WindowObject
     end
-    ApiWindowObject = setmetatable({Pages = {}}, ApiWindowMethods)
+    ApiState.WindowObject = setmetatable({Pages = {}}, ApiWindowMethods)
     local Name = tostring(ApiRead(Data, "Name", "Atramenta.rip"))
     for _, Object in ipairs(SettingsPanel:GetChildren()) do
         if Object:IsA("TextLabel") and Object.Text == "Atramenta.rip" then
             Object.Text = Name
         end
     end
-    return ApiWindowObject
+    return ApiState.WindowObject
 end
 
 Library.window = Library.Window
