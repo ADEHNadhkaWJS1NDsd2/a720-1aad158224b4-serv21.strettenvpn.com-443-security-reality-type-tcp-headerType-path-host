@@ -3160,6 +3160,7 @@ local function BuildRuntime()
     })
     Corner(Menu.SettingsUI.ColorPickerContainer, 7)
     Stroke(Menu.SettingsUI.ColorPickerContainer, Border, 0.08, 1)
+    Menu.SettingsUI.ColorPickerGlow = Menu:AddSoftGlow(Menu.SettingsUI.ColorPickerContainer, 119, 10, 0.70, true)
 
     Menu.SettingsUI.ColorPickerDragArea = Create("Frame", {
         Parent = Menu.SettingsUI.ColorPickerContainer,
@@ -3492,6 +3493,12 @@ local function BuildRuntime()
     local PickerDragging = false
     local HueDragging = false
     local AlphaDragging = false
+    Menu.SettingsUI.PickerAnchor = Menu.SettingsUI.AccentPreviewButton
+    Menu.SettingsUI.PickerGlow = Menu.SettingsUI.AccentPreviewGlow
+    Menu.SettingsUI.PickerStroke = Menu.SettingsUI.AccentPreviewStroke
+    Menu.SettingsUI.PickerCallback = nil
+    Menu.SettingsUI.PickerClosed = nil
+    Menu.SettingsUI.PickerIsAccent = true
 
     local function ColorToHex(Color)
         return string.format("#%02X%02X%02X%02X", math.floor(Color.R * 255 + 0.5), math.floor(Color.G * 255 + 0.5), math.floor(Color.B * 255 + 0.5), math.floor(AccentAlpha * 255 + 0.5))
@@ -3514,20 +3521,36 @@ local function BuildRuntime()
 
     local function RefreshPicker()
         local Color = Color3.fromHSV(HueValue, SaturationValue, BrightnessValue)
+        local PickerAnchor = Menu.SettingsUI.PickerAnchor or Menu.SettingsUI.AccentPreviewButton
+        local PickerGlow = Menu.SettingsUI.PickerGlow
+        local PickerStroke = Menu.SettingsUI.PickerStroke
         Menu.SettingsUI.ColorSquare.BackgroundColor3 = Color3.fromHSV(HueValue, 1, 1)
         Menu.SettingsUI.ColorCursor.Position = UDim2.fromScale(SaturationValue, 1 - BrightnessValue)
         Menu.SettingsUI.HueKnob.Position = UDim2.fromScale(HueValue, 0.5)
         Menu.SettingsUI.AlphaFill.Size = UDim2.fromScale(AccentAlpha, 1)
         Menu.SettingsUI.AlphaFill.BackgroundColor3 = Color
         Menu.SettingsUI.AlphaKnob.Position = UDim2.fromScale(AccentAlpha, 0.5)
-        Menu.SettingsUI.AccentPreviewButton.BackgroundTransparency = 1 - AccentAlpha
-        if Menu.SettingsUI.AccentPreviewGlow then
-            Menu.SettingsUI.AccentPreviewGlow.ImageTransparency = (PickerOpen and 0.16 or (0.28 - (AccentAlpha * 0.10)))
-        end
-        Menu.SettingsUI.AccentPreviewStroke.Transparency = PickerOpen and 0.08 or 0.16
-        Menu.Flags.AccentAlpha = AccentAlpha
         Menu.SettingsUI.HexBox.Text = ColorToHex(Color)
-        UpdateAccentColor(Color)
+        if PickerAnchor and PickerAnchor.Parent then
+            PickerAnchor.BackgroundColor3 = Color
+            PickerAnchor.BackgroundTransparency = 1 - AccentAlpha
+        end
+        if PickerGlow and PickerGlow.Parent then
+            PickerGlow.ImageColor3 = Color
+            PickerGlow.ImageTransparency = PickerOpen and 0.16 or (0.28 - (AccentAlpha * 0.10))
+        end
+        if PickerStroke and PickerStroke.Parent then
+            PickerStroke.Transparency = PickerOpen and 0.08 or 0.16
+        end
+        if Menu.SettingsUI.ColorPickerGlow then
+            Menu.SettingsUI.ColorPickerGlow.ImageColor3 = Color
+        end
+        if Menu.SettingsUI.PickerIsAccent then
+            Menu.Flags.AccentAlpha = AccentAlpha
+            UpdateAccentColor(Color)
+        elseif type(Menu.SettingsUI.PickerCallback) == "function" then
+            Menu.SettingsUI.PickerCallback(Color, AccentAlpha)
+        end
     end
 
     SetPickerColor = function(Color, Alpha)
@@ -3546,8 +3569,9 @@ local function BuildRuntime()
             PickerSize = Vector2.new(174, 222)
         end
 
-        local SwatchPosition = Menu.SettingsUI.AccentPreviewButton.AbsolutePosition
-        local SwatchSize = Menu.SettingsUI.AccentPreviewButton.AbsoluteSize
+        local PickerAnchor = Menu.SettingsUI.PickerAnchor or Menu.SettingsUI.AccentPreviewButton
+        local SwatchPosition = PickerAnchor.AbsolutePosition
+        local SwatchSize = PickerAnchor.AbsoluteSize
         local Gap = 8
 
         local DefaultX = SwatchPosition.X - PickerSize.X - Gap
@@ -3560,7 +3584,7 @@ local function BuildRuntime()
         local X = DefaultX
         local Y = DefaultY
 
-        if UseSavedPosition and SavedPositions.ColorPickerPinned and type(SavedPositions.ColorPickerOffsetX) == "number" and type(SavedPositions.ColorPickerOffsetY) == "number" then
+        if UseSavedPosition and Menu.SettingsUI.PickerIsAccent and SavedPositions.ColorPickerPinned and type(SavedPositions.ColorPickerOffsetX) == "number" and type(SavedPositions.ColorPickerOffsetY) == "number" then
             local CandidateX = Menu.SettingsUI.SettingsPanel.AbsolutePosition.X + SavedPositions.ColorPickerOffsetX
             local CandidateY = Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y + SavedPositions.ColorPickerOffsetY
             local OffsetX = math.abs(CandidateX - DefaultX)
@@ -3578,29 +3602,50 @@ local function BuildRuntime()
     end
 
     local function SetPickerOpen(State)
-        PickerOpen = State
-        Menu.PickerInputBlocker.Visible = State
-        if State then
-            if Menu.SettingsUI.AccentPreviewGlow then
-                Tween(Menu.SettingsUI.AccentPreviewGlow, 0.12, {ImageTransparency = 0.16})
+        PickerOpen = State and true or false
+        Menu.PickerInputBlocker.Visible = PickerOpen
+        if PickerOpen then
+            if Menu.SettingsUI.PickerGlow then
+                Tween(Menu.SettingsUI.PickerGlow, 0.12, {ImageTransparency = 0.16})
             end
             Menu.SettingsUI.ColorPickerContainer.Visible = true
             task.defer(function()
                 if PickerOpen and Menu.SettingsUI.ColorPickerContainer.Parent then
-                    PositionColorPicker(true)
+                    PositionColorPicker(Menu.SettingsUI.PickerIsAccent)
                 end
             end)
         else
-            if Menu.SettingsUI.AccentPreviewGlow then
-                Tween(Menu.SettingsUI.AccentPreviewGlow, 0.12, {ImageTransparency = 0.28 - (AccentAlpha * 0.10)})
+            if Menu.SettingsUI.PickerGlow then
+                Tween(Menu.SettingsUI.PickerGlow, 0.12, {ImageTransparency = 0.28 - (AccentAlpha * 0.10)})
             end
             Menu.SettingsUI.ColorPickerContainer.Visible = false
-            SavedPositions.AccentHex = ColorToThemeHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
-            SavedPositions.AccentAlpha = AccentAlpha
-            SavedPositions.ThemeColors = ThemeColors
-            SavedPositions.ColorPickerOffsetX = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.X - Menu.SettingsUI.SettingsPanel.AbsolutePosition.X
-            SavedPositions.ColorPickerOffsetY = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.Y - Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y
-            SavePositions()
+            if Menu.SettingsUI.PickerIsAccent then
+                SavedPositions.AccentHex = ColorToThemeHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
+                SavedPositions.AccentAlpha = AccentAlpha
+                SavedPositions.ThemeColors = ThemeColors
+                SavedPositions.ColorPickerOffsetX = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.X - Menu.SettingsUI.SettingsPanel.AbsolutePosition.X
+                SavedPositions.ColorPickerOffsetY = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.Y - Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y
+                SavePositions()
+            elseif type(Menu.SettingsUI.PickerClosed) == "function" then
+                Menu.SettingsUI.PickerClosed(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue), AccentAlpha)
+            end
+        end
+    end
+
+    Menu.OpenColorPicker = function(Anchor, Color, Alpha, Callback, Glow, PickerStroke, IsAccent, Closed)
+        local SameTarget = PickerOpen and Menu.SettingsUI.PickerAnchor == Anchor
+        if PickerOpen then
+            SetPickerOpen(false)
+        end
+        Menu.SettingsUI.PickerAnchor = Anchor or Menu.SettingsUI.AccentPreviewButton
+        Menu.SettingsUI.PickerGlow = Glow
+        Menu.SettingsUI.PickerStroke = PickerStroke
+        Menu.SettingsUI.PickerCallback = Callback
+        Menu.SettingsUI.PickerClosed = Closed
+        Menu.SettingsUI.PickerIsAccent = IsAccent == true
+        if not SameTarget then
+            SetPickerColor(typeof(Color) == "Color3" and Color or Accent, tonumber(Alpha) or 1)
+            SetPickerOpen(true)
         end
     end
 
@@ -3649,24 +3694,29 @@ local function BuildRuntime()
     end))
 
     Bind(Menu.SettingsUI.AccentPreviewButton.MouseButton1Click:Connect(function()
-        SetPickerOpen(not PickerOpen)
+        Menu.OpenColorPicker(
+            Menu.SettingsUI.AccentPreviewButton,
+            Accent,
+            Menu.Flags.AccentAlpha or SavedPositions.AccentAlpha or 1,
+            nil,
+            Menu.SettingsUI.AccentPreviewGlow,
+            Menu.SettingsUI.AccentPreviewStroke,
+            true
+        )
     end))
 
     Bind(Menu.SettingsUI.AccentPreviewButton.MouseEnter:Connect(function()
         Tween(Menu.SettingsUI.AccentPreviewStroke, 0.12, {Transparency = 0.08})
-        if not PickerOpen then
-            if Menu.SettingsUI.AccentPreviewGlow then
-                Tween(Menu.SettingsUI.AccentPreviewGlow, 0.12, {ImageTransparency = 0.20})
-            end
+        if not (PickerOpen and Menu.SettingsUI.PickerAnchor == Menu.SettingsUI.AccentPreviewButton) and Menu.SettingsUI.AccentPreviewGlow then
+            Tween(Menu.SettingsUI.AccentPreviewGlow, 0.12, {ImageTransparency = 0.20})
         end
     end))
 
     Bind(Menu.SettingsUI.AccentPreviewButton.MouseLeave:Connect(function()
-        Tween(Menu.SettingsUI.AccentPreviewStroke, 0.12, {Transparency = PickerOpen and 0.08 or 0.16})
-        if not PickerOpen then
-            if Menu.SettingsUI.AccentPreviewGlow then
-                Tween(Menu.SettingsUI.AccentPreviewGlow, 0.12, {ImageTransparency = 0.28 - (AccentAlpha * 0.10)})
-            end
+        local Active = PickerOpen and Menu.SettingsUI.PickerAnchor == Menu.SettingsUI.AccentPreviewButton
+        Tween(Menu.SettingsUI.AccentPreviewStroke, 0.12, {Transparency = Active and 0.08 or 0.16})
+        if not Active and Menu.SettingsUI.AccentPreviewGlow then
+            Tween(Menu.SettingsUI.AccentPreviewGlow, 0.12, {ImageTransparency = 0.28 - ((Menu.Flags.AccentAlpha or 1) * 0.10)})
         end
     end))
 
@@ -3834,6 +3884,12 @@ local function BuildRuntime()
         RefreshThemeButtons()
     end))
 
+    Menu.SettingsUI.PickerAnchor = Menu.SettingsUI.AccentPreviewButton
+    Menu.SettingsUI.PickerGlow = Menu.SettingsUI.AccentPreviewGlow
+    Menu.SettingsUI.PickerStroke = Menu.SettingsUI.AccentPreviewStroke
+    Menu.SettingsUI.PickerCallback = nil
+    Menu.SettingsUI.PickerClosed = nil
+    Menu.SettingsUI.PickerIsAccent = true
     SetPickerColor(Accent, AccentAlpha)
     SetPickerOpen(false)
     local CombatPage = CreatePage("Combat")
@@ -5114,16 +5170,19 @@ local function BuildRuntime()
     end
 
     Menu.BindSystem.ProcessBegan = function(Input)
+        local Matched = false
         local AllBinds = SavedPositions.ControlBinds or {}
         for Flag, Binds in pairs(AllBinds) do
             if type(Binds) == "table" then
                 for _, BindData in ipairs(Binds) do
                     if Menu.BindSystem.BindMatchesInput(BindData, Input, true) then
+                        Matched = true
                         Menu.BindSystem.ExecutePressed(Flag, BindData)
                     end
                 end
             end
         end
+        return Matched
     end
 
     Menu.BindSystem.ProcessEnded = function(Input)
@@ -5185,8 +5244,9 @@ local function BuildRuntime()
             local Position = Input.Position
             local PickerPosition = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition
             local PickerSize = Menu.SettingsUI.ColorPickerContainer.AbsoluteSize
-            local SwatchPosition = Menu.SettingsUI.AccentPreviewButton.AbsolutePosition
-            local SwatchSize = Menu.SettingsUI.AccentPreviewButton.AbsoluteSize
+            local PickerAnchor = Menu.SettingsUI.PickerAnchor or Menu.SettingsUI.AccentPreviewButton
+            local SwatchPosition = PickerAnchor.AbsolutePosition
+            local SwatchSize = PickerAnchor.AbsoluteSize
             local InsidePicker = Position.X >= PickerPosition.X and Position.X <= PickerPosition.X + PickerSize.X
                 and Position.Y >= PickerPosition.Y and Position.Y <= PickerPosition.Y + PickerSize.Y
             local InsideSwatch = Position.X >= SwatchPosition.X and Position.X <= SwatchPosition.X + SwatchSize.X
@@ -5196,13 +5256,21 @@ local function BuildRuntime()
             end
         end
 
+        local BindMatched = false
+        local FocusedTextBox = UserInputService:GetFocusedTextBox()
+        if not FocusedTextBox and Input.UserInputType == Enum.UserInputType.Keyboard then
+            BindMatched = Menu.BindSystem.ProcessBegan(Input)
+        end
+
         if Processed then
             return
         end
 
-        Menu.BindSystem.ProcessBegan(Input)
+        if not FocusedTextBox and Input.UserInputType ~= Enum.UserInputType.Keyboard then
+            BindMatched = Menu.BindSystem.ProcessBegan(Input)
+        end
 
-        if Input.KeyCode == Enum.KeyCode.F2 then
+        if not BindMatched and Input.KeyCode == Enum.KeyCode.F2 then
             SetVisible(not Menu.Visible)
         end
     end))
@@ -5455,7 +5523,7 @@ local function BuildRuntime()
         if not ExistingRow then
             Create("TextLabel", {
                 Parent = Row,
-                Size = UDim2.new(1, -44, 1, 0),
+                Size = UDim2.new(1, -34, 1, 0),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSans,
                 Text = Name,
@@ -5469,40 +5537,65 @@ local function BuildRuntime()
         local Button = Create("TextButton", {
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(30, 16),
+            Position = UDim2.new(1, -1, 0.5, 0),
+            Size = UDim2.fromOffset(13, 13),
             BackgroundColor3 = typeof(Default) == "Color3" and Default or Accent,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
-            ZIndex = 9
+            ZIndex = 10
         })
-        Corner(Button, 4)
-        local BorderStroke = Stroke(Button, Border, 0.08, 1)
+        Corner(Button, 100)
+        local BorderStroke = Stroke(Button, Color3.fromRGB(232, 238, 255), 0.16, 1)
+        local Glow = Menu:AddSoftGlow(Button, 10, 8, 0.20, false)
         local Value = typeof(Default) == "Color3" and Default or Accent
+        local Alpha = math.clamp(tonumber(ApiRead(Data, "Alpha", 1)) or 1, 0, 1)
+        local Object = {Button = Button, Glow = Glow, Stroke = BorderStroke, Flag = Flag}
         Menu.Flags[Flag] = Value
-        local Object = {}
-        function Object:Set(NewValue)
+        function Object:Set(NewValue, NewAlpha)
             if typeof(NewValue) ~= "Color3" then
                 return
             end
             Value = NewValue
+            if NewAlpha ~= nil then
+                Alpha = math.clamp(tonumber(NewAlpha) or Alpha, 0, 1)
+            end
             Menu.Flags[Flag] = NewValue
             Button.BackgroundColor3 = NewValue
+            Button.BackgroundTransparency = 1 - Alpha
+            if Glow then
+                Glow.ImageColor3 = NewValue
+                Glow.ImageTransparency = 0.28 - (Alpha * 0.10)
+            end
             if type(Callback) == "function" then
-                task.spawn(Callback, NewValue)
+                task.spawn(Callback, NewValue, Alpha)
             end
         end
         function Object:Get()
-            return Value
+            return Value, Alpha
         end
-        Menu.Setters[Flag] = Object.Set
+        Menu.Setters[Flag] = function(NewValue)
+            Object:Set(NewValue)
+        end
         Bind(Button.MouseButton1Click:Connect(function()
-            local H, S, V = Value:ToHSV()
-            H = (H + 0.0833333333) % 1
-            Object:Set(Color3.fromHSV(H, math.max(S, 0.55), math.max(V, 0.75)))
-            Tween(BorderStroke, 0.12, {Color = Value})
+            Menu.OpenColorPicker(Button, Value, Alpha, function(NewColor, NewAlpha)
+                Object:Set(NewColor, NewAlpha)
+            end, Glow, BorderStroke, false)
         end))
+        Bind(Button.MouseEnter:Connect(function()
+            Tween(BorderStroke, 0.12, {Transparency = 0.08})
+            if not (Menu.SettingsUI.ColorPickerContainer.Visible and Menu.SettingsUI.PickerAnchor == Button) and Glow then
+                Tween(Glow, 0.12, {ImageTransparency = 0.20})
+            end
+        end))
+        Bind(Button.MouseLeave:Connect(function()
+            local Active = Menu.SettingsUI.ColorPickerContainer.Visible and Menu.SettingsUI.PickerAnchor == Button
+            Tween(BorderStroke, 0.12, {Transparency = Active and 0.08 or 0.16})
+            if not Active and Glow then
+                Tween(Glow, 0.12, {ImageTransparency = 0.28 - (Alpha * 0.10)})
+            end
+        end))
+        Object:Set(Value, Alpha)
         return Object
     end
 
