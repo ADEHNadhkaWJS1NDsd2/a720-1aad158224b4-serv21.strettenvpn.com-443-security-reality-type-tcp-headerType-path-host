@@ -65,7 +65,7 @@ local Library
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v13.1.1-OnHoverLeaveFixed",
+        Build = "RadiantAdaptive-v13.2-DropdownDim-MenuFixed",
         Flags = { },
 
         Theme = {
@@ -8466,6 +8466,19 @@ local Library
             AnimationToken = 0
         }
 
+        local QuickState = {
+            Open = false,
+            Submenu = nil,
+            MenuScale = 1,
+            Style =
+                Data.Style
+                or "Radiant Emerald",
+
+            HideWatermark = false,
+            HideNotifications = false,
+            HideKeybinds = false
+        }
+
         local Items = { } do
             Items["MainFrame"] = Instances:Create("Frame", {
                 Parent = Library.Holder.Instance,
@@ -8499,6 +8512,33 @@ local Library
                 GroupTransparency = 0,
                 Active = true
             })
+
+            Items["DropdownDim"] =
+                Instances:Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Items["Surface"].Instance,
+
+                        Name = string.char(0),
+                        Position =
+                            UDim2New(0, 0, 0, 0),
+
+                        Size =
+                            UDim2New(1, 0, 1, 0),
+
+                        BorderSizePixel = 0,
+                        BackgroundColor3 =
+                            FromRGB(0, 0, 0),
+
+                        BackgroundTransparency = 1,
+                        AutoButtonColor = false,
+                        Text = "",
+                        Visible = false,
+                        Active = false,
+                        ZIndex = 850
+                    }
+                )
 
             Items["MainFrame"]:MakeResizeable(
                 Vector2New(700, 380),
@@ -8576,6 +8616,61 @@ local Library
                 BackgroundColor3 = "Background"
             })
             Library:ApplyGlass(Items["Panel"], "Window", 4)
+
+            Items["PanelHeaderLine"] =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            Items["Panel"].Instance,
+
+                        Name = string.char(0),
+                        Position =
+                            UDim2New(0, 8, 0, 33),
+
+                        Size =
+                            UDim2New(1, -16, 0, 1),
+
+                        BorderSizePixel = 0,
+                        BackgroundColor3 =
+                            Library.Theme.Outline,
+
+                        BackgroundTransparency = 0.58,
+                        ZIndex = 698
+                    }
+                )
+
+            Items["PanelHeaderLine"]:AddToTheme({
+                BackgroundColor3 = "Outline"
+            })
+
+            Items["PanelHeaderAccent"] =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            Items["PanelHeaderLine"].
+                            Instance,
+
+                        Name = string.char(0),
+                        Position =
+                            UDim2New(0, 0, 0, 0),
+
+                        Size =
+                            UDim2New(0, 48, 1, 0),
+
+                        BorderSizePixel = 0,
+                        BackgroundColor3 =
+                            Library.Theme.Accent,
+
+                        BackgroundTransparency = 0.18,
+                        ZIndex = 699
+                    }
+                )
+
+            Items["PanelHeaderAccent"]:AddToTheme({
+                BackgroundColor3 = "Accent"
+            })
 
 
             Items["RailResize"] = Instances:Create("TextButton", {
@@ -8925,19 +9020,6 @@ local Library
                 Items["DragArea"],
                 32
             )
-
-            local QuickState = {
-                Open = false,
-                Submenu = nil,
-                MenuScale = 1,
-                Style =
-                    Data.Style
-                    or "Radiant Emerald",
-
-                HideWatermark = false,
-                HideNotifications = false,
-                HideKeybinds = false
-            }
 
             Items["QuickPanel"] =
                 Instances:Create(
@@ -10049,9 +10131,15 @@ local Library
                         1.35
                     )
 
-                Items["MenuScale"].
-                    Instance.Scale =
-                    QuickState.MenuScale
+                local MenuScaleItem =
+                    Items["MenuScale"]
+
+                if MenuScaleItem
+                    and MenuScaleItem.Instance
+                then
+                    MenuScaleItem.Instance.Scale =
+                        QuickState.MenuScale
+                end
 
                 ScaleRow.Value.Instance.Text =
                     tostring(
@@ -10224,6 +10312,90 @@ local Library
             Library:ApplyGlass(Items["Content"], "Panel", 2)
         end
 
+        local DropdownDimToken = 0
+
+        function Window:SetDropdownDim(Bool)
+            Bool = Bool == true
+            DropdownDimToken += 1
+
+            local Token =
+                DropdownDimToken
+
+            local Dim =
+                Items["DropdownDim"]
+                and Items["DropdownDim"].Instance
+                or nil
+
+            if not Dim
+                or not Dim.Parent
+            then
+                return
+            end
+
+            if Bool then
+                Dim.Visible = true
+                Dim.Active = true
+                Dim.BackgroundTransparency = 1
+
+                Items["DropdownDim"]:Tween(
+                    TweenInfo.new(
+                        0.14,
+                        Enum.EasingStyle.Quad,
+                        Enum.EasingDirection.Out
+                    ),
+                    {
+                        BackgroundTransparency =
+                            0.68
+                    }
+                )
+            else
+                Dim.Active = false
+
+                Items["DropdownDim"]:Tween(
+                    TweenInfo.new(
+                        0.12,
+                        Enum.EasingStyle.Quad,
+                        Enum.EasingDirection.Out
+                    ),
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
+
+                task.delay(
+                    0.12,
+                    function()
+                        if Token == DropdownDimToken
+                            and Dim
+                            and Dim.Parent
+                            and Dim.BackgroundTransparency
+                                >= 0.99
+                        then
+                            Dim.Visible = false
+                        end
+                    end
+                )
+            end
+        end
+
+        Items["DropdownDim"]:Connect(
+            "MouseButton1Down",
+            function()
+                local OpenDropdown =
+                    Library.OpenDropdown
+
+                if OpenDropdown
+                    and type(
+                        OpenDropdown.SetOpen
+                    ) == "function"
+                then
+                    OpenDropdown:SetOpen(false)
+                else
+                    Window:SetDropdownDim(false)
+                end
+            end
+        )
+
         local Debounce = false
 
         function Window:SetOpen(
@@ -10260,10 +10432,13 @@ local Library
                     "Surface"
                 ].Instance
 
+            local MenuScaleItem =
+                Items["MenuScale"]
+
             local MenuScale =
-                Items[
-                    "MenuScale"
-                ].Instance
+                MenuScaleItem
+                and MenuScaleItem.Instance
+                or nil
 
             local AnimationInfo =
                 TweenInfo.new(
@@ -10294,15 +10469,17 @@ local Library
                     true
                 )
 
-                Tween:Create(
-                    MenuScale,
-                    AnimationInfo,
-                    {
-                        Scale =
-                            QuickState.MenuScale
-                    },
-                    true
-                )
+                if MenuScale then
+                    Tween:Create(
+                        MenuScale,
+                        AnimationInfo,
+                        {
+                            Scale =
+                                QuickState.MenuScale
+                        },
+                        true
+                    )
+                end
             else
                 MainFrame.Active =
                     false
@@ -10318,16 +10495,33 @@ local Library
                     true
                 )
 
-                Tween:Create(
-                    MenuScale,
-                    AnimationInfo,
-                    {
-                        Scale =
-                            QuickState.MenuScale
-                            * 0.965
-                    },
-                    true
-                )
+                if MenuScale then
+                    Tween:Create(
+                        MenuScale,
+                        AnimationInfo,
+                        {
+                            Scale =
+                                QuickState.MenuScale
+                                * 0.965
+                        },
+                        true
+                    )
+                end
+
+                Window:SetDropdownDim(false)
+
+                if Library.OpenDropdown
+                    and type(
+                        Library.OpenDropdown.SetOpen
+                    ) == "function"
+                then
+                    Library.OpenDropdown:
+                        SetOpen(false)
+                end
+
+                if QuickState.Open then
+                    Window:SetQuickOpen(false)
+                end
 
                 if Library.CurrentColorpicker then
                     Library.CurrentColorpicker:
@@ -10869,6 +11063,37 @@ local Library
                 "Element",
                 4
             )
+
+            Items["Separator"] =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            Items["Inactive"].
+                            Instance,
+
+                        Name = string.char(0),
+                        AnchorPoint =
+                            Vector2New(0, 1),
+
+                        Position =
+                            UDim2New(0, 7, 1, 0),
+
+                        Size =
+                            UDim2New(1, -14, 0, 1),
+
+                        BorderSizePixel = 0,
+                        BackgroundColor3 =
+                            Library.Theme.Outline,
+
+                        BackgroundTransparency = 0.82,
+                        ZIndex = 2
+                    }
+                )
+
+            Items["Separator"]:AddToTheme({
+                BackgroundColor3 = "Outline"
+            })
 
             Items["Text"] =
                 Instances:Create(
@@ -13640,6 +13865,16 @@ local Library
                 Dropdown.AnimationToken
 
             Dropdown.IsOpen = Bool
+
+            if Dropdown.Window
+                and type(
+                    Dropdown.Window.
+                    SetDropdownDim
+                ) == "function"
+            then
+                Dropdown.Window:
+                    SetDropdownDim(Bool)
+            end
 
             if Bool then
                 Library.OpenDropdown =
