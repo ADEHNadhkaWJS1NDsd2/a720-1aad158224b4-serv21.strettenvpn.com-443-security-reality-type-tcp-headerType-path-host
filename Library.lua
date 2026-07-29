@@ -65,7 +65,7 @@ local Library
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v13-HotkeysQuickSettings",
+        Build = "RadiantAdaptive-v13.1-IconsHotkeysPolished",
         Flags = { },
 
         Theme = {
@@ -3203,7 +3203,7 @@ local Library
         local Items = { }
         local RowTween =
             TweenInfo.new(
-                0.10,
+                0.12,
                 Enum.EasingStyle.Quad,
                 Enum.EasingDirection.Out
             )
@@ -3229,13 +3229,12 @@ local Library
                     Size =
                         UDim2New(
                             0,
-                            272,
+                            286,
                             0,
-                            238
+                            252
                         ),
 
                     BorderSizePixel = 0,
-
                     BackgroundColor3 =
                         Library.Theme.Background,
 
@@ -3293,11 +3292,11 @@ local Library
                 Items.Header,
                 "list",
                 {
-                    Size = 16,
+                    Size = 15,
                     Position =
                         UDim2New(
                             0,
-                            9,
+                            10,
                             0.5,
                             0
                         ),
@@ -3318,7 +3317,7 @@ local Library
                     Position =
                         UDim2New(
                             0,
-                            31,
+                            30,
                             0,
                             0
                         ),
@@ -3326,7 +3325,7 @@ local Library
                     Size =
                         UDim2New(
                             1,
-                            -64,
+                            -56,
                             1,
                             0
                         ),
@@ -3372,9 +3371,9 @@ local Library
                     Size =
                         UDim2New(
                             0,
-                            22,
+                            18,
                             0,
-                            22
+                            18
                         ),
 
                     BorderSizePixel = 0,
@@ -3390,7 +3389,7 @@ local Library
                 Items.Pin,
                 "pin",
                 {
-                    Size = 14,
+                    Size = 12,
                     Position =
                         UDim2New(
                             0.5,
@@ -3415,15 +3414,15 @@ local Library
                     Position =
                         UDim2New(
                             0,
-                            8,
+                            10,
                             0,
-                            36
+                            38
                         ),
 
                     Size =
                         UDim2New(
                             1,
-                            -16,
+                            -20,
                             0,
                             22
                         ),
@@ -3444,11 +3443,16 @@ local Library
                 "Page Background"
         })
 
+        Library:ApplyGlass(
+            Items.Columns,
+            "Element",
+            4
+        )
+
         local function HeaderLabel(
             Text,
             Position,
-            Size,
-            Alignment
+            Size
         )
             local Label =
                 Instances:Create(
@@ -3464,15 +3468,12 @@ local Library
                         FontFace = Library.Font,
                         Text = Text,
                         TextSize = 9,
-
                         TextXAlignment =
-                            Alignment,
-
+                            Enum.TextXAlignment.Left,
                         TextColor3 =
                             Library.Theme[
                                 "Muted Text"
                             ],
-
                         ZIndex = 402
                     }
                 )
@@ -3486,23 +3487,20 @@ local Library
 
         HeaderLabel(
             "Function",
-            UDim2New(0, 8, 0, 0),
-            UDim2New(0, 126, 1, 0),
-            Enum.TextXAlignment.Left
+            UDim2New(0, 10, 0, 0),
+            UDim2New(0, 128, 1, 0)
         )
 
         HeaderLabel(
             "Hotkey",
-            UDim2New(0, 136, 0, 0),
-            UDim2New(0, 48, 1, 0),
-            Enum.TextXAlignment.Left
+            UDim2New(0, 144, 0, 0),
+            UDim2New(0, 48, 1, 0)
         )
 
         HeaderLabel(
             "Status",
-            UDim2New(0, 187, 0, 0),
-            UDim2New(1, -195, 1, 0),
-            Enum.TextXAlignment.Left
+            UDim2New(0, 198, 0, 0),
+            UDim2New(0, 44, 1, 0)
         )
 
         Items.Content =
@@ -3515,42 +3513,34 @@ local Library
                     Position =
                         UDim2New(
                             0,
-                            8,
+                            10,
                             0,
-                            59
+                            64
                         ),
 
                     Size =
                         UDim2New(
                             1,
-                            -16,
+                            -20,
                             1,
-                            -67
+                            -74
                         ),
 
                     BorderSizePixel = 0,
                     BackgroundTransparency = 1,
-
                     ScrollBarImageColor3 =
                         Library.Theme.Accent,
-
                     ScrollBarThickness = 2,
-
                     VerticalScrollBarInset =
                         Enum.ScrollBarInset.ScrollBar,
-
                     ScrollingDirection =
                         Enum.ScrollingDirection.Y,
-
                     ElasticBehavior =
                         Enum.ElasticBehavior.Never,
-
                     AutomaticCanvasSize =
                         Enum.AutomaticSize.Y,
-
                     CanvasSize =
                         UDim2New(0, 0, 0, 0),
-
                     ClipsDescendants = true,
                     ZIndex = 401
                 }
@@ -3563,7 +3553,7 @@ local Library
         local Layout =
             InstanceNew("UIListLayout")
 
-        Layout.Padding = UDimNew(0, 1)
+        Layout.Padding = UDimNew(0, 2)
         Layout.SortOrder =
             Enum.SortOrder.LayoutOrder
         Layout.Parent =
@@ -3621,16 +3611,13 @@ local Library
                                 1,
                                 0,
                                 0,
-                                25
+                                27
                             ),
 
                         BorderSizePixel = 0,
-
                         BackgroundColor3 =
                             Library.Theme.Element,
-
-                        BackgroundTransparency = 1,
-
+                        BackgroundTransparency = 0.58,
                         AutoButtonColor = false,
                         Text = "",
                         ZIndex = 402
@@ -3640,6 +3627,12 @@ local Library
             NewKey.Frame:AddToTheme({
                 BackgroundColor3 = "Element"
             })
+
+            Library:ApplyGlass(
+                NewKey.Frame,
+                "Element",
+                4
+            )
 
             NewKey.Marker =
                 Instances:Create(
@@ -3651,24 +3644,25 @@ local Library
                         Position =
                             UDim2New(
                                 0,
-                                0,
-                                0,
-                                4
+                                7,
+                                0.5,
+                                0
                             ),
+
+                        AnchorPoint =
+                            Vector2New(0, 0.5),
 
                         Size =
                             UDim2New(
                                 0,
-                                2,
-                                1,
-                                -8
+                                3,
+                                0,
+                                13
                             ),
 
                         BorderSizePixel = 0,
-
                         BackgroundColor3 =
                             Library.Theme.Accent,
-
                         BackgroundTransparency = 1,
                         ZIndex = 403
                     }
@@ -3688,7 +3682,7 @@ local Library
                         Position =
                             UDim2New(
                                 0,
-                                8,
+                                16,
                                 0,
                                 0
                             ),
@@ -3696,7 +3690,7 @@ local Library
                         Size =
                             UDim2New(
                                 0,
-                                126,
+                                122,
                                 1,
                                 0
                             ),
@@ -3706,16 +3700,12 @@ local Library
                         FontFace = Library.Font,
                         Text = NewKey.RawName,
                         TextSize = 10,
-
                         TextXAlignment =
                             Enum.TextXAlignment.Left,
-
                         TextColor3 =
                             Library.Theme.Text,
-
                         TextTruncate =
                             Enum.TextTruncate.AtEnd,
-
                         ZIndex = 403
                     }
                 )
@@ -3734,7 +3724,7 @@ local Library
                         Position =
                             UDim2New(
                                 0,
-                                136,
+                                144,
                                 0,
                                 0
                             ),
@@ -3742,7 +3732,7 @@ local Library
                         Size =
                             UDim2New(
                                 0,
-                                48,
+                                45,
                                 1,
                                 0
                             ),
@@ -3752,13 +3742,10 @@ local Library
                         FontFace = Library.Font,
                         Text = FormatKey(NewKey.RawKey),
                         TextSize = 10,
-
                         TextXAlignment =
                             Enum.TextXAlignment.Left,
-
                         TextColor3 =
                             Library.Theme.Text,
-
                         ZIndex = 403
                     }
                 )
@@ -3777,15 +3764,15 @@ local Library
                         Position =
                             UDim2New(
                                 0,
-                                187,
+                                198,
                                 0,
                                 0
                             ),
 
                         Size =
                             UDim2New(
-                                1,
-                                -216,
+                                0,
+                                48,
                                 1,
                                 0
                             ),
@@ -3795,15 +3782,12 @@ local Library
                         FontFace = Library.Font,
                         Text = FormatMode(NewKey.Mode),
                         TextSize = 10,
-
                         TextXAlignment =
                             Enum.TextXAlignment.Left,
-
                         TextColor3 =
                             Library.Theme[
                                 "Muted Text"
                             ],
-
                         ZIndex = 403
                     }
                 )
@@ -3820,22 +3804,22 @@ local Library
                             NewKey.Frame.Instance,
 
                         AnchorPoint =
-                            Vector2New(1, 0),
+                            Vector2New(1, 0.5),
 
                         Position =
                             UDim2New(
                                 1,
-                                -5,
-                                0,
+                                -8,
+                                0.5,
                                 0
                             ),
 
                         Size =
                             UDim2New(
                                 0,
-                                18,
-                                1,
-                                0
+                                14,
+                                0,
+                                14
                             ),
 
                         BorderSizePixel = 0,
@@ -3843,15 +3827,12 @@ local Library
                         FontFace = Library.Font,
                         Text = "...",
                         TextSize = 10,
-
                         TextXAlignment =
                             Enum.TextXAlignment.Right,
-
                         TextColor3 =
                             Library.Theme[
                                 "Muted Text"
                             ],
-
                         ZIndex = 403
                     }
                 )
@@ -3860,46 +3841,115 @@ local Library
                 TextColor3 = "Muted Text"
             })
 
-            NewKey.Frame:OnHover(function()
-                NewKey.Frame:Tween(
+            local function ApplyState()
+                NewKey.Marker:Tween(
                     RowTween,
                     {
                         BackgroundTransparency =
-                            0.38
+                            NewKey.Active
+                            and 0
+                            or 1
                     }
                 )
-            end)
 
-            NewKey.Frame:OnHoverLeave(function()
                 NewKey.Frame:Tween(
                     RowTween,
                     {
                         BackgroundTransparency =
                             NewKey.Active
-                            and 0.48
-                            or 1
+                            and 0.36
+                            or 0.58
+                    }
+                )
+
+                NewKey.Status:Tween(
+                    RowTween,
+                    {
+                        TextColor3 =
+                            NewKey.Active
+                            and Library.Theme.Text
+                            or Library.Theme[
+                                "Muted Text"
+                            ]
+                    }
+                )
+            end
+
+            NewKey.Frame:OnHover(function()
+                if NewKey.Active then
+                    return
+                end
+
+                NewKey.Frame:Tween(
+                    RowTween,
+                    {
+                        BackgroundTransparency = 0.46
+                    }
+                )
+
+                NewKey.More:Tween(
+                    RowTween,
+                    {
+                        TextColor3 =
+                            Library.Theme.Text
+                    }
+                )
+            end)
+
+            NewKey.Frame:OnLeave(function()
+                if NewKey.Active then
+                    NewKey.More:Tween(
+                        RowTween,
+                        {
+                            TextColor3 =
+                                Library.Theme[
+                                    "Muted Text"
+                                ]
+                        }
+                    )
+
+                    return
+                end
+
+                NewKey.Frame:Tween(
+                    RowTween,
+                    {
+                        BackgroundTransparency = 0.58
+                    }
+                )
+
+                NewKey.More:Tween(
+                    RowTween,
+                    {
+                        TextColor3 =
+                            Library.Theme[
+                                "Muted Text"
+                            ]
                     }
                 )
             end)
 
             function NewKey:Set(
-                NewMode,
-                NewName,
-                NewKeyValue
+                ModeValue,
+                NameValue,
+                KeyValue
             )
                 NewKey.Mode =
                     tostring(
-                        NewMode or "Toggle"
+                        ModeValue
+                        or NewKey.Mode
                     )
 
                 NewKey.RawName =
                     tostring(
-                        NewName or ""
+                        NameValue
+                        or NewKey.RawName
                     )
 
                 NewKey.RawKey =
                     tostring(
-                        NewKeyValue or ""
+                        KeyValue
+                        or NewKey.RawKey
                     )
 
                 NewKey.Name.Instance.Text =
@@ -3917,96 +3967,37 @@ local Library
             end
 
             function NewKey:SetStatus(Status)
+                local Value =
+                    tostring(Status or "")
+
                 NewKey.Active =
-                    Status == "Active"
+                    Value == "Active"
+                    or Value == "On"
+                    or Value == "Enabled"
 
-                NewKey.Marker:Tween(
-                    RowTween,
-                    {
-                        BackgroundTransparency =
-                            NewKey.Active
-                            and 0
-                            or 1
-                    }
-                )
-
-                NewKey.Frame:Tween(
-                    RowTween,
-                    {
-                        BackgroundTransparency =
-                            NewKey.Active
-                            and 0.48
-                            or 1
-                    }
-                )
-
-                NewKey.Name:Tween(
-                    RowTween,
-                    {
-                        TextColor3 =
-                            NewKey.Active
-                            and Library.Theme.Text
-                            or Library.Theme[
-                                "Muted Text"
-                            ],
-
-                        TextTransparency =
-                            NewKey.Active
-                            and 0
-                            or 0.04
-                    }
-                )
-
-                NewKey.Key:Tween(
-                    RowTween,
-                    {
-                        TextColor3 =
-                            NewKey.Active
-                            and Library.Theme.Accent
-                            or Library.Theme.Text
-                    }
-                )
-
-                NewKey.Status:Tween(
-                    RowTween,
-                    {
-                        TextColor3 =
-                            NewKey.Active
-                            and Library.Theme.Text
-                            or Library.Theme[
-                                "Muted Text"
-                            ]
-                    }
-                )
+                ApplyState()
             end
 
-            NewKey:Set(
-                NewKey.Mode,
-                NewKey.RawName,
-                NewKey.RawKey
-            )
+            function NewKey:Destroy()
+                if NewKey.Frame
+                    and NewKey.Frame.Instance
+                then
+                    NewKey.Frame.Instance:
+                        Destroy()
+                end
+            end
 
             KeybindList.Rows[
                 #KeybindList.Rows + 1
             ] = NewKey
 
+            ApplyState()
+
             return NewKey
         end
 
-        Items.Pin:OnHover(function()
-            Items.PinIcon:SetTheme("Text")
-        end)
-
-        Items.Pin:OnHoverLeave(function()
-            Items.PinIcon:SetTheme(
-                KeybindList.Pinned
-                and "Accent"
-                or "Muted Text"
-            )
-        end)
-
         Items.Pin:Connect(
-            "MouseButton1Down",
+            "MouseButton1Click",
             function()
                 KeybindList.Pinned =
                     not KeybindList.Pinned
@@ -4030,8 +4021,9 @@ local Library
         function KeybindList:SetScale(Value)
             KeybindList.Scale =
                 math.clamp(
-                    tonumber(Value) or 1,
-                    0.65,
+                    tonumber(Value)
+                    or 1,
+                    0.6,
                     1.5
                 )
 
@@ -8465,7 +8457,7 @@ local Library
 
         local Window = {
             Name = Data.Name or Data.name or "Window",
-            Size = Data.Size or Data.size or UDim2New(0, 720, 0, 470),
+            Size = Data.Size or Data.size or UDim2New(0, 820, 0, 430),
             FadeSpeed = Data.FadeSpeed or Data.fadespeed or 0.25,
             Pages = { },
             SubPages = { },
@@ -8509,11 +8501,11 @@ local Library
             })
 
             Items["MainFrame"]:MakeResizeable(
-                Vector2New(620, 400),
+                Vector2New(700, 380),
                 Vector2New(9999, 9999)
             )
 
-            local RailWidth = 138
+            local RailWidth = 148
             local RailMinimum = 118
             local RailMaximum = 210
             local RailGap = 10
@@ -10411,13 +10403,13 @@ local Library
             Instance = nil
         }
 
-        local Size =
-            tonumber(Data.Size)
-            or 16
-
         local ParentInstance =
             Library:ResolveInstance(Parent)
             or Parent
+
+        local Size =
+            tonumber(Data.Size)
+            or 16
 
         local Canvas =
             Instances:Create(
@@ -10425,7 +10417,6 @@ local Library
                 {
                     Parent = ParentInstance,
                     Name = string.char(0),
-
                     AnchorPoint =
                         Data.AnchorPoint
                         or Vector2New(0, 0.5),
@@ -10450,14 +10441,6 @@ local Library
 
         Controller.Instance =
             Canvas.Instance
-
-        local Scale = Size / 16
-
-        local function P(Value)
-            return math.floor(
-                Value * Scale + 0.5
-            )
-        end
 
         local function Register(
             Object,
@@ -10497,9 +10480,14 @@ local Library
                 InstanceNew("UICorner")
 
             Corner.CornerRadius =
-                Radius == 1
-                and UDimNew(1, 0)
-                or UDimNew(0, P(Radius or 1))
+                UDimNew(
+                    Radius == 1
+                    and 1
+                    or 0,
+                    Radius == 1
+                    and 0
+                    or Radius or 1
+                )
 
             Corner.Parent = Object
         end
@@ -10519,24 +10507,25 @@ local Library
                         Parent =
                             Canvas.Instance,
 
+                        Name = string.char(0),
+
                         Position =
                             UDim2New(
                                 0,
-                                P(X),
+                                X,
                                 0,
-                                P(Y)
+                                Y
                             ),
 
                         Size =
                             UDim2New(
                                 0,
-                                math.max(P(Width), 1),
+                                Width,
                                 0,
-                                math.max(P(Height), 1)
+                                Height
                             ),
 
                         BorderSizePixel = 0,
-
                         BackgroundColor3 =
                             Library.Theme[
                                 Controller.Theme
@@ -10568,7 +10557,8 @@ local Library
             Y,
             Width,
             Height,
-            Radius
+            Radius,
+            Thickness
         )
             local Object =
                 Instances:Create(
@@ -10577,20 +10567,22 @@ local Library
                         Parent =
                             Canvas.Instance,
 
+                        Name = string.char(0),
+
                         Position =
                             UDim2New(
                                 0,
-                                P(X),
+                                X,
                                 0,
-                                P(Y)
+                                Y
                             ),
 
                         Size =
                             UDim2New(
                                 0,
-                                P(Width),
+                                Width,
                                 0,
-                                P(Height)
+                                Height
                             ),
 
                         BorderSizePixel = 0,
@@ -10616,7 +10608,7 @@ local Library
                 Enum.LineJoinMode.Round
 
             Stroke.Thickness =
-                math.max(1, 1.15 * Scale)
+                Thickness or 1.2
 
             Stroke.Parent =
                 Object.Instance
@@ -10633,7 +10625,8 @@ local Library
             X,
             Y,
             Diameter,
-            Filled
+            Filled,
+            Thickness
         )
             if Filled then
                 return Line(
@@ -10651,7 +10644,8 @@ local Library
                 Y,
                 Diameter,
                 Diameter,
-                1
+                1,
+                Thickness or 1.2
             )
         end
 
@@ -10666,139 +10660,132 @@ local Library
         if Name == "crosshair"
             or Name == "aim"
         then
-            Circle(5, 5, 6, false)
-            Circle(7, 7, 2, true)
-            Line(7.5, 1, 1, 3, 0, 1)
-            Line(7.5, 12, 1, 3, 0, 1)
-            Line(1, 7.5, 3, 1, 0, 1)
-            Line(12, 7.5, 3, 1, 0, 1)
+            Circle(4, 4, 8, false, 1.2)
+            Circle(6.8, 6.8, 2.4, true)
+            Line(7.4, 0.5, 1.2, 3.0, 0, 1)
+            Line(7.4, 12.5, 1.2, 3.0, 0, 1)
+            Line(0.5, 7.4, 3.0, 1.2, 0, 1)
+            Line(12.5, 7.4, 3.0, 1.2, 0, 1)
         elseif Name == "weapon"
             or Name == "gun"
         then
-            Line(2, 5, 10, 3, 0, 1)
-            Line(12, 6, 3, 1, 0, 1)
-            Line(5, 8, 5, 1, 0, 1)
-            Line(7, 8, 2, 6, -12, 1)
+            Line(2, 5.5, 9.5, 2.6, 0, 1)
+            Line(11.5, 6, 3.4, 1.3, 0, 1)
+            Line(5.2, 8.2, 4.4, 1.3, 0, 1)
+            Line(7.2, 8.0, 2.2, 5.4, -18, 1)
+            Line(2.5, 4.7, 3.0, 1.1, 0, 1)
         elseif Name == "eye"
             or Name == "esp"
         then
-            Outline(1, 4, 14, 8, 4)
-            Circle(5.5, 4.5, 7, false)
-            Circle(7, 6, 3, true)
+            Outline(1.2, 4.5, 13.6, 7.0, 4, 1.2)
+            Circle(5.1, 4.8, 5.8, false, 1.2)
+            Circle(7.0, 6.7, 2.1, true)
         elseif Name == "sparkles"
             or Name == "effects"
         then
-            Line(7.5, 1, 1, 10, 0, 1)
-            Line(3, 5.5, 10, 1, 0, 1)
-            Line(5, 3, 1, 6, 45, 1)
-            Line(10, 3, 1, 6, -45, 1)
-            Circle(12, 12, 2, true)
+            Line(7.35, 1.0, 1.3, 9.5, 0, 1)
+            Line(3.0, 5.1, 10.0, 1.3, 0, 1)
+            Line(5.0, 2.8, 1.2, 5.8, 45, 1)
+            Line(9.8, 2.8, 1.2, 5.8, -45, 1)
+            Circle(11.8, 11.8, 2.2, true)
         elseif Name == "user"
             or Name == "local"
         then
-            Circle(5, 1, 6, false)
-            Outline(3, 9, 10, 6, 4)
+            Circle(5.0, 1.5, 6.0, false, 1.2)
+            Outline(2.8, 9.0, 10.4, 5.5, 4, 1.2)
         elseif Name == "move"
             or Name == "movement"
         then
-            Line(7.5, 2, 1, 12, 0, 1)
-            Line(2, 7.5, 12, 1, 0, 1)
-            Line(5.5, 2, 4, 1, -45, 1)
-            Line(7.5, 2, 4, 1, 45, 1)
-            Line(11, 13, 4, 1, -45, 1)
-            Line(9, 13, 4, 1, 45, 1)
-        elseif Name == "camera"
-        then
-            Outline(1, 4, 14, 10, 2)
-            Outline(5, 6, 6, 6, 1)
-            Line(4, 2, 5, 2, 0, 1)
-        elseif Name == "sun"
-            or Name == "lighting"
-        then
-            Circle(5, 5, 6, false)
-            Line(7.5, 0, 1, 3, 0, 1)
-            Line(7.5, 13, 1, 3, 0, 1)
-            Line(0, 7.5, 3, 1, 0, 1)
-            Line(13, 7.5, 3, 1, 0, 1)
-        elseif Name == "cube"
-            or Name == "world"
-        then
-            Outline(2, 4, 10, 10, 1)
-            Outline(5, 1, 9, 9, 1)
-            Line(3, 4, 4, 1, -45, 1)
-            Line(11, 4, 4, 1, -45, 1)
-        elseif Name == "briefcase"
-            or Name == "farm"
-        then
-            Outline(1, 5, 14, 9, 2)
-            Outline(5, 2, 6, 4, 2)
-            Line(1, 8, 14, 1, 0, 1)
-            Line(7, 7, 2, 3, 0, 1)
-        elseif Name == "tool"
-            or Name == "wrench"
-        then
-            Line(4, 9, 10, 2, -45, 1)
-            Circle(1, 10, 5, false)
-            Circle(10, 1, 5, false)
-        elseif Name == "sliders"
-            or Name == "interface"
-        then
-            Line(1, 3, 14, 1, 0, 1)
-            Line(1, 8, 14, 1, 0, 1)
-            Line(1, 13, 14, 1, 0, 1)
-            Circle(4, 1.5, 4, true)
-            Circle(10, 6.5, 4, true)
-            Circle(6, 11.5, 4, true)
-        elseif Name == "file"
-            or Name == "configs"
-        then
-            Outline(3, 1, 10, 14, 2)
-            Line(6, 6, 5, 1, 0, 1)
-            Line(6, 9, 5, 1, 0, 1)
-            Line(6, 12, 3, 1, 0, 1)
-        elseif Name == "gear"
-            or Name == "settings"
-        then
-            Circle(4, 4, 8, false)
-            Circle(6.5, 6.5, 3, true)
-            Line(7.5, 0, 1, 3, 0, 1)
-            Line(7.5, 13, 1, 3, 0, 1)
-            Line(0, 7.5, 3, 1, 0, 1)
-            Line(13, 7.5, 3, 1, 0, 1)
-        elseif Name == "list"
-        then
-            Circle(1, 2, 2, true)
-            Circle(1, 7, 2, true)
-            Circle(1, 12, 2, true)
-            Line(5, 2.5, 10, 1, 0, 1)
-            Line(5, 7.5, 10, 1, 0, 1)
-            Line(5, 12.5, 10, 1, 0, 1)
-        elseif Name == "pin"
-        then
-            Outline(4, 1, 8, 5, 2)
-            Line(7.5, 6, 1, 7, 0, 1)
-            Line(5, 5, 6, 1, 0, 1)
-            Line(6.5, 12, 3, 1, -45, 1)
-        elseif Name == "palette"
-        then
-            Circle(2, 2, 12, false)
-            Circle(4, 4, 2, true)
-            Circle(8, 3, 2, true)
-            Circle(10, 7, 2, true)
-            Circle(5, 9, 2, true)
-        elseif Name == "eyeoff"
-        then
-            Outline(1, 4, 14, 8, 4)
-            Circle(6, 5, 5, false)
-            Line(2, 13, 13, 1, -45, 1)
-        elseif Name == "belloff"
-        then
-            Outline(4, 2, 8, 10, 4)
-            Line(3, 11, 10, 1, 0, 1)
-            Line(7, 13, 2, 2, 0, 1)
-            Line(2, 13, 13, 1, -45, 1)
+            Line(7.4, 2.0, 1.2, 11.5, 0, 1)
+            Line(2.0, 7.4, 11.5, 1.2, 0, 1)
+            Line(5.2, 2.0, 3.8, 1.1, -45, 1)
+            Line(7.6, 2.0, 3.8, 1.1, 45, 1)
+            Line(10.6, 12.6, 3.8, 1.1, -45, 1)
+            Line(8.2, 12.6, 3.8, 1.1, 45, 1)
+            Line(2.1, 5.1, 3.6, 1.1, 45, 1)
+            Line(2.1, 9.7, 3.6, 1.1, -45, 1)
+        elseif Name == "camera" then
+            Outline(1.2, 4.0, 13.5, 9.4, 2, 1.2)
+            Outline(5.0, 6.0, 5.0, 5.0, 1, 1.2)
+            Line(4.0, 2.2, 4.5, 1.8, 0, 1)
+            Circle(10.8, 6.0, 1.7, true)
+        elseif Name == "sun" or Name == "lighting" then
+            Circle(4.8, 4.8, 6.4, false, 1.2)
+            Line(7.4, 0.4, 1.2, 2.6, 0, 1)
+            Line(7.4, 13.0, 1.2, 2.6, 0, 1)
+            Line(0.4, 7.4, 2.6, 1.2, 0, 1)
+            Line(13.0, 7.4, 2.6, 1.2, 0, 1)
+            Line(2.2, 2.2, 3.0, 1.1, 45, 1)
+            Line(10.8, 2.2, 3.0, 1.1, -45, 1)
+            Line(2.2, 12.2, 3.0, 1.1, -45, 1)
+            Line(10.8, 12.2, 3.0, 1.1, 45, 1)
+        elseif Name == "cube" or Name == "world" then
+            Circle(2.0, 2.0, 12.0, false, 1.2)
+            Line(7.4, 2.4, 1.2, 11.2, 0, 1)
+            Line(2.3, 7.4, 11.0, 1.2, 0, 1)
+            Outline(4.7, 2.2, 6.6, 11.6, 1, 1.0)
+        elseif Name == "briefcase" or Name == "farm" then
+            Outline(1.2, 5.2, 13.6, 8.8, 2, 1.2)
+            Outline(5.0, 2.2, 5.0, 3.6, 2, 1.2)
+            Line(1.5, 8.4, 13.0, 1.2, 0, 1)
+            Line(7.0, 7.2, 2.0, 2.6, 0, 1)
+        elseif Name == "tool" or Name == "wrench" then
+            Line(4.4, 9.3, 9.0, 1.8, -45, 1)
+            Circle(1.1, 10.1, 4.5, false, 1.2)
+            Circle(10.3, 1.2, 4.5, false, 1.2)
+        elseif Name == "sliders" or Name == "interface" then
+            Line(1.0, 3.0, 14.0, 1.2, 0, 1)
+            Line(1.0, 8.0, 14.0, 1.2, 0, 1)
+            Line(1.0, 13.0, 14.0, 1.2, 0, 1)
+            Circle(3.0, 1.2, 4.2, true)
+            Circle(9.5, 6.2, 4.2, true)
+            Circle(6.0, 11.2, 4.2, true)
+        elseif Name == "file" or Name == "configs" then
+            Outline(3.0, 1.2, 10.0, 13.8, 2, 1.2)
+            Line(9.0, 1.2, 4.0, 1.1, 45, 1)
+            Line(5.4, 6.2, 4.8, 1.0, 0, 1)
+            Line(5.4, 9.0, 4.8, 1.0, 0, 1)
+            Line(5.4, 11.8, 3.0, 1.0, 0, 1)
+        elseif Name == "gear" or Name == "settings" then
+            Circle(4.4, 4.4, 7.2, false, 1.2)
+            Circle(6.7, 6.7, 2.6, true)
+            Line(7.6, 0.0, 0.9, 2.5, 0, 1)
+            Line(7.6, 13.5, 0.9, 2.5, 0, 1)
+            Line(0.0, 7.6, 2.5, 0.9, 0, 1)
+            Line(13.5, 7.6, 2.5, 0.9, 0, 1)
+            Line(2.3, 2.3, 2.1, 0.9, 45, 1)
+            Line(11.6, 2.3, 2.1, 0.9, -45, 1)
+            Line(2.3, 13.0, 2.1, 0.9, -45, 1)
+            Line(11.6, 13.0, 2.1, 0.9, 45, 1)
+        elseif Name == "list" then
+            Circle(1.4, 2.2, 2.1, true)
+            Circle(1.4, 6.9, 2.1, true)
+            Circle(1.4, 11.6, 2.1, true)
+            Line(5.0, 2.8, 9.0, 1.0, 0, 1)
+            Line(5.0, 7.5, 9.0, 1.0, 0, 1)
+            Line(5.0, 12.2, 9.0, 1.0, 0, 1)
+        elseif Name == "pin" then
+            Circle(4.5, 1.5, 6.0, false, 1.2)
+            Line(7.2, 5.8, 1.4, 6.0, 0, 1)
+            Line(4.7, 5.2, 6.2, 1.2, 0, 1)
+            Line(6.4, 11.0, 3.5, 1.0, -45, 1)
+        elseif Name == "palette" then
+            Circle(2.0, 2.0, 12.0, false, 1.2)
+            Circle(4.2, 4.2, 1.8, true)
+            Circle(8.3, 3.5, 1.8, true)
+            Circle(10.0, 7.0, 1.8, true)
+            Circle(5.2, 9.4, 1.8, true)
+        elseif Name == "eyeoff" then
+            Outline(1.2, 4.5, 13.6, 7.0, 4, 1.2)
+            Circle(5.2, 5.0, 5.6, false, 1.2)
+            Line(2.0, 13.0, 12.5, 1.1, -45, 1)
+        elseif Name == "belloff" then
+            Outline(4.2, 2.2, 7.6, 9.8, 4, 1.2)
+            Line(3.2, 11.4, 9.6, 1.1, 0, 1)
+            Line(7.0, 13.0, 2.0, 1.8, 0, 1)
+            Line(2.0, 13.0, 12.5, 1.1, -45, 1)
         else
-            Circle(6, 6, 4, true)
+            Circle(6.0, 6.0, 4.0, true)
         end
 
         function Controller:SetTheme(Theme)
@@ -10822,8 +10809,7 @@ local Library
 
                 Part.Object[
                     Part.Property
-                ] =
-                    Library.Theme[Theme]
+                ] = Library.Theme[Theme]
             end
         end
 
