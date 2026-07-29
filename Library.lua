@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantSplit-v2",
+        Build = "RadiantCompact-v3",
         Flags = { },
 
         Theme = {
@@ -793,281 +793,170 @@ local Library do
         Instances.MakeResizeable = function(
             self,
             Minimum,
-            Maximum,
-            Smoothness
+            Maximum
         )
             if not self.Instance then
                 return
             end
 
-            local Gui =
-                self.Instance
-
-            local Resizing = false
-            local StartMouse = nil
-            local StartSize = nil
-            local TargetSize = nil
-            local ReleasedAt = 0
-
+            local Gui = self.Instance
+            local ActiveResize = nil
             local MoveConnection = nil
             local EndConnection = nil
-            local RenderConnection = nil
 
-            local ResizeSpeed =
-                tonumber(
-                    Smoothness
-                )
-                or 30
+            local MinimumSize = Minimum or Vector2New(300, 320)
+            local MaximumSize = Maximum or Vector2New(9999, 9999)
 
-            local ResizeButton =
-                Instances:Create(
-                    "TextButton",
-                    {
-                        Parent = Gui,
-                        AnchorPoint =
-                            Vector2New(
-                                1,
-                                1
-                            ),
-                        BorderColor3 =
-                            FromRGB(
-                                0,
-                                0,
-                                0
-                            ),
-                        Size =
-                            UDim2New(
-                                0,
-                                10,
-                                0,
-                                10
-                            ),
-                        Position =
-                            UDim2New(
-                                1,
-                                0,
-                                1,
-                                0
-                            ),
-                        Name = string.char(0),
-                        BorderSizePixel = 0,
-                        BackgroundTransparency = 1,
-                        AutoButtonColor = false,
-                        Visible = true,
-                        Text = "",
-                        Active = true
-                    }
-                )
-
-            local function Disconnect(
-                Connection
-            )
+            local function Disconnect(Connection)
                 if Connection then
                     pcall(function()
-                        Connection:
-                            Disconnect()
+                        Connection:Disconnect()
                     end)
                 end
             end
 
-            local function StopConnections(
-                StopRender
-            )
-                Disconnect(
-                    MoveConnection
-                )
-
-                Disconnect(
-                    EndConnection
-                )
-
+            local function StopResize()
+                ActiveResize = nil
+                Disconnect(MoveConnection)
+                Disconnect(EndConnection)
                 MoveConnection = nil
                 EndConnection = nil
-
-                if StopRender then
-                    Disconnect(
-                        RenderConnection
-                    )
-
-                    RenderConnection = nil
-                end
             end
 
-            local function FinishResize()
-                if not Resizing then
-                    return
-                end
+            local function CreateHandle(Name, Anchor, Position, Horizontal, Vertical)
+                local Handle = Instances:Create("TextButton", {
+                    Parent = Gui,
+                    Name = Name,
+                    AnchorPoint = Anchor,
+                    Position = Position,
+                    Size = UDim2New(0, 16, 0, 16),
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    AutoButtonColor = false,
+                    Text = "",
+                    Active = true,
+                    Visible = true,
+                    ZIndex = 10000
+                })
 
-                Resizing = false
-                ReleasedAt = os.clock()
-
-                StopConnections(
-                    false
-                )
-            end
-
-            ResizeButton:Connect(
-                "InputBegan",
-                function(Input)
-                    if Input.UserInputType
-                            ~= Enum.UserInputType.MouseButton1
-                        and Input.UserInputType
-                            ~= Enum.UserInputType.Touch
+                Handle:Connect("InputBegan", function(Input)
+                    if Input.UserInputType ~= Enum.UserInputType.MouseButton1
+                        and Input.UserInputType ~= Enum.UserInputType.Touch
                     then
                         return
                     end
 
-                    StopConnections(
-                        true
-                    )
+                    StopResize()
 
-                    Resizing = true
-                    ReleasedAt = 0
-                    StartMouse = Input.Position
-                    StartSize = Gui.AbsoluteSize
-                    TargetSize = Gui.Size
+                    local StartMouse = Input.Position
+                    local StartSize = Gui.AbsoluteSize
+                    local StartPosition = Gui.Position
+                    local IsTouch = Input.UserInputType == Enum.UserInputType.Touch
 
-                    local IsTouch =
-                        Input.UserInputType
-                        == Enum.UserInputType.Touch
+                    ActiveResize = Handle
 
-                    MoveConnection =
-                        UserInputService.InputChanged:
-                        Connect(function(ChangedInput)
-                            if Library.Unloaded
-                                or not Gui.Parent
-                            then
-                                FinishResize()
-                                return
-                            end
+                    MoveConnection = UserInputService.InputChanged:Connect(function(ChangedInput)
+                        if Library.Unloaded or not Gui.Parent then
+                            StopResize()
+                            return
+                        end
 
-                            local IsMatchingInput =
-                                IsTouch
-                                and ChangedInput
-                                    == Input
-                                or not IsTouch
-                                and ChangedInput.UserInputType
-                                    == Enum.UserInputType.MouseMovement
+                        local Matching = IsTouch
+                            and ChangedInput == Input
+                            or not IsTouch
+                            and ChangedInput.UserInputType == Enum.UserInputType.MouseMovement
 
-                            if not Resizing
-                                or not IsMatchingInput
-                            then
-                                return
-                            end
+                        if not ActiveResize or not Matching then
+                            return
+                        end
 
-                            local Delta =
-                                ChangedInput.Position
-                                - StartMouse
+                        local Delta = ChangedInput.Position - StartMouse
+                        local Width = StartSize.X
+                        local Height = StartSize.Y
 
-                            local MaximumSize =
-                                Maximum
-                                or Gui.Parent.AbsoluteSize
+                        if Horizontal == "Left" then
+                            Width = StartSize.X - Delta.X
+                        elseif Horizontal == "Right" then
+                            Width = StartSize.X + Delta.X
+                        end
 
-                            local Width =
-                                math.clamp(
-                                    StartSize.X
-                                        + Delta.X,
-                                    Minimum.X,
-                                    MaximumSize.X
-                                )
+                        if Vertical == "Top" then
+                            Height = StartSize.Y - Delta.Y
+                        elseif Vertical == "Bottom" then
+                            Height = StartSize.Y + Delta.Y
+                        end
 
-                            local Height =
-                                math.clamp(
-                                    StartSize.Y
-                                        + Delta.Y,
-                                    Minimum.Y,
-                                    MaximumSize.Y
-                                )
+                        Width = math.clamp(Width, MinimumSize.X, MaximumSize.X)
+                        Height = math.clamp(Height, MinimumSize.Y, MaximumSize.Y)
 
-                            TargetSize =
-                                UDim2New(
-                                    0,
-                                    Width,
-                                    0,
-                                    Height
-                                )
-                        end)
+                        local XOffset = StartPosition.X.Offset
+                        local YOffset = StartPosition.Y.Offset
 
-                    EndConnection =
-                        UserInputService.InputEnded:
-                        Connect(function(EndedInput)
-                            local IsMatchingEnd =
-                                IsTouch
-                                and EndedInput
-                                    == Input
-                                or not IsTouch
-                                and EndedInput.UserInputType
-                                    == Enum.UserInputType.MouseButton1
+                        if Horizontal == "Left" then
+                            XOffset = StartPosition.X.Offset + (StartSize.X - Width)
+                        end
 
-                            if IsMatchingEnd then
-                                FinishResize()
-                            end
-                        end)
+                        if Vertical == "Top" then
+                            YOffset = StartPosition.Y.Offset + (StartSize.Y - Height)
+                        end
 
-                    RenderConnection =
-                        RunService.RenderStepped:
-                        Connect(function(DeltaTime)
-                            if Library.Unloaded
-                                or not Gui.Parent
-                                or not TargetSize
-                            then
-                                StopConnections(
-                                    true
-                                )
+                        Gui.Position = UDim2New(
+                            StartPosition.X.Scale,
+                            XOffset,
+                            StartPosition.Y.Scale,
+                            YOffset
+                        )
 
-                                return
-                            end
+                        Gui.Size = UDim2New(0, Width, 0, Height)
+                    end)
 
-                            local Alpha =
-                                1
-                                - math.exp(
-                                    -ResizeSpeed
-                                    * math.clamp(
-                                        DeltaTime,
-                                        0,
-                                        0.05
-                                    )
-                                )
+                    EndConnection = UserInputService.InputEnded:Connect(function(EndedInput)
+                        local Matching = IsTouch
+                            and EndedInput == Input
+                            or not IsTouch
+                            and EndedInput.UserInputType == Enum.UserInputType.MouseButton1
 
-                            Gui.Size =
-                                Gui.Size:
-                                Lerp(
-                                    TargetSize,
-                                    Alpha
-                                )
+                        if Matching then
+                            StopResize()
+                        end
+                    end)
+                end)
 
-                            if not Resizing then
-                                local Current =
-                                    Gui.Size
+                return Handle
+            end
 
-                                local Distance =
-                                    math.abs(
-                                        TargetSize.X.Offset
-                                        - Current.X.Offset
-                                    )
-                                    + math.abs(
-                                        TargetSize.Y.Offset
-                                        - Current.Y.Offset
-                                    )
+            local Handles = {
+                CreateHandle(
+                    "ResizeTopLeft",
+                    Vector2New(0, 0),
+                    UDim2New(0, 0, 0, 0),
+                    "Left",
+                    "Top"
+                ),
+                CreateHandle(
+                    "ResizeTopRight",
+                    Vector2New(1, 0),
+                    UDim2New(1, 0, 0, 0),
+                    "Right",
+                    "Top"
+                ),
+                CreateHandle(
+                    "ResizeBottomLeft",
+                    Vector2New(0, 1),
+                    UDim2New(0, 0, 1, 0),
+                    "Left",
+                    "Bottom"
+                ),
+                CreateHandle(
+                    "ResizeBottomRight",
+                    Vector2New(1, 1),
+                    UDim2New(1, 0, 1, 0),
+                    "Right",
+                    "Bottom"
+                )
+            }
 
-                                if Distance < 0.35
-                                    or os.clock()
-                                        - ReleasedAt
-                                        > 0.18
-                                then
-                                    Gui.Size =
-                                        TargetSize
-
-                                    StopConnections(
-                                        true
-                                    )
-                                end
-                            end
-                        end)
-                end
-            )
-
-            return ResizeButton
+            return Handles
         end
 
         Instances.OnHover = function(self, Function)
@@ -7065,7 +6954,7 @@ local Library do
 
         local Window = {
             Name = Data.Name or Data.name or "Window",
-            Size = Data.Size or Data.size or UDim2New(0, 650, 0, 600),
+            Size = Data.Size or Data.size or UDim2New(0, 360, 0, 430),
             FadeSpeed = Data.FadeSpeed or Data.fadespeed or 0.25,
             Pages = { },
             SubPages = { },
@@ -7099,7 +6988,7 @@ local Library do
             })
 
             Items["MainFrame"]:MakeResizeable(
-                Vector2New(Window.Size.X.Offset, Window.Size.Y.Offset),
+                Vector2New(320, 340),
                 Vector2New(9999, 9999)
             )
 
@@ -7107,7 +6996,7 @@ local Library do
                 Parent = Items["MainFrame"].Instance,
                 Name = string.char(0),
                 Position = UDim2New(0, 0, 0, 0),
-                Size = UDim2New(0, 112, 1, 0),
+                Size = UDim2New(0, 78, 1, 0),
                 BorderSizePixel = 0,
                 BackgroundColor3 = Library.Theme.Background
             })
@@ -7128,29 +7017,12 @@ local Library do
                 Color = "Outline"
             })
 
-            Items["RailTitle"] = Instances:Create("TextLabel", {
-                Parent = Items["Rail"].Instance,
-                FontFace = Library.Font,
-                TextColor3 = Library.Theme.Accent,
-                Text = Window.Name,
-                Name = string.char(0),
-                Position = UDim2New(0, 10, 0, 9),
-                Size = UDim2New(1, -20, 0, 18),
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                BorderSizePixel = 0,
-                TextSize = 12
-            })
-            Items["RailTitle"]:AddToTheme({
-                TextColor3 = "Accent"
-            })
-
             Items["Pages"] = Instances:Create("Frame", {
                 Parent = Items["Rail"].Instance,
                 Name = string.char(0),
                 BackgroundTransparency = 1,
-                Position = UDim2New(0, 7, 0, 38),
-                Size = UDim2New(1, -14, 1, -45),
+                Position = UDim2New(0, 6, 0, 7),
+                Size = UDim2New(1, -12, 1, -14),
                 BorderSizePixel = 0
             })
 
@@ -7166,8 +7038,8 @@ local Library do
             Items["Panel"] = Instances:Create("Frame", {
                 Parent = Items["MainFrame"].Instance,
                 Name = string.char(0),
-                Position = UDim2New(0, 122, 0, 0),
-                Size = UDim2New(1, -122, 1, 0),
+                Position = UDim2New(0, 86, 0, 0),
+                Size = UDim2New(1, -86, 1, 0),
                 BorderSizePixel = 0,
                 BackgroundColor3 = Library.Theme.Background
             })
@@ -8670,70 +8542,6 @@ local Library do
                 }
             )
 
-            Items["IndicatorInline"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Items["Indicator"].
-                            Instance,
-
-                        Name =
-                            string.char(0),
-
-                        AnchorPoint =
-                            Vector2New(
-                                0.5,
-                                0.5
-                            ),
-
-                        Position =
-                            UDim2New(
-                                0.5,
-                                0,
-                                0.5,
-                                0
-                            ),
-
-                        Size =
-                            UDim2New(
-                                0,
-                                1,
-                                0,
-                                1
-                            ),
-
-                        BorderSizePixel = 0,
-
-                        BackgroundColor3 =
-                            Library.Theme.
-                            Accent,
-
-                        BackgroundTransparency = 1,
-
-                        ZIndex = 2
-                    }
-                )
-
-            Items["IndicatorInline"]:
-                AddToTheme({
-                    BackgroundColor3 =
-                        "Accent"
-                })
-
-            local InlineCorner =
-                InstanceNew("UICorner")
-
-            InlineCorner.CornerRadius =
-                UDimNew(
-                    0,
-                    2
-                )
-
-            InlineCorner.Parent =
-                Items["IndicatorInline"].
-                Instance
-
             Items["Text"] =
                 Instances:Create(
                     "TextLabel",
@@ -8798,48 +8606,28 @@ local Library do
 
             Items["Toggle"]:
                 OnHover(function()
-                    Items["Indicator"]:
-                        Tween(
-                            HoverTween,
-                            {
-                                BackgroundColor3 =
-                                    Library.Theme[
-                                        "Hovered Element"
-                                    ]
-                            }
-                        )
+                    Items["Indicator"]:Tween(HoverTween, {
+                        BackgroundColor3 = Toggle.Value
+                            and Library.Theme.Accent
+                            or Library.Theme["Hovered Element"]
+                    })
 
-                    Items["Text"]:
-                        Tween(
-                            HoverTween,
-                            {
-                                TextTransparency = 0
-                            }
-                        )
+                    Items["Text"]:Tween(HoverTween, {
+                        TextTransparency = 0
+                    })
                 end)
 
             Items["Toggle"]:
                 OnHoverLeave(function()
-                    Items["Indicator"]:
-                        Tween(
-                            HoverTween,
-                            {
-                                BackgroundColor3 =
-                                    Library.Theme.
-                                    Element
-                            }
-                        )
+                    Items["Indicator"]:Tween(HoverTween, {
+                        BackgroundColor3 = Toggle.Value
+                            and Library.Theme.Accent
+                            or Library.Theme.Element
+                    })
 
-                    Items["Text"]:
-                        Tween(
-                            HoverTween,
-                            {
-                                TextTransparency =
-                                    Toggle.Value
-                                    and 0
-                                    or 0.08
-                            }
-                        )
+                    Items["Text"]:Tween(HoverTween, {
+                        TextTransparency = Toggle.Value and 0 or 0.08
+                    })
                 end)
         end
 
@@ -8903,112 +8691,49 @@ local Library do
 
         function Toggle:Set(Bool)
             if Bool == nil then
-                Toggle.Value =
-                    not Toggle.Value
+                Toggle.Value = not Toggle.Value
             else
-                Toggle.Value =
-                    Bool == true
+                Toggle.Value = Bool == true
             end
 
-            Library.Flags[
-                Toggle.Flag
-            ] = Toggle.Value
+            Library.Flags[Toggle.Flag] = Toggle.Value
 
             if Toggle.KeybindExtension
-                and type(
-                    Toggle.KeybindExtension.
-                    SetState
-                ) == "function"
+                and type(Toggle.KeybindExtension.SetState) == "function"
             then
-                Toggle.KeybindExtension:
-                    SetState(
-                        Toggle.Value,
-                        true
-                    )
+                Toggle.KeybindExtension:SetState(Toggle.Value, true)
             end
 
-            local IndicatorStroke =
-                EnsureIndicatorStroke()
+            local IndicatorStroke = EnsureIndicatorStroke()
+            local Animation = TweenInfo.new(
+                0.06,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out
+            )
 
-            local Animation =
-                TweenInfo.new(
-                    0.22,
-                    Enum.EasingStyle.Back,
-                    Enum.EasingDirection.Out
-                )
+            Items["Indicator"]:ChangeItemTheme({
+                BackgroundColor3 = Toggle.Value and "Accent" or "Element"
+            })
 
-            if Toggle.Value then
-                Items["IndicatorInline"]:
-                    Tween(
-                        Animation,
-                        {
-                            BackgroundTransparency = 0,
+            Items["Indicator"]:Tween(Animation, {
+                BackgroundColor3 = Toggle.Value
+                    and Library.Theme.Accent
+                    or Library.Theme.Element
+            })
 
-                            Size =
-                                UDim2New(
-                                    1,
-                                    0,
-                                    1,
-                                    0
-                                )
-                        }
-                    )
-
-                if IndicatorStroke then
-                    IndicatorStroke.Color =
-                        Library.Theme.Accent
-
-                    IndicatorStroke.Transparency =
-                        0.08
-                end
-
-                Items["Text"]:
-                    Tween(
-                        nil,
-                        {
-                            TextTransparency = 0
-                        }
-                    )
-            else
-                Items["IndicatorInline"]:
-                    Tween(
-                        Animation,
-                        {
-                            BackgroundTransparency = 1,
-
-                            Size =
-                                UDim2New(
-                                    0,
-                                    1,
-                                    0,
-                                    1
-                                )
-                        }
-                    )
-
-                if IndicatorStroke then
-                    IndicatorStroke.Color =
-                        Library.Theme.Outline
-
-                    IndicatorStroke.Transparency =
-                        0.16
-                end
-
-                Items["Text"]:
-                    Tween(
-                        nil,
-                        {
-                            TextTransparency =
-                                0.08
-                        }
-                    )
+            if IndicatorStroke then
+                IndicatorStroke.Color = Toggle.Value
+                    and Library.Theme.Accent
+                    or Library.Theme.Outline
+                IndicatorStroke.Transparency = Toggle.Value and 0.06 or 0.16
             end
+
+            Items["Text"]:Tween(Animation, {
+                TextTransparency = Toggle.Value and 0 or 0.08
+            })
 
             if Toggle.Callback then
-                Library:SafeCall(
-                    Toggle.Callback,
-                    Toggle.Value
-                )
+                Library:SafeCall(Toggle.Callback, Toggle.Value)
             end
         end
 
@@ -9509,40 +9234,12 @@ local Library do
             Window = self.Window,
             Page = self.Page,
             Section = self,
-
-            Name =
-                Data.Name
-                or Data.name
-                or "Dropdown",
-
-            Flag =
-                Data.Flag
-                or Data.flag
-                or Library:NextFlag(),
-
-            Items =
-                Data.Items
-                or Data.items
-                or {
-                    "One",
-                    "Two",
-                    "Three"
-                },
-
-            Default =
-                Data.Default
-                or Data.default,
-
-            Callback =
-                Data.Callback
-                or Data.callback
-                or function() end,
-
-            Multi =
-                Data.Multi
-                or Data.multi
-                or false,
-
+            Name = Data.Name or Data.name or "Dropdown",
+            Flag = Data.Flag or Data.flag or Library:NextFlag(),
+            Items = Data.Items or Data.items or {"One", "Two", "Three"},
+            Default = Data.Default or Data.default,
+            Callback = Data.Callback or Data.callback or function() end,
+            Multi = Data.Multi or Data.multi or false,
             Value = { },
             IsOpen = false,
             Options = { },
@@ -9551,393 +9248,132 @@ local Library do
         }
 
         local Items = { }
-
-        local PopupTween =
-            TweenInfo.new(
-                0.13,
-                Enum.EasingStyle.Quint,
-                Enum.EasingDirection.Out
-            )
-
-        Items["Dropdown"] =
-            Instances:Create(
-                "Frame",
-                {
-                    Parent =
-                        Dropdown.Section.
-                        Elements[
-                            "Content"
-                        ].
-                        Instance,
-
-                    BackgroundTransparency = 1,
-
-                    Name =
-                        string.char(0),
-
-                    Size =
-                        UDim2New(
-                            1,
-                            0,
-                            0,
-                            37
-                        ),
-
-                    BorderSizePixel = 0
-                }
-            )
-
-        Items["Text"] =
-            Instances:Create(
-                "TextLabel",
-                {
-                    Parent =
-                        Items["Dropdown"].
-                        Instance,
-
-                    FontFace =
-                        Library.Font,
-
-                    TextColor3 =
-                        Library.Theme.Text,
-
-                    Text =
-                        Dropdown.Name,
-
-                    Name =
-                        string.char(0),
-
-                    BackgroundTransparency = 1,
-
-                    TextXAlignment =
-                        Enum.TextXAlignment.Left,
-
-                    Size =
-                        UDim2New(
-                            1,
-                            0,
-                            0,
-                            13
-                        ),
-
-                    BorderSizePixel = 0,
-
-                    TextSize = 11
-                }
-            )
-
-        Items["Text"]:
-            AddToTheme({
-                TextColor3 = "Text"
-            })
-
-        Items["Field"] =
-            Instances:Create(
-                "Frame",
-                {
-                    Parent =
-                        Items["Dropdown"].
-                        Instance,
-
-                    AnchorPoint =
-                        Vector2New(
-                            0,
-                            1
-                        ),
-
-                    Name =
-                        string.char(0),
-
-                    Position =
-                        UDim2New(
-                            0,
-                            0,
-                            1,
-                            0
-                        ),
-
-                    Size =
-                        UDim2New(
-                            1,
-                            0,
-                            0,
-                            21
-                        ),
-
-                    BorderSizePixel = 0,
-
-                    BackgroundColor3 =
-                        Library.Theme.Element
-                }
-            )
-
-        Items["Field"]:
-            AddToTheme({
-                BackgroundColor3 =
-                    "Element"
-            })
-
-        Library:ApplyGlass(
-            Items["Field"],
-            "Element",
-            2
+        local PopupTween = TweenInfo.new(
+            0.06,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.Out
         )
 
-        Items["Value"] =
-            Instances:Create(
-                "TextLabel",
-                {
-                    Parent =
-                        Items["Field"].
-                        Instance,
+        Items["Dropdown"] = Instances:Create("Frame", {
+            Parent = Dropdown.Section.Elements["Content"].Instance,
+            BackgroundTransparency = 1,
+            Name = string.char(0),
+            Size = UDim2New(1, 0, 0, 35),
+            BorderSizePixel = 0
+        })
 
-                    FontFace =
-                        Library.Font,
+        Items["Text"] = Instances:Create("TextLabel", {
+            Parent = Items["Dropdown"].Instance,
+            FontFace = Library.Font,
+            TextColor3 = Library.Theme.Text,
+            Text = Dropdown.Name,
+            Name = string.char(0),
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Size = UDim2New(1, 0, 0, 12),
+            BorderSizePixel = 0,
+            TextSize = 11
+        })
+        Items["Text"]:AddToTheme({TextColor3 = "Text"})
 
-                    TextColor3 =
-                        Library.Theme.Text,
+        Items["Field"] = Instances:Create("Frame", {
+            Parent = Items["Dropdown"].Instance,
+            AnchorPoint = Vector2New(0, 1),
+            Name = string.char(0),
+            Position = UDim2New(0, 0, 1, 0),
+            Size = UDim2New(1, 0, 0, 20),
+            BorderSizePixel = 0,
+            BackgroundColor3 = Library.Theme["Page Background"]
+        })
+        Items["Field"]:AddToTheme({
+            BackgroundColor3 = "Page Background"
+        })
+        Library:ApplyGlass(Items["Field"], "Element", 2)
 
-                    Text = "—",
+        Items["Value"] = Instances:Create("TextLabel", {
+            Parent = Items["Field"].Instance,
+            FontFace = Library.Font,
+            TextColor3 = Library.Theme.Text,
+            Text = "—",
+            Name = string.char(0),
+            Position = UDim2New(0, 6, 0, 0),
+            Size = UDim2New(1, -26, 1, 0),
+            BackgroundTransparency = 1,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            BorderSizePixel = 0,
+            TextSize = 10,
+            ZIndex = 2
+        })
+        Items["Value"]:AddToTheme({TextColor3 = "Text"})
 
-                    Name =
-                        string.char(0),
+        Items["Open"] = Instances:Create("TextButton", {
+            Parent = Items["Field"].Instance,
+            Font = Enum.Font.GothamMedium,
+            TextColor3 = Library.Theme["Muted Text"],
+            Text = "+",
+            AutoButtonColor = false,
+            Name = string.char(0),
+            AnchorPoint = Vector2New(1, 0.5),
+            Position = UDim2New(1, -2, 0.5, 0),
+            Size = UDim2New(0, 18, 0, 16),
+            BackgroundColor3 = Library.Theme.Element,
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0,
+            TextSize = 12,
+            ZIndex = 3
+        })
+        Items["Open"]:AddToTheme({
+            BackgroundColor3 = "Element",
+            TextColor3 = "Muted Text"
+        })
+        Library:ApplyGlass(Items["Open"], "Element", 2)
 
-                    Position =
-                        UDim2New(
-                            0,
-                            7,
-                            0,
-                            0
-                        ),
+        Items["Popup"] = Instances:Create("CanvasGroup", {
+            Parent = Library.Holder.Instance,
+            Visible = false,
+            Name = string.char(0),
+            Position = UDim2New(0, 0, 0, 0),
+            Size = UDim2New(0, 120, 0, 0),
+            BorderSizePixel = 0,
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundColor3 = Library.Theme.Inline,
+            BackgroundTransparency = 0,
+            GroupTransparency = 1,
+            ZIndex = 900
+        })
+        Items["Popup"]:AddToTheme({BackgroundColor3 = "Inline"})
+        Library:ApplyGlass(Items["Popup"], "Popup", 2)
 
-                    Size =
-                        UDim2New(
-                            1,
-                            -30,
-                            1,
-                            0
-                        ),
+        local PopupLayout = InstanceNew("UIListLayout")
+        PopupLayout.Padding = UDimNew(0, 1)
+        PopupLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        PopupLayout.Parent = Items["Popup"].Instance
 
-                    BackgroundTransparency = 1,
+        local PopupPadding = InstanceNew("UIPadding")
+        PopupPadding.PaddingTop = UDimNew(0, 3)
+        PopupPadding.PaddingBottom = UDimNew(0, 3)
+        PopupPadding.Parent = Items["Popup"].Instance
 
-                    TextXAlignment =
-                        Enum.TextXAlignment.Left,
-
-                    TextTruncate =
-                        Enum.TextTruncate.
-                        AtEnd,
-
-                    BorderSizePixel = 0,
-
-                    TextSize = 10,
-
-                    ZIndex = 2
-                }
-            )
-
-        Items["Value"]:
-            AddToTheme({
-                TextColor3 = "Text"
-            })
-
-        Items["Open"] =
-            Instances:Create(
-                "TextButton",
-                {
-                    Parent =
-                        Items["Field"].
-                        Instance,
-
-                    Font =
-                        Enum.Font.
-                        GothamMedium,
-
-                    TextColor3 =
-                        Library.Theme[
-                            "Muted Text"
-                        ],
-
-                    Text = "+",
-
-                    AutoButtonColor = false,
-
-                    Name =
-                        string.char(0),
-
-                    AnchorPoint =
-                        Vector2New(
-                            1,
-                            0
-                        ),
-
-                    Position =
-                        UDim2New(
-                            1,
-                            -4,
-                            0,
-                            0
-                        ),
-
-                    Size =
-                        UDim2New(
-                            0,
-                            20,
-                            1,
-                            0
-                        ),
-
-                    BackgroundTransparency = 1,
-
-                    BorderSizePixel = 0,
-
-                    TextSize = 12,
-
-                    ZIndex = 3
-                }
-            )
-
-        Items["Open"]:
-            AddToTheme({
-                TextColor3 =
-                    "Muted Text"
-            })
-
-        Items["Popup"] =
-            Instances:Create(
-                "CanvasGroup",
-                {
-                    Parent =
-                        Library.Holder.
-                        Instance,
-
-                    Visible = false,
-
-                    Name =
-                        string.char(0),
-
-                    Position =
-                        UDim2New(
-                            0,
-                            0,
-                            0,
-                            0
-                        ),
-
-                    Size =
-                        UDim2New(
-                            0,
-                            160,
-                            0,
-                            0
-                        ),
-
-                    BorderSizePixel = 0,
-
-                    AutomaticSize =
-                        Enum.AutomaticSize.Y,
-
-                    BackgroundColor3 =
-                        Library.Theme.Inline,
-
-                    BackgroundTransparency = 0,
-
-                    GroupTransparency = 1,
-
-                    ZIndex = 900
-                }
-            )
-
-        Items["Popup"]:
-            AddToTheme({
-                BackgroundColor3 =
-                    "Inline"
-            })
-
-        Library:ApplyGlass(
-            Items["Popup"],
-            "Popup",
-            2
-        )
-
-        local PopupLayout =
-            InstanceNew("UIListLayout")
-
-        PopupLayout.Padding =
-            UDimNew(0, 1)
-
-        PopupLayout.SortOrder =
-            Enum.SortOrder.LayoutOrder
-
-        PopupLayout.Parent =
-            Items["Popup"].
-            Instance
-
-        local PopupPadding =
-            InstanceNew("UIPadding")
-
-        PopupPadding.PaddingTop =
-            UDimNew(0, 3)
-
-        PopupPadding.PaddingBottom =
-            UDimNew(0, 3)
-
-        PopupPadding.Parent =
-            Items["Popup"].
-            Instance
-
-        local function GetPopupPosition(
-            Offset
-        )
-            local Field =
-                Items["Field"].
-                Instance
-
-            local Position =
-                Field.
-                AbsolutePosition
-
-            local Size =
-                Field.
-                AbsoluteSize
-
-            return UDim2New(
-                0,
-                Position.X,
-                0,
-                Position.Y
-                    + Size.Y
-                    + (Offset or 3)
-            )
+        local function GetPopupPosition()
+            local Field = Items["Field"].Instance
+            local Position = Field.AbsolutePosition
+            local Size = Field.AbsoluteSize
+            return UDim2New(0, Position.X, 0, Position.Y + Size.Y + 2)
         end
 
         local function UpdatePopupPosition()
-            local Width =
-                Items["Field"].
-                Instance.
-                AbsoluteSize.X
-
-            Items["Popup"].
-                Instance.
-                Position =
-                GetPopupPosition(3)
-
-            Items["Popup"].
-                Instance.
-                Size =
-                UDim2New(
-                    0,
-                    Width,
-                    0,
-                    0
-                )
+            Items["Popup"].Instance.Position = GetPopupPosition()
+            Items["Popup"].Instance.Size = UDim2New(
+                0,
+                Items["Field"].Instance.AbsoluteSize.X,
+                0,
+                0
+            )
         end
 
         Library:Connect(
-            Items["Field"].
-                Instance:
-                GetPropertyChangedSignal(
-                    "AbsolutePosition"
-                ),
+            Items["Field"].Instance:GetPropertyChangedSignal("AbsolutePosition"),
             function()
                 if Dropdown.IsOpen then
                     UpdatePopupPosition()
@@ -9946,11 +9382,7 @@ local Library do
         )
 
         Library:Connect(
-            Items["Field"].
-                Instance:
-                GetPropertyChangedSignal(
-                    "AbsoluteSize"
-                ),
+            Items["Field"].Instance:GetPropertyChangedSignal("AbsoluteSize"),
             function()
                 if Dropdown.IsOpen then
                     UpdatePopupPosition()
@@ -9961,308 +9393,121 @@ local Library do
         function Dropdown:SetOpen(Bool)
             Bool = Bool == true
 
-            if Bool
-                and Library.OpenDropdown
-                and Library.OpenDropdown
-                    ~= Dropdown
-            then
-                Library.OpenDropdown:
-                    SetOpen(false)
+            if Bool and Library.OpenDropdown and Library.OpenDropdown ~= Dropdown then
+                Library.OpenDropdown:SetOpen(false)
             end
 
-            Dropdown.AnimationToken =
-                Dropdown.AnimationToken
-                + 1
-
-            local Token =
-                Dropdown.AnimationToken
-
+            Dropdown.AnimationToken += 1
+            local Token = Dropdown.AnimationToken
             Dropdown.IsOpen = Bool
 
             if Bool then
-                Library.OpenDropdown =
-                    Dropdown
+                Library.OpenDropdown = Dropdown
+                UpdatePopupPosition()
+                Items["Popup"].Instance.GroupTransparency = 1
+                Items["Popup"].Instance.Visible = true
+                Items["Popup"]:Tween(PopupTween, {GroupTransparency = 0})
 
-                local Width =
-                    Items["Field"].
-                    Instance.
-                    AbsoluteSize.X
-
-                Items["Popup"].
-                    Instance.
-                    Size =
-                    UDim2New(
-                        0,
-                        Width,
-                        0,
-                        0
-                    )
-
-                Items["Popup"].
-                    Instance.
-                    Position =
-                    GetPopupPosition(7)
-
-                Items["Popup"].
-                    Instance.
-                    GroupTransparency = 1
-
-                Items["Popup"].
-                    Instance.
-                    Visible = true
-
-                Items["Popup"]:
-                    Tween(
-                        PopupTween,
-                        {
-                            Position =
-                                GetPopupPosition(3),
-
-                            GroupTransparency = 0
-                        }
-                    )
-
-                Items["Field"]:
-                    Tween(
-                        PopupTween,
-                        {
-                            BackgroundColor3 =
-                                Library.Theme[
-                                    "Hovered Element"
-                                ]
-                        }
-                    )
-
-                Items["Open"]:
-                    Tween(
-                        PopupTween,
-                        {
-                            TextColor3 =
-                                Library.Theme.
-                                Text
-                        }
-                    )
-
-                Items["Open"].
-                    Instance.
-                    Text = "-"
+                Items["Open"]:ChangeItemTheme({
+                    BackgroundColor3 = "Accent",
+                    TextColor3 = "Background"
+                })
+                Items["Open"]:Tween(PopupTween, {
+                    BackgroundColor3 = Library.Theme.Accent,
+                    TextColor3 = Library.Theme.Background
+                })
+                Items["Open"].Instance.Text = "-"
             else
-                if Library.OpenDropdown
-                    == Dropdown
-                then
+                if Library.OpenDropdown == Dropdown then
                     Library.OpenDropdown = nil
                 end
 
-                Items["Popup"]:
-                    Tween(
-                        PopupTween,
-                        {
-                            Position =
-                                GetPopupPosition(7),
+                Items["Popup"]:Tween(PopupTween, {GroupTransparency = 1})
+                Items["Open"]:ChangeItemTheme({
+                    BackgroundColor3 = "Element",
+                    TextColor3 = "Muted Text"
+                })
+                Items["Open"]:Tween(PopupTween, {
+                    BackgroundColor3 = Library.Theme.Element,
+                    TextColor3 = Library.Theme["Muted Text"]
+                })
+                Items["Open"].Instance.Text = "+"
 
-                            GroupTransparency = 1
-                        }
-                    )
-
-                Items["Field"]:
-                    Tween(
-                        PopupTween,
-                        {
-                            BackgroundColor3 =
-                                Library.Theme.
-                                Element
-                        }
-                    )
-
-                Items["Open"]:
-                    Tween(
-                        PopupTween,
-                        {
-                            TextColor3 =
-                                Library.Theme[
-                                    "Muted Text"
-                                ]
-                        }
-                    )
-
-                Items["Open"].
-                    Instance.
-                    Text = "+"
-
-                task.delay(
-                    0.13,
-                    function()
-                        if Token
-                                == Dropdown.
-                                AnimationToken
-                            and not Dropdown.
-                                IsOpen
-                            and Items["Popup"].
-                                Instance
-                            and Items["Popup"].
-                                Instance.Parent
-                        then
-                            Items["Popup"].
-                                Instance.
-                                Visible = false
-                        end
+                task.delay(0.06, function()
+                    if Token == Dropdown.AnimationToken
+                        and not Dropdown.IsOpen
+                        and Items["Popup"].Instance
+                        and Items["Popup"].Instance.Parent
+                    then
+                        Items["Popup"].Instance.Visible = false
                     end
-                )
+                end)
             end
         end
 
-        Items["Open"]:
-            OnHover(function()
-                if Dropdown.IsOpen then
-                    return
-                end
+        Items["Open"]:OnHover(function()
+            if Dropdown.IsOpen then
+                return
+            end
+            Items["Open"]:Tween(PopupTween, {
+                BackgroundColor3 = Library.Theme["Hovered Element"],
+                TextColor3 = Library.Theme.Text
+            })
+        end)
 
-                Items["Field"]:
-                    Tween(
-                        PopupTween,
-                        {
-                            BackgroundColor3 =
-                                Library.Theme[
-                                    "Hovered Element"
-                                ]
-                        }
-                    )
-
-                Items["Open"]:
-                    Tween(
-                        PopupTween,
-                        {
-                            TextColor3 =
-                                Library.Theme.
-                                Text
-                        }
-                    )
-            end)
-
-        Items["Open"]:
-            OnHoverLeave(function()
-                if Dropdown.IsOpen then
-                    return
-                end
-
-                Items["Field"]:
-                    Tween(
-                        PopupTween,
-                        {
-                            BackgroundColor3 =
-                                Library.Theme.
-                                Element
-                        }
-                    )
-
-                Items["Open"]:
-                    Tween(
-                        PopupTween,
-                        {
-                            TextColor3 =
-                                Library.Theme[
-                                    "Muted Text"
-                                ]
-                        }
-                    )
-            end)
+        Items["Open"]:OnHoverLeave(function()
+            if Dropdown.IsOpen then
+                return
+            end
+            Items["Open"]:Tween(PopupTween, {
+                BackgroundColor3 = Library.Theme.Element,
+                TextColor3 = Library.Theme["Muted Text"]
+            })
+        end)
 
         function Dropdown:Set(Option)
             if Dropdown.Multi then
-                if type(Option)
-                    ~= "table"
-                then
+                if type(Option) ~= "table" then
                     return
                 end
 
-                for _,
-                    OptionData
-                in pairs(
-                    Dropdown.Options
-                )
-                do
+                for _, OptionData in pairs(Dropdown.Options) do
                     OptionData.Selected = false
-                    OptionData:
-                        Toggle(false)
+                    OptionData:Toggle(false)
                 end
 
                 Dropdown.Value = { }
 
-                for _,
-                    Value
-                in ipairs(Option)
-                do
-                    local OptionData =
-                        Dropdown.Options[
-                            Value
-                        ]
-
+                for _, Value in ipairs(Option) do
+                    local OptionData = Dropdown.Options[Value]
                     if OptionData then
                         OptionData.Selected = true
-
-                        OptionData:
-                            Toggle(true)
-
-                        table.insert(
-                            Dropdown.Value,
-                            Value
-                        )
+                        OptionData:Toggle(true)
+                        table.insert(Dropdown.Value, Value)
                     end
                 end
 
-                Items["Value"].
-                    Instance.
-                    Text =
-                    #Dropdown.Value > 0
-                    and table.concat(
-                        Dropdown.Value,
-                        ", "
-                    )
+                Items["Value"].Instance.Text = #Dropdown.Value > 0
+                    and table.concat(Dropdown.Value, ", ")
                     or "—"
             else
-                local OptionData =
-                    Dropdown.Options[
-                        Option
-                    ]
-
+                local OptionData = Dropdown.Options[Option]
                 if not OptionData then
                     return
                 end
 
-                for _,
-                    Value
-                in pairs(
-                    Dropdown.Options
-                )
-                do
-                    Value.Selected =
-                        Value
-                        == OptionData
-
-                    Value:Toggle(
-                        Value
-                        == OptionData
-                    )
+                for _, Value in pairs(Dropdown.Options) do
+                    Value.Selected = Value == OptionData
+                    Value:Toggle(Value == OptionData)
                 end
 
-                Dropdown.Value =
-                    OptionData.Name
-
-                Items["Value"].
-                    Instance.
-                    Text =
-                    OptionData.Name
+                Dropdown.Value = OptionData.Name
+                Items["Value"].Instance.Text = OptionData.Name
             end
 
-            Library.Flags[
-                Dropdown.Flag
-            ] = Dropdown.Value
-
+            Library.Flags[Dropdown.Flag] = Dropdown.Value
             if Dropdown.Callback then
-                Library:SafeCall(
-                    Dropdown.Callback,
-                    Dropdown.Value
-                )
+                Library:SafeCall(Dropdown.Callback, Dropdown.Value)
             end
         end
 
@@ -10271,480 +9516,167 @@ local Library do
         end
 
         function Dropdown:SetVisibility(Bool)
-            Items["Dropdown"].
-                Instance.
-                Visible =
-                Bool == true
-
+            Items["Dropdown"].Instance.Visible = Bool == true
             if not Bool then
                 Dropdown:SetOpen(false)
             end
         end
 
         function Dropdown:Add(Option)
-            local OptionButton =
-                Instances:Create(
-                    "TextButton",
-                    {
-                        Parent =
-                            Items["Popup"].
-                            Instance,
+            local OptionButton = Instances:Create("TextButton", {
+                Parent = Items["Popup"].Instance,
+                FontFace = Library.Font,
+                Text = tostring(Option),
+                TextColor3 = Library.Theme.Text,
+                TextTransparency = 0.08,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                AutoButtonColor = false,
+                Name = string.char(0),
+                BackgroundColor3 = Library.Theme["Hovered Element"],
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                Size = UDim2New(1, 0, 0, 19),
+                ZIndex = 901,
+                TextSize = 10
+            })
+            OptionButton:AddToTheme({
+                BackgroundColor3 = "Hovered Element",
+                TextColor3 = "Text"
+            })
 
-                        FontFace =
-                            Library.Font,
-
-                        Text = "",
-
-                        AutoButtonColor = false,
-
-                        Name =
-                            string.char(0),
-
-                        BackgroundColor3 =
-                            Library.Theme[
-                                "Hovered Element"
-                            ],
-
-                        BackgroundTransparency = 1,
-
-                        BorderSizePixel = 0,
-
-                        Size =
-                            UDim2New(
-                                1,
-                                0,
-                                0,
-                                19
-                            ),
-
-                        ZIndex = 901
-                    }
-                )
-
-            OptionButton:
-                AddToTheme({
-                    BackgroundColor3 =
-                        "Hovered Element"
-                })
-
-            local OptionText =
-                Instances:Create(
-                    "TextLabel",
-                    {
-                        Parent =
-                            OptionButton.
-                            Instance,
-
-                        FontFace =
-                            Library.Font,
-
-                        TextColor3 =
-                            Library.Theme.Text,
-
-                        TextTransparency =
-                            0.08,
-
-                        Text =
-                            tostring(Option),
-
-                        Name =
-                            string.char(0),
-
-                        Position =
-                            UDim2New(
-                                0,
-                                7,
-                                0,
-                                0
-                            ),
-
-                        Size =
-                            UDim2New(
-                                1,
-                                -24,
-                                1,
-                                0
-                            ),
-
-                        BackgroundTransparency = 1,
-
-                        TextXAlignment =
-                            Enum.TextXAlignment.Left,
-
-                        BorderSizePixel = 0,
-
-                        ZIndex = 902,
-
-                        TextSize = 10
-                    }
-                )
-
-            OptionText:
-                AddToTheme({
-                    TextColor3 = "Text"
-                })
-
-            local Marker =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            OptionButton.
-                            Instance,
-
-                        AnchorPoint =
-                            Vector2New(
-                                1,
-                                0.5
-                            ),
-
-                        Position =
-                            UDim2New(
-                                1,
-                                -8,
-                                0.5,
-                                0
-                            ),
-
-                        Size =
-                            UDim2New(
-                                0,
-                                4,
-                                0,
-                                4
-                            ),
-
-                        BorderSizePixel = 0,
-
-                        BackgroundColor3 =
-                            Library.Theme.
-                            Accent,
-
-                        BackgroundTransparency = 1,
-
-                        ZIndex = 902
-                    }
-                )
-
-            Marker:
-                AddToTheme({
-                    BackgroundColor3 =
-                        "Accent"
-                })
-
-            local MarkerCorner =
-                InstanceNew("UICorner")
-
-            MarkerCorner.CornerRadius =
-                UDimNew(
-                    0,
-                    1
-                )
-
-            MarkerCorner.Parent =
-                Marker.Instance
+            local Padding = InstanceNew("UIPadding")
+            Padding.PaddingLeft = UDimNew(0, 7)
+            Padding.PaddingRight = UDimNew(0, 7)
+            Padding.Parent = OptionButton.Instance
 
             local OptionData = {
                 Selected = false,
                 Name = Option,
-                Text = OptionText,
-                Button = OptionButton,
-                Marker = Marker
+                Button = OptionButton
             }
 
-            function OptionData:
-                Toggle(Active)
-                OptionData.Selected =
-                    Active == true
-
-                OptionData.Marker:
-                    Tween(
-                        PopupTween,
-                        {
-                            BackgroundTransparency =
-                                Active
-                                and 0
-                                or 1
-                        }
-                    )
-
-                OptionData.Text:
-                    ChangeItemTheme({
-                        TextColor3 =
-                            Active
-                            and "Accent"
-                            or "Text"
-                    })
-
-                OptionData.Text:
-                    Tween(
-                        PopupTween,
-                        {
-                            TextColor3 =
-                                Active
-                                and Library.Theme.
-                                    Accent
-                                or Library.Theme.
-                                    Text,
-
-                            TextTransparency =
-                                Active
-                                and 0
-                                or 0.08
-                        }
-                    )
-
-                OptionData.Button:
-                    Tween(
-                        PopupTween,
-                        {
-                            BackgroundTransparency =
-                                Active
-                                and 0.72
-                                or 1
-                        }
-                    )
+            function OptionData:Toggle(Active)
+                OptionData.Selected = Active == true
+                OptionData.Button:ChangeItemTheme({
+                    TextColor3 = Active and "Accent" or "Text"
+                })
+                OptionData.Button:Tween(PopupTween, {
+                    TextColor3 = Active and Library.Theme.Accent or Library.Theme.Text,
+                    TextTransparency = Active and 0 or 0.08,
+                    BackgroundTransparency = Active and 0.68 or 1
+                })
             end
 
-            OptionButton:
-                OnHover(function()
-                    if OptionData.Selected then
-                        return
-                    end
+            OptionButton:OnHover(function()
+                if OptionData.Selected then
+                    return
+                end
+                OptionData.Button:Tween(PopupTween, {
+                    BackgroundTransparency = 0.76,
+                    TextTransparency = 0
+                })
+            end)
 
-                    OptionData.Button:
-                        Tween(
-                            PopupTween,
-                            {
-                                BackgroundTransparency =
-                                    0.78
-                            }
-                        )
-
-                    OptionData.Text:
-                        Tween(
-                            PopupTween,
-                            {
-                                TextTransparency = 0
-                            }
-                        )
-                end)
-
-            OptionButton:
-                OnHoverLeave(function()
-                    if OptionData.Selected then
-                        return
-                    end
-
-                    OptionData.Button:
-                        Tween(
-                            PopupTween,
-                            {
-                                BackgroundTransparency = 1
-                            }
-                        )
-
-                    OptionData.Text:
-                        Tween(
-                            PopupTween,
-                            {
-                                TextTransparency =
-                                    0.08
-                            }
-                        )
-                end)
+            OptionButton:OnHoverLeave(function()
+                if OptionData.Selected then
+                    return
+                end
+                OptionData.Button:Tween(PopupTween, {
+                    BackgroundTransparency = 1,
+                    TextTransparency = 0.08
+                })
+            end)
 
             function OptionData:Set()
                 if Dropdown.Multi then
-                    OptionData.Selected =
-                        not OptionData.Selected
+                    OptionData.Selected = not OptionData.Selected
+                    local Index = table.find(Dropdown.Value, OptionData.Name)
 
-                    local Index =
-                        table.find(
-                            Dropdown.Value,
-                            OptionData.Name
-                        )
-
-                    if OptionData.Selected
-                        and not Index
-                    then
-                        table.insert(
-                            Dropdown.Value,
-                            OptionData.Name
-                        )
-                    elseif not OptionData.Selected
-                        and Index
-                    then
-                        table.remove(
-                            Dropdown.Value,
-                            Index
-                        )
+                    if OptionData.Selected and not Index then
+                        table.insert(Dropdown.Value, OptionData.Name)
+                    elseif not OptionData.Selected and Index then
+                        table.remove(Dropdown.Value, Index)
                     end
 
-                    OptionData:
-                        Toggle(
-                            OptionData.Selected
-                        )
-
-                    Items["Value"].
-                        Instance.
-                        Text =
-                        #Dropdown.Value > 0
-                        and table.concat(
-                            Dropdown.Value,
-                            ", "
-                        )
+                    OptionData:Toggle(OptionData.Selected)
+                    Items["Value"].Instance.Text = #Dropdown.Value > 0
+                        and table.concat(Dropdown.Value, ", ")
                         or "—"
 
-                    Library.Flags[
-                        Dropdown.Flag
-                    ] = Dropdown.Value
-
+                    Library.Flags[Dropdown.Flag] = Dropdown.Value
                     if Dropdown.Callback then
-                        Library:SafeCall(
-                            Dropdown.Callback,
-                            Dropdown.Value
-                        )
+                        Library:SafeCall(Dropdown.Callback, Dropdown.Value)
                     end
                 else
-                    Dropdown:Set(
-                        OptionData.Name
-                    )
-
-                    Dropdown:SetOpen(
-                        false
-                    )
+                    Dropdown:Set(OptionData.Name)
+                    Dropdown:SetOpen(false)
                 end
             end
 
-            OptionButton:
-                Connect(
-                    "MouseButton1Down",
-                    function()
-                        OptionData:Set()
-                    end
-                )
+            OptionButton:Connect("MouseButton1Down", function()
+                OptionData:Set()
+            end)
 
-            Dropdown.Options[
-                Option
-            ] = OptionData
-
+            Dropdown.Options[Option] = OptionData
             return OptionData
         end
 
         function Dropdown:Remove(Option)
-            local OptionData =
-                Dropdown.Options[
-                    Option
-                ]
-
+            local OptionData = Dropdown.Options[Option]
             if not OptionData then
                 return
             end
-
             OptionData.Button:Clean()
-
-            Dropdown.Options[
-                Option
-            ] = nil
+            Dropdown.Options[Option] = nil
         end
 
         function Dropdown:Refresh(List)
             local Existing = { }
-
-            for Name
-            in pairs(
-                Dropdown.Options
-            )
-            do
-                table.insert(
-                    Existing,
-                    Name
-                )
+            for Name in pairs(Dropdown.Options) do
+                table.insert(Existing, Name)
             end
-
-            for _,
-                Name
-            in ipairs(Existing)
-            do
-                Dropdown:Remove(
-                    Name
-                )
+            for _, Name in ipairs(Existing) do
+                Dropdown:Remove(Name)
             end
-
-            for _,
-                Value
-            in ipairs(List)
-            do
-                Dropdown:Add(
-                    Value
-                )
+            for _, Value in ipairs(List) do
+                Dropdown:Add(Value)
             end
         end
 
-        for _,
-            Value
-        in ipairs(
-            Dropdown.Items
-        )
-        do
-            Dropdown:Add(
-                Value
-            )
+        for _, Value in ipairs(Dropdown.Items) do
+            Dropdown:Add(Value)
         end
 
-        Items["Open"]:
-            Connect(
-                "MouseButton1Down",
-                function()
-                    Dropdown:SetOpen(
-                        not Dropdown.IsOpen
-                    )
-                end
-            )
+        -- Only this dedicated button opens or closes the popup.
+        Items["Open"]:Connect("MouseButton1Down", function()
+            Dropdown:SetOpen(not Dropdown.IsOpen)
+        end)
 
-        Library:Connect(
-            UserInputService.InputBegan,
-            function(Input)
-                if not Dropdown.IsOpen then
-                    return
-                end
-
-                if Input.UserInputType
-                        ~= Enum.UserInputType.
-                            MouseButton1
-                    and Input.UserInputType
-                        ~= Enum.UserInputType.
-                            Touch
-                then
-                    return
-                end
-
-                if Library:
-                    IsMouseOverFrame(
-                        Items["Popup"]
-                    )
-                    or Library:
-                    IsMouseOverFrame(
-                        Items["Field"]
-                    )
-                then
-                    return
-                end
-
-                Dropdown:SetOpen(false)
+        Library:Connect(UserInputService.InputBegan, function(Input)
+            if not Dropdown.IsOpen then
+                return
             end
-        )
+
+            if Input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and Input.UserInputType ~= Enum.UserInputType.Touch
+            then
+                return
+            end
+
+            if Library:IsMouseOverFrame(Items["Popup"])
+                or Library:IsMouseOverFrame(Items["Field"])
+            then
+                return
+            end
+
+            Dropdown:SetOpen(false)
+        end)
 
         if Dropdown.Default ~= nil then
-            Dropdown:Set(
-                Dropdown.Default
-            )
+            Dropdown:Set(Dropdown.Default)
         end
 
-        Library.SetFlags[
-            Dropdown.Flag
-        ] = function(Value)
+        Library.SetFlags[Dropdown.Flag] = function(Value)
             Dropdown:Set(Value)
         end
 
