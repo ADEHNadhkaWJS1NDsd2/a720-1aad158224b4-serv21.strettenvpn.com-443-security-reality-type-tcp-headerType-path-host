@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantCompact-v3",
+        Build = "RadiantLean-v5",
         Flags = { },
 
         Theme = {
@@ -101,8 +101,8 @@ local Library do
         MenuKeybind = Enum.KeyCode.Z,
 
         Tween = {
-            Time = 0.3,
-            Style = Enum.EasingStyle.Exponential,
+            Time = 0.12,
+            Style = Enum.EasingStyle.Quad,
             Direction = Enum.EasingDirection.Out
         },
 
@@ -548,85 +548,52 @@ local Library do
                 return
             end
 
-            local Gui =
-                self.Instance
-
+            local Gui = self.Instance
             local DragHandle =
                 Handle
-                and (
-                    Handle.Instance
-                    or Handle
-                )
+                and (Handle.Instance or Handle)
                 or Gui
 
-            if DragHandle:IsA(
-                "GuiObject"
-            ) then
-                DragHandle.Active =
-                    true
+            if DragHandle:IsA("GuiObject") then
+                DragHandle.Active = true
             end
 
             local Dragging = false
-            local DragStart = nil
+            local StartMouse = nil
             local StartPosition = nil
-            local TargetPosition = nil
-            local ReleasedAt = 0
-
+            local PendingPosition = nil
             local MoveConnection = nil
             local EndConnection = nil
             local RenderConnection = nil
 
-            local DragSpeed =
-                tonumber(
-                    Smoothness
-                )
-                or 26
-
-            local function Disconnect(
-                Connection
-            )
+            local function Disconnect(Connection)
                 if Connection then
                     pcall(function()
-                        Connection:
-                            Disconnect()
+                        Connection:Disconnect()
                     end)
                 end
             end
 
-            local function StopConnections(
-                StopRender
-            )
-                Disconnect(
-                    MoveConnection
-                )
-
-                Disconnect(
-                    EndConnection
-                )
-
-                MoveConnection = nil
-                EndConnection = nil
-
-                if StopRender then
-                    Disconnect(
-                        RenderConnection
-                    )
-
-                    RenderConnection = nil
+            local function ApplyPending()
+                if PendingPosition
+                    and Gui.Parent
+                then
+                    Gui.Position = PendingPosition
+                    PendingPosition = nil
                 end
             end
 
-            local function FinishDrag()
-                if not Dragging then
-                    return
-                end
-
+            local function StopDrag()
+                ApplyPending()
                 Dragging = false
-                ReleasedAt = os.clock()
 
-                StopConnections(
-                    false
-                )
+                Disconnect(MoveConnection)
+                Disconnect(EndConnection)
+                Disconnect(RenderConnection)
+
+                MoveConnection = nil
+                EndConnection = nil
+                RenderConnection = nil
             end
 
             Library:Connect(
@@ -640,24 +607,13 @@ local Library do
                         return
                     end
 
-                    StopConnections(
-                        true
-                    )
-
+                    StopDrag()
                     Dragging = true
-                    ReleasedAt = 0
-
-                    DragStart =
-                        Vector2New(
-                            Input.Position.X,
-                            Input.Position.Y
-                        )
-
-                    StartPosition =
-                        Gui.Position
-
-                    TargetPosition =
-                        StartPosition
+                    StartMouse = Vector2New(
+                        Input.Position.X,
+                        Input.Position.Y
+                    )
+                    StartPosition = Gui.Position
 
                     local IsTouch =
                         Input.UserInputType
@@ -666,122 +622,57 @@ local Library do
                     MoveConnection =
                         UserInputService.InputChanged:
                         Connect(function(ChangedInput)
-                            if Library.Unloaded
-                                or not Gui.Parent
-                            then
-                                FinishDrag()
-                                return
-                            end
-
-                            local IsMatchingInput =
+                            local Matching =
                                 IsTouch
-                                and ChangedInput
-                                    == Input
+                                and ChangedInput == Input
                                 or not IsTouch
                                 and ChangedInput.UserInputType
                                     == Enum.UserInputType.MouseMovement
 
                             if not Dragging
-                                or not IsMatchingInput
+                                or not Matching
                             then
                                 return
                             end
 
-                            local CurrentPosition =
-                                Vector2New(
-                                    ChangedInput.Position.X,
-                                    ChangedInput.Position.Y
-                                )
+                            local Delta = Vector2New(
+                                ChangedInput.Position.X,
+                                ChangedInput.Position.Y
+                            ) - StartMouse
 
-                            local Delta =
-                                CurrentPosition
-                                - DragStart
+                            PendingPosition = UDim2New(
+                                StartPosition.X.Scale,
+                                StartPosition.X.Offset + Delta.X,
+                                StartPosition.Y.Scale,
+                                StartPosition.Y.Offset + Delta.Y
+                            )
+                        end)
 
-                            TargetPosition =
-                                UDim2New(
-                                    StartPosition.X.Scale,
-                                    StartPosition.X.Offset
-                                        + Delta.X,
-                                    StartPosition.Y.Scale,
-                                    StartPosition.Y.Offset
-                                        + Delta.Y
-                                )
+                    RenderConnection =
+                        RunService.RenderStepped:
+                        Connect(function()
+                            if Library.Unloaded
+                                or not Gui.Parent
+                            then
+                                StopDrag()
+                                return
+                            end
+
+                            ApplyPending()
                         end)
 
                     EndConnection =
                         UserInputService.InputEnded:
                         Connect(function(EndedInput)
-                            local IsMatchingEnd =
+                            local Matching =
                                 IsTouch
-                                and EndedInput
-                                    == Input
+                                and EndedInput == Input
                                 or not IsTouch
                                 and EndedInput.UserInputType
                                     == Enum.UserInputType.MouseButton1
 
-                            if IsMatchingEnd then
-                                FinishDrag()
-                            end
-                        end)
-
-                    RenderConnection =
-                        RunService.RenderStepped:
-                        Connect(function(DeltaTime)
-                            if Library.Unloaded
-                                or not Gui.Parent
-                                or not TargetPosition
-                            then
-                                StopConnections(
-                                    true
-                                )
-
-                                return
-                            end
-
-                            local Alpha =
-                                1
-                                - math.exp(
-                                    -DragSpeed
-                                    * math.clamp(
-                                        DeltaTime,
-                                        0,
-                                        0.05
-                                    )
-                                )
-
-                            Gui.Position =
-                                Gui.Position:
-                                Lerp(
-                                    TargetPosition,
-                                    Alpha
-                                )
-
-                            if not Dragging then
-                                local Current =
-                                    Gui.Position
-
-                                local Distance =
-                                    math.abs(
-                                        TargetPosition.X.Offset
-                                        - Current.X.Offset
-                                    )
-                                    + math.abs(
-                                        TargetPosition.Y.Offset
-                                        - Current.Y.Offset
-                                    )
-
-                                if Distance < 0.35
-                                    or os.clock()
-                                        - ReleasedAt
-                                        > 0.18
-                                then
-                                    Gui.Position =
-                                        TargetPosition
-
-                                    StopConnections(
-                                        true
-                                    )
-                                end
+                            if Matching then
+                                StopDrag()
                             end
                         end)
                 end
@@ -800,17 +691,15 @@ local Library do
             end
 
             local Gui = self.Instance
-            local ActiveResize = nil
+            local MinimumSize = Minimum or Vector2New(300, 300)
+            local MaximumSize = Maximum or Vector2New(9999, 9999)
+
             local MoveConnection = nil
             local EndConnection = nil
-
-            local MinimumSize =
-                Minimum
-                or Vector2New(300, 300)
-
-            local MaximumSize =
-                Maximum
-                or Vector2New(9999, 9999)
+            local RenderConnection = nil
+            local PendingPosition = nil
+            local PendingSize = nil
+            local Active = false
 
             local function Disconnect(Connection)
                 if Connection then
@@ -820,14 +709,33 @@ local Library do
                 end
             end
 
+            local function ApplyPending()
+                if not Gui.Parent then
+                    return
+                end
+
+                if PendingPosition then
+                    Gui.Position = PendingPosition
+                    PendingPosition = nil
+                end
+
+                if PendingSize then
+                    Gui.Size = PendingSize
+                    PendingSize = nil
+                end
+            end
+
             local function StopResize()
-                ActiveResize = nil
+                ApplyPending()
+                Active = false
 
                 Disconnect(MoveConnection)
                 Disconnect(EndConnection)
+                Disconnect(RenderConnection)
 
                 MoveConnection = nil
                 EndConnection = nil
+                RenderConnection = nil
             end
 
             local function CreateHandle(
@@ -838,228 +746,159 @@ local Library do
                 Horizontal,
                 Vertical
             )
-                local Handle =
-                    Instances:Create(
-                        "TextButton",
-                        {
-                            Parent = Gui,
-                            Name = Name,
-                            AnchorPoint = Anchor,
-                            Position = Position,
-                            Size = Size,
-                            BorderSizePixel = 0,
-                            BackgroundTransparency = 1,
-                            AutoButtonColor = false,
-                            Text = "",
-                            Active = true,
-                            Visible = true,
-                            ZIndex = 10000
-                        }
-                    )
+                local Handle = Instances:Create("TextButton", {
+                    Parent = Gui,
+                    Name = Name,
+                    AnchorPoint = Anchor,
+                    Position = Position,
+                    Size = Size,
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    AutoButtonColor = false,
+                    Text = "",
+                    Active = true,
+                    Visible = true,
+                    ZIndex = 10000
+                })
 
-                Handle:Connect(
-                    "InputBegan",
-                    function(Input)
-                        if Input.UserInputType
-                                ~= Enum.UserInputType.
-                                    MouseButton1
-                            and Input.UserInputType
-                                ~= Enum.UserInputType.
-                                    Touch
-                        then
-                            return
-                        end
-
-                        StopResize()
-
-                        local StartMouse =
-                            Input.Position
-
-                        local StartSize =
-                            Gui.AbsoluteSize
-
-                        local StartPosition =
-                            Gui.Position
-
-                        local IsTouch =
-                            Input.UserInputType
-                            == Enum.UserInputType.Touch
-
-                        ActiveResize = Handle
-
-                        MoveConnection =
-                            UserInputService.
-                            InputChanged:
-                            Connect(
-                                function(ChangedInput)
-                                    if Library.Unloaded
-                                        or not Gui.Parent
-                                    then
-                                        StopResize()
-                                        return
-                                    end
-
-                                    local Matching =
-                                        IsTouch
-                                        and ChangedInput
-                                            == Input
-                                        or not IsTouch
-                                        and ChangedInput.
-                                            UserInputType
-                                            == Enum.
-                                                UserInputType.
-                                                MouseMovement
-
-                                    if not ActiveResize
-                                        or not Matching
-                                    then
-                                        return
-                                    end
-
-                                    local Delta =
-                                        ChangedInput.Position
-                                        - StartMouse
-
-                                    local Width =
-                                        StartSize.X
-
-                                    local Height =
-                                        StartSize.Y
-
-                                    if Horizontal
-                                        == "Left"
-                                    then
-                                        Width =
-                                            StartSize.X
-                                            - Delta.X
-                                    elseif Horizontal
-                                        == "Right"
-                                    then
-                                        Width =
-                                            StartSize.X
-                                            + Delta.X
-                                    end
-
-                                    if Vertical
-                                        == "Top"
-                                    then
-                                        Height =
-                                            StartSize.Y
-                                            - Delta.Y
-                                    elseif Vertical
-                                        == "Bottom"
-                                    then
-                                        Height =
-                                            StartSize.Y
-                                            + Delta.Y
-                                    end
-
-                                    Width =
-                                        math.clamp(
-                                            Width,
-                                            MinimumSize.X,
-                                            MaximumSize.X
-                                        )
-
-                                    Height =
-                                        math.clamp(
-                                            Height,
-                                            MinimumSize.Y,
-                                            MaximumSize.Y
-                                        )
-
-                                    local XOffset =
-                                        StartPosition.X.Offset
-
-                                    local YOffset =
-                                        StartPosition.Y.Offset
-
-                                    if Horizontal
-                                        == "Left"
-                                    then
-                                        XOffset =
-                                            StartPosition.X.Offset
-                                            + (
-                                                StartSize.X
-                                                - Width
-                                            )
-                                    end
-
-                                    if Vertical
-                                        == "Top"
-                                    then
-                                        YOffset =
-                                            StartPosition.Y.Offset
-                                            + (
-                                                StartSize.Y
-                                                - Height
-                                            )
-                                    end
-
-                                    Gui.Position =
-                                        UDim2New(
-                                            StartPosition.X.Scale,
-                                            XOffset,
-                                            StartPosition.Y.Scale,
-                                            YOffset
-                                        )
-
-                                    Gui.Size =
-                                        UDim2New(
-                                            0,
-                                            Width,
-                                            0,
-                                            Height
-                                        )
-                                end
-                            )
-
-                        EndConnection =
-                            UserInputService.
-                            InputEnded:
-                            Connect(
-                                function(EndedInput)
-                                    local Matching =
-                                        IsTouch
-                                        and EndedInput
-                                            == Input
-                                        or not IsTouch
-                                        and EndedInput.
-                                            UserInputType
-                                            == Enum.
-                                                UserInputType.
-                                                MouseButton1
-
-                                    if Matching then
-                                        StopResize()
-                                    end
-                                end
-                            )
+                Handle:Connect("InputBegan", function(Input)
+                    if Input.UserInputType
+                            ~= Enum.UserInputType.MouseButton1
+                        and Input.UserInputType
+                            ~= Enum.UserInputType.Touch
+                    then
+                        return
                     end
-                )
+
+                    StopResize()
+                    Active = true
+
+                    local StartMouse = Vector2New(
+                        Input.Position.X,
+                        Input.Position.Y
+                    )
+                    local StartSize = Gui.AbsoluteSize
+                    local StartPosition = Gui.Position
+                    local IsTouch =
+                        Input.UserInputType
+                        == Enum.UserInputType.Touch
+
+                    MoveConnection =
+                        UserInputService.InputChanged:
+                        Connect(function(ChangedInput)
+                            local Matching =
+                                IsTouch
+                                and ChangedInput == Input
+                                or not IsTouch
+                                and ChangedInput.UserInputType
+                                    == Enum.UserInputType.MouseMovement
+
+                            if not Active
+                                or not Matching
+                            then
+                                return
+                            end
+
+                            local Delta = Vector2New(
+                                ChangedInput.Position.X,
+                                ChangedInput.Position.Y
+                            ) - StartMouse
+
+                            local Width = StartSize.X
+                            local Height = StartSize.Y
+
+                            if Horizontal == "Left" then
+                                Width = StartSize.X - Delta.X
+                            elseif Horizontal == "Right" then
+                                Width = StartSize.X + Delta.X
+                            end
+
+                            if Vertical == "Top" then
+                                Height = StartSize.Y - Delta.Y
+                            elseif Vertical == "Bottom" then
+                                Height = StartSize.Y + Delta.Y
+                            end
+
+                            Width = math.clamp(
+                                Width,
+                                MinimumSize.X,
+                                MaximumSize.X
+                            )
+                            Height = math.clamp(
+                                Height,
+                                MinimumSize.Y,
+                                MaximumSize.Y
+                            )
+
+                            local X = StartPosition.X.Offset
+                            local Y = StartPosition.Y.Offset
+
+                            if Horizontal == "Left" then
+                                X = StartPosition.X.Offset
+                                    + StartSize.X
+                                    - Width
+                            end
+
+                            if Vertical == "Top" then
+                                Y = StartPosition.Y.Offset
+                                    + StartSize.Y
+                                    - Height
+                            end
+
+                            PendingPosition = UDim2New(
+                                StartPosition.X.Scale,
+                                X,
+                                StartPosition.Y.Scale,
+                                Y
+                            )
+                            PendingSize = UDim2New(0, Width, 0, Height)
+                        end)
+
+                    RenderConnection =
+                        RunService.RenderStepped:
+                        Connect(function()
+                            if Library.Unloaded
+                                or not Gui.Parent
+                            then
+                                StopResize()
+                                return
+                            end
+
+                            ApplyPending()
+                        end)
+
+                    EndConnection =
+                        UserInputService.InputEnded:
+                        Connect(function(EndedInput)
+                            local Matching =
+                                IsTouch
+                                and EndedInput == Input
+                                or not IsTouch
+                                and EndedInput.UserInputType
+                                    == Enum.UserInputType.MouseButton1
+
+                            if Matching then
+                                StopResize()
+                            end
+                        end)
+                end)
 
                 return Handle
             end
 
-            local CornerSize =
-                UDim2New(0, 16, 0, 16)
+            local Corner = UDim2New(0, 14, 0, 14)
+            local HorizontalEdge = UDim2New(1, -28, 0, 7)
+            local VerticalEdge = UDim2New(0, 7, 1, -28)
 
-            local HorizontalEdge =
-                UDim2New(1, -32, 0, 8)
-
-            local VerticalEdge =
-                UDim2New(0, 8, 1, -32)
-
-            local Handles = {
+            return {
                 CreateHandle(
                     "ResizeTopLeft",
                     Vector2New(0, 0),
                     UDim2New(0, 0, 0, 0),
-                    CornerSize,
+                    Corner,
                     "Left",
                     "Top"
                 ),
-
                 CreateHandle(
                     "ResizeTop",
                     Vector2New(0.5, 0),
@@ -1068,16 +907,14 @@ local Library do
                     nil,
                     "Top"
                 ),
-
                 CreateHandle(
                     "ResizeTopRight",
                     Vector2New(1, 0),
                     UDim2New(1, 0, 0, 0),
-                    CornerSize,
+                    Corner,
                     "Right",
                     "Top"
                 ),
-
                 CreateHandle(
                     "ResizeRight",
                     Vector2New(1, 0.5),
@@ -1086,16 +923,14 @@ local Library do
                     "Right",
                     nil
                 ),
-
                 CreateHandle(
                     "ResizeBottomRight",
                     Vector2New(1, 1),
                     UDim2New(1, 0, 1, 0),
-                    CornerSize,
+                    Corner,
                     "Right",
                     "Bottom"
                 ),
-
                 CreateHandle(
                     "ResizeBottom",
                     Vector2New(0.5, 1),
@@ -1104,16 +939,14 @@ local Library do
                     nil,
                     "Bottom"
                 ),
-
                 CreateHandle(
                     "ResizeBottomLeft",
                     Vector2New(0, 1),
                     UDim2New(0, 0, 1, 0),
-                    CornerSize,
+                    Corner,
                     "Left",
                     "Bottom"
                 ),
-
                 CreateHandle(
                     "ResizeLeft",
                     Vector2New(0, 0.5),
@@ -1123,8 +956,6 @@ local Library do
                     nil
                 )
             }
-
-            return Handles
         end
 
         Instances.OnHover = function(self, Function)
@@ -1169,84 +1000,51 @@ local Library do
         Object.BorderSizePixel = 0
 
         local Corner =
-            Object:
-                FindFirstChild(
-                    "_RadiantRailCorner"
-                )
-            or Object:
-                FindFirstChild(
-                    "_EnergyCorner"
-                )
+            Object:FindFirstChild("_RadiantLeanCorner")
+            or Object:FindFirstChild("_RadiantRailCorner")
+            or Object:FindFirstChild("_EnergyCorner")
 
         if not Corner then
-            Corner =
-                InstanceNew("UICorner")
-
-            Corner.Name =
-                "_RadiantRailCorner"
-
+            Corner = InstanceNew("UICorner")
+            Corner.Name = "_RadiantLeanCorner"
             Corner.Parent = Object
         end
 
         local Limit =
-            Kind == "Floating"
-            and 5
-            or Kind == "Window"
-            and 4
-            or 2
+            Kind == "Floating" and 3
+            or Kind == "Window" and 2
+            or Kind == "Popup" and 2
+            or 1
 
-        Corner.CornerRadius =
-            UDimNew(
-                0,
-                math.min(
-                    tonumber(Radius)
-                        or Limit,
-                    Limit
-                )
-            )
+        Corner.CornerRadius = UDimNew(
+            0,
+            math.min(tonumber(Radius) or Limit, Limit)
+        )
 
         local Stroke =
-            Object:
-                FindFirstChild(
-                    "_RadiantRailStroke"
-                )
-            or Object:
-                FindFirstChild(
-                    "_EnergyStroke"
-                )
+            Object:FindFirstChild("_RadiantLeanStroke")
+            or Object:FindFirstChild("_RadiantRailStroke")
+            or Object:FindFirstChild("_EnergyStroke")
 
         if not Stroke then
-            Stroke =
-                InstanceNew("UIStroke")
-
-            Stroke.Name =
-                "_RadiantRailStroke"
-
-            Stroke.ApplyStrokeMode =
-                Enum.ApplyStrokeMode.Border
-
-            Stroke.LineJoinMode =
-                Enum.LineJoinMode.Round
-
+            Stroke = InstanceNew("UIStroke")
+            Stroke.Name = "_RadiantLeanStroke"
+            Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            Stroke.LineJoinMode = Enum.LineJoinMode.Miter
             Stroke.Thickness = 1
             Stroke.Parent = Object
 
-            self:AddToTheme(
-                Stroke,
-                {
-                    Color = "Outline"
-                }
-            )
+            self:AddToTheme(Stroke, {
+                Color = "Outline"
+            })
         end
 
+        Stroke.LineJoinMode = Enum.LineJoinMode.Miter
         Stroke.Transparency =
-            Kind == "Floating"
-            and 0.32
-            or Kind == "Window"
-            and 0.42
-            or Kind == "Panel"
-            and 0.62
-            or 0.72
+            Kind == "Floating" and 0.42
+            or Kind == "Window" and 0.50
+            or Kind == "Panel" and 0.74
+            or 0.78
 
         return Object
     end
@@ -7132,15 +6930,14 @@ local Library do
         }
 
         local Items = { } do
-            Items["MainFrame"] = Instances:Create("CanvasGroup", {
+            Items["MainFrame"] = Instances:Create("Frame", {
                 Parent = Library.Holder.Instance,
                 AnchorPoint = Vector2New(0, 0),
                 Name = string.char(0),
                 Position = UDim2New(0, 0, 0, 0),
                 Size = Window.Size,
                 BorderSizePixel = 0,
-                BackgroundTransparency = 1,
-                GroupTransparency = 0
+                BackgroundTransparency = 1
             })
 
             Items["MainFrame"].Instance.Position = UDim2New(
@@ -7155,6 +6952,17 @@ local Library do
                 Scale = 1
             })
 
+            Items["Surface"] = Instances:Create("CanvasGroup", {
+                Parent = Items["MainFrame"].Instance,
+                Name = string.char(0),
+                Position = UDim2New(0, 0, 0, 0),
+                Size = UDim2New(1, 0, 1, 0),
+                BorderSizePixel = 0,
+                BackgroundTransparency = 1,
+                GroupTransparency = 0,
+                Active = true
+            })
+
             Items["MainFrame"]:MakeResizeable(
                 Vector2New(300, 300),
                 Vector2New(9999, 9999)
@@ -7166,7 +6974,7 @@ local Library do
             local RailGap = 10
 
             Items["Rail"] = Instances:Create("Frame", {
-                Parent = Items["MainFrame"].Instance,
+                Parent = Items["Surface"].Instance,
                 Name = string.char(0),
                 Position = UDim2New(0, 0, 0, 0),
                 Size = UDim2New(0, RailWidth, 1, 0),
@@ -7209,7 +7017,7 @@ local Library do
             })
 
             Items["Panel"] = Instances:Create("Frame", {
-                Parent = Items["MainFrame"].Instance,
+                Parent = Items["Surface"].Instance,
                 Name = string.char(0),
                 Position = UDim2New(
                     0,
@@ -7233,7 +7041,7 @@ local Library do
 
 
             Items["RailResize"] = Instances:Create("TextButton", {
-                Parent = Items["MainFrame"].Instance,
+                Parent = Items["Surface"].Instance,
                 Name = string.char(0),
                 Position = UDim2New(0, RailWidth, 0, 0),
                 Size = UDim2New(0, RailGap, 1, 0),
@@ -7261,8 +7069,44 @@ local Library do
 
             local RailMoveConnection = nil
             local RailEndConnection = nil
+            local RailRenderConnection = nil
+            local PendingRailWidth = nil
+
+            local function ApplyRailWidth(Value)
+                local FrameWidth =
+                    Items["MainFrame"].Instance.AbsoluteSize.X
+
+                local DynamicMaximum = math.max(
+                    RailMinimum,
+                    math.min(RailMaximum, FrameWidth - 205)
+                )
+
+                RailWidth = math.clamp(
+                    math.floor(Value + 0.5),
+                    RailMinimum,
+                    DynamicMaximum
+                )
+
+                Items["Rail"].Instance.Size =
+                    UDim2New(0, RailWidth, 1, 0)
+                Items["RailResize"].Instance.Position =
+                    UDim2New(0, RailWidth, 0, 0)
+                Items["Panel"].Instance.Position =
+                    UDim2New(0, RailWidth + RailGap, 0, 0)
+                Items["Panel"].Instance.Size =
+                    UDim2New(1, -(RailWidth + RailGap), 1, 0)
+            end
+
+            local function ApplyPendingRailWidth()
+                if PendingRailWidth ~= nil then
+                    ApplyRailWidth(PendingRailWidth)
+                    PendingRailWidth = nil
+                end
+            end
 
             local function StopRailResize()
+                ApplyPendingRailWidth()
+
                 if RailMoveConnection then
                     RailMoveConnection:Disconnect()
                     RailMoveConnection = nil
@@ -7272,64 +7116,16 @@ local Library do
                     RailEndConnection:Disconnect()
                     RailEndConnection = nil
                 end
-            end
 
-            local function ApplyRailWidth(Value)
-                local FrameWidth =
-                    Items["MainFrame"].Instance.AbsoluteSize.X
-
-                local DynamicMaximum =
-                    math.max(
-                        RailMinimum,
-                        math.min(
-                            RailMaximum,
-                            FrameWidth - 205
-                        )
-                    )
-
-                RailWidth =
-                    math.clamp(
-                        math.floor(Value + 0.5),
-                        RailMinimum,
-                        DynamicMaximum
-                    )
-
-                Items["Rail"].Instance.Size =
-                    UDim2New(
-                        0,
-                        RailWidth,
-                        1,
-                        0
-                    )
-
-                Items["RailResize"].Instance.Position =
-                    UDim2New(
-                        0,
-                        RailWidth,
-                        0,
-                        0
-                    )
-
-                Items["Panel"].Instance.Position =
-                    UDim2New(
-                        0,
-                        RailWidth + RailGap,
-                        0,
-                        0
-                    )
-
-                Items["Panel"].Instance.Size =
-                    UDim2New(
-                        1,
-                        -(RailWidth + RailGap),
-                        1,
-                        0
-                    )
+                if RailRenderConnection then
+                    RailRenderConnection:Disconnect()
+                    RailRenderConnection = nil
+                end
             end
 
             Items["RailResize"]:OnHover(function()
                 Items["RailResizeLine"]:Tween(nil, {
-                    BackgroundTransparency = 0.22,
+                    BackgroundTransparency = 0.30,
                     BackgroundColor3 = Library.Theme.Accent
                 })
             end)
@@ -7340,7 +7136,7 @@ local Library do
                 end
 
                 Items["RailResizeLine"]:Tween(nil, {
-                    BackgroundTransparency = 0.72,
+                    BackgroundTransparency = 0.78,
                     BackgroundColor3 = Library.Theme.Outline
                 })
             end)
@@ -7363,7 +7159,7 @@ local Library do
                     == Enum.UserInputType.Touch
 
                 Items["RailResizeLine"]:Tween(nil, {
-                    BackgroundTransparency = 0.08,
+                    BackgroundTransparency = 0.12,
                     BackgroundColor3 = Library.Theme.Accent
                 })
 
@@ -7377,20 +7173,27 @@ local Library do
                             and ChangedInput.UserInputType
                                 == Enum.UserInputType.MouseMovement
 
-                        if not Matching
-                            or Library.Unloaded
-                            or not Items["MainFrame"].Instance.Parent
-                        then
+                        if not Matching then
                             return
                         end
 
-                        local Delta =
-                            ChangedInput.Position.X
+                        PendingRailWidth =
+                            StartWidth
+                            + ChangedInput.Position.X
                             - StartMouse.X
+                    end)
 
-                        ApplyRailWidth(
-                            StartWidth + Delta
-                        )
+                RailRenderConnection =
+                    RunService.RenderStepped:
+                    Connect(function()
+                        if Library.Unloaded
+                            or not Items["MainFrame"].Instance.Parent
+                        then
+                            StopRailResize()
+                            return
+                        end
+
+                        ApplyPendingRailWidth()
                     end)
 
                 RailEndConnection =
@@ -7408,9 +7211,8 @@ local Library do
                         end
 
                         StopRailResize()
-
                         Items["RailResizeLine"]:Tween(nil, {
-                            BackgroundTransparency = 0.72,
+                            BackgroundTransparency = 0.78,
                             BackgroundColor3 = Library.Theme.Outline
                         })
                     end)
@@ -7420,7 +7222,8 @@ local Library do
                 Items["MainFrame"].Instance:
                     GetPropertyChangedSignal("AbsoluteSize"),
                 function()
-                    ApplyRailWidth(RailWidth)
+                    PendingRailWidth = RailWidth
+                    ApplyPendingRailWidth()
                 end
             )
 
@@ -7444,7 +7247,7 @@ local Library do
                 Parent = Items["Panel"].Instance,
                 FontFace = Library.Font,
                 TextColor3 = Library.Theme.Text,
-                Text = Window.Name,
+                Text = "",
                 Name = string.char(0),
                 Size = UDim2New(1, -24, 0, 22),
                 BackgroundTransparency = 1,
@@ -7507,6 +7310,11 @@ local Library do
                     "MainFrame"
                 ].Instance
 
+            local Surface =
+                Items[
+                    "Surface"
+                ].Instance
+
             local MenuScale =
                 Items[
                     "MenuScale"
@@ -7530,8 +7338,10 @@ local Library do
                 MainFrame.Active =
                     true
 
+                Surface.Active = true
+
                 Tween:Create(
-                    MainFrame,
+                    Surface,
                     AnimationInfo,
                     {
                         GroupTransparency = 0
@@ -7551,8 +7361,10 @@ local Library do
                 MainFrame.Active =
                     false
 
+                Surface.Active = false
+
                 Tween:Create(
-                    MainFrame,
+                    Surface,
                     AnimationInfo,
                     {
                         GroupTransparency = 1
@@ -7677,14 +7489,13 @@ local Library do
                 TextColor3 = "Muted Text"
             })
 
-            Items["Page"] = Instances:Create("CanvasGroup", {
+            Items["Page"] = Instances:Create("Frame", {
                 Parent = Page.Window.Elements["Content"].Instance,
                 BackgroundTransparency = 1,
                 Name = string.char(0),
                 Position = UDim2New(0, 8, 0, 0),
                 Size = UDim2New(1, 0, 1, 0),
                 BorderSizePixel = 0,
-                GroupTransparency = 1,
                 Visible = false
             })
 
@@ -7767,54 +7578,28 @@ local Library do
         end
 
         local PageTween = TweenInfo.new(
-            0.14,
-            Enum.EasingStyle.Quint,
+            0.09,
+            Enum.EasingStyle.Quad,
             Enum.EasingDirection.Out
         )
 
         function Page:Turn(Bool)
             Bool = Bool == true
-            Page.AnimationToken += 1
-
-            local Token = Page.AnimationToken
             Page.Active = Bool
-
-            if Bool then
-                Items["Page"].Instance.Visible = true
-                Items["Page"].Instance.Position = UDim2New(0, 8, 0, 0)
-                Items["Page"].Instance.GroupTransparency = 1
-
-                Items["Page"]:Tween(PageTween, {
-                    Position = UDim2New(0, 0, 0, 0),
-                    GroupTransparency = 0
-                })
-            else
-                Items["Page"]:Tween(PageTween, {
-                    Position = UDim2New(0, -6, 0, 0),
-                    GroupTransparency = 1
-                })
-
-                task.delay(0.14, function()
-                    if Token == Page.AnimationToken
-                        and not Page.Active
-                        and Items["Page"].Instance
-                        and Items["Page"].Instance.Parent
-                    then
-                        Items["Page"].Instance.Visible = false
-                    end
-                end)
-            end
+            Items["Page"].Instance.Visible = Bool
 
             Items["Inactive"]:Tween(PageTween, {
                 BackgroundTransparency = Bool and 0 or 1,
-                BackgroundColor3 = Library.Theme.Element
+                BackgroundColor3 = Bool
+                    and Library.Theme.Element
+                    or Library.Theme.Element
             })
 
             Items["Text"]:Tween(PageTween, {
                 TextColor3 = Bool
                     and Library.Theme.Text
                     or Library.Theme["Muted Text"],
-                TextTransparency = Bool and 0 or 0.04
+                TextTransparency = Bool and 0 or 0.06
             })
 
             Items["Text"]:ChangeItemTheme({
@@ -8117,222 +7902,75 @@ local Library do
         local Section = {
             Window = self.Window,
             Page = self,
-
-            Name =
-                Data.Name
-                or Data.name
-                or "Section",
-
-            Side =
-                Data.Side
-                or Data.side
-                or 1,
-
+            Name = Data.Name or Data.name or "Section",
+            Side = Data.Side or Data.side or 1,
             Elements = { }
         }
 
         local Items = { } do
-            Items["Section"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Section.Page.
-                            ColumnsData[
-                                Section.Side
-                            ].
-                            Instance,
+            Items["Section"] = Instances:Create("Frame", {
+                Parent = Section.Page.ColumnsData[Section.Side].Instance,
+                Name = string.char(0),
+                Size = UDim2New(1, 0, 0, 23),
+                BorderSizePixel = 0,
+                AutomaticSize = Enum.AutomaticSize.Y,
+                BackgroundTransparency = 1
+            })
 
-                        Name =
-                            string.char(0),
+            Items["Title"] = Instances:Create("TextLabel", {
+                Parent = Items["Section"].Instance,
+                FontFace = Library.Font,
+                TextColor3 = Library.Theme.Text,
+                TextTransparency = 0.02,
+                Text = Section.Name,
+                Name = string.char(0),
+                Position = UDim2New(0, 0, 0, 0),
+                Size = UDim2New(1, 0, 0, 14),
+                BackgroundTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BorderSizePixel = 0,
+                TextSize = 11
+            })
+            Items["Title"]:AddToTheme({
+                TextColor3 = "Text"
+            })
 
-                        Size =
-                            UDim2New(
-                                1,
-                                0,
-                                0,
-                                24
-                            ),
+            Items["Separator"] = Instances:Create("Frame", {
+                Parent = Items["Section"].Instance,
+                Name = string.char(0),
+                Position = UDim2New(0, 0, 0, 16),
+                Size = UDim2New(1, 0, 0, 1),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Outline,
+                BackgroundTransparency = 0.58
+            })
+            Items["Separator"]:AddToTheme({
+                BackgroundColor3 = "Outline"
+            })
 
-                        BorderSizePixel = 0,
+            Items["Content"] = Instances:Create("Frame", {
+                Parent = Items["Section"].Instance,
+                BackgroundTransparency = 1,
+                Name = string.char(0),
+                Position = UDim2New(0, 0, 0, 22),
+                Size = UDim2New(1, 0, 1, -21),
+                BorderSizePixel = 0
+            })
 
-                        AutomaticSize =
-                            Enum.AutomaticSize.Y,
+            Instances:Create("UIListLayout", {
+                Parent = Items["Content"].Instance,
+                Padding = UDimNew(0, 6),
+                SortOrder = Enum.SortOrder.LayoutOrder
+            })
 
-                        BackgroundColor3 =
-                            Library.Theme.Inline
-                    }
-                )
-
-            Items["Section"]:
-                AddToTheme({
-                    BackgroundColor3 =
-                        "Inline"
-                })
-
-            Library:ApplyGlass(
-                Items["Section"],
-                "Panel",
-                2
-            )
-
-            Items["Title"] =
-                Instances:Create(
-                    "TextLabel",
-                    {
-                        Parent =
-                            Items["Section"].
-                            Instance,
-
-                        FontFace =
-                            Library.Font,
-
-                        TextColor3 =
-                            Library.Theme.Text,
-
-                        Text =
-                            Section.Name,
-
-                        Name =
-                            string.char(0),
-
-                        Position =
-                            UDim2New(
-                                0,
-                                8,
-                                0,
-                                -2
-                            ),
-
-                        Size =
-                            UDim2New(
-                                0,
-                                0,
-                                0,
-                                14
-                            ),
-
-                        AutomaticSize =
-                            Enum.AutomaticSize.X,
-
-                        BackgroundColor3 =
-                            Library.Theme.Inline,
-
-                        BackgroundTransparency = 0,
-
-                        TextXAlignment =
-                            Enum.TextXAlignment.Left,
-
-                        BorderSizePixel = 0,
-
-                        TextSize = 11,
-
-                        ZIndex = 2
-                    }
-                )
-
-            Items["Title"]:
-                AddToTheme({
-                    TextColor3 = "Text",
-                    BackgroundColor3 =
-                        "Inline"
-                })
-
-            Instances:Create(
-                "UIPadding",
-                {
-                    Parent =
-                        Items["Title"].
-                        Instance,
-
-                    PaddingLeft =
-                        UDimNew(
-                            0,
-                            4
-                        ),
-
-                    PaddingRight =
-                        UDimNew(
-                            0,
-                            4
-                        )
-                }
-            )
-
-            Items["Content"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Items["Section"].
-                            Instance,
-
-                        BackgroundTransparency = 1,
-
-                        Name =
-                            string.char(0),
-
-                        Position =
-                            UDim2New(
-                                0,
-                                8,
-                                0,
-                                13
-                            ),
-
-                        Size =
-                            UDim2New(
-                                1,
-                                -16,
-                                1,
-                                -12
-                            ),
-
-                        BorderSizePixel = 0
-                    }
-                )
-
-            Instances:Create(
-                "UIListLayout",
-                {
-                    Parent =
-                        Items["Content"].
-                        Instance,
-
-                    Padding =
-                        UDimNew(
-                            0,
-                            7
-                        ),
-
-                    SortOrder =
-                        Enum.SortOrder.
-                        LayoutOrder
-                }
-            )
-
-            Instances:Create(
-                "UIPadding",
-                {
-                    Parent =
-                        Items["Section"].
-                        Instance,
-
-                    PaddingBottom =
-                        UDimNew(
-                            0,
-                            8
-                        )
-                }
-            )
+            Instances:Create("UIPadding", {
+                Parent = Items["Section"].Instance,
+                PaddingBottom = UDimNew(0, 7)
+            })
         end
 
         Section.Elements = Items
-
-        return setmetatable(
-            Section,
-            Library.Sections
-        )
+        return setmetatable(Section, Library.Sections)
     end
 
     Library.Pages.MultiSection = function(self, Data)
@@ -8979,7 +8617,7 @@ local Library do
 
             local HoverTween =
                 TweenInfo.new(
-                    0.12,
+                    0.08,
                     Enum.EasingStyle.Quad,
                     Enum.EasingDirection.Out
                 )
@@ -9086,7 +8724,7 @@ local Library do
 
             local IndicatorStroke = EnsureIndicatorStroke()
             local Animation = TweenInfo.new(
-                0.06,
+                0.10,
                 Enum.EasingStyle.Quad,
                 Enum.EasingDirection.Out
             )
