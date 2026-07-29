@@ -804,8 +804,13 @@ local Library do
             local MoveConnection = nil
             local EndConnection = nil
 
-            local MinimumSize = Minimum or Vector2New(300, 320)
-            local MaximumSize = Maximum or Vector2New(9999, 9999)
+            local MinimumSize =
+                Minimum
+                or Vector2New(300, 300)
+
+            local MaximumSize =
+                Maximum
+                or Vector2New(9999, 9999)
 
             local function Disconnect(Connection)
                 if Connection then
@@ -817,142 +822,305 @@ local Library do
 
             local function StopResize()
                 ActiveResize = nil
+
                 Disconnect(MoveConnection)
                 Disconnect(EndConnection)
+
                 MoveConnection = nil
                 EndConnection = nil
             end
 
-            local function CreateHandle(Name, Anchor, Position, Horizontal, Vertical)
-                local Handle = Instances:Create("TextButton", {
-                    Parent = Gui,
-                    Name = Name,
-                    AnchorPoint = Anchor,
-                    Position = Position,
-                    Size = UDim2New(0, 16, 0, 16),
-                    BorderSizePixel = 0,
-                    BackgroundTransparency = 1,
-                    AutoButtonColor = false,
-                    Text = "",
-                    Active = true,
-                    Visible = true,
-                    ZIndex = 10000
-                })
+            local function CreateHandle(
+                Name,
+                Anchor,
+                Position,
+                Size,
+                Horizontal,
+                Vertical
+            )
+                local Handle =
+                    Instances:Create(
+                        "TextButton",
+                        {
+                            Parent = Gui,
+                            Name = Name,
+                            AnchorPoint = Anchor,
+                            Position = Position,
+                            Size = Size,
+                            BorderSizePixel = 0,
+                            BackgroundTransparency = 1,
+                            AutoButtonColor = false,
+                            Text = "",
+                            Active = true,
+                            Visible = true,
+                            ZIndex = 10000
+                        }
+                    )
 
-                Handle:Connect("InputBegan", function(Input)
-                    if Input.UserInputType ~= Enum.UserInputType.MouseButton1
-                        and Input.UserInputType ~= Enum.UserInputType.Touch
-                    then
-                        return
+                Handle:Connect(
+                    "InputBegan",
+                    function(Input)
+                        if Input.UserInputType
+                                ~= Enum.UserInputType.
+                                    MouseButton1
+                            and Input.UserInputType
+                                ~= Enum.UserInputType.
+                                    Touch
+                        then
+                            return
+                        end
+
+                        StopResize()
+
+                        local StartMouse =
+                            Input.Position
+
+                        local StartSize =
+                            Gui.AbsoluteSize
+
+                        local StartPosition =
+                            Gui.Position
+
+                        local IsTouch =
+                            Input.UserInputType
+                            == Enum.UserInputType.Touch
+
+                        ActiveResize = Handle
+
+                        MoveConnection =
+                            UserInputService.
+                            InputChanged:
+                            Connect(
+                                function(ChangedInput)
+                                    if Library.Unloaded
+                                        or not Gui.Parent
+                                    then
+                                        StopResize()
+                                        return
+                                    end
+
+                                    local Matching =
+                                        IsTouch
+                                        and ChangedInput
+                                            == Input
+                                        or not IsTouch
+                                        and ChangedInput.
+                                            UserInputType
+                                            == Enum.
+                                                UserInputType.
+                                                MouseMovement
+
+                                    if not ActiveResize
+                                        or not Matching
+                                    then
+                                        return
+                                    end
+
+                                    local Delta =
+                                        ChangedInput.Position
+                                        - StartMouse
+
+                                    local Width =
+                                        StartSize.X
+
+                                    local Height =
+                                        StartSize.Y
+
+                                    if Horizontal
+                                        == "Left"
+                                    then
+                                        Width =
+                                            StartSize.X
+                                            - Delta.X
+                                    elseif Horizontal
+                                        == "Right"
+                                    then
+                                        Width =
+                                            StartSize.X
+                                            + Delta.X
+                                    end
+
+                                    if Vertical
+                                        == "Top"
+                                    then
+                                        Height =
+                                            StartSize.Y
+                                            - Delta.Y
+                                    elseif Vertical
+                                        == "Bottom"
+                                    then
+                                        Height =
+                                            StartSize.Y
+                                            + Delta.Y
+                                    end
+
+                                    Width =
+                                        math.clamp(
+                                            Width,
+                                            MinimumSize.X,
+                                            MaximumSize.X
+                                        )
+
+                                    Height =
+                                        math.clamp(
+                                            Height,
+                                            MinimumSize.Y,
+                                            MaximumSize.Y
+                                        )
+
+                                    local XOffset =
+                                        StartPosition.X.Offset
+
+                                    local YOffset =
+                                        StartPosition.Y.Offset
+
+                                    if Horizontal
+                                        == "Left"
+                                    then
+                                        XOffset =
+                                            StartPosition.X.Offset
+                                            + (
+                                                StartSize.X
+                                                - Width
+                                            )
+                                    end
+
+                                    if Vertical
+                                        == "Top"
+                                    then
+                                        YOffset =
+                                            StartPosition.Y.Offset
+                                            + (
+                                                StartSize.Y
+                                                - Height
+                                            )
+                                    end
+
+                                    Gui.Position =
+                                        UDim2New(
+                                            StartPosition.X.Scale,
+                                            XOffset,
+                                            StartPosition.Y.Scale,
+                                            YOffset
+                                        )
+
+                                    Gui.Size =
+                                        UDim2New(
+                                            0,
+                                            Width,
+                                            0,
+                                            Height
+                                        )
+                                end
+                            )
+
+                        EndConnection =
+                            UserInputService.
+                            InputEnded:
+                            Connect(
+                                function(EndedInput)
+                                    local Matching =
+                                        IsTouch
+                                        and EndedInput
+                                            == Input
+                                        or not IsTouch
+                                        and EndedInput.
+                                            UserInputType
+                                            == Enum.
+                                                UserInputType.
+                                                MouseButton1
+
+                                    if Matching then
+                                        StopResize()
+                                    end
+                                end
+                            )
                     end
-
-                    StopResize()
-
-                    local StartMouse = Input.Position
-                    local StartSize = Gui.AbsoluteSize
-                    local StartPosition = Gui.Position
-                    local IsTouch = Input.UserInputType == Enum.UserInputType.Touch
-
-                    ActiveResize = Handle
-
-                    MoveConnection = UserInputService.InputChanged:Connect(function(ChangedInput)
-                        if Library.Unloaded or not Gui.Parent then
-                            StopResize()
-                            return
-                        end
-
-                        local Matching = IsTouch
-                            and ChangedInput == Input
-                            or not IsTouch
-                            and ChangedInput.UserInputType == Enum.UserInputType.MouseMovement
-
-                        if not ActiveResize or not Matching then
-                            return
-                        end
-
-                        local Delta = ChangedInput.Position - StartMouse
-                        local Width = StartSize.X
-                        local Height = StartSize.Y
-
-                        if Horizontal == "Left" then
-                            Width = StartSize.X - Delta.X
-                        elseif Horizontal == "Right" then
-                            Width = StartSize.X + Delta.X
-                        end
-
-                        if Vertical == "Top" then
-                            Height = StartSize.Y - Delta.Y
-                        elseif Vertical == "Bottom" then
-                            Height = StartSize.Y + Delta.Y
-                        end
-
-                        Width = math.clamp(Width, MinimumSize.X, MaximumSize.X)
-                        Height = math.clamp(Height, MinimumSize.Y, MaximumSize.Y)
-
-                        local XOffset = StartPosition.X.Offset
-                        local YOffset = StartPosition.Y.Offset
-
-                        if Horizontal == "Left" then
-                            XOffset = StartPosition.X.Offset + (StartSize.X - Width)
-                        end
-
-                        if Vertical == "Top" then
-                            YOffset = StartPosition.Y.Offset + (StartSize.Y - Height)
-                        end
-
-                        Gui.Position = UDim2New(
-                            StartPosition.X.Scale,
-                            XOffset,
-                            StartPosition.Y.Scale,
-                            YOffset
-                        )
-
-                        Gui.Size = UDim2New(0, Width, 0, Height)
-                    end)
-
-                    EndConnection = UserInputService.InputEnded:Connect(function(EndedInput)
-                        local Matching = IsTouch
-                            and EndedInput == Input
-                            or not IsTouch
-                            and EndedInput.UserInputType == Enum.UserInputType.MouseButton1
-
-                        if Matching then
-                            StopResize()
-                        end
-                    end)
-                end)
+                )
 
                 return Handle
             end
+
+            local CornerSize =
+                UDim2New(0, 16, 0, 16)
+
+            local HorizontalEdge =
+                UDim2New(1, -32, 0, 8)
+
+            local VerticalEdge =
+                UDim2New(0, 8, 1, -32)
 
             local Handles = {
                 CreateHandle(
                     "ResizeTopLeft",
                     Vector2New(0, 0),
                     UDim2New(0, 0, 0, 0),
+                    CornerSize,
                     "Left",
                     "Top"
                 ),
+
+                CreateHandle(
+                    "ResizeTop",
+                    Vector2New(0.5, 0),
+                    UDim2New(0.5, 0, 0, 0),
+                    HorizontalEdge,
+                    nil,
+                    "Top"
+                ),
+
                 CreateHandle(
                     "ResizeTopRight",
                     Vector2New(1, 0),
                     UDim2New(1, 0, 0, 0),
+                    CornerSize,
                     "Right",
                     "Top"
                 ),
+
                 CreateHandle(
-                    "ResizeBottomLeft",
-                    Vector2New(0, 1),
-                    UDim2New(0, 0, 1, 0),
-                    "Left",
-                    "Bottom"
+                    "ResizeRight",
+                    Vector2New(1, 0.5),
+                    UDim2New(1, 0, 0.5, 0),
+                    VerticalEdge,
+                    "Right",
+                    nil
                 ),
+
                 CreateHandle(
                     "ResizeBottomRight",
                     Vector2New(1, 1),
                     UDim2New(1, 0, 1, 0),
+                    CornerSize,
                     "Right",
                     "Bottom"
+                ),
+
+                CreateHandle(
+                    "ResizeBottom",
+                    Vector2New(0.5, 1),
+                    UDim2New(0.5, 0, 1, 0),
+                    HorizontalEdge,
+                    nil,
+                    "Bottom"
+                ),
+
+                CreateHandle(
+                    "ResizeBottomLeft",
+                    Vector2New(0, 1),
+                    UDim2New(0, 0, 1, 0),
+                    CornerSize,
+                    "Left",
+                    "Bottom"
+                ),
+
+                CreateHandle(
+                    "ResizeLeft",
+                    Vector2New(0, 0.5),
+                    UDim2New(0, 0, 0.5, 0),
+                    VerticalEdge,
+                    "Left",
+                    nil
                 )
             }
 
@@ -6954,7 +7122,7 @@ local Library do
 
         local Window = {
             Name = Data.Name or Data.name or "Window",
-            Size = Data.Size or Data.size or UDim2New(0, 360, 0, 430),
+            Size = Data.Size or Data.size or UDim2New(0, 390, 0, 430),
             FadeSpeed = Data.FadeSpeed or Data.fadespeed or 0.25,
             Pages = { },
             SubPages = { },
@@ -6988,15 +7156,20 @@ local Library do
             })
 
             Items["MainFrame"]:MakeResizeable(
-                Vector2New(320, 340),
+                Vector2New(300, 300),
                 Vector2New(9999, 9999)
             )
+
+            local RailWidth = 104
+            local RailMinimum = 82
+            local RailMaximum = 190
+            local RailGap = 10
 
             Items["Rail"] = Instances:Create("Frame", {
                 Parent = Items["MainFrame"].Instance,
                 Name = string.char(0),
                 Position = UDim2New(0, 0, 0, 0),
-                Size = UDim2New(0, 78, 1, 0),
+                Size = UDim2New(0, RailWidth, 1, 0),
                 BorderSizePixel = 0,
                 BackgroundColor3 = Library.Theme.Background
             })
@@ -7038,8 +7211,18 @@ local Library do
             Items["Panel"] = Instances:Create("Frame", {
                 Parent = Items["MainFrame"].Instance,
                 Name = string.char(0),
-                Position = UDim2New(0, 86, 0, 0),
-                Size = UDim2New(1, -86, 1, 0),
+                Position = UDim2New(
+                    0,
+                    RailWidth + RailGap,
+                    0,
+                    0
+                ),
+                Size = UDim2New(
+                    1,
+                    -(RailWidth + RailGap),
+                    1,
+                    0
+                ),
                 BorderSizePixel = 0,
                 BackgroundColor3 = Library.Theme.Background
             })
@@ -7047,6 +7230,203 @@ local Library do
                 BackgroundColor3 = "Background"
             })
             Library:ApplyGlass(Items["Panel"], "Window", 4)
+
+
+            Items["RailResize"] = Instances:Create("TextButton", {
+                Parent = Items["MainFrame"].Instance,
+                Name = string.char(0),
+                Position = UDim2New(0, RailWidth, 0, 0),
+                Size = UDim2New(0, RailGap, 1, 0),
+                BorderSizePixel = 0,
+                BackgroundTransparency = 1,
+                AutoButtonColor = false,
+                Text = "",
+                Active = true,
+                ZIndex = 9999
+            })
+
+            Items["RailResizeLine"] = Instances:Create("Frame", {
+                Parent = Items["RailResize"].Instance,
+                AnchorPoint = Vector2New(0.5, 0.5),
+                Position = UDim2New(0.5, 0, 0.5, 0),
+                Size = UDim2New(0, 1, 1, -18),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Outline,
+                BackgroundTransparency = 0.72,
+                ZIndex = 10000
+            })
+            Items["RailResizeLine"]:AddToTheme({
+                BackgroundColor3 = "Outline"
+            })
+
+            local RailMoveConnection = nil
+            local RailEndConnection = nil
+
+            local function StopRailResize()
+                if RailMoveConnection then
+                    RailMoveConnection:Disconnect()
+                    RailMoveConnection = nil
+                end
+
+                if RailEndConnection then
+                    RailEndConnection:Disconnect()
+                    RailEndConnection = nil
+                end
+            end
+
+            local function ApplyRailWidth(Value)
+                local FrameWidth =
+                    Items["MainFrame"].Instance.AbsoluteSize.X
+
+                local DynamicMaximum =
+                    math.max(
+                        RailMinimum,
+                        math.min(
+                            RailMaximum,
+                            FrameWidth - 205
+                        )
+                    )
+
+                RailWidth =
+                    math.clamp(
+                        math.floor(Value + 0.5),
+                        RailMinimum,
+                        DynamicMaximum
+                    )
+
+                Items["Rail"].Instance.Size =
+                    UDim2New(
+                        0,
+                        RailWidth,
+                        1,
+                        0
+                    )
+
+                Items["RailResize"].Instance.Position =
+                    UDim2New(
+                        0,
+                        RailWidth,
+                        0,
+                        0
+                    )
+
+                Items["Panel"].Instance.Position =
+                    UDim2New(
+                        0,
+                        RailWidth + RailGap,
+                        0,
+                        0
+                    )
+
+                Items["Panel"].Instance.Size =
+                    UDim2New(
+                        1,
+                        -(RailWidth + RailGap),
+                        1,
+                        0
+                    )
+            end
+
+            Items["RailResize"]:OnHover(function()
+                Items["RailResizeLine"]:Tween(nil, {
+                    BackgroundTransparency = 0.22,
+                    BackgroundColor3 = Library.Theme.Accent
+                })
+            end)
+
+            Items["RailResize"]:OnHoverLeave(function()
+                if RailMoveConnection then
+                    return
+                end
+
+                Items["RailResizeLine"]:Tween(nil, {
+                    BackgroundTransparency = 0.72,
+                    BackgroundColor3 = Library.Theme.Outline
+                })
+            end)
+
+            Items["RailResize"]:Connect("InputBegan", function(Input)
+                if Input.UserInputType
+                        ~= Enum.UserInputType.MouseButton1
+                    and Input.UserInputType
+                        ~= Enum.UserInputType.Touch
+                then
+                    return
+                end
+
+                StopRailResize()
+
+                local StartMouse = Input.Position
+                local StartWidth = RailWidth
+                local IsTouch =
+                    Input.UserInputType
+                    == Enum.UserInputType.Touch
+
+                Items["RailResizeLine"]:Tween(nil, {
+                    BackgroundTransparency = 0.08,
+                    BackgroundColor3 = Library.Theme.Accent
+                })
+
+                RailMoveConnection =
+                    UserInputService.InputChanged:
+                    Connect(function(ChangedInput)
+                        local Matching =
+                            IsTouch
+                            and ChangedInput == Input
+                            or not IsTouch
+                            and ChangedInput.UserInputType
+                                == Enum.UserInputType.MouseMovement
+
+                        if not Matching
+                            or Library.Unloaded
+                            or not Items["MainFrame"].Instance.Parent
+                        then
+                            return
+                        end
+
+                        local Delta =
+                            ChangedInput.Position.X
+                            - StartMouse.X
+
+                        ApplyRailWidth(
+                            StartWidth + Delta
+                        )
+                    end)
+
+                RailEndConnection =
+                    UserInputService.InputEnded:
+                    Connect(function(EndedInput)
+                        local Matching =
+                            IsTouch
+                            and EndedInput == Input
+                            or not IsTouch
+                            and EndedInput.UserInputType
+                                == Enum.UserInputType.MouseButton1
+
+                        if not Matching then
+                            return
+                        end
+
+                        StopRailResize()
+
+                        Items["RailResizeLine"]:Tween(nil, {
+                            BackgroundTransparency = 0.72,
+                            BackgroundColor3 = Library.Theme.Outline
+                        })
+                    end)
+            end)
+
+            Library:Connect(
+                Items["MainFrame"].Instance:
+                    GetPropertyChangedSignal("AbsoluteSize"),
+                function()
+                    ApplyRailWidth(RailWidth)
+                end
+            )
+
+            task.defer(function()
+                ApplyRailWidth(RailWidth)
+            end)
 
             Items["PanelStroke"] = Instances:Create("UIStroke", {
                 Parent = Items["Panel"].Instance,
