@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v6",
+        Build = "RadiantAdaptive-v7-Polished",
         Flags = { },
 
         Theme = {
@@ -2615,7 +2615,13 @@ local Library do
         CreateSegment(Row1, "FPS", "Monitor", "0fps", false)
         CreateSegment(Row1, "Ping", "Cloud", "0ms", false)
         CreateSegment(Row2, "Position", "Position", "x0 y0 z0", false)
-        CreateSegment(Row2, "TPS", "Clock", "0.0tps", false)
+        CreateSegment(
+            Row2,
+            "Date",
+            "Clock",
+            os.date("%d.%m.%Y %H:%M"),
+            false
+        )
         CreateSegment(Row2, "Network", "Network", "0.00kbps", false)
 
         local function AddConnection(
@@ -2880,13 +2886,9 @@ local Library do
             Labels.Position.Text =
                 GetPosition()
 
-            Labels.TPS.Text =
-                StringFormat(
-                    "%.1ftps",
-                    math.max(
-                        Watermark.TPS,
-                        0
-                    )
+            Labels.Date.Text =
+                os.date(
+                    "%d.%m.%Y %H:%M"
                 )
 
             local NetworkRate =
@@ -3629,27 +3631,62 @@ local Library do
             PaletteHoleCorner.CornerRadius = UDimNew(1, 0)
             PaletteHoleCorner.Parent = Items["PaletteHole"].Instance
 
-            local PaletteDots = {
-                {2, 2, FromRGB(255, 255, 255)},
-                {7, 1, FromRGB(255, 221, 92)},
-                {4, 6, FromRGB(85, 157, 255)}
-            }
+            local PaletteTween =
+                TweenInfo.new(
+                    0.12,
+                    Enum.EasingStyle.Quad,
+                    Enum.EasingDirection.Out
+                )
 
-            for Index, DotData in ipairs(PaletteDots) do
-                local Dot = Instances:Create("Frame", {
-                    Parent = Items["PaletteBody"].Instance,
-                    Name = "Dot" .. tostring(Index),
-                    Position = UDim2New(0, DotData[1], 0, DotData[2]),
-                    Size = UDim2New(0, 2, 0, 2),
-                    BorderSizePixel = 0,
-                    BackgroundColor3 = DotData[3],
-                    ZIndex = 254
-                })
+            Items["ColorpickerButton"]:OnHover(function()
+                Items["ColorpickerButton"]:Tween(
+                    PaletteTween,
+                    {
+                        BackgroundColor3 =
+                            Library.Theme["Hovered Element"]
+                    }
+                )
 
-                local DotCorner = InstanceNew("UICorner")
-                DotCorner.CornerRadius = UDimNew(1, 0)
-                DotCorner.Parent = Dot.Instance
-            end
+                Items["PaletteBody"]:Tween(
+                    PaletteTween,
+                    {
+                        Size =
+                            UDim2New(
+                                0,
+                                16,
+                                0,
+                                12
+                            )
+                    }
+                )
+            end)
+
+            Items["ColorpickerButton"]:OnHoverLeave(function()
+                if Colorpicker.IsOpen then
+                    return
+                end
+
+                Items["ColorpickerButton"]:Tween(
+                    PaletteTween,
+                    {
+                        BackgroundColor3 =
+                            Library.Theme.Element
+                    }
+                )
+
+                Items["PaletteBody"]:Tween(
+                    PaletteTween,
+                    {
+                        Size =
+                            UDim2New(
+                                0,
+                                15,
+                                0,
+                                11
+                            )
+                    }
+                )
+            end)
 
             Items["ColorpickerWindow"] = Instances:Create("TextButton", {
                 Parent = Library.Holder.Instance,
@@ -3929,6 +3966,33 @@ local Library do
                     PlaceholderColor3 = "Muted Text"
                 })
 
+                local FieldTween =
+                    TweenInfo.new(
+                        0.10,
+                        Enum.EasingStyle.Quad,
+                        Enum.EasingDirection.Out
+                    )
+
+                Field:OnHover(function()
+                    Field:Tween(
+                        FieldTween,
+                        {
+                            BackgroundColor3 =
+                                Library.Theme["Hovered Element"]
+                        }
+                    )
+                end)
+
+                Field:OnHoverLeave(function()
+                    Field:Tween(
+                        FieldTween,
+                        {
+                            BackgroundColor3 =
+                                Library.Theme.Element
+                        }
+                    )
+                end)
+
                 Items[Key] = Input
                 return Input
             end
@@ -4108,10 +4172,17 @@ local Library do
                     )
 
                 local WindowSize =
-                    Vector2New(
-                        238,
-                        224
-                    )
+                    Window.AbsoluteSize
+
+                if WindowSize.X <= 0
+                    or WindowSize.Y <= 0
+                then
+                    WindowSize =
+                        Vector2New(
+                            282,
+                            286
+                        )
+                end
 
                 local X =
                     MathClamp(
@@ -7494,7 +7565,7 @@ local Library do
             })
 
             Items["MainFrame"]:MakeResizeable(
-                Vector2New(300, 300),
+                Vector2New(480, 380),
                 Vector2New(9999, 9999)
             )
 
@@ -7562,7 +7633,8 @@ local Library do
                     0
                 ),
                 BorderSizePixel = 0,
-                BackgroundColor3 = Library.Theme.Background
+                BackgroundColor3 = Library.Theme.Background,
+                ClipsDescendants = true
             })
             Items["Panel"]:AddToTheme({
                 BackgroundColor3 = "Background"
@@ -7608,7 +7680,7 @@ local Library do
 
                 local DynamicMaximum = math.max(
                     RailMinimum,
-                    math.min(RailMaximum, FrameWidth - 205)
+                    math.min(RailMaximum, FrameWidth - 330)
                 )
 
                 RailWidth = math.clamp(
@@ -7801,7 +7873,8 @@ local Library do
                 Position = UDim2New(0, 8, 0, 34),
                 Size = UDim2New(1, -16, 1, -42),
                 BorderSizePixel = 0,
-                BackgroundColor3 = Library.Theme["Page Background"]
+                BackgroundColor3 = Library.Theme["Page Background"],
+                ClipsDescendants = true
             })
             Items["Content"]:AddToTheme({
                 BackgroundColor3 = "Page Background"
@@ -8026,7 +8099,8 @@ local Library do
                 Position = UDim2New(0, 8, 0, 0),
                 Size = UDim2New(1, 0, 1, 0),
                 BorderSizePixel = 0,
-                Visible = false
+                Visible = false,
+                ClipsDescendants = true
             })
 
             if not Page.HasSubtabs then
@@ -9800,7 +9874,7 @@ local Library do
 
         local Items = { }
         local PopupTween = TweenInfo.new(
-            0.08,
+            0.12,
             Enum.EasingStyle.Quad,
             Enum.EasingDirection.Out
         )
@@ -9890,8 +9964,9 @@ local Library do
             Position = UDim2New(0, 0, 0, 0),
             Size = UDim2New(0, 120, 0, 0),
             BorderSizePixel = 0,
-            AutomaticSize = Enum.AutomaticSize.Y,
+            AutomaticSize = Enum.AutomaticSize.None,
             BackgroundColor3 = Library.Theme.Inline,
+            ClipsDescendants = true,
             BackgroundTransparency = 0,
             GroupTransparency = 1,
             ZIndex = 900
@@ -9911,27 +9986,93 @@ local Library do
         PopupPadding.PaddingBottom = UDimNew(0, 3)
         PopupPadding.Parent = Items["Popup"].Instance
 
-        local function GetPopupPosition()
-            local Field = Items["Field"].Instance
-            local Position = Field.AbsolutePosition
-            local Size = Field.AbsoluteSize
+        local function GetPopupMetrics(Offset)
+            local Field =
+                Items["Field"].Instance
 
-            return UDim2New(
-                0,
-                Position.X,
-                0,
-                Position.Y + Size.Y + 3
-            )
+            local Position =
+                Field.AbsolutePosition
+
+            local Size =
+                Field.AbsoluteSize
+
+            local Viewport =
+                Workspace.CurrentCamera
+                and Workspace.CurrentCamera.ViewportSize
+                or Vector2New(1920, 1080)
+
+            local ContentHeight =
+                math.max(
+                    PopupLayout.AbsoluteContentSize.Y + 6,
+                    #Dropdown.Items * 21 + 6,
+                    27
+                )
+
+            local PopupHeight =
+                math.min(
+                    ContentHeight,
+                    math.max(
+                        Viewport.Y - 12,
+                        27
+                    )
+                )
+
+            local X =
+                MathClamp(
+                    Position.X,
+                    6,
+                    math.max(
+                        Viewport.X - Size.X - 6,
+                        6
+                    )
+                )
+
+            local Below =
+                Position.Y
+                + Size.Y
+                + (Offset or 3)
+
+            local Above =
+                Position.Y
+                - PopupHeight
+                - (Offset or 3)
+
+            local Y =
+                Below + PopupHeight
+                    <= Viewport.Y - 6
+                and Below
+                or math.max(
+                    Above,
+                    6
+                )
+
+            return
+                UDim2New(
+                    0,
+                    X,
+                    0,
+                    Y
+                ),
+                UDim2New(
+                    0,
+                    Size.X,
+                    0,
+                    PopupHeight
+                )
         end
 
-        local function UpdatePopupPosition()
-            Items["Popup"].Instance.Position = GetPopupPosition()
-            Items["Popup"].Instance.Size = UDim2New(
-                0,
-                Items["Field"].Instance.AbsoluteSize.X,
-                0,
-                0
-            )
+        local function UpdatePopupPosition(Offset)
+            local Position,
+                Size =
+                GetPopupMetrics(
+                    Offset
+                )
+
+            Items["Popup"].Instance.Position =
+                Position
+
+            Items["Popup"].Instance.Size =
+                Size
         end
 
         Library:Connect(
@@ -9968,14 +10109,23 @@ local Library do
 
             if Bool then
                 Library.OpenDropdown = Dropdown
-                UpdatePopupPosition()
+                UpdatePopupPosition(7)
 
                 Items["Popup"].Instance.GroupTransparency = 1
                 Items["Popup"].Instance.Visible = true
 
-                Items["Popup"]:Tween(PopupTween, {
-                    GroupTransparency = 0
-                })
+                local FinalPosition,
+                    FinalSize =
+                    GetPopupMetrics(3)
+
+                Items["Popup"]:Tween(
+                    PopupTween,
+                    {
+                        Position = FinalPosition,
+                        Size = FinalSize,
+                        GroupTransparency = 0
+                    }
+                )
 
                 Items["Field"]:Tween(PopupTween, {
                     BackgroundColor3 = Library.Theme["Hovered Element"]
@@ -10045,6 +10195,44 @@ local Library do
             })
         end)
 
+        local ValueAnimationToken = 0
+
+        local function AnimateValueChange()
+            ValueAnimationToken += 1
+
+            local Token =
+                ValueAnimationToken
+
+            Items["Value"]:Tween(
+                PopupTween,
+                {
+                    TextColor3 =
+                        Library.Theme.Accent,
+                    TextTransparency = 0.10
+                }
+            )
+
+            task.delay(
+                0.08,
+                function()
+                    if Token
+                        ~= ValueAnimationToken
+                    then
+                        return
+                    end
+
+                    Items["Value"]:Tween(
+                        PopupTween,
+                        {
+                            TextColor3 =
+                                Library.Theme.Text,
+                            TextTransparency = 0
+                        }
+                    )
+                end
+            )
+        end
+
         function Dropdown:Set(Option)
             if Dropdown.Multi then
                 if type(Option) ~= "table" then
@@ -10088,7 +10276,10 @@ local Library do
                 Items["Value"].Instance.Text = OptionData.Name
             end
 
-            Library.Flags[Dropdown.Flag] = Dropdown.Value
+            AnimateValueChange()
+
+            Library.Flags[Dropdown.Flag] =
+                Dropdown.Value
 
             if Dropdown.Callback then
                 Library:SafeCall(
@@ -10156,7 +10347,8 @@ local Library do
                         or Library.Theme.Text,
 
                     TextTransparency = Active and 0 or 0.08,
-                    BackgroundTransparency = Active and 0.78 or 1
+                    BackgroundTransparency =
+                        Active and 0.68 or 1
                 })
             end
 
