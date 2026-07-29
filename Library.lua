@@ -4898,7 +4898,8 @@ function Menu:Destroy()
 end
 
 
-local Library = Menu
+function Menu:InstallPublicApi()
+local Library = self
 local ApiInitialized = false
 local ApiPageOrder = {"Combat", "Visuals", "Movement", "World", "Utility", "Settings", "Players", "Cloud", "Config", "Misc"}
 local ApiPageIcons = {
@@ -5391,3 +5392,6 @@ function Library:SetFlag(Name, Value)
 end
 
 return Library
+end
+
+return Menu:InstallPublicApi()
