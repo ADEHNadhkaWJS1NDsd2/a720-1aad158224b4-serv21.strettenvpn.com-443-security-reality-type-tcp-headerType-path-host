@@ -65,7 +65,7 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v7-Polished",
+        Build = "RadiantAdaptive-v8-BoundsFixed",
         Flags = { },
 
         Theme = {
@@ -8096,7 +8096,7 @@ local Library do
                 Parent = Page.Window.Elements["Content"].Instance,
                 BackgroundTransparency = 1,
                 Name = string.char(0),
-                Position = UDim2New(0, 8, 0, 0),
+                Position = UDim2New(0, 0, 0, 0),
                 Size = UDim2New(1, 0, 1, 0),
                 BorderSizePixel = 0,
                 Visible = false,
@@ -8109,7 +8109,8 @@ local Library do
                     FillDirection = Enum.FillDirection.Horizontal,
                     HorizontalFlex = Enum.UIFlexAlignment.Fill,
                     SortOrder = Enum.SortOrder.LayoutOrder,
-                    VerticalFlex = Enum.UIFlexAlignment.Fill
+                    VerticalFlex = Enum.UIFlexAlignment.Fill,
+                    Padding = UDimNew(0, 6)
                 })
 
                 for Index = 1, Page.Columns do
@@ -8119,10 +8120,17 @@ local Library do
                         Active = true,
                         AutomaticCanvasSize = Enum.AutomaticSize.Y,
                         ScrollBarThickness = 2,
+                        VerticalScrollBarInset =
+                            Enum.ScrollBarInset.ScrollBar,
+                        ScrollingDirection =
+                            Enum.ScrollingDirection.Y,
+                        ElasticBehavior =
+                            Enum.ElasticBehavior.Never,
                         Name = string.char(0),
                         BackgroundTransparency = 1,
                         Size = UDim2New(0, 100, 0, 100),
                         BorderSizePixel = 0,
+                        ClipsDescendants = true,
                         BottomImage = Library:GetImage("Scrollbar"),
                         MidImage = Library:GetImage("Scrollbar"),
                         TopImage = Library:GetImage("Scrollbar"),
@@ -8136,7 +8144,7 @@ local Library do
                         Parent = NewColumn.Instance,
                         PaddingTop = UDimNew(0, 7),
                         PaddingBottom = UDimNew(0, 7),
-                        PaddingRight = UDimNew(0, 7),
+                        PaddingRight = UDimNew(0, 9),
                         PaddingLeft = UDimNew(0, 7)
                     })
 
@@ -8515,7 +8523,7 @@ local Library do
             Items["Section"] = Instances:Create("Frame", {
                 Parent = Section.Page.ColumnsData[Section.Side].Instance,
                 Name = string.char(0),
-                Size = UDim2New(1, 0, 0, 0),
+                Size = UDim2New(1, -1, 0, 0),
                 BorderSizePixel = 0,
                 AutomaticSize = Enum.AutomaticSize.Y,
                 BackgroundTransparency = 1,
@@ -8568,6 +8576,13 @@ local Library do
                 Parent = Items["Content"].Instance,
                 Padding = UDimNew(0, 6),
                 SortOrder = Enum.SortOrder.LayoutOrder
+            })
+
+
+            Instances:Create("UIPadding", {
+                Parent = Items["Content"].Instance,
+                PaddingLeft = UDimNew(0, 1),
+                PaddingRight = UDimNew(0, 3)
             })
 
             Instances:Create("UIPadding", {
@@ -9629,11 +9644,11 @@ local Library do
                 Parent = Items["Slider"].Instance,
                 AnchorPoint = Vector2New(0, 1),
                 Name = string.char(0),
-                Position = UDim2New(0, 0, 1, 0),
+                Position = UDim2New(0, 1, 1, 0),
                 BorderColor3 = FromRGB(10, 10, 10),
                 Text = "",
                 AutoButtonColor = false,
-                Size = UDim2New(1, 0, 0, 10),
+                Size = UDim2New(1, -2, 0, 10),
                 BorderSizePixel = 2,
                 BackgroundColor3 = FromRGB(33, 33, 36)
             })  Items["RealSlider"]:AddToTheme({BackgroundColor3 = "Background", BorderColor3 = "Border"})
