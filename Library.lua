@@ -91,7 +91,8 @@ local Menu = {
     ModeButtons = {},
     Sections = {},
     BindRuntime = {},
-    BindSystem = {}
+    BindSystem = {},
+    SettingsUI = {}
 }
 
 do
@@ -427,6 +428,42 @@ local InputBlocker = Create("TextButton", {
     Visible = false,
     Modal = true,
     ZIndex = 1
+})
+
+Menu.SettingsInputBlocker = Create("TextButton", {
+    Parent = ScreenGui,
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    Text = "",
+    Visible = false,
+    Modal = true,
+    ZIndex = 29
+})
+
+Menu.PopupInputBlocker = Create("TextButton", {
+    Parent = ScreenGui,
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    Text = "",
+    Visible = false,
+    Modal = true,
+    ZIndex = 98
+})
+
+Menu.PickerInputBlocker = Create("TextButton", {
+    Parent = ScreenGui,
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+    Text = "",
+    Visible = false,
+    Modal = true,
+    ZIndex = 119
 })
 
 local Main = Create("Frame", {
@@ -1197,6 +1234,9 @@ local function ClosePopup()
         ActivePopup:Destroy()
         ActivePopup = nil
     end
+    if not ActiveGearMenu then
+        Menu.PopupInputBlocker.Visible = false
+    end
 end
 
 local function SetGearIconColor(IconObject, Color)
@@ -1583,6 +1623,9 @@ CloseGearMenus = function()
     ActiveGearMeta = nil
     ActiveGearBindEntry = nil
     ActiveGearHotkeysEntry = nil
+    if not ActivePopup then
+        Menu.PopupInputBlocker.Visible = false
+    end
 end
 
 local function OpenHotkeysMenu(SourceEntry)
@@ -2051,6 +2094,7 @@ OpenGearMenu = function(Button, GearIcon, Meta)
 
     ClosePopup()
     CloseGearMenus()
+    Menu.PopupInputBlocker.Visible = true
     ActiveGearButton = Button
     ActiveGearButtonIcon = GearIcon
     ActiveGearMeta = Meta
@@ -2227,6 +2271,7 @@ local function CreateDropdown(Section, Name, Values, Default, Flag, Options)
             return
         end
 
+        Menu.PopupInputBlocker.Visible = true
         local Width = 108
         local PopupHeight = (#Values * 24) + 12
         ActivePopup = Create("Frame", {
@@ -2378,7 +2423,7 @@ local function UpdateAccentColor(NewColor)
     end
 end
 
-local SettingsOverlay = Create("Frame", {
+Menu.SettingsUI.SettingsOverlay = Create("Frame", {
     Parent = ScreenGui,
     Position = UDim2.fromOffset(0, 0),
     Size = UDim2.new(1, 0, 1, 0),
@@ -2389,34 +2434,34 @@ local SettingsOverlay = Create("Frame", {
     ZIndex = 25
 })
 
-local SettingsPanel = Create("Frame", {
+Menu.SettingsUI.SettingsPanel = Create("Frame", {
     Parent = ScreenGui,
     Active = true,
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = DecodePosition(SavedPositions.Settings, Main.Position),
-    Size = UDim2.fromOffset(348, 622),
+    Size = UDim2.fromOffset(348, 696),
     BackgroundColor3 = Color3.fromRGB(11, 12, 21),
     BorderSizePixel = 0,
     Visible = false,
     ZIndex = 30
 })
-Corner(SettingsPanel, 8)
-Stroke(SettingsPanel, Border, 0.18, 1)
+Corner(Menu.SettingsUI.SettingsPanel, 8)
+Stroke(Menu.SettingsUI.SettingsPanel, Border, 0.18, 1)
 
-local SettingsPanelScale = Create("UIScale", {
-    Parent = SettingsPanel,
+Menu.SettingsUI.SettingsPanelScale = Create("UIScale", {
+    Parent = Menu.SettingsUI.SettingsPanel,
     Scale = 0.96
 })
 
-local SettingsDragArea = Create("Frame", {
-    Parent = SettingsPanel,
+Menu.SettingsUI.SettingsDragArea = Create("Frame", {
+    Parent = Menu.SettingsUI.SettingsPanel,
     Size = UDim2.new(1, 0, 0, 84),
     BackgroundTransparency = 1,
     ZIndex = 32
 })
 
 Create("TextLabel", {
-    Parent = SettingsPanel,
+    Parent = Menu.SettingsUI.SettingsPanel,
     Position = UDim2.fromOffset(0, 22),
     Size = UDim2.new(1, 0, 0, 34),
     BackgroundTransparency = 1,
@@ -2427,8 +2472,8 @@ Create("TextLabel", {
     ZIndex = 31
 })
 
-local SettingsCloseButton = Create("TextButton", {
-    Parent = SettingsPanel,
+Menu.SettingsUI.SettingsCloseButton = Create("TextButton", {
+    Parent = Menu.SettingsUI.SettingsPanel,
     AnchorPoint = Vector2.new(1, 0),
     Position = UDim2.new(1, -14, 0, 14),
     Size = UDim2.fromOffset(26, 26),
@@ -2441,11 +2486,12 @@ local SettingsCloseButton = Create("TextButton", {
     TextSize = 18,
     ZIndex = 34
 })
-Corner(SettingsCloseButton, 5)
-Stroke(SettingsCloseButton, Border, 0.25, 1)
-Icon(SettingsCloseButton, "Minus", UDim2.fromOffset(12, 12), UDim2.fromScale(0.5, 0.5), MutedText, 35)
+Corner(Menu.SettingsUI.SettingsCloseButton, 5)
+Stroke(Menu.SettingsUI.SettingsCloseButton, Border, 0.25, 1)
+Icon(Menu.SettingsUI.SettingsCloseButton, "Minus", UDim2.fromOffset(12, 12), UDim2.fromScale(0.5, 0.5), MutedText, 35)
 
 local LocalPlayer = Players.LocalPlayer
+Menu.EspPreviewController = {}
 local Watermark
 local SetWatermarkHidden
 local SetWatermarkScale
@@ -2729,8 +2775,8 @@ end
 SyncWatermarkGlow()
 end
 
-local ProfileAvatar = Create("ImageLabel", {
-    Parent = SettingsPanel,
+Menu.SettingsUI.ProfileAvatar = Create("ImageLabel", {
+    Parent = Menu.SettingsUI.SettingsPanel,
     AnchorPoint = Vector2.new(0.5, 0),
     Position = UDim2.new(0.5, 0, 0, 66),
     Size = UDim2.fromOffset(48, 48),
@@ -2740,11 +2786,11 @@ local ProfileAvatar = Create("ImageLabel", {
     ScaleType = Enum.ScaleType.Crop,
     ZIndex = 31
 })
-Corner(ProfileAvatar, 48)
-Stroke(ProfileAvatar, Border, 0.08, 1)
+Corner(Menu.SettingsUI.ProfileAvatar, 48)
+Stroke(Menu.SettingsUI.ProfileAvatar, Border, 0.08, 1)
 
-local ProfileName = Create("TextLabel", {
-    Parent = SettingsPanel,
+Menu.SettingsUI.ProfileName = Create("TextLabel", {
+    Parent = Menu.SettingsUI.SettingsPanel,
     AnchorPoint = Vector2.new(0.5, 0),
     Position = UDim2.new(0.5, 0, 0, 120),
     Size = UDim2.fromOffset(220, 20),
@@ -2762,15 +2808,15 @@ if LocalPlayer then
         local Success, Thumbnail = pcall(function()
             return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
         end)
-        if Success and ProfileAvatar.Parent then
-            ProfileAvatar.Image = Thumbnail
+        if Success and Menu.SettingsUI.ProfileAvatar.Parent then
+            Menu.SettingsUI.ProfileAvatar.Image = Thumbnail
         end
     end)
 end
 
 local function CreateInfoRow(Y, LabelText, ValueText)
     Create("TextLabel", {
-        Parent = SettingsPanel,
+        Parent = Menu.SettingsUI.SettingsPanel,
         Position = UDim2.fromOffset(28, Y),
         Size = UDim2.fromOffset(110, 20),
         BackgroundTransparency = 1,
@@ -2783,7 +2829,7 @@ local function CreateInfoRow(Y, LabelText, ValueText)
     })
 
     Create("TextLabel", {
-        Parent = SettingsPanel,
+        Parent = Menu.SettingsUI.SettingsPanel,
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, -28, 0, Y),
         Size = UDim2.fromOffset(120, 20),
@@ -2802,7 +2848,7 @@ CreateInfoRow(190, "Update:", "11.09.24")
 CreateInfoRow(226, "Valid until:", "11.10.24")
 
 Create("Frame", {
-    Parent = SettingsPanel,
+    Parent = Menu.SettingsUI.SettingsPanel,
     Position = UDim2.fromOffset(28, 264),
     Size = UDim2.fromOffset(292, 1),
     BackgroundColor3 = Border,
@@ -2812,7 +2858,7 @@ Create("Frame", {
 
 local function CreatePopupRow(Height)
     return Create("Frame", {
-        Parent = SettingsPanel,
+        Parent = Menu.SettingsUI.SettingsPanel,
         Size = UDim2.fromOffset(292, Height),
         Position = UDim2.fromOffset(28, 0),
         BackgroundTransparency = 1,
@@ -2841,7 +2887,7 @@ end
 
 local function CreatePopupToggle(Y, LabelText, Default, Callback)
     local Row = Create("Frame", {
-        Parent = SettingsPanel,
+        Parent = Menu.SettingsUI.SettingsPanel,
         Position = UDim2.fromOffset(28, Y),
         Size = UDim2.fromOffset(292, 26),
         BackgroundTransparency = 1,
@@ -2904,7 +2950,7 @@ end
 
 local function CreatePopupSlider(Y, LabelText, Minimum, Maximum, Default, FormatText, Callback)
     local Row = Create("Frame", {
-        Parent = SettingsPanel,
+        Parent = Menu.SettingsUI.SettingsPanel,
         Position = UDim2.fromOffset(28, Y),
         Size = UDim2.fromOffset(292, 58),
         BackgroundTransparency = 1,
@@ -3023,8 +3069,8 @@ local function CreatePopupSlider(Y, LabelText, Minimum, Maximum, Default, Format
     }
 end
 
-local ColorRow = Create("Frame", {
-    Parent = SettingsPanel,
+Menu.SettingsUI.ColorRow = Create("Frame", {
+    Parent = Menu.SettingsUI.SettingsPanel,
     Position = UDim2.fromOffset(28, 576),
     Size = UDim2.fromOffset(292, 26),
     BackgroundTransparency = 1,
@@ -3032,7 +3078,7 @@ local ColorRow = Create("Frame", {
 })
 
 Create("TextLabel", {
-    Parent = ColorRow,
+    Parent = Menu.SettingsUI.ColorRow,
     Size = UDim2.new(1, -40, 1, 0),
     BackgroundTransparency = 1,
     Font = Enum.Font.BuilderSans,
@@ -3043,8 +3089,8 @@ Create("TextLabel", {
     ZIndex = 32
 })
 
-local AccentPreviewButton = Create("TextButton", {
-    Parent = ColorRow,
+Menu.SettingsUI.AccentPreviewButton = Create("TextButton", {
+    Parent = Menu.SettingsUI.ColorRow,
     AnchorPoint = Vector2.new(1, 0.5),
     Position = UDim2.new(1, -1, 0.5, 0),
     Size = UDim2.fromOffset(13, 13),
@@ -3054,18 +3100,18 @@ local AccentPreviewButton = Create("TextButton", {
     Text = "",
     ZIndex = 34
 })
-Corner(AccentPreviewButton, 100)
-local AccentPreviewStroke = Stroke(AccentPreviewButton, Color3.fromRGB(232, 238, 255), 0.16, 1)
-local AccentPreviewGlow = Menu:AddSoftGlow(AccentPreviewButton, 34, 8, 0.20, false)
+Corner(Menu.SettingsUI.AccentPreviewButton, 100)
+Menu.SettingsUI.AccentPreviewStroke = Stroke(Menu.SettingsUI.AccentPreviewButton, Color3.fromRGB(232, 238, 255), 0.16, 1)
+Menu.SettingsUI.AccentPreviewGlow = Menu:AddSoftGlow(Menu.SettingsUI.AccentPreviewButton, 34, 8, 0.20, false)
 
 RegisterAccentTarget(function(NewColor)
-    AccentPreviewButton.BackgroundColor3 = NewColor
-    if AccentPreviewGlow then
-        AccentPreviewGlow.ImageColor3 = NewColor
+    Menu.SettingsUI.AccentPreviewButton.BackgroundColor3 = NewColor
+    if Menu.SettingsUI.AccentPreviewGlow then
+        Menu.SettingsUI.AccentPreviewGlow.ImageColor3 = NewColor
     end
 end)
 
-local ColorPickerContainer = Create("Frame", {
+Menu.SettingsUI.ColorPickerContainer = Create("Frame", {
     Parent = ScreenGui,
     Active = true,
     Position = UDim2.fromOffset(0, 0),
@@ -3075,38 +3121,38 @@ local ColorPickerContainer = Create("Frame", {
     Visible = false,
     ZIndex = 120
 })
-Corner(ColorPickerContainer, 7)
-Stroke(ColorPickerContainer, Border, 0.08, 1)
+Corner(Menu.SettingsUI.ColorPickerContainer, 7)
+Stroke(Menu.SettingsUI.ColorPickerContainer, Border, 0.08, 1)
 
-local ColorPickerDragArea = Create("Frame", {
-    Parent = ColorPickerContainer,
+Menu.SettingsUI.ColorPickerDragArea = Create("Frame", {
+    Parent = Menu.SettingsUI.ColorPickerContainer,
     Position = UDim2.fromOffset(0, 0),
     Size = UDim2.new(1, 0, 0, 10),
     BackgroundTransparency = 1,
     ZIndex = 130
 })
 
-local ColorSquare = Create("Frame", {
-    Parent = ColorPickerContainer,
+Menu.SettingsUI.ColorSquare = Create("Frame", {
+    Parent = Menu.SettingsUI.ColorPickerContainer,
     Position = UDim2.fromOffset(10, 10),
     Size = UDim2.fromOffset(154, 96),
     BackgroundColor3 = Accent,
     BorderSizePixel = 0,
     ZIndex = 121
 })
-Corner(ColorSquare, 4)
-Stroke(ColorSquare, Color3.fromRGB(35, 39, 54), 0.1, 1)
+Corner(Menu.SettingsUI.ColorSquare, 4)
+Stroke(Menu.SettingsUI.ColorSquare, Color3.fromRGB(35, 39, 54), 0.1, 1)
 
-local WhiteOverlay = Create("Frame", {
-    Parent = ColorSquare,
+Menu.SettingsUI.WhiteOverlay = Create("Frame", {
+    Parent = Menu.SettingsUI.ColorSquare,
     Size = UDim2.fromScale(1, 1),
     BackgroundColor3 = Color3.new(1, 1, 1),
     BorderSizePixel = 0,
     ZIndex = 122
 })
-Corner(WhiteOverlay, 4)
+Corner(Menu.SettingsUI.WhiteOverlay, 4)
 Create("UIGradient", {
-    Parent = WhiteOverlay,
+    Parent = Menu.SettingsUI.WhiteOverlay,
     Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(1, 1, 1)),
     Transparency = NumberSequence.new({
         NumberSequenceKeypoint.new(0, 0),
@@ -3114,16 +3160,16 @@ Create("UIGradient", {
     })
 })
 
-local BlackOverlay = Create("Frame", {
-    Parent = ColorSquare,
+Menu.SettingsUI.BlackOverlay = Create("Frame", {
+    Parent = Menu.SettingsUI.ColorSquare,
     Size = UDim2.fromScale(1, 1),
     BackgroundColor3 = Color3.new(0, 0, 0),
     BorderSizePixel = 0,
     ZIndex = 123
 })
-Corner(BlackOverlay, 4)
+Corner(Menu.SettingsUI.BlackOverlay, 4)
 Create("UIGradient", {
-    Parent = BlackOverlay,
+    Parent = Menu.SettingsUI.BlackOverlay,
     Color = ColorSequence.new(Color3.new(0, 0, 0), Color3.new(0, 0, 0)),
     Transparency = NumberSequence.new({
         NumberSequenceKeypoint.new(0, 1),
@@ -3132,8 +3178,8 @@ Create("UIGradient", {
     Rotation = 90
 })
 
-local ColorCursor = Create("Frame", {
-    Parent = ColorSquare,
+Menu.SettingsUI.ColorCursor = Create("Frame", {
+    Parent = Menu.SettingsUI.ColorSquare,
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = UDim2.fromScale(1, 0),
     Size = UDim2.fromOffset(10, 10),
@@ -3141,20 +3187,20 @@ local ColorCursor = Create("Frame", {
     BorderSizePixel = 0,
     ZIndex = 124
 })
-Corner(ColorCursor, 10)
-Stroke(ColorCursor, Color3.new(0, 0, 0), 0.12, 1)
+Corner(Menu.SettingsUI.ColorCursor, 10)
+Stroke(Menu.SettingsUI.ColorCursor, Color3.new(0, 0, 0), 0.12, 1)
 
-local HueBar = Create("Frame", {
-    Parent = ColorPickerContainer,
+Menu.SettingsUI.HueBar = Create("Frame", {
+    Parent = Menu.SettingsUI.ColorPickerContainer,
     Position = UDim2.fromOffset(10, 114),
     Size = UDim2.fromOffset(154, 8),
     BackgroundColor3 = Color3.new(1, 1, 1),
     BorderSizePixel = 0,
     ZIndex = 121
 })
-Corner(HueBar, 4)
+Corner(Menu.SettingsUI.HueBar, 4)
 Create("UIGradient", {
-    Parent = HueBar,
+    Parent = Menu.SettingsUI.HueBar,
     Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 0, 0)),
         ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)),
@@ -3166,8 +3212,8 @@ Create("UIGradient", {
     })
 })
 
-local HueKnob = Create("Frame", {
-    Parent = HueBar,
+Menu.SettingsUI.HueKnob = Create("Frame", {
+    Parent = Menu.SettingsUI.HueBar,
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = UDim2.fromScale(0, 0.5),
     Size = UDim2.fromOffset(8, 12),
@@ -3175,30 +3221,30 @@ local HueKnob = Create("Frame", {
     BorderSizePixel = 0,
     ZIndex = 122
 })
-Corner(HueKnob, 3)
-Stroke(HueKnob, Color3.new(0, 0, 0), 0.2, 1)
+Corner(Menu.SettingsUI.HueKnob, 3)
+Stroke(Menu.SettingsUI.HueKnob, Color3.new(0, 0, 0), 0.2, 1)
 
-local AlphaBar = Create("Frame", {
-    Parent = ColorPickerContainer,
+Menu.SettingsUI.AlphaBar = Create("Frame", {
+    Parent = Menu.SettingsUI.ColorPickerContainer,
     Position = UDim2.fromOffset(10, 130),
     Size = UDim2.fromOffset(154, 8),
     BackgroundColor3 = Color3.fromRGB(43, 47, 61),
     BorderSizePixel = 0,
     ZIndex = 121
 })
-Corner(AlphaBar, 4)
+Corner(Menu.SettingsUI.AlphaBar, 4)
 
-local AlphaFill = Create("Frame", {
-    Parent = AlphaBar,
+Menu.SettingsUI.AlphaFill = Create("Frame", {
+    Parent = Menu.SettingsUI.AlphaBar,
     Size = UDim2.fromScale(AccentAlpha, 1),
     BackgroundColor3 = Accent,
     BorderSizePixel = 0,
     ZIndex = 122
 })
-Corner(AlphaFill, 4)
+Corner(Menu.SettingsUI.AlphaFill, 4)
 
-local AlphaKnob = Create("Frame", {
-    Parent = AlphaBar,
+Menu.SettingsUI.AlphaKnob = Create("Frame", {
+    Parent = Menu.SettingsUI.AlphaBar,
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = UDim2.fromScale(AccentAlpha, 0.5),
     Size = UDim2.fromOffset(8, 12),
@@ -3206,11 +3252,11 @@ local AlphaKnob = Create("Frame", {
     BorderSizePixel = 0,
     ZIndex = 123
 })
-Corner(AlphaKnob, 3)
-Stroke(AlphaKnob, Color3.new(0, 0, 0), 0.2, 1)
+Corner(Menu.SettingsUI.AlphaKnob, 3)
+Stroke(Menu.SettingsUI.AlphaKnob, Color3.new(0, 0, 0), 0.2, 1)
 
-local HexBox = Create("TextBox", {
-    Parent = ColorPickerContainer,
+Menu.SettingsUI.HexBox = Create("TextBox", {
+    Parent = Menu.SettingsUI.ColorPickerContainer,
     Position = UDim2.fromOffset(10, 148),
     Size = UDim2.fromOffset(124, 28),
     BackgroundColor3 = SurfaceAlt,
@@ -3224,10 +3270,10 @@ local HexBox = Create("TextBox", {
     ClearTextOnFocus = false,
     ZIndex = 121
 })
-Corner(HexBox, 4)
-Stroke(HexBox, Border, 0.05, 1)
+Corner(Menu.SettingsUI.HexBox, 4)
+Stroke(Menu.SettingsUI.HexBox, Border, 0.05, 1)
 Create("UIPadding", {
-    Parent = HexBox,
+    Parent = Menu.SettingsUI.HexBox,
     PaddingLeft = UDim.new(0, 8),
     PaddingRight = UDim.new(0, 6)
 })
@@ -3241,14 +3287,14 @@ local function SetTextInputsEnabled(State)
     end)
     pcall(function()
         if not State then
-            HexBox:ReleaseFocus()
+            Menu.SettingsUI.HexBox:ReleaseFocus()
         end
-        HexBox.TextEditable = State
+        Menu.SettingsUI.HexBox.TextEditable = State
     end)
 end
 
-local ApplyHex = Create("TextButton", {
-    Parent = ColorPickerContainer,
+Menu.SettingsUI.ApplyHex = Create("TextButton", {
+    Parent = Menu.SettingsUI.ColorPickerContainer,
     Position = UDim2.fromOffset(138, 148),
     Size = UDim2.fromOffset(26, 28),
     BackgroundColor3 = SurfaceAlt,
@@ -3257,11 +3303,11 @@ local ApplyHex = Create("TextButton", {
     Text = "",
     ZIndex = 121
 })
-Corner(ApplyHex, 4)
-Stroke(ApplyHex, Border, 0.05, 1)
+Corner(Menu.SettingsUI.ApplyHex, 4)
+Stroke(Menu.SettingsUI.ApplyHex, Border, 0.05, 1)
 
-local PencilBody = Create("Frame", {
-    Parent = ApplyHex,
+Menu.SettingsUI.PencilBody = Create("Frame", {
+    Parent = Menu.SettingsUI.ApplyHex,
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = UDim2.fromScale(0.48, 0.48),
     Size = UDim2.fromOffset(3, 13),
@@ -3270,9 +3316,9 @@ local PencilBody = Create("Frame", {
     BorderSizePixel = 0,
     ZIndex = 122
 })
-Corner(PencilBody, 2)
+Corner(Menu.SettingsUI.PencilBody, 2)
 Create("Frame", {
-    Parent = ApplyHex,
+    Parent = Menu.SettingsUI.ApplyHex,
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = UDim2.fromScale(0.68, 0.69),
     Size = UDim2.fromOffset(3, 3),
@@ -3282,16 +3328,16 @@ Create("Frame", {
     ZIndex = 122
 })
 
-local ThemeRow = Create("Frame", {
-    Parent = ColorPickerContainer,
+Menu.SettingsUI.ThemeRow = Create("Frame", {
+    Parent = Menu.SettingsUI.ColorPickerContainer,
     Position = UDim2.fromOffset(10, 184),
     Size = UDim2.fromOffset(154, 28),
     BackgroundTransparency = 1,
     ZIndex = 121
 })
 
-local AddThemeButton = Create("TextButton", {
-    Parent = ThemeRow,
+Menu.SettingsUI.AddThemeButton = Create("TextButton", {
+    Parent = Menu.SettingsUI.ThemeRow,
     Position = UDim2.fromOffset(0, 2),
     Size = UDim2.fromOffset(20, 20),
     BackgroundTransparency = 1,
@@ -3300,8 +3346,8 @@ local AddThemeButton = Create("TextButton", {
     Text = "",
     ZIndex = 122
 })
-local PlusHorizontal = Create("Frame", {
-    Parent = AddThemeButton,
+Menu.SettingsUI.PlusHorizontal = Create("Frame", {
+    Parent = Menu.SettingsUI.AddThemeButton,
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = UDim2.fromScale(0.5, 0.5),
     Size = UDim2.fromOffset(9, 1),
@@ -3309,8 +3355,8 @@ local PlusHorizontal = Create("Frame", {
     BorderSizePixel = 0,
     ZIndex = 123
 })
-local PlusVertical = Create("Frame", {
-    Parent = AddThemeButton,
+Menu.SettingsUI.PlusVertical = Create("Frame", {
+    Parent = Menu.SettingsUI.AddThemeButton,
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = UDim2.fromScale(0.5, 0.5),
     Size = UDim2.fromOffset(1, 9),
@@ -3320,7 +3366,7 @@ local PlusVertical = Create("Frame", {
 })
 
 local ThemeDots = Create("Frame", {
-    Parent = ThemeRow,
+    Parent = Menu.SettingsUI.ThemeRow,
     Position = UDim2.fromOffset(24, 0),
     Size = UDim2.fromOffset(130, 24),
     BackgroundTransparency = 1,
@@ -3431,19 +3477,19 @@ end
 
 local function RefreshPicker()
     local Color = Color3.fromHSV(HueValue, SaturationValue, BrightnessValue)
-    ColorSquare.BackgroundColor3 = Color3.fromHSV(HueValue, 1, 1)
-    ColorCursor.Position = UDim2.fromScale(SaturationValue, 1 - BrightnessValue)
-    HueKnob.Position = UDim2.fromScale(HueValue, 0.5)
-    AlphaFill.Size = UDim2.fromScale(AccentAlpha, 1)
-    AlphaFill.BackgroundColor3 = Color
-    AlphaKnob.Position = UDim2.fromScale(AccentAlpha, 0.5)
-    AccentPreviewButton.BackgroundTransparency = 1 - AccentAlpha
-    if AccentPreviewGlow then
-        AccentPreviewGlow.ImageTransparency = (PickerOpen and 0.16 or (0.28 - (AccentAlpha * 0.10)))
+    Menu.SettingsUI.ColorSquare.BackgroundColor3 = Color3.fromHSV(HueValue, 1, 1)
+    Menu.SettingsUI.ColorCursor.Position = UDim2.fromScale(SaturationValue, 1 - BrightnessValue)
+    Menu.SettingsUI.HueKnob.Position = UDim2.fromScale(HueValue, 0.5)
+    Menu.SettingsUI.AlphaFill.Size = UDim2.fromScale(AccentAlpha, 1)
+    Menu.SettingsUI.AlphaFill.BackgroundColor3 = Color
+    Menu.SettingsUI.AlphaKnob.Position = UDim2.fromScale(AccentAlpha, 0.5)
+    Menu.SettingsUI.AccentPreviewButton.BackgroundTransparency = 1 - AccentAlpha
+    if Menu.SettingsUI.AccentPreviewGlow then
+        Menu.SettingsUI.AccentPreviewGlow.ImageTransparency = (PickerOpen and 0.16 or (0.28 - (AccentAlpha * 0.10)))
     end
-    AccentPreviewStroke.Transparency = PickerOpen and 0.08 or 0.16
+    Menu.SettingsUI.AccentPreviewStroke.Transparency = PickerOpen and 0.08 or 0.16
     Menu.Flags.AccentAlpha = AccentAlpha
-    HexBox.Text = ColorToHex(Color)
+    Menu.SettingsUI.HexBox.Text = ColorToHex(Color)
     UpdateAccentColor(Color)
 end
 
@@ -3458,13 +3504,13 @@ end
 local function PositionColorPicker(UseSavedPosition)
     local Camera = workspace.CurrentCamera
     local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
-    local PickerSize = ColorPickerContainer.AbsoluteSize
+    local PickerSize = Menu.SettingsUI.ColorPickerContainer.AbsoluteSize
     if PickerSize.X <= 0 or PickerSize.Y <= 0 then
         PickerSize = Vector2.new(174, 222)
     end
 
-    local SwatchPosition = AccentPreviewButton.AbsolutePosition
-    local SwatchSize = AccentPreviewButton.AbsoluteSize
+    local SwatchPosition = Menu.SettingsUI.AccentPreviewButton.AbsolutePosition
+    local SwatchSize = Menu.SettingsUI.AccentPreviewButton.AbsoluteSize
     local Gap = 8
 
     local DefaultX = SwatchPosition.X - PickerSize.X - Gap
@@ -3478,8 +3524,8 @@ local function PositionColorPicker(UseSavedPosition)
     local Y = DefaultY
 
     if UseSavedPosition and SavedPositions.ColorPickerPinned and type(SavedPositions.ColorPickerOffsetX) == "number" and type(SavedPositions.ColorPickerOffsetY) == "number" then
-        local CandidateX = SettingsPanel.AbsolutePosition.X + SavedPositions.ColorPickerOffsetX
-        local CandidateY = SettingsPanel.AbsolutePosition.Y + SavedPositions.ColorPickerOffsetY
+        local CandidateX = Menu.SettingsUI.SettingsPanel.AbsolutePosition.X + SavedPositions.ColorPickerOffsetX
+        local CandidateY = Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y + SavedPositions.ColorPickerOffsetY
         local OffsetX = math.abs(CandidateX - DefaultX)
         local OffsetY = math.abs(CandidateY - DefaultY)
         if OffsetX <= 260 and OffsetY <= 260 then
@@ -3491,31 +3537,32 @@ local function PositionColorPicker(UseSavedPosition)
     X = math.clamp(X, 10, math.max(10, Viewport.X - PickerSize.X - 10))
     Y = math.clamp(Y, 10, math.max(10, Viewport.Y - PickerSize.Y - 10))
 
-    ColorPickerContainer.Position = UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
+    Menu.SettingsUI.ColorPickerContainer.Position = UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
 end
 
 local function SetPickerOpen(State)
     PickerOpen = State
+    Menu.PickerInputBlocker.Visible = State
     if State then
-        if AccentPreviewGlow then
-            Tween(AccentPreviewGlow, 0.12, {ImageTransparency = 0.16})
+        if Menu.SettingsUI.AccentPreviewGlow then
+            Tween(Menu.SettingsUI.AccentPreviewGlow, 0.12, {ImageTransparency = 0.16})
         end
-        ColorPickerContainer.Visible = true
+        Menu.SettingsUI.ColorPickerContainer.Visible = true
         task.defer(function()
-            if PickerOpen and ColorPickerContainer.Parent then
+            if PickerOpen and Menu.SettingsUI.ColorPickerContainer.Parent then
                 PositionColorPicker(true)
             end
         end)
     else
-        if AccentPreviewGlow then
-            Tween(AccentPreviewGlow, 0.12, {ImageTransparency = 0.28 - (AccentAlpha * 0.10)})
+        if Menu.SettingsUI.AccentPreviewGlow then
+            Tween(Menu.SettingsUI.AccentPreviewGlow, 0.12, {ImageTransparency = 0.28 - (AccentAlpha * 0.10)})
         end
-        ColorPickerContainer.Visible = false
+        Menu.SettingsUI.ColorPickerContainer.Visible = false
         SavedPositions.AccentHex = ColorToThemeHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
         SavedPositions.AccentAlpha = AccentAlpha
         SavedPositions.ThemeColors = ThemeColors
-        SavedPositions.ColorPickerOffsetX = ColorPickerContainer.AbsolutePosition.X - SettingsPanel.AbsolutePosition.X
-        SavedPositions.ColorPickerOffsetY = ColorPickerContainer.AbsolutePosition.Y - SettingsPanel.AbsolutePosition.Y
+        SavedPositions.ColorPickerOffsetX = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.X - Menu.SettingsUI.SettingsPanel.AbsolutePosition.X
+        SavedPositions.ColorPickerOffsetY = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.Y - Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y
         SavePositions()
     end
 end
@@ -3523,88 +3570,103 @@ end
 local function SetSettingsOpen(State)
     SettingsOpen = State
     UpdateSettingsButtonAppearance(State)
-    SettingsOverlay.Visible = false
-    SettingsPanel.Visible = State
+    Menu.SettingsUI.SettingsOverlay.Visible = false
+    Menu.SettingsInputBlocker.Visible = State
+    Menu.SettingsUI.SettingsPanel.Visible = State
     if State then
-        SettingsPanel.Position = DecodePosition(SavedPositions.Settings, Main.Position)
-        SettingsPanelScale.Scale = 0.96
-        SettingsPanel.BackgroundTransparency = 0.08
-        Tween(SettingsPanelScale, 0.14, {Scale = 1})
-        Tween(SettingsPanel, 0.14, {BackgroundTransparency = 0})
+        Menu.SettingsUI.SettingsPanel.Position = DecodePosition(SavedPositions.Settings, Main.Position)
+        Menu.SettingsUI.SettingsPanelScale.Scale = 0.96
+        Menu.SettingsUI.SettingsPanel.BackgroundTransparency = 0.08
+        Tween(Menu.SettingsUI.SettingsPanelScale, 0.14, {Scale = 1})
+        Tween(Menu.SettingsUI.SettingsPanel, 0.14, {BackgroundTransparency = 0})
     else
-        SavedPositions.Settings = EncodePosition(SettingsPanel.Position)
+        SavedPositions.Settings = EncodePosition(Menu.SettingsUI.SettingsPanel.Position)
         SavePositions()
-        Tween(SettingsPanelScale, 0.1, {Scale = 0.96})
-        Tween(SettingsPanel, 0.1, {BackgroundTransparency = 0.08})
+        Tween(Menu.SettingsUI.SettingsPanelScale, 0.1, {Scale = 0.96})
+        Tween(Menu.SettingsUI.SettingsPanel, 0.1, {BackgroundTransparency = 0.08})
         task.delay(0.1, function()
             if not SettingsOpen then
-                SettingsPanel.Visible = false
+                Menu.SettingsUI.SettingsPanel.Visible = false
                 SetPickerOpen(false)
             end
         end)
     end
 end
 
-Bind(SettingsCloseButton.MouseButton1Click:Connect(function()
+Bind(Menu.SettingsUI.SettingsCloseButton.MouseButton1Click:Connect(function()
     SetSettingsOpen(false)
 end))
 
-Bind(AccentPreviewButton.MouseButton1Click:Connect(function()
+Bind(Menu.SettingsInputBlocker.MouseButton1Click:Connect(function()
+end))
+
+Bind(Menu.PickerInputBlocker.MouseButton1Click:Connect(function()
+    SetPickerOpen(false)
+end))
+
+Bind(Menu.PopupInputBlocker.MouseButton1Click:Connect(function()
+    ClosePopup()
+    if CloseGearMenus then
+        CloseGearMenus()
+    end
+end))
+
+Bind(Menu.SettingsUI.AccentPreviewButton.MouseButton1Click:Connect(function()
     SetPickerOpen(not PickerOpen)
 end))
 
-Bind(AccentPreviewButton.MouseEnter:Connect(function()
-    Tween(AccentPreviewStroke, 0.12, {Transparency = 0.08})
+Bind(Menu.SettingsUI.AccentPreviewButton.MouseEnter:Connect(function()
+    Tween(Menu.SettingsUI.AccentPreviewStroke, 0.12, {Transparency = 0.08})
     if not PickerOpen then
-        if AccentPreviewGlow then
-            Tween(AccentPreviewGlow, 0.12, {ImageTransparency = 0.20})
+        if Menu.SettingsUI.AccentPreviewGlow then
+            Tween(Menu.SettingsUI.AccentPreviewGlow, 0.12, {ImageTransparency = 0.20})
         end
     end
 end))
 
-Bind(AccentPreviewButton.MouseLeave:Connect(function()
-    Tween(AccentPreviewStroke, 0.12, {Transparency = PickerOpen and 0.08 or 0.16})
+Bind(Menu.SettingsUI.AccentPreviewButton.MouseLeave:Connect(function()
+    Tween(Menu.SettingsUI.AccentPreviewStroke, 0.12, {Transparency = PickerOpen and 0.08 or 0.16})
     if not PickerOpen then
-        if AccentPreviewGlow then
-            Tween(AccentPreviewGlow, 0.12, {ImageTransparency = 0.28 - (AccentAlpha * 0.10)})
+        if Menu.SettingsUI.AccentPreviewGlow then
+            Tween(Menu.SettingsUI.AccentPreviewGlow, 0.12, {ImageTransparency = 0.28 - (AccentAlpha * 0.10)})
         end
     end
 end))
 
 local function UpdateSquare(Input)
-    local X = math.clamp((Input.Position.X - ColorSquare.AbsolutePosition.X) / ColorSquare.AbsoluteSize.X, 0, 1)
-    local Y = math.clamp((Input.Position.Y - ColorSquare.AbsolutePosition.Y) / ColorSquare.AbsoluteSize.Y, 0, 1)
+    local X = math.clamp((Input.Position.X - Menu.SettingsUI.ColorSquare.AbsolutePosition.X) / Menu.SettingsUI.ColorSquare.AbsoluteSize.X, 0, 1)
+    local Y = math.clamp((Input.Position.Y - Menu.SettingsUI.ColorSquare.AbsolutePosition.Y) / Menu.SettingsUI.ColorSquare.AbsoluteSize.Y, 0, 1)
     SaturationValue = X
     BrightnessValue = 1 - Y
     RefreshPicker()
 end
 
 local function UpdateHue(Input)
-    local X = math.clamp((Input.Position.X - HueBar.AbsolutePosition.X) / HueBar.AbsoluteSize.X, 0, 1)
+    local X = math.clamp((Input.Position.X - Menu.SettingsUI.HueBar.AbsolutePosition.X) / Menu.SettingsUI.HueBar.AbsoluteSize.X, 0, 1)
     HueValue = X
     RefreshPicker()
 end
 
 local function UpdateAlpha(Input)
-    AccentAlpha = math.clamp((Input.Position.X - AlphaBar.AbsolutePosition.X) / AlphaBar.AbsoluteSize.X, 0, 1)
+    AccentAlpha = math.clamp((Input.Position.X - Menu.SettingsUI.AlphaBar.AbsolutePosition.X) / Menu.SettingsUI.AlphaBar.AbsoluteSize.X, 0, 1)
     RefreshPicker()
 end
 
-Bind(ColorSquare.InputBegan:Connect(function(Input)
+Bind(Menu.SettingsUI.ColorSquare.InputBegan:Connect(function(Input)
     if Input.UserInputType == Enum.UserInputType.MouseButton1 then
         PickerDragging = true
         UpdateSquare(Input)
     end
 end))
 
-Bind(HueBar.InputBegan:Connect(function(Input)
+Bind(Menu.SettingsUI.HueBar.InputBegan:Connect(function(Input)
     if Input.UserInputType == Enum.UserInputType.MouseButton1 then
         HueDragging = true
         UpdateHue(Input)
     end
 end))
 
-Bind(AlphaBar.InputBegan:Connect(function(Input)
+Bind(Menu.SettingsUI.AlphaBar.InputBegan:Connect(function(Input)
     if Input.UserInputType == Enum.UserInputType.MouseButton1 then
         AlphaDragging = true
         UpdateAlpha(Input)
@@ -3636,8 +3698,8 @@ Bind(UserInputService.InputEnded:Connect(function(Input)
     end
 end))
 
-Bind(ApplyHex.MouseButton1Click:Connect(function()
-    local Parsed, ParsedAlpha = HexToColor(HexBox.Text)
+Bind(Menu.SettingsUI.ApplyHex.MouseButton1Click:Connect(function()
+    local Parsed, ParsedAlpha = HexToColor(Menu.SettingsUI.HexBox.Text)
     if Parsed then
         SetPickerColor(Parsed, ParsedAlpha)
         SavedPositions.AccentHex = ColorToThemeHex(Parsed)
@@ -3646,16 +3708,16 @@ Bind(ApplyHex.MouseButton1Click:Connect(function()
     end
 end))
 
-Bind(HexBox.FocusLost:Connect(function(EnterPressed)
+Bind(Menu.SettingsUI.HexBox.FocusLost:Connect(function(EnterPressed)
     if EnterPressed then
-        local Parsed, ParsedAlpha = HexToColor(HexBox.Text)
+        local Parsed, ParsedAlpha = HexToColor(Menu.SettingsUI.HexBox.Text)
         if Parsed then
             SetPickerColor(Parsed, ParsedAlpha)
             SavedPositions.AccentHex = ColorToThemeHex(Parsed)
             SavedPositions.AccentAlpha = AccentAlpha
             SavePositions()
         else
-            HexBox.Text = ColorToHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
+            Menu.SettingsUI.HexBox.Text = ColorToHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
         end
     end
 end))
@@ -3695,11 +3757,31 @@ end, function(Value)
     SetWatermarkScale(Value)
 end)
 
+CreatePopupToggle(576, "Hide ESP Preview", SavedPositions.HideEspPreview == true, function(Value)
+    SavedPositions.HideEspPreview = Value
+    Menu.Flags.HideEspPreview = Value
+    if Menu.EspPreviewController.SetHidden then
+        Menu.EspPreviewController.SetHidden(Value)
+    end
+    SavePositions()
+end)
+
+CreatePopupSlider(608, "ESP Preview size", 70, 150, tonumber(SavedPositions.EspPreviewScale) or 100, function(Value)
+    return tostring(math.floor(Value + 0.5)) .. "%"
+end, function(Value)
+    SavedPositions.EspPreviewScale = Value
+    Menu.Flags.EspPreviewScale = Value
+    if Menu.EspPreviewController.SetScale then
+        Menu.EspPreviewController.SetScale(Value)
+    end
+    SavePositions()
+end)
+
 Menu.ToggleSettingsPanel = function()
     SetSettingsOpen(not SettingsOpen)
 end
 
-Bind(AddThemeButton.MouseButton1Click:Connect(function()
+Bind(Menu.SettingsUI.AddThemeButton.MouseButton1Click:Connect(function()
     local CurrentHex = ColorToThemeHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
     for _, ExistingHex in ipairs(ThemeColors) do
         if string.upper(ExistingHex) == string.upper(CurrentHex) then
@@ -3803,361 +3885,12 @@ PopulateSimplePage(PlayersPage, "Target", "Preview", {
     {"Snaplines", false, "Snaplines"},
     {"Resolver info", true, "ResolverInfo"}
 }, {
-    {"ESP preview", true, "EspPreview"},
-    {"Show self", true, "ShowSelf"},
-    {"Follow target", false, "FollowTarget"}
+    {"Preview box", true, "PreviewBox"},
+    {"Preview health", true, "PreviewHealth"},
+    {"Preview name", true, "PreviewName"},
+    {"Preview weapon", true, "PreviewWeapon"}
 })
 
-task.defer(function()
-    local EspPreviewCard = CreateSection(PlayersPage, "EspPreviewCard", "ESP Preview", UDim2.fromOffset(0, 244), UDim2.fromOffset(626, 220))
-    for _, Child in ipairs(EspPreviewCard.Body:GetChildren()) do
-        if Child:IsA("UIListLayout") then
-            Child:Destroy()
-        end
-    end
-
-    local PreviewViewport = Create("ViewportFrame", {
-        Parent = EspPreviewCard.Body,
-        Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.fromOffset(244, 160),
-        BackgroundColor3 = Color3.fromRGB(11, 13, 22),
-        BorderSizePixel = 0,
-        CurrentCamera = nil,
-        ZIndex = 8
-    })
-    Corner(PreviewViewport, 7)
-    Stroke(PreviewViewport, Border, 0.08, 1)
-
-    local PreviewGradient = Create("UIGradient", {
-        Parent = PreviewViewport,
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(16, 19, 32)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 10, 18))
-        }),
-        Rotation = 90
-    })
-
-    local PreviewCamera = Create("Camera", {
-        Parent = PreviewViewport,
-        FieldOfView = 36
-    })
-    PreviewViewport.CurrentCamera = PreviewCamera
-
-    local PreviewWorld = Create("WorldModel", {
-        Parent = PreviewViewport
-    })
-
-    local PreviewBackGlow = Menu:AddSoftGlow(PreviewViewport, 8, 10, 0.82, true)
-
-    local PreviewBox = Create("Frame", {
-        Parent = PreviewViewport,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(82, 116),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ZIndex = 10
-    })
-    local PreviewBoxStroke = Stroke(PreviewBox, Accent, 0.12, 1)
-
-    local PreviewHealthBack = Create("Frame", {
-        Parent = PreviewViewport,
-        Position = UDim2.new(0.5, -50, 0.5, -58),
-        Size = UDim2.fromOffset(4, 116),
-        BackgroundColor3 = Color3.fromRGB(18, 20, 31),
-        BorderSizePixel = 0,
-        ZIndex = 10
-    })
-    Corner(PreviewHealthBack, 100)
-
-    local PreviewHealthFill = Create("Frame", {
-        Parent = PreviewHealthBack,
-        AnchorPoint = Vector2.new(0, 1),
-        Position = UDim2.fromScale(0, 1),
-        Size = UDim2.fromScale(1, 1),
-        BackgroundColor3 = Accent,
-        BorderSizePixel = 0,
-        ZIndex = 11
-    })
-    Corner(PreviewHealthFill, 100)
-
-    local PreviewName = Create("TextLabel", {
-        Parent = PreviewViewport,
-        AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, 10),
-        Size = UDim2.fromOffset(180, 18),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSansMedium,
-        Text = string.upper((LocalPlayer and LocalPlayer.Name) or "PLAYER"),
-        TextColor3 = PrimaryText,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        ZIndex = 10
-    })
-
-    local PreviewFooter = Create("Frame", {
-        Parent = PreviewViewport,
-        AnchorPoint = Vector2.new(0.5, 1),
-        Position = UDim2.new(0.5, 0, 1, -8),
-        Size = UDim2.fromOffset(180, 24),
-        BackgroundColor3 = Color3.fromRGB(10, 12, 20),
-        BackgroundTransparency = 0.12,
-        BorderSizePixel = 0,
-        ZIndex = 10
-    })
-    Corner(PreviewFooter, 6)
-    Stroke(PreviewFooter, Border, 0.18, 1)
-
-    local PreviewWeapon = Create("TextLabel", {
-        Parent = PreviewFooter,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, -16, 1, 0),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSans,
-        Text = "NONE",
-        TextColor3 = MutedText,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        ZIndex = 11
-    })
-
-    local PreviewDisabled = Create("TextLabel", {
-        Parent = PreviewViewport,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(190, 18),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSansMedium,
-        Text = "Enable ESP preview to show the avatar.",
-        TextColor3 = DisabledText,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        ZIndex = 12,
-        Visible = false
-    })
-
-    local InfoPanel = Create("Frame", {
-        Parent = EspPreviewCard.Body,
-        Position = UDim2.fromOffset(258, 0),
-        Size = UDim2.new(1, -258, 1, 0),
-        BackgroundColor3 = Color3.fromRGB(10, 12, 20),
-        BorderSizePixel = 0,
-        ZIndex = 8
-    })
-    Corner(InfoPanel, 7)
-    Stroke(InfoPanel, Border, 0.08, 1)
-
-    local InfoTitle = Create("TextLabel", {
-        Parent = InfoPanel,
-        Position = UDim2.fromOffset(14, 10),
-        Size = UDim2.new(1, -28, 0, 18),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSansMedium,
-        Text = "Live preview",
-        TextColor3 = PrimaryText,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 9
-    })
-
-    local InfoSub = Create("TextLabel", {
-        Parent = InfoPanel,
-        Position = UDim2.fromOffset(14, 28),
-        Size = UDim2.new(1, -28, 0, 14),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSans,
-        Text = "A cleaner full-body preview that mirrors your visual ESP options.",
-        TextColor3 = MutedText,
-        TextSize = 10,
-        TextWrapped = true,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 9
-    })
-
-    local function CreateMiniTag(ParentObject, X, Y, Width, LabelText)
-        local Tag = Create("Frame", {
-            Parent = ParentObject,
-            Position = UDim2.fromOffset(X, Y),
-            Size = UDim2.fromOffset(Width, 28),
-            BackgroundColor3 = Color3.fromRGB(13, 15, 24),
-            BorderSizePixel = 0,
-            ZIndex = 9
-        })
-        Corner(Tag, 6)
-        Stroke(Tag, Border, 0.14, 1)
-        local Dot = Create("Frame", {
-            Parent = Tag,
-            Position = UDim2.fromOffset(10, 10),
-            Size = UDim2.fromOffset(8, 8),
-            BackgroundColor3 = Accent,
-            BorderSizePixel = 0,
-            ZIndex = 10
-        })
-        Corner(Dot, 100)
-        local TextLabel = Create("TextLabel", {
-            Parent = Tag,
-            Position = UDim2.fromOffset(24, 0),
-            Size = UDim2.new(1, -32, 1, 0),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = LabelText,
-            TextColor3 = PrimaryText,
-            TextSize = 11,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 10
-        })
-        return Tag, Dot, TextLabel
-    end
-
-    local TagBox, DotBox, LabelBox = CreateMiniTag(InfoPanel, 14, 58, 110, "Bounding box")
-    local TagHealth, DotHealth, LabelHealth = CreateMiniTag(InfoPanel, 132, 58, 104, "Health bar")
-    local TagWeapon, DotWeapon, LabelWeapon = CreateMiniTag(InfoPanel, 14, 92, 110, "Weapon")
-    local TagSelf, DotSelf, LabelSelf = CreateMiniTag(InfoPanel, 132, 92, 104, "Show self")
-
-    local PreviewStats = Create("Frame", {
-        Parent = InfoPanel,
-        Position = UDim2.fromOffset(14, 128),
-        Size = UDim2.new(1, -28, 0, 28),
-        BackgroundColor3 = Color3.fromRGB(13, 15, 24),
-        BorderSizePixel = 0,
-        ZIndex = 9
-    })
-    Corner(PreviewStats, 6)
-    Stroke(PreviewStats, Border, 0.14, 1)
-
-    local PreviewStatsLabel = Create("TextLabel", {
-        Parent = PreviewStats,
-        Position = UDim2.fromOffset(10, 0),
-        Size = UDim2.new(1, -20, 1, 0),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSans,
-        Text = "Health 100   •   Distance 0m   •   State Visible",
-        TextColor3 = MutedText,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 10
-    })
-
-    local PreviewCharacter
-    local PreviewRotation = 0
-    local LastPreviewRefresh = 0
-
-    local function ApplyPreviewAccent(NewColor)
-        PreviewBoxStroke.Color = NewColor
-        PreviewHealthFill.BackgroundColor3 = NewColor
-        if PreviewBackGlow then
-            PreviewBackGlow.ImageColor3 = NewColor
-        end
-        for _, Dot in ipairs({DotBox, DotHealth, DotWeapon, DotSelf}) do
-            Dot.BackgroundColor3 = NewColor
-        end
-    end
-    RegisterAccentTarget(ApplyPreviewAccent)
-
-    local function ClearPreviewCharacter()
-        if PreviewCharacter and PreviewCharacter.Parent then
-            PreviewCharacter:Destroy()
-        end
-        PreviewCharacter = nil
-    end
-
-    local function BuildPreviewCharacter()
-        ClearPreviewCharacter()
-        local Model
-        if LocalPlayer then
-            local Success = pcall(function()
-                Model = Players:CreateHumanoidModelFromUserId(LocalPlayer.UserId)
-            end)
-            if not Success or not Model then
-                local Character = LocalPlayer.Character
-                if Character then
-                    Model = Character:Clone()
-                end
-            end
-        end
-        if not Model then
-            return
-        end
-
-        for _, Descendant in ipairs(Model:GetDescendants()) do
-            if Descendant:IsA("Script") or Descendant:IsA("LocalScript") or Descendant:IsA("Animator") then
-                Descendant:Destroy()
-            elseif Descendant:IsA("BasePart") then
-                Descendant.Anchored = true
-                Descendant.CanCollide = false
-            end
-        end
-
-        Model.Parent = PreviewWorld
-        local RootPart = Model:FindFirstChild("HumanoidRootPart") or Model.PrimaryPart or Model:FindFirstChildWhichIsA("BasePart")
-        if RootPart then
-            Model:PivotTo(CFrame.new(0, -3.2, 0) * CFrame.Angles(0, math.rad(180), 0))
-            PreviewCamera.CFrame = CFrame.new(Vector3.new(0, 1.45, 7.2), Vector3.new(0, 1.2, 0))
-        end
-        PreviewCharacter = Model
-    end
-
-    local function UpdatePreviewDetails()
-        local Enabled = Menu.Flags.EspPreview ~= false
-        PreviewViewport.Visible = true
-        PreviewDisabled.Visible = not Enabled
-        if not Enabled then
-            ClearPreviewCharacter()
-        elseif not PreviewCharacter then
-            BuildPreviewCharacter()
-        end
-
-        local Character = LocalPlayer and LocalPlayer.Character
-        local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
-        local Health = math.floor((Humanoid and Humanoid.Health) or 100)
-        local MaxHealth = math.max(1, math.floor((Humanoid and Humanoid.MaxHealth) or 100))
-        local Alpha = math.clamp(Health / MaxHealth, 0, 1)
-        PreviewHealthFill.Size = UDim2.fromScale(1, Alpha)
-        PreviewName.Text = string.upper((LocalPlayer and LocalPlayer.Name) or "PLAYER") .. "  [" .. tostring(Health) .. "]"
-
-        local ToolName = "NONE"
-        if Character then
-            local Tool = Character:FindFirstChildOfClass("Tool")
-            if Tool then
-                ToolName = string.upper(Tool.Name)
-            end
-        end
-        PreviewWeapon.Text = ToolName
-        PreviewStatsLabel.Text = string.format("Health %d   •   Distance 0m   •   State Visible", Health)
-
-        local function UpdateTag(Dot, LabelObject, Value)
-            Dot.BackgroundColor3 = Value and Accent or Color3.fromRGB(62, 68, 92)
-            LabelObject.TextColor3 = Value and PrimaryText or MutedText
-        end
-        UpdateTag(DotBox, LabelBox, Menu.Flags.BoundingBox ~= false)
-        UpdateTag(DotHealth, LabelHealth, Menu.Flags.HealthBar ~= false)
-        UpdateTag(DotWeapon, LabelWeapon, Menu.Flags.WeaponEsp ~= false)
-        UpdateTag(DotSelf, LabelSelf, Menu.Flags.ShowSelf ~= false)
-    end
-
-    if LocalPlayer then
-        Bind(LocalPlayer.CharacterAdded:Connect(function()
-            task.delay(0.4, function()
-                BuildPreviewCharacter()
-                UpdatePreviewDetails()
-            end)
-        end))
-    end
-
-    Bind(RunService.RenderStepped:Connect(function(DeltaTime)
-        if PreviewCharacter and PreviewCharacter.Parent and Menu.Visible and PlayersPage.Visible and Menu.Flags.EspPreview ~= false then
-            PreviewRotation += DeltaTime * 28
-            PreviewCharacter:PivotTo(CFrame.new(0, -3.2, 0) * CFrame.Angles(0, math.rad(180 + PreviewRotation), 0))
-        end
-        if os.clock() - LastPreviewRefresh > 0.12 then
-            LastPreviewRefresh = os.clock()
-            UpdatePreviewDetails()
-        end
-    end))
-
-    UpdatePreviewDetails()
-end)
 
 PopulateSimplePage(CloudPage, "Cloud", "Account", {
     {"Synchronization", false, "Synchronization"},
@@ -4178,6 +3911,577 @@ PopulateSimplePage(ConfigPage, "Storage", "Sharing", {
     {"Import clipboard", true, "ImportClipboard"},
     {"Overwrite prompt", true, "OverwritePrompt"}
 })
+
+
+do
+local function CreateEspPreviewWindow()
+    local S = {
+        Hidden = SavedPositions.HideEspPreview == true,
+        Mode = SavedPositions.EspPreviewMode == "2D" and "2D" or "3D",
+        LoadGeneration = 0,
+        LastRetry = 0,
+        Model = nil,
+        Description = nil,
+        Dragging = false,
+        DragStart = nil,
+        StartPosition = nil
+    }
+
+    S.Window = Create("Frame", {
+        Parent = ScreenGui,
+        Active = true,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = DecodePosition(SavedPositions.EspPreviewPosition, UDim2.new(0.5, 430, 0.5, 0)),
+        Size = UDim2.fromOffset(278, 386),
+        BackgroundColor3 = Color3.fromRGB(9, 10, 18),
+        BorderSizePixel = 0,
+        Visible = false,
+        ZIndex = 20
+    })
+    Corner(S.Window, 8)
+    Stroke(S.Window, Border, 0.1, 1)
+    S.Glow = Menu:AddSoftGlow(S.Window, 20, 10, 0.7, true)
+
+    S.Scale = Create("UIScale", {
+        Parent = S.Window,
+        Scale = math.clamp((tonumber(SavedPositions.EspPreviewScale) or 100) / 100, 0.7, 1.5)
+    })
+
+    S.Header = Create("Frame", {
+        Parent = S.Window,
+        Active = true,
+        Size = UDim2.new(1, 0, 0, 44),
+        BackgroundColor3 = Color3.fromRGB(12, 14, 23),
+        BorderSizePixel = 0,
+        ZIndex = 21
+    })
+    Corner(S.Header, 8)
+
+    Create("Frame", {
+        Parent = S.Header,
+        AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.new(0, 0, 1, 0),
+        Size = UDim2.new(1, 0, 0, 1),
+        BackgroundColor3 = Border,
+        BorderSizePixel = 0,
+        ZIndex = 22
+    })
+
+    Create("TextLabel", {
+        Parent = S.Header,
+        Position = UDim2.fromOffset(14, 0),
+        Size = UDim2.fromOffset(112, 44),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = "ESP PREVIEW",
+        TextColor3 = PrimaryText,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 22
+    })
+
+    S.ModeRail = Create("Frame", {
+        Parent = S.Header,
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -10, 0.5, 0),
+        Size = UDim2.fromOffset(104, 26),
+        BackgroundColor3 = Color3.fromRGB(8, 10, 17),
+        BorderSizePixel = 0,
+        ZIndex = 22
+    })
+    Corner(S.ModeRail, 6)
+    Stroke(S.ModeRail, Border, 0.18, 1)
+
+    S.ModeHighlight = Create("Frame", {
+        Parent = S.ModeRail,
+        Position = UDim2.fromOffset(S.Mode == "2D" and 2 or 52, 2),
+        Size = UDim2.fromOffset(50, 22),
+        BackgroundColor3 = Accent,
+        BorderSizePixel = 0,
+        ZIndex = 23
+    })
+    Corner(S.ModeHighlight, 5)
+
+    S.TwoDButton = Create("TextButton", {
+        Parent = S.ModeRail,
+        Position = UDim2.fromOffset(2, 2),
+        Size = UDim2.fromOffset(50, 22),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = "2D",
+        TextColor3 = S.Mode == "2D" and Color3.fromRGB(11, 13, 20) or MutedText,
+        TextSize = 11,
+        ZIndex = 24
+    })
+
+    S.ThreeDButton = Create("TextButton", {
+        Parent = S.ModeRail,
+        Position = UDim2.fromOffset(52, 2),
+        Size = UDim2.fromOffset(50, 22),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = "3D",
+        TextColor3 = S.Mode == "3D" and Color3.fromRGB(11, 13, 20) or MutedText,
+        TextSize = 11,
+        ZIndex = 24
+    })
+
+    S.Body = Create("Frame", {
+        Parent = S.Window,
+        Position = UDim2.fromOffset(10, 54),
+        Size = UDim2.new(1, -20, 1, -64),
+        BackgroundColor3 = Color3.fromRGB(7, 9, 16),
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        ZIndex = 21
+    })
+    Corner(S.Body, 7)
+    Stroke(S.Body, Border, 0.14, 1)
+
+    Create("UIGradient", {
+        Parent = S.Body,
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 18, 30)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(7, 9, 16))
+        }),
+        Rotation = 90
+    })
+
+    S.TwoDLayer = Create("Frame", {
+        Parent = S.Body,
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        Visible = S.Mode == "2D",
+        ZIndex = 22
+    })
+
+    S.Viewport = Create("ViewportFrame", {
+        Parent = S.Body,
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        Ambient = Color3.fromRGB(150, 155, 175),
+        LightColor = Color3.fromRGB(235, 240, 255),
+        LightDirection = Vector3.new(-1, -1, -1),
+        CurrentCamera = nil,
+        Visible = S.Mode == "3D",
+        ZIndex = 22
+    })
+
+    S.Camera = Create("Camera", {
+        Parent = S.Viewport,
+        FieldOfView = 32
+    })
+    S.Viewport.CurrentCamera = S.Camera
+    S.World = Create("WorldModel", {Parent = S.Viewport})
+
+    S.Silhouette = Create("Frame", {
+        Parent = S.TwoDLayer,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.52),
+        Size = UDim2.fromOffset(116, 224),
+        BackgroundTransparency = 1,
+        ZIndex = 23
+    })
+
+    local function Part(Name, Position, Size, Radius)
+        local Object = Create("Frame", {
+            Parent = S.Silhouette,
+            Name = Name,
+            Position = Position,
+            Size = Size,
+            BackgroundColor3 = Color3.fromRGB(66, 73, 98),
+            BorderSizePixel = 0,
+            ZIndex = 23
+        })
+        Corner(Object, Radius)
+        return Object
+    end
+
+    Part("Head", UDim2.fromOffset(40, 0), UDim2.fromOffset(36, 36), 100)
+    Part("Torso", UDim2.fromOffset(29, 42), UDim2.fromOffset(58, 86), 10)
+    Part("LeftArm", UDim2.fromOffset(9, 46), UDim2.fromOffset(18, 92), 9)
+    Part("RightArm", UDim2.fromOffset(89, 46), UDim2.fromOffset(18, 92), 9)
+    Part("LeftLeg", UDim2.fromOffset(32, 134), UDim2.fromOffset(22, 88), 10)
+    Part("RightLeg", UDim2.fromOffset(62, 134), UDim2.fromOffset(22, 88), 10)
+
+    S.Box = Create("Frame", {
+        Parent = S.Body,
+        Position = UDim2.fromScale(0.27, 0.13),
+        Size = UDim2.fromScale(0.46, 0.73),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 26
+    })
+    S.BoxStroke = Stroke(S.Box, Accent, 0.08, 1)
+
+    S.HealthBack = Create("Frame", {
+        Parent = S.Body,
+        Position = UDim2.fromScale(0.235, 0.13),
+        Size = UDim2.fromScale(0.014, 0.73),
+        BackgroundColor3 = Color3.fromRGB(22, 25, 37),
+        BorderSizePixel = 0,
+        ZIndex = 26
+    })
+    Corner(S.HealthBack, 100)
+
+    S.HealthFill = Create("Frame", {
+        Parent = S.HealthBack,
+        AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.fromScale(0, 1),
+        Size = UDim2.fromScale(1, 1),
+        BackgroundColor3 = Accent,
+        BorderSizePixel = 0,
+        ZIndex = 27
+    })
+    Corner(S.HealthFill, 100)
+
+    S.Name = Create("TextLabel", {
+        Parent = S.Body,
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.fromScale(0.5, 0.045),
+        Size = UDim2.new(1, -24, 0, 18),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = string.upper(LocalPlayer and LocalPlayer.Name or "PLAYER"),
+        TextColor3 = PrimaryText,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 27
+    })
+
+    S.Weapon = Create("TextLabel", {
+        Parent = S.Body,
+        AnchorPoint = Vector2.new(0.5, 1),
+        Position = UDim2.fromScale(0.5, 0.955),
+        Size = UDim2.new(1, -24, 0, 18),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSans,
+        Text = "NONE",
+        TextColor3 = MutedText,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 27
+    })
+
+    S.Status = Create("TextLabel", {
+        Parent = S.Body,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, -30, 0, 20),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = "LOADING AVATAR",
+        TextColor3 = MutedText,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        Visible = false,
+        ZIndex = 28
+    })
+
+    local function SaveWindowPosition()
+        SavedPositions.EspPreviewPosition = EncodePosition(S.Window.Position)
+        SavePositions()
+    end
+
+    local function ClampWindow(Position)
+        local Camera = workspace.CurrentCamera
+        local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+        local Size = S.Window.AbsoluteSize
+        if Size.X <= 0 or Size.Y <= 0 then
+            Size = Vector2.new(278, 386)
+        end
+        Size *= S.Scale.Scale
+        local HalfX = math.floor(Size.X * 0.5)
+        local HalfY = math.floor(Size.Y * 0.5)
+        local AbsoluteX = (Position.X.Scale * Viewport.X) + Position.X.Offset
+        local AbsoluteY = (Position.Y.Scale * Viewport.Y) + Position.Y.Offset
+        local X = math.clamp(AbsoluteX, HalfX, math.max(HalfX, Viewport.X - HalfX))
+        local Y = math.clamp(AbsoluteY, HalfY, math.max(HalfY, Viewport.Y - HalfY))
+        return UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
+    end
+
+    local function ClearModel(Invalidate)
+        if Invalidate ~= false then
+            S.LoadGeneration += 1
+        end
+        if S.Model and S.Model.Parent then
+            S.Model:Destroy()
+        end
+        S.Model = nil
+        for _, Child in ipairs(S.World:GetChildren()) do
+            Child:Destroy()
+        end
+    end
+
+    local function SanitizeModel(Model)
+        for _, Object in ipairs(Model:GetDescendants()) do
+            if Object:IsA("Script") or Object:IsA("LocalScript") or Object:IsA("Animator") or Object:IsA("AnimationController") then
+                Object:Destroy()
+            elseif Object:IsA("BasePart") then
+                Object.Anchored = true
+                Object.CanCollide = false
+                Object.CanTouch = false
+                Object.CanQuery = false
+            end
+        end
+        local Humanoid = Model:FindFirstChildWhichIsA("Humanoid")
+        if Humanoid then
+            Humanoid.AutoRotate = false
+            Humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        end
+    end
+
+    local function FrameModel(Model)
+        Model:PivotTo(CFrame.new())
+        local BoxCFrame, BoxSize = Model:GetBoundingBox()
+        Model:PivotTo(CFrame.new(-BoxCFrame.Position))
+        BoxCFrame, BoxSize = Model:GetBoundingBox()
+        local Radius = math.max(BoxSize.X, BoxSize.Y, BoxSize.Z) * 0.5
+        local Distance = (Radius / math.tan(math.rad(S.Camera.FieldOfView * 0.5))) + (BoxSize.Z * 0.65) + 1.5
+        local Center = BoxCFrame.Position + Vector3.new(0, BoxSize.Y * 0.03, 0)
+        S.Camera.CFrame = CFrame.new(Center + Vector3.new(0, 0, Distance), Center)
+    end
+
+    local function TryBuildModel(Generation)
+        if not LocalPlayer or LocalPlayer.UserId <= 0 then
+            return false
+        end
+        S.Status.Text = "LOADING AVATAR"
+        S.Status.Visible = true
+        local Description
+        local SuccessDescription = pcall(function()
+            Description = Players:GetHumanoidDescriptionFromUserIdAsync(LocalPlayer.UserId)
+        end)
+        if Generation ~= S.LoadGeneration or not SuccessDescription or not Description then
+            return false
+        end
+        local RigType = Enum.HumanoidRigType.R15
+        local Character = LocalPlayer.Character
+        local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
+        if Humanoid then
+            RigType = Humanoid.RigType
+        end
+        local Model
+        local SuccessModel = pcall(function()
+            Model = Players:CreateHumanoidModelFromDescriptionAsync(Description, RigType)
+        end)
+        if Generation ~= S.LoadGeneration or not SuccessModel or not Model then
+            if Model then
+                Model:Destroy()
+            end
+            return false
+        end
+        ClearModel(false)
+        SanitizeModel(Model)
+        Model.Parent = S.World
+        FrameModel(Model)
+        S.Description = Description
+        S.Model = Model
+        S.Status.Visible = false
+        return true
+    end
+
+    local function RequestModel()
+        S.LoadGeneration += 1
+        local Generation = S.LoadGeneration
+        task.spawn(function()
+            while S.Window.Parent and Generation == S.LoadGeneration and S.Mode == "3D" and not S.Hidden do
+                if TryBuildModel(Generation) then
+                    return
+                end
+                S.Status.Text = "RETRYING AVATAR"
+                S.Status.Visible = true
+                task.wait(2)
+            end
+        end)
+    end
+
+    local function ProjectModelBounds()
+        if not S.Model or not S.Model.Parent or S.Mode ~= "3D" then
+            return
+        end
+        local BoxCFrame, BoxSize = S.Model:GetBoundingBox()
+        local Half = BoxSize * 0.5
+        local MinX, MinY = 1, 1
+        local MaxX, MaxY = 0, 0
+        for X = -1, 1, 2 do
+            for Y = -1, 1, 2 do
+                for Z = -1, 1, 2 do
+                    local WorldPoint = BoxCFrame:PointToWorldSpace(Vector3.new(Half.X * X, Half.Y * Y, Half.Z * Z))
+                    local Point = S.Camera:WorldToViewportPoint(WorldPoint)
+                    MinX = math.min(MinX, Point.X)
+                    MinY = math.min(MinY, Point.Y)
+                    MaxX = math.max(MaxX, Point.X)
+                    MaxY = math.max(MaxY, Point.Y)
+                end
+            end
+        end
+        MinX = math.clamp(MinX, 0.08, 0.92)
+        MinY = math.clamp(MinY, 0.08, 0.92)
+        MaxX = math.clamp(MaxX, MinX + 0.05, 0.92)
+        MaxY = math.clamp(MaxY, MinY + 0.05, 0.92)
+        S.Box.Position = UDim2.fromScale(MinX, MinY)
+        S.Box.Size = UDim2.fromScale(MaxX - MinX, MaxY - MinY)
+        S.HealthBack.Position = UDim2.fromScale(math.max(0.03, MinX - 0.035), MinY)
+        S.HealthBack.Size = UDim2.fromScale(0.014, MaxY - MinY)
+    end
+
+    local function UpdateInfo()
+        local Character = LocalPlayer and LocalPlayer.Character
+        local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
+        local Health = math.max(0, math.floor((Humanoid and Humanoid.Health) or 100))
+        local MaxHealth = math.max(1, math.floor((Humanoid and Humanoid.MaxHealth) or 100))
+        S.HealthFill.Size = UDim2.fromScale(1, math.clamp(Health / MaxHealth, 0, 1))
+        S.Name.Text = string.upper(LocalPlayer and LocalPlayer.Name or "PLAYER") .. "  [" .. tostring(Health) .. "]"
+        local Tool = Character and Character:FindFirstChildOfClass("Tool")
+        S.Weapon.Text = Tool and string.upper(Tool.Name) or "NONE"
+        S.Box.Visible = Menu.Flags.PreviewBox ~= false
+        S.HealthBack.Visible = Menu.Flags.PreviewHealth ~= false
+        S.Name.Visible = Menu.Flags.PreviewName ~= false
+        S.Weapon.Visible = Menu.Flags.PreviewWeapon ~= false
+    end
+
+    local function RefreshMode()
+        local Is2D = S.Mode == "2D"
+        S.TwoDLayer.Visible = Is2D
+        S.Viewport.Visible = not Is2D
+        S.ModeHighlight.Position = UDim2.fromOffset(Is2D and 2 or 52, 2)
+        S.TwoDButton.TextColor3 = Is2D and Color3.fromRGB(11, 13, 20) or MutedText
+        S.ThreeDButton.TextColor3 = Is2D and MutedText or Color3.fromRGB(11, 13, 20)
+        if Is2D then
+            ClearModel()
+            S.Status.Visible = false
+            S.Box.Position = UDim2.fromScale(0.27, 0.13)
+            S.Box.Size = UDim2.fromScale(0.46, 0.73)
+            S.HealthBack.Position = UDim2.fromScale(0.235, 0.13)
+            S.HealthBack.Size = UDim2.fromScale(0.014, 0.73)
+        elseif not S.Model and S.Window.Visible then
+            RequestModel()
+        end
+    end
+
+    local function RefreshVisibility()
+        S.Window.Visible = Menu.Visible and not S.Hidden
+        if S.Window.Visible and S.Mode == "3D" and not S.Model then
+            RequestModel()
+        end
+    end
+
+    Menu.EspPreviewController.SetHidden = function(Value)
+        S.Hidden = Value and true or false
+        SavedPositions.HideEspPreview = S.Hidden
+        RefreshVisibility()
+        if S.Hidden then
+            S.Status.Visible = false
+        elseif S.Mode == "3D" and not S.Model then
+            RequestModel()
+        end
+    end
+
+    Menu.EspPreviewController.SetScale = function(Value)
+        local Number = math.clamp(tonumber(Value) or 100, 70, 150)
+        S.Scale.Scale = Number / 100
+        SavedPositions.EspPreviewScale = Number
+        S.Window.Position = ClampWindow(S.Window.Position)
+    end
+
+    Menu.EspPreviewController.SetMenuVisible = function(Value)
+        RefreshVisibility()
+    end
+
+    Menu.EspPreviewController.SetMode = function(Value)
+        S.Mode = Value == "2D" and "2D" or "3D"
+        SavedPositions.EspPreviewMode = S.Mode
+        SavePositions()
+        RefreshMode()
+    end
+
+    Bind(S.TwoDButton.MouseButton1Click:Connect(function()
+        Menu.EspPreviewController.SetMode("2D")
+    end))
+
+    Bind(S.ThreeDButton.MouseButton1Click:Connect(function()
+        Menu.EspPreviewController.SetMode("3D")
+    end))
+
+    Bind(S.Header.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            S.Dragging = true
+            S.DragStart = Input.Position
+            S.StartPosition = S.Window.Position
+        end
+    end))
+
+    Bind(UserInputService.InputChanged:Connect(function(Input)
+        if S.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
+            local Delta = Input.Position - S.DragStart
+            S.Window.Position = ClampWindow(UDim2.new(
+                S.StartPosition.X.Scale,
+                S.StartPosition.X.Offset + Delta.X,
+                S.StartPosition.Y.Scale,
+                S.StartPosition.Y.Offset + Delta.Y
+            ))
+        end
+    end))
+
+    Bind(UserInputService.InputEnded:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 and S.Dragging then
+            S.Dragging = false
+            SaveWindowPosition()
+        end
+    end))
+
+    if LocalPlayer then
+        Bind(LocalPlayer.CharacterAdded:Connect(function()
+            task.delay(0.75, function()
+                UpdateInfo()
+                if S.Mode == "3D" and not S.Hidden then
+                    RequestModel()
+                end
+            end)
+        end))
+    end
+
+    local LastUpdate = 0
+    Bind(RunService.RenderStepped:Connect(function()
+        if not S.Window.Visible then
+            return
+        end
+        if os.clock() - LastUpdate >= 0.1 then
+            LastUpdate = os.clock()
+            UpdateInfo()
+            if S.Mode == "3D" then
+                if S.Model and S.Model.Parent then
+                    ProjectModelBounds()
+                elseif os.clock() - S.LastRetry > 2 then
+                    S.LastRetry = os.clock()
+                    RequestModel()
+                end
+            end
+        end
+    end))
+
+    RegisterAccentTarget(function(NewColor)
+        S.ModeHighlight.BackgroundColor3 = NewColor
+        S.BoxStroke.Color = NewColor
+        S.HealthFill.BackgroundColor3 = NewColor
+        if S.Glow then
+            S.Glow.ImageColor3 = NewColor
+        end
+    end)
+
+    Menu.EspPreviewWindow = S.Window
+    S.Window.Position = ClampWindow(S.Window.Position)
+    RefreshMode()
+    UpdateInfo()
+end
+
+CreateEspPreviewWindow()
+end
 
 local CurrentPage = "Combat"
 local CurrentMode = "Ragebot"
@@ -4287,10 +4591,13 @@ end))
 
 Bind(SaveButton.MouseButton1Click:Connect(function()
     SavedPositions.Main = EncodePosition(Main.Position)
-    SavedPositions.Settings = EncodePosition(SettingsPanel.Position)
+    SavedPositions.Settings = EncodePosition(Menu.SettingsUI.SettingsPanel.Position)
     SavedPositions.Watermark = EncodePosition(Watermark.Position)
-    SavedPositions.ColorPickerOffsetX = ColorPickerContainer.AbsolutePosition.X - SettingsPanel.AbsolutePosition.X
-    SavedPositions.ColorPickerOffsetY = ColorPickerContainer.AbsolutePosition.Y - SettingsPanel.AbsolutePosition.Y
+    if Menu.EspPreviewWindow then
+        SavedPositions.EspPreviewPosition = EncodePosition(Menu.EspPreviewWindow.Position)
+    end
+    SavedPositions.ColorPickerOffsetX = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.X - Menu.SettingsUI.SettingsPanel.AbsolutePosition.X
+    SavedPositions.ColorPickerOffsetY = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.Y - Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y
     SavedPositions.ColorPickerPinned = SavedPositions.ColorPickerPinned == true
     SavePositions()
     SaveButton.Text = "Saved"
@@ -4332,21 +4639,21 @@ local ColorPickerWindowDragging = false
 local ColorPickerWindowDragStart
 local ColorPickerWindowStartPosition
 
-Bind(SettingsDragArea.InputBegan:Connect(function(Input)
+Bind(Menu.SettingsUI.SettingsDragArea.InputBegan:Connect(function(Input)
     if Input.UserInputType == Enum.UserInputType.MouseButton1 then
         SetTextInputsEnabled(false)
         SettingsDragging = true
         SettingsDragStart = Input.Position
-        SettingsStartPosition = SettingsPanel.Position
+        SettingsStartPosition = Menu.SettingsUI.SettingsPanel.Position
     end
 end))
 
-Bind(ColorPickerDragArea.InputBegan:Connect(function(Input)
+Bind(Menu.SettingsUI.ColorPickerDragArea.InputBegan:Connect(function(Input)
     if Input.UserInputType == Enum.UserInputType.MouseButton1 then
         SetTextInputsEnabled(false)
         ColorPickerWindowDragging = true
         ColorPickerWindowDragStart = Input.Position
-        ColorPickerWindowStartPosition = ColorPickerContainer.Position
+        ColorPickerWindowStartPosition = Menu.SettingsUI.ColorPickerContainer.Position
     end
 end))
 
@@ -4402,7 +4709,7 @@ Bind(UserInputService.InputChanged:Connect(function(Input)
         end
         if SettingsDragging then
             local Delta = Input.Position - SettingsDragStart
-            SettingsPanel.Position = ClampCenteredPosition(SettingsPanel, UDim2.new(
+            Menu.SettingsUI.SettingsPanel.Position = ClampCenteredPosition(Menu.SettingsUI.SettingsPanel, UDim2.new(
                 SettingsStartPosition.X.Scale,
                 SettingsStartPosition.X.Offset + Delta.X,
                 SettingsStartPosition.Y.Scale,
@@ -4411,7 +4718,7 @@ Bind(UserInputService.InputChanged:Connect(function(Input)
         end
         if ColorPickerWindowDragging then
             local Delta = Input.Position - ColorPickerWindowDragStart
-            ColorPickerContainer.Position = ClampCenteredPosition(ColorPickerContainer, UDim2.new(
+            Menu.SettingsUI.ColorPickerContainer.Position = ClampCenteredPosition(Menu.SettingsUI.ColorPickerContainer, UDim2.new(
                 ColorPickerWindowStartPosition.X.Scale,
                 ColorPickerWindowStartPosition.X.Offset + Delta.X,
                 ColorPickerWindowStartPosition.Y.Scale,
@@ -4428,12 +4735,12 @@ Bind(UserInputService.InputEnded:Connect(function(Input)
             SavePositions()
         end
         if SettingsDragging then
-            SavedPositions.Settings = EncodePosition(SettingsPanel.Position)
+            SavedPositions.Settings = EncodePosition(Menu.SettingsUI.SettingsPanel.Position)
             SavePositions()
         end
         if ColorPickerWindowDragging then
-            SavedPositions.ColorPickerOffsetX = ColorPickerContainer.AbsolutePosition.X - SettingsPanel.AbsolutePosition.X
-            SavedPositions.ColorPickerOffsetY = ColorPickerContainer.AbsolutePosition.Y - SettingsPanel.AbsolutePosition.Y
+            SavedPositions.ColorPickerOffsetX = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.X - Menu.SettingsUI.SettingsPanel.AbsolutePosition.X
+            SavedPositions.ColorPickerOffsetY = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.Y - Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y
             SavedPositions.ColorPickerPinned = true
             SavePositions()
         end
@@ -4619,10 +4926,10 @@ end
 
 local function AnimateAssemblyClose(Generation)
     SavedPositions.Main = EncodePosition(Main.Position)
-    SavedPositions.Settings = EncodePosition(SettingsPanel.Position)
+    SavedPositions.Settings = EncodePosition(Menu.SettingsUI.SettingsPanel.Position)
     SavedPositions.Watermark = EncodePosition(Watermark.Position)
-    SavedPositions.ColorPickerOffsetX = ColorPickerContainer.AbsolutePosition.X - SettingsPanel.AbsolutePosition.X
-    SavedPositions.ColorPickerOffsetY = ColorPickerContainer.AbsolutePosition.Y - SettingsPanel.AbsolutePosition.Y
+    SavedPositions.ColorPickerOffsetX = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.X - Menu.SettingsUI.SettingsPanel.AbsolutePosition.X
+    SavedPositions.ColorPickerOffsetY = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.Y - Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y
     SavePositions()
     ClosePopup()
     if CloseGearMenus then
@@ -4673,6 +4980,9 @@ local function AnimateAssemblyClose(Generation)
         Main.Visible = false
         Overlay.Visible = false
         InputBlocker.Visible = false
+        Menu.SettingsInputBlocker.Visible = false
+        Menu.PopupInputBlocker.Visible = false
+        Menu.PickerInputBlocker.Visible = false
     end)
 end
 
@@ -4685,6 +4995,9 @@ local function SetVisible(State)
     AssemblyGeneration += 1
     local Generation = AssemblyGeneration
     Menu.Visible = State
+    if Menu.EspPreviewController.SetMenuVisible then
+        Menu.EspPreviewController.SetMenuVisible(State)
+    end
 
     if State then
         AnimateAssemblyOpen(Generation)
@@ -4827,12 +5140,12 @@ Bind(UserInputService.InputBegan:Connect(function(Input, Processed)
         end
     end
 
-    if Input.UserInputType == Enum.UserInputType.MouseButton1 and PickerOpen and ColorPickerContainer.Visible then
+    if Input.UserInputType == Enum.UserInputType.MouseButton1 and PickerOpen and Menu.SettingsUI.ColorPickerContainer.Visible then
         local Position = Input.Position
-        local PickerPosition = ColorPickerContainer.AbsolutePosition
-        local PickerSize = ColorPickerContainer.AbsoluteSize
-        local SwatchPosition = AccentPreviewButton.AbsolutePosition
-        local SwatchSize = AccentPreviewButton.AbsoluteSize
+        local PickerPosition = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition
+        local PickerSize = Menu.SettingsUI.ColorPickerContainer.AbsoluteSize
+        local SwatchPosition = Menu.SettingsUI.AccentPreviewButton.AbsolutePosition
+        local SwatchSize = Menu.SettingsUI.AccentPreviewButton.AbsoluteSize
         local InsidePicker = Position.X >= PickerPosition.X and Position.X <= PickerPosition.X + PickerSize.X
             and Position.Y >= PickerPosition.Y and Position.Y <= PickerPosition.Y + PickerSize.Y
         local InsideSwatch = Position.X >= SwatchPosition.X and Position.X <= SwatchPosition.X + SwatchSize.X
@@ -4860,6 +5173,10 @@ end))
 Menu.Visible = false
 Main.Visible = false
 Overlay.Visible = false
+InputBlocker.Visible = false
+Menu.SettingsInputBlocker.Visible = false
+Menu.PopupInputBlocker.Visible = false
+Menu.PickerInputBlocker.Visible = false
 
 task.defer(function()
     RunService.RenderStepped:Wait()
