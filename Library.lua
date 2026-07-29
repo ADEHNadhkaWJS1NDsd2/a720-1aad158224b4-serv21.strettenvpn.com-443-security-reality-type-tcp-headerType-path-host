@@ -178,6 +178,7 @@ local function BuildRuntime()
             ImageTransparency = Transparency or 0.72,
             ScaleType = UseSlice == false and Enum.ScaleType.Fit or Enum.ScaleType.Slice,
             SliceCenter = Rect.new(34, 34, 62, 62),
+            Visible = Target.Visible,
             ZIndex = (ZIndex or Target.ZIndex) - 1
         })
 
@@ -194,11 +195,13 @@ local function BuildRuntime()
                 Target.Position.Y.Offset + math.floor((Extra * ((Anchor.Y * 2) - 1)) + 0.5)
             )
             Glow.Size = UDim2.new(Target.Size.X.Scale, Target.Size.X.Offset + Extra * 2, Target.Size.Y.Scale, Target.Size.Y.Offset + Extra * 2)
+            Glow.Visible = Target.Visible
         end
 
         Sync()
         Bind(Target:GetPropertyChangedSignal("Position"):Connect(Sync))
         Bind(Target:GetPropertyChangedSignal("Size"):Connect(Sync))
+        Bind(Target:GetPropertyChangedSignal("Visible"):Connect(Sync))
         Bind(Target.AncestryChanged:Connect(function(_, ParentObject)
             if not ParentObject and Glow.Parent then
                 Glow:Destroy()
@@ -800,6 +803,7 @@ local function BuildRuntime()
     local function CreateRow(Parent, Height)
         return Create("Frame", {
             Parent = Parent,
+            Active = true,
             Size = UDim2.new(1, 0, 0, Height),
             BackgroundTransparency = 1,
             ZIndex = 7
@@ -826,6 +830,7 @@ local function BuildRuntime()
     local OpenGearMenu
 
     local function CreateGear(Row, XOffset, YOffset, ControlName, ControlFlag, ControlInfo)
+        Row:SetAttribute("HasBindGear", true)
         local Button = Create("TextButton", {
             Parent = Row,
             AnchorPoint = Vector2.new(0.5, 0.5),
@@ -917,6 +922,9 @@ local function BuildRuntime()
             Tween(BorderStroke, 0.12, {
                 Color = State and Accent or Border
             })
+            if type(Options.Callback) == "function" then
+                task.spawn(Options.Callback, State)
+            end
         end
 
         Menu.Setters[Flag] = Set
@@ -928,7 +936,7 @@ local function BuildRuntime()
         Bind(Row.InputBegan:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                 local RelativeX = Input.Position.X - Row.AbsolutePosition.X
-                local RightExclusion = Options.Gear and 52 or 24
+                local RightExclusion = (Options.Gear or Row:GetAttribute("HasBindGear") == true) and 52 or 24
                 if RelativeX < Row.AbsoluteSize.X - RightExclusion then
                     Set(not State)
                 end
@@ -940,7 +948,11 @@ local function BuildRuntime()
             Set = Set,
             Get = function()
                 return State
-            end
+            end,
+            Row = Row,
+            Flag = Flag,
+            Name = Name,
+            Section = Section
         }
     end
 
@@ -1010,7 +1022,8 @@ local function BuildRuntime()
         local Track = Create("Frame", {
             Parent = Row,
             Position = UDim2.fromOffset(0, 31),
-            Size = UDim2.new(1, 0, 0, 4),
+            Size = UDim2.new(1, 0, 0, 6),
+            Active = true,
             BackgroundColor3 = Color3.fromRGB(28, 31, 45),
             BorderSizePixel = 0,
             ZIndex = 8
@@ -1061,6 +1074,9 @@ local function BuildRuntime()
             local Alpha = (Value - Minimum) / (Maximum - Minimum)
             SmoothSlider(Fill, Knob, Alpha, 0.12)
             ValueLabel.Text = Format(Value)
+            if type(Options.Callback) == "function" then
+                task.spawn(Options.Callback, Value)
+            end
         end
 
         Menu.Setters[Flag] = Set
@@ -2255,6 +2271,9 @@ local function BuildRuntime()
             Menu.Flags[Flag] = Value
             ValueLabel.Text = tostring(Value)
             ClosePopup()
+            if type(Options.Callback) == "function" then
+                task.spawn(Options.Callback, Value)
+            end
             ButtonStroke.Color = Accent
             task.delay(0.10 / math.max(AnimationFactor, 0.05), function()
                 if ButtonStroke.Parent and not IsOpened then
@@ -2457,7 +2476,7 @@ local function BuildRuntime()
         Active = true,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = DecodePosition(SavedPositions.Settings, Main.Position),
-        Size = UDim2.fromOffset(348, 696),
+        Size = UDim2.fromOffset(348, 724),
         BackgroundColor3 = Color3.fromRGB(11, 12, 21),
         BorderSizePixel = 0,
         Visible = false,
@@ -3002,8 +3021,9 @@ local function BuildRuntime()
 
         local Track = Create("Frame", {
             Parent = Row,
-            Position = UDim2.fromOffset(0, 36),
-            Size = UDim2.new(1, 0, 0, 4),
+            Position = UDim2.fromOffset(0, 34),
+            Size = UDim2.new(1, 0, 0, 8),
+            Active = true,
             BackgroundColor3 = Color3.fromRGB(28, 31, 45),
             BorderSizePixel = 0,
             ZIndex = 32
@@ -3774,7 +3794,7 @@ local function BuildRuntime()
         SetWatermarkScale(Value)
     end)
 
-    CreatePopupToggle(576, "Hide ESP Preview", SavedPositions.HideEspPreview == true, function(Value)
+    CreatePopupToggle(610, "Hide ESP Preview", SavedPositions.HideEspPreview == true, function(Value)
         SavedPositions.HideEspPreview = Value
         Menu.Flags.HideEspPreview = Value
         if Menu.EspPreviewController.SetHidden then
@@ -3783,7 +3803,7 @@ local function BuildRuntime()
         SavePositions()
     end)
 
-    CreatePopupSlider(608, "ESP Preview size", 70, 150, tonumber(SavedPositions.EspPreviewScale) or 100, function(Value)
+    CreatePopupSlider(642, "ESP Preview size", 70, 150, tonumber(SavedPositions.EspPreviewScale) or 100, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
         SavedPositions.EspPreviewScale = Value
@@ -4382,8 +4402,12 @@ local function BuildRuntime()
         end
 
         local function RefreshVisibility()
-            S.Window.Visible = Menu.Visible and not S.Hidden
-            if S.Window.Visible and S.Mode == "3D" and not S.Model then
+            local Visible = Menu.Visible and not S.Hidden
+            S.Window.Visible = Visible
+            if S.Glow then
+                S.Glow.Visible = Visible
+            end
+            if Visible and S.Mode == "3D" and not S.Model then
                 RequestModel()
             end
         end
@@ -5482,18 +5506,19 @@ local function BuildRuntime()
         return Object
     end
 
-    function ApiCreateKeybind(Section, Data, ExistingRow)
+    function ApiCreateKeybind(Section, Data, ExistingRow, TargetFlag, TargetName)
         Data = Data or {}
         local Name = tostring(ApiRead(Data, "Name", "Keybind"))
-        local Flag = ApiNormalizeFlag(Data, Name)
+        local Flag = TargetFlag or ApiNormalizeFlag(Data, Name)
         local Default = ApiRead(Data, "Default", "None")
         local Mode = tostring(ApiRead(Data, "Mode", "Toggle"))
         local Callback = ApiRead(Data, "Callback")
         local Row = ExistingRow or CreateRow(Section.Body, 27)
+
         if not ExistingRow then
             Create("TextLabel", {
                 Parent = Row,
-                Size = UDim2.new(1, -90, 1, 0),
+                Size = UDim2.new(1, -34, 1, 0),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSans,
                 Text = Name,
@@ -5504,83 +5529,74 @@ local function BuildRuntime()
             })
             RegisterControl(Section, Row, Name)
         end
-        local Button = Create("TextButton", {
-            Parent = Row,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(76, 22),
-            BackgroundColor3 = SurfaceAlt,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = tostring(Default),
-            TextColor3 = MutedText,
-            TextSize = 10,
-            ZIndex = 9
-        })
-        Corner(Button, 5)
-        Stroke(Button, Border, 0.2, 1)
-        local Capturing = false
-        local Current = Default
-        local Active = false
-        local Object = {}
-        function Object:Set(Value)
-            Current = Value
-            Menu.Flags[Flag] = Value
-            Button.Text = typeof(Value) == "EnumItem" and Value.Name or tostring(Value)
+
+        if not TargetFlag then
+            Menu.Flags[Flag] = Menu.Flags[Flag] == true
+            Menu.Setters[Flag] = function(Value)
+                local State = Value == true
+                Menu.Flags[Flag] = State
+                if type(Callback) == "function" then
+                    task.spawn(Callback, State)
+                end
+            end
         end
-        function Object:Get()
-            return Current
+
+        local GearButton, GearIcon = CreateGear(
+            Row,
+            TargetFlag and -38 or -10,
+            13,
+            TargetName or Name,
+            Flag,
+            {Type = "Boolean"}
+        )
+
+        if typeof(Default) == "EnumItem" then
+            local KeyType
+            if Default.EnumType == Enum.KeyCode then
+                KeyType = "KeyCode"
+            elseif Default.EnumType == Enum.UserInputType then
+                KeyType = "UserInputType"
+            end
+            if KeyType then
+                local Binds = Menu.BindSystem.GetControlBinds(Flag)
+                local Exists = false
+                for _, BindData in ipairs(Binds) do
+                    if BindData.KeyType == KeyType and BindData.Key == Default.Name then
+                        Exists = true
+                        break
+                    end
+                end
+                if not Exists then
+                    table.insert(Binds, {
+                        Id = tostring(os.clock()) .. tostring(math.random(1000, 9999)),
+                        KeyType = KeyType,
+                        Key = Default.Name,
+                        Modifiers = {Ctrl = false, Shift = false, Alt = false},
+                        Display = Menu.BindSystem.BuildBindDisplay(Default.Name, {}),
+                        Mode = Mode == "Hold" and "Hold" or "Toggle",
+                        ShowInBinds = true,
+                        Value = true,
+                        BaseValue = Menu.Flags[Flag]
+                    })
+                    SavePositions()
+                end
+            end
         end
-        Menu.Flags[Flag] = Current
-        Menu.Setters[Flag] = Object.Set
-        ApiState.Keybinds[Flag] = {Object = Object, Mode = Mode, Callback = Callback, Active = false}
-        Bind(Button.MouseButton1Click:Connect(function()
-            Capturing = true
-            Button.Text = "..."
-        end))
-        Bind(UserInputService.InputBegan:Connect(function(Input, Processed)
-            if Capturing then
-                if Input.UserInputType == Enum.UserInputType.Keyboard then
-                    Capturing = false
-                    Object:Set(Input.KeyCode)
-                elseif Input.UserInputType.Name:find("MouseButton") then
-                    Capturing = false
-                    Object:Set(Input.UserInputType)
+
+        return {
+            Button = GearButton,
+            Icon = GearIcon,
+            Flag = Flag,
+            Set = function(Value)
+                local Setter = Menu.Setters[Flag]
+                if Setter then
+                    Setter(Value)
                 end
-                return
+            end,
+            Get = function()
+                return Menu.Flags[Flag]
             end
-            if Processed then
-                return
-            end
-            local Match = Current == Input.KeyCode or Current == Input.UserInputType
-            if not Match then
-                return
-            end
-            if Mode == "Hold" then
-                Active = true
-                if type(Callback) == "function" then
-                    task.spawn(Callback, true)
-                end
-            else
-                Active = not Active
-                if type(Callback) == "function" then
-                    task.spawn(Callback, Active)
-                end
-            end
-        end))
-        Bind(UserInputService.InputEnded:Connect(function(Input)
-            if Mode ~= "Hold" or not Active then
-                return
-            end
-            if Current == Input.KeyCode or Current == Input.UserInputType then
-                Active = false
-                if type(Callback) == "function" then
-                    task.spawn(Callback, false)
-                end
-            end
-        end))
-        return Object
+        }
     end
 
     local ApiSectionMethods = {}
@@ -5595,7 +5611,9 @@ local function BuildRuntime()
             Callback = ApiRead(Data, "Callback")
         })
         function Control:Keybind(KeyData)
-            ApiCreateKeybind(self._Section or self.Section or self, KeyData)
+            if not self._BindGear then
+                self._BindGear = ApiCreateKeybind(self._Section, KeyData, self._Row, self._Flag, self._Name)
+            end
             return self
         end
         function Control:Colorpicker(ColorData)
@@ -5603,6 +5621,9 @@ local function BuildRuntime()
             return self
         end
         Control._Section = self.Section
+        Control._Row = Control.Row
+        Control._Flag = Control.Flag
+        Control._Name = Control.Name
         return Control
     end
 
