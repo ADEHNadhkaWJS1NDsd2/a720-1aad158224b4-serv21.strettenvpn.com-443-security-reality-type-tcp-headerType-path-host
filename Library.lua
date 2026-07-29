@@ -65,23 +65,23 @@ local Library do
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantRail-v1",
+        Build = "RadiantSplit-v2",
         Flags = { },
 
         Theme = {
-            ["Background"] = FromRGB(12, 14, 17),
-            ["Inline"] = FromRGB(17, 20, 24),
-            ["Page Background"] = FromRGB(20, 23, 28),
-            ["Border"] = FromRGB(6, 8, 10),
-            ["Outline"] = FromRGB(43, 49, 56),
-            ["Accent"] = FromRGB(58, 214, 148),
-            ["Element"] = FromRGB(25, 29, 34),
-            ["Hovered Element"] = FromRGB(32, 37, 43),
-            ["Text"] = FromRGB(229, 233, 236),
+            ["Background"] = FromRGB(9, 11, 12),
+            ["Inline"] = FromRGB(13, 16, 17),
+            ["Page Background"] = FromRGB(17, 20, 21),
+            ["Border"] = FromRGB(3, 5, 5),
+            ["Outline"] = FromRGB(39, 45, 45),
+            ["Accent"] = FromRGB(54, 218, 145),
+            ["Element"] = FromRGB(23, 27, 28),
+            ["Hovered Element"] = FromRGB(31, 37, 37),
+            ["Text"] = FromRGB(226, 232, 230),
             ["Text Border"] = FromRGB(0, 0, 0),
-            ["Glass Edge"] = FromRGB(99, 220, 160),
-            ["Muted Text"] = FromRGB(131, 139, 148),
-            ["Danger"] = FromRGB(228, 78, 88)
+            ["Glass Edge"] = FromRGB(150, 224, 190),
+            ["Muted Text"] = FromRGB(158, 178, 169),
+            ["Danger"] = FromRGB(235, 72, 72)
         },
 
         Glass = {
@@ -7064,434 +7064,164 @@ local Library do
         Data = Data or { }
 
         local Window = {
-            Name =
-                Data.Name
-                or Data.name
-                or "Window",
-
-            Size =
-                Data.Size
-                or Data.size
-                or UDim2New(
-                    0,
-                    650,
-                    0,
-                    600
-                ),
-
-            FadeSpeed =
-                Data.FadeSpeed
-                or Data.fadespeed
-                or 0.25,
-
+            Name = Data.Name or Data.name or "Window",
+            Size = Data.Size or Data.size or UDim2New(0, 650, 0, 600),
+            FadeSpeed = Data.FadeSpeed or Data.fadespeed or 0.25,
             Pages = { },
             SubPages = { },
             Elements = { },
-
             IsOpen = true,
             AnimationToken = 0
         }
 
         local Items = { } do
-            Items["MainFrame"] =
-                Instances:Create(
-                    "CanvasGroup",
-                    {
-                        Parent =
-                            Library.Holder.Instance,
+            Items["MainFrame"] = Instances:Create("CanvasGroup", {
+                Parent = Library.Holder.Instance,
+                AnchorPoint = Vector2New(0, 0),
+                Name = string.char(0),
+                Position = UDim2New(0, 0, 0, 0),
+                Size = Window.Size,
+                BorderSizePixel = 0,
+                BackgroundTransparency = 1,
+                GroupTransparency = 0
+            })
 
-                        AnchorPoint =
-                            Vector2New(0, 0),
-
-                        Name =
-                            string.char(0),
-
-                        Position =
-                            UDim2New(
-                                0,
-                                0,
-                                0,
-                                0
-                            ),
-
-                        Size = Window.Size,
-
-                        BorderSizePixel = 0,
-
-                        BackgroundColor3 =
-                            Library.Theme.Background,
-
-                        GroupTransparency = 0
-                    }
-                )
-
-            Items["MainFrame"]:
-                AddToTheme({
-                    BackgroundColor3 =
-                        "Background"
-                })
-
-            Library:ApplyGlass(
-                Items["MainFrame"],
-                "Window",
-                4
+            Items["MainFrame"].Instance.Position = UDim2New(
+                0,
+                Camera.ViewportSize.X / 4,
+                0,
+                Camera.ViewportSize.Y / 4
             )
 
-            Items["MainFrame"].
-                Instance.
-                BackgroundTransparency = 0
+            Items["MenuScale"] = Instances:Create("UIScale", {
+                Parent = Items["MainFrame"].Instance,
+                Scale = 1
+            })
 
-            Items["MainFrame"].
-                Instance.
-                Position =
-                UDim2New(
-                    0,
-                    Camera.ViewportSize.X / 4,
-                    0,
-                    Camera.ViewportSize.Y / 4
-                )
-
-            Items["MenuScale"] =
-                Instances:Create(
-                    "UIScale",
-                    {
-                        Parent =
-                            Items["MainFrame"].
-                            Instance,
-
-                        Scale = 1
-                    }
-                )
-
-            Items["MainFrame"]:
-                MakeResizeable(
-                    Vector2New(
-                        Window.Size.X.Offset,
-                        Window.Size.Y.Offset
-                    ),
-                    Vector2New(
-                        9999,
-                        9999
-                    )
-                )
-
-            Items["FrameStroke"] =
-                Instances:Create(
-                    "UIStroke",
-                    {
-                        Parent =
-                            Items["MainFrame"].
-                            Instance,
-
-                        ApplyStrokeMode =
-                            Enum.ApplyStrokeMode.
-                            Border,
-
-                        LineJoinMode =
-                            Enum.LineJoinMode.
-                            Round,
-
-                        Thickness = 1,
-
-                        Transparency = 0.46,
-
-                        Color =
-                            Library.Theme.Outline
-                    }
-                )
-
-            Items["FrameStroke"]:
-                AddToTheme({
-                    Color = "Outline"
-                })
-
-            Items["Title"] =
-                Instances:Create(
-                    "TextLabel",
-                    {
-                        Parent =
-                            Items["MainFrame"].
-                            Instance,
-
-                        FontFace =
-                            Library.Font,
-
-                        TextColor3 =
-                            Library.Theme.Text,
-
-                        Text =
-                            Window.Name,
-
-                        Name =
-                            string.char(0),
-
-                        Size =
-                            UDim2New(
-                                1,
-                                -24,
-                                0,
-                                22
-                            ),
-
-                        BackgroundTransparency = 1,
-
-                        TextXAlignment =
-                            Enum.TextXAlignment.Left,
-
-                        Position =
-                            UDim2New(
-                                0,
-                                12,
-                                0,
-                                7
-                            ),
-
-                        BorderSizePixel = 0,
-                        TextSize = 13
-                    }
-                )
-
-            Items["Title"]:
-                AddToTheme({
-                    TextColor3 = "Text"
-                })
-
-            Items["MainFrame"]:
-                MakeDraggable(
-                    Items["Title"],
-                    32
-                )
-
-            Items["Inline"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Items["MainFrame"].
-                            Instance,
-
-                        Name =
-                            string.char(0),
-
-                        Position =
-                            UDim2New(
-                                0,
-                                8,
-                                0,
-                                36
-                            ),
-
-                        Size =
-                            UDim2New(
-                                1,
-                                -16,
-                                1,
-                                -44
-                            ),
-
-                        BorderSizePixel = 0,
-
-                        BackgroundTransparency = 1
-                    }
-                )
-
-            Items["Rail"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Items["Inline"].
-                            Instance,
-
-                        Name =
-                            string.char(0),
-
-                        Position =
-                            UDim2New(
-                                0,
-                                0,
-                                0,
-                                0
-                            ),
-
-                        Size =
-                            UDim2New(
-                                0,
-                                116,
-                                1,
-                                0
-                            ),
-
-                        BorderSizePixel = 0,
-
-                        BackgroundColor3 =
-                            Library.Theme.Inline
-                    }
-                )
-
-            Items["Rail"]:
-                AddToTheme({
-                    BackgroundColor3 =
-                        "Inline"
-                })
-
-            Library:ApplyGlass(
-                Items["Rail"],
-                "Panel",
-                2
+            Items["MainFrame"]:MakeResizeable(
+                Vector2New(Window.Size.X.Offset, Window.Size.Y.Offset),
+                Vector2New(9999, 9999)
             )
 
-            Items["RailSeparator"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Items["Rail"].
-                            Instance,
+            Items["Rail"] = Instances:Create("Frame", {
+                Parent = Items["MainFrame"].Instance,
+                Name = string.char(0),
+                Position = UDim2New(0, 0, 0, 0),
+                Size = UDim2New(0, 112, 1, 0),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Background
+            })
+            Items["Rail"]:AddToTheme({
+                BackgroundColor3 = "Background"
+            })
+            Library:ApplyGlass(Items["Rail"], "Window", 4)
 
-                        AnchorPoint =
-                            Vector2New(1, 0),
+            Items["RailStroke"] = Instances:Create("UIStroke", {
+                Parent = Items["Rail"].Instance,
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                LineJoinMode = Enum.LineJoinMode.Round,
+                Thickness = 1,
+                Transparency = 0.42,
+                Color = Library.Theme.Outline
+            })
+            Items["RailStroke"]:AddToTheme({
+                Color = "Outline"
+            })
 
-                        Position =
-                            UDim2New(
-                                1,
-                                0,
-                                0,
-                                8
-                            ),
+            Items["RailTitle"] = Instances:Create("TextLabel", {
+                Parent = Items["Rail"].Instance,
+                FontFace = Library.Font,
+                TextColor3 = Library.Theme.Accent,
+                Text = Window.Name,
+                Name = string.char(0),
+                Position = UDim2New(0, 10, 0, 9),
+                Size = UDim2New(1, -20, 0, 18),
+                BackgroundTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BorderSizePixel = 0,
+                TextSize = 12
+            })
+            Items["RailTitle"]:AddToTheme({
+                TextColor3 = "Accent"
+            })
 
-                        Size =
-                            UDim2New(
-                                0,
-                                1,
-                                1,
-                                -16
-                            ),
+            Items["Pages"] = Instances:Create("Frame", {
+                Parent = Items["Rail"].Instance,
+                Name = string.char(0),
+                BackgroundTransparency = 1,
+                Position = UDim2New(0, 7, 0, 38),
+                Size = UDim2New(1, -14, 1, -45),
+                BorderSizePixel = 0
+            })
 
-                        BorderSizePixel = 0,
+            Instances:Create("UIListLayout", {
+                Parent = Items["Pages"].Instance,
+                FillDirection = Enum.FillDirection.Vertical,
+                HorizontalAlignment = Enum.HorizontalAlignment.Left,
+                VerticalAlignment = Enum.VerticalAlignment.Top,
+                Padding = UDimNew(0, 4),
+                SortOrder = Enum.SortOrder.LayoutOrder
+            })
 
-                        BackgroundColor3 =
-                            Library.Theme.Outline,
+            Items["Panel"] = Instances:Create("Frame", {
+                Parent = Items["MainFrame"].Instance,
+                Name = string.char(0),
+                Position = UDim2New(0, 122, 0, 0),
+                Size = UDim2New(1, -122, 1, 0),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Background
+            })
+            Items["Panel"]:AddToTheme({
+                BackgroundColor3 = "Background"
+            })
+            Library:ApplyGlass(Items["Panel"], "Window", 4)
 
-                        BackgroundTransparency =
-                            0.25
-                    }
-                )
+            Items["PanelStroke"] = Instances:Create("UIStroke", {
+                Parent = Items["Panel"].Instance,
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                LineJoinMode = Enum.LineJoinMode.Round,
+                Thickness = 1,
+                Transparency = 0.42,
+                Color = Library.Theme.Outline
+            })
+            Items["PanelStroke"]:AddToTheme({
+                Color = "Outline"
+            })
 
-            Items["RailSeparator"]:
-                AddToTheme({
-                    BackgroundColor3 =
-                        "Outline"
-                })
+            Items["Title"] = Instances:Create("TextLabel", {
+                Parent = Items["Panel"].Instance,
+                FontFace = Library.Font,
+                TextColor3 = Library.Theme.Text,
+                Text = Window.Name,
+                Name = string.char(0),
+                Size = UDim2New(1, -24, 0, 22),
+                BackgroundTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Position = UDim2New(0, 12, 0, 7),
+                BorderSizePixel = 0,
+                TextSize = 13
+            })
+            Items["Title"]:AddToTheme({
+                TextColor3 = "Text"
+            })
 
-            Items["Pages"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Items["Rail"].
-                            Instance,
-
-                        Name =
-                            string.char(0),
-
-                        BackgroundTransparency = 1,
-
-                        Position =
-                            UDim2New(
-                                0,
-                                7,
-                                0,
-                                7
-                            ),
-
-                        Size =
-                            UDim2New(
-                                1,
-                                -15,
-                                1,
-                                -14
-                            ),
-
-                        BorderSizePixel = 0
-                    }
-                )
-
-            Instances:Create(
-                "UIListLayout",
-                {
-                    Parent =
-                        Items["Pages"].
-                        Instance,
-
-                    FillDirection =
-                        Enum.FillDirection.
-                        Vertical,
-
-                    HorizontalAlignment =
-                        Enum.HorizontalAlignment.
-                        Left,
-
-                    VerticalAlignment =
-                        Enum.VerticalAlignment.
-                        Top,
-
-                    Padding =
-                        UDimNew(0, 4),
-
-                    SortOrder =
-                        Enum.SortOrder.
-                        LayoutOrder
-                }
+            Items["MainFrame"]:MakeDraggable(
+                Items["Title"],
+                32
             )
 
-            Items["Content"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Items["Inline"].
-                            Instance,
-
-                        Name =
-                            string.char(0),
-
-                        Position =
-                            UDim2New(
-                                0,
-                                124,
-                                0,
-                                0
-                            ),
-
-                        Size =
-                            UDim2New(
-                                1,
-                                -124,
-                                1,
-                                0
-                            ),
-
-                        BorderSizePixel = 0,
-
-                        BackgroundColor3 =
-                            Library.Theme[
-                                "Page Background"
-                            ]
-                    }
-                )
-
-            Items["Content"]:
-                AddToTheme({
-                    BackgroundColor3 =
-                        "Page Background"
-                })
-
-            Library:ApplyGlass(
-                Items["Content"],
-                "Panel",
-                2
-            )
+            Items["Content"] = Instances:Create("Frame", {
+                Parent = Items["Panel"].Instance,
+                Name = string.char(0),
+                Position = UDim2New(0, 8, 0, 34),
+                Size = UDim2New(1, -16, 1, -42),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme["Page Background"]
+            })
+            Items["Content"]:AddToTheme({
+                BackgroundColor3 = "Page Background"
+            })
+            Library:ApplyGlass(Items["Content"], "Panel", 2)
         end
 
         local Debounce = false
@@ -7652,22 +7382,9 @@ local Library do
 
         local Page = {
             Window = self,
-
-            Name =
-                Data.Name
-                or Data.name
-                or "Page",
-
-            Columns =
-                Data.Columns
-                or Data.columns
-                or 2,
-
-            HasSubtabs =
-                Data.Subtabs
-                or Data.subtabs
-                or false,
-
+            Name = Data.Name or Data.name or "Page",
+            Columns = Data.Columns or Data.columns or 2,
+            HasSubtabs = Data.Subtabs or Data.subtabs or false,
             Active = false,
             AnimationToken = 0,
             ColumnsData = { },
@@ -7675,804 +7392,230 @@ local Library do
         }
 
         local Items = { } do
-            Items["Inactive"] =
-                Instances:Create(
-                    "TextButton",
-                    {
-                        Parent =
-                            Page.Window.
-                            Elements["Pages"].
-                            Instance,
+            Items["Inactive"] = Instances:Create("TextButton", {
+                Parent = Page.Window.Elements["Pages"].Instance,
+                FontFace = Library.Font,
+                Text = "",
+                AutoButtonColor = false,
+                Name = string.char(0),
+                Size = UDim2New(1, 0, 0, 28),
+                BorderSizePixel = 0,
+                BackgroundColor3 = Library.Theme.Element,
+                BackgroundTransparency = 1
+            })
+            Items["Inactive"]:AddToTheme({
+                BackgroundColor3 = "Element"
+            })
+            Library:ApplyGlass(Items["Inactive"], "Element", 2)
 
-                        FontFace =
-                            Library.Font,
+            Items["Text"] = Instances:Create("TextLabel", {
+                Parent = Items["Inactive"].Instance,
+                FontFace = Library.Font,
+                TextColor3 = Library.Theme["Muted Text"],
+                Text = Page.Name,
+                Name = string.char(0),
+                Position = UDim2New(0, 9, 0, 0),
+                Size = UDim2New(1, -18, 1, 0),
+                BackgroundTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BorderSizePixel = 0,
+                TextSize = 11
+            })
+            Items["Text"]:AddToTheme({
+                TextColor3 = "Muted Text"
+            })
 
-                        Text = "",
-
-                        AutoButtonColor = false,
-
-                        Name =
-                            string.char(0),
-
-                        Size =
-                            UDim2New(
-                                1,
-                                0,
-                                0,
-                                30
-                            ),
-
-                        BorderSizePixel = 0,
-
-                        BackgroundColor3 =
-                            Library.Theme[
-                                "Page Background"
-                            ]
-                    }
-                )
-
-            Items["Inactive"]:
-                AddToTheme({
-                    BackgroundColor3 =
-                        "Page Background"
-                })
-
-            Library:ApplyGlass(
-                Items["Inactive"],
-                "Element",
-                2
-            )
-
-            Items["Monogram"] =
-                Instances:Create(
-                    "Frame",
-                    {
-                        Parent =
-                            Items["Inactive"].
-                            Instance,
-
-                        Name =
-                            string.char(0),
-
-                        Position =
-                            UDim2New(
-                                0,
-                                5,
-                                0,
-                                5
-                            ),
-
-                        Size =
-                            UDim2New(
-                                0,
-                                20,
-                                0,
-                                20
-                            ),
-
-                        BorderSizePixel = 0,
-
-                        BackgroundColor3 =
-                            Library.Theme.Element
-                    }
-                )
-
-            Items["Monogram"]:
-                AddToTheme({
-                    BackgroundColor3 =
-                        "Element"
-                })
-
-            Library:ApplyGlass(
-                Items["Monogram"],
-                "Element",
-                2
-            )
-
-            Items["MonogramText"] =
-                Instances:Create(
-                    "TextLabel",
-                    {
-                        Parent =
-                            Items["Monogram"].
-                            Instance,
-
-                        FontFace =
-                            Library.Font,
-
-                        TextColor3 =
-                            Library.Theme[
-                                "Muted Text"
-                            ],
-
-                        Text =
-                            string.upper(
-                                string.sub(
-                                    tostring(
-                                        Page.Name
-                                    ),
-                                    1,
-                                    1
-                                )
-                            ),
-
-                        Name =
-                            string.char(0),
-
-                        Size =
-                            UDim2New(
-                                1,
-                                0,
-                                1,
-                                0
-                            ),
-
-                        BackgroundTransparency = 1,
-
-                        BorderSizePixel = 0,
-
-                        TextSize = 11
-                    }
-                )
-
-            Items["MonogramText"]:
-                AddToTheme({
-                    TextColor3 =
-                        "Muted Text"
-                })
-
-            Items["Text"] =
-                Instances:Create(
-                    "TextLabel",
-                    {
-                        Parent =
-                            Items["Inactive"].
-                            Instance,
-
-                        FontFace =
-                            Library.Font,
-
-                        TextColor3 =
-                            Library.Theme[
-                                "Muted Text"
-                            ],
-
-                        TextTransparency =
-                            0.04,
-
-                        Text =
-                            Page.Name,
-
-                        Name =
-                            string.char(0),
-
-                        Position =
-                            UDim2New(
-                                0,
-                                33,
-                                0,
-                                0
-                            ),
-
-                        Size =
-                            UDim2New(
-                                1,
-                                -38,
-                                1,
-                                0
-                            ),
-
-                        BackgroundTransparency = 1,
-
-                        TextXAlignment =
-                            Enum.TextXAlignment.Left,
-
-                        BorderSizePixel = 0,
-
-                        TextSize = 11
-                    }
-                )
-
-            Items["Text"]:
-                AddToTheme({
-                    TextColor3 =
-                        "Muted Text"
-                })
-
-            Items["Page"] =
-                Instances:Create(
-                    "CanvasGroup",
-                    {
-                        Parent =
-                            Page.Window.
-                            Elements["Content"].
-                            Instance,
-
-                        BackgroundTransparency = 1,
-
-                        Name =
-                            string.char(0),
-
-                        Position =
-                            UDim2New(
-                                0,
-                                10,
-                                0,
-                                0
-                            ),
-
-                        Size =
-                            UDim2New(
-                                1,
-                                0,
-                                1,
-                                0
-                            ),
-
-                        BorderSizePixel = 0,
-
-                        GroupTransparency = 1,
-
-                        Visible = false
-                    }
-                )
+            Items["Page"] = Instances:Create("CanvasGroup", {
+                Parent = Page.Window.Elements["Content"].Instance,
+                BackgroundTransparency = 1,
+                Name = string.char(0),
+                Position = UDim2New(0, 8, 0, 0),
+                Size = UDim2New(1, 0, 1, 0),
+                BorderSizePixel = 0,
+                GroupTransparency = 1,
+                Visible = false
+            })
 
             if not Page.HasSubtabs then
-                Instances:Create(
-                    "UIListLayout",
-                    {
-                        Parent =
-                            Items["Page"].
-                            Instance,
+                Instances:Create("UIListLayout", {
+                    Parent = Items["Page"].Instance,
+                    FillDirection = Enum.FillDirection.Horizontal,
+                    HorizontalFlex = Enum.UIFlexAlignment.Fill,
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    VerticalFlex = Enum.UIFlexAlignment.Fill
+                })
 
-                        FillDirection =
-                            Enum.FillDirection.
-                            Horizontal,
-
-                        HorizontalFlex =
-                            Enum.UIFlexAlignment.
-                            Fill,
-
-                        SortOrder =
-                            Enum.SortOrder.
-                            LayoutOrder,
-
-                        VerticalFlex =
-                            Enum.UIFlexAlignment.
-                            Fill
-                    }
-                )
-
-                for Index =
-                    1,
-                    Page.Columns
-                do
-                    local NewColumn =
-                        Instances:Create(
-                            "ScrollingFrame",
-                            {
-                                Parent =
-                                    Items["Page"].
-                                    Instance,
-
-                                ScrollBarImageColor3 =
-                                    Library.Theme.
-                                    Accent,
-
-                                Active = true,
-
-                                AutomaticCanvasSize =
-                                    Enum.AutomaticSize.Y,
-
-                                ScrollBarThickness = 2,
-
-                                Name =
-                                    string.char(0),
-
-                                BackgroundTransparency = 1,
-
-                                Size =
-                                    UDim2New(
-                                        0,
-                                        100,
-                                        0,
-                                        100
-                                    ),
-
-                                BorderSizePixel = 0,
-
-                                BottomImage =
-                                    Library:
-                                    GetImage(
-                                        "Scrollbar"
-                                    ),
-
-                                MidImage =
-                                    Library:
-                                    GetImage(
-                                        "Scrollbar"
-                                    ),
-
-                                TopImage =
-                                    Library:
-                                    GetImage(
-                                        "Scrollbar"
-                                    ),
-
-                                CanvasSize =
-                                    UDim2New(
-                                        0,
-                                        0,
-                                        0,
-                                        0
-                                    )
-                            }
-                        )
-
-                    NewColumn:
-                        AddToTheme({
-                            ScrollBarImageColor3 =
-                                "Accent"
-                        })
-
-                    Instances:Create(
-                        "UIPadding",
-                        {
-                            Parent =
-                                NewColumn.
-                                Instance,
-
-                            PaddingTop =
-                                UDimNew(
-                                    0,
-                                    8
-                                ),
-
-                            PaddingBottom =
-                                UDimNew(
-                                    0,
-                                    8
-                                ),
-
-                            PaddingRight =
-                                UDimNew(
-                                    0,
-                                    8
-                                ),
-
-                            PaddingLeft =
-                                UDimNew(
-                                    0,
-                                    8
-                                )
-                        }
-                    )
-
-                    Instances:Create(
-                        "UIListLayout",
-                        {
-                            Parent =
-                                NewColumn.
-                                Instance,
-
-                            Padding =
-                                UDimNew(
-                                    0,
-                                    7
-                                ),
-
-                            SortOrder =
-                                Enum.SortOrder.
-                                LayoutOrder
-                        }
-                    )
-
-                    Page.ColumnsData[
-                        Index
-                    ] = NewColumn
-                end
-            else
-                Items["Columns"] =
-                    Instances:Create(
-                        "Frame",
-                        {
-                            Parent =
-                                Items["Page"].
-                                Instance,
-
-                            Name =
-                                string.char(0),
-
-                            Position =
-                                UDim2New(
-                                    0,
-                                    8,
-                                    0,
-                                    44
-                                ),
-
-                            Size =
-                                UDim2New(
-                                    1,
-                                    -16,
-                                    1,
-                                    -52
-                                ),
-
-                            BorderSizePixel = 0,
-
-                            BackgroundColor3 =
-                                Library.Theme.
-                                Background
-                        }
-                    )
-
-                Items["Columns"]:
-                    AddToTheme({
-                        BackgroundColor3 =
-                            "Background"
+                for Index = 1, Page.Columns do
+                    local NewColumn = Instances:Create("ScrollingFrame", {
+                        Parent = Items["Page"].Instance,
+                        ScrollBarImageColor3 = Library.Theme.Accent,
+                        Active = true,
+                        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                        ScrollBarThickness = 2,
+                        Name = string.char(0),
+                        BackgroundTransparency = 1,
+                        Size = UDim2New(0, 100, 0, 100),
+                        BorderSizePixel = 0,
+                        BottomImage = Library:GetImage("Scrollbar"),
+                        MidImage = Library:GetImage("Scrollbar"),
+                        TopImage = Library:GetImage("Scrollbar"),
+                        CanvasSize = UDim2New(0, 0, 0, 0)
+                    })
+                    NewColumn:AddToTheme({
+                        ScrollBarImageColor3 = "Accent"
                     })
 
-                Library:ApplyGlass(
-                    Items["Columns"],
-                    "Panel",
-                    2
-                )
+                    Instances:Create("UIPadding", {
+                        Parent = NewColumn.Instance,
+                        PaddingTop = UDimNew(0, 7),
+                        PaddingBottom = UDimNew(0, 7),
+                        PaddingRight = UDimNew(0, 7),
+                        PaddingLeft = UDimNew(0, 7)
+                    })
 
-                Items["SubTabs"] =
-                    Instances:Create(
-                        "Frame",
-                        {
-                            Parent =
-                                Items["Page"].
-                                Instance,
+                    Instances:Create("UIListLayout", {
+                        Parent = NewColumn.Instance,
+                        Padding = UDimNew(0, 7),
+                        SortOrder = Enum.SortOrder.LayoutOrder
+                    })
 
-                            Name =
-                                string.char(0),
+                    Page.ColumnsData[Index] = NewColumn
+                end
+            else
+                Items["Columns"] = Instances:Create("Frame", {
+                    Parent = Items["Page"].Instance,
+                    Name = string.char(0),
+                    Position = UDim2New(0, 7, 0, 43),
+                    Size = UDim2New(1, -14, 1, -50),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Library.Theme.Background
+                })
+                Items["Columns"]:AddToTheme({
+                    BackgroundColor3 = "Background"
+                })
+                Library:ApplyGlass(Items["Columns"], "Panel", 2)
 
-                            BackgroundTransparency = 1,
+                Items["SubTabs"] = Instances:Create("Frame", {
+                    Parent = Items["Page"].Instance,
+                    Name = string.char(0),
+                    BackgroundTransparency = 1,
+                    Position = UDim2New(0, 7, 0, 7),
+                    Size = UDim2New(1, -14, 0, 29),
+                    BorderSizePixel = 0
+                })
 
-                            Position =
-                                UDim2New(
-                                    0,
-                                    8,
-                                    0,
-                                    8
-                                ),
-
-                            Size =
-                                UDim2New(
-                                    1,
-                                    -16,
-                                    0,
-                                    30
-                                ),
-
-                            BorderSizePixel = 0
-                        }
-                    )
-
-                Instances:Create(
-                    "UIListLayout",
-                    {
-                        Parent =
-                            Items["SubTabs"].
-                            Instance,
-
-                        FillDirection =
-                            Enum.FillDirection.
-                            Horizontal,
-
-                        HorizontalFlex =
-                            Enum.UIFlexAlignment.
-                            Fill,
-
-                        Padding =
-                            UDimNew(
-                                0,
-                                5
-                            ),
-
-                        SortOrder =
-                            Enum.SortOrder.
-                            LayoutOrder
-                    }
-                )
+                Instances:Create("UIListLayout", {
+                    Parent = Items["SubTabs"].Instance,
+                    FillDirection = Enum.FillDirection.Horizontal,
+                    HorizontalFlex = Enum.UIFlexAlignment.Fill,
+                    Padding = UDimNew(0, 5),
+                    SortOrder = Enum.SortOrder.LayoutOrder
+                })
             end
         end
 
-        local PageTween =
-            TweenInfo.new(
-                0.16,
-                Enum.EasingStyle.Quint,
-                Enum.EasingDirection.Out
-            )
+        local PageTween = TweenInfo.new(
+            0.14,
+            Enum.EasingStyle.Quint,
+            Enum.EasingDirection.Out
+        )
 
         function Page:Turn(Bool)
             Bool = Bool == true
+            Page.AnimationToken += 1
 
-            Page.AnimationToken =
-                Page.AnimationToken + 1
-
-            local Token =
-                Page.AnimationToken
-
+            local Token = Page.AnimationToken
             Page.Active = Bool
 
             if Bool then
-                Items["Page"].
-                    Instance.Visible = true
+                Items["Page"].Instance.Visible = true
+                Items["Page"].Instance.Position = UDim2New(0, 8, 0, 0)
+                Items["Page"].Instance.GroupTransparency = 1
 
-                Items["Page"].
-                    Instance.Position =
-                    UDim2New(
-                        0,
-                        10,
-                        0,
-                        0
-                    )
-
-                Items["Page"].
-                    Instance.GroupTransparency = 1
-
-                Items["Page"]:
-                    Tween(
-                        PageTween,
-                        {
-                            Position =
-                                UDim2New(
-                                    0,
-                                    0,
-                                    0,
-                                    0
-                                ),
-
-                            GroupTransparency = 0
-                        }
-                    )
+                Items["Page"]:Tween(PageTween, {
+                    Position = UDim2New(0, 0, 0, 0),
+                    GroupTransparency = 0
+                })
             else
-                Items["Page"]:
-                    Tween(
-                        PageTween,
-                        {
-                            Position =
-                                UDim2New(
-                                    0,
-                                    -8,
-                                    0,
-                                    0
-                                ),
+                Items["Page"]:Tween(PageTween, {
+                    Position = UDim2New(0, -6, 0, 0),
+                    GroupTransparency = 1
+                })
 
-                            GroupTransparency = 1
-                        }
-                    )
-
-                task.delay(
-                    0.16,
-                    function()
-                        if Token
-                                == Page.
-                                AnimationToken
-                            and not Page.Active
-                            and Items["Page"].
-                                Instance
-                            and Items["Page"].
-                                Instance.Parent
-                        then
-                            Items["Page"].
-                                Instance.Visible =
-                                false
-                        end
+                task.delay(0.14, function()
+                    if Token == Page.AnimationToken
+                        and not Page.Active
+                        and Items["Page"].Instance
+                        and Items["Page"].Instance.Parent
+                    then
+                        Items["Page"].Instance.Visible = false
                     end
-                )
+                end)
             end
 
-            Items["Inactive"]:
-                ChangeItemTheme({
-                    BackgroundColor3 =
-                        Bool
-                        and "Element"
-                        or "Page Background"
-                })
+            Items["Inactive"]:Tween(PageTween, {
+                BackgroundTransparency = Bool and 0 or 1,
+                BackgroundColor3 = Library.Theme.Element
+            })
 
-            Items["Text"]:
-                ChangeItemTheme({
-                    TextColor3 =
-                        Bool
-                        and "Text"
-                        or "Muted Text"
-                })
+            Items["Text"]:Tween(PageTween, {
+                TextColor3 = Bool
+                    and Library.Theme.Text
+                    or Library.Theme["Muted Text"],
+                TextTransparency = Bool and 0 or 0.04
+            })
 
-            Items["Monogram"]:
-                ChangeItemTheme({
-                    BackgroundColor3 =
-                        Bool
-                        and "Accent"
-                        or "Element"
-                })
-
-            Items["MonogramText"]:
-                ChangeItemTheme({
-                    TextColor3 =
-                        Bool
-                        and "Background"
-                        or "Muted Text"
-                })
-
-            Items["Inactive"]:
-                Tween(
-                    PageTween,
-                    {
-                        BackgroundColor3 =
-                            Bool
-                            and Library.Theme.
-                                Element
-                            or Library.Theme[
-                                "Page Background"
-                            ]
-                    }
-                )
-
-            Items["Text"]:
-                Tween(
-                    PageTween,
-                    {
-                        TextColor3 =
-                            Bool
-                            and Library.Theme.
-                                Text
-                            or Library.Theme[
-                                "Muted Text"
-                            ],
-
-                        TextTransparency =
-                            Bool
-                            and 0
-                            or 0.04
-                    }
-                )
-
-            Items["Monogram"]:
-                Tween(
-                    PageTween,
-                    {
-                        BackgroundColor3 =
-                            Bool
-                            and Library.Theme.
-                                Accent
-                            or Library.Theme.
-                                Element
-                    }
-                )
-
-            Items["MonogramText"]:
-                Tween(
-                    PageTween,
-                    {
-                        TextColor3 =
-                            Bool
-                            and Library.Theme.
-                                Background
-                            or Library.Theme[
-                                "Muted Text"
-                            ]
-                    }
-                )
+            Items["Text"]:ChangeItemTheme({
+                TextColor3 = Bool and "Text" or "Muted Text"
+            })
         end
 
-        Items["Inactive"]:
-            OnHover(function()
-                if Page.Active then
-                    return
-                end
+        Items["Inactive"]:OnHover(function()
+            if Page.Active then
+                return
+            end
 
-                Items["Inactive"]:
-                    Tween(
-                        PageTween,
-                        {
-                            BackgroundColor3 =
-                                Library.Theme[
-                                    "Hovered Element"
-                                ]
-                        }
-                    )
+            Items["Inactive"]:Tween(PageTween, {
+                BackgroundTransparency = 0.35,
+                BackgroundColor3 = Library.Theme["Hovered Element"]
+            })
 
-                Items["Text"]:
-                    Tween(
-                        PageTween,
-                        {
-                            TextColor3 =
-                                Library.Theme.
-                                Text,
+            Items["Text"]:Tween(PageTween, {
+                TextColor3 = Library.Theme.Text,
+                TextTransparency = 0
+            })
+        end)
 
-                            TextTransparency = 0
-                        }
-                    )
+        Items["Inactive"]:OnHoverLeave(function()
+            if Page.Active then
+                return
+            end
 
-                Items["Monogram"]:
-                    Tween(
-                        PageTween,
-                        {
-                            BackgroundColor3 =
-                                Library.Theme[
-                                    "Hovered Element"
-                                ]
-                        }
-                    )
-            end)
+            Items["Inactive"]:Tween(PageTween, {
+                BackgroundTransparency = 1,
+                BackgroundColor3 = Library.Theme.Element
+            })
 
-        Items["Inactive"]:
-            OnHoverLeave(function()
-                if Page.Active then
-                    return
-                end
+            Items["Text"]:Tween(PageTween, {
+                TextColor3 = Library.Theme["Muted Text"],
+                TextTransparency = 0.04
+            })
+        end)
 
-                Items["Inactive"]:
-                    Tween(
-                        PageTween,
-                        {
-                            BackgroundColor3 =
-                                Library.Theme[
-                                    "Page Background"
-                                ]
-                        }
-                    )
-
-                Items["Text"]:
-                    Tween(
-                        PageTween,
-                        {
-                            TextColor3 =
-                                Library.Theme[
-                                    "Muted Text"
-                                ],
-
-                            TextTransparency =
-                                0.04
-                        }
-                    )
-
-                Items["Monogram"]:
-                    Tween(
-                        PageTween,
-                        {
-                            BackgroundColor3 =
-                                Library.Theme.
-                                Element
-                        }
-                    )
-            end)
-
-        Items["Inactive"]:
-            Connect(
-                "MouseButton1Down",
-                function()
-                    for _,
-                        Value
-                    in Page.Window.Pages
-                    do
-                        Value:Turn(
-                            Value == Page
-                        )
-                    end
-                end
-            )
+        Items["Inactive"]:Connect("MouseButton1Down", function()
+            for _, Value in Page.Window.Pages do
+                Value:Turn(Value == Page)
+            end
+        end)
 
         if #Page.Window.Pages == 0 then
             Page:Turn(true)
         end
 
         Page.Elements = Items
+        TableInsert(Page.Window.Pages, Page)
 
-        TableInsert(
-            Page.Window.Pages,
-            Page
-        )
-
-        return setmetatable(
-            Page,
-            Library.Pages
-        )
+        return setmetatable(Page, Library.Pages)
     end
 
     Library.Pages.SubPage = function(self, Data)
@@ -9584,7 +8727,7 @@ local Library do
             InlineCorner.CornerRadius =
                 UDimNew(
                     0,
-                    1
+                    2
                 )
 
             InlineCorner.Parent =
@@ -9804,9 +8947,9 @@ local Library do
                             Size =
                                 UDim2New(
                                     1,
-                                    -4,
+                                    0,
                                     1,
-                                    -4
+                                    0
                                 )
                         }
                     )
