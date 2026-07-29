@@ -65,7 +65,7 @@ local Library
     local StringGSub = string.gsub
 
     Library = {
-        Build = "RadiantAdaptive-v11.3.1-CompileFixed",
+        Build = "RadiantAdaptive-v12.2-VectorIcons-PlayerWindow",
         Flags = { },
 
         Theme = {
@@ -8305,6 +8305,472 @@ local Library
         return setmetatable(Window, Library)
     end
 
+    Library.CreateVectorIcon = function(
+        self,
+        Parent,
+        IconName,
+        Data
+    )
+        Data = Data or { }
+
+        local Controller = {
+            Theme = Data.Theme or "Muted Text",
+            Parts = { },
+            Instance = nil
+        }
+
+        local Size =
+            tonumber(Data.Size)
+            or 18
+
+        local Position =
+            Data.Position
+            or UDim2New(0, 6, 0.5, 0)
+
+        local AnchorPoint =
+            Data.AnchorPoint
+            or Vector2New(0, 0.5)
+
+        local ParentInstance =
+            Library:ResolveInstance(Parent)
+            or Parent
+
+        local Canvas =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent =
+                        ParentInstance,
+
+                    Name = string.char(0),
+
+                    AnchorPoint =
+                        AnchorPoint,
+
+                    Position =
+                        Position,
+
+                    Size =
+                        UDim2New(
+                            0,
+                            Size,
+                            0,
+                            Size
+                        ),
+
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    ZIndex = Data.ZIndex or 4
+                }
+            )
+
+        Controller.Instance =
+            Canvas.Instance
+
+        local function Register(
+            Object,
+            Property
+        )
+            Object =
+                Library:
+                ResolveInstance(Object)
+                or Object
+
+            Library:AddToTheme(
+                Object,
+                {
+                    [Property] =
+                        Controller.Theme
+                }
+            )
+
+            Controller.Parts[
+                #Controller.Parts + 1
+            ] = {
+                Object = Object,
+                Property = Property
+            }
+
+            return Object
+        end
+
+        local function Round(
+            Object,
+            Radius
+        )
+            Object =
+                Library:
+                ResolveInstance(Object)
+                or Object
+
+            local Corner =
+                InstanceNew("UICorner")
+
+            Corner.CornerRadius =
+                UDimNew(
+                    Radius == 1
+                    and 1
+                    or 0,
+                    Radius == 1
+                    and 0
+                    or Radius or 1
+                )
+
+            Corner.Parent = Object
+        end
+
+        local function Line(
+            X,
+            Y,
+            Width,
+            Height,
+            Rotation,
+            Radius
+        )
+            local Object =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            Canvas.Instance,
+
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(
+                                0,
+                                X,
+                                0,
+                                Y
+                            ),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                Width,
+                                0,
+                                Height
+                            ),
+
+                        BorderSizePixel = 0,
+
+                        BackgroundColor3 =
+                            Library.Theme[
+                                Controller.Theme
+                            ],
+
+                        Rotation =
+                            Rotation or 0,
+
+                        ZIndex =
+                            (Data.ZIndex or 4) + 1
+                    }
+                )
+
+            Register(
+                Object,
+                "BackgroundColor3"
+            )
+
+            Round(
+                Object,
+                Radius or 1
+            )
+
+            return Object
+        end
+
+        local function Outline(
+            X,
+            Y,
+            Width,
+            Height,
+            Radius,
+            Thickness
+        )
+            local Object =
+                Instances:Create(
+                    "Frame",
+                    {
+                        Parent =
+                            Canvas.Instance,
+
+                        Name = string.char(0),
+
+                        Position =
+                            UDim2New(
+                                0,
+                                X,
+                                0,
+                                Y
+                            ),
+
+                        Size =
+                            UDim2New(
+                                0,
+                                Width,
+                                0,
+                                Height
+                            ),
+
+                        BorderSizePixel = 0,
+                        BackgroundTransparency = 1,
+
+                        ZIndex =
+                            (Data.ZIndex or 4) + 1
+                    }
+                )
+
+            Round(
+                Object,
+                Radius or 2
+            )
+
+            local Stroke =
+                InstanceNew("UIStroke")
+
+            Stroke.ApplyStrokeMode =
+                Enum.ApplyStrokeMode.Border
+
+            Stroke.LineJoinMode =
+                Enum.LineJoinMode.Round
+
+            Stroke.Thickness =
+                Thickness or 1.35
+
+            Stroke.Parent =
+                Object.Instance
+
+            Register(
+                Stroke,
+                "Color"
+            )
+
+            return Object
+        end
+
+        local function Circle(
+            X,
+            Y,
+            Diameter,
+            Filled,
+            Thickness
+        )
+            if Filled then
+                return Line(
+                    X,
+                    Y,
+                    Diameter,
+                    Diameter,
+                    0,
+                    1
+                )
+            end
+
+            return Outline(
+                X,
+                Y,
+                Diameter,
+                Diameter,
+                1,
+                Thickness
+            )
+        end
+
+        local function PixelScale(Value)
+            return Value
+                * Size
+                / 18
+        end
+
+        local function PX(Value)
+            return PixelScale(Value)
+        end
+
+        local Name =
+            string.lower(
+                tostring(
+                    IconName
+                    or "dot"
+                )
+            )
+
+        if Name == "crosshair"
+            or Name == "aim"
+        then
+            Circle(
+                PX(5),
+                PX(5),
+                PX(8),
+                false,
+                PX(1.2)
+            )
+
+            Line(PX(8.2), PX(0.5), PX(1.6), PX(4), 0, 1)
+            Line(PX(8.2), PX(13.5), PX(1.6), PX(4), 0, 1)
+            Line(PX(0.5), PX(8.2), PX(4), PX(1.6), 0, 1)
+            Line(PX(13.5), PX(8.2), PX(4), PX(1.6), 0, 1)
+            Circle(PX(7.4), PX(7.4), PX(3.2), true)
+        elseif Name == "weapon"
+            or Name == "gun"
+        then
+            Line(PX(2), PX(5), PX(12), PX(4), 0, 2)
+            Line(PX(13), PX(6), PX(4), PX(2), 0, 1)
+            Line(PX(7), PX(8), PX(5), PX(2), 0, 1)
+            Line(PX(8), PX(8), PX(3), PX(7), -18, 2)
+            Line(PX(3), PX(4), PX(4), PX(1.5), 0, 1)
+        elseif Name == "eye"
+            or Name == "esp"
+        then
+            Outline(
+                PX(1),
+                PX(4.5),
+                PX(16),
+                PX(9),
+                PX(5),
+                PX(1.25)
+            )
+
+            Circle(
+                PX(6),
+                PX(5),
+                PX(6),
+                false,
+                PX(1.25)
+            )
+
+            Circle(
+                PX(7.5),
+                PX(6.5),
+                PX(3),
+                true
+            )
+        elseif Name == "sparkles"
+            or Name == "effects"
+        then
+            Line(PX(8.2), PX(1), PX(1.6), PX(11), 0, 1)
+            Line(PX(3.5), PX(5.7), PX(11), PX(1.6), 0, 1)
+            Line(PX(5.3), PX(3), PX(1.5), PX(7), 45, 1)
+            Line(PX(11.2), PX(3), PX(1.5), PX(7), -45, 1)
+            Circle(PX(13), PX(12), PX(3), true)
+        elseif Name == "user"
+            or Name == "local"
+        then
+            Circle(PX(6), PX(1.5), PX(6), false, PX(1.3))
+            Outline(PX(3), PX(9), PX(12), PX(7), PX(4), PX(1.3))
+            Line(PX(4), PX(15), PX(10), PX(1.5), 0, 1)
+        elseif Name == "users"
+            or Name == "players"
+        then
+            Circle(PX(3.5), PX(2), PX(5), false, PX(1.2))
+            Circle(PX(10.5), PX(3), PX(4), false, PX(1.2))
+            Outline(PX(1), PX(9), PX(10), PX(7), PX(4), PX(1.2))
+            Outline(PX(9), PX(10), PX(8), PX(6), PX(4), PX(1.2))
+        elseif Name == "move"
+            or Name == "movement"
+        then
+            Line(PX(8.2), PX(2), PX(1.6), PX(14), 0, 1)
+            Line(PX(2), PX(8.2), PX(14), PX(1.6), 0, 1)
+            Line(PX(6), PX(2), PX(5), PX(1.4), -45, 1)
+            Line(PX(7), PX(2), PX(5), PX(1.4), 45, 1)
+            Line(PX(12), PX(14.5), PX(5), PX(1.4), -45, 1)
+            Line(PX(11), PX(14.5), PX(5), PX(1.4), 45, 1)
+            Line(PX(2), PX(6), PX(5), PX(1.4), 45, 1)
+            Line(PX(2), PX(10), PX(5), PX(1.4), -45, 1)
+        elseif Name == "camera"
+        then
+            Outline(PX(1.5), PX(4.5), PX(15), PX(11), PX(3), PX(1.3))
+            Outline(PX(6), PX(6), PX(6), PX(6), 1, PX(1.3))
+            Line(PX(4), PX(2.5), PX(5), PX(2), 0, 1)
+            Circle(PX(13.5), PX(6.5), PX(1.8), true)
+        elseif Name == "sun"
+            or Name == "lighting"
+        then
+            Circle(PX(6), PX(6), PX(6), false, PX(1.3))
+            Line(PX(8.3), PX(0), PX(1.4), PX(4), 0, 1)
+            Line(PX(8.3), PX(14), PX(1.4), PX(4), 0, 1)
+            Line(PX(0), PX(8.3), PX(4), PX(1.4), 0, 1)
+            Line(PX(14), PX(8.3), PX(4), PX(1.4), 0, 1)
+            Line(PX(2.5), PX(2.5), PX(4), PX(1.3), 45, 1)
+            Line(PX(12), PX(2.5), PX(4), PX(1.3), -45, 1)
+            Line(PX(2.5), PX(13), PX(4), PX(1.3), -45, 1)
+            Line(PX(12), PX(13), PX(4), PX(1.3), 45, 1)
+        elseif Name == "cube"
+            or Name == "world"
+        then
+            Outline(PX(2), PX(4), PX(11), PX(11), PX(2), PX(1.2))
+            Outline(PX(5), PX(1), PX(11), PX(11), PX(2), PX(1.2))
+            Line(PX(3), PX(4), PX(4), PX(1.2), -45, 1)
+            Line(PX(12), PX(4), PX(4), PX(1.2), -45, 1)
+            Line(PX(12), PX(13), PX(4), PX(1.2), -45, 1)
+        elseif Name == "briefcase"
+            or Name == "farm"
+        then
+            Outline(PX(1.5), PX(5), PX(15), PX(10), PX(2), PX(1.3))
+            Outline(PX(5.5), PX(2), PX(7), PX(4), PX(2), PX(1.3))
+            Line(PX(1.5), PX(9), PX(15), PX(1.3), 0, 1)
+            Line(PX(8), PX(8), PX(2), PX(3), 0, 1)
+        elseif Name == "tool"
+            or Name == "wrench"
+        then
+            Line(PX(4), PX(10), PX(12), PX(2.2), -45, 1)
+            Circle(PX(1), PX(11), PX(5), false, PX(1.3))
+            Circle(PX(12), PX(1), PX(5), false, PX(1.3))
+            Line(PX(13), PX(1), PX(4), PX(2), -45, 1)
+        elseif Name == "sliders"
+            or Name == "interface"
+        then
+            Line(PX(1), PX(4), PX(16), PX(1.5), 0, 1)
+            Line(PX(1), PX(9), PX(16), PX(1.5), 0, 1)
+            Line(PX(1), PX(14), PX(16), PX(1.5), 0, 1)
+            Circle(PX(4), PX(2.5), PX(4), true)
+            Circle(PX(11), PX(7.5), PX(4), true)
+            Circle(PX(7), PX(12.5), PX(4), true)
+        elseif Name == "file"
+            or Name == "configs"
+        then
+            Outline(PX(3), PX(1), PX(12), PX(16), PX(2), PX(1.3))
+            Line(PX(10), PX(1), PX(5), PX(1.3), 45, 1)
+            Line(PX(6), PX(7), PX(6), PX(1.3), 0, 1)
+            Line(PX(6), PX(10), PX(6), PX(1.3), 0, 1)
+            Line(PX(6), PX(13), PX(4), PX(1.3), 0, 1)
+        else
+            Circle(PX(7), PX(7), PX(4), true)
+        end
+
+        function Controller:SetTheme(Theme)
+            if not Library.Theme[Theme] then
+                return
+            end
+
+            Controller.Theme = Theme
+
+            for _,
+                Part in ipairs(
+                    Controller.Parts
+                )
+            do
+                Library:ChangeItemTheme(
+                    Part.Object,
+                    {
+                        [Part.Property] = Theme
+                    }
+                )
+
+                Part.Object[
+                    Part.Property
+                ] = Library.Theme[Theme]
+            end
+        end
+
+        function Controller:SetVisible(Bool)
+            Canvas.Instance.Visible =
+                Bool == true
+        end
+
+        return Controller
+    end
+
     Library.Page = function(self, Data)
         Data = Data or { }
 
@@ -8890,38 +9356,26 @@ local Library
             )
 
             Items["Icon"] =
-                Instances:Create(
-                    "TextLabel",
+                Library:CreateVectorIcon(
+                    Items["Inactive"],
+                    SubPage.Icon,
                     {
-                        Parent =
-                            Items["Inactive"].
-                            Instance,
-
-                        FontFace = Library.Font,
-
-                        TextColor3 =
-                            Library.Theme[
-                                "Muted Text"
-                            ],
-
-                        Text = SubPage.Icon,
-                        Name = string.char(0),
-
+                        Size = 17,
                         Position =
-                            UDim2New(0, 7, 0, 0),
+                            UDim2New(
+                                0,
+                                8,
+                                0.5,
+                                0
+                            ),
 
-                        Size =
-                            UDim2New(0, 20, 1, 0),
+                        AnchorPoint =
+                            Vector2New(0, 0.5),
 
-                        BackgroundTransparency = 1,
-                        BorderSizePixel = 0,
-                        TextSize = 13
+                        Theme = "Muted Text",
+                        ZIndex = 5
                     }
                 )
-
-            Items["Icon"]:AddToTheme({
-                TextColor3 = "Muted Text"
-            })
 
             Items["Text"] =
                 Instances:Create(
@@ -9223,19 +9677,10 @@ local Library
                 }
             )
 
-            Items["Icon"]:Tween(
-                SubTween,
-                {
-                    TextColor3 =
-                        Bool
-                        and Library.Theme.Accent
-                        or Library.Theme[
-                            "Muted Text"
-                        ],
-
-                    TextTransparency =
-                        Bool and 0 or 0.08
-                }
+            Items["Icon"]:SetTheme(
+                Bool
+                and "Accent"
+                or "Muted Text"
             )
 
             Items["Text"]:Tween(
@@ -9252,13 +9697,6 @@ local Library
                         Bool and 0 or 0.08
                 }
             )
-
-            Items["Icon"]:ChangeItemTheme({
-                TextColor3 =
-                    Bool
-                    and "Accent"
-                    or "Muted Text"
-            })
 
             Items["Text"]:ChangeItemTheme({
                 TextColor3 =
@@ -9285,15 +9723,7 @@ local Library
                 }
             )
 
-            Items["Icon"]:Tween(
-                SubTween,
-                {
-                    TextColor3 =
-                        Library.Theme.Text,
-
-                    TextTransparency = 0
-                }
-            )
+            Items["Icon"]:SetTheme("Text")
 
             Items["Text"]:Tween(
                 SubTween,
@@ -9321,16 +9751,8 @@ local Library
                 }
             )
 
-            Items["Icon"]:Tween(
-                SubTween,
-                {
-                    TextColor3 =
-                        Library.Theme[
-                            "Muted Text"
-                        ],
-
-                    TextTransparency = 0.08
-                }
+            Items["Icon"]:SetTheme(
+                "Muted Text"
             )
 
             Items["Text"]:Tween(
@@ -13558,6 +13980,390 @@ local Library
         end
 
         return PlayerList
+    end
+
+    Library.PlayerListWindow = function(
+        self,
+        Data
+    )
+        Data = Data or { }
+
+        local PlayerWindow = {
+            Visible = Data.Visible == true,
+            Scale = tonumber(Data.Scale) or 1,
+            Destroyed = false,
+            Elements = { },
+            PlayerList = nil
+        }
+
+        local Items = { }
+
+        Items["Window"] =
+            Instances:Create(
+                "CanvasGroup",
+                {
+                    Parent =
+                        Library.Holder.Instance,
+
+                    Name = string.char(0),
+
+                    Position =
+                        Data.Position
+                        or UDim2New(
+                            0.5,
+                            -340,
+                            0.5,
+                            -210
+                        ),
+
+                    Size =
+                        Data.Size
+                        or UDim2New(
+                            0,
+                            680,
+                            0,
+                            420
+                        ),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme.Background,
+
+                    Visible =
+                        PlayerWindow.Visible,
+
+                    GroupTransparency = 0,
+                    ClipsDescendants = true,
+                    ZIndex = 300
+                }
+            )
+
+        Items["Window"]:AddToTheme({
+            BackgroundColor3 = "Background"
+        })
+
+        Library:ApplyGlass(
+            Items["Window"],
+            "Window",
+            6
+        )
+
+        Items["Scale"] =
+            Instances:Create(
+                "UIScale",
+                {
+                    Parent =
+                        Items["Window"].Instance,
+
+                    Scale =
+                        PlayerWindow.Scale
+                }
+            )
+
+        Items["Header"] =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent =
+                        Items["Window"].Instance,
+
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(0, 0, 0, 0),
+
+                    Size =
+                        UDim2New(1, 0, 0, 38),
+
+                    BorderSizePixel = 0,
+
+                    BackgroundColor3 =
+                        Library.Theme.Inline,
+
+                    ZIndex = 301
+                }
+            )
+
+        Items["Header"]:AddToTheme({
+            BackgroundColor3 = "Inline"
+        })
+
+        Items["HeaderIcon"] =
+            Library:CreateVectorIcon(
+                Items["Header"],
+                "users",
+                {
+                    Size = 18,
+
+                    Position =
+                        UDim2New(
+                            0,
+                            12,
+                            0.5,
+                            0
+                        ),
+
+                    AnchorPoint =
+                        Vector2New(0, 0.5),
+
+                    Theme = "Accent",
+                    ZIndex = 303
+                }
+            )
+
+        Items["Brand"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent =
+                        Items["Header"].Instance,
+
+                    FontFace = Library.Font,
+
+                    TextColor3 =
+                        Library.Theme.Accent,
+
+                    Text =
+                        Data.Brand
+                        or "radiant.rip",
+
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(
+                            0,
+                            39,
+                            0,
+                            0
+                        ),
+
+                    Size =
+                        UDim2New(
+                            0,
+                            88,
+                            1,
+                            0
+                        ),
+
+                    BackgroundTransparency = 1,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    BorderSizePixel = 0,
+                    TextSize = 11,
+                    ZIndex = 302
+                }
+            )
+
+        Items["Brand"]:AddToTheme({
+            TextColor3 = "Accent"
+        })
+
+        Items["Divider"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent =
+                        Items["Header"].Instance,
+
+                    FontFace = Library.Font,
+
+                    TextColor3 =
+                        Library.Theme[
+                            "Muted Text"
+                        ],
+
+                    Text = "•",
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(
+                            0,
+                            124,
+                            0,
+                            0
+                        ),
+
+                    Size =
+                        UDim2New(
+                            0,
+                            12,
+                            1,
+                            0
+                        ),
+
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    TextSize = 10,
+                    ZIndex = 302
+                }
+            )
+
+        Items["Divider"]:AddToTheme({
+            TextColor3 = "Muted Text"
+        })
+
+        Items["Title"] =
+            Instances:Create(
+                "TextLabel",
+                {
+                    Parent =
+                        Items["Header"].Instance,
+
+                    FontFace = Library.Font,
+                    TextColor3 = Library.Theme.Text,
+
+                    Text =
+                        Data.Title
+                        or "Player List",
+
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(
+                            0,
+                            138,
+                            0,
+                            0
+                        ),
+
+                    Size =
+                        UDim2New(
+                            1,
+                            -150,
+                            1,
+                            0
+                        ),
+
+                    BackgroundTransparency = 1,
+
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+
+                    BorderSizePixel = 0,
+                    TextSize = 11,
+                    ZIndex = 302
+                }
+            )
+
+        Items["Title"]:AddToTheme({
+            TextColor3 = "Text"
+        })
+
+        Items["Content"] =
+            Instances:Create(
+                "Frame",
+                {
+                    Parent =
+                        Items["Window"].Instance,
+
+                    Name = string.char(0),
+
+                    Position =
+                        UDim2New(
+                            0,
+                            10,
+                            0,
+                            48
+                        ),
+
+                    Size =
+                        UDim2New(
+                            1,
+                            -20,
+                            1,
+                            -58
+                        ),
+
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    ClipsDescendants = true,
+                    ZIndex = 301
+                }
+            )
+
+        Items["Window"]:
+            MakeDraggable(
+                Items["Header"],
+                0
+            )
+
+        local FakeSection = {
+            Window = PlayerWindow,
+            Page = nil,
+            Elements = {
+                Content = Items["Content"]
+            }
+        }
+
+        PlayerWindow.PlayerList =
+            Library.Sections.PlayerList(
+                FakeSection,
+                {
+                    Flag =
+                        Data.Flag
+                        or "Player Status",
+
+                    Height =
+                        Data.Height
+                        or 354,
+
+                    GetStatus =
+                        Data.GetStatus,
+
+                    Callback =
+                        Data.Callback
+                }
+            )
+
+        function PlayerWindow:SetVisibility(Bool)
+            PlayerWindow.Visible =
+                Bool == true
+
+            Items["Window"].Instance.Visible =
+                PlayerWindow.Visible
+        end
+
+        function PlayerWindow:SetScale(Value)
+            PlayerWindow.Scale =
+                math.clamp(
+                    tonumber(Value)
+                    or 1,
+                    0.55,
+                    1.6
+                )
+
+            Items["Scale"].Instance.Scale =
+                PlayerWindow.Scale
+        end
+
+        function PlayerWindow:SetSize(Size)
+            if typeof(Size) == "UDim2" then
+                Items["Window"].Instance.Size =
+                    Size
+            end
+        end
+
+        function PlayerWindow:Destroy()
+            if PlayerWindow.Destroyed then
+                return
+            end
+
+            PlayerWindow.Destroyed = true
+
+            if Items["Window"]
+                and Items["Window"].Instance
+            then
+                Items["Window"].Instance:
+                    Destroy()
+            end
+        end
+
+        PlayerWindow.Elements = Items
+
+        return PlayerWindow
     end
 
     Library.Sections.Listbox = function(self, Data)
