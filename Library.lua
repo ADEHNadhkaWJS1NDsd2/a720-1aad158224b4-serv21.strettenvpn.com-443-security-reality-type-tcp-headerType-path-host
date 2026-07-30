@@ -1099,7 +1099,13 @@ local function BuildRuntime()
         return Label
     end
 
-    local RegisterAccentTarget
+    local AccentUpdateTargets = {}
+
+    local function RegisterAccentTarget(Callback)
+        if type(Callback) == "function" then
+            AccentUpdateTargets[#AccentUpdateTargets + 1] = Callback
+        end
+    end
 
     local function CreateSlider(Section, Name, Minimum, Maximum, Default, Flag, Options)
         Options = Options or {}
@@ -2567,12 +2573,6 @@ local function BuildRuntime()
                 return Current
             end
         }
-    end
-
-    local AccentUpdateTargets = {}
-
-    RegisterAccentTarget = function(Callback)
-        table.insert(AccentUpdateTargets, Callback)
     end
 
     RegisterAccentTarget(function()
