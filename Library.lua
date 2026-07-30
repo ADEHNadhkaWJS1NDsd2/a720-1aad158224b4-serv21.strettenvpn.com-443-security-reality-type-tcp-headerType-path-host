@@ -378,7 +378,7 @@ local function BuildRuntime()
                 ZIndex = ZIndex
             })
         end
-        if Name == "Rifle" or Name == "Lightning" or not IconAsset then
+        if Name == "Rifle" or not IconAsset then
             return CreateFallbackIcon(Parent, Name, Size, Position, Color, ZIndex)
         end
         return Create("ImageLabel", {
@@ -603,12 +603,12 @@ local function BuildRuntime()
         ZIndex = 4
     })
 
-    Menu.SidebarLogo = Icon(Sidebar, "Lightning", UDim2.fromOffset(24, 30), UDim2.fromOffset(44, 49), Accent, 6)
+    Menu.SidebarLogo = Icon(Sidebar, "Lightning", UDim2.fromOffset(24, 24), UDim2.fromOffset(44, 58), Accent, 6)
     Menu.SidebarLogo.Active = true
 
     Create("Frame", {
         Parent = Sidebar,
-        Position = UDim2.fromOffset(18, 84),
+        Position = UDim2.fromOffset(18, 96),
         Size = UDim2.fromOffset(52, 1),
         BackgroundColor3 = Border,
         BorderSizePixel = 0,
