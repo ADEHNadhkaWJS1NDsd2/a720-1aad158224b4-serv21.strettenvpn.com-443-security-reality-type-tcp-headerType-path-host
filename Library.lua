@@ -303,17 +303,14 @@ local function BuildRuntime()
             })
             Corner(Dot, 100)
         elseif Name == "Rifle" then
-            Line(2, 6, 8, 1)
-            Line(7, 5, 4, 1)
-            Line(10, 4, 2, 1)
-            Line(1, 7, 3, 1)
-            Line(3, 8, 2, 1)
-            Line(5, 7, 1, 3)
-            Line(6, 8, 2, 1)
-            Line(7, 9, 2, 1)
-            Line(8, 10, 1, 1)
-            Line(10, 7, 1, 1)
-            Line(11, 8, 1, 1)
+            Line(UDim2.new(0.14, 0, 0.46, 0), UDim2.new(0.46, 0, 0.08, 0), -10)
+            Line(UDim2.new(0.54, 0, 0.40, 0), UDim2.new(0.24, 0, 0.05, 0), -10)
+            Line(UDim2.new(0.68, 0, 0.33, 0), UDim2.new(0.12, 0, 0.04, 0), -10)
+            Line(UDim2.new(0.08, 0, 0.52, 0), UDim2.new(0.20, 0, 0.05, 0), 22)
+            Line(UDim2.new(0.22, 0, 0.60, 0), UDim2.new(0.10, 0, 0.16, 0), -58)
+            Line(UDim2.new(0.36, 0, 0.50, 0), UDim2.new(0.06, 0, 0.18, 0), 10)
+            Line(UDim2.new(0.44, 0, 0.56, 0), UDim2.new(0.10, 0, 0.18, 0), 24)
+            Line(UDim2.new(0.34, 0, 0.34, 0), UDim2.new(0.12, 0, 0.04, 0), -10)
         elseif Name == "Gear" then
             local Ring = Create("Frame", {
                 Parent = Root,
@@ -574,7 +571,7 @@ local function BuildRuntime()
         ZIndex = 4
     })
 
-    Menu.SidebarLogo = Icon(Sidebar, "Lightning", UDim2.fromOffset(28, 38), UDim2.fromOffset(44, 34), Accent, 6)
+    Menu.SidebarLogo = Icon(Sidebar, "Lightning", UDim2.fromOffset(28, 38), UDim2.fromOffset(44, 39), Accent, 6)
     Menu.SidebarLogo.Active = true
 
     Create("Frame", {
