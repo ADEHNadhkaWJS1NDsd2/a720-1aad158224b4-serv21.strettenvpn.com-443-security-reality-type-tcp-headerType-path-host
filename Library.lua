@@ -57,7 +57,7 @@ local function BuildRuntime()
         if type(writefile) ~= "function" or type(CustomAsset) ~= "function" then
             return nil
         end
-        local FileName = Library.Folders.Assets .. "/AtramentaIconsV5.png"
+        local FileName = Library.Folders.Assets .. "/AtramentaIconsV6.png"
         local Exists = type(isfile) == "function" and isfile(FileName)
         if not Exists then
             writefile(FileName, DecodeBase64(Base64Data))
@@ -303,11 +303,83 @@ local function BuildRuntime()
             })
             Corner(Dot, 100)
         elseif Name == "Rifle" then
-            Line(UDim2.new(0.05, 0, 0.40, 0), UDim2.new(0.24, 0, 0.18, 0), -8)
-            Line(UDim2.new(0.24, 0, 0.36, 0), UDim2.new(0.42, 0, 0.22, 0), 0)
-            Line(UDim2.new(0.60, 0, 0.38, 0), UDim2.new(0.35, 0, 0.10, 0), 0)
-            Line(UDim2.new(0.47, 0, 0.53, 0), UDim2.new(0.12, 0, 0.32, 0), 18)
-            Line(UDim2.new(0.34, 0, 0.54, 0), UDim2.new(0.14, 0, 0.34, 0), 12)
+            local Body = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.50, 0.48),
+                Size = UDim2.fromScale(0.52, 0.12),
+                BackgroundColor3 = Color,
+                BorderSizePixel = 0,
+                Rotation = -8,
+                ZIndex = ZIndex + 1
+            })
+            Corner(Body, 2)
+            local Barrel = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0, 0.5),
+                Position = UDim2.fromScale(0.62, 0.41),
+                Size = UDim2.fromScale(0.24, 0.06),
+                BackgroundColor3 = Color,
+                BorderSizePixel = 0,
+                Rotation = -8,
+                ZIndex = ZIndex + 1
+            })
+            Corner(Barrel, 2)
+            local Sight = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.49, 0.34),
+                Size = UDim2.fromScale(0.10, 0.05),
+                BackgroundColor3 = Color,
+                BorderSizePixel = 0,
+                Rotation = -8,
+                ZIndex = ZIndex + 1
+            })
+            Corner(Sight, 2)
+            local Stock = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.22, 0.39),
+                Size = UDim2.fromScale(0.20, 0.08),
+                BackgroundColor3 = Color,
+                BorderSizePixel = 0,
+                Rotation = -28,
+                ZIndex = ZIndex + 1
+            })
+            Corner(Stock, 2)
+            local Grip = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.44, 0.58),
+                Size = UDim2.fromScale(0.08, 0.20),
+                BackgroundColor3 = Color,
+                BorderSizePixel = 0,
+                Rotation = 8,
+                ZIndex = ZIndex + 1
+            })
+            Corner(Grip, 2)
+            local Magazine = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.54, 0.60),
+                Size = UDim2.fromScale(0.09, 0.24),
+                BackgroundColor3 = Color,
+                BorderSizePixel = 0,
+                Rotation = 24,
+                ZIndex = ZIndex + 1
+            })
+            Corner(Magazine, 2)
+            local MagazineCut = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.57, 0.54),
+                Size = UDim2.fromScale(0.045, 0.12),
+                BackgroundColor3 = Surface,
+                BorderSizePixel = 0,
+                Rotation = 24,
+                ZIndex = ZIndex + 2
+            })
+            Corner(MagazineCut, 2)
         elseif Name == "Gear" then
             local Ring = Create("Frame", {
                 Parent = Root,
@@ -343,7 +415,7 @@ local function BuildRuntime()
     end
 
     local function Icon(Parent, Name, Size, Position, Color, ZIndex)
-        if not IconAsset then
+        if Name == "Rifle" or not IconAsset then
             return CreateFallbackIcon(Parent, Name, Size, Position, Color, ZIndex)
         end
         return Create("ImageLabel", {
@@ -359,6 +431,37 @@ local function BuildRuntime()
             ScaleType = Enum.ScaleType.Fit,
             ZIndex = ZIndex
         })
+    end
+
+    function Menu:SetIconColor(Object, Color, Duration)
+        if not Object then
+            return
+        end
+        local Objects = {Object}
+        for _, Descendant in ipairs(Object:GetDescendants()) do
+            table.insert(Objects, Descendant)
+        end
+        for _, Item in ipairs(Objects) do
+            if Item:IsA("ImageLabel") or Item:IsA("ImageButton") then
+                if Duration then
+                    Tween(Item, Duration, {ImageColor3 = Color})
+                else
+                    Item.ImageColor3 = Color
+                end
+            elseif Item:IsA("Frame") and Item.BackgroundTransparency < 1 then
+                if Duration then
+                    Tween(Item, Duration, {BackgroundColor3 = Color})
+                else
+                    Item.BackgroundColor3 = Color
+                end
+            elseif Item:IsA("UIStroke") then
+                if Duration then
+                    Tween(Item, Duration, {Color = Color})
+                else
+                    Item.Color = Color
+                end
+            end
+        end
     end
 
     local Parent = CoreGui
@@ -429,7 +532,7 @@ local function BuildRuntime()
     end)
 
     local ScreenGui = Create("ScreenGui", {
-        Name = "AtramentaMenuV20",
+        Name = "AtramentaMenuV22",
         Parent = Parent,
         IgnoreGuiInset = true,
         ResetOnSpawn = false,
@@ -521,7 +624,7 @@ local function BuildRuntime()
 
     local Sidebar = Create("Frame", {
         Parent = Main,
-        Size = UDim2.fromOffset(102, 610),
+        Size = UDim2.fromOffset(88, 610),
         BackgroundColor3 = SidebarColor,
         BorderSizePixel = 0,
         ZIndex = 3
@@ -537,13 +640,13 @@ local function BuildRuntime()
         ZIndex = 4
     })
 
-    Menu.SidebarLogo = Icon(Sidebar, "Lightning", UDim2.fromOffset(36, 48), UDim2.fromOffset(55, 42), Accent, 6)
+    Menu.SidebarLogo = Icon(Sidebar, "Lightning", UDim2.fromOffset(28, 38), UDim2.fromOffset(44, 34), Accent, 6)
     Menu.SidebarLogo.Active = true
 
     Create("Frame", {
         Parent = Sidebar,
-        Position = UDim2.fromOffset(27, 92),
-        Size = UDim2.fromOffset(56, 1),
+        Position = UDim2.fromOffset(18, 78),
+        Size = UDim2.fromOffset(52, 1),
         BackgroundColor3 = Border,
         BorderSizePixel = 0,
         ZIndex = 5
@@ -551,8 +654,8 @@ local function BuildRuntime()
 
     local Content = Create("Frame", {
         Parent = Main,
-        Position = UDim2.fromOffset(102, 0),
-        Size = UDim2.new(1, -102, 1, 0),
+        Position = UDim2.fromOffset(88, 0),
+        Size = UDim2.new(1, -88, 1, 0),
         BackgroundTransparency = 1,
         ZIndex = 3
     })
@@ -615,37 +718,37 @@ local function BuildRuntime()
     local SearchBar = Create("Frame", {
         Parent = Content,
         Position = UDim2.fromOffset(14, 78),
-        Size = UDim2.fromOffset(568, 42),
-        BackgroundColor3 = Color3.fromRGB(9, 8, 13),
-        BackgroundTransparency = 0.12,
+        Size = UDim2.fromOffset(568, 40),
+        BackgroundColor3 = Color3.fromRGB(11, 10, 16),
+        BackgroundTransparency = 0.05,
         BorderSizePixel = 0,
         ZIndex = 5
     })
-    Corner(SearchBar, 5)
-    Stroke(SearchBar, Border, 0.58, 1)
+    Corner(SearchBar, 4)
+    Stroke(SearchBar, Color3.fromRGB(48, 42, 58), 0.18, 1)
 
     local SearchBox = Create("TextBox", {
         Parent = SearchBar,
-        Position = UDim2.fromOffset(38, 0),
-        Size = UDim2.new(1, -50, 1, 0),
+        Position = UDim2.fromOffset(34, 0),
+        Size = UDim2.new(1, -46, 1, 0),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSans,
-        PlaceholderText = "Search settings...",
+        PlaceholderText = "Search",
         PlaceholderColor3 = DisabledText,
         Text = "",
         TextColor3 = PrimaryText,
-        TextSize = 11,
+        TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left,
         ClearTextOnFocus = false,
         ZIndex = 6
     })
 
-    Icon(SearchBar, "Search", UDim2.fromOffset(15, 15), UDim2.new(0, 20, 0.5, 0), MutedText, 7)
+    Icon(SearchBar, "Search", UDim2.fromOffset(14, 14), UDim2.new(0, 16, 0.5, 0), MutedText, 7)
 
     local SearchSettings = Create("TextButton", {
         Parent = Content,
         Position = UDim2.fromOffset(590, 78),
-        Size = UDim2.fromOffset(44, 42),
+        Size = UDim2.fromOffset(44, 40),
         BackgroundColor3 = Color3.fromRGB(9, 8, 13),
         BackgroundTransparency = 0.12,
         BorderSizePixel = 0,
@@ -1065,9 +1168,29 @@ local function BuildRuntime()
             ZIndex = 10
         })
         Corner(Knob, 2)
-
+        local KnobGlow = Menu:AddSoftGlow(Knob, 10, 7, 0.24, false)
         local Value = Default
         local Dragging = false
+        RegisterAccentTarget(function(NewColor)
+            Fill.BackgroundColor3 = NewColor
+            if KnobGlow then
+                KnobGlow.ImageColor3 = NewColor
+            end
+        end)
+        Bind(Track.MouseEnter:Connect(function()
+            Tween(Knob, 0.12, {Size = UDim2.fromOffset(7, 16)})
+            if KnobGlow then
+                Tween(KnobGlow, 0.12, {ImageTransparency = 0.14})
+            end
+        end))
+        Bind(Track.MouseLeave:Connect(function()
+            if not Dragging then
+                Tween(Knob, 0.12, {Size = UDim2.fromOffset(6, 14)})
+                if KnobGlow then
+                    Tween(KnobGlow, 0.12, {ImageTransparency = 0.24})
+                end
+            end
+        end))
         Menu.Flags[Flag] = Value
 
         local function Format(Number)
@@ -1123,6 +1246,7 @@ local function BuildRuntime()
 
         RegisterControl(Section, Row, Name)
         return {
+            Row = Row,
             Set = Set,
             Get = function()
                 return Value
@@ -1193,6 +1317,13 @@ local function BuildRuntime()
             ZIndex = 10
         })
         Corner(MaximumKnob, 2)
+        local MinimumGlow = Menu:AddSoftGlow(MinimumKnob, 10, 7, 0.24, false)
+        local MaximumGlow = Menu:AddSoftGlow(MaximumKnob, 10, 7, 0.24, false)
+        RegisterAccentTarget(function(NewColor)
+            Fill.BackgroundColor3 = NewColor
+            if MinimumGlow then MinimumGlow.ImageColor3 = NewColor end
+            if MaximumGlow then MaximumGlow.ImageColor3 = NewColor end
+        end)
 
         local Low = DefaultMinimum
         local High = DefaultMaximum
@@ -2993,6 +3124,7 @@ local function BuildRuntime()
 
         Set(State)
         return {
+            Row = Row,
             Set = Set,
             Get = function()
                 return State
@@ -3001,6 +3133,10 @@ local function BuildRuntime()
     end
 
     local function CreatePopupSlider(Y, LabelText, Minimum, Maximum, Default, FormatText, Callback)
+        if Callback == nil and type(FormatText) == "function" then
+            Callback = FormatText
+            FormatText = nil
+        end
         local Row = Create("Frame", {
             Parent = Menu.SettingsUI.SettingsPanel,
             Position = UDim2.fromOffset(28, Y),
@@ -3065,6 +3201,7 @@ local function BuildRuntime()
             ZIndex = 34
         })
         Corner(Knob, 2)
+        local KnobGlow = Menu:AddSoftGlow(Knob, 34, 7, 0.22, false)
 
         local Value = Default
         local Dragging = false
@@ -3087,6 +3224,9 @@ local function BuildRuntime()
 
         RegisterAccentTarget(function(NewColor)
             Fill.BackgroundColor3 = NewColor
+            if KnobGlow then
+                KnobGlow.ImageColor3 = NewColor
+            end
         end)
 
         local function Update(Input)
@@ -3124,7 +3264,7 @@ local function BuildRuntime()
 
     Menu.SettingsUI.ColorRow = Create("Frame", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(28, 646),
+        Position = UDim2.fromOffset(28, 664),
         Size = UDim2.fromOffset(292, 26),
         BackgroundTransparency = 1,
         ZIndex = 31
@@ -3665,6 +3805,24 @@ local function BuildRuntime()
         end
     end
 
+    local function LayoutSettingsPanel()
+        if Menu.SettingsUI.HideEspPreviewToggle and Menu.SettingsUI.HideEspPreviewToggle.Row then
+            Menu.SettingsUI.HideEspPreviewToggle.Row.Position = UDim2.fromOffset(28, 544)
+            Menu.SettingsUI.HideEspPreviewToggle.Row.Size = UDim2.fromOffset(292, 26)
+        end
+        if Menu.SettingsUI.EspPreviewSizeSlider and Menu.SettingsUI.EspPreviewSizeSlider.Row then
+            Menu.SettingsUI.EspPreviewSizeSlider.Row.Position = UDim2.fromOffset(28, 590)
+            Menu.SettingsUI.EspPreviewSizeSlider.Row.Size = UDim2.fromOffset(292, 58)
+        end
+        if Menu.SettingsUI.ColorRow then
+            Menu.SettingsUI.ColorRow.Position = UDim2.fromOffset(28, 664)
+            Menu.SettingsUI.ColorRow.Size = UDim2.fromOffset(292, 26)
+        end
+        if Menu.SettingsUI.SettingsPanel then
+            Menu.SettingsUI.SettingsPanel.Size = UDim2.fromOffset(348, 716)
+        end
+    end
+
     local function SetSettingsOpen(State)
         SettingsOpen = State and true or false
         Menu.SettingsUI.SettingsTransition = (Menu.SettingsUI.SettingsTransition or 0) + 1
@@ -3673,8 +3831,7 @@ local function BuildRuntime()
         Menu.SettingsUI.SettingsOverlay.Visible = false
         Menu.SettingsInputBlocker.Visible = SettingsOpen
         if SettingsOpen then
-            Menu.SettingsUI.SettingsPanel.Size = UDim2.fromOffset(348, 696)
-            Menu.SettingsUI.ColorRow.Position = UDim2.fromOffset(28, 646)
+            LayoutSettingsPanel()
             Menu.SettingsUI.SettingsPanel.Position = DecodePosition(SavedPositions.Settings, Main.Position)
             Menu.SettingsUI.SettingsPanelScale.Scale = 0.96
             Menu.SettingsUI.SettingsPanel.BackgroundTransparency = 0.12
@@ -3860,14 +4017,14 @@ local function BuildRuntime()
         SetWatermarkScale(Value)
     end)
 
-    CreatePopupToggle(544, "Hide ESP Preview", false, function(Value)
+    Menu.SettingsUI.HideEspPreviewToggle = CreatePopupToggle(544, "Hide ESP Preview", false, function(Value)
         Menu.Flags.HideEspPreview = Value
         if Menu.EspPreviewController.SetHidden then
             Menu.EspPreviewController.SetHidden(Value)
         end
     end)
 
-    CreatePopupSlider(576, "ESP Preview size", 80, 160, 115, function(Value)
+    Menu.SettingsUI.EspPreviewSizeSlider = CreatePopupSlider(590, "ESP Preview size", 80, 160, 115, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
         Menu.Flags.EspPreviewScale = Value
@@ -4811,6 +4968,7 @@ local function BuildRuntime()
 
     local function SelectPage(Name)
         CurrentPage = Name
+        Menu.ActivePageName = Name
         ClosePopup()
         local SelectedPage = Menu.Pages[Name]
         for PageName, Page in pairs(Menu.Pages) do
@@ -4819,18 +4977,29 @@ local function BuildRuntime()
         RestorePageSections(SelectedPage, Menu.Visible and Main.Visible)
         for ButtonName, Data in pairs(Menu.SidebarButtons) do
             local Selected = ButtonName == Name
-            Tween(Data.Button, 0.14, {
-                BackgroundTransparency = Selected and 0 or 1,
-                BackgroundColor3 = Selected and Color3.fromRGB(33, 28, 39) or SidebarColor
+            Tween(Data.Button, 0.16, {
+                BackgroundTransparency = Selected and 0.72 or 1,
+                BackgroundColor3 = Selected and Color3.fromRGB(35, 29, 42) or SidebarColor
             })
-            Tween(Data.Marker, 0.14, {
-                BackgroundTransparency = Selected and 0 or 1
-            })
-            if Data.Icon:IsA("ImageLabel") then
-                Tween(Data.Icon, 0.14, {
-                    ImageColor3 = Selected and Accent or MutedText
-                })
+            if Data.Scale then
+                Tween(Data.Scale, 0.16, {Scale = Selected and 1.025 or 1})
             end
+            if Data.Marker then
+                Data.Marker.Visible = Selected
+                if Selected then
+                    Data.Marker.Size = UDim2.fromOffset(2, 8)
+                    Data.Marker.Position = UDim2.fromOffset(3, (Data.BaseY or Data.Button.Position.Y.Offset) + 24)
+                    Tween(Data.Marker, 0.18, {
+                        Size = UDim2.fromOffset(2, 36),
+                        Position = UDim2.fromOffset(3, (Data.BaseY or Data.Button.Position.Y.Offset) + 8),
+                        BackgroundTransparency = 0
+                    })
+                end
+            end
+            if Data.Label then
+                Tween(Data.Label, 0.16, {TextColor3 = Selected and PrimaryText or MutedText})
+            end
+            Menu:SetIconColor(Data.Icon, Selected and Accent or MutedText, 0.16)
         end
     end
 
@@ -5085,200 +5254,6 @@ local function BuildRuntime()
         Section.AssemblyScale = SectionScale
     end
 
-    local function AssemblyTween(Object, Duration, Properties, Style, Direction)
-        local Animation = TweenService:Create(
-            Object,
-            TweenInfo.new(
-                (Duration or 0.2) / math.max(AnimationFactor, 0.05),
-                Style or Enum.EasingStyle.Quart,
-                Direction or Enum.EasingDirection.Out
-            ),
-            Properties
-        )
-        Animation:Play()
-        return Animation
-    end
-
-    local function OffsetPosition(Position, X, Y)
-        return UDim2.new(
-            Position.X.Scale,
-            Position.X.Offset + X,
-            Position.Y.Scale,
-            Position.Y.Offset + Y
-        )
-    end
-
-    local function PrepareAssembly()
-        Sidebar.Position = OffsetPosition(AssemblyTargets.Sidebar, -118, 0)
-        Topbar.Position = OffsetPosition(AssemblyTargets.Topbar, 0, -72)
-        SearchBar.Position = OffsetPosition(AssemblyTargets.SearchBar, 72, 0)
-        SearchSettings.Position = OffsetPosition(AssemblyTargets.SearchSettings, 42, 0)
-
-        local Index = 0
-        for _, Section in pairs(Menu.Sections) do
-            local Root = Section.Root
-            local Target = AssemblyTargets[Root] or Section.HomePosition or Root.Position
-            AssemblyTargets[Root] = Target
-            local SectionScale = AssemblyScales[Root]
-            if not SectionScale or not SectionScale.Parent then
-                SectionScale = Create("UIScale", {
-                    Parent = Root,
-                    Scale = 1
-                })
-                AssemblyScales[Root] = SectionScale
-                Section.AssemblyScale = SectionScale
-            end
-            local IsRight = Target.X.Offset > 0
-            local IsBottom = Target.Y.Offset > 0
-            local XOffset = IsRight and 76 or -76
-            local YOffset = IsBottom and 58 or -34
-            Root.Position = OffsetPosition(Target, XOffset, YOffset)
-            SectionScale.Scale = 0.88
-            Index += 1
-        end
-    end
-
-    local function AnimateAssemblyOpen(Generation)
-        local TargetScale = (Menu.Flags.ViewportScale or 1) * BaseScaleFactor
-        Main.Position = DecodePosition(SavedPositions.Main, Main.Position)
-        Main.Visible = true
-        InputBlocker.Visible = true
-        Overlay.Visible = Menu.Flags.BackgroundDim ~= false
-        MainScale.Scale = TargetScale * 0.91
-        Main.BackgroundTransparency = 0.20
-        Overlay.BackgroundTransparency = 1
-        PrepareAssembly()
-
-        local CurrentSelectedPage = Menu.Pages[CurrentPage]
-        if CurrentSelectedPage then
-            for _, Section in pairs(Menu.Sections) do
-                if Section.Root.Parent ~= CurrentSelectedPage then
-                    Section.Root.Position = Section.HomePosition or AssemblyTargets[Section.Root] or Section.Root.Position
-                    local HiddenScale = Section.AssemblyScale
-                    if HiddenScale then
-                        HiddenScale.Scale = 1
-                    end
-                end
-            end
-        end
-
-        AssemblyTween(Overlay, 0.24, {BackgroundTransparency = 0.55}, Enum.EasingStyle.Quad)
-        AssemblyTween(MainScale, 0.36, {Scale = TargetScale}, Enum.EasingStyle.Back)
-        AssemblyTween(Main, 0.24, {BackgroundTransparency = 0.08}, Enum.EasingStyle.Quad)
-
-        task.delay(0.035 / math.max(AnimationFactor, 0.05), function()
-            if AssemblyGeneration ~= Generation or not Menu.Visible then
-                return
-            end
-            AssemblyTween(Sidebar, 0.32, {Position = AssemblyTargets.Sidebar}, Enum.EasingStyle.Back)
-        end)
-
-        task.delay(0.085 / math.max(AnimationFactor, 0.05), function()
-            if AssemblyGeneration ~= Generation or not Menu.Visible then
-                return
-            end
-            AssemblyTween(Topbar, 0.30, {Position = AssemblyTargets.Topbar}, Enum.EasingStyle.Back)
-        end)
-
-        task.delay(0.135 / math.max(AnimationFactor, 0.05), function()
-            if AssemblyGeneration ~= Generation or not Menu.Visible then
-                return
-            end
-            AssemblyTween(SearchBar, 0.28, {Position = AssemblyTargets.SearchBar}, Enum.EasingStyle.Back)
-            AssemblyTween(SearchSettings, 0.28, {Position = AssemblyTargets.SearchSettings}, Enum.EasingStyle.Back)
-        end)
-
-        local VisibleSections = {}
-        for _, Section in pairs(Menu.Sections) do
-            if Section.Root.Parent.Visible then
-                table.insert(VisibleSections, Section.Root)
-            end
-        end
-        table.sort(VisibleSections, function(A, B)
-            local AP = AssemblyTargets[A] or A.Position
-            local BP = AssemblyTargets[B] or B.Position
-            if AP.Y.Offset == BP.Y.Offset then
-                return AP.X.Offset < BP.X.Offset
-            end
-            return AP.Y.Offset < BP.Y.Offset
-        end)
-
-        for Index, Root in ipairs(VisibleSections) do
-            task.delay((0.18 + ((Index - 1) * 0.055)) / math.max(AnimationFactor, 0.05), function()
-                if AssemblyGeneration ~= Generation or not Menu.Visible then
-                    return
-                end
-                AssemblyTween(Root, 0.34, {Position = AssemblyTargets[Root] or Root.Position}, Enum.EasingStyle.Back)
-                local SectionScale = AssemblyScales[Root]
-                if SectionScale then
-                    AssemblyTween(SectionScale, 0.34, {Scale = 1}, Enum.EasingStyle.Back)
-                end
-            end)
-        end
-    end
-
-    local function AnimateAssemblyClose(Generation)
-        SavedPositions.Main = EncodePosition(Main.Position)
-        SavedPositions.Settings = EncodePosition(Menu.SettingsUI.SettingsPanel.Position)
-        SavedPositions.Watermark = EncodePosition(Watermark.Position)
-        SavedPositions.ColorPickerOffsetX = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.X - Menu.SettingsUI.SettingsPanel.AbsolutePosition.X
-        SavedPositions.ColorPickerOffsetY = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.Y - Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y
-        SavePositions()
-        ClosePopup()
-        if CloseGearMenus then
-            CloseGearMenus()
-        end
-        SetSettingsOpen(false)
-        SetPickerOpen(false)
-
-        local TargetScale = (Menu.Flags.ViewportScale or 1) * BaseScaleFactor
-        local VisibleSections = {}
-        for _, Section in pairs(Menu.Sections) do
-            if Section.Root.Parent.Visible then
-                table.insert(VisibleSections, Section.Root)
-            end
-        end
-
-        for Index, Root in ipairs(VisibleSections) do
-            local Target = AssemblyTargets[Root] or Root.Position
-            AssemblyTargets[Root] = Target
-            local IsRight = Target.X.Offset > 0
-            local IsBottom = Target.Y.Offset > 0
-            local XOffset = IsRight and 54 or -54
-            local YOffset = IsBottom and 42 or -28
-            task.delay(((Index - 1) * 0.018) / math.max(AnimationFactor, 0.05), function()
-                if AssemblyGeneration ~= Generation or Menu.Visible then
-                    return
-                end
-                AssemblyTween(Root, 0.20, {Position = OffsetPosition(Target, XOffset, YOffset)}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-                local SectionScale = AssemblyScales[Root]
-                if SectionScale then
-                    AssemblyTween(SectionScale, 0.20, {Scale = 0.9}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-                end
-            end)
-        end
-
-        AssemblyTween(SearchBar, 0.20, {Position = OffsetPosition(AssemblyTargets.SearchBar, 54, 0)}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        AssemblyTween(SearchSettings, 0.20, {Position = OffsetPosition(AssemblyTargets.SearchSettings, 38, 0)}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        AssemblyTween(Topbar, 0.22, {Position = OffsetPosition(AssemblyTargets.Topbar, 0, -58)}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        AssemblyTween(Sidebar, 0.24, {Position = OffsetPosition(AssemblyTargets.Sidebar, -100, 0)}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        AssemblyTween(MainScale, 0.25, {Scale = TargetScale * 0.93}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        AssemblyTween(Main, 0.22, {BackgroundTransparency = 0.20}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        AssemblyTween(Overlay, 0.25, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-
-        task.delay(0.27 / math.max(AnimationFactor, 0.05), function()
-            if AssemblyGeneration ~= Generation or Menu.Visible then
-                return
-            end
-            Main.Visible = false
-            Overlay.Visible = false
-            InputBlocker.Visible = false
-            Menu.SettingsInputBlocker.Visible = false
-            Menu.PopupInputBlocker.Visible = false
-            Menu.PickerInputBlocker.Visible = false
-        end)
-    end
-
     local function SetVisible(State)
         State = State and true or false
         if Menu.Visible == State and Main.Visible == State then
@@ -5292,10 +5267,56 @@ local function BuildRuntime()
             Menu.EspPreviewController.SetMenuVisible(State)
         end
 
+        local TargetScale = (Menu.Flags.ViewportScale or 1) * BaseScaleFactor
         if State then
-            AnimateAssemblyOpen(Generation)
+            local TargetPosition = DecodePosition(SavedPositions.Main, UDim2.fromScale(0.5, 0.535))
+            Main.Position = UDim2.new(TargetPosition.X.Scale, TargetPosition.X.Offset, TargetPosition.Y.Scale, TargetPosition.Y.Offset + 12)
+            MainScale.Scale = TargetScale * 0.965
+            Main.BackgroundTransparency = 0.22
+            Main.Visible = true
+            InputBlocker.Visible = true
+            Overlay.Visible = Menu.Flags.BackgroundDim ~= false
+            Overlay.BackgroundTransparency = 1
+            Sidebar.Position = AssemblyTargets.Sidebar
+            Topbar.Position = AssemblyTargets.Topbar
+            SearchBar.Position = AssemblyTargets.SearchBar
+            SearchSettings.Position = AssemblyTargets.SearchSettings
+            for _, Section in pairs(Menu.Sections) do
+                if Section.Root and Section.Root.Parent then
+                    Section.Root.Position = Section.HomePosition or AssemblyTargets[Section.Root] or Section.Root.Position
+                    if Section.AssemblyScale then
+                        Section.AssemblyScale.Scale = 1
+                    end
+                end
+            end
+            Tween(Main, 0.22, {Position = TargetPosition, BackgroundTransparency = 0.08})
+            Tween(MainScale, 0.24, {Scale = TargetScale})
+            Tween(Overlay, 0.22, {BackgroundTransparency = 0.55})
         else
-            AnimateAssemblyClose(Generation)
+            ClosePopup()
+            if CloseGearMenus then
+                CloseGearMenus()
+            end
+            SetSettingsOpen(false)
+            SetPickerOpen(false)
+            Menu.SettingsInputBlocker.Visible = false
+            Menu.PopupInputBlocker.Visible = false
+            Menu.PickerInputBlocker.Visible = false
+            local CurrentPosition = Main.Position
+            Tween(Main, 0.18, {
+                Position = UDim2.new(CurrentPosition.X.Scale, CurrentPosition.X.Offset, CurrentPosition.Y.Scale, CurrentPosition.Y.Offset + 10),
+                BackgroundTransparency = 0.22
+            })
+            Tween(MainScale, 0.18, {Scale = TargetScale * 0.97})
+            Tween(Overlay, 0.18, {BackgroundTransparency = 1})
+            task.delay(0.19 / math.max(AnimationFactor, 0.05), function()
+                if AssemblyGeneration ~= Generation or Menu.Visible then
+                    return
+                end
+                Main.Visible = false
+                Overlay.Visible = false
+                InputBlocker.Visible = false
+            end)
         end
     end
 
@@ -5573,6 +5594,9 @@ local function BuildRuntime()
             if Data.Button and Data.Button.Parent then
                 Data.Button:Destroy()
             end
+            if Data.MarkerGlow and Data.MarkerGlow.Parent then
+                Data.MarkerGlow:Destroy()
+            end
             if Data.Marker and Data.Marker.Parent then
                 Data.Marker:Destroy()
             end
@@ -5602,14 +5626,11 @@ local function BuildRuntime()
         for _ in pairs(Menu.SidebarButtons) do
             Count += 1
         end
-        local Y = 116 + (Count * 58)
-        if Y > 548 then
-            Y = 116 + ((Count % 8) * 58)
-        end
+        local Y = 94 + (Count * 64)
         local Button = Create("TextButton", {
             Parent = Sidebar,
-            Position = UDim2.fromOffset(28, Y),
-            Size = UDim2.fromOffset(54, 48),
+            Position = UDim2.fromOffset(14, Y),
+            Size = UDim2.fromOffset(60, 54),
             BackgroundColor3 = SidebarColor,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
@@ -5617,20 +5638,69 @@ local function BuildRuntime()
             Text = "",
             ZIndex = 5
         })
-        Corner(Button, 10)
+        Corner(Button, 8)
+        local Scale = Create("UIScale", {
+            Parent = Button,
+            Scale = 1
+        })
         local Marker = Create("Frame", {
             Parent = Sidebar,
-            Position = UDim2.fromOffset(0, Y + 10),
-            Size = UDim2.fromOffset(2, 28),
+            Position = UDim2.fromOffset(3, Y + 8),
+            Size = UDim2.fromOffset(2, 36),
             BackgroundColor3 = Accent,
-            BackgroundTransparency = 1,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
-            ZIndex = 7
+            Visible = false,
+            ZIndex = 8
         })
         Corner(Marker, 2)
-        local IconObject = Icon(Button, ApiState.PageIcons[Name] or "Gear", UDim2.fromOffset(20, 20), UDim2.fromScale(0.5, 0.5), MutedText, 7)
-        Existing = {Button = Button, Marker = Marker, Icon = IconObject}
+        local MarkerGlow = Menu:AddSoftGlow(Marker, 8, 5, 0.26, false)
+        local IconObject = Icon(Button, ApiState.PageIcons[Name] or "Gear", UDim2.fromOffset(17, 17), UDim2.new(0.5, 0, 0, 17), MutedText, 7)
+        local Label = Create("TextLabel", {
+            Parent = Button,
+            Position = UDim2.fromOffset(2, 31),
+            Size = UDim2.new(1, -4, 0, 15),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = Name,
+            TextColor3 = MutedText,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 7
+        })
+        Existing = {
+            Button = Button,
+            Marker = Marker,
+            MarkerGlow = MarkerGlow,
+            Icon = IconObject,
+            Label = Label,
+            Scale = Scale,
+            BaseY = Y
+        }
         Menu.SidebarButtons[Name] = Existing
+        Bind(Button.MouseEnter:Connect(function()
+            if Menu.ActivePageName ~= Name then
+                Tween(Button, 0.14, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(28, 23, 34)})
+                Tween(Scale, 0.14, {Scale = 1.035})
+                Tween(Label, 0.14, {TextColor3 = PrimaryText})
+                Menu:SetIconColor(IconObject, PrimaryText, 0.14)
+            end
+        end))
+        Bind(Button.MouseLeave:Connect(function()
+            if Menu.ActivePageName ~= Name then
+                Tween(Button, 0.14, {BackgroundTransparency = 1, BackgroundColor3 = SidebarColor})
+                Tween(Scale, 0.14, {Scale = 1})
+                Tween(Label, 0.14, {TextColor3 = MutedText})
+                Menu:SetIconColor(IconObject, MutedText, 0.14)
+            end
+        end))
+        Bind(Button.MouseButton1Down:Connect(function()
+            Tween(Scale, 0.08, {Scale = 0.97})
+        end))
+        Bind(Button.MouseButton1Up:Connect(function()
+            Tween(Scale, 0.12, {Scale = Menu.ActivePageName == Name and 1.025 or 1.035})
+        end))
         Bind(Button.MouseButton1Click:Connect(function()
             ApiState.ActivePage = Name
             SelectPage(Name)
@@ -5656,11 +5726,21 @@ local function BuildRuntime()
             local Selected = SubPageName == Name
             SubPageObject.Frame.Visible = Selected
             if SubPageObject.Button then
-                Tween(SubPageObject.Button, 0.12, {
-                    BackgroundTransparency = Selected and 0 or 1,
-                    BackgroundColor3 = Selected and SurfaceAlt or Topbar.BackgroundColor3,
+                Tween(SubPageObject.Button, 0.16, {
+                    BackgroundTransparency = Selected and 0.86 or 1,
+                    BackgroundColor3 = Selected and Color3.fromRGB(29, 24, 35) or Topbar.BackgroundColor3,
                     TextColor3 = Selected and PrimaryText or MutedText
                 })
+            end
+            if SubPageObject.Scale then
+                Tween(SubPageObject.Scale, 0.16, {Scale = Selected and 1.02 or 1})
+            end
+            if SubPageObject.Indicator then
+                SubPageObject.Indicator.Visible = Selected
+                if Selected then
+                    SubPageObject.Indicator.Size = UDim2.fromOffset(12, 2)
+                    Tween(SubPageObject.Indicator, 0.18, {Size = UDim2.fromOffset(50, 2), BackgroundTransparency = 0})
+                end
             end
         end
         PageObject.ActiveSubPage = Name
@@ -6203,10 +6283,10 @@ local function BuildRuntime()
         })
         local Button = Create("TextButton", {
             Parent = Topbar,
-            Position = UDim2.fromOffset(14 + (Count * 96), 17),
-            Size = UDim2.fromOffset(92, 32),
-            BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = Count == 0 and 0 or 1,
+            Position = UDim2.fromOffset(14 + (Count * 102), 15),
+            Size = UDim2.fromOffset(96, 36),
+            BackgroundColor3 = Color3.fromRGB(29, 24, 35),
+            BackgroundTransparency = Count == 0 and 0.86 or 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
@@ -6217,15 +6297,68 @@ local function BuildRuntime()
             ZIndex = 6
         })
         Corner(Button, 6)
-        local Object = setmetatable({Name = Name, PageName = self.Name, Frame = Frame, Button = Button, Slots = {Left = 0, Right = 0}, Sections = {}}, ApiSubPageMethods)
+        local Scale = Create("UIScale", {
+            Parent = Button,
+            Scale = Count == 0 and 1.02 or 1
+        })
+        local Indicator = Create("Frame", {
+            Parent = Button,
+            AnchorPoint = Vector2.new(0.5, 1),
+            Position = UDim2.new(0.5, 0, 1, -1),
+            Size = UDim2.fromOffset(50, 2),
+            BackgroundColor3 = Accent,
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0,
+            Visible = Count == 0,
+            ZIndex = 8
+        })
+        Corner(Indicator, 2)
+        local IndicatorGlow = Menu:AddSoftGlow(Indicator, 8, 6, 0.24, false)
+        local Object = setmetatable({
+            Name = Name,
+            PageName = self.Name,
+            Frame = Frame,
+            Button = Button,
+            Indicator = Indicator,
+            IndicatorGlow = IndicatorGlow,
+            Scale = Scale,
+            Slots = {Left = 0, Right = 0},
+            Sections = {}
+        }, ApiSubPageMethods)
         RegisterAccentTarget(function(NewColor)
-            if Frame and Frame.Parent then Frame.ScrollBarImageColor3 = NewColor end
+            if Frame and Frame.Parent then
+                Frame.ScrollBarImageColor3 = NewColor
+            end
+            if Indicator and Indicator.Parent then
+                Indicator.BackgroundColor3 = NewColor
+            end
+            if IndicatorGlow and IndicatorGlow.Parent then
+                IndicatorGlow.ImageColor3 = NewColor
+            end
         end)
         self.SubPages[Name] = Object
         if not self.FirstSubPage then
             self.FirstSubPage = Object
             self.ActiveSubPage = Name
         end
+        Bind(Button.MouseEnter:Connect(function()
+            if self.ActiveSubPage ~= Name then
+                Tween(Button, 0.14, {BackgroundTransparency = 0.88, BackgroundColor3 = Color3.fromRGB(26, 22, 32), TextColor3 = PrimaryText})
+                Tween(Scale, 0.14, {Scale = 1.025})
+            end
+        end))
+        Bind(Button.MouseLeave:Connect(function()
+            if self.ActiveSubPage ~= Name then
+                Tween(Button, 0.14, {BackgroundTransparency = 1, BackgroundColor3 = Topbar.BackgroundColor3, TextColor3 = MutedText})
+                Tween(Scale, 0.14, {Scale = 1})
+            end
+        end))
+        Bind(Button.MouseButton1Down:Connect(function()
+            Tween(Scale, 0.08, {Scale = 0.97})
+        end))
+        Bind(Button.MouseButton1Up:Connect(function()
+            Tween(Scale, 0.12, {Scale = self.ActiveSubPage == Name and 1.02 or 1.025})
+        end))
         Bind(Button.MouseButton1Click:Connect(function()
             ApiState:SelectSubPage(self, Name)
         end))
