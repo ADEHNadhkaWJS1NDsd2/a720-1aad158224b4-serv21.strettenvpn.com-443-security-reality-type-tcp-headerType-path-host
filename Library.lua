@@ -1181,6 +1181,15 @@ local function BuildRuntime()
 
     local function CreateSlider(Section, Name, Minimum, Maximum, Default, Flag, Options)
         Options = Options or {}
+        local Step = math.max(math.abs(tonumber(Options.Step) or 1), 0.000001)
+        local Decimals = tonumber(Options.Decimals)
+        if Decimals == nil then
+            local StepText = string.format("%.8f", Step):gsub("0+$", ""):gsub("%.$", "")
+            local Dot = string.find(StepText, ".", 1, true)
+            Decimals = Dot and math.min(6, #StepText - Dot) or 0
+        else
+            Decimals = math.max(0, math.floor(Decimals + 0.5))
+        end
         local Row = CreateRow(Section.Body, 47)
 
         Create("TextLabel", {
@@ -1196,7 +1205,7 @@ local function BuildRuntime()
         })
 
         if Options.Gear then
-            CreateGear(Row, -43, 9, Name, Flag, {Type = "Number", Minimum = Minimum, Maximum = Maximum, Decimals = Options.Decimals})
+            CreateGear(Row, -43, 9, Name, Flag, {Type = "Number", Minimum = Minimum, Maximum = Maximum, Decimals = Decimals, Step = Step})
         end
 
         local Prefix = tostring(Options.Prefix or "")
@@ -1287,10 +1296,9 @@ local function BuildRuntime()
         Menu.Flags[Flag] = Value
 
         local function FormatNumber(Number)
-            if Options.Decimals then
-                local Formatted = string.format("%." .. tostring(Options.Decimals) .. "f", Number)
-                Formatted = Formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
-                return Formatted
+            if Decimals > 0 then
+                local Formatted = string.format("%." .. tostring(Decimals) .. "f", Number)
+                return Formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
             end
             return tostring(math.floor(Number + 0.5))
         end
@@ -1312,13 +1320,11 @@ local function BuildRuntime()
         end
 
         local function Set(NewValue)
+            NewValue = math.clamp(tonumber(NewValue) or Value, Minimum, Maximum)
+            NewValue = Minimum + math.floor(((NewValue - Minimum) / Step) + 0.5) * Step
             NewValue = math.clamp(NewValue, Minimum, Maximum)
-            if Options.Decimals then
-                local Power = 10 ^ Options.Decimals
-                NewValue = math.floor(NewValue * Power + 0.5) / Power
-            else
-                NewValue = math.floor(NewValue + 0.5)
-            end
+            local Power = 10 ^ Decimals
+            NewValue = math.floor(NewValue * Power + 0.5) / Power
             Value = NewValue
             Menu.Flags[Flag] = Value
             local Alpha = (Value - Minimum) / (Maximum - Minimum)
@@ -1385,7 +1391,15 @@ local function BuildRuntime()
         local Row = CreateRow(Section.Body, 51)
         local Prefix = tostring(Options.Prefix or "")
         local Suffix = tostring(Options.Suffix or "")
+        local Step = math.max(math.abs(tonumber(Options.Step) or 1), 0.000001)
         local Decimals = tonumber(Options.Decimals)
+        if Decimals == nil then
+            local StepText = string.format("%.8f", Step):gsub("0+$", ""):gsub("%.$", "")
+            local Dot = string.find(StepText, ".", 1, true)
+            Decimals = Dot and math.min(6, #StepText - Dot) or 0
+        else
+            Decimals = math.max(0, math.floor(Decimals + 0.5))
+        end
 
         Create("TextLabel", {
             Parent = Row,
@@ -1400,7 +1414,7 @@ local function BuildRuntime()
         })
 
         if Options.Gear ~= false then
-            CreateGear(Row, -86, 10, Name, MinimumFlag, {Type = "Number", Minimum = Minimum, Maximum = Maximum, Decimals = Decimals})
+            CreateGear(Row, -86, 10, Name, MinimumFlag, {Type = "Number", Minimum = Minimum, Maximum = Maximum, Decimals = Decimals, Step = Step})
         end
 
         local MinimumLabel = CreateValueBox(Row, tostring(DefaultMinimum), -51, 44)
@@ -1418,15 +1432,14 @@ local function BuildRuntime()
 
         local function Round(Value)
             Value = math.clamp(tonumber(Value) or Minimum, Minimum, Maximum)
-            if Decimals then
-                local Power = 10 ^ Decimals
-                return math.floor(Value * Power + 0.5) / Power
-            end
-            return math.floor(Value + 0.5)
+            Value = Minimum + math.floor(((Value - Minimum) / Step) + 0.5) * Step
+            Value = math.clamp(Value, Minimum, Maximum)
+            local Power = 10 ^ Decimals
+            return math.floor(Value * Power + 0.5) / Power
         end
 
         local function FormatNumber(Value)
-            if Decimals then
+            if Decimals > 0 then
                 local Result = string.format("%." .. tostring(Decimals) .. "f", Value)
                 return Result:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
             end
@@ -2188,6 +2201,7 @@ local function BuildRuntime()
         if Info.Type == "Number" or type(InitialValue) == "number" then
             local Minimum = tonumber(Info.Minimum) or 0
             local Maximum = tonumber(Info.Maximum) or math.max(100, tonumber(InitialValue) or 100)
+            local Step = math.max(math.abs(tonumber(Info.Step) or 1), 0.000001)
             local Value = math.clamp(tonumber(InitialValue) or Minimum, Minimum, Maximum)
             local Track = Create("Frame", {
                 Parent = ParentObject,
@@ -2229,12 +2243,10 @@ local function BuildRuntime()
             local Dragging = false
             local function Set(ValueInput)
                 Value = math.clamp(tonumber(ValueInput) or Value, Minimum, Maximum)
-                if Info.Decimals then
-                    local Power = 10 ^ Info.Decimals
-                    Value = math.floor(Value * Power + 0.5) / Power
-                else
-                    Value = math.floor(Value + 0.5)
-                end
+                Value = Minimum + math.floor(((Value - Minimum) / Step) + 0.5) * Step
+                Value = math.clamp(Value, Minimum, Maximum)
+                local Power = 10 ^ (tonumber(Info.Decimals) or 0)
+                Value = math.floor(Value * Power + 0.5) / Power
                 local Alpha = (Value - Minimum) / math.max(0.0001, Maximum - Minimum)
                 SmoothSlider(Fill, Knob, Alpha, 0.12)
                 ValueLabel.Text = tostring(Value)
@@ -4344,7 +4356,7 @@ local function BuildRuntime()
     CreateToggle(General, "Silent aimbot", false, "SilentAimbot", {Disabled = true})
     CreateToggle(General, "Auto revolver", true, "AutoRevolver", {Warning = true, Gear = true})
     CreateToggle(General, "Anti step", true, "AntiStep")
-    CreateSlider(General, "Backtracking", 0, 100, 75.5, "Backtracking", {Decimals = 1, Box = true})
+    CreateSlider(General, "Backtracking", 0, 100, 75.5, "Backtracking", {Step = 0.1, Box = true})
     CreateSlider(General, "Field of view", 0, 180, 90, "FieldOfView", {Gear = true, Box = true})
 
     local Exploits = CreateSection(CombatPage, "Exploits", "Exploits", UDim2.fromOffset(320, 0), UDim2.fromOffset(302, 288))
@@ -4813,6 +4825,7 @@ local function BuildRuntime()
                     Object.Transform = CFrame.identity
                 elseif Object:IsA("BasePart") then
                     Object.Anchored = true
+                    Object.LocalTransparencyModifier = 0
                     Object.AssemblyLinearVelocity = Vector3.zero
                     Object.AssemblyAngularVelocity = Vector3.zero
                     Object.CanCollide = false
@@ -5034,19 +5047,62 @@ local function BuildRuntime()
             end
         end
 
+        local function CloneCurrentCharacterModel()
+            local Character = LocalPlayer and LocalPlayer.Character
+            if not Character then
+                return nil, nil
+            end
+            local Model
+            pcall(function()
+                local WasArchivable = Character.Archivable
+                Character.Archivable = true
+                Model = Character:Clone()
+                Character.Archivable = WasArchivable
+            end)
+            if not Model then
+                return nil, nil
+            end
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("Tool")
+                    or Object:IsA("Highlight")
+                    or Object.Name == "AtramentaCosmeticWings"
+                    or Object.Name == "MinecraftChinaHat"
+                    or string.find(Object.Name, "AtramentaArms", 1, true)
+                    or string.find(Object.Name, "AtramentaWeaponChams", 1, true) then
+                    pcall(function()
+                        Object:Destroy()
+                    end)
+                end
+            end
+            local Description
+            local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+            if Humanoid then
+                pcall(function()
+                    Description = Humanoid:GetAppliedDescription()
+                end)
+            end
+            return Model, Description
+        end
+
         local function CreateDescriptionModel()
+            local CharacterModel, CharacterDescription = CloneCurrentCharacterModel()
+            if CharacterModel then
+                return CharacterModel, CharacterDescription
+            end
             if not LocalPlayer or LocalPlayer.UserId <= 0 then
                 return nil, nil
             end
             local Character = LocalPlayer.Character
             local CharacterHumanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
             local Description
-            pcall(function()
-                Description = Players:GetHumanoidDescriptionFromUserIdAsync(LocalPlayer.UserId)
-            end)
-            if not Description and CharacterHumanoid then
+            if CharacterHumanoid then
                 pcall(function()
                     Description = CharacterHumanoid:GetAppliedDescription()
+                end)
+            end
+            if not Description then
+                pcall(function()
+                    Description = Players:GetHumanoidDescriptionFromUserIdAsync(LocalPlayer.UserId)
                 end)
             end
             if not Description then
@@ -6507,11 +6563,10 @@ local function BuildRuntime()
 
     function ApiSectionMethods:Slider(Data)
         Data = Data or {}
-        local Decimals = ApiRead(Data, "Decimals")
-        if type(Decimals) == "number" and Decimals > 0 and Decimals < 1 then
-            Decimals = math.max(0, math.floor(-math.log10(Decimals) + 0.5))
-        end
+        local Step = tonumber(ApiRead(Data, "Step", ApiRead(Data, "Decimals", 1))) or 1
+        local Decimals = ApiRead(Data, "Precision")
         return CreateSlider(self.Section, tostring(ApiRead(Data, "Name", "Slider")), tonumber(ApiRead(Data, "Min", 0)) or 0, tonumber(ApiRead(Data, "Max", 100)) or 100, tonumber(ApiRead(Data, "Default", 0)) or 0, ApiNormalizeFlag(Data, ApiRead(Data, "Name", "Slider")), {
+            Step = Step,
             Decimals = Decimals,
             Prefix = ApiRead(Data, "Prefix", ""),
             Suffix = ApiRead(Data, "Suffix", ""),
@@ -6534,11 +6589,10 @@ local function BuildRuntime()
         local BaseFlag = tostring(ApiRead(Data, "Flag", ApiNormalizeFlag(Data, Name)))
         local MinimumFlag = tostring(ApiRead(Data, "MinFlag", BaseFlag .. " Minimum"))
         local MaximumFlag = tostring(ApiRead(Data, "MaxFlag", BaseFlag .. " Maximum"))
-        local Decimals = ApiRead(Data, "Decimals")
-        if type(Decimals) == "number" and Decimals > 0 and Decimals < 1 then
-            Decimals = math.max(0, math.floor(-math.log10(Decimals) + 0.5))
-        end
+        local Step = tonumber(ApiRead(Data, "Step", ApiRead(Data, "Decimals", 1))) or 1
+        local Decimals = ApiRead(Data, "Precision")
         return CreateDualSlider(self.Section, Name, Minimum, Maximum, DefaultMinimum or Minimum, DefaultMaximum or Maximum, MinimumFlag, MaximumFlag, {
+            Step = Step,
             Decimals = Decimals,
             Prefix = ApiRead(Data, "Prefix", ""),
             Suffix = ApiRead(Data, "Suffix", ""),
