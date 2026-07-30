@@ -835,7 +835,26 @@ local function BuildRuntime()
     Corner(SearchSettings, 5)
     local SearchSettingsStroke = Stroke(SearchSettings, Border, 0.58, 1)
     local SearchSettingsIcon = Icon(SearchSettings, "Gear", UDim2.fromOffset(18, 18), UDim2.fromScale(0.5, 0.5), MutedText, 7)
+    local SettingsToggleHitbox = Create("TextButton", {
+        Parent = ScreenGui,
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.fromOffset(44, 40),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Text = "",
+        Visible = false,
+        ZIndex = 131
+    })
     local SearchSettingsOpened = false
+
+    local function SyncSettingsToggleHitbox()
+        if not SearchSettings or not SearchSettings.Parent then return end
+        local Position = SearchSettings.AbsolutePosition
+        local Size = SearchSettings.AbsoluteSize
+        SettingsToggleHitbox.Position = UDim2.fromOffset(math.floor(Position.X + 0.5), math.floor(Position.Y + 0.5))
+        SettingsToggleHitbox.Size = UDim2.fromOffset(math.max(1, math.floor(Size.X + 0.5)), math.max(1, math.floor(Size.Y + 0.5)))
+    end
 
     local function UpdateSettingsButtonAppearance(State, Instant)
         SearchSettingsOpened = State and true or false
@@ -844,6 +863,11 @@ local function BuildRuntime()
         local TargetIcon = State and PrimaryText or MutedText
         SearchSettings.ZIndex = State and 35 or 5
         SearchSettingsIcon.ZIndex = State and 37 or 7
+        SettingsToggleHitbox.Visible = State and true or false
+        if State then
+            SyncSettingsToggleHitbox()
+            task.defer(SyncSettingsToggleHitbox)
+        end
         if Instant then
             SearchSettings.BackgroundColor3 = TargetBackground
             SearchSettingsStroke.Color = TargetStroke
@@ -2390,7 +2414,7 @@ local function BuildRuntime()
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = "New bind",
-            TextColor3 = PrimaryText,
+            TextColor3 = MutedText,
             TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 182
@@ -2581,7 +2605,7 @@ local function BuildRuntime()
         ActiveGearMenu.Position = type(ClampPopupPosition) == "function" and ClampPopupPosition(ActiveGearMenu, ActiveGearMenu.Position) or ActiveGearMenu.Position
         MakePopupDraggable(ActiveGearMenu, 14)
 
-        local BindEntry = CreateMenuEntry(ActiveGearMenu, 16, "New bind", "Bind", PrimaryText, true)
+        local BindEntry = CreateMenuEntry(ActiveGearMenu, 16, "New bind", "Bind", MutedText, true)
         BindEntry:SetAttribute("NoHover", true)
         BindEntry.BackgroundTransparency = 1
         local HotkeysEntry = CreateMenuEntry(ActiveGearMenu, 46, "Hotkeys", "Hotkeys", MutedText, true)
@@ -3972,6 +3996,28 @@ local function BuildRuntime()
     local PickerDragging = false
     local HueDragging = false
     local AlphaDragging = false
+    Menu.SettingsUI.PickerInteractionActive = false
+    Menu.SettingsUI.PickerInteractionUntil = 0
+
+    local function MarkPickerInteraction(ActiveState, Grace)
+        Menu.SettingsUI.PickerInteractionActive = ActiveState and true or false
+        if ActiveState then
+            Menu.SettingsUI.PickerInteractionUntil = math.huge
+        else
+            Menu.SettingsUI.PickerInteractionUntil = os.clock() + (tonumber(Grace) or 0.18)
+        end
+    end
+
+    local function TouchPickerInteraction(Grace)
+        if not Menu.SettingsUI.PickerInteractionActive then
+            Menu.SettingsUI.PickerInteractionUntil = math.max(Menu.SettingsUI.PickerInteractionUntil or 0, os.clock() + (tonumber(Grace) or 0.18))
+        end
+    end
+
+    local function CanDismissPicker()
+        return not Menu.SettingsUI.PickerInteractionActive and os.clock() >= (Menu.SettingsUI.PickerInteractionUntil or 0)
+    end
+
     Menu.SettingsUI.PickerAnchor = Menu.SettingsUI.AccentPreviewButton
     Menu.SettingsUI.PickerGlow = Menu.SettingsUI.AccentPreviewGlow
     Menu.SettingsUI.PickerStroke = Menu.SettingsUI.AccentPreviewStroke
@@ -4194,7 +4240,9 @@ local function BuildRuntime()
     end))
 
     Bind(Menu.PickerInputBlocker.MouseButton1Click:Connect(function()
-        SetPickerOpen(false)
+        if CanDismissPicker() then
+            SetPickerOpen(false)
+        end
     end))
 
     Bind(Menu.PopupInputBlocker.MouseButton1Click:Connect(function()
@@ -4231,6 +4279,12 @@ local function BuildRuntime()
         end
     end))
 
+    Bind(Menu.SettingsUI.ColorPickerContainer.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            TouchPickerInteraction(0.22)
+        end
+    end))
+
     local function UpdateSquare(Input)
         local X = math.clamp((Input.Position.X - Menu.SettingsUI.ColorSquare.AbsolutePosition.X) / Menu.SettingsUI.ColorSquare.AbsoluteSize.X, 0, 1)
         local Y = math.clamp((Input.Position.Y - Menu.SettingsUI.ColorSquare.AbsolutePosition.Y) / Menu.SettingsUI.ColorSquare.AbsoluteSize.Y, 0, 1)
@@ -4253,6 +4307,7 @@ local function BuildRuntime()
     Bind(Menu.SettingsUI.ColorSquare.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
             PickerDragging = true
+            MarkPickerInteraction(true)
             UpdateSquare(Input)
         end
     end))
@@ -4260,6 +4315,7 @@ local function BuildRuntime()
     Bind(Menu.SettingsUI.HueBar.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
             HueDragging = true
+            MarkPickerInteraction(true)
             UpdateHue(Input)
         end
     end))
@@ -4267,6 +4323,7 @@ local function BuildRuntime()
     Bind(Menu.SettingsUI.AlphaBar.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
             AlphaDragging = true
+            MarkPickerInteraction(true)
             UpdateAlpha(Input)
         end
     end))
@@ -4287,12 +4344,16 @@ local function BuildRuntime()
 
     Bind(UserInputService.InputEnded:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local WasPickerDragging = PickerDragging or HueDragging or AlphaDragging
             PickerDragging = false
             HueDragging = false
             AlphaDragging = false
-            SavedPositions.AccentHex = ColorToThemeHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
-            SavedPositions.AccentAlpha = AccentAlpha
-            SavePositions()
+            if WasPickerDragging then
+                MarkPickerInteraction(false, 0.24)
+                SavedPositions.AccentHex = ColorToThemeHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
+                SavedPositions.AccentAlpha = AccentAlpha
+                SavePositions()
+            end
         end
     end))
 
@@ -4899,6 +4960,48 @@ local function BuildRuntime()
             end
         end
 
+        local function FreezePreviewPose(Model)
+            if not Model or not Model.Parent then return end
+            local Humanoid = Model:FindFirstChildWhichIsA("Humanoid")
+            if Humanoid then
+                pcall(function()
+                    for _, Track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+                        Track:Stop(0)
+                        Track:Destroy()
+                    end
+                end)
+                local Animator = Humanoid:FindFirstChildWhichIsA("Animator")
+                if Animator then
+                    pcall(function()
+                        for _, Track in ipairs(Animator:GetPlayingAnimationTracks()) do
+                            Track:Stop(0)
+                            Track:Destroy()
+                        end
+                    end)
+                    Animator:Destroy()
+                end
+                Humanoid.AutoRotate = false
+                Humanoid.Sit = false
+                Humanoid.PlatformStand = true
+                pcall(function()
+                    Humanoid.EvaluateStateMachine = false
+                end)
+                pcall(function()
+                    Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+                end)
+            end
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("Animator") or Object:IsA("AnimationController") then
+                    Object:Destroy()
+                elseif Object:IsA("Motor6D") or Object:IsA("Bone") then
+                    Object.Transform = CFrame.identity
+                elseif Object:IsA("BasePart") then
+                    Object.AssemblyLinearVelocity = Vector3.zero
+                    Object.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+        end
+
         local PreviewBodyNames = {
             Head = true,
             Torso = true,
@@ -5193,11 +5296,13 @@ local function BuildRuntime()
             SanitizeModel(Model)
             Model.Name = "LocalPlayerPreview"
             Model.Parent = S.World
+            FreezePreviewPose(Model)
             S.Description = Description
             S.Model = Model
             FrameModel(Model)
             task.defer(function()
                 if S.Model == Model and Model.Parent then
+                    FreezePreviewPose(Model)
                     FrameModel(Model)
                     ProjectModelBounds()
                 end
@@ -5493,6 +5598,9 @@ local function BuildRuntime()
             if not S.Window.Visible then
                 return
             end
+            if S.Model and S.Model.Parent then
+                FreezePreviewPose(S.Model)
+            end
             if S.Model and S.Model.Parent and S.BasePivot and S.Mode ~= "3D" and S.Rotation ~= 0 then
                 S.Rotation = 0
                 ApplyModelRotation()
@@ -5643,6 +5751,12 @@ local function BuildRuntime()
         end
     end))
 
+    Bind(SettingsToggleHitbox.MouseButton1Click:Connect(function()
+        if Menu.ToggleSettingsPanel then
+            Menu.ToggleSettingsPanel()
+        end
+    end))
+
     Bind(SaveButton.MouseButton1Click:Connect(function()
         SavedPositions.Main = EncodePosition(Main.Position)
         SavedPositions.Settings = EncodePosition(Menu.SettingsUI.SettingsPanel.Position)
@@ -5714,6 +5828,7 @@ local function BuildRuntime()
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
             SetTextInputsEnabled(false)
             ColorPickerWindowDragging = true
+            MarkPickerInteraction(true)
             ColorPickerWindowDragStart = Input.Position
             ColorPickerWindowStartPosition = Menu.SettingsUI.ColorPickerContainer.Position
         end
@@ -5814,6 +5929,7 @@ local function BuildRuntime()
                 SavedPositions.ColorPickerOffsetY = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.Y - Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y
                 SavedPositions.ColorPickerPinned = true
                 SavePositions()
+                MarkPickerInteraction(false, 0.24)
             end
             Dragging = false
             SettingsDragging = false
@@ -6096,7 +6212,7 @@ local function BuildRuntime()
                 and Position.Y >= PickerPosition.Y and Position.Y <= PickerPosition.Y + PickerSize.Y
             local InsideSwatch = Position.X >= SwatchPosition.X and Position.X <= SwatchPosition.X + SwatchSize.X
                 and Position.Y >= SwatchPosition.Y and Position.Y <= SwatchPosition.Y + SwatchSize.Y
-            if not InsidePicker and not InsideSwatch then
+            if not InsidePicker and not InsideSwatch and CanDismissPicker() then
                 SetPickerOpen(false)
             end
         end
