@@ -130,16 +130,16 @@ local function BuildRuntime()
         Boxes = 17
     }
 
-    local Accent = Color3.fromRGB(119, 86, 145)
-    local Background = Color3.fromRGB(5, 5, 8)
-    local SidebarColor = Color3.fromRGB(9, 8, 13)
-    local Surface = Color3.fromRGB(10, 9, 14)
-    local SurfaceAlt = Color3.fromRGB(15, 13, 20)
-    local Border = Color3.fromRGB(35, 30, 43)
-    local PrimaryText = Color3.fromRGB(221, 216, 228)
-    local MutedText = Color3.fromRGB(116, 105, 126)
-    local DisabledText = Color3.fromRGB(67, 61, 74)
-    local Danger = Color3.fromRGB(188, 72, 88)
+    local Accent = Color3.fromRGB(67, 82, 148)
+    local Background = Color3.fromRGB(2, 3, 6)
+    local SidebarColor = Color3.fromRGB(5, 7, 12)
+    local Surface = Color3.fromRGB(7, 9, 15)
+    local SurfaceAlt = Color3.fromRGB(11, 14, 23)
+    local Border = Color3.fromRGB(27, 34, 52)
+    local PrimaryText = Color3.fromRGB(218, 223, 235)
+    local MutedText = Color3.fromRGB(103, 112, 136)
+    local DisabledText = Color3.fromRGB(57, 63, 78)
+    local Danger = Color3.fromRGB(190, 70, 82)
     local BaseScaleFactor = 1
     local AnimationFactor = 1
 
@@ -556,7 +556,7 @@ local function BuildRuntime()
     end
 
     local AccentAlpha = math.clamp(tonumber(SavedPositions.AccentAlpha) or 1, 0, 1)
-    local ThemeColors = type(SavedPositions.ThemeColors) == "table" and SavedPositions.ThemeColors or {"#775691", "#9B789F", "#A56F7E"}
+    local ThemeColors = type(SavedPositions.ThemeColors) == "table" and SavedPositions.ThemeColors or {"#435294", "#596AB0", "#303B6C"}
 
     pcall(function()
         for _, Existing in ipairs(Parent:GetChildren()) do
@@ -1235,7 +1235,7 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(0, 31),
             Size = UDim2.new(1, 0, 0, 6),
             Active = true,
-            BackgroundColor3 = Color3.fromRGB(34, 29, 40),
+            BackgroundColor3 = Color3.fromRGB(21, 26, 38),
             BorderSizePixel = 0,
             ZIndex = 8
         })
@@ -1424,7 +1424,7 @@ local function BuildRuntime()
             Parent = Row,
             Position = UDim2.fromOffset(0, 35),
             Size = UDim2.new(1, 0, 0, 4),
-            BackgroundColor3 = Color3.fromRGB(34, 29, 40),
+            BackgroundColor3 = Color3.fromRGB(21, 26, 38),
             BorderSizePixel = 0,
             ZIndex = 8
         })
@@ -2207,7 +2207,7 @@ local function BuildRuntime()
                 Parent = ParentObject,
                 Position = UDim2.fromOffset(12, 96),
                 Size = UDim2.fromOffset(112, 4),
-                BackgroundColor3 = Color3.fromRGB(34, 29, 40),
+                BackgroundColor3 = Color3.fromRGB(21, 26, 38),
                 BorderSizePixel = 0,
                 ZIndex = 182
             })
@@ -3384,7 +3384,7 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(0, 34),
             Size = UDim2.new(1, 0, 0, 8),
             Active = true,
-            BackgroundColor3 = Color3.fromRGB(34, 29, 40),
+            BackgroundColor3 = Color3.fromRGB(21, 26, 38),
             BorderSizePixel = 0,
             ZIndex = 32
         })
@@ -4544,7 +4544,7 @@ local function BuildRuntime()
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
             Text = "2D",
-            TextColor3 = S.Mode == "2D" and Color3.fromRGB(12, 10, 15) or MutedText,
+            TextColor3 = S.Mode == "2D" and Color3.fromRGB(4, 6, 10) or MutedText,
             TextSize = 11,
             ZIndex = 24
         })
@@ -4558,7 +4558,7 @@ local function BuildRuntime()
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
             Text = "3D",
-            TextColor3 = S.Mode == "3D" and Color3.fromRGB(12, 10, 15) or MutedText,
+            TextColor3 = S.Mode == "3D" and Color3.fromRGB(4, 6, 10) or MutedText,
             TextSize = 11,
             ZIndex = 24
         })
@@ -4583,8 +4583,8 @@ local function BuildRuntime()
             BackgroundColor3 = SurfaceAlt,
             BackgroundTransparency = 0.42,
             BorderSizePixel = 0,
-            Ambient = Color3.fromRGB(165, 155, 174),
-            LightColor = Color3.fromRGB(230, 222, 235),
+            Ambient = Color3.fromRGB(146, 155, 181),
+            LightColor = Color3.fromRGB(220, 225, 238),
             LightDirection = Vector3.new(-1, -0.75, -1),
             CurrentCamera = nil,
             ZIndex = 22
@@ -4623,7 +4623,7 @@ local function BuildRuntime()
                 Name = Name,
                 Position = Position,
                 Size = Size,
-                BackgroundColor3 = Color3.fromRGB(73, 61, 80),
+                BackgroundColor3 = Color3.fromRGB(48, 58, 86),
                 BackgroundTransparency = 0.22,
                 BorderSizePixel = 0,
                 ZIndex = 23
@@ -5278,15 +5278,15 @@ local function BuildRuntime()
             S.Info.TextColor3 = TextColor
             S.Info.TextSize = math.max(9, TextSize - 1)
             S.Silhouette.Visible = not S.Model and not S.Status.Visible
-            S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(174, 164, 183) or Color3.fromRGB(148, 137, 160)
+            S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(155, 165, 190) or Color3.fromRGB(130, 142, 170)
             S.Viewport.LightDirection = S.Mode == "2D" and Vector3.new(-0.8, -0.4, -1) or Vector3.new(-1, -0.75, -1)
         end
 
         local function RefreshMode()
             local Is2D = S.Mode == "2D"
             S.ModeHighlight.Position = UDim2.fromOffset(Is2D and 2 or 58, 2)
-            S.TwoDButton.TextColor3 = Is2D and Color3.fromRGB(12, 10, 15) or MutedText
-            S.ThreeDButton.TextColor3 = Is2D and MutedText or Color3.fromRGB(12, 10, 15)
+            S.TwoDButton.TextColor3 = Is2D and Color3.fromRGB(4, 6, 10) or MutedText
+            S.ThreeDButton.TextColor3 = Is2D and MutedText or Color3.fromRGB(4, 6, 10)
             if Is2D then
                 S.Rotation = 0
             end
@@ -5508,7 +5508,7 @@ local function BuildRuntime()
             local Selected = ButtonName == Name
             Tween(Data.Button, 0.16, {
                 BackgroundTransparency = Selected and 0.72 or 1,
-                BackgroundColor3 = Selected and Color3.fromRGB(35, 29, 42) or SidebarColor
+                BackgroundColor3 = Selected and Color3.fromRGB(19, 25, 40) or SidebarColor
             })
             if Data.Scale then
                 Tween(Data.Scale, 0.16, {Scale = Selected and 1.025 or 1})
