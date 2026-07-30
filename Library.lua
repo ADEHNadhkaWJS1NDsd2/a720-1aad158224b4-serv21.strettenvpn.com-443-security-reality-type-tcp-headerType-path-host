@@ -92,16 +92,16 @@ local function BuildRuntime()
         Boxes = 17
     }
 
-    local Accent = Color3.fromRGB(112, 139, 255)
-    local Background = Color3.fromRGB(7, 8, 15)
-    local SidebarColor = Color3.fromRGB(14, 15, 25)
-    local Surface = Color3.fromRGB(10, 11, 19)
-    local SurfaceAlt = Color3.fromRGB(13, 15, 24)
-    local Border = Color3.fromRGB(27, 30, 43)
-    local PrimaryText = Color3.fromRGB(226, 230, 242)
-    local MutedText = Color3.fromRGB(101, 106, 127)
-    local DisabledText = Color3.fromRGB(57, 61, 77)
-    local Danger = Color3.fromRGB(255, 91, 104)
+    local Accent = Color3.fromRGB(119, 86, 145)
+    local Background = Color3.fromRGB(5, 5, 8)
+    local SidebarColor = Color3.fromRGB(9, 8, 13)
+    local Surface = Color3.fromRGB(10, 9, 14)
+    local SurfaceAlt = Color3.fromRGB(15, 13, 20)
+    local Border = Color3.fromRGB(35, 30, 43)
+    local PrimaryText = Color3.fromRGB(221, 216, 228)
+    local MutedText = Color3.fromRGB(116, 105, 126)
+    local DisabledText = Color3.fromRGB(67, 61, 74)
+    local Danger = Color3.fromRGB(188, 72, 88)
     local BaseScaleFactor = 1
     local AnimationFactor = 1
 
@@ -419,7 +419,7 @@ local function BuildRuntime()
     end
 
     local AccentAlpha = math.clamp(tonumber(SavedPositions.AccentAlpha) or 1, 0, 1)
-    local ThemeColors = type(SavedPositions.ThemeColors) == "table" and SavedPositions.ThemeColors or {"#C9A35B", "#59B9B4", "#A65AC7"}
+    local ThemeColors = type(SavedPositions.ThemeColors) == "table" and SavedPositions.ThemeColors or {"#775691", "#9B789F", "#A56F7E"}
 
     pcall(function()
         local Existing = Parent:FindFirstChild("RadiantReferenceMenuV11")
@@ -429,7 +429,7 @@ local function BuildRuntime()
     end)
 
     local ScreenGui = Create("ScreenGui", {
-        Name = "AtramentaMenuV16",
+        Name = "AtramentaMenuV20",
         Parent = Parent,
         IgnoreGuiInset = true,
         ResetOnSpawn = false,
@@ -560,7 +560,7 @@ local function BuildRuntime()
     local Topbar = Create("Frame", {
         Parent = Content,
         Size = UDim2.new(1, 0, 0, 64),
-        BackgroundColor3 = Color3.fromRGB(8, 9, 16),
+        BackgroundColor3 = Color3.fromRGB(7, 6, 10),
         BorderSizePixel = 0,
         ZIndex = 4
     })
@@ -616,7 +616,7 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(14, 78),
         Size = UDim2.fromOffset(568, 42),
-        BackgroundColor3 = Color3.fromRGB(9, 10, 18),
+        BackgroundColor3 = Color3.fromRGB(9, 8, 13),
         BackgroundTransparency = 0.12,
         BorderSizePixel = 0,
         ZIndex = 5
@@ -646,7 +646,7 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(590, 78),
         Size = UDim2.fromOffset(44, 42),
-        BackgroundColor3 = Color3.fromRGB(9, 10, 18),
+        BackgroundColor3 = Color3.fromRGB(9, 8, 13),
         BackgroundTransparency = 0.12,
         BorderSizePixel = 0,
         AutoButtonColor = false,
@@ -679,7 +679,7 @@ local function BuildRuntime()
 
     Bind(SearchSettings.MouseEnter:Connect(function()
         if not SearchSettingsOpened then
-            Tween(SearchSettings, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 19, 31)})
+            Tween(SearchSettings, 0.12, {BackgroundColor3 = Color3.fromRGB(20, 17, 25)})
             Tween(SearchSettingsStroke, 0.12, {Transparency = 0.25})
             Tween(SearchSettingsIcon, 0.12, {ImageColor3 = PrimaryText})
         end
@@ -894,7 +894,7 @@ local function BuildRuntime()
         })
         Corner(Button, 3)
         local BorderStroke = Stroke(Button, Default and Accent or Border, 0, 1)
-        local Check = Icon(Button, "Check", UDim2.fromOffset(10, 10), UDim2.fromScale(0.5, 0.5), Color3.fromRGB(13, 15, 23), 10)
+        local Check = Icon(Button, "Check", UDim2.fromOffset(10, 10), UDim2.fromScale(0.5, 0.5), Color3.fromRGB(12, 10, 16), 10)
         Check.Visible = Default
         return Button, BorderStroke, Check
     end
@@ -1040,7 +1040,7 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(0, 31),
             Size = UDim2.new(1, 0, 0, 6),
             Active = true,
-            BackgroundColor3 = Color3.fromRGB(28, 31, 45),
+            BackgroundColor3 = Color3.fromRGB(34, 29, 40),
             BorderSizePixel = 0,
             ZIndex = 8
         })
@@ -1060,7 +1060,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new((Default - Minimum) / (Maximum - Minimum), 0, 0.5, 0),
             Size = UDim2.fromOffset(6, 14),
-            BackgroundColor3 = Color3.fromRGB(218, 224, 247),
+            BackgroundColor3 = Color3.fromRGB(218, 211, 226),
             BorderSizePixel = 0,
             ZIndex = 10
         })
@@ -1153,7 +1153,7 @@ local function BuildRuntime()
             Parent = Row,
             Position = UDim2.fromOffset(0, 35),
             Size = UDim2.new(1, 0, 0, 4),
-            BackgroundColor3 = Color3.fromRGB(28, 31, 45),
+            BackgroundColor3 = Color3.fromRGB(34, 29, 40),
             BorderSizePixel = 0,
             ZIndex = 8
         })
@@ -1177,7 +1177,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(MinimumAlpha, 0, 0.5, 0),
             Size = UDim2.fromOffset(6, 14),
-            BackgroundColor3 = Color3.fromRGB(218, 224, 247),
+            BackgroundColor3 = Color3.fromRGB(218, 211, 226),
             BorderSizePixel = 0,
             ZIndex = 10
         })
@@ -1188,7 +1188,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(MaximumAlpha, 0, 0.5, 0),
             Size = UDim2.fromOffset(6, 14),
-            BackgroundColor3 = Color3.fromRGB(218, 224, 247),
+            BackgroundColor3 = Color3.fromRGB(218, 211, 226),
             BorderSizePixel = 0,
             ZIndex = 10
         })
@@ -1604,7 +1604,7 @@ local function BuildRuntime()
             Parent = ParentObject,
             Position = UDim2.fromOffset(7, Y),
             Size = UDim2.new(1, -14, 0, 27),
-            BackgroundColor3 = Color3.fromRGB(23, 26, 39),
+            BackgroundColor3 = Color3.fromRGB(26, 22, 31),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -1700,7 +1700,7 @@ local function BuildRuntime()
             Active = true,
             Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromOffset(208, Height),
-            BackgroundColor3 = Color3.fromRGB(11, 13, 22),
+            BackgroundColor3 = Color3.fromRGB(11, 9, 15),
             BorderSizePixel = 0,
             ZIndex = 170
         })
@@ -1758,7 +1758,7 @@ local function BuildRuntime()
                 Parent = List,
                 Position = UDim2.fromOffset(0, (Index - 1) * 34),
                 Size = UDim2.new(1, -3, 0, 30),
-                BackgroundColor3 = Color3.fromRGB(17, 19, 30),
+                BackgroundColor3 = Color3.fromRGB(19, 16, 24),
                 BorderSizePixel = 0,
                 ZIndex = 172
             })
@@ -1819,7 +1819,7 @@ local function BuildRuntime()
             })
             Corner(Button, 3)
             local ButtonStroke = Stroke(Button, State and Accent or Border, 0, 1)
-            local Check = Icon(Button, "Check", UDim2.fromOffset(9, 9), UDim2.fromScale(0.5, 0.5), Color3.fromRGB(13, 15, 23), 183)
+            local Check = Icon(Button, "Check", UDim2.fromOffset(9, 9), UDim2.fromScale(0.5, 0.5), Color3.fromRGB(12, 10, 16), 183)
             Check.Visible = State
             Bind(Button.MouseButton1Click:Connect(function()
                 State = not State
@@ -1840,7 +1840,7 @@ local function BuildRuntime()
                 Parent = ParentObject,
                 Position = UDim2.fromOffset(12, 96),
                 Size = UDim2.fromOffset(112, 4),
-                BackgroundColor3 = Color3.fromRGB(28, 31, 45),
+                BackgroundColor3 = Color3.fromRGB(34, 29, 40),
                 BorderSizePixel = 0,
                 ZIndex = 182
             })
@@ -1856,7 +1856,7 @@ local function BuildRuntime()
                 Parent = Track,
                 AnchorPoint = Vector2.new(0.5, 0.5),
                 Size = UDim2.fromOffset(6, 13),
-                BackgroundColor3 = Color3.fromRGB(220, 225, 245),
+                BackgroundColor3 = Color3.fromRGB(222, 216, 229),
                 BorderSizePixel = 0,
                 ZIndex = 184
             })
@@ -1865,7 +1865,7 @@ local function BuildRuntime()
                 Parent = ParentObject,
                 Position = UDim2.fromOffset(132, 84),
                 Size = UDim2.fromOffset(32, 20),
-                BackgroundColor3 = Color3.fromRGB(17, 19, 30),
+                BackgroundColor3 = Color3.fromRGB(19, 16, 24),
                 BorderSizePixel = 0,
                 Font = Enum.Font.BuilderSansMedium,
                 TextColor3 = PrimaryText,
@@ -1917,7 +1917,7 @@ local function BuildRuntime()
             Parent = ParentObject,
             Position = UDim2.fromOffset(92, 84),
             Size = UDim2.fromOffset(72, 22),
-            BackgroundColor3 = Color3.fromRGB(17, 19, 30),
+            BackgroundColor3 = Color3.fromRGB(19, 16, 24),
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
@@ -1961,7 +1961,7 @@ local function BuildRuntime()
             Active = true,
             Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromOffset(176, 148),
-            BackgroundColor3 = Color3.fromRGB(11, 13, 22),
+            BackgroundColor3 = Color3.fromRGB(11, 9, 15),
             BorderSizePixel = 0,
             ZIndex = 180
         })
@@ -1979,7 +1979,7 @@ local function BuildRuntime()
             Parent = ActiveGearBindMenu,
             Position = UDim2.fromOffset(8, 17),
             Size = UDim2.fromOffset(160, 25),
-            BackgroundColor3 = Color3.fromRGB(16, 18, 29),
+            BackgroundColor3 = Color3.fromRGB(18, 15, 23),
             BorderSizePixel = 0,
             ZIndex = 181
         })
@@ -2021,7 +2021,7 @@ local function BuildRuntime()
             Parent = ActiveGearBindMenu,
             Position = UDim2.fromOffset(8, 48),
             Size = UDim2.fromOffset(160, 25),
-            BackgroundColor3 = Color3.fromRGB(16, 18, 29),
+            BackgroundColor3 = Color3.fromRGB(18, 15, 23),
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
@@ -2086,7 +2086,7 @@ local function BuildRuntime()
         })
         Corner(ShowButton, 3)
         local ShowStroke = Stroke(ShowButton, Accent, 0, 1)
-        local ShowCheck = Icon(ShowButton, "Check", UDim2.fromOffset(9, 9), UDim2.fromScale(0.5, 0.5), Color3.fromRGB(13, 15, 23), 183)
+        local ShowCheck = Icon(ShowButton, "Check", UDim2.fromOffset(9, 9), UDim2.fromScale(0.5, 0.5), Color3.fromRGB(12, 10, 16), 183)
 
         local function RefreshMode()
             ToggleButton.BackgroundTransparency = BindMode == "Toggle" and 0.10 or 1
@@ -2155,7 +2155,7 @@ local function BuildRuntime()
             Active = true,
             Position = UDim2.fromOffset(Button.AbsolutePosition.X - 8, Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 4),
             Size = UDim2.fromOffset(142, 106),
-            BackgroundColor3 = Color3.fromRGB(11, 13, 22),
+            BackgroundColor3 = Color3.fromRGB(11, 9, 15),
             BorderSizePixel = 0,
             ZIndex = 160
         })
@@ -2230,7 +2230,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
             Size = UDim2.fromOffset(94, 24),
-            BackgroundColor3 = Color3.fromRGB(15, 17, 28),
+            BackgroundColor3 = Color3.fromRGB(17, 14, 21),
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
@@ -2270,13 +2270,13 @@ local function BuildRuntime()
 
         local function RefreshClosedState(Hovered)
             if IsOpened then
-                Button.BackgroundColor3 = Color3.fromRGB(17, 20, 32)
+                Button.BackgroundColor3 = Color3.fromRGB(21, 17, 26)
                 ButtonStroke.Color = Accent
                 Divider.BackgroundTransparency = 0.15
                 Arrow.ImageColor3 = PrimaryText
             else
-                Button.BackgroundColor3 = Hovered and Color3.fromRGB(17, 20, 32) or Color3.fromRGB(15, 17, 28)
-                ButtonStroke.Color = Hovered and Color3.fromRGB(40, 46, 68) or Border
+                Button.BackgroundColor3 = Hovered and Color3.fromRGB(21, 17, 26) or Color3.fromRGB(17, 14, 21)
+                ButtonStroke.Color = Hovered and Color3.fromRGB(50, 40, 59) or Border
                 Divider.BackgroundTransparency = Hovered and 0.25 or 0.45
                 Arrow.ImageColor3 = Hovered and PrimaryText or MutedText
             end
@@ -2301,14 +2301,14 @@ local function BuildRuntime()
         Menu.Setters[Flag] = Set
 
         Bind(Button.MouseEnter:Connect(function()
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 20, 32)})
-            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(40, 46, 68)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(21, 17, 26)})
+            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(50, 40, 59)})
             Tween(Divider, 0.12, {BackgroundTransparency = IsOpened and 0.15 or 0.25})
             Tween(Arrow, 0.12, {ImageColor3 = PrimaryText})
         end))
         Bind(Button.MouseLeave:Connect(function()
             if not IsOpened then
-                Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(15, 17, 28)})
+                Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 14, 21)})
                 Tween(ButtonStroke, 0.12, {Color = Border})
                 Tween(Divider, 0.12, {BackgroundTransparency = 0.45})
                 Tween(Arrow, 0.12, {ImageColor3 = MutedText})
@@ -2332,7 +2332,7 @@ local function BuildRuntime()
             Active = true,
                 Position = UDim2.fromOffset(Button.AbsolutePosition.X + Button.AbsoluteSize.X - Width, Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 6),
                 Size = UDim2.fromOffset(Width, PopupHeight),
-                BackgroundColor3 = Color3.fromRGB(12, 14, 24),
+                BackgroundColor3 = Color3.fromRGB(13, 11, 17),
                 BorderSizePixel = 0,
                 ZIndex = 100
             })
@@ -2359,14 +2359,14 @@ local function BuildRuntime()
             Tween(Arrow, 0.12, {Rotation = 180, ImageColor3 = PrimaryText})
             Tween(ButtonStroke, 0.12, {Color = Accent})
             Tween(Divider, 0.12, {BackgroundTransparency = 0.15})
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 20, 32)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(21, 17, 26)})
 
             ActivePopupCleanup = function()
                 IsOpened = false
                 Tween(Arrow, 0.12, {Rotation = 0, ImageColor3 = MutedText})
                 Tween(ButtonStroke, 0.12, {Color = Border})
                 Tween(Divider, 0.12, {BackgroundTransparency = 0.45})
-                Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(15, 17, 28)})
+                Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 14, 21)})
             end
 
             for _, Value in ipairs(Values) do
@@ -2374,7 +2374,7 @@ local function BuildRuntime()
                 local Option = Create("TextButton", {
                     Parent = ActivePopup,
                     Size = UDim2.new(1, 0, 0, 21),
-                    BackgroundColor3 = Selected and Color3.fromRGB(20, 23, 35) or Color3.fromRGB(12, 14, 24),
+                    BackgroundColor3 = Selected and Color3.fromRGB(24, 20, 28) or Color3.fromRGB(13, 11, 17),
                     BackgroundTransparency = Selected and 0 or 1,
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
@@ -2411,13 +2411,13 @@ local function BuildRuntime()
 
                 Bind(Option.MouseEnter:Connect(function()
                     if not Selected then
-                        Tween(Option, 0.10, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(18, 21, 32)})
+                        Tween(Option, 0.10, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(21, 17, 25)})
                         Tween(Label, 0.10, {TextColor3 = PrimaryText})
                     end
                 end))
                 Bind(Option.MouseLeave:Connect(function()
                     if not Selected then
-                        Tween(Option, 0.10, {BackgroundTransparency = 1, BackgroundColor3 = Color3.fromRGB(12, 14, 24)})
+                        Tween(Option, 0.10, {BackgroundTransparency = 1, BackgroundColor3 = Color3.fromRGB(13, 11, 17)})
                         Tween(Label, 0.10, {TextColor3 = PrimaryText})
                     end
                 end))
@@ -2493,7 +2493,7 @@ local function BuildRuntime()
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = DecodePosition(SavedPositions.Settings, Main.Position),
         Size = UDim2.fromOffset(348, 696),
-        BackgroundColor3 = Color3.fromRGB(11, 12, 21),
+        BackgroundColor3 = Color3.fromRGB(10, 9, 14),
         BorderSizePixel = 0,
         Visible = false,
         ZIndex = 30
@@ -2554,7 +2554,7 @@ local function BuildRuntime()
         Position = DecodePosition(SavedPositions.Watermark, UDim2.fromOffset(28, 18)),
         Size = UDim2.fromOffset(340, 34),
         AutomaticSize = Enum.AutomaticSize.X,
-        BackgroundColor3 = Color3.fromRGB(10, 11, 18),
+        BackgroundColor3 = Color3.fromRGB(9, 8, 13),
         BorderSizePixel = 0,
         Visible = SavedPositions.HideWatermark ~= true,
         ZIndex = 210
@@ -2932,7 +2932,7 @@ local function BuildRuntime()
         })
         Corner(Button, 3)
         local BorderStroke = Stroke(Button, Default and Accent or Border, 0, 1)
-        local Check = Icon(Button, "Check", UDim2.fromOffset(10, 10), UDim2.fromScale(0.5, 0.5), Color3.fromRGB(13, 15, 23), 34)
+        local Check = Icon(Button, "Check", UDim2.fromOffset(10, 10), UDim2.fromScale(0.5, 0.5), Color3.fromRGB(12, 10, 16), 34)
         Check.Visible = Default
         return Button, BorderStroke, Check
     end
@@ -3040,7 +3040,7 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(0, 34),
             Size = UDim2.new(1, 0, 0, 8),
             Active = true,
-            BackgroundColor3 = Color3.fromRGB(28, 31, 45),
+            BackgroundColor3 = Color3.fromRGB(34, 29, 40),
             BorderSizePixel = 0,
             ZIndex = 32
         })
@@ -3154,7 +3154,7 @@ local function BuildRuntime()
         ZIndex = 34
     })
     Corner(Menu.SettingsUI.AccentPreviewButton, 100)
-    Menu.SettingsUI.AccentPreviewStroke = Stroke(Menu.SettingsUI.AccentPreviewButton, Color3.fromRGB(232, 238, 255), 0.16, 1)
+    Menu.SettingsUI.AccentPreviewStroke = Stroke(Menu.SettingsUI.AccentPreviewButton, Color3.fromRGB(225, 218, 231), 0.16, 1)
     Menu.SettingsUI.AccentPreviewGlow = Menu:AddSoftGlow(Menu.SettingsUI.AccentPreviewButton, 34, 8, 0.20, false)
 
     RegisterAccentTarget(function(NewColor)
@@ -3195,7 +3195,7 @@ local function BuildRuntime()
         ZIndex = 121
     })
     Corner(Menu.SettingsUI.ColorSquare, 4)
-    Stroke(Menu.SettingsUI.ColorSquare, Color3.fromRGB(35, 39, 54), 0.1, 1)
+    Stroke(Menu.SettingsUI.ColorSquare, Color3.fromRGB(44, 36, 50), 0.1, 1)
 
     Menu.SettingsUI.WhiteOverlay = Create("Frame", {
         Parent = Menu.SettingsUI.ColorSquare,
@@ -3282,7 +3282,7 @@ local function BuildRuntime()
         Parent = Menu.SettingsUI.ColorPickerContainer,
         Position = UDim2.fromOffset(10, 130),
         Size = UDim2.fromOffset(154, 8),
-        BackgroundColor3 = Color3.fromRGB(43, 47, 61),
+        BackgroundColor3 = Color3.fromRGB(52, 43, 58),
         BorderSizePixel = 0,
         ZIndex = 121
     })
@@ -4124,7 +4124,7 @@ local function BuildRuntime()
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
             Text = "2D",
-            TextColor3 = S.Mode == "2D" and Color3.fromRGB(11, 13, 20) or MutedText,
+            TextColor3 = S.Mode == "2D" and Color3.fromRGB(12, 10, 15) or MutedText,
             TextSize = 11,
             ZIndex = 24
         })
@@ -4138,7 +4138,7 @@ local function BuildRuntime()
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
             Text = "3D",
-            TextColor3 = S.Mode == "3D" and Color3.fromRGB(11, 13, 20) or MutedText,
+            TextColor3 = S.Mode == "3D" and Color3.fromRGB(12, 10, 15) or MutedText,
             TextSize = 11,
             ZIndex = 24
         })
@@ -4162,8 +4162,8 @@ local function BuildRuntime()
             BackgroundColor3 = SurfaceAlt,
             BackgroundTransparency = 0.42,
             BorderSizePixel = 0,
-            Ambient = Color3.fromRGB(176, 180, 202),
-            LightColor = Color3.fromRGB(240, 242, 255),
+            Ambient = Color3.fromRGB(165, 155, 174),
+            LightColor = Color3.fromRGB(230, 222, 235),
             LightDirection = Vector3.new(-1, -0.75, -1),
             CurrentCamera = nil,
             ZIndex = 22
@@ -4192,7 +4192,7 @@ local function BuildRuntime()
                 Name = Name,
                 Position = Position,
                 Size = Size,
-                BackgroundColor3 = Color3.fromRGB(65, 70, 91),
+                BackgroundColor3 = Color3.fromRGB(73, 61, 80),
                 BackgroundTransparency = 0.22,
                 BorderSizePixel = 0,
                 ZIndex = 23
@@ -4245,7 +4245,7 @@ local function BuildRuntime()
             Parent = S.Body,
             Position = UDim2.fromScale(0.245, 0.10),
             Size = UDim2.fromScale(0.014, 0.80),
-            BackgroundColor3 = Color3.fromRGB(18, 20, 29),
+            BackgroundColor3 = Color3.fromRGB(20, 17, 24),
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             ZIndex = 26
@@ -4583,7 +4583,7 @@ local function BuildRuntime()
             S.Info.TextColor3 = TextColor
             S.Info.TextSize = math.max(9, TextSize - 1)
             S.Silhouette.Visible = not S.Model and not S.Status.Visible
-            S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(184, 188, 207) or Color3.fromRGB(154, 159, 183)
+            S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(174, 164, 183) or Color3.fromRGB(148, 137, 160)
             S.Viewport.LightDirection = S.Mode == "2D" and Vector3.new(-0.8, -0.4, -1) or Vector3.new(-1, -0.75, -1)
         end
 
@@ -4613,8 +4613,8 @@ local function BuildRuntime()
         local function RefreshMode()
             local Is2D = S.Mode == "2D"
             S.ModeHighlight.Position = UDim2.fromOffset(Is2D and 2 or 58, 2)
-            S.TwoDButton.TextColor3 = Is2D and Color3.fromRGB(11, 13, 20) or MutedText
-            S.ThreeDButton.TextColor3 = Is2D and MutedText or Color3.fromRGB(11, 13, 20)
+            S.TwoDButton.TextColor3 = Is2D and Color3.fromRGB(12, 10, 15) or MutedText
+            S.ThreeDButton.TextColor3 = Is2D and MutedText or Color3.fromRGB(12, 10, 15)
             S.Rotation = 0
             if S.Model and S.BasePivot then
                 S.Model:PivotTo(S.BasePivot)
@@ -4821,7 +4821,7 @@ local function BuildRuntime()
             local Selected = ButtonName == Name
             Tween(Data.Button, 0.14, {
                 BackgroundTransparency = Selected and 0 or 1,
-                BackgroundColor3 = Selected and Color3.fromRGB(28, 30, 43) or SidebarColor
+                BackgroundColor3 = Selected and Color3.fromRGB(33, 28, 39) or SidebarColor
             })
             Tween(Data.Marker, 0.14, {
                 BackgroundTransparency = Selected and 0 or 1
@@ -4853,7 +4853,7 @@ local function BuildRuntime()
             if CurrentPage ~= Name then
                 Tween(Data.Button, 0.12, {
                     BackgroundTransparency = 0.5,
-                    BackgroundColor3 = Color3.fromRGB(22, 24, 35)
+                    BackgroundColor3 = Color3.fromRGB(25, 21, 29)
                 })
             end
         end))
@@ -5742,7 +5742,7 @@ local function BuildRuntime()
             ZIndex = 10
         })
         Corner(Button, 100)
-        local BorderStroke = Stroke(Button, Color3.fromRGB(232, 238, 255), 0.16, 1)
+        local BorderStroke = Stroke(Button, Color3.fromRGB(225, 218, 231), 0.16, 1)
         local Glow = Menu:AddSoftGlow(Button, 10, 8, 0.20, false)
         local Value = typeof(Default) == "Color3" and Default or Accent
         local Alpha = math.clamp(tonumber(ApiRead(Data, "Alpha", 1)) or 1, 0, 1)
@@ -6096,7 +6096,7 @@ local function BuildRuntime()
                         end
                     end
                     Entry.BackgroundColor3 = Accent
-                    Entry.TextColor3 = Color3.fromRGB(12, 14, 22)
+                    Entry.TextColor3 = Color3.fromRGB(14, 11, 17)
                     if type(Callback) == "function" then task.spawn(Callback, Text) end
                 end))
             end
