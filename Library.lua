@@ -459,7 +459,7 @@ local function BuildRuntime()
         end
     end)
 
-    local PositionFile = "AtramentaReferencePositions.json"
+    local PositionFile = Library.Folders.Configs .. "/Atramenta.json"
     local SavedPositions = {}
 
     local function EncodePosition(Position)
@@ -490,9 +490,55 @@ local function BuildRuntime()
 
     local function LoadPositions()
         SavedPositions = {}
+        if type(isfile) ~= "function" or type(readfile) ~= "function" or not isfile(PositionFile) then
+            return
+        end
+        local Success, Content = pcall(readfile, PositionFile)
+        if not Success or type(Content) ~= "string" or Content == "" then
+            return
+        end
+        local DecodedSuccess, Decoded = pcall(HttpService.JSONDecode, HttpService, Content)
+        if not DecodedSuccess or type(Decoded) ~= "table" then
+            return
+        end
+        if type(Decoded.Interface) == "table" then
+            SavedPositions = Decoded.Interface
+        else
+            SavedPositions = Decoded
+        end
     end
 
     local function SavePositions()
+    end
+
+    local function SaveManual()
+        if type(writefile) ~= "function" then
+            return false, "writefile unavailable"
+        end
+        if type(makefolder) == "function" then
+            pcall(makefolder, Library.Folders.Root)
+            pcall(makefolder, Library.Folders.Configs)
+        end
+        local ConfigSource = "{}"
+        if type(Library.GetConfig) == "function" then
+            local ConfigSuccess, Result = pcall(Library.GetConfig, Library)
+            if ConfigSuccess and type(Result) == "string" then
+                ConfigSource = Result
+            end
+        end
+        local Payload = {
+            Interface = SavedPositions,
+            Config = ConfigSource
+        }
+        local EncodeSuccess, Encoded = pcall(HttpService.JSONEncode, HttpService, Payload)
+        if not EncodeSuccess then
+            return false, tostring(Encoded)
+        end
+        local WriteSuccess, WriteError = pcall(writefile, PositionFile, Encoded)
+        if not WriteSuccess then
+            return false, tostring(WriteError)
+        end
+        return true, PositionFile
     end
 
     LoadPositions()
@@ -599,6 +645,7 @@ local function BuildRuntime()
         Position = DecodePosition(SavedPositions.Main, UDim2.fromScale(0.5, 0.535)),
         Size = UDim2.fromOffset(744, 610),
         BackgroundColor3 = Background,
+        BackgroundTransparency = 0.02,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         ZIndex = 2
@@ -615,6 +662,7 @@ local function BuildRuntime()
         Parent = Main,
         Size = UDim2.fromOffset(88, 610),
         BackgroundColor3 = SidebarColor,
+        BackgroundTransparency = 0.28,
         BorderSizePixel = 0,
         ZIndex = 3
     })
@@ -677,6 +725,7 @@ local function BuildRuntime()
         Parent = Content,
         Size = UDim2.new(1, 0, 0, 64),
         BackgroundColor3 = Color3.fromRGB(7, 6, 10),
+        BackgroundTransparency = 0.03,
         BorderSizePixel = 0,
         ZIndex = 4
     })
@@ -887,6 +936,7 @@ local function BuildRuntime()
             Position = Position,
             Size = Size,
             BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.04,
             BorderSizePixel = 0,
             ZIndex = 5
         })
@@ -1934,7 +1984,9 @@ local function BuildRuntime()
         end
 
         Bind(Entry.MouseEnter:Connect(function()
-            Tween(Entry, 0.10, {BackgroundTransparency = 0})
+            if not Entry:GetAttribute("NoHover") then
+                Tween(Entry, 0.10, {BackgroundTransparency = 0})
+            end
         end))
         Bind(Entry.MouseLeave:Connect(function()
             if not Entry:GetAttribute("Selected") then
@@ -2242,7 +2294,6 @@ local function BuildRuntime()
         if ActiveGearBindMenu then
             ActiveGearBindMenu:Destroy()
             ActiveGearBindMenu = nil
-            SetEntrySelected(SourceEntry, false)
             return
         end
         if not ActiveGearMenu or not ActiveGearMeta then
@@ -2250,12 +2301,11 @@ local function BuildRuntime()
         end
 
         ActiveGearBindEntry = SourceEntry
-        SetEntrySelected(SourceEntry, true)
         local Meta = ActiveGearMeta
         local FlagName = Meta.Flag or Meta.Name or "Unknown"
         local BindMode = "Toggle"
         local ShowInBinds = true
-        local BindValue = (Meta.Info and Meta.Info.Type == "Boolean") and false or Menu.Flags[FlagName]
+        local BindValue = (Meta.Info and Meta.Info.Type == "Boolean") and true or Menu.Flags[FlagName]
 
         ActiveGearBindMenu = Create("Frame", {
             Parent = ScreenGui,
@@ -2469,6 +2519,8 @@ local function BuildRuntime()
         MakePopupDraggable(ActiveGearMenu, 14)
 
         local BindEntry = CreateMenuEntry(ActiveGearMenu, 16, "New bind", "Bind", PrimaryText, true)
+        BindEntry:SetAttribute("NoHover", true)
+        BindEntry.BackgroundTransparency = 1
         local HotkeysEntry = CreateMenuEntry(ActiveGearMenu, 46, "Hotkeys", "Hotkeys", MutedText, true)
         local ResetEntry = CreateMenuEntry(ActiveGearMenu, 76, "Reset", "Reset", Danger, false)
 
@@ -4916,31 +4968,105 @@ local function BuildRuntime()
             S.BoundsValid = false
         end
 
+        local function MergeCurrentAppearance(Model)
+            local Character = LocalPlayer and LocalPlayer.Character
+            if not Character or not Model then
+                return
+            end
+            local ModelHumanoid = Model:FindFirstChildWhichIsA("Humanoid")
+            local ExistingAccessories = {}
+            for _, Object in ipairs(Model:GetChildren()) do
+                if Object:IsA("Accessory") then
+                    ExistingAccessories[Object.Name] = (ExistingAccessories[Object.Name] or 0) + 1
+                end
+            end
+            local SeenAccessories = {}
+            for _, Object in ipairs(Character:GetChildren()) do
+                if Object:IsA("Accessory")
+                    and Object.Name ~= "AtramentaCosmeticWings"
+                    and Object.Name ~= "MinecraftChinaHat" then
+                    SeenAccessories[Object.Name] = (SeenAccessories[Object.Name] or 0) + 1
+                    if SeenAccessories[Object.Name] > (ExistingAccessories[Object.Name] or 0) then
+                        local Clone
+                        pcall(function()
+                            local WasArchivable = Object.Archivable
+                            Object.Archivable = true
+                            Clone = Object:Clone()
+                            Object.Archivable = WasArchivable
+                        end)
+                        if Clone then
+                            local Added = false
+                            if ModelHumanoid then
+                                Added = pcall(function()
+                                    ModelHumanoid:AddAccessory(Clone)
+                                end)
+                            end
+                            if not Added or not Clone.Parent then
+                                Clone.Parent = Model
+                            end
+                        end
+                    end
+                elseif (Object:IsA("Shirt") or Object:IsA("Pants") or Object:IsA("ShirtGraphic") or Object:IsA("BodyColors"))
+                    and not Model:FindFirstChildOfClass(Object.ClassName) then
+                    local Clone
+                    pcall(function()
+                        Clone = Object:Clone()
+                    end)
+                    if Clone then
+                        Clone.Parent = Model
+                    end
+                end
+            end
+            local SourceHead = Character:FindFirstChild("Head")
+            local TargetHead = Model:FindFirstChild("Head")
+            if SourceHead and TargetHead then
+                for _, Object in ipairs(SourceHead:GetChildren()) do
+                    if (Object:IsA("Decal") or Object:IsA("Texture")) and not TargetHead:FindFirstChild(Object.Name) then
+                        local Clone
+                        pcall(function()
+                            Clone = Object:Clone()
+                        end)
+                        if Clone then
+                            Clone.Parent = TargetHead
+                        end
+                    end
+                end
+            end
+        end
+
         local function CreateDescriptionModel()
             if not LocalPlayer or LocalPlayer.UserId <= 0 then
                 return nil, nil
             end
             local Character = LocalPlayer.Character
-            local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
+            local CharacterHumanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
             local Description
-            if Humanoid then
+            pcall(function()
+                Description = Players:GetHumanoidDescriptionFromUserIdAsync(LocalPlayer.UserId)
+            end)
+            if not Description and CharacterHumanoid then
                 pcall(function()
-                    Description = Humanoid:GetAppliedDescription()
-                end)
-            end
-            if not Description then
-                pcall(function()
-                    Description = Players:GetHumanoidDescriptionFromUserIdAsync(LocalPlayer.UserId)
+                    Description = CharacterHumanoid:GetAppliedDescription()
                 end)
             end
             if not Description then
                 return nil, nil
             end
             local Model
-            local RigType = Humanoid and Humanoid.RigType or Enum.HumanoidRigType.R15
+            local RigType = CharacterHumanoid and CharacterHumanoid.RigType or Enum.HumanoidRigType.R15
             pcall(function()
                 Model = Players:CreateHumanoidModelFromDescription(Description, RigType)
             end)
+            if not Model then
+                return nil, nil
+            end
+            local ModelHumanoid = Model:FindFirstChildWhichIsA("Humanoid")
+            if ModelHumanoid then
+                pcall(function()
+                    ModelHumanoid:ApplyDescriptionReset(Description)
+                end)
+            end
+            MergeCurrentAppearance(Model)
             return Model, Description
         end
 
@@ -5420,12 +5546,20 @@ local function BuildRuntime()
         SavedPositions.ColorPickerOffsetX = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.X - Menu.SettingsUI.SettingsPanel.AbsolutePosition.X
         SavedPositions.ColorPickerOffsetY = Menu.SettingsUI.ColorPickerContainer.AbsolutePosition.Y - Menu.SettingsUI.SettingsPanel.AbsolutePosition.Y
         SavedPositions.ColorPickerPinned = SavedPositions.ColorPickerPinned == true
-        SavePositions()
-        SaveButton.Text = "Saved"
+        local Saved, Result = SaveManual()
+        SaveButton.Text = Saved and "Saved" or "Failed"
         Tween(SaveButton, 0.12, {
-            TextColor3 = Accent
+            TextColor3 = Saved and Accent or Danger
         })
-        task.delay(0.7, function()
+        if type(Library.Notification) == "function" then
+            Library:Notification({
+                Title = "Configuration",
+                Description = Saved and "Configuration saved!" or ("Save failed: " .. tostring(Result)),
+                Duration = 3,
+                Mode = Saved and "Success" or "Danger"
+            })
+        end
+        task.delay(0.9, function()
             if SaveButton.Parent then
                 SaveButton.Text = "Save"
                 Tween(SaveButton, 0.15, {
@@ -6866,32 +7000,156 @@ local function BuildRuntime()
         end
     end
 
-    function Library:Notification(Message, Duration, Color)
+    function Library:Notification(TitleOrData, DescriptionOrDuration, DurationOrColor, ModeValue)
+        local Title
+        local Description
+        local Duration
+        local Mode
+        local LegacyColor
+        if type(TitleOrData) == "table" then
+            Title = tostring(TitleOrData.Title or TitleOrData.Name or "Notification")
+            Description = tostring(TitleOrData.Description or TitleOrData.Message or "")
+            Duration = tonumber(TitleOrData.Duration or TitleOrData.Time) or 4
+            Mode = tostring(TitleOrData.Mode or TitleOrData.Type or "Success")
+        elseif type(DescriptionOrDuration) == "number" then
+            Description = tostring(TitleOrData or "Notification")
+            Duration = tonumber(DescriptionOrDuration) or 4
+            LegacyColor = typeof(DurationOrColor) == "Color3" and DurationOrColor or nil
+            Mode = LegacyColor == Danger and "Danger" or "Success"
+            Title = Mode == "Danger" and "Danger" or "Notification"
+        else
+            Title = tostring(TitleOrData or "Notification")
+            Description = tostring(DescriptionOrDuration or "")
+            Duration = tonumber(DurationOrColor) or 4
+            Mode = tostring(ModeValue or "Success")
+        end
+        local NormalizedMode = string.lower(Mode)
+        if NormalizedMode == "sucess" then NormalizedMode = "success" end
+        if NormalizedMode ~= "success" and NormalizedMode ~= "warn" and NormalizedMode ~= "danger" then NormalizedMode = "success" end
+        Duration = math.clamp(Duration, 0.5, 30)
+        local ModeColor = NormalizedMode == "danger" and Color3.fromRGB(236, 80, 92)
+            or NormalizedMode == "warn" and Color3.fromRGB(235, 181, 76)
+            or Color3.fromRGB(92, 225, 128)
+        if LegacyColor then ModeColor = LegacyColor end
+        local Environment = type(getgenv) == "function" and getgenv() or _G
+        local GlobalState = rawget(Environment, "AtramentaNotificationState")
+        if type(GlobalState) ~= "table" then
+            GlobalState = {Last = {}}
+            rawset(Environment, "AtramentaNotificationState", GlobalState)
+        end
+        GlobalState.Last = type(GlobalState.Last) == "table" and GlobalState.Last or {}
+        local DedupeKey = string.lower(Title .. "\0" .. Description .. "\0" .. NormalizedMode)
+        local CurrentTime = os.clock()
+        local Previous = GlobalState.Last[DedupeKey]
+        if type(Previous) == "table" and Previous.Frame and Previous.Frame.Parent and CurrentTime - (Previous.Time or 0) < 0.45 then
+            Previous.Time = CurrentTime
+            return Previous.Frame
+        end
+        if not Menu.NotificationHolder or not Menu.NotificationHolder.Parent then
+            Menu.NotificationHolder = Create("Frame", {
+                Parent = ScreenGui,
+                AnchorPoint = Vector2.new(1, 1),
+                Position = UDim2.new(1, -18, 1, -18),
+                Size = UDim2.fromOffset(304, 520),
+                BackgroundTransparency = 1,
+                ZIndex = 258
+            })
+            Create("UIListLayout", {
+                Parent = Menu.NotificationHolder,
+                Padding = UDim.new(0, 10),
+                HorizontalAlignment = Enum.HorizontalAlignment.Right,
+                VerticalAlignment = Enum.VerticalAlignment.Bottom,
+                SortOrder = Enum.SortOrder.LayoutOrder
+            })
+        end
         local Notice = Create("Frame", {
-            Parent = ScreenGui,
-            AnchorPoint = Vector2.new(1, 1),
-            Position = UDim2.new(1, -18, 1, -18),
-            Size = UDim2.fromOffset(280, 44),
-            BackgroundColor3 = Surface,
+            Parent = Menu.NotificationHolder,
+            Size = UDim2.fromOffset(292, 72),
+            BackgroundColor3 = Color3.fromRGB(10, 10, 14),
+            BackgroundTransparency = 0.06,
             BorderSizePixel = 0,
             ZIndex = 260
         })
-        Corner(Notice, 6)
-        Stroke(Notice, typeof(Color) == "Color3" and Color or Accent, 0.08, 1)
-        Create("TextLabel", {
+        Corner(Notice, 5)
+        Stroke(Notice, Color3.fromRGB(39, 40, 48), 0.12, 1)
+        local TitleLabel = Create("TextLabel", {
             Parent = Notice,
-            Position = UDim2.fromOffset(12, 0),
-            Size = UDim2.new(1, -24, 1, 0),
+            Position = UDim2.fromOffset(12, 8),
+            Size = UDim2.new(1, -66, 0, 17),
             BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = tostring(Message or "Notification"),
-            TextColor3 = PrimaryText,
+            Font = Enum.Font.BuilderSansBold,
+            Text = Title,
+            TextColor3 = ModeColor,
             TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 261
         })
-        task.delay(tonumber(Duration) or 3, function()
-            if Notice and Notice.Parent then Notice:Destroy() end
+        local TimeLabel = Create("TextLabel", {
+            Parent = Notice,
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, -12, 0, 8),
+            Size = UDim2.fromOffset(44, 17),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = string.format("%.1fs", Duration),
+            TextColor3 = MutedText,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            ZIndex = 261
+        })
+        local DescriptionLabel = Create("TextLabel", {
+            Parent = Notice,
+            Position = UDim2.fromOffset(12, 27),
+            Size = UDim2.new(1, -24, 0, 22),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = Description,
+            TextColor3 = PrimaryText,
+            TextSize = 10,
+            TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top,
+            ZIndex = 261
+        })
+        local Track = Create("Frame", {
+            Parent = Notice,
+            Position = UDim2.fromOffset(12, 59),
+            Size = UDim2.new(1, -24, 0, 3),
+            BackgroundColor3 = Color3.fromRGB(28, 30, 35),
+            BorderSizePixel = 0,
+            ZIndex = 261
+        })
+        Corner(Track, 2)
+        local Progress = Create("Frame", {
+            Parent = Track,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundColor3 = ModeColor,
+            BorderSizePixel = 0,
+            ZIndex = 262
+        })
+        Corner(Progress, 2)
+        GlobalState.Last[DedupeKey] = {Time = CurrentTime, Frame = Notice}
+        task.spawn(function()
+            local StartedAt = os.clock()
+            while Notice.Parent do
+                local Remaining = math.max(0, Duration - (os.clock() - StartedAt))
+                TimeLabel.Text = string.format("%.1fs", Remaining)
+                if Remaining <= 0 then break end
+                task.wait(0.1)
+            end
+        end)
+        TweenService:Create(Progress, TweenInfo.new(Duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {Size = UDim2.new(0, 0, 1, 0)}):Play()
+        task.delay(Duration, function()
+            if not Notice or not Notice.Parent then return end
+            Tween(Notice, 0.16, {BackgroundTransparency = 1})
+            Tween(TitleLabel, 0.16, {TextTransparency = 1})
+            Tween(TimeLabel, 0.16, {TextTransparency = 1})
+            Tween(DescriptionLabel, 0.16, {TextTransparency = 1})
+            task.delay(0.17, function()
+                if Notice and Notice.Parent then Notice:Destroy() end
+                local Current = GlobalState.Last[DedupeKey]
+                if type(Current) == "table" and Current.Frame == Notice then GlobalState.Last[DedupeKey] = nil end
+            end)
         end)
         return Notice
     end
