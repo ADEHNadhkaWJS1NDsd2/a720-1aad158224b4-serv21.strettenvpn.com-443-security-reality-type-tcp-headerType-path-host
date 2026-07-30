@@ -1099,6 +1099,8 @@ local function BuildRuntime()
         return Label
     end
 
+    local RegisterAccentTarget
+
     local function CreateSlider(Section, Name, Minimum, Maximum, Default, Flag, Options)
         Options = Options or {}
         local Row = CreateRow(Section.Body, 47)
@@ -2569,7 +2571,7 @@ local function BuildRuntime()
 
     local AccentUpdateTargets = {}
 
-    local function RegisterAccentTarget(Callback)
+    RegisterAccentTarget = function(Callback)
         table.insert(AccentUpdateTargets, Callback)
     end
 
