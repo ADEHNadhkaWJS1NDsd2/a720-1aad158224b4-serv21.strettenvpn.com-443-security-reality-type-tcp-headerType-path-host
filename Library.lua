@@ -632,8 +632,8 @@ local function BuildRuntime()
         Menu.SidebarLogo = Create("ImageLabel", {
             Parent = Sidebar,
             AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.fromOffset(44, 76),
-            Size = UDim2.fromOffset(34, 54),
+            Position = UDim2.fromOffset(44, 70),
+            Size = UDim2.fromOffset(30, 48),
             BackgroundTransparency = 1,
             Image = LogoAsset,
             ImageColor3 = Accent,
@@ -642,13 +642,13 @@ local function BuildRuntime()
             ZIndex = 6
         })
     else
-        Menu.SidebarLogo = Icon(Sidebar, "Lightning", UDim2.fromOffset(24, 32), UDim2.fromOffset(44, 76), Accent, 6)
+        Menu.SidebarLogo = Icon(Sidebar, "Lightning", UDim2.fromOffset(22, 30), UDim2.fromOffset(44, 70), Accent, 6)
         Menu.SidebarLogo.Active = true
     end
 
     Create("Frame", {
         Parent = Sidebar,
-        Position = UDim2.fromOffset(18, 118),
+        Position = UDim2.fromOffset(18, 114),
         Size = UDim2.fromOffset(52, 1),
         BackgroundColor3 = Border,
         BorderSizePixel = 0,
@@ -808,13 +808,13 @@ local function BuildRuntime()
     })
 
     local SidebarDefinitions = {
-        {"Combat", "Rifle", 116},
-        {"Misc", "Wrench", 184},
-        {"Settings", "Gear", 252},
-        {"Visuals", "Eye", 338},
-        {"Players", "User", 406},
-        {"Cloud", "Cloud", 474},
-        {"Config", "Sliders", 542}
+        {"Combat", "Rifle", 132},
+        {"Misc", "Wrench", 196},
+        {"Settings", "Gear", 260},
+        {"Visuals", "Eye", 324},
+        {"Players", "User", 388},
+        {"Cloud", "Cloud", 452},
+        {"Config", "Sliders", 516}
     }
 
     for _, Definition in ipairs(SidebarDefinitions) do
@@ -5699,7 +5699,7 @@ local function BuildRuntime()
         for _ in pairs(Menu.SidebarButtons) do
             Count += 1
         end
-        local Y = 94 + (Count * 64)
+        local Y = 128 + (Count * 64)
         local Button = Create("TextButton", {
             Parent = Sidebar,
             Position = UDim2.fromOffset(14, Y),
