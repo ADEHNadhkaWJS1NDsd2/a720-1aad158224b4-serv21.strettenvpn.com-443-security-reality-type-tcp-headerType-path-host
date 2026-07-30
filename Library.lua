@@ -4,7 +4,8 @@ local Library = {
     Setters = {},
     Folders = {
         Root = "Atramenta.rip",
-        Configs = "Atramenta.rip/Configs"
+        Configs = "Atramenta.rip/Configs",
+        Assets = "Atramenta.rip/Assets"
     }
 }
 
@@ -16,6 +17,11 @@ local function BuildRuntime()
     local CoreGui = game:GetService("CoreGui")
     local Players = game:GetService("Players")
     local LocalizationService = game:GetService("LocalizationService")
+
+    if type(makefolder) == "function" then
+        pcall(makefolder, Library.Folders.Root)
+        pcall(makefolder, Library.Folders.Assets)
+    end
 
     local Base64Data = "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"
     local Base64Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -51,7 +57,7 @@ local function BuildRuntime()
         if type(writefile) ~= "function" or type(CustomAsset) ~= "function" then
             return nil
         end
-        local FileName = "AtramentaReferenceIconsV3.png"
+        local FileName = Library.Folders.Assets .. "/AtramentaIconsV4.png"
         local Exists = type(isfile) == "function" and isfile(FileName)
         if not Exists then
             writefile(FileName, DecodeBase64(Base64Data))
@@ -117,7 +123,7 @@ local function BuildRuntime()
         local GlowBase64Data = "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"
         local CustomAsset = getcustomasset or getsynasset
         if type(writefile) == "function" and type(CustomAsset) == "function" then
-            local GlowFileName = "RadiantReferenceGlow.png"
+            local GlowFileName = Library.Folders.Assets .. "/AtramentaGlow.png"
             local GlowExists = type(isfile) == "function" and isfile(GlowFileName)
             if not GlowExists then
                 pcall(function()
@@ -368,27 +374,10 @@ local function BuildRuntime()
     end
 
     local function LoadPositions()
-        if type(isfile) ~= "function" or type(readfile) ~= "function" or not isfile(PositionFile) then
-            return
-        end
-
-        local Success, Data = pcall(function()
-            return HttpService:JSONDecode(readfile(PositionFile))
-        end)
-
-        if Success and type(Data) == "table" then
-            SavedPositions = Data
-        end
+        SavedPositions = {}
     end
 
     local function SavePositions()
-        if type(writefile) ~= "function" then
-            return
-        end
-
-        pcall(function()
-            writefile(PositionFile, HttpService:JSONEncode(SavedPositions))
-        end)
     end
 
     LoadPositions()
@@ -416,7 +405,7 @@ local function BuildRuntime()
     end)
 
     local ScreenGui = Create("ScreenGui", {
-        Name = "AtramentaMenuV12",
+        Name = "AtramentaMenuV16",
         Parent = Parent,
         IgnoreGuiInset = true,
         ResetOnSpawn = false,
@@ -524,7 +513,8 @@ local function BuildRuntime()
         ZIndex = 4
     })
 
-    Icon(Sidebar, "Lightning", UDim2.fromOffset(36, 48), UDim2.fromOffset(55, 42), Accent, 6)
+    Menu.SidebarLogo = Icon(Sidebar, "Lightning", UDim2.fromOffset(36, 48), UDim2.fromOffset(55, 42), Accent, 6)
+    Menu.SidebarLogo.Active = true
 
     Create("Frame", {
         Parent = Sidebar,
@@ -2476,7 +2466,7 @@ local function BuildRuntime()
         Active = true,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = DecodePosition(SavedPositions.Settings, Main.Position),
-        Size = UDim2.fromOffset(348, 724),
+        Size = UDim2.fromOffset(348, 660),
         BackgroundColor3 = Color3.fromRGB(11, 12, 21),
         BorderSizePixel = 0,
         Visible = false,
@@ -3153,7 +3143,7 @@ local function BuildRuntime()
         Active = true,
         Position = UDim2.fromOffset(0, 0),
         Size = UDim2.fromOffset(174, 222),
-        BackgroundColor3 = Color3.fromRGB(12, 14, 23),
+        BackgroundColor3 = Surface,
         BorderSizePixel = 0,
         Visible = false,
         ZIndex = 120
@@ -3809,23 +3799,19 @@ local function BuildRuntime()
         end
     end))
 
-    CreatePopupToggle(280, "Auto save", true, function(Value)
-        Menu.Flags.AutoSave = Value
-    end)
-
-    CreatePopupToggle(312, "Background dim", true, function(Value)
+    CreatePopupToggle(280, "Background dim", true, function(Value)
         Menu.Flags.BackgroundDim = Value
         Overlay.Visible = Menu.Visible and Value
     end)
 
-    CreatePopupSlider(346, "Anim. speed", 0.2, 2, 1, function(Value)
+    CreatePopupSlider(314, "Anim. speed", 0.2, 2, 1, function(Value)
         return string.format("%.1f", Value)
     end, function(Value)
         AnimationFactor = math.max(Value, 0.05)
         Menu.Flags.AnimationSpeed = Value
     end)
 
-    CreatePopupSlider(412, "Scale", 80, 125, 100, function(Value)
+    CreatePopupSlider(380, "Scale", 80, 125, 100, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
         BaseScaleFactor = Value / 100
@@ -3833,35 +3819,30 @@ local function BuildRuntime()
         Menu.Flags.MenuScale = Value
     end)
 
-
-    CreatePopupToggle(478, "Hide watermark", SavedPositions.HideWatermark == true, function(Value)
+    CreatePopupToggle(446, "Hide watermark", false, function(Value)
         SetWatermarkHidden(Value)
     end)
 
-    CreatePopupSlider(510, "Watermark size", 70, 140, tonumber(SavedPositions.WatermarkScale) or 100, function(Value)
+    CreatePopupSlider(478, "Watermark size", 70, 140, 100, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
         SetWatermarkScale(Value)
     end)
 
-    CreatePopupToggle(610, "Hide ESP Preview", SavedPositions.HideEspPreview == true, function(Value)
-        SavedPositions.HideEspPreview = Value
+    CreatePopupToggle(544, "Hide ESP Preview", false, function(Value)
         Menu.Flags.HideEspPreview = Value
         if Menu.EspPreviewController.SetHidden then
             Menu.EspPreviewController.SetHidden(Value)
         end
-        SavePositions()
     end)
 
-    CreatePopupSlider(642, "ESP Preview size", 70, 150, tonumber(SavedPositions.EspPreviewScale) or 100, function(Value)
+    CreatePopupSlider(576, "ESP Preview size", 80, 160, 115, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
-        SavedPositions.EspPreviewScale = Value
         Menu.Flags.EspPreviewScale = Value
         if Menu.EspPreviewController.SetScale then
             Menu.EspPreviewController.SetScale(Value)
         end
-        SavePositions()
     end)
 
     Menu.ToggleSettingsPanel = function()
@@ -3955,7 +3936,6 @@ local function BuildRuntime()
         {"Watermark", true, "Watermark"},
         {"Keybind list", true, "KeybindList"}
     }, {
-        {"Auto save", true, "AutoSave"},
         {"Cloud sync", false, "CloudSync"},
         {"Notifications", true, "Notifications"},
         {"Load default", false, "LoadDefault"}
@@ -4009,8 +3989,8 @@ local function BuildRuntime()
     do
     local function CreateEspPreviewWindow()
         local S = {
-            Hidden = SavedPositions.HideEspPreview == true,
-            Mode = SavedPositions.EspPreviewMode == "2D" and "2D" or "3D",
+            Hidden = false,
+            Mode = "3D",
             LoadGeneration = 0,
             LastRetry = 0,
             Model = nil,
@@ -4024,9 +4004,9 @@ local function BuildRuntime()
             Parent = ScreenGui,
             Active = true,
             AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = DecodePosition(SavedPositions.EspPreviewPosition, UDim2.new(0.5, 430, 0.5, 0)),
-            Size = UDim2.fromOffset(278, 386),
-            BackgroundColor3 = Color3.fromRGB(9, 10, 18),
+            Position = UDim2.new(0.5, 468, 0.5, 0),
+            Size = UDim2.fromOffset(326, 438),
+            BackgroundColor3 = Background,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 20
@@ -4037,13 +4017,13 @@ local function BuildRuntime()
 
         S.Scale = Create("UIScale", {
             Parent = S.Window,
-            Scale = math.clamp((tonumber(SavedPositions.EspPreviewScale) or 100) / 100, 0.7, 1.5)
+            Scale = 1.15
         })
 
         S.Header = Create("Frame", {
             Parent = S.Window,
             Active = true,
-            Size = UDim2.new(1, 0, 0, 44),
+            Size = UDim2.new(1, 0, 0, 46),
             BackgroundColor3 = Color3.fromRGB(12, 14, 23),
             BorderSizePixel = 0,
             ZIndex = 21
@@ -4063,10 +4043,10 @@ local function BuildRuntime()
         Create("TextLabel", {
             Parent = S.Header,
             Position = UDim2.fromOffset(14, 0),
-            Size = UDim2.fromOffset(112, 44),
+            Size = UDim2.fromOffset(138, 46),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
-            Text = "ESP PREVIEW",
+            Text = "ESP Preview",
             TextColor3 = PrimaryText,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -4076,8 +4056,8 @@ local function BuildRuntime()
         S.ModeRail = Create("Frame", {
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -10, 0.5, 0),
-            Size = UDim2.fromOffset(104, 26),
+            Position = UDim2.new(1, -12, 0.5, 0),
+            Size = UDim2.fromOffset(112, 28),
             BackgroundColor3 = Color3.fromRGB(8, 10, 17),
             BorderSizePixel = 0,
             ZIndex = 22
@@ -4087,8 +4067,8 @@ local function BuildRuntime()
 
         S.ModeHighlight = Create("Frame", {
             Parent = S.ModeRail,
-            Position = UDim2.fromOffset(S.Mode == "2D" and 2 or 52, 2),
-            Size = UDim2.fromOffset(50, 22),
+            Position = UDim2.fromOffset(S.Mode == "2D" and 2 or 56, 2),
+            Size = UDim2.fromOffset(54, 24),
             BackgroundColor3 = Accent,
             BorderSizePixel = 0,
             ZIndex = 23
@@ -4098,7 +4078,7 @@ local function BuildRuntime()
         S.TwoDButton = Create("TextButton", {
             Parent = S.ModeRail,
             Position = UDim2.fromOffset(2, 2),
-            Size = UDim2.fromOffset(50, 22),
+            Size = UDim2.fromOffset(54, 24),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -4111,8 +4091,8 @@ local function BuildRuntime()
 
         S.ThreeDButton = Create("TextButton", {
             Parent = S.ModeRail,
-            Position = UDim2.fromOffset(52, 2),
-            Size = UDim2.fromOffset(50, 22),
+            Position = UDim2.fromOffset(56, 2),
+            Size = UDim2.fromOffset(54, 24),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -4125,9 +4105,9 @@ local function BuildRuntime()
 
         S.Body = Create("Frame", {
             Parent = S.Window,
-            Position = UDim2.fromOffset(10, 54),
-            Size = UDim2.new(1, -20, 1, -64),
-            BackgroundColor3 = Color3.fromRGB(7, 9, 16),
+            Position = UDim2.fromOffset(10, 56),
+            Size = UDim2.new(1, -20, 1, -66),
+            BackgroundColor3 = Surface,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             ZIndex = 21
@@ -4135,21 +4115,23 @@ local function BuildRuntime()
         Corner(S.Body, 7)
         Stroke(S.Body, Border, 0.14, 1)
 
-        Create("UIGradient", {
-            Parent = S.Body,
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 18, 30)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(7, 9, 16))
-            }),
-            Rotation = 90
-        })
-
         S.TwoDLayer = Create("Frame", {
             Parent = S.Body,
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
             Visible = S.Mode == "2D",
             ZIndex = 22
+        })
+
+        S.AvatarImage = Create("ImageLabel", {
+            Parent = S.TwoDLayer,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.52),
+            Size = UDim2.fromScale(0.78, 0.78),
+            BackgroundTransparency = 1,
+            Image = "",
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 23
         })
 
         S.Viewport = Create("ViewportFrame", {
@@ -4173,6 +4155,7 @@ local function BuildRuntime()
 
         S.Silhouette = Create("Frame", {
             Parent = S.TwoDLayer,
+            Visible = false,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.fromScale(0.5, 0.52),
             Size = UDim2.fromOffset(116, 224),
@@ -4285,7 +4268,7 @@ local function BuildRuntime()
             local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
             local Size = S.Window.AbsoluteSize
             if Size.X <= 0 or Size.Y <= 0 then
-                Size = Vector2.new(278, 386)
+                Size = Vector2.new(326, 438)
             end
             Size *= S.Scale.Scale
             local HalfX = math.floor(Size.X * 0.5)
@@ -4339,30 +4322,66 @@ local function BuildRuntime()
             S.Camera.CFrame = CFrame.new(Center + Vector3.new(0, 0, Distance), Center)
         end
 
+        local function RequestAvatarImage()
+            if not LocalPlayer or LocalPlayer.UserId <= 0 then
+                return
+            end
+            task.spawn(function()
+                while S.Window.Parent and S.AvatarImage.Image == "" do
+                    local Success, Image = pcall(function()
+                        return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.AvatarBust, Enum.ThumbnailSize.Size420x420)
+                    end)
+                    if Success and Image then
+                        S.AvatarImage.Image = Image
+                        return
+                    end
+                    task.wait(2)
+                end
+            end)
+        end
+
         local function TryBuildModel(Generation)
             if not LocalPlayer or LocalPlayer.UserId <= 0 then
                 return false
             end
-            S.Status.Text = "LOADING AVATAR"
+            S.Status.Text = "Loading local player"
             S.Status.Visible = true
-            local Description
-            local SuccessDescription = pcall(function()
-                Description = Players:GetHumanoidDescriptionFromUserIdAsync(LocalPlayer.UserId)
-            end)
-            if Generation ~= S.LoadGeneration or not SuccessDescription or not Description then
-                return false
-            end
-            local RigType = Enum.HumanoidRigType.R15
             local Character = LocalPlayer.Character
             local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
+            local Description
             if Humanoid then
-                RigType = Humanoid.RigType
+                pcall(function()
+                    Description = Humanoid:GetAppliedDescription()
+                end)
+            end
+            if not Description then
+                pcall(function()
+                    Description = Players:GetHumanoidDescriptionFromUserIdAsync(LocalPlayer.UserId)
+                end)
+            end
+            if Generation ~= S.LoadGeneration then
+                return false
             end
             local Model
-            local SuccessModel = pcall(function()
-                Model = Players:CreateHumanoidModelFromDescriptionAsync(Description, RigType)
-            end)
-            if Generation ~= S.LoadGeneration or not SuccessModel or not Model then
+            if Description then
+                local RigType = Humanoid and Humanoid.RigType or Enum.HumanoidRigType.R15
+                pcall(function()
+                    if type(Players.CreateHumanoidModelFromDescriptionAsync) == "function" then
+                        Model = Players:CreateHumanoidModelFromDescriptionAsync(Description, RigType)
+                    else
+                        Model = Players:CreateHumanoidModelFromDescription(Description, RigType)
+                    end
+                end)
+            end
+            if not Model and Character then
+                pcall(function()
+                    local WasArchivable = Character.Archivable
+                    Character.Archivable = true
+                    Model = Character:Clone()
+                    Character.Archivable = WasArchivable
+                end)
+            end
+            if Generation ~= S.LoadGeneration or not Model then
                 if Model then
                     Model:Destroy()
                 end
@@ -4370,6 +4389,7 @@ local function BuildRuntime()
             end
             ClearModel(false)
             SanitizeModel(Model)
+            Model.Name = "LocalPlayerPreview"
             Model.Parent = S.World
             FrameModel(Model)
             S.Description = Description
@@ -4386,7 +4406,7 @@ local function BuildRuntime()
                     if TryBuildModel(Generation) then
                         return
                     end
-                    S.Status.Text = "RETRYING AVATAR"
+                    S.Status.Text = "Waiting for character"
                     S.Status.Visible = true
                     task.wait(2)
                 end
@@ -4535,7 +4555,19 @@ local function BuildRuntime()
         if LocalPlayer then
             Bind(LocalPlayer.CharacterAdded:Connect(function()
                 task.delay(0.75, function()
+                    ClearModel()
                     UpdateInfo()
+                    RequestAvatarImage()
+                    if S.Mode == "3D" and not S.Hidden then
+                        RequestModel()
+                    end
+                end)
+            end))
+            Bind(LocalPlayer.CharacterAppearanceLoaded:Connect(function()
+                task.delay(0.25, function()
+                    ClearModel()
+                    S.AvatarImage.Image = ""
+                    RequestAvatarImage()
                     if S.Mode == "3D" and not S.Hidden then
                         RequestModel()
                     end
@@ -4573,6 +4605,7 @@ local function BuildRuntime()
 
         Menu.EspPreviewWindow = S.Window
         S.Window.Position = ClampWindow(S.Window.Position)
+        RequestAvatarImage()
         RefreshMode()
         UpdateInfo()
     end
@@ -4755,6 +4788,15 @@ local function BuildRuntime()
     end))
 
     Bind(DragArea.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            SetTextInputsEnabled(false)
+            Dragging = true
+            DragStart = Input.Position
+            StartPosition = Main.Position
+        end
+    end))
+
+    Bind(Menu.SidebarLogo.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
             SetTextInputsEnabled(false)
             Dragging = true
@@ -5918,39 +5960,26 @@ local function BuildRuntime()
     end
 
     function ApiState:ReflowSubPage(SubPage)
-        local Left = {}
-        local Right = {}
+        local LeftY = 0
+        local RightY = 0
         for _, Entry in ipairs(SubPage.Sections or {}) do
-            table.insert(Entry.Side == "Right" and Right or Left, Entry)
-        end
-        local Y = 0
-        local RowCount = math.max(#Left, #Right)
-        for Index = 1, RowCount do
-            local LeftEntry = Left[Index]
-            local RightEntry = Right[Index]
-            local Height = math.max(
-                LeftEntry and LeftEntry.DesiredHeight or 0,
-                RightEntry and RightEntry.DesiredHeight or 0,
-                78
-            )
-            if LeftEntry then
-                local Position = UDim2.fromOffset(0, Y)
-                LeftEntry.Section.Root.Position = Position
-                LeftEntry.Section.Root.Size = UDim2.fromOffset(307, Height)
-                LeftEntry.Section.HomePosition = Position
-                AssemblyTargets[LeftEntry.Section.Root] = Position
+            local Height = math.max(78, Entry.DesiredHeight or 78)
+            local IsRight = Entry.Side == "Right"
+            local Y = IsRight and RightY or LeftY
+            local Position = UDim2.fromOffset(IsRight and 319 or 0, Y)
+            Entry.Section.Root.Position = Position
+            Entry.Section.Root.Size = UDim2.fromOffset(307, Height)
+            Entry.Section.HomePosition = Position
+            AssemblyTargets[Entry.Section.Root] = Position
+            if IsRight then
+                RightY = Y + Height + 12
+            else
+                LeftY = Y + Height + 12
             end
-            if RightEntry then
-                local Position = UDim2.fromOffset(319, Y)
-                RightEntry.Section.Root.Position = Position
-                RightEntry.Section.Root.Size = UDim2.fromOffset(307, Height)
-                RightEntry.Section.HomePosition = Position
-                AssemblyTargets[RightEntry.Section.Root] = Position
-            end
-            Y += Height + 12
         end
         if SubPage.Frame:IsA("ScrollingFrame") then
-            SubPage.Frame.CanvasSize = UDim2.fromOffset(0, math.max(464, Y > 0 and Y - 12 or 464))
+            local Bottom = math.max(LeftY, RightY)
+            SubPage.Frame.CanvasSize = UDim2.fromOffset(0, math.max(464, Bottom > 0 and Bottom - 12 or 464))
         end
     end
 
