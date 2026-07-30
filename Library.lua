@@ -138,8 +138,26 @@ local function BuildRuntime()
     end
 
     local function Create(ClassName, Properties)
+        Properties = Properties or {}
+        if Properties.BackgroundColor3 and Properties.BackgroundTransparency == nil then
+            local Color = Properties.BackgroundColor3
+            local Maximum = math.max(Color.R, Color.G, Color.B)
+            if Maximum <= 0.18 then
+                if Color == Background then
+                    Properties.BackgroundTransparency = 0.08
+                elseif Color == SidebarColor then
+                    Properties.BackgroundTransparency = 0.12
+                elseif Color == Surface then
+                    Properties.BackgroundTransparency = 0.14
+                elseif Color == SurfaceAlt then
+                    Properties.BackgroundTransparency = 0.17
+                else
+                    Properties.BackgroundTransparency = 0.11
+                end
+            end
+        end
         local Object = Instance.new(ClassName)
-        for Property, Value in pairs(Properties or {}) do
+        for Property, Value in pairs(Properties) do
             Object[Property] = Value
         end
         return Object
@@ -3648,14 +3666,14 @@ local function BuildRuntime()
         if State then
             Menu.SettingsUI.SettingsPanel.Position = DecodePosition(SavedPositions.Settings, Main.Position)
             Menu.SettingsUI.SettingsPanelScale.Scale = 0.96
-            Menu.SettingsUI.SettingsPanel.BackgroundTransparency = 0.08
+            Menu.SettingsUI.SettingsPanel.BackgroundTransparency = 0.12
             Tween(Menu.SettingsUI.SettingsPanelScale, 0.14, {Scale = 1})
-            Tween(Menu.SettingsUI.SettingsPanel, 0.14, {BackgroundTransparency = 0})
+            Tween(Menu.SettingsUI.SettingsPanel, 0.14, {BackgroundTransparency = 0.08})
         else
             SavedPositions.Settings = EncodePosition(Menu.SettingsUI.SettingsPanel.Position)
             SavePositions()
             Tween(Menu.SettingsUI.SettingsPanelScale, 0.1, {Scale = 0.96})
-            Tween(Menu.SettingsUI.SettingsPanel, 0.1, {BackgroundTransparency = 0.08})
+            Tween(Menu.SettingsUI.SettingsPanel, 0.1, {BackgroundTransparency = 0.14})
             task.delay(0.1, function()
                 if not SettingsOpen then
                     Menu.SettingsUI.SettingsPanel.Visible = false
@@ -3993,8 +4011,12 @@ local function BuildRuntime()
             Mode = "3D",
             LoadGeneration = 0,
             LastRetry = 0,
+            LastAppearanceCheck = 0,
+            LastAppearanceSignature = "",
+            Rotation = 0,
             Model = nil,
             Description = nil,
+            BasePivot = nil,
             Dragging = false,
             DragStart = nil,
             StartPosition = nil
@@ -4004,16 +4026,17 @@ local function BuildRuntime()
             Parent = ScreenGui,
             Active = true,
             AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new(0.5, 468, 0.5, 0),
-            Size = UDim2.fromOffset(326, 438),
+            Position = UDim2.new(0.5, 492, 0.5, 0),
+            Size = UDim2.fromOffset(356, 492),
             BackgroundColor3 = Background,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 20
         })
         Corner(S.Window, 8)
-        Stroke(S.Window, Border, 0.1, 1)
-        S.Glow = Menu:AddSoftGlow(S.Window, 20, 10, 0.7, true)
+        Stroke(S.Window, Border, 0.04, 1)
+        S.Glow = Menu:AddSoftGlow(S.Window, 20, 11, 0.72, true)
 
         S.Scale = Create("UIScale", {
             Parent = S.Window,
@@ -4023,8 +4046,9 @@ local function BuildRuntime()
         S.Header = Create("Frame", {
             Parent = S.Window,
             Active = true,
-            Size = UDim2.new(1, 0, 0, 46),
-            BackgroundColor3 = Color3.fromRGB(12, 14, 23),
+            Size = UDim2.new(1, 0, 0, 48),
+            BackgroundColor3 = SidebarColor,
+            BackgroundTransparency = 0.10,
             BorderSizePixel = 0,
             ZIndex = 21
         })
@@ -4036,6 +4060,7 @@ local function BuildRuntime()
             Position = UDim2.new(0, 0, 1, 0),
             Size = UDim2.new(1, 0, 0, 1),
             BackgroundColor3 = Border,
+            BackgroundTransparency = 0.20,
             BorderSizePixel = 0,
             ZIndex = 22
         })
@@ -4043,7 +4068,7 @@ local function BuildRuntime()
         Create("TextLabel", {
             Parent = S.Header,
             Position = UDim2.fromOffset(14, 0),
-            Size = UDim2.fromOffset(138, 46),
+            Size = UDim2.fromOffset(154, 48),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = "ESP Preview",
@@ -4057,19 +4082,21 @@ local function BuildRuntime()
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, -12, 0.5, 0),
-            Size = UDim2.fromOffset(112, 28),
-            BackgroundColor3 = Color3.fromRGB(8, 10, 17),
+            Size = UDim2.fromOffset(116, 28),
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.12,
             BorderSizePixel = 0,
             ZIndex = 22
         })
         Corner(S.ModeRail, 6)
-        Stroke(S.ModeRail, Border, 0.18, 1)
+        Stroke(S.ModeRail, Border, 0.12, 1)
 
         S.ModeHighlight = Create("Frame", {
             Parent = S.ModeRail,
-            Position = UDim2.fromOffset(S.Mode == "2D" and 2 or 56, 2),
-            Size = UDim2.fromOffset(54, 24),
+            Position = UDim2.fromOffset(S.Mode == "2D" and 2 or 58, 2),
+            Size = UDim2.fromOffset(56, 24),
             BackgroundColor3 = Accent,
+            BackgroundTransparency = 0.05,
             BorderSizePixel = 0,
             ZIndex = 23
         })
@@ -4078,7 +4105,7 @@ local function BuildRuntime()
         S.TwoDButton = Create("TextButton", {
             Parent = S.ModeRail,
             Position = UDim2.fromOffset(2, 2),
-            Size = UDim2.fromOffset(54, 24),
+            Size = UDim2.fromOffset(56, 24),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -4091,8 +4118,8 @@ local function BuildRuntime()
 
         S.ThreeDButton = Create("TextButton", {
             Parent = S.ModeRail,
-            Position = UDim2.fromOffset(56, 2),
-            Size = UDim2.fromOffset(54, 24),
+            Position = UDim2.fromOffset(58, 2),
+            Size = UDim2.fromOffset(56, 24),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -4105,61 +4132,44 @@ local function BuildRuntime()
 
         S.Body = Create("Frame", {
             Parent = S.Window,
-            Position = UDim2.fromOffset(10, 56),
-            Size = UDim2.new(1, -20, 1, -66),
+            Position = UDim2.fromOffset(10, 58),
+            Size = UDim2.new(1, -20, 1, -68),
             BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.10,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             ZIndex = 21
         })
         Corner(S.Body, 7)
-        Stroke(S.Body, Border, 0.14, 1)
-
-        S.TwoDLayer = Create("Frame", {
-            Parent = S.Body,
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            Visible = S.Mode == "2D",
-            ZIndex = 22
-        })
-
-        S.AvatarImage = Create("ImageLabel", {
-            Parent = S.TwoDLayer,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.fromScale(0.5, 0.52),
-            Size = UDim2.fromScale(0.78, 0.78),
-            BackgroundTransparency = 1,
-            Image = "",
-            ScaleType = Enum.ScaleType.Fit,
-            ZIndex = 23
-        })
+        Stroke(S.Body, Border, 0.08, 1)
 
         S.Viewport = Create("ViewportFrame", {
             Parent = S.Body,
             Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            Ambient = Color3.fromRGB(150, 155, 175),
-            LightColor = Color3.fromRGB(235, 240, 255),
-            LightDirection = Vector3.new(-1, -1, -1),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.42,
+            BorderSizePixel = 0,
+            Ambient = Color3.fromRGB(176, 180, 202),
+            LightColor = Color3.fromRGB(240, 242, 255),
+            LightDirection = Vector3.new(-1, -0.75, -1),
             CurrentCamera = nil,
-            Visible = S.Mode == "3D",
             ZIndex = 22
         })
 
         S.Camera = Create("Camera", {
             Parent = S.Viewport,
-            FieldOfView = 32
+            FieldOfView = 30
         })
         S.Viewport.CurrentCamera = S.Camera
         S.World = Create("WorldModel", {Parent = S.Viewport})
 
         S.Silhouette = Create("Frame", {
-            Parent = S.TwoDLayer,
-            Visible = false,
+            Parent = S.Body,
             AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.fromScale(0.5, 0.52),
-            Size = UDim2.fromOffset(116, 224),
+            Position = UDim2.fromScale(0.5, 0.51),
+            Size = UDim2.fromOffset(128, 278),
             BackgroundTransparency = 1,
+            Visible = false,
             ZIndex = 23
         })
 
@@ -4169,7 +4179,8 @@ local function BuildRuntime()
                 Name = Name,
                 Position = Position,
                 Size = Size,
-                BackgroundColor3 = Color3.fromRGB(66, 73, 98),
+                BackgroundColor3 = Color3.fromRGB(65, 70, 91),
+                BackgroundTransparency = 0.22,
                 BorderSizePixel = 0,
                 ZIndex = 23
             })
@@ -4177,28 +4188,52 @@ local function BuildRuntime()
             return Object
         end
 
-        Part("Head", UDim2.fromOffset(40, 0), UDim2.fromOffset(36, 36), 100)
-        Part("Torso", UDim2.fromOffset(29, 42), UDim2.fromOffset(58, 86), 10)
-        Part("LeftArm", UDim2.fromOffset(9, 46), UDim2.fromOffset(18, 92), 9)
-        Part("RightArm", UDim2.fromOffset(89, 46), UDim2.fromOffset(18, 92), 9)
-        Part("LeftLeg", UDim2.fromOffset(32, 134), UDim2.fromOffset(22, 88), 10)
-        Part("RightLeg", UDim2.fromOffset(62, 134), UDim2.fromOffset(22, 88), 10)
+        Part("Head", UDim2.fromOffset(43, 0), UDim2.fromOffset(42, 42), 100)
+        Part("Torso", UDim2.fromOffset(31, 48), UDim2.fromOffset(66, 104), 10)
+        Part("LeftArm", UDim2.fromOffset(7, 52), UDim2.fromOffset(20, 112), 9)
+        Part("RightArm", UDim2.fromOffset(101, 52), UDim2.fromOffset(20, 112), 9)
+        Part("LeftLeg", UDim2.fromOffset(35, 158), UDim2.fromOffset(24, 116), 10)
+        Part("RightLeg", UDim2.fromOffset(69, 158), UDim2.fromOffset(24, 116), 10)
 
         S.Box = Create("Frame", {
             Parent = S.Body,
-            Position = UDim2.fromScale(0.27, 0.13),
-            Size = UDim2.fromScale(0.46, 0.73),
+            Position = UDim2.fromScale(0.28, 0.10),
+            Size = UDim2.fromScale(0.44, 0.80),
+            BackgroundColor3 = Accent,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ZIndex = 26
         })
-        S.BoxStroke = Stroke(S.Box, Accent, 0.08, 1)
+        S.BoxStroke = Stroke(S.Box, Accent, 0.04, 1)
+
+        S.Corners = {}
+        local CornerDefinitions = {
+            {UDim2.fromScale(0, 0), UDim2.new(0.22, 0, 0, 1)},
+            {UDim2.fromScale(0, 0), UDim2.new(0, 1, 0.16, 0)},
+            {UDim2.new(0.78, 0, 0, 0), UDim2.new(0.22, 0, 0, 1)},
+            {UDim2.new(1, -1, 0, 0), UDim2.new(0, 1, 0.16, 0)},
+            {UDim2.new(0, 0, 1, -1), UDim2.new(0.22, 0, 0, 1)},
+            {UDim2.new(0, 0, 0.84, 0), UDim2.new(0, 1, 0.16, 0)},
+            {UDim2.new(0.78, 0, 1, -1), UDim2.new(0.22, 0, 0, 1)},
+            {UDim2.new(1, -1, 0.84, 0), UDim2.new(0, 1, 0.16, 0)}
+        }
+        for Index, Definition in ipairs(CornerDefinitions) do
+            S.Corners[Index] = Create("Frame", {
+                Parent = S.Box,
+                Position = Definition[1],
+                Size = Definition[2],
+                BackgroundColor3 = Accent,
+                BorderSizePixel = 0,
+                ZIndex = 27
+            })
+        end
 
         S.HealthBack = Create("Frame", {
             Parent = S.Body,
-            Position = UDim2.fromScale(0.235, 0.13),
-            Size = UDim2.fromScale(0.014, 0.73),
-            BackgroundColor3 = Color3.fromRGB(22, 25, 37),
+            Position = UDim2.fromScale(0.245, 0.10),
+            Size = UDim2.fromScale(0.014, 0.80),
+            BackgroundColor3 = Color3.fromRGB(18, 20, 29),
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             ZIndex = 26
         })
@@ -4215,11 +4250,24 @@ local function BuildRuntime()
         })
         Corner(S.HealthFill, 100)
 
+        S.HealthText = Create("TextLabel", {
+            Parent = S.Body,
+            Position = UDim2.fromScale(0.19, 0.46),
+            Size = UDim2.fromOffset(40, 16),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "100",
+            TextColor3 = PrimaryText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            ZIndex = 28
+        })
+
         S.Name = Create("TextLabel", {
             Parent = S.Body,
             AnchorPoint = Vector2.new(0.5, 0),
-            Position = UDim2.fromScale(0.5, 0.045),
-            Size = UDim2.new(1, -24, 0, 18),
+            Position = UDim2.fromScale(0.5, 0.025),
+            Size = UDim2.new(1, -24, 0, 20),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = string.upper(LocalPlayer and LocalPlayer.Name or "PLAYER"),
@@ -4229,14 +4277,14 @@ local function BuildRuntime()
             ZIndex = 27
         })
 
-        S.Weapon = Create("TextLabel", {
+        S.Info = Create("TextLabel", {
             Parent = S.Body,
             AnchorPoint = Vector2.new(0.5, 1),
-            Position = UDim2.fromScale(0.5, 0.955),
-            Size = UDim2.new(1, -24, 0, 18),
+            Position = UDim2.fromScale(0.5, 0.978),
+            Size = UDim2.new(1, -24, 0, 20),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
-            Text = "NONE",
+            Text = "NONE  •  0m",
             TextColor3 = MutedText,
             TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Center,
@@ -4250,12 +4298,12 @@ local function BuildRuntime()
             Size = UDim2.new(1, -30, 0, 20),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
-            Text = "LOADING AVATAR",
+            Text = "WAITING FOR CHARACTER",
             TextColor3 = MutedText,
             TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Center,
             Visible = false,
-            ZIndex = 28
+            ZIndex = 29
         })
 
         local function SaveWindowPosition()
@@ -4268,7 +4316,7 @@ local function BuildRuntime()
             local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
             local Size = S.Window.AbsoluteSize
             if Size.X <= 0 or Size.Y <= 0 then
-                Size = Vector2.new(326, 438)
+                Size = Vector2.new(356, 492)
             end
             Size *= S.Scale.Scale
             local HalfX = math.floor(Size.X * 0.5)
@@ -4288,6 +4336,7 @@ local function BuildRuntime()
                 S.Model:Destroy()
             end
             S.Model = nil
+            S.BasePivot = nil
             for _, Child in ipairs(S.World:GetChildren()) do
                 Child:Destroy()
             end
@@ -4302,50 +4351,57 @@ local function BuildRuntime()
                     Object.CanCollide = false
                     Object.CanTouch = false
                     Object.CanQuery = false
+                    Object.CastShadow = false
+                elseif Object:IsA("ParticleEmitter") or Object:IsA("Trail") then
+                    Object.Enabled = false
                 end
             end
             local Humanoid = Model:FindFirstChildWhichIsA("Humanoid")
             if Humanoid then
                 Humanoid.AutoRotate = false
                 Humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+                Humanoid.PlatformStand = true
             end
         end
 
         local function FrameModel(Model)
-            Model:PivotTo(CFrame.new())
             local BoxCFrame, BoxSize = Model:GetBoundingBox()
-            Model:PivotTo(CFrame.new(-BoxCFrame.Position))
+            local CurrentPivot = Model:GetPivot()
+            Model:PivotTo(CFrame.new(-BoxCFrame.Position) * CurrentPivot)
             BoxCFrame, BoxSize = Model:GetBoundingBox()
-            local Radius = math.max(BoxSize.X, BoxSize.Y, BoxSize.Z) * 0.5
-            local Distance = (Radius / math.tan(math.rad(S.Camera.FieldOfView * 0.5))) + (BoxSize.Z * 0.65) + 1.5
-            local Center = BoxCFrame.Position + Vector3.new(0, BoxSize.Y * 0.03, 0)
-            S.Camera.CFrame = CFrame.new(Center + Vector3.new(0, 0, Distance), Center)
+            Model:PivotTo(CFrame.Angles(0, math.rad(180), 0) * Model:GetPivot())
+            BoxCFrame, BoxSize = Model:GetBoundingBox()
+            local ViewSize = S.Viewport.AbsoluteSize
+            local Aspect = ViewSize.Y > 0 and math.max(ViewSize.X / ViewSize.Y, 0.25) or 0.78
+            local Vertical = math.rad(S.Camera.FieldOfView)
+            local Horizontal = 2 * math.atan(math.tan(Vertical * 0.5) * Aspect)
+            local DistanceY = (BoxSize.Y * 0.5) / math.max(math.tan(Vertical * 0.5), 0.01)
+            local DistanceX = (BoxSize.X * 0.5) / math.max(math.tan(Horizontal * 0.5), 0.01)
+            local CosmeticScale = (Menu.Flags["Angel Wings"] or Menu.Flags["China Hat"]) and 1.32 or 1.12
+            local Distance = math.max(DistanceX, DistanceY) * CosmeticScale + BoxSize.Z * 0.55
+            S.Camera.CFrame = CFrame.new(Vector3.new(0, BoxSize.Y * 0.025, Distance), Vector3.new(0, BoxSize.Y * 0.025, 0))
+            S.BasePivot = Model:GetPivot()
         end
 
-        local function RequestAvatarImage()
-            if not LocalPlayer or LocalPlayer.UserId <= 0 then
-                return
+        local function CloneCurrentCharacter()
+            local Character = LocalPlayer and LocalPlayer.Character
+            if not Character then
+                return nil
             end
-            task.spawn(function()
-                while S.Window.Parent and S.AvatarImage.Image == "" do
-                    local Success, Image = pcall(function()
-                        return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.AvatarBust, Enum.ThumbnailSize.Size420x420)
-                    end)
-                    if Success and Image then
-                        S.AvatarImage.Image = Image
-                        return
-                    end
-                    task.wait(2)
-                end
+            local Model
+            pcall(function()
+                local WasArchivable = Character.Archivable
+                Character.Archivable = true
+                Model = Character:Clone()
+                Character.Archivable = WasArchivable
             end)
+            return Model
         end
 
-        local function TryBuildModel(Generation)
+        local function CreateDescriptionModel()
             if not LocalPlayer or LocalPlayer.UserId <= 0 then
-                return false
+                return nil, nil
             end
-            S.Status.Text = "Loading local player"
-            S.Status.Visible = true
             local Character = LocalPlayer.Character
             local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
             local Description
@@ -4359,27 +4415,24 @@ local function BuildRuntime()
                     Description = Players:GetHumanoidDescriptionFromUserIdAsync(LocalPlayer.UserId)
                 end)
             end
-            if Generation ~= S.LoadGeneration then
-                return false
+            if not Description then
+                return nil, nil
             end
             local Model
-            if Description then
-                local RigType = Humanoid and Humanoid.RigType or Enum.HumanoidRigType.R15
-                pcall(function()
-                    if type(Players.CreateHumanoidModelFromDescriptionAsync) == "function" then
-                        Model = Players:CreateHumanoidModelFromDescriptionAsync(Description, RigType)
-                    else
-                        Model = Players:CreateHumanoidModelFromDescription(Description, RigType)
-                    end
-                end)
-            end
-            if not Model and Character then
-                pcall(function()
-                    local WasArchivable = Character.Archivable
-                    Character.Archivable = true
-                    Model = Character:Clone()
-                    Character.Archivable = WasArchivable
-                end)
+            local RigType = Humanoid and Humanoid.RigType or Enum.HumanoidRigType.R15
+            pcall(function()
+                Model = Players:CreateHumanoidModelFromDescription(Description, RigType)
+            end)
+            return Model, Description
+        end
+
+        local function TryBuildModel(Generation)
+            S.Status.Text = "LOADING LOCAL PLAYER"
+            S.Status.Visible = true
+            local Model = CloneCurrentCharacter()
+            local Description
+            if not Model then
+                Model, Description = CreateDescriptionModel()
             end
             if Generation ~= S.LoadGeneration or not Model then
                 if Model then
@@ -4394,6 +4447,7 @@ local function BuildRuntime()
             FrameModel(Model)
             S.Description = Description
             S.Model = Model
+            S.Silhouette.Visible = false
             S.Status.Visible = false
             return true
         end
@@ -4402,77 +4456,156 @@ local function BuildRuntime()
             S.LoadGeneration += 1
             local Generation = S.LoadGeneration
             task.spawn(function()
-                while S.Window.Parent and Generation == S.LoadGeneration and S.Mode == "3D" and not S.Hidden do
+                while S.Window.Parent and Generation == S.LoadGeneration and not S.Hidden do
                     if TryBuildModel(Generation) then
                         return
                     end
-                    S.Status.Text = "Waiting for character"
+                    S.Status.Text = "WAITING FOR CHARACTER"
                     S.Status.Visible = true
-                    task.wait(2)
+                    S.Silhouette.Visible = true
+                    task.wait(1.5)
                 end
             end)
         end
 
         local function ProjectModelBounds()
-            if not S.Model or not S.Model.Parent or S.Mode ~= "3D" then
+            if not S.Model or not S.Model.Parent then
+                return
+            end
+            local ViewSize = S.Viewport.AbsoluteSize
+            if ViewSize.X < 2 or ViewSize.Y < 2 then
                 return
             end
             local BoxCFrame, BoxSize = S.Model:GetBoundingBox()
             local Half = BoxSize * 0.5
             local MinX, MinY = 1, 1
             local MaxX, MaxY = 0, 0
+            local AnyVisible = false
             for X = -1, 1, 2 do
                 for Y = -1, 1, 2 do
                     for Z = -1, 1, 2 do
                         local WorldPoint = BoxCFrame:PointToWorldSpace(Vector3.new(Half.X * X, Half.Y * Y, Half.Z * Z))
-                        local Point = S.Camera:WorldToViewportPoint(WorldPoint)
-                        MinX = math.min(MinX, Point.X)
-                        MinY = math.min(MinY, Point.Y)
-                        MaxX = math.max(MaxX, Point.X)
-                        MaxY = math.max(MaxY, Point.Y)
+                        local Point, Visible = S.Camera:WorldToViewportPoint(WorldPoint)
+                        if Visible and Point.Z > 0 then
+                            local NormalX = Point.X / ViewSize.X
+                            local NormalY = Point.Y / ViewSize.Y
+                            MinX = math.min(MinX, NormalX)
+                            MinY = math.min(MinY, NormalY)
+                            MaxX = math.max(MaxX, NormalX)
+                            MaxY = math.max(MaxY, NormalY)
+                            AnyVisible = true
+                        end
                     end
                 end
             end
-            MinX = math.clamp(MinX, 0.08, 0.92)
-            MinY = math.clamp(MinY, 0.08, 0.92)
-            MaxX = math.clamp(MaxX, MinX + 0.05, 0.92)
-            MaxY = math.clamp(MaxY, MinY + 0.05, 0.92)
+            if not AnyVisible then
+                return
+            end
+            MinX = math.clamp(MinX, 0.08, 0.88)
+            MinY = math.clamp(MinY, 0.075, 0.88)
+            MaxX = math.clamp(MaxX, MinX + 0.08, 0.92)
+            MaxY = math.clamp(MaxY, MinY + 0.10, 0.925)
             S.Box.Position = UDim2.fromScale(MinX, MinY)
             S.Box.Size = UDim2.fromScale(MaxX - MinX, MaxY - MinY)
-            S.HealthBack.Position = UDim2.fromScale(math.max(0.03, MinX - 0.035), MinY)
-            S.HealthBack.Size = UDim2.fromScale(0.014, MaxY - MinY)
+            S.HealthBack.Position = UDim2.fromScale(math.max(0.025, MinX - 0.032), MinY)
+            S.HealthBack.Size = UDim2.fromScale(0.012, MaxY - MinY)
+            S.HealthText.Position = UDim2.fromScale(math.max(0.02, MinX - 0.14), MinY + ((MaxY - MinY) * 0.48))
         end
 
-        local function UpdateInfo()
+        local function GetFlag(Name, Default)
+            local Value = Menu.Flags[Name]
+            if Value == nil then
+                return Default
+            end
+            return Value
+        end
+
+        local function UpdateEspStyle()
             local Character = LocalPlayer and LocalPlayer.Character
             local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
             local Health = math.max(0, math.floor((Humanoid and Humanoid.Health) or 100))
             local MaxHealth = math.max(1, math.floor((Humanoid and Humanoid.MaxHealth) or 100))
-            S.HealthFill.Size = UDim2.fromScale(1, math.clamp(Health / MaxHealth, 0, 1))
-            S.Name.Text = string.upper(LocalPlayer and LocalPlayer.Name or "PLAYER") .. "  [" .. tostring(Health) .. "]"
+            local HealthAlpha = math.clamp(Health / MaxHealth, 0, 1)
+            local Enabled = GetFlag("Player ESP", false)
+            local Boxes = Enabled and GetFlag("Player ESP Boxes", true)
+            local BoxStyle = GetFlag("Player ESP Box Style", "Corners")
+            local BoxColor = GetFlag("Player ESP Box Color", Accent)
+            local FillEnabled = Enabled and GetFlag("Player ESP Fill", false)
+            local FillColor = GetFlag("Player ESP Fill Color", BoxColor)
+            local FillTransparency = math.clamp(tonumber(GetFlag("Player ESP Fill Transparency", 0.78)) or 0.78, 0, 1)
+            local TextColor = GetFlag("Player ESP Text Color", PrimaryText)
+            local HighColor = GetFlag("Player ESP Health High Color", Color3.fromRGB(98, 236, 151))
+            local LowColor = GetFlag("Player ESP Health Low Color", Color3.fromRGB(255, 89, 104))
+            local TextSize = math.clamp(tonumber(GetFlag("Player ESP Text Size", 12)) or 12, 10, 20)
+            S.Box.Visible = Boxes or FillEnabled
+            S.Box.BackgroundColor3 = FillColor
+            S.Box.BackgroundTransparency = FillEnabled and FillTransparency or 1
+            S.BoxStroke.Transparency = Boxes and BoxStyle == "Full" and 0.04 or 1
+            S.BoxStroke.Color = BoxColor
+            for _, CornerObject in ipairs(S.Corners) do
+                CornerObject.Visible = Boxes and BoxStyle ~= "Full"
+                CornerObject.BackgroundColor3 = BoxColor
+            end
+            S.HealthBack.Visible = Enabled and GetFlag("Player ESP Health Bar", true)
+            S.HealthFill.Size = UDim2.fromScale(1, HealthAlpha)
+            S.HealthFill.BackgroundColor3 = LowColor:Lerp(HighColor, HealthAlpha)
+            S.HealthText.Visible = Enabled and GetFlag("Player ESP Health Value", false)
+            S.HealthText.Text = tostring(Health)
+            S.HealthText.TextColor3 = TextColor
+            S.HealthText.TextSize = math.max(9, TextSize - 2)
+            S.Name.Visible = Enabled and GetFlag("Player ESP Names", true)
+            S.Name.Text = string.upper(LocalPlayer and LocalPlayer.Name or "PLAYER")
+            S.Name.TextColor3 = TextColor
+            S.Name.TextSize = TextSize
+            local InfoParts = {}
             local Tool = Character and Character:FindFirstChildOfClass("Tool")
-            S.Weapon.Text = Tool and string.upper(Tool.Name) or "NONE"
-            S.Box.Visible = Menu.Flags.PreviewBox ~= false
-            S.HealthBack.Visible = Menu.Flags.PreviewHealth ~= false
-            S.Name.Visible = Menu.Flags.PreviewName ~= false
-            S.Weapon.Visible = Menu.Flags.PreviewWeapon ~= false
+            if Enabled and GetFlag("Player ESP Weapon", true) then
+                InfoParts[#InfoParts + 1] = Tool and string.upper(Tool.Name) or "NONE"
+            end
+            if Enabled and GetFlag("Player ESP Distance", true) then
+                InfoParts[#InfoParts + 1] = "0m"
+            end
+            S.Info.Visible = #InfoParts > 0
+            S.Info.Text = table.concat(InfoParts, "  •  ")
+            S.Info.TextColor3 = TextColor
+            S.Info.TextSize = math.max(9, TextSize - 1)
+            S.Silhouette.Visible = not S.Model and not S.Status.Visible
+            S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(184, 188, 207) or Color3.fromRGB(154, 159, 183)
+            S.Viewport.LightDirection = S.Mode == "2D" and Vector3.new(-0.8, -0.4, -1) or Vector3.new(-1, -0.75, -1)
+        end
+
+        local function GetAppearanceSignature()
+            local Character = LocalPlayer and LocalPlayer.Character
+            if not Character then
+                return "none"
+            end
+            local Wings = Character:FindFirstChild("AtramentaCosmeticWings")
+            local Hat = Character:FindFirstChild("MinecraftChinaHat")
+            return table.concat({
+                tostring(Character),
+                tostring(Wings),
+                tostring(Hat),
+                tostring(GetFlag("Angel Wings", false)),
+                tostring(GetFlag("Angel Wing Scale", 1)),
+                tostring(GetFlag("Angel Wing Core Color", Color3.new(0, 0, 0))),
+                tostring(GetFlag("Angel Wing Glow Color", Color3.new(0, 0, 0))),
+                tostring(GetFlag("Angel Wing Transparency", 0)),
+                tostring(GetFlag("China Hat", false)),
+                tostring(GetFlag("China Hat Scale", 1)),
+                tostring(GetFlag("China Hat Color", Color3.new(0, 0, 0))),
+                tostring(GetFlag("China Hat Transparency", 0))
+            }, "|")
         end
 
         local function RefreshMode()
             local Is2D = S.Mode == "2D"
-            S.TwoDLayer.Visible = Is2D
-            S.Viewport.Visible = not Is2D
-            S.ModeHighlight.Position = UDim2.fromOffset(Is2D and 2 or 52, 2)
+            S.ModeHighlight.Position = UDim2.fromOffset(Is2D and 2 or 58, 2)
             S.TwoDButton.TextColor3 = Is2D and Color3.fromRGB(11, 13, 20) or MutedText
             S.ThreeDButton.TextColor3 = Is2D and MutedText or Color3.fromRGB(11, 13, 20)
-            if Is2D then
-                ClearModel()
-                S.Status.Visible = false
-                S.Box.Position = UDim2.fromScale(0.27, 0.13)
-                S.Box.Size = UDim2.fromScale(0.46, 0.73)
-                S.HealthBack.Position = UDim2.fromScale(0.235, 0.13)
-                S.HealthBack.Size = UDim2.fromScale(0.014, 0.73)
-            elseif not S.Model and S.Window.Visible then
+            S.Rotation = 0
+            if S.Model and S.BasePivot then
+                S.Model:PivotTo(S.BasePivot)
+            elseif S.Window.Visible then
                 RequestModel()
             end
         end
@@ -4483,7 +4616,7 @@ local function BuildRuntime()
             if S.Glow then
                 S.Glow.Visible = Visible
             end
-            if Visible and S.Mode == "3D" and not S.Model then
+            if Visible and not S.Model then
                 RequestModel()
             end
         end
@@ -4494,13 +4627,13 @@ local function BuildRuntime()
             RefreshVisibility()
             if S.Hidden then
                 S.Status.Visible = false
-            elseif S.Mode == "3D" and not S.Model then
+            elseif not S.Model then
                 RequestModel()
             end
         end
 
         Menu.EspPreviewController.SetScale = function(Value)
-            local Number = math.clamp(tonumber(Value) or 100, 70, 150)
+            local Number = math.clamp(tonumber(Value) or 115, 80, 160)
             S.Scale.Scale = Number / 100
             SavedPositions.EspPreviewScale = Number
             S.Window.Position = ClampWindow(S.Window.Position)
@@ -4513,7 +4646,6 @@ local function BuildRuntime()
         Menu.EspPreviewController.SetMode = function(Value)
             S.Mode = Value == "2D" and "2D" or "3D"
             SavedPositions.EspPreviewMode = S.Mode
-            SavePositions()
             RefreshMode()
         end
 
@@ -4554,21 +4686,17 @@ local function BuildRuntime()
 
         if LocalPlayer then
             Bind(LocalPlayer.CharacterAdded:Connect(function()
-                task.delay(0.75, function()
+                task.delay(0.5, function()
                     ClearModel()
-                    UpdateInfo()
-                    RequestAvatarImage()
-                    if S.Mode == "3D" and not S.Hidden then
+                    if not S.Hidden then
                         RequestModel()
                     end
                 end)
             end))
             Bind(LocalPlayer.CharacterAppearanceLoaded:Connect(function()
-                task.delay(0.25, function()
+                task.delay(0.2, function()
                     ClearModel()
-                    S.AvatarImage.Image = ""
-                    RequestAvatarImage()
-                    if S.Mode == "3D" and not S.Hidden then
+                    if not S.Hidden then
                         RequestModel()
                     end
                 end)
@@ -4576,28 +4704,42 @@ local function BuildRuntime()
         end
 
         local LastUpdate = 0
-        Bind(RunService.RenderStepped:Connect(function()
+        Bind(RunService.RenderStepped:Connect(function(DeltaTime)
             if not S.Window.Visible then
                 return
             end
-            if os.clock() - LastUpdate >= 0.1 then
-                LastUpdate = os.clock()
-                UpdateInfo()
+            if S.Model and S.Model.Parent and S.BasePivot then
                 if S.Mode == "3D" then
-                    if S.Model and S.Model.Parent then
-                        ProjectModelBounds()
-                    elseif os.clock() - S.LastRetry > 2 then
-                        S.LastRetry = os.clock()
+                    S.Rotation = (S.Rotation + DeltaTime * 18) % 360
+                    S.Model:PivotTo(CFrame.Angles(0, math.rad(S.Rotation), 0) * S.BasePivot)
+                elseif S.Rotation ~= 0 then
+                    S.Rotation = 0
+                    S.Model:PivotTo(S.BasePivot)
+                end
+            end
+            if os.clock() - LastUpdate >= 0.08 then
+                LastUpdate = os.clock()
+                UpdateEspStyle()
+                if S.Model and S.Model.Parent then
+                    ProjectModelBounds()
+                elseif os.clock() - S.LastRetry > 1.5 then
+                    S.LastRetry = os.clock()
+                    RequestModel()
+                end
+                if os.clock() - S.LastAppearanceCheck > 0.45 then
+                    S.LastAppearanceCheck = os.clock()
+                    local Signature = GetAppearanceSignature()
+                    if S.LastAppearanceSignature ~= "" and Signature ~= S.LastAppearanceSignature then
+                        ClearModel()
                         RequestModel()
                     end
+                    S.LastAppearanceSignature = Signature
                 end
             end
         end))
 
         RegisterAccentTarget(function(NewColor)
             S.ModeHighlight.BackgroundColor3 = NewColor
-            S.BoxStroke.Color = NewColor
-            S.HealthFill.BackgroundColor3 = NewColor
             if S.Glow then
                 S.Glow.ImageColor3 = NewColor
             end
@@ -4605,9 +4747,8 @@ local function BuildRuntime()
 
         Menu.EspPreviewWindow = S.Window
         S.Window.Position = ClampWindow(S.Window.Position)
-        RequestAvatarImage()
         RefreshMode()
-        UpdateInfo()
+        UpdateEspStyle()
     end
 
     CreateEspPreviewWindow()
@@ -4991,7 +5132,7 @@ local function BuildRuntime()
         InputBlocker.Visible = true
         Overlay.Visible = Menu.Flags.BackgroundDim ~= false
         MainScale.Scale = TargetScale * 0.91
-        Main.BackgroundTransparency = 0.18
+        Main.BackgroundTransparency = 0.20
         Overlay.BackgroundTransparency = 1
         PrepareAssembly()
 
@@ -5010,7 +5151,7 @@ local function BuildRuntime()
 
         AssemblyTween(Overlay, 0.24, {BackgroundTransparency = 0.55}, Enum.EasingStyle.Quad)
         AssemblyTween(MainScale, 0.36, {Scale = TargetScale}, Enum.EasingStyle.Back)
-        AssemblyTween(Main, 0.24, {BackgroundTransparency = 0}, Enum.EasingStyle.Quad)
+        AssemblyTween(Main, 0.24, {BackgroundTransparency = 0.08}, Enum.EasingStyle.Quad)
 
         task.delay(0.035 / math.max(AnimationFactor, 0.05), function()
             if AssemblyGeneration ~= Generation or not Menu.Visible then
@@ -5109,7 +5250,7 @@ local function BuildRuntime()
         AssemblyTween(Topbar, 0.22, {Position = OffsetPosition(AssemblyTargets.Topbar, 0, -58)}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
         AssemblyTween(Sidebar, 0.24, {Position = OffsetPosition(AssemblyTargets.Sidebar, -100, 0)}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
         AssemblyTween(MainScale, 0.25, {Scale = TargetScale * 0.93}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        AssemblyTween(Main, 0.22, {BackgroundTransparency = 0.12}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+        AssemblyTween(Main, 0.22, {BackgroundTransparency = 0.20}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
         AssemblyTween(Overlay, 0.25, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 
         task.delay(0.27 / math.max(AnimationFactor, 0.05), function()
