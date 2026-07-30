@@ -4598,8 +4598,8 @@ local function BuildRuntime()
 
         S.Box = Create("Frame", {
             Parent = S.Overlay,
-            Position = UDim2.fromScale(0.28, 0.10),
-            Size = UDim2.fromScale(0.44, 0.80),
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.fromOffset(0, 0),
             BackgroundColor3 = Accent,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
@@ -4783,6 +4783,91 @@ local function BuildRuntime()
             end
         end
 
+        local PreviewBodyNames = {
+            Head = true,
+            Torso = true,
+            UpperTorso = true,
+            LowerTorso = true,
+            LeftArm = true,
+            RightArm = true,
+            LeftLeg = true,
+            RightLeg = true,
+            LeftUpperArm = true,
+            LeftLowerArm = true,
+            LeftHand = true,
+            RightUpperArm = true,
+            RightLowerArm = true,
+            RightHand = true,
+            LeftUpperLeg = true,
+            LeftLowerLeg = true,
+            LeftFoot = true,
+            RightUpperLeg = true,
+            RightLowerLeg = true,
+            RightFoot = true
+        }
+
+        local function IsPreviewBodyPart(Object)
+            if not Object:IsA("BasePart") or Object.Name == "HumanoidRootPart" or Object.Transparency >= 0.995 then
+                return false
+            end
+            if PreviewBodyNames[Object.Name] then
+                return true
+            end
+            return Object.Parent == S.Model and not Object:FindFirstAncestorWhichIsA("Accessory")
+        end
+
+        local function GetPreviewParts(Model)
+            local Parts = {}
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("BasePart") and Object.Name ~= "HumanoidRootPart" and Object.Transparency < 0.995 then
+                    local Accessory = Object:FindFirstAncestorWhichIsA("Accessory")
+                    if PreviewBodyNames[Object.Name] or (not Accessory and Object.Parent == Model) then
+                        Parts[#Parts + 1] = Object
+                    end
+                end
+            end
+            if #Parts == 0 then
+                for _, Object in ipairs(Model:GetDescendants()) do
+                    if Object:IsA("BasePart") and Object.Name ~= "HumanoidRootPart" and Object.Transparency < 0.995 then
+                        Parts[#Parts + 1] = Object
+                    end
+                end
+            end
+            return Parts
+        end
+
+        local function GetPartsBounds(Parts)
+            local Minimum = Vector3.new(math.huge, math.huge, math.huge)
+            local Maximum = Vector3.new(-math.huge, -math.huge, -math.huge)
+            local Found = false
+            for _, PartObject in ipairs(Parts) do
+                local Half = PartObject.Size * 0.5
+                local PartCFrame = PartObject.CFrame
+                for X = -1, 1, 2 do
+                    for Y = -1, 1, 2 do
+                        for Z = -1, 1, 2 do
+                            local Point = PartCFrame:PointToWorldSpace(Vector3.new(Half.X * X, Half.Y * Y, Half.Z * Z))
+                            Minimum = Vector3.new(
+                                math.min(Minimum.X, Point.X),
+                                math.min(Minimum.Y, Point.Y),
+                                math.min(Minimum.Z, Point.Z)
+                            )
+                            Maximum = Vector3.new(
+                                math.max(Maximum.X, Point.X),
+                                math.max(Maximum.Y, Point.Y),
+                                math.max(Maximum.Z, Point.Z)
+                            )
+                            Found = true
+                        end
+                    end
+                end
+            end
+            if not Found then
+                return nil, nil
+            end
+            return (Minimum + Maximum) * 0.5, Maximum - Minimum
+        end
+
         local function ApplyModelRotation()
             if S.Model and S.Model.Parent and S.BasePivot then
                 local Position = S.BasePivot.Position
@@ -4792,25 +4877,43 @@ local function BuildRuntime()
         end
 
         local function FrameModel(Model)
-            local BoxCFrame, BoxSize = Model:GetBoundingBox()
-            local CurrentPivot = Model:GetPivot()
-            Model:PivotTo(CFrame.new(-BoxCFrame.Position) * CurrentPivot)
-            local CenteredPosition = Model:GetPivot().Position
-            Model:PivotTo(CFrame.new(CenteredPosition) * CFrame.Angles(0, math.pi, 0))
-            BoxCFrame, BoxSize = Model:GetBoundingBox()
+            local Parts = GetPreviewParts(Model)
+            local Center, BoxSize = GetPartsBounds(Parts)
+            if not Center or not BoxSize then
+                local BoxCFrame, FallbackSize = Model:GetBoundingBox()
+                Center = BoxCFrame.Position
+                BoxSize = FallbackSize
+            end
+            local Pivot = Model:GetPivot()
+            Model:PivotTo(CFrame.new(-Center) * Pivot)
+            local Position = Model:GetPivot().Position
+            Model:PivotTo(CFrame.new(Position) * CFrame.Angles(0, math.pi, 0))
+            Parts = GetPreviewParts(Model)
+            Center, BoxSize = GetPartsBounds(Parts)
+            if Center then
+                local CurrentPivot = Model:GetPivot()
+                Model:PivotTo(CFrame.new(-Center) * CurrentPivot)
+            else
+                BoxSize = select(2, Model:GetBoundingBox())
+            end
+            BoxSize = Vector3.new(
+                math.max(BoxSize.X, 2),
+                math.max(BoxSize.Y, 4),
+                math.max(BoxSize.Z, 1)
+            )
             local ViewSize = S.Viewport.AbsoluteSize
             local Aspect = ViewSize.Y > 0 and math.max(ViewSize.X / ViewSize.Y, 0.25) or 0.78
             local Vertical = math.rad(S.Camera.FieldOfView)
             local Horizontal = 2 * math.atan(math.tan(Vertical * 0.5) * Aspect)
             local DistanceY = (BoxSize.Y * 0.5) / math.max(math.tan(Vertical * 0.5), 0.01)
             local DistanceX = (BoxSize.X * 0.5) / math.max(math.tan(Horizontal * 0.5), 0.01)
-            local Distance = math.max(DistanceX, DistanceY) * 1.10 + BoxSize.Z * 0.55
-            S.Camera.CFrame = CFrame.new(Vector3.new(0, BoxSize.Y * 0.025, Distance), Vector3.new(0, BoxSize.Y * 0.025, 0))
+            local Distance = math.max(DistanceX, DistanceY) * 1.18 + BoxSize.Z * 0.55
+            local FocusY = BoxSize.Y * 0.015
+            S.Camera.CFrame = CFrame.new(Vector3.new(0, FocusY, Distance), Vector3.new(0, FocusY, 0))
             S.BasePivot = Model:GetPivot()
-            if S.Mode ~= "3D" then
-                S.Rotation = 0
-            end
+            S.Rotation = S.Mode == "3D" and S.Rotation or 0
             ApplyModelRotation()
+            S.BoundsValid = false
         end
 
         local function CreateDescriptionModel()
@@ -4841,6 +4944,8 @@ local function BuildRuntime()
             return Model, Description
         end
 
+        local ProjectModelBounds
+
         local function TryBuildModel(Generation)
             S.Status.Text = "LOADING LOCAL PLAYER"
             S.Status.Visible = true
@@ -4855,9 +4960,15 @@ local function BuildRuntime()
             SanitizeModel(Model)
             Model.Name = "LocalPlayerPreview"
             Model.Parent = S.World
-            FrameModel(Model)
             S.Description = Description
             S.Model = Model
+            FrameModel(Model)
+            task.defer(function()
+                if S.Model == Model and Model.Parent then
+                    FrameModel(Model)
+                    ProjectModelBounds()
+                end
+            end)
             S.Silhouette.Visible = false
             S.Status.Visible = false
             return true
@@ -4879,7 +4990,7 @@ local function BuildRuntime()
             end)
         end
 
-        local function ProjectModelBounds()
+        ProjectModelBounds = function()
             if not S.Model or not S.Model.Parent then
                 S.BoundsValid = false
                 return
@@ -4895,25 +5006,24 @@ local function BuildRuntime()
             local MinX, MinY = math.huge, math.huge
             local MaxX, MaxY = -math.huge, -math.huge
             local AnyVisible = false
-            for _, PartObject in ipairs(S.Model:GetDescendants()) do
-                if PartObject:IsA("BasePart") and PartObject.Name ~= "HumanoidRootPart" and PartObject.Transparency < 0.995 then
-                    local PartCFrame = PartObject.CFrame
-                    local Half = PartObject.Size * 0.5
-                    for X = -1, 1, 2 do
-                        for Y = -1, 1, 2 do
-                            for Z = -1, 1, 2 do
-                                local WorldPoint = PartCFrame:PointToWorldSpace(Vector3.new(Half.X * X, Half.Y * Y, Half.Z * Z))
-                                local CameraPoint = S.Camera.CFrame:PointToObjectSpace(WorldPoint)
-                                local Depth = -CameraPoint.Z
-                                if Depth > 0.01 then
-                                    local ScreenX = (PixelViewSize.X * 0.5) + ((CameraPoint.X * FocalLength) / Depth)
-                                    local ScreenY = (PixelViewSize.Y * 0.5) - ((CameraPoint.Y * FocalLength) / Depth)
-                                    MinX = math.min(MinX, ScreenX / UiScale)
-                                    MinY = math.min(MinY, ScreenY / UiScale)
-                                    MaxX = math.max(MaxX, ScreenX / UiScale)
-                                    MaxY = math.max(MaxY, ScreenY / UiScale)
-                                    AnyVisible = true
-                                end
+            local Parts = GetPreviewParts(S.Model)
+            for _, PartObject in ipairs(Parts) do
+                local PartCFrame = PartObject.CFrame
+                local Half = PartObject.Size * 0.5
+                for X = -1, 1, 2 do
+                    for Y = -1, 1, 2 do
+                        for Z = -1, 1, 2 do
+                            local WorldPoint = PartCFrame:PointToWorldSpace(Vector3.new(Half.X * X, Half.Y * Y, Half.Z * Z))
+                            local CameraPoint = S.Camera.CFrame:PointToObjectSpace(WorldPoint)
+                            local Depth = -CameraPoint.Z
+                            if Depth > 0.01 then
+                                local ScreenX = (PixelViewSize.X * 0.5) + ((CameraPoint.X * FocalLength) / Depth)
+                                local ScreenY = (PixelViewSize.Y * 0.5) - ((CameraPoint.Y * FocalLength) / Depth)
+                                MinX = math.min(MinX, ScreenX / UiScale)
+                                MinY = math.min(MinY, ScreenY / UiScale)
+                                MaxX = math.max(MaxX, ScreenX / UiScale)
+                                MaxY = math.max(MaxY, ScreenY / UiScale)
+                                AnyVisible = true
                             end
                         end
                     end
@@ -4923,16 +5033,22 @@ local function BuildRuntime()
                 S.BoundsValid = false
                 return
             end
-            MinX = math.clamp(MinX, 10, LocalViewSize.X - 34)
-            MinY = math.clamp(MinY, 24, LocalViewSize.Y - 66)
-            MaxX = math.clamp(MaxX, MinX + 24, LocalViewSize.X - 10)
-            MaxY = math.clamp(MaxY, MinY + 36, LocalViewSize.Y - 28)
+            local PaddingX = 5
+            local PaddingY = 4
+            MinX = math.clamp(MinX - PaddingX, 14, LocalViewSize.X - 60)
+            MinY = math.clamp(MinY - PaddingY, 24, LocalViewSize.Y - 90)
+            MaxX = math.clamp(MaxX + PaddingX, MinX + 56, LocalViewSize.X - 16)
+            MaxY = math.clamp(MaxY + PaddingY, MinY + 110, LocalViewSize.Y - 34)
             local Width = MaxX - MinX
             local Height = MaxY - MinY
+            if Width < 56 or Height < 110 then
+                S.BoundsValid = false
+                return
+            end
             local CenterX = MinX + Width * 0.5
             S.Box.Position = UDim2.fromOffset(math.floor(MinX + 0.5), math.floor(MinY + 0.5))
             S.Box.Size = UDim2.fromOffset(math.floor(Width + 0.5), math.floor(Height + 0.5))
-            S.HealthBack.Position = UDim2.fromOffset(math.floor(MinX - 8.5), math.floor(MinY + 0.5))
+            S.HealthBack.Position = UDim2.fromOffset(math.floor(MinX - 9), math.floor(MinY + 0.5))
             S.HealthBack.Size = UDim2.fromOffset(4, math.floor(Height + 0.5))
             S.HealthText.Position = UDim2.fromOffset(math.floor(MinX - 50), math.floor(MinY + Height * 0.46))
             S.Name.Position = UDim2.fromOffset(math.floor(CenterX), math.floor(MinY - 22))
