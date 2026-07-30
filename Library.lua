@@ -628,12 +628,21 @@ local function BuildRuntime()
         ZIndex = 4
     })
 
+    local SidebarHeader = Create("Frame", {
+        Parent = Sidebar,
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.fromOffset(88, 128),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        ZIndex = 5
+    })
+
     if LogoAsset then
         Menu.SidebarLogo = Create("ImageLabel", {
-            Parent = Sidebar,
+            Parent = SidebarHeader,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.fromOffset(44, 70),
-            Size = UDim2.fromOffset(30, 48),
+            Size = UDim2.fromOffset(25, 41),
             BackgroundTransparency = 1,
             Image = LogoAsset,
             ImageColor3 = Accent,
@@ -642,13 +651,13 @@ local function BuildRuntime()
             ZIndex = 6
         })
     else
-        Menu.SidebarLogo = Icon(Sidebar, "Lightning", UDim2.fromOffset(22, 30), UDim2.fromOffset(44, 70), Accent, 6)
+        Menu.SidebarLogo = Icon(SidebarHeader, "Lightning", UDim2.fromOffset(21, 28), UDim2.fromOffset(44, 70), Accent, 6)
         Menu.SidebarLogo.Active = true
     end
 
     Create("Frame", {
         Parent = Sidebar,
-        Position = UDim2.fromOffset(18, 114),
+        Position = UDim2.fromOffset(18, 127),
         Size = UDim2.fromOffset(52, 1),
         BackgroundColor3 = Border,
         BorderSizePixel = 0,
@@ -1085,28 +1094,30 @@ local function BuildRuntime()
         }
     end
 
-    local function CreateValueBox(Parent, TextValue, XOffset)
+    local function CreateValueBox(Parent, TextValue, XOffset, Width)
         local Box = Create("Frame", {
             Parent = Parent,
             AnchorPoint = Vector2.new(1, 0),
             Position = UDim2.new(1, XOffset, 0, 0),
-            Size = UDim2.fromOffset(34, 20),
+            Size = UDim2.fromOffset(Width or 46, 20),
             BackgroundColor3 = SurfaceAlt,
             BorderSizePixel = 0,
             ZIndex = 8
         })
         Corner(Box, 3)
-        local Label = Create("TextLabel", {
+        local Label = Create("TextBox", {
             Parent = Box,
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
+            ClearTextOnFocus = false,
             Font = Enum.Font.BuilderSansMedium,
             Text = TextValue,
             TextColor3 = PrimaryText,
             TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Center,
             ZIndex = 9
         })
-        return Label
+        return Label, Box
     end
 
     local AccentUpdateTargets = {}
@@ -1137,15 +1148,18 @@ local function BuildRuntime()
             CreateGear(Row, -43, 9, Name, Flag, {Type = "Number", Minimum = Minimum, Maximum = Maximum, Decimals = Options.Decimals})
         end
 
+        local Prefix = tostring(Options.Prefix or "")
+        local Suffix = tostring(Options.Suffix or "")
         local ValueLabel
         if Options.Box then
-            ValueLabel = CreateValueBox(Row, tostring(Default), 0)
+            local BoxWidth = math.max(46, 34 + (#Prefix + #Suffix) * 4)
+            ValueLabel = CreateValueBox(Row, tostring(Default), 0, BoxWidth)
         else
             ValueLabel = Create("TextLabel", {
                 Parent = Row,
                 AnchorPoint = Vector2.new(1, 0),
                 Position = UDim2.new(1, 0, 0, 0),
-                Size = UDim2.fromOffset(48, 18),
+                Size = UDim2.fromOffset(math.max(48, 34 + (#Prefix + #Suffix) * 4), 18),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSans,
                 Text = tostring(Default),
@@ -1221,11 +1235,29 @@ local function BuildRuntime()
         end))
         Menu.Flags[Flag] = Value
 
-        local function Format(Number)
+        local function FormatNumber(Number)
             if Options.Decimals then
-                return string.format("%." .. tostring(Options.Decimals) .. "f", Number)
+                local Formatted = string.format("%." .. tostring(Options.Decimals) .. "f", Number)
+                Formatted = Formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
+                return Formatted
             end
             return tostring(math.floor(Number + 0.5))
+        end
+
+        local function Format(Number)
+            return Prefix .. FormatNumber(Number) .. Suffix
+        end
+
+        local function Parse(TextValue)
+            local Parsed = tostring(TextValue or ""):gsub(",", ".")
+            if Prefix ~= "" and Parsed:sub(1, #Prefix) == Prefix then
+                Parsed = Parsed:sub(#Prefix + 1)
+            end
+            if Suffix ~= "" and Parsed:sub(-#Suffix) == Suffix then
+                Parsed = Parsed:sub(1, #Parsed - #Suffix)
+            end
+            Parsed = Parsed:match("[-+]?%d*%.?%d+")
+            return tonumber(Parsed)
         end
 
         local function Set(NewValue)
@@ -1247,6 +1279,20 @@ local function BuildRuntime()
         end
 
         Menu.Setters[Flag] = Set
+
+        if Options.Box and ValueLabel:IsA("TextBox") then
+            Bind(ValueLabel.Focused:Connect(function()
+                ValueLabel.Text = FormatNumber(Value)
+            end))
+            Bind(ValueLabel.FocusLost:Connect(function()
+                local Parsed = Parse(ValueLabel.Text)
+                if Parsed ~= nil then
+                    Set(Parsed)
+                else
+                    ValueLabel.Text = Format(Value)
+                end
+            end))
+        end
 
         local function Update(Input)
             local Alpha = math.clamp((Input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
@@ -1298,8 +1344,8 @@ local function BuildRuntime()
         })
 
         CreateGear(Row, -86, 10, Name, MinimumFlag, {Type = "Number", Minimum = Minimum, Maximum = Maximum})
-        local MinimumLabel = CreateValueBox(Row, tostring(DefaultMinimum), -41)
-        local MaximumLabel = CreateValueBox(Row, tostring(DefaultMaximum), 0)
+        local MinimumLabel = CreateValueBox(Row, tostring(DefaultMinimum), -47, 40)
+        local MaximumLabel = CreateValueBox(Row, tostring(DefaultMaximum), 0, 40)
 
         local Track = Create("Frame", {
             Parent = Row,
@@ -1373,6 +1419,25 @@ local function BuildRuntime()
             Menu.Flags[MinimumFlag] = Low
             Menu.Flags[MaximumFlag] = High
         end
+
+        Bind(MinimumLabel.FocusLost:Connect(function()
+            local Parsed = tonumber(tostring(MinimumLabel.Text):gsub(",", "."):match("[-+]?%d+"))
+            if Parsed ~= nil then
+                Low = math.clamp(math.floor(Parsed + 0.5), Minimum, High)
+                Refresh()
+            else
+                MinimumLabel.Text = tostring(Low)
+            end
+        end))
+        Bind(MaximumLabel.FocusLost:Connect(function()
+            local Parsed = tonumber(tostring(MaximumLabel.Text):gsub(",", "."):match("[-+]?%d+"))
+            if Parsed ~= nil then
+                High = math.clamp(math.floor(Parsed + 0.5), Low, Maximum)
+                Refresh()
+            else
+                MaximumLabel.Text = tostring(High)
+            end
+        end))
 
         Menu.Setters[MinimumFlag] = function(Value)
             Low = math.clamp(math.floor(tonumber(Value) or Low + 0.5), Minimum, High)
@@ -3197,12 +3262,13 @@ local function BuildRuntime()
             ZIndex = 32
         })
 
-        local ValueLabel = Create("TextLabel", {
+        local ValueLabel = Create("TextBox", {
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0),
             Position = UDim2.new(1, 0, 0, 0),
-            Size = UDim2.fromOffset(48, 18),
+            Size = UDim2.fromOffset(56, 18),
             BackgroundTransparency = 1,
+            ClearTextOnFocus = false,
             Font = Enum.Font.BuilderSansMedium,
             Text = "",
             TextColor3 = PrimaryText,
@@ -3247,6 +3313,14 @@ local function BuildRuntime()
         local Value = Default
         local Dragging = false
 
+        local function FormatNumber(NewValue)
+            if Maximum <= 2 then
+                local Formatted = string.format("%.2f", NewValue)
+                return Formatted:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
+            end
+            return tostring(math.floor(NewValue + 0.5))
+        end
+
         local function Set(NewValue)
             NewValue = math.clamp(NewValue, Minimum, Maximum)
             if Maximum <= 2 then
@@ -3257,7 +3331,7 @@ local function BuildRuntime()
             Value = NewValue
             local Alpha = (Value - Minimum) / (Maximum - Minimum)
             SmoothSlider(Fill, Knob, Alpha, 0.12)
-            ValueLabel.Text = FormatText and FormatText(Value) or tostring(Value)
+            ValueLabel.Text = FormatText and FormatText(Value) or FormatNumber(Value)
             if Callback then
                 Callback(Value)
             end
@@ -3294,6 +3368,18 @@ local function BuildRuntime()
                 if KnobGlow then
                     Tween(KnobGlow, 0.12, {ImageTransparency = 0.22})
                 end
+            end
+        end))
+
+        Bind(ValueLabel.Focused:Connect(function()
+            ValueLabel.Text = FormatNumber(Value)
+        end))
+        Bind(ValueLabel.FocusLost:Connect(function()
+            local Parsed = tonumber(tostring(ValueLabel.Text):gsub(",", "."):match("[-+]?%d*%.?%d+"))
+            if Parsed ~= nil then
+                Set(Parsed)
+            else
+                ValueLabel.Text = FormatText and FormatText(Value) or FormatNumber(Value)
             end
         end))
 
@@ -5699,7 +5785,7 @@ local function BuildRuntime()
         for _ in pairs(Menu.SidebarButtons) do
             Count += 1
         end
-        local Y = 128 + (Count * 64)
+        local Y = 146 + (Count * 64)
         local Button = Create("TextButton", {
             Parent = Sidebar,
             Position = UDim2.fromOffset(14, Y),
@@ -5731,8 +5817,8 @@ local function BuildRuntime()
         local IconObject = Icon(
             Button,
             ApiState.PageIcons[Name] or "Gear",
-            Name == "Combat" and UDim2.fromOffset(26, 26) or UDim2.fromOffset(17, 17),
-            Name == "Combat" and UDim2.new(0.5, 0, 0, 16) or UDim2.new(0.5, 0, 0, 17),
+            Name == "Combat" and UDim2.fromOffset(23, 23) or UDim2.fromOffset(17, 17),
+            Name == "Combat" and UDim2.new(0.5, 0, 0, 17) or UDim2.new(0.5, 0, 0, 17),
             MutedText,
             7
         )
@@ -6084,6 +6170,7 @@ local function BuildRuntime()
         end
         return CreateSlider(self.Section, tostring(ApiRead(Data, "Name", "Slider")), tonumber(ApiRead(Data, "Min", 0)) or 0, tonumber(ApiRead(Data, "Max", 100)) or 100, tonumber(ApiRead(Data, "Default", 0)) or 0, ApiNormalizeFlag(Data, ApiRead(Data, "Name", "Slider")), {
             Decimals = Decimals,
+            Prefix = ApiRead(Data, "Prefix", ""),
             Suffix = ApiRead(Data, "Suffix", ""),
             Box = ApiRead(Data, "Box", true),
             Gear = ApiRead(Data, "Gear", false),
