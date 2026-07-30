@@ -59,7 +59,7 @@ local function BuildRuntime()
         if type(writefile) ~= "function" or type(CustomAsset) ~= "function" then
             return nil
         end
-        local FileName = Library.Folders.Assets .. "/AtramentaIconsV6.png"
+        local FileName = Library.Folders.Assets .. "/AtramentaIcons.png"
         local Exists = type(isfile) == "function" and isfile(FileName)
         if not Exists then
             writefile(FileName, DecodeBase64(Base64Data))
@@ -76,7 +76,7 @@ local function BuildRuntime()
         if type(writefile) ~= "function" or type(CustomAsset) ~= "function" then
             return nil
         end
-        local FileName = Library.Folders.Assets .. "/AtramentaAK47V2.png"
+        local FileName = Library.Folders.Assets .. "/AtramentaCombatIcon.png"
         local Exists = type(isfile) == "function" and isfile(FileName)
         if not Exists then
             pcall(writefile, FileName, DecodeBase64(RifleBase64Data))
@@ -93,7 +93,7 @@ local function BuildRuntime()
         if type(writefile) ~= "function" or type(CustomAsset) ~= "function" then
             return nil
         end
-        local FileName = Library.Folders.Assets .. "/AtramentaLogoV1.png"
+        local FileName = Library.Folders.Assets .. "/AtramentaLogo.png"
         local Exists = type(isfile) == "function" and isfile(FileName)
         if not Exists then
             pcall(writefile, FileName, DecodeBase64(LogoBase64Data))
@@ -513,14 +513,15 @@ local function BuildRuntime()
     local ThemeColors = type(SavedPositions.ThemeColors) == "table" and SavedPositions.ThemeColors or {"#775691", "#9B789F", "#A56F7E"}
 
     pcall(function()
-        local Existing = Parent:FindFirstChild("RadiantReferenceMenuV11")
-        if Existing then
-            Existing:Destroy()
+        for _, Existing in ipairs(Parent:GetChildren()) do
+            if Existing:IsA("ScreenGui") and (Existing.Name:match("^AtramentaMenu") or Existing.Name:match("^RadiantReferenceMenu")) then
+                Existing:Destroy()
+            end
         end
     end)
 
     local ScreenGui = Create("ScreenGui", {
-        Name = "AtramentaMenuV22",
+        Name = "AtramentaMenu",
         Parent = Parent,
         IgnoreGuiInset = true,
         ResetOnSpawn = false,
