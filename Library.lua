@@ -2317,13 +2317,12 @@ local function BuildRuntime()
         local FlagName = Meta.Flag or Meta.Name or "Unknown"
         local BindMode = "Toggle"
         local ShowInBinds = true
-        local BindValue = (Meta.Info and Meta.Info.Type == "Boolean") and true or Menu.Flags[FlagName]
 
         ActiveGearBindMenu = Create("Frame", {
             Parent = ScreenGui,
             Active = true,
             Position = UDim2.fromOffset(0, 0),
-            Size = UDim2.fromOffset(176, 148),
+            Size = UDim2.fromOffset(176, 114),
             BackgroundColor3 = Color3.fromRGB(11, 9, 15),
             BorderSizePixel = 0,
             ZIndex = 180
@@ -2396,26 +2395,9 @@ local function BuildRuntime()
         Corner(Capture, 5)
         local CaptureStroke = Stroke(Capture, Border, 0.28, 1)
 
-        Create("TextLabel", {
-            Parent = ActiveGearBindMenu,
-            Position = UDim2.fromOffset(10, 80),
-            Size = UDim2.fromOffset(62, 18),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSans,
-            Text = "Value",
-            TextColor3 = DisabledText,
-            TextSize = 10,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 181
-        })
-
-        CreateValueControl(ActiveGearBindMenu, Meta, BindValue, function(Value)
-            BindValue = Value
-        end)
-
         Create("Frame", {
             Parent = ActiveGearBindMenu,
-            Position = UDim2.fromOffset(8, 113),
+            Position = UDim2.fromOffset(8, 80),
             Size = UDim2.fromOffset(160, 1),
             BackgroundColor3 = Border,
             BackgroundTransparency = 0.28,
@@ -2425,7 +2407,7 @@ local function BuildRuntime()
 
         Create("TextLabel", {
             Parent = ActiveGearBindMenu,
-            Position = UDim2.fromOffset(10, 119),
+            Position = UDim2.fromOffset(10, 86),
             Size = UDim2.fromOffset(110, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
@@ -2439,7 +2421,7 @@ local function BuildRuntime()
         local ShowButton = Create("TextButton", {
             Parent = ActiveGearBindMenu,
             AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, -10, 0, 121),
+            Position = UDim2.new(1, -10, 0, 88),
             Size = UDim2.fromOffset(14, 14),
             BackgroundColor3 = Accent,
             BorderSizePixel = 0,
@@ -2484,9 +2466,6 @@ local function BuildRuntime()
                 end,
                 ShowInBinds = function()
                     return ShowInBinds
-                end,
-                Value = function()
-                    return BindValue
                 end,
                 SetText = function(TextValue)
                     if Capture.Parent then
@@ -5893,11 +5872,7 @@ local function BuildRuntime()
         local Meta = PendingBindCapture.Meta
         local Modifiers = Menu.BindSystem.ReadModifiers()
         local Binds = Menu.BindSystem.GetControlBinds(Meta and Meta.Flag)
-        local CapturedValue = Menu.Flags[Meta.Flag]
         local CapturedShowInBinds = true
-        if PendingBindCapture.Value then
-            CapturedValue = PendingBindCapture.Value()
-        end
         if PendingBindCapture.ShowInBinds then
             CapturedShowInBinds = PendingBindCapture.ShowInBinds()
         end
@@ -5909,8 +5884,7 @@ local function BuildRuntime()
             Display = Menu.BindSystem.BuildBindDisplay(KeyName, Modifiers),
             Mode = PendingBindCapture.Mode and PendingBindCapture.Mode() or "Toggle",
             ShowInBinds = CapturedShowInBinds,
-            Value = CapturedValue,
-            BaseValue = Menu.Flags[Meta.Flag]
+            ControlType = Meta and Meta.Info and Meta.Info.Type or typeof(Menu.Flags[Meta.Flag])
         }
         table.insert(Binds, BindData)
         SavePositions()
@@ -5923,25 +5897,20 @@ local function BuildRuntime()
 
     Menu.BindSystem.ExecutePressed = function(Flag, BindData)
         local Current = Menu.Flags[Flag]
-        local Target = BindData.Value
+        if type(Current) ~= "boolean" and BindData.ControlType ~= "Boolean" and BindData.ControlType ~= "boolean" then
+            return
+        end
+
         if BindData.Mode == "Hold" then
             local RuntimeKey = BindData.Id or (tostring(Flag) .. ":" .. tostring(BindData.Display or BindData.Key or ""))
             if Menu.BindRuntime[RuntimeKey] == nil then
-                Menu.BindRuntime[RuntimeKey] = Current
-                Menu.BindSystem.ApplyFlagValue(Flag, Target)
+                Menu.BindRuntime[RuntimeKey] = Current == true
+                Menu.BindSystem.ApplyFlagValue(Flag, true)
             end
             return
         end
 
-        if type(Target) == "boolean" then
-            Menu.BindSystem.ApplyFlagValue(Flag, Current == Target and not Target or Target)
-        else
-            local BaseValue = BindData.BaseValue
-            if BaseValue == nil then
-                BaseValue = Current
-            end
-            Menu.BindSystem.ApplyFlagValue(Flag, Current == Target and BaseValue or Target)
-        end
+        Menu.BindSystem.ApplyFlagValue(Flag, not (Current == true))
     end
 
     Menu.BindSystem.ProcessBegan = function(Input)
@@ -6033,16 +6002,12 @@ local function BuildRuntime()
 
         local BindMatched = false
         local FocusedTextBox = UserInputService:GetFocusedTextBox()
-        if not FocusedTextBox and Input.UserInputType == Enum.UserInputType.Keyboard then
+        if not FocusedTextBox then
             BindMatched = Menu.BindSystem.ProcessBegan(Input)
         end
 
-        if Processed then
+        if Processed and not BindMatched then
             return
-        end
-
-        if not FocusedTextBox and Input.UserInputType ~= Enum.UserInputType.Keyboard then
-            BindMatched = Menu.BindSystem.ProcessBegan(Input)
         end
 
         if not BindMatched and Input.KeyCode == Enum.KeyCode.F2 then
