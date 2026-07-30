@@ -303,83 +303,17 @@ local function BuildRuntime()
             })
             Corner(Dot, 100)
         elseif Name == "Rifle" then
-            local Body = Create("Frame", {
-                Parent = Root,
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.fromScale(0.50, 0.48),
-                Size = UDim2.fromScale(0.52, 0.12),
-                BackgroundColor3 = Color,
-                BorderSizePixel = 0,
-                Rotation = -8,
-                ZIndex = ZIndex + 1
-            })
-            Corner(Body, 2)
-            local Barrel = Create("Frame", {
-                Parent = Root,
-                AnchorPoint = Vector2.new(0, 0.5),
-                Position = UDim2.fromScale(0.62, 0.41),
-                Size = UDim2.fromScale(0.24, 0.06),
-                BackgroundColor3 = Color,
-                BorderSizePixel = 0,
-                Rotation = -8,
-                ZIndex = ZIndex + 1
-            })
-            Corner(Barrel, 2)
-            local Sight = Create("Frame", {
-                Parent = Root,
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.fromScale(0.49, 0.34),
-                Size = UDim2.fromScale(0.10, 0.05),
-                BackgroundColor3 = Color,
-                BorderSizePixel = 0,
-                Rotation = -8,
-                ZIndex = ZIndex + 1
-            })
-            Corner(Sight, 2)
-            local Stock = Create("Frame", {
-                Parent = Root,
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.fromScale(0.22, 0.39),
-                Size = UDim2.fromScale(0.20, 0.08),
-                BackgroundColor3 = Color,
-                BorderSizePixel = 0,
-                Rotation = -28,
-                ZIndex = ZIndex + 1
-            })
-            Corner(Stock, 2)
-            local Grip = Create("Frame", {
-                Parent = Root,
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.fromScale(0.44, 0.58),
-                Size = UDim2.fromScale(0.08, 0.20),
-                BackgroundColor3 = Color,
-                BorderSizePixel = 0,
-                Rotation = 8,
-                ZIndex = ZIndex + 1
-            })
-            Corner(Grip, 2)
-            local Magazine = Create("Frame", {
-                Parent = Root,
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.fromScale(0.54, 0.60),
-                Size = UDim2.fromScale(0.09, 0.24),
-                BackgroundColor3 = Color,
-                BorderSizePixel = 0,
-                Rotation = 24,
-                ZIndex = ZIndex + 1
-            })
-            Corner(Magazine, 2)
-            local MagazineCut = Create("Frame", {
-                Parent = Root,
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.fromScale(0.57, 0.54),
-                Size = UDim2.fromScale(0.045, 0.12),
-                BackgroundColor3 = Surface,
-                BorderSizePixel = 0,
-                Rotation = 24,
-                ZIndex = ZIndex + 2
-            })
-            Corner(MagazineCut, 2)
+            Line(2, 6, 8, 1)
+            Line(7, 5, 4, 1)
+            Line(10, 4, 2, 1)
+            Line(1, 7, 3, 1)
+            Line(3, 8, 2, 1)
+            Line(5, 7, 1, 3)
+            Line(6, 8, 2, 1)
+            Line(7, 9, 2, 1)
+            Line(8, 10, 1, 1)
+            Line(10, 7, 1, 1)
+            Line(11, 8, 1, 1)
         elseif Name == "Gear" then
             local Ring = Create("Frame", {
                 Parent = Root,
@@ -1165,6 +1099,7 @@ local function BuildRuntime()
             ZIndex = 9
         })
         Corner(Fill, 2)
+        local FillGlow = Menu:AddSoftGlow(Fill, 9, 8, 0.62, true)
 
         local Knob = Create("Frame", {
             Parent = Track,
@@ -1181,12 +1116,18 @@ local function BuildRuntime()
         local Dragging = false
         RegisterAccentTarget(function(NewColor)
             Fill.BackgroundColor3 = NewColor
+            if FillGlow then
+                FillGlow.ImageColor3 = NewColor
+            end
             if KnobGlow then
                 KnobGlow.ImageColor3 = NewColor
             end
         end)
         Bind(Track.MouseEnter:Connect(function()
             Tween(Knob, 0.12, {Size = UDim2.fromOffset(7, 16)})
+            if FillGlow then
+                Tween(FillGlow, 0.12, {ImageTransparency = 0.52})
+            end
             if KnobGlow then
                 Tween(KnobGlow, 0.12, {ImageTransparency = 0.14})
             end
@@ -1194,6 +1135,9 @@ local function BuildRuntime()
         Bind(Track.MouseLeave:Connect(function()
             if not Dragging then
                 Tween(Knob, 0.12, {Size = UDim2.fromOffset(6, 14)})
+                if FillGlow then
+                    Tween(FillGlow, 0.12, {ImageTransparency = 0.62})
+                end
                 if KnobGlow then
                     Tween(KnobGlow, 0.12, {ImageTransparency = 0.24})
                 end
@@ -1303,6 +1247,7 @@ local function BuildRuntime()
             ZIndex = 9
         })
         Corner(Fill, 2)
+        local FillGlow = Menu:AddSoftGlow(Fill, 9, 8, 0.62, true)
 
         local MinimumKnob = Create("Frame", {
             Parent = Track,
@@ -1329,6 +1274,7 @@ local function BuildRuntime()
         local MaximumGlow = Menu:AddSoftGlow(MaximumKnob, 10, 7, 0.24, false)
         RegisterAccentTarget(function(NewColor)
             Fill.BackgroundColor3 = NewColor
+            if FillGlow then FillGlow.ImageColor3 = NewColor end
             if MinimumGlow then MinimumGlow.ImageColor3 = NewColor end
             if MaximumGlow then MaximumGlow.ImageColor3 = NewColor end
         end)
@@ -1603,6 +1549,16 @@ local function BuildRuntime()
         return AP.X < BP.X + BS.X and AP.X + AS.X > BP.X and AP.Y < BP.Y + BS.Y and AP.Y + AS.Y > BP.Y
     end
 
+    local function PointInside(Object, Position)
+        if not Object or not Object.Parent or not Position then
+            return false
+        end
+        local ObjectPosition = Object.AbsolutePosition
+        local ObjectSize = Object.AbsoluteSize
+        return Position.X >= ObjectPosition.X and Position.X <= ObjectPosition.X + ObjectSize.X
+            and Position.Y >= ObjectPosition.Y and Position.Y <= ObjectPosition.Y + ObjectSize.Y
+    end
+
     local function PlacePopup(FrameObject, PreferredPosition, Peers)
         local Position = ClampPopupPosition(FrameObject, PreferredPosition)
         FrameObject.Position = Position
@@ -1717,10 +1673,16 @@ local function BuildRuntime()
         end
 
         if Kind == "Bind" then
-            Outline(1, 4, 4, 4)
-            Line(5, 6, 6, 1)
-            Line(8, 7, 1, 2)
-            Line(10, 7, 1, 2)
+            Outline(1, 3, 10, 7)
+            Line(3, 5, 6, 1)
+            Line(2, 7, 1, 1)
+            Line(4, 7, 1, 1)
+            Line(6, 7, 1, 1)
+            Line(8, 7, 1, 1)
+            Line(10, 7, 1, 1)
+            Line(2, 9, 2, 1)
+            Line(5, 9, 3, 1)
+            Line(9, 9, 2, 1)
         elseif Kind == "Hotkeys" then
             Line(1, 2, 10, 1)
             Line(1, 6, 10, 1)
@@ -3192,6 +3154,7 @@ local function BuildRuntime()
             ZIndex = 33
         })
         Corner(Fill, 2)
+        local FillGlow = Menu:AddSoftGlow(Fill, 33, 8, 0.62, true)
 
         local Knob = Create("Frame", {
             Parent = Track,
@@ -3226,6 +3189,9 @@ local function BuildRuntime()
 
         RegisterAccentTarget(function(NewColor)
             Fill.BackgroundColor3 = NewColor
+            if FillGlow then
+                FillGlow.ImageColor3 = NewColor
+            end
             if KnobGlow then
                 KnobGlow.ImageColor3 = NewColor
             end
@@ -3235,6 +3201,25 @@ local function BuildRuntime()
             local Alpha = math.clamp((Input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
             Set(Minimum + (Maximum - Minimum) * Alpha)
         end
+
+        Bind(Track.MouseEnter:Connect(function()
+            if FillGlow then
+                Tween(FillGlow, 0.12, {ImageTransparency = 0.52})
+            end
+            if KnobGlow then
+                Tween(KnobGlow, 0.12, {ImageTransparency = 0.14})
+            end
+        end))
+        Bind(Track.MouseLeave:Connect(function()
+            if not Dragging then
+                if FillGlow then
+                    Tween(FillGlow, 0.12, {ImageTransparency = 0.62})
+                end
+                if KnobGlow then
+                    Tween(KnobGlow, 0.12, {ImageTransparency = 0.22})
+                end
+            end
+        end))
 
         Bind(Track.InputBegan:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -3859,6 +3844,16 @@ local function BuildRuntime()
     end))
 
     Bind(Menu.SettingsInputBlocker.MouseButton1Click:Connect(function()
+        local Position = UserInputService:GetMouseLocation()
+        if PointInside(Menu.SettingsUI.SettingsPanel, Position)
+            or PointInside(SearchSettings, Position)
+            or PointInside(Menu.SettingsUI.ColorPickerContainer, Position)
+            or PointInside(ActiveGearMenu, Position)
+            or PointInside(ActiveGearBindMenu, Position)
+            or PointInside(ActiveGearHotkeysMenu, Position)
+            or PointInside(ActivePopup, Position) then
+            return
+        end
         SetSettingsOpen(false)
     end))
 
@@ -5656,7 +5651,7 @@ local function BuildRuntime()
             ZIndex = 8
         })
         Corner(Marker, 2)
-        local MarkerGlow = Menu:AddSoftGlow(Marker, 8, 5, 0.26, false)
+        local MarkerGlow = Menu:AddSoftGlow(Marker, 8, 8, 0.62, true)
         local IconObject = Icon(Button, ApiState.PageIcons[Name] or "Gear", UDim2.fromOffset(17, 17), UDim2.new(0.5, 0, 0, 17), MutedText, 7)
         local Label = Create("TextLabel", {
             Parent = Button,
@@ -6315,7 +6310,7 @@ local function BuildRuntime()
             ZIndex = 8
         })
         Corner(Indicator, 2)
-        local IndicatorGlow = Menu:AddSoftGlow(Indicator, 8, 6, 0.24, false)
+        local IndicatorGlow = Menu:AddSoftGlow(Indicator, 8, 8, 0.62, true)
         local Object = setmetatable({
             Name = Name,
             PageName = self.Name,
