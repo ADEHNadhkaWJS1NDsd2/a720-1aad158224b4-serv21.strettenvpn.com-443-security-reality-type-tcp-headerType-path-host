@@ -1280,6 +1280,7 @@ local function BuildRuntime()
         end
 
         Menu.Setters[Flag] = Set
+        ValueLabel.Text = Format(Value)
 
         if Options.Box and ValueLabel:IsA("TextBox") then
             Bind(ValueLabel.Focused:Connect(function()
@@ -1329,8 +1330,12 @@ local function BuildRuntime()
         }
     end
 
-    local function CreateDualSlider(Section, Name, Minimum, Maximum, DefaultMinimum, DefaultMaximum, MinimumFlag, MaximumFlag)
+    local function CreateDualSlider(Section, Name, Minimum, Maximum, DefaultMinimum, DefaultMaximum, MinimumFlag, MaximumFlag, Options)
+        Options = Options or {}
         local Row = CreateRow(Section.Body, 51)
+        local Prefix = tostring(Options.Prefix or "")
+        local Suffix = tostring(Options.Suffix or "")
+        local Decimals = tonumber(Options.Decimals)
 
         Create("TextLabel", {
             Parent = Row,
@@ -1338,15 +1343,18 @@ local function BuildRuntime()
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = Name,
-            TextColor3 = PrimaryText,
+            TextColor3 = Options.Disabled and DisabledText or PrimaryText,
             TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
 
-        CreateGear(Row, -86, 10, Name, MinimumFlag, {Type = "Number", Minimum = Minimum, Maximum = Maximum})
-        local MinimumLabel = CreateValueBox(Row, tostring(DefaultMinimum), -47, 40)
-        local MaximumLabel = CreateValueBox(Row, tostring(DefaultMaximum), 0, 40)
+        if Options.Gear ~= false then
+            CreateGear(Row, -86, 10, Name, MinimumFlag, {Type = "Number", Minimum = Minimum, Maximum = Maximum, Decimals = Decimals})
+        end
+
+        local MinimumLabel = CreateValueBox(Row, tostring(DefaultMinimum), -51, 44)
+        local MaximumLabel = CreateValueBox(Row, tostring(DefaultMaximum), 0, 44)
 
         local Track = Create("Frame", {
             Parent = Row,
@@ -1358,8 +1366,45 @@ local function BuildRuntime()
         })
         Corner(Track, 2)
 
-        local MinimumAlpha = (DefaultMinimum - Minimum) / (Maximum - Minimum)
-        local MaximumAlpha = (DefaultMaximum - Minimum) / (Maximum - Minimum)
+        local function Round(Value)
+            Value = math.clamp(tonumber(Value) or Minimum, Minimum, Maximum)
+            if Decimals then
+                local Power = 10 ^ Decimals
+                return math.floor(Value * Power + 0.5) / Power
+            end
+            return math.floor(Value + 0.5)
+        end
+
+        local function FormatNumber(Value)
+            if Decimals then
+                local Result = string.format("%." .. tostring(Decimals) .. "f", Value)
+                return Result:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
+            end
+            return tostring(math.floor(Value + 0.5))
+        end
+
+        local function Format(Value)
+            return Prefix .. FormatNumber(Value) .. Suffix
+        end
+
+        local function Parse(Value)
+            local Result = tostring(Value or ""):gsub(",", ".")
+            if Prefix ~= "" and Result:sub(1, #Prefix) == Prefix then
+                Result = Result:sub(#Prefix + 1)
+            end
+            if Suffix ~= "" and Result:sub(-#Suffix) == Suffix then
+                Result = Result:sub(1, #Result - #Suffix)
+            end
+            Result = Result:match("[-+]?%d*%.?%d+")
+            return tonumber(Result)
+        end
+
+        local Low = Round(DefaultMinimum)
+        local High = Round(DefaultMaximum)
+        if Low > High then Low, High = High, Low end
+
+        local MinimumAlpha = (Low - Minimum) / math.max(Maximum - Minimum, 0.0001)
+        local MaximumAlpha = (High - Minimum) / math.max(Maximum - Minimum, 0.0001)
 
         local Fill = Create("Frame", {
             Parent = Track,
@@ -1402,62 +1447,70 @@ local function BuildRuntime()
             if MaximumGlow then MaximumGlow.ImageColor3 = NewColor end
         end)
 
-        local Low = DefaultMinimum
-        local High = DefaultMaximum
         local ActiveKnob
         Menu.Flags[MinimumFlag] = Low
         Menu.Flags[MaximumFlag] = High
 
-        local function Refresh()
-            local LowAlpha = (Low - Minimum) / (Maximum - Minimum)
-            local HighAlpha = (High - Minimum) / (Maximum - Minimum)
+        local function Refresh(Invoke)
+            local LowAlpha = (Low - Minimum) / math.max(Maximum - Minimum, 0.0001)
+            local HighAlpha = (High - Minimum) / math.max(Maximum - Minimum, 0.0001)
             MinimumKnob.Position = UDim2.new(LowAlpha, 0, 0.5, 0)
             MaximumKnob.Position = UDim2.new(HighAlpha, 0, 0.5, 0)
             Fill.Position = UDim2.new(LowAlpha, 0, 0, 0)
             Fill.Size = UDim2.new(HighAlpha - LowAlpha, 0, 1, 0)
-            MinimumLabel.Text = tostring(Low)
-            MaximumLabel.Text = tostring(High)
+            MinimumLabel.Text = Format(Low)
+            MaximumLabel.Text = Format(High)
             Menu.Flags[MinimumFlag] = Low
             Menu.Flags[MaximumFlag] = High
+            if Invoke and type(Options.Callback) == "function" then
+                task.spawn(Options.Callback, Low, High)
+            end
         end
 
+        local function SetMinimum(Value, Invoke)
+            Low = math.clamp(Round(Value), Minimum, High)
+            Refresh(Invoke ~= false)
+        end
+
+        local function SetMaximum(Value, Invoke)
+            High = math.clamp(Round(Value), Low, Maximum)
+            Refresh(Invoke ~= false)
+        end
+
+        Bind(MinimumLabel.Focused:Connect(function()
+            MinimumLabel.Text = FormatNumber(Low)
+        end))
+        Bind(MaximumLabel.Focused:Connect(function()
+            MaximumLabel.Text = FormatNumber(High)
+        end))
         Bind(MinimumLabel.FocusLost:Connect(function()
-            local Parsed = tonumber(tostring(MinimumLabel.Text):gsub(",", "."):match("[-+]?%d+"))
+            local Parsed = Parse(MinimumLabel.Text)
             if Parsed ~= nil then
-                Low = math.clamp(math.floor(Parsed + 0.5), Minimum, High)
-                Refresh()
+                SetMinimum(Parsed)
             else
-                MinimumLabel.Text = tostring(Low)
+                MinimumLabel.Text = Format(Low)
             end
         end))
         Bind(MaximumLabel.FocusLost:Connect(function()
-            local Parsed = tonumber(tostring(MaximumLabel.Text):gsub(",", "."):match("[-+]?%d+"))
+            local Parsed = Parse(MaximumLabel.Text)
             if Parsed ~= nil then
-                High = math.clamp(math.floor(Parsed + 0.5), Low, Maximum)
-                Refresh()
+                SetMaximum(Parsed)
             else
-                MaximumLabel.Text = tostring(High)
+                MaximumLabel.Text = Format(High)
             end
         end))
 
-        Menu.Setters[MinimumFlag] = function(Value)
-            Low = math.clamp(math.floor(tonumber(Value) or Low + 0.5), Minimum, High)
-            Refresh()
-        end
-        Menu.Setters[MaximumFlag] = function(Value)
-            High = math.clamp(math.floor(tonumber(Value) or High + 0.5), Low, Maximum)
-            Refresh()
-        end
+        Menu.Setters[MinimumFlag] = SetMinimum
+        Menu.Setters[MaximumFlag] = SetMaximum
 
         local function Update(Input)
             local Alpha = math.clamp((Input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-            local Value = math.floor(Minimum + (Maximum - Minimum) * Alpha + 0.5)
+            local Value = Minimum + (Maximum - Minimum) * Alpha
             if ActiveKnob == MinimumKnob then
-                Low = math.min(Value, High)
+                SetMinimum(math.min(Value, High))
             else
-                High = math.max(Value, Low)
+                SetMaximum(math.max(Value, Low))
             end
-            Refresh()
         end
 
         local function Begin(Input, Knob)
@@ -1470,11 +1523,9 @@ local function BuildRuntime()
         Bind(MinimumKnob.InputBegan:Connect(function(Input)
             Begin(Input, MinimumKnob)
         end))
-
         Bind(MaximumKnob.InputBegan:Connect(function(Input)
             Begin(Input, MaximumKnob)
         end))
-
         Bind(Track.InputBegan:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                 local Alpha = math.clamp((Input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
@@ -1483,20 +1534,27 @@ local function BuildRuntime()
                 Update(Input)
             end
         end))
-
         Bind(UserInputService.InputChanged:Connect(function(Input)
             if ActiveKnob and Input.UserInputType == Enum.UserInputType.MouseMovement then
                 Update(Input)
             end
         end))
-
         Bind(UserInputService.InputEnded:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                 ActiveKnob = nil
             end
         end))
 
+        Refresh(false)
         RegisterControl(Section, Row, Name)
+        return {
+            Row = Row,
+            SetMinimum = SetMinimum,
+            SetMaximum = SetMaximum,
+            Get = function()
+                return Low, High
+            end
+        }
     end
 
     local ActivePopup
@@ -4341,9 +4399,11 @@ local function BuildRuntime()
             Mode = "3D",
             LoadGeneration = 0,
             LastRetry = 0,
-            LastAppearanceCheck = 0,
-            LastAppearanceSignature = "",
             Rotation = 0,
+            BoundsValid = false,
+            RotatingModel = false,
+            RotateStart = nil,
+            StartRotation = 0,
             Model = nil,
             Description = nil,
             BasePivot = nil,
@@ -4462,6 +4522,7 @@ local function BuildRuntime()
 
         S.Body = Create("Frame", {
             Parent = S.Window,
+            Active = true,
             Position = UDim2.fromOffset(10, 58),
             Size = UDim2.new(1, -20, 1, -68),
             BackgroundColor3 = Surface,
@@ -4492,6 +4553,16 @@ local function BuildRuntime()
         })
         S.Viewport.CurrentCamera = S.Camera
         S.World = Create("WorldModel", {Parent = S.Viewport})
+
+        S.Overlay = Create("Frame", {
+            Parent = S.Body,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+            Active = false,
+            ZIndex = 25
+        })
 
         S.Silhouette = Create("Frame", {
             Parent = S.Body,
@@ -4526,7 +4597,7 @@ local function BuildRuntime()
         Part("RightLeg", UDim2.fromOffset(69, 158), UDim2.fromOffset(24, 116), 10)
 
         S.Box = Create("Frame", {
-            Parent = S.Body,
+            Parent = S.Overlay,
             Position = UDim2.fromScale(0.28, 0.10),
             Size = UDim2.fromScale(0.44, 0.80),
             BackgroundColor3 = Accent,
@@ -4559,7 +4630,7 @@ local function BuildRuntime()
         end
 
         S.HealthBack = Create("Frame", {
-            Parent = S.Body,
+            Parent = S.Overlay,
             Position = UDim2.fromScale(0.245, 0.10),
             Size = UDim2.fromScale(0.014, 0.80),
             BackgroundColor3 = Color3.fromRGB(20, 17, 24),
@@ -4581,7 +4652,7 @@ local function BuildRuntime()
         Corner(S.HealthFill, 100)
 
         S.HealthText = Create("TextLabel", {
-            Parent = S.Body,
+            Parent = S.Overlay,
             Position = UDim2.fromScale(0.19, 0.46),
             Size = UDim2.fromOffset(40, 16),
             BackgroundTransparency = 1,
@@ -4594,7 +4665,7 @@ local function BuildRuntime()
         })
 
         S.Name = Create("TextLabel", {
-            Parent = S.Body,
+            Parent = S.Overlay,
             AnchorPoint = Vector2.new(0.5, 0),
             Position = UDim2.fromScale(0.5, 0.025),
             Size = UDim2.new(1, -24, 0, 20),
@@ -4608,7 +4679,7 @@ local function BuildRuntime()
         })
 
         S.Info = Create("TextLabel", {
-            Parent = S.Body,
+            Parent = S.Overlay,
             AnchorPoint = Vector2.new(0.5, 1),
             Position = UDim2.fromScale(0.5, 0.978),
             Size = UDim2.new(1, -24, 0, 20),
@@ -4667,6 +4738,7 @@ local function BuildRuntime()
             end
             S.Model = nil
             S.BasePivot = nil
+            S.BoundsValid = false
             for _, Child in ipairs(S.World:GetChildren()) do
                 Child:Destroy()
             end
@@ -4674,10 +4746,23 @@ local function BuildRuntime()
 
         local function SanitizeModel(Model)
             for _, Object in ipairs(Model:GetDescendants()) do
-                if Object:IsA("Script") or Object:IsA("LocalScript") or Object:IsA("Animator") or Object:IsA("AnimationController") then
+                if Object:IsA("Animator") then
+                    pcall(function()
+                        for _, Track in ipairs(Object:GetPlayingAnimationTracks()) do
+                            Track:Stop(0)
+                        end
+                    end)
                     Object:Destroy()
+                elseif Object:IsA("Script") or Object:IsA("LocalScript") or Object:IsA("AnimationController") then
+                    Object:Destroy()
+                elseif Object:IsA("Motor6D") then
+                    Object.Transform = CFrame.identity
+                elseif Object:IsA("Bone") then
+                    Object.Transform = CFrame.identity
                 elseif Object:IsA("BasePart") then
                     Object.Anchored = true
+                    Object.AssemblyLinearVelocity = Vector3.zero
+                    Object.AssemblyAngularVelocity = Vector3.zero
                     Object.CanCollide = false
                     Object.CanTouch = false
                     Object.CanQuery = false
@@ -4690,7 +4775,19 @@ local function BuildRuntime()
             if Humanoid then
                 Humanoid.AutoRotate = false
                 Humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-                Humanoid.PlatformStand = true
+                Humanoid.PlatformStand = false
+                Humanoid.Sit = false
+                pcall(function()
+                    Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+                end)
+            end
+        end
+
+        local function ApplyModelRotation()
+            if S.Model and S.Model.Parent and S.BasePivot then
+                local Position = S.BasePivot.Position
+                local Rotation = S.BasePivot - Position
+                S.Model:PivotTo(CFrame.new(Position) * CFrame.Angles(0, math.rad(S.Rotation), 0) * Rotation)
             end
         end
 
@@ -4698,8 +4795,8 @@ local function BuildRuntime()
             local BoxCFrame, BoxSize = Model:GetBoundingBox()
             local CurrentPivot = Model:GetPivot()
             Model:PivotTo(CFrame.new(-BoxCFrame.Position) * CurrentPivot)
-            BoxCFrame, BoxSize = Model:GetBoundingBox()
-            Model:PivotTo(CFrame.Angles(0, math.rad(180), 0) * Model:GetPivot())
+            local CenteredPosition = Model:GetPivot().Position
+            Model:PivotTo(CFrame.new(CenteredPosition) * CFrame.Angles(0, math.pi, 0))
             BoxCFrame, BoxSize = Model:GetBoundingBox()
             local ViewSize = S.Viewport.AbsoluteSize
             local Aspect = ViewSize.Y > 0 and math.max(ViewSize.X / ViewSize.Y, 0.25) or 0.78
@@ -4707,25 +4804,13 @@ local function BuildRuntime()
             local Horizontal = 2 * math.atan(math.tan(Vertical * 0.5) * Aspect)
             local DistanceY = (BoxSize.Y * 0.5) / math.max(math.tan(Vertical * 0.5), 0.01)
             local DistanceX = (BoxSize.X * 0.5) / math.max(math.tan(Horizontal * 0.5), 0.01)
-            local CosmeticScale = (Menu.Flags["Angel Wings"] or Menu.Flags["China Hat"]) and 1.32 or 1.12
-            local Distance = math.max(DistanceX, DistanceY) * CosmeticScale + BoxSize.Z * 0.55
+            local Distance = math.max(DistanceX, DistanceY) * 1.10 + BoxSize.Z * 0.55
             S.Camera.CFrame = CFrame.new(Vector3.new(0, BoxSize.Y * 0.025, Distance), Vector3.new(0, BoxSize.Y * 0.025, 0))
             S.BasePivot = Model:GetPivot()
-        end
-
-        local function CloneCurrentCharacter()
-            local Character = LocalPlayer and LocalPlayer.Character
-            if not Character then
-                return nil
+            if S.Mode ~= "3D" then
+                S.Rotation = 0
             end
-            local Model
-            pcall(function()
-                local WasArchivable = Character.Archivable
-                Character.Archivable = true
-                Model = Character:Clone()
-                Character.Archivable = WasArchivable
-            end)
-            return Model
+            ApplyModelRotation()
         end
 
         local function CreateDescriptionModel()
@@ -4759,11 +4844,7 @@ local function BuildRuntime()
         local function TryBuildModel(Generation)
             S.Status.Text = "LOADING LOCAL PLAYER"
             S.Status.Visible = true
-            local Model = CloneCurrentCharacter()
-            local Description
-            if not Model then
-                Model, Description = CreateDescriptionModel()
-            end
+            local Model, Description = CreateDescriptionModel()
             if Generation ~= S.LoadGeneration or not Model then
                 if Model then
                     Model:Destroy()
@@ -4800,46 +4881,65 @@ local function BuildRuntime()
 
         local function ProjectModelBounds()
             if not S.Model or not S.Model.Parent then
+                S.BoundsValid = false
                 return
             end
-            local ViewSize = S.Viewport.AbsoluteSize
-            if ViewSize.X < 2 or ViewSize.Y < 2 then
+            local PixelViewSize = S.Viewport.AbsoluteSize
+            if PixelViewSize.X < 2 or PixelViewSize.Y < 2 then
+                S.BoundsValid = false
                 return
             end
-            local BoxCFrame, BoxSize = S.Model:GetBoundingBox()
-            local Half = BoxSize * 0.5
-            local MinX, MinY = 1, 1
-            local MaxX, MaxY = 0, 0
+            local UiScale = math.max(0.01, tonumber(S.Scale.Scale) or 1)
+            local LocalViewSize = PixelViewSize / UiScale
+            local FocalLength = PixelViewSize.Y / (2 * math.tan(math.rad(S.Camera.FieldOfView) * 0.5))
+            local MinX, MinY = math.huge, math.huge
+            local MaxX, MaxY = -math.huge, -math.huge
             local AnyVisible = false
-            for X = -1, 1, 2 do
-                for Y = -1, 1, 2 do
-                    for Z = -1, 1, 2 do
-                        local WorldPoint = BoxCFrame:PointToWorldSpace(Vector3.new(Half.X * X, Half.Y * Y, Half.Z * Z))
-                        local Point, Visible = S.Camera:WorldToViewportPoint(WorldPoint)
-                        if Visible and Point.Z > 0 then
-                            local NormalX = Point.X / ViewSize.X
-                            local NormalY = Point.Y / ViewSize.Y
-                            MinX = math.min(MinX, NormalX)
-                            MinY = math.min(MinY, NormalY)
-                            MaxX = math.max(MaxX, NormalX)
-                            MaxY = math.max(MaxY, NormalY)
-                            AnyVisible = true
+            for _, PartObject in ipairs(S.Model:GetDescendants()) do
+                if PartObject:IsA("BasePart") and PartObject.Name ~= "HumanoidRootPart" and PartObject.Transparency < 0.995 then
+                    local PartCFrame = PartObject.CFrame
+                    local Half = PartObject.Size * 0.5
+                    for X = -1, 1, 2 do
+                        for Y = -1, 1, 2 do
+                            for Z = -1, 1, 2 do
+                                local WorldPoint = PartCFrame:PointToWorldSpace(Vector3.new(Half.X * X, Half.Y * Y, Half.Z * Z))
+                                local CameraPoint = S.Camera.CFrame:PointToObjectSpace(WorldPoint)
+                                local Depth = -CameraPoint.Z
+                                if Depth > 0.01 then
+                                    local ScreenX = (PixelViewSize.X * 0.5) + ((CameraPoint.X * FocalLength) / Depth)
+                                    local ScreenY = (PixelViewSize.Y * 0.5) - ((CameraPoint.Y * FocalLength) / Depth)
+                                    MinX = math.min(MinX, ScreenX / UiScale)
+                                    MinY = math.min(MinY, ScreenY / UiScale)
+                                    MaxX = math.max(MaxX, ScreenX / UiScale)
+                                    MaxY = math.max(MaxY, ScreenY / UiScale)
+                                    AnyVisible = true
+                                end
+                            end
                         end
                     end
                 end
             end
             if not AnyVisible then
+                S.BoundsValid = false
                 return
             end
-            MinX = math.clamp(MinX, 0.08, 0.88)
-            MinY = math.clamp(MinY, 0.075, 0.88)
-            MaxX = math.clamp(MaxX, MinX + 0.08, 0.92)
-            MaxY = math.clamp(MaxY, MinY + 0.10, 0.925)
-            S.Box.Position = UDim2.fromScale(MinX, MinY)
-            S.Box.Size = UDim2.fromScale(MaxX - MinX, MaxY - MinY)
-            S.HealthBack.Position = UDim2.fromScale(math.max(0.025, MinX - 0.032), MinY)
-            S.HealthBack.Size = UDim2.fromScale(0.012, MaxY - MinY)
-            S.HealthText.Position = UDim2.fromScale(math.max(0.02, MinX - 0.14), MinY + ((MaxY - MinY) * 0.48))
+            MinX = math.clamp(MinX, 10, LocalViewSize.X - 34)
+            MinY = math.clamp(MinY, 24, LocalViewSize.Y - 66)
+            MaxX = math.clamp(MaxX, MinX + 24, LocalViewSize.X - 10)
+            MaxY = math.clamp(MaxY, MinY + 36, LocalViewSize.Y - 28)
+            local Width = MaxX - MinX
+            local Height = MaxY - MinY
+            local CenterX = MinX + Width * 0.5
+            S.Box.Position = UDim2.fromOffset(math.floor(MinX + 0.5), math.floor(MinY + 0.5))
+            S.Box.Size = UDim2.fromOffset(math.floor(Width + 0.5), math.floor(Height + 0.5))
+            S.HealthBack.Position = UDim2.fromOffset(math.floor(MinX - 8.5), math.floor(MinY + 0.5))
+            S.HealthBack.Size = UDim2.fromOffset(4, math.floor(Height + 0.5))
+            S.HealthText.Position = UDim2.fromOffset(math.floor(MinX - 50), math.floor(MinY + Height * 0.46))
+            S.Name.Position = UDim2.fromOffset(math.floor(CenterX), math.floor(MinY - 22))
+            S.Name.Size = UDim2.fromOffset(math.max(90, math.floor(Width + 60)), 20)
+            S.Info.Position = UDim2.fromOffset(math.floor(CenterX), math.floor(MaxY + 24))
+            S.Info.Size = UDim2.fromOffset(math.max(110, math.floor(Width + 80)), 20)
+            S.BoundsValid = true
         end
 
         local function GetFlag(Name, Default)
@@ -4857,10 +4957,11 @@ local function BuildRuntime()
             local MaxHealth = math.max(1, math.floor((Humanoid and Humanoid.MaxHealth) or 100))
             local HealthAlpha = math.clamp(Health / MaxHealth, 0, 1)
             local Enabled = GetFlag("Player ESP", false)
-            local Boxes = Enabled and GetFlag("Player ESP Boxes", true)
+            local DisplayEnabled = Enabled and S.BoundsValid and S.Model and S.Model.Parent ~= nil
+            local Boxes = DisplayEnabled and GetFlag("Player ESP Boxes", true)
             local BoxStyle = GetFlag("Player ESP Box Style", "Corners")
             local BoxColor = GetFlag("Player ESP Box Color", Accent)
-            local FillEnabled = Enabled and GetFlag("Player ESP Fill", false)
+            local FillEnabled = DisplayEnabled and GetFlag("Player ESP Fill", false)
             local FillColor = GetFlag("Player ESP Fill Color", BoxColor)
             local FillTransparency = math.clamp(tonumber(GetFlag("Player ESP Fill Transparency", 0.78)) or 0.78, 0, 1)
             local TextColor = GetFlag("Player ESP Text Color", PrimaryText)
@@ -4876,23 +4977,23 @@ local function BuildRuntime()
                 CornerObject.Visible = Boxes and BoxStyle ~= "Full"
                 CornerObject.BackgroundColor3 = BoxColor
             end
-            S.HealthBack.Visible = Enabled and GetFlag("Player ESP Health Bar", true)
+            S.HealthBack.Visible = DisplayEnabled and GetFlag("Player ESP Health Bar", true)
             S.HealthFill.Size = UDim2.fromScale(1, HealthAlpha)
             S.HealthFill.BackgroundColor3 = LowColor:Lerp(HighColor, HealthAlpha)
-            S.HealthText.Visible = Enabled and GetFlag("Player ESP Health Value", false)
+            S.HealthText.Visible = DisplayEnabled and GetFlag("Player ESP Health Value", false)
             S.HealthText.Text = tostring(Health)
             S.HealthText.TextColor3 = TextColor
             S.HealthText.TextSize = math.max(9, TextSize - 2)
-            S.Name.Visible = Enabled and GetFlag("Player ESP Names", true)
+            S.Name.Visible = DisplayEnabled and GetFlag("Player ESP Names", true)
             S.Name.Text = string.upper(LocalPlayer and LocalPlayer.Name or "PLAYER")
             S.Name.TextColor3 = TextColor
             S.Name.TextSize = TextSize
             local InfoParts = {}
             local Tool = Character and Character:FindFirstChildOfClass("Tool")
-            if Enabled and GetFlag("Player ESP Weapon", true) then
+            if DisplayEnabled and GetFlag("Player ESP Weapon", true) then
                 InfoParts[#InfoParts + 1] = Tool and string.upper(Tool.Name) or "NONE"
             end
-            if Enabled and GetFlag("Player ESP Distance", true) then
+            if DisplayEnabled and GetFlag("Player ESP Distance", true) then
                 InfoParts[#InfoParts + 1] = "0m"
             end
             S.Info.Visible = #InfoParts > 0
@@ -4904,37 +5005,16 @@ local function BuildRuntime()
             S.Viewport.LightDirection = S.Mode == "2D" and Vector3.new(-0.8, -0.4, -1) or Vector3.new(-1, -0.75, -1)
         end
 
-        local function GetAppearanceSignature()
-            local Character = LocalPlayer and LocalPlayer.Character
-            if not Character then
-                return "none"
-            end
-            local Wings = Character:FindFirstChild("AtramentaCosmeticWings")
-            local Hat = Character:FindFirstChild("MinecraftChinaHat")
-            return table.concat({
-                tostring(Character),
-                tostring(Wings),
-                tostring(Hat),
-                tostring(GetFlag("Angel Wings", false)),
-                tostring(GetFlag("Angel Wing Scale", 1)),
-                tostring(GetFlag("Angel Wing Core Color", Color3.new(0, 0, 0))),
-                tostring(GetFlag("Angel Wing Glow Color", Color3.new(0, 0, 0))),
-                tostring(GetFlag("Angel Wing Transparency", 0)),
-                tostring(GetFlag("China Hat", false)),
-                tostring(GetFlag("China Hat Scale", 1)),
-                tostring(GetFlag("China Hat Color", Color3.new(0, 0, 0))),
-                tostring(GetFlag("China Hat Transparency", 0))
-            }, "|")
-        end
-
         local function RefreshMode()
             local Is2D = S.Mode == "2D"
             S.ModeHighlight.Position = UDim2.fromOffset(Is2D and 2 or 58, 2)
             S.TwoDButton.TextColor3 = Is2D and Color3.fromRGB(12, 10, 15) or MutedText
             S.ThreeDButton.TextColor3 = Is2D and MutedText or Color3.fromRGB(12, 10, 15)
-            S.Rotation = 0
+            if Is2D then
+                S.Rotation = 0
+            end
             if S.Model and S.BasePivot then
-                S.Model:PivotTo(S.BasePivot)
+                ApplyModelRotation()
             elseif S.Window.Visible then
                 RequestModel()
             end
@@ -4987,6 +5067,25 @@ local function BuildRuntime()
             Menu.EspPreviewController.SetMode("3D")
         end))
 
+        local function BeginModelRotation(Input)
+            if Input.UserInputType ~= Enum.UserInputType.MouseButton1 or S.Mode ~= "3D" or not S.Window.Visible or S.RotatingModel then
+                return
+            end
+            local Position = Input.Position
+            local BodyPosition = S.Body.AbsolutePosition
+            local BodySize = S.Body.AbsoluteSize
+            if Position.X < BodyPosition.X or Position.X > BodyPosition.X + BodySize.X
+                or Position.Y < BodyPosition.Y or Position.Y > BodyPosition.Y + BodySize.Y then
+                return
+            end
+            S.RotatingModel = true
+            S.RotateStart = Position
+            S.StartRotation = S.Rotation
+        end
+
+        Bind(S.Body.InputBegan:Connect(BeginModelRotation))
+        Bind(UserInputService.InputBegan:Connect(BeginModelRotation))
+
         Bind(S.Header.InputBegan:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                 S.Dragging = true
@@ -5004,6 +5103,10 @@ local function BuildRuntime()
                     S.StartPosition.Y.Scale,
                     S.StartPosition.Y.Offset + Delta.Y
                 ))
+            elseif S.RotatingModel and Input.UserInputType == Enum.UserInputType.MouseMovement and S.Mode == "3D" then
+                local Delta = Input.Position - S.RotateStart
+                S.Rotation = (S.StartRotation + (Delta.X * 0.45)) % 360
+                ApplyModelRotation()
             end
         end))
 
@@ -5011,6 +5114,9 @@ local function BuildRuntime()
             if Input.UserInputType == Enum.UserInputType.MouseButton1 and S.Dragging then
                 S.Dragging = false
                 SaveWindowPosition()
+            end
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                S.RotatingModel = false
             end
         end))
 
@@ -5038,14 +5144,9 @@ local function BuildRuntime()
             if not S.Window.Visible then
                 return
             end
-            if S.Model and S.Model.Parent and S.BasePivot then
-                if S.Mode == "3D" then
-                    S.Rotation = (S.Rotation + DeltaTime * 18) % 360
-                    S.Model:PivotTo(CFrame.Angles(0, math.rad(S.Rotation), 0) * S.BasePivot)
-                elseif S.Rotation ~= 0 then
-                    S.Rotation = 0
-                    S.Model:PivotTo(S.BasePivot)
-                end
+            if S.Model and S.Model.Parent and S.BasePivot and S.Mode ~= "3D" and S.Rotation ~= 0 then
+                S.Rotation = 0
+                ApplyModelRotation()
             end
             if os.clock() - LastUpdate >= 0.08 then
                 LastUpdate = os.clock()
@@ -5055,15 +5156,6 @@ local function BuildRuntime()
                 elseif os.clock() - S.LastRetry > 1.5 then
                     S.LastRetry = os.clock()
                     RequestModel()
-                end
-                if os.clock() - S.LastAppearanceCheck > 0.45 then
-                    S.LastAppearanceCheck = os.clock()
-                    local Signature = GetAppearanceSignature()
-                    if S.LastAppearanceSignature ~= "" and Signature ~= S.LastAppearanceSignature then
-                        ClearModel()
-                        RequestModel()
-                    end
-                    S.LastAppearanceSignature = Signature
                 end
             end
         end))
@@ -6174,6 +6266,32 @@ local function BuildRuntime()
             Prefix = ApiRead(Data, "Prefix", ""),
             Suffix = ApiRead(Data, "Suffix", ""),
             Box = ApiRead(Data, "Box", true),
+            Gear = ApiRead(Data, "Gear", false),
+            Disabled = ApiRead(Data, "Disabled", false),
+            Callback = ApiRead(Data, "Callback")
+        })
+    end
+
+
+    function ApiSectionMethods:RangeSlider(Data)
+        Data = Data or {}
+        local Name = tostring(ApiRead(Data, "Name", "Range"))
+        local Minimum = tonumber(ApiRead(Data, "Min", 0)) or 0
+        local Maximum = tonumber(ApiRead(Data, "Max", 100)) or 100
+        local Default = ApiRead(Data, "Default", {Minimum, Maximum})
+        local DefaultMinimum = type(Default) == "table" and tonumber(Default[1] or Default.Minimum or Default.Min) or Minimum
+        local DefaultMaximum = type(Default) == "table" and tonumber(Default[2] or Default.Maximum or Default.Max) or Maximum
+        local BaseFlag = tostring(ApiRead(Data, "Flag", ApiNormalizeFlag(Data, Name)))
+        local MinimumFlag = tostring(ApiRead(Data, "MinFlag", BaseFlag .. " Minimum"))
+        local MaximumFlag = tostring(ApiRead(Data, "MaxFlag", BaseFlag .. " Maximum"))
+        local Decimals = ApiRead(Data, "Decimals")
+        if type(Decimals) == "number" and Decimals > 0 and Decimals < 1 then
+            Decimals = math.max(0, math.floor(-math.log10(Decimals) + 0.5))
+        end
+        return CreateDualSlider(self.Section, Name, Minimum, Maximum, DefaultMinimum or Minimum, DefaultMaximum or Maximum, MinimumFlag, MaximumFlag, {
+            Decimals = Decimals,
+            Prefix = ApiRead(Data, "Prefix", ""),
+            Suffix = ApiRead(Data, "Suffix", ""),
             Gear = ApiRead(Data, "Gear", false),
             Disabled = ApiRead(Data, "Disabled", false),
             Callback = ApiRead(Data, "Callback")
