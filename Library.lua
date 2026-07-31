@@ -274,13 +274,24 @@ local function BuildRuntime()
         return Glow
     end
 
+    local ActiveTweens = setmetatable({}, { __mode = "k" })
+
     local function Tween(Object, Duration, Properties)
+        if not Object or not Object.Parent or type(Properties) ~= "table" then return nil end
+        local Previous = ActiveTweens[Object]
+        if Previous then pcall(function() Previous:Cancel() end) end
+        local RequestedDuration = (tonumber(Duration) or 0.08) / math.max(AnimationFactor, 0.05)
+        local EffectiveDuration = math.clamp(RequestedDuration, 0.025, 0.075)
         local Animation = TweenService:Create(
             Object,
-            TweenInfo.new((Duration or 0.15) / math.max(AnimationFactor, 0.05), Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            TweenInfo.new(EffectiveDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
             Properties
         )
+        ActiveTweens[Object] = Animation
         Animation:Play()
+        Animation.Completed:Connect(function()
+            if ActiveTweens[Object] == Animation then ActiveTweens[Object] = nil end
+        end)
         return Animation
     end
 
@@ -881,13 +892,10 @@ local function BuildRuntime()
         local TargetBackground = State and Accent or Surface
         local TargetStroke = State and Accent or Border
         local TargetIcon = State and PrimaryText or MutedText
-        SearchSettings.ZIndex = State and 35 or 5
-        SearchSettingsIcon.ZIndex = State and 37 or 7
-        SettingsToggleHitbox.Visible = State and true or false
-        if State then
-            SyncSettingsToggleHitbox()
-            task.defer(SyncSettingsToggleHitbox)
-        end
+        SearchSettings.ZIndex = 5
+        SearchSettingsIcon.ZIndex = 7
+        SettingsToggleHitbox.Visible = false
+        SettingsToggleHitbox.Active = false
         if Instant then
             SearchSettings.BackgroundColor3 = TargetBackground
             SearchSettingsStroke.Color = TargetStroke
@@ -2097,7 +2105,7 @@ local function BuildRuntime()
             Tween(Label, 0.10, {TextColor3 = ActiveText})
             SetGearIconColor(Glyph, ActiveGlyph)
             if ArrowIcon then Tween(ArrowIcon, 0.10, {ImageColor3 = ActiveGlyph}) end
-            Tween(EntryScale, 0.08, {Scale = Pressed and 0.975 or (Hovered and 1.012 or 1)})
+            EntryScale.Scale = 1
         end
 
         Bind(Entry.MouseEnter:Connect(function()
@@ -2133,7 +2141,7 @@ local function BuildRuntime()
         local function Refresh()
             if not Button or not Button.Parent then return end
             if type(RefreshVisual) == "function" then RefreshVisual(State) end
-            Tween(Scale, 0.08, {Scale = State.Pressed and 0.965 or (State.Hovered and 1.018 or 1)})
+            Scale.Scale = 1
         end
         Bind(Button.MouseEnter:Connect(function()
             State.Hovered = true
@@ -3462,11 +3470,11 @@ local function BuildRuntime()
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Font = Enum.Font.BuilderSansMedium,
-        Text = "",
+        Text = "×",
         TextColor3 = MutedText,
         TextSize = 18,
-        Visible = false,
-        Active = false,
+        Visible = true,
+        Active = true,
         ZIndex = 34
     })
 
@@ -5317,31 +5325,25 @@ local function BuildRuntime()
     end
 
     local function SetSettingsOpen(State)
-        SettingsOpen = State and true or false
-        Menu.SettingsUI.SettingsTransition = (Menu.SettingsUI.SettingsTransition or 0) + 1
-        local TransitionId = Menu.SettingsUI.SettingsTransition
-        UpdateSettingsButtonAppearance(SettingsOpen)
+        State = State and true or false
+        if SettingsOpen == State then return end
+        SettingsOpen = State
+        UpdateSettingsButtonAppearance(SettingsOpen, true)
         Menu.SettingsUI.SettingsOverlay.Visible = false
-        Menu.SettingsInputBlocker.Visible = SettingsOpen
+        Menu.SettingsInputBlocker.Visible = false
+        SettingsToggleHitbox.Visible = false
+        SettingsToggleHitbox.Active = false
         if SettingsOpen then
             LayoutSettingsPanel()
             Menu.SettingsUI.SettingsPanel.Position = DecodePosition(SavedPositions.Settings, Main.Position)
-            Menu.SettingsUI.SettingsPanelScale.Scale = 0.96
-            Menu.SettingsUI.SettingsPanel.BackgroundTransparency = 0.12
+            Menu.SettingsUI.SettingsPanelScale.Scale = 1
+            Menu.SettingsUI.SettingsPanel.BackgroundTransparency = 0.08
             Menu.SettingsUI.SettingsPanel.Visible = true
-            Tween(Menu.SettingsUI.SettingsPanelScale, 0.14, {Scale = 1})
-            Tween(Menu.SettingsUI.SettingsPanel, 0.14, {BackgroundTransparency = 0.08})
         else
             SavedPositions.Settings = EncodePosition(Menu.SettingsUI.SettingsPanel.Position)
             SavePositions()
-            Tween(Menu.SettingsUI.SettingsPanelScale, 0.1, {Scale = 0.96})
-            Tween(Menu.SettingsUI.SettingsPanel, 0.1, {BackgroundTransparency = 0.14})
-            task.delay(0.1, function()
-                if Menu.SettingsUI.SettingsTransition == TransitionId and not SettingsOpen then
-                    Menu.SettingsUI.SettingsPanel.Visible = false
-                    SetPickerOpen(false)
-                end
-            end)
+            SetPickerOpen(false)
+            Menu.SettingsUI.SettingsPanel.Visible = false
         end
     end
 
@@ -5349,14 +5351,8 @@ local function BuildRuntime()
         SetSettingsOpen(false)
     end))
 
-    Bind(Menu.SettingsInputBlocker.MouseButton1Click:Connect(function()
-        if ActivePopup then
-            ClosePopup()
-        end
-        if CloseGearMenus then
-            CloseGearMenus()
-        end
-    end))
+    Menu.SettingsInputBlocker.Visible = false
+    Menu.SettingsInputBlocker.Active = false
 
     Bind(Menu.PickerInputBlocker.MouseButton1Click:Connect(function()
         if CanDismissPicker() then
@@ -6877,23 +6873,8 @@ local function BuildRuntime()
                 local Target = Section.HomePosition or Section.Root.Position
                 local SectionScale = Section.AssemblyScale
 
-                if Animated and SectionScale then
-                    local StartX = Target.X.Offset > 0 and 18 or -18
-                    Section.Root.Position = UDim2.new(
-                        Target.X.Scale,
-                        Target.X.Offset + StartX,
-                        Target.Y.Scale,
-                        Target.Y.Offset + 8
-                    )
-                    SectionScale.Scale = 0.97
-                    Tween(Section.Root, 0.2, {Position = Target})
-                    Tween(SectionScale, 0.2, {Scale = 1})
-                else
-                    Section.Root.Position = Target
-                    if SectionScale then
-                        SectionScale.Scale = 1
-                    end
-                end
+                Section.Root.Position = Target
+                if SectionScale then SectionScale.Scale = 1 end
             end
         end
     end
@@ -6974,11 +6955,8 @@ local function BuildRuntime()
         end
     end))
 
-    Bind(SettingsToggleHitbox.MouseButton1Click:Connect(function()
-        if Menu.ToggleSettingsPanel then
-            Menu.ToggleSettingsPanel()
-        end
-    end))
+    SettingsToggleHitbox.Visible = false
+    SettingsToggleHitbox.Active = false
 
     Bind(SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
         local Query = string.lower(SearchBox.Text)
@@ -7185,13 +7163,13 @@ local function BuildRuntime()
         local TargetScale = (Menu.Flags.ViewportScale or 1) * BaseScaleFactor
         if State then
             local TargetPosition = DecodePosition(SavedPositions.Main, UDim2.fromScale(0.5, 0.535))
-            Main.Position = UDim2.new(TargetPosition.X.Scale, TargetPosition.X.Offset, TargetPosition.Y.Scale, TargetPosition.Y.Offset + 12)
-            MainScale.Scale = TargetScale * 0.965
-            Main.BackgroundTransparency = 0.22
+            Main.Position = TargetPosition
+            MainScale.Scale = TargetScale
+            Main.BackgroundTransparency = 0.08
             Main.Visible = true
             InputBlocker.Visible = true
             Overlay.Visible = Menu.Flags.BackgroundDim ~= false
-            Overlay.BackgroundTransparency = 1
+            Overlay.BackgroundTransparency = 0.55
             Sidebar.Position = AssemblyTargets.Sidebar
             Topbar.Position = AssemblyTargets.Topbar
             SearchBar.Position = AssemblyTargets.SearchBar
@@ -7199,40 +7177,21 @@ local function BuildRuntime()
             for _, Section in pairs(Menu.Sections) do
                 if Section.Root and Section.Root.Parent then
                     Section.Root.Position = Section.HomePosition or AssemblyTargets[Section.Root] or Section.Root.Position
-                    if Section.AssemblyScale then
-                        Section.AssemblyScale.Scale = 1
-                    end
+                    if Section.AssemblyScale then Section.AssemblyScale.Scale = 1 end
                 end
             end
-            Tween(Main, 0.22, {Position = TargetPosition, BackgroundTransparency = 0.08})
-            Tween(MainScale, 0.24, {Scale = TargetScale})
-            Tween(Overlay, 0.22, {BackgroundTransparency = 0.55})
         else
             ClosePopup()
-            if CloseGearMenus then
-                CloseGearMenus()
-            end
+            if CloseGearMenus then CloseGearMenus() end
             SetSettingsOpen(false)
             if Menu.ConfigsUI and Menu.ConfigsUI.SetOpen then Menu.ConfigsUI.SetOpen(false) end
             SetPickerOpen(false)
             Menu.SettingsInputBlocker.Visible = false
             Menu.PopupInputBlocker.Visible = false
             Menu.PickerInputBlocker.Visible = false
-            local CurrentPosition = Main.Position
-            Tween(Main, 0.18, {
-                Position = UDim2.new(CurrentPosition.X.Scale, CurrentPosition.X.Offset, CurrentPosition.Y.Scale, CurrentPosition.Y.Offset + 10),
-                BackgroundTransparency = 0.22
-            })
-            Tween(MainScale, 0.18, {Scale = TargetScale * 0.97})
-            Tween(Overlay, 0.18, {BackgroundTransparency = 1})
-            task.delay(0.19 / math.max(AnimationFactor, 0.05), function()
-                if AssemblyGeneration ~= Generation or Menu.Visible then
-                    return
-                end
-                Main.Visible = false
-                Overlay.Visible = false
-                InputBlocker.Visible = false
-            end)
+            Main.Visible = false
+            Overlay.Visible = false
+            InputBlocker.Visible = false
         end
     end
 
