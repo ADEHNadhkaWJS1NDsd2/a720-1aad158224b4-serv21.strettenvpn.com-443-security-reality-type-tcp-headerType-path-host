@@ -3461,23 +3461,6 @@ local function BuildRuntime()
         ZIndex = 31
     })
 
-    Menu.SettingsUI.SettingsCloseButton = Create("TextButton", {
-        Parent = Menu.SettingsUI.SettingsPanel,
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -14, 0, 14),
-        Size = UDim2.fromOffset(26, 26),
-        BackgroundColor3 = SurfaceAlt,
-        BorderSizePixel = 0,
-        AutoButtonColor = false,
-        Font = Enum.Font.BuilderSansMedium,
-        Text = "×",
-        TextColor3 = MutedText,
-        TextSize = 18,
-        Visible = true,
-        Active = true,
-        ZIndex = 34
-    })
-
     do
         local S = Menu.ConfigsUI
         S.Open = false
@@ -3634,24 +3617,6 @@ local function BuildRuntime()
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 142
         })
-
-        S.Close = Create("TextButton", {
-            Parent = S.Window,
-            AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, -14, 0, 14),
-            Size = UDim2.fromOffset(30, 30),
-            BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = 0.16,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = "×",
-            TextColor3 = MutedText,
-            TextSize = 20,
-            ZIndex = 143
-        })
-        Corner(S.Close, 6)
-        Stroke(S.Close, Border, 0.38, 1)
 
         Create("Frame", {
             Parent = S.Window,
@@ -4055,9 +4020,6 @@ local function BuildRuntime()
             end
         end))
         Bind(S.Button.MouseLeave:Connect(UpdateTopButton))
-        Bind(S.Close.MouseButton1Click:Connect(function() S.SetOpen(false) end))
-        Bind(S.Close.MouseEnter:Connect(function() Tween(S.Close, 0.12, {BackgroundColor3 = Color3.fromRGB(27, 38, 46), TextColor3 = PrimaryText}) end))
-        Bind(S.Close.MouseLeave:Connect(function() Tween(S.Close, 0.12, {BackgroundColor3 = SurfaceAlt, TextColor3 = MutedText}) end))
         Bind(S.Add.MouseButton1Click:Connect(function()
             S.NewNameHolder.Visible = not S.NewNameHolder.Visible
             if S.NewNameHolder.Visible then
@@ -5346,10 +5308,6 @@ local function BuildRuntime()
             Menu.SettingsUI.SettingsPanel.Visible = false
         end
     end
-
-    Bind(Menu.SettingsUI.SettingsCloseButton.MouseButton1Click:Connect(function()
-        SetSettingsOpen(false)
-    end))
 
     Menu.SettingsInputBlocker.Visible = false
     Menu.SettingsInputBlocker.Active = false
