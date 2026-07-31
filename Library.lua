@@ -5147,16 +5147,78 @@ local function BuildRuntime()
             S.BoundsValid = false
         end
 
+        local function FindPreviewAttachment(Model, Name, IgnoredAccessory)
+            if not Model or type(Name) ~= "string" or Name == "" then return nil end
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("Attachment")
+                    and Object.Name == Name
+                    and Object.Parent
+                    and Object.Parent:IsA("BasePart")
+                    and (not IgnoredAccessory or not Object:IsDescendantOf(IgnoredAccessory))
+                    and not Object:FindFirstAncestorWhichIsA("Accessory") then
+                    return Object
+                end
+            end
+            return nil
+        end
+
+        local function AttachPreviewAccessory(Model, Accessory)
+            if not Model or not Accessory or not Accessory:IsA("Accessory") then return false end
+            local Handle = Accessory:FindFirstChild("Handle")
+            if not Handle or not Handle:IsA("BasePart") then
+                Accessory.Parent = Model
+                return true
+            end
+            local HandleAttachment = Handle:FindFirstChildWhichIsA("Attachment", true)
+            local TargetAttachment = HandleAttachment and FindPreviewAttachment(Model, HandleAttachment.Name, Accessory) or nil
+            for _, Object in ipairs(Handle:GetChildren()) do
+                if (Object:IsA("Weld") or Object:IsA("Motor6D") or Object:IsA("WeldConstraint"))
+                    and Object.Name == "AccessoryWeld" then
+                    Object:Destroy()
+                end
+            end
+            Accessory.Parent = Model
+            Handle.LocalTransparencyModifier = 0
+            Handle.Transparency = math.min(Handle.Transparency, 0.99)
+            Handle.CanCollide = false
+            Handle.CanTouch = false
+            Handle.CanQuery = false
+            if TargetAttachment and TargetAttachment.Parent and TargetAttachment.Parent:IsA("BasePart") then
+                Handle.CFrame = TargetAttachment.WorldCFrame * HandleAttachment.CFrame:Inverse()
+                local Weld = Instance.new("Weld")
+                Weld.Name = "AccessoryWeld"
+                Weld.Part0 = TargetAttachment.Parent
+                Weld.Part1 = Handle
+                Weld.C0 = TargetAttachment.CFrame
+                Weld.C1 = HandleAttachment.CFrame
+                Weld.Parent = Handle
+                return true
+            end
+            local Head = Model:FindFirstChild("Head")
+            if Head and Head:IsA("BasePart") then
+                Handle.CFrame = Head.CFrame
+                local Weld = Instance.new("WeldConstraint")
+                Weld.Name = "AccessoryWeld"
+                Weld.Part0 = Head
+                Weld.Part1 = Handle
+                Weld.Parent = Handle
+                return true
+            end
+            return false
+        end
+
         local function MergeCurrentAppearance(Model)
             local Character = LocalPlayer and LocalPlayer.Character
-            if not Character or not Model then
-                return
-            end
+            if not Character or not Model then return end
             local ModelHumanoid = Model:FindFirstChildWhichIsA("Humanoid")
             local ExistingAccessories = {}
             for _, Object in ipairs(Model:GetChildren()) do
                 if Object:IsA("Accessory") then
                     ExistingAccessories[Object.Name] = (ExistingAccessories[Object.Name] or 0) + 1
+                    local Handle = Object:FindFirstChild("Handle")
+                    if Handle and Handle:IsA("BasePart") then
+                        Handle.LocalTransparencyModifier = 0
+                    end
                 end
             end
             local SeenAccessories = {}
@@ -5174,14 +5236,15 @@ local function BuildRuntime()
                             Object.Archivable = WasArchivable
                         end)
                         if Clone then
+                            local HasWrapLayer = Clone:FindFirstChildWhichIsA("WrapLayer", true) ~= nil
                             local Added = false
-                            if ModelHumanoid then
+                            if HasWrapLayer and ModelHumanoid and Model.Parent then
                                 Added = pcall(function()
                                     ModelHumanoid:AddAccessory(Clone)
-                                end)
+                                end) and Clone.Parent ~= nil
                             end
-                            if not Added or not Clone.Parent then
-                                Clone.Parent = Model
+                            if not Added then
+                                AttachPreviewAccessory(Model, Clone)
                             end
                         end
                     end
@@ -5191,9 +5254,7 @@ local function BuildRuntime()
                     pcall(function()
                         Clone = Object:Clone()
                     end)
-                    if Clone then
-                        Clone.Parent = Model
-                    end
+                    if Clone then Clone.Parent = Model end
                 end
             end
             local SourceHead = Character:FindFirstChild("Head")
@@ -5205,9 +5266,7 @@ local function BuildRuntime()
                         pcall(function()
                             Clone = Object:Clone()
                         end)
-                        if Clone then
-                            Clone.Parent = TargetHead
-                        end
+                        if Clone then Clone.Parent = TargetHead end
                     end
                 end
             end
@@ -5298,15 +5357,27 @@ local function BuildRuntime()
             S.Status.Visible = true
             local Model, Description = CreateDescriptionModel()
             if Generation ~= S.LoadGeneration or not Model then
-                if Model then
-                    Model:Destroy()
-                end
+                if Model then Model:Destroy() end
                 return false
             end
             ClearModel(false)
-            SanitizeModel(Model)
             Model.Name = "LocalPlayerPreview"
             Model.Parent = S.World
+            local ModelHumanoid = Model:FindFirstChildWhichIsA("Humanoid")
+            if ModelHumanoid and Description then
+                pcall(function()
+                    ModelHumanoid:ApplyDescriptionReset(Description)
+                end)
+                RunService.Heartbeat:Wait()
+                RunService.Heartbeat:Wait()
+            end
+            if Generation ~= S.LoadGeneration or not Model.Parent then
+                if Model then Model:Destroy() end
+                return false
+            end
+            MergeCurrentAppearance(Model)
+            RunService.Heartbeat:Wait()
+            SanitizeModel(Model)
             FreezePreviewPose(Model)
             S.Description = Description
             S.Model = Model
