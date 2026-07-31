@@ -4982,12 +4982,9 @@ local function BuildRuntime()
                 end
                 Humanoid.AutoRotate = false
                 Humanoid.Sit = false
-                Humanoid.PlatformStand = true
+                Humanoid.PlatformStand = false
                 pcall(function()
                     Humanoid.EvaluateStateMachine = false
-                end)
-                pcall(function()
-                    Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
                 end)
             end
             for _, Object in ipairs(Model:GetDescendants()) do
@@ -5103,18 +5100,33 @@ local function BuildRuntime()
                 Center = BoxCFrame.Position
                 BoxSize = FallbackSize
             end
+
             local Pivot = Model:GetPivot()
             Model:PivotTo(CFrame.new(-Center) * Pivot)
-            local Position = Model:GetPivot().Position
-            Model:PivotTo(CFrame.new(Position) * CFrame.Angles(0, math.pi, 0))
+
+            local FacingPart = Model:FindFirstChild("HumanoidRootPart")
+                or Model:FindFirstChild("UpperTorso")
+                or Model:FindFirstChild("Torso")
+                or Model:FindFirstChild("Head")
+            local Facing = FacingPart and FacingPart.CFrame.LookVector or Vector3.new(0, 0, -1)
+            local FlatFacing = Vector3.new(Facing.X, 0, Facing.Z)
+            if FlatFacing.Magnitude > 0.001 then
+                FlatFacing = FlatFacing.Unit
+                local CurrentYaw = math.atan2(-FlatFacing.X, -FlatFacing.Z)
+                local FrontCorrection = math.pi - CurrentYaw
+                Model:PivotTo(CFrame.Angles(0, FrontCorrection, 0) * Model:GetPivot())
+            else
+                Model:PivotTo(CFrame.Angles(0, math.pi, 0) * Model:GetPivot())
+            end
+
             Parts = GetPreviewParts(Model)
             Center, BoxSize = GetPartsBounds(Parts)
             if Center then
-                local CurrentPivot = Model:GetPivot()
-                Model:PivotTo(CFrame.new(-Center) * CurrentPivot)
+                Model:PivotTo(CFrame.new(-Center) * Model:GetPivot())
             else
                 BoxSize = select(2, Model:GetBoundingBox())
             end
+
             BoxSize = Vector3.new(
                 math.max(BoxSize.X, 2),
                 math.max(BoxSize.Y, 4),
@@ -5239,10 +5251,6 @@ local function BuildRuntime()
         end
 
         local function CreateDescriptionModel()
-            local CharacterModel, CharacterDescription = CloneCurrentCharacterModel()
-            if CharacterModel then
-                return CharacterModel, CharacterDescription
-            end
             if not LocalPlayer or LocalPlayer.UserId <= 0 then
                 return nil, nil
             end
@@ -5275,6 +5283,9 @@ local function BuildRuntime()
                 pcall(function()
                     ModelHumanoid:ApplyDescriptionReset(Description)
                 end)
+                ModelHumanoid.AutoRotate = false
+                ModelHumanoid.Sit = false
+                ModelHumanoid.PlatformStand = false
             end
             MergeCurrentAppearance(Model)
             return Model, Description
@@ -5299,6 +5310,7 @@ local function BuildRuntime()
             FreezePreviewPose(Model)
             S.Description = Description
             S.Model = Model
+            S.Rotation = 0
             FrameModel(Model)
             task.defer(function()
                 if S.Model == Model and Model.Parent then
