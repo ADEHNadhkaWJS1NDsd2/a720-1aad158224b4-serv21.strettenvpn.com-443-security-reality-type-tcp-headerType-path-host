@@ -1723,6 +1723,22 @@ local function BuildRuntime()
         end
     end
 
+    Menu.ClampPopupPosition = function(FrameObject, Position)
+        if not FrameObject then return Position end
+        Position = typeof(Position) == "UDim2" and Position or FrameObject.Position
+        local Camera = workspace.CurrentCamera
+        local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+        local Size = FrameObject.AbsoluteSize
+        if Size.X <= 0 or Size.Y <= 0 then
+            Size = Vector2.new(FrameObject.Size.X.Offset, FrameObject.Size.Y.Offset)
+        end
+        local X = Position.X.Scale * Viewport.X + Position.X.Offset
+        local Y = Position.Y.Scale * Viewport.Y + Position.Y.Offset
+        X = math.clamp(X, 8, math.max(8, Viewport.X - Size.X - 8))
+        Y = math.clamp(Y, 8, math.max(8, Viewport.Y - Size.Y - 8))
+        return UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
+    end
+
     do
     local function GetControlBinds(ControlFlag)
         SavedPositions.ControlBinds = SavedPositions.ControlBinds or {}
@@ -1883,18 +1899,6 @@ local function BuildRuntime()
         return Menu:AddSoftGlow(Target, ZIndex, 9, 0.64, true)
     end
 
-    local function ClampPopupPosition(FrameObject, Position)
-        local Camera = workspace.CurrentCamera
-        local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
-        local Size = FrameObject.AbsoluteSize
-        if Size.X <= 0 or Size.Y <= 0 then
-            Size = Vector2.new(FrameObject.Size.X.Offset, FrameObject.Size.Y.Offset)
-        end
-        local X = math.clamp(Position.X.Offset, 8, math.max(8, Viewport.X - Size.X - 8))
-        local Y = math.clamp(Position.Y.Offset, 8, math.max(8, Viewport.Y - Size.Y - 8))
-        return UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
-    end
-
     local function RectsOverlap(A, B)
         if not A or not B or not A.Parent or not B.Parent then
             return false
@@ -1915,7 +1919,7 @@ local function BuildRuntime()
     end
 
     local function PlacePopup(FrameObject, PreferredPosition, Peers)
-        local Position = ClampPopupPosition(FrameObject, PreferredPosition)
+        local Position = Menu.ClampPopupPosition(FrameObject, PreferredPosition)
         FrameObject.Position = Position
         for _, Peer in ipairs(Peers or {}) do
             if Peer and Peer.Parent and RectsOverlap(FrameObject, Peer) then
@@ -1927,7 +1931,7 @@ local function BuildRuntime()
                     UDim2.fromOffset(Position.X.Offset, Peer.AbsolutePosition.Y - FrameObject.AbsoluteSize.Y - Gap)
                 }
                 for _, Candidate in ipairs(Candidates) do
-                    local CandidatePosition = ClampPopupPosition(FrameObject, Candidate)
+                    local CandidatePosition = Menu.ClampPopupPosition(FrameObject, Candidate)
                     FrameObject.Position = CandidatePosition
                     if not RectsOverlap(FrameObject, Peer) then
                         Position = CandidatePosition
@@ -1979,7 +1983,7 @@ local function BuildRuntime()
         Bind(UserInputService.InputChanged:Connect(function(Input)
             if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
                 local Delta = Input.Position - DragStart
-                FrameObject.Position = ClampPopupPosition(FrameObject, UDim2.fromOffset(StartPosition.X.Offset + Delta.X, StartPosition.Y.Offset + Delta.Y))
+                FrameObject.Position = Menu.ClampPopupPosition(FrameObject, UDim2.fromOffset(StartPosition.X.Offset + Delta.X, StartPosition.Y.Offset + Delta.Y))
             end
         end))
 
@@ -2735,7 +2739,7 @@ local function BuildRuntime()
             AddPopupShadow(ActiveGearMenu, 160)
         end
         Stroke(ActiveGearMenu, Border, 0.08, 1)
-        ActiveGearMenu.Position = type(ClampPopupPosition) == "function" and ClampPopupPosition(ActiveGearMenu, ActiveGearMenu.Position) or ActiveGearMenu.Position
+        ActiveGearMenu.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActiveGearMenu, ActiveGearMenu.Position) or ActiveGearMenu.Position
         MakePopupDraggable(ActiveGearMenu, 14)
 
         local BindEntry = CreateMenuEntry(ActiveGearMenu, 16, "New bind", "Bind", MutedText, true)
@@ -2910,7 +2914,7 @@ local function BuildRuntime()
             Corner(ActivePopup, 7)
             Stroke(ActivePopup, Border, 0.05, 1)
             Menu:AddSoftGlow(ActivePopup, 100, 7, 0.80, true)
-            ActivePopup.Position = type(ClampPopupPosition) == "function" and ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
+            ActivePopup.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
 
             Create("UIPadding", {
                 Parent = ActivePopup,
@@ -3246,7 +3250,7 @@ local function BuildRuntime()
             Corner(ActivePopup, 7)
             Stroke(ActivePopup, Border, 0.05, 1)
             Menu:AddSoftGlow(ActivePopup, 100, 7, 0.80, true)
-            ActivePopup.Position = type(ClampPopupPosition) == "function" and ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
+            ActivePopup.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
 
             local List = Create("ScrollingFrame", {
                 Parent = ActivePopup,
@@ -3558,7 +3562,7 @@ local function BuildRuntime()
         end
 
         S.Overlay = Create("Frame", {
-            Parent = Main,
+            Parent = ScreenGui,
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
@@ -3567,74 +3571,103 @@ local function BuildRuntime()
             ZIndex = 38
         })
 
+        local CameraObject = workspace.CurrentCamera
+        local ViewportSize = CameraObject and CameraObject.ViewportSize or Vector2.new(1920, 1080)
+        local DefaultConfigPosition = UDim2.fromOffset(
+            math.floor(ViewportSize.X * 0.5 + 388),
+            math.floor(ViewportSize.Y * 0.5 - 185)
+        )
+
         S.Window = Create("Frame", {
-            Parent = Main,
+            Parent = ScreenGui,
             Active = true,
-            Position = UDim2.new(1, -342, 0, 64),
-            Size = UDim2.fromOffset(342, 546),
+            Position = DecodePosition(SavedPositions.Configs, DefaultConfigPosition),
+            Size = UDim2.fromOffset(300, 150),
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.01,
+            BackgroundTransparency = 0.02,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 40
         })
-        Corner(S.Window, 4)
-        Stroke(S.Window, Border, 0.24, 1)
+        Corner(S.Window, 5)
+        Stroke(S.Window, Border, 0.18, 1)
 
-        Create("Frame", {
+        S.Header = Create("Frame", {
             Parent = S.Window,
             Position = UDim2.fromOffset(0, 0),
-            Size = UDim2.fromOffset(1, 546),
-            BackgroundColor3 = Border,
-            BackgroundTransparency = 0.12,
+            Size = UDim2.new(1, 0, 0, 36),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.18,
             BorderSizePixel = 0,
             ZIndex = 41
         })
+        Corner(S.Header, 5)
+
+        Create("Frame", {
+            Parent = S.Header,
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.new(0, 0, 1, 0),
+            Size = UDim2.new(1, 0, 0, 1),
+            BackgroundColor3 = Border,
+            BackgroundTransparency = 0.24,
+            BorderSizePixel = 0,
+            ZIndex = 42
+        })
+
+        S.DragArea = Create("TextButton", {
+            Parent = S.Header,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Text = "",
+            Active = true,
+            ZIndex = 42
+        })
 
         Create("TextLabel", {
-            Parent = S.Window,
-            Position = UDim2.fromOffset(14, 0),
-            Size = UDim2.fromOffset(190, 48),
+            Parent = S.Header,
+            Position = UDim2.fromOffset(12, 0),
+            Size = UDim2.fromOffset(180, 36),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = "CONFIGS",
             TextColor3 = PrimaryText,
-            TextSize = 13,
+            TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 42
+            ZIndex = 43
         })
 
         S.CountLabel = Create("TextLabel", {
-            Parent = S.Window,
+            Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, -14, 0, 0),
-            Size = UDim2.fromOffset(110, 48),
+            Position = UDim2.new(1, -12, 0, 0),
+            Size = UDim2.fromOffset(90, 36),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
-            Text = "0 CONFIGS",
+            Text = "0",
             TextColor3 = DisabledText,
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Right,
-            ZIndex = 42
+            ZIndex = 43
         })
 
-        Create("Frame", {
+        S.Toolbar = Create("Frame", {
             Parent = S.Window,
-            Position = UDim2.fromOffset(0, 47),
-            Size = UDim2.new(1, 0, 0, 1),
-            BackgroundColor3 = Border,
-            BackgroundTransparency = 0.28,
+            Position = UDim2.fromOffset(10, 44),
+            Size = UDim2.new(1, -20, 0, 28),
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ZIndex = 42
         })
 
         local function MakeToolButton(Text, X, Width, TextColor)
             local Button = Create("TextButton", {
-                Parent = S.Window,
-                Position = UDim2.fromOffset(X, 58),
-                Size = UDim2.fromOffset(Width, 30),
+                Parent = S.Toolbar,
+                Position = UDim2.fromOffset(X, 0),
+                Size = UDim2.fromOffset(Width, 28),
                 BackgroundColor3 = SurfaceAlt,
-                BackgroundTransparency = 0.18,
+                BackgroundTransparency = 0.34,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
                 Font = Enum.Font.BuilderSansMedium,
@@ -3644,35 +3677,67 @@ local function BuildRuntime()
                 ZIndex = 43
             })
             Corner(Button, 3)
-            Stroke(Button, Border, 0.48, 1)
+            Stroke(Button, Border, 0.50, 1)
             return Button
         end
 
-        S.Add = MakeToolButton("+  NEW", 12, 82, PrimaryText)
-        S.Remove = MakeToolButton("−  DELETE", 100, 92, DisabledText)
-        S.DeleteAll = MakeToolButton("CLEAR ALL", 238, 92, Danger)
+        S.Add = MakeToolButton("+", 0, 30, PrimaryText)
+        S.LoadSelected = MakeToolButton("LOAD", 36, 62, DisabledText)
+        S.Remove = MakeToolButton("−", 104, 30, DisabledText)
+        S.DeleteAll = MakeToolButton("", 240, 40, Danger)
+
+        local TrashTop = Create("Frame", {
+            Parent = S.DeleteAll,
+            Position = UDim2.fromOffset(13, 8),
+            Size = UDim2.fromOffset(14, 2),
+            BackgroundColor3 = Danger,
+            BorderSizePixel = 0,
+            ZIndex = 45
+        })
+        Corner(TrashTop, 1)
+
+        local TrashHandle = Create("Frame", {
+            Parent = S.DeleteAll,
+            Position = UDim2.fromOffset(17, 5),
+            Size = UDim2.fromOffset(6, 3),
+            BackgroundColor3 = Danger,
+            BorderSizePixel = 0,
+            ZIndex = 45
+        })
+        Corner(TrashHandle, 1)
+
+        local TrashBody = Create("Frame", {
+            Parent = S.DeleteAll,
+            Position = UDim2.fromOffset(15, 11),
+            Size = UDim2.fromOffset(10, 10),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = 45
+        })
+        Corner(TrashBody, 1)
+        Stroke(TrashBody, Danger, 0, 1)
 
         S.NewNameHolder = Create("Frame", {
             Parent = S.Window,
-            Position = UDim2.fromOffset(12, 98),
-            Size = UDim2.new(1, -24, 0, 34),
+            Position = UDim2.fromOffset(10, 78),
+            Size = UDim2.new(1, -20, 0, 30),
             BackgroundColor3 = Background,
-            BackgroundTransparency = 0.12,
+            BackgroundTransparency = 0.18,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 43
         })
         Corner(S.NewNameHolder, 3)
-        Stroke(S.NewNameHolder, Accent, 0.42, 1)
+        Stroke(S.NewNameHolder, Accent, 0.34, 1)
 
         S.NewName = Create("TextBox", {
             Parent = S.NewNameHolder,
-            Position = UDim2.fromOffset(10, 0),
-            Size = UDim2.new(1, -20, 1, 0),
+            Position = UDim2.fromOffset(9, 0),
+            Size = UDim2.new(1, -18, 1, 0),
             BackgroundTransparency = 1,
             ClearTextOnFocus = false,
             Font = Enum.Font.BuilderSans,
-            PlaceholderText = "Config name",
+            PlaceholderText = "Config name - press Enter",
             PlaceholderColor3 = DisabledText,
             Text = "",
             TextColor3 = PrimaryText,
@@ -3683,10 +3748,10 @@ local function BuildRuntime()
 
         S.List = Create("ScrollingFrame", {
             Parent = S.Window,
-            Position = UDim2.fromOffset(12, 100),
-            Size = UDim2.new(1, -24, 0, 388),
+            Position = UDim2.fromOffset(10, 78),
+            Size = UDim2.new(1, -20, 0, 58),
             BackgroundColor3 = Background,
-            BackgroundTransparency = 0.34,
+            BackgroundTransparency = 0.54,
             BorderSizePixel = 0,
             ScrollBarThickness = 2,
             ScrollBarImageColor3 = Accent,
@@ -3695,7 +3760,7 @@ local function BuildRuntime()
             ZIndex = 41
         })
         Corner(S.List, 3)
-        Stroke(S.List, Border, 0.48, 1)
+        Stroke(S.List, Border, 0.52, 1)
 
         Create("UIPadding", {
             Parent = S.List,
@@ -3707,52 +3772,74 @@ local function BuildRuntime()
 
         S.Layout = Create("UIListLayout", {
             Parent = S.List,
-            Padding = UDim.new(0, 2),
+            Padding = UDim.new(0, 3),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
 
         S.Empty = Create("TextLabel", {
             Parent = S.Window,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new(0.5, 0, 0, 294),
-            Size = UDim2.fromOffset(220, 28),
+            Position = UDim2.fromOffset(10, 78),
+            Size = UDim2.new(1, -20, 0, 58),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
-            Text = "No saved configs",
+            Text = "No configs",
             TextColor3 = DisabledText,
             TextSize = 11,
             ZIndex = 42
         })
 
-        S.LoadSelected = Create("TextButton", {
-            Parent = S.Window,
-            Position = UDim2.fromOffset(12, 500),
-            Size = UDim2.new(1, -24, 0, 32),
-            BackgroundColor3 = Color3.fromRGB(13, 25, 33),
-            BackgroundTransparency = 0.12,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = "LOAD SELECTED",
-            TextColor3 = DisabledText,
-            TextSize = 10,
-            ZIndex = 43
-        })
-        Corner(S.LoadSelected, 3)
-        Stroke(S.LoadSelected, Border, 0.42, 1)
+        local ConfigDragging = false
+        local ConfigDragStart
+        local ConfigStartPosition
+
+        Bind(S.DragArea.InputBegan:Connect(function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                ConfigDragging = true
+                ConfigDragStart = Input.Position
+                ConfigStartPosition = S.Window.Position
+            end
+        end))
+
+        Bind(UserInputService.InputChanged:Connect(function(Input)
+            if ConfigDragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
+                local Delta = Input.Position - ConfigDragStart
+                local NextPosition = UDim2.fromOffset(
+                    ConfigStartPosition.X.Offset + Delta.X,
+                    ConfigStartPosition.Y.Offset + Delta.Y
+                )
+                S.Window.Position = type(Menu.ClampPopupPosition) == "function"
+                    and Menu.ClampPopupPosition(S.Window, NextPosition)
+                    or NextPosition
+            end
+        end))
+
+        Bind(UserInputService.InputEnded:Connect(function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 and ConfigDragging then
+                ConfigDragging = false
+                if S.Window then SavedPositions.Configs = EncodePosition(S.Window.Position) end
+            end
+        end))
+
+        local function ResizeConfigWindow(ConfigCount)
+            if not S.Window or not S.List or not S.Empty then return end
+            local InputOffset = S.NewNameHolder and S.NewNameHolder.Visible and 36 or 0
+            local RowCount = math.clamp(math.floor(tonumber(ConfigCount) or 0), 0, 6)
+            local ListHeight = RowCount == 0 and 58 or math.max(38, RowCount * 35 + 8)
+            local ListY = 78 + InputOffset
+            S.List.Position = UDim2.fromOffset(10, ListY)
+            S.List.Size = UDim2.new(1, -20, 0, ListHeight)
+            S.Empty.Position = UDim2.fromOffset(10, ListY)
+            S.Empty.Size = UDim2.new(1, -20, 0, ListHeight)
+            S.Window.Size = UDim2.fromOffset(300, ListY + ListHeight + 10)
+            if type(Menu.ClampPopupPosition) == "function" then
+                S.Window.Position = Menu.ClampPopupPosition(S.Window, S.Window.Position)
+            end
+        end
 
         local function SetNameEntryVisible(State)
             State = State == true
-            S.NewNameHolder.Visible = State
-            if State then
-                S.List.Position = UDim2.fromOffset(12, 140)
-                S.List.Size = UDim2.new(1, -24, 0, 348)
-                S.Empty.Position = UDim2.new(0.5, 0, 0, 314)
-            else
-                S.List.Position = UDim2.fromOffset(12, 100)
-                S.List.Size = UDim2.new(1, -24, 0, 388)
-                S.Empty.Position = UDim2.new(0.5, 0, 0, 294)
-            end
+            if S.NewNameHolder then S.NewNameHolder.Visible = State end
+            ResizeConfigWindow(S.LastConfigCount or 0)
         end
 
         local function SetSelected(Name)
@@ -3760,13 +3847,17 @@ local function BuildRuntime()
             for RowName, Data in pairs(S.Rows) do
                 local Selected = RowName == Name
                 Data.Root.BackgroundColor3 = Selected and Color3.fromRGB(13, 27, 36) or SurfaceAlt
-                Data.Root.BackgroundTransparency = Selected and 0.08 or 0.62
+                Data.Root.BackgroundTransparency = Selected and 0.30 or 0.72
                 Data.Name.TextColor3 = Selected and PrimaryText or MutedText
                 Data.Marker.BackgroundTransparency = Selected and 0 or 1
+                if Data.Stroke then
+                    Data.Stroke.Color = Selected and Accent or Border
+                    Data.Stroke.Transparency = Selected and 0.34 or 0.74
+                end
             end
             S.Remove.TextColor3 = Name and PrimaryText or DisabledText
             S.LoadSelected.TextColor3 = Name and PrimaryText or DisabledText
-            S.LoadSelected.BackgroundTransparency = Name and 0.04 or 0.12
+            S.LoadSelected.BackgroundTransparency = Name and 0.20 or 0.34
         end
 
         local function LoadConfig(Name)
@@ -3795,32 +3886,40 @@ local function BuildRuntime()
         end
 
         local function Refresh()
+            S.Rows = type(S.Rows) == "table" and S.Rows or {}
             for _, Data in pairs(S.Rows) do
-                if Data.Root and Data.Root.Parent then Data.Root:Destroy() end
+                if type(Data) == "table" and Data.Root and Data.Root.Parent then Data.Root:Destroy() end
             end
-            table.clear(S.Rows)
+            if type(table.clear) == "function" then
+                table.clear(S.Rows)
+            else
+                for Key in pairs(S.Rows) do S.Rows[Key] = nil end
+            end
             local Names = GetNames()
-            S.Empty.Visible = #Names == 0
-            S.CountLabel.Text = tostring(#Names) .. (#Names == 1 and " CONFIG" or " CONFIGS")
+            S.LastConfigCount = #Names
+            if S.Empty then S.Empty.Visible = #Names == 0 end
+            if S.CountLabel then S.CountLabel.Text = tostring(#Names) end
+            ResizeConfigWindow(#Names)
 
             for Index, Name in ipairs(Names) do
                 local Root = Create("TextButton", {
                     Parent = S.List,
-                    Size = UDim2.new(1, 0, 0, 36),
+                    Size = UDim2.new(1, 0, 0, 32),
                     BackgroundColor3 = SurfaceAlt,
-                    BackgroundTransparency = 0.62,
+                    BackgroundTransparency = 0.72,
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
                     Text = "",
                     LayoutOrder = Index,
                     ZIndex = 42
                 })
-                Corner(Root, 2)
+                Corner(Root, 3)
+                local RootStroke = Stroke(Root, Border, 0.74, 1)
 
                 local Marker = Create("Frame", {
                     Parent = Root,
-                    Position = UDim2.fromOffset(0, 6),
-                    Size = UDim2.fromOffset(2, 24),
+                    Position = UDim2.fromOffset(0, 7),
+                    Size = UDim2.fromOffset(2, 18),
                     BackgroundColor3 = Accent,
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
@@ -3829,8 +3928,8 @@ local function BuildRuntime()
 
                 local NameLabel = Create("TextLabel", {
                     Parent = Root,
-                    Position = UDim2.fromOffset(11, 0),
-                    Size = UDim2.new(1, -22, 1, 0),
+                    Position = UDim2.fromOffset(10, 0),
+                    Size = UDim2.new(1, -20, 1, 0),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSans,
                     Text = Name,
@@ -3841,18 +3940,12 @@ local function BuildRuntime()
                     ZIndex = 43
                 })
 
-                Create("Frame", {
-                    Parent = Root,
-                    AnchorPoint = Vector2.new(0, 1),
-                    Position = UDim2.new(0, 8, 1, 0),
-                    Size = UDim2.new(1, -16, 0, 1),
-                    BackgroundColor3 = Border,
-                    BackgroundTransparency = 0.62,
-                    BorderSizePixel = 0,
-                    ZIndex = 43
-                })
-
-                S.Rows[Name] = {Root = Root, Name = NameLabel, Marker = Marker}
+                S.Rows[Name] = {
+                    Root = Root,
+                    Name = NameLabel,
+                    Marker = Marker,
+                    Stroke = RootStroke
+                }
 
                 Bind(Root.MouseButton1Click:Connect(function()
                     SetSelected(Name)
@@ -3862,19 +3955,23 @@ local function BuildRuntime()
                 end))
                 Bind(Root.MouseEnter:Connect(function()
                     if S.SelectedName ~= Name then
-                        Root.BackgroundTransparency = 0.42
+                        Root.BackgroundTransparency = 0.52
                         NameLabel.TextColor3 = PrimaryText
+                        RootStroke.Transparency = 0.48
                     end
                 end))
                 Bind(Root.MouseLeave:Connect(function()
                     if S.SelectedName ~= Name then
-                        Root.BackgroundTransparency = 0.62
+                        Root.BackgroundTransparency = 0.72
                         NameLabel.TextColor3 = MutedText
+                        RootStroke.Transparency = 0.74
                     end
                 end))
             end
 
-            if S.SelectedName and not S.Rows[S.SelectedName] then S.SelectedName = nil end
+            if S.SelectedName and not S.Rows[S.SelectedName] then
+                S.SelectedName = nil
+            end
             SetSelected(S.SelectedName)
         end
 
@@ -3979,18 +4076,26 @@ local function BuildRuntime()
         S.SetOpen = function(State)
             State = State == true
             S.Open = State
-            S.Window.Visible = State
-            S.Overlay.Visible = false
+            if S.Window then S.Window.Visible = State end
+            if S.Overlay then S.Overlay.Visible = false end
             if State then
-                if Menu.SettingsUI.SettingsPanel.Visible and Menu.ToggleSettingsPanel then
-                    Menu.ToggleSettingsPanel()
+                local SettingsPanel = Menu.SettingsUI and Menu.SettingsUI.SettingsPanel
+                if SettingsPanel and SettingsPanel.Visible and type(Menu.ToggleSettingsPanel) == "function" then
+                    pcall(Menu.ToggleSettingsPanel)
                 end
-                Refresh()
+                local RefreshSuccess = pcall(Refresh)
+                if not RefreshSuccess then
+                    S.LastConfigCount = tonumber(S.LastConfigCount) or 0
+                    ResizeConfigWindow(S.LastConfigCount)
+                end
+                if S.Window and type(Menu.ClampPopupPosition) == "function" then
+                    S.Window.Position = Menu.ClampPopupPosition(S.Window, S.Window.Position)
+                end
             else
                 SetNameEntryVisible(false)
-                S.NewName.Text = ""
+                if S.NewName then S.NewName.Text = "" end
             end
-            UpdateTopButton()
+            pcall(UpdateTopButton)
         end
 
         S.Toggle = function()
@@ -4045,10 +4150,10 @@ local function BuildRuntime()
             end))
         end
 
-        BindFlatHover(S.Add, 0.18, 0.03, PrimaryText, PrimaryText)
-        BindFlatHover(S.Remove, 0.18, 0.03, DisabledText, PrimaryText)
-        BindFlatHover(S.DeleteAll, 0.18, 0.04, Danger, Danger)
-        BindFlatHover(S.LoadSelected, 0.12, 0.02, DisabledText, PrimaryText)
+        BindFlatHover(S.Add, 0.34, 0.14, PrimaryText, PrimaryText)
+        BindFlatHover(S.Remove, 0.34, 0.14, DisabledText, PrimaryText)
+        BindFlatHover(S.DeleteAll, 0.34, 0.14, Danger, Danger)
+        BindFlatHover(S.LoadSelected, 0.34, 0.14, DisabledText, PrimaryText)
 
         UpdateTopButton()
     end
@@ -7090,16 +7195,10 @@ local function BuildRuntime()
 
     local function SetVisible(State)
         State = State and true or false
-        if Menu.Visible == State and Main.Visible == State then
-            return
-        end
 
         AssemblyGeneration += 1
         local Generation = AssemblyGeneration
         Menu.Visible = State
-        if Menu.EspPreviewController.SetMenuVisible then
-            Menu.EspPreviewController.SetMenuVisible(State)
-        end
 
         local TargetScale = (Menu.Flags.ViewportScale or 1) * BaseScaleFactor
         if State then
@@ -7122,17 +7221,50 @@ local function BuildRuntime()
                 end
             end
         else
-            ClosePopup()
-            if CloseGearMenus then CloseGearMenus() end
-            SetSettingsOpen(false)
-            if Menu.ConfigsUI and Menu.ConfigsUI.SetOpen then Menu.ConfigsUI.SetOpen(false) end
-            SetPickerOpen(false)
-            Menu.SettingsInputBlocker.Visible = false
-            Menu.PopupInputBlocker.Visible = false
-            Menu.PickerInputBlocker.Visible = false
+            pcall(ClosePopup)
+            if type(CloseGearMenus) == "function" then pcall(CloseGearMenus) end
+            if type(SetSettingsOpen) == "function" then pcall(SetSettingsOpen, false) end
+            if Menu.ConfigsUI and type(Menu.ConfigsUI.SetOpen) == "function" then
+                pcall(Menu.ConfigsUI.SetOpen, false)
+            end
+            if type(SetPickerOpen) == "function" then pcall(SetPickerOpen, false) end
+
+            if SettingsToggleHitbox then
+                SettingsToggleHitbox.Visible = false
+                SettingsToggleHitbox.Active = false
+            end
+            if Menu.SettingsInputBlocker then
+                Menu.SettingsInputBlocker.Visible = false
+                Menu.SettingsInputBlocker.Active = false
+            end
+            if Menu.PopupInputBlocker then
+                Menu.PopupInputBlocker.Visible = false
+                Menu.PopupInputBlocker.Active = false
+            end
+            if Menu.PickerInputBlocker then
+                Menu.PickerInputBlocker.Visible = false
+                Menu.PickerInputBlocker.Active = false
+            end
+
+            if Menu.SettingsUI then
+                if Menu.SettingsUI.SettingsPanel then Menu.SettingsUI.SettingsPanel.Visible = false end
+                if Menu.SettingsUI.SettingsOverlay then Menu.SettingsUI.SettingsOverlay.Visible = false end
+                if Menu.SettingsUI.ColorPickerContainer then Menu.SettingsUI.ColorPickerContainer.Visible = false end
+                if Menu.SettingsUI.ColorPickerGlow then Menu.SettingsUI.ColorPickerGlow.Visible = false end
+            end
+            if Menu.ConfigsUI then
+                Menu.ConfigsUI.Open = false
+                if Menu.ConfigsUI.Window then Menu.ConfigsUI.Window.Visible = false end
+                if Menu.ConfigsUI.Overlay then Menu.ConfigsUI.Overlay.Visible = false end
+            end
+
             Main.Visible = false
             Overlay.Visible = false
             InputBlocker.Visible = false
+        end
+
+        if Menu.EspPreviewController and type(Menu.EspPreviewController.SetMenuVisible) == "function" then
+            pcall(Menu.EspPreviewController.SetMenuVisible, State)
         end
     end
 
@@ -7308,18 +7440,19 @@ local function BuildRuntime()
             end
         end
 
-        local BindMatched = false
         local FocusedTextBox = UserInputService:GetFocusedTextBox()
+        if not FocusedTextBox and Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode == Enum.KeyCode.F2 then
+            SetVisible(not Main.Visible)
+            return
+        end
+
+        local BindMatched = false
         if not FocusedTextBox then
             BindMatched = Menu.BindSystem.ProcessBegan(Input)
         end
 
         if Processed and not BindMatched then
             return
-        end
-
-        if not BindMatched and Input.KeyCode == Enum.KeyCode.F2 then
-            SetVisible(not Menu.Visible)
         end
     end))
 
@@ -7340,7 +7473,7 @@ local function BuildRuntime()
     end
 
     function Menu:Toggle()
-        SetVisible(not self.Visible)
+        SetVisible(not Main.Visible)
     end
 
     function Menu:GetFlag(Name)
