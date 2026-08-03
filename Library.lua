@@ -20,6 +20,7 @@ local function BuildRuntime()
 
     if type(makefolder) == "function" then
         pcall(makefolder, Library.Folders.Root)
+        pcall(makefolder, Library.Folders.Configs)
         pcall(makefolder, Library.Folders.Assets)
     end
 
@@ -610,6 +611,27 @@ local function BuildRuntime()
 
     local AccentAlpha = math.clamp(tonumber(SavedPositions.AccentAlpha) or 1, 0, 1)
     local ThemeColors = type(SavedPositions.ThemeColors) == "table" and SavedPositions.ThemeColors or {DefaultThemeColors[1], DefaultThemeColors[2], DefaultThemeColors[3]}
+    local AtramentaPerPickerThemesV1 = true
+
+    local function CopyThemeColors(Source)
+        local Result = {}
+        if type(Source) == "table" then
+            for _, Hex in ipairs(Source) do
+                if type(Hex) == "string" then
+                    Result[#Result + 1] = Hex
+                end
+            end
+        end
+        return Result
+    end
+
+    local ColorPickerThemes = type(SavedPositions.ColorPickerThemes) == "table" and SavedPositions.ColorPickerThemes or {}
+    if type(ColorPickerThemes.__Accent) ~= "table" then
+        ColorPickerThemes.__Accent = ThemeColors
+    else
+        ThemeColors = ColorPickerThemes.__Accent
+    end
+    SavedPositions.ColorPickerThemes = ColorPickerThemes
     if PaletteMigrated then
         pcall(SavePositions)
     end
@@ -3724,7 +3746,7 @@ local function BuildRuntime()
                 Parent = Button,
                 AnchorPoint = Vector2.new(0.5, 0.5),
                 Position = UDim2.fromScale(0.5, 0.5),
-                Size = UDim2.fromOffset(16, 3),
+                Size = UDim2.fromOffset(12, 2),
                 BackgroundColor3 = Button.TextColor3,
                 BorderSizePixel = 0,
                 ZIndex = 45
@@ -3736,7 +3758,7 @@ local function BuildRuntime()
                     Parent = Button,
                     AnchorPoint = Vector2.new(0.5, 0.5),
                     Position = UDim2.fromScale(0.5, 0.5),
-                    Size = UDim2.fromOffset(3, 16),
+                    Size = UDim2.fromOffset(2, 12),
                     BackgroundColor3 = Button.TextColor3,
                     BorderSizePixel = 0,
                     ZIndex = 45
@@ -5207,9 +5229,52 @@ local function BuildRuntime()
 
     local SetPickerColor
 
+    local function GetPickerPaletteKey()
+        if Menu.SettingsUI.PickerIsAccent == true or Menu.SettingsUI.PickerPaletteKey == nil then
+            return "__Accent"
+        end
+
+        local Key = tostring(Menu.SettingsUI.PickerPaletteKey)
+        if Key == "" then
+            return "__Default"
+        end
+        return Key
+    end
+
+    local function GetPickerThemeColors()
+        local Key = GetPickerPaletteKey()
+        local Palette = ColorPickerThemes[Key]
+        if type(Palette) ~= "table" then
+            Palette = CopyThemeColors(ColorPickerThemes.__Accent or ThemeColors)
+            ColorPickerThemes[Key] = Palette
+            SavedPositions.ColorPickerThemes = ColorPickerThemes
+        end
+        return Palette
+    end
+
+    local function SavePickerThemeColors()
+        if type(ColorPickerThemes.__Accent) == "table" then
+            ThemeColors = ColorPickerThemes.__Accent
+            SavedPositions.ThemeColors = ThemeColors
+        end
+        SavedPositions.ColorPickerThemes = ColorPickerThemes
+        SavePositions()
+    end
+
+    local function SaveAccentIfNeeded(Color)
+        if not Menu.SettingsUI.PickerIsAccent then
+            return
+        end
+        SavedPositions.AccentHex = ColorToThemeHex(Color)
+        SavedPositions.AccentAlpha = AccentAlpha
+        SavePositions()
+    end
+
     local function RefreshThemeButtons()
         ClearThemeButtons()
-        for Index, Hex in ipairs(ThemeColors) do
+        local ActiveThemeColors = GetPickerThemeColors()
+
+        for Index, Hex in ipairs(ActiveThemeColors) do
             local Color = ThemeHexToColor(Hex)
             if Color then
                 local Button = Create("TextButton", {
@@ -5225,19 +5290,18 @@ local function BuildRuntime()
                 Corner(Button, 12)
                 Stroke(Button, Color3.new(1, 1, 1), 0.82, 1)
                 table.insert(ThemeButtons, Button)
+
                 Bind(Button.MouseButton1Click:Connect(function()
                     if SetPickerColor then
                         SetPickerColor(Color)
-                        SavedPositions.AccentHex = ColorToThemeHex(Color)
-                        SavedPositions.AccentAlpha = AccentAlpha
-                        SavePositions()
+                        SaveAccentIfNeeded(Color)
                     end
                 end))
+
                 Bind(Button.MouseButton2Click:Connect(function()
-                    if #ThemeColors > 1 then
-                        table.remove(ThemeColors, Index)
-                        SavedPositions.ThemeColors = ThemeColors
-                        SavePositions()
+                    if ActiveThemeColors[Index] ~= nil then
+                        table.remove(ActiveThemeColors, Index)
+                        SavePickerThemeColors()
                         RefreshThemeButtons()
                     end
                 end))
@@ -5414,7 +5478,7 @@ local function BuildRuntime()
         end
     end
 
-    Menu.OpenColorPicker = function(Anchor, Color, Alpha, Callback, Glow, PickerStroke, IsAccent, Closed)
+    Menu.OpenColorPicker = function(Anchor, Color, Alpha, Callback, Glow, PickerStroke, IsAccent, Closed, PaletteKey)
         local SameTarget = PickerOpen and Menu.SettingsUI.PickerAnchor == Anchor
         if PickerOpen then
             SetPickerOpen(false)
@@ -5425,6 +5489,8 @@ local function BuildRuntime()
         Menu.SettingsUI.PickerCallback = Callback
         Menu.SettingsUI.PickerClosed = Closed
         Menu.SettingsUI.PickerIsAccent = IsAccent == true
+        Menu.SettingsUI.PickerPaletteKey = Menu.SettingsUI.PickerIsAccent and "__Accent" or tostring(PaletteKey or "__Default")
+        RefreshThemeButtons()
         if not SameTarget then
             SetPickerColor(typeof(Color) == "Color3" and Color or Accent, tonumber(Alpha) or 1)
             SetPickerOpen(true)
@@ -5586,9 +5652,7 @@ local function BuildRuntime()
             AlphaDragging = false
             if WasPickerDragging then
                 MarkPickerInteraction(false, 0.24)
-                SavedPositions.AccentHex = ColorToThemeHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
-                SavedPositions.AccentAlpha = AccentAlpha
-                SavePositions()
+                SaveAccentIfNeeded(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
             end
         end
     end))
@@ -5597,9 +5661,7 @@ local function BuildRuntime()
         local Parsed, ParsedAlpha = HexToColor(Menu.SettingsUI.HexBox.Text)
         if Parsed then
             SetPickerColor(Parsed, ParsedAlpha)
-            SavedPositions.AccentHex = ColorToThemeHex(Parsed)
-            SavedPositions.AccentAlpha = AccentAlpha
-            SavePositions()
+            SaveAccentIfNeeded(Parsed)
         end
     end))
 
@@ -5608,9 +5670,7 @@ local function BuildRuntime()
             local Parsed, ParsedAlpha = HexToColor(Menu.SettingsUI.HexBox.Text)
             if Parsed then
                 SetPickerColor(Parsed, ParsedAlpha)
-                SavedPositions.AccentHex = ColorToThemeHex(Parsed)
-                SavedPositions.AccentAlpha = AccentAlpha
-                SavePositions()
+                SaveAccentIfNeeded(Parsed)
             else
                 Menu.SettingsUI.HexBox.Text = ColorToHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
             end
@@ -5669,17 +5729,20 @@ local function BuildRuntime()
 
     Bind(Menu.SettingsUI.AddThemeButton.MouseButton1Click:Connect(function()
         local CurrentHex = ColorToThemeHex(Color3.fromHSV(HueValue, SaturationValue, BrightnessValue))
-        for _, ExistingHex in ipairs(ThemeColors) do
+        local ActiveThemeColors = GetPickerThemeColors()
+
+        for _, ExistingHex in ipairs(ActiveThemeColors) do
             if string.upper(ExistingHex) == string.upper(CurrentHex) then
                 return
             end
         end
-        if #ThemeColors >= 7 then
-            table.remove(ThemeColors, 1)
+
+        if #ActiveThemeColors >= 7 then
+            table.remove(ActiveThemeColors, 1)
         end
-        table.insert(ThemeColors, CurrentHex)
-        SavedPositions.ThemeColors = ThemeColors
-        SavePositions()
+
+        table.insert(ActiveThemeColors, CurrentHex)
+        SavePickerThemeColors()
         RefreshThemeButtons()
     end))
 
@@ -5689,6 +5752,8 @@ local function BuildRuntime()
     Menu.SettingsUI.PickerCallback = nil
     Menu.SettingsUI.PickerClosed = nil
     Menu.SettingsUI.PickerIsAccent = true
+    Menu.SettingsUI.PickerPaletteKey = "__Accent"
+    RefreshThemeButtons()
     SetPickerColor(Accent, AccentAlpha)
     SetPickerOpen(false)
     local CombatPage = CreatePage("Combat")
@@ -7906,7 +7971,7 @@ local function BuildRuntime()
         Bind(Button.MouseButton1Click:Connect(function()
             Menu.OpenColorPicker(Button, Value, Alpha, function(NewColor, NewAlpha)
                 Object:Set(NewColor, NewAlpha)
-            end, Glow, BorderStroke, false)
+            end, Glow, BorderStroke, false, nil, Flag)
         end))
         Bind(Button.MouseEnter:Connect(function()
             Tween(BorderStroke, 0.12, {Transparency = 0.08})
