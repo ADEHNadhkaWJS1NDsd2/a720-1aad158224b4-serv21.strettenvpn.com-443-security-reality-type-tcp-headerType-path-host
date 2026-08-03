@@ -520,7 +520,38 @@ local function BuildRuntime()
         end
     end
 
+    local PositionSaveQueued = false
+
     local function SavePositions()
+        if type(writefile) ~= "function" then return false end
+        if PositionSaveQueued then return true end
+        PositionSaveQueued = true
+        task.defer(function()
+            PositionSaveQueued = false
+            if type(makefolder) == "function" then
+                pcall(makefolder, Library.Folders.Root)
+                pcall(makefolder, Library.Folders.Configs)
+            end
+
+            local ExistingConfig = nil
+            if type(isfile) == "function" and type(readfile) == "function" and isfile(PositionFile) then
+                local ReadSuccess, ExistingSource = pcall(readfile, PositionFile)
+                if ReadSuccess and type(ExistingSource) == "string" and ExistingSource ~= "" then
+                    local DecodeSuccess, Existing = pcall(HttpService.JSONDecode, HttpService, ExistingSource)
+                    if DecodeSuccess and type(Existing) == "table" and type(Existing.Config) == "string" then
+                        ExistingConfig = Existing.Config
+                    end
+                end
+            end
+
+            local Payload = {Interface = SavedPositions}
+            if ExistingConfig then Payload.Config = ExistingConfig end
+            local EncodeSuccess, Encoded = pcall(HttpService.JSONEncode, HttpService, Payload)
+            if EncodeSuccess and type(Encoded) == "string" then
+                pcall(writefile, PositionFile, Encoded)
+            end
+        end)
+        return true
     end
 
     local function SaveManual()
@@ -1750,10 +1781,15 @@ local function BuildRuntime()
         end
 
         local Seen = {}
+        local Changed = false
         for Index = #Binds, 1, -1 do
             local BindData = Binds[Index]
-            if type(BindData) ~= "table" or type(BindData.KeyType) ~= "string" or type(BindData.Key) ~= "string" then
+            if type(BindData) ~= "table"
+                or type(BindData.KeyType) ~= "string"
+                or type(BindData.Key) ~= "string"
+                or (BindData.KeyType == "UserInputType" and BindData.Key == "MouseButton1") then
                 table.remove(Binds, Index)
+                Changed = true
             else
                 BindData.Mode = BindData.Mode == "Hold" and "Hold" or "Toggle"
                 BindData.ShowInBinds = BindData.ShowInBinds ~= false
@@ -1770,11 +1806,13 @@ local function BuildRuntime()
                 }, ":")
                 if Seen[Signature] then
                     table.remove(Binds, Index)
+                    Changed = true
                 else
                     Seen[Signature] = true
                 end
             end
         end
+        if Changed then SavePositions() end
         return Binds, Key
     end
 
@@ -1824,37 +1862,35 @@ local function BuildRuntime()
         }
     end
 
+    local BindKeyAliases = {
+        MouseButton2 = "RMB",
+        MouseButton3 = "MMB",
+        MouseButton4 = "M4",
+        MouseButton5 = "M5",
+        KeypadZero = "NUM0", KeypadOne = "NUM1", KeypadTwo = "NUM2", KeypadThree = "NUM3", KeypadFour = "NUM4",
+        KeypadFive = "NUM5", KeypadSix = "NUM6", KeypadSeven = "NUM7", KeypadEight = "NUM8", KeypadNine = "NUM9",
+        KeypadPeriod = "NUM.", KeypadDivide = "NUM/", KeypadMultiply = "NUM*", KeypadMinus = "NUM-", KeypadPlus = "NUM+",
+        KeypadEnter = "NUMENTER", KeypadEquals = "NUM=",
+        Return = "ENTER", Escape = "ESC", Backspace = "BACK", Delete = "DEL", Insert = "INS",
+        PageUp = "PGUP", PageDown = "PGDN", CapsLock = "CAPS", Space = "SPACE",
+        Up = "UP", Down = "DOWN", Left = "LEFT", Right = "RIGHT",
+        Minus = "-", Equals = "=", LeftBracket = "[", RightBracket = "]", BackSlash = "\\",
+        Semicolon = ";", Quote = "'", Comma = ",", Period = ".", Slash = "/", Backquote = "`"
+    }
+
     local function FriendlyKeyName(Name)
-        local Result = tostring(Name or "Unknown")
-        Result = Result:gsub("MouseButton1", "Mouse 1")
-        Result = Result:gsub("MouseButton2", "Mouse 2")
-        Result = Result:gsub("MouseButton3", "Mouse 3")
-        Result = Result:gsub("Keypad", "Num ")
-        Result = Result:gsub("(%l)(%u)", "%1 %2")
-        Result = Result:gsub("One", "1")
-        Result = Result:gsub("Two", "2")
-        Result = Result:gsub("Three", "3")
-        Result = Result:gsub("Four", "4")
-        Result = Result:gsub("Five", "5")
-        Result = Result:gsub("Six", "6")
-        Result = Result:gsub("Seven", "7")
-        Result = Result:gsub("Eight", "8")
-        Result = Result:gsub("Nine", "9")
-        Result = Result:gsub("Zero", "0")
-        return Result
+        local Raw = tostring(Name or "Unknown")
+        local Alias = BindKeyAliases[Raw]
+        if Alias then return Alias end
+        local Result = Raw:gsub("(%l)(%u)", "%1 %2")
+        return string.upper(Result)
     end
 
     local function BuildBindDisplay(KeyName, Modifiers)
         local Parts = {}
-        if Modifiers and Modifiers.Ctrl then
-            table.insert(Parts, "Ctrl")
-        end
-        if Modifiers and Modifiers.Shift then
-            table.insert(Parts, "Shift")
-        end
-        if Modifiers and Modifiers.Alt then
-            table.insert(Parts, "Alt")
-        end
+        if Modifiers and Modifiers.Ctrl then table.insert(Parts, "CTRL") end
+        if Modifiers and Modifiers.Shift then table.insert(Parts, "SHIFT") end
+        if Modifiers and Modifiers.Alt then table.insert(Parts, "ALT") end
         table.insert(Parts, FriendlyKeyName(KeyName))
         return table.concat(Parts, " + ")
     end
@@ -1863,10 +1899,10 @@ local function BuildRuntime()
         if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode ~= Enum.KeyCode.Unknown then
             return "KeyCode", Input.KeyCode.Name
         end
-        if Input.UserInputType == Enum.UserInputType.MouseButton1
-            or Input.UserInputType == Enum.UserInputType.MouseButton2
-            or Input.UserInputType == Enum.UserInputType.MouseButton3 then
-            return "UserInputType", Input.UserInputType.Name
+        local InputTypeName = Input.UserInputType and Input.UserInputType.Name or ""
+        if type(InputTypeName) == "string" and string.match(InputTypeName, "^MouseButton%d+$") then
+            if InputTypeName == "MouseButton1" then return nil, nil end
+            return "UserInputType", InputTypeName
         end
         return nil, nil
     end
@@ -1891,7 +1927,8 @@ local function BuildRuntime()
     end
 
     local function FormatBindLabel(BindData)
-        local Display = BindData.Display or BuildBindDisplay(BindData.Key, BindData.Modifiers)
+        local Display = BuildBindDisplay(BindData.Key, BindData.Modifiers)
+        BindData.Display = Display
         return Display .. "   |   " .. tostring(BindData.Mode or "Toggle")
     end
 
@@ -3681,9 +3718,46 @@ local function BuildRuntime()
             return Button
         end
 
-        S.Add = MakeToolButton("+", 0, 30, PrimaryText)
-        S.LoadSelected = MakeToolButton("LOAD", 36, 62, DisabledText)
-        S.Remove = MakeToolButton("−", 104, 30, DisabledText)
+        local function AttachLineIcon(Button, Mode)
+            Button.Text = ""
+            local Horizontal = Create("Frame", {
+                Parent = Button,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.5, 0.5),
+                Size = UDim2.fromOffset(16, 3),
+                BackgroundColor3 = Button.TextColor3,
+                BorderSizePixel = 0,
+                ZIndex = 45
+            })
+            Corner(Horizontal, 1)
+            local Vertical = nil
+            if Mode == "Plus" then
+                Vertical = Create("Frame", {
+                    Parent = Button,
+                    AnchorPoint = Vector2.new(0.5, 0.5),
+                    Position = UDim2.fromScale(0.5, 0.5),
+                    Size = UDim2.fromOffset(3, 16),
+                    BackgroundColor3 = Button.TextColor3,
+                    BorderSizePixel = 0,
+                    ZIndex = 45
+                })
+                Corner(Vertical, 1)
+            end
+            local function Sync()
+                Horizontal.BackgroundColor3 = Button.TextColor3
+                if Vertical then
+                    Vertical.BackgroundColor3 = Button.TextColor3
+                end
+            end
+            Bind(Button:GetPropertyChangedSignal("TextColor3"):Connect(Sync))
+            Sync()
+        end
+
+        S.Add = MakeToolButton("", 0, 36, PrimaryText)
+        AttachLineIcon(S.Add, "Plus")
+        S.LoadSelected = MakeToolButton("LOAD", 42, 62, DisabledText)
+        S.Remove = MakeToolButton("", 110, 36, DisabledText)
+        AttachLineIcon(S.Remove, "Minus")
         S.DeleteAll = MakeToolButton("", 240, 40, Danger)
 
         local TrashTop = Create("Frame", {
@@ -3846,13 +3920,13 @@ local function BuildRuntime()
             S.SelectedName = Name
             for RowName, Data in pairs(S.Rows) do
                 local Selected = RowName == Name
-                Data.Root.BackgroundColor3 = Selected and Color3.fromRGB(13, 27, 36) or SurfaceAlt
-                Data.Root.BackgroundTransparency = Selected and 0.30 or 0.72
+                Data.Root.BackgroundColor3 = Selected and Color3.fromRGB(11, 22, 29) or SurfaceAlt
+                Data.Root.BackgroundTransparency = Selected and 0.10 or 0.72
                 Data.Name.TextColor3 = Selected and PrimaryText or MutedText
                 Data.Marker.BackgroundTransparency = Selected and 0 or 1
                 if Data.Stroke then
-                    Data.Stroke.Color = Selected and Accent or Border
-                    Data.Stroke.Transparency = Selected and 0.34 or 0.74
+                    Data.Stroke.Color = Border
+                    Data.Stroke.Transparency = Selected and 0.56 or 0.74
                 end
             end
             S.Remove.TextColor3 = Name and PrimaryText or DisabledText
@@ -3918,18 +3992,19 @@ local function BuildRuntime()
 
                 local Marker = Create("Frame", {
                     Parent = Root,
-                    Position = UDim2.fromOffset(0, 7),
-                    Size = UDim2.fromOffset(2, 18),
+                    Position = UDim2.fromOffset(5, 8),
+                    Size = UDim2.fromOffset(3, 16),
                     BackgroundColor3 = Accent,
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
                     ZIndex = 44
                 })
+                Corner(Marker, 2)
 
                 local NameLabel = Create("TextLabel", {
                     Parent = Root,
-                    Position = UDim2.fromOffset(10, 0),
-                    Size = UDim2.new(1, -20, 1, 0),
+                    Position = UDim2.fromOffset(14, 0),
+                    Size = UDim2.new(1, -24, 1, 0),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSans,
                     Text = Name,
@@ -7272,6 +7347,10 @@ local function BuildRuntime()
         if not PendingBindCapture then
             return false
         end
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if PendingBindCapture.SetText then PendingBindCapture.SetText("LMB unavailable") end
+            return true
+        end
         if Input.UserInputType == Enum.UserInputType.Keyboard and Menu.BindSystem.IsModifierKey(Input.KeyCode) then
             return true
         end
@@ -8722,6 +8801,10 @@ local function BuildRuntime()
                 Encoded[tostring(Name)] = EncodedValue
             end
         end
+        local BindsSuccess, EncodedBinds = pcall(EncodeValue, SavedPositions.ControlBinds or {}, 0)
+        if BindsSuccess and EncodedBinds ~= nil then
+            Encoded.__AtramentaControlBinds = EncodedBinds
+        end
 
         local Success, Source = pcall(HttpService.JSONEncode, HttpService, Encoded)
         if Success and type(Source) == "string" then
@@ -8769,7 +8852,21 @@ local function BuildRuntime()
             for Key, Item in pairs(Value) do Result[Key] = DecodeValue(Item, Depth + 1) end
             return Result
         end
+        local LoadedBinds = Decoded.__AtramentaControlBinds
+        Decoded.__AtramentaControlBinds = nil
         for Name, Value in pairs(Decoded) do self:SetFlag(Name, DecodeValue(Value, 0)) end
+        if LoadedBinds ~= nil then
+            local Binds = DecodeValue(LoadedBinds, 0)
+            if type(Binds) == "table" then
+                SavedPositions.ControlBinds = Binds
+                if Menu.BindSystem and type(Menu.BindSystem.GetControlBinds) == "function" then
+                    for Flag in pairs(Binds) do
+                        Menu.BindSystem.GetControlBinds(Flag)
+                    end
+                end
+                SavePositions()
+            end
+        end
         return true
     end
 
