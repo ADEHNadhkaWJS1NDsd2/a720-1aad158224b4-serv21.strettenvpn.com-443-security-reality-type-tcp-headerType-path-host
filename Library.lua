@@ -8770,26 +8770,46 @@ local function BuildRuntime()
     end
 
     function ApiState:ReflowSubPage(SubPage)
+        if type(SubPage) ~= "table" then
+            return
+        end
+
         local LeftY = 0
         local RightY = 0
-        for _, Entry in ipairs(SubPage.Sections or {}) do
-            local Height = math.max(78, Entry.DesiredHeight or 78)
-            local IsRight = Entry.Side == "Right"
-            local Y = IsRight and RightY or LeftY
-            local Position = UDim2.fromOffset(IsRight and 319 or 0, Y)
-            Entry.Section.Root.Position = Position
-            Entry.Section.Root.Size = UDim2.fromOffset(307, Height)
-            Entry.Section.HomePosition = Position
-            AssemblyTargets[Entry.Section.Root] = Position
-            if IsRight then
-                RightY = Y + Height + 12
-            else
-                LeftY = Y + Height + 12
+        local Sections = SubPage.Sections
+
+        if type(Sections) == "table" then
+            for _, Entry in ipairs(Sections) do
+                local Section = type(Entry) == "table" and Entry.Section or nil
+                local Root = type(Section) == "table" and Section.Root or nil
+
+                if typeof(Root) == "Instance" then
+                    local Height = math.max(78, tonumber(Entry.DesiredHeight) or 78)
+                    local IsRight = Entry.Side == "Right"
+                    local Y = IsRight and RightY or LeftY
+                    local Position = UDim2.fromOffset(IsRight and 319 or 0, Y)
+
+                    Root.Position = Position
+                    Root.Size = UDim2.fromOffset(307, Height)
+                    Section.HomePosition = Position
+
+                    if type(Menu.AssemblyTargets) == "table" then
+                        Menu.AssemblyTargets[Root] = Position
+                    end
+
+                    if IsRight then
+                        RightY = Y + Height + 12
+                    else
+                        LeftY = Y + Height + 12
+                    end
+                end
             end
         end
-        if SubPage.Frame:IsA("ScrollingFrame") then
+
+        local Frame = SubPage.Frame
+        if typeof(Frame) == "Instance" and Frame:IsA("ScrollingFrame") then
             local Bottom = math.max(LeftY, RightY)
-            SubPage.Frame.CanvasSize = UDim2.fromOffset(0, math.max(464, Bottom > 0 and Bottom - 12 or 464))
+            Frame.CanvasSize = UDim2.fromOffset(0, math.max(464, Bottom > 0 and Bottom - 12 or 464))
         end
     end
 
