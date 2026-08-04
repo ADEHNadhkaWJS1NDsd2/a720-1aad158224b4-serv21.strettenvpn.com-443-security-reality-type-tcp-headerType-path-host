@@ -7568,7 +7568,7 @@ local function BuildRuntime()
         end
     end))
 
-    (function()
+    Menu.InitDragRuntime = function()
     local Dragging = false
     local DragStart
     local StartPosition
@@ -7704,7 +7704,9 @@ local function BuildRuntime()
         end
     end))
 
-    end)()
+    end
+    Menu.InitDragRuntime()
+    Menu.InitDragRuntime = nil
 
     Menu.UpdateScale = function()
         local Camera = workspace.CurrentCamera
