@@ -4650,11 +4650,25 @@ local function BuildRuntime()
                             BindData.Display = Display
                         end
 
+                        local EnabledFlag = BindData.EnabledFlag
+                            or (Menu.BindSystem.EnabledFlags and Menu.BindSystem.EnabledFlags[Flag])
+                        local GateActive = EnabledFlag == nil or Menu.Flags[EnabledFlag] == true
+
+                        if not GateActive and Mode == "Hold" then
+                            local RuntimeKey = GetKeybindRuntimeKey(Flag, BindData)
+                            if Menu.BindRuntime[RuntimeKey] ~= nil then
+                                Menu.BindRuntime[RuntimeKey] = nil
+                                if Menu.Flags[Flag] == true then
+                                    Menu.BindSystem.ApplyFlagValue(Flag, false)
+                                end
+                            end
+                        end
+
                         local Active
                         if Mode == "Hold" then
-                            Active = Menu.BindRuntime[GetKeybindRuntimeKey(Flag, BindData)] ~= nil
+                            Active = GateActive and Menu.BindRuntime[GetKeybindRuntimeKey(Flag, BindData)] ~= nil
                         else
-                            Active = Menu.Flags[Flag] == true
+                            Active = GateActive and Menu.Flags[Flag] == true
                         end
 
                         Entries[#Entries + 1] = {
@@ -7871,6 +7885,7 @@ local function BuildRuntime()
             Display = Menu.BindSystem.BuildBindDisplay(KeyName, Modifiers),
             Mode = Mode == "Hold" and "Hold" or "Toggle",
             ShowInBinds = CapturedShowInBinds,
+            EnabledFlag = Menu.BindSystem.EnabledFlags and Menu.BindSystem.EnabledFlags[PendingBindCapture.Flag] or nil,
             ControlType = "Boolean"
         }
         table.insert(Binds, BindData)
@@ -7885,6 +7900,12 @@ local function BuildRuntime()
     Menu.BindSystem.ExecutePressed = function(Flag, BindData)
         local Current = Menu.Flags[Flag]
         if type(Current) ~= "boolean" then
+            return
+        end
+
+        local EnabledFlag = BindData.EnabledFlag
+            or (Menu.BindSystem.EnabledFlags and Menu.BindSystem.EnabledFlags[Flag])
+        if EnabledFlag ~= nil and Menu.Flags[EnabledFlag] ~= true then
             return
         end
 
@@ -8411,6 +8432,10 @@ local function BuildRuntime()
         local Default = ApiRead(Data, "Default", "None")
         local Mode = tostring(ApiRead(Data, "Mode", "Toggle"))
         local Callback = ApiRead(Data, "Callback")
+        local EnabledFlag = ApiRead(Data, "EnabledFlag", ApiRead(Data, "GateFlag"))
+        if EnabledFlag ~= nil then
+            EnabledFlag = tostring(EnabledFlag)
+        end
         local Row = ExistingRow or CreateRow(Section.Body, 27)
 
         if not ExistingRow then
@@ -8426,6 +8451,11 @@ local function BuildRuntime()
                 ZIndex = 8
             })
             RegisterControl(Section, Row, Name)
+        end
+
+        Menu.BindSystem.EnabledFlags = Menu.BindSystem.EnabledFlags or {}
+        if EnabledFlag ~= nil then
+            Menu.BindSystem.EnabledFlags[Flag] = EnabledFlag
         end
 
         if not TargetFlag then
@@ -8461,6 +8491,7 @@ local function BuildRuntime()
                 for _, BindData in ipairs(Binds) do
                     if BindData.KeyType == KeyType and BindData.Key == Default.Name then
                         Exists = true
+                        BindData.EnabledFlag = EnabledFlag
                         break
                     end
                 end
@@ -8473,6 +8504,7 @@ local function BuildRuntime()
                         Display = Menu.BindSystem.BuildBindDisplay(Default.Name, {}),
                         Mode = Mode == "Hold" and "Hold" or "Toggle",
                         ShowInBinds = true,
+                        EnabledFlag = EnabledFlag,
                         Value = true,
                         BaseValue = Menu.Flags[Flag]
                     })
