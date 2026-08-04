@@ -7734,17 +7734,17 @@ local function BuildRuntime()
         SearchSettings = SearchSettings.Position
     }
 
-    Menu.AssemblyScales = {}
     Menu.AssemblyGeneration = 0
 
     for _, Section in pairs(Menu.Sections) do
-        Menu.AssemblyTargets[Section.Root] = Section.Root.Position
-        local SectionScale = Create("UIScale", {
-            Parent = Section.Root,
-            Scale = 1
-        })
-        Menu.AssemblyScales[Section.Root] = SectionScale
-        Section.AssemblyScale = SectionScale
+        if typeof(Section.Root) == "Instance" then
+            Section.HomePosition = Section.HomePosition or Section.Root.Position
+            local SectionScale = Create("UIScale", {
+                Parent = Section.Root,
+                Scale = 1
+            })
+            Section.AssemblyScale = SectionScale
+        end
     end
 
     Menu.InternalSetVisible = function(State)
@@ -7770,7 +7770,7 @@ local function BuildRuntime()
             SearchSettings.Position = Menu.AssemblyTargets.SearchSettings
             for _, Section in pairs(Menu.Sections) do
                 if Section.Root and Section.Root.Parent then
-                    Section.Root.Position = Section.HomePosition or Menu.AssemblyTargets[Section.Root] or Section.Root.Position
+                    Section.Root.Position = Section.HomePosition or Section.Root.Position
                     if Section.AssemblyScale then Section.AssemblyScale.Scale = 1 end
                 end
             end
@@ -8793,10 +8793,6 @@ local function BuildRuntime()
                     Root.Size = UDim2.fromOffset(307, Height)
                     Section.HomePosition = Position
 
-                    if type(Menu.AssemblyTargets) == "table" then
-                        Menu.AssemblyTargets[Root] = Position
-                    end
-
                     if IsRight then
                         RightY = Y + Height + 12
                     else
@@ -8837,12 +8833,21 @@ local function BuildRuntime()
         local Section = CreateSection(self.Frame, Key, tostring(ApiRead(Data, "Name", "Section")), UDim2.fromOffset(0, 0), UDim2.fromOffset(307, MinimumHeight))
         local Entry = {Section = Section, Side = Side, DesiredHeight = MinimumHeight, MinimumHeight = MinimumHeight}
         table.insert(self.Sections, Entry)
-        local Layout = Section.Body:FindFirstChildOfClass("UIListLayout")
+        local Layout = Section.Body and Section.Body:FindFirstChildOfClass("UIListLayout") or nil
         local function UpdateHeight()
-            Entry.DesiredHeight = math.max(Entry.MinimumHeight, (Layout and Layout.AbsoluteContentSize.Y or 0) + 50)
+            if typeof(Section.Root) ~= "Instance" or Section.Root.Parent == nil then
+                return
+            end
+
+            local ContentHeight = 0
+            if typeof(Layout) == "Instance" and Layout.Parent ~= nil then
+                ContentHeight = Layout.AbsoluteContentSize.Y
+            end
+
+            Entry.DesiredHeight = math.max(Entry.MinimumHeight, ContentHeight + 50)
             ApiState:ReflowSubPage(self)
         end
-        if Layout then
+        if typeof(Layout) == "Instance" then
             Bind(Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateHeight))
         end
         task.defer(UpdateHeight)
