@@ -1159,6 +1159,13 @@ local function BuildRuntime()
             Icon = GearIcon,
             Info = ControlInfo or {}
         }
+        Menu.BindSystem.ControlNames = Menu.BindSystem.ControlNames or {}
+        if ControlFlag ~= nil then
+            Menu.BindSystem.ControlNames[tostring(ControlFlag)] = tostring(ControlName or ControlFlag)
+            if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+                Menu.KeybindListController.MarkDirty()
+            end
+        end
         Bind(Button.MouseButton1Click:Connect(function()
             if OpenGearMenu then
                 OpenGearMenu(Button, GearIcon, Meta)
@@ -3491,7 +3498,7 @@ local function BuildRuntime()
         Active = true,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = DecodePosition(SavedPositions.Settings, Main.Position),
-        Size = UDim2.fromOffset(348, 696),
+        Size = UDim2.fromOffset(500, 492),
         BackgroundColor3 = Color3.fromRGB(10, 9, 14),
         BorderSizePixel = 0,
         Visible = false,
@@ -3507,20 +3514,20 @@ local function BuildRuntime()
 
     Menu.SettingsUI.SettingsDragArea = Create("Frame", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        Size = UDim2.new(1, 0, 0, 84),
+        Size = UDim2.new(1, 0, 0, 54),
         BackgroundTransparency = 1,
         ZIndex = 32
     })
 
     Create("TextLabel", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(0, 22),
-        Size = UDim2.new(1, 0, 0, 34),
+        Position = UDim2.fromOffset(0, 14),
+        Size = UDim2.new(1, 0, 0, 28),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSansMedium,
         Text = "SETTINGS",
         TextColor3 = PrimaryText,
-        TextSize = 22,
+        TextSize = 19,
         ZIndex = 31
     })
 
@@ -4266,7 +4273,6 @@ local function BuildRuntime()
         Parent = ScreenGui,
         Position = DecodePosition(SavedPositions.Watermark, UDim2.fromOffset(28, 18)),
         Size = UDim2.fromOffset(340, 34),
-        AutomaticSize = Enum.AutomaticSize.X,
         BackgroundColor3 = Color3.fromRGB(8, 13, 18),
         BorderSizePixel = 0,
         Visible = SavedPositions.HideWatermark ~= true,
@@ -4347,7 +4353,6 @@ local function BuildRuntime()
         Parent = Watermark,
         LayoutOrder = 1,
         Size = UDim2.fromOffset(94, 34),
-        AutomaticSize = Enum.AutomaticSize.X,
         BackgroundTransparency = 1,
         ZIndex = 211
     })
@@ -4361,7 +4366,7 @@ local function BuildRuntime()
     local WatermarkName = Create("TextLabel", {
         Parent = UserSegment,
         Position = UDim2.fromOffset(24, 0),
-        Size = UDim2.fromOffset(68, 34),
+        Size = UDim2.fromOffset(0, 34),
         AutomaticSize = Enum.AutomaticSize.X,
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSans,
@@ -4372,6 +4377,17 @@ local function BuildRuntime()
         TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 212
     })
+
+    local function UpdateWatermarkWidth()
+        local NameWidth = math.ceil(WatermarkName.TextBounds.X)
+        local UserWidth = 32 + NameWidth
+        UserSegment.Size = UDim2.fromOffset(UserWidth, 34)
+        Watermark.Size = UDim2.fromOffset(246 + UserWidth, 34)
+        SyncWatermarkGlow()
+    end
+
+    Bind(WatermarkName:GetPropertyChangedSignal("TextBounds"):Connect(UpdateWatermarkWidth))
+    task.defer(UpdateWatermarkWidth)
 
     CreateWatermarkSeparator(2)
 
@@ -4442,7 +4458,7 @@ local function BuildRuntime()
         local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
         local EffectiveSize = Watermark.AbsoluteSize
         if EffectiveSize.X <= 0 or EffectiveSize.Y <= 0 then
-            EffectiveSize = Vector2.new(340 * WatermarkScale.Scale, 34 * WatermarkScale.Scale)
+            EffectiveSize = Vector2.new(Watermark.Size.X.Offset * WatermarkScale.Scale, 34 * WatermarkScale.Scale)
         end
         local X = math.clamp(Position.X.Offset, 8, math.max(8, Viewport.X - EffectiveSize.X - 8))
         local Y = math.clamp(Position.Y.Offset, 8, math.max(8, Viewport.Y - EffectiveSize.Y - 8))
@@ -4540,11 +4556,305 @@ local function BuildRuntime()
     SyncWatermarkGlow()
     end
 
+    Menu.KeybindListUI = Menu.KeybindListUI or {}
+    local KeybindListHidden = SavedPositions.HideKeybinds == true
+    local KeybindListScaleValue = math.clamp(tonumber(SavedPositions.KeybindListScale) or 100, 70, 140)
+    local KeybindListSignature = ""
+    local KeybindListAccumulator = 0
+    local KeybindListDragging = false
+    local KeybindListDragStart
+    local KeybindListStartPosition
+
+    local KeybindListWindow = Create("Frame", {
+        Parent = ScreenGui,
+        Active = true,
+        Position = DecodePosition(SavedPositions.Keybinds, UDim2.fromOffset(24, 154)),
+        Size = UDim2.fromOffset(216, 58),
+        BackgroundColor3 = Color3.fromRGB(15, 14, 20),
+        BackgroundTransparency = 0.04,
+        BorderSizePixel = 0,
+        Visible = not KeybindListHidden,
+        ZIndex = 72
+    })
+    Corner(KeybindListWindow, 8)
+    Stroke(KeybindListWindow, Border, 0.14, 1)
+    local KeybindListGlow = Menu:AddSoftGlow(KeybindListWindow, 71, 10, 0.68, true)
+
+    local KeybindListScale = Create("UIScale", {
+        Parent = KeybindListWindow,
+        Scale = KeybindListScaleValue / 100
+    })
+
+    local KeybindListHeader = Create("Frame", {
+        Parent = KeybindListWindow,
+        Active = true,
+        Size = UDim2.new(1, 0, 0, 31),
+        BackgroundTransparency = 1,
+        ZIndex = 73
+    })
+
+    Create("TextLabel", {
+        Parent = KeybindListHeader,
+        Position = UDim2.fromOffset(8, 5),
+        Size = UDim2.new(1, -16, 0, 18),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = "Keybinds",
+        TextColor3 = PrimaryText,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 74
+    })
+
+    local KeybindListAccentLine = Create("Frame", {
+        Parent = KeybindListWindow,
+        Position = UDim2.fromOffset(10, 29),
+        Size = UDim2.new(1, -20, 0, 1),
+        BackgroundColor3 = Accent,
+        BorderSizePixel = 0,
+        ZIndex = 74
+    })
+    local KeybindListAccentGlow = Menu:AddSoftGlow(KeybindListAccentLine, 73, 7, 0.56, true)
+
+    local KeybindRows = Create("Frame", {
+        Parent = KeybindListWindow,
+        Position = UDim2.fromOffset(8, 35),
+        Size = UDim2.new(1, -16, 1, -39),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        ZIndex = 73
+    })
+
+    Menu.KeybindListUI.Window = KeybindListWindow
+    Menu.KeybindListUI.Scale = KeybindListScale
+    Menu.KeybindListUI.Rows = KeybindRows
+
+    local function GetKeybindRuntimeKey(Flag, BindData)
+        return BindData.Id or (tostring(Flag) .. ":" .. tostring(BindData.Display or BindData.Key or ""))
+    end
+
+    local function GatherKeybindEntries()
+        local Entries = {}
+        local AllBinds = SavedPositions.ControlBinds or {}
+        local ControlNames = Menu.BindSystem.ControlNames or {}
+
+        for Flag, Binds in pairs(AllBinds) do
+            if type(Binds) == "table" then
+                for _, BindData in ipairs(Binds) do
+                    if type(BindData) == "table" and BindData.ShowInBinds ~= false then
+                        local Mode = BindData.Mode == "Hold" and "Hold" or "Toggle"
+                        local Display = BindData.Display
+                        if type(Display) ~= "string" or Display == "" then
+                            Display = Menu.BindSystem.BuildBindDisplay(BindData.Key, BindData.Modifiers)
+                            BindData.Display = Display
+                        end
+
+                        local Active
+                        if Mode == "Hold" then
+                            Active = Menu.BindRuntime[GetKeybindRuntimeKey(Flag, BindData)] ~= nil
+                        else
+                            Active = Menu.Flags[Flag] == true
+                        end
+
+                        Entries[#Entries + 1] = {
+                            Name = tostring(ControlNames[tostring(Flag)] or Flag),
+                            Key = tostring(Display),
+                            Status = Active and (Mode == "Hold" and "Holded" or "Toggled") or "Off",
+                            Active = Active,
+                            Mode = Mode
+                        }
+                    end
+                end
+            end
+        end
+
+        table.sort(Entries, function(A, B)
+            local Left = string.lower(A.Name)
+            local Right = string.lower(B.Name)
+            if Left == Right then
+                return A.Key < B.Key
+            end
+            return Left < Right
+        end)
+        return Entries
+    end
+
+    local function BuildKeybindSignature(Entries)
+        local Parts = {}
+        for Index, Entry in ipairs(Entries) do
+            Parts[Index] = table.concat({Entry.Name, Entry.Key, Entry.Status, Entry.Mode}, "\31")
+        end
+        return table.concat(Parts, "\30")
+    end
+
+    local function ClearKeybindRows()
+        for _, Object in ipairs(KeybindRows:GetChildren()) do
+            Object:Destroy()
+        end
+    end
+
+    local function RefreshKeybindList(Force)
+        local Entries = GatherKeybindEntries()
+        local Signature = BuildKeybindSignature(Entries)
+        if not Force and Signature == KeybindListSignature then
+            return
+        end
+        KeybindListSignature = Signature
+        ClearKeybindRows()
+
+        local RowCount = #Entries
+        if RowCount == 0 then
+            Create("TextLabel", {
+                Parent = KeybindRows,
+                Position = UDim2.fromOffset(2, 2),
+                Size = UDim2.new(1, -4, 0, 18),
+                BackgroundTransparency = 1,
+                Font = Enum.Font.BuilderSans,
+                Text = "No visible binds",
+                TextColor3 = DisabledText,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Center,
+                ZIndex = 74
+            })
+        else
+            for Index, Entry in ipairs(Entries) do
+                local Row = Create("Frame", {
+                    Parent = KeybindRows,
+                    Position = UDim2.fromOffset(0, (Index - 1) * 21),
+                    Size = UDim2.new(1, 0, 0, 20),
+                    BackgroundTransparency = 1,
+                    ZIndex = 74
+                })
+
+                Create("TextLabel", {
+                    Parent = Row,
+                    Position = UDim2.fromOffset(3, 0),
+                    Size = UDim2.fromOffset(92, 20),
+                    BackgroundTransparency = 1,
+                    Font = Enum.Font.BuilderSansMedium,
+                    Text = Entry.Name,
+                    TextColor3 = Entry.Active and PrimaryText or MutedText,
+                    TextSize = 10,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    ZIndex = 75
+                })
+
+                Create("TextLabel", {
+                    Parent = Row,
+                    Position = UDim2.fromOffset(96, 0),
+                    Size = UDim2.fromOffset(59, 20),
+                    BackgroundTransparency = 1,
+                    Font = Enum.Font.BuilderSansMedium,
+                    Text = "[" .. Entry.Key .. "]",
+                    TextColor3 = Accent,
+                    TextSize = 10,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    TextXAlignment = Enum.TextXAlignment.Right,
+                    ZIndex = 75
+                })
+
+                Create("TextLabel", {
+                    Parent = Row,
+                    AnchorPoint = Vector2.new(1, 0),
+                    Position = UDim2.new(1, -3, 0, 0),
+                    Size = UDim2.fromOffset(50, 20),
+                    BackgroundTransparency = 1,
+                    Font = Enum.Font.BuilderSansMedium,
+                    Text = Entry.Status,
+                    TextColor3 = Entry.Active and PrimaryText or DisabledText,
+                    TextSize = 10,
+                    TextXAlignment = Enum.TextXAlignment.Right,
+                    ZIndex = 75
+                })
+            end
+        end
+
+        KeybindListWindow.Size = UDim2.fromOffset(216, 40 + math.max(RowCount, 1) * 21)
+        KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, KeybindListWindow.Position)
+    end
+
+    local function SetKeybindListHidden(Value)
+        KeybindListHidden = Value and true or false
+        KeybindListWindow.Visible = not KeybindListHidden
+        Menu.Flags.HideKeybinds = KeybindListHidden
+        SavedPositions.HideKeybinds = KeybindListHidden
+        if not KeybindListHidden then
+            RefreshKeybindList(true)
+            KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, KeybindListWindow.Position)
+        end
+        SavePositions()
+    end
+
+    local function SetKeybindListScale(Value)
+        KeybindListScaleValue = math.clamp(tonumber(Value) or 100, 70, 140)
+        KeybindListScale.Scale = KeybindListScaleValue / 100
+        Menu.Flags.KeybindListScale = KeybindListScaleValue
+        SavedPositions.KeybindListScale = KeybindListScaleValue
+        KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, KeybindListWindow.Position)
+        SavePositions()
+    end
+
+    Menu.KeybindListController = {
+        SetHidden = SetKeybindListHidden,
+        SetScale = SetKeybindListScale,
+        Refresh = function() RefreshKeybindList(true) end,
+        MarkDirty = function() KeybindListSignature = "" end
+    }
+
+    Menu.Flags.HideKeybinds = KeybindListHidden
+    Menu.Flags.KeybindListScale = KeybindListScaleValue
+
+    RegisterAccentTarget(function(NewColor)
+        KeybindListAccentLine.BackgroundColor3 = NewColor
+        if KeybindListAccentGlow then
+            KeybindListAccentGlow.ImageColor3 = NewColor
+        end
+        KeybindListSignature = ""
+    end)
+
+    Bind(KeybindListHeader.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            KeybindListDragging = true
+            KeybindListDragStart = Input.Position
+            KeybindListStartPosition = KeybindListWindow.Position
+        end
+    end))
+
+    Bind(UserInputService.InputChanged:Connect(function(Input)
+        if KeybindListDragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
+            local Delta = Input.Position - KeybindListDragStart
+            KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, UDim2.fromOffset(
+                KeybindListStartPosition.X.Offset + Delta.X,
+                KeybindListStartPosition.Y.Offset + Delta.Y
+            ))
+        end
+    end))
+
+    Bind(UserInputService.InputEnded:Connect(function(Input)
+        if KeybindListDragging and Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            KeybindListDragging = false
+            SavedPositions.Keybinds = EncodePosition(KeybindListWindow.Position)
+            SavePositions()
+        end
+    end))
+
+    Bind(RunService.Heartbeat:Connect(function(DeltaTime)
+        if KeybindListHidden then return end
+        KeybindListAccumulator = KeybindListAccumulator + DeltaTime
+        if KeybindListAccumulator >= 0.10 then
+            KeybindListAccumulator = 0
+            RefreshKeybindList(false)
+        end
+    end))
+
+    RefreshKeybindList(true)
+
     Menu.SettingsUI.ProfileAvatar = Create("ImageLabel", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, 66),
-        Size = UDim2.fromOffset(48, 48),
+        AnchorPoint = Vector2.new(0, 0),
+        Position = UDim2.fromOffset(28, 58),
+        Size = UDim2.fromOffset(42, 42),
         BackgroundColor3 = SurfaceAlt,
         BorderSizePixel = 0,
         Image = "",
@@ -4556,15 +4866,15 @@ local function BuildRuntime()
 
     Menu.SettingsUI.ProfileName = Create("TextLabel", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, 120),
-        Size = UDim2.fromOffset(220, 20),
+        AnchorPoint = Vector2.new(0, 0),
+        Position = UDim2.fromOffset(80, 60),
+        Size = UDim2.fromOffset(170, 20),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSansMedium,
         Text = LocalPlayer and LocalPlayer.Name or "Player",
         TextColor3 = Accent,
         TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Center,
+        TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 31
     })
 
@@ -4582,13 +4892,13 @@ local function BuildRuntime()
     local function CreateInfoRow(Y, LabelText, ValueText)
         Create("TextLabel", {
             Parent = Menu.SettingsUI.SettingsPanel,
-            Position = UDim2.fromOffset(28, Y),
-            Size = UDim2.fromOffset(110, 20),
+            Position = UDim2.fromOffset(282, Y),
+            Size = UDim2.fromOffset(82, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = LabelText,
-            TextColor3 = PrimaryText,
-            TextSize = 13,
+            TextColor3 = MutedText,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 31
         })
@@ -4597,28 +4907,78 @@ local function BuildRuntime()
             Parent = Menu.SettingsUI.SettingsPanel,
             AnchorPoint = Vector2.new(1, 0),
             Position = UDim2.new(1, -28, 0, Y),
-            Size = UDim2.fromOffset(120, 20),
+            Size = UDim2.fromOffset(104, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = ValueText,
             TextColor3 = Accent,
-            TextSize = 13,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Right,
             ZIndex = 31
         })
     end
 
-    CreateInfoRow(154, "Branch:", "Release")
-    CreateInfoRow(190, "Update:", "11.09.24")
-    CreateInfoRow(226, "Valid until:", "11.10.24")
+    CreateInfoRow(58, "Branch:", "Release")
+    CreateInfoRow(80, "Update:", "11.09.24")
+    CreateInfoRow(102, "Valid until:", "11.10.24")
 
     Create("Frame", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(28, 264),
-        Size = UDim2.fromOffset(292, 1),
+        Position = UDim2.fromOffset(22, 132),
+        Size = UDim2.fromOffset(456, 1),
         BackgroundColor3 = Border,
         BorderSizePixel = 0,
         ZIndex = 31
+    })
+
+    Menu.SettingsUI.InterfaceCard = Create("Frame", {
+        Parent = Menu.SettingsUI.SettingsPanel,
+        Position = UDim2.fromOffset(22, 148),
+        Size = UDim2.fromOffset(220, 324),
+        BackgroundColor3 = Surface,
+        BackgroundTransparency = 0.38,
+        BorderSizePixel = 0,
+        ZIndex = 30
+    })
+    Corner(Menu.SettingsUI.InterfaceCard, 7)
+    Stroke(Menu.SettingsUI.InterfaceCard, Border, 0.42, 1)
+
+    Menu.SettingsUI.OverlayCard = Create("Frame", {
+        Parent = Menu.SettingsUI.SettingsPanel,
+        Position = UDim2.fromOffset(258, 148),
+        Size = UDim2.fromOffset(220, 324),
+        BackgroundColor3 = Surface,
+        BackgroundTransparency = 0.38,
+        BorderSizePixel = 0,
+        ZIndex = 30
+    })
+    Corner(Menu.SettingsUI.OverlayCard, 7)
+    Stroke(Menu.SettingsUI.OverlayCard, Border, 0.42, 1)
+
+    Create("TextLabel", {
+        Parent = Menu.SettingsUI.SettingsPanel,
+        Position = UDim2.fromOffset(36, 154),
+        Size = UDim2.fromOffset(192, 18),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = "Interface",
+        TextColor3 = MutedText,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 32
+    })
+
+    Create("TextLabel", {
+        Parent = Menu.SettingsUI.SettingsPanel,
+        Position = UDim2.fromOffset(272, 154),
+        Size = UDim2.fromOffset(192, 18),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = "Overlays",
+        TextColor3 = MutedText,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 32
     })
 
     local function CreatePopupRow(Height)
@@ -4650,11 +5010,13 @@ local function BuildRuntime()
         return Button, BorderStroke, Check
     end
 
-    local function CreatePopupToggle(Y, LabelText, Default, Callback)
+    local function CreatePopupToggle(Y, LabelText, Default, Callback, X, Width)
+        X = tonumber(X) or 28
+        Width = tonumber(Width) or 292
         local Row = Create("Frame", {
             Parent = Menu.SettingsUI.SettingsPanel,
-            Position = UDim2.fromOffset(28, Y),
-            Size = UDim2.fromOffset(292, 26),
+            Position = UDim2.fromOffset(X, Y),
+            Size = UDim2.fromOffset(Width, 26),
             BackgroundTransparency = 1,
             ZIndex = 31
         })
@@ -4714,15 +5076,17 @@ local function BuildRuntime()
         }
     end
 
-    local function CreatePopupSlider(Y, LabelText, Minimum, Maximum, Default, FormatText, Callback)
+    local function CreatePopupSlider(Y, LabelText, Minimum, Maximum, Default, FormatText, Callback, X, Width)
         if Callback == nil and type(FormatText) == "function" then
             Callback = FormatText
             FormatText = nil
         end
+        X = tonumber(X) or 28
+        Width = tonumber(Width) or 292
         local Row = Create("Frame", {
             Parent = Menu.SettingsUI.SettingsPanel,
-            Position = UDim2.fromOffset(28, Y),
-            Size = UDim2.fromOffset(292, 58),
+            Position = UDim2.fromOffset(X, Y),
+            Size = UDim2.fromOffset(Width, 58),
             BackgroundTransparency = 1,
             ZIndex = 31
         })
@@ -4881,6 +5245,7 @@ local function BuildRuntime()
 
         Set(Default)
         return {
+            Row = Row,
             Set = Set,
             Get = function()
                 return Value
@@ -4890,8 +5255,8 @@ local function BuildRuntime()
 
     Menu.SettingsUI.ColorRow = Create("Frame", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(28, 664),
-        Size = UDim2.fromOffset(292, 26),
+        Position = UDim2.fromOffset(36, 408),
+        Size = UDim2.fromOffset(192, 26),
         BackgroundTransparency = 1,
         ZIndex = 31
     })
@@ -5498,20 +5863,48 @@ local function BuildRuntime()
     end
 
     local function LayoutSettingsPanel()
+        if Menu.SettingsUI.BackgroundDimToggle and Menu.SettingsUI.BackgroundDimToggle.Row then
+            Menu.SettingsUI.BackgroundDimToggle.Row.Position = UDim2.fromOffset(36, 182)
+            Menu.SettingsUI.BackgroundDimToggle.Row.Size = UDim2.fromOffset(192, 26)
+        end
+        if Menu.SettingsUI.AnimationSpeedSlider and Menu.SettingsUI.AnimationSpeedSlider.Row then
+            Menu.SettingsUI.AnimationSpeedSlider.Row.Position = UDim2.fromOffset(36, 216)
+            Menu.SettingsUI.AnimationSpeedSlider.Row.Size = UDim2.fromOffset(192, 58)
+        end
+        if Menu.SettingsUI.MenuScaleSlider and Menu.SettingsUI.MenuScaleSlider.Row then
+            Menu.SettingsUI.MenuScaleSlider.Row.Position = UDim2.fromOffset(36, 280)
+            Menu.SettingsUI.MenuScaleSlider.Row.Size = UDim2.fromOffset(192, 58)
+        end
+        if Menu.SettingsUI.HideWatermarkToggle and Menu.SettingsUI.HideWatermarkToggle.Row then
+            Menu.SettingsUI.HideWatermarkToggle.Row.Position = UDim2.fromOffset(272, 182)
+            Menu.SettingsUI.HideWatermarkToggle.Row.Size = UDim2.fromOffset(192, 26)
+        end
+        if Menu.SettingsUI.WatermarkSizeSlider and Menu.SettingsUI.WatermarkSizeSlider.Row then
+            Menu.SettingsUI.WatermarkSizeSlider.Row.Position = UDim2.fromOffset(272, 216)
+            Menu.SettingsUI.WatermarkSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
+        end
+        if Menu.SettingsUI.HideKeybindsToggle and Menu.SettingsUI.HideKeybindsToggle.Row then
+            Menu.SettingsUI.HideKeybindsToggle.Row.Position = UDim2.fromOffset(272, 280)
+            Menu.SettingsUI.HideKeybindsToggle.Row.Size = UDim2.fromOffset(192, 26)
+        end
+        if Menu.SettingsUI.KeybindListSizeSlider and Menu.SettingsUI.KeybindListSizeSlider.Row then
+            Menu.SettingsUI.KeybindListSizeSlider.Row.Position = UDim2.fromOffset(272, 314)
+            Menu.SettingsUI.KeybindListSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
+        end
         if Menu.SettingsUI.HideEspPreviewToggle and Menu.SettingsUI.HideEspPreviewToggle.Row then
-            Menu.SettingsUI.HideEspPreviewToggle.Row.Position = UDim2.fromOffset(28, 544)
-            Menu.SettingsUI.HideEspPreviewToggle.Row.Size = UDim2.fromOffset(292, 26)
+            Menu.SettingsUI.HideEspPreviewToggle.Row.Position = UDim2.fromOffset(272, 378)
+            Menu.SettingsUI.HideEspPreviewToggle.Row.Size = UDim2.fromOffset(192, 26)
         end
         if Menu.SettingsUI.EspPreviewSizeSlider and Menu.SettingsUI.EspPreviewSizeSlider.Row then
-            Menu.SettingsUI.EspPreviewSizeSlider.Row.Position = UDim2.fromOffset(28, 590)
-            Menu.SettingsUI.EspPreviewSizeSlider.Row.Size = UDim2.fromOffset(292, 58)
+            Menu.SettingsUI.EspPreviewSizeSlider.Row.Position = UDim2.fromOffset(272, 412)
+            Menu.SettingsUI.EspPreviewSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
         end
         if Menu.SettingsUI.ColorRow then
-            Menu.SettingsUI.ColorRow.Position = UDim2.fromOffset(28, 664)
-            Menu.SettingsUI.ColorRow.Size = UDim2.fromOffset(292, 26)
+            Menu.SettingsUI.ColorRow.Position = UDim2.fromOffset(36, 408)
+            Menu.SettingsUI.ColorRow.Size = UDim2.fromOffset(192, 26)
         end
         if Menu.SettingsUI.SettingsPanel then
-            Menu.SettingsUI.SettingsPanel.Size = UDim2.fromOffset(348, 716)
+            Menu.SettingsUI.SettingsPanel.Size = UDim2.fromOffset(500, 492)
         end
     end
 
@@ -5677,51 +6070,65 @@ local function BuildRuntime()
         end
     end))
 
-    CreatePopupToggle(280, "Background dim", true, function(Value)
+    Menu.SettingsUI.BackgroundDimToggle = CreatePopupToggle(182, "Background dim", Menu.Flags.BackgroundDim ~= false, function(Value)
         Menu.Flags.BackgroundDim = Value
         Overlay.Visible = Menu.Visible and Value
-    end)
+    end, 36, 192)
 
-    CreatePopupSlider(314, "Anim. speed", 0.2, 2, 1, function(Value)
+    Menu.SettingsUI.AnimationSpeedSlider = CreatePopupSlider(216, "Anim. speed", 0.2, 2, tonumber(Menu.Flags.AnimationSpeed) or 1, function(Value)
         return string.format("%.1f", Value)
     end, function(Value)
         AnimationFactor = math.max(Value, 0.05)
         Menu.Flags.AnimationSpeed = Value
-    end)
+    end, 36, 192)
 
-    CreatePopupSlider(380, "Scale", 80, 125, 100, function(Value)
+    Menu.SettingsUI.MenuScaleSlider = CreatePopupSlider(280, "Scale", 80, 125, tonumber(Menu.Flags.MenuScale) or 100, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
         BaseScaleFactor = Value / 100
         MainScale.Scale = (Menu.Flags.ViewportScale or 1) * BaseScaleFactor
         Menu.Flags.MenuScale = Value
-    end)
+    end, 36, 192)
 
-    CreatePopupToggle(446, "Hide watermark", false, function(Value)
+    Menu.SettingsUI.HideWatermarkToggle = CreatePopupToggle(182, "Hide watermark", SavedPositions.HideWatermark == true, function(Value)
         SetWatermarkHidden(Value)
-    end)
+    end, 272, 192)
 
-    CreatePopupSlider(478, "Watermark size", 70, 140, 100, function(Value)
+    Menu.SettingsUI.WatermarkSizeSlider = CreatePopupSlider(216, "Watermark size", 70, 140, tonumber(SavedPositions.WatermarkScale) or 100, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
         SetWatermarkScale(Value)
-    end)
+    end, 272, 192)
 
-    Menu.SettingsUI.HideEspPreviewToggle = CreatePopupToggle(544, "Hide ESP Preview", false, function(Value)
+    Menu.SettingsUI.HideKeybindsToggle = CreatePopupToggle(280, "Hide keybinds", SavedPositions.HideKeybinds == true, function(Value)
+        if Menu.KeybindListController and Menu.KeybindListController.SetHidden then
+            Menu.KeybindListController.SetHidden(Value)
+        end
+    end, 272, 192)
+
+    Menu.SettingsUI.KeybindListSizeSlider = CreatePopupSlider(314, "Keybind list size", 70, 140, tonumber(SavedPositions.KeybindListScale) or 100, function(Value)
+        return tostring(math.floor(Value + 0.5)) .. "%"
+    end, function(Value)
+        if Menu.KeybindListController and Menu.KeybindListController.SetScale then
+            Menu.KeybindListController.SetScale(Value)
+        end
+    end, 272, 192)
+
+    Menu.SettingsUI.HideEspPreviewToggle = CreatePopupToggle(378, "Hide ESP Preview", SavedPositions.HideEspPreview == true, function(Value)
         Menu.Flags.HideEspPreview = Value
         if Menu.EspPreviewController.SetHidden then
             Menu.EspPreviewController.SetHidden(Value)
         end
-    end)
+    end, 272, 192)
 
-    Menu.SettingsUI.EspPreviewSizeSlider = CreatePopupSlider(590, "ESP Preview size", 80, 160, 115, function(Value)
+    Menu.SettingsUI.EspPreviewSizeSlider = CreatePopupSlider(412, "ESP Preview size", 80, 160, tonumber(SavedPositions.EspPreviewScale) or 115, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
         Menu.Flags.EspPreviewScale = Value
         if Menu.EspPreviewController.SetScale then
             Menu.EspPreviewController.SetScale(Value)
         end
-    end)
+    end, 272, 192)
 
     Menu.ToggleSettingsPanel = function()
         SetSettingsOpen(not SettingsOpen)
@@ -8616,7 +9023,21 @@ local function BuildRuntime()
 
     function Library:KeybindList()
         return {
-            SetVisibility = function() end
+            SetVisibility = function(_, State)
+                if Menu.KeybindListController and Menu.KeybindListController.SetHidden then
+                    Menu.KeybindListController.SetHidden(State ~= true)
+                end
+            end,
+            SetScale = function(_, Value)
+                if Menu.KeybindListController and Menu.KeybindListController.SetScale then
+                    Menu.KeybindListController.SetScale(Value)
+                end
+            end,
+            Refresh = function()
+                if Menu.KeybindListController and Menu.KeybindListController.Refresh then
+                    Menu.KeybindListController.Refresh()
+                end
+            end
         }
     end
 
