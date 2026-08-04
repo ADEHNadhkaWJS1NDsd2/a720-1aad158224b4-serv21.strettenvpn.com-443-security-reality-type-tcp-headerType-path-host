@@ -7568,6 +7568,7 @@ local function BuildRuntime()
         end
     end))
 
+    (function()
     local Dragging = false
     local DragStart
     local StartPosition
@@ -7703,7 +7704,9 @@ local function BuildRuntime()
         end
     end))
 
-    local function UpdateScale()
+    end)()
+
+    Menu.UpdateScale = function()
         local Camera = workspace.CurrentCamera
         if not Camera then
             return
@@ -7713,40 +7716,40 @@ local function BuildRuntime()
         MainScale.Scale = Menu.Flags.ViewportScale * BaseScaleFactor
     end
 
-    UpdateScale()
+    Menu.UpdateScale()
     Bind(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-        task.defer(UpdateScale)
+        task.defer(Menu.UpdateScale)
     end))
 
     if workspace.CurrentCamera then
-        Bind(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateScale))
+        Bind(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(Menu.UpdateScale))
     end
 
-    local AssemblyTargets = {
+    Menu.AssemblyTargets = {
         Sidebar = Sidebar.Position,
         Topbar = Topbar.Position,
         SearchBar = SearchBar.Position,
         SearchSettings = SearchSettings.Position
     }
 
-    local AssemblyScales = {}
-    local AssemblyGeneration = 0
+    Menu.AssemblyScales = {}
+    Menu.AssemblyGeneration = 0
 
     for _, Section in pairs(Menu.Sections) do
-        AssemblyTargets[Section.Root] = Section.Root.Position
+        Menu.AssemblyTargets[Section.Root] = Section.Root.Position
         local SectionScale = Create("UIScale", {
             Parent = Section.Root,
             Scale = 1
         })
-        AssemblyScales[Section.Root] = SectionScale
+        Menu.AssemblyScales[Section.Root] = SectionScale
         Section.AssemblyScale = SectionScale
     end
 
-    local function SetVisible(State)
+    Menu.InternalSetVisible = function(State)
         State = State and true or false
 
-        AssemblyGeneration += 1
-        local Generation = AssemblyGeneration
+        Menu.AssemblyGeneration += 1
+        local Generation = Menu.AssemblyGeneration
         Menu.Visible = State
 
         local TargetScale = (Menu.Flags.ViewportScale or 1) * BaseScaleFactor
@@ -7759,13 +7762,13 @@ local function BuildRuntime()
             InputBlocker.Visible = true
             Overlay.Visible = Menu.Flags.BackgroundDim ~= false
             Overlay.BackgroundTransparency = 0.55
-            Sidebar.Position = AssemblyTargets.Sidebar
-            Topbar.Position = AssemblyTargets.Topbar
-            SearchBar.Position = AssemblyTargets.SearchBar
-            SearchSettings.Position = AssemblyTargets.SearchSettings
+            Sidebar.Position = Menu.AssemblyTargets.Sidebar
+            Topbar.Position = Menu.AssemblyTargets.Topbar
+            SearchBar.Position = Menu.AssemblyTargets.SearchBar
+            SearchSettings.Position = Menu.AssemblyTargets.SearchSettings
             for _, Section in pairs(Menu.Sections) do
                 if Section.Root and Section.Root.Parent then
-                    Section.Root.Position = Section.HomePosition or AssemblyTargets[Section.Root] or Section.Root.Position
+                    Section.Root.Position = Section.HomePosition or Menu.AssemblyTargets[Section.Root] or Section.Root.Position
                     if Section.AssemblyScale then Section.AssemblyScale.Scale = 1 end
                 end
             end
@@ -7995,7 +7998,7 @@ local function BuildRuntime()
 
         local FocusedTextBox = UserInputService:GetFocusedTextBox()
         if not FocusedTextBox and Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode == Enum.KeyCode.F2 then
-            SetVisible(not Main.Visible)
+            Menu.InternalSetVisible(not Main.Visible)
             return
         end
 
@@ -8022,11 +8025,11 @@ local function BuildRuntime()
     Menu.PickerInputBlocker.Visible = false
 
     function Menu:SetVisible(State)
-        SetVisible(State)
+        Menu.InternalSetVisible(State)
     end
 
     function Menu:Toggle()
-        SetVisible(not Main.Visible)
+        Menu.InternalSetVisible(not Main.Visible)
     end
 
     function Menu:GetFlag(Name)
