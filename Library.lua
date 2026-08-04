@@ -4556,6 +4556,7 @@ local function BuildRuntime()
     SyncWatermarkGlow()
     end
 
+    do
     Menu.KeybindListUI = Menu.KeybindListUI or {}
     local KeybindListHidden = SavedPositions.HideKeybinds == true
     local KeybindListScaleValue = math.clamp(tonumber(SavedPositions.KeybindListScale) or 100, 70, 140)
@@ -4849,6 +4850,7 @@ local function BuildRuntime()
     end))
 
     RefreshKeybindList(true)
+    end
 
     Menu.SettingsUI.ProfileAvatar = Create("ImageLabel", {
         Parent = Menu.SettingsUI.SettingsPanel,
