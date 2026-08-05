@@ -4841,11 +4841,21 @@ local function BuildRuntime()
                             Active = GateActive and Menu.Flags[Flag] == true
                         end
 
+                        local FeatureEnabled
+                        if EnabledFlag ~= nil then
+                            FeatureEnabled = Menu.Flags[EnabledFlag] == true
+                        elseif Mode == "Toggle" then
+                            FeatureEnabled = Menu.Flags[Flag] == true
+                        else
+                            FeatureEnabled = Active
+                        end
+
                         Entries[#Entries + 1] = {
                             Name = tostring(ControlNames[tostring(Flag)] or Flag),
                             Key = tostring(Display),
                             Status = Active and (Mode == "Hold" and "Holded" or "Toggled") or "Off",
                             Active = Active,
+                            Enabled = FeatureEnabled,
                             Mode = Mode
                         }
                     end
@@ -4867,7 +4877,13 @@ local function BuildRuntime()
     local function BuildKeybindSignature(Entries)
         local Parts = {}
         for Index, Entry in ipairs(Entries) do
-            Parts[Index] = table.concat({Entry.Name, Entry.Key, tostring(Entry.Active), Entry.Mode}, "\31")
+            Parts[Index] = table.concat({
+                Entry.Name,
+                Entry.Key,
+                tostring(Entry.Active),
+                tostring(Entry.Enabled),
+                Entry.Mode
+            }, "\31")
         end
         return table.concat(Parts, "\30")
     end
@@ -4935,8 +4951,8 @@ local function BuildRuntime()
                     Parent = Row,
                     Position = UDim2.fromOffset(0, 4),
                     Size = UDim2.fromOffset(16, 9),
-                    BackgroundColor3 = Entry.Active and Accent or Border,
-                    BackgroundTransparency = Entry.Active and 0.16 or 0.32,
+                    BackgroundColor3 = Entry.Enabled and Accent or Border,
+                    BackgroundTransparency = Entry.Enabled and 0.16 or 0.32,
                     BorderSizePixel = 0,
                     ZIndex = 75
                 })
@@ -4944,7 +4960,7 @@ local function BuildRuntime()
 
                 local SwitchKnob = Create("Frame", {
                     Parent = Switch,
-                    Position = Entry.Active and UDim2.fromOffset(8, 1) or UDim2.fromOffset(1, 1),
+                    Position = Entry.Enabled and UDim2.fromOffset(8, 1) or UDim2.fromOffset(1, 1),
                     Size = UDim2.fromOffset(7, 7),
                     BackgroundColor3 = PrimaryText,
                     BackgroundTransparency = 0.02,
