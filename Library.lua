@@ -3352,7 +3352,7 @@ local function BuildRuntime()
                     Parent = Option,
                     AnchorPoint = Vector2.new(1, 0.5),
                     Position = UDim2.new(1, -7, 0.5, 0),
-                    Size = UDim2.fromOffset(11, 11),
+                    Size = UDim2.fromOffset(13, 13),
                     BackgroundColor3 = Color3.fromRGB(20, 31, 39),
                     BackgroundTransparency = 0.15,
                     BorderSizePixel = 0,
@@ -4568,6 +4568,8 @@ local function BuildRuntime()
     local WatermarkFrames = 0
     local WatermarkElapsed = 0
     local WatermarkSecondElapsed = 0
+    local ReadServerRegionValue
+
     Bind(RunService.RenderStepped:Connect(function(DeltaTime)
         WatermarkFrames += 1
         WatermarkElapsed += DeltaTime
@@ -4626,7 +4628,7 @@ local function BuildRuntime()
         return nil
     end
 
-    local function ReadServerRegionValue()
+    ReadServerRegionValue = function()
         local Environment = type(getgenv) == "function" and getgenv() or _G
         local Direct = Environment and (
             Environment.AtramentaServerRegion
@@ -4715,14 +4717,15 @@ local function BuildRuntime()
         Parent = ScreenGui,
         Active = true,
         Position = DecodePosition(SavedPositions.Keybinds, UDim2.fromOffset(24, 154)),
-        Size = UDim2.fromOffset(96, 34),
-        BackgroundColor3 = Color3.fromRGB(7, 9, 12),
-        BackgroundTransparency = 0.74,
+        Size = UDim2.fromOffset(146, 48),
+        BackgroundColor3 = Color3.fromRGB(8, 11, 15),
+        BackgroundTransparency = 0.60,
         BorderSizePixel = 0,
         Visible = not KeybindListHidden,
         ZIndex = 72
     })
-    Corner(KeybindListWindow, 3)
+    Corner(KeybindListWindow, 5)
+    local KeybindListGlow = Menu:AddSoftGlow(KeybindListWindow, 71, 8, 0.80, true)
 
     local KeybindListScale = Create("UIScale", {
         Parent = KeybindListWindow,
@@ -4732,8 +4735,8 @@ local function BuildRuntime()
     local KeybindListHeader = Create("Frame", {
         Parent = KeybindListWindow,
         Active = true,
-        Position = UDim2.fromOffset(5, 3),
-        Size = UDim2.new(1, -10, 0, 13),
+        Position = UDim2.fromOffset(8, 5),
+        Size = UDim2.new(1, -16, 0, 18),
         BackgroundTransparency = 1,
         ZIndex = 73
     })
@@ -4742,7 +4745,7 @@ local function BuildRuntime()
         Parent = KeybindListHeader,
         AnchorPoint = Vector2.new(0, 0.5),
         Position = UDim2.new(0, 0, 0.5, 0),
-        Size = UDim2.fromOffset(9, 9),
+        Size = UDim2.fromOffset(11, 11),
         BackgroundTransparency = 1,
         ZIndex = 74
     })
@@ -4750,34 +4753,35 @@ local function BuildRuntime()
         for Index = 0, 2 do
             local Line = Create("Frame", {
                 Parent = Parent,
-                Position = UDim2.fromOffset(Index == 1 and 0 or 1, 1 + Index * 3),
-                Size = UDim2.fromOffset(Index == 1 and 9 or 8, 1),
+                Position = UDim2.fromOffset(Index == 1 and 0 or 1, 1 + Index * 4),
+                Size = UDim2.fromOffset(Index == 1 and 13 or 11, 2),
                 BackgroundColor3 = Accent,
-                BackgroundTransparency = 0.04,
+                BackgroundTransparency = 0.02,
                 BorderSizePixel = 0,
                 ZIndex = 75
             })
+            Corner(Line, 2)
         end
     end
     CreateHotkeysHeaderGlyph(HotkeyHeaderIconHolder)
 
     Create("TextLabel", {
         Parent = KeybindListHeader,
-        Position = UDim2.fromOffset(12, 0),
-        Size = UDim2.new(1, -12, 1, 0),
+        Position = UDim2.fromOffset(17, 0),
+        Size = UDim2.new(1, -17, 1, 0),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSansMedium,
         Text = "Hotkeys",
         TextColor3 = PrimaryText,
-        TextSize = 9,
+        TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 74
     })
 
     local KeybindRows = Create("Frame", {
         Parent = KeybindListWindow,
-        Position = UDim2.fromOffset(5, 18),
-        Size = UDim2.new(1, -10, 1, -21),
+        Position = UDim2.fromOffset(8, 27),
+        Size = UDim2.new(1, -16, 1, -32),
         BackgroundTransparency = 1,
         ClipsDescendants = true,
         ZIndex = 73
@@ -4884,19 +4888,20 @@ local function BuildRuntime()
         ClearKeybindRows()
 
         local RowCount = #Entries
-        local WindowWidth = 76
+        local WindowWidth = 126
+        local KeyColumnWidth = 30
 
         if RowCount == 0 then
-            WindowWidth = 88
+            WindowWidth = 126
             Create("TextLabel", {
                 Parent = KeybindRows,
                 Position = UDim2.fromOffset(0, 0),
-                Size = UDim2.new(1, 0, 0, 12),
+                Size = UDim2.new(1, 0, 0, 16),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSans,
                 Text = "No hotkeys",
                 TextColor3 = MutedText,
-                TextSize = 7,
+                TextSize = 9,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 ZIndex = 74
             })
@@ -4904,48 +4909,76 @@ local function BuildRuntime()
             for _, Entry in ipairs(Entries) do
                 local KeyText = "[" .. string.upper(tostring(Entry.Key or "")) .. "]"
                 Entry.KeyText = KeyText
-                Entry.KeyWidth = math.max(16, math.ceil(Menu.KeybindListUI.MeasureText(KeyText, 7)) + 2)
-                local NameWidth = math.ceil(Menu.KeybindListUI.MeasureText(Entry.Name, 8))
-                WindowWidth = math.max(WindowWidth, Entry.KeyWidth + NameWidth + 16)
+                local MeasuredKey = math.ceil(Menu.KeybindListUI.MeasureText(KeyText, 9)) + 3
+                KeyColumnWidth = math.max(KeyColumnWidth, MeasuredKey)
             end
 
-            WindowWidth = math.clamp(WindowWidth, 76, 138)
+            KeyColumnWidth = math.clamp(KeyColumnWidth, 30, 54)
+
+            for _, Entry in ipairs(Entries) do
+                local NameWidth = math.ceil(Menu.KeybindListUI.MeasureText(Entry.Name, 10))
+                WindowWidth = math.max(WindowWidth, 21 + KeyColumnWidth + 5 + NameWidth + 18)
+            end
+
+            WindowWidth = math.clamp(WindowWidth, 126, 214)
 
             for Index, Entry in ipairs(Entries) do
                 local Row = Create("Frame", {
                     Parent = KeybindRows,
-                    Position = UDim2.fromOffset(0, (Index - 1) * 13),
-                    Size = UDim2.new(1, 0, 0, 12),
+                    Position = UDim2.fromOffset(0, (Index - 1) * 19),
+                    Size = UDim2.new(1, 0, 0, 18),
                     BackgroundTransparency = 1,
                     ZIndex = 74
                 })
 
+                local Switch = Create("Frame", {
+                    Parent = Row,
+                    Position = UDim2.fromOffset(0, 4),
+                    Size = UDim2.fromOffset(16, 9),
+                    BackgroundColor3 = Entry.Active and Accent or Border,
+                    BackgroundTransparency = Entry.Active and 0.16 or 0.32,
+                    BorderSizePixel = 0,
+                    ZIndex = 75
+                })
+                Corner(Switch, 9)
+
+                local SwitchKnob = Create("Frame", {
+                    Parent = Switch,
+                    Position = Entry.Active and UDim2.fromOffset(8, 1) or UDim2.fromOffset(1, 1),
+                    Size = UDim2.fromOffset(7, 7),
+                    BackgroundColor3 = PrimaryText,
+                    BackgroundTransparency = 0.02,
+                    BorderSizePixel = 0,
+                    ZIndex = 76
+                })
+                Corner(SwitchKnob, 7)
+
                 Create("TextLabel", {
                     Parent = Row,
-                    Position = UDim2.fromOffset(0, 0),
-                    Size = UDim2.fromOffset(Entry.KeyWidth, 12),
+                    Position = UDim2.fromOffset(21, 0),
+                    Size = UDim2.fromOffset(KeyColumnWidth, 18),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = Entry.KeyText,
                     TextColor3 = Accent,
-                    TextSize = 7,
+                    TextSize = 9,
                     TextStrokeColor3 = Color3.new(0, 0, 0),
-                    TextStrokeTransparency = 0.84,
+                    TextStrokeTransparency = 0.76,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     ZIndex = 76
                 })
 
                 Create("TextLabel", {
                     Parent = Row,
-                    Position = UDim2.fromOffset(Entry.KeyWidth + 3, 0),
-                    Size = UDim2.new(1, -(Entry.KeyWidth + 3), 0, 12),
+                    Position = UDim2.fromOffset(21 + KeyColumnWidth + 5, 0),
+                    Size = UDim2.new(1, -(21 + KeyColumnWidth + 5), 0, 18),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = Entry.Name,
                     TextColor3 = PrimaryText,
-                    TextSize = 8,
+                    TextSize = 10,
                     TextStrokeColor3 = Color3.new(0, 0, 0),
-                    TextStrokeTransparency = 0.84,
+                    TextStrokeTransparency = 0.76,
                     TextTruncate = Enum.TextTruncate.AtEnd,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     ZIndex = 75
@@ -4953,13 +4986,16 @@ local function BuildRuntime()
             end
         end
 
-        KeybindListWindow.Size = UDim2.fromOffset(WindowWidth, 21 + math.max(RowCount, 1) * 13)
+        KeybindListWindow.Size = UDim2.fromOffset(WindowWidth, 33 + math.max(RowCount, 1) * 19)
         KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, KeybindListWindow.Position)
     end
 
     local function SetKeybindListHidden(Value)
         KeybindListHidden = Value and true or false
         KeybindListWindow.Visible = not KeybindListHidden
+        if KeybindListGlow then
+            KeybindListGlow.Visible = not KeybindListHidden
+        end
         Menu.Flags.HideKeybinds = KeybindListHidden
         SavedPositions.HideKeybinds = KeybindListHidden
         if not KeybindListHidden then
