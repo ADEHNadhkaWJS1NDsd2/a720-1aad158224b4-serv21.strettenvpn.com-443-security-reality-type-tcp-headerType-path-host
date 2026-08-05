@@ -4404,7 +4404,7 @@ local function BuildRuntime()
         TextColor3 = PrimaryText,
         TextSize = 10,
         TextStrokeColor3 = Color3.new(0, 0, 0),
-        TextStrokeTransparency = 0.72,
+        TextStrokeTransparency = 0.28,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
         ZIndex = 212
@@ -4715,12 +4715,15 @@ local function BuildRuntime()
         Parent = ScreenGui,
         Active = true,
         Position = DecodePosition(SavedPositions.Keybinds, UDim2.fromOffset(24, 154)),
-        Size = UDim2.fromOffset(154, 48),
-        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(176, 50),
+        BackgroundColor3 = Color3.fromRGB(8, 11, 15),
+        BackgroundTransparency = 0.46,
         BorderSizePixel = 0,
         Visible = not KeybindListHidden,
         ZIndex = 72
     })
+    Corner(KeybindListWindow, 5)
+    Stroke(KeybindListWindow, Border, 0.72, 1)
 
     local KeybindListScale = Create("UIScale", {
         Parent = KeybindListWindow,
@@ -4730,8 +4733,8 @@ local function BuildRuntime()
     local KeybindListHeader = Create("Frame", {
         Parent = KeybindListWindow,
         Active = true,
-        Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.new(1, 0, 0, 18),
+        Position = UDim2.fromOffset(7, 4),
+        Size = UDim2.new(1, -14, 0, 18),
         BackgroundTransparency = 1,
         ZIndex = 73
     })
@@ -4751,7 +4754,7 @@ local function BuildRuntime()
                 Position = UDim2.fromOffset(Index == 1 and 0 or 2, 1 + Index * 4),
                 Size = UDim2.fromOffset(Index == 1 and 12 or 10, 2),
                 BackgroundColor3 = Accent,
-                BackgroundTransparency = 0.08,
+                BackgroundTransparency = 0,
                 BorderSizePixel = 0,
                 ZIndex = 75
             })
@@ -4775,8 +4778,8 @@ local function BuildRuntime()
 
     local KeybindRows = Create("Frame", {
         Parent = KeybindListWindow,
-        Position = UDim2.fromOffset(0, 20),
-        Size = UDim2.new(1, 0, 1, -20),
+        Position = UDim2.fromOffset(7, 24),
+        Size = UDim2.new(1, -14, 1, -28),
         BackgroundTransparency = 1,
         ClipsDescendants = true,
         ZIndex = 73
@@ -4900,29 +4903,29 @@ local function BuildRuntime()
                 local KeyLabel = Create("TextLabel", {
                     Parent = Row,
                     Position = UDim2.fromOffset(0, 0),
-                    Size = UDim2.fromOffset(38, 17),
+                    Size = UDim2.fromOffset(42, 17),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = "[" .. string.upper(tostring(Entry.Key or "")) .. "]",
-                    TextColor3 = Entry.Active and Accent or MutedText,
-                    TextSize = 8,
+                    TextColor3 = Accent,
+                    TextSize = 9,
                     TextStrokeColor3 = Color3.new(0, 0, 0),
-                    TextStrokeTransparency = 0.72,
+                    TextStrokeTransparency = 0.26,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     ZIndex = 76
                 })
 
                 Create("TextLabel", {
                     Parent = Row,
-                    Position = UDim2.fromOffset(38, 0),
-                    Size = UDim2.new(1, -38, 0, 17),
+                    Position = UDim2.fromOffset(42, 0),
+                    Size = UDim2.new(1, -42, 0, 17),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = Entry.Name,
-                    TextColor3 = Entry.Active and PrimaryText or MutedText,
-                    TextSize = 9,
+                    TextColor3 = PrimaryText,
+                    TextSize = 10,
                     TextStrokeColor3 = Color3.new(0, 0, 0),
-                    TextStrokeTransparency = 0.72,
+                    TextStrokeTransparency = 0.26,
                     TextTruncate = Enum.TextTruncate.AtEnd,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     ZIndex = 75
@@ -4930,7 +4933,7 @@ local function BuildRuntime()
             end
         end
 
-        KeybindListWindow.Size = UDim2.fromOffset(154, 22 + math.max(RowCount, 1) * 18)
+        KeybindListWindow.Size = UDim2.fromOffset(176, 30 + math.max(RowCount, 1) * 18)
         KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, KeybindListWindow.Position)
     end
 
@@ -7768,7 +7771,7 @@ local function BuildRuntime()
 
         Bind(S.ResetLayoutButton.MouseEnter:Connect(function()
             Tween(S.ResetLayoutButton, 0.12, {
-                BackgroundTransparency = 0.08,
+                BackgroundTransparency = 0,
                 TextColor3 = PrimaryText
             })
         end))
