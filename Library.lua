@@ -12048,10 +12048,17 @@ local function BuildRuntime()
             Menu.CombatLogHolder =
                 Create("Frame", {
                     Parent = ScreenGui,
+                    AnchorPoint =
+                        Vector2.new(
+                            1,
+                            0
+                        ),
                     Position =
-                        UDim2.fromOffset(
-                            10,
-                            10
+                        UDim2.new(
+                            1,
+                            -12,
+                            0,
+                            12
                         ),
                     Size =
                         UDim2.fromOffset(
@@ -12066,7 +12073,7 @@ local function BuildRuntime()
                 Parent = Menu.CombatLogHolder,
                 Padding = UDim.new(0, 3),
                 HorizontalAlignment =
-                    Enum.HorizontalAlignment.Left,
+                    Enum.HorizontalAlignment.Right,
                 VerticalAlignment =
                     Enum.VerticalAlignment.Top,
                 SortOrder =
