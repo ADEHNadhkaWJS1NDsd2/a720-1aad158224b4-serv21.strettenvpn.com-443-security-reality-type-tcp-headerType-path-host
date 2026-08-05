@@ -11949,23 +11949,23 @@ local function BuildRuntime()
 
         local KindData = {
             hit = {
-                Color = Color3.fromRGB(92, 205, 137),
+                Color = Color3.fromRGB(103, 203, 143),
                 Icon = "Target"
             },
             kill = {
-                Color = Color3.fromRGB(105, 224, 155),
+                Color = Color3.fromRGB(117, 219, 153),
                 Icon = "Target"
             },
             miss = {
-                Color = Color3.fromRGB(210, 170, 92),
+                Color = Color3.fromRGB(205, 169, 96),
                 Icon = "Warning"
             },
             damage = {
-                Color = Color3.fromRGB(207, 82, 94),
+                Color = Color3.fromRGB(205, 91, 102),
                 Icon = "Shield"
             },
             nearmiss = {
-                Color = Color3.fromRGB(88, 164, 210),
+                Color = Color3.fromRGB(100, 167, 208),
                 Icon = "Eye"
             },
             info = {
@@ -12007,12 +12007,21 @@ local function BuildRuntime()
             and GlobalState.Last
             or {}
 
+        local FullText =
+            "Atramenta  •  "
+            .. Message
+
+        if Detail ~= "" then
+            FullText =
+                FullText
+                .. "  •  "
+                .. Detail
+        end
+
         local DedupeKey =
             Kind
             .. "\0"
-            .. Message
-            .. "\0"
-            .. Detail
+            .. FullText
 
         local CurrentTime =
             os.clock()
@@ -12039,28 +12048,27 @@ local function BuildRuntime()
             Menu.CombatLogHolder =
                 Create("Frame", {
                     Parent = ScreenGui,
-                    AnchorPoint = Vector2.new(0, 1),
-                    Position = UDim2.new(
-                        0,
-                        18,
-                        1,
-                        -18
-                    ),
-                    Size = UDim2.fromOffset(
-                        350,
-                        410
-                    ),
+                    Position =
+                        UDim2.fromOffset(
+                            10,
+                            10
+                        ),
+                    Size =
+                        UDim2.fromOffset(
+                            390,
+                            250
+                        ),
                     BackgroundTransparency = 1,
                     ZIndex = 272
                 })
 
             Create("UIListLayout", {
                 Parent = Menu.CombatLogHolder,
-                Padding = UDim.new(0, 6),
+                Padding = UDim.new(0, 3),
                 HorizontalAlignment =
                     Enum.HorizontalAlignment.Left,
                 VerticalAlignment =
-                    Enum.VerticalAlignment.Bottom,
+                    Enum.VerticalAlignment.Top,
                 SortOrder =
                     Enum.SortOrder.LayoutOrder
             })
@@ -12068,28 +12076,48 @@ local function BuildRuntime()
 
         GlobalState.Serial += 1
 
-        local HasDetail =
-            Detail ~= ""
+        local Font =
+            Enum.Font.BuilderSansMedium
 
-        local Height =
-            HasDetail
-            and 56
-            or 43
+        local TextSize = 9
+
+        local MeasuredWidth =
+            game:GetService("TextService"):
+                GetTextSize(
+                    FullText,
+                    TextSize,
+                    Font,
+                    Vector2.new(
+                        900,
+                        22
+                    )
+                ).X
+
+        local Width =
+            math.clamp(
+                math.ceil(
+                    MeasuredWidth
+                    + 38
+                ),
+                118,
+                372
+            )
 
         local Root =
             Create("Frame", {
                 Parent = Menu.CombatLogHolder,
-                Size = UDim2.fromOffset(
-                    336,
-                    Height
-                ),
+                Size =
+                    UDim2.fromOffset(
+                        Width,
+                        22
+                    ),
                 BackgroundColor3 =
                     Color3.fromRGB(
-                        7,
-                        12,
-                        16
+                        10,
+                        14,
+                        17
                     ),
-                BackgroundTransparency = 0.12,
+                BackgroundTransparency = 0.24,
                 BorderSizePixel = 0,
                 LayoutOrder =
                     GlobalState.Serial,
@@ -12097,40 +12125,33 @@ local function BuildRuntime()
                 ZIndex = 273
             })
 
-        Corner(Root, 5)
+        Corner(Root, 3)
         Stroke(
             Root,
             Border,
-            0.52,
+            0.62,
             1
         )
 
-        Menu:AddSoftGlow(
-            Root,
-            272,
-            7,
-            0.92,
-            true
-        )
-
-        Create("Frame", {
-            Parent = Root,
-            Position = UDim2.fromOffset(
-                0,
-                6
-            ),
-            Size = UDim2.new(
-                0,
-                2,
-                1,
-                -12
-            ),
-            BackgroundColor3 =
-                Style.Color,
-            BackgroundTransparency = 0.04,
-            BorderSizePixel = 0,
-            ZIndex = 275
-        })
+        local AccentRail =
+            Create("Frame", {
+                Parent = Root,
+                Position =
+                    UDim2.fromOffset(
+                        0,
+                        3
+                    ),
+                Size =
+                    UDim2.fromOffset(
+                        2,
+                        16
+                    ),
+                BackgroundColor3 =
+                    Style.Color,
+                BackgroundTransparency = 0.08,
+                BorderSizePixel = 0,
+                ZIndex = 275
+            })
 
         local IconHolder =
             Create("Frame", {
@@ -12143,14 +12164,14 @@ local function BuildRuntime()
                 Position =
                     UDim2.new(
                         0,
-                        10,
+                        6,
                         0.5,
                         0
                     ),
                 Size =
                     UDim2.fromOffset(
-                        26,
-                        26
+                        16,
+                        16
                     ),
                 BackgroundColor3 =
                     Style.Color,
@@ -12161,15 +12182,15 @@ local function BuildRuntime()
 
         Corner(
             IconHolder,
-            5
+            3
         )
 
         Icon(
             IconHolder,
             Style.Icon,
             UDim2.fromOffset(
-                13,
-                13
+                9,
+                9
             ),
             UDim2.fromScale(
                 0.5,
@@ -12179,134 +12200,56 @@ local function BuildRuntime()
             276
         )
 
-        local MainLine =
+        local Label =
             Create("TextLabel", {
                 Parent = Root,
                 Position =
                     UDim2.fromOffset(
-                        45,
-                        HasDetail
-                            and 8
-                            or 0
-                    ),
-                Size =
-                    UDim2.new(
-                        1,
-                        -55,
-                        0,
-                        HasDetail
-                            and 20
-                            or Height
-                    ),
-                BackgroundTransparency = 1,
-                Font =
-                    Enum.Font.BuilderSansMedium,
-                Text =
-                    "Atramenta  •  "
-                    .. Message,
-                TextColor3 =
-                    PrimaryText,
-                TextSize = 10,
-                TextXAlignment =
-                    Enum.TextXAlignment.Left,
-                TextYAlignment =
-                    Enum.TextYAlignment.Center,
-                TextTruncate =
-                    Enum.TextTruncate.AtEnd,
-                ZIndex = 276
-            })
-
-        if HasDetail then
-            Create("TextLabel", {
-                Parent = Root,
-                Position =
-                    UDim2.fromOffset(
-                        45,
-                        28
-                    ),
-                Size =
-                    UDim2.new(
-                        1,
-                        -55,
-                        0,
-                        17
-                    ),
-                BackgroundTransparency = 1,
-                Font =
-                    Enum.Font.BuilderSans,
-                Text = Detail,
-                TextColor3 =
-                    MutedText,
-                TextSize = 8,
-                TextXAlignment =
-                    Enum.TextXAlignment.Left,
-                TextYAlignment =
-                    Enum.TextYAlignment.Center,
-                TextTruncate =
-                    Enum.TextTruncate.AtEnd,
-                ZIndex = 276
-            })
-        end
-
-        local LifeTrack =
-            Create("Frame", {
-                Parent = Root,
-                AnchorPoint =
-                    Vector2.new(
-                        0,
-                        1
-                    ),
-                Position =
-                    UDim2.new(
-                        0,
-                        45,
-                        1,
+                        28,
                         0
                     ),
                 Size =
                     UDim2.new(
                         1,
-                        -55,
-                        0,
-                        1
-                    ),
-                BackgroundColor3 =
-                    Border,
-                BackgroundTransparency = 0.66,
-                BorderSizePixel = 0,
-                ZIndex = 275
-            })
-
-        local Life =
-            Create("Frame", {
-                Parent = LifeTrack,
-                Size =
-                    UDim2.fromScale(
+                        -34,
                         1,
-                        1
+                        0
                     ),
-                BackgroundColor3 =
-                    Style.Color,
-                BackgroundTransparency = 0.12,
-                BorderSizePixel = 0,
+                BackgroundTransparency = 1,
+                Font = Font,
+                Text = FullText,
+                TextColor3 =
+                    Color3.fromRGB(
+                        205,
+                        213,
+                        216
+                    ),
+                TextSize = TextSize,
+                TextXAlignment =
+                    Enum.TextXAlignment.Left,
+                TextYAlignment =
+                    Enum.TextYAlignment.Center,
+                TextTruncate =
+                    Enum.TextTruncate.AtEnd,
                 ZIndex = 276
             })
 
         Root.BackgroundTransparency = 1
-        MainLine.TextTransparency = 1
+        Label.TextTransparency = 1
         IconHolder.BackgroundTransparency = 1
+        AccentRail.BackgroundTransparency = 1
 
         Tween(
             Root,
-            0.12,
+            0.11,
             {
-                BackgroundTransparency = 0.12
+                BackgroundTransparency = 0.24
             }
         )
 
         Tween(
-            MainLine,
-            0.12,
+            Label,
+            0.11,
             {
                 TextTransparency = 0
             }
@@ -12314,31 +12257,19 @@ local function BuildRuntime()
 
         Tween(
             IconHolder,
-            0.12,
+            0.11,
             {
                 BackgroundTransparency = 0.88
             }
         )
 
-        TweenService:
-            Create(
-                Life,
-                TweenInfo.new(
-                    Duration,
-                    Enum.EasingStyle.Linear,
-                    Enum.EasingDirection.Out
-                ),
-                {
-                    Size =
-                        UDim2.new(
-                            0,
-                            0,
-                            1,
-                            0
-                        )
-                }
-            ):
-            Play()
+        Tween(
+            AccentRail,
+            0.11,
+            {
+                BackgroundTransparency = 0.08
+            }
+        )
 
         GlobalState.Last[
             DedupeKey
@@ -12358,53 +12289,38 @@ local function BuildRuntime()
 
                 Tween(
                     Root,
-                    0.14,
+                    0.13,
                     {
                         BackgroundTransparency = 1
                     }
                 )
 
-                for _, Object in ipairs(
-                    Root:GetDescendants()
-                ) do
-                    if Object:IsA(
-                        "TextLabel"
-                    )
-                    then
-                        Tween(
-                            Object,
-                            0.14,
-                            {
-                                TextTransparency = 1
-                            }
-                        )
-                    elseif Object:IsA(
-                        "ImageLabel"
-                    )
-                    then
-                        Tween(
-                            Object,
-                            0.14,
-                            {
-                                ImageTransparency = 1
-                            }
-                        )
-                    elseif Object:IsA(
-                        "Frame"
-                    )
-                    then
-                        Tween(
-                            Object,
-                            0.14,
-                            {
-                                BackgroundTransparency = 1
-                            }
-                        )
-                    end
-                end
+                Tween(
+                    Label,
+                    0.13,
+                    {
+                        TextTransparency = 1
+                    }
+                )
+
+                Tween(
+                    IconHolder,
+                    0.13,
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
+
+                Tween(
+                    AccentRail,
+                    0.13,
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
 
                 task.delay(
-                    0.15,
+                    0.14,
                     function()
                         if Root
                             and Root.Parent
