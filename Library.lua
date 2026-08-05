@@ -2905,7 +2905,7 @@ local function BuildRuntime()
             Parent = ScreenGui,
             Active = true,
             Position = UDim2.fromOffset(0, 0),
-            Size = UDim2.fromOffset(188, 132),
+            Size = UDim2.fromOffset(188, 160),
             BackgroundColor3 = Surface,
             BorderSizePixel = 0,
             ZIndex = 180
@@ -3006,9 +3006,43 @@ local function BuildRuntime()
         Corner(Capture, 5)
         local CaptureStroke = Stroke(Capture, Border, 0.22, 1)
 
+        local Mouse4Button = Create("TextButton", {
+            Parent = ActiveGearBindMenu,
+            Position = UDim2.fromOffset(8, 99),
+            Size = UDim2.fromOffset(83, 24),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.24,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "M4",
+            TextColor3 = PrimaryText,
+            TextSize = 10,
+            ZIndex = 181
+        })
+        Corner(Mouse4Button, 5)
+        Stroke(Mouse4Button, Border, 0.22, 1)
+
+        local Mouse5Button = Create("TextButton", {
+            Parent = ActiveGearBindMenu,
+            Position = UDim2.fromOffset(97, 99),
+            Size = UDim2.fromOffset(83, 24),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.24,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "M5",
+            TextColor3 = PrimaryText,
+            TextSize = 10,
+            ZIndex = 181
+        })
+        Corner(Mouse5Button, 5)
+        Stroke(Mouse5Button, Border, 0.22, 1)
+
         Create("TextLabel", {
             Parent = ActiveGearBindMenu,
-            Position = UDim2.fromOffset(10, 103),
+            Position = UDim2.fromOffset(10, 133),
             Size = UDim2.fromOffset(120, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
@@ -3022,7 +3056,7 @@ local function BuildRuntime()
         local ShowButton = Create("TextButton", {
             Parent = ActiveGearBindMenu,
             AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, -10, 0, 105),
+            Position = UDim2.new(1, -10, 0, 135),
             Size = UDim2.fromOffset(15, 15),
             BackgroundColor3 = Accent,
             BorderSizePixel = 0,
@@ -3101,10 +3135,11 @@ local function BuildRuntime()
             ShowCheck.Visible = ShowInBinds
             RefreshShowHover()
         end))
-        Bind(Capture.MouseButton1Click:Connect(function()
+        local function BeginBindCapture()
             CaptureListening = true
             Capture.Text = "Press key..."
             RefreshCaptureHover()
+
             PendingBindCapture = {
                 Meta = Meta,
                 Mode = function()
@@ -3121,7 +3156,28 @@ local function BuildRuntime()
                     end
                 end
             }
+        end
+
+        Bind(Capture.MouseButton1Click:Connect(function()
+            BeginBindCapture()
         end))
+
+        Bind(Mouse4Button.MouseButton1Click:Connect(function()
+            BeginBindCapture()
+            Menu.BindSystem.CaptureIdentity(
+                "UserInputType",
+                "MouseButton4"
+            )
+        end))
+
+        Bind(Mouse5Button.MouseButton1Click:Connect(function()
+            BeginBindCapture()
+            Menu.BindSystem.CaptureIdentity(
+                "UserInputType",
+                "MouseButton5"
+            )
+        end))
+
         RefreshMode()
     end
 
@@ -3313,6 +3369,187 @@ local function BuildRuntime()
     Menu.BindSystem.BuildBindDisplay = BuildBindDisplay
     Menu.BindSystem.GetInputIdentity = GetInputIdentity
     Menu.BindSystem.BindMatchesInput = BindMatchesInput
+
+    Menu.BindSystem.CustomMouse = {
+        Previous = {
+            MouseButton4 = false,
+            MouseButton5 = false
+        },
+        KeyCodes = {},
+        InputTypes = {}
+    }
+
+    local function FindEnumItem(EnumType, Names)
+        local Wanted = {}
+
+        for _, Name in ipairs(Names) do
+            Wanted[Name] = true
+        end
+
+        for _, Item in ipairs(
+            EnumType:GetEnumItems()
+        ) do
+            if Wanted[Item.Name] then
+                return Item
+            end
+        end
+
+        return nil
+    end
+
+    Menu.BindSystem.CustomMouse.KeyCodes.MouseButton4 =
+        FindEnumItem(
+            Enum.KeyCode,
+            {
+                "MouseBackButton",
+                "BrowserBack"
+            }
+        )
+
+    Menu.BindSystem.CustomMouse.KeyCodes.MouseButton5 =
+        FindEnumItem(
+            Enum.KeyCode,
+            {
+                "MouseForwardButton",
+                "BrowserForward"
+            }
+        )
+
+    Menu.BindSystem.CustomMouse.InputTypes.MouseButton4 =
+        FindEnumItem(
+            Enum.UserInputType,
+            {
+                "MouseButton4",
+                "XButton1"
+            }
+        )
+
+    Menu.BindSystem.CustomMouse.InputTypes.MouseButton5 =
+        FindEnumItem(
+            Enum.UserInputType,
+            {
+                "MouseButton5",
+                "XButton2"
+            }
+        )
+
+    function Menu.BindSystem.GetCustomMouseStates()
+        local States = {
+            MouseButton4 = false,
+            MouseButton5 = false
+        }
+
+        for _, Input in ipairs(
+            UserInputService:
+                GetMouseButtonsPressed()
+        ) do
+            local KeyType,
+                KeyName =
+                Menu.BindSystem.
+                    GetInputIdentity(
+                        Input
+                    )
+
+            if KeyType
+                and (
+                    KeyName == "MouseButton4"
+                    or KeyName == "MouseButton5"
+                )
+            then
+                States[KeyName] = true
+            end
+        end
+
+        for _, Input in ipairs(
+            UserInputService:
+                GetKeysPressed()
+        ) do
+            local KeyType,
+                KeyName =
+                Menu.BindSystem.
+                    GetInputIdentity(
+                        Input
+                    )
+
+            if KeyType
+                and (
+                    KeyName == "MouseButton4"
+                    or KeyName == "MouseButton5"
+                )
+            then
+                States[KeyName] = true
+            end
+        end
+
+        for KeyName, KeyCode in pairs(
+            Menu.BindSystem.CustomMouse.KeyCodes
+        ) do
+            if KeyCode
+                and UserInputService:
+                    IsKeyDown(
+                        KeyCode
+                    )
+            then
+                States[KeyName] = true
+            end
+        end
+
+        for KeyName, InputType in pairs(
+            Menu.BindSystem.CustomMouse.InputTypes
+        ) do
+            if InputType
+                and UserInputService:
+                    IsMouseButtonPressed(
+                        InputType
+                    )
+            then
+                States[KeyName] = true
+            end
+        end
+
+        return States
+    end
+
+    function Menu.BindSystem.BindMatchesIdentity(
+        BindData,
+        KeyType,
+        KeyName,
+        CheckModifiers
+    )
+        if type(BindData) ~= "table" then
+            return false
+        end
+
+        local StoredType,
+            StoredName =
+            Menu.BindSystem.
+                CanonicalBindKey(
+                    BindData.KeyType,
+                    BindData.Key
+                )
+
+        KeyType,
+            KeyName =
+            Menu.BindSystem.
+                CanonicalBindKey(
+                    KeyType,
+                    KeyName
+                )
+
+        if StoredType ~= KeyType
+            or StoredName ~= KeyName
+        then
+            return false
+        end
+
+        if CheckModifiers == false then
+            return true
+        end
+
+        return ModifiersEqual(
+            BindData.Modifiers
+        )
+    end
     end
 
     Menu.CreateDropdownExpandIndicator = function(Button, ZIndex)
@@ -9541,102 +9778,236 @@ local function BuildRuntime()
         end
     end
 
-    Menu.BindSystem.CaptureInput = function(Input)
+    Menu.BindSystem.CaptureIdentity = function(
+        KeyType,
+        KeyName
+    )
         if not PendingBindCapture then
             return false
         end
 
-        if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-            if PendingBindCapture.SetText then
-                PendingBindCapture.SetText("LMB unavailable")
-            end
-            return true
-        end
-
-        if Input.UserInputType == Enum.UserInputType.Keyboard and Menu.BindSystem.IsModifierKey(Input.KeyCode) then
-            return true
-        end
-
-        local KeyType, KeyName =
-            Menu.BindSystem.GetInputIdentity(
-                Input
-            )
+        KeyType,
+            KeyName =
+            Menu.BindSystem.
+                CanonicalBindKey(
+                    KeyType,
+                    KeyName
+                )
 
         if not KeyType
             or not KeyName
+            or KeyName == ""
+        then
+            return false
+        end
+
+        if KeyType == "UserInputType"
+            and KeyName == "MouseButton1"
         then
             if PendingBindCapture.SetText then
                 PendingBindCapture.SetText(
-                    "Unsupported"
+                    "LMB unavailable"
                 )
             end
 
             return true
         end
 
-        KeyType,
-            KeyName =
-            Menu.BindSystem.CanonicalBindKey(
-                KeyType,
-                KeyName
+        local Meta =
+            PendingBindCapture.Meta
+
+        local TargetFlag =
+            Meta
+            and tostring(
+                Meta.Flag or ""
             )
+            or ""
 
-        local Meta = PendingBindCapture.Meta
-        local TargetFlag = Meta and tostring(Meta.Flag or "") or ""
-
-        if TargetFlag == "" or type(Menu.Flags[TargetFlag]) ~= "boolean" then
+        if TargetFlag == ""
+            or type(
+                Menu.Flags[TargetFlag]
+            ) ~= "boolean"
+        then
             if PendingBindCapture.SetText then
-                PendingBindCapture.SetText("Boolean only")
+                PendingBindCapture.SetText(
+                    "Boolean only"
+                )
             end
+
             PendingBindCapture = nil
             return true
         end
 
-        local Mode = PendingBindCapture.Mode and PendingBindCapture.Mode() or "Toggle"
-        Mode = Mode == "Hold" and "Hold" or "Toggle"
+        local Mode =
+            PendingBindCapture.Mode
+            and PendingBindCapture.Mode()
+            or "Toggle"
 
-        local Modifiers = Menu.BindSystem.ReadModifiers()
-        local Binds = Menu.BindSystem.GetControlBinds(TargetFlag)
-        local ShowInBinds = PendingBindCapture.ShowInBinds == nil or PendingBindCapture.ShowInBinds()
-        local MetaGateFlag = Meta.Info and Meta.Info.GateFlag
-        local GateFlag = Mode == "Hold" and type(MetaGateFlag) == "string" and MetaGateFlag or nil
+        Mode =
+            Mode == "Hold"
+            and "Hold"
+            or "Toggle"
+
+        local Modifiers =
+            Menu.BindSystem.
+                ReadModifiers()
+
+        local Binds =
+            Menu.BindSystem.
+                GetControlBinds(
+                    TargetFlag
+                )
+
+        local ShowInBinds =
+            PendingBindCapture.ShowInBinds == nil
+            or PendingBindCapture.
+                ShowInBinds()
+
+        local MetaGateFlag =
+            Meta.Info
+            and Meta.Info.GateFlag
+
+        local GateFlag =
+            Mode == "Hold"
+            and type(MetaGateFlag)
+                == "string"
+            and MetaGateFlag
+            or nil
 
         for Index = #Binds, 1, -1 do
-            local Existing = Binds[Index]
-            local ExistingModifiers = type(Existing.Modifiers) == "table" and Existing.Modifiers or {}
+            local Existing =
+                Binds[Index]
 
-            if Existing.KeyType == KeyType
-                and Existing.Key == KeyName
-                and (ExistingModifiers.Ctrl == true) == (Modifiers.Ctrl == true)
-                and (ExistingModifiers.Shift == true) == (Modifiers.Shift == true)
-                and (ExistingModifiers.Alt == true) == (Modifiers.Alt == true) then
-                table.remove(Binds, Index)
+            local ExistingModifiers =
+                type(
+                    Existing.Modifiers
+                ) == "table"
+                and Existing.Modifiers
+                or {}
+
+            if Existing.KeyType
+                    == KeyType
+                and Existing.Key
+                    == KeyName
+                and (
+                    ExistingModifiers.Ctrl
+                        == true
+                ) == (
+                    Modifiers.Ctrl
+                        == true
+                )
+                and (
+                    ExistingModifiers.Shift
+                        == true
+                ) == (
+                    Modifiers.Shift
+                        == true
+                )
+                and (
+                    ExistingModifiers.Alt
+                        == true
+                ) == (
+                    Modifiers.Alt
+                        == true
+                )
+            then
+                table.remove(
+                    Binds,
+                    Index
+                )
             end
         end
 
         local BindData = {
-            Id = tostring(os.clock()) .. tostring(math.random(1000, 9999)),
+            Id =
+                tostring(
+                    os.clock()
+                )
+                .. tostring(
+                    math.random(
+                        1000,
+                        9999
+                    )
+                ),
             KeyType = KeyType,
             Key = KeyName,
             Modifiers = Modifiers,
-            Display = Menu.BindSystem.BuildBindDisplay(KeyName, Modifiers),
+            Display =
+                Menu.BindSystem.
+                    BuildBindDisplay(
+                        KeyName,
+                        Modifiers
+                    ),
             Mode = Mode,
-            ShowInBinds = ShowInBinds,
-            GateFlag = GateFlag
+            ShowInBinds =
+                ShowInBinds,
+            GateFlag =
+                GateFlag
         }
 
-        Binds[#Binds + 1] = BindData
+        Binds[#Binds + 1] =
+            BindData
 
-        if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
-            Menu.KeybindListController.MarkDirty()
+        if Menu.KeybindListController
+            and Menu.KeybindListController.MarkDirty
+        then
+            Menu.KeybindListController.
+                MarkDirty()
         end
 
         if PendingBindCapture.SetText then
-            PendingBindCapture.SetText(BindData.Display)
+            PendingBindCapture.SetText(
+                BindData.Display
+            )
         end
 
         PendingBindCapture = nil
         return true
+    end
+
+    Menu.BindSystem.CaptureInput = function(Input)
+        if not PendingBindCapture then
+            return false
+        end
+
+        if Input.UserInputType
+            == Enum.UserInputType.MouseButton1
+        then
+            return Menu.BindSystem.
+                CaptureIdentity(
+                    "UserInputType",
+                    "MouseButton1"
+                )
+        end
+
+        if Input.UserInputType
+                == Enum.UserInputType.Keyboard
+            and Menu.BindSystem.
+                IsModifierKey(
+                    Input.KeyCode
+                )
+        then
+            return true
+        end
+
+        local KeyType,
+            KeyName =
+            Menu.BindSystem.
+                GetInputIdentity(
+                    Input
+                )
+
+        if not KeyType
+            or not KeyName
+        then
+            return false
+        end
+
+        return Menu.BindSystem.
+            CaptureIdentity(
+                KeyType,
+                KeyName
+            )
     end
 
     Menu.BindSystem.ExecutePressed = function(TargetFlag, BindData)
@@ -9682,6 +10053,115 @@ local function BuildRuntime()
             Menu.KeybindListController.MarkDirty()
         end
     end
+
+    Menu.BindSystem.ProcessIdentityBegan =
+        function(
+            KeyType,
+            KeyName
+        )
+            local Matched = false
+            local ExecutedTargets = {}
+            local AllBinds =
+                SavedPositions.ControlBinds
+                or {}
+
+            for TargetFlag, Binds in pairs(
+                AllBinds
+            ) do
+                TargetFlag =
+                    tostring(
+                        TargetFlag
+                    )
+
+                if type(Binds)
+                        == "table"
+                    and type(
+                        Menu.Flags[
+                            TargetFlag
+                        ]
+                    ) == "boolean"
+                    and not ExecutedTargets[
+                        TargetFlag
+                    ]
+                then
+                    for _, BindData in ipairs(
+                        Binds
+                    ) do
+                        if Menu.BindSystem.
+                            BindMatchesIdentity(
+                                BindData,
+                                KeyType,
+                                KeyName,
+                                true
+                            )
+                        then
+                            ExecutedTargets[
+                                TargetFlag
+                            ] = true
+
+                            Matched = true
+
+                            Menu.BindSystem.
+                                ExecutePressed(
+                                    TargetFlag,
+                                    BindData
+                                )
+
+                            break
+                        end
+                    end
+                end
+            end
+
+            return Matched
+        end
+
+    Menu.BindSystem.ProcessIdentityEnded =
+        function(
+            KeyType,
+            KeyName
+        )
+            local AllBinds =
+                SavedPositions.ControlBinds
+                or {}
+
+            for TargetFlag, Binds in pairs(
+                AllBinds
+            ) do
+                TargetFlag =
+                    tostring(
+                        TargetFlag
+                    )
+
+                if type(Binds)
+                    == "table"
+                then
+                    for _, BindData in ipairs(
+                        Binds
+                    ) do
+                        if BindData.Mode
+                                == "Hold"
+                            and Menu.BindSystem.
+                                BindMatchesIdentity(
+                                    BindData,
+                                    KeyType,
+                                    KeyName,
+                                    false
+                                )
+                        then
+                            Menu.BindSystem.
+                                ReleaseHold(
+                                    Menu.BindSystem.
+                                        GetRuntimeKey(
+                                            TargetFlag,
+                                            BindData
+                                        )
+                                )
+                        end
+                    end
+                end
+            end
+        end
 
     Menu.BindSystem.ProcessBegan = function(Input)
         local Matched = false
@@ -9861,6 +10341,130 @@ local function BuildRuntime()
 
     Bind(UserInputService.InputEnded:Connect(function(Input)
         Menu.BindSystem.ProcessEnded(Input)
+    end))
+
+    local CustomMouseAccumulator = 0
+
+    Bind(RunService.Heartbeat:Connect(function(DeltaTime)
+        CustomMouseAccumulator +=
+            math.clamp(
+                DeltaTime,
+                0,
+                0.05
+            )
+
+        if CustomMouseAccumulator
+            < 1 / 120
+        then
+            return
+        end
+
+        CustomMouseAccumulator = 0
+
+        local States =
+            Menu.BindSystem.
+                GetCustomMouseStates()
+
+        for _, KeyName in ipairs({
+            "MouseButton4",
+            "MouseButton5"
+        }) do
+            local IsDown =
+                States[KeyName]
+                == true
+
+            local WasDown =
+                Menu.BindSystem.
+                    CustomMouse.
+                    Previous[
+                        KeyName
+                    ] == true
+
+            if IsDown ~= WasDown then
+                Menu.BindSystem.
+                    CustomMouse.
+                    Previous[
+                        KeyName
+                    ] = IsDown
+
+                if IsDown then
+                    local FocusedTextBox =
+                        UserInputService:
+                            GetFocusedTextBox()
+
+                    if not FocusedTextBox then
+                        if PendingBindCapture then
+                            Menu.BindSystem.
+                                CaptureIdentity(
+                                    "UserInputType",
+                                    KeyName
+                                )
+                        elseif Menu.QuickPanelBindCapture then
+                            local NewBind = {
+                                KeyType =
+                                    "UserInputType",
+                                Key = KeyName,
+                                Modifiers =
+                                    Menu.BindSystem.
+                                        ReadModifiers()
+                            }
+
+                            if Menu.SettingsUI.
+                                QuickPanelBindControl
+                                and Menu.SettingsUI.
+                                    QuickPanelBindControl.Set
+                            then
+                                Menu.SettingsUI.
+                                    QuickPanelBindControl.Set(
+                                        NewBind
+                                    )
+                            else
+                                Menu.Flags[
+                                    "Quick Panel Bind"
+                                ] = NewBind
+
+                                Menu.QuickPanelBindCapture =
+                                    false
+                            end
+                        else
+                            local QuickBind =
+                                Menu.Flags[
+                                    "Quick Panel Bind"
+                                ]
+
+                            if type(QuickBind)
+                                    == "table"
+                                and Menu.BindSystem.
+                                    BindMatchesIdentity(
+                                        QuickBind,
+                                        "UserInputType",
+                                        KeyName,
+                                        true
+                                    )
+                            then
+                                if Menu.QuickPanelController
+                                    and Menu.QuickPanelController.Toggle
+                                then
+                                    Menu.QuickPanelController.Toggle()
+                                end
+                            else
+                                Menu.BindSystem.
+                                    ProcessIdentityBegan(
+                                        "UserInputType",
+                                        KeyName
+                                    )
+                            end
+                        end
+                    end
+                else
+                    Menu.BindSystem.
+                        ProcessIdentityEnded(
+                            "UserInputType",
+                            KeyName
+                        )
+                end
+            end
+        end
     end))
 
     Menu.Visible = false
