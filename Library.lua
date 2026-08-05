@@ -10035,8 +10035,8 @@ local function BuildRuntime()
         Create("TextLabel", {
             Parent = HeaderRow,
             AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, -14, 0, 0),
-            Size = UDim2.fromOffset(72, 28),
+            Position = UDim2.new(1, -10, 0, 0),
+            Size = UDim2.fromOffset(64, 28),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = "Status",
@@ -10127,14 +10127,15 @@ local function BuildRuntime()
             Parent = Profile,
             AnchorPoint = Vector2.new(0.5, 0),
             Position = UDim2.new(0.5, 0, 0, 8),
-            Size = UDim2.fromOffset(60, 60),
+            Size = UDim2.fromOffset(78, 78),
             BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.34,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             ZIndex = 149
         })
-        Corner(AvatarHolder, 30)
-        Stroke(AvatarHolder, Border, 0.16, 1)
+        Corner(AvatarHolder, 8)
+        Stroke(AvatarHolder, Border, 0.42, 1)
 
         local Avatar = Create("ImageLabel", {
             Parent = AvatarHolder,
@@ -10145,20 +10146,21 @@ local function BuildRuntime()
             ZIndex = 150
         })
 
-        local AvatarFallback = Create("TextLabel", {
+        local AvatarLoading = Create("Frame", {
             Parent = AvatarHolder,
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansBold,
-            Text = "?",
-            TextColor3 = Accent,
-            TextSize = 22,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(18, 2),
+            BackgroundColor3 = Border,
+            BackgroundTransparency = 0.28,
+            BorderSizePixel = 0,
             ZIndex = 149
         })
+        Corner(AvatarLoading, 2)
 
         local PlayerName = Create("TextLabel", {
             Parent = Profile,
-            Position = UDim2.fromOffset(0, 74),
+            Position = UDim2.fromOffset(0, 94),
             Size = UDim2.new(1, 0, 0, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansBold,
@@ -10170,7 +10172,7 @@ local function BuildRuntime()
 
         local PlayerInfo = Create("TextLabel", {
             Parent = Profile,
-            Position = UDim2.fromOffset(0, 93),
+            Position = UDim2.fromOffset(0, 113),
             Size = UDim2.new(1, 0, 0, 16),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
@@ -10182,7 +10184,7 @@ local function BuildRuntime()
 
         Create("Frame", {
             Parent = Profile,
-            Position = UDim2.fromOffset(0, 116),
+            Position = UDim2.fromOffset(0, 136),
             Size = UDim2.new(1, 0, 0, 1),
             BackgroundColor3 = Border,
             BackgroundTransparency = 0.22,
@@ -10192,7 +10194,7 @@ local function BuildRuntime()
 
         Create("TextLabel", {
             Parent = Profile,
-            Position = UDim2.fromOffset(0, 128),
+            Position = UDim2.fromOffset(0, 148),
             Size = UDim2.new(1, 0, 0, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
@@ -10205,7 +10207,7 @@ local function BuildRuntime()
 
         local StatusButton = Create("TextButton", {
             Parent = Profile,
-            Position = UDim2.fromOffset(0, 151),
+            Position = UDim2.fromOffset(0, 171),
             Size = UDim2.new(1, 0, 0, 29),
             BackgroundColor3 = SurfaceAlt,
             BackgroundTransparency = 0.42,
@@ -10222,20 +10224,9 @@ local function BuildRuntime()
         Stroke(StatusButton, Border, 0.52, 1)
         Create("UIPadding", {
             Parent = StatusButton,
-            PaddingLeft = UDim.new(0, 24),
+            PaddingLeft = UDim.new(0, 10),
             PaddingRight = UDim.new(0, 28)
         })
-
-        local StatusButtonDot = Create("Frame", {
-            Parent = StatusButton,
-            AnchorPoint = Vector2.new(0, 0.5),
-            Position = UDim2.new(0, -14, 0.5, 0),
-            Size = UDim2.fromOffset(5, 5),
-            BackgroundColor3 = GetStatusStyle("None").Dot,
-            BorderSizePixel = 0,
-            ZIndex = 153
-        })
-        Corner(StatusButtonDot, 5)
 
         local StatusChevron = Icon(
             StatusButton,
@@ -10248,8 +10239,8 @@ local function BuildRuntime()
 
         local StatusDropdown = Create("Frame", {
             Parent = Profile,
-            Position = UDim2.fromOffset(0, 184),
-            Size = UDim2.new(1, 0, 0, 106),
+            Position = UDim2.fromOffset(0, 204),
+            Size = UDim2.new(1, 0, 0, 104),
             BackgroundColor3 = SurfaceAlt,
             BackgroundTransparency = 0.16,
             BorderSizePixel = 0,
@@ -10268,7 +10259,7 @@ local function BuildRuntime()
 
         local ActionHolder = Create("Frame", {
             Parent = Profile,
-            Position = UDim2.fromOffset(0, 195),
+            Position = UDim2.fromOffset(0, 215),
             Size = UDim2.new(1, 0, 0, 66),
             BackgroundTransparency = 1,
             ZIndex = 149
@@ -10353,7 +10344,7 @@ local function BuildRuntime()
             State.DropdownOpen = false
             StatusDropdown.Visible = false
             StatusChevron.Rotation = 0
-            ActionHolder.Position = UDim2.fromOffset(0, 195)
+            ActionHolder.Position = UDim2.fromOffset(0, 215)
         end
 
         local RefreshRows
@@ -10385,13 +10376,9 @@ local function BuildRuntime()
 
             StatusButton.Text = tostring(Status)
             StatusButton.TextColor3 = Style.Text
-            StatusButtonDot.BackgroundColor3 = Style.Dot
 
             for Name, Visual in pairs(StatusOptionVisuals) do
                 local Active = Name == Status
-
-                Visual.Dot.BackgroundColor3 =
-                    GetStatusStyle(Name).Dot
 
                 Visual.Button.TextColor3 =
                     Active
@@ -10400,10 +10387,11 @@ local function BuildRuntime()
 
                 Visual.Button.BackgroundTransparency =
                     Active
-                    and 0.72
+                    and 0.78
                     or 1
 
                 Visual.Bar.Visible = Active
+                Visual.Check.Visible = Active
             end
         end
 
@@ -10425,23 +10413,14 @@ local function BuildRuntime()
             })
             Create("UIPadding", {
                 Parent = Option,
-                PaddingLeft = UDim.new(0, 25)
+                PaddingLeft = UDim.new(0, 10),
+                PaddingRight = UDim.new(0, 28)
             })
-
-            local OptionDot = Create("Frame", {
-                Parent = Option,
-                AnchorPoint = Vector2.new(0, 0.5),
-                Position = UDim2.new(0, 11, 0.5, 0),
-                Size = UDim2.fromOffset(5, 5),
-                BackgroundColor3 = GetStatusStyle(Status).Dot,
-                BorderSizePixel = 0,
-                ZIndex = 163
-            })
-            Corner(OptionDot, 5)
 
             local OptionBar = Create("Frame", {
                 Parent = Option,
-                Position = UDim2.fromOffset(0, 5),
+                AnchorPoint = Vector2.new(1, 0),
+                Position = UDim2.new(1, 0, 0, 5),
                 Size = UDim2.fromOffset(2, 16),
                 BackgroundColor3 = Accent,
                 BorderSizePixel = 0,
@@ -10449,10 +10428,24 @@ local function BuildRuntime()
                 ZIndex = 163
             })
 
+            local OptionCheck = Create("TextLabel", {
+                Parent = Option,
+                AnchorPoint = Vector2.new(1, 0.5),
+                Position = UDim2.new(1, -8, 0.5, 0),
+                Size = UDim2.fromOffset(12, 16),
+                BackgroundTransparency = 1,
+                Font = Enum.Font.BuilderSansBold,
+                Text = "✓",
+                TextColor3 = Accent,
+                TextSize = 10,
+                Visible = false,
+                ZIndex = 163
+            })
+
             StatusOptionVisuals[Status] = {
                 Button = Option,
-                Dot = OptionDot,
-                Bar = OptionBar
+                Bar = OptionBar,
+                Check = OptionCheck
             }
 
             Bind(Option.MouseEnter:Connect(function()
@@ -10481,44 +10474,65 @@ local function BuildRuntime()
             end))
         end
 
+        local ThumbnailCache = {}
+
         local function LoadAvatar(Player)
             State.ThumbnailSerial += 1
             local Serial = State.ThumbnailSerial
 
             Avatar.Image = ""
-            AvatarFallback.Visible = true
-            AvatarFallback.Text = string.upper(
-                string.sub(
-                    tostring(Player and Player.Name or "?"),
-                    1,
-                    1
-                )
-            )
+            AvatarLoading.Visible = true
 
-            if not Player then return end
+            if not Player then
+                return
+            end
+
+            local UserId =
+                tonumber(Player.UserId)
+                or 0
+
+            local Cached =
+                ThumbnailCache[UserId]
+
+            if type(Cached) == "string"
+                and Cached ~= ""
+            then
+                Avatar.Image = Cached
+                AvatarLoading.Visible = false
+                return
+            end
+
+            local Direct =
+                "rbxthumb://type=AvatarHeadShot&id="
+                .. tostring(UserId)
+                .. "&w=150&h=150"
+
+            Avatar.Image = Direct
+            AvatarLoading.Visible = false
 
             task.spawn(function()
                 local Success, Content =
                     pcall(
                         Players.GetUserThumbnailAsync,
                         Players,
-                        Player.UserId,
+                        UserId,
                         Enum.ThumbnailType.HeadShot,
                         Enum.ThumbnailSize.Size150x150
                     )
-
-                if Serial ~= State.ThumbnailSerial
-                    or State.Selected ~= Player
-                then
-                    return
-                end
 
                 if Success
                     and type(Content) == "string"
                     and Content ~= ""
                 then
-                    Avatar.Image = Content
-                    AvatarFallback.Visible = false
+                    ThumbnailCache[UserId] =
+                        Content
+
+                    if Serial == State.ThumbnailSerial
+                        and State.Selected == Player
+                    then
+                        Avatar.Image = Content
+                        AvatarLoading.Visible = false
+                    end
                 end
             end)
         end
@@ -10537,7 +10551,7 @@ local function BuildRuntime()
                 PlayerName.Text = ""
                 PlayerInfo.Text = ""
                 Avatar.Image = ""
-                AvatarFallback.Visible = true
+                AvatarLoading.Visible = false
                 return
             end
 
@@ -10586,9 +10600,9 @@ local function BuildRuntime()
 
             local Row = Create("TextButton", {
                 Parent = Scroll,
-                Size = UDim2.new(1, -3, 0, 29),
+                Size = UDim2.new(1, -2, 0, 28),
                 BackgroundColor3 = Surface,
-                BackgroundTransparency = Selected and 0.74 or 1,
+                BackgroundTransparency = Selected and 0.82 or 1,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
                 Text = "",
@@ -10599,8 +10613,8 @@ local function BuildRuntime()
             Create("Frame", {
                 Parent = Row,
                 AnchorPoint = Vector2.new(0, 1),
-                Position = UDim2.new(0, 10, 1, 0),
-                Size = UDim2.new(1, -20, 0, 1),
+                Position = UDim2.new(0, 12, 1, 0),
+                Size = UDim2.new(1, -24, 0, 1),
                 BackgroundColor3 = Border,
                 BackgroundTransparency = 0.76,
                 BorderSizePixel = 0,
@@ -10610,8 +10624,8 @@ local function BuildRuntime()
             if Selected then
                 Create("Frame", {
                     Parent = Row,
-                    Position = UDim2.fromOffset(0, 3),
-                    Size = UDim2.fromOffset(2, 23),
+                    Position = UDim2.fromOffset(0, 4),
+                    Size = UDim2.fromOffset(2, 20),
                     BackgroundColor3 = Accent,
                     BorderSizePixel = 0,
                     ZIndex = 151
@@ -10620,8 +10634,8 @@ local function BuildRuntime()
 
             local Name = Create("TextLabel", {
                 Parent = Row,
-                Position = UDim2.fromOffset(14, 0),
-                Size = UDim2.new(1, -102, 1, 0),
+                Position = UDim2.fromOffset(12, 0),
+                Size = UDim2.new(1, -96, 1, 0),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSansMedium,
                 Text = tostring(Player.DisplayName or Player.Name),
@@ -10635,22 +10649,11 @@ local function BuildRuntime()
             local Status = GetStatus(Player)
             local Style = GetStatusStyle(Status)
 
-            local StatusDot = Create("Frame", {
-                Parent = Row,
-                AnchorPoint = Vector2.new(1, 0.5),
-                Position = UDim2.new(1, -59, 0.5, 0),
-                Size = UDim2.fromOffset(4, 4),
-                BackgroundColor3 = Style.Dot,
-                BorderSizePixel = 0,
-                ZIndex = 152
-            })
-            Corner(StatusDot, 4)
-
             Create("TextLabel", {
                 Parent = Row,
                 AnchorPoint = Vector2.new(1, 0.5),
                 Position = UDim2.new(1, -10, 0.5, 0),
-                Size = UDim2.fromOffset(43, 16),
+                Size = UDim2.fromOffset(64, 16),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSansMedium,
                 Text = Status,
@@ -10662,7 +10665,7 @@ local function BuildRuntime()
 
             Bind(Row.MouseEnter:Connect(function()
                 if State.Selected ~= Player then
-                    Tween(Row, 0.10, {BackgroundTransparency = 0.88})
+                    Tween(Row, 0.10, {BackgroundTransparency = 0.93})
                 end
             end))
 
@@ -10748,8 +10751,8 @@ local function BuildRuntime()
 
             ActionHolder.Position =
                 State.DropdownOpen
-                and UDim2.fromOffset(0, 296)
-                or UDim2.fromOffset(0, 195)
+                and UDim2.fromOffset(0, 316)
+                or UDim2.fromOffset(0, 215)
         end))
 
         Bind(SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
