@@ -1212,6 +1212,9 @@ local function BuildRuntime()
             if type(Options.Callback) == "function" then
                 task.spawn(Options.Callback, State)
             end
+            if Menu.BindSystem.NotifyFlagChanged then
+                Menu.BindSystem.NotifyFlagChanged(Flag, State)
+            end
         end
 
         Menu.Setters[Flag] = Set
@@ -1775,30 +1778,45 @@ local function BuildRuntime()
     do
     local function GetControlBinds(ControlFlag)
         SavedPositions.ControlBinds = SavedPositions.ControlBinds or {}
-        local Key = tostring(ControlFlag or "Unknown")
-        local Binds = SavedPositions.ControlBinds[Key]
+
+        local TargetFlag = tostring(ControlFlag or "Unknown")
+        local Binds = SavedPositions.ControlBinds[TargetFlag]
         if type(Binds) ~= "table" then
             Binds = {}
-            SavedPositions.ControlBinds[Key] = Binds
+            SavedPositions.ControlBinds[TargetFlag] = Binds
         end
 
         local Seen = {}
-        local Changed = false
         for Index = #Binds, 1, -1 do
             local BindData = Binds[Index]
+
             if type(BindData) ~= "table"
                 or type(BindData.KeyType) ~= "string"
                 or type(BindData.Key) ~= "string"
                 or (BindData.KeyType == "UserInputType" and BindData.Key == "MouseButton1") then
                 table.remove(Binds, Index)
-                Changed = true
             else
+                BindData.Id = type(BindData.Id) == "string"
+                    and BindData.Id
+                    or (tostring(os.clock()) .. tostring(math.random(1000, 9999)))
                 BindData.Mode = BindData.Mode == "Hold" and "Hold" or "Toggle"
                 BindData.ShowInBinds = BindData.ShowInBinds ~= false
-                BindData.ControlType = "Boolean"
+                BindData.Modifiers = type(BindData.Modifiers) == "table"
+                    and BindData.Modifiers
+                    or {Ctrl = false, Shift = false, Alt = false}
+
+                if BindData.Mode == "Hold" then
+                    local GateFlag = BindData.GateFlag or BindData.EnabledFlag
+                    BindData.GateFlag = type(GateFlag) == "string" and GateFlag ~= "" and GateFlag or nil
+                else
+                    BindData.GateFlag = nil
+                end
+
+                BindData.EnabledFlag = nil
+                BindData.ControlType = nil
                 BindData.Value = nil
                 BindData.BaseValue = nil
-                BindData.Modifiers = type(BindData.Modifiers) == "table" and BindData.Modifiers or {}
+
                 local Signature = table.concat({
                     BindData.KeyType,
                     BindData.Key,
@@ -1806,24 +1824,29 @@ local function BuildRuntime()
                     BindData.Modifiers.Shift and "1" or "0",
                     BindData.Modifiers.Alt and "1" or "0"
                 }, ":")
+
                 if Seen[Signature] then
                     table.remove(Binds, Index)
-                    Changed = true
                 else
                     Seen[Signature] = true
                 end
             end
         end
-        if Changed then SavePositions() end
-        return Binds, Key
+
+        return Binds, TargetFlag
     end
 
     local function ApplyFlagValue(Flag, Value)
+        Flag = tostring(Flag or "Unknown")
         local Setter = Menu.Setters[Flag]
+
         if Setter then
             Setter(Value)
         else
             Menu.Flags[Flag] = Value
+            if Menu.BindSystem.NotifyFlagChanged then
+                Menu.BindSystem.NotifyFlagChanged(Flag, Value)
+            end
         end
     end
 
@@ -2816,6 +2839,128 @@ local function BuildRuntime()
 
     Menu.BindSystem.GetControlBinds = GetControlBinds
     Menu.BindSystem.ApplyFlagValue = ApplyFlagValue
+    Menu.BindSystem.ControlNames = Menu.BindSystem.ControlNames or {}
+    Menu.BindSystem.ControlMeta = Menu.BindSystem.ControlMeta or {}
+    Menu.BindSystem.LegacyAliases = Menu.BindSystem.LegacyAliases or {}
+    Menu.BindHoldState = Menu.BindHoldState or {}
+
+    Menu.BindSystem.RegisterTarget = function(TargetFlag, Name, GateFlag, LegacyAlias)
+        TargetFlag = tostring(TargetFlag or "Unknown")
+        Menu.BindSystem.ControlNames[TargetFlag] = tostring(Name or TargetFlag)
+        Menu.BindSystem.ControlMeta[TargetFlag] = {
+            GateFlag = type(GateFlag) == "string" and GateFlag ~= "" and GateFlag or nil
+        }
+
+        if type(LegacyAlias) == "string" and LegacyAlias ~= "" and LegacyAlias ~= TargetFlag then
+            Menu.BindSystem.LegacyAliases[LegacyAlias] = TargetFlag
+        end
+    end
+
+    Menu.BindSystem.NormalizeStorage = function()
+        SavedPositions.ControlBinds = SavedPositions.ControlBinds or {}
+        local Storage = SavedPositions.ControlBinds
+
+        for Alias, Target in pairs(Menu.BindSystem.LegacyAliases) do
+            if Alias ~= Target and type(Storage[Alias]) == "table" then
+                local Source = Storage[Alias]
+                local Destination = Menu.BindSystem.GetControlBinds(Target)
+                local Seen = {}
+
+                for _, BindData in ipairs(Destination) do
+                    if type(BindData) == "table" then
+                        local Modifiers = type(BindData.Modifiers) == "table" and BindData.Modifiers or {}
+                        Seen[table.concat({
+                            tostring(BindData.KeyType or ""),
+                            tostring(BindData.Key or ""),
+                            Modifiers.Ctrl and "1" or "0",
+                            Modifiers.Shift and "1" or "0",
+                            Modifiers.Alt and "1" or "0"
+                        }, ":")] = true
+                    end
+                end
+
+                for _, BindData in ipairs(Source) do
+                    if type(BindData) == "table" then
+                        local Modifiers = type(BindData.Modifiers) == "table" and BindData.Modifiers or {}
+                        local Signature = table.concat({
+                            tostring(BindData.KeyType or ""),
+                            tostring(BindData.Key or ""),
+                            Modifiers.Ctrl and "1" or "0",
+                            Modifiers.Shift and "1" or "0",
+                            Modifiers.Alt and "1" or "0"
+                        }, ":")
+
+                        if not Seen[Signature] then
+                            Destination[#Destination + 1] = BindData
+                            Seen[Signature] = true
+                        end
+                    end
+                end
+
+                Storage[Alias] = nil
+                Menu.BindSystem.GetControlBinds(Target)
+            end
+        end
+
+        for TargetFlag in pairs(Storage) do
+            Menu.BindSystem.GetControlBinds(TargetFlag)
+        end
+
+        if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+            Menu.KeybindListController.MarkDirty()
+        end
+    end
+
+    Menu.BindSystem.GetRuntimeKey = function(TargetFlag, BindData)
+        return type(BindData.Id) == "string"
+            and BindData.Id
+            or (tostring(TargetFlag) .. ":" .. tostring(BindData.Display or BindData.Key or ""))
+    end
+
+    Menu.BindSystem.ReleaseHold = function(RuntimeKey)
+        local RuntimeData = Menu.BindRuntime[RuntimeKey]
+        if type(RuntimeData) ~= "table" then
+            return
+        end
+
+        Menu.BindRuntime[RuntimeKey] = nil
+
+        local TargetFlag = RuntimeData.TargetFlag
+        local HoldState = Menu.BindHoldState[TargetFlag]
+        if type(HoldState) ~= "table" then
+            return
+        end
+
+        HoldState.Count = math.max(0, (tonumber(HoldState.Count) or 1) - 1)
+
+        if HoldState.Count <= 0 then
+            local RestoreValue = HoldState.Base == true
+            Menu.BindHoldState[TargetFlag] = nil
+            Menu.BindSystem.ApplyFlagValue(TargetFlag, RestoreValue)
+        end
+    end
+
+    Menu.BindSystem.NotifyFlagChanged = function(Flag, Value)
+        if Value ~= true then
+            local ReleaseKeys = {}
+
+            for RuntimeKey, RuntimeData in pairs(Menu.BindRuntime) do
+                if type(RuntimeData) == "table" and RuntimeData.GateFlag == Flag then
+                    ReleaseKeys[#ReleaseKeys + 1] = RuntimeKey
+                end
+            end
+
+            for _, RuntimeKey in ipairs(ReleaseKeys) do
+                Menu.BindSystem.ReleaseHold(RuntimeKey)
+            end
+        end
+
+        if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+            Menu.KeybindListController.MarkDirty()
+        end
+    end
+
+    Menu.BindSystem.IsModifierKey = IsModifierKey
     Menu.BindSystem.IsModifierKey = IsModifierKey
     Menu.BindSystem.ReadModifiers = ReadModifiers
     Menu.BindSystem.BuildBindDisplay = BuildBindDisplay
@@ -4809,54 +4954,33 @@ local function BuildRuntime()
         local AllBinds = SavedPositions.ControlBinds or {}
         local ControlNames = Menu.BindSystem.ControlNames or {}
 
-        for Flag, Binds in pairs(AllBinds) do
-            if type(Binds) == "table" then
+        for TargetFlag, Binds in pairs(AllBinds) do
+            TargetFlag = tostring(TargetFlag)
+            local Name = ControlNames[TargetFlag]
+
+            if type(Name) == "string"
+                and type(Binds) == "table"
+                and type(Menu.Flags[TargetFlag]) == "boolean" then
                 for _, BindData in ipairs(Binds) do
                     if type(BindData) == "table" and BindData.ShowInBinds ~= false then
-                        local Mode = BindData.Mode == "Hold" and "Hold" or "Toggle"
                         local Display = BindData.Display
+
                         if type(Display) ~= "string" or Display == "" then
                             Display = Menu.BindSystem.BuildBindDisplay(BindData.Key, BindData.Modifiers)
                             BindData.Display = Display
                         end
 
-                        local EnabledFlag = BindData.EnabledFlag
-                            or (Menu.BindSystem.EnabledFlags and Menu.BindSystem.EnabledFlags[Flag])
-                        local GateActive = EnabledFlag == nil or Menu.Flags[EnabledFlag] == true
-
-                        if not GateActive and Mode == "Hold" then
-                            local RuntimeKey = GetKeybindRuntimeKey(Flag, BindData)
-                            if Menu.BindRuntime[RuntimeKey] ~= nil then
-                                Menu.BindRuntime[RuntimeKey] = nil
-                                if Menu.Flags[Flag] == true then
-                                    Menu.BindSystem.ApplyFlagValue(Flag, false)
-                                end
-                            end
-                        end
-
-                        local Active
-                        if Mode == "Hold" then
-                            Active = GateActive and Menu.BindRuntime[GetKeybindRuntimeKey(Flag, BindData)] ~= nil
-                        else
-                            Active = GateActive and Menu.Flags[Flag] == true
-                        end
-
-                        local FeatureEnabled
-                        if EnabledFlag ~= nil then
-                            FeatureEnabled = Menu.Flags[EnabledFlag] == true
-                        elseif Mode == "Toggle" then
-                            FeatureEnabled = Menu.Flags[Flag] == true
-                        else
-                            FeatureEnabled = Active
-                        end
+                        local RuntimeKey = Menu.BindSystem.GetRuntimeKey(TargetFlag, BindData)
+                        local Active = BindData.Mode == "Hold"
+                            and Menu.BindRuntime[RuntimeKey] ~= nil
+                            or Menu.Flags[TargetFlag] == true
 
                         Entries[#Entries + 1] = {
-                            Name = tostring(ControlNames[tostring(Flag)] or Flag),
-                            Key = tostring(Display),
-                            Status = Active and (Mode == "Hold" and "Holded" or "Toggled") or "Off",
+                            Name = Name,
+                            Key = Display,
                             Active = Active,
-                            Enabled = FeatureEnabled,
-                            Mode = Mode
+                            Enabled = Menu.Flags[TargetFlag] == true,
+                            Mode = BindData.Mode == "Hold" and "Hold" or "Toggle"
                         }
                     end
                 end
@@ -4867,10 +4991,11 @@ local function BuildRuntime()
             local Left = string.lower(A.Name)
             local Right = string.lower(B.Name)
             if Left == Right then
-                return A.Key < B.Key
+                return tostring(A.Key) < tostring(B.Key)
             end
             return Left < Right
         end)
+
         return Entries
     end
 
@@ -8378,20 +8503,27 @@ local function BuildRuntime()
         if not PendingBindCapture then
             return false
         end
+
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-            if PendingBindCapture.SetText then PendingBindCapture.SetText("LMB unavailable") end
+            if PendingBindCapture.SetText then
+                PendingBindCapture.SetText("LMB unavailable")
+            end
             return true
         end
+
         if Input.UserInputType == Enum.UserInputType.Keyboard and Menu.BindSystem.IsModifierKey(Input.KeyCode) then
             return true
         end
+
         local KeyType, KeyName = Menu.BindSystem.GetInputIdentity(Input)
         if not KeyType then
             return true
         end
 
         local Meta = PendingBindCapture.Meta
-        if not Meta or not Meta.Flag or type(Menu.Flags[Meta.Flag]) ~= "boolean" then
+        local TargetFlag = Meta and tostring(Meta.Flag or "") or ""
+
+        if TargetFlag == "" or type(Menu.Flags[TargetFlag]) ~= "boolean" then
             if PendingBindCapture.SetText then
                 PendingBindCapture.SetText("Boolean only")
             end
@@ -8399,18 +8531,24 @@ local function BuildRuntime()
             return true
         end
 
-        local Modifiers = Menu.BindSystem.ReadModifiers()
-        local Binds = Menu.BindSystem.GetControlBinds(Meta.Flag)
-        local CapturedShowInBinds = PendingBindCapture.ShowInBinds == nil or PendingBindCapture.ShowInBinds()
         local Mode = PendingBindCapture.Mode and PendingBindCapture.Mode() or "Toggle"
+        Mode = Mode == "Hold" and "Hold" or "Toggle"
+
+        local Modifiers = Menu.BindSystem.ReadModifiers()
+        local Binds = Menu.BindSystem.GetControlBinds(TargetFlag)
+        local ShowInBinds = PendingBindCapture.ShowInBinds == nil or PendingBindCapture.ShowInBinds()
+        local MetaGateFlag = Meta.Info and Meta.Info.GateFlag
+        local GateFlag = Mode == "Hold" and type(MetaGateFlag) == "string" and MetaGateFlag or nil
 
         for Index = #Binds, 1, -1 do
             local Existing = Binds[Index]
+            local ExistingModifiers = type(Existing.Modifiers) == "table" and Existing.Modifiers or {}
+
             if Existing.KeyType == KeyType
                 and Existing.Key == KeyName
-                and (Existing.Modifiers and Existing.Modifiers.Ctrl == true) == (Modifiers.Ctrl == true)
-                and (Existing.Modifiers and Existing.Modifiers.Shift == true) == (Modifiers.Shift == true)
-                and (Existing.Modifiers and Existing.Modifiers.Alt == true) == (Modifiers.Alt == true) then
+                and (ExistingModifiers.Ctrl == true) == (Modifiers.Ctrl == true)
+                and (ExistingModifiers.Shift == true) == (Modifiers.Shift == true)
+                and (ExistingModifiers.Alt == true) == (Modifiers.Alt == true) then
                 table.remove(Binds, Index)
             end
         end
@@ -8421,84 +8559,105 @@ local function BuildRuntime()
             Key = KeyName,
             Modifiers = Modifiers,
             Display = Menu.BindSystem.BuildBindDisplay(KeyName, Modifiers),
-            Mode = Mode == "Hold" and "Hold" or "Toggle",
-            ShowInBinds = CapturedShowInBinds,
-            EnabledFlag = Menu.BindSystem.EnabledFlags and Menu.BindSystem.EnabledFlags[PendingBindCapture.Flag] or nil,
-            ControlType = "Boolean"
+            Mode = Mode,
+            ShowInBinds = ShowInBinds,
+            GateFlag = GateFlag
         }
-        table.insert(Binds, BindData)
+
+        Binds[#Binds + 1] = BindData
+
         if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
             Menu.KeybindListController.MarkDirty()
         end
-        SavePositions()
+
         if PendingBindCapture.SetText then
             PendingBindCapture.SetText(BindData.Display)
         end
+
         PendingBindCapture = nil
         return true
     end
 
-    Menu.BindSystem.ExecutePressed = function(Flag, BindData)
-        local Current = Menu.Flags[Flag]
-        if type(Current) ~= "boolean" then
+    Menu.BindSystem.ExecutePressed = function(TargetFlag, BindData)
+        TargetFlag = tostring(TargetFlag or "Unknown")
+        local Current = Menu.Flags[TargetFlag]
+
+        if type(Current) ~= "boolean" or type(BindData) ~= "table" then
             return
         end
 
-        local EnabledFlag = BindData.EnabledFlag
-            or (Menu.BindSystem.EnabledFlags and Menu.BindSystem.EnabledFlags[Flag])
-        if EnabledFlag ~= nil and Menu.Flags[EnabledFlag] ~= true then
+        if BindData.Mode ~= "Hold" then
+            Menu.BindSystem.ApplyFlagValue(TargetFlag, not Current)
             return
         end
 
-        if BindData.Mode == "Hold" then
-            local RuntimeKey = BindData.Id or (tostring(Flag) .. ":" .. tostring(BindData.Display or BindData.Key or ""))
-            if Menu.BindRuntime[RuntimeKey] == nil then
-                Menu.BindRuntime[RuntimeKey] = {Flag = Flag}
-                Menu.BindSystem.ApplyFlagValue(Flag, true)
-            end
+        local GateFlag = type(BindData.GateFlag) == "string" and BindData.GateFlag or nil
+        if GateFlag and Menu.Flags[GateFlag] ~= true then
             return
         end
 
-        Menu.BindSystem.ApplyFlagValue(Flag, not Current)
+        local RuntimeKey = Menu.BindSystem.GetRuntimeKey(TargetFlag, BindData)
+        if Menu.BindRuntime[RuntimeKey] ~= nil then
+            return
+        end
+
+        local HoldState = Menu.BindHoldState[TargetFlag]
+        if type(HoldState) ~= "table" then
+            HoldState = {Count = 0, Base = Current == true}
+            Menu.BindHoldState[TargetFlag] = HoldState
+        end
+
+        HoldState.Count += 1
+        Menu.BindRuntime[RuntimeKey] = {
+            TargetFlag = TargetFlag,
+            GateFlag = GateFlag
+        }
+
+        if Current ~= true then
+            Menu.BindSystem.ApplyFlagValue(TargetFlag, true)
+        end
+
+        if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+            Menu.KeybindListController.MarkDirty()
+        end
     end
 
     Menu.BindSystem.ProcessBegan = function(Input)
         local Matched = false
-        local ExecutedFlags = {}
+        local ExecutedTargets = {}
         local AllBinds = SavedPositions.ControlBinds or {}
-        for Flag, Binds in pairs(AllBinds) do
-            if type(Binds) == "table" and not ExecutedFlags[Flag] then
+
+        for TargetFlag, Binds in pairs(AllBinds) do
+            TargetFlag = tostring(TargetFlag)
+
+            if type(Binds) == "table"
+                and type(Menu.Flags[TargetFlag]) == "boolean"
+                and not ExecutedTargets[TargetFlag] then
                 for _, BindData in ipairs(Binds) do
                     if Menu.BindSystem.BindMatchesInput(BindData, Input, true) then
+                        ExecutedTargets[TargetFlag] = true
                         Matched = true
-                        ExecutedFlags[Flag] = true
-                        Menu.BindSystem.ExecutePressed(Flag, BindData)
+                        Menu.BindSystem.ExecutePressed(TargetFlag, BindData)
                         break
                     end
                 end
             end
         end
+
         return Matched
     end
 
     Menu.BindSystem.ProcessEnded = function(Input)
         local AllBinds = SavedPositions.ControlBinds or {}
-        for Flag, Binds in pairs(AllBinds) do
+
+        for TargetFlag, Binds in pairs(AllBinds) do
+            TargetFlag = tostring(TargetFlag)
+
             if type(Binds) == "table" then
                 for _, BindData in ipairs(Binds) do
-                    local RuntimeKey = BindData.Id or (tostring(Flag) .. ":" .. tostring(BindData.Display or BindData.Key or ""))
-                    if BindData.Mode == "Hold" and Menu.BindRuntime[RuntimeKey] ~= nil and Menu.BindSystem.BindMatchesInput(BindData, Input, false) then
-                        Menu.BindRuntime[RuntimeKey] = nil
-                        local AnotherHoldActive = false
-                        for _, RuntimeData in pairs(Menu.BindRuntime) do
-                            if type(RuntimeData) == "table" and RuntimeData.Flag == Flag then
-                                AnotherHoldActive = true
-                                break
-                            end
-                        end
-                        if not AnotherHoldActive then
-                            Menu.BindSystem.ApplyFlagValue(Flag, false)
-                        end
+                    if BindData.Mode == "Hold"
+                        and Menu.BindSystem.BindMatchesInput(BindData, Input, false) then
+                        Menu.BindSystem.ReleaseHold(Menu.BindSystem.GetRuntimeKey(TargetFlag, BindData))
                     end
                 end
             end
@@ -8968,15 +9127,21 @@ local function BuildRuntime()
 
     function ApiCreateKeybind(Section, Data, ExistingRow, TargetFlag, TargetName)
         Data = Data or {}
+
         local Name = tostring(ApiRead(Data, "Name", "Keybind"))
-        local Flag = TargetFlag or ApiNormalizeFlag(Data, Name)
+        local DeclaredFlag = ApiNormalizeFlag(Data, Name)
+        local Flag = TargetFlag and tostring(TargetFlag) or tostring(DeclaredFlag)
         local Default = ApiRead(Data, "Default", "None")
-        local Mode = tostring(ApiRead(Data, "Mode", "Toggle"))
+        local Mode = tostring(ApiRead(Data, "Mode", "Toggle")) == "Hold" and "Hold" or "Toggle"
         local Callback = ApiRead(Data, "Callback")
-        local EnabledFlag = ApiRead(Data, "EnabledFlag", ApiRead(Data, "GateFlag"))
-        if EnabledFlag ~= nil then
-            EnabledFlag = tostring(EnabledFlag)
+        local GateFlag = ApiRead(Data, "EnabledFlag", ApiRead(Data, "GateFlag"))
+
+        if Mode ~= "Hold" then
+            GateFlag = nil
+        elseif GateFlag ~= nil then
+            GateFlag = tostring(GateFlag)
         end
+
         local Row = ExistingRow or CreateRow(Section.Body, 27)
 
         if not ExistingRow then
@@ -8994,21 +9159,30 @@ local function BuildRuntime()
             RegisterControl(Section, Row, Name)
         end
 
-        Menu.BindSystem.EnabledFlags = Menu.BindSystem.EnabledFlags or {}
-        if EnabledFlag ~= nil then
-            Menu.BindSystem.EnabledFlags[Flag] = EnabledFlag
-        end
-
         if not TargetFlag then
             Menu.Flags[Flag] = Menu.Flags[Flag] == true
+
             Menu.Setters[Flag] = function(Value)
                 local State = Value == true
                 Menu.Flags[Flag] = State
+
                 if type(Callback) == "function" then
                     task.spawn(Callback, State)
                 end
+
+                if Menu.BindSystem.NotifyFlagChanged then
+                    Menu.BindSystem.NotifyFlagChanged(Flag, State)
+                end
             end
         end
+
+        Menu.BindSystem.RegisterTarget(
+            Flag,
+            TargetName or Name,
+            GateFlag,
+            TargetFlag and DeclaredFlag or nil
+        )
+        Menu.BindSystem.NormalizeStorage()
 
         local GearButton, GearIcon = CreateGear(
             Row,
@@ -9016,43 +9190,49 @@ local function BuildRuntime()
             13,
             TargetName or Name,
             Flag,
-            {Type = "Boolean"}
+            {Type = "Boolean", GateFlag = GateFlag}
         )
 
         if typeof(Default) == "EnumItem" then
             local KeyType
+
             if Default.EnumType == Enum.KeyCode then
                 KeyType = "KeyCode"
             elseif Default.EnumType == Enum.UserInputType then
                 KeyType = "UserInputType"
             end
+
             if KeyType then
                 local Binds = Menu.BindSystem.GetControlBinds(Flag)
                 local Exists = false
+
                 for _, BindData in ipairs(Binds) do
                     if BindData.KeyType == KeyType and BindData.Key == Default.Name then
                         Exists = true
-                        BindData.EnabledFlag = EnabledFlag
+                        if BindData.Mode == "Hold" then
+                            BindData.GateFlag = GateFlag
+                        else
+                            BindData.GateFlag = nil
+                        end
                         break
                     end
                 end
+
                 if not Exists then
-                    table.insert(Binds, {
+                    Binds[#Binds + 1] = {
                         Id = tostring(os.clock()) .. tostring(math.random(1000, 9999)),
                         KeyType = KeyType,
                         Key = Default.Name,
                         Modifiers = {Ctrl = false, Shift = false, Alt = false},
                         Display = Menu.BindSystem.BuildBindDisplay(Default.Name, {}),
-                        Mode = Mode == "Hold" and "Hold" or "Toggle",
+                        Mode = Mode,
                         ShowInBinds = true,
-                        EnabledFlag = EnabledFlag,
-                        Value = true,
-                        BaseValue = Menu.Flags[Flag]
-                    })
-                    if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
-                        Menu.KeybindListController.MarkDirty()
-                    end
-                    SavePositions()
+                        GateFlag = GateFlag
+                    }
+                end
+
+                if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+                    Menu.KeybindListController.MarkDirty()
                 end
             end
         end
@@ -9957,6 +10137,10 @@ local function BuildRuntime()
                     for Flag in pairs(Binds) do
                         Menu.BindSystem.GetControlBinds(Flag)
                     end
+                end
+
+                if Menu.BindSystem and type(Menu.BindSystem.NormalizeStorage) == "function" then
+                    Menu.BindSystem.NormalizeStorage()
                 end
             end
         end
