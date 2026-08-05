@@ -760,11 +760,25 @@ local function BuildRuntime()
             Size = UDim2.fromOffset(25, 41),
             BackgroundTransparency = 1,
             Image = LogoAsset,
-            ImageColor3 = Accent,
+            ImageColor3 = Color3.fromRGB(238, 249, 255),
+            ImageTransparency = 0,
             ScaleType = Enum.ScaleType.Fit,
             Active = true,
             ZIndex = 6
         })
+
+        local SidebarLogoGlow =
+            Menu:AddSoftGlow(
+                Menu.SidebarLogo,
+                5,
+                5,
+                0.68,
+                false
+            )
+
+        if SidebarLogoGlow then
+            SidebarLogoGlow.ImageColor3 = Accent
+        end
     else
         Menu.SidebarLogo = Icon(SidebarHeader, "Lightning", UDim2.fromOffset(21, 28), UDim2.fromOffset(44, 70), Accent, 6)
         Menu.SidebarLogo.Active = true
@@ -3005,6 +3019,61 @@ local function BuildRuntime()
     Menu.BindSystem.BindMatchesInput = BindMatchesInput
     end
 
+    Menu.CreateDropdownExpandIndicator = function(Button, ZIndex)
+        local Root = Create("Frame", {
+            Parent = Button,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -8, 0.5, 0),
+            Size = UDim2.fromOffset(12, 12),
+            BackgroundTransparency = 1,
+            ZIndex = ZIndex or 11
+        })
+
+        local Horizontal = Create("Frame", {
+            Parent = Root,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(8, 1),
+            BackgroundColor3 = MutedText,
+            BorderSizePixel = 0,
+            ZIndex = (ZIndex or 11) + 1
+        })
+        Corner(Horizontal, 1)
+
+        local Vertical = Create("Frame", {
+            Parent = Root,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(1, 8),
+            BackgroundColor3 = MutedText,
+            BorderSizePixel = 0,
+            ZIndex = (ZIndex or 11) + 1
+        })
+        Corner(Vertical, 1)
+
+        local Indicator = {}
+
+        function Indicator:SetOpened(State)
+            State = State == true
+
+            Vertical.Visible = not State
+
+            Tween(Horizontal, 0.10, {
+                BackgroundColor3 = State and Accent or MutedText,
+                BackgroundTransparency = State and 0 or 0.12
+            })
+
+            Tween(Vertical, 0.10, {
+                BackgroundColor3 = Accent,
+                BackgroundTransparency = 0
+            })
+        end
+
+        Indicator:SetOpened(false)
+
+        return Indicator
+    end
+
     local function CreateDropdown(Section, Name, Values, Default, Flag, Options)
         Options = Options or {}
         Values = type(Values) == "table" and Values or {}
@@ -3060,52 +3129,12 @@ local function BuildRuntime()
         })
 
 
-        local SelectorMark = Create("Frame", {
-            Parent = Button,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -9, 0.5, 0),
-            Size = UDim2.fromOffset(9, 10),
-            BackgroundTransparency = 1,
-            ZIndex = 11
-        })
 
-        local SelectorTop = Create("Frame", {
-            Parent = SelectorMark,
-            Position = UDim2.fromOffset(1, 2),
-            Size = UDim2.fromOffset(7, 1),
-            BackgroundColor3 = MutedText,
-            BackgroundTransparency = 0.24,
-            BorderSizePixel = 0,
-            ZIndex = 12
-        })
-        Corner(SelectorTop, 1)
-
-        local SelectorBottom = Create("Frame", {
-            Parent = SelectorMark,
-            Position = UDim2.fromOffset(4, 7),
-            Size = UDim2.fromOffset(4, 1),
-            BackgroundColor3 = MutedText,
-            BackgroundTransparency = 0.24,
-            BorderSizePixel = 0,
-            ZIndex = 12
-        })
-        Corner(SelectorBottom, 1)
-
-        local function SetSelectorOpened(State)
-            Tween(SelectorTop, 0.10, {
-                Size = State and UDim2.fromOffset(4, 1) or UDim2.fromOffset(7, 1),
-                Position = State and UDim2.fromOffset(4, 2) or UDim2.fromOffset(1, 2),
-                BackgroundColor3 = State and Accent or MutedText,
-                BackgroundTransparency = State and 0.02 or 0.24
-            })
-
-            Tween(SelectorBottom, 0.10, {
-                Size = State and UDim2.fromOffset(7, 1) or UDim2.fromOffset(4, 1),
-                Position = State and UDim2.fromOffset(1, 7) or UDim2.fromOffset(4, 7),
-                BackgroundColor3 = State and Accent or MutedText,
-                BackgroundTransparency = State and 0.02 or 0.24
-            })
-        end
+        local ExpandIndicator =
+            Menu.CreateDropdownExpandIndicator(
+                Button,
+                11
+            )
 
         local function Set(Value)
             Current = Value
@@ -3203,7 +3232,7 @@ local function BuildRuntime()
             })
 
             IsOpened = true
-            SetSelectorOpened(true)
+            ExpandIndicator:SetOpened(true)
             Tween(ButtonStroke, 0.10, {
                 Color = Accent
             })
@@ -3213,7 +3242,7 @@ local function BuildRuntime()
 
             ActivePopupCleanup = function()
                 IsOpened = false
-                SetSelectorOpened(false)
+                ExpandIndicator:SetOpened(false)
                 Tween(ButtonStroke, 0.10, {
                     Color = Border
                 })
@@ -3229,7 +3258,7 @@ local function BuildRuntime()
                     Parent = List,
                     Size = UDim2.new(1, -2, 0, RowHeight),
                     BackgroundColor3 = SurfaceAlt,
-                    BackgroundTransparency = Selected and 0.70 or 1,
+                    BackgroundTransparency = Selected and 0.80 or 1,
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
                     Text = "",
@@ -3244,26 +3273,13 @@ local function BuildRuntime()
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = tostring(Value),
-                    TextColor3 = Selected and PrimaryText or MutedText,
+                    TextColor3 = Selected and PrimaryText or Color3.fromRGB(137, 149, 155),
                     TextSize = 9,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     TextTruncate = Enum.TextTruncate.AtEnd,
                     ZIndex = 103
                 })
 
-                local Mark = Create("TextLabel", {
-                    Parent = Option,
-                    AnchorPoint = Vector2.new(1, 0.5),
-                    Position = UDim2.new(1, -7, 0.5, 0),
-                    Size = UDim2.fromOffset(12, 14),
-                    BackgroundTransparency = 1,
-                    Font = Enum.Font.BuilderSansBold,
-                    Text = "✓",
-                    TextColor3 = Accent,
-                    TextSize = 9,
-                    Visible = Selected,
-                    ZIndex = 103
-                })
 
                 Bind(Option.MouseEnter:Connect(function()
                     if not Selected then
@@ -3422,52 +3438,12 @@ local function BuildRuntime()
         })
 
 
-        local MultiSelectorMark = Create("Frame", {
-            Parent = Button,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -9, 0.5, 0),
-            Size = UDim2.fromOffset(9, 10),
-            BackgroundTransparency = 1,
-            ZIndex = 11
-        })
+        local ExpandIndicator =
+            Menu.CreateDropdownExpandIndicator(
+                Button,
+                11
+            )
 
-        local MultiSelectorTop = Create("Frame", {
-            Parent = MultiSelectorMark,
-            Position = UDim2.fromOffset(1, 2),
-            Size = UDim2.fromOffset(7, 1),
-            BackgroundColor3 = MutedText,
-            BackgroundTransparency = 0.24,
-            BorderSizePixel = 0,
-            ZIndex = 12
-        })
-        Corner(MultiSelectorTop, 1)
-
-        local MultiSelectorBottom = Create("Frame", {
-            Parent = MultiSelectorMark,
-            Position = UDim2.fromOffset(4, 7),
-            Size = UDim2.fromOffset(4, 1),
-            BackgroundColor3 = MutedText,
-            BackgroundTransparency = 0.24,
-            BorderSizePixel = 0,
-            ZIndex = 12
-        })
-        Corner(MultiSelectorBottom, 1)
-
-        local function SetMultiSelectorOpened(State)
-            Tween(MultiSelectorTop, 0.10, {
-                Size = State and UDim2.fromOffset(4, 1) or UDim2.fromOffset(7, 1),
-                Position = State and UDim2.fromOffset(4, 2) or UDim2.fromOffset(1, 2),
-                BackgroundColor3 = State and Accent or MutedText,
-                BackgroundTransparency = State and 0.02 or 0.24
-            })
-
-            Tween(MultiSelectorBottom, 0.10, {
-                Size = State and UDim2.fromOffset(7, 1) or UDim2.fromOffset(4, 1),
-                Position = State and UDim2.fromOffset(1, 7) or UDim2.fromOffset(4, 7),
-                BackgroundColor3 = State and Accent or MutedText,
-                BackgroundTransparency = State and 0.02 or 0.24
-            })
-        end
         local function RefreshLabel()
             local Chosen = CopySelection()
             if #Chosen == 0 then
@@ -3486,19 +3462,32 @@ local function BuildRuntime()
         local function RefreshOption(Key)
             local State = OptionStates[Key]
             if not State then return end
-            local IsSelected = Selected[Key] == true
+
+            local IsSelected =
+                Selected[Key] == true
+
             State.Selected = IsSelected
+
             Tween(State.Button, 0.10, {
-                BackgroundTransparency = IsSelected and 0 or 1,
-                BackgroundColor3 = IsSelected and Color3.fromRGB(17, 28, 36) or Surface
+                BackgroundTransparency =
+                    IsSelected and 0.80 or 1,
+                BackgroundColor3 =
+                    IsSelected
+                    and Color3.fromRGB(17, 28, 36)
+                    or SurfaceAlt
             })
-            Tween(State.Label, 0.10, {TextColor3 = PrimaryText})
-            Tween(State.Check, 0.10, {
-                BackgroundColor3 = IsSelected and Accent or Color3.fromRGB(20, 31, 39),
-                BackgroundTransparency = IsSelected and 0 or 0.15
+
+            Tween(State.Label, 0.10, {
+                TextColor3 =
+                    IsSelected
+                    and PrimaryText
+                    or MutedText
             })
-            Tween(State.CheckStroke, 0.10, {Color = IsSelected and Accent or Border})
-            State.Mark.Visible = IsSelected
+
+            State.Label.Font =
+                IsSelected
+                and Enum.Font.BuilderSansBold
+                or Enum.Font.BuilderSansMedium
         end
 
         local function Publish()
@@ -3596,14 +3585,14 @@ local function BuildRuntime()
             })
 
             IsOpened = true
-            SetMultiSelectorOpened(true)
+            ExpandIndicator:SetOpened(true)
             Tween(ButtonStroke, 0.12, {Color = Accent})
             Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
 
             OptionStates = {}
             ActivePopupCleanup = function()
                 IsOpened = false
-                SetMultiSelectorOpened(false)
+                ExpandIndicator:SetOpened(false)
                 OptionStates = {}
                 Tween(ButtonStroke, 0.12, {Color = Border})
                 Tween(Button, 0.12, {BackgroundColor3 = SurfaceAlt})
@@ -3623,35 +3612,10 @@ local function BuildRuntime()
                 })
                 Corner(Option, 5)
 
-                local Check = Create("Frame", {
-                    Parent = Option,
-                    AnchorPoint = Vector2.new(1, 0.5),
-                    Position = UDim2.new(1, -7, 0.5, 0),
-                    Size = UDim2.fromOffset(13, 13),
-                    BackgroundColor3 = Color3.fromRGB(20, 31, 39),
-                    BackgroundTransparency = 0.15,
-                    BorderSizePixel = 0,
-                    ZIndex = 103
-                })
-                Corner(Check, 3)
-                local CheckStroke = Stroke(Check, Border, 0.12, 1)
-
-                local Mark = Create("TextLabel", {
-                    Parent = Check,
-                    Size = UDim2.fromScale(1, 1),
-                    BackgroundTransparency = 1,
-                    Font = Enum.Font.BuilderSansBold,
-                    Text = "✓",
-                    TextColor3 = Color3.fromRGB(8, 14, 18),
-                    TextSize = 9,
-                    Visible = false,
-                    ZIndex = 104
-                })
-
                 local Label = Create("TextLabel", {
                     Parent = Option,
                     Position = UDim2.fromOffset(9, 0),
-                    Size = UDim2.new(1, -31, 1, 0),
+                    Size = UDim2.new(1, -18, 1, 0),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = tostring(Value),
@@ -3665,9 +3629,6 @@ local function BuildRuntime()
                 OptionStates[Key] = {
                     Button = Option,
                     Label = Label,
-                    Check = Check,
-                    CheckStroke = CheckStroke,
-                    Mark = Mark,
                     Selected = false
                 }
                 RefreshOption(Key)
@@ -4575,6 +4536,7 @@ local function BuildRuntime()
 
     local WatermarkItemIcons = {}
     local WatermarkBrand
+    local WatermarkLogoImage
     local WatermarkLogoStroke
     local WatermarkAvatarStroke
 
@@ -4630,16 +4592,31 @@ local function BuildRuntime()
     Corner(LogoHolder, 6)
     WatermarkLogoStroke = Stroke(LogoHolder, Accent, 0.02, 1)
     if LogoAsset then
-        Create("ImageLabel", {
+        WatermarkLogoImage = Create("ImageLabel", {
             Parent = LogoHolder,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.fromScale(0.5, 0.5),
             Size = UDim2.fromOffset(18, 18),
             BackgroundTransparency = 1,
             Image = LogoAsset,
+            ImageColor3 = Color3.fromRGB(238, 249, 255),
+            ImageTransparency = 0,
             ScaleType = Enum.ScaleType.Fit,
             ZIndex = 212
         })
+
+        local WatermarkLogoGlow =
+            Menu:AddSoftGlow(
+                WatermarkLogoImage,
+                211,
+                4,
+                0.72,
+                false
+            )
+
+        if WatermarkLogoGlow then
+            WatermarkLogoGlow.ImageColor3 = Accent
+        end
     else
         Icon(
             LogoHolder,
@@ -6814,7 +6791,7 @@ local function BuildRuntime()
         BackgroundColor3 = Background,
         BackgroundTransparency = 0.10,
         BorderSizePixel = 0,
-        Visible = false,
+        Visible = true,
         ZIndex = 235
     })
     Corner(QuickPanel, 10)
@@ -6839,7 +6816,13 @@ local function BuildRuntime()
     })
 
     local QuickPanelButtons = {}
-    local QuickPanelVisible = false
+    local QuickPanelVisible = true
+    local QuickPanelHasRestoreState = false
+    local QuickPanelRestoreState = {
+        Menu = false,
+        EspPreview = false,
+        PlayerList = false
+    }
 
     local function CreateQuickButton(Name, IconName, Order, Callback)
         local Button = Create("TextButton", {
@@ -6965,6 +6948,19 @@ local function BuildRuntime()
         task.defer(RefreshQuickPanelButtons)
     end)
 
+    local function CaptureQuickPanelWindowState()
+        QuickPanelRestoreState.Menu =
+            Main.Visible == true
+
+        QuickPanelRestoreState.EspPreview =
+            GetEspPreviewVisible()
+
+        QuickPanelRestoreState.PlayerList =
+            GetPlayerListVisible()
+
+        QuickPanelHasRestoreState = true
+    end
+
     local function HideQuickPanelWindows()
         if Main.Visible then
             Menu.InternalSetVisible(false)
@@ -6993,8 +6989,66 @@ local function BuildRuntime()
         end
     end
 
+    local function RestoreQuickPanelWindows()
+        if not QuickPanelHasRestoreState then
+            return
+        end
+
+        Menu.InternalSetVisible(
+            QuickPanelRestoreState.Menu == true
+        )
+
+        local EspController =
+            Menu.EspPreviewController
+
+        if EspController
+            and type(EspController.SetVisibility) == "function"
+        then
+            EspController.SetVisibility(
+                QuickPanelRestoreState.EspPreview == true
+            )
+        elseif EspController
+            and type(EspController.SetHidden) == "function"
+        then
+            EspController.SetHidden(
+                QuickPanelRestoreState.EspPreview ~= true
+            )
+        end
+
+        local PlayerController =
+            Menu.PlayerListController
+
+        if PlayerController
+            and type(PlayerController.SetVisibility) == "function"
+        then
+            PlayerController:SetVisibility(
+                QuickPanelRestoreState.PlayerList == true
+            )
+        end
+    end
+
     local function SetQuickPanelVisible(State)
-        QuickPanelVisible = State == true
+        State = State == true
+
+        if State == QuickPanelVisible then
+            QuickPanel.Visible = State
+
+            if QuickPanelGlow then
+                QuickPanelGlow.Visible = State
+            end
+
+            if State then
+                RefreshQuickPanelButtons()
+            end
+
+            return
+        end
+
+        if not State then
+            CaptureQuickPanelWindowState()
+        end
+
+        QuickPanelVisible = State
         QuickPanel.Visible = QuickPanelVisible
 
         if QuickPanelGlow then
@@ -7002,7 +7056,8 @@ local function BuildRuntime()
         end
 
         if QuickPanelVisible then
-            RefreshQuickPanelButtons()
+            RestoreQuickPanelWindows()
+            task.defer(RefreshQuickPanelButtons)
         else
             HideQuickPanelWindows()
             task.defer(RefreshQuickPanelButtons)
@@ -10396,7 +10451,7 @@ local function BuildRuntime()
         local Header = Create("Frame", {
             Parent = Root,
             Active = true,
-            Size = UDim2.new(1, 0, 0, 50),
+            Size = UDim2.new(1, 0, 0, 44),
             BackgroundTransparency = 1,
             ZIndex = 146
         })
@@ -10405,15 +10460,15 @@ local function BuildRuntime()
             Header,
             "User",
             UDim2.fromOffset(15, 15),
-            UDim2.fromOffset(23, 25),
+            UDim2.fromOffset(22, 22),
             Accent,
             148
         )
 
         local Brand = Create("TextLabel", {
             Parent = Header,
-            Position = UDim2.fromOffset(37, 14),
-            Size = UDim2.fromOffset(76, 22),
+            Position = UDim2.fromOffset(36, 11),
+            Size = UDim2.fromOffset(62, 22),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansBold,
             Text = tostring(ApiRead(Data, "Brand", "Atramenta")),
@@ -10425,20 +10480,8 @@ local function BuildRuntime()
 
         Create("TextLabel", {
             Parent = Header,
-            Position = UDim2.fromOffset(111, 14),
-            Size = UDim2.fromOffset(10, 22),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansBold,
-            Text = "·",
-            TextColor3 = MutedText,
-            TextSize = 11,
-            ZIndex = 148
-        })
-
-        Create("TextLabel", {
-            Parent = Header,
-            Position = UDim2.fromOffset(122, 14),
-            Size = UDim2.fromOffset(110, 22),
+            Position = UDim2.fromOffset(101, 11),
+            Size = UDim2.fromOffset(100, 22),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = "Player List",
@@ -10450,18 +10493,18 @@ local function BuildRuntime()
 
         Create("Frame", {
             Parent = Root,
-            Position = UDim2.fromOffset(12, 49),
+            Position = UDim2.fromOffset(12, 43),
             Size = UDim2.new(1, -24, 0, 1),
             BackgroundColor3 = Border,
-            BackgroundTransparency = 0.22,
+            BackgroundTransparency = 0.34,
             BorderSizePixel = 0,
             ZIndex = 147
         })
 
         local LeftPanel = Create("Frame", {
             Parent = Root,
-            Position = UDim2.fromOffset(12, 61),
-            Size = UDim2.fromOffset(410, 431),
+            Position = UDim2.fromOffset(12, 54),
+            Size = UDim2.fromOffset(410, 438),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.46,
             BorderSizePixel = 0,
@@ -10472,8 +10515,8 @@ local function BuildRuntime()
 
         local RightPanel = Create("Frame", {
             Parent = Root,
-            Position = UDim2.fromOffset(432, 61),
-            Size = UDim2.fromOffset(332, 431),
+            Position = UDim2.fromOffset(432, 54),
+            Size = UDim2.fromOffset(332, 438),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.46,
             BorderSizePixel = 0,
@@ -10751,56 +10794,16 @@ local function BuildRuntime()
         Create("UIPadding", {
             Parent = StatusButton,
             PaddingLeft = UDim.new(0, 10),
-            PaddingRight = UDim.new(0, 30)
+            PaddingRight = UDim.new(0, 10)
         })
 
 
-        local StatusSelectorMark = Create("Frame", {
-            Parent = StatusButton,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -9, 0.5, 0),
-            Size = UDim2.fromOffset(9, 10),
-            BackgroundTransparency = 1,
-            ZIndex = 153
-        })
 
-        local StatusSelectorTop = Create("Frame", {
-            Parent = StatusSelectorMark,
-            Position = UDim2.fromOffset(1, 2),
-            Size = UDim2.fromOffset(7, 1),
-            BackgroundColor3 = MutedText,
-            BackgroundTransparency = 0.24,
-            BorderSizePixel = 0,
-            ZIndex = 154
-        })
-        Corner(StatusSelectorTop, 1)
-
-        local StatusSelectorBottom = Create("Frame", {
-            Parent = StatusSelectorMark,
-            Position = UDim2.fromOffset(4, 7),
-            Size = UDim2.fromOffset(4, 1),
-            BackgroundColor3 = MutedText,
-            BackgroundTransparency = 0.24,
-            BorderSizePixel = 0,
-            ZIndex = 154
-        })
-        Corner(StatusSelectorBottom, 1)
-
-        local function SetStatusSelectorOpened(State)
-            Tween(StatusSelectorTop, 0.10, {
-                Size = State and UDim2.fromOffset(4, 1) or UDim2.fromOffset(7, 1),
-                Position = State and UDim2.fromOffset(4, 2) or UDim2.fromOffset(1, 2),
-                BackgroundColor3 = State and Accent or MutedText,
-                BackgroundTransparency = State and 0.02 or 0.24
-            })
-
-            Tween(StatusSelectorBottom, 0.10, {
-                Size = State and UDim2.fromOffset(7, 1) or UDim2.fromOffset(4, 1),
-                Position = State and UDim2.fromOffset(1, 7) or UDim2.fromOffset(4, 7),
-                BackgroundColor3 = State and Accent or MutedText,
-                BackgroundTransparency = State and 0.02 or 0.24
-            })
-        end
+        local StatusExpandIndicator =
+            Menu.CreateDropdownExpandIndicator(
+                StatusButton,
+                153
+            )
 
         local StatusDropdown = Create("Frame", {
             Parent = Profile,
@@ -10906,7 +10909,7 @@ local function BuildRuntime()
         local function CloseStatusDropdown()
             State.DropdownOpen = false
             StatusDropdown.Visible = false
-            SetStatusSelectorOpened(false)
+            StatusExpandIndicator:SetOpened(false)
             ActionHolder.Position = UDim2.fromOffset(0, 215)
         end
 
@@ -10948,12 +10951,15 @@ local function BuildRuntime()
                     and PrimaryText
                     or MutedText
 
+                Visual.Text.Font =
+                    Active
+                    and Enum.Font.BuilderSansBold
+                    or Enum.Font.BuilderSansMedium
+
                 Visual.Button.BackgroundTransparency =
                     Active
                     and 0.82
                     or 1
-
-                Visual.Check.Visible = Active
             end
         end
 
@@ -10983,46 +10989,37 @@ local function BuildRuntime()
                 ZIndex = 162
             })
 
-            local OptionCheck = Create("TextLabel", {
-                Parent = Option,
-                AnchorPoint = Vector2.new(1, 0.5),
-                Position = UDim2.new(1, -9, 0.5, 0),
-                Size = UDim2.fromOffset(12, 16),
-                BackgroundTransparency = 1,
-                Font = Enum.Font.BuilderSansBold,
-                Text = "✓",
-                TextColor3 = Accent,
-                TextSize = 9,
-                Visible = false,
-                ZIndex = 163
-            })
 
             StatusOptionVisuals[Status] = {
                 Button = Option,
-                Text = OptionText,
-                Check = OptionCheck
+                Text = OptionText
             }
 
             Bind(Option.MouseEnter:Connect(function()
-                if not OptionCheck.Visible then
-                    Tween(Option, 0.08, {
-                        BackgroundTransparency = 0.88
-                    })
-                    Tween(OptionText, 0.08, {
-                        TextColor3 = PrimaryText
-                    })
-                end
+                Tween(Option, 0.08, {
+                    BackgroundTransparency = 0.90
+                })
+                Tween(OptionText, 0.08, {
+                    TextColor3 = PrimaryText
+                })
             end))
 
             Bind(Option.MouseLeave:Connect(function()
-                if not OptionCheck.Visible then
-                    Tween(Option, 0.08, {
-                        BackgroundTransparency = 1
-                    })
-                    Tween(OptionText, 0.08, {
-                        TextColor3 = MutedText
-                    })
-                end
+                local Active =
+                    State.Selected
+                    and GetStatus(State.Selected) == Status
+
+                Tween(Option, 0.08, {
+                    BackgroundTransparency =
+                        Active and 0.82 or 1
+                })
+
+                Tween(OptionText, 0.08, {
+                    TextColor3 =
+                        Active
+                        and PrimaryText
+                        or MutedText
+                })
             end))
 
             Bind(Option.MouseButton1Click:Connect(function()
@@ -11381,9 +11378,17 @@ local function BuildRuntime()
             StatusDropdown.Visible =
                 State.DropdownOpen
 
-            SetStatusSelectorOpened(
+            StatusExpandIndicator:SetOpened(
                 State.DropdownOpen
             )
+
+            Tween(StatusButton, 0.10, {
+                BackgroundTransparency =
+                    State.DropdownOpen
+                    and 0.28
+                    or 0.42
+            })
+
 
             ActionHolder.Position =
                 State.DropdownOpen
