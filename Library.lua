@@ -131,7 +131,7 @@ local function BuildRuntime()
         Boxes = 17
     }
 
-    local DefaultAccent = Color3.fromRGB(70, 154, 205)
+    local DefaultAccent = Color3.fromRGB(205, 96, 70)
     local Accent = DefaultAccent
     local Background = Color3.fromRGB(4, 7, 10)
     local SidebarColor = Color3.fromRGB(6, 10, 14)
@@ -564,14 +564,18 @@ local function BuildRuntime()
 
     LoadPositions()
 
-    local PaletteVersion = 4
-    local DefaultThemeColors = {"#469ACD", "#69B9E1", "#2D718F"}
+    local PaletteVersion = 5
+    local DefaultThemeColors = {}
+    local LegacyThemeColors = {
+        ["#469ACD"] = true,
+        ["#69B9E1"] = true,
+        ["#2D718F"] = true
+    }
     local PaletteMigrated = tonumber(SavedPositions.PaletteVersion) ~= PaletteVersion
     if PaletteMigrated then
         SavedPositions.PaletteVersion = PaletteVersion
-        SavedPositions.AccentHex = "#469ACD"
+        SavedPositions.AccentHex = "#CD6046"
         SavedPositions.AccentAlpha = 1
-        SavedPositions.ThemeColors = {DefaultThemeColors[1], DefaultThemeColors[2], DefaultThemeColors[3]}
     end
 
     if type(SavedPositions.AccentHex) == "string" then
@@ -587,7 +591,10 @@ local function BuildRuntime()
     end
 
     local AccentAlpha = math.clamp(tonumber(SavedPositions.AccentAlpha) or 1, 0, 1)
-    local ThemeColors = type(SavedPositions.ThemeColors) == "table" and SavedPositions.ThemeColors or {DefaultThemeColors[1], DefaultThemeColors[2], DefaultThemeColors[3]}
+    local ThemeColors =
+        type(SavedPositions.ThemeColors) == "table"
+        and SavedPositions.ThemeColors
+        or {}
     local AtramentaPerPickerThemesV1 = true
 
     local function CopyThemeColors(Source)
@@ -602,13 +609,68 @@ local function BuildRuntime()
         return Result
     end
 
-    local ColorPickerThemes = type(SavedPositions.ColorPickerThemes) == "table" and SavedPositions.ColorPickerThemes or {}
-    if type(ColorPickerThemes.__Accent) ~= "table" then
-        ColorPickerThemes.__Accent = ThemeColors
-    else
-        ThemeColors = ColorPickerThemes.__Accent
+    local ColorPickerThemes =
+        type(SavedPositions.ColorPickerThemes) == "table"
+        and SavedPositions.ColorPickerThemes
+        or {}
+
+    local function RemoveLegacyThemeColors(Palette)
+        if type(Palette) ~= "table" then
+            return {}
+        end
+
+        local Clean = {}
+
+        for _, Hex in ipairs(Palette) do
+            local Normalized =
+                string.upper(
+                    tostring(Hex or "")
+                )
+
+            if not LegacyThemeColors[
+                Normalized
+            ] then
+                Clean[#Clean + 1] =
+                    Hex
+            end
+        end
+
+        return Clean
     end
-    SavedPositions.ColorPickerThemes = ColorPickerThemes
+
+    ThemeColors =
+        RemoveLegacyThemeColors(
+            ThemeColors
+        )
+
+    for Key, Palette in pairs(
+        ColorPickerThemes
+    ) do
+        if type(Palette) == "table" then
+            ColorPickerThemes[Key] =
+                RemoveLegacyThemeColors(
+                    Palette
+                )
+        end
+    end
+
+    if type(ColorPickerThemes.__Accent)
+        ~= "table"
+    then
+        ColorPickerThemes.__Accent =
+            CopyThemeColors(
+                ThemeColors
+            )
+    else
+        ThemeColors =
+            ColorPickerThemes.__Accent
+    end
+
+    SavedPositions.ThemeColors =
+        ThemeColors
+
+    SavedPositions.ColorPickerThemes =
+        ColorPickerThemes
     if PaletteMigrated then
         pcall(SavePositions)
     end
@@ -3658,6 +3720,14 @@ local function BuildRuntime()
             Indicator:SetAccentColor(
                 NewColor
             )
+
+            Horizontal.BackgroundColor3 =
+                Indicator.Opened
+                and NewColor
+                or MutedText
+
+            Vertical.BackgroundColor3 =
+                NewColor
         end)
 
         Indicator:SetAccentColor(
@@ -3708,6 +3778,19 @@ local function BuildRuntime()
         })
         Corner(Button, 5)
         local ButtonStroke = Stroke(Button, Border, 0.42, 1)
+
+        RegisterAccentTarget(function(NewColor)
+            if not ButtonStroke
+                or not ButtonStroke.Parent
+            then
+                return
+            end
+
+            ButtonStroke.Color =
+                IsOpened
+                and NewColor
+                or Border
+        end)
 
         local ValueLabel = Create("TextLabel", {
             Parent = Button,
@@ -3828,9 +3911,7 @@ local function BuildRuntime()
 
             IsOpened = true
             ExpandIndicator:SetOpened(true)
-            Tween(ButtonStroke, 0.10, {
-                Color = Accent
-            })
+            ButtonStroke.Color = Accent
             Tween(Button, 0.10, {
                 BackgroundTransparency = 0.10
             })
@@ -3838,9 +3919,7 @@ local function BuildRuntime()
             ActivePopupCleanup = function()
                 IsOpened = false
                 ExpandIndicator:SetOpened(false)
-                Tween(ButtonStroke, 0.10, {
-                    Color = Border
-                })
+                ButtonStroke.Color = Border
                 Tween(Button, 0.10, {
                     BackgroundTransparency = 0.22
                 })
@@ -4018,6 +4097,19 @@ local function BuildRuntime()
         Corner(Button, 6)
         local ButtonStroke = Stroke(Button, Border, 0.08, 1)
 
+        RegisterAccentTarget(function(NewColor)
+            if not ButtonStroke
+                or not ButtonStroke.Parent
+            then
+                return
+            end
+
+            ButtonStroke.Color =
+                IsOpened
+                and NewColor
+                or Border
+        end)
+
         local ValueLabel = Create("TextLabel", {
             Parent = Button,
             Position = UDim2.fromOffset(9, 0),
@@ -4181,7 +4273,7 @@ local function BuildRuntime()
 
             IsOpened = true
             ExpandIndicator:SetOpened(true)
-            Tween(ButtonStroke, 0.12, {Color = Accent})
+            ButtonStroke.Color = Accent
             Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
 
             OptionStates = {}
@@ -4189,7 +4281,7 @@ local function BuildRuntime()
                 IsOpened = false
                 ExpandIndicator:SetOpened(false)
                 OptionStates = {}
-                Tween(ButtonStroke, 0.12, {Color = Border})
+                ButtonStroke.Color = Border
                 Tween(Button, 0.12, {BackgroundColor3 = SurfaceAlt})
             end
 
