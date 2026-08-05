@@ -158,6 +158,8 @@ local function BuildRuntime()
         BindSystem = {},
         PlayerStatuses = {},
         PlayerListController = nil,
+        QuickPanelController = nil,
+        QuickPanelBindCapture = false,
         SettingsUI = {}
     }
 
@@ -3005,6 +3007,7 @@ local function BuildRuntime()
 
     local function CreateDropdown(Section, Name, Values, Default, Flag, Options)
         Options = Options or {}
+        Values = type(Values) == "table" and Values or {}
         local Row = CreateRow(Section.Body, 28)
 
         Create("TextLabel", {
@@ -3031,32 +3034,21 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(94, 24),
+            Size = UDim2.fromOffset(104, 24),
             BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.22,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
-        Corner(Button, 6)
-        local ButtonStroke = Stroke(Button, Border, 0.08, 1)
-
-        local Divider = Create("Frame", {
-            Parent = Button,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -22, 0.5, 0),
-            Size = UDim2.fromOffset(1, 12),
-            BackgroundColor3 = Border,
-            BackgroundTransparency = 0.45,
-            BorderSizePixel = 0,
-            ZIndex = 10
-        })
-        Corner(Divider, 100)
+        Corner(Button, 5)
+        local ButtonStroke = Stroke(Button, Border, 0.42, 1)
 
         local ValueLabel = Create("TextLabel", {
             Parent = Button,
             Position = UDim2.fromOffset(9, 0),
-            Size = UDim2.new(1, -30, 1, 0),
+            Size = UDim2.new(1, -29, 1, 0),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = tostring(Default),
@@ -3067,162 +3059,202 @@ local function BuildRuntime()
             TextTruncate = Enum.TextTruncate.AtEnd
         })
 
-        local Arrow = Icon(Button, "Chevron", UDim2.fromOffset(8, 8), UDim2.new(1, -11, 0.5, 0), MutedText, 10)
+        local Arrow = Icon(
+            Button,
+            "Chevron",
+            UDim2.fromOffset(8, 8),
+            UDim2.new(1, -11, 0.5, 0),
+            MutedText,
+            10
+        )
         Arrow.Rotation = 0
-
-        local function RefreshClosedState(Hovered)
-            if IsOpened then
-                Button.BackgroundColor3 = Color3.fromRGB(17, 28, 36)
-                ButtonStroke.Color = Accent
-                Divider.BackgroundTransparency = 0.15
-                Arrow.ImageColor3 = PrimaryText
-            else
-                Button.BackgroundColor3 = Hovered and Color3.fromRGB(17, 28, 36) or SurfaceAlt
-                ButtonStroke.Color = Hovered and Color3.fromRGB(40, 64, 78) or Border
-                Divider.BackgroundTransparency = Hovered and 0.25 or 0.45
-                Arrow.ImageColor3 = Hovered and PrimaryText or MutedText
-            end
-        end
 
         local function Set(Value)
             Current = Value
             Menu.Flags[Flag] = Value
             ValueLabel.Text = tostring(Value)
             ClosePopup()
+
             if type(Options.Callback) == "function" then
                 task.spawn(Options.Callback, Value)
             end
-            ButtonStroke.Color = Accent
-            task.delay(0.10 / math.max(AnimationFactor, 0.05), function()
-                if ButtonStroke.Parent and not IsOpened then
-                    ButtonStroke.Color = Border
-                end
-            end)
         end
 
         Menu.Setters[Flag] = Set
 
         Bind(Button.MouseEnter:Connect(function()
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
-            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(40, 64, 78)})
-            Tween(Divider, 0.12, {BackgroundTransparency = IsOpened and 0.15 or 0.25})
-            Tween(Arrow, 0.12, {ImageColor3 = PrimaryText})
+            if not IsOpened then
+                Tween(Button, 0.10, {
+                    BackgroundTransparency = 0.10
+                })
+                Tween(ButtonStroke, 0.10, {
+                    Color = Color3.fromRGB(45, 61, 69)
+                })
+            end
         end))
+
         Bind(Button.MouseLeave:Connect(function()
             if not IsOpened then
-                Tween(Button, 0.12, {BackgroundColor3 = SurfaceAlt})
-                Tween(ButtonStroke, 0.12, {Color = Border})
-                Tween(Divider, 0.12, {BackgroundTransparency = 0.45})
-                Tween(Arrow, 0.12, {ImageColor3 = MutedText})
+                Tween(Button, 0.10, {
+                    BackgroundTransparency = 0.22
+                })
+                Tween(ButtonStroke, 0.10, {
+                    Color = Border
+                })
             end
         end))
 
         Bind(Button.MouseButton1Click:Connect(function()
-            if CloseGearMenus then
-                CloseGearMenus()
-            end
+            if Options.Disabled then return end
+            if CloseGearMenus then CloseGearMenus() end
+
             if ActivePopup then
                 ClosePopup()
                 return
             end
 
             Menu.PopupInputBlocker.Visible = true
-            local Width = 108
-            local PopupHeight = (#Values * 24) + 12
+
+            local Width = math.max(112, Button.AbsoluteSize.X)
+            local VisibleRows = math.min(#Values, 7)
+            local RowHeight = 25
+            local PopupHeight = math.max(VisibleRows * RowHeight + 10, 35)
+
             ActivePopup = Create("Frame", {
                 Parent = ScreenGui,
-            Active = true,
-                Position = UDim2.fromOffset(Button.AbsolutePosition.X + Button.AbsoluteSize.X - Width, Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 6),
+                Active = true,
+                Position = UDim2.fromOffset(
+                    Button.AbsolutePosition.X + Button.AbsoluteSize.X - Width,
+                    Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 5
+                ),
                 Size = UDim2.fromOffset(Width, PopupHeight),
                 BackgroundColor3 = Surface,
+                BackgroundTransparency = 0.035,
                 BorderSizePixel = 0,
+                ClipsDescendants = true,
                 ZIndex = 100
             })
-            Corner(ActivePopup, 7)
-            Stroke(ActivePopup, Border, 0.10, 1)
-            Menu:AddSoftGlow(ActivePopup, 100, 7, 0.84, true)
-            ActivePopup.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
+            Corner(ActivePopup, 5)
+            Stroke(ActivePopup, Border, 0.46, 1)
+            Menu:AddSoftGlow(ActivePopup, 100, 6, 0.90, true)
 
-            Create("UIPadding", {
+            ActivePopup.Position =
+                type(Menu.ClampPopupPosition) == "function"
+                and Menu.ClampPopupPosition(ActivePopup, ActivePopup.Position)
+                or ActivePopup.Position
+
+            local List = Create("ScrollingFrame", {
                 Parent = ActivePopup,
-                PaddingLeft = UDim.new(0, 6),
-                PaddingRight = UDim.new(0, 6),
-                PaddingTop = UDim.new(0, 6),
-                PaddingBottom = UDim.new(0, 6)
+                Position = UDim2.fromOffset(5, 5),
+                Size = UDim2.new(1, -10, 1, -10),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                CanvasSize = UDim2.fromOffset(0, #Values * RowHeight),
+                ScrollBarThickness = #Values > VisibleRows and 2 or 0,
+                ScrollBarImageColor3 = MutedText,
+                ScrollBarImageTransparency = 0.48,
+                ScrollingDirection = Enum.ScrollingDirection.Y,
+                VerticalScrollBarInset = Enum.ScrollBarInset.None,
+                ZIndex = 101
             })
 
             Create("UIListLayout", {
-                Parent = ActivePopup,
-                Padding = UDim.new(0, 3),
+                Parent = List,
+                Padding = UDim.new(0, 0),
                 SortOrder = Enum.SortOrder.LayoutOrder
             })
 
             IsOpened = true
-            Tween(Arrow, 0.12, {Rotation = 180, ImageColor3 = PrimaryText})
-            Tween(ButtonStroke, 0.12, {Color = Accent})
-            Tween(Divider, 0.12, {BackgroundTransparency = 0.15})
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+            Tween(Arrow, 0.10, {
+                Rotation = 180,
+                ImageColor3 = PrimaryText
+            })
+            Tween(ButtonStroke, 0.10, {
+                Color = Accent
+            })
+            Tween(Button, 0.10, {
+                BackgroundTransparency = 0.10
+            })
 
             ActivePopupCleanup = function()
                 IsOpened = false
-                Tween(Arrow, 0.12, {Rotation = 0, ImageColor3 = MutedText})
-                Tween(ButtonStroke, 0.12, {Color = Border})
-                Tween(Divider, 0.12, {BackgroundTransparency = 0.45})
-                Tween(Button, 0.12, {BackgroundColor3 = SurfaceAlt})
+                Tween(Arrow, 0.10, {
+                    Rotation = 0,
+                    ImageColor3 = MutedText
+                })
+                Tween(ButtonStroke, 0.10, {
+                    Color = Border
+                })
+                Tween(Button, 0.10, {
+                    BackgroundTransparency = 0.22
+                })
             end
 
-            for _, Value in ipairs(Values) do
+            for Index, Value in ipairs(Values) do
                 local Selected = Value == Current
+
                 local Option = Create("TextButton", {
-                    Parent = ActivePopup,
-                    Size = UDim2.new(1, 0, 0, 21),
-                    BackgroundColor3 = Selected and Color3.fromRGB(17, 28, 36) or Surface,
-                    BackgroundTransparency = Selected and 0 or 1,
+                    Parent = List,
+                    Size = UDim2.new(1, -2, 0, RowHeight),
+                    BackgroundColor3 = SurfaceAlt,
+                    BackgroundTransparency = Selected and 0.70 or 1,
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
                     Text = "",
-                    ZIndex = 101
-                })
-                Corner(Option, 5)
-
-                local Label = Create("TextLabel", {
-                    Parent = Option,
-                    Position = UDim2.fromOffset(9, 0),
-                    Size = UDim2.new(1, -24, 1, 0),
-                    BackgroundTransparency = 1,
-                    Font = Enum.Font.BuilderSansMedium,
-                    Text = tostring(Value),
-                    TextColor3 = Selected and PrimaryText or PrimaryText,
-                    TextSize = 10,
-                    TextXAlignment = Enum.TextXAlignment.Left,
+                    LayoutOrder = Index,
                     ZIndex = 102
                 })
 
-                if Selected then
-                    local Dot = Create("Frame", {
-                        Parent = Option,
-                        AnchorPoint = Vector2.new(1, 0.5),
-                        Position = UDim2.new(1, -8, 0.5, 0),
-                        Size = UDim2.fromOffset(5, 5),
-                        BackgroundColor3 = Accent,
-                        BorderSizePixel = 0,
-                        ZIndex = 102
-                    })
-                    Corner(Dot, 100)
-                end
+                local Label = Create("TextLabel", {
+                    Parent = Option,
+                    Position = UDim2.fromOffset(8, 0),
+                    Size = UDim2.new(1, -28, 1, 0),
+                    BackgroundTransparency = 1,
+                    Font = Enum.Font.BuilderSansMedium,
+                    Text = tostring(Value),
+                    TextColor3 = Selected and PrimaryText or MutedText,
+                    TextSize = 9,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    ZIndex = 103
+                })
+
+                local Mark = Create("TextLabel", {
+                    Parent = Option,
+                    AnchorPoint = Vector2.new(1, 0.5),
+                    Position = UDim2.new(1, -7, 0.5, 0),
+                    Size = UDim2.fromOffset(12, 14),
+                    BackgroundTransparency = 1,
+                    Font = Enum.Font.BuilderSansBold,
+                    Text = "✓",
+                    TextColor3 = Accent,
+                    TextSize = 9,
+                    Visible = Selected,
+                    ZIndex = 103
+                })
 
                 Bind(Option.MouseEnter:Connect(function()
                     if not Selected then
-                        Tween(Option, 0.10, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
-                        Tween(Label, 0.10, {TextColor3 = PrimaryText})
+                        Tween(Option, 0.08, {
+                            BackgroundTransparency = 0.84
+                        })
+                        Tween(Label, 0.08, {
+                            TextColor3 = PrimaryText
+                        })
                     end
                 end))
+
                 Bind(Option.MouseLeave:Connect(function()
                     if not Selected then
-                        Tween(Option, 0.10, {BackgroundTransparency = 1, BackgroundColor3 = Surface})
-                        Tween(Label, 0.10, {TextColor3 = PrimaryText})
+                        Tween(Option, 0.08, {
+                            BackgroundTransparency = 1
+                        })
+                        Tween(Label, 0.08, {
+                            TextColor3 = MutedText
+                        })
                     end
                 end))
+
                 Bind(Option.MouseButton1Click:Connect(function()
                     Set(Value)
                 end))
@@ -3230,6 +3262,7 @@ local function BuildRuntime()
         end))
 
         RegisterControl(Section, Row, Name)
+
         return {
             Set = Set,
             Get = function()
@@ -3463,38 +3496,42 @@ local function BuildRuntime()
 
             Menu.PopupInputBlocker.Visible = true
             local Width = 128
-            local VisibleRows = math.min(#Values, 8)
-            local PopupHeight = math.max(VisibleRows * 24 + 12, 36)
+            local VisibleRows = math.min(#Values, 7)
+            local RowHeight = 25
+            local PopupHeight = math.max(VisibleRows * RowHeight + 10, 35)
             ActivePopup = Create("Frame", {
                 Parent = ScreenGui,
                 Active = true,
                 Position = UDim2.fromOffset(Button.AbsolutePosition.X + Button.AbsoluteSize.X - Width, Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 6),
                 Size = UDim2.fromOffset(Width, PopupHeight),
                 BackgroundColor3 = Surface,
+                BackgroundTransparency = 0.035,
                 BorderSizePixel = 0,
+                ClipsDescendants = true,
                 ZIndex = 100
             })
-            Corner(ActivePopup, 7)
-            Stroke(ActivePopup, Border, 0.10, 1)
-            Menu:AddSoftGlow(ActivePopup, 100, 7, 0.84, true)
+            Corner(ActivePopup, 5)
+            Stroke(ActivePopup, Border, 0.46, 1)
+            Menu:AddSoftGlow(ActivePopup, 100, 6, 0.90, true)
             ActivePopup.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
 
             local List = Create("ScrollingFrame", {
                 Parent = ActivePopup,
-                Position = UDim2.fromOffset(6, 6),
-                Size = UDim2.new(1, -12, 1, -12),
+                Position = UDim2.fromOffset(5, 5),
+                Size = UDim2.new(1, -10, 1, -10),
                 BackgroundTransparency = 1,
                 BorderSizePixel = 0,
-                CanvasSize = UDim2.fromOffset(0, #Values * 24),
-                ScrollBarThickness = #Values > 8 and 2 or 0,
-                ScrollBarImageColor3 = Accent,
+                CanvasSize = UDim2.fromOffset(0, #Values * RowHeight),
+                ScrollBarThickness = #Values > VisibleRows and 2 or 0,
+                ScrollBarImageColor3 = MutedText,
+                ScrollBarImageTransparency = 0.48,
                 ScrollingDirection = Enum.ScrollingDirection.Y,
                 ZIndex = 101
             })
 
             Create("UIListLayout", {
                 Parent = List,
-                Padding = UDim.new(0, 3),
+                Padding = UDim.new(0, 0),
                 SortOrder = Enum.SortOrder.LayoutOrder
             })
 
@@ -3518,8 +3555,8 @@ local function BuildRuntime()
                 local Key = ValueKey(Value)
                 local Option = Create("TextButton", {
                     Parent = List,
-                    Size = UDim2.new(1, -2, 0, 21),
-                    BackgroundColor3 = Surface,
+                    Size = UDim2.new(1, -2, 0, RowHeight),
+                    BackgroundColor3 = SurfaceAlt,
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
@@ -3659,7 +3696,7 @@ local function BuildRuntime()
         Active = true,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = DecodePosition(SavedPositions.Settings, Main.Position),
-        Size = UDim2.fromOffset(500, 492),
+        Size = UDim2.fromOffset(500, 526),
         BackgroundColor3 = Surface,
         BackgroundTransparency = 0.04,
         BorderSizePixel = 0,
@@ -5367,7 +5404,7 @@ local function BuildRuntime()
     Menu.SettingsUI.InterfaceCard = Create("Frame", {
         Parent = Menu.SettingsUI.SettingsPanel,
         Position = UDim2.fromOffset(22, 148),
-        Size = UDim2.fromOffset(220, 324),
+        Size = UDim2.fromOffset(220, 358),
         BackgroundColor3 = SurfaceAlt,
         BackgroundTransparency = 0.18,
         BorderSizePixel = 0,
@@ -5379,7 +5416,7 @@ local function BuildRuntime()
     Menu.SettingsUI.OverlayCard = Create("Frame", {
         Parent = Menu.SettingsUI.SettingsPanel,
         Position = UDim2.fromOffset(258, 148),
-        Size = UDim2.fromOffset(220, 324),
+        Size = UDim2.fromOffset(220, 358),
         BackgroundColor3 = SurfaceAlt,
         BackgroundTransparency = 0.18,
         BorderSizePixel = 0,
@@ -5505,6 +5542,118 @@ local function BuildRuntime()
             Set = Set,
             Get = function()
                 return State
+            end
+        }
+    end
+
+    local function CreatePopupKeybind(Y, LabelText, Flag, DefaultBind, X, Width)
+        X = tonumber(X) or 28
+        Width = tonumber(Width) or 292
+
+        local Row = Create("Frame", {
+            Parent = Menu.SettingsUI.SettingsPanel,
+            Position = UDim2.fromOffset(X, Y),
+            Size = UDim2.fromOffset(Width, 28),
+            BackgroundTransparency = 1,
+            ZIndex = 31
+        })
+
+        Create("TextLabel", {
+            Parent = Row,
+            Size = UDim2.new(1, -92, 1, 0),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = LabelText,
+            TextColor3 = PrimaryText,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 32
+        })
+
+        local Button = Create("TextButton", {
+            Parent = Row,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, 0, 0.5, 0),
+            Size = UDim2.fromOffset(82, 24),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.30,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "",
+            TextColor3 = MutedText,
+            TextSize = 9,
+            ZIndex = 33
+        })
+        Corner(Button, 5)
+        local ButtonStroke = Stroke(Button, Border, 0.50, 1)
+
+        local function NormalizeBind(Value)
+            if type(Value) ~= "table" then
+                Value = DefaultBind
+            end
+
+            local KeyType = tostring(Value.KeyType or "")
+            local Key = tostring(Value.Key or "")
+
+            if (KeyType ~= "KeyCode" and KeyType ~= "UserInputType")
+                or Key == ""
+                or (KeyType == "UserInputType" and Key == "MouseButton1")
+            then
+                Value = DefaultBind
+                KeyType = tostring(Value.KeyType or "KeyCode")
+                Key = tostring(Value.Key or "F2")
+            end
+
+            return {
+                KeyType = KeyType,
+                Key = Key,
+                Modifiers = type(Value.Modifiers) == "table"
+                    and {
+                        Ctrl = Value.Modifiers.Ctrl == true,
+                        Shift = Value.Modifiers.Shift == true,
+                        Alt = Value.Modifiers.Alt == true
+                    }
+                    or {Ctrl = false, Shift = false, Alt = false}
+            }
+        end
+
+        local function Set(Value)
+            local BindData = NormalizeBind(Value)
+            Menu.Flags[Flag] = BindData
+            Button.Text = Menu.BindSystem.BuildBindDisplay(
+                BindData.Key,
+                BindData.Modifiers
+            )
+            Button.TextColor3 = PrimaryText
+            Menu.QuickPanelBindCapture = false
+            Tween(ButtonStroke, 0.10, {Color = Border})
+            Tween(Button, 0.10, {BackgroundTransparency = 0.30})
+        end
+
+        Menu.Setters[Flag] = Set
+
+        Bind(Button.MouseButton1Click:Connect(function()
+            Menu.QuickPanelBindCapture = true
+            Button.Text = "PRESS KEY"
+            Button.TextColor3 = Accent
+            Tween(ButtonStroke, 0.10, {Color = Accent})
+            Tween(Button, 0.10, {BackgroundTransparency = 0.12})
+        end))
+
+        Bind(Button.MouseButton2Click:Connect(function()
+            Menu.QuickPanelBindCapture = false
+            Set(DefaultBind)
+        end))
+
+        Set(Menu.Flags[Flag] or DefaultBind)
+
+        return {
+            Row = Row,
+            Button = Button,
+            Set = Set,
+            Get = function()
+                return Menu.Flags[Flag]
             end
         }
     end
@@ -6301,44 +6450,59 @@ local function BuildRuntime()
             Menu.SettingsUI.BackgroundDimToggle.Row.Position = UDim2.fromOffset(36, 182)
             Menu.SettingsUI.BackgroundDimToggle.Row.Size = UDim2.fromOffset(192, 26)
         end
+
         if Menu.SettingsUI.AnimationSpeedSlider and Menu.SettingsUI.AnimationSpeedSlider.Row then
             Menu.SettingsUI.AnimationSpeedSlider.Row.Position = UDim2.fromOffset(36, 216)
             Menu.SettingsUI.AnimationSpeedSlider.Row.Size = UDim2.fromOffset(192, 58)
         end
+
         if Menu.SettingsUI.MenuScaleSlider and Menu.SettingsUI.MenuScaleSlider.Row then
             Menu.SettingsUI.MenuScaleSlider.Row.Position = UDim2.fromOffset(36, 280)
             Menu.SettingsUI.MenuScaleSlider.Row.Size = UDim2.fromOffset(192, 58)
         end
-        if Menu.SettingsUI.HideWatermarkToggle and Menu.SettingsUI.HideWatermarkToggle.Row then
-            Menu.SettingsUI.HideWatermarkToggle.Row.Position = UDim2.fromOffset(272, 182)
-            Menu.SettingsUI.HideWatermarkToggle.Row.Size = UDim2.fromOffset(192, 26)
+
+        if Menu.SettingsUI.QuickPanelBindControl and Menu.SettingsUI.QuickPanelBindControl.Row then
+            Menu.SettingsUI.QuickPanelBindControl.Row.Position = UDim2.fromOffset(36, 348)
+            Menu.SettingsUI.QuickPanelBindControl.Row.Size = UDim2.fromOffset(192, 28)
         end
-        if Menu.SettingsUI.WatermarkSizeSlider and Menu.SettingsUI.WatermarkSizeSlider.Row then
-            Menu.SettingsUI.WatermarkSizeSlider.Row.Position = UDim2.fromOffset(272, 216)
-            Menu.SettingsUI.WatermarkSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
-        end
-        if Menu.SettingsUI.HideKeybindsToggle and Menu.SettingsUI.HideKeybindsToggle.Row then
-            Menu.SettingsUI.HideKeybindsToggle.Row.Position = UDim2.fromOffset(272, 280)
-            Menu.SettingsUI.HideKeybindsToggle.Row.Size = UDim2.fromOffset(192, 26)
-        end
-        if Menu.SettingsUI.KeybindListSizeSlider and Menu.SettingsUI.KeybindListSizeSlider.Row then
-            Menu.SettingsUI.KeybindListSizeSlider.Row.Position = UDim2.fromOffset(272, 314)
-            Menu.SettingsUI.KeybindListSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
-        end
-        if Menu.SettingsUI.HideEspPreviewToggle and Menu.SettingsUI.HideEspPreviewToggle.Row then
-            Menu.SettingsUI.HideEspPreviewToggle.Row.Position = UDim2.fromOffset(272, 378)
-            Menu.SettingsUI.HideEspPreviewToggle.Row.Size = UDim2.fromOffset(192, 26)
-        end
-        if Menu.SettingsUI.EspPreviewSizeSlider and Menu.SettingsUI.EspPreviewSizeSlider.Row then
-            Menu.SettingsUI.EspPreviewSizeSlider.Row.Position = UDim2.fromOffset(272, 412)
-            Menu.SettingsUI.EspPreviewSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
-        end
+
         if Menu.SettingsUI.ColorRow then
             Menu.SettingsUI.ColorRow.Position = UDim2.fromOffset(36, 408)
             Menu.SettingsUI.ColorRow.Size = UDim2.fromOffset(192, 26)
         end
+
+        if Menu.SettingsUI.HideWatermarkToggle and Menu.SettingsUI.HideWatermarkToggle.Row then
+            Menu.SettingsUI.HideWatermarkToggle.Row.Position = UDim2.fromOffset(272, 182)
+            Menu.SettingsUI.HideWatermarkToggle.Row.Size = UDim2.fromOffset(192, 26)
+        end
+
+        if Menu.SettingsUI.WatermarkSizeSlider and Menu.SettingsUI.WatermarkSizeSlider.Row then
+            Menu.SettingsUI.WatermarkSizeSlider.Row.Position = UDim2.fromOffset(272, 216)
+            Menu.SettingsUI.WatermarkSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
+        end
+
+        if Menu.SettingsUI.HideKeybindsToggle and Menu.SettingsUI.HideKeybindsToggle.Row then
+            Menu.SettingsUI.HideKeybindsToggle.Row.Position = UDim2.fromOffset(272, 280)
+            Menu.SettingsUI.HideKeybindsToggle.Row.Size = UDim2.fromOffset(192, 26)
+        end
+
+        if Menu.SettingsUI.KeybindListSizeSlider and Menu.SettingsUI.KeybindListSizeSlider.Row then
+            Menu.SettingsUI.KeybindListSizeSlider.Row.Position = UDim2.fromOffset(272, 314)
+            Menu.SettingsUI.KeybindListSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
+        end
+
+        if Menu.SettingsUI.PlayerListSizeSlider and Menu.SettingsUI.PlayerListSizeSlider.Row then
+            Menu.SettingsUI.PlayerListSizeSlider.Row.Position = UDim2.fromOffset(272, 378)
+            Menu.SettingsUI.PlayerListSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
+        end
+
+        if Menu.SettingsUI.EspPreviewSizeSlider and Menu.SettingsUI.EspPreviewSizeSlider.Row then
+            Menu.SettingsUI.EspPreviewSizeSlider.Row.Position = UDim2.fromOffset(272, 442)
+            Menu.SettingsUI.EspPreviewSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
+        end
+
         if Menu.SettingsUI.SettingsPanel then
-            Menu.SettingsUI.SettingsPanel.Size = UDim2.fromOffset(500, 492)
+            Menu.SettingsUI.SettingsPanel.Size = UDim2.fromOffset(500, 526)
         end
     end
 
@@ -6524,6 +6688,23 @@ local function BuildRuntime()
         Menu.Flags.MenuScale = Value
     end, 36, 192)
 
+    Menu.SettingsUI.QuickPanelBindControl = CreatePopupKeybind(
+        348,
+        "Quick panel bind",
+        "Quick Panel Bind",
+        {
+            KeyType = "KeyCode",
+            Key = "F2",
+            Modifiers = {
+                Ctrl = false,
+                Shift = false,
+                Alt = false
+            }
+        },
+        36,
+        192
+    )
+
     Menu.SettingsUI.HideWatermarkToggle = CreatePopupToggle(182, "Hide watermark", SavedPositions.HideWatermark == true, function(Value)
         SetWatermarkHidden(Value)
     end, 272, 192)
@@ -6548,14 +6729,7 @@ local function BuildRuntime()
         end
     end, 272, 192)
 
-    Menu.SettingsUI.PlayerListToggle = CreatePopupToggle(348, "Player list", false, function(Value)
-        Menu.Flags.PlayerListVisible = Value == true
-        if Menu.PlayerListController and Menu.PlayerListController.SetVisibility then
-            Menu.PlayerListController:SetVisibility(Value)
-        end
-    end, 272, 192)
-
-    Menu.SettingsUI.PlayerListSizeSlider = CreatePopupSlider(382, "Player list size", 70, 135, tonumber(SavedPositions.PlayerListScale) or 100, function(Value)
+    Menu.SettingsUI.PlayerListSizeSlider = CreatePopupSlider(378, "Player list size", 70, 135, tonumber(SavedPositions.PlayerListScale) or 100, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
         Menu.Flags.PlayerListScale = Value
@@ -6565,14 +6739,7 @@ local function BuildRuntime()
         end
     end, 272, 192)
 
-    Menu.SettingsUI.HideEspPreviewToggle = CreatePopupToggle(416, "Hide ESP Preview", SavedPositions.HideEspPreview == true, function(Value)
-        Menu.Flags.HideEspPreview = Value
-        if Menu.EspPreviewController.SetHidden then
-            Menu.EspPreviewController.SetHidden(Value)
-        end
-    end, 272, 192)
-
-    Menu.SettingsUI.EspPreviewSizeSlider = CreatePopupSlider(450, "ESP Preview size", 80, 160, tonumber(SavedPositions.EspPreviewScale) or 115, function(Value)
+    Menu.SettingsUI.EspPreviewSizeSlider = CreatePopupSlider(442, "ESP Preview size", 80, 160, tonumber(SavedPositions.EspPreviewScale) or 115, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
         Menu.Flags.EspPreviewScale = Value
@@ -6580,6 +6747,196 @@ local function BuildRuntime()
             Menu.EspPreviewController.SetScale(Value)
         end
     end, 272, 192)
+
+    local QuickPanel = Create("Frame", {
+        Parent = ScreenGui,
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, 20),
+        Size = UDim2.fromOffset(154, 48),
+        BackgroundColor3 = Background,
+        BackgroundTransparency = 0.10,
+        BorderSizePixel = 0,
+        Visible = false,
+        ZIndex = 235
+    })
+    Corner(QuickPanel, 10)
+    Stroke(QuickPanel, Border, 0.34, 1)
+    local QuickPanelGlow = Menu:AddSoftGlow(QuickPanel, 234, 11, 0.88, true)
+
+    local QuickPanelPadding = Create("UIPadding", {
+        Parent = QuickPanel,
+        PaddingLeft = UDim.new(0, 7),
+        PaddingRight = UDim.new(0, 7),
+        PaddingTop = UDim.new(0, 6),
+        PaddingBottom = UDim.new(0, 6)
+    })
+
+    local QuickPanelLayout = Create("UIListLayout", {
+        Parent = QuickPanel,
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Padding = UDim.new(0, 5),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+
+    local QuickPanelButtons = {}
+    local QuickPanelVisible = false
+
+    local function CreateQuickButton(Name, IconName, Order, Callback)
+        local Button = Create("TextButton", {
+            Parent = QuickPanel,
+            Size = UDim2.fromOffset(42, 36),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Text = "",
+            LayoutOrder = Order,
+            ZIndex = 237
+        })
+        Corner(Button, 7)
+
+        local ButtonIcon = Icon(
+            Button,
+            IconName,
+            UDim2.fromOffset(17, 17),
+            UDim2.fromScale(0.5, 0.5),
+            MutedText,
+            238
+        )
+
+        local Data = {
+            Button = Button,
+            Icon = ButtonIcon,
+            Active = false,
+            Callback = Callback
+        }
+
+        QuickPanelButtons[Name] = Data
+
+        Bind(Button.MouseEnter:Connect(function()
+            if not Data.Active then
+                Tween(Button, 0.10, {
+                    BackgroundTransparency = 0.72
+                })
+                Menu:SetIconColor(ButtonIcon, PrimaryText, 0.10)
+            end
+        end))
+
+        Bind(Button.MouseLeave:Connect(function()
+            if not Data.Active then
+                Tween(Button, 0.10, {
+                    BackgroundTransparency = 1
+                })
+                Menu:SetIconColor(ButtonIcon, MutedText, 0.10)
+            end
+        end))
+
+        Bind(Button.MouseButton1Click:Connect(function()
+            if type(Data.Callback) == "function" then
+                Data.Callback()
+            end
+        end))
+
+        return Data
+    end
+
+    local function SetQuickButtonState(Name, State)
+        local Data = QuickPanelButtons[Name]
+        if not Data then return end
+
+        State = State == true
+        Data.Active = State
+
+        Tween(Data.Button, 0.10, {
+            BackgroundTransparency = State and 0.50 or 1,
+            BackgroundColor3 = State and SurfaceAlt or SurfaceAlt
+        })
+
+        Menu:SetIconColor(
+            Data.Icon,
+            State and Accent or MutedText,
+            0.10
+        )
+    end
+
+    local function GetEspPreviewVisible()
+        if Menu.EspPreviewController
+            and type(Menu.EspPreviewController.IsVisible) == "function"
+        then
+            return Menu.EspPreviewController.IsVisible() == true
+        end
+        return false
+    end
+
+    local function GetPlayerListVisible()
+        local Controller = Menu.PlayerListController
+        return Controller
+            and Controller.State
+            and Controller.State.Visible == true
+            or false
+    end
+
+    local function RefreshQuickPanelButtons()
+        SetQuickButtonState("Menu", Main.Visible == true)
+        SetQuickButtonState("ESP Preview", GetEspPreviewVisible())
+        SetQuickButtonState("Player List", GetPlayerListVisible())
+    end
+
+    CreateQuickButton("Menu", "Boxes", 1, function()
+        Menu.InternalSetVisible(not Main.Visible)
+        task.defer(RefreshQuickPanelButtons)
+    end)
+
+    CreateQuickButton("ESP Preview", "Eye", 2, function()
+        local Controller = Menu.EspPreviewController
+        if Controller and type(Controller.SetVisibility) == "function" then
+            Controller.SetVisibility(not GetEspPreviewVisible())
+        elseif Controller and type(Controller.SetHidden) == "function" then
+            Controller.SetHidden(GetEspPreviewVisible())
+        end
+        task.defer(RefreshQuickPanelButtons)
+    end)
+
+    CreateQuickButton("Player List", "User", 3, function()
+        local Controller = Menu.PlayerListController
+        if Controller and type(Controller.SetVisibility) == "function" then
+            Controller:SetVisibility(not GetPlayerListVisible())
+        end
+        task.defer(RefreshQuickPanelButtons)
+    end)
+
+    local function SetQuickPanelVisible(State)
+        QuickPanelVisible = State == true
+        QuickPanel.Visible = QuickPanelVisible
+
+        if QuickPanelGlow then
+            QuickPanelGlow.Visible = QuickPanelVisible
+        end
+
+        if QuickPanelVisible then
+            RefreshQuickPanelButtons()
+        end
+    end
+
+    Menu.QuickPanelController = {
+        Root = QuickPanel,
+        SetVisibility = SetQuickPanelVisible,
+        Toggle = function()
+            SetQuickPanelVisible(not QuickPanelVisible)
+        end,
+        Refresh = RefreshQuickPanelButtons,
+        IsVisible = function()
+            return QuickPanelVisible
+        end
+    }
+
+    Bind(RunService.RenderStepped:Connect(function()
+        if QuickPanelVisible then
+            RefreshQuickPanelButtons()
+        end
+    end))
 
     Menu.ToggleSettingsPanel = function()
         SetSettingsOpen(not SettingsOpen)
@@ -6720,7 +7077,8 @@ local function BuildRuntime()
     local function CreateEspPreviewWindow()
         local SavedPreviewPosition = DecodePosition(SavedPositions.EspPreviewPosition, nil)
         local S = {
-            Hidden = false,
+            Hidden = true,
+            RequestedVisible = false,
             Mode = "3D",
             LoadGeneration = 0,
             LastRetry = 0,
@@ -7976,25 +8334,45 @@ local function BuildRuntime()
         end
 
         local function RefreshVisibility()
-            local Visible = Menu.Visible and not S.Hidden
+            local Visible =
+                S.RequestedVisible == true
+                and S.Hidden ~= true
+
             S.Window.Visible = Visible
+
             if S.Glow then
                 S.Glow.Visible = Visible
             end
+
             if Visible and not S.Model then
                 RequestModel()
             end
         end
 
-        Menu.EspPreviewController.SetHidden = function(Value)
-            S.Hidden = Value and true or false
+        Menu.EspPreviewController.SetVisibility = function(Value)
+            S.RequestedVisible = Value == true
+            S.Hidden = not S.RequestedVisible
             SavedPositions.HideEspPreview = S.Hidden
             RefreshVisibility()
+
             if S.Hidden then
                 S.Status.Visible = false
             elseif not S.Model then
                 RequestModel()
             end
+
+            if Menu.QuickPanelController and Menu.QuickPanelController.Refresh then
+                Menu.QuickPanelController.Refresh()
+            end
+        end
+
+        Menu.EspPreviewController.SetHidden = function(Value)
+            Menu.EspPreviewController.SetVisibility(Value ~= true)
+        end
+
+        Menu.EspPreviewController.IsVisible = function()
+            return S.RequestedVisible == true
+                and S.Hidden ~= true
         end
 
         Menu.EspPreviewController.SetScale = function(Value)
@@ -8546,11 +8924,8 @@ local function BuildRuntime()
             InputBlocker.Visible = false
         end
 
-        if Menu.EspPreviewController and type(Menu.EspPreviewController.SetMenuVisible) == "function" then
-            pcall(Menu.EspPreviewController.SetMenuVisible, State)
-        end
-        if Menu.PlayerListController and type(Menu.PlayerListController.SetMenuVisible) == "function" then
-            pcall(Menu.PlayerListController.SetMenuVisible, Menu.PlayerListController, State)
+        if Menu.QuickPanelController and Menu.QuickPanelController.Refresh then
+            Menu.QuickPanelController.Refresh()
         end
     end
 
@@ -8775,8 +9150,64 @@ local function BuildRuntime()
         end
 
         local FocusedTextBox = UserInputService:GetFocusedTextBox()
-        if not FocusedTextBox and Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode == Enum.KeyCode.F2 then
-            Menu.InternalSetVisible(not Main.Visible)
+
+        if not FocusedTextBox and Menu.QuickPanelBindCapture then
+            if Input.UserInputType == Enum.UserInputType.Keyboard
+                and Input.KeyCode == Enum.KeyCode.Escape
+            then
+                Menu.QuickPanelBindCapture = false
+
+                if Menu.SettingsUI.QuickPanelBindControl
+                    and Menu.SettingsUI.QuickPanelBindControl.Set
+                then
+                    Menu.SettingsUI.QuickPanelBindControl.Set(
+                        Menu.Flags["Quick Panel Bind"]
+                    )
+                end
+
+                return
+            end
+
+            local KeyType, KeyName =
+                Menu.BindSystem.GetInputIdentity(Input)
+
+            if KeyType and KeyName then
+                local NewBind = {
+                    KeyType = KeyType,
+                    Key = KeyName,
+                    Modifiers = Menu.BindSystem.ReadModifiers()
+                }
+
+                if Menu.SettingsUI.QuickPanelBindControl
+                    and Menu.SettingsUI.QuickPanelBindControl.Set
+                then
+                    Menu.SettingsUI.QuickPanelBindControl.Set(NewBind)
+                else
+                    Menu.Flags["Quick Panel Bind"] = NewBind
+                    Menu.QuickPanelBindCapture = false
+                end
+
+                return
+            end
+        end
+
+        local QuickBind =
+            Menu.Flags["Quick Panel Bind"]
+
+        if not FocusedTextBox
+            and type(QuickBind) == "table"
+            and Menu.BindSystem.BindMatchesInput(
+                QuickBind,
+                Input,
+                true
+            )
+        then
+            if Menu.QuickPanelController
+                and Menu.QuickPanelController.Toggle
+            then
+                Menu.QuickPanelController.Toggle()
+            end
+
             return
         end
 
@@ -8866,7 +9297,12 @@ local function BuildRuntime()
             return
         end
         ApiState.Initialized = true
+        local PreservedSetters = {
+            QuickPanelBind = Menu.Setters["Quick Panel Bind"]
+        }
+
         local PreservedFlags = {
+            QuickPanelBind = Menu.Flags["Quick Panel Bind"],
             AutoSave = Menu.Flags.AutoSave,
             BackgroundDim = Menu.Flags.BackgroundDim,
             AnimationSpeed = Menu.Flags.AnimationSpeed,
@@ -8906,9 +9342,18 @@ local function BuildRuntime()
         table.clear(Menu.Setters)
         for Name, Value in pairs(PreservedFlags) do
             if Value ~= nil then
-                Menu.Flags[Name] = Value
+                if Name == "QuickPanelBind" then
+                    Menu.Flags["Quick Panel Bind"] = Value
+                else
+                    Menu.Flags[Name] = Value
+                end
             end
         end
+
+        if type(PreservedSetters.QuickPanelBind) == "function" then
+            Menu.Setters["Quick Panel Bind"] = PreservedSetters.QuickPanelBind
+        end
+
         RagebotMode.Visible = false
         LegitbotMode.Visible = false
         CurrentPage = nil
@@ -9795,29 +10240,19 @@ local function BuildRuntime()
         local StatusItems = {"None", "Priority", "Whitelist", "Enemy"}
         local StatusStyles = {
             Client = {
-                Dot = Color3.fromRGB(209, 79, 88),
-                Text = Color3.fromRGB(196, 133, 139),
-                Fill = Color3.fromRGB(83, 27, 32)
+                Text = Color3.fromRGB(194, 128, 134)
             },
             None = {
-                Dot = Color3.fromRGB(82, 94, 101),
-                Text = Color3.fromRGB(124, 139, 146),
-                Fill = Surface
+                Text = Color3.fromRGB(122, 137, 144)
             },
             Priority = {
-                Dot = Color3.fromRGB(206, 163, 82),
-                Text = Color3.fromRGB(184, 169, 133),
-                Fill = Color3.fromRGB(62, 51, 28)
+                Text = Color3.fromRGB(190, 163, 111)
             },
             Whitelist = {
-                Dot = Color3.fromRGB(91, 178, 128),
-                Text = Color3.fromRGB(143, 187, 161),
-                Fill = Color3.fromRGB(27, 62, 43)
+                Text = Color3.fromRGB(128, 181, 150)
             },
             Enemy = {
-                Dot = Color3.fromRGB(205, 82, 91),
-                Text = Color3.fromRGB(190, 134, 139),
-                Fill = Color3.fromRGB(69, 27, 32)
+                Text = Color3.fromRGB(194, 126, 132)
             }
         }
 
@@ -9828,7 +10263,7 @@ local function BuildRuntime()
 
         local State = {
             Visible = ApiRead(Data, "Visible", Menu.Flags.PlayerListVisible == true) == true,
-            MenuVisible = Menu.Visible == true,
+            MenuVisible = true,
             Scale = math.clamp(tonumber(ApiRead(Data, "Scale", SavedPositions.PlayerListScale or 100)) or 100, 70, 135) / 100,
             Selected = nil,
             Search = "",
@@ -9857,7 +10292,7 @@ local function BuildRuntime()
             BackgroundTransparency = 0.055,
             BorderSizePixel = 0,
             ClipsDescendants = false,
-            Visible = State.Visible and State.MenuVisible,
+            Visible = State.Visible,
             ZIndex = 145
         })
         Corner(Root, 7)
@@ -10012,9 +10447,9 @@ local function BuildRuntime()
         local HeaderRow = Create("Frame", {
             Parent = ListRoot,
             Position = UDim2.fromOffset(0, 0),
-            Size = UDim2.new(1, 0, 0, 28),
+            Size = UDim2.new(1, 0, 0, 26),
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.72,
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ZIndex = 148
         })
@@ -10046,21 +10481,10 @@ local function BuildRuntime()
             ZIndex = 149
         })
 
-        Create("Frame", {
-            Parent = HeaderRow,
-            AnchorPoint = Vector2.new(0, 1),
-            Position = UDim2.new(0, 10, 1, 0),
-            Size = UDim2.new(1, -20, 0, 1),
-            BackgroundColor3 = Border,
-            BackgroundTransparency = 0.58,
-            BorderSizePixel = 0,
-            ZIndex = 149
-        })
-
         local Scroll = Create("ScrollingFrame", {
             Parent = ListRoot,
-            Position = UDim2.fromOffset(0, 29),
-            Size = UDim2.new(1, 0, 1, -29),
+            Position = UDim2.fromOffset(0, 27),
+            Size = UDim2.new(1, 0, 1, -27),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             CanvasSize = UDim2.new(),
@@ -10074,7 +10498,7 @@ local function BuildRuntime()
 
         local RowLayout = Create("UIListLayout", {
             Parent = Scroll,
-            Padding = UDim.new(0, 0),
+            Padding = UDim.new(0, 2),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
 
@@ -10127,40 +10551,53 @@ local function BuildRuntime()
             Parent = Profile,
             AnchorPoint = Vector2.new(0.5, 0),
             Position = UDim2.new(0.5, 0, 0, 8),
-            Size = UDim2.fromOffset(78, 78),
-            BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = 0.34,
+            Size = UDim2.fromOffset(76, 76),
+            BackgroundColor3 = Border,
+            BackgroundTransparency = 0.48,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             ZIndex = 149
         })
-        Corner(AvatarHolder, 8)
-        Stroke(AvatarHolder, Border, 0.42, 1)
+        Corner(AvatarHolder, 999)
+
+        local AvatarClip = Create("Frame", {
+            Parent = AvatarHolder,
+            Position = UDim2.fromOffset(2, 2),
+            Size = UDim2.new(1, -4, 1, -4),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.20,
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+            ZIndex = 150
+        })
+        Corner(AvatarClip, 999)
 
         local Avatar = Create("ImageLabel", {
-            Parent = AvatarHolder,
+            Parent = AvatarClip,
+            Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
             Image = "",
             ScaleType = Enum.ScaleType.Crop,
-            ZIndex = 150
+            ZIndex = 151
         })
+        Corner(Avatar, 999)
 
         local AvatarLoading = Create("Frame", {
-            Parent = AvatarHolder,
+            Parent = AvatarClip,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.fromOffset(18, 2),
+            Size = UDim2.fromOffset(16, 2),
             BackgroundColor3 = Border,
-            BackgroundTransparency = 0.28,
+            BackgroundTransparency = 0.32,
             BorderSizePixel = 0,
-            ZIndex = 149
+            ZIndex = 150
         })
         Corner(AvatarLoading, 2)
 
         local PlayerName = Create("TextLabel", {
             Parent = Profile,
-            Position = UDim2.fromOffset(0, 94),
+            Position = UDim2.fromOffset(0, 92),
             Size = UDim2.new(1, 0, 0, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansBold,
@@ -10172,7 +10609,7 @@ local function BuildRuntime()
 
         local PlayerInfo = Create("TextLabel", {
             Parent = Profile,
-            Position = UDim2.fromOffset(0, 113),
+            Position = UDim2.fromOffset(0, 111),
             Size = UDim2.new(1, 0, 0, 16),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
@@ -10260,7 +10697,7 @@ local function BuildRuntime()
         local ActionHolder = Create("Frame", {
             Parent = Profile,
             Position = UDim2.fromOffset(0, 215),
-            Size = UDim2.new(1, 0, 0, 66),
+            Size = UDim2.new(1, 0, 0, 30),
             BackgroundTransparency = 1,
             ZIndex = 149
         })
@@ -10308,10 +10745,8 @@ local function BuildRuntime()
             return Button
         end
 
-        MakeAction("Teleport", 0, 0, "Teleport")
-        MakeAction("Spectate", 0.5, 0, "Spectate")
-        MakeAction("Unspectate", 0, 34, "Unspectate")
-        MakeAction("Fling", 0.5, 34, "Fling")
+        MakeAction("Spectate", 0, 0, "Spectate")
+        MakeAction("Unspectate", 0.5, 0, "Unspectate")
 
         local function NormalizeStatus(Status)
             Status = tostring(Status or "None")
@@ -10380,17 +10815,16 @@ local function BuildRuntime()
             for Name, Visual in pairs(StatusOptionVisuals) do
                 local Active = Name == Status
 
-                Visual.Button.TextColor3 =
+                Visual.Text.TextColor3 =
                     Active
                     and PrimaryText
                     or MutedText
 
                 Visual.Button.BackgroundTransparency =
                     Active
-                    and 0.78
+                    and 0.82
                     or 1
 
-                Visual.Bar.Visible = Active
                 Visual.Check.Visible = Active
             end
         end
@@ -10403,64 +10837,61 @@ local function BuildRuntime()
                 BackgroundTransparency = 1,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
+                Text = "",
+                LayoutOrder = Index,
+                ZIndex = 161
+            })
+
+            local OptionText = Create("TextLabel", {
+                Parent = Option,
+                Position = UDim2.fromOffset(10, 0),
+                Size = UDim2.new(1, -35, 1, 0),
+                BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSansMedium,
                 Text = Status,
                 TextColor3 = MutedText,
                 TextSize = 9,
                 TextXAlignment = Enum.TextXAlignment.Left,
-                LayoutOrder = Index,
-                ZIndex = 161
-            })
-            Create("UIPadding", {
-                Parent = Option,
-                PaddingLeft = UDim.new(0, 10),
-                PaddingRight = UDim.new(0, 28)
-            })
-
-            local OptionBar = Create("Frame", {
-                Parent = Option,
-                AnchorPoint = Vector2.new(1, 0),
-                Position = UDim2.new(1, 0, 0, 5),
-                Size = UDim2.fromOffset(2, 16),
-                BackgroundColor3 = Accent,
-                BorderSizePixel = 0,
-                Visible = false,
-                ZIndex = 163
+                ZIndex = 162
             })
 
             local OptionCheck = Create("TextLabel", {
                 Parent = Option,
                 AnchorPoint = Vector2.new(1, 0.5),
-                Position = UDim2.new(1, -8, 0.5, 0),
+                Position = UDim2.new(1, -9, 0.5, 0),
                 Size = UDim2.fromOffset(12, 16),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSansBold,
                 Text = "✓",
                 TextColor3 = Accent,
-                TextSize = 10,
+                TextSize = 9,
                 Visible = false,
                 ZIndex = 163
             })
 
             StatusOptionVisuals[Status] = {
                 Button = Option,
-                Bar = OptionBar,
+                Text = OptionText,
                 Check = OptionCheck
             }
 
             Bind(Option.MouseEnter:Connect(function()
-                if not OptionBar.Visible then
-                    Tween(Option, 0.10, {
-                        BackgroundTransparency = 0.84,
+                if not OptionCheck.Visible then
+                    Tween(Option, 0.08, {
+                        BackgroundTransparency = 0.88
+                    })
+                    Tween(OptionText, 0.08, {
                         TextColor3 = PrimaryText
                     })
                 end
             end))
 
             Bind(Option.MouseLeave:Connect(function()
-                if not OptionBar.Visible then
-                    Tween(Option, 0.10, {
-                        BackgroundTransparency = 1,
+                if not OptionCheck.Visible then
+                    Tween(Option, 0.08, {
+                        BackgroundTransparency = 1
+                    })
+                    Tween(OptionText, 0.08, {
                         TextColor3 = MutedText
                     })
                 end
@@ -10600,46 +11031,63 @@ local function BuildRuntime()
 
             local Row = Create("TextButton", {
                 Parent = Scroll,
-                Size = UDim2.new(1, -2, 0, 28),
-                BackgroundColor3 = Surface,
-                BackgroundTransparency = Selected and 0.82 or 1,
+                Size = UDim2.new(1, -3, 0, 31),
+                BackgroundColor3 = SurfaceAlt,
+                BackgroundTransparency = Selected and 0.78 or 1,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
                 Text = "",
                 LayoutOrder = Index,
                 ZIndex = 149
             })
-
-            Create("Frame", {
-                Parent = Row,
-                AnchorPoint = Vector2.new(0, 1),
-                Position = UDim2.new(0, 12, 1, 0),
-                Size = UDim2.new(1, -24, 0, 1),
-                BackgroundColor3 = Border,
-                BackgroundTransparency = 0.76,
-                BorderSizePixel = 0,
-                ZIndex = 150
-            })
+            Corner(Row, 4)
 
             if Selected then
                 Create("Frame", {
                     Parent = Row,
-                    Position = UDim2.fromOffset(0, 4),
-                    Size = UDim2.fromOffset(2, 20),
+                    Position = UDim2.fromOffset(0, 5),
+                    Size = UDim2.fromOffset(2, 21),
                     BackgroundColor3 = Accent,
                     BorderSizePixel = 0,
-                    ZIndex = 151
+                    ZIndex = 152
                 })
             end
 
-            local Name = Create("TextLabel", {
+            local MiniAvatarHolder = Create("Frame", {
                 Parent = Row,
-                Position = UDim2.fromOffset(12, 0),
-                Size = UDim2.new(1, -96, 1, 0),
+                AnchorPoint = Vector2.new(0, 0.5),
+                Position = UDim2.new(0, 9, 0.5, 0),
+                Size = UDim2.fromOffset(18, 18),
+                BackgroundColor3 = SurfaceAlt,
+                BackgroundTransparency = 0.20,
+                BorderSizePixel = 0,
+                ClipsDescendants = true,
+                ZIndex = 151
+            })
+            Corner(MiniAvatarHolder, 999)
+
+            local MiniAvatar = Create("ImageLabel", {
+                Parent = MiniAvatarHolder,
+                Size = UDim2.fromScale(1, 1),
+                BackgroundTransparency = 1,
+                Image = "rbxthumb://type=AvatarHeadShot&id="
+                    .. tostring(Player.UserId)
+                    .. "&w=48&h=48",
+                ScaleType = Enum.ScaleType.Crop,
+                ZIndex = 152
+            })
+            Corner(MiniAvatar, 999)
+
+            Create("TextLabel", {
+                Parent = Row,
+                Position = UDim2.fromOffset(34, 0),
+                Size = UDim2.new(1, -122, 1, 0),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSansMedium,
                 Text = tostring(Player.DisplayName or Player.Name),
-                TextColor3 = Selected and PrimaryText or Color3.fromRGB(194, 204, 208),
+                TextColor3 = Selected
+                    and PrimaryText
+                    or Color3.fromRGB(190, 200, 205),
                 TextSize = 9,
                 TextTruncate = Enum.TextTruncate.AtEnd,
                 TextXAlignment = Enum.TextXAlignment.Left,
@@ -10653,7 +11101,7 @@ local function BuildRuntime()
                 Parent = Row,
                 AnchorPoint = Vector2.new(1, 0.5),
                 Position = UDim2.new(1, -10, 0.5, 0),
-                Size = UDim2.fromOffset(64, 16),
+                Size = UDim2.fromOffset(70, 16),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSansMedium,
                 Text = Status,
@@ -10665,13 +11113,17 @@ local function BuildRuntime()
 
             Bind(Row.MouseEnter:Connect(function()
                 if State.Selected ~= Player then
-                    Tween(Row, 0.10, {BackgroundTransparency = 0.93})
+                    Tween(Row, 0.08, {
+                        BackgroundTransparency = 0.90
+                    })
                 end
             end))
 
             Bind(Row.MouseLeave:Connect(function()
                 if State.Selected ~= Player then
-                    Tween(Row, 0.10, {BackgroundTransparency = 1})
+                    Tween(Row, 0.08, {
+                        BackgroundTransparency = 1
+                    })
                 end
             end))
 
@@ -10822,15 +11274,21 @@ local function BuildRuntime()
         function Controller:SetVisibility(Value)
             State.Visible = Value == true
             Menu.Flags.PlayerListVisible = State.Visible
-            Root.Visible = State.Visible and State.MenuVisible
+            Root.Visible = State.Visible
+
             if RootGlow then
                 RootGlow.Visible = Root.Visible
+            end
+
+            if Menu.QuickPanelController and Menu.QuickPanelController.Refresh then
+                Menu.QuickPanelController.Refresh()
             end
         end
 
         function Controller:SetMenuVisible(Value)
-            State.MenuVisible = Value == true
-            Root.Visible = State.MenuVisible and State.Visible
+            State.MenuVisible = true
+            Root.Visible = State.Visible
+
             if RootGlow then
                 RootGlow.Visible = Root.Visible
             end
@@ -11058,6 +11516,26 @@ local function BuildRuntime()
             SetScale = function(_, Value)
                 if SetWatermarkScale then
                     SetWatermarkScale(Value)
+                end
+            end
+        }
+    end
+
+    function Library:QuickPanel()
+        return {
+            SetVisibility = function(_, State)
+                if Menu.QuickPanelController and Menu.QuickPanelController.SetVisibility then
+                    Menu.QuickPanelController.SetVisibility(State)
+                end
+            end,
+            Toggle = function()
+                if Menu.QuickPanelController and Menu.QuickPanelController.Toggle then
+                    Menu.QuickPanelController.Toggle()
+                end
+            end,
+            Refresh = function()
+                if Menu.QuickPanelController and Menu.QuickPanelController.Refresh then
+                    Menu.QuickPanelController.Refresh()
                 end
             end
         }
@@ -11509,6 +11987,10 @@ end
 
 function Library:KeybindList(...)
     return ResolveRuntime():KeybindList(...)
+end
+
+function Library:QuickPanel(...)
+    return ResolveRuntime():QuickPanel(...)
 end
 
 function Library:PlayerList(...)
