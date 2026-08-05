@@ -1847,6 +1847,19 @@ local function BuildRuntime()
                 or (BindData.KeyType == "UserInputType" and BindData.Key == "MouseButton1") then
                 table.remove(Binds, Index)
             else
+                local CanonicalType,
+                    CanonicalKey =
+                    CanonicalBindKey(
+                        BindData.KeyType,
+                        BindData.Key
+                    )
+
+                BindData.KeyType =
+                    CanonicalType
+
+                BindData.Key =
+                    CanonicalKey
+
                 BindData.Id = type(BindData.Id) == "string"
                     and BindData.Id
                     or (tostring(os.clock()) .. tostring(math.random(1000, 9999)))
@@ -1943,43 +1956,296 @@ local function BuildRuntime()
         MouseButton3 = "MMB",
         MouseButton4 = "M4",
         MouseButton5 = "M5",
-        KeypadZero = "NUM0", KeypadOne = "NUM1", KeypadTwo = "NUM2", KeypadThree = "NUM3", KeypadFour = "NUM4",
-        KeypadFive = "NUM5", KeypadSix = "NUM6", KeypadSeven = "NUM7", KeypadEight = "NUM8", KeypadNine = "NUM9",
-        KeypadPeriod = "NUM.", KeypadDivide = "NUM/", KeypadMultiply = "NUM*", KeypadMinus = "NUM-", KeypadPlus = "NUM+",
-        KeypadEnter = "NUMENTER", KeypadEquals = "NUM=",
-        Return = "ENTER", Escape = "ESC", Backspace = "BACK", Delete = "DEL", Insert = "INS",
-        PageUp = "PGUP", PageDown = "PGDN", CapsLock = "CAPS", Space = "SPACE",
-        Up = "UP", Down = "DOWN", Left = "LEFT", Right = "RIGHT",
-        Minus = "-", Equals = "=", LeftBracket = "[", RightBracket = "]", BackSlash = "\\",
-        Semicolon = ";", Quote = "'", Comma = ",", Period = ".", Slash = "/", Backquote = "`"
+        MouseButton6 = "M6",
+        MouseButton7 = "M7",
+        MouseButton8 = "M8",
+        KeypadZero = "NUM0",
+        KeypadOne = "NUM1",
+        KeypadTwo = "NUM2",
+        KeypadThree = "NUM3",
+        KeypadFour = "NUM4",
+        KeypadFive = "NUM5",
+        KeypadSix = "NUM6",
+        KeypadSeven = "NUM7",
+        KeypadEight = "NUM8",
+        KeypadNine = "NUM9",
+        KeypadPeriod = "NUM.",
+        KeypadDivide = "NUM/",
+        KeypadMultiply = "NUM*",
+        KeypadMinus = "NUM-",
+        KeypadPlus = "NUM+",
+        KeypadEnter = "NUMENTER",
+        KeypadEquals = "NUM=",
+        Return = "ENTER",
+        Escape = "ESC",
+        Backspace = "BACK",
+        Delete = "DEL",
+        Insert = "INS",
+        PageUp = "PGUP",
+        PageDown = "PGDN",
+        Home = "HOME",
+        End = "END",
+        CapsLock = "CAPS",
+        Space = "SPACE",
+        Tab = "TAB",
+        Up = "UP",
+        Down = "DOWN",
+        Left = "LEFT",
+        Right = "RIGHT",
+        Minus = "-",
+        Equals = "=",
+        LeftBracket = "[",
+        RightBracket = "]",
+        BackSlash = "\\",
+        Semicolon = ";",
+        Quote = "'",
+        Comma = ",",
+        Period = ".",
+        Slash = "/",
+        Backquote = "`"
     }
 
+    local BindKeyCanonical = {
+        XButton1 = "MouseButton4",
+        XButton2 = "MouseButton5",
+        Mouse4 = "MouseButton4",
+        Mouse5 = "MouseButton5",
+        MouseButton4 = "MouseButton4",
+        MouseButton5 = "MouseButton5",
+        Button4 = "MouseButton4",
+        Button5 = "MouseButton5",
+        ThumbMouseButton1 = "MouseButton4",
+        ThumbMouseButton2 = "MouseButton5",
+
+        NumPad0 = "KeypadZero",
+        Numpad0 = "KeypadZero",
+        Keypad0 = "KeypadZero",
+        NumPad1 = "KeypadOne",
+        Numpad1 = "KeypadOne",
+        Keypad1 = "KeypadOne",
+        NumPad2 = "KeypadTwo",
+        Numpad2 = "KeypadTwo",
+        Keypad2 = "KeypadTwo",
+        NumPad3 = "KeypadThree",
+        Numpad3 = "KeypadThree",
+        Keypad3 = "KeypadThree",
+        NumPad4 = "KeypadFour",
+        Numpad4 = "KeypadFour",
+        Keypad4 = "KeypadFour",
+        NumPad5 = "KeypadFive",
+        Numpad5 = "KeypadFive",
+        Keypad5 = "KeypadFive",
+        NumPad6 = "KeypadSix",
+        Numpad6 = "KeypadSix",
+        Keypad6 = "KeypadSix",
+        NumPad7 = "KeypadSeven",
+        Numpad7 = "KeypadSeven",
+        Keypad7 = "KeypadSeven",
+        NumPad8 = "KeypadEight",
+        Numpad8 = "KeypadEight",
+        Keypad8 = "KeypadEight",
+        NumPad9 = "KeypadNine",
+        Numpad9 = "KeypadNine",
+        Keypad9 = "KeypadNine",
+
+        NumPadDecimal = "KeypadPeriod",
+        NumpadDecimal = "KeypadPeriod",
+        KeypadDecimal = "KeypadPeriod",
+        NumPadPeriod = "KeypadPeriod",
+        NumpadPeriod = "KeypadPeriod",
+
+        NumPadDivide = "KeypadDivide",
+        NumpadDivide = "KeypadDivide",
+        NumPadMultiply = "KeypadMultiply",
+        NumpadMultiply = "KeypadMultiply",
+        NumPadSubtract = "KeypadMinus",
+        NumpadSubtract = "KeypadMinus",
+        NumPadMinus = "KeypadMinus",
+        NumpadMinus = "KeypadMinus",
+        NumPadAdd = "KeypadPlus",
+        NumpadAdd = "KeypadPlus",
+        NumPadPlus = "KeypadPlus",
+        NumpadPlus = "KeypadPlus",
+        NumPadEnter = "KeypadEnter",
+        NumpadEnter = "KeypadEnter",
+        NumPadEquals = "KeypadEquals",
+        NumpadEquals = "KeypadEquals"
+    }
+
+    local function CanonicalBindKey(KeyType, KeyName)
+        KeyType = tostring(KeyType or "")
+        KeyName = tostring(KeyName or "")
+
+        local Canonical =
+            BindKeyCanonical[KeyName]
+            or KeyName
+
+        if string.match(Canonical, "^MouseButton%d+$") then
+            return "UserInputType", Canonical
+        end
+
+        return KeyType, Canonical
+    end
+
     local function FriendlyKeyName(Name)
-        local Raw = tostring(Name or "Unknown")
-        local Alias = BindKeyAliases[Raw]
-        if Alias then return Alias end
-        local Result = Raw:gsub("(%l)(%u)", "%1 %2")
-        return string.upper(Result)
+        local Raw =
+            tostring(
+                Name or "Unknown"
+            )
+
+        local Canonical =
+            BindKeyCanonical[Raw]
+            or Raw
+
+        local Alias =
+            BindKeyAliases[Canonical]
+
+        if Alias then
+            return Alias
+        end
+
+        local Result =
+            Canonical:
+                gsub(
+                    "(%l)(%u)",
+                    "%1 %2"
+                )
+
+        return string.upper(
+            Result
+        )
     end
 
     local function BuildBindDisplay(KeyName, Modifiers)
         local Parts = {}
-        if Modifiers and Modifiers.Ctrl then table.insert(Parts, "CTRL") end
-        if Modifiers and Modifiers.Shift then table.insert(Parts, "SHIFT") end
-        if Modifiers and Modifiers.Alt then table.insert(Parts, "ALT") end
-        table.insert(Parts, FriendlyKeyName(KeyName))
-        return table.concat(Parts, " + ")
+
+        if Modifiers
+            and Modifiers.Ctrl
+        then
+            table.insert(
+                Parts,
+                "CTRL"
+            )
+        end
+
+        if Modifiers
+            and Modifiers.Shift
+        then
+            table.insert(
+                Parts,
+                "SHIFT"
+            )
+        end
+
+        if Modifiers
+            and Modifiers.Alt
+        then
+            table.insert(
+                Parts,
+                "ALT"
+            )
+        end
+
+        table.insert(
+            Parts,
+            FriendlyKeyName(
+                KeyName
+            )
+        )
+
+        return table.concat(
+            Parts,
+            " + "
+        )
     end
 
     local function GetInputIdentity(Input)
-        if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode ~= Enum.KeyCode.Unknown then
-            return "KeyCode", Input.KeyCode.Name
+        if not Input then
+            return nil, nil
         end
-        local InputTypeName = Input.UserInputType and Input.UserInputType.Name or ""
-        if type(InputTypeName) == "string" and string.match(InputTypeName, "^MouseButton%d+$") then
-            if InputTypeName == "MouseButton1" then return nil, nil end
-            return "UserInputType", InputTypeName
+
+        local InputType =
+            Input.UserInputType
+
+        local InputTypeName =
+            InputType
+            and InputType.Name
+            or ""
+
+        local KeyCode =
+            Input.KeyCode
+
+        local KeyCodeName =
+            KeyCode
+            and KeyCode.Name
+            or ""
+
+        if type(InputTypeName) == "string"
+            and string.match(
+                InputTypeName,
+                "^MouseButton%d+$"
+            )
+        then
+            if InputTypeName
+                == "MouseButton1"
+            then
+                return nil, nil
+            end
+
+            return CanonicalBindKey(
+                "UserInputType",
+                InputTypeName
+            )
         end
+
+        if type(KeyCodeName) == "string"
+            and KeyCodeName ~= ""
+            and KeyCodeName ~= "Unknown"
+        then
+            local CanonicalType,
+                CanonicalName =
+                CanonicalBindKey(
+                    "KeyCode",
+                    KeyCodeName
+                )
+
+            if CanonicalName
+                == "MouseButton1"
+            then
+                return nil, nil
+            end
+
+            return CanonicalType,
+                CanonicalName
+        end
+
+        if type(InputTypeName) == "string"
+            and InputTypeName ~= ""
+            and InputTypeName ~= "Keyboard"
+            and InputTypeName ~= "MouseMovement"
+            and InputTypeName ~= "MouseWheel"
+            and InputTypeName ~= "Touch"
+            and InputTypeName ~= "None"
+        then
+            local CanonicalType,
+                CanonicalName =
+                CanonicalBindKey(
+                    "UserInputType",
+                    InputTypeName
+                )
+
+            if CanonicalName
+                ~= InputTypeName
+                or string.match(
+                    CanonicalName,
+                    "^MouseButton%d+$"
+                )
+            then
+                return CanonicalType,
+                    CanonicalName
+            end
+        end
+
         return nil, nil
     end
 
@@ -1992,14 +2258,42 @@ local function BuildRuntime()
     end
 
     local function BindMatchesInput(BindData, Input, CheckModifiers)
-        local KeyType, KeyName = GetInputIdentity(Input)
-        if not KeyType or BindData.KeyType ~= KeyType or BindData.Key ~= KeyName then
+        if type(BindData) ~= "table" then
             return false
         end
+
+        local KeyType,
+            KeyName =
+            GetInputIdentity(
+                Input
+            )
+
+        if not KeyType
+            or not KeyName
+        then
+            return false
+        end
+
+        local StoredType,
+            StoredName =
+            CanonicalBindKey(
+                BindData.KeyType,
+                BindData.Key
+            )
+
+        if StoredType ~= KeyType
+            or StoredName ~= KeyName
+        then
+            return false
+        end
+
         if CheckModifiers == false then
             return true
         end
-        return ModifiersEqual(BindData.Modifiers)
+
+        return ModifiersEqual(
+            BindData.Modifiers
+        )
     end
 
     local function FormatBindLabel(BindData)
@@ -2630,7 +2924,7 @@ local function BuildRuntime()
             Size = UDim2.new(1, -38, 0, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
-            Text = "New bind",
+            Text = "Key",
             TextColor3 = MutedText,
             TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -2702,7 +2996,7 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
-            Text = "Click to bind",
+            Text = "Press key",
             TextColor3 = PrimaryText,
             TextSize = 10,
             ZIndex = 181
@@ -2716,7 +3010,7 @@ local function BuildRuntime()
             Size = UDim2.fromOffset(120, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
-            Text = "Show in binds",
+            Text = "Show in list",
             TextColor3 = MutedText,
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -2807,7 +3101,7 @@ local function BuildRuntime()
         end))
         Bind(Capture.MouseButton1Click:Connect(function()
             CaptureListening = true
-            Capture.Text = "Press a key..."
+            Capture.Text = "Press key..."
             RefreshCaptureHover()
             PendingBindCapture = {
                 Meta = Meta,
@@ -3015,6 +3309,7 @@ local function BuildRuntime()
     Menu.BindSystem.IsModifierKey = IsModifierKey
     Menu.BindSystem.ReadModifiers = ReadModifiers
     Menu.BindSystem.BuildBindDisplay = BuildBindDisplay
+    Menu.BindSystem.CanonicalBindKey = CanonicalBindKey
     Menu.BindSystem.GetInputIdentity = GetInputIdentity
     Menu.BindSystem.BindMatchesInput = BindMatchesInput
     end
@@ -3035,6 +3330,7 @@ local function BuildRuntime()
             Position = UDim2.fromScale(0.5, 0.5),
             Size = UDim2.fromOffset(8, 1),
             BackgroundColor3 = MutedText,
+            BackgroundTransparency = 0.12,
             BorderSizePixel = 0,
             ZIndex = (ZIndex or 11) + 1
         })
@@ -3045,29 +3341,90 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.fromScale(0.5, 0.5),
             Size = UDim2.fromOffset(1, 8),
-            BackgroundColor3 = MutedText,
+            BackgroundColor3 = Accent,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = (ZIndex or 11) + 1
         })
         Corner(Vertical, 1)
 
-        local Indicator = {}
+        local Indicator = {
+            Opened = false,
+            AccentColor = Accent
+        }
+
+        local function RefreshColor(AnimateTransparency)
+            local CurrentAccent =
+                Indicator.AccentColor
+                or Accent
+
+            Vertical.Visible =
+                not Indicator.Opened
+
+            -- Never tween colors here. An old color tween could finish
+            -- after an Accent change and restore the previous theme color.
+            Horizontal.BackgroundColor3 =
+                Indicator.Opened
+                and CurrentAccent
+                or MutedText
+
+            Vertical.BackgroundColor3 =
+                CurrentAccent
+
+            if AnimateTransparency then
+                Tween(Horizontal, 0.10, {
+                    BackgroundTransparency =
+                        Indicator.Opened
+                        and 0
+                        or 0.12
+                })
+
+                Tween(Vertical, 0.10, {
+                    BackgroundTransparency = 0
+                })
+            else
+                Horizontal.BackgroundTransparency =
+                    Indicator.Opened
+                    and 0
+                    or 0.12
+
+                Vertical.BackgroundTransparency = 0
+            end
+        end
 
         function Indicator:SetOpened(State)
-            State = State == true
+            self.Opened =
+                State == true
 
-            Vertical.Visible = not State
-
-            Tween(Horizontal, 0.10, {
-                BackgroundColor3 = State and Accent or MutedText,
-                BackgroundTransparency = State and 0 or 0.12
-            })
-
-            Tween(Vertical, 0.10, {
-                BackgroundColor3 = Accent,
-                BackgroundTransparency = 0
-            })
+            RefreshColor(true)
         end
+
+        function Indicator:SetAccentColor(NewColor)
+            if typeof(NewColor) ~= "Color3" then
+                return
+            end
+
+            self.AccentColor =
+                NewColor
+
+            RefreshColor(false)
+        end
+
+        RegisterAccentTarget(function(NewColor)
+            if not Root
+                or not Root.Parent
+            then
+                return
+            end
+
+            Indicator:SetAccentColor(
+                NewColor
+            )
+        end)
+
+        Indicator:SetAccentColor(
+            Accent
+        )
 
         Indicator:SetOpened(false)
 
@@ -3673,29 +4030,126 @@ local function BuildRuntime()
         local OldColor = Accent
         Accent = NewColor
 
-        for _, Descendant in ipairs(Main:GetDescendants()) do
+        local function ReplaceSequenceColor(Sequence)
+            if typeof(Sequence) ~= "ColorSequence" then
+                return Sequence
+            end
+
+            local Changed = false
+            local Keypoints = {}
+
+            for Index, Keypoint in ipairs(
+                Sequence.Keypoints
+            ) do
+                local Color =
+                    Keypoint.Value
+
+                if Color == OldColor then
+                    Color = NewColor
+                    Changed = true
+                end
+
+                Keypoints[Index] =
+                    ColorSequenceKeypoint.new(
+                        Keypoint.Time,
+                        Color
+                    )
+            end
+
+            return Changed
+                and ColorSequence.new(
+                    Keypoints
+                )
+                or Sequence
+        end
+
+        for _, Descendant in ipairs(
+            ScreenGui:GetDescendants()
+        ) do
             pcall(function()
-                if Descendant:IsA("Frame") or Descendant:IsA("TextButton") or Descendant:IsA("TextLabel") then
-                    if Descendant.BackgroundColor3 == OldColor then
-                        Descendant.BackgroundColor3 = NewColor
+                if Descendant:IsA("GuiObject") then
+                    if Descendant.BackgroundColor3
+                        == OldColor
+                    then
+                        Descendant.BackgroundColor3 =
+                            NewColor
                     end
-                    if Descendant.TextColor3 == OldColor then
-                        Descendant.TextColor3 = NewColor
+                end
+
+                if Descendant:IsA("TextLabel")
+                    or Descendant:IsA("TextButton")
+                    or Descendant:IsA("TextBox")
+                then
+                    if Descendant.TextColor3
+                        == OldColor
+                    then
+                        Descendant.TextColor3 =
+                            NewColor
                     end
-                elseif Descendant:IsA("ImageLabel") or Descendant:IsA("ImageButton") then
-                    if Descendant.ImageColor3 == OldColor then
-                        Descendant.ImageColor3 = NewColor
+
+                    if Descendant.TextStrokeColor3
+                        == OldColor
+                    then
+                        Descendant.TextStrokeColor3 =
+                            NewColor
+                    end
+                elseif Descendant:IsA("ImageLabel")
+                    or Descendant:IsA("ImageButton")
+                then
+                    if Descendant.ImageColor3
+                        == OldColor
+                    then
+                        Descendant.ImageColor3 =
+                            NewColor
+                    end
+                elseif Descendant:IsA("ScrollingFrame") then
+                    if Descendant.ScrollBarImageColor3
+                        == OldColor
+                    then
+                        Descendant.ScrollBarImageColor3 =
+                            NewColor
                     end
                 elseif Descendant:IsA("UIStroke") then
-                    if Descendant.Color == OldColor then
-                        Descendant.Color = NewColor
+                    if Descendant.Color
+                        == OldColor
+                    then
+                        Descendant.Color =
+                            NewColor
                     end
+                elseif Descendant:IsA("UIGradient") then
+                    Descendant.Color =
+                        ReplaceSequenceColor(
+                            Descendant.Color
+                        )
                 end
             end)
         end
 
-        for _, Callback in ipairs(AccentUpdateTargets) do
-            pcall(Callback, NewColor)
+        for _, Callback in ipairs(
+            AccentUpdateTargets
+        ) do
+            pcall(
+                Callback,
+                NewColor
+            )
+        end
+
+        if Menu.KeybindListController
+            and Menu.KeybindListController.Refresh
+        then
+            Menu.KeybindListController.Refresh()
+        end
+
+        if Menu.QuickPanelController
+            and Menu.QuickPanelController.Refresh
+        then
+            Menu.QuickPanelController.Refresh()
+        end
+
+        if Menu.PlayerListController
+            and Menu.PlayerListController.Refresh
+        then
+            Menu.PlayerListController:Refresh()
         end
     end
 
@@ -5640,6 +6094,13 @@ local function BuildRuntime()
                 Key = tostring(Value.Key or "F2")
             end
 
+            KeyType,
+                Key =
+                CanonicalBindKey(
+                    KeyType,
+                    Key
+                )
+
             return {
                 KeyType = KeyType,
                 Key = Key,
@@ -5670,7 +6131,7 @@ local function BuildRuntime()
 
         Bind(Button.MouseButton1Click:Connect(function()
             Menu.QuickPanelBindCapture = true
-            Button.Text = "PRESS KEY"
+            Button.Text = "PRESS..."
             Button.TextColor3 = Accent
             Tween(ButtonStroke, 0.10, {Color = Accent})
             Tween(Button, 0.10, {BackgroundTransparency = 0.12})
@@ -6725,7 +7186,7 @@ local function BuildRuntime()
 
     Menu.SettingsUI.QuickPanelBindControl = CreatePopupKeybind(
         348,
-        "Quick panel bind",
+        "Panel key",
         "Quick Panel Bind",
         {
             KeyType = "KeyCode",
@@ -9089,10 +9550,29 @@ local function BuildRuntime()
             return true
         end
 
-        local KeyType, KeyName = Menu.BindSystem.GetInputIdentity(Input)
-        if not KeyType then
+        local KeyType, KeyName =
+            Menu.BindSystem.GetInputIdentity(
+                Input
+            )
+
+        if not KeyType
+            or not KeyName
+        then
+            if PendingBindCapture.SetText then
+                PendingBindCapture.SetText(
+                    "Unsupported"
+                )
+            end
+
             return true
         end
+
+        KeyType,
+            KeyName =
+            CanonicalBindKey(
+                KeyType,
+                KeyName
+            )
 
         local Meta = PendingBindCapture.Meta
         local TargetFlag = Meta and tostring(Meta.Flag or "") or ""
@@ -9242,7 +9722,7 @@ local function BuildRuntime()
         if PendingBindCapture then
             if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode == Enum.KeyCode.Escape then
                 if PendingBindCapture.SetText then
-                    PendingBindCapture.SetText("Click to bind")
+                    PendingBindCapture.SetText("Press key")
                 end
                 PendingBindCapture = nil
                 return
@@ -9316,6 +9796,13 @@ local function BuildRuntime()
                 Menu.BindSystem.GetInputIdentity(Input)
 
             if KeyType and KeyName then
+                KeyType,
+                    KeyName =
+                    CanonicalBindKey(
+                        KeyType,
+                        KeyName
+                    )
+
                 local NewBind = {
                     KeyType = KeyType,
                     Key = KeyName,
@@ -9847,11 +10334,18 @@ local function BuildRuntime()
             end
 
             if KeyType then
+                KeyType,
+                    DefaultName =
+                    Menu.BindSystem.CanonicalBindKey(
+                        KeyType,
+                        Default.Name
+                    )
+
                 local Binds = Menu.BindSystem.GetControlBinds(Flag)
                 local Exists = false
 
                 for _, BindData in ipairs(Binds) do
-                    if BindData.KeyType == KeyType and BindData.Key == Default.Name then
+                    if BindData.KeyType == KeyType and BindData.Key == DefaultName then
                         Exists = true
                         if BindData.Mode == "Hold" then
                             BindData.GateFlag = GateFlag
@@ -9866,9 +10360,9 @@ local function BuildRuntime()
                     Binds[#Binds + 1] = {
                         Id = tostring(os.clock()) .. tostring(math.random(1000, 9999)),
                         KeyType = KeyType,
-                        Key = Default.Name,
+                        Key = DefaultName,
                         Modifiers = {Ctrl = false, Shift = false, Alt = false},
-                        Display = Menu.BindSystem.BuildBindDisplay(Default.Name, {}),
+                        Display = Menu.BindSystem.BuildBindDisplay(DefaultName, {}),
                         Mode = Mode,
                         ShowInBinds = true,
                         GateFlag = GateFlag
