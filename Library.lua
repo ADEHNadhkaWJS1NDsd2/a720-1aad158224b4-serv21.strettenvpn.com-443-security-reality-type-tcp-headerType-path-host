@@ -822,7 +822,7 @@ local function BuildRuntime()
             Size = UDim2.fromOffset(25, 41),
             BackgroundTransparency = 1,
             Image = LogoAsset,
-            ImageColor3 = Color3.fromRGB(255, 255, 255),
+            ImageColor3 = Accent,
             ImageTransparency = 0,
             ScaleType = Enum.ScaleType.Fit,
             Active = true,
@@ -1380,6 +1380,19 @@ local function BuildRuntime()
             AccentUpdateTargets[#AccentUpdateTargets + 1] = Callback
         end
     end
+
+    RegisterAccentTarget(function(NewColor)
+        if Menu.SidebarLogo
+            and Menu.SidebarLogo.Parent
+        then
+            if Menu.SidebarLogo:IsA("ImageLabel")
+                or Menu.SidebarLogo:IsA("ImageButton")
+            then
+                Menu.SidebarLogo.ImageColor3 =
+                    NewColor
+            end
+        end
+    end)
 
     local function CreateSlider(Section, Name, Minimum, Maximum, Default, Flag, Options)
         Options = Options or {}
@@ -4464,6 +4477,24 @@ local function BuildRuntime()
             )
         end
 
+        if Menu.SidebarLogo
+            and Menu.SidebarLogo.Parent
+            and (
+                Menu.SidebarLogo:IsA("ImageLabel")
+                or Menu.SidebarLogo:IsA("ImageButton")
+            )
+        then
+            Menu.SidebarLogo.ImageColor3 =
+                NewColor
+        end
+
+        if WatermarkLogoImage
+            and WatermarkLogoImage.Parent
+        then
+            WatermarkLogoImage.ImageColor3 =
+                NewColor
+        end
+
         if Menu.KeybindListController
             and Menu.KeybindListController.Refresh
         then
@@ -5328,12 +5359,40 @@ local function BuildRuntime()
     Bind(Watermark:GetPropertyChangedSignal("Visible"):Connect(SyncWatermarkGlow))
     Bind(Watermark:GetPropertyChangedSignal("AbsoluteSize"):Connect(SyncWatermarkGlow))
     RegisterAccentTarget(function(NewColor)
-        WatermarkGlow.ImageColor3 = NewColor
-        if WatermarkBrand then WatermarkBrand.TextColor3 = NewColor end
-        if WatermarkLogoStroke then WatermarkLogoStroke.Color = NewColor end
-        if WatermarkAvatarStroke then WatermarkAvatarStroke.Color = NewColor end
-        for _, Object in ipairs(WatermarkItemIcons) do
-            if Object and Object.Parent then Object.ImageColor3 = NewColor end
+        WatermarkGlow.ImageColor3 =
+            NewColor
+
+        if WatermarkBrand then
+            WatermarkBrand.TextColor3 =
+                NewColor
+        end
+
+        if WatermarkLogoImage
+            and WatermarkLogoImage.Parent
+        then
+            WatermarkLogoImage.ImageColor3 =
+                NewColor
+        end
+
+        if WatermarkLogoStroke then
+            WatermarkLogoStroke.Color =
+                NewColor
+        end
+
+        if WatermarkAvatarStroke then
+            WatermarkAvatarStroke.Color =
+                NewColor
+        end
+
+        for _, Object in ipairs(
+            WatermarkItemIcons
+        ) do
+            if Object
+                and Object.Parent
+            then
+                Object.ImageColor3 =
+                    NewColor
+            end
         end
     end)
 
@@ -5383,7 +5442,7 @@ local function BuildRuntime()
             Size = UDim2.fromOffset(18, 18),
             BackgroundTransparency = 1,
             Image = LogoAsset,
-            ImageColor3 = Color3.fromRGB(255, 255, 255),
+            ImageColor3 = Accent,
             ImageTransparency = 0,
             ScaleType = Enum.ScaleType.Fit,
             ZIndex = 212
