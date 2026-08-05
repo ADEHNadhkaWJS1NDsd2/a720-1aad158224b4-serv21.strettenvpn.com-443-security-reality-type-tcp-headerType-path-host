@@ -11913,6 +11913,555 @@ local function BuildRuntime()
         return Notice
     end
 
+    function Library:CombatLog(Data)
+        Data = type(Data) == "table" and Data or {}
+
+        local Kind =
+            string.lower(
+                tostring(
+                    Data.Kind
+                    or Data.Type
+                    or "info"
+                )
+            )
+
+        local Message =
+            tostring(
+                Data.Text
+                or Data.Message
+                or ""
+            )
+
+        local Detail =
+            tostring(
+                Data.Detail
+                or Data.Description
+                or ""
+            )
+
+        local Duration =
+            math.clamp(
+                tonumber(Data.Duration)
+                    or 4.25,
+                1.2,
+                12
+            )
+
+        local KindData = {
+            hit = {
+                Color = Color3.fromRGB(92, 205, 137),
+                Icon = "Target"
+            },
+            kill = {
+                Color = Color3.fromRGB(105, 224, 155),
+                Icon = "Target"
+            },
+            miss = {
+                Color = Color3.fromRGB(210, 170, 92),
+                Icon = "Warning"
+            },
+            damage = {
+                Color = Color3.fromRGB(207, 82, 94),
+                Icon = "Shield"
+            },
+            nearmiss = {
+                Color = Color3.fromRGB(88, 164, 210),
+                Icon = "Eye"
+            },
+            info = {
+                Color = Accent,
+                Icon = "Lightning"
+            }
+        }
+
+        local Style =
+            KindData[Kind]
+            or KindData.info
+
+        local Environment =
+            type(getgenv) == "function"
+            and getgenv()
+            or _G
+
+        local GlobalState =
+            rawget(
+                Environment,
+                "AtramentaCombatLogState"
+            )
+
+        if type(GlobalState) ~= "table" then
+            GlobalState = {
+                Last = {},
+                Serial = 0
+            }
+
+            rawset(
+                Environment,
+                "AtramentaCombatLogState",
+                GlobalState
+            )
+        end
+
+        GlobalState.Last =
+            type(GlobalState.Last) == "table"
+            and GlobalState.Last
+            or {}
+
+        local DedupeKey =
+            Kind
+            .. "\0"
+            .. Message
+            .. "\0"
+            .. Detail
+
+        local CurrentTime =
+            os.clock()
+
+        local Previous =
+            GlobalState.Last[
+                DedupeKey
+            ]
+
+        if type(Previous) == "table"
+            and Previous.Root
+            and Previous.Root.Parent
+            and CurrentTime
+                - (tonumber(Previous.Time) or 0)
+                < 0.18
+        then
+            Previous.Time = CurrentTime
+            return Previous.Root
+        end
+
+        if not Menu.CombatLogHolder
+            or not Menu.CombatLogHolder.Parent
+        then
+            Menu.CombatLogHolder =
+                Create("Frame", {
+                    Parent = ScreenGui,
+                    AnchorPoint = Vector2.new(0, 1),
+                    Position = UDim2.new(
+                        0,
+                        18,
+                        1,
+                        -18
+                    ),
+                    Size = UDim2.fromOffset(
+                        350,
+                        410
+                    ),
+                    BackgroundTransparency = 1,
+                    ZIndex = 272
+                })
+
+            Create("UIListLayout", {
+                Parent = Menu.CombatLogHolder,
+                Padding = UDim.new(0, 6),
+                HorizontalAlignment =
+                    Enum.HorizontalAlignment.Left,
+                VerticalAlignment =
+                    Enum.VerticalAlignment.Bottom,
+                SortOrder =
+                    Enum.SortOrder.LayoutOrder
+            })
+        end
+
+        GlobalState.Serial += 1
+
+        local HasDetail =
+            Detail ~= ""
+
+        local Height =
+            HasDetail
+            and 56
+            or 43
+
+        local Root =
+            Create("Frame", {
+                Parent = Menu.CombatLogHolder,
+                Size = UDim2.fromOffset(
+                    336,
+                    Height
+                ),
+                BackgroundColor3 =
+                    Color3.fromRGB(
+                        7,
+                        12,
+                        16
+                    ),
+                BackgroundTransparency = 0.12,
+                BorderSizePixel = 0,
+                LayoutOrder =
+                    GlobalState.Serial,
+                ClipsDescendants = true,
+                ZIndex = 273
+            })
+
+        Corner(Root, 5)
+        Stroke(
+            Root,
+            Border,
+            0.52,
+            1
+        )
+
+        Menu:AddSoftGlow(
+            Root,
+            272,
+            7,
+            0.92,
+            true
+        )
+
+        Create("Frame", {
+            Parent = Root,
+            Position = UDim2.fromOffset(
+                0,
+                6
+            ),
+            Size = UDim2.new(
+                0,
+                2,
+                1,
+                -12
+            ),
+            BackgroundColor3 =
+                Style.Color,
+            BackgroundTransparency = 0.04,
+            BorderSizePixel = 0,
+            ZIndex = 275
+        })
+
+        local IconHolder =
+            Create("Frame", {
+                Parent = Root,
+                AnchorPoint =
+                    Vector2.new(
+                        0,
+                        0.5
+                    ),
+                Position =
+                    UDim2.new(
+                        0,
+                        10,
+                        0.5,
+                        0
+                    ),
+                Size =
+                    UDim2.fromOffset(
+                        26,
+                        26
+                    ),
+                BackgroundColor3 =
+                    Style.Color,
+                BackgroundTransparency = 0.88,
+                BorderSizePixel = 0,
+                ZIndex = 275
+            })
+
+        Corner(
+            IconHolder,
+            5
+        )
+
+        Icon(
+            IconHolder,
+            Style.Icon,
+            UDim2.fromOffset(
+                13,
+                13
+            ),
+            UDim2.fromScale(
+                0.5,
+                0.5
+            ),
+            Style.Color,
+            276
+        )
+
+        local MainLine =
+            Create("TextLabel", {
+                Parent = Root,
+                Position =
+                    UDim2.fromOffset(
+                        45,
+                        HasDetail
+                            and 8
+                            or 0
+                    ),
+                Size =
+                    UDim2.new(
+                        1,
+                        -55,
+                        0,
+                        HasDetail
+                            and 20
+                            or Height
+                    ),
+                BackgroundTransparency = 1,
+                Font =
+                    Enum.Font.BuilderSansMedium,
+                Text =
+                    "Atramenta  •  "
+                    .. Message,
+                TextColor3 =
+                    PrimaryText,
+                TextSize = 10,
+                TextXAlignment =
+                    Enum.TextXAlignment.Left,
+                TextYAlignment =
+                    Enum.TextYAlignment.Center,
+                TextTruncate =
+                    Enum.TextTruncate.AtEnd,
+                ZIndex = 276
+            })
+
+        if HasDetail then
+            Create("TextLabel", {
+                Parent = Root,
+                Position =
+                    UDim2.fromOffset(
+                        45,
+                        28
+                    ),
+                Size =
+                    UDim2.new(
+                        1,
+                        -55,
+                        0,
+                        17
+                    ),
+                BackgroundTransparency = 1,
+                Font =
+                    Enum.Font.BuilderSans,
+                Text = Detail,
+                TextColor3 =
+                    MutedText,
+                TextSize = 8,
+                TextXAlignment =
+                    Enum.TextXAlignment.Left,
+                TextYAlignment =
+                    Enum.TextYAlignment.Center,
+                TextTruncate =
+                    Enum.TextTruncate.AtEnd,
+                ZIndex = 276
+            })
+        end
+
+        local LifeTrack =
+            Create("Frame", {
+                Parent = Root,
+                AnchorPoint =
+                    Vector2.new(
+                        0,
+                        1
+                    ),
+                Position =
+                    UDim2.new(
+                        0,
+                        45,
+                        1,
+                        0
+                    ),
+                Size =
+                    UDim2.new(
+                        1,
+                        -55,
+                        0,
+                        1
+                    ),
+                BackgroundColor3 =
+                    Border,
+                BackgroundTransparency = 0.66,
+                BorderSizePixel = 0,
+                ZIndex = 275
+            })
+
+        local Life =
+            Create("Frame", {
+                Parent = LifeTrack,
+                Size =
+                    UDim2.fromScale(
+                        1,
+                        1
+                    ),
+                BackgroundColor3 =
+                    Style.Color,
+                BackgroundTransparency = 0.12,
+                BorderSizePixel = 0,
+                ZIndex = 276
+            })
+
+        Root.BackgroundTransparency = 1
+        MainLine.TextTransparency = 1
+        IconHolder.BackgroundTransparency = 1
+
+        Tween(
+            Root,
+            0.12,
+            {
+                BackgroundTransparency = 0.12
+            }
+        )
+
+        Tween(
+            MainLine,
+            0.12,
+            {
+                TextTransparency = 0
+            }
+        )
+
+        Tween(
+            IconHolder,
+            0.12,
+            {
+                BackgroundTransparency = 0.88
+            }
+        )
+
+        TweenService:
+            Create(
+                Life,
+                TweenInfo.new(
+                    Duration,
+                    Enum.EasingStyle.Linear,
+                    Enum.EasingDirection.Out
+                ),
+                {
+                    Size =
+                        UDim2.new(
+                            0,
+                            0,
+                            1,
+                            0
+                        )
+                }
+            ):
+            Play()
+
+        GlobalState.Last[
+            DedupeKey
+        ] = {
+            Root = Root,
+            Time = CurrentTime
+        }
+
+        task.delay(
+            Duration,
+            function()
+                if not Root
+                    or not Root.Parent
+                then
+                    return
+                end
+
+                Tween(
+                    Root,
+                    0.14,
+                    {
+                        BackgroundTransparency = 1
+                    }
+                )
+
+                for _, Object in ipairs(
+                    Root:GetDescendants()
+                ) do
+                    if Object:IsA(
+                        "TextLabel"
+                    )
+                    then
+                        Tween(
+                            Object,
+                            0.14,
+                            {
+                                TextTransparency = 1
+                            }
+                        )
+                    elseif Object:IsA(
+                        "ImageLabel"
+                    )
+                    then
+                        Tween(
+                            Object,
+                            0.14,
+                            {
+                                ImageTransparency = 1
+                            }
+                        )
+                    elseif Object:IsA(
+                        "Frame"
+                    )
+                    then
+                        Tween(
+                            Object,
+                            0.14,
+                            {
+                                BackgroundTransparency = 1
+                            }
+                        )
+                    end
+                end
+
+                task.delay(
+                    0.15,
+                    function()
+                        if Root
+                            and Root.Parent
+                        then
+                            Root:Destroy()
+                        end
+
+                        local Current =
+                            GlobalState.Last[
+                                DedupeKey
+                            ]
+
+                        if type(Current) == "table"
+                            and Current.Root == Root
+                        then
+                            GlobalState.Last[
+                                DedupeKey
+                            ] = nil
+                        end
+                    end
+                )
+            end
+        )
+
+        return Root
+    end
+
+    function Library:ClearCombatLogs()
+        if Menu.CombatLogHolder
+            and Menu.CombatLogHolder.Parent
+        then
+            for _, Child in ipairs(
+                Menu.CombatLogHolder:
+                    GetChildren()
+            ) do
+                if Child:IsA("Frame") then
+                    Child:Destroy()
+                end
+            end
+        end
+
+        local Environment =
+            type(getgenv) == "function"
+            and getgenv()
+            or _G
+
+        local GlobalState =
+            rawget(
+                Environment,
+                "AtramentaCombatLogState"
+            )
+
+        if type(GlobalState) == "table" then
+            GlobalState.Last = {}
+        end
+    end
+
     function Library:GetConfig()
         local Seen = {}
 
@@ -12170,6 +12719,14 @@ function Library:Notification(...)
     return ResolveRuntime():Notification(...)
 end
 
+function Library:CombatLog(...)
+    return ResolveRuntime():CombatLog(...)
+end
+
+function Library:ClearCombatLogs(...)
+    return ResolveRuntime():ClearCombatLogs(...)
+end
+
 function Library:Watermark(...)
     return ResolveRuntime():Watermark(...)
 end
@@ -12221,6 +12778,8 @@ Library.toggle = Library.Toggle
 Library.getflag = Library.GetFlag
 Library.setflag = Library.SetFlag
 Library.notification = Library.Notification
+Library.combatlog = Library.CombatLog
+Library.clearcombatlogs = Library.ClearCombatLogs
 Library.playerlist = Library.PlayerList
 Library.getplayerstatus = Library.GetPlayerStatus
 Library.setplayerstatus = Library.SetPlayerStatus
