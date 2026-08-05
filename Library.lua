@@ -156,6 +156,8 @@ local function BuildRuntime()
         Sections = {},
         BindRuntime = {},
         BindSystem = {},
+        PlayerStatuses = {},
+        PlayerListController = nil,
         SettingsUI = {}
     }
 
@@ -6513,14 +6515,31 @@ local function BuildRuntime()
         end
     end, 272, 192)
 
-    Menu.SettingsUI.HideEspPreviewToggle = CreatePopupToggle(378, "Hide ESP Preview", SavedPositions.HideEspPreview == true, function(Value)
+    Menu.SettingsUI.PlayerListToggle = CreatePopupToggle(348, "Player list", false, function(Value)
+        Menu.Flags.PlayerListVisible = Value == true
+        if Menu.PlayerListController and Menu.PlayerListController.SetVisibility then
+            Menu.PlayerListController:SetVisibility(Value)
+        end
+    end, 272, 192)
+
+    Menu.SettingsUI.PlayerListSizeSlider = CreatePopupSlider(382, "Player list size", 70, 135, tonumber(SavedPositions.PlayerListScale) or 100, function(Value)
+        return tostring(math.floor(Value + 0.5)) .. "%"
+    end, function(Value)
+        Menu.Flags.PlayerListScale = Value
+        SavedPositions.PlayerListScale = Value
+        if Menu.PlayerListController and Menu.PlayerListController.SetScale then
+            Menu.PlayerListController:SetScale(Value)
+        end
+    end, 272, 192)
+
+    Menu.SettingsUI.HideEspPreviewToggle = CreatePopupToggle(416, "Hide ESP Preview", SavedPositions.HideEspPreview == true, function(Value)
         Menu.Flags.HideEspPreview = Value
         if Menu.EspPreviewController.SetHidden then
             Menu.EspPreviewController.SetHidden(Value)
         end
     end, 272, 192)
 
-    Menu.SettingsUI.EspPreviewSizeSlider = CreatePopupSlider(412, "ESP Preview size", 80, 160, tonumber(SavedPositions.EspPreviewScale) or 115, function(Value)
+    Menu.SettingsUI.EspPreviewSizeSlider = CreatePopupSlider(450, "ESP Preview size", 80, 160, tonumber(SavedPositions.EspPreviewScale) or 115, function(Value)
         return tostring(math.floor(Value + 0.5)) .. "%"
     end, function(Value)
         Menu.Flags.EspPreviewScale = Value
@@ -8497,6 +8516,9 @@ local function BuildRuntime()
         if Menu.EspPreviewController and type(Menu.EspPreviewController.SetMenuVisible) == "function" then
             pcall(Menu.EspPreviewController.SetMenuVisible, State)
         end
+        if Menu.PlayerListController and type(Menu.PlayerListController.SetMenuVisible) == "function" then
+            pcall(Menu.PlayerListController.SetMenuVisible, Menu.PlayerListController, State)
+        end
     end
 
     Menu.BindSystem.CaptureInput = function(Input)
@@ -9729,6 +9751,1068 @@ local function BuildRuntime()
         return self.FirstSubPage:Section(Data)
     end
 
+    local function CreateAtramentaPlayerList(Data)
+        Data = type(Data) == "table" and Data or {}
+
+        if Menu.PlayerListController then
+            return Menu.PlayerListController
+        end
+
+        local LocalPlayer = Players.LocalPlayer
+        local StatusItems = {"None", "Priority", "Whitelist", "Enemy"}
+        local StatusColors = {
+            Client = Danger,
+            None = MutedText,
+            Priority = Color3.fromRGB(235, 181, 76),
+            Whitelist = Color3.fromRGB(92, 225, 128),
+            Enemy = Color3.fromRGB(236, 80, 92)
+        }
+
+        local State = {
+            Visible = ApiRead(Data, "Visible", Menu.Flags.PlayerListVisible == true) == true,
+            MenuVisible = Menu.Visible == true,
+            Scale = math.clamp(tonumber(ApiRead(Data, "Scale", SavedPositions.PlayerListScale or 100)) or 100, 70, 135) / 100,
+            Selected = nil,
+            Search = "",
+            Rows = {},
+            Connections = {},
+            ThumbnailSerial = 0,
+            DropdownOpen = false,
+            StatusChanged = ApiRead(Data, "StatusChanged", ApiRead(Data, "Callback")),
+            Teleport = ApiRead(Data, "Teleport"),
+            Spectate = ApiRead(Data, "Spectate"),
+            Unspectate = ApiRead(Data, "Unspectate"),
+            Fling = ApiRead(Data, "Fling")
+        }
+
+        Menu.Flags.PlayerListVisible = State.Visible
+        Menu.Flags.PlayerListScale = State.Scale * 100
+        SavedPositions.PlayerListScale = State.Scale * 100
+
+        local Root = Create("Frame", {
+            Parent = ScreenGui,
+            Active = true,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = DecodePosition(SavedPositions.PlayerList, UDim2.fromScale(0.5, 0.53)),
+            Size = UDim2.fromOffset(786, 518),
+            BackgroundColor3 = Background,
+            BackgroundTransparency = 0.025,
+            BorderSizePixel = 0,
+            ClipsDescendants = false,
+            Visible = State.Visible and State.MenuVisible,
+            ZIndex = 145
+        })
+        Corner(Root, 9)
+        Stroke(Root, Border, 0.09, 1)
+        local RootGlow = Menu:AddSoftGlow(Root, 144, 18, 0.82, true)
+
+        local RootScale = Create("UIScale", {
+            Parent = Root,
+            Scale = State.Scale
+        })
+
+        local Header = Create("Frame", {
+            Parent = Root,
+            Active = true,
+            Size = UDim2.new(1, 0, 0, 54),
+            BackgroundTransparency = 1,
+            ZIndex = 146
+        })
+
+        Icon(
+            Header,
+            "User",
+            UDim2.fromOffset(17, 17),
+            UDim2.fromOffset(24, 27),
+            Accent,
+            148
+        )
+
+        local Brand = Create("TextLabel", {
+            Parent = Header,
+            Position = UDim2.fromOffset(39, 16),
+            Size = UDim2.fromOffset(72, 22),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansBold,
+            Text = tostring(ApiRead(Data, "Brand", "Atramenta")),
+            TextColor3 = Accent,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 148
+        })
+
+        Create("TextLabel", {
+            Parent = Header,
+            Position = UDim2.fromOffset(106, 16),
+            Size = UDim2.fromOffset(10, 22),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansBold,
+            Text = "·",
+            TextColor3 = MutedText,
+            TextSize = 11,
+            ZIndex = 148
+        })
+
+        Create("TextLabel", {
+            Parent = Header,
+            Position = UDim2.fromOffset(116, 16),
+            Size = UDim2.fromOffset(110, 22),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Player List",
+            TextColor3 = MutedText,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 148
+        })
+
+        Create("Frame", {
+            Parent = Root,
+            Position = UDim2.fromOffset(12, 53),
+            Size = UDim2.new(1, -24, 0, 1),
+            BackgroundColor3 = Border,
+            BackgroundTransparency = 0.22,
+            BorderSizePixel = 0,
+            ZIndex = 147
+        })
+
+        local LeftPanel = Create("Frame", {
+            Parent = Root,
+            Position = UDim2.fromOffset(12, 66),
+            Size = UDim2.fromOffset(416, 438),
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.12,
+            BorderSizePixel = 0,
+            ZIndex = 146
+        })
+        Corner(LeftPanel, 6)
+        Stroke(LeftPanel, Border, 0.28, 1)
+
+        local RightPanel = Create("Frame", {
+            Parent = Root,
+            Position = UDim2.fromOffset(438, 66),
+            Size = UDim2.fromOffset(336, 438),
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.12,
+            BorderSizePixel = 0,
+            ZIndex = 146
+        })
+        Corner(RightPanel, 6)
+        Stroke(RightPanel, Border, 0.28, 1)
+
+        local CountLabel = Create("TextLabel", {
+            Parent = LeftPanel,
+            Position = UDim2.fromOffset(10, 8),
+            Size = UDim2.new(1, -20, 0, 18),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansBold,
+            Text = "Players [0]",
+            TextColor3 = PrimaryText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 148
+        })
+
+        local SearchBox = Create("TextBox", {
+            Parent = LeftPanel,
+            Position = UDim2.fromOffset(10, 34),
+            Size = UDim2.new(1, -20, 0, 30),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.10,
+            BorderSizePixel = 0,
+            ClearTextOnFocus = false,
+            Font = Enum.Font.BuilderSans,
+            PlaceholderText = "Search player...",
+            PlaceholderColor3 = DisabledText,
+            Text = "",
+            TextColor3 = PrimaryText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 148
+        })
+        Corner(SearchBox, 5)
+        Stroke(SearchBox, Border, 0.22, 1)
+        Create("UIPadding", {
+            Parent = SearchBox,
+            PaddingLeft = UDim.new(0, 10),
+            PaddingRight = UDim.new(0, 10)
+        })
+
+        local ListRoot = Create("Frame", {
+            Parent = LeftPanel,
+            Position = UDim2.fromOffset(10, 74),
+            Size = UDim2.new(1, -20, 1, -84),
+            BackgroundColor3 = Background,
+            BackgroundTransparency = 0.18,
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+            ZIndex = 147
+        })
+        Corner(ListRoot, 5)
+
+        local HeaderRow = Create("Frame", {
+            Parent = ListRoot,
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.new(1, 0, 0, 30),
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.28,
+            BorderSizePixel = 0,
+            ZIndex = 148
+        })
+
+        Create("TextLabel", {
+            Parent = HeaderRow,
+            Position = UDim2.fromOffset(14, 0),
+            Size = UDim2.new(1, -116, 1, 0),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Name",
+            TextColor3 = MutedText,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 149
+        })
+
+        Create("TextLabel", {
+            Parent = HeaderRow,
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, -14, 0, 0),
+            Size = UDim2.fromOffset(86, 30),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Status",
+            TextColor3 = MutedText,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            ZIndex = 149
+        })
+
+        local Scroll = Create("ScrollingFrame", {
+            Parent = ListRoot,
+            Position = UDim2.fromOffset(0, 31),
+            Size = UDim2.new(1, 0, 1, -31),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            CanvasSize = UDim2.new(),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            ScrollBarThickness = 4,
+            ScrollBarImageColor3 = Border,
+            ScrollBarImageTransparency = 0.10,
+            ScrollingDirection = Enum.ScrollingDirection.Y,
+            ZIndex = 148
+        })
+
+        local RowLayout = Create("UIListLayout", {
+            Parent = Scroll,
+            Padding = UDim.new(0, 1),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+
+        local SelectedTitle = Create("TextLabel", {
+            Parent = RightPanel,
+            Position = UDim2.fromOffset(10, 8),
+            Size = UDim2.new(1, -20, 0, 18),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansBold,
+            Text = "Selected Player",
+            TextColor3 = PrimaryText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 148
+        })
+
+        Create("Frame", {
+            Parent = RightPanel,
+            Position = UDim2.fromOffset(10, 29),
+            Size = UDim2.new(1, -20, 0, 1),
+            BackgroundColor3 = Border,
+            BackgroundTransparency = 0.22,
+            BorderSizePixel = 0,
+            ZIndex = 148
+        })
+
+        local EmptyLabel = Create("TextLabel", {
+            Parent = RightPanel,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.50),
+            Size = UDim2.new(1, -30, 0, 30),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "No player selected",
+            TextColor3 = MutedText,
+            TextSize = 10,
+            ZIndex = 148
+        })
+
+        local Profile = Create("Frame", {
+            Parent = RightPanel,
+            Position = UDim2.fromOffset(10, 38),
+            Size = UDim2.new(1, -20, 1, -48),
+            BackgroundTransparency = 1,
+            Visible = false,
+            ZIndex = 148
+        })
+
+        local AvatarHolder = Create("Frame", {
+            Parent = Profile,
+            AnchorPoint = Vector2.new(0.5, 0),
+            Position = UDim2.new(0.5, 0, 0, 8),
+            Size = UDim2.fromOffset(66, 66),
+            BackgroundColor3 = SurfaceAlt,
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+            ZIndex = 149
+        })
+        Corner(AvatarHolder, 33)
+        Stroke(AvatarHolder, Border, 0.16, 1)
+
+        local Avatar = Create("ImageLabel", {
+            Parent = AvatarHolder,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            Image = "",
+            ScaleType = Enum.ScaleType.Crop,
+            ZIndex = 150
+        })
+
+        local AvatarFallback = Create("TextLabel", {
+            Parent = AvatarHolder,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansBold,
+            Text = "?",
+            TextColor3 = Accent,
+            TextSize = 22,
+            ZIndex = 149
+        })
+
+        local PlayerName = Create("TextLabel", {
+            Parent = Profile,
+            Position = UDim2.fromOffset(0, 82),
+            Size = UDim2.new(1, 0, 0, 18),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansBold,
+            Text = "",
+            TextColor3 = PrimaryText,
+            TextSize = 11,
+            ZIndex = 149
+        })
+
+        local PlayerInfo = Create("TextLabel", {
+            Parent = Profile,
+            Position = UDim2.fromOffset(0, 101),
+            Size = UDim2.new(1, 0, 0, 16),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "",
+            TextColor3 = MutedText,
+            TextSize = 9,
+            ZIndex = 149
+        })
+
+        Create("Frame", {
+            Parent = Profile,
+            Position = UDim2.fromOffset(0, 124),
+            Size = UDim2.new(1, 0, 0, 1),
+            BackgroundColor3 = Border,
+            BackgroundTransparency = 0.22,
+            BorderSizePixel = 0,
+            ZIndex = 149
+        })
+
+        Create("TextLabel", {
+            Parent = Profile,
+            Position = UDim2.fromOffset(0, 136),
+            Size = UDim2.new(1, 0, 0, 18),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Status",
+            TextColor3 = PrimaryText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 149
+        })
+
+        local StatusButton = Create("TextButton", {
+            Parent = Profile,
+            Position = UDim2.fromOffset(0, 160),
+            Size = UDim2.new(1, 0, 0, 30),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.06,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "None",
+            TextColor3 = PrimaryText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 151
+        })
+        Corner(StatusButton, 5)
+        Stroke(StatusButton, Border, 0.18, 1)
+        Create("UIPadding", {
+            Parent = StatusButton,
+            PaddingLeft = UDim.new(0, 10),
+            PaddingRight = UDim.new(0, 28)
+        })
+
+        local StatusChevron = Icon(
+            StatusButton,
+            "Chevron",
+            UDim2.fromOffset(10, 10),
+            UDim2.new(1, -14, 0.5, 0),
+            MutedText,
+            152
+        )
+
+        local StatusDropdown = Create("Frame", {
+            Parent = Profile,
+            Position = UDim2.fromOffset(0, 194),
+            Size = UDim2.new(1, 0, 0, 116),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.01,
+            BorderSizePixel = 0,
+            Visible = false,
+            ClipsDescendants = true,
+            ZIndex = 160
+        })
+        Corner(StatusDropdown, 6)
+        Stroke(StatusDropdown, Border, 0.14, 1)
+
+        local StatusLayout = Create("UIListLayout", {
+            Parent = StatusDropdown,
+            Padding = UDim.new(0, 2),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+
+        local ActionHolder = Create("Frame", {
+            Parent = Profile,
+            Position = UDim2.fromOffset(0, 206),
+            Size = UDim2.new(1, 0, 0, 66),
+            BackgroundTransparency = 1,
+            ZIndex = 149
+        })
+
+        local function MakeAction(Name, XScale, Y, CallbackKey)
+            local Button = Create("TextButton", {
+                Parent = ActionHolder,
+                Position = UDim2.new(XScale, XScale == 0 and 0 or 3, 0, Y),
+                Size = UDim2.new(0.5, -3, 0, 28),
+                BackgroundColor3 = SurfaceAlt,
+                BackgroundTransparency = 0.08,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Font = Enum.Font.BuilderSansMedium,
+                Text = Name,
+                TextColor3 = MutedText,
+                TextSize = 10,
+                ZIndex = 150
+            })
+            Corner(Button, 5)
+            Stroke(Button, Border, 0.22, 1)
+
+            Bind(Button.MouseEnter:Connect(function()
+                Tween(Button, 0.12, {
+                    BackgroundTransparency = 0,
+                    TextColor3 = PrimaryText
+                })
+            end))
+
+            Bind(Button.MouseLeave:Connect(function()
+                Tween(Button, 0.12, {
+                    BackgroundTransparency = 0.08,
+                    TextColor3 = MutedText
+                })
+            end))
+
+            Bind(Button.MouseButton1Click:Connect(function()
+                local Selected = State.Selected
+                local Callback = State[CallbackKey]
+                if Selected and type(Callback) == "function" then
+                    task.spawn(Callback, Selected)
+                end
+            end))
+
+            return Button
+        end
+
+        MakeAction("Teleport", 0, 0, "Teleport")
+        MakeAction("Spectate", 0.5, 0, "Spectate")
+        MakeAction("Unspectate", 0, 34, "Unspectate")
+        MakeAction("Fling", 0.5, 34, "Fling")
+
+        local function NormalizeStatus(Status)
+            Status = tostring(Status or "None")
+            if Status == "Priority"
+                or Status == "Whitelist"
+                or Status == "Enemy"
+            then
+                return Status
+            end
+            return "None"
+        end
+
+        local function GetStatus(Player)
+            if not Player then
+                return "None"
+            end
+
+            if Player == LocalPlayer then
+                return "Client"
+            end
+
+            return NormalizeStatus(
+                Menu.PlayerStatuses[
+                    tonumber(Player.UserId) or 0
+                ]
+            )
+        end
+
+        local function CloseStatusDropdown()
+            State.DropdownOpen = false
+            StatusDropdown.Visible = false
+            StatusChevron.Rotation = 0
+            ActionHolder.Position = UDim2.fromOffset(0, 206)
+        end
+
+        local RefreshRows
+        local RefreshSelected
+
+        local function SetStatus(Player, Status, Silent)
+            if not Player or Player == LocalPlayer then
+                return "Client"
+            end
+
+            Status = NormalizeStatus(Status)
+            Menu.PlayerStatuses[
+                tonumber(Player.UserId) or 0
+            ] = Status
+
+            if not Silent and type(State.StatusChanged) == "function" then
+                task.spawn(State.StatusChanged, Player, Status)
+            end
+
+            if RefreshRows then RefreshRows() end
+            if RefreshSelected then RefreshSelected(false) end
+            return Status
+        end
+
+        for Index, Status in ipairs(StatusItems) do
+            local Option = Create("TextButton", {
+                Parent = StatusDropdown,
+                Size = UDim2.new(1, 0, 0, 27),
+                BackgroundColor3 = SurfaceAlt,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Font = Enum.Font.BuilderSansMedium,
+                Text = Status,
+                TextColor3 = PrimaryText,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                LayoutOrder = Index,
+                ZIndex = 161
+            })
+            Create("UIPadding", {
+                Parent = Option,
+                PaddingLeft = UDim.new(0, 10)
+            })
+
+            Bind(Option.MouseEnter:Connect(function()
+                Tween(Option, 0.10, {
+                    BackgroundTransparency = 0.18,
+                    BackgroundColor3 = StatusColors[Status] or Accent
+                })
+            end))
+
+            Bind(Option.MouseLeave:Connect(function()
+                Tween(Option, 0.10, {
+                    BackgroundTransparency = 1,
+                    BackgroundColor3 = SurfaceAlt
+                })
+            end))
+
+            Bind(Option.MouseButton1Click:Connect(function()
+                if State.Selected and State.Selected ~= LocalPlayer then
+                    SetStatus(State.Selected, Status, false)
+                end
+                CloseStatusDropdown()
+            end))
+        end
+
+        local function LoadAvatar(Player)
+            State.ThumbnailSerial += 1
+            local Serial = State.ThumbnailSerial
+
+            Avatar.Image = ""
+            AvatarFallback.Visible = true
+            AvatarFallback.Text = string.upper(
+                string.sub(
+                    tostring(Player and Player.Name or "?"),
+                    1,
+                    1
+                )
+            )
+
+            if not Player then return end
+
+            task.spawn(function()
+                local Success, Content =
+                    pcall(
+                        Players.GetUserThumbnailAsync,
+                        Players,
+                        Player.UserId,
+                        Enum.ThumbnailType.HeadShot,
+                        Enum.ThumbnailSize.Size150x150
+                    )
+
+                if Serial ~= State.ThumbnailSerial
+                    or State.Selected ~= Player
+                then
+                    return
+                end
+
+                if Success
+                    and type(Content) == "string"
+                    and Content ~= ""
+                then
+                    Avatar.Image = Content
+                    AvatarFallback.Visible = false
+                end
+            end)
+        end
+
+        RefreshSelected = function(LoadImage)
+            local Player = State.Selected
+            local HasPlayer =
+                Player ~= nil
+                and Player.Parent == Players
+
+            EmptyLabel.Visible = not HasPlayer
+            Profile.Visible = HasPlayer
+            CloseStatusDropdown()
+
+            if not HasPlayer then
+                PlayerName.Text = ""
+                PlayerInfo.Text = ""
+                Avatar.Image = ""
+                AvatarFallback.Visible = true
+                return
+            end
+
+            PlayerName.Text =
+                tostring(Player.DisplayName or Player.Name)
+
+            if Player.DisplayName ~= Player.Name then
+                PlayerInfo.Text =
+                    "@"
+                    .. tostring(Player.Name)
+                    .. "  ·  "
+                    .. tostring(Player.UserId)
+            else
+                PlayerInfo.Text =
+                    tostring(Player.UserId)
+            end
+
+            local Status = GetStatus(Player)
+            StatusButton.Text = Status
+            StatusButton.TextColor3 =
+                StatusColors[Status]
+                or PrimaryText
+
+            StatusButton.Active =
+                Player ~= LocalPlayer
+
+            StatusButton.AutoButtonColor = false
+            StatusChevron.Visible =
+                Player ~= LocalPlayer
+
+            if LoadImage ~= false then
+                LoadAvatar(Player)
+            end
+        end
+
+        local function SelectPlayer(Player)
+            if Player and Player.Parent ~= Players then
+                Player = nil
+            end
+
+            State.Selected = Player
+            RefreshRows()
+            RefreshSelected(true)
+        end
+
+        local function CreateRow(Player, Index)
+            local Selected =
+                State.Selected == Player
+
+            local Row = Create("TextButton", {
+                Parent = Scroll,
+                Size = UDim2.new(1, -6, 0, 31),
+                BackgroundColor3 = Surface,
+                BackgroundTransparency = Selected and 0.22 or 0.76,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Text = "",
+                LayoutOrder = Index,
+                ZIndex = 149
+            })
+            Corner(Row, 3)
+
+            if Selected then
+                Create("Frame", {
+                    Parent = Row,
+                    Position = UDim2.fromOffset(0, 4),
+                    Size = UDim2.fromOffset(2, 23),
+                    BackgroundColor3 = Accent,
+                    BorderSizePixel = 0,
+                    ZIndex = 151
+                })
+            end
+
+            local Name = Create("TextLabel", {
+                Parent = Row,
+                Position = UDim2.fromOffset(14, 0),
+                Size = UDim2.new(1, -116, 1, 0),
+                BackgroundTransparency = 1,
+                Font = Selected and Enum.Font.BuilderSansBold or Enum.Font.BuilderSansMedium,
+                Text = tostring(Player.DisplayName or Player.Name),
+                TextColor3 = Selected and Accent or PrimaryText,
+                TextSize = 9,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 151
+            })
+
+            local Status = GetStatus(Player)
+            local StatusText = Create("TextLabel", {
+                Parent = Row,
+                AnchorPoint = Vector2.new(1, 0.5),
+                Position = UDim2.new(1, -10, 0.5, 0),
+                Size = UDim2.fromOffset(72, 18),
+                BackgroundColor3 = StatusColors[Status] or SurfaceAlt,
+                BackgroundTransparency = Status == "None" and 0.84 or 0.82,
+                BorderSizePixel = 0,
+                Font = Enum.Font.BuilderSansMedium,
+                Text = Status,
+                TextColor3 = StatusColors[Status] or MutedText,
+                TextSize = 8,
+                ZIndex = 151
+            })
+            Corner(StatusText, 4)
+
+            Bind(Row.MouseEnter:Connect(function()
+                if State.Selected ~= Player then
+                    Tween(Row, 0.10, {BackgroundTransparency = 0.58})
+                end
+            end))
+
+            Bind(Row.MouseLeave:Connect(function()
+                if State.Selected ~= Player then
+                    Tween(Row, 0.10, {BackgroundTransparency = 0.76})
+                end
+            end))
+
+            Bind(Row.MouseButton1Click:Connect(function()
+                SelectPlayer(Player)
+            end))
+
+            State.Rows[Player] = Row
+        end
+
+        RefreshRows = function()
+            for _, Row in pairs(State.Rows) do
+                if Row and Row.Parent then
+                    Row:Destroy()
+                end
+            end
+            table.clear(State.Rows)
+
+            local Query =
+                string.lower(
+                    tostring(State.Search or "")
+                )
+
+            local List = Players:GetPlayers()
+            table.sort(List, function(A, B)
+                if A == LocalPlayer then return true end
+                if B == LocalPlayer then return false end
+                return string.lower(A.Name) < string.lower(B.Name)
+            end)
+
+            CountLabel.Text =
+                "Players ["
+                .. tostring(#List)
+                .. "]"
+
+            local Index = 0
+
+            for _, Player in ipairs(List) do
+                local Haystack =
+                    string.lower(
+                        tostring(Player.Name)
+                        .. " "
+                        .. tostring(Player.DisplayName)
+                    )
+
+                if Query == ""
+                    or string.find(
+                        Haystack,
+                        Query,
+                        1,
+                        true
+                    )
+                then
+                    Index += 1
+                    CreateRow(Player, Index)
+                end
+            end
+        end
+
+        Bind(StatusButton.MouseButton1Click:Connect(function()
+            if not State.Selected
+                or State.Selected == LocalPlayer
+            then
+                return
+            end
+
+            State.DropdownOpen =
+                not State.DropdownOpen
+
+            StatusDropdown.Visible =
+                State.DropdownOpen
+
+            StatusChevron.Rotation =
+                State.DropdownOpen
+                and 180
+                or 0
+
+            ActionHolder.Position =
+                State.DropdownOpen
+                and UDim2.fromOffset(0, 316)
+                or UDim2.fromOffset(0, 206)
+        end))
+
+        Bind(SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+            State.Search = SearchBox.Text
+            RefreshRows()
+        end))
+
+        Bind(Players.PlayerAdded:Connect(function()
+            task.defer(RefreshRows)
+        end))
+
+        Bind(Players.PlayerRemoving:Connect(function(Player)
+            Menu.PlayerStatuses[
+                tonumber(Player.UserId) or 0
+            ] = nil
+
+            if State.Selected == Player then
+                State.Selected = nil
+                RefreshSelected(true)
+            end
+
+            task.defer(RefreshRows)
+        end))
+
+        local Dragging = false
+        local DragStart = Vector2.zero
+        local DragPosition = Root.Position
+
+        Bind(Header.InputBegan:Connect(function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                Dragging = true
+                DragStart = UserInputService:GetMouseLocation()
+                DragPosition = Root.Position
+            end
+        end))
+
+        Bind(UserInputService.InputChanged:Connect(function(Input)
+            if Dragging
+                and Input.UserInputType == Enum.UserInputType.MouseMovement
+            then
+                local Delta =
+                    UserInputService:GetMouseLocation()
+                    - DragStart
+
+                Root.Position =
+                    UDim2.new(
+                        DragPosition.X.Scale,
+                        DragPosition.X.Offset + Delta.X,
+                        DragPosition.Y.Scale,
+                        DragPosition.Y.Offset + Delta.Y
+                    )
+            end
+        end))
+
+        Bind(UserInputService.InputEnded:Connect(function(Input)
+            if Dragging
+                and Input.UserInputType == Enum.UserInputType.MouseButton1
+            then
+                Dragging = false
+                SavedPositions.PlayerList =
+                    EncodePosition(Root.Position)
+            end
+        end))
+
+        local Controller = {}
+
+        function Controller:SetVisibility(Value)
+            State.Visible = Value == true
+            Menu.Flags.PlayerListVisible = State.Visible
+            Root.Visible = State.Visible and State.MenuVisible
+            if RootGlow then
+                RootGlow.Visible = Root.Visible
+            end
+        end
+
+        function Controller:SetMenuVisible(Value)
+            State.MenuVisible = Value == true
+            Root.Visible = State.MenuVisible and State.Visible
+            if RootGlow then
+                RootGlow.Visible = Root.Visible
+            end
+        end
+
+        function Controller:SetScale(Value)
+            local Number = tonumber(Value) or 100
+            if Number <= 2 then
+                Number *= 100
+            end
+            Number = math.clamp(Number, 70, 135)
+            State.Scale = Number / 100
+            RootScale.Scale = State.Scale
+            Menu.Flags.PlayerListScale = Number
+            SavedPositions.PlayerListScale = Number
+        end
+
+        function Controller:GetStatus(Player)
+            return GetStatus(Player)
+        end
+
+        function Controller:SetStatus(Player, Status)
+            return SetStatus(Player, Status, false)
+        end
+
+        function Controller:SelectPlayer(Player)
+            SelectPlayer(Player)
+        end
+
+        function Controller:Refresh()
+            RefreshRows()
+            RefreshSelected(false)
+        end
+
+        function Controller:Destroy()
+            State.Visible = false
+            if RootGlow and RootGlow.Parent then
+                RootGlow:Destroy()
+            end
+            if Root and Root.Parent then
+                Root:Destroy()
+            end
+            Menu.PlayerListController = nil
+        end
+
+        Controller.Root = Root
+        Controller.State = State
+
+        Menu.PlayerListController = Controller
+
+        RefreshRows()
+        RefreshSelected(true)
+        Controller:SetScale(State.Scale * 100)
+        Controller:SetVisibility(State.Visible)
+
+        return Controller
+    end
+
+    function Library:GetPlayerStatus(PlayerOrUserId)
+        if typeof(PlayerOrUserId) == "Instance"
+            and PlayerOrUserId:IsA("Player")
+        then
+            if PlayerOrUserId == Players.LocalPlayer then
+                return "Client"
+            end
+            local UserId = tonumber(PlayerOrUserId.UserId) or 0
+            local Value = tostring(Menu.PlayerStatuses[UserId] or "None")
+            if Value == "Priority" or Value == "Whitelist" or Value == "Enemy" then
+                return Value
+            end
+            return "None"
+        end
+
+        local UserId = tonumber(PlayerOrUserId)
+        if not UserId then return "None" end
+        if Players.LocalPlayer
+            and UserId == Players.LocalPlayer.UserId
+        then
+            return "Client"
+        end
+
+        local Value = tostring(Menu.PlayerStatuses[UserId] or "None")
+        if Value == "Priority" or Value == "Whitelist" or Value == "Enemy" then
+            return Value
+        end
+        return "None"
+    end
+
+    function Library:SetPlayerStatus(PlayerOrUserId, Status)
+        local Player = nil
+        local UserId = nil
+
+        if typeof(PlayerOrUserId) == "Instance"
+            and PlayerOrUserId:IsA("Player")
+        then
+            Player = PlayerOrUserId
+            UserId = tonumber(Player.UserId)
+        else
+            UserId = tonumber(PlayerOrUserId)
+            if UserId then
+                for _, Candidate in ipairs(Players:GetPlayers()) do
+                    if Candidate.UserId == UserId then
+                        Player = Candidate
+                        break
+                    end
+                end
+            end
+        end
+
+        if not UserId
+            or Players.LocalPlayer
+                and UserId == Players.LocalPlayer.UserId
+        then
+            return "Client"
+        end
+
+        Status = tostring(Status or "None")
+        if Status ~= "Priority"
+            and Status ~= "Whitelist"
+            and Status ~= "Enemy"
+        then
+            Status = "None"
+        end
+
+        Menu.PlayerStatuses[UserId] = Status
+
+        if Menu.PlayerListController then
+            if Player
+                and Menu.PlayerListController.SetStatus
+            then
+                return Menu.PlayerListController:SetStatus(Player, Status)
+            end
+            if Menu.PlayerListController.Refresh then
+                Menu.PlayerListController:Refresh()
+            end
+        end
+
+        return Status
+    end
+
+    function Library:PlayerList(Data)
+        return CreateAtramentaPlayerList(Data)
+    end
+
     local ApiWindowMethods = {}
     ApiWindowMethods.__index = ApiWindowMethods
 
@@ -9748,6 +10832,10 @@ local function BuildRuntime()
             ApiState:RefreshSubPageButtons(Name)
         end
         return Object
+    end
+
+    function ApiWindowMethods:PlayerList(Data)
+        return Library:PlayerList(Data)
     end
 
     function ApiWindowMethods:SetVisible(State)
@@ -9777,7 +10865,11 @@ local function BuildRuntime()
     end
 
     Library.window = Library.Window
+    Library.playerlist = Library.PlayerList
+    Library.getplayerstatus = Library.GetPlayerStatus
+    Library.setplayerstatus = Library.SetPlayerStatus
     ApiWindowMethods.page = ApiWindowMethods.Page
+    ApiWindowMethods.playerlist = ApiWindowMethods.PlayerList
     ApiPageMethods.subpage = ApiPageMethods.SubPage
     ApiPageMethods.section = ApiPageMethods.Section
     ApiSubPageMethods.section = ApiSubPageMethods.Section
@@ -10257,6 +11349,18 @@ function Library:KeybindList(...)
     return ResolveRuntime():KeybindList(...)
 end
 
+function Library:PlayerList(...)
+    return ResolveRuntime():PlayerList(...)
+end
+
+function Library:GetPlayerStatus(...)
+    return ResolveRuntime():GetPlayerStatus(...)
+end
+
+function Library:SetPlayerStatus(...)
+    return ResolveRuntime():SetPlayerStatus(...)
+end
+
 function Library:GetConfig(...)
     return ResolveRuntime():GetConfig(...)
 end
@@ -10284,6 +11388,9 @@ Library.toggle = Library.Toggle
 Library.getflag = Library.GetFlag
 Library.setflag = Library.SetFlag
 Library.notification = Library.Notification
+Library.playerlist = Library.PlayerList
+Library.getplayerstatus = Library.GetPlayerStatus
+Library.setplayerstatus = Library.SetPlayerStatus
 Library.destroy = Library.Destroy
 
 return Library
