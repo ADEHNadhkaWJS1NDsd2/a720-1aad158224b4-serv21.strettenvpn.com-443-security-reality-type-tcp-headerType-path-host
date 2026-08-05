@@ -2335,7 +2335,9 @@ local function BuildRuntime()
                 Font = Enum.Font.BuilderSansMedium,
                 Text = FormatBindLabel(BindData),
                 TextColor3 = PrimaryText,
-                TextSize = 10,
+                TextSize = 9,
+                TextStrokeColor3 = Color3.new(0, 0, 0),
+                TextStrokeTransparency = 0.76,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 ZIndex = 173
             })
@@ -4400,7 +4402,9 @@ local function BuildRuntime()
         Font = Enum.Font.BuilderSansMedium,
         Text = LocalPlayer and LocalPlayer.Name or "Player",
         TextColor3 = PrimaryText,
-        TextSize = 11,
+        TextSize = 10,
+        TextStrokeColor3 = Color3.new(0, 0, 0),
+        TextStrokeTransparency = 0.72,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
         ZIndex = 212
@@ -4700,7 +4704,7 @@ local function BuildRuntime()
     Menu.KeybindListUI = Menu.KeybindListUI or {}
     SavedPositions.HideKeybinds = false
     local KeybindListHidden = false
-    local KeybindListScaleValue = math.clamp(tonumber(SavedPositions.KeybindListScale) or 100, 70, 140)
+    local KeybindListScaleValue = math.clamp(tonumber(SavedPositions.KeybindListScale) or 100, 70, 150)
     local KeybindListSignature = ""
     local KeybindListAccumulator = 0
     local KeybindListDragging = false
@@ -4711,16 +4715,12 @@ local function BuildRuntime()
         Parent = ScreenGui,
         Active = true,
         Position = DecodePosition(SavedPositions.Keybinds, UDim2.fromOffset(24, 154)),
-        Size = UDim2.fromOffset(192, 64),
-        BackgroundColor3 = Surface,
-        BackgroundTransparency = 0.05,
+        Size = UDim2.fromOffset(154, 48),
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Visible = not KeybindListHidden,
         ZIndex = 72
     })
-    Corner(KeybindListWindow, 10)
-    Stroke(KeybindListWindow, Border, 0.16, 1)
-    local KeybindListGlow = Menu:AddSoftGlow(KeybindListWindow, 71, 10, 0.72, true)
 
     local KeybindListScale = Create("UIScale", {
         Parent = KeybindListWindow,
@@ -4730,8 +4730,8 @@ local function BuildRuntime()
     local KeybindListHeader = Create("Frame", {
         Parent = KeybindListWindow,
         Active = true,
-        Position = UDim2.fromOffset(10, 8),
-        Size = UDim2.new(1, -20, 0, 22),
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.new(1, 0, 0, 18),
         BackgroundTransparency = 1,
         ZIndex = 73
     })
@@ -4740,39 +4740,30 @@ local function BuildRuntime()
         Parent = KeybindListHeader,
         AnchorPoint = Vector2.new(0, 0.5),
         Position = UDim2.new(0, 0, 0.5, 0),
-        Size = UDim2.fromOffset(16, 16),
+        Size = UDim2.fromOffset(13, 13),
         BackgroundTransparency = 1,
         ZIndex = 74
     })
     local function CreateHotkeysHeaderGlyph(Parent)
         for Index = 0, 2 do
-            local Dot = Create("Frame", {
-                Parent = Parent,
-                Position = UDim2.fromOffset(0, 2 + Index * 5),
-                Size = UDim2.fromOffset(2, 2),
-                BackgroundColor3 = Accent,
-                BorderSizePixel = 0,
-                ZIndex = 75
-            })
-            Corner(Dot, 2)
-
             local Line = Create("Frame", {
                 Parent = Parent,
-                Position = UDim2.fromOffset(5, 1 + Index * 5),
-                Size = UDim2.fromOffset(9, 3),
+                Position = UDim2.fromOffset(Index == 1 and 0 or 2, 1 + Index * 4),
+                Size = UDim2.fromOffset(Index == 1 and 12 or 10, 2),
                 BackgroundColor3 = Accent,
+                BackgroundTransparency = 0.08,
                 BorderSizePixel = 0,
                 ZIndex = 75
             })
-            Corner(Line, 3)
+            Corner(Line, 2)
         end
     end
     CreateHotkeysHeaderGlyph(HotkeyHeaderIconHolder)
 
     Create("TextLabel", {
         Parent = KeybindListHeader,
-        Position = UDim2.fromOffset(22, 0),
-        Size = UDim2.new(1, -22, 1, 0),
+        Position = UDim2.fromOffset(18, 0),
+        Size = UDim2.new(1, -18, 1, 0),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSansMedium,
         Text = "Hotkeys",
@@ -4784,8 +4775,8 @@ local function BuildRuntime()
 
     local KeybindRows = Create("Frame", {
         Parent = KeybindListWindow,
-        Position = UDim2.fromOffset(10, 32),
-        Size = UDim2.new(1, -20, 1, -40),
+        Position = UDim2.fromOffset(0, 20),
+        Size = UDim2.new(1, 0, 1, -20),
         BackgroundTransparency = 1,
         ClipsDescendants = true,
         ZIndex = 73
@@ -4886,8 +4877,8 @@ local function BuildRuntime()
         if RowCount == 0 then
             Create("TextLabel", {
                 Parent = KeybindRows,
-                Position = UDim2.fromOffset(0, 2),
-                Size = UDim2.new(1, 0, 0, 18),
+                Position = UDim2.fromOffset(0, 1),
+                Size = UDim2.new(1, 0, 0, 16),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSans,
                 Text = "No active hotkeys",
@@ -4900,57 +4891,38 @@ local function BuildRuntime()
             for Index, Entry in ipairs(Entries) do
                 local Row = Create("Frame", {
                     Parent = KeybindRows,
-                    Position = UDim2.fromOffset(0, (Index - 1) * 22),
-                    Size = UDim2.new(1, 0, 0, 20),
+                    Position = UDim2.fromOffset(0, (Index - 1) * 18),
+                    Size = UDim2.new(1, 0, 0, 17),
                     BackgroundTransparency = 1,
                     ZIndex = 74
                 })
 
-                local StateDot = Create("Frame", {
+                local KeyLabel = Create("TextLabel", {
                     Parent = Row,
-                    AnchorPoint = Vector2.new(0, 0.5),
-                    Position = UDim2.fromOffset(2, 10),
-                    Size = UDim2.fromOffset(7, 7),
-                    BackgroundColor3 = Entry.Active and Accent or DisabledText,
-                    BorderSizePixel = 0,
-                    ZIndex = 75
-                })
-                Corner(StateDot, 7)
-                Stroke(StateDot, Entry.Active and Accent or MutedText, 0.28, 1)
-
-                local KeyChip = Create("Frame", {
-                    Parent = Row,
-                    Position = UDim2.fromOffset(15, 2),
-                    Size = UDim2.fromOffset(24, 16),
-                    BackgroundColor3 = Color3.fromRGB(22, 24, 30),
-                    BackgroundTransparency = 0.08,
-                    BorderSizePixel = 0,
-                    ZIndex = 75
-                })
-                Corner(KeyChip, 4)
-                Stroke(KeyChip, Color3.fromRGB(54, 58, 68), 0.28, 1)
-
-                Create("TextLabel", {
-                    Parent = KeyChip,
-                    Size = UDim2.fromScale(1, 1),
+                    Position = UDim2.fromOffset(0, 0),
+                    Size = UDim2.fromOffset(38, 17),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = "[" .. string.upper(tostring(Entry.Key or "")) .. "]",
-                    TextColor3 = Entry.Active and PrimaryText or MutedText,
-                    TextSize = 9,
-                    TextXAlignment = Enum.TextXAlignment.Center,
+                    TextColor3 = Entry.Active and Accent or MutedText,
+                    TextSize = 8,
+                    TextStrokeColor3 = Color3.new(0, 0, 0),
+                    TextStrokeTransparency = 0.72,
+                    TextXAlignment = Enum.TextXAlignment.Left,
                     ZIndex = 76
                 })
 
                 Create("TextLabel", {
                     Parent = Row,
-                    Position = UDim2.fromOffset(45, 0),
-                    Size = UDim2.new(1, -45, 0, 20),
+                    Position = UDim2.fromOffset(38, 0),
+                    Size = UDim2.new(1, -38, 0, 17),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = Entry.Name,
                     TextColor3 = Entry.Active and PrimaryText or MutedText,
-                    TextSize = 10,
+                    TextSize = 9,
+                    TextStrokeColor3 = Color3.new(0, 0, 0),
+                    TextStrokeTransparency = 0.72,
                     TextTruncate = Enum.TextTruncate.AtEnd,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     ZIndex = 75
@@ -4958,7 +4930,7 @@ local function BuildRuntime()
             end
         end
 
-        KeybindListWindow.Size = UDim2.fromOffset(192, 42 + math.max(RowCount, 1) * 22)
+        KeybindListWindow.Size = UDim2.fromOffset(154, 22 + math.max(RowCount, 1) * 18)
         KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, KeybindListWindow.Position)
     end
 
@@ -6515,6 +6487,7 @@ local function BuildRuntime()
             ElementDragStart = nil,
             ElementStartOffset = nil,
             ElementBases = {},
+            BoxBounds = nil,
             DraggableElements = {}
         }
 
@@ -6879,6 +6852,51 @@ local function BuildRuntime()
 
         local function AddOffset(Base, Offset)
             return Vector2.new(Base.X + Offset.X, Base.Y + Offset.Y)
+        end
+
+        local function ConstrainPreviewOffset(Key, Offset)
+            local Bounds = S.BoxBounds
+            local Base = S.ElementBases[Key]
+            if type(Bounds) ~= "table" or typeof(Base) ~= "Vector2" then
+                return Vector2.zero
+            end
+
+            local Desired = AddOffset(Base, Offset)
+            local MinX = Bounds.MinX
+            local MaxX = Bounds.MaxX
+            local MinY = Bounds.MinY
+            local MaxY = Bounds.MaxY
+            local Width = Bounds.Width
+            local CenterX = Bounds.CenterX
+
+            if Key == "HealthBar" then
+                local LeftX = MinX - 7
+                local RightX = MaxX + 3
+                local X = Desired.X >= CenterX and RightX or LeftX
+                return Vector2.new(X - Base.X, 0)
+            end
+
+            if Key == "HealthValue" then
+                local LeftX = MinX - 49
+                local RightX = MaxX + 9
+                local X = Desired.X >= CenterX and RightX or LeftX
+                local Y = math.clamp(Desired.Y, MinY + 8, MaxY - 8)
+                return Vector2.new(X - Base.X, Y - Base.Y)
+            end
+
+            if Key == "Name" then
+                local X = math.clamp(Desired.X, CenterX - Width * 0.65, CenterX + Width * 0.65)
+                local Y = math.clamp(Desired.Y, MinY - 42, MinY - 3)
+                return Vector2.new(X - Base.X, Y - Base.Y)
+            end
+
+            if Key == "Weapon" or Key == "Distance" then
+                local X = math.clamp(Desired.X, CenterX - Width * 0.65, CenterX + Width * 0.65)
+                local Y = math.clamp(Desired.Y, MaxY + 4, MaxY + 54)
+                return Vector2.new(X - Base.X, Y - Base.Y)
+            end
+
+            return Vector2.zero
         end
 
         local function ApplyPreviewElementLayout()
@@ -7591,6 +7609,16 @@ local function BuildRuntime()
             S.Weapon.Size = UDim2.fromOffset(math.max(100, math.floor(Width + 70)), 18)
             S.Distance.Size = UDim2.fromOffset(math.max(70, math.floor(Width + 40)), 18)
 
+            S.BoxBounds = {
+                MinX = MinX,
+                MaxX = MaxX,
+                MinY = MinY,
+                MaxY = MaxY,
+                Width = Width,
+                Height = Height,
+                CenterX = CenterX
+            }
+
             S.ElementBases.HealthBar = Vector2.new(
                 math.floor(MinX - SideGap),
                 math.floor(MinY + 0.5)
@@ -7612,6 +7640,9 @@ local function BuildRuntime()
                 math.floor(MaxY + InfoGap + 11)
             )
 
+            for Key in pairs(PreviewElementFlags) do
+                SetPreviewOffset(Key, ConstrainPreviewOffset(Key, GetPreviewOffset(Key)))
+            end
             ApplyPreviewElementLayout()
             S.BoundsValid = true
         end
@@ -7794,16 +7825,10 @@ local function BuildRuntime()
 
                 local StartOffset = S.ElementStartOffset or Vector2.zero
                 local NewOffset = Vector2.new(
-                    math.clamp(StartOffset.X + Delta.X, -260, 260),
-                    math.clamp(StartOffset.Y + Delta.Y, -340, 340)
+                    StartOffset.X + Delta.X,
+                    StartOffset.Y + Delta.Y
                 )
-
-                if math.abs(NewOffset.X) <= 3 then
-                    NewOffset = Vector2.new(0, NewOffset.Y)
-                end
-                if math.abs(NewOffset.Y) <= 3 then
-                    NewOffset = Vector2.new(NewOffset.X, 0)
-                end
+                NewOffset = ConstrainPreviewOffset(S.ElementDragging, NewOffset)
 
                 SetPreviewOffset(S.ElementDragging, NewOffset)
                 ApplyPreviewElementLayout()
