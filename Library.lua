@@ -1826,6 +1826,89 @@ local function BuildRuntime()
         return UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
     end
 
+    local BindKeyCanonical = {
+        XButton1 = "MouseButton4",
+        XButton2 = "MouseButton5",
+        Mouse4 = "MouseButton4",
+        Mouse5 = "MouseButton5",
+        MouseButton4 = "MouseButton4",
+        MouseButton5 = "MouseButton5",
+        Button4 = "MouseButton4",
+        Button5 = "MouseButton5",
+        ThumbMouseButton1 = "MouseButton4",
+        ThumbMouseButton2 = "MouseButton5",
+
+        NumPad0 = "KeypadZero",
+        Numpad0 = "KeypadZero",
+        Keypad0 = "KeypadZero",
+        NumPad1 = "KeypadOne",
+        Numpad1 = "KeypadOne",
+        Keypad1 = "KeypadOne",
+        NumPad2 = "KeypadTwo",
+        Numpad2 = "KeypadTwo",
+        Keypad2 = "KeypadTwo",
+        NumPad3 = "KeypadThree",
+        Numpad3 = "KeypadThree",
+        Keypad3 = "KeypadThree",
+        NumPad4 = "KeypadFour",
+        Numpad4 = "KeypadFour",
+        Keypad4 = "KeypadFour",
+        NumPad5 = "KeypadFive",
+        Numpad5 = "KeypadFive",
+        Keypad5 = "KeypadFive",
+        NumPad6 = "KeypadSix",
+        Numpad6 = "KeypadSix",
+        Keypad6 = "KeypadSix",
+        NumPad7 = "KeypadSeven",
+        Numpad7 = "KeypadSeven",
+        Keypad7 = "KeypadSeven",
+        NumPad8 = "KeypadEight",
+        Numpad8 = "KeypadEight",
+        Keypad8 = "KeypadEight",
+        NumPad9 = "KeypadNine",
+        Numpad9 = "KeypadNine",
+        Keypad9 = "KeypadNine",
+
+        NumPadDecimal = "KeypadPeriod",
+        NumpadDecimal = "KeypadPeriod",
+        KeypadDecimal = "KeypadPeriod",
+        NumPadPeriod = "KeypadPeriod",
+        NumpadPeriod = "KeypadPeriod",
+
+        NumPadDivide = "KeypadDivide",
+        NumpadDivide = "KeypadDivide",
+        NumPadMultiply = "KeypadMultiply",
+        NumpadMultiply = "KeypadMultiply",
+        NumPadSubtract = "KeypadMinus",
+        NumpadSubtract = "KeypadMinus",
+        NumPadMinus = "KeypadMinus",
+        NumpadMinus = "KeypadMinus",
+        NumPadAdd = "KeypadPlus",
+        NumpadAdd = "KeypadPlus",
+        NumPadPlus = "KeypadPlus",
+        NumpadPlus = "KeypadPlus",
+        NumPadEnter = "KeypadEnter",
+        NumpadEnter = "KeypadEnter",
+        NumPadEquals = "KeypadEquals",
+        NumpadEquals = "KeypadEquals"
+    }
+
+    local function CanonicalBindKey(KeyType, KeyName)
+        KeyType = tostring(KeyType or "")
+        KeyName = tostring(KeyName or "")
+
+        local Canonical =
+            BindKeyCanonical[KeyName]
+            or KeyName
+
+        if string.match(Canonical, "^MouseButton%d+$") then
+            return "UserInputType", Canonical
+        end
+
+        return KeyType, Canonical
+    end
+
+
     do
     local function GetControlBinds(ControlFlag)
         SavedPositions.ControlBinds = SavedPositions.ControlBinds or {}
@@ -2004,88 +2087,6 @@ local function BuildRuntime()
         Slash = "/",
         Backquote = "`"
     }
-
-    local BindKeyCanonical = {
-        XButton1 = "MouseButton4",
-        XButton2 = "MouseButton5",
-        Mouse4 = "MouseButton4",
-        Mouse5 = "MouseButton5",
-        MouseButton4 = "MouseButton4",
-        MouseButton5 = "MouseButton5",
-        Button4 = "MouseButton4",
-        Button5 = "MouseButton5",
-        ThumbMouseButton1 = "MouseButton4",
-        ThumbMouseButton2 = "MouseButton5",
-
-        NumPad0 = "KeypadZero",
-        Numpad0 = "KeypadZero",
-        Keypad0 = "KeypadZero",
-        NumPad1 = "KeypadOne",
-        Numpad1 = "KeypadOne",
-        Keypad1 = "KeypadOne",
-        NumPad2 = "KeypadTwo",
-        Numpad2 = "KeypadTwo",
-        Keypad2 = "KeypadTwo",
-        NumPad3 = "KeypadThree",
-        Numpad3 = "KeypadThree",
-        Keypad3 = "KeypadThree",
-        NumPad4 = "KeypadFour",
-        Numpad4 = "KeypadFour",
-        Keypad4 = "KeypadFour",
-        NumPad5 = "KeypadFive",
-        Numpad5 = "KeypadFive",
-        Keypad5 = "KeypadFive",
-        NumPad6 = "KeypadSix",
-        Numpad6 = "KeypadSix",
-        Keypad6 = "KeypadSix",
-        NumPad7 = "KeypadSeven",
-        Numpad7 = "KeypadSeven",
-        Keypad7 = "KeypadSeven",
-        NumPad8 = "KeypadEight",
-        Numpad8 = "KeypadEight",
-        Keypad8 = "KeypadEight",
-        NumPad9 = "KeypadNine",
-        Numpad9 = "KeypadNine",
-        Keypad9 = "KeypadNine",
-
-        NumPadDecimal = "KeypadPeriod",
-        NumpadDecimal = "KeypadPeriod",
-        KeypadDecimal = "KeypadPeriod",
-        NumPadPeriod = "KeypadPeriod",
-        NumpadPeriod = "KeypadPeriod",
-
-        NumPadDivide = "KeypadDivide",
-        NumpadDivide = "KeypadDivide",
-        NumPadMultiply = "KeypadMultiply",
-        NumpadMultiply = "KeypadMultiply",
-        NumPadSubtract = "KeypadMinus",
-        NumpadSubtract = "KeypadMinus",
-        NumPadMinus = "KeypadMinus",
-        NumpadMinus = "KeypadMinus",
-        NumPadAdd = "KeypadPlus",
-        NumpadAdd = "KeypadPlus",
-        NumPadPlus = "KeypadPlus",
-        NumpadPlus = "KeypadPlus",
-        NumPadEnter = "KeypadEnter",
-        NumpadEnter = "KeypadEnter",
-        NumPadEquals = "KeypadEquals",
-        NumpadEquals = "KeypadEquals"
-    }
-
-    local function CanonicalBindKey(KeyType, KeyName)
-        KeyType = tostring(KeyType or "")
-        KeyName = tostring(KeyName or "")
-
-        local Canonical =
-            BindKeyCanonical[KeyName]
-            or KeyName
-
-        if string.match(Canonical, "^MouseButton%d+$") then
-            return "UserInputType", Canonical
-        end
-
-        return KeyType, Canonical
-    end
 
     local function FriendlyKeyName(Name)
         local Raw =
