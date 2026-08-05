@@ -2363,6 +2363,9 @@ local function BuildRuntime()
             end)
             Bind(Remove.MouseButton1Click:Connect(function()
                 table.remove(Binds, Index)
+                if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+                    Menu.KeybindListController.MarkDirty()
+                end
                 SavePositions()
                 ActiveGearHotkeysMenu:Destroy()
                 ActiveGearHotkeysMenu = nil
@@ -2797,6 +2800,9 @@ local function BuildRuntime()
         Bind(ResetEntry.MouseButton1Click:Connect(function()
             SavedPositions.ControlBinds = SavedPositions.ControlBinds or {}
             SavedPositions.ControlBinds[tostring(Meta.Flag or Meta.Name or "Unknown")] = {}
+            if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+                Menu.KeybindListController.MarkDirty()
+            end
             SavePositions()
             if ActiveGearHotkeysMenu then
                 ActiveGearHotkeysMenu:Destroy()
@@ -4346,20 +4352,27 @@ local function BuildRuntime()
     })
     Corner(LogoHolder, 6)
     WatermarkLogoStroke = Stroke(LogoHolder, Accent, 0.02, 1)
-    Create("TextLabel", {
-        Parent = LogoHolder,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(20, 20),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSansBold,
-        Text = "NL",
-        TextColor3 = PrimaryText,
-        TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        TextYAlignment = Enum.TextYAlignment.Center,
-        ZIndex = 212
-    })
+    if LogoAsset then
+        Create("ImageLabel", {
+            Parent = LogoHolder,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            Size = UDim2.fromOffset(18, 18),
+            BackgroundTransparency = 1,
+            Image = LogoAsset,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 212
+        })
+    else
+        Icon(
+            LogoHolder,
+            "Lightning",
+            UDim2.fromOffset(13, 17),
+            UDim2.fromScale(0.5, 0.5),
+            Accent,
+            212
+        )
+    end
 
     local NameGroup = Create("Frame", {
         Parent = Watermark,
@@ -4685,7 +4698,8 @@ local function BuildRuntime()
 
     do
     Menu.KeybindListUI = Menu.KeybindListUI or {}
-    local KeybindListHidden = SavedPositions.HideKeybinds == true
+    SavedPositions.HideKeybinds = false
+    local KeybindListHidden = false
     local KeybindListScaleValue = math.clamp(tonumber(SavedPositions.KeybindListScale) or 100, 70, 140)
     local KeybindListSignature = ""
     local KeybindListAccumulator = 0
@@ -4697,15 +4711,15 @@ local function BuildRuntime()
         Parent = ScreenGui,
         Active = true,
         Position = DecodePosition(SavedPositions.Keybinds, UDim2.fromOffset(24, 154)),
-        Size = UDim2.fromOffset(216, 58),
+        Size = UDim2.fromOffset(192, 64),
         BackgroundColor3 = Surface,
         BackgroundTransparency = 0.05,
         BorderSizePixel = 0,
         Visible = not KeybindListHidden,
         ZIndex = 72
     })
-    Corner(KeybindListWindow, 8)
-    Stroke(KeybindListWindow, Border, 0.10, 1)
+    Corner(KeybindListWindow, 10)
+    Stroke(KeybindListWindow, Border, 0.16, 1)
     local KeybindListGlow = Menu:AddSoftGlow(KeybindListWindow, 71, 10, 0.72, true)
 
     local KeybindListScale = Create("UIScale", {
@@ -4716,38 +4730,62 @@ local function BuildRuntime()
     local KeybindListHeader = Create("Frame", {
         Parent = KeybindListWindow,
         Active = true,
-        Size = UDim2.new(1, 0, 0, 31),
+        Position = UDim2.fromOffset(10, 8),
+        Size = UDim2.new(1, -20, 0, 22),
         BackgroundTransparency = 1,
         ZIndex = 73
     })
 
+    local HotkeyHeaderIconHolder = Create("Frame", {
+        Parent = KeybindListHeader,
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 0, 0.5, 0),
+        Size = UDim2.fromOffset(16, 16),
+        BackgroundTransparency = 1,
+        ZIndex = 74
+    })
+    local function CreateHotkeysHeaderGlyph(Parent)
+        for Index = 0, 2 do
+            local Dot = Create("Frame", {
+                Parent = Parent,
+                Position = UDim2.fromOffset(0, 2 + Index * 5),
+                Size = UDim2.fromOffset(2, 2),
+                BackgroundColor3 = Accent,
+                BorderSizePixel = 0,
+                ZIndex = 75
+            })
+            Corner(Dot, 2)
+
+            local Line = Create("Frame", {
+                Parent = Parent,
+                Position = UDim2.fromOffset(5, 1 + Index * 5),
+                Size = UDim2.fromOffset(9, 3),
+                BackgroundColor3 = Accent,
+                BorderSizePixel = 0,
+                ZIndex = 75
+            })
+            Corner(Line, 3)
+        end
+    end
+    CreateHotkeysHeaderGlyph(HotkeyHeaderIconHolder)
+
     Create("TextLabel", {
         Parent = KeybindListHeader,
-        Position = UDim2.fromOffset(8, 5),
-        Size = UDim2.new(1, -16, 0, 18),
+        Position = UDim2.fromOffset(22, 0),
+        Size = UDim2.new(1, -22, 1, 0),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSansMedium,
-        Text = "Keybinds",
+        Text = "Hotkeys",
         TextColor3 = PrimaryText,
         TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Center,
+        TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 74
     })
-
-    local KeybindListAccentLine = Create("Frame", {
-        Parent = KeybindListWindow,
-        Position = UDim2.fromOffset(10, 29),
-        Size = UDim2.new(1, -20, 0, 1),
-        BackgroundColor3 = Accent,
-        BorderSizePixel = 0,
-        ZIndex = 74
-    })
-    local KeybindListAccentGlow = Menu:AddSoftGlow(KeybindListAccentLine, 73, 7, 0.62, true)
 
     local KeybindRows = Create("Frame", {
         Parent = KeybindListWindow,
-        Position = UDim2.fromOffset(8, 35),
-        Size = UDim2.new(1, -16, 1, -39),
+        Position = UDim2.fromOffset(10, 32),
+        Size = UDim2.new(1, -20, 1, -40),
         BackgroundTransparency = 1,
         ClipsDescendants = true,
         ZIndex = 73
@@ -4824,7 +4862,7 @@ local function BuildRuntime()
     local function BuildKeybindSignature(Entries)
         local Parts = {}
         for Index, Entry in ipairs(Entries) do
-            Parts[Index] = table.concat({Entry.Name, Entry.Key, Entry.Status, Entry.Mode}, "\31")
+            Parts[Index] = table.concat({Entry.Name, Entry.Key, tostring(Entry.Active), Entry.Mode}, "\31")
         end
         return table.concat(Parts, "\30")
     end
@@ -4848,30 +4886,66 @@ local function BuildRuntime()
         if RowCount == 0 then
             Create("TextLabel", {
                 Parent = KeybindRows,
-                Position = UDim2.fromOffset(2, 2),
-                Size = UDim2.new(1, -4, 0, 18),
+                Position = UDim2.fromOffset(0, 2),
+                Size = UDim2.new(1, 0, 0, 18),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSans,
-                Text = "No visible binds",
+                Text = "No active hotkeys",
                 TextColor3 = DisabledText,
                 TextSize = 10,
-                TextXAlignment = Enum.TextXAlignment.Center,
+                TextXAlignment = Enum.TextXAlignment.Left,
                 ZIndex = 74
             })
         else
             for Index, Entry in ipairs(Entries) do
                 local Row = Create("Frame", {
                     Parent = KeybindRows,
-                    Position = UDim2.fromOffset(0, (Index - 1) * 21),
+                    Position = UDim2.fromOffset(0, (Index - 1) * 22),
                     Size = UDim2.new(1, 0, 0, 20),
                     BackgroundTransparency = 1,
                     ZIndex = 74
                 })
 
+                local StateDot = Create("Frame", {
+                    Parent = Row,
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    Position = UDim2.fromOffset(2, 10),
+                    Size = UDim2.fromOffset(7, 7),
+                    BackgroundColor3 = Entry.Active and Accent or DisabledText,
+                    BorderSizePixel = 0,
+                    ZIndex = 75
+                })
+                Corner(StateDot, 7)
+                Stroke(StateDot, Entry.Active and Accent or MutedText, 0.28, 1)
+
+                local KeyChip = Create("Frame", {
+                    Parent = Row,
+                    Position = UDim2.fromOffset(15, 2),
+                    Size = UDim2.fromOffset(24, 16),
+                    BackgroundColor3 = Color3.fromRGB(22, 24, 30),
+                    BackgroundTransparency = 0.08,
+                    BorderSizePixel = 0,
+                    ZIndex = 75
+                })
+                Corner(KeyChip, 4)
+                Stroke(KeyChip, Color3.fromRGB(54, 58, 68), 0.28, 1)
+
+                Create("TextLabel", {
+                    Parent = KeyChip,
+                    Size = UDim2.fromScale(1, 1),
+                    BackgroundTransparency = 1,
+                    Font = Enum.Font.BuilderSansMedium,
+                    Text = "[" .. string.upper(tostring(Entry.Key or "")) .. "]",
+                    TextColor3 = Entry.Active and PrimaryText or MutedText,
+                    TextSize = 9,
+                    TextXAlignment = Enum.TextXAlignment.Center,
+                    ZIndex = 76
+                })
+
                 Create("TextLabel", {
                     Parent = Row,
-                    Position = UDim2.fromOffset(3, 0),
-                    Size = UDim2.fromOffset(92, 20),
+                    Position = UDim2.fromOffset(45, 0),
+                    Size = UDim2.new(1, -45, 0, 20),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = Entry.Name,
@@ -4881,38 +4955,10 @@ local function BuildRuntime()
                     TextXAlignment = Enum.TextXAlignment.Left,
                     ZIndex = 75
                 })
-
-                Create("TextLabel", {
-                    Parent = Row,
-                    Position = UDim2.fromOffset(96, 0),
-                    Size = UDim2.fromOffset(59, 20),
-                    BackgroundTransparency = 1,
-                    Font = Enum.Font.BuilderSansMedium,
-                    Text = "[" .. Entry.Key .. "]",
-                    TextColor3 = Accent,
-                    TextSize = 10,
-                    TextTruncate = Enum.TextTruncate.AtEnd,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    ZIndex = 75
-                })
-
-                Create("TextLabel", {
-                    Parent = Row,
-                    AnchorPoint = Vector2.new(1, 0),
-                    Position = UDim2.new(1, -3, 0, 0),
-                    Size = UDim2.fromOffset(50, 20),
-                    BackgroundTransparency = 1,
-                    Font = Enum.Font.BuilderSansMedium,
-                    Text = Entry.Status,
-                    TextColor3 = Entry.Active and PrimaryText or DisabledText,
-                    TextSize = 10,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    ZIndex = 75
-                })
             end
         end
 
-        KeybindListWindow.Size = UDim2.fromOffset(216, 40 + math.max(RowCount, 1) * 21)
+        KeybindListWindow.Size = UDim2.fromOffset(192, 42 + math.max(RowCount, 1) * 22)
         KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, KeybindListWindow.Position)
     end
 
@@ -4940,18 +4986,40 @@ local function BuildRuntime()
     Menu.KeybindListController = {
         SetHidden = SetKeybindListHidden,
         SetScale = SetKeybindListScale,
-        Refresh = function() RefreshKeybindList(true) end,
-        MarkDirty = function() KeybindListSignature = "" end
+        Refresh = function()
+            KeybindListSignature = ""
+            RefreshKeybindList(true)
+        end,
+        MarkDirty = function()
+            KeybindListSignature = ""
+            if KeybindListHidden then
+                return
+            end
+
+            task.defer(function()
+                if KeybindListWindow.Parent then
+                    RefreshKeybindList(true)
+                end
+            end)
+
+            task.delay(0.05, function()
+                if KeybindListWindow.Parent and not KeybindListHidden then
+                    RefreshKeybindList(true)
+                end
+            end)
+
+            task.delay(0.20, function()
+                if KeybindListWindow.Parent and not KeybindListHidden then
+                    RefreshKeybindList(true)
+                end
+            end)
+        end
     }
 
     Menu.Flags.HideKeybinds = KeybindListHidden
     Menu.Flags.KeybindListScale = KeybindListScaleValue
 
-    RegisterAccentTarget(function(NewColor)
-        KeybindListAccentLine.BackgroundColor3 = NewColor
-        if KeybindListAccentGlow then
-            KeybindListAccentGlow.ImageColor3 = NewColor
-        end
+    RegisterAccentTarget(function()
         KeybindListSignature = ""
     end)
 
@@ -4991,6 +5059,21 @@ local function BuildRuntime()
     end))
 
     RefreshKeybindList(true)
+    task.defer(function()
+        if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+            Menu.KeybindListController.MarkDirty()
+        end
+    end)
+    task.delay(0.15, function()
+        if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+            Menu.KeybindListController.MarkDirty()
+        end
+    end)
+    task.delay(0.40, function()
+        if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+            Menu.KeybindListController.MarkDirty()
+        end
+    end)
     end
 
     Menu.SettingsUI.ProfileAvatar = Create("ImageLabel", {
@@ -6244,7 +6327,7 @@ local function BuildRuntime()
         SetWatermarkScale(Value)
     end, 272, 192)
 
-    Menu.SettingsUI.HideKeybindsToggle = CreatePopupToggle(280, "Hide keybinds", SavedPositions.HideKeybinds == true, function(Value)
+    Menu.SettingsUI.HideKeybindsToggle = CreatePopupToggle(280, "Hide keybinds", false, function(Value)
         if Menu.KeybindListController and Menu.KeybindListController.SetHidden then
             Menu.KeybindListController.SetHidden(Value)
         end
@@ -8017,6 +8100,9 @@ local function BuildRuntime()
             ControlType = "Boolean"
         }
         table.insert(Binds, BindData)
+        if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+            Menu.KeybindListController.MarkDirty()
+        end
         SavePositions()
         if PendingBindCapture.SetText then
             PendingBindCapture.SetText(BindData.Display)
@@ -8636,6 +8722,9 @@ local function BuildRuntime()
                         Value = true,
                         BaseValue = Menu.Flags[Flag]
                     })
+                    if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+                        Menu.KeybindListController.MarkDirty()
+                    end
                     SavePositions()
                 end
             end
@@ -9542,9 +9631,37 @@ local function BuildRuntime()
                         Menu.BindSystem.GetControlBinds(Flag)
                     end
                 end
-                SavePositions()
             end
         end
+
+        SavedPositions.HideKeybinds = false
+        if Menu.KeybindListController then
+            if Menu.KeybindListController.SetHidden then
+                Menu.KeybindListController.SetHidden(false)
+            end
+            if Menu.KeybindListController.MarkDirty then
+                Menu.KeybindListController.MarkDirty()
+            end
+
+            task.defer(function()
+                if Menu.KeybindListController and Menu.KeybindListController.Refresh then
+                    Menu.KeybindListController.Refresh()
+                end
+            end)
+
+            task.delay(0.08, function()
+                if Menu.KeybindListController and Menu.KeybindListController.Refresh then
+                    Menu.KeybindListController.Refresh()
+                end
+            end)
+
+            task.delay(0.25, function()
+                if Menu.KeybindListController and Menu.KeybindListController.Refresh then
+                    Menu.KeybindListController.Refresh()
+                end
+            end)
+        end
+
         return true
     end
 
