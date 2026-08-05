@@ -4319,7 +4319,7 @@ local function BuildRuntime()
         FillDirection = Enum.FillDirection.Horizontal,
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
         VerticalAlignment = Enum.VerticalAlignment.Center,
-        Padding = UDim.new(0, 6),
+        Padding = UDim.new(0, 5),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
 
@@ -4346,20 +4346,20 @@ local function BuildRuntime()
     })
     Corner(LogoHolder, 6)
     WatermarkLogoStroke = Stroke(LogoHolder, Accent, 0.02, 1)
-    if LogoAsset then
-        Create("ImageLabel", {
-            Parent = LogoHolder,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.fromOffset(18, 18),
-            BackgroundTransparency = 1,
-            Image = LogoAsset,
-            ScaleType = Enum.ScaleType.Fit,
-            ZIndex = 212
-        })
-    else
-        Icon(LogoHolder, "Lightning", UDim2.fromOffset(14, 18), UDim2.fromScale(0.5, 0.5), Accent, 212)
-    end
+    Create("TextLabel", {
+        Parent = LogoHolder,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(20, 20),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSansBold,
+        Text = "NL",
+        TextColor3 = PrimaryText,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        ZIndex = 212
+    })
 
     local NameGroup = Create("Frame", {
         Parent = Watermark,
@@ -4409,44 +4409,73 @@ local function BuildRuntime()
 
     CreateWatermarkDivider(3)
 
-    local function CreateWatermarkItem(Order, IconName, Text, Width)
+    local function CreateWatermarkItem(Order, IconName, Text)
         local Root = Create("Frame", {
             Parent = Watermark,
             LayoutOrder = Order,
-            Size = UDim2.fromOffset(Width or 68, 24),
+            Size = UDim2.fromOffset(0, 24),
+            AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 1,
             ZIndex = 211
         })
 
-        local IconObject = Icon(Root, IconName, UDim2.fromOffset(12, 12), UDim2.new(0, 6, 0.5, 0), Accent, 212)
+        Create("UIListLayout", {
+            Parent = Root,
+            FillDirection = Enum.FillDirection.Horizontal,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            HorizontalAlignment = Enum.HorizontalAlignment.Left,
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+
+        local IconHolder = Create("Frame", {
+            Parent = Root,
+            LayoutOrder = 1,
+            Size = UDim2.fromOffset(12, 24),
+            BackgroundTransparency = 1,
+            ZIndex = 211
+        })
+
+        local IconObject = Icon(
+            IconHolder,
+            IconName,
+            UDim2.fromOffset(11, 11),
+            UDim2.fromScale(0.5, 0.5),
+            Accent,
+            212
+        )
         if IconObject and IconObject:IsA("ImageLabel") then
             table.insert(WatermarkItemIcons, IconObject)
         end
 
         local Label = Create("TextLabel", {
             Parent = Root,
-            Position = UDim2.fromOffset(18, 0),
-            Size = UDim2.new(1, -18, 1, 0),
+            LayoutOrder = 2,
+            Size = UDim2.fromOffset(0, 24),
+            AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = Text,
             TextColor3 = PrimaryText,
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
+            TextTruncate = Enum.TextTruncate.None,
             ZIndex = 212
         })
 
         return Root, Label, IconObject
     end
 
-    local RegionGroup, RegionText = CreateWatermarkItem(4, "Cloud", "SERVER", 76)
-    CreateWatermarkDivider(5)
-    local FpsGroup, FpsText = CreateWatermarkItem(6, "Run", "0 FPS", 62)
+    local RegionGroup, RegionText = CreateWatermarkItem(4, "Cloud", "")
+    local RegionDivider = CreateWatermarkDivider(5)
+    RegionGroup.Visible = false
+    RegionDivider.Visible = false
+
+    local FpsGroup, FpsText = CreateWatermarkItem(6, "Run", "0 FPS")
     CreateWatermarkDivider(7)
-    local PingGroup, PingText = CreateWatermarkItem(8, "Globe", "0 MS", 56)
+    local PingGroup, PingText = CreateWatermarkItem(8, "Globe", "0 MS")
     CreateWatermarkDivider(9)
-    local TimeGroup, ClockText = CreateWatermarkItem(10, "Boxes", os.date("%H:%M"), 54)
+    local TimeGroup, ClockText = CreateWatermarkItem(10, "Boxes", os.date("%H:%M"))
     CreateWatermarkDivider(11)
 
     local AvatarHolder = Create("Frame", {
@@ -4462,7 +4491,7 @@ local function BuildRuntime()
         BackgroundColor3 = SurfaceAlt,
         BackgroundTransparency = 0.04,
         BorderSizePixel = 0,
-        Image = "",
+        Image = LocalPlayer and ("rbxthumb://type=AvatarHeadShot&id=" .. tostring(LocalPlayer.UserId) .. "&w=150&h=150") or "",
         ScaleType = Enum.ScaleType.Crop,
         ZIndex = 212
     })
@@ -4471,7 +4500,7 @@ local function BuildRuntime()
 
     local function UpdateWatermarkWidth()
         local ContentWidth = WatermarkLayout.AbsoluteContentSize.X
-        Watermark.Size = UDim2.fromOffset(math.clamp(ContentWidth + 18, 280, 560), 36)
+        Watermark.Size = UDim2.fromOffset(math.clamp(ContentWidth + 18, 210, 560), 36)
         SyncWatermarkGlow()
     end
 
@@ -4541,29 +4570,93 @@ local function BuildRuntime()
             end)
             PingText.Text = tostring(Ping) .. " MS"
             ClockText.Text = os.date("%H:%M")
+
+            local Region = ReadServerRegionValue()
+            local RegionVisible = Region ~= nil
+            if RegionText.Text ~= (Region or "") or RegionGroup.Visible ~= RegionVisible then
+                RegionText.Text = Region or ""
+                RegionGroup.Visible = RegionVisible
+                RegionDivider.Visible = RegionVisible
+                task.defer(UpdateWatermarkWidth)
+            end
+
             WatermarkSecondElapsed = 0
         end
     end))
 
-    task.spawn(function()
-        local Region = "SERVER"
-        if LocalPlayer then
-            local Success, CountryCode = pcall(function()
-                return LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
-            end)
-            if Success and type(CountryCode) == "string" and CountryCode ~= "" then
-                Region = string.upper(CountryCode)
-            end
+    local function NormalizeServerRegion(Value)
+        if Value == nil then
+            return nil
+        end
 
-            local ThumbnailSuccess, Thumbnail = pcall(function()
-                return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
-            end)
-            if ThumbnailSuccess and Avatar.Parent then
-                Avatar.Image = Thumbnail
+        local Text = string.upper(tostring(Value))
+        Text = Text:gsub("^%s+", ""):gsub("%s+$", "")
+        if Text == "" or Text == "SERVER" or Text == "UNKNOWN" or Text == "N/A" then
+            return nil
+        end
+
+        local Country = Text:match("^([A-Z][A-Z])$")
+            or Text:match("^([A-Z][A-Z])[%-%_]")
+            or Text:match("[%-%_ ]([A-Z][A-Z])$")
+        if Country then
+            return Country
+        end
+
+        if #Text <= 12 then
+            return Text
+        end
+
+        return nil
+    end
+
+    local function ReadServerRegionValue()
+        local Environment = type(getgenv) == "function" and getgenv() or _G
+        local Direct = Environment and (
+            Environment.AtramentaServerRegion
+            or Environment.ServerRegion
+            or Environment.ServerLocation
+        )
+        local Region = NormalizeServerRegion(Direct)
+        if Region then
+            return Region
+        end
+
+        local AttributeNames = {"ServerRegion", "Region", "ServerLocation", "Location"}
+        local AttributeSources = {game, workspace, game:GetService("ReplicatedStorage")}
+        for _, Source in ipairs(AttributeSources) do
+            for _, Name in ipairs(AttributeNames) do
+                local Success, Value = pcall(Source.GetAttribute, Source, Name)
+                if Success then
+                    Region = NormalizeServerRegion(Value)
+                    if Region then
+                        return Region
+                    end
+                end
             end
         end
+
+        local ValueNames = {"ServerRegion", "Region", "ServerLocation"}
+        for _, Source in ipairs(AttributeSources) do
+            for _, Name in ipairs(ValueNames) do
+                local Object = Source:FindFirstChild(Name, true)
+                if Object and Object:IsA("StringValue") then
+                    Region = NormalizeServerRegion(Object.Value)
+                    if Region then
+                        return Region
+                    end
+                end
+            end
+        end
+
+        return nil
+    end
+
+    task.spawn(function()
+        local Region = ReadServerRegionValue()
         if RegionText.Parent then
-            RegionText.Text = Region
+            RegionText.Text = Region or ""
+            RegionGroup.Visible = Region ~= nil
+            RegionDivider.Visible = Region ~= nil
         end
         UpdateWatermarkWidth()
     end)
