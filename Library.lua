@@ -6510,7 +6510,12 @@ local function BuildRuntime()
             BasePivot = nil,
             Dragging = false,
             DragStart = nil,
-            StartPosition = nil
+            StartPosition = nil,
+            ElementDragging = nil,
+            ElementDragStart = nil,
+            ElementStartOffset = nil,
+            ElementBases = {},
+            DraggableElements = {}
         }
 
         S.Window = Create("Frame", {
@@ -6568,6 +6573,24 @@ local function BuildRuntime()
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 22
         })
+
+        S.ResetLayoutButton = Create("TextButton", {
+            Parent = S.Header,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -136, 0.5, 0),
+            Size = UDim2.fromOffset(48, 24),
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.18,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Reset",
+            TextColor3 = MutedText,
+            TextSize = 10,
+            ZIndex = 23
+        })
+        Corner(S.ResetLayoutButton, 5)
+        Stroke(S.ResetLayoutButton, Border, 0.18, 1)
 
         S.ModeRail = Create("Frame", {
             Parent = S.Header,
@@ -6737,6 +6760,7 @@ local function BuildRuntime()
             BackgroundColor3 = Color3.fromRGB(14, 24, 31),
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
+            Active = true,
             ZIndex = 26
         })
         Corner(S.HealthBack, 100)
@@ -6762,6 +6786,7 @@ local function BuildRuntime()
             TextColor3 = PrimaryText,
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Right,
+            Active = true,
             ZIndex = 28
         })
 
@@ -6776,20 +6801,37 @@ local function BuildRuntime()
             TextColor3 = PrimaryText,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Center,
+            Active = true,
             ZIndex = 27
         })
 
-        S.Info = Create("TextLabel", {
+        S.Weapon = Create("TextLabel", {
             Parent = S.Overlay,
             AnchorPoint = Vector2.new(0.5, 1),
-            Position = UDim2.fromScale(0.5, 0.978),
-            Size = UDim2.new(1, -24, 0, 20),
+            Position = UDim2.fromScale(0.5, 0.94),
+            Size = UDim2.new(1, -24, 0, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
-            Text = "NONE  •  0m",
+            Text = "NONE",
             TextColor3 = MutedText,
             TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Center,
+            Active = true,
+            ZIndex = 27
+        })
+
+        S.Distance = Create("TextLabel", {
+            Parent = S.Overlay,
+            AnchorPoint = Vector2.new(0.5, 1),
+            Position = UDim2.fromScale(0.5, 0.978),
+            Size = UDim2.new(1, -24, 0, 18),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "0m",
+            TextColor3 = MutedText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Active = true,
             ZIndex = 27
         })
 
@@ -6807,6 +6849,128 @@ local function BuildRuntime()
             Visible = false,
             ZIndex = 29
         })
+
+        local PreviewElementFlags = {
+            HealthBar = "Player ESP Health Bar Offset",
+            HealthValue = "Player ESP Health Value Offset",
+            Name = "Player ESP Name Offset",
+            Weapon = "Player ESP Weapon Offset",
+            Distance = "Player ESP Distance Offset"
+        }
+
+        local function GetPreviewOffset(Key)
+            local Value = Menu.Flags[PreviewElementFlags[Key]]
+            if typeof(Value) == "Vector2" then
+                return Value
+            end
+            return Vector2.zero
+        end
+
+        local function SetPreviewOffset(Key, Value)
+            if typeof(Value) ~= "Vector2" then
+                Value = Vector2.zero
+            end
+            Value = Vector2.new(
+                math.floor(Value.X + (Value.X >= 0 and 0.5 or -0.5)),
+                math.floor(Value.Y + (Value.Y >= 0 and 0.5 or -0.5))
+            )
+            Menu.Flags[PreviewElementFlags[Key]] = Value
+        end
+
+        local function AddOffset(Base, Offset)
+            return Vector2.new(Base.X + Offset.X, Base.Y + Offset.Y)
+        end
+
+        local function ApplyPreviewElementLayout()
+            local Bases = S.ElementBases
+            if typeof(Bases.HealthBar) == "Vector2" then
+                local Position = AddOffset(Bases.HealthBar, GetPreviewOffset("HealthBar"))
+                S.HealthBack.Position = UDim2.fromOffset(Position.X, Position.Y)
+            end
+            if typeof(Bases.HealthValue) == "Vector2" then
+                local Position = AddOffset(Bases.HealthValue, GetPreviewOffset("HealthValue"))
+                S.HealthText.Position = UDim2.fromOffset(Position.X, Position.Y)
+            end
+            if typeof(Bases.Name) == "Vector2" then
+                local Position = AddOffset(Bases.Name, GetPreviewOffset("Name"))
+                S.Name.Position = UDim2.fromOffset(Position.X, Position.Y)
+            end
+            if typeof(Bases.Weapon) == "Vector2" then
+                local Position = AddOffset(Bases.Weapon, GetPreviewOffset("Weapon"))
+                S.Weapon.Position = UDim2.fromOffset(Position.X, Position.Y)
+            end
+            if typeof(Bases.Distance) == "Vector2" then
+                local Position = AddOffset(Bases.Distance, GetPreviewOffset("Distance"))
+                S.Distance.Position = UDim2.fromOffset(Position.X, Position.Y)
+            end
+        end
+
+        local function ResetPreviewElement(Key)
+            if PreviewElementFlags[Key] then
+                SetPreviewOffset(Key, Vector2.zero)
+                ApplyPreviewElementLayout()
+            end
+        end
+
+        local function ResetPreviewLayout()
+            for Key in pairs(PreviewElementFlags) do
+                SetPreviewOffset(Key, Vector2.zero)
+            end
+            ApplyPreviewElementLayout()
+        end
+
+        local function IsPointInsideGui(Position, Object)
+            if not Object or not Object.Parent or not Object.Visible then
+                return false
+            end
+            local AbsolutePosition = Object.AbsolutePosition
+            local AbsoluteSize = Object.AbsoluteSize
+            return Position.X >= AbsolutePosition.X
+                and Position.X <= AbsolutePosition.X + AbsoluteSize.X
+                and Position.Y >= AbsolutePosition.Y
+                and Position.Y <= AbsolutePosition.Y + AbsoluteSize.Y
+        end
+
+        local function IsPointOverPreviewElement(Position)
+            for _, Object in pairs(S.DraggableElements) do
+                if IsPointInsideGui(Position, Object) then
+                    return true
+                end
+            end
+            return false
+        end
+
+        local function RegisterPreviewDraggable(Key, Object)
+            S.DraggableElements[Key] = Object
+            Object.Active = true
+
+            Bind(Object.InputBegan:Connect(function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    if not S.BoundsValid then
+                        return
+                    end
+                    S.ElementDragging = Key
+                    S.ElementDragStart = Input.Position
+                    S.ElementStartOffset = GetPreviewOffset(Key)
+                elseif Input.UserInputType == Enum.UserInputType.MouseButton2 then
+                    ResetPreviewElement(Key)
+                end
+            end))
+
+            Bind(Object.MouseEnter:Connect(function()
+                if Object:IsA("TextLabel") then
+                    Object.TextTransparency = 0
+                end
+            end))
+        end
+
+        RegisterPreviewDraggable("HealthBar", S.HealthBack)
+        RegisterPreviewDraggable("HealthValue", S.HealthText)
+        RegisterPreviewDraggable("Name", S.Name)
+        RegisterPreviewDraggable("Weapon", S.Weapon)
+        RegisterPreviewDraggable("Distance", S.Distance)
+
+        Bind(S.ResetLayoutButton.MouseButton1Click:Connect(ResetPreviewLayout))
 
         local function SaveWindowPosition()
             SavedPositions.EspPreviewPosition = EncodePosition(S.Window.Position)
@@ -7422,13 +7586,33 @@ local function BuildRuntime()
             local CenterX = MinX + Width * 0.5
             S.Box.Position = UDim2.fromOffset(math.floor(MinX + 0.5), math.floor(MinY + 0.5))
             S.Box.Size = UDim2.fromOffset(math.floor(Width + 0.5), math.floor(Height + 0.5))
-            S.HealthBack.Position = UDim2.fromOffset(math.floor(MinX - SideGap), math.floor(MinY + 0.5))
             S.HealthBack.Size = UDim2.fromOffset(4, math.floor(Height + 0.5))
-            S.HealthText.Position = UDim2.fromOffset(math.floor(MinX - SideGap - 42), math.floor(MinY + Height * 0.46))
-            S.Name.Position = UDim2.fromOffset(math.floor(CenterX), math.floor(MinY - NameGap))
             S.Name.Size = UDim2.fromOffset(math.max(90, math.floor(Width + 60)), 20)
-            S.Info.Position = UDim2.fromOffset(math.floor(CenterX), math.floor(MaxY + InfoGap))
-            S.Info.Size = UDim2.fromOffset(math.max(110, math.floor(Width + 80)), 20)
+            S.Weapon.Size = UDim2.fromOffset(math.max(100, math.floor(Width + 70)), 18)
+            S.Distance.Size = UDim2.fromOffset(math.max(70, math.floor(Width + 40)), 18)
+
+            S.ElementBases.HealthBar = Vector2.new(
+                math.floor(MinX - SideGap),
+                math.floor(MinY + 0.5)
+            )
+            S.ElementBases.HealthValue = Vector2.new(
+                math.floor(MinX - SideGap - 42),
+                math.floor(MinY + Height * 0.46)
+            )
+            S.ElementBases.Name = Vector2.new(
+                math.floor(CenterX),
+                math.floor(MinY - NameGap)
+            )
+            S.ElementBases.Weapon = Vector2.new(
+                math.floor(CenterX),
+                math.floor(MaxY + InfoGap - 7)
+            )
+            S.ElementBases.Distance = Vector2.new(
+                math.floor(CenterX),
+                math.floor(MaxY + InfoGap + 11)
+            )
+
+            ApplyPreviewElementLayout()
             S.BoundsValid = true
         end
 
@@ -7478,18 +7662,16 @@ local function BuildRuntime()
             S.Name.Text = string.upper(LocalPlayer and LocalPlayer.Name or "PLAYER")
             S.Name.TextColor3 = TextColor
             S.Name.TextSize = TextSize
-            local InfoParts = {}
             local Tool = Character and Character:FindFirstChildOfClass("Tool")
-            if DisplayEnabled and GetFlag("Player ESP Weapon", true) then
-                InfoParts[#InfoParts + 1] = Tool and string.upper(Tool.Name) or "NONE"
-            end
-            if DisplayEnabled and GetFlag("Player ESP Distance", true) then
-                InfoParts[#InfoParts + 1] = "0m"
-            end
-            S.Info.Visible = #InfoParts > 0
-            S.Info.Text = table.concat(InfoParts, "  •  ")
-            S.Info.TextColor3 = TextColor
-            S.Info.TextSize = math.max(9, TextSize - 1)
+            S.Weapon.Visible = DisplayEnabled and GetFlag("Player ESP Weapon", true)
+            S.Weapon.Text = Tool and string.upper(Tool.Name) or "NONE"
+            S.Weapon.TextColor3 = TextColor
+            S.Weapon.TextSize = math.max(9, TextSize - 1)
+
+            S.Distance.Visible = DisplayEnabled and GetFlag("Player ESP Distance", true)
+            S.Distance.Text = "0m"
+            S.Distance.TextColor3 = TextColor
+            S.Distance.TextSize = math.max(9, TextSize - 2)
             S.Silhouette.Visible = not S.Model and not S.Status.Visible
             S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(165, 181, 190) or Color3.fromRGB(139, 157, 168)
             S.Viewport.LightDirection = S.Mode == "2D" and Vector3.new(-0.8, -0.4, -1) or Vector3.new(-1, -0.75, -1)
@@ -7549,6 +7731,23 @@ local function BuildRuntime()
             RefreshMode()
         end
 
+        Menu.EspPreviewController.ResetLayout = function()
+            ResetPreviewLayout()
+        end
+
+        Bind(S.ResetLayoutButton.MouseEnter:Connect(function()
+            Tween(S.ResetLayoutButton, 0.12, {
+                BackgroundTransparency = 0.08,
+                TextColor3 = PrimaryText
+            })
+        end))
+        Bind(S.ResetLayoutButton.MouseLeave:Connect(function()
+            Tween(S.ResetLayoutButton, 0.12, {
+                BackgroundTransparency = 0.18,
+                TextColor3 = MutedText
+            })
+        end))
+
         Bind(S.TwoDButton.MouseButton1Click:Connect(function()
             Menu.EspPreviewController.SetMode("2D")
         end))
@@ -7562,6 +7761,9 @@ local function BuildRuntime()
                 return
             end
             local Position = Input.Position
+            if S.ElementDragging or IsPointOverPreviewElement(Position) then
+                return
+            end
             local BodyPosition = S.Body.AbsolutePosition
             local BodySize = S.Body.AbsoluteSize
             if Position.X < BodyPosition.X or Position.X > BodyPosition.X + BodySize.X
@@ -7585,7 +7787,27 @@ local function BuildRuntime()
         end))
 
         Bind(UserInputService.InputChanged:Connect(function(Input)
-            if S.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
+            if S.ElementDragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
+                local Delta = Input.Position - S.ElementDragStart
+                local ScaleValue = math.max(0.01, tonumber(S.Scale.Scale) or 1)
+                Delta = Delta / ScaleValue
+
+                local StartOffset = S.ElementStartOffset or Vector2.zero
+                local NewOffset = Vector2.new(
+                    math.clamp(StartOffset.X + Delta.X, -260, 260),
+                    math.clamp(StartOffset.Y + Delta.Y, -340, 340)
+                )
+
+                if math.abs(NewOffset.X) <= 3 then
+                    NewOffset = Vector2.new(0, NewOffset.Y)
+                end
+                if math.abs(NewOffset.Y) <= 3 then
+                    NewOffset = Vector2.new(NewOffset.X, 0)
+                end
+
+                SetPreviewOffset(S.ElementDragging, NewOffset)
+                ApplyPreviewElementLayout()
+            elseif S.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
                 local Delta = Input.Position - S.DragStart
                 S.Window.Position = ClampWindow(UDim2.new(
                     S.StartPosition.X.Scale,
@@ -7601,6 +7823,11 @@ local function BuildRuntime()
         end))
 
         Bind(UserInputService.InputEnded:Connect(function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 and S.ElementDragging then
+                S.ElementDragging = nil
+                S.ElementDragStart = nil
+                S.ElementStartOffset = nil
+            end
             if Input.UserInputType == Enum.UserInputType.MouseButton1 and S.Dragging then
                 S.Dragging = false
                 SaveWindowPosition()
