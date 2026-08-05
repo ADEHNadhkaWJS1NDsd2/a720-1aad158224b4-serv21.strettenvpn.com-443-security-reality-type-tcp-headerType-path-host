@@ -3048,7 +3048,7 @@ local function BuildRuntime()
         local ValueLabel = Create("TextLabel", {
             Parent = Button,
             Position = UDim2.fromOffset(9, 0),
-            Size = UDim2.new(1, -29, 1, 0),
+            Size = UDim2.new(1, -30, 1, 0),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = tostring(Default),
@@ -3059,15 +3059,53 @@ local function BuildRuntime()
             TextTruncate = Enum.TextTruncate.AtEnd
         })
 
-        local Arrow = Icon(
-            Button,
-            "Chevron",
-            UDim2.fromOffset(8, 8),
-            UDim2.new(1, -11, 0.5, 0),
-            MutedText,
-            10
-        )
-        Arrow.Rotation = 0
+
+        local SelectorMark = Create("Frame", {
+            Parent = Button,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -9, 0.5, 0),
+            Size = UDim2.fromOffset(9, 10),
+            BackgroundTransparency = 1,
+            ZIndex = 11
+        })
+
+        local SelectorTop = Create("Frame", {
+            Parent = SelectorMark,
+            Position = UDim2.fromOffset(1, 2),
+            Size = UDim2.fromOffset(7, 1),
+            BackgroundColor3 = MutedText,
+            BackgroundTransparency = 0.24,
+            BorderSizePixel = 0,
+            ZIndex = 12
+        })
+        Corner(SelectorTop, 1)
+
+        local SelectorBottom = Create("Frame", {
+            Parent = SelectorMark,
+            Position = UDim2.fromOffset(4, 7),
+            Size = UDim2.fromOffset(4, 1),
+            BackgroundColor3 = MutedText,
+            BackgroundTransparency = 0.24,
+            BorderSizePixel = 0,
+            ZIndex = 12
+        })
+        Corner(SelectorBottom, 1)
+
+        local function SetSelectorOpened(State)
+            Tween(SelectorTop, 0.10, {
+                Size = State and UDim2.fromOffset(4, 1) or UDim2.fromOffset(7, 1),
+                Position = State and UDim2.fromOffset(4, 2) or UDim2.fromOffset(1, 2),
+                BackgroundColor3 = State and Accent or MutedText,
+                BackgroundTransparency = State and 0.02 or 0.24
+            })
+
+            Tween(SelectorBottom, 0.10, {
+                Size = State and UDim2.fromOffset(7, 1) or UDim2.fromOffset(4, 1),
+                Position = State and UDim2.fromOffset(1, 7) or UDim2.fromOffset(4, 7),
+                BackgroundColor3 = State and Accent or MutedText,
+                BackgroundTransparency = State and 0.02 or 0.24
+            })
+        end
 
         local function Set(Value)
             Current = Value
@@ -3165,10 +3203,7 @@ local function BuildRuntime()
             })
 
             IsOpened = true
-            Tween(Arrow, 0.10, {
-                Rotation = 180,
-                ImageColor3 = PrimaryText
-            })
+            SetSelectorOpened(true)
             Tween(ButtonStroke, 0.10, {
                 Color = Accent
             })
@@ -3178,10 +3213,7 @@ local function BuildRuntime()
 
             ActivePopupCleanup = function()
                 IsOpened = false
-                Tween(Arrow, 0.10, {
-                    Rotation = 0,
-                    ImageColor3 = MutedText
-                })
+                SetSelectorOpened(false)
                 Tween(ButtonStroke, 0.10, {
                     Color = Border
                 })
@@ -3375,22 +3407,10 @@ local function BuildRuntime()
         Corner(Button, 6)
         local ButtonStroke = Stroke(Button, Border, 0.08, 1)
 
-        local Divider = Create("Frame", {
-            Parent = Button,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -22, 0.5, 0),
-            Size = UDim2.fromOffset(1, 12),
-            BackgroundColor3 = Border,
-            BackgroundTransparency = 0.45,
-            BorderSizePixel = 0,
-            ZIndex = 10
-        })
-        Corner(Divider, 100)
-
         local ValueLabel = Create("TextLabel", {
             Parent = Button,
             Position = UDim2.fromOffset(9, 0),
-            Size = UDim2.new(1, -34, 1, 0),
+            Size = UDim2.new(1, -30, 1, 0),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = Placeholder,
@@ -3401,9 +3421,53 @@ local function BuildRuntime()
             ZIndex = 10
         })
 
-        local Arrow = Icon(Button, "Chevron", UDim2.fromOffset(8, 8), UDim2.new(1, -11, 0.5, 0), MutedText, 10)
-        Arrow.Rotation = 0
 
+        local MultiSelectorMark = Create("Frame", {
+            Parent = Button,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -9, 0.5, 0),
+            Size = UDim2.fromOffset(9, 10),
+            BackgroundTransparency = 1,
+            ZIndex = 11
+        })
+
+        local MultiSelectorTop = Create("Frame", {
+            Parent = MultiSelectorMark,
+            Position = UDim2.fromOffset(1, 2),
+            Size = UDim2.fromOffset(7, 1),
+            BackgroundColor3 = MutedText,
+            BackgroundTransparency = 0.24,
+            BorderSizePixel = 0,
+            ZIndex = 12
+        })
+        Corner(MultiSelectorTop, 1)
+
+        local MultiSelectorBottom = Create("Frame", {
+            Parent = MultiSelectorMark,
+            Position = UDim2.fromOffset(4, 7),
+            Size = UDim2.fromOffset(4, 1),
+            BackgroundColor3 = MutedText,
+            BackgroundTransparency = 0.24,
+            BorderSizePixel = 0,
+            ZIndex = 12
+        })
+        Corner(MultiSelectorBottom, 1)
+
+        local function SetMultiSelectorOpened(State)
+            Tween(MultiSelectorTop, 0.10, {
+                Size = State and UDim2.fromOffset(4, 1) or UDim2.fromOffset(7, 1),
+                Position = State and UDim2.fromOffset(4, 2) or UDim2.fromOffset(1, 2),
+                BackgroundColor3 = State and Accent or MutedText,
+                BackgroundTransparency = State and 0.02 or 0.24
+            })
+
+            Tween(MultiSelectorBottom, 0.10, {
+                Size = State and UDim2.fromOffset(7, 1) or UDim2.fromOffset(4, 1),
+                Position = State and UDim2.fromOffset(1, 7) or UDim2.fromOffset(4, 7),
+                BackgroundColor3 = State and Accent or MutedText,
+                BackgroundTransparency = State and 0.02 or 0.24
+            })
+        end
         local function RefreshLabel()
             local Chosen = CopySelection()
             if #Chosen == 0 then
@@ -3474,15 +3538,11 @@ local function BuildRuntime()
         Bind(Button.MouseEnter:Connect(function()
             Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
             Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(40, 64, 78)})
-            Tween(Divider, 0.12, {BackgroundTransparency = IsOpened and 0.15 or 0.25})
-            Tween(Arrow, 0.12, {ImageColor3 = PrimaryText})
         end))
         Bind(Button.MouseLeave:Connect(function()
             if not IsOpened then
                 Tween(Button, 0.12, {BackgroundColor3 = SurfaceAlt})
                 Tween(ButtonStroke, 0.12, {Color = Border})
-                Tween(Divider, 0.12, {BackgroundTransparency = 0.45})
-                Tween(Arrow, 0.12, {ImageColor3 = MutedText})
             end
         end))
 
@@ -3536,18 +3596,16 @@ local function BuildRuntime()
             })
 
             IsOpened = true
-            Tween(Arrow, 0.12, {Rotation = 180, ImageColor3 = PrimaryText})
+            SetMultiSelectorOpened(true)
             Tween(ButtonStroke, 0.12, {Color = Accent})
-            Tween(Divider, 0.12, {BackgroundTransparency = 0.15})
             Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
 
             OptionStates = {}
             ActivePopupCleanup = function()
                 IsOpened = false
+                SetMultiSelectorOpened(false)
                 OptionStates = {}
-                Tween(Arrow, 0.12, {Rotation = 0, ImageColor3 = MutedText})
                 Tween(ButtonStroke, 0.12, {Color = Border})
-                Tween(Divider, 0.12, {BackgroundTransparency = 0.45})
                 Tween(Button, 0.12, {BackgroundColor3 = SurfaceAlt})
             end
 
@@ -6907,6 +6965,34 @@ local function BuildRuntime()
         task.defer(RefreshQuickPanelButtons)
     end)
 
+    local function HideQuickPanelWindows()
+        if Main.Visible then
+            Menu.InternalSetVisible(false)
+        end
+
+        local EspController =
+            Menu.EspPreviewController
+
+        if EspController
+            and type(EspController.SetVisibility) == "function"
+        then
+            EspController.SetVisibility(false)
+        elseif EspController
+            and type(EspController.SetHidden) == "function"
+        then
+            EspController.SetHidden(true)
+        end
+
+        local PlayerController =
+            Menu.PlayerListController
+
+        if PlayerController
+            and type(PlayerController.SetVisibility) == "function"
+        then
+            PlayerController:SetVisibility(false)
+        end
+    end
+
     local function SetQuickPanelVisible(State)
         QuickPanelVisible = State == true
         QuickPanel.Visible = QuickPanelVisible
@@ -6917,6 +7003,9 @@ local function BuildRuntime()
 
         if QuickPanelVisible then
             RefreshQuickPanelButtons()
+        else
+            HideQuickPanelWindows()
+            task.defer(RefreshQuickPanelButtons)
         end
     end
 
@@ -10662,17 +10751,56 @@ local function BuildRuntime()
         Create("UIPadding", {
             Parent = StatusButton,
             PaddingLeft = UDim.new(0, 10),
-            PaddingRight = UDim.new(0, 28)
+            PaddingRight = UDim.new(0, 30)
         })
 
-        local StatusChevron = Icon(
-            StatusButton,
-            "Chevron",
-            UDim2.fromOffset(10, 10),
-            UDim2.new(1, -14, 0.5, 0),
-            MutedText,
-            152
-        )
+
+        local StatusSelectorMark = Create("Frame", {
+            Parent = StatusButton,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -9, 0.5, 0),
+            Size = UDim2.fromOffset(9, 10),
+            BackgroundTransparency = 1,
+            ZIndex = 153
+        })
+
+        local StatusSelectorTop = Create("Frame", {
+            Parent = StatusSelectorMark,
+            Position = UDim2.fromOffset(1, 2),
+            Size = UDim2.fromOffset(7, 1),
+            BackgroundColor3 = MutedText,
+            BackgroundTransparency = 0.24,
+            BorderSizePixel = 0,
+            ZIndex = 154
+        })
+        Corner(StatusSelectorTop, 1)
+
+        local StatusSelectorBottom = Create("Frame", {
+            Parent = StatusSelectorMark,
+            Position = UDim2.fromOffset(4, 7),
+            Size = UDim2.fromOffset(4, 1),
+            BackgroundColor3 = MutedText,
+            BackgroundTransparency = 0.24,
+            BorderSizePixel = 0,
+            ZIndex = 154
+        })
+        Corner(StatusSelectorBottom, 1)
+
+        local function SetStatusSelectorOpened(State)
+            Tween(StatusSelectorTop, 0.10, {
+                Size = State and UDim2.fromOffset(4, 1) or UDim2.fromOffset(7, 1),
+                Position = State and UDim2.fromOffset(4, 2) or UDim2.fromOffset(1, 2),
+                BackgroundColor3 = State and Accent or MutedText,
+                BackgroundTransparency = State and 0.02 or 0.24
+            })
+
+            Tween(StatusSelectorBottom, 0.10, {
+                Size = State and UDim2.fromOffset(7, 1) or UDim2.fromOffset(4, 1),
+                Position = State and UDim2.fromOffset(1, 7) or UDim2.fromOffset(4, 7),
+                BackgroundColor3 = State and Accent or MutedText,
+                BackgroundTransparency = State and 0.02 or 0.24
+            })
+        end
 
         local StatusDropdown = Create("Frame", {
             Parent = Profile,
@@ -10778,7 +10906,7 @@ local function BuildRuntime()
         local function CloseStatusDropdown()
             State.DropdownOpen = false
             StatusDropdown.Visible = false
-            StatusChevron.Rotation = 0
+            SetStatusSelectorOpened(false)
             ActionHolder.Position = UDim2.fromOffset(0, 215)
         end
 
@@ -10906,6 +11034,44 @@ local function BuildRuntime()
         end
 
         local ThumbnailCache = {}
+        local LocalThumbnail = nil
+
+        if LocalPlayer then
+            local UserId =
+                tonumber(LocalPlayer.UserId)
+                or 0
+
+            local Direct =
+                "rbxthumb://type=AvatarHeadShot&id="
+                .. tostring(UserId)
+                .. "&w=150&h=150"
+
+            ThumbnailCache[UserId] = Direct
+
+            task.spawn(function()
+                local Success, Content =
+                    pcall(
+                        Players.GetUserThumbnailAsync,
+                        Players,
+                        UserId,
+                        Enum.ThumbnailType.HeadShot,
+                        Enum.ThumbnailSize.Size150x150
+                    )
+
+                if Success
+                    and type(Content) == "string"
+                    and Content ~= ""
+                then
+                    LocalThumbnail = Content
+                    ThumbnailCache[UserId] = Content
+
+                    if State.Selected == LocalPlayer then
+                        Avatar.Image = Content
+                        AvatarLoading.Visible = false
+                    end
+                end
+            end)
+        end
 
         local function LoadAvatar(Player)
             State.ThumbnailSerial += 1
@@ -10924,6 +11090,27 @@ local function BuildRuntime()
 
             local Cached =
                 ThumbnailCache[UserId]
+
+            if Player == LocalPlayer then
+                local SettingsAvatar =
+                    Menu.SettingsUI
+                    and Menu.SettingsUI.ProfileAvatar
+
+                local SettingsImage =
+                    SettingsAvatar
+                    and SettingsAvatar.Image
+
+                if type(SettingsImage) == "string"
+                    and SettingsImage ~= ""
+                then
+                    Cached = SettingsImage
+                    ThumbnailCache[UserId] = SettingsImage
+                elseif type(LocalThumbnail) == "string"
+                    and LocalThumbnail ~= ""
+                then
+                    Cached = LocalThumbnail
+                end
+            end
 
             if type(Cached) == "string"
                 and Cached ~= ""
@@ -11007,8 +11194,6 @@ local function BuildRuntime()
                 Player ~= LocalPlayer
 
             StatusButton.AutoButtonColor = false
-            StatusChevron.Visible =
-                Player ~= LocalPlayer
 
             if LoadImage ~= false then
                 LoadAvatar(Player)
@@ -11196,10 +11381,9 @@ local function BuildRuntime()
             StatusDropdown.Visible =
                 State.DropdownOpen
 
-            StatusChevron.Rotation =
+            SetStatusSelectorOpened(
                 State.DropdownOpen
-                and 180
-                or 0
+            )
 
             ActionHolder.Position =
                 State.DropdownOpen
