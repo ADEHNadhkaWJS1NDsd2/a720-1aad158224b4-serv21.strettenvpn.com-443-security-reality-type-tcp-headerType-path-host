@@ -1840,15 +1840,28 @@ local function BuildRuntime()
 
     local function ClosePopup()
         if ActivePopupCleanup then
-            pcall(ActivePopupCleanup)
-            ActivePopupCleanup = nil
+            pcall(
+                ActivePopupCleanup
+            )
+
+            ActivePopupCleanup =
+                nil
         end
+
         if ActivePopup then
             ActivePopup:Destroy()
             ActivePopup = nil
         end
+
+        if Menu.RefreshDropdownIndicators then
+            Menu.RefreshDropdownIndicators(
+                true
+            )
+        end
+
         if not ActiveGearMenu then
-            Menu.PopupInputBlocker.Visible = false
+            Menu.PopupInputBlocker.Visible =
+                false
         end
     end
 
@@ -3627,17 +3640,74 @@ local function BuildRuntime()
     end
     end
 
+    Menu.DropdownIndicators =
+        setmetatable(
+            {},
+            { __mode = "k" }
+        )
+
+    function Menu.RefreshDropdownIndicators(CloseAll)
+        local Dead = {}
+
+        for Indicator in pairs(
+            Menu.DropdownIndicators
+        ) do
+            if not Indicator
+                or not Indicator.Root
+                or not Indicator.Root.Parent
+            then
+                Dead[#Dead + 1] =
+                    Indicator
+            else
+                if CloseAll == true then
+                    Indicator.Opened =
+                        false
+                end
+
+                Indicator:SetAccentColor(
+                    Accent
+                )
+
+                Indicator:Refresh(
+                    false
+                )
+            end
+        end
+
+        for _, Indicator in ipairs(
+            Dead
+        ) do
+            Menu.DropdownIndicators[
+                Indicator
+            ] = nil
+        end
+    end
+
     Menu.CreateDropdownExpandIndicator = function(Button, ZIndex)
+        for _, Child in ipairs(
+            Button:GetChildren()
+        ) do
+            if Child.Name
+                    == "AtramentaDropdownIndicator"
+                and Child:IsA("Frame")
+            then
+                Child:Destroy()
+            end
+        end
+
         local Root = Create("Frame", {
+            Name = "AtramentaDropdownIndicator",
             Parent = Button,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, -8, 0.5, 0),
             Size = UDim2.fromOffset(12, 12),
             BackgroundTransparency = 1,
+            BorderSizePixel = 0,
             ZIndex = ZIndex or 11
         })
 
         local Horizontal = Create("Frame", {
+            Name = "Horizontal",
             Parent = Root,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.fromScale(0.5, 0.5),
@@ -3650,6 +3720,7 @@ local function BuildRuntime()
         Corner(Horizontal, 1)
 
         local Vertical = Create("Frame", {
+            Name = "Vertical",
             Parent = Root,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.fromScale(0.5, 0.5),
@@ -3662,46 +3733,64 @@ local function BuildRuntime()
         Corner(Vertical, 1)
 
         local Indicator = {
+            Root = Root,
+            Horizontal = Horizontal,
+            Vertical = Vertical,
             Opened = false,
             AccentColor = Accent
         }
 
-        local function RefreshColor(AnimateTransparency)
+        function Indicator:Refresh(AnimateTransparency)
+            if not self.Root
+                or not self.Root.Parent
+            then
+                return
+            end
+
             local CurrentAccent =
-                Indicator.AccentColor
+                typeof(self.AccentColor)
+                    == "Color3"
+                and self.AccentColor
                 or Accent
 
-            Vertical.Visible =
-                not Indicator.Opened
-
-            -- Never tween colors here. An old color tween could finish
-            -- after an Accent change and restore the previous theme color.
-            Horizontal.BackgroundColor3 =
-                Indicator.Opened
+            self.Horizontal.BackgroundColor3 =
+                self.Opened
                 and CurrentAccent
                 or MutedText
 
-            Vertical.BackgroundColor3 =
+            self.Vertical.BackgroundColor3 =
                 CurrentAccent
 
-            if AnimateTransparency then
-                Tween(Horizontal, 0.10, {
-                    BackgroundTransparency =
-                        Indicator.Opened
-                        and 0
-                        or 0.12
-                })
+            self.Vertical.Visible =
+                not self.Opened
 
-                Tween(Vertical, 0.10, {
-                    BackgroundTransparency = 0
-                })
+            if AnimateTransparency == true then
+                Tween(
+                    self.Horizontal,
+                    0.10,
+                    {
+                        BackgroundTransparency =
+                            self.Opened
+                            and 0
+                            or 0.12
+                    }
+                )
+
+                Tween(
+                    self.Vertical,
+                    0.10,
+                    {
+                        BackgroundTransparency = 0
+                    }
+                )
             else
-                Horizontal.BackgroundTransparency =
-                    Indicator.Opened
+                self.Horizontal.BackgroundTransparency =
+                    self.Opened
                     and 0
                     or 0.12
 
-                Vertical.BackgroundTransparency = 0
+                self.Vertical.BackgroundTransparency =
+                    0
             end
         end
 
@@ -3709,45 +3798,52 @@ local function BuildRuntime()
             self.Opened =
                 State == true
 
-            RefreshColor(true)
+            self:Refresh(
+                true
+            )
         end
 
         function Indicator:SetAccentColor(NewColor)
-            if typeof(NewColor) ~= "Color3" then
+            if typeof(NewColor)
+                ~= "Color3"
+            then
                 return
             end
 
             self.AccentColor =
                 NewColor
 
-            RefreshColor(false)
+            self:Refresh(
+                false
+            )
         end
+
+        Menu.DropdownIndicators[
+            Indicator
+        ] = true
 
         RegisterAccentTarget(function(NewColor)
             if not Root
                 or not Root.Parent
             then
+                Menu.DropdownIndicators[
+                    Indicator
+                ] = nil
+
                 return
             end
 
             Indicator:SetAccentColor(
                 NewColor
             )
-
-            Horizontal.BackgroundColor3 =
-                Indicator.Opened
-                and NewColor
-                or MutedText
-
-            Vertical.BackgroundColor3 =
-                NewColor
         end)
 
         Indicator:SetAccentColor(
             Accent
         )
 
-        Indicator:SetOpened(false)
+        Indicator.Opened = false
+        Indicator:Refresh(false)
 
         return Indicator
     end
@@ -4511,6 +4607,12 @@ local function BuildRuntime()
             and Menu.PlayerListController.Refresh
         then
             Menu.PlayerListController:Refresh()
+        end
+
+        if Menu.RefreshDropdownIndicators then
+            Menu.RefreshDropdownIndicators(
+                false
+            )
         end
     end
 
@@ -13750,6 +13852,14 @@ local function BuildRuntime()
     function Library:LoadConfig(Source)
         local Success, Decoded = pcall(HttpService.JSONDecode, HttpService, tostring(Source or "{}"))
         if not Success or type(Decoded) ~= "table" then return false end
+
+        ClosePopup()
+
+        if Menu.RefreshDropdownIndicators then
+            Menu.RefreshDropdownIndicators(
+                true
+            )
+        end
         local function DecodeValue(Value, Depth)
             Depth = Depth or 0
             if Depth > 8 or type(Value) ~= "table" then return Value end
@@ -13821,6 +13931,30 @@ local function BuildRuntime()
                 end
             end)
         end
+
+        local function RefreshDropdownState()
+            if Menu.RefreshDropdownIndicators then
+                Menu.RefreshDropdownIndicators(
+                    true
+                )
+            end
+        end
+
+        RefreshDropdownState()
+
+        task.defer(
+            RefreshDropdownState
+        )
+
+        task.delay(
+            0.05,
+            RefreshDropdownState
+        )
+
+        task.delay(
+            0.15,
+            RefreshDropdownState
+        )
 
         return true
     end
