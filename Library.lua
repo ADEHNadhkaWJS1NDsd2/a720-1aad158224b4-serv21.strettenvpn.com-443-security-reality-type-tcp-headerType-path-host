@@ -160,8 +160,48 @@ local function BuildRuntime()
         PlayerListController = nil,
         QuickPanelController = nil,
         QuickPanelBindCapture = false,
-        SettingsUI = {}
+        SettingsUI = {},
+        DefaultFlags = {},
+        DefaultFlagKnown = {},
+        ConfigLoadGeneration = 0,
+        ConfigApplying = false,
+        LastConfigFlags = {}
     }
+
+    local function CloneFlagValue(Value, Seen)
+        if type(Value) ~= "table" then return Value end
+        Seen = Seen or {}
+        if Seen[Value] then return Seen[Value] end
+        local Result = {}
+        Seen[Value] = Result
+        for Key, Item in pairs(Value) do Result[CloneFlagValue(Key, Seen)] = CloneFlagValue(Item, Seen) end
+        return Result
+    end
+
+    local function FlagValuesEqual(A, B, Seen)
+        if typeof(A) ~= typeof(B) then return false end
+        if type(A) ~= "table" then return A == B end
+        Seen = Seen or {}
+        if Seen[A] == B then return true end
+        Seen[A] = B
+        for Key, Value in pairs(A) do
+            if not FlagValuesEqual(Value, B[Key], Seen) then return false end
+        end
+        for Key in pairs(B) do
+            if A[Key] == nil then return false end
+        end
+        return true
+    end
+
+    setmetatable(Menu.Setters, {
+        __newindex = function(Target, Flag, Setter)
+            rawset(Target, Flag, Setter)
+            if Menu.DefaultFlagKnown[Flag] ~= true then
+                Menu.DefaultFlagKnown[Flag] = true
+                Menu.DefaultFlags[Flag] = CloneFlagValue(Menu.Flags[Flag])
+            end
+        end
+    })
 
     do
         local GlowBase64Data = "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"
@@ -3712,7 +3752,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.fromScale(0.5, 0.5),
             Size = UDim2.fromOffset(8, 1),
-            BackgroundColor3 = MutedText,
+            BackgroundColor3 = Accent,
             BackgroundTransparency = 0.12,
             BorderSizePixel = 0,
             ZIndex = (ZIndex or 11) + 1
@@ -3754,9 +3794,7 @@ local function BuildRuntime()
                 or Accent
 
             self.Horizontal.BackgroundColor3 =
-                self.Opened
-                and CurrentAccent
-                or MutedText
+                CurrentAccent
 
             self.Vertical.BackgroundColor3 =
                 CurrentAccent
@@ -4884,16 +4922,18 @@ local function BuildRuntime()
 
         local function AttachLineIcon(Button, Mode)
             Button.Text = ""
+
             local Horizontal = Create("Frame", {
                 Parent = Button,
                 AnchorPoint = Vector2.new(0.5, 0.5),
                 Position = UDim2.fromScale(0.5, 0.5),
                 Size = UDim2.fromOffset(12, 2),
-                BackgroundColor3 = Button.TextColor3,
+                BackgroundColor3 = Accent,
                 BorderSizePixel = 0,
                 ZIndex = 45
             })
             Corner(Horizontal, 1)
+
             local Vertical = nil
             if Mode == "Plus" then
                 Vertical = Create("Frame", {
@@ -4901,27 +4941,34 @@ local function BuildRuntime()
                     AnchorPoint = Vector2.new(0.5, 0.5),
                     Position = UDim2.fromScale(0.5, 0.5),
                     Size = UDim2.fromOffset(2, 12),
-                    BackgroundColor3 = Button.TextColor3,
+                    BackgroundColor3 = Accent,
                     BorderSizePixel = 0,
                     ZIndex = 45
                 })
                 Corner(Vertical, 1)
             end
-            local function Sync()
-                Horizontal.BackgroundColor3 = Button.TextColor3
-                if Vertical then
-                    Vertical.BackgroundColor3 = Button.TextColor3
-                end
+
+            local function Sync(NewColor)
+                local Color = typeof(NewColor) == "Color3" and NewColor or Accent
+                if Horizontal and Horizontal.Parent then Horizontal.BackgroundColor3 = Color end
+                if Vertical and Vertical.Parent then Vertical.BackgroundColor3 = Color end
             end
-            Bind(Button:GetPropertyChangedSignal("TextColor3"):Connect(Sync))
-            Sync()
+
+            RegisterAccentTarget(Sync)
+            Sync(Accent)
+
+            return {
+                Horizontal = Horizontal,
+                Vertical = Vertical,
+                Sync = Sync
+            }
         end
 
         S.Add = MakeToolButton("", 0, 36, PrimaryText)
-        AttachLineIcon(S.Add, "Plus")
+        S.AddIcon = AttachLineIcon(S.Add, "Plus")
         S.LoadSelected = MakeToolButton("LOAD", 42, 62, DisabledText)
         S.Remove = MakeToolButton("", 110, 36, DisabledText)
-        AttachLineIcon(S.Remove, "Minus")
+        S.RemoveIcon = AttachLineIcon(S.Remove, "Minus")
         S.DeleteAll = MakeToolButton("", 240, 40, Danger)
 
         local TrashTop = Create("Frame", {
@@ -5119,6 +5166,8 @@ local function BuildRuntime()
                 return false
             end
             SetSelected(Name)
+            UpdateAccentColor(Accent)
+            if Menu.RefreshDropdownIndicators then Menu.RefreshDropdownIndicators(true) end
             Notify("Configs", Name .. " loaded", "Success")
             return true
         end
@@ -10835,6 +10884,8 @@ local function BuildRuntime()
         table.clear(Menu.SidebarButtons)
         table.clear(Menu.Flags)
         table.clear(Menu.Setters)
+        table.clear(Menu.DefaultFlags)
+        table.clear(Menu.DefaultFlagKnown)
         for Name, Value in pairs(PreservedFlags) do
             if Value ~= nil then
                 if Name == "QuickPanelBind" then
@@ -10847,6 +10898,8 @@ local function BuildRuntime()
 
         if type(PreservedSetters.QuickPanelBind) == "function" then
             Menu.Setters["Quick Panel Bind"] = PreservedSetters.QuickPanelBind
+            Menu.DefaultFlagKnown["Quick Panel Bind"] = true
+            Menu.DefaultFlags["Quick Panel Bind"] = CloneFlagValue(PreservedFlags.QuickPanelBind)
         end
 
         RagebotMode.Visible = false
@@ -14007,16 +14060,20 @@ local function BuildRuntime()
         local Success, Decoded = pcall(HttpService.JSONDecode, HttpService, tostring(Source or "{}"))
         if not Success or type(Decoded) ~= "table" then return false end
 
-        ClosePopup()
+        Menu.ConfigLoadGeneration = (tonumber(Menu.ConfigLoadGeneration) or 0) + 1
+        local Generation = Menu.ConfigLoadGeneration
+        Menu.ConfigApplying = true
 
-        if Menu.RefreshDropdownIndicators then
-            Menu.RefreshDropdownIndicators(
-                true
-            )
-        end
+        ClosePopup()
+        if CloseGearMenus then CloseGearMenus() end
+        Menu.QuickPanelBindCapture = false
+
+        if Menu.RefreshDropdownIndicators then Menu.RefreshDropdownIndicators(true) end
+
         local function DecodeValue(Value, Depth)
             Depth = Depth or 0
             if Depth > 8 or type(Value) ~= "table" then return Value end
+
             if Value.__type == "Color3" then
                 return Color3.new(tonumber(Value.R) or 0, tonumber(Value.G) or 0, tonumber(Value.B) or 0)
             elseif Value.__type == "EnumItem" then
@@ -14035,81 +14092,107 @@ local function BuildRuntime()
                     tonumber(Value.YOffset) or 0
                 )
             end
+
             local Result = {}
             for Key, Item in pairs(Value) do Result[Key] = DecodeValue(Item, Depth + 1) end
             return Result
         end
+
         local LoadedBinds = Decoded.__AtramentaControlBinds
         Decoded.__AtramentaControlBinds = nil
-        for Name, Value in pairs(Decoded) do self:SetFlag(Name, DecodeValue(Value, 0)) end
-        if LoadedBinds ~= nil then
-            local Binds = DecodeValue(LoadedBinds, 0)
-            if type(Binds) == "table" then
-                SavedPositions.ControlBinds = Binds
-                if Menu.BindSystem and type(Menu.BindSystem.GetControlBinds) == "function" then
-                    for Flag in pairs(Binds) do
-                        Menu.BindSystem.GetControlBinds(Flag)
-                    end
-                end
 
-                if Menu.BindSystem and type(Menu.BindSystem.NormalizeStorage) == "function" then
-                    Menu.BindSystem.NormalizeStorage()
+        local DecodedFlags = {}
+        for Name, Value in pairs(Decoded) do
+            DecodedFlags[tostring(Name)] = DecodeValue(Value, 0)
+        end
+
+        for Name in pairs(Menu.LastConfigFlags or {}) do
+            if DecodedFlags[Name] == nil and Menu.DefaultFlagKnown[Name] ~= true then
+                if type(self.Setters[Name]) == "function" then
+                    self:SetFlag(Name, nil)
+                else
+                    self.Flags[Name] = nil
                 end
+            end
+        end
+
+        Menu.LastConfigFlags = Menu.LastConfigFlags or {}
+        table.clear(Menu.LastConfigFlags)
+        for Name in pairs(DecodedFlags) do Menu.LastConfigFlags[Name] = true end
+
+        local Applied = {}
+
+        for Flag in pairs(Menu.DefaultFlagKnown) do
+            local Desired
+            if DecodedFlags[Flag] ~= nil then
+                Desired = CloneFlagValue(DecodedFlags[Flag])
+            else
+                Desired = CloneFlagValue(Menu.DefaultFlags[Flag])
+            end
+
+            Applied[Flag] = true
+
+            if not FlagValuesEqual(self.Flags[Flag], Desired) then
+                self:SetFlag(Flag, Desired)
+            end
+        end
+
+        for Name, Value in pairs(DecodedFlags) do
+            if not Applied[Name] and not FlagValuesEqual(self.Flags[Name], Value) then
+                self:SetFlag(Name, CloneFlagValue(Value))
+            end
+        end
+
+        local NextBinds = LoadedBinds ~= nil and DecodeValue(LoadedBinds, 0) or {}
+        if type(NextBinds) ~= "table" then NextBinds = {} end
+
+        if not FlagValuesEqual(SavedPositions.ControlBinds or {}, NextBinds) then
+            SavedPositions.ControlBinds = CloneFlagValue(NextBinds)
+
+            if Menu.BindSystem and type(Menu.BindSystem.GetControlBinds) == "function" then
+                for Flag in pairs(NextBinds) do Menu.BindSystem.GetControlBinds(Flag) end
+            end
+
+            if Menu.BindSystem and type(Menu.BindSystem.NormalizeStorage) == "function" then
+                Menu.BindSystem.NormalizeStorage()
             end
         end
 
         SavedPositions.HideKeybinds = false
+
         if Menu.KeybindListController then
-            if Menu.KeybindListController.SetHidden then
-                Menu.KeybindListController.SetHidden(false)
-            end
-            if Menu.KeybindListController.MarkDirty then
-                Menu.KeybindListController.MarkDirty()
-            end
-
-            task.defer(function()
-                if Menu.KeybindListController and Menu.KeybindListController.Refresh then
-                    Menu.KeybindListController.Refresh()
-                end
-            end)
-
-            task.delay(0.08, function()
-                if Menu.KeybindListController and Menu.KeybindListController.Refresh then
-                    Menu.KeybindListController.Refresh()
-                end
-            end)
-
-            task.delay(0.25, function()
-                if Menu.KeybindListController and Menu.KeybindListController.Refresh then
-                    Menu.KeybindListController.Refresh()
-                end
-            end)
+            if Menu.KeybindListController.SetHidden then Menu.KeybindListController.SetHidden(false) end
+            if Menu.KeybindListController.MarkDirty then Menu.KeybindListController.MarkDirty() end
         end
 
-        local function RefreshDropdownState()
-            if Menu.RefreshDropdownIndicators then
-                Menu.RefreshDropdownIndicators(
-                    true
-                )
+        local function RefreshLoadedUI()
+            if Generation ~= Menu.ConfigLoadGeneration then return end
+
+            if Menu.RefreshDropdownIndicators then Menu.RefreshDropdownIndicators(true) end
+
+            UpdateAccentColor(Accent)
+
+            if Menu.ConfigsUI then
+                if Menu.ConfigsUI.AddIcon and Menu.ConfigsUI.AddIcon.Sync then Menu.ConfigsUI.AddIcon.Sync(Accent) end
+                if Menu.ConfigsUI.RemoveIcon and Menu.ConfigsUI.RemoveIcon.Sync then Menu.ConfigsUI.RemoveIcon.Sync(Accent) end
             end
+
+            if Menu.KeybindListController and Menu.KeybindListController.Refresh then Menu.KeybindListController.Refresh() end
+            if Menu.QuickPanelController and Menu.QuickPanelController.Refresh then Menu.QuickPanelController.Refresh() end
+            if Menu.PlayerListController and Menu.PlayerListController.Refresh then Menu.PlayerListController:Refresh() end
         end
 
-        RefreshDropdownState()
+        RefreshLoadedUI()
 
-        task.defer(
-            RefreshDropdownState
-        )
+        task.defer(function()
+            if Generation == Menu.ConfigLoadGeneration then RefreshLoadedUI() end
+        end)
 
-        task.delay(
-            0.05,
-            RefreshDropdownState
-        )
+        task.delay(0.08, function()
+            if Generation == Menu.ConfigLoadGeneration then RefreshLoadedUI() end
+        end)
 
-        task.delay(
-            0.15,
-            RefreshDropdownState
-        )
-
+        Menu.ConfigApplying = false
         return true
     end
 
@@ -14250,7 +14333,7 @@ Library.getflag = Library.GetFlag
 Library.setflag = Library.SetFlag
 Library.notification = Library.Notification
 Library.setnotificationlayout = Library.SetNotificationLayout
-Library.NotificationSkinVersion = 342
+Library.NotificationSkinVersion = 343
 Library.combatlog = Library.CombatLog
 Library.clearcombatlogs = Library.ClearCombatLogs
 Library.playerlist = Library.PlayerList
