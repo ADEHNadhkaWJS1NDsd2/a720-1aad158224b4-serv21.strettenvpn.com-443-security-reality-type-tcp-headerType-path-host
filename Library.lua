@@ -10153,7 +10153,7 @@ Library.getflag = Library.GetFlag
 Library.setflag = Library.SetFlag
 Library.notification = Library.Notification
 Library.setnotificationlayout = Library.SetNotificationLayout
-Library.NotificationSkinVersion = 337
+Library.NotificationSkinVersion = 338
 Library.destroy = Library.Destroy
 
 return Library
