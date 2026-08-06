@@ -13170,6 +13170,29 @@ local function BuildRuntime()
         end
     end
 
+    local NotificationCardWidth = 390
+    local NotificationCardHeight = 28
+    local NotificationGap = 4
+
+    local function FitNotificationText(Label, Minimum, Maximum)
+        if not Label or not Label.Parent then return end
+        Label.TextScaled = true
+        Label.TextWrapped = false
+        Label.TextTruncate = Enum.TextTruncate.None
+
+        local Constraint = Label:FindFirstChildOfClass("UITextSizeConstraint")
+        if not Constraint then
+            Constraint = Create("UITextSizeConstraint", {
+                Parent = Label,
+                MinTextSize = Minimum or 7,
+                MaxTextSize = Maximum or 11
+            })
+        else
+            Constraint.MinTextSize = Minimum or 7
+            Constraint.MaxTextSize = Maximum or 11
+        end
+    end
+
     function Library:SetNotificationLayout(Position, Scale)
         Menu.NotificationSettings = type(Menu.NotificationSettings) == "table" and Menu.NotificationSettings or {
             Position = "Top Right",
@@ -13197,11 +13220,11 @@ local function BuildRuntime()
 
         Holder.AnchorPoint = Vector2.new(AnchorX, AnchorY)
         Holder.Position = UDim2.fromScale(X, Y)
-        Holder.Size = UDim2.fromOffset(680, 540)
+        Holder.Size = UDim2.fromOffset(NotificationCardWidth, 700)
 
         local Layout = Holder:FindFirstChildOfClass("UIListLayout")
         if Layout then
-            Layout.Padding = UDim.new(0, 5)
+            Layout.Padding = UDim.new(0, NotificationGap)
             Layout.HorizontalAlignment = Horizontal == "Left" and Enum.HorizontalAlignment.Left
                 or Horizontal == "Center" and Enum.HorizontalAlignment.Center
                 or Enum.HorizontalAlignment.Right
@@ -13292,14 +13315,14 @@ local function BuildRuntime()
                 Parent = ScreenGui,
                 AnchorPoint = Vector2.new(1, 0),
                 Position = UDim2.new(1, -18, 0, 18),
-                Size = UDim2.fromOffset(680, 540),
+                Size = UDim2.fromOffset(NotificationCardWidth, 700),
                 BackgroundTransparency = 1,
                 ZIndex = 258
             })
 
             Create("UIListLayout", {
                 Parent = Menu.NotificationHolder,
-                Padding = UDim.new(0, 5),
+                Padding = UDim.new(0, NotificationGap),
                 HorizontalAlignment = Enum.HorizontalAlignment.Right,
                 VerticalAlignment = Enum.VerticalAlignment.Top,
                 SortOrder = Enum.SortOrder.LayoutOrder
@@ -13317,37 +13340,13 @@ local function BuildRuntime()
         local Message = Title
         if Description ~= "" then Message = Message .. "  •  " .. Description end
 
-        local TextService = game:GetService("TextService")
-        local ViewportWidth = ScreenGui.AbsoluteSize.X
-        if ViewportWidth <= 0 then
-            local CameraObject = workspace.CurrentCamera
-            ViewportWidth = CameraObject and CameraObject.ViewportSize.X or 1280
-        end
-
-        local MaximumWidth = math.clamp(math.floor(ViewportWidth * 0.46), 320, 620)
-        local SingleBounds = TextService:GetTextSize(
-            Message,
-            11,
-            Enum.Font.BuilderSansMedium,
-            Vector2.new(10000, 1000)
-        )
-
-        local NoticeWidth = math.clamp(math.ceil(SingleBounds.X) + 26, 150, MaximumWidth)
-        local InnerWidth = NoticeWidth - 24
-        local WrappedBounds = TextService:GetTextSize(
-            Message,
-            11,
-            Enum.Font.BuilderSansMedium,
-            Vector2.new(InnerWidth, 1000)
-        )
-
-        local Wrapped = SingleBounds.X + 26 > MaximumWidth
-        local NoticeHeight = math.max(36, math.ceil(WrappedBounds.Y) + 16)
+        local NoticeWidth = NotificationCardWidth
+        local NoticeHeight = NotificationCardHeight
 
         local Notice = Create("Frame", {
             Parent = Menu.NotificationHolder,
             Name = "AtramentaNotification",
-            Size = UDim2.fromOffset(NoticeWidth, NoticeHeight),
+            Size = UDim2.fromOffset(NotificationCardWidth, NotificationCardHeight),
             BackgroundColor3 = Color3.fromRGB(8, 10, 13),
             BackgroundTransparency = 0.04,
             BorderSizePixel = 0,
@@ -13377,19 +13376,20 @@ local function BuildRuntime()
 
         local MessageLabel = Create("TextLabel", {
             Parent = Notice,
-            Position = UDim2.fromOffset(12, 7),
-            Size = UDim2.new(1, -24, 1, -14),
+            Position = UDim2.fromOffset(12, 4),
+            Size = UDim2.new(1, -24, 1, -8),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = Message,
             TextColor3 = Color3.fromRGB(222, 225, 230),
             TextSize = 11,
-            TextWrapped = Wrapped,
+            TextWrapped = false,
             TextTruncate = Enum.TextTruncate.None,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextYAlignment = Enum.TextYAlignment.Center,
             ZIndex = 262
         })
+        FitNotificationText(MessageLabel, 7, 11)
 
         local Track = Create("Frame", {
             Parent = Notice,
@@ -13627,8 +13627,8 @@ local function BuildRuntime()
                         ),
                     Size =
                         UDim2.fromOffset(
-                            390,
-                            250
+                            NotificationCardWidth,
+                            700
                         ),
                     BackgroundTransparency = 1,
                     ZIndex = 272
@@ -13636,7 +13636,7 @@ local function BuildRuntime()
 
             Create("UIListLayout", {
                 Parent = Menu.CombatLogHolder,
-                Padding = UDim.new(0, 3),
+                Padding = UDim.new(0, NotificationGap),
                 HorizontalAlignment =
                     Enum.HorizontalAlignment.Right,
                 VerticalAlignment =
@@ -13648,40 +13648,17 @@ local function BuildRuntime()
 
         GlobalState.Serial += 1
 
-        local Font =
-            Enum.Font.BuilderSansMedium
-
-        local TextSize = 9
-
-        local MeasuredWidth =
-            game:GetService("TextService"):
-                GetTextSize(
-                    FullText,
-                    TextSize,
-                    Font,
-                    Vector2.new(
-                        900,
-                        22
-                    )
-                ).X
-
-        local Width =
-            math.clamp(
-                math.ceil(
-                    MeasuredWidth
-                    + 38
-                ),
-                118,
-                372
-            )
+        local Font = Enum.Font.BuilderSansMedium
+        local TextSize = 10
+        local Width = NotificationCardWidth
 
         local Root =
             Create("Frame", {
                 Parent = Menu.CombatLogHolder,
                 Size =
                     UDim2.fromOffset(
-                        Width,
-                        22
+                        NotificationCardWidth,
+                        NotificationCardHeight
                     ),
                 BackgroundColor3 =
                     Color3.fromRGB(
@@ -13711,12 +13688,14 @@ local function BuildRuntime()
                 Position =
                     UDim2.fromOffset(
                         0,
-                        3
+                        4
                     ),
                 Size =
-                    UDim2.fromOffset(
+                    UDim2.new(
+                        0,
                         2,
-                        16
+                        1,
+                        -8
                     ),
                 BackgroundColor3 =
                     Style.Color,
@@ -13742,8 +13721,8 @@ local function BuildRuntime()
                     ),
                 Size =
                     UDim2.fromOffset(
-                        16,
-                        16
+                        18,
+                        18
                     ),
                 BackgroundColor3 =
                     Style.Color,
@@ -13777,15 +13756,15 @@ local function BuildRuntime()
                 Parent = Root,
                 Position =
                     UDim2.fromOffset(
-                        28,
-                        0
+                        29,
+                        3
                     ),
                 Size =
                     UDim2.new(
                         1,
-                        -34,
+                        -36,
                         1,
-                        0
+                        -6
                     ),
                 BackgroundTransparency = 1,
                 Font = Font,
@@ -13797,14 +13776,18 @@ local function BuildRuntime()
                         216
                     ),
                 TextSize = TextSize,
+                TextWrapped = false,
+                TextScaled = true,
                 TextXAlignment =
                     Enum.TextXAlignment.Left,
                 TextYAlignment =
                     Enum.TextYAlignment.Center,
                 TextTruncate =
-                    Enum.TextTruncate.AtEnd,
+                    Enum.TextTruncate.None,
                 ZIndex = 276
             })
+
+        FitNotificationText(Label, 7, 10)
 
         Root.BackgroundTransparency = 1
         Label.TextTransparency = 1
@@ -14333,7 +14316,7 @@ Library.getflag = Library.GetFlag
 Library.setflag = Library.SetFlag
 Library.notification = Library.Notification
 Library.setnotificationlayout = Library.SetNotificationLayout
-Library.NotificationSkinVersion = 343
+Library.NotificationSkinVersion = 344
 Library.combatlog = Library.CombatLog
 Library.clearcombatlogs = Library.ClearCombatLogs
 Library.playerlist = Library.PlayerList
