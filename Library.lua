@@ -4565,42 +4565,6 @@ local function BuildRuntime()
         end
     end))
 
-    local WatermarkFrames = 0
-    local WatermarkElapsed = 0
-    local WatermarkSecondElapsed = 0
-    Bind(RunService.RenderStepped:Connect(function(DeltaTime)
-        WatermarkFrames += 1
-        WatermarkElapsed += DeltaTime
-        WatermarkSecondElapsed += DeltaTime
-
-        if WatermarkElapsed >= 0.5 then
-            local Fps = math.floor((WatermarkFrames / WatermarkElapsed) + 0.5)
-            FpsText.Text = tostring(Fps) .. " FPS"
-            WatermarkFrames = 0
-            WatermarkElapsed = 0
-        end
-
-        if WatermarkSecondElapsed >= 1 then
-            local Ping = 0
-            pcall(function()
-                Ping = math.floor(LocalPlayer:GetNetworkPing() * 1000 + 0.5)
-            end)
-            PingText.Text = tostring(Ping) .. " MS"
-            ClockText.Text = os.date("%H:%M")
-
-            local Region = ReadServerRegionValue()
-            local RegionVisible = Region ~= nil
-            if RegionText.Text ~= (Region or "") or RegionGroup.Visible ~= RegionVisible then
-                RegionText.Text = Region or ""
-                RegionGroup.Visible = RegionVisible
-                RegionDivider.Visible = RegionVisible
-                task.defer(UpdateWatermarkWidth)
-            end
-
-            WatermarkSecondElapsed = 0
-        end
-    end))
-
     local function NormalizeServerRegion(Value)
         if Value == nil then
             return nil
@@ -4667,6 +4631,42 @@ local function BuildRuntime()
 
         return nil
     end
+
+    local WatermarkFrames = 0
+    local WatermarkElapsed = 0
+    local WatermarkSecondElapsed = 0
+    Bind(RunService.RenderStepped:Connect(function(DeltaTime)
+        WatermarkFrames += 1
+        WatermarkElapsed += DeltaTime
+        WatermarkSecondElapsed += DeltaTime
+
+        if WatermarkElapsed >= 0.5 then
+            local Fps = math.floor((WatermarkFrames / WatermarkElapsed) + 0.5)
+            FpsText.Text = tostring(Fps) .. " FPS"
+            WatermarkFrames = 0
+            WatermarkElapsed = 0
+        end
+
+        if WatermarkSecondElapsed >= 1 then
+            local Ping = 0
+            pcall(function()
+                Ping = math.floor(LocalPlayer:GetNetworkPing() * 1000 + 0.5)
+            end)
+            PingText.Text = tostring(Ping) .. " MS"
+            ClockText.Text = os.date("%H:%M")
+
+            local Region = ReadServerRegionValue()
+            local RegionVisible = Region ~= nil
+            if RegionText.Text ~= (Region or "") or RegionGroup.Visible ~= RegionVisible then
+                RegionText.Text = Region or ""
+                RegionGroup.Visible = RegionVisible
+                RegionDivider.Visible = RegionVisible
+                task.defer(UpdateWatermarkWidth)
+            end
+
+            WatermarkSecondElapsed = 0
+        end
+    end))
 
     task.spawn(function()
         local Region = ReadServerRegionValue()
@@ -10153,7 +10153,7 @@ Library.getflag = Library.GetFlag
 Library.setflag = Library.SetFlag
 Library.notification = Library.Notification
 Library.setnotificationlayout = Library.SetNotificationLayout
-Library.NotificationSkinVersion = 336
+Library.NotificationSkinVersion = 337
 Library.destroy = Library.Destroy
 
 return Library
