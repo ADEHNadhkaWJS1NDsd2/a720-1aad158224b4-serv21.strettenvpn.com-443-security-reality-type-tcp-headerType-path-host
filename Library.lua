@@ -4704,7 +4704,7 @@ local function BuildRuntime()
     Menu.KeybindListUI = Menu.KeybindListUI or {}
     SavedPositions.HideKeybinds = false
     local KeybindListHidden = false
-    local KeybindListScaleValue = math.clamp(tonumber(SavedPositions.KeybindListScale) or 100, 70, 150)
+    local KeybindListScaleValue = math.clamp(tonumber(SavedPositions.KeybindListScale) or 100, 90, 140)
     local KeybindListSignature = ""
     local KeybindListAccumulator = 0
     local KeybindListDragging = false
@@ -4715,12 +4715,16 @@ local function BuildRuntime()
         Parent = ScreenGui,
         Active = true,
         Position = DecodePosition(SavedPositions.Keybinds, UDim2.fromOffset(24, 154)),
-        Size = UDim2.fromOffset(154, 48),
-        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(220, 58),
+        BackgroundColor3 = Color3.fromRGB(8, 10, 12),
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         Visible = not KeybindListHidden,
+        ClipsDescendants = true,
         ZIndex = 72
     })
+    Corner(KeybindListWindow, 5)
+    Stroke(KeybindListWindow, Color3.fromRGB(34, 38, 44), 0.16, 1)
 
     local KeybindListScale = Create("UIScale", {
         Parent = KeybindListWindow,
@@ -4731,15 +4735,16 @@ local function BuildRuntime()
         Parent = KeybindListWindow,
         Active = true,
         Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.new(1, 0, 0, 18),
-        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 26),
+        BackgroundColor3 = Color3.fromRGB(11, 13, 16),
+        BackgroundTransparency = 0.10,
         ZIndex = 73
     })
 
     local HotkeyHeaderIconHolder = Create("Frame", {
         Parent = KeybindListHeader,
         AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, 0, 0.5, 0),
+        Position = UDim2.new(0, 9, 0.5, 0),
         Size = UDim2.fromOffset(13, 13),
         BackgroundTransparency = 1,
         ZIndex = 74
@@ -4762,8 +4767,8 @@ local function BuildRuntime()
 
     Create("TextLabel", {
         Parent = KeybindListHeader,
-        Position = UDim2.fromOffset(18, 0),
-        Size = UDim2.new(1, -18, 1, 0),
+        Position = UDim2.fromOffset(29, 0),
+        Size = UDim2.new(1, -38, 1, 0),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSansMedium,
         Text = "Hotkeys",
@@ -4773,10 +4778,20 @@ local function BuildRuntime()
         ZIndex = 74
     })
 
+    Create("Frame", {
+        Parent = KeybindListWindow,
+        Position = UDim2.new(0, 8, 0, 25),
+        Size = UDim2.new(1, -16, 0, 1),
+        BackgroundColor3 = Color3.fromRGB(34, 38, 44),
+        BackgroundTransparency = 0.25,
+        BorderSizePixel = 0,
+        ZIndex = 74
+    })
+
     local KeybindRows = Create("Frame", {
         Parent = KeybindListWindow,
-        Position = UDim2.fromOffset(0, 20),
-        Size = UDim2.new(1, 0, 1, -20),
+        Position = UDim2.fromOffset(8, 30),
+        Size = UDim2.new(1, -16, 1, -34),
         BackgroundTransparency = 1,
         ClipsDescendants = true,
         ZIndex = 73
@@ -4884,53 +4899,66 @@ local function BuildRuntime()
                 Text = "No active hotkeys",
                 TextColor3 = DisabledText,
                 TextSize = 10,
-                TextXAlignment = Enum.TextXAlignment.Left,
+                TextXAlignment = Enum.TextXAlignment.Center,
                 ZIndex = 74
             })
         else
             for Index, Entry in ipairs(Entries) do
                 local Row = Create("Frame", {
                     Parent = KeybindRows,
-                    Position = UDim2.fromOffset(0, (Index - 1) * 18),
-                    Size = UDim2.new(1, 0, 0, 17),
-                    BackgroundTransparency = 1,
+                    Position = UDim2.fromOffset(0, (Index - 1) * 22),
+                    Size = UDim2.new(1, 0, 0, 21),
+                    BackgroundColor3 = Index % 2 == 0 and Color3.fromRGB(12, 14, 17) or Color3.fromRGB(10, 12, 15),
+                    BackgroundTransparency = 0.58,
+                    BorderSizePixel = 0,
                     ZIndex = 74
                 })
+                Corner(Row, 3)
 
-                local KeyLabel = Create("TextLabel", {
+                Create("TextLabel", {
                     Parent = Row,
-                    Position = UDim2.fromOffset(0, 0),
-                    Size = UDim2.fromOffset(38, 17),
+                    Position = UDim2.fromOffset(5, 0),
+                    Size = UDim2.fromOffset(54, 21),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = "[" .. string.upper(tostring(Entry.Key or "")) .. "]",
-                    TextColor3 = Entry.Active and Accent or MutedText,
-                    TextSize = 8,
-                    TextStrokeColor3 = Color3.new(0, 0, 0),
-                    TextStrokeTransparency = 0.72,
+                    TextColor3 = Entry.Active and Accent or Color3.fromRGB(130, 137, 148),
+                    TextSize = 10,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     ZIndex = 76
                 })
 
                 Create("TextLabel", {
                     Parent = Row,
-                    Position = UDim2.fromOffset(38, 0),
-                    Size = UDim2.new(1, -38, 0, 17),
+                    Position = UDim2.fromOffset(59, 0),
+                    Size = UDim2.new(1, -119, 0, 21),
                     BackgroundTransparency = 1,
                     Font = Enum.Font.BuilderSansMedium,
                     Text = Entry.Name,
-                    TextColor3 = Entry.Active and PrimaryText or MutedText,
-                    TextSize = 9,
-                    TextStrokeColor3 = Color3.new(0, 0, 0),
-                    TextStrokeTransparency = 0.72,
+                    TextColor3 = Entry.Active and PrimaryText or Color3.fromRGB(170, 176, 184),
+                    TextSize = 10,
                     TextTruncate = Enum.TextTruncate.AtEnd,
                     TextXAlignment = Enum.TextXAlignment.Left,
+                    ZIndex = 75
+                })
+
+                Create("TextLabel", {
+                    Parent = Row,
+                    AnchorPoint = Vector2.new(1, 0),
+                    Position = UDim2.new(1, -5, 0, 0),
+                    Size = UDim2.fromOffset(56, 21),
+                    BackgroundTransparency = 1,
+                    Font = Enum.Font.BuilderSans,
+                    Text = Entry.Status,
+                    TextColor3 = Entry.Active and Accent or Color3.fromRGB(105, 111, 120),
+                    TextSize = 9,
+                    TextXAlignment = Enum.TextXAlignment.Right,
                     ZIndex = 75
                 })
             end
         end
 
-        KeybindListWindow.Size = UDim2.fromOffset(154, 22 + math.max(RowCount, 1) * 18)
+        KeybindListWindow.Size = UDim2.fromOffset(220, 36 + math.max(RowCount, 1) * 22)
         KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, KeybindListWindow.Position)
     end
 
@@ -4947,7 +4975,7 @@ local function BuildRuntime()
     end
 
     local function SetKeybindListScale(Value)
-        KeybindListScaleValue = math.clamp(tonumber(Value) or 100, 70, 140)
+        KeybindListScaleValue = math.clamp(tonumber(Value) or 100, 90, 140)
         KeybindListScale.Scale = KeybindListScaleValue / 100
         Menu.Flags.KeybindListScale = KeybindListScaleValue
         SavedPositions.KeybindListScale = KeybindListScaleValue
@@ -9652,7 +9680,7 @@ local function BuildRuntime()
 
         Holder.AnchorPoint = Vector2.new(AX, AY)
         Holder.Position = UDim2.fromScale(X, Y)
-        Holder.Size = UDim2.fromOffset(370, 540)
+        Holder.Size = UDim2.fromOffset(700, 540)
 
         local Layout = Holder:FindFirstChildOfClass("UIListLayout")
         if Layout then
@@ -9725,7 +9753,7 @@ local function BuildRuntime()
                 Parent = ScreenGui,
                 AnchorPoint = Vector2.new(1, 0),
                 Position = UDim2.new(1, -18, 0, 18),
-                Size = UDim2.fromOffset(370, 540),
+                Size = UDim2.fromOffset(700, 540),
                 BackgroundTransparency = 1,
                 ZIndex = 258
             })
@@ -9744,10 +9772,18 @@ local function BuildRuntime()
         end
         Library:SetNotificationLayout(Menu.NotificationSettings.Position, Menu.NotificationSettings.Scale)
 
+        local Message = Title .. (Description ~= "" and "  •  " .. Description or "")
+        local TextService = game:GetService("TextService")
+        local SingleBounds = TextService:GetTextSize(Message, 11, Enum.Font.BuilderSansMedium, Vector2.new(10000, 38))
+        local NoticeWidth = math.clamp(math.ceil(SingleBounds.X) + 28, 150, 680)
+        local InnerWidth = NoticeWidth - 24
+        local WrappedBounds = TextService:GetTextSize(Message, 11, Enum.Font.BuilderSansMedium, Vector2.new(InnerWidth, 1000))
+        local NoticeHeight = math.max(38, math.ceil(WrappedBounds.Y) + 16)
+
         local Notice = Create("Frame", {
             Parent = Menu.NotificationHolder,
             Name = "AtramentaNotification",
-            Size = UDim2.fromOffset(350, 38),
+            Size = UDim2.fromOffset(NoticeWidth, NoticeHeight),
             BackgroundColor3 = Color3.fromRGB(8, 10, 12),
             BackgroundTransparency = 0.04,
             BorderSizePixel = 0,
@@ -9767,40 +9803,17 @@ local function BuildRuntime()
         })
         Corner(Accent, 2)
 
-        local IconBox = Create("Frame", {
-            Parent = Notice,
-            Position = UDim2.fromOffset(8, 9),
-            Size = UDim2.fromOffset(18, 18),
-            BackgroundColor3 = Color3.fromRGB(13, 15, 18),
-            BackgroundTransparency = 0,
-            BorderSizePixel = 0,
-            ZIndex = 261
-        })
-        Corner(IconBox, 3)
-        Stroke(IconBox, Color3.fromRGB(39, 43, 49), 0.20, 1)
-
-        local IconLabel = Create("TextLabel", {
-            Parent = IconBox,
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansBold,
-            Text = NormalizedMode == "danger" and "×" or NormalizedMode == "warn" and "!" or "✓",
-            TextColor3 = ModeColor,
-            TextSize = 11,
-            ZIndex = 263
-        })
-
         local MessageLabel = Create("TextLabel", {
             Parent = Notice,
-            Position = UDim2.fromOffset(34, 0),
-            Size = UDim2.new(1, -43, 1, 0),
+            Position = UDim2.fromOffset(12, 7),
+            Size = UDim2.new(1, -24, 1, -14),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
-            Text = Title .. (Description ~= "" and "  •  " .. Description or ""),
+            Text = Message,
             TextColor3 = Color3.fromRGB(218, 221, 225),
             TextSize = 11,
-            TextWrapped = false,
-            TextTruncate = Enum.TextTruncate.AtEnd,
+            TextWrapped = NoticeWidth >= 680,
+            TextTruncate = Enum.TextTruncate.None,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextYAlignment = Enum.TextYAlignment.Center,
             ZIndex = 262
@@ -9831,11 +9844,9 @@ local function BuildRuntime()
         Notice.Position = UDim2.fromOffset(18, 0)
         Notice.BackgroundTransparency = 1
         MessageLabel.TextTransparency = 1
-        IconLabel.TextTransparency = 1
         Accent.BackgroundTransparency = 1
         Tween(Notice, 0.14, {Position = UDim2.fromOffset(0, 0), BackgroundTransparency = 0.04})
         Tween(MessageLabel, 0.14, {TextTransparency = 0})
-        Tween(IconLabel, 0.14, {TextTransparency = 0})
         Tween(Accent, 0.14, {BackgroundTransparency = 0})
 
         TweenService:Create(Progress, TweenInfo.new(Duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out), {
@@ -9846,7 +9857,6 @@ local function BuildRuntime()
             if not Notice or not Notice.Parent then return end
             Tween(Notice, 0.16, {Position = UDim2.fromOffset(18, 0), BackgroundTransparency = 1})
             Tween(MessageLabel, 0.16, {TextTransparency = 1})
-            Tween(IconLabel, 0.16, {TextTransparency = 1})
             Tween(Accent, 0.16, {BackgroundTransparency = 1})
             if NoticeStroke then Tween(NoticeStroke, 0.16, {Transparency = 1}) end
 
@@ -10153,7 +10163,7 @@ Library.getflag = Library.GetFlag
 Library.setflag = Library.SetFlag
 Library.notification = Library.Notification
 Library.setnotificationlayout = Library.SetNotificationLayout
-Library.NotificationSkinVersion = 338
+Library.NotificationSkinVersion = 341
 Library.destroy = Library.Destroy
 
 return Library
