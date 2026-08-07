@@ -131,7 +131,7 @@ local function BuildRuntime()
         Boxes = 17
     }
 
-    local DefaultAccent = Color3.fromRGB(205, 96, 70)
+    local DefaultAccent = Color3.fromRGB(255, 160, 128)
     local Accent = DefaultAccent
     local Background = Color3.fromRGB(4, 7, 10)
     local SidebarColor = Color3.fromRGB(6, 10, 14)
@@ -614,7 +614,7 @@ local function BuildRuntime()
     local PaletteMigrated = tonumber(SavedPositions.PaletteVersion) ~= PaletteVersion
     if PaletteMigrated then
         SavedPositions.PaletteVersion = PaletteVersion
-        SavedPositions.AccentHex = "#CD6046"
+        SavedPositions.AccentHex = "#FFA080"
         SavedPositions.AccentAlpha = 1
     end
 
@@ -13173,6 +13173,19 @@ local function BuildRuntime()
     local NotificationCardWidth = 390
     local NotificationCardHeight = 28
     local NotificationGap = 4
+    local NotificationAccentTargets = setmetatable({}, {__mode = "k"})
+
+    RegisterAccentTarget(function(NewColor)
+        for Object in pairs(NotificationAccentTargets) do
+            if Object and Object.Parent then
+                pcall(function()
+                    Object.BackgroundColor3 = NewColor
+                end)
+            else
+                NotificationAccentTargets[Object] = nil
+            end
+        end
+    end)
 
     local function FitNotificationText(Label, Minimum, Maximum)
         if not Label or not Label.Parent then return end
@@ -13277,7 +13290,7 @@ local function BuildRuntime()
 
         local ModeColor = NormalizedMode == "danger" and Color3.fromRGB(226, 78, 89)
             or NormalizedMode == "warn" and Color3.fromRGB(210, 165, 78)
-            or Color3.fromRGB(82, 200, 132)
+            or Accent
 
         if LegacyColor then ModeColor = LegacyColor end
 
@@ -13409,6 +13422,11 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 262
         })
+
+        if NormalizedMode == "success" and not LegacyColor then
+            NotificationAccentTargets[AccentLine] = true
+            NotificationAccentTargets[Progress] = true
+        end
 
         Notice:SetAttribute("AtramentaNotification", true)
         GlobalState.Last[DedupeKey] = {
@@ -14316,7 +14334,7 @@ Library.getflag = Library.GetFlag
 Library.setflag = Library.SetFlag
 Library.notification = Library.Notification
 Library.setnotificationlayout = Library.SetNotificationLayout
-Library.NotificationSkinVersion = 344
+Library.NotificationSkinVersion = 345
 Library.combatlog = Library.CombatLog
 Library.clearcombatlogs = Library.ClearCombatLogs
 Library.playerlist = Library.PlayerList
