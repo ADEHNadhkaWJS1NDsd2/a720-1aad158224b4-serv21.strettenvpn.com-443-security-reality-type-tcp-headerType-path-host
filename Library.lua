@@ -3499,12 +3499,9 @@ local function BuildRuntime()
     Menu.BindSystem.BindMatchesInput = BindMatchesInput
 
     Menu.BindSystem.CustomMouse = {
-        Previous = {
-            MouseButton4 = false,
-            MouseButton5 = false
-        },
-        KeyCodes = {},
-        InputTypes = {}
+        Previous = {MouseButton4 = false, MouseButton5 = false},
+        States = {MouseButton4 = false, MouseButton5 = false},
+        KeyCodes = {}, InputTypes = {}
     }
 
     local function FindEnumItem(EnumType, Names)
@@ -3562,10 +3559,9 @@ local function BuildRuntime()
         )
 
     function Menu.BindSystem.GetCustomMouseStates()
-        local States = {
-            MouseButton4 = false,
-            MouseButton5 = false
-        }
+        local States = Menu.BindSystem.CustomMouse.States
+        States.MouseButton4 = false
+        States.MouseButton5 = false
 
         for _, Input in ipairs(
             UserInputService:
@@ -6313,7 +6309,7 @@ local function BuildRuntime()
     Bind(RunService.Heartbeat:Connect(function(DeltaTime)
         if KeybindListHidden then return end
         KeybindListAccumulator = KeybindListAccumulator + DeltaTime
-        if KeybindListAccumulator >= 0.10 then
+        if KeybindListAccumulator >= 1.50 then
             KeybindListAccumulator = 0
             RefreshKeybindList(false)
         end
@@ -10656,7 +10652,7 @@ local function BuildRuntime()
             )
 
         if CustomMouseAccumulator
-            < 1 / 120
+            < 1 / 30
         then
             return
         end
