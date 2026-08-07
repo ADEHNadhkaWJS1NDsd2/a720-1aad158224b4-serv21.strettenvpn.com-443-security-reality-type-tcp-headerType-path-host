@@ -1,4 +1,3 @@
-
 local LOGO_URL = "https://files.catbox.moe/tzc225.png"
 local BG_URL = "https://files.catbox.moe/pli6ip.png"
 
@@ -1014,7 +1013,7 @@ CharacterSection:Toggle("Korblox", false, function(Value)
 end)
 
 local DetectionsTab = WindowApp:Tab("Detections", "shield")
-local DetectionSection = DetectionsTab:Section("Detection", "Left", "")
+local DetectionSection = DetectionsTab:Section("Detections", "Left", "")
 DetectionSection:Toggle("Infinity", false, function(Value)
     ConfigState.InfinityDetection = Value
 end)
