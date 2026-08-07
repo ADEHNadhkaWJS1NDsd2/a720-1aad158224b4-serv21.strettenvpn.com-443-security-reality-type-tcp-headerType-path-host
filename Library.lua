@@ -5458,24 +5458,24 @@ local function BuildRuntime()
     Watermark = Create("Frame", {
         Parent = ScreenGui,
         Position = DecodePosition(SavedPositions.Watermark, UDim2.fromOffset(28, 18)),
-        Size = UDim2.fromOffset(420, 36),
-        BackgroundColor3 = Surface,
-        BackgroundTransparency = 0.05,
+        Size = UDim2.fromOffset(350, 30),
+        BackgroundColor3 = Color3.fromRGB(7, 10, 14),
+        BackgroundTransparency = 0.20,
         BorderSizePixel = 0,
         Visible = SavedPositions.HideWatermark ~= true,
         ZIndex = 210
     })
-    Corner(Watermark, 6)
-    Stroke(Watermark, Border, 0.12, 1)
+    Corner(Watermark, 5)
+    Stroke(Watermark, Color3.fromRGB(30, 35, 43), 0.22, 1)
 
     local WatermarkGlow = Create("ImageLabel", {
         Parent = ScreenGui,
         Position = Watermark.Position,
-        Size = UDim2.fromOffset(438, 54),
+        Size = UDim2.fromOffset(366, 46),
         BackgroundTransparency = 1,
         Image = Menu.GlowAsset,
         ImageColor3 = Accent,
-        ImageTransparency = 0.70,
+        ImageTransparency = 0.84,
         ScaleType = Enum.ScaleType.Slice,
         SliceCenter = Rect.new(34, 34, 62, 62),
         ZIndex = 208
@@ -5494,62 +5494,23 @@ local function BuildRuntime()
     local function SyncWatermarkGlow()
         WatermarkGlow.Position = UDim2.new(
             Watermark.Position.X.Scale,
-            Watermark.Position.X.Offset - 9,
+            Watermark.Position.X.Offset - 8,
             Watermark.Position.Y.Scale,
-            Watermark.Position.Y.Offset - 9
+            Watermark.Position.Y.Offset - 8
         )
-        WatermarkGlow.Size = UDim2.fromOffset(Watermark.AbsoluteSize.X + 18, Watermark.AbsoluteSize.Y + 18)
+        WatermarkGlow.Size = UDim2.fromOffset(Watermark.AbsoluteSize.X + 16, Watermark.AbsoluteSize.Y + 16)
         WatermarkGlow.Visible = Watermark.Visible
     end
-
-    local WatermarkItemIcons = {}
-    local WatermarkBrand
-    local WatermarkLogoImage
-    local WatermarkLogoStroke
-    local WatermarkAvatarStroke
 
     Bind(Watermark:GetPropertyChangedSignal("Position"):Connect(SyncWatermarkGlow))
     Bind(Watermark:GetPropertyChangedSignal("Visible"):Connect(SyncWatermarkGlow))
     Bind(Watermark:GetPropertyChangedSignal("AbsoluteSize"):Connect(SyncWatermarkGlow))
+
     RegisterAccentTarget(function(NewColor)
-        WatermarkGlow.ImageColor3 =
-            NewColor
-
-        if WatermarkBrand then
-            WatermarkBrand.TextColor3 =
-                NewColor
-        end
-
-        if WatermarkLogoImage
-            and WatermarkLogoImage.Parent
-        then
-            WatermarkLogoImage.ImageColor3 =
-                NewColor
-        end
-
-        if WatermarkLogoStroke then
-            WatermarkLogoStroke.Color =
-                NewColor
-        end
-
-        if WatermarkAvatarStroke then
-            WatermarkAvatarStroke.Color =
-                NewColor
-        end
-
-        for _, Object in ipairs(
-            WatermarkItemIcons
-        ) do
-            if Object
-                and Object.Parent
-            then
-                Object.ImageColor3 =
-                    NewColor
-            end
-        end
+        WatermarkGlow.ImageColor3 = NewColor
     end)
 
-    local WatermarkPadding = Create("UIPadding", {
+    Create("UIPadding", {
         Parent = Watermark,
         PaddingLeft = UDim.new(0, 9),
         PaddingRight = UDim.new(0, 9)
@@ -5560,113 +5521,174 @@ local function BuildRuntime()
         FillDirection = Enum.FillDirection.Horizontal,
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
         VerticalAlignment = Enum.VerticalAlignment.Center,
-        Padding = UDim.new(0, 5),
+        Padding = UDim.new(0, 7),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
 
-    local function CreateWatermarkDivider(Order)
-        return Create("Frame", {
-            Parent = Watermark,
-            LayoutOrder = Order,
-            Size = UDim2.fromOffset(1, 14),
-            BackgroundColor3 = Border,
-            BackgroundTransparency = 0.18,
-            BorderSizePixel = 0,
-            ZIndex = 212
-        })
-    end
-
-    local LogoHolder = Create("Frame", {
-        Parent = Watermark,
-        LayoutOrder = 1,
-        Size = UDim2.fromOffset(24, 24),
-        BackgroundColor3 = SurfaceAlt,
-        BackgroundTransparency = 0.08,
-        BorderSizePixel = 0,
-        ZIndex = 211
-    })
-    Corner(LogoHolder, 6)
-    WatermarkLogoStroke = Stroke(LogoHolder, Accent, 0.02, 1)
-    if LogoAsset then
-        WatermarkLogoImage = Create("ImageLabel", {
-            Parent = LogoHolder,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.fromOffset(18, 18),
+    local function CreateWatermarkReferenceIcon(Parent, Kind, Order)
+        local Root = Create("Frame", {
+            Parent = Parent,
+            LayoutOrder = Order or 1,
+            Size = UDim2.fromOffset(14, 18),
             BackgroundTransparency = 1,
-            Image = LogoAsset,
-            ImageColor3 = Accent,
-            ImageTransparency = 0,
-            ScaleType = Enum.ScaleType.Fit,
-            ZIndex = 212
+            ZIndex = 213
         })
 
-    else
-        Icon(
-            LogoHolder,
-            "Lightning",
-            UDim2.fromOffset(13, 17),
-            UDim2.fromScale(0.5, 0.5),
-            Accent,
-            212
-        )
+        local IconColor = Color3.fromRGB(151, 145, 255)
+
+        if Kind == "Sparkle" then
+            local Center = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.5, 0.5),
+                Size = UDim2.fromOffset(3, 3),
+                BackgroundColor3 = IconColor,
+                BorderSizePixel = 0,
+                Rotation = 45,
+                ZIndex = 214
+            })
+            Corner(Center, 1)
+
+            local Vertical = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.5, 0.5),
+                Size = UDim2.fromOffset(2, 12),
+                BackgroundColor3 = IconColor,
+                BorderSizePixel = 0,
+                ZIndex = 214
+            })
+            Corner(Vertical, 2)
+
+            local Horizontal = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.5, 0.5),
+                Size = UDim2.fromOffset(12, 2),
+                BackgroundColor3 = IconColor,
+                BorderSizePixel = 0,
+                ZIndex = 214
+            })
+            Corner(Horizontal, 2)
+
+            local Mini = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromOffset(11, 4),
+                Size = UDim2.fromOffset(3, 3),
+                BackgroundColor3 = IconColor,
+                BorderSizePixel = 0,
+                Rotation = 45,
+                ZIndex = 214
+            })
+            Corner(Mini, 1)
+        elseif Kind == "Gear" then
+            local Object = Icon(
+                Root,
+                "Gear",
+                UDim2.fromOffset(13, 13),
+                UDim2.fromScale(0.5, 0.5),
+                IconColor,
+                214
+            )
+            return Root, Object
+        elseif Kind == "Chart" then
+            local Base = Create("Frame", {
+                Parent = Root,
+                Position = UDim2.fromOffset(1, 14),
+                Size = UDim2.fromOffset(12, 1),
+                BackgroundColor3 = IconColor,
+                BorderSizePixel = 0,
+                ZIndex = 214
+            })
+            Corner(Base, 1)
+
+            local Left = Create("Frame", {
+                Parent = Root,
+                Position = UDim2.fromOffset(1, 4),
+                Size = UDim2.fromOffset(1, 11),
+                BackgroundColor3 = IconColor,
+                BorderSizePixel = 0,
+                ZIndex = 214
+            })
+            Corner(Left, 1)
+
+            local function Segment(X, Y, Width, Rotation)
+                local Line = Create("Frame", {
+                    Parent = Root,
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    Position = UDim2.fromOffset(X, Y),
+                    Size = UDim2.fromOffset(Width, 1),
+                    BackgroundColor3 = IconColor,
+                    BorderSizePixel = 0,
+                    Rotation = Rotation,
+                    ZIndex = 214
+                })
+                Corner(Line, 1)
+            end
+
+            Segment(3, 11, 4, -24)
+            Segment(6, 10, 4, 20)
+            Segment(9, 8, 4, -28)
+        elseif Kind == "Signal" then
+            local Heights = {4, 7, 10, 13}
+            for Index = 1, 4 do
+                local Height = Heights[Index]
+                local Bar = Create("Frame", {
+                    Parent = Root,
+                    Position = UDim2.fromOffset(1 + (Index - 1) * 3, 15 - Height),
+                    Size = UDim2.fromOffset(2, Height),
+                    BackgroundColor3 = IconColor,
+                    BorderSizePixel = 0,
+                    ZIndex = 214
+                })
+                Corner(Bar, 1)
+            end
+        elseif Kind == "Clock" then
+            local Ring = Create("Frame", {
+                Parent = Root,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.5, 0.5),
+                Size = UDim2.fromOffset(13, 13),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                ZIndex = 214
+            })
+            Corner(Ring, 13)
+            Stroke(Ring, IconColor, 0, 1)
+
+            local Hour = Create("Frame", {
+                Parent = Ring,
+                AnchorPoint = Vector2.new(0.5, 1),
+                Position = UDim2.fromScale(0.5, 0.5),
+                Size = UDim2.fromOffset(1, 4),
+                BackgroundColor3 = IconColor,
+                BorderSizePixel = 0,
+                ZIndex = 215
+            })
+            Corner(Hour, 1)
+
+            local Minute = Create("Frame", {
+                Parent = Ring,
+                AnchorPoint = Vector2.new(0, 0.5),
+                Position = UDim2.fromScale(0.5, 0.5),
+                Size = UDim2.fromOffset(4, 1),
+                BackgroundColor3 = IconColor,
+                BorderSizePixel = 0,
+                Rotation = 28,
+                ZIndex = 215
+            })
+            Corner(Minute, 1)
+        end
+
+        return Root
     end
 
-    local NameGroup = Create("Frame", {
-        Parent = Watermark,
-        LayoutOrder = 2,
-        Size = UDim2.fromOffset(0, 24),
-        AutomaticSize = Enum.AutomaticSize.X,
-        BackgroundTransparency = 1,
-        ZIndex = 211
-    })
-    local NameLayout = Create("UIListLayout", {
-        Parent = NameGroup,
-        FillDirection = Enum.FillDirection.Horizontal,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        HorizontalAlignment = Enum.HorizontalAlignment.Left,
-        Padding = UDim.new(0, 5),
-        SortOrder = Enum.SortOrder.LayoutOrder
-    })
-
-    local WatermarkName = Create("TextLabel", {
-        Parent = NameGroup,
-        LayoutOrder = 1,
-        AutomaticSize = Enum.AutomaticSize.X,
-        Size = UDim2.fromOffset(0, 24),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSansMedium,
-        Text = LocalPlayer and LocalPlayer.Name or "Player",
-        TextColor3 = PrimaryText,
-        TextSize = 10,
-        TextStrokeColor3 = Color3.new(0, 0, 0),
-        TextStrokeTransparency = 0.72,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        ZIndex = 212
-    })
-
-    WatermarkBrand = Create("TextLabel", {
-        Parent = NameGroup,
-        LayoutOrder = 2,
-        AutomaticSize = Enum.AutomaticSize.X,
-        Size = UDim2.fromOffset(0, 24),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSans,
-        Text = "Atramenta.rip",
-        TextColor3 = Accent,
-        TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 212
-    })
-
-    CreateWatermarkDivider(3)
-
-    local function CreateWatermarkItem(Order, IconName, Text)
+    local function CreateWatermarkTextItem(Order, Kind, Text, Bold)
         local Root = Create("Frame", {
             Parent = Watermark,
             LayoutOrder = Order,
-            Size = UDim2.fromOffset(0, 24),
+            Size = UDim2.fromOffset(0, 20),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 1,
             ZIndex = 211
@@ -5681,79 +5703,80 @@ local function BuildRuntime()
             SortOrder = Enum.SortOrder.LayoutOrder
         })
 
-        local IconHolder = Create("Frame", {
-            Parent = Root,
-            LayoutOrder = 1,
-            Size = UDim2.fromOffset(12, 24),
-            BackgroundTransparency = 1,
-            ZIndex = 211
-        })
-
-        local IconObject = Icon(
-            IconHolder,
-            IconName,
-            UDim2.fromOffset(11, 11),
-            UDim2.fromScale(0.5, 0.5),
-            Accent,
-            212
-        )
-        if IconObject and IconObject:IsA("ImageLabel") then
-            table.insert(WatermarkItemIcons, IconObject)
-        end
+        CreateWatermarkReferenceIcon(Root, Kind, 1)
 
         local Label = Create("TextLabel", {
             Parent = Root,
             LayoutOrder = 2,
-            Size = UDim2.fromOffset(0, 24),
+            Size = UDim2.fromOffset(0, 20),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSans,
+            Font = Bold and Enum.Font.BuilderSansBold or Enum.Font.BuilderSansMedium,
             Text = Text,
             TextColor3 = PrimaryText,
-            TextSize = 10,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.None,
             ZIndex = 212
         })
 
-        return Root, Label, IconObject
+        return Root, Label
     end
 
-    local RegionGroup, RegionText = CreateWatermarkItem(4, "Cloud", "")
-    local RegionDivider = CreateWatermarkDivider(5)
-    RegionGroup.Visible = false
-    RegionDivider.Visible = false
-
-    local FpsGroup, FpsText = CreateWatermarkItem(6, "Run", "0 FPS")
-    CreateWatermarkDivider(7)
-    local PingGroup, PingText = CreateWatermarkItem(8, "Globe", "0 MS")
-    CreateWatermarkDivider(9)
-    local TimeGroup, ClockText = CreateWatermarkItem(10, "Boxes", os.date("%H:%M"))
-    CreateWatermarkDivider(11)
-
-    local AvatarHolder = Create("Frame", {
+    local BrandGroup = Create("Frame", {
         Parent = Watermark,
-        LayoutOrder = 12,
-        Size = UDim2.fromOffset(24, 24),
+        LayoutOrder = 1,
+        Size = UDim2.fromOffset(0, 20),
+        AutomaticSize = Enum.AutomaticSize.X,
         BackgroundTransparency = 1,
         ZIndex = 211
     })
-    local Avatar = Create("ImageLabel", {
-        Parent = AvatarHolder,
-        Size = UDim2.fromOffset(24, 24),
-        BackgroundColor3 = SurfaceAlt,
-        BackgroundTransparency = 0.04,
-        BorderSizePixel = 0,
-        Image = LocalPlayer and ("rbxthumb://type=AvatarHeadShot&id=" .. tostring(LocalPlayer.UserId) .. "&w=150&h=150") or "",
-        ScaleType = Enum.ScaleType.Crop,
+
+    Create("UIListLayout", {
+        Parent = BrandGroup,
+        FillDirection = Enum.FillDirection.Horizontal,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
+        Padding = UDim.new(0, 4),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+
+    CreateWatermarkReferenceIcon(BrandGroup, "Sparkle", 1)
+
+    local WatermarkBrand = Create("TextLabel", {
+        Parent = BrandGroup,
+        LayoutOrder = 2,
+        Size = UDim2.fromOffset(0, 20),
+        AutomaticSize = Enum.AutomaticSize.X,
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSansBold,
+        Text = "Atramenta.rip",
+        TextColor3 = Color3.new(1, 1, 1),
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.None,
         ZIndex = 212
     })
-    Corner(Avatar, 24)
-    WatermarkAvatarStroke = Stroke(Avatar, Accent, 0.08, 1)
+
+    local WatermarkBrandGradient = Create("UIGradient", {
+        Parent = WatermarkBrand,
+        Rotation = 0,
+        Offset = Vector2.new(-1, 0),
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromHSV(0.67, 0.62, 1)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromHSV(0.78, 0.58, 1)),
+            ColorSequenceKeypoint.new(1, Color3.fromHSV(0.91, 0.56, 1))
+        })
+    })
+
+    local ReleaseGroup, ReleaseText = CreateWatermarkTextItem(2, "Gear", "Release", true)
+    local FpsGroup, FpsText = CreateWatermarkTextItem(3, "Chart", "0 Fps", false)
+    local PingGroup, PingText = CreateWatermarkTextItem(4, "Signal", "0 Ping", false)
+    local TimeGroup, ClockText = CreateWatermarkTextItem(5, "Clock", os.date("%H:%M:%S"), false)
 
     local function UpdateWatermarkWidth()
         local ContentWidth = WatermarkLayout.AbsoluteContentSize.X
-        Watermark.Size = UDim2.fromOffset(math.clamp(ContentWidth + 18, 210, 560), 36)
+        Watermark.Size = UDim2.fromOffset(math.clamp(ContentWidth + 18, 250, 520), 30)
         SyncWatermarkGlow()
     end
 
@@ -5769,7 +5792,7 @@ local function BuildRuntime()
         local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
         local EffectiveSize = Watermark.AbsoluteSize
         if EffectiveSize.X <= 0 or EffectiveSize.Y <= 0 then
-            EffectiveSize = Vector2.new(Watermark.Size.X.Offset * WatermarkScale.Scale, 36 * WatermarkScale.Scale)
+            EffectiveSize = Vector2.new(Watermark.Size.X.Offset * WatermarkScale.Scale, 30 * WatermarkScale.Scale)
         end
         local X = math.clamp(Position.X.Offset, 8, math.max(8, Viewport.X - EffectiveSize.X - 8))
         local Y = math.clamp(Position.Y.Offset, 8, math.max(8, Viewport.Y - EffectiveSize.Y - 8))
@@ -5804,16 +5827,25 @@ local function BuildRuntime()
     local WatermarkFrames = 0
     local WatermarkElapsed = 0
     local WatermarkSecondElapsed = 0
-    local ReadServerRegionValue
+    local WatermarkRainbowTime = 0
 
     Bind(RunService.RenderStepped:Connect(function(DeltaTime)
         WatermarkFrames += 1
         WatermarkElapsed += DeltaTime
         WatermarkSecondElapsed += DeltaTime
+        WatermarkRainbowTime += math.clamp(DeltaTime, 0, 0.1)
+
+        local Hue = (WatermarkRainbowTime * 0.055) % 1
+        WatermarkBrandGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromHSV(Hue, 0.58, 1)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromHSV((Hue + 0.10) % 1, 0.62, 1)),
+            ColorSequenceKeypoint.new(1, Color3.fromHSV((Hue + 0.20) % 1, 0.58, 1))
+        })
+        WatermarkBrandGradient.Offset = Vector2.new(math.sin(WatermarkRainbowTime * 0.55) * 0.35, 0)
 
         if WatermarkElapsed >= 0.5 then
             local Fps = math.floor((WatermarkFrames / WatermarkElapsed) + 0.5)
-            FpsText.Text = tostring(Fps) .. " FPS"
+            FpsText.Text = tostring(Fps) .. " Fps"
             WatermarkFrames = 0
             WatermarkElapsed = 0
         end
@@ -5823,98 +5855,11 @@ local function BuildRuntime()
             pcall(function()
                 Ping = math.floor(LocalPlayer:GetNetworkPing() * 1000 + 0.5)
             end)
-            PingText.Text = tostring(Ping) .. " MS"
-            ClockText.Text = os.date("%H:%M")
-
-            local Region = ReadServerRegionValue()
-            local RegionVisible = Region ~= nil
-            if RegionText.Text ~= (Region or "") or RegionGroup.Visible ~= RegionVisible then
-                RegionText.Text = Region or ""
-                RegionGroup.Visible = RegionVisible
-                RegionDivider.Visible = RegionVisible
-                task.defer(UpdateWatermarkWidth)
-            end
-
+            PingText.Text = tostring(Ping) .. " Ping"
+            ClockText.Text = os.date("%H:%M:%S")
             WatermarkSecondElapsed = 0
         end
     end))
-
-    local function NormalizeServerRegion(Value)
-        if Value == nil then
-            return nil
-        end
-
-        local Text = string.upper(tostring(Value))
-        Text = Text:gsub("^%s+", ""):gsub("%s+$", "")
-        if Text == "" or Text == "SERVER" or Text == "UNKNOWN" or Text == "N/A" then
-            return nil
-        end
-
-        local Country = Text:match("^([A-Z][A-Z])$")
-            or Text:match("^([A-Z][A-Z])[%-%_]")
-            or Text:match("[%-%_ ]([A-Z][A-Z])$")
-        if Country then
-            return Country
-        end
-
-        if #Text <= 12 then
-            return Text
-        end
-
-        return nil
-    end
-
-    ReadServerRegionValue = function()
-        local Environment = type(getgenv) == "function" and getgenv() or _G
-        local Direct = Environment and (
-            Environment.AtramentaServerRegion
-            or Environment.ServerRegion
-            or Environment.ServerLocation
-        )
-        local Region = NormalizeServerRegion(Direct)
-        if Region then
-            return Region
-        end
-
-        local AttributeNames = {"ServerRegion", "Region", "ServerLocation", "Location"}
-        local AttributeSources = {game, workspace, game:GetService("ReplicatedStorage")}
-        for _, Source in ipairs(AttributeSources) do
-            for _, Name in ipairs(AttributeNames) do
-                local Success, Value = pcall(Source.GetAttribute, Source, Name)
-                if Success then
-                    Region = NormalizeServerRegion(Value)
-                    if Region then
-                        return Region
-                    end
-                end
-            end
-        end
-
-        local ValueNames = {"ServerRegion", "Region", "ServerLocation"}
-        for _, Source in ipairs(AttributeSources) do
-            for _, Name in ipairs(ValueNames) do
-                local Object = Source:FindFirstChild(Name, true)
-                if Object and Object:IsA("StringValue") then
-                    Region = NormalizeServerRegion(Object.Value)
-                    if Region then
-                        return Region
-                    end
-                end
-            end
-        end
-
-        return nil
-    end
-
-    task.spawn(function()
-        local Region = ReadServerRegionValue()
-        if RegionText.Parent then
-            RegionText.Text = Region or ""
-            RegionGroup.Visible = Region ~= nil
-            RegionDivider.Visible = Region ~= nil
-        end
-        UpdateWatermarkWidth()
-    end)
 
     SetWatermarkHidden = function(Hidden)
         Hidden = Hidden and true or false
@@ -5937,6 +5882,7 @@ local function BuildRuntime()
 
     SyncWatermarkGlow()
     end
+
 
     do
     Menu.KeybindListUI = Menu.KeybindListUI or {}
