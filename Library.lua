@@ -334,7 +334,13 @@ local function BuildRuntime()
         )
         ActiveTweens[Object] = Animation
         Animation:Play()
-        Animation.Completed:Connect(function()
+
+        local CompletionConnection
+        CompletionConnection = Animation.Completed:Connect(function()
+            if CompletionConnection then
+                CompletionConnection:Disconnect()
+                CompletionConnection = nil
+            end
             if ActiveTweens[Object] == Animation then ActiveTweens[Object] = nil end
         end)
         return Animation
@@ -7891,6 +7897,12 @@ local function BuildRuntime()
         if not Data then return end
 
         State = State == true
+        if Data.RenderedState == State then
+            Data.Active = State
+            return
+        end
+
+        Data.RenderedState = State
         Data.Active = State
 
         Tween(Data.Button, 0.10, {
@@ -8079,8 +8091,16 @@ local function BuildRuntime()
         end
     }
 
-    Bind(RunService.RenderStepped:Connect(function()
-        if QuickPanelVisible then
+    local QuickPanelRefreshClock = 0
+    Bind(RunService.Heartbeat:Connect(function(DeltaTime)
+        if not QuickPanelVisible then
+            QuickPanelRefreshClock = 0
+            return
+        end
+
+        QuickPanelRefreshClock += math.clamp(DeltaTime, 0, 0.1)
+        if QuickPanelRefreshClock >= 0.50 then
+            QuickPanelRefreshClock = 0
             RefreshQuickPanelButtons()
         end
     end))
