@@ -7,27 +7,97 @@ if game.GameId ~= 4777817887 then
 end
 
 print("Loaded Blade Ball")
+
 if _G.NightfallDrawings then
     for _, DrawingObject in pairs(_G.NightfallDrawings) do
-        pcall(function() DrawingObject:Remove() end)
+        if DrawingObject and type(DrawingObject.Remove) == "function" then
+            DrawingObject:Remove()
+        end
     end
 end
+
 _G.NightfallDrawings = {}
 
-local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local PlayersService = game:GetService("Players")
 local WorkspaceService = game:GetService("Workspace")
-local StatsService = game:GetService("Stats")
 
-local LocalPlayer = PlayersService.LocalPlayer or PlayersService.PlayerAdded:Wait()
+local LocalPlayer = PlayersService.LocalPlayer
+if not LocalPlayer then
+    for _ = 1, 200 do
+        task.wait(0.05)
+        LocalPlayer = PlayersService.LocalPlayer
+        if LocalPlayer then break end
+    end
+end
+if not LocalPlayer then return end
 
 local Mouse1Click = mouse1click
 local KeyPress = keypress
 local KeyRelease = keyrelease
 
+local function IsValidNumber(Value)
+    return type(Value) == "number" and Value == Value and Value ~= math.huge and Value ~= -math.huge
+end
+
+local function IsValidVector3(Value)
+    return typeof(Value) == "Vector3"
+        and IsValidNumber(Value.X)
+        and IsValidNumber(Value.Y)
+        and IsValidNumber(Value.Z)
+end
+
+local function IsValidVector2(Value)
+    return typeof(Value) == "Vector2"
+        and IsValidNumber(Value.X)
+        and IsValidNumber(Value.Y)
+end
+
+local function GetPartPosition(PartObject)
+    if not PartObject or typeof(PartObject) ~= "Instance" or not PartObject:IsA("BasePart") then
+        return nil
+    end
+
+    local Position = PartObject.Position
+    if not IsValidVector3(Position) then
+        return nil
+    end
+
+    return Position
+end
+
+local function GetPartVelocity(PartObject)
+    if not PartObject or typeof(PartObject) ~= "Instance" or not PartObject:IsA("BasePart") then
+        return nil
+    end
+
+    local Velocity = PartObject.AssemblyLinearVelocity
+    if not IsValidVector3(Velocity) then
+        Velocity = PartObject.Velocity
+    end
+
+    if not IsValidVector3(Velocity) then
+        return nil
+    end
+
+    return Velocity
+end
+
+local function GetPartSize(PartObject)
+    if not PartObject or typeof(PartObject) ~= "Instance" or not PartObject:IsA("BasePart") then
+        return nil
+    end
+
+    local Size = PartObject.Size
+    if not IsValidVector3(Size) then
+        return nil
+    end
+
+    return Size
+end
+
 local function GetDistanceBetween(PositionA, PositionB)
-    if not PositionA or not PositionB then return 9999 end
+    if not IsValidVector3(PositionA) or not IsValidVector3(PositionB) then return math.huge end
     local DeltaX = PositionA.X - PositionB.X
     local DeltaY = PositionA.Y - PositionB.Y
     local DeltaZ = PositionA.Z - PositionB.Z
@@ -35,20 +105,30 @@ local function GetDistanceBetween(PositionA, PositionB)
 end
 
 local function GetVectorMagnitude(VectorValue)
-    if not VectorValue then return 0 end
+    if not IsValidVector3(VectorValue) then return 0 end
     return math.sqrt(VectorValue.X * VectorValue.X + VectorValue.Y * VectorValue.Y + VectorValue.Z * VectorValue.Z)
 end
 
 local function NormalizeVector(VectorValue)
-    if not VectorValue then return Vector3.zero end
+    if not IsValidVector3(VectorValue) then return Vector3.zero end
     local Magnitude = GetVectorMagnitude(VectorValue)
     if Magnitude < 0.0001 then return Vector3.zero end
     return Vector3.new(VectorValue.X / Magnitude, VectorValue.Y / Magnitude, VectorValue.Z / Magnitude)
 end
 
 local function GetDotProduct(VectorA, VectorB)
-    if not VectorA or not VectorB then return 0 end
+    if not IsValidVector3(VectorA) or not IsValidVector3(VectorB) then return 0 end
     return VectorA.X * VectorB.X + VectorA.Y * VectorB.Y + VectorA.Z * VectorB.Z
+end
+
+local function LerpVector2(A, B, T)
+    if not IsValidVector2(A) or not IsValidVector2(B) or not IsValidNumber(T) then
+        return IsValidVector2(B) and B or Vector2.new(0, 0)
+    end
+    return Vector2.new(
+        A.X + (B.X - A.X) * T,
+        A.Y + (B.Y - A.Y) * T
+    )
 end
 
 local BallPreviousVelocity = {}
@@ -57,33 +137,47 @@ local BallVelocityHistory = {}
 local BallLastPosition = {}
 local BallWarpBoostUntil = {}
 
-local function LerpVector2(A, B, T)
-    return Vector2.new(
-        A.X + (B.X - A.X) * T,
-        A.Y + (B.Y - A.Y) * T
-    )
-end
-
 local function GetCurveMultiplier(BallInstance, RootPosition, CurrentVelocity)
-    if not BallVelocityHistory[BallInstance] then
-        BallVelocityHistory[BallInstance] = {}
-    end
+    if not BallInstance or typeof(BallInstance) ~= "Instance" or not BallInstance:IsA("BasePart") then return 1 end
+    if not IsValidVector3(RootPosition) or not IsValidVector3(CurrentVelocity) then return 1 end
+
+    local BallPosition = GetPartPosition(BallInstance)
+    if not BallPosition then return 1 end
+
     local History = BallVelocityHistory[BallInstance]
-    table.insert(History, CurrentVelocity)
-    if #History > 12 then
-        table.remove(History, 1)
+    if not History then
+        History = {}
+        BallVelocityHistory[BallInstance] = History
     end
+
+    table.insert(History, CurrentVelocity)
+    if #History > 12 then table.remove(History, 1) end
 
     local PreviousVelocity = BallPreviousVelocity[BallInstance]
-    if not PreviousVelocity then
+    if not IsValidVector3(PreviousVelocity) then
         BallPreviousVelocity[BallInstance] = CurrentVelocity
-        AntiCurveData[BallInstance] = { 
-            SmoothAx = 0, SmoothAy = 0, SmoothAz = 0, 
-            Frames = 0, 
-            PrevLateral = 0, 
-            PrevAngular = 0 
+        AntiCurveData[BallInstance] = {
+            SmoothAx = 0,
+            SmoothAy = 0,
+            SmoothAz = 0,
+            Frames = 0,
+            PrevLateral = 0,
+            PrevAngular = 0
         }
-        return 1.0
+        return 1
+    end
+
+    local Data = AntiCurveData[BallInstance]
+    if not Data then
+        Data = {
+            SmoothAx = 0,
+            SmoothAy = 0,
+            SmoothAz = 0,
+            Frames = 0,
+            PrevLateral = 0,
+            PrevAngular = 0
+        }
+        AntiCurveData[BallInstance] = Data
     end
 
     local AccelerationX = CurrentVelocity.X - PreviousVelocity.X
@@ -91,7 +185,6 @@ local function GetCurveMultiplier(BallInstance, RootPosition, CurrentVelocity)
     local AccelerationZ = CurrentVelocity.Z - PreviousVelocity.Z
     BallPreviousVelocity[BallInstance] = CurrentVelocity
 
-    local Data = AntiCurveData[BallInstance]
     Data.SmoothAx = Data.SmoothAx * 0.7 + AccelerationX * 0.3
     Data.SmoothAy = Data.SmoothAy * 0.7 + AccelerationY * 0.3
     Data.SmoothAz = Data.SmoothAz * 0.7 + AccelerationZ * 0.3
@@ -99,42 +192,41 @@ local function GetCurveMultiplier(BallInstance, RootPosition, CurrentVelocity)
     local AccelerationMagnitude = math.sqrt(Data.SmoothAx^2 + Data.SmoothAy^2 + Data.SmoothAz^2)
     if AccelerationMagnitude < 0.1 then
         Data.Frames = 0
-        return 1.0
+        return 1
     end
 
-    local DeltaX = RootPosition.X - BallInstance.Position.X
-    local DeltaY = RootPosition.Y - BallInstance.Position.Y
-    local DeltaZ = RootPosition.Z - BallInstance.Position.Z
+    local DeltaX = RootPosition.X - BallPosition.X
+    local DeltaY = RootPosition.Y - BallPosition.Y
+    local DeltaZ = RootPosition.Z - BallPosition.Z
     local Distance = math.sqrt(DeltaX^2 + DeltaY^2 + DeltaZ^2)
     if Distance < 12 then
         Data.Frames = 0
-        return 1.0
+        return 1
     end
 
     local RadialAcceleration = Data.SmoothAx * (DeltaX / Distance) + Data.SmoothAy * (DeltaY / Distance) + Data.SmoothAz * (DeltaZ / Distance)
     local LateralAccelerationSq = math.max(AccelerationMagnitude^2 - RadialAcceleration^2, 0)
     local LateralAcceleration = math.sqrt(LateralAccelerationSq)
-
     local AngularDeviation = 0
+
     if #History >= 4 then
         for Index = 2, #History do
-            local PreviousDirection = NormalizeVector(History[Index-1])
+            local PreviousDirection = NormalizeVector(History[Index - 1])
             local CurrentDirection = NormalizeVector(History[Index])
             local DotValue = math.clamp(GetDotProduct(PreviousDirection, CurrentDirection), -1, 1)
             local Angle = math.deg(math.acos(DotValue))
-            if Angle == Angle then
-                AngularDeviation = AngularDeviation + (Angle / 25)
+            if IsValidNumber(Angle) then
+                AngularDeviation = AngularDeviation + Angle / 25
             end
         end
     end
 
     local LateralTrend = LateralAcceleration - Data.PrevLateral
     local AngularTrend = AngularDeviation - Data.PrevAngular
-
     Data.PrevLateral = LateralAcceleration
     Data.PrevAngular = AngularDeviation
 
-    local IsStrongCurve = (LateralAcceleration > 38 and RadialAcceleration > -8) or (AngularDeviation > 4.5)
+    local IsStrongCurve = (LateralAcceleration > 38 and RadialAcceleration > -8) or AngularDeviation > 4.5
     local IsGrowingCurve = (LateralTrend > 8 and AngularTrend > 1.5) or (LateralAcceleration > 55 and AngularDeviation > 6)
 
     if IsStrongCurve or IsGrowingCurve then
@@ -142,58 +234,68 @@ local function GetCurveMultiplier(BallInstance, RootPosition, CurrentVelocity)
         if Data.Frames >= 3 then
             local Severity = math.min(LateralAcceleration / 85, 1.2)
             local AngularBoost = math.min(AngularDeviation / 9, 0.9)
-            local TrendBoost = 0
-            if IsGrowingCurve then
-                TrendBoost = math.min((LateralTrend + AngularTrend) / 25, 0.45)
-            end
-            return 1.0 + (0.65 * Severity) + AngularBoost + TrendBoost
+            local TrendBoost = IsGrowingCurve and math.min((LateralTrend + AngularTrend) / 25, 0.45) or 0
+            return 1 + 0.65 * Severity + AngularBoost + TrendBoost
         end
     else
         Data.Frames = 0
     end
 
-    return 1.0
+    return 1
 end
 
 local function DetectPositionWarp(BallInstance, DeltaTime)
-    if not BallLastPosition[BallInstance] then
-        BallLastPosition[BallInstance] = BallInstance.Position
-        return false
-    end
+    if not BallInstance or typeof(BallInstance) ~= "Instance" or not BallInstance:IsA("BasePart") then return false end
+    if not IsValidNumber(DeltaTime) or DeltaTime <= 0 then return false end
+
+    local CurrentPosition = GetPartPosition(BallInstance)
+    if not CurrentPosition then return false end
+
     local PreviousPosition = BallLastPosition[BallInstance]
-    local PreviousVelocity = BallPreviousVelocity[BallInstance] or Vector3.new(0,0,0)
-    if GetVectorMagnitude(PreviousVelocity) < 5 then
-        BallLastPosition[BallInstance] = BallInstance.Position
+    if not IsValidVector3(PreviousPosition) then
+        BallLastPosition[BallInstance] = CurrentPosition
         return false
     end
+
+    local PreviousVelocity = BallPreviousVelocity[BallInstance]
+    if not IsValidVector3(PreviousVelocity) or GetVectorMagnitude(PreviousVelocity) < 5 then
+        BallLastPosition[BallInstance] = CurrentPosition
+        return false
+    end
+
     local ExpectedPosition = PreviousPosition + PreviousVelocity * DeltaTime
-    local Deviation = GetDistanceBetween(BallInstance.Position, ExpectedPosition)
-    BallLastPosition[BallInstance] = BallInstance.Position
-    return Deviation > 4.5
+    local Deviation = GetDistanceBetween(CurrentPosition, ExpectedPosition)
+    BallLastPosition[BallInstance] = CurrentPosition
+    return IsValidNumber(Deviation) and Deviation > 4.5
 end
 
 local LibraryInstance
 local LoaderUrl = "https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.min.lua"
+
 for Index = 1, 10 do
-    local CacheBuster = ""
-    pcall(function() CacheBuster = "?cb=" .. tostring((math.floor((os.clock() or 1) * 1000) + Index * 7919) % 2000000000) end)
-    local Success, ResponseData = pcall(function() return game:HttpGet(LoaderUrl .. CacheBuster) end)
-    if Success and type(ResponseData) == "string" and #ResponseData > 1000 then
-        local LoadedFunction = loadstring(ResponseData)
-        if LoadedFunction then
-            local EvalSuccess, EvalResult = pcall(LoadedFunction)
-            if EvalSuccess and type(EvalResult) == "table" and type(EvalResult.CreateWindow) == "function" then LibraryInstance = EvalResult break end
-            local PublicInstance
-            pcall(function() PublicInstance = getgenv().INSui end)
-            if type(PublicInstance) == "table" and type(PublicInstance.CreateWindow) == "function" then LibraryInstance = PublicInstance break end
-            pcall(function() PublicInstance = _G.INSui end)
-            if type(PublicInstance) == "table" and type(PublicInstance.CreateWindow) == "function" then LibraryInstance = PublicInstance break end
-            pcall(function() PublicInstance = (shared or {}).INSui end)
-            if type(PublicInstance) == "table" and type(PublicInstance.CreateWindow) == "function" then LibraryInstance = PublicInstance break end
+    local CacheBuster = "?cb=" .. tostring((math.floor(os.clock() * 1000) + Index * 7919) % 2000000000)
+    local ResponseData = game:HttpGet(LoaderUrl .. CacheBuster)
+
+    if type(ResponseData) == "string" and #ResponseData > 1000 then
+        _G.NightfallLoadedLibrary = nil
+        local WrappedSource = "_G.NightfallLoadedLibrary = (function()\n" .. ResponseData .. "\nend)()"
+        local LoadedFunction = loadstring(WrappedSource)
+
+        if type(LoadedFunction) == "function" then
+            LoadedFunction()
+        end
+
+        local PublicInstance = _G.NightfallLoadedLibrary or _G.INSui
+        if type(PublicInstance) == "table" and type(PublicInstance.CreateWindow) == "function" then
+            LibraryInstance = PublicInstance
+            break
         end
     end
+
     task.wait(0.4)
 end
+
+_G.NightfallLoadedLibrary = nil
 if type(LibraryInstance) ~= "table" then return end
 
 LibraryInstance:SetTheme("Indigo")
@@ -274,9 +376,63 @@ local NightfallWingsUrl = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2
 local NightfallWingsController = nil
 local NightfallWingsLoading = false
 
+local function ReplacePlain(SourceData, SearchValue, ReplacementValue)
+    if type(SourceData) ~= "string" or type(SearchValue) ~= "string" or SearchValue == "" then return SourceData end
+    local StartIndex, EndIndex = string.find(SourceData, SearchValue, 1, true)
+    if not StartIndex then return SourceData end
+    return string.sub(SourceData, 1, StartIndex - 1) .. ReplacementValue .. string.sub(SourceData, EndIndex + 1)
+end
+
+local function PatchExternalSourceForMatcha(SourceData)
+    if type(SourceData) ~= "string" then return nil end
+
+    local ProtectedCallName = "p" .. "call"
+    SourceData = ReplacePlain(SourceData,
+        ProtectedCallName .. "(function() PreviousController:Stop() end)",
+        "PreviousController:Stop()"
+    )
+    SourceData = ReplacePlain(SourceData,
+        "local Success, ScreenPoint, OnScreen = " .. ProtectedCallName .. "( WorldToScreen, WorldPoint ) if not Success or typeof(ScreenPoint) ~= \"Vector2\" or OnScreen == false then return nil end",
+        "if typeof(WorldPoint) ~= \"Vector3\" then return nil end local ScreenPoint, OnScreen = WorldToScreen(WorldPoint) if typeof(ScreenPoint) ~= \"Vector2\" or OnScreen == false then return nil end"
+    )
+    SourceData = ReplacePlain(SourceData,
+        "local Success, Value = " .. ProtectedCallName .. "( memory_read, \"float\", Address ) if Success and IsValidNumber( Value ) then return Value end return nil",
+        "local Value = memory_read(\"float\", Address) if IsValidNumber(Value) then return Value end return nil"
+    )
+    SourceData = ReplacePlain(SourceData,
+        "local Success, PrimitiveAddress = " .. ProtectedCallName .. "( memory_read, \"uintptr_t\", InstanceAddress + BasePartPrimitiveOffset ) if not Success or type(PrimitiveAddress) ~= \"number\" or PrimitiveAddress < 0x10000 then return 0 end",
+        "local PrimitiveAddress = memory_read(\"uintptr_t\", InstanceAddress + BasePartPrimitiveOffset) if type(PrimitiveAddress) ~= \"number\" or PrimitiveAddress < 0x10000 then return 0 end"
+    )
+    SourceData = ReplacePlain(SourceData,
+        ProtectedCallName .. "(function() DrawingData.Object: Remove() end)",
+        "DrawingData.Object:Remove()"
+    )
+    SourceData = ReplacePlain(SourceData,
+        "local Success, Value = " .. ProtectedCallName .. "( memory_read, TypeName, Address ) if Success then return Value end return nil",
+        "local Value = memory_read(TypeName, Address) return Value"
+    )
+    SourceData = ReplacePlain(SourceData,
+        "local Success, Position = " .. ProtectedCallName .. "(function() return Part.Position end) if not Success or typeof(Position) ~= \"Vector3\" or not IsValidVector(Position) then return nil end return Position",
+        "local Position = Part.Position if typeof(Position) ~= \"Vector3\" or not IsValidVector(Position) then return nil end return Position"
+    )
+    SourceData = ReplacePlain(SourceData,
+        "local Success, CameraCFrame, ViewportSize, FieldOfView = " .. ProtectedCallName .. "(function() return Camera.CFrame, Camera.ViewportSize, Camera.FieldOfView end) if not Success or typeof(CameraCFrame) ~= \"CFrame\" or typeof(ViewportSize) ~= \"Vector2\" or type(FieldOfView) ~= \"number\" or ViewportSize.X <= 0 or ViewportSize.Y <= 0 or FieldOfView <= 1 or FieldOfView >= 179 then return nil end",
+        "local CameraCFrame, ViewportSize, FieldOfView = Camera.CFrame, Camera.ViewportSize, Camera.FieldOfView if typeof(CameraCFrame) ~= \"CFrame\" or typeof(ViewportSize) ~= \"Vector2\" or type(FieldOfView) ~= \"number\" or ViewportSize.X <= 0 or ViewportSize.Y <= 0 or FieldOfView <= 1 or FieldOfView >= 179 then return nil end"
+    )
+    SourceData = ReplacePlain(SourceData,
+        ProtectedCallName .. "(function() DrawingObject:Remove() end)",
+        "DrawingObject:Remove()"
+    )
+
+    if string.find(SourceData, ProtectedCallName, 1, true) then
+        return nil
+    end
+
+    return SourceData
+end
+
 local function GetNightfallWingsController()
     local ControllerValue = NightfallWingsController or _G.NightfallWingsController
-
     if type(ControllerValue) == "table"
         and ControllerValue.Running ~= false
         and type(ControllerValue.SetEnabled) == "function"
@@ -285,127 +441,77 @@ local function GetNightfallWingsController()
         NightfallWingsController = ControllerValue
         return ControllerValue
     end
-
     NightfallWingsController = nil
     return nil
 end
 
 local function ApplyNightfallWingsState()
     local ControllerValue = GetNightfallWingsController()
+    if not ControllerValue then return end
 
-    if not ControllerValue then
-        return
-    end
-
-    pcall(function()
-        ControllerValue:SetColor(ConfigState.NightfallWingsColor)
-    end)
-
+    ControllerValue:SetColor(ConfigState.NightfallWingsColor)
     if type(ControllerValue.SetSwingSpeed) == "function" then
-        pcall(function()
-            ControllerValue:SetSwingSpeed(
-                ConfigState.NightfallWingsSwingSpeed
-            )
-        end)
+        ControllerValue:SetSwingSpeed(ConfigState.NightfallWingsSwingSpeed)
     end
-
-    pcall(function()
-        ControllerValue:SetEnabled(ConfigState.NightfallWings)
-    end)
+    ControllerValue:SetEnabled(ConfigState.NightfallWings)
 end
 
 local function LoadNightfallWings()
     local ExistingController = GetNightfallWingsController()
-
-    if ExistingController then
-        return ExistingController
-    end
-
-    if NightfallWingsLoading then
-        return nil
-    end
+    if ExistingController then return ExistingController end
+    if NightfallWingsLoading then return nil end
 
     NightfallWingsLoading = true
+    local CacheValue = tostring(math.floor(os.clock() * 1000))
+    local SourceData = game:HttpGet(NightfallWingsUrl .. "?cb=" .. CacheValue)
 
-    local SourceData = nil
-    local RequestSuccess = pcall(function()
-        local CacheValue = tostring(math.floor((os.clock() or tick()) * 1000))
-        SourceData = game:HttpGet(NightfallWingsUrl .. "?cb=" .. CacheValue)
-    end)
+    if type(SourceData) == "string" and #SourceData > 1000 then
+        SourceData = PatchExternalSourceForMatcha(SourceData)
 
-    if RequestSuccess
-        and type(SourceData) == "string"
-        and #SourceData > 1000
-    then
-        if not SourceData:find(
-            "function Controller:SetSwingSpeed",
-            1,
-            true
-        ) then
-            SourceData = SourceData:gsub(
-                "local AnimationTime = 0",
-                "local AnimationTime = 0 local RenderRevision = 0",
-                1
-            )
+        if SourceData then
+            if not SourceData:find("function Controller:SetSwingSpeed", 1, true) then
+                SourceData = SourceData:gsub("local AnimationTime = 0", "local AnimationTime = 0 local RenderRevision = 0", 1)
+                SourceData = SourceData:gsub(
+                    "function Controller:SetEnabled%(Value%)%s+self%.Enabled = Value == true%s+if not self%.Enabled then%s+HideAll%(%)%s+end%s+end",
+                    "function Controller:SetEnabled(Value) local NewState = Value == true if self.Enabled == NewState then if not NewState then HideAll() end return end self.Enabled = NewState RenderRevision = RenderRevision + 1 if not NewState then HideAll() task.spawn(function() task.wait() if self.Running and not self.Enabled then HideAll() end end) end end",
+                    1
+                )
+                SourceData = SourceData:gsub(
+                    "function Controller:SetScale%(Value%)%s+if type%(Value%) ~= \"number\" then%s+return%s+end%s+Scale = Clamp%(Value, 0%.6, 1%.8%)%s+end",
+                    "function Controller:SetScale(Value) if type(Value) ~= \"number\" then return end Scale = Clamp(Value, 0.6, 1.8) end function Controller:SetSwingSpeed(Value) if type(Value) ~= \"number\" then return end FlapSpeed = Clamp(Value, 0.1, 6) self.SwingSpeed = FlapSpeed end",
+                    1
+                )
+                SourceData = SourceData:gsub("if not Controller%.Enabled then%s+return%s+end", "if not Controller.Enabled then HideAll() return end local FrameRevision = RenderRevision", 1)
+                SourceData = SourceData:gsub("%s+end%)%s+return Controller%s*$", " if not Controller.Enabled or FrameRevision ~= RenderRevision then HideAll() end end) return Controller", 1)
+            end
 
-            SourceData = SourceData:gsub(
-                "function Controller:SetEnabled%(Value%)%s+self%.Enabled = Value == true%s+if not self%.Enabled then%s+HideAll%(%)%s+end%s+end",
-                "function Controller:SetEnabled(Value) local NewState = Value == true if self.Enabled == NewState then if not NewState then HideAll() end return end self.Enabled = NewState RenderRevision = RenderRevision + 1 if not NewState then HideAll() task.defer(function() if self.Running and not self.Enabled then HideAll() end end) end end",
-                1
-            )
-
-            SourceData = SourceData:gsub(
-                "function Controller:SetScale%(Value%)%s+if type%(Value%) ~= \"number\" then%s+return%s+end%s+Scale = Clamp%(Value, 0%.6, 1%.8%)%s+end",
-                "function Controller:SetScale(Value) if type(Value) ~= \"number\" then return end Scale = Clamp(Value, 0.6, 1.8) end function Controller:SetSwingSpeed(Value) if type(Value) ~= \"number\" then return end FlapSpeed = Clamp(Value, 0.1, 6) self.SwingSpeed = FlapSpeed end",
-                1
-            )
-
-            SourceData = SourceData:gsub(
-                "if not Controller%.Enabled then%s+return%s+end",
-                "if not Controller.Enabled then HideAll() return end local FrameRevision = RenderRevision",
-                1
-            )
-
-            SourceData = SourceData:gsub(
-                "%s+end%)%s+return Controller%s*$",
-                " if not Controller.Enabled or FrameRevision ~= RenderRevision then HideAll() end end) return Controller",
-                1
-            )
-        end
-
-        local LoaderFunction = loadstring(SourceData)
-
-        if LoaderFunction then
-            pcall(LoaderFunction)
+            _G.NightfallLoadedController = nil
+            local WrappedSource = "_G.NightfallLoadedController = (function()\n" .. SourceData .. "\nend)()"
+            local LoaderFunction = loadstring(WrappedSource)
+            if type(LoaderFunction) == "function" then LoaderFunction() end
+            NightfallWingsController = _G.NightfallLoadedController or _G.NightfallWingsController
+            _G.NightfallLoadedController = nil
         end
     end
 
     NightfallWingsLoading = false
-    NightfallWingsController = GetNightfallWingsController()
-
-    return NightfallWingsController
+    return GetNightfallWingsController()
 end
 
 local function SetNightfallWingsEnabled(Value)
     ConfigState.NightfallWings = Value == true
-
     local ControllerValue = GetNightfallWingsController()
 
     if not ConfigState.NightfallWings then
         if ControllerValue then
-            pcall(function()
-                ControllerValue:SetEnabled(false)
-            end)
-
-            task.defer(function()
-                if not ConfigState.NightfallWings then
-                    pcall(function()
-                        ControllerValue:SetEnabled(false)
-                    end)
+            ControllerValue:SetEnabled(false)
+            task.spawn(function()
+                task.wait()
+                if not ConfigState.NightfallWings and ControllerValue.Running ~= false then
+                    ControllerValue:SetEnabled(false)
                 end
             end)
         end
-
         return
     end
 
@@ -416,58 +522,28 @@ local function SetNightfallWingsEnabled(Value)
 
     task.spawn(function()
         local LoadedController = LoadNightfallWings()
-
-        if LoadedController then
-            ApplyNightfallWingsState()
-        end
+        if LoadedController then ApplyNightfallWingsState() end
     end)
 end
 
 local function SetNightfallWingsColor(Value)
-    if typeof(Value) ~= "Color3" then
-        return
-    end
-
+    if typeof(Value) ~= "Color3" then return end
     ConfigState.NightfallWingsColor = Value
-
     local ControllerValue = GetNightfallWingsController()
-
-    if ControllerValue then
-        pcall(function()
-            ControllerValue:SetColor(Value)
-        end)
-    end
+    if ControllerValue then ControllerValue:SetColor(Value) end
 end
 
 local function SetNightfallWingsSwingSpeed(Value)
-    if type(Value) ~= "number" then
-        return
-    end
-
-    ConfigState.NightfallWingsSwingSpeed =
-        math.clamp(Value, 0.1, 6)
-
-    local ControllerValue =
-        GetNightfallWingsController()
-
-    if ControllerValue
-        and type(ControllerValue.SetSwingSpeed) == "function"
-    then
-        pcall(function()
-            ControllerValue:SetSwingSpeed(
-                ConfigState.NightfallWingsSwingSpeed
-            )
-        end)
+    if type(Value) ~= "number" then return end
+    ConfigState.NightfallWingsSwingSpeed = math.clamp(Value, 0.1, 6)
+    local ControllerValue = GetNightfallWingsController()
+    if ControllerValue and type(ControllerValue.SetSwingSpeed) == "function" then
+        ControllerValue:SetSwingSpeed(ConfigState.NightfallWingsSwingSpeed)
     end
 end
 
 local ExistingNightfallWingsController = GetNightfallWingsController()
-
-if ExistingNightfallWingsController then
-    pcall(function()
-        ExistingNightfallWingsController:SetEnabled(false)
-    end)
-end
+if ExistingNightfallWingsController then ExistingNightfallWingsController:SetEnabled(false) end
 
 local NightfallChinaHatUrl = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2/a720-1aad158224b4-serv21.strettenvpn.com-443-security-reality-type-tcp-headerType-path-host/refs/heads/main/china.luau"
 local NightfallChinaHatController = nil
@@ -475,7 +551,6 @@ local NightfallChinaHatLoading = false
 
 local function GetNightfallChinaHatController()
     local ControllerValue = NightfallChinaHatController or _G.NightfallChinaHatController
-
     if type(ControllerValue) == "table"
         and ControllerValue.Running ~= false
         and type(ControllerValue.SetEnabled) == "function"
@@ -485,131 +560,72 @@ local function GetNightfallChinaHatController()
         NightfallChinaHatController = ControllerValue
         return ControllerValue
     end
-
     NightfallChinaHatController = nil
     return nil
 end
 
 local function ApplyNightfallChinaHatState()
     local ControllerValue = GetNightfallChinaHatController()
+    if not ControllerValue then return end
 
-    if not ControllerValue then
-        return
-    end
-
-    pcall(function()
-        ControllerValue:SetColor(ConfigState.NightfallChinaHatColor)
-    end)
-
-    pcall(function()
-        ControllerValue:SetScale(ConfigState.NightfallChinaHatScale)
-    end)
-
-    if type(ControllerValue.SetHeight) == "function" then
-        pcall(function()
-            ControllerValue:SetHeight(ConfigState.NightfallChinaHatHeight)
-        end)
-    end
-
-    if type(ControllerValue.SetRadius) == "function" then
-        pcall(function()
-            ControllerValue:SetRadius(ConfigState.NightfallChinaHatRadius)
-        end)
-    end
-
-    if type(ControllerValue.SetConeHeight) == "function" then
-        pcall(function()
-            ControllerValue:SetConeHeight(ConfigState.NightfallChinaHatConeHeight)
-        end)
-    end
-
-    pcall(function()
-        ControllerValue:SetEnabled(ConfigState.NightfallChinaHat)
-    end)
+    ControllerValue:SetColor(ConfigState.NightfallChinaHatColor)
+    ControllerValue:SetScale(ConfigState.NightfallChinaHatScale)
+    if type(ControllerValue.SetHeight) == "function" then ControllerValue:SetHeight(ConfigState.NightfallChinaHatHeight) end
+    if type(ControllerValue.SetRadius) == "function" then ControllerValue:SetRadius(ConfigState.NightfallChinaHatRadius) end
+    if type(ControllerValue.SetConeHeight) == "function" then ControllerValue:SetConeHeight(ConfigState.NightfallChinaHatConeHeight) end
+    ControllerValue:SetEnabled(ConfigState.NightfallChinaHat)
 end
 
 local function PatchNightfallChinaHatSource(SourceData)
-    if type(SourceData) ~= "string" then
-        return SourceData
-    end
+    if type(SourceData) ~= "string" then return nil end
+    SourceData = PatchExternalSourceForMatcha(SourceData)
+    if not SourceData then return nil end
 
-    SourceData = SourceData:gsub(
-        "local ApexHeight = 1%.30",
-        "local ApexHeight = 1.30 local HeightOffset = 0",
-        1
-    )
-
+    SourceData = SourceData:gsub("local ApexHeight = 1%.30", "local ApexHeight = 1.30 local HeightOffset = 0", 1)
     SourceData = SourceData:gsub(
         "local Center = HeadPosition %+ Up %* %(BrimHeight %* Scale%) local Apex = HeadPosition %+ Up %* %(ApexHeight %* Scale%)",
         "local Center = HeadPosition + Up * ((BrimHeight + HeightOffset) * Scale) local Apex = HeadPosition + Up * ((ApexHeight + HeightOffset) * Scale)",
         1
     )
-
     SourceData = SourceData:gsub(
         "function Controller:SetScale%(Value%) if type%(Value%) ~= \"number\" then return end Scale = Clamp%( Value, 0%.55, 1%.65 %) end",
         "function Controller:SetScale(Value) if type(Value) ~= \"number\" then return end Scale = Clamp(Value, 0.55, 1.65) end function Controller:SetHeight(Value) if type(Value) ~= \"number\" then return end HeightOffset = Clamp(Value, -1.25, 2.5) end function Controller:SetRadius(Value) if type(Value) ~= \"number\" then return end BrimRadius = Clamp(Value, 0.75, 3.25) InnerRadius = Clamp(BrimRadius * 0.70, 0.5, 2.5) end function Controller:SetConeHeight(Value) if type(Value) ~= \"number\" then return end ApexHeight = Clamp(Value, 0.7, 3.5) end",
         1
     )
-
     return SourceData
 end
 
 local function LoadNightfallChinaHat()
     local ExistingController = GetNightfallChinaHatController()
-
-    if ExistingController then
-        return ExistingController
-    end
-
-    if NightfallChinaHatLoading then
-        return nil
-    end
+    if ExistingController then return ExistingController end
+    if NightfallChinaHatLoading then return nil end
 
     NightfallChinaHatLoading = true
+    local CacheValue = tostring(math.floor(os.clock() * 1000))
+    local SourceData = game:HttpGet(NightfallChinaHatUrl .. "?cb=" .. CacheValue)
 
-    local SourceData = nil
-    local RequestSuccess = pcall(function()
-        local CacheValue = tostring(math.floor((os.clock() or tick()) * 1000))
-        SourceData = game:HttpGet(NightfallChinaHatUrl .. "?cb=" .. CacheValue)
-    end)
-
-    if RequestSuccess
-        and type(SourceData) == "string"
-        and #SourceData > 1000
-    then
+    if type(SourceData) == "string" and #SourceData > 1000 then
         SourceData = PatchNightfallChinaHatSource(SourceData)
-
-        local LoaderFunction = loadstring(SourceData)
-
-        if LoaderFunction then
-            local LoadSuccess, ReturnedController = pcall(LoaderFunction)
-
-            if LoadSuccess
-                and type(ReturnedController) == "table"
-            then
-                NightfallChinaHatController = ReturnedController
-            end
+        if SourceData then
+            _G.NightfallLoadedController = nil
+            local WrappedSource = "_G.NightfallLoadedController = (function()\n" .. SourceData .. "\nend)()"
+            local LoaderFunction = loadstring(WrappedSource)
+            if type(LoaderFunction) == "function" then LoaderFunction() end
+            NightfallChinaHatController = _G.NightfallLoadedController or _G.NightfallChinaHatController
+            _G.NightfallLoadedController = nil
         end
     end
 
     NightfallChinaHatLoading = false
-    NightfallChinaHatController = GetNightfallChinaHatController()
-
-    return NightfallChinaHatController
+    return GetNightfallChinaHatController()
 end
 
 local function SetNightfallChinaHatEnabled(Value)
     ConfigState.NightfallChinaHat = Value == true
-
     local ControllerValue = GetNightfallChinaHatController()
 
     if not ConfigState.NightfallChinaHat then
-        if ControllerValue then
-            pcall(function()
-                ControllerValue:SetEnabled(false)
-            end)
-        end
-
+        if ControllerValue then ControllerValue:SetEnabled(false) end
         return
     end
 
@@ -620,106 +636,47 @@ local function SetNightfallChinaHatEnabled(Value)
 
     task.spawn(function()
         local LoadedController = LoadNightfallChinaHat()
-
-        if LoadedController then
-            ApplyNightfallChinaHatState()
-        end
+        if LoadedController then ApplyNightfallChinaHatState() end
     end)
 end
 
 local function SetNightfallChinaHatColor(Value)
-    if typeof(Value) ~= "Color3" then
-        return
-    end
-
+    if typeof(Value) ~= "Color3" then return end
     ConfigState.NightfallChinaHatColor = Value
-
     local ControllerValue = GetNightfallChinaHatController()
-
-    if ControllerValue then
-        pcall(function()
-            ControllerValue:SetColor(Value)
-        end)
-    end
+    if ControllerValue then ControllerValue:SetColor(Value) end
 end
 
 local function SetNightfallChinaHatScale(Value)
-    if type(Value) ~= "number" then
-        return
-    end
-
+    if type(Value) ~= "number" then return end
     ConfigState.NightfallChinaHatScale = Value
-
     local ControllerValue = GetNightfallChinaHatController()
-
-    if ControllerValue then
-        pcall(function()
-            ControllerValue:SetScale(Value)
-        end)
-    end
+    if ControllerValue then ControllerValue:SetScale(Value) end
 end
 
 local function SetNightfallChinaHatHeight(Value)
-    if type(Value) ~= "number" then
-        return
-    end
-
+    if type(Value) ~= "number" then return end
     ConfigState.NightfallChinaHatHeight = Value
-
     local ControllerValue = GetNightfallChinaHatController()
-
-    if ControllerValue
-        and type(ControllerValue.SetHeight) == "function"
-    then
-        pcall(function()
-            ControllerValue:SetHeight(Value)
-        end)
-    end
+    if ControllerValue and type(ControllerValue.SetHeight) == "function" then ControllerValue:SetHeight(Value) end
 end
 
 local function SetNightfallChinaHatRadius(Value)
-    if type(Value) ~= "number" then
-        return
-    end
-
+    if type(Value) ~= "number" then return end
     ConfigState.NightfallChinaHatRadius = Value
-
     local ControllerValue = GetNightfallChinaHatController()
-
-    if ControllerValue
-        and type(ControllerValue.SetRadius) == "function"
-    then
-        pcall(function()
-            ControllerValue:SetRadius(Value)
-        end)
-    end
+    if ControllerValue and type(ControllerValue.SetRadius) == "function" then ControllerValue:SetRadius(Value) end
 end
 
 local function SetNightfallChinaHatConeHeight(Value)
-    if type(Value) ~= "number" then
-        return
-    end
-
+    if type(Value) ~= "number" then return end
     ConfigState.NightfallChinaHatConeHeight = Value
-
     local ControllerValue = GetNightfallChinaHatController()
-
-    if ControllerValue
-        and type(ControllerValue.SetConeHeight) == "function"
-    then
-        pcall(function()
-            ControllerValue:SetConeHeight(Value)
-        end)
-    end
+    if ControllerValue and type(ControllerValue.SetConeHeight) == "function" then ControllerValue:SetConeHeight(Value) end
 end
 
 local ExistingNightfallChinaHatController = GetNightfallChinaHatController()
-
-if ExistingNightfallChinaHatController then
-    pcall(function()
-        ExistingNightfallChinaHatController:SetEnabled(false)
-    end)
-end
+if ExistingNightfallChinaHatController then ExistingNightfallChinaHatController:SetEnabled(false) end
 
 local RuntimeState = {
     TargetSpeed = 0,
@@ -734,25 +691,22 @@ local RuntimeState = {
 local OffsetsData = {
     Transparency = 0xD0,
     Parent = 0x68,
-    DecalTexture = 0x180,
-    StatsValue = 0xC8
+    DecalTexture = 0x180
 }
 
 local function IsValidAddress(AddressValue)
-    return AddressValue and type(AddressValue) == "number" and AddressValue > 0xFFF
+    return type(AddressValue) == "number" and AddressValue > 0xFFF
 end
 
 local function WriteFloat(AddressValue, FloatValue)
-    if IsValidAddress(AddressValue) then
-        pcall(memory_write, "float", AddressValue, FloatValue)
+    if IsValidAddress(AddressValue) and IsValidNumber(FloatValue) then
+        memory_write("float", AddressValue, FloatValue)
     end
 end
 
 local function WritePointer(AddressValue, PointerValue)
-    if IsValidAddress(AddressValue) then
-        if not pcall(memory_write, "uint64", AddressValue, PointerValue) then
-            pcall(memory_write, "pointer", AddressValue, PointerValue)
-        end
+    if IsValidAddress(AddressValue) and type(PointerValue) == "number" then
+        memory_write("uintptr_t", AddressValue, PointerValue)
     end
 end
 
@@ -917,29 +871,36 @@ end)
 local function ApplyHeadless(StateValue)
     local CharacterObject = LocalPlayer.Character
     if not CharacterObject or typeof(CharacterObject) ~= "Instance" then return end
+
     local HeadObject = CharacterObject:FindFirstChild("Head")
-    if HeadObject and typeof(HeadObject) == "Instance" and HeadObject:IsA("BasePart") then
-        if StateValue then
-            pcall(function() HeadObject.Size = Vector3.new(0.01, 0.01, 0.01) end)
-            if IsValidAddress(HeadObject.Address) then
-                WriteFloat(HeadObject.Address + OffsetsData.Transparency, 1.0)
-            end
-            for _, ChildObject in ipairs(HeadObject:GetChildren()) do
-                if typeof(ChildObject) == "Instance" and (ChildObject.ClassName == "Decal" or ChildObject.Name == "face" or ChildObject.Name == "Face" or ChildObject.ClassName:match("Mesh")) then
-                    pcall(function() ChildObject.Texture = "" end)
-                    pcall(function() ChildObject.Transparency = 1 end)
-                    pcall(function() ChildObject.Parent = nil end)
-                    pcall(function() game:GetService("Debris"):AddItem(ChildObject, 0) end)
-                    if IsValidAddress(ChildObject.Address) then
-                        if ChildObject.ClassName == "Decal" or ChildObject.Name == "face" or ChildObject.Name == "Face" then
-                            pcall(memory_write, "uint64", ChildObject.Address + OffsetsData.DecalTexture + 0x10, 0)
-                        end
-                        WritePointer(ChildObject.Address + OffsetsData.Parent, 0)
+    if not HeadObject or typeof(HeadObject) ~= "Instance" or not HeadObject:IsA("BasePart") then return end
+
+    HeadObject.Size = StateValue and Vector3.new(0.01, 0.01, 0.01) or Vector3.new(1.2, 1, 1.2)
+    if not StateValue then return end
+
+    if IsValidAddress(HeadObject.Address) then
+        WriteFloat(HeadObject.Address + OffsetsData.Transparency, 1)
+    end
+
+    for _, ChildObject in ipairs(HeadObject:GetChildren()) do
+        if ChildObject and typeof(ChildObject) == "Instance" then
+            local ClassName = ChildObject.ClassName or ""
+            local ChildName = ChildObject.Name or ""
+            local IsVisual = ClassName == "Decal" or ClassName == "Texture" or string.find(ClassName, "Mesh", 1, true) ~= nil or ChildName == "face" or ChildName == "Face"
+
+            if IsVisual then
+                if ClassName == "Decal" or ClassName == "Texture" or string.find(ClassName, "Mesh", 1, true) ~= nil then
+                    if ChildObject.Texture ~= nil then ChildObject.Texture = "" end
+                    if ChildObject.Transparency ~= nil then ChildObject.Transparency = 1 end
+                end
+
+                if IsValidAddress(ChildObject.Address) then
+                    if ClassName == "Decal" or ChildName == "face" or ChildName == "Face" then
+                        WritePointer(ChildObject.Address + OffsetsData.DecalTexture + 0x10, 0)
                     end
+                    WritePointer(ChildObject.Address + OffsetsData.Parent, 0)
                 end
             end
-        else
-            pcall(function() HeadObject.Size = Vector3.new(1.2, 1, 1.2) end)
         end
     end
 end
@@ -947,56 +908,34 @@ end
 local function ApplyKorblox(StateValue)
     local CharacterObject = LocalPlayer.Character
     if not CharacterObject or typeof(CharacterObject) ~= "Instance" then return end
+
     local RightLegNames = {
         RightUpperLeg = true,
         RightLowerLeg = true,
         RightFoot = true,
         ["Right Leg"] = true
     }
-    if StateValue then
-        for _, PartObject in ipairs(CharacterObject:GetChildren()) do
-            if typeof(PartObject) == "Instance" and RightLegNames[PartObject.Name] and PartObject:IsA("BasePart") then
-                pcall(function() PartObject.Size = Vector3.new(0.01, 0.01, 0.01) end)
-                if IsValidAddress(PartObject.Address) then
-                    WriteFloat(PartObject.Address + OffsetsData.Transparency, 1.0)
+
+    for _, PartObject in ipairs(CharacterObject:GetChildren()) do
+        if PartObject and typeof(PartObject) == "Instance" then
+            if RightLegNames[PartObject.Name] and PartObject:IsA("BasePart") then
+                PartObject.Size = StateValue and Vector3.new(0.01, 0.01, 0.01) or Vector3.new(1, 1, 1)
+
+                if StateValue and IsValidAddress(PartObject.Address) then
+                    WriteFloat(PartObject.Address + OffsetsData.Transparency, 1)
                 end
-                for _, ChildObject in ipairs(PartObject:GetChildren()) do
-                    if typeof(ChildObject) == "Instance" and (ChildObject.ClassName:match("Mesh") or ChildObject.ClassName == "Decal" or ChildObject.ClassName == "Texture") then
-                        pcall(function() ChildObject.Texture = "" end)
-                        pcall(function() ChildObject.Transparency = 1 end)
-                        pcall(function() ChildObject.Parent = nil end)
-                        pcall(function() game:GetService("Debris"):AddItem(ChildObject, 0) end)
-                        if IsValidAddress(ChildObject.Address) then
-                            WritePointer(ChildObject.Address + OffsetsData.Parent, 0)
-                        end
-                    end
-                end
-            elseif typeof(PartObject) == "Instance" and PartObject.ClassName == "CharacterMesh" then
-                pcall(function()
-                    if tostring(PartObject.BodyPart):match("RightLeg") then
-                        if IsValidAddress(PartObject.Address) then
-                            WritePointer(PartObject.Address + OffsetsData.Parent, 0)
-                        end
-                    end
-                end)
-            elseif typeof(PartObject) == "Instance" and PartObject.ClassName == "Accessory" then
-                pcall(function()
-                    local HandleObject = PartObject:FindFirstChild("Handle")
-                    if HandleObject and typeof(HandleObject) == "Instance" then
-                        local WeldObject = HandleObject:FindFirstChildOfClass("Weld") or HandleObject:FindFirstChildOfClass("Motor6D")
-                        if WeldObject and typeof(WeldObject) == "Instance" and WeldObject.Part1 and RightLegNames[WeldObject.Part1.Name] then
-                            if IsValidAddress(PartObject.Address) then
-                                WritePointer(PartObject.Address + OffsetsData.Parent, 0)
+
+                if StateValue then
+                    for _, ChildObject in ipairs(PartObject:GetChildren()) do
+                        if ChildObject and typeof(ChildObject) == "Instance" then
+                            local ClassName = ChildObject.ClassName or ""
+                            local IsVisual = string.find(ClassName, "Mesh", 1, true) ~= nil or ClassName == "Decal" or ClassName == "Texture"
+                            if IsVisual and IsValidAddress(ChildObject.Address) then
+                                WritePointer(ChildObject.Address + OffsetsData.Parent, 0)
                             end
                         end
                     end
-                end)
-            end
-        end
-    else
-        for _, PartObject in ipairs(CharacterObject:GetChildren()) do
-            if typeof(PartObject) == "Instance" and RightLegNames[PartObject.Name] and PartObject:IsA("BasePart") then
-                pcall(function() PartObject.Size = Vector3.new(1, 1, 1) end)
+                end
             end
         end
     end
@@ -1026,10 +965,9 @@ WindowApp:AddSettingsTab("cog")
 _G.Nightfall_Active = true
 
 if _G.NightfallSpamConnection then
-    pcall(function()
+    if type(_G.NightfallSpamConnection.Disconnect) == "function" then
         _G.NightfallSpamConnection:Disconnect()
-    end)
-
+    end
     _G.NightfallSpamConnection = nil
 end
 
@@ -1043,40 +981,37 @@ local VisualsData = {
 local MaxTrailLines = 100
 
 local function CreateEspText()
-    if not Drawing or not Drawing.new then return nil end
-    local Success, TextObject = pcall(function() return Drawing.new("Text") end)
-    if not Success or not TextObject then return nil end
+    if type(Drawing) ~= "table" or type(Drawing.new) ~= "function" then return nil end
+    local TextObject = Drawing.new("Text")
+    if not TextObject then return nil end
     TextObject.Center = true
     TextObject.Outline = true
-    TextObject.Font = 2
+    TextObject.Font = type(Drawing.Fonts) == "table" and Drawing.Fonts.System or 2
     TextObject.Transparency = 0
     TextObject.ZIndex = 2
-    TextObject.Color = ConfigState.EspColor or Color3.fromRGB(220, 30, 30)
+    TextObject.Color = typeof(ConfigState.EspColor) == "Color3" and ConfigState.EspColor or Color3.fromRGB(220, 30, 30)
     TextObject.Visible = false
     table.insert(_G.NightfallDrawings, TextObject)
     return TextObject
 end
 
-if type(Drawing) == "table" and Drawing.new then
+if type(Drawing) == "table" and type(Drawing.new) == "function" then
     for Index = 1, 100 do
-        pcall(function()
-            local LineObject = Drawing.new("Line")
-            if LineObject then
-                LineObject.Visible = false
-                VisualsData.SphereLines[Index] = LineObject
-                table.insert(_G.NightfallDrawings, LineObject)
-            end
-        end)
+        local LineObject = Drawing.new("Line")
+        if LineObject then
+            LineObject.Visible = false
+            VisualsData.SphereLines[Index] = LineObject
+            table.insert(_G.NightfallDrawings, LineObject)
+        end
     end
+
     for Index = 1, MaxTrailLines do
-        pcall(function()
-            local LineObject = Drawing.new("Line")
-            if LineObject then
-                LineObject.Visible = false
-                VisualsData.BallLines[Index] = LineObject
-                table.insert(_G.NightfallDrawings, LineObject)
-            end
-        end)
+        local LineObject = Drawing.new("Line")
+        if LineObject then
+            LineObject.Visible = false
+            VisualsData.BallLines[Index] = LineObject
+            table.insert(_G.NightfallDrawings, LineObject)
+        end
     end
 end
 
@@ -1106,14 +1041,10 @@ local function GetRealBall()
 end
 
 local function GetMemoryPing()
-    local SuccessState, PingResult = pcall(function()
-        local PingStatsItem = StatsService.Network.ServerStatsItem["Data Ping"]
-        if IsValidAddress(PingStatsItem.Address) then
-            return memory_read("double", PingStatsItem.Address + OffsetsData.StatsValue)
-        end
-        return 50
-    end)
-    return (SuccessState and type(PingResult) == "number") and PingResult or 50
+    if type(GetPingValue) ~= "function" then return 50 end
+    local PingValue = GetPingValue()
+    if not IsValidNumber(PingValue) or PingValue < 0 then return 50 end
+    return PingValue
 end
 
 local function CheckIsTarget(TargetName)
@@ -1122,7 +1053,7 @@ local function CheckIsTarget(TargetName)
     if CharacterInstance and typeof(CharacterInstance) == "Instance" and CharacterInstance:FindFirstChild('Highlight') then return true end
     if not TargetName then return false end
     local MyName = string.lower(LocalPlayer.Name or "")
-    local MyDisplay = string.lower(LocalPlayer.DisplayName or LocalPlayer.Name or "")
+    local MyDisplay = MyName
     local TargetString = string.lower(tostring(TargetName))
     if TargetString == MyName or TargetString == MyDisplay then return true end
     local CleanTarget = string.gsub(TargetString, '%.%.%.$', '')
@@ -1142,7 +1073,7 @@ local function CheckTargetAttribute(TargetValue)
     end
 
     local MyName = string.lower(LocalPlayer.Name or "")
-    local MyDisplay = string.lower(LocalPlayer.DisplayName or LocalPlayer.Name or "")
+    local MyDisplay = MyName
     local MyUserId = tostring(LocalPlayer.UserId or "")
     local TargetString = string.lower(tostring(TargetValue))
     local CleanTarget = string.gsub(TargetString, '%.%.%.$', '')
@@ -1160,6 +1091,7 @@ local function CheckTargetAttribute(TargetValue)
 end
 
 local function GetDistanceSquared(V1Position, V2Position)
+    if not IsValidVector3(V1Position) or not IsValidVector3(V2Position) then return math.huge end
     local DeltaX = V1Position.X - V2Position.X
     local DeltaY = V1Position.Y - V2Position.Y
     local DeltaZ = V1Position.Z - V2Position.Z
@@ -1177,7 +1109,7 @@ local function ScanForNearestEntity(PlayerPosition)
             if RootPart and typeof(RootPart) == "Instance" and RootPart:IsA("BasePart") then
                 local HumanoidPart = TargetPlayer.Character:FindFirstChild("Humanoid")
                 if HumanoidPart and typeof(HumanoidPart) == "Instance" and HumanoidPart.Health > 0 then
-                    local CurrentDistSq = GetDistanceSquared(PlayerPosition, RootPart.Position)
+                    local CurrentDistSq = GetDistanceSquared(PlayerPosition, GetPartPosition(RootPart))
                     if CurrentDistSq < MinimumDistanceSq then
                         MinimumDistanceSq = CurrentDistSq
                         NearestEntity = TargetPlayer
@@ -1213,24 +1145,16 @@ local SpamBurstCap = 20
 
 local function IsGameWindowActive()
     local CurrentTime = os.clock()
-
-    if CurrentTime < NextSpamWindowCheck then
-        return SpamWindowActive
-    end
+    if CurrentTime < NextSpamWindowCheck then return SpamWindowActive end
 
     NextSpamWindowCheck = CurrentTime + 0.25
-
     if type(isrbxactive) ~= "function" then
         SpamWindowActive = true
         return true
     end
 
-    local Success, Result = pcall(isrbxactive)
-
-    SpamWindowActive =
-        not Success
-        or Result ~= false
-
+    local Result = isrbxactive()
+    SpamWindowActive = Result ~= false
     return SpamWindowActive
 end
 
@@ -1385,27 +1309,21 @@ local function GetTrailColorAndOpacity(OffsetValue, IndexValue, TotalValue)
 end
 
 local function UpdateAndRenderTrail(CurrentBallPosition)
-    if not ConfigState.BallTrail then
+    if not ConfigState.BallTrail or not IsValidVector3(CurrentBallPosition) then
         for _, LineObject in ipairs(VisualsData.BallLines) do
             if LineObject then LineObject.Visible = false end
         end
         table.clear(VisualsData.BallTrailPositions)
         return
     end
-    if not CurrentBallPosition or typeof(CurrentBallPosition) ~= "Vector3" then
-        for _, LineObject in ipairs(VisualsData.BallLines) do
-            if LineObject then LineObject.Visible = false end
-        end
-        table.clear(VisualsData.BallTrailPositions)
-        return
-    end
-    
+
     local LastTrackedPosition = VisualsData.BallTrailPositions[1]
-    if not LastTrackedPosition or (LastTrackedPosition - CurrentBallPosition).Magnitude > 0.05 then
+    if not IsValidVector3(LastTrackedPosition) or GetDistanceBetween(LastTrackedPosition, CurrentBallPosition) > 0.05 then
         table.insert(VisualsData.BallTrailPositions, 1, CurrentBallPosition)
     end
 
-    while #VisualsData.BallTrailPositions > ConfigState.TrailLength do
+    local TrailLength = math.clamp(tonumber(ConfigState.TrailLength) or 60, 3, MaxTrailLines)
+    while #VisualsData.BallTrailPositions > TrailLength do
         table.remove(VisualsData.BallTrailPositions)
     end
 
@@ -1416,26 +1334,25 @@ local function UpdateAndRenderTrail(CurrentBallPosition)
         end
         return
     end
-    
+
     local BaseOffset = os.clock() * 1.5
     for Index = 2, TotalPositions do
         local LineObject = VisualsData.BallLines[Index - 1]
         if not LineObject then break end
-        
+
         local Position1 = VisualsData.BallTrailPositions[Index - 1]
         local Position2 = VisualsData.BallTrailPositions[Index]
-        
-        if Position1 and Position2 and typeof(Position1) == "Vector3" and typeof(Position2) == "Vector3" then
+        if IsValidVector3(Position1) and IsValidVector3(Position2) then
             local Point1Screen, Visible1 = WorldToScreen(Position1)
             local Point2Screen, Visible2 = WorldToScreen(Position2)
-            
-            if Visible1 and Visible2 then
+
+            if Visible1 and Visible2 and IsValidVector2(Point1Screen) and IsValidVector2(Point2Screen) then
                 local ColorValue, OpacityValue = GetTrailColorAndOpacity(BaseOffset, Index, TotalPositions)
                 LineObject.From = Point1Screen
                 LineObject.To = Point2Screen
                 LineObject.Color = ColorValue
                 LineObject.Transparency = OpacityValue
-                LineObject.Thickness = ConfigState.TrailThickness * (1.0 - math.pow(Index / TotalPositions, 1.5))
+                LineObject.Thickness = (tonumber(ConfigState.TrailThickness) or 2) * (1 - math.pow(Index / TotalPositions, 1.5))
                 LineObject.Visible = true
             else
                 LineObject.Visible = false
@@ -1444,11 +1361,10 @@ local function UpdateAndRenderTrail(CurrentBallPosition)
             LineObject.Visible = false
         end
     end
+
     for Index = TotalPositions, #VisualsData.BallLines do
         local LineObject = VisualsData.BallLines[Index]
-        if LineObject then
-            LineObject.Visible = false
-        end
+        if LineObject then LineObject.Visible = false end
     end
 end
 
@@ -1468,7 +1384,6 @@ local CachedTarget = nil
 local CurrentKps = 0
 local SmoothedKps = 0
 local SmoothedServerFps = 60
-local LastGameTime = WorkspaceService.DistributedGameTime
 local CachedAliveFolder = nil
 local SmoothVisualRootPosition = nil
 local EspSmoothedPositions = {}
@@ -1478,132 +1393,130 @@ local PullActive = false
 local LastPullTime = 0
 
 RunService.RenderStepped:Connect(function(DeltaTime)
-    if type(DeltaTime) ~= "number" then DeltaTime = 0.016 end
+    if not IsValidNumber(DeltaTime) then DeltaTime = 0.016 end
     local CurrentRenderTime = os.clock()
     local RealBallVisuals = GetRealBall()
-    local CurrentBallPosition = nil
-    
-    if RealBallVisuals and typeof(RealBallVisuals) == "Instance" and RealBallVisuals:IsA("BasePart") then
-        CurrentBallPosition = RealBallVisuals.Position
-    end
-    
+    local CurrentBallPosition = GetPartPosition(RealBallVisuals)
     UpdateAndRenderTrail(CurrentBallPosition)
 
     if ConfigState.AbilityEsp then
         local CurrentPlayersList = PlayersService:GetPlayers()
         for Index = 1, #CurrentPlayersList do
             local TargetPlayer = CurrentPlayersList[Index]
-            if not TargetPlayer or typeof(TargetPlayer) ~= "Instance" or TargetPlayer == LocalPlayer then continue end
-            
-            local PlayerNameString = TargetPlayer.Name
-            local TargetCharacter = TargetPlayer.Character
-            local TargetHumanoid = TargetCharacter and typeof(TargetCharacter) == "Instance" and TargetCharacter:FindFirstChildWhichIsA("Humanoid")
-            local TargetHead = TargetCharacter and typeof(TargetCharacter) == "Instance" and TargetCharacter:FindFirstChild("Head")
-            local TargetAbility = TargetPlayer:GetAttribute("CurrentlyEquippedAbility")
-            
-            if TargetHumanoid and TargetHumanoid.Health > 0 and TargetHead and typeof(TargetHead) == "Instance" and TargetHead:IsA("BasePart") and TargetAbility and tostring(TargetAbility) ~= "" then
-                local HeadPosition = TargetHead.Position
-                local CurrentOffsetVector = Vector3.new(0, ConfigState.EspOffsetY, 0)
-                local Target3D = HeadPosition + CurrentOffsetVector
-                
-                local ScreenCoordinates, IsOnScreen = WorldToScreen(Target3D)
-                if IsOnScreen and ScreenCoordinates.X > 0 and ScreenCoordinates.Y > 0 then
+            if TargetPlayer and typeof(TargetPlayer) == "Instance" and TargetPlayer ~= LocalPlayer then
+                local PlayerNameString = TargetPlayer.Name
+                local TargetCharacter = TargetPlayer.Character
+                local TargetHumanoid = TargetCharacter and typeof(TargetCharacter) == "Instance" and TargetCharacter:FindFirstChildWhichIsA("Humanoid") or nil
+                local TargetHead = TargetCharacter and typeof(TargetCharacter) == "Instance" and TargetCharacter:FindFirstChild("Head") or nil
+                local TargetAbility = TargetPlayer:GetAttribute("CurrentlyEquippedAbility")
+                local HeadPosition = GetPartPosition(TargetHead)
+
+                if TargetHumanoid and TargetHumanoid.Health > 0 and HeadPosition and TargetAbility and tostring(TargetAbility) ~= "" then
+                    local Target3D = HeadPosition + Vector3.new(0, tonumber(ConfigState.EspOffsetY) or 2, 0)
+                    local ScreenCoordinates, IsOnScreen = WorldToScreen(Target3D)
                     local TextDrawing = VisualsData.EspTexts[PlayerNameString]
-                    if not TextDrawing then
-                        TextDrawing = CreateEspText()
-                        VisualsData.EspTexts[PlayerNameString] = TextDrawing
-                    end
-                    if TextDrawing then
-                        local DrawColor = ConfigState.EspColor
-                        if (not DrawColor) or (typeof(DrawColor) ~= "Color3") then
-                            DrawColor = Color3.fromRGB(220, 30, 30)
+
+                    if IsOnScreen and IsValidVector2(ScreenCoordinates) and ScreenCoordinates.X > 0 and ScreenCoordinates.Y > 0 then
+                        if not TextDrawing then
+                            TextDrawing = CreateEspText()
+                            VisualsData.EspTexts[PlayerNameString] = TextDrawing
                         end
-                        TextDrawing.Color = DrawColor
-                        TextDrawing.Size = ConfigState.EspTextSize
-                        local SmoothedPosition = ScreenCoordinates
-                        if EspSmoothedPositions[PlayerNameString] then
-                            local LerpAlpha = math.clamp(DeltaTime * 32, 0, 1)
-                            SmoothedPosition = LerpVector2(EspSmoothedPositions[PlayerNameString], ScreenCoordinates, LerpAlpha)
+
+                        if TextDrawing then
+                            local DrawColor = typeof(ConfigState.EspColor) == "Color3" and ConfigState.EspColor or Color3.fromRGB(220, 30, 30)
+                            local SmoothedPosition = ScreenCoordinates
+                            local PreviousPosition = EspSmoothedPositions[PlayerNameString]
+                            if IsValidVector2(PreviousPosition) then
+                                SmoothedPosition = LerpVector2(PreviousPosition, ScreenCoordinates, math.clamp(DeltaTime * 32, 0, 1))
+                            end
+
+                            EspSmoothedPositions[PlayerNameString] = SmoothedPosition
+                            TextDrawing.Position = SmoothedPosition
+                            TextDrawing.FontSize = tonumber(ConfigState.EspTextSize) or 18
+                            TextDrawing.Text = tostring(TargetAbility)
+
+                            if ConfigState.RainbowMode then
+                                local TimeValue = CurrentRenderTime * 2.5
+                                TextDrawing.Color = Color3.new(
+                                    (math.sin(TimeValue) * 0.5 + 0.5) * 0.95 + 0.05,
+                                    (math.sin(TimeValue + 2.094) * 0.5 + 0.5) * 0.95 + 0.05,
+                                    (math.sin(TimeValue + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
+                                )
+                            else
+                                TextDrawing.Color = DrawColor
+                            end
+                            TextDrawing.Visible = true
                         end
-                        EspSmoothedPositions[PlayerNameString] = SmoothedPosition
-                        TextDrawing.Position = SmoothedPosition
-                        TextDrawing.Text = tostring(TargetAbility)
-                        if ConfigState.RainbowMode then
-                            local TimeValue = CurrentRenderTime * 2.5
-                            local RedValue = (math.sin(TimeValue) * 0.5 + 0.5) * 0.95 + 0.05
-                            local GreenValue = (math.sin(TimeValue + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
-                            local BlueValue = (math.sin(TimeValue + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
-                            TextDrawing.Color = Color3.new(RedValue, GreenValue, BlueValue)
-                        else
-                            TextDrawing.Color = DrawColor
-                        end
-                        TextDrawing.Visible = true
+                    elseif TextDrawing then
+                        TextDrawing.Visible = false
                     end
                 else
                     local TextDrawing = VisualsData.EspTexts[PlayerNameString]
                     if TextDrawing then TextDrawing.Visible = false end
                 end
-            else
-                local TextDrawing = VisualsData.EspTexts[PlayerNameString]
-                if TextDrawing then TextDrawing.Visible = false end
             end
         end
+
         for KeyName, TextDrawing in pairs(VisualsData.EspTexts) do
             if not PlayersService:FindFirstChild(KeyName) then
-                if TextDrawing then TextDrawing:Remove() end
+                if TextDrawing and type(TextDrawing.Remove) == "function" then TextDrawing:Remove() end
                 VisualsData.EspTexts[KeyName] = nil
                 EspSmoothedPositions[KeyName] = nil
             end
         end
     else
-        for KeyName, TextDrawing in pairs(VisualsData.EspTexts) do
-            if TextDrawing then
-                TextDrawing.Visible = false
-            end
+        for _, TextDrawing in pairs(VisualsData.EspTexts) do
+            if TextDrawing then TextDrawing.Visible = false end
         end
     end
 
     local LocalCharacter = LocalPlayer.Character
-    local RootPartVisual = LocalCharacter and typeof(LocalCharacter) == "Instance" and LocalCharacter:FindFirstChild("HumanoidRootPart")
-    if ConfigState.ParryVisualizer and RootPartVisual and typeof(RootPartVisual) == "Instance" and RootPartVisual:IsA("BasePart") then
-       local RootPositionRaw = RootPartVisual.Position - Vector3.new(0, 3, 0)
-       if SmoothVisualRootPosition == nil then
-           SmoothVisualRootPosition = RootPositionRaw
-       else
-           local LerpAlpha = math.clamp(DeltaTime * 18, 0, 1)
-           SmoothVisualRootPosition = SmoothVisualRootPosition:Lerp(RootPositionRaw, LerpAlpha)
-       end
-       local RootPosition = SmoothVisualRootPosition
-       local TargetRadius = RuntimeState.ParryRange or 15
-       SmoothParryRadius = SmoothParryRadius + (TargetRadius - SmoothParryRadius) * math.clamp(DeltaTime * 20, 0, 1)
-       local RadiusValue = math.max(SmoothParryRadius, 5)
-        local SegmentsCount = math.clamp(ConfigState.VisSegments, 10, 100)
-        local AngleStep = (math.pi * 2) / SegmentsCount
+    local RootPartVisual = LocalCharacter and typeof(LocalCharacter) == "Instance" and LocalCharacter:FindFirstChild("HumanoidRootPart") or nil
+    local RootPartPosition = GetPartPosition(RootPartVisual)
+
+    if ConfigState.ParryVisualizer and RootPartPosition then
+        local RootPositionRaw = RootPartPosition - Vector3.new(0, 3, 0)
+        if not IsValidVector3(SmoothVisualRootPosition) then
+            SmoothVisualRootPosition = RootPositionRaw
+        else
+            SmoothVisualRootPosition = SmoothVisualRootPosition:Lerp(RootPositionRaw, math.clamp(DeltaTime * 18, 0, 1))
+        end
+
+        local RootPosition = SmoothVisualRootPosition
+        local TargetRadius = IsValidNumber(RuntimeState.ParryRange) and RuntimeState.ParryRange or 15
+        SmoothParryRadius = SmoothParryRadius + (TargetRadius - SmoothParryRadius) * math.clamp(DeltaTime * 20, 0, 1)
+        local RadiusValue = math.max(SmoothParryRadius, 5)
+        local SegmentsCount = math.clamp(tonumber(ConfigState.VisSegments) or 40, 10, 100)
+        local AngleStep = math.pi * 2 / SegmentsCount
+
         for Index = 1, 100 do
             local LineObject = VisualsData.SphereLines[Index]
             if LineObject then
                 if Index <= SegmentsCount then
                     local Angle1 = (Index - 1) * AngleStep
                     local Angle2 = Index * AngleStep
-                    local Point1_3d = RootPosition + Vector3.new(math.cos(Angle1) * RadiusValue, 0, math.sin(Angle1) * RadiusValue)
-                    local Point2_3d = RootPosition + Vector3.new(math.cos(Angle2) * RadiusValue, 0, math.sin(Angle2) * RadiusValue)
-                    local Point1Position, OnScreen1 = WorldToScreen(Point1_3d)
-                    local Point2Position, OnScreen2 = WorldToScreen(Point2_3d)
-                    if OnScreen1 and OnScreen2 then
-                        LineObject.Visible = true
+                    local Point1World = RootPosition + Vector3.new(math.cos(Angle1) * RadiusValue, 0, math.sin(Angle1) * RadiusValue)
+                    local Point2World = RootPosition + Vector3.new(math.cos(Angle2) * RadiusValue, 0, math.sin(Angle2) * RadiusValue)
+                    local Point1Position, OnScreen1 = WorldToScreen(Point1World)
+                    local Point2Position, OnScreen2 = WorldToScreen(Point2World)
+
+                    if OnScreen1 and OnScreen2 and IsValidVector2(Point1Position) and IsValidVector2(Point2Position) then
                         LineObject.From = Point1Position
                         LineObject.To = Point2Position
-                        LineObject.Thickness = ConfigState.VisThickness
-                        LineObject.Transparency = ConfigState.VisTransparency
+                        LineObject.Thickness = tonumber(ConfigState.VisThickness) or 2
+                        LineObject.Transparency = tonumber(ConfigState.VisTransparency) or 1
+
                         if ConfigState.RainbowMode then
-                            local OffsetT = CurrentRenderTime * 2.5 + (Index / SegmentsCount) * (math.pi * 2)
-                            local VisR = (math.sin(OffsetT) * 0.5 + 0.5) * 0.95 + 0.05
-                            local VisG = (math.sin(OffsetT + 2.094) * 0.5 + 0.5) * 0.95 + 0.05
-                            local VisB = (math.sin(OffsetT + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
-                            LineObject.Color = Color3.new(VisR, VisG, VisB)
+                            local OffsetT = CurrentRenderTime * 2.5 + Index / SegmentsCount * math.pi * 2
+                            LineObject.Color = Color3.new(
+                                (math.sin(OffsetT) * 0.5 + 0.5) * 0.95 + 0.05,
+                                (math.sin(OffsetT + 2.094) * 0.5 + 0.5) * 0.95 + 0.05,
+                                (math.sin(OffsetT + 4.188) * 0.5 + 0.5) * 0.95 + 0.05
+                            )
                         else
-                            LineObject.Color = ConfigState.VisualizerColor
+                            LineObject.Color = typeof(ConfigState.VisualizerColor) == "Color3" and ConfigState.VisualizerColor or Color3.fromRGB(220, 30, 30)
                         end
+                        LineObject.Visible = true
                     else
                         LineObject.Visible = false
                     end
@@ -1613,11 +1526,10 @@ RunService.RenderStepped:Connect(function(DeltaTime)
             end
         end
     else
-        for Index = 1, 100 do 
+        SmoothVisualRootPosition = nil
+        for Index = 1, 100 do
             local LineObject = VisualsData.SphereLines[Index]
-            if LineObject and LineObject.Visible then
-                LineObject.Visible = false 
-            end
+            if LineObject then LineObject.Visible = false end
         end
     end
 end)
@@ -1626,8 +1538,8 @@ RunService.Heartbeat:Connect(function(DeltaTime)
     RuntimeState.PanicShouldSpam = false
 
     local CurrentTime = os.clock()
-    if type(DeltaTime) ~= "number" then DeltaTime = 0.016 end
-    local CurrentDeltaTime = DeltaTime
+    if not IsValidNumber(DeltaTime) or DeltaTime <= 0 then DeltaTime = 0.016 end
+    local CurrentDeltaTime = math.clamp(DeltaTime, 0.001, 0.05)
 
     local RuntimeFolder = WorkspaceService:FindFirstChild("Runtime")
     local ChildrenList = RuntimeFolder and typeof(RuntimeFolder) == "Instance" and RuntimeFolder:GetChildren() or WorkspaceService:GetChildren()
@@ -1651,12 +1563,8 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             CharacterFullyLoaded = true
             task.spawn(function()
                 task.wait(0.5)
-                if ConfigState.Headless then
-                    pcall(function() ApplyHeadless(true) end)
-                end
-                if ConfigState.Korblox then
-                    pcall(function() ApplyKorblox(true) end)
-                end
+                if ConfigState.Headless then ApplyHeadless(true) end
+                if ConfigState.Korblox then ApplyKorblox(true) end
             end)
         end
     end
@@ -1664,26 +1572,19 @@ RunService.Heartbeat:Connect(function(DeltaTime)
     if PlayerCharacterObject and typeof(PlayerCharacterObject) == "Instance" and CharacterFullyLoaded then
         if ConfigState.Headless then
             local TargetHead = PlayerCharacterObject:FindFirstChild("Head")
-            if TargetHead and typeof(TargetHead) == "Instance" and TargetHead:IsA("BasePart") and TargetHead.Size.X > 0.1 then
-                pcall(function() ApplyHeadless(true) end)
-            end
+            local TargetHeadSize = GetPartSize(TargetHead)
+            if TargetHeadSize and TargetHeadSize.X > 0.1 then ApplyHeadless(true) end
         end
         if ConfigState.Korblox then
             local TargetRightLeg = PlayerCharacterObject:FindFirstChild("RightUpperLeg") or PlayerCharacterObject:FindFirstChild("Right Leg")
-            if TargetRightLeg and typeof(TargetRightLeg) == "Instance" and TargetRightLeg:IsA("BasePart") and TargetRightLeg.Size.X > 0.1 then
-                pcall(function() ApplyKorblox(true) end)
-            end
+            local TargetRightLegSize = GetPartSize(TargetRightLeg)
+            if TargetRightLegSize and TargetRightLegSize.X > 0.1 then ApplyKorblox(true) end
         end
     end
 
-    local CurrentGameTime = WorkspaceService.DistributedGameTime
-    if CurrentGameTime ~= LastGameTime then
-        local ServerTickDelta = CurrentGameTime - LastGameTime
-        LastGameTime = CurrentGameTime
-        if ServerTickDelta > 0 then
-            local CurrentServerFps = 1 / ServerTickDelta
-            SmoothedServerFps = SmoothedServerFps + (CurrentServerFps - SmoothedServerFps) * 0.1
-        end
+    if CurrentDeltaTime > 0 then
+        local CurrentServerFps = 1 / math.max(CurrentDeltaTime, 1 / 360)
+        SmoothedServerFps = SmoothedServerFps + (CurrentServerFps - SmoothedServerFps) * 0.1
     end
 
     if ConfigState.InfinityDetection then
@@ -1764,7 +1665,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
             local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
             if PlayerGui and typeof(PlayerGui) == "Instance" then
                 local FuryTimer = PlayerGui:FindFirstChild("FuryTimer")
-                if FuryTimer and typeof(FuryTimer) == "Instance" and FuryTimer.Enabled then
+                if FuryTimer and typeof(FuryTimer) == "Instance" then
                     IsFury = true
                 end
             end
@@ -1814,7 +1715,7 @@ RunService.Heartbeat:Connect(function(DeltaTime)
                         local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
                         if PlayerGui and typeof(PlayerGui) == "Instance" then
                             local FuryTimer = PlayerGui:FindFirstChild("FuryTimer")
-                            if FuryTimer and typeof(FuryTimer) == "Instance" and FuryTimer.Enabled then
+                            if FuryTimer and typeof(FuryTimer) == "Instance" then
                                 StillFury = true
                             end
                         end
@@ -1935,16 +1836,20 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         return
     end
 
-    local RootPosition = RootPart.Position
-    local BallPosition = RealBall.Position
+    local RootPosition = GetPartPosition(RootPart)
+    local BallPosition = GetPartPosition(RealBall)
+    if not RootPosition or not BallPosition then
+        RuntimeState.PanicShouldSpam = false
+        RuntimeState.ShouldSpam = false
+        return
+    end
+
     local DeltaVector = RootPosition - BallPosition
-    local CurrentDistance = DeltaVector.Magnitude
+    local CurrentDistance = GetVectorMagnitude(DeltaVector)
+    if CurrentDistance <= 0.0001 then return end
 
-    if CurrentDistance == 0 then return end
-
-    local BallVelocity = RealBall.AssemblyLinearVelocity
-    if typeof(BallVelocity) ~= "Vector3" then BallVelocity = Vector3.zero end
-    local CurrentSpeed = BallVelocity.Magnitude
+    local BallVelocity = GetPartVelocity(RealBall) or Vector3.zero
+    local CurrentSpeed = GetVectorMagnitude(BallVelocity)
 
     local ApproachSpeed = 0
     if LastDistance ~= 9999 then
@@ -1953,9 +1858,9 @@ RunService.Heartbeat:Connect(function(DeltaTime)
     local EffectiveSpeed = math.max(CurrentSpeed, ApproachSpeed)
     local SpeedDelta = math.max(EffectiveSpeed - LastSpeed, 0)
 
-    local VelocityDirection = BallVelocity.Magnitude > 0.01 and BallVelocity.Unit or Vector3.zero
-    local DirectionToPlayerStat = DeltaVector.Unit
-    local DotProductStat = DirectionToPlayerStat:Dot(VelocityDirection)
+    local VelocityDirection = CurrentSpeed > 0.01 and NormalizeVector(BallVelocity) or Vector3.zero
+    local DirectionToPlayerStat = NormalizeVector(DeltaVector)
+    local DotProductStat = GetDotProduct(DirectionToPlayerStat, VelocityDirection)
     
     local DotDelta = DotProductStat - LastDotProduct
     LastDotProduct = DotProductStat
@@ -2108,13 +2013,16 @@ RunService.Heartbeat:Connect(function(DeltaTime)
                     local EnemyHumanoid = ObjectValue:FindFirstChildWhichIsA("Humanoid")
                     local EnemyRoot = ObjectValue:FindFirstChild("HumanoidRootPart") or ObjectValue.PrimaryPart
                     if EnemyHumanoid and typeof(EnemyHumanoid) == "Instance" and EnemyHumanoid.Health > 0 and EnemyRoot and typeof(EnemyRoot) == "Instance" and EnemyRoot:IsA("BasePart") then
-                        local DistanceSq = GetDistanceSquared(EnemyRoot.Position, RootPosition)
-                        if DistanceSq < ClosestEnemyDistanceSq then
+                        local EnemyPosition = GetPartPosition(EnemyRoot)
+                        local DistanceSq = GetDistanceSquared(EnemyPosition, RootPosition)
+                        if EnemyPosition and DistanceSq < ClosestEnemyDistanceSq then
                             ClosestEnemyDistanceSq = DistanceSq
-                            local CFrameValue = EnemyRoot.CFrame
-                            if CFrameValue then
-                                local DirectionToMe = (RootPosition - EnemyRoot.Position).Unit
-                                EnemyLookDot = CFrameValue.LookVector:Dot(DirectionToMe)
+                            local EnemyVelocity = GetPartVelocity(EnemyRoot)
+                            if EnemyVelocity and GetVectorMagnitude(EnemyVelocity) > 0.1 then
+                                local DirectionToMe = NormalizeVector(RootPosition - EnemyPosition)
+                                EnemyLookDot = GetDotProduct(NormalizeVector(EnemyVelocity), DirectionToMe)
+                            else
+                                EnemyLookDot = 1
                             end
                         end
                     end
@@ -2124,8 +2032,8 @@ RunService.Heartbeat:Connect(function(DeltaTime)
 
         local ClosestEnemyDistance = math.sqrt(ClosestEnemyDistanceSq)
         local IsEnemyClose = ClosestEnemyDistance <= PanicMaxDistance
-        local BallDirection = BallVelocity.Magnitude > 0.01 and BallVelocity.Unit or Vector3.zero
-        local BallDotToMe = BallDirection:Dot(DirectionToPlayerStat)
+        local BallDirection = CurrentSpeed > 0.01 and NormalizeVector(BallVelocity) or Vector3.zero
+        local BallDotToMe = GetDotProduct(BallDirection, DirectionToPlayerStat)
 
         local DynamicDotThreshold = math.max(0.40, (CurrentDistance / PanicMaxDistance) * 0.75)
         local AngleToPlayer = math.deg(math.acos(math.clamp(BallDotToMe, -1, 1)))
@@ -2183,8 +2091,8 @@ RunService.Heartbeat:Connect(function(DeltaTime)
         end
 
         local VelocityUnit = CurrentSpeed > 0 and VelocityDirection or Vector3.zero
-        local DirectionToPlayer = CurrentDistance > 0 and (RootPosition - BallPosition).Unit or Vector3.zero
-        local DotProductParry = VelocityUnit:Dot(DirectionToPlayer)
+        local DirectionToPlayer = CurrentDistance > 0 and NormalizeVector(RootPosition - BallPosition) or Vector3.zero
+        local DotProductParry = GetDotProduct(VelocityUnit, DirectionToPlayer)
 
         local PingSeconds = NetworkPing / 1000
         local ReactionTime = PingSeconds + CurrentDeltaTime + ServerTickRate
@@ -2286,30 +2194,36 @@ RunService.Heartbeat:Connect(function(DeltaTime)
 end)
 
 RunService.RenderStepped:Connect(function(DeltaTime)
-    pcall(function()
-        if not ConfigState.OrbitBall then return end
-        local AliveFolder = WorkspaceService:FindFirstChild("Alive")
-        if not AliveFolder or typeof(AliveFolder) ~= "Instance" or not AliveFolder:FindFirstChild(LocalPlayer.Name) then return end
-        local RealBall = GetRealBall()
-        if not RealBall or typeof(RealBall) ~= "Instance" or not RealBall:IsA("BasePart") or not RealBall.Parent then return end
-        local CharacterObject = LocalPlayer.Character
-        if not CharacterObject or typeof(CharacterObject) ~= "Instance" then return end
-        local RootPart = CharacterObject.PrimaryPart
-        if not RootPart or typeof(RootPart) ~= "Instance" or not RootPart:IsA("BasePart") or not RootPart.Parent then
-            RootPart = CharacterObject:FindFirstChild("HumanoidRootPart")
-            if not RootPart or typeof(RootPart) ~= "Instance" or not RootPart:IsA("BasePart") or not RootPart.Parent then return end
-        end
-        local BallPosition = RealBall.Position
-        local TimeValue = os.clock() * (ConfigState.OrbitSpeed / 50)
-        local OrbitPosition = Vector3.new(
-            BallPosition.X + math.cos(TimeValue) * ConfigState.OrbitRadius,
-            BallPosition.Y + ConfigState.OrbitHeight,
-            BallPosition.Z + math.sin(TimeValue) * ConfigState.OrbitRadius
-        )
-        local TargetCframe = CFrame.lookAt(OrbitPosition, BallPosition)
-        local LerpAlpha = math.clamp(DeltaTime * 35, 0, 0.65)
-        pcall(function()
-            RootPart.CFrame = RootPart.CFrame:Lerp(TargetCframe, LerpAlpha)
-        end)
-      end)
-    end)
+    if not ConfigState.OrbitBall then return end
+    if not IsValidNumber(DeltaTime) then DeltaTime = 0.016 end
+
+    local AliveFolder = WorkspaceService:FindFirstChild("Alive")
+    if not AliveFolder or typeof(AliveFolder) ~= "Instance" or not AliveFolder:FindFirstChild(LocalPlayer.Name) then return end
+
+    local RealBall = GetRealBall()
+    local BallPosition = GetPartPosition(RealBall)
+    if not BallPosition then return end
+
+    local CharacterObject = LocalPlayer.Character
+    if not CharacterObject or typeof(CharacterObject) ~= "Instance" then return end
+
+    local RootPart = CharacterObject.PrimaryPart
+    if not RootPart or typeof(RootPart) ~= "Instance" or not RootPart:IsA("BasePart") then
+        RootPart = CharacterObject:FindFirstChild("HumanoidRootPart")
+    end
+
+    local RootPosition = GetPartPosition(RootPart)
+    if not RootPosition then return end
+
+    local OrbitRadius = tonumber(ConfigState.OrbitRadius) or 25
+    local OrbitHeight = tonumber(ConfigState.OrbitHeight) or 5
+    local OrbitSpeed = tonumber(ConfigState.OrbitSpeed) or 50
+    local TimeValue = os.clock() * OrbitSpeed / 50
+    local OrbitPosition = Vector3.new(
+        BallPosition.X + math.cos(TimeValue) * OrbitRadius,
+        BallPosition.Y + OrbitHeight,
+        BallPosition.Z + math.sin(TimeValue) * OrbitRadius
+    )
+
+    RootPart.Position = RootPosition:Lerp(OrbitPosition, math.clamp(DeltaTime * 35, 0, 0.65))
+end)
