@@ -9196,43 +9196,12 @@ local function BuildRuntime()
         end
 
         local function CreateDescriptionModel()
-            if not LocalPlayer or LocalPlayer.UserId <= 0 then
-                return nil, nil
-            end
-            local Character = LocalPlayer.Character
-            local CharacterHumanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
-            local Description
-            if CharacterHumanoid then
-                Library.Call(function()
-                    Description = CharacterHumanoid:GetAppliedDescription()
-                end)
-            end
-            if not Description then
-                Library.Call(function()
-                    Description = Players:GetHumanoidDescriptionFromUserIdAsync(LocalPlayer.UserId)
-                end)
-            end
-            if not Description then
-                return nil, nil
-            end
-            local Model
-            local RigType = CharacterHumanoid and CharacterHumanoid.RigType or Enum.HumanoidRigType.R15
-            Library.Call(function()
-                Model = Players:CreateHumanoidModelFromDescription(Description, RigType)
-            end)
+            local Model, Description = CloneCurrentCharacterModel()
+
             if not Model then
                 return nil, nil
             end
-            local ModelHumanoid = Model:FindFirstChildWhichIsA("Humanoid")
-            if ModelHumanoid then
-                Library.Call(function()
-                    ModelHumanoid:ApplyDescriptionReset(Description)
-                end)
-                ModelHumanoid.AutoRotate = false
-                ModelHumanoid.Sit = false
-                ModelHumanoid.PlatformStand = false
-            end
-            MergeCurrentAppearance(Model)
+
             return Model, Description
         end
 
@@ -9249,14 +9218,6 @@ local function BuildRuntime()
             ClearModel(false)
             Model.Name = "LocalPlayerPreview"
             Model.Parent = S.World
-            local ModelHumanoid = Model:FindFirstChildWhichIsA("Humanoid")
-            if ModelHumanoid and Description then
-                Library.Call(function()
-                    ModelHumanoid:ApplyDescriptionReset(Description)
-                end)
-                RunService.Heartbeat:Wait()
-                RunService.Heartbeat:Wait()
-            end
             if Generation ~= S.LoadGeneration or not Model.Parent then
                 if Model then Model:Destroy() end
                 return false
