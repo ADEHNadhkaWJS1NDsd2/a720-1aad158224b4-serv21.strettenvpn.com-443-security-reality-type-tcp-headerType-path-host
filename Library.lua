@@ -264,6 +264,79 @@ local function BuildRuntime()
         })
     end
 
+
+    local function CreateEdgeCorners(Parent, Name, Length, Thickness, Color, Visible, ZIndex)
+        local Holder = Create("Frame", {
+            Parent = Parent,
+            Name = Name,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Visible = Visible ~= false,
+            ZIndex = ZIndex or 20
+        })
+
+        local CornerLength = math.max(math.floor(tonumber(Length) or 18), 6)
+        local LineThickness = math.max(math.floor(tonumber(Thickness) or 1), 1)
+        local LineColor = typeof(Color) == "Color3" and Color or Accent
+        local Lines = {}
+
+        Menu.ChromeAccentTargets = Menu.ChromeAccentTargets or setmetatable({}, {__mode = "k"})
+
+        local function Add(NameSuffix, Position, Size)
+            local Line = Create("Frame", {
+                Parent = Holder,
+                Name = NameSuffix,
+                Position = Position,
+                Size = Size,
+                BackgroundColor3 = LineColor,
+                BackgroundTransparency = 0.12,
+                BorderSizePixel = 0,
+                ZIndex = (ZIndex or 20) + 1
+            })
+
+            Lines[#Lines + 1] = Line
+            Menu.ChromeAccentTargets[Line] = true
+            return Line
+        end
+
+        Add("TopLeftHorizontal", UDim2.fromOffset(0, 0), UDim2.fromOffset(CornerLength, LineThickness))
+        Add("TopLeftVertical", UDim2.fromOffset(0, 0), UDim2.fromOffset(LineThickness, CornerLength))
+
+        Add("TopRightHorizontal", UDim2.new(1, -CornerLength, 0, 0), UDim2.fromOffset(CornerLength, LineThickness))
+        Add("TopRightVertical", UDim2.new(1, -LineThickness, 0, 0), UDim2.fromOffset(LineThickness, CornerLength))
+
+        Add("BottomLeftHorizontal", UDim2.new(0, 0, 1, -LineThickness), UDim2.fromOffset(CornerLength, LineThickness))
+        Add("BottomLeftVertical", UDim2.new(0, 0, 1, -CornerLength), UDim2.fromOffset(LineThickness, CornerLength))
+
+        Add("BottomRightHorizontal", UDim2.new(1, -CornerLength, 1, -LineThickness), UDim2.fromOffset(CornerLength, LineThickness))
+        Add("BottomRightVertical", UDim2.new(1, -LineThickness, 1, -CornerLength), UDim2.fromOffset(LineThickness, CornerLength))
+
+        local Object = {
+            Root = Holder,
+            Lines = Lines
+        }
+
+        function Object:SetVisible(State)
+            Holder.Visible = State == true
+        end
+
+        function Object:SetColor(NewColor)
+            if typeof(NewColor) ~= "Color3" then
+                return
+            end
+
+            for Index = 1, #Lines do
+                local Line = Lines[Index]
+                if Line and Line.Parent then
+                    Line.BackgroundColor3 = NewColor
+                end
+            end
+        end
+
+        return Object
+    end
+
     local function Bind(Connection)
         table.insert(Menu.Connections, Connection)
         return Connection
@@ -813,8 +886,9 @@ local function BuildRuntime()
         ClipsDescendants = true,
         ZIndex = 2
     })
-    Corner(Main, 8)
+    Corner(Main, 0)
     Stroke(Main, Border, 0.08, 1)
+    Menu.MainEdgeCorners = CreateEdgeCorners(Main, "AtramentaMainEdgeCorners", 24, 1, Accent, true, 24)
 
     local MainScale = Create("UIScale", {
         Parent = Main,
@@ -829,7 +903,7 @@ local function BuildRuntime()
         BorderSizePixel = 0,
         ZIndex = 3
     })
-    Corner(Sidebar, 8)
+    Corner(Sidebar, 0)
 
     Create("Frame", {
         Parent = Sidebar,
@@ -905,7 +979,7 @@ local function BuildRuntime()
         BorderSizePixel = 0,
         ZIndex = 4
     })
-    Corner(Topbar, 8)
+    Corner(Topbar, 0)
 
     Create("Frame", {
         Parent = Topbar,
@@ -1426,6 +1500,23 @@ local function BuildRuntime()
             AccentUpdateTargets[#AccentUpdateTargets + 1] = Callback
         end
     end
+
+
+    RegisterAccentTarget(function(NewColor)
+        local Targets = Menu.ChromeAccentTargets
+
+        if type(Targets) ~= "table" then
+            return
+        end
+
+        for Object in pairs(Targets) do
+            if Object and Object.Parent then
+                Object.BackgroundColor3 = NewColor
+            else
+                Targets[Object] = nil
+            end
+        end
+    end)
 
     RegisterAccentTarget(function(NewColor)
         if Menu.SidebarLogo
@@ -10939,24 +11030,36 @@ local function BuildRuntime()
         for SubPageName, SubPageObject in pairs(PageObject.SubPages) do
             local Selected = SubPageName == Name
             SubPageObject.Frame.Visible = Selected
+
             if SubPageObject.Button then
                 Tween(SubPageObject.Button, 0.16, {
-                    BackgroundTransparency = Selected and 0.86 or 1,
-                    BackgroundColor3 = Selected and Color3.fromRGB(15, 25, 33) or Topbar.BackgroundColor3,
+                    BackgroundTransparency = 1,
+                    BackgroundColor3 = Topbar.BackgroundColor3,
                     TextColor3 = Selected and PrimaryText or MutedText
                 })
             end
+
             if SubPageObject.Scale then
-                Tween(SubPageObject.Scale, 0.16, {Scale = Selected and 1.02 or 1})
+                Tween(SubPageObject.Scale, 0.16, {Scale = Selected and 1.01 or 1})
             end
+
+            if SubPageObject.EdgeCorners then
+                SubPageObject.EdgeCorners:SetVisible(Selected)
+            end
+
             if SubPageObject.Indicator then
                 SubPageObject.Indicator.Visible = Selected
+
                 if Selected then
-                    SubPageObject.Indicator.Size = UDim2.fromOffset(12, 2)
-                    Tween(SubPageObject.Indicator, 0.18, {Size = UDim2.fromOffset(50, 2), BackgroundTransparency = 0})
+                    SubPageObject.Indicator.Size = UDim2.fromOffset(18, 2)
+                    Tween(SubPageObject.Indicator, 0.18, {
+                        Size = UDim2.fromOffset(46, 2),
+                        BackgroundTransparency = 0
+                    })
                 end
             end
         end
+
         PageObject.ActiveSubPage = Name
     end
 
@@ -11613,8 +11716,8 @@ local function BuildRuntime()
             Parent = Topbar,
             Position = UDim2.fromOffset(14 + (Count * 102), 15),
             Size = UDim2.fromOffset(96, 36),
-            BackgroundColor3 = Color3.fromRGB(15, 25, 33),
-            BackgroundTransparency = Count == 0 and 0.86 or 1,
+            BackgroundColor3 = Topbar.BackgroundColor3,
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
@@ -11624,7 +11727,17 @@ local function BuildRuntime()
             Visible = self.Name == ApiState.ActivePage,
             ZIndex = 6
         })
-        Corner(Button, 6)
+        Corner(Button, 0)
+
+        local EdgeCorners = CreateEdgeCorners(
+            Button,
+            "AtramentaSubPageEdgeCorners",
+            10,
+            1,
+            Accent,
+            Count == 0,
+            8
+        )
         local Scale = Create("UIScale", {
             Parent = Button,
             Scale = Count == 0 and 1.02 or 1
@@ -11649,6 +11762,7 @@ local function BuildRuntime()
             Button = Button,
             Indicator = Indicator,
             IndicatorGlow = IndicatorGlow,
+            EdgeCorners = EdgeCorners,
             Scale = Scale,
             Slots = {Left = 0, Right = 0},
             Sections = {}
@@ -11671,7 +11785,7 @@ local function BuildRuntime()
         end
         Bind(Button.MouseEnter:Connect(function()
             if self.ActiveSubPage ~= Name then
-                Tween(Button, 0.14, {BackgroundTransparency = 0.88, BackgroundColor3 = Color3.fromRGB(19, 31, 40), TextColor3 = PrimaryText})
+                Tween(Button, 0.14, {BackgroundTransparency = 0.96, BackgroundColor3 = SurfaceAlt, TextColor3 = PrimaryText})
                 Tween(Scale, 0.14, {Scale = 1.025})
             end
         end))
