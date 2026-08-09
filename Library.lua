@@ -151,6 +151,7 @@ local function BuildRuntime()
     local AnimationFactor = 1
 
     local Menu = {
+        Call = Library.Call,
         Flags = {},
         Setters = {},
         Connections = {},
@@ -295,7 +296,7 @@ local function BuildRuntime()
                 Position = Position,
                 Size = Size,
                 BackgroundColor3 = LineColor,
-                BackgroundTransparency = 0.12,
+                BackgroundTransparency = 0.22,
                 BorderSizePixel = 0,
                 ZIndex = (ZIndex or 20) + 1
             })
@@ -893,7 +894,7 @@ local function BuildRuntime()
     })
     Corner(Main, 0)
     Stroke(Main, Border, 0.08, 1)
-    Menu.MainEdgeCorners = CreateEdgeCorners(Main, "AtramentaMainEdgeCorners", 24, 1, Accent, true, 24)
+    Menu.MainEdgeCorners = CreateEdgeCorners(Main, "AtramentaMainEdgeCorners", 18, 1, Accent, true, 24)
 
     local MainScale = Create("UIScale", {
         Parent = Main,
@@ -11027,17 +11028,13 @@ local function BuildRuntime()
                 Tween(SubPageObject.Scale, 0.16, {Scale = Selected and 1.01 or 1})
             end
 
-            if SubPageObject.EdgeCorners then
-                SubPageObject.EdgeCorners:SetVisible(Selected)
-            end
-
             if SubPageObject.Indicator then
                 SubPageObject.Indicator.Visible = Selected
 
                 if Selected then
                     SubPageObject.Indicator.Size = UDim2.fromOffset(18, 2)
                     Tween(SubPageObject.Indicator, 0.18, {
-                        Size = UDim2.fromOffset(46, 2),
+                        Size = UDim2.fromOffset(42, 2),
                         BackgroundTransparency = 0
                     })
                 end
@@ -11713,15 +11710,6 @@ local function BuildRuntime()
         })
         Corner(Button, 0)
 
-        local EdgeCorners = CreateEdgeCorners(
-            Button,
-            "AtramentaSubPageEdgeCorners",
-            10,
-            1,
-            Accent,
-            Count == 0,
-            8
-        )
         local Scale = Create("UIScale", {
             Parent = Button,
             Scale = Count == 0 and 1.02 or 1
@@ -11730,7 +11718,7 @@ local function BuildRuntime()
             Parent = Button,
             AnchorPoint = Vector2.new(0.5, 1),
             Position = UDim2.new(0.5, 0, 1, -1),
-            Size = UDim2.fromOffset(50, 2),
+            Size = UDim2.fromOffset(42, 2),
             BackgroundColor3 = Accent,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
@@ -11746,7 +11734,6 @@ local function BuildRuntime()
             Button = Button,
             Indicator = Indicator,
             IndicatorGlow = IndicatorGlow,
-            EdgeCorners = EdgeCorners,
             Scale = Scale,
             Slots = {Left = 0, Right = 0},
             Sections = {}
