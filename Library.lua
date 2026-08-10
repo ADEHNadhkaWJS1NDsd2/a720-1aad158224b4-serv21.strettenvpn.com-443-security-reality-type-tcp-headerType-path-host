@@ -13068,6 +13068,600 @@ local function BuildRuntime()
     ApiSectionMethods.textbox = ApiSectionMethods.Textbox
     ApiSectionMethods.listbox = ApiSectionMethods.Listbox
 
+    function Library:AntiAimIndicator(Data)
+        Data = type(Data) == "table" and Data or {}
+
+        if Menu.AntiAimIndicator
+            and Menu.AntiAimIndicator.Root
+            and Menu.AntiAimIndicator.Root.Parent
+        then
+            local Existing = Menu.AntiAimIndicator
+
+            if Data.Player then
+                Existing:SetPlayer(Data.Player)
+            end
+
+            if Data.Mode ~= nil then
+                Existing:SetMode(Data.Mode)
+            end
+
+            if Data.Profile ~= nil then
+                Existing:SetProfile(Data.Profile)
+            end
+
+            if Data.Network ~= nil then
+                Existing:SetNetwork(Data.Network)
+            end
+
+            if Data.Yaw ~= nil then
+                Existing:SetYaw(Data.Yaw)
+            end
+
+            if Data.Visible ~= nil then
+                Existing:SetVisibility(Data.Visible)
+            end
+
+            return Existing
+        end
+
+        local LocalPlayer = Players.LocalPlayer
+        local Indicator = {
+            Root = nil,
+            Glow = nil,
+            Viewport = nil,
+            World = nil,
+            Camera = nil,
+            Model = nil,
+            BasePivot = nil,
+            Character = nil,
+            Player = Data.Player or LocalPlayer,
+            Mode = tostring(Data.Mode or "Manual"),
+            Profile = tostring(Data.Profile or "Back"),
+            Network = tostring(Data.Network or "Normal"),
+            Yaw = tonumber(Data.Yaw) or 0,
+            Visible = Data.Visible == true,
+            AccentColor = Accent,
+            Connections = {},
+            Dragging = false,
+            DragStart = nil,
+            StartPosition = nil
+        }
+
+        local SavedPosition = DecodePosition(
+            SavedPositions.AntiAimIndicator,
+            UDim2.fromOffset(18, 148)
+        )
+
+        local Root = Create("Frame", {
+            Name = "AtramentaAntiAimIndicator",
+            Parent = ScreenGui,
+            Active = true,
+            Position = SavedPosition,
+            Size = UDim2.fromOffset(218, 76),
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.08,
+            BorderSizePixel = 0,
+            Visible = Indicator.Visible,
+            ZIndex = 90
+        })
+
+        Indicator.Root = Root
+
+        Corner(Root, 5)
+
+        local RootStroke = Stroke(
+            Root,
+            Border,
+            0.10,
+            1
+        )
+
+        local Glow = Menu:AddSoftGlow(
+            Root,
+            89,
+            6,
+            0.84,
+            true
+        )
+
+        Indicator.Glow = Glow
+
+        local AccentLine = Create("Frame", {
+            Name = "AccentLine",
+            Parent = Root,
+            Size = UDim2.new(1, 0, 0, 2),
+            BackgroundColor3 = Accent,
+            BorderSizePixel = 0,
+            ZIndex = 93
+        })
+
+        Corner(AccentLine, 2)
+
+        local Header = Create("Frame", {
+            Name = "Header",
+            Parent = Root,
+            Position = UDim2.fromOffset(0, 2),
+            Size = UDim2.new(1, 0, 0, 21),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.16,
+            BorderSizePixel = 0,
+            Active = true,
+            ZIndex = 91
+        })
+
+        local Title = Create("TextLabel", {
+            Parent = Header,
+            Position = UDim2.fromOffset(8, 0),
+            Size = UDim2.new(1, -16, 1, 0),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "ANTI AIM",
+            TextColor3 = PrimaryText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 92
+        })
+
+        local ViewportHolder = Create("Frame", {
+            Name = "Character",
+            Parent = Root,
+            Position = UDim2.fromOffset(7, 28),
+            Size = UDim2.fromOffset(50, 41),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.18,
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+            ZIndex = 91
+        })
+
+        Corner(ViewportHolder, 4)
+
+        local ViewportStroke = Stroke(
+            ViewportHolder,
+            Accent,
+            0.52,
+            1
+        )
+
+        local Viewport = Create("ViewportFrame", {
+            Parent = ViewportHolder,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Ambient = Color3.fromRGB(150, 163, 168),
+            LightColor = Color3.fromRGB(228, 237, 240),
+            LightDirection = Vector3.new(-1, -0.7, -1),
+            ZIndex = 92
+        })
+
+        Indicator.Viewport = Viewport
+
+        local World = Create("WorldModel", {
+            Parent = Viewport
+        })
+
+        Indicator.World = World
+
+        local Camera = Create("Camera", {
+            Parent = Viewport,
+            FieldOfView = 34
+        })
+
+        Indicator.Camera = Camera
+        Viewport.CurrentCamera = Camera
+
+        local Directions = Create("Frame", {
+            Parent = ViewportHolder,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = 94
+        })
+
+        local DirectionLabels = {}
+
+        local DirectionLayout = {
+            Left = {
+                Text = "L",
+                Position = UDim2.fromOffset(2, 16)
+            },
+            Right = {
+                Text = "R",
+                Position = UDim2.new(1, -9, 0, 16)
+            },
+            Forward = {
+                Text = "F",
+                Position = UDim2.new(0.5, -3, 0, 1)
+            },
+            Back = {
+                Text = "B",
+                Position = UDim2.new(0.5, -3, 1, -9)
+            }
+        }
+
+        for Name, DirectionData in pairs(DirectionLayout) do
+            DirectionLabels[Name] = Create("TextLabel", {
+                Parent = Directions,
+                Position = DirectionData.Position,
+                Size = UDim2.fromOffset(7, 8),
+                BackgroundTransparency = 1,
+                Font = Enum.Font.BuilderSansMedium,
+                Text = DirectionData.Text,
+                TextColor3 = MutedText,
+                TextSize = 7,
+                ZIndex = 95
+            })
+        end
+
+        local Info = Create("Frame", {
+            Parent = Root,
+            Position = UDim2.fromOffset(64, 27),
+            Size = UDim2.new(1, -71, 0, 44),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = 91
+        })
+
+        local PlayerLabel = Create("TextLabel", {
+            Parent = Info,
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.new(1, 0, 0, 11),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "",
+            TextColor3 = MutedText,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 92
+        })
+
+        local StateLabel = Create("TextLabel", {
+            Parent = Info,
+            Position = UDim2.fromOffset(0, 13),
+            Size = UDim2.new(1, 0, 0, 12),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "",
+            TextColor3 = PrimaryText,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 92
+        })
+
+        local NetworkLabel = Create("TextLabel", {
+            Parent = Info,
+            Position = UDim2.fromOffset(0, 27),
+            Size = UDim2.new(1, 0, 0, 11),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "",
+            TextColor3 = MutedText,
+            TextSize = 8,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 92
+        })
+
+        local function ClearPreview()
+            for _, Object in ipairs(World:GetChildren()) do
+                Object:Destroy()
+            end
+
+            Indicator.Model = nil
+            Indicator.BasePivot = nil
+            Indicator.Character = nil
+        end
+
+        local function PrepareModel(Model)
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("Script")
+                    or Object:IsA("LocalScript")
+                    or Object:IsA("ModuleScript")
+                    or Object:IsA("Tool")
+                    or Object:IsA("Sound")
+                    or Object:IsA("ParticleEmitter")
+                    or Object:IsA("Trail")
+                    or Object:IsA("Beam")
+                    or Object:IsA("BillboardGui")
+                    or Object:IsA("SurfaceGui")
+                then
+                    Object:Destroy()
+                elseif Object:IsA("BasePart") then
+                    Object.Anchored = true
+                    Object.CanCollide = false
+                    Object.CanTouch = false
+                    Object.CanQuery = false
+                    Object.CastShadow = false
+                end
+            end
+        end
+
+        function Indicator:Clamp()
+            if not self.Root
+                or not self.Root.Parent
+            then
+                return
+            end
+
+            self.Root.Position = Menu.ClampPopupPosition(
+                self.Root,
+                self.Root.Position
+            )
+        end
+
+        function Indicator:RefreshCharacter(Force)
+            local Player = self.Player or LocalPlayer
+            local Character = Player and Player.Character
+
+            if not Character then
+                ClearPreview()
+                return
+            end
+
+            if not Force
+                and self.Character == Character
+                and self.Model
+                and self.Model.Parent
+            then
+                return
+            end
+
+            ClearPreview()
+
+            local OldArchivable = Character.Archivable
+            Character.Archivable = true
+            local Model = Character:Clone()
+            Character.Archivable = OldArchivable
+
+            if not Model then
+                return
+            end
+
+            PrepareModel(Model)
+
+            Model.Name = "AntiAimPreview"
+            Model.Parent = World
+
+            self.Character = Character
+            self.Model = Model
+            self.BasePivot = Model:GetPivot()
+
+            local BoundsCFrame, BoundsSize = Model:GetBoundingBox()
+            local Center = BoundsCFrame.Position
+            local Height = math.max(BoundsSize.Y, 4)
+
+            Camera.CFrame = CFrame.new(
+                Center + Vector3.new(0, Height * 0.02, Height * 1.50),
+                Center + Vector3.new(0, Height * 0.02, 0)
+            )
+
+            self:SetYaw(self.Yaw)
+        end
+
+        function Indicator:SetVisibility(State)
+            self.Visible = State == true
+            Root.Visible = self.Visible
+
+            if Glow then
+                Glow.Visible = self.Visible
+            end
+
+            if self.Visible then
+                self:Clamp()
+                self:RefreshCharacter(false)
+            end
+        end
+
+        function Indicator:SetPlayer(Player)
+            if not Player then
+                return
+            end
+
+            if self.Player ~= Player then
+                self.Player = Player
+                self.Character = nil
+            end
+
+            PlayerLabel.Text = tostring(
+                Player.DisplayName
+                or Player.Name
+                or "Player"
+            )
+
+            if self.Visible then
+                self:RefreshCharacter(false)
+            end
+        end
+
+        function Indicator:SetMode(Value)
+            self.Mode = tostring(Value or "Manual")
+            StateLabel.Text = self.Mode .. "  /  " .. tostring(self.Profile or "Back")
+        end
+
+        function Indicator:SetProfile(Value)
+            self.Profile = tostring(Value or "Back")
+            StateLabel.Text = tostring(self.Mode or "Manual") .. "  /  " .. self.Profile
+
+            for Name, Label in pairs(DirectionLabels) do
+                Label.TextColor3 = Name == self.Profile
+                    and self.AccentColor
+                    or MutedText
+            end
+        end
+
+        function Indicator:SetNetwork(Value)
+            self.Network = tostring(Value or "Normal")
+            NetworkLabel.Text = self.Network
+        end
+
+        function Indicator:SetYaw(Value)
+            self.Yaw = tonumber(Value) or 0
+
+            if not self.Model
+                or not self.Model.Parent
+                or typeof(self.BasePivot) ~= "CFrame"
+            then
+                return
+            end
+
+            local Rotation = CFrame.Angles(
+                0,
+                math.rad(-self.Yaw),
+                0
+            )
+
+            self.Model:PivotTo(
+                CFrame.new(self.BasePivot.Position)
+                * Rotation
+                * (
+                    self.BasePivot
+                    - self.BasePivot.Position
+                )
+            )
+        end
+
+        function Indicator:SetAccentColor(NewColor)
+            if typeof(NewColor) ~= "Color3" then
+                return
+            end
+
+            self.AccentColor = NewColor
+            AccentLine.BackgroundColor3 = NewColor
+
+            if ViewportStroke then
+                ViewportStroke.Color = NewColor
+            end
+
+            if Glow then
+                Glow.ImageColor3 = NewColor
+            end
+
+            self:SetProfile(self.Profile)
+        end
+
+        function Indicator:Destroy()
+            for Index = #self.Connections, 1, -1 do
+                local Connection = self.Connections[Index]
+
+                if Connection
+                    and typeof(Connection) == "RBXScriptConnection"
+                then
+                    Connection:Disconnect()
+                end
+
+                self.Connections[Index] = nil
+            end
+
+            if Glow
+                and Glow.Parent
+            then
+                Glow:Destroy()
+            end
+
+            if Root
+                and Root.Parent
+            then
+                Root:Destroy()
+            end
+
+            if Menu.AntiAimIndicator == self then
+                Menu.AntiAimIndicator = nil
+            end
+        end
+
+        RegisterAccentTarget(function(NewColor)
+            if Root
+                and Root.Parent
+            then
+                Indicator:SetAccentColor(NewColor)
+            end
+        end)
+
+        local ViewCamera = workspace.CurrentCamera
+
+        if ViewCamera then
+            Indicator.Connections[#Indicator.Connections + 1] =
+                ViewCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+                    if Root and Root.Parent then
+                        Indicator:Clamp()
+                    end
+                end)
+        end
+
+        Indicator.Connections[#Indicator.Connections + 1] =
+            Header.InputBegan:Connect(function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    Indicator.Dragging = true
+                    Indicator.DragStart = Input.Position
+                    Indicator.StartPosition = Root.Position
+                end
+            end)
+
+        Indicator.Connections[#Indicator.Connections + 1] =
+            UserInputService.InputChanged:Connect(function(Input)
+                if Indicator.Dragging
+                    and Input.UserInputType == Enum.UserInputType.MouseMovement
+                    and Indicator.DragStart
+                    and Indicator.StartPosition
+                then
+                    local Delta = Input.Position - Indicator.DragStart
+
+                    Root.Position = Menu.ClampPopupPosition(
+                        Root,
+                        UDim2.fromOffset(
+                            Indicator.StartPosition.X.Offset + Delta.X,
+                            Indicator.StartPosition.Y.Offset + Delta.Y
+                        )
+                    )
+                end
+            end)
+
+        Indicator.Connections[#Indicator.Connections + 1] =
+            UserInputService.InputEnded:Connect(function(Input)
+                if Indicator.Dragging
+                    and Input.UserInputType == Enum.UserInputType.MouseButton1
+                then
+                    Indicator.Dragging = false
+                    SavedPositions.AntiAimIndicator = EncodePosition(Root.Position)
+                    SavePositions()
+                end
+            end)
+
+        if LocalPlayer then
+            Indicator.Connections[#Indicator.Connections + 1] =
+                LocalPlayer.CharacterAdded:Connect(function()
+                    if Indicator.Player == LocalPlayer then
+                        Indicator.Character = nil
+
+                        if Indicator.Visible then
+                            task.defer(function()
+                                if Root and Root.Parent then
+                                    Indicator:RefreshCharacter(true)
+                                end
+                            end)
+                        end
+                    end
+                end)
+        end
+
+        Menu.AntiAimIndicator = Indicator
+
+        Indicator:SetAccentColor(Accent)
+        Indicator:SetPlayer(Indicator.Player)
+        Indicator:SetMode(Indicator.Mode)
+        Indicator:SetProfile(Indicator.Profile)
+        Indicator:SetNetwork(Indicator.Network)
+        Indicator:SetYaw(Indicator.Yaw)
+        Indicator:SetVisibility(Indicator.Visible)
+        Indicator:Clamp()
+
+        return Indicator
+    end
+
+    Library.antiaimindicator = Library.AntiAimIndicator
+
     function Library:Watermark()
         return {
             SetVisibility = function(_, State)
@@ -14244,6 +14838,10 @@ function Library:ClearCombatLogs(...)
     return ResolveRuntime():ClearCombatLogs(...)
 end
 
+function Library:AntiAimIndicator(...)
+    return ResolveRuntime():AntiAimIndicator(...)
+end
+
 function Library:Watermark(...)
     return ResolveRuntime():Watermark(...)
 end
@@ -14299,6 +14897,7 @@ Library.setnotificationlayout = Library.SetNotificationLayout
 Library.NotificationSkinVersion = 345
 Library.combatlog = Library.CombatLog
 Library.clearcombatlogs = Library.ClearCombatLogs
+Library.antiaimindicator = Library.AntiAimIndicator
 Library.playerlist = Library.PlayerList
 Library.getplayerstatus = Library.GetPlayerStatus
 Library.setplayerstatus = Library.SetPlayerStatus
