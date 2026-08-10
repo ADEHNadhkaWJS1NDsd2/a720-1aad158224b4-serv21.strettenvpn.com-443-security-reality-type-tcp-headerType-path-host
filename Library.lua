@@ -233,17 +233,7 @@ local function BuildRuntime()
             local Color = Properties.BackgroundColor3
             local Maximum = math.max(Color.R, Color.G, Color.B)
             if Maximum <= 0.18 then
-                if Color == Background then
-                    Properties.BackgroundTransparency = 0.04
-                elseif Color == SidebarColor then
-                    Properties.BackgroundTransparency = 0.08
-                elseif Color == Surface then
-                    Properties.BackgroundTransparency = 0.07
-                elseif Color == SurfaceAlt then
-                    Properties.BackgroundTransparency = 0.10
-                else
-                    Properties.BackgroundTransparency = 0.08
-                end
+                Properties.BackgroundTransparency = 0.08
             end
         end
         local Object = Instance.new(ClassName)
@@ -275,6 +265,7 @@ local function BuildRuntime()
         local Holder = Create("Frame", {
             Parent = Parent,
             Name = Name,
+            Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
@@ -282,9 +273,10 @@ local function BuildRuntime()
             ZIndex = ZIndex or 20
         })
 
-        local CornerLength = math.max(math.floor(tonumber(Length) or 18), 6)
-        local LineThickness = math.max(math.floor(tonumber(Thickness) or 1), 1)
+        local CornerLength = math.max(math.floor(tonumber(Length) or 28), 18)
+        local LineThickness = math.max(math.floor(tonumber(Thickness) or 2), 2)
         local LineColor = typeof(Color) == "Color3" and Color or Accent
+        local Inset = 4
         local Lines = {}
 
         Menu.ChromeAccentTargets = Menu.ChromeAccentTargets or setmetatable({}, {__mode = "k"})
@@ -296,47 +288,39 @@ local function BuildRuntime()
                 Position = Position,
                 Size = Size,
                 BackgroundColor3 = LineColor,
-                BackgroundTransparency = 0.22,
+                BackgroundTransparency = 0.05,
                 BorderSizePixel = 0,
                 ZIndex = (ZIndex or 20) + 1
             })
 
+            Corner(Line, 2)
+            Stroke(Line, Border, 0.20, 1)
             Lines[#Lines + 1] = Line
             Menu.ChromeAccentTargets[Line] = true
             return Line
         end
 
-        Add("TopLeftHorizontal", UDim2.fromOffset(0, 0), UDim2.fromOffset(CornerLength, LineThickness))
-        Add("TopLeftVertical", UDim2.fromOffset(0, 0), UDim2.fromOffset(LineThickness, CornerLength))
+        Add("TopLeftHorizontal", UDim2.fromOffset(Inset, Inset), UDim2.fromOffset(CornerLength, LineThickness))
+        Add("TopLeftVertical", UDim2.fromOffset(Inset, Inset), UDim2.fromOffset(LineThickness, CornerLength))
+        Add("TopRightHorizontal", UDim2.new(1, -Inset - CornerLength, 0, Inset), UDim2.fromOffset(CornerLength, LineThickness))
+        Add("TopRightVertical", UDim2.new(1, -Inset - LineThickness, 0, Inset), UDim2.fromOffset(LineThickness, CornerLength))
+        Add("BottomLeftHorizontal", UDim2.new(0, Inset, 1, -Inset - LineThickness), UDim2.fromOffset(CornerLength, LineThickness))
+        Add("BottomLeftVertical", UDim2.new(0, Inset, 1, -Inset - CornerLength), UDim2.fromOffset(LineThickness, CornerLength))
+        Add("BottomRightHorizontal", UDim2.new(1, -Inset - CornerLength, 1, -Inset - LineThickness), UDim2.fromOffset(CornerLength, LineThickness))
+        Add("BottomRightVertical", UDim2.new(1, -Inset - LineThickness, 1, -Inset - CornerLength), UDim2.fromOffset(LineThickness, CornerLength))
 
-        Add("TopRightHorizontal", UDim2.new(1, -CornerLength, 0, 0), UDim2.fromOffset(CornerLength, LineThickness))
-        Add("TopRightVertical", UDim2.new(1, -LineThickness, 0, 0), UDim2.fromOffset(LineThickness, CornerLength))
-
-        Add("BottomLeftHorizontal", UDim2.new(0, 0, 1, -LineThickness), UDim2.fromOffset(CornerLength, LineThickness))
-        Add("BottomLeftVertical", UDim2.new(0, 0, 1, -CornerLength), UDim2.fromOffset(LineThickness, CornerLength))
-
-        Add("BottomRightHorizontal", UDim2.new(1, -CornerLength, 1, -LineThickness), UDim2.fromOffset(CornerLength, LineThickness))
-        Add("BottomRightVertical", UDim2.new(1, -LineThickness, 1, -CornerLength), UDim2.fromOffset(LineThickness, CornerLength))
-
-        local Object = {
-            Root = Holder,
-            Lines = Lines
-        }
+        local Object = {Root = Holder, Lines = Lines}
 
         function Object:SetVisible(State)
             Holder.Visible = State == true
         end
 
         function Object:SetColor(NewColor)
-            if typeof(NewColor) ~= "Color3" then
-                return
-            end
+            if typeof(NewColor) ~= "Color3" then return end
 
             for Index = 1, #Lines do
                 local Line = Lines[Index]
-                if Line and Line.Parent then
-                    Line.BackgroundColor3 = NewColor
-                end
+                if Line and Line.Parent then Line.BackgroundColor3 = NewColor end
             end
         end
 
@@ -887,14 +871,14 @@ local function BuildRuntime()
         Position = DecodePosition(SavedPositions.Main, UDim2.fromScale(0.5, 0.535)),
         Size = UDim2.fromOffset(744, 610),
         BackgroundColor3 = Background,
-        BackgroundTransparency = 0.03,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         ZIndex = 2
     })
-    Corner(Main, 0)
+    Corner(Main, 8)
     Stroke(Main, Border, 0.08, 1)
-    Menu.MainEdgeCorners = CreateEdgeCorners(Main, "AtramentaMainEdgeCorners", 18, 1, Accent, true, 24)
+    Menu.MainEdgeCorners = CreateEdgeCorners(Main, "AtramentaMainEdgeCorners", 28, 2, Accent, true, 24)
 
     local MainScale = Create("UIScale", {
         Parent = Main,
@@ -905,18 +889,18 @@ local function BuildRuntime()
         Parent = Main,
         Size = UDim2.fromOffset(88, 610),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.10,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         ZIndex = 3
     })
-    Corner(Sidebar, 0)
+    Corner(Sidebar, 8)
 
     Create("Frame", {
         Parent = Sidebar,
         Position = UDim2.new(1, -8, 0, 0),
         Size = UDim2.new(0, 8, 1, 0),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.10,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         ZIndex = 3
     })
@@ -981,18 +965,18 @@ local function BuildRuntime()
         Parent = Content,
         Size = UDim2.new(1, 0, 0, 64),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.06,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         ZIndex = 4
     })
-    Corner(Topbar, 0)
+    Corner(Topbar, 8)
 
     Create("Frame", {
         Parent = Topbar,
         Position = UDim2.fromOffset(0, 0),
         Size = UDim2.fromOffset(8, 64),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.06,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         ZIndex = 4
     })
@@ -1003,7 +987,7 @@ local function BuildRuntime()
         Position = UDim2.new(0, 0, 1, 0),
         Size = UDim2.new(1, 0, 0, 8),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.06,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         ZIndex = 4
     })
@@ -1254,7 +1238,7 @@ local function BuildRuntime()
             Position = Position,
             Size = Size,
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.04,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             ZIndex = 5
         })
@@ -4751,13 +4735,14 @@ local function BuildRuntime()
         Position = DecodePosition(SavedPositions.Settings, Main.Position),
         Size = UDim2.fromOffset(500, 526),
         BackgroundColor3 = Surface,
-        BackgroundTransparency = 0.04,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         Visible = false,
         ZIndex = 30
     })
     Corner(Menu.SettingsUI.SettingsPanel, 8)
     Stroke(Menu.SettingsUI.SettingsPanel, Border, 0.12, 1)
+    Menu.SettingsEdgeCorners = CreateEdgeCorners(Menu.SettingsUI.SettingsPanel, "AtramentaSettingsEdgeCorners", 22, 2, Accent, true, 34)
 
     Menu.SettingsUI.SettingsPanelScale = Create("UIScale", {
         Parent = Menu.SettingsUI.SettingsPanel,
@@ -4902,7 +4887,7 @@ local function BuildRuntime()
             Position = DecodePosition(SavedPositions.Configs, DefaultConfigPosition),
             Size = UDim2.fromOffset(300, 150),
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.04,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 40
@@ -5086,7 +5071,7 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(10, 78),
             Size = UDim2.new(1, -20, 0, 30),
             BackgroundColor3 = Background,
-            BackgroundTransparency = 0.10,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 43
@@ -5932,12 +5917,13 @@ local function BuildRuntime()
         Position = DecodePosition(SavedPositions.Keybinds, UDim2.fromOffset(24, 154)),
         Size = UDim2.fromOffset(146, 48),
         BackgroundColor3 = Color3.fromRGB(8, 11, 15),
-        BackgroundTransparency = 0.60,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         Visible = not KeybindListHidden,
         ZIndex = 72
     })
-    Corner(KeybindListWindow, 5)
+    Corner(KeybindListWindow, 6)
+    Menu.HotkeysEdgeCorners = CreateEdgeCorners(KeybindListWindow, "AtramentaHotkeysEdgeCorners", 18, 2, Accent, true, 76)
     local KeybindListGlow = Menu:AddSoftGlow(KeybindListWindow, 71, 8, 0.80, true)
 
     local KeybindListScale = Create("UIScale", {
@@ -6904,7 +6890,7 @@ local function BuildRuntime()
         Position = UDim2.fromOffset(0, 0),
         Size = UDim2.fromOffset(174, 222),
         BackgroundColor3 = Surface,
-        BackgroundTransparency = 0.04,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         Visible = false,
         ZIndex = 120
@@ -7775,7 +7761,7 @@ local function BuildRuntime()
         Position = UDim2.new(0.5, 0, 0, 20),
         Size = UDim2.fromOffset(154, 48),
         BackgroundColor3 = Background,
-        BackgroundTransparency = 0.10,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         Visible = true,
         ZIndex = 235
@@ -8271,7 +8257,7 @@ local function BuildRuntime()
             Active = true,
             Size = UDim2.new(1, 0, 0, 48),
             BackgroundColor3 = SidebarColor,
-            BackgroundTransparency = 0.10,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             ZIndex = 21
         })
@@ -8377,7 +8363,7 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(10, 58),
             Size = UDim2.new(1, -20, 1, -68),
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.10,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             ZIndex = 21
@@ -13917,7 +13903,7 @@ local function BuildRuntime()
             Name = "AtramentaNotification",
             Size = UDim2.fromOffset(NotificationCardWidth, NotificationCardHeight),
             BackgroundColor3 = Color3.fromRGB(8, 10, 13),
-            BackgroundTransparency = 0.04,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             ZIndex = 260
@@ -13936,7 +13922,7 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(0, 4),
             Size = UDim2.new(0, 2, 1, -8),
             BackgroundColor3 = ModeColor,
-            BackgroundTransparency = 0.04,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             ZIndex = 262
         })
