@@ -876,7 +876,7 @@ local function BuildRuntime()
         ClipsDescendants = true,
         ZIndex = 2
     })
-    Corner(Main, 8)
+    Corner(Main, 0)
     Stroke(Main, Border, 0.08, 1)
     Menu.MainEdgeCorners = CreateEdgeCorners(Main, "AtramentaMainEdgeCorners", 28, 2, Accent, true, 24)
 
@@ -893,7 +893,7 @@ local function BuildRuntime()
         BorderSizePixel = 0,
         ZIndex = 3
     })
-    Corner(Sidebar, 8)
+    Corner(Sidebar, 0)
 
     Create("Frame", {
         Parent = Sidebar,
@@ -969,7 +969,7 @@ local function BuildRuntime()
         BorderSizePixel = 0,
         ZIndex = 4
     })
-    Corner(Topbar, 8)
+    Corner(Topbar, 0)
 
     Create("Frame", {
         Parent = Topbar,
@@ -4740,7 +4740,7 @@ local function BuildRuntime()
         Visible = false,
         ZIndex = 30
     })
-    Corner(Menu.SettingsUI.SettingsPanel, 8)
+    Corner(Menu.SettingsUI.SettingsPanel, 0)
     Stroke(Menu.SettingsUI.SettingsPanel, Border, 0.12, 1)
     Menu.SettingsEdgeCorners = CreateEdgeCorners(Menu.SettingsUI.SettingsPanel, "AtramentaSettingsEdgeCorners", 22, 2, Accent, true, 34)
 
@@ -5922,7 +5922,7 @@ local function BuildRuntime()
         Visible = not KeybindListHidden,
         ZIndex = 72
     })
-    Corner(KeybindListWindow, 6)
+    Corner(KeybindListWindow, 0)
     Menu.HotkeysEdgeCorners = CreateEdgeCorners(KeybindListWindow, "AtramentaHotkeysEdgeCorners", 18, 2, Accent, true, 76)
     local KeybindListGlow = Menu:AddSoftGlow(KeybindListWindow, 71, 8, 0.80, true)
 
