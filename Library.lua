@@ -13071,11 +13071,11 @@ local function BuildRuntime()
     function Library:AntiAimIndicator(Data)
         Data = type(Data) == "table" and Data or {}
 
-        if Menu.AntiAimIndicator
-            and Menu.AntiAimIndicator.Root
-            and Menu.AntiAimIndicator.Root.Parent
+        if type(Menu.AntiAimIndicatorObject) == "table"
+            and Menu.AntiAimIndicatorObject.Root
+            and Menu.AntiAimIndicatorObject.Root.Parent
         then
-            local Existing = Menu.AntiAimIndicator
+            local Existing = Menu.AntiAimIndicatorObject
 
             if Data.Player then
                 Existing:SetPlayer(Data.Player)
@@ -13566,8 +13566,8 @@ local function BuildRuntime()
                 Root:Destroy()
             end
 
-            if Menu.AntiAimIndicator == self then
-                Menu.AntiAimIndicator = nil
+            if Menu.AntiAimIndicatorObject == self then
+                Menu.AntiAimIndicatorObject = nil
             end
         end
 
@@ -13646,7 +13646,7 @@ local function BuildRuntime()
                 end)
         end
 
-        Menu.AntiAimIndicator = Indicator
+        Menu.AntiAimIndicatorObject = Indicator
 
         Indicator:SetAccentColor(Accent)
         Indicator:SetPlayer(Indicator.Player)
