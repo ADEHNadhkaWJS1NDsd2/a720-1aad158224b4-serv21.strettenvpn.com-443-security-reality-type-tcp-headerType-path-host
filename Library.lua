@@ -4494,6 +4494,365 @@ local function BuildRuntime()
         }
     end
 
+    function CreateFlagSelector(Section, Name, Items, Flag, Options)
+        Options = Options or {}
+        Items = type(Items) == "table" and Items or {}
+
+        local Bindings = {}
+        for Index, Item in ipairs(Items) do
+            local Binding = {}
+            if type(Item) == "table" then
+                Binding.Name = tostring(Item.Name or Item.Label or Item.Value or Item.Flag or ("Item " .. tostring(Index)))
+                Binding.Value = Item.Value ~= nil and Item.Value or Binding.Name
+                Binding.Flag = tostring(Item.Flag or Binding.Name)
+                Binding.Default = Item.Default == true
+                Binding.Callback = Item.Callback
+            else
+                Binding.Name = tostring(Item)
+                Binding.Value = Item
+                Binding.Flag = Binding.Name
+                Binding.Default = false
+            end
+            Binding.Key = typeof(Binding.Value) .. ":" .. tostring(Binding.Value)
+            Bindings[#Bindings + 1] = Binding
+        end
+
+        local Row = CreateRow(Section.Body, 28)
+        Create("TextLabel", {
+            Parent = Row,
+            Size = UDim2.new(0.54, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = Name,
+            TextColor3 = Options.Disabled and DisabledText or PrimaryText,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 8
+        })
+
+        if Options.Gear then
+            local Values = {}
+            for Index, Binding in ipairs(Bindings) do Values[Index] = Binding.Value end
+            CreateGear(Row, -124, 13, Name, Flag, {Type = "Dropdown", Values = Values})
+        end
+
+        local Button = Create("TextButton", {
+            Parent = Row,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, 0, 0.5, 0),
+            Size = UDim2.fromOffset(118, 24),
+            BackgroundColor3 = SurfaceAlt,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Text = "",
+            ZIndex = 9
+        })
+        Corner(Button, 6)
+        local ButtonStroke = Stroke(Button, Border, 0.08, 1)
+
+        local ValueLabel = Create("TextLabel", {
+            Parent = Button,
+            Position = UDim2.fromOffset(9, 0),
+            Size = UDim2.new(1, -30, 1, 0),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = tostring(Options.Placeholder or "None"),
+            TextColor3 = MutedText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 10
+        })
+
+        local ExpandIndicator = Menu.CreateDropdownExpandIndicator(Button, 11)
+        local Selected = {}
+        local OptionStates = {}
+        local IsOpened = false
+        local Updating = false
+
+        local function CopySelection()
+            local Result = {}
+            for _, Binding in ipairs(Bindings) do
+                if Selected[Binding.Key] then Result[#Result + 1] = Binding.Value end
+            end
+            return Result
+        end
+
+        local function RefreshLabel()
+            local Chosen = CopySelection()
+            if #Chosen == 0 then
+                ValueLabel.Text = tostring(Options.Placeholder or "None")
+                ValueLabel.TextColor3 = MutedText
+            elseif #Chosen == #Bindings and #Bindings > 2 then
+                ValueLabel.Text = "All"
+                ValueLabel.TextColor3 = PrimaryText
+            elseif #Chosen <= 2 then
+                local Names = {}
+                for Index, Value in ipairs(Chosen) do Names[Index] = tostring(Value) end
+                ValueLabel.Text = table.concat(Names, ", ")
+                ValueLabel.TextColor3 = PrimaryText
+            else
+                ValueLabel.Text = tostring(#Chosen) .. " selected"
+                ValueLabel.TextColor3 = PrimaryText
+            end
+        end
+
+        local function RefreshOption(Binding)
+            local State = OptionStates[Binding.Key]
+            if not State then return end
+            local Active = Selected[Binding.Key] == true
+            State.Selected = Active
+            Tween(State.Button, 0.10, {
+                BackgroundTransparency = Active and 0.80 or 1,
+                BackgroundColor3 = Active and Color3.fromRGB(17, 28, 36) or SurfaceAlt
+            })
+            Tween(State.Label, 0.10, {TextColor3 = Active and PrimaryText or MutedText})
+            State.Label.Font = Active and Enum.Font.BuilderSansBold or Enum.Font.BuilderSansMedium
+            State.Check.BackgroundTransparency = Active and 0 or 1
+            State.Check.BackgroundColor3 = Accent
+            State.CheckStroke.Color = Active and Accent or Border
+            State.CheckStroke.Transparency = Active and 0.04 or 0.18
+        end
+
+        local function PublishMaster(FireCallback)
+            local Result = CopySelection()
+            Menu.Flags[Flag] = Result
+            RefreshLabel()
+            if FireCallback and type(Options.Callback) == "function" then
+                task.spawn(Options.Callback, Result)
+            end
+        end
+
+        local function ApplyBinding(Binding, Value, FireCallback)
+            local State = Value == true
+            local Previous = Selected[Binding.Key] == true
+            if State then Selected[Binding.Key] = true else Selected[Binding.Key] = nil end
+            Menu.Flags[Binding.Flag] = State
+            RefreshOption(Binding)
+            if FireCallback and Previous ~= State and type(Binding.Callback) == "function" then
+                task.spawn(Binding.Callback, State)
+            end
+        end
+
+        local function Set(Value)
+            if Updating then return end
+            Updating = true
+            local Wanted = {}
+            if type(Value) == "table" then
+                if #Value > 0 then
+                    for _, Item in ipairs(Value) do Wanted[typeof(Item) .. ":" .. tostring(Item)] = true end
+                else
+                    for Item, State in pairs(Value) do
+                        if State == true then Wanted[typeof(Item) .. ":" .. tostring(Item)] = true end
+                    end
+                end
+            elseif Value ~= nil then
+                Wanted[typeof(Value) .. ":" .. tostring(Value)] = true
+            end
+            for _, Binding in ipairs(Bindings) do
+                ApplyBinding(Binding, Wanted[Binding.Key] == true, true)
+            end
+            Updating = false
+            PublishMaster(true)
+        end
+
+        local function ToggleBinding(Binding)
+            if Options.Disabled then return end
+            ApplyBinding(Binding, not Selected[Binding.Key], true)
+            PublishMaster(true)
+        end
+
+        for _, Binding in ipairs(Bindings) do
+            local Existing = Menu.Flags[Binding.Flag]
+            local Initial = type(Existing) == "boolean" and Existing or Binding.Default
+            ApplyBinding(Binding, Initial, false)
+        end
+        PublishMaster(false)
+
+        Menu.Setters[Flag] = Set
+        for _, Binding in ipairs(Bindings) do
+            local CurrentBinding = Binding
+            Menu.Setters[CurrentBinding.Flag] = function(Value)
+                if Updating then return end
+                Updating = true
+                ApplyBinding(CurrentBinding, Value == true, true)
+                Updating = false
+                PublishMaster(false)
+            end
+        end
+
+        RegisterAccentTarget(function(NewColor)
+            if ButtonStroke and ButtonStroke.Parent then ButtonStroke.Color = IsOpened and NewColor or Border end
+            for _, State in pairs(OptionStates) do
+                if State.Selected then
+                    State.Check.BackgroundColor3 = NewColor
+                    State.CheckStroke.Color = NewColor
+                end
+            end
+        end)
+
+        Bind(Button.MouseEnter:Connect(function()
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(40, 64, 78)})
+        end))
+
+        Bind(Button.MouseLeave:Connect(function()
+            if not IsOpened then
+                Tween(Button, 0.12, {BackgroundColor3 = SurfaceAlt})
+                Tween(ButtonStroke, 0.12, {Color = Border})
+            end
+        end))
+
+        Bind(Button.MouseButton1Click:Connect(function()
+            if Options.Disabled then return end
+            if CloseGearMenus then CloseGearMenus() end
+            if ActivePopup then
+                ClosePopup()
+                return
+            end
+
+            Menu.PopupInputBlocker.Visible = true
+            local Width = math.max(168, tonumber(Options.Width) or 168)
+            local VisibleRows = math.min(#Bindings, tonumber(Options.VisibleRows) or 8)
+            local RowHeight = 25
+            local PopupHeight = math.max(VisibleRows * RowHeight + 10, 35)
+            ActivePopup = Create("Frame", {
+                Parent = ScreenGui,
+                Active = true,
+                Position = UDim2.fromOffset(Button.AbsolutePosition.X + Button.AbsoluteSize.X - Width, Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 6),
+                Size = UDim2.fromOffset(Width, PopupHeight),
+                BackgroundColor3 = Surface,
+                BackgroundTransparency = 0.035,
+                BorderSizePixel = 0,
+                ClipsDescendants = true,
+                ZIndex = 100
+            })
+            Corner(ActivePopup, 5)
+            Stroke(ActivePopup, Border, 0.46, 1)
+            Menu:AddSoftGlow(ActivePopup, 100, 6, 0.90, true)
+            ActivePopup.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
+
+            local List = Create("ScrollingFrame", {
+                Parent = ActivePopup,
+                Position = UDim2.fromOffset(5, 5),
+                Size = UDim2.new(1, -10, 1, -10),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                CanvasSize = UDim2.fromOffset(0, #Bindings * RowHeight),
+                ScrollBarThickness = #Bindings > VisibleRows and 2 or 0,
+                ScrollBarImageColor3 = MutedText,
+                ScrollBarImageTransparency = 0.48,
+                ScrollingDirection = Enum.ScrollingDirection.Y,
+                ZIndex = 101
+            })
+            Create("UIListLayout", {Parent = List, Padding = UDim.new(0, 0), SortOrder = Enum.SortOrder.LayoutOrder})
+
+            IsOpened = true
+            ExpandIndicator:SetOpened(true)
+            ButtonStroke.Color = Accent
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+            OptionStates = {}
+            ActivePopupCleanup = function()
+                IsOpened = false
+                ExpandIndicator:SetOpened(false)
+                OptionStates = {}
+                ButtonStroke.Color = Border
+                Tween(Button, 0.12, {BackgroundColor3 = SurfaceAlt})
+            end
+
+            for Index, Binding in ipairs(Bindings) do
+                local CurrentBinding = Binding
+                local Option = Create("TextButton", {
+                    Parent = List,
+                    Size = UDim2.new(1, -2, 0, RowHeight),
+                    BackgroundColor3 = SurfaceAlt,
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    AutoButtonColor = false,
+                    Text = "",
+                    LayoutOrder = Index,
+                    ZIndex = 102
+                })
+                Corner(Option, 5)
+
+                local Label = Create("TextLabel", {
+                    Parent = Option,
+                    Position = UDim2.fromOffset(9, 0),
+                    Size = UDim2.new(1, -38, 1, 0),
+                    BackgroundTransparency = 1,
+                    Font = Enum.Font.BuilderSansMedium,
+                    Text = CurrentBinding.Name,
+                    TextColor3 = MutedText,
+                    TextSize = 10,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    ZIndex = 103
+                })
+
+                local CheckBox = Create("Frame", {
+                    Parent = Option,
+                    AnchorPoint = Vector2.new(1, 0.5),
+                    Position = UDim2.new(1, -9, 0.5, 0),
+                    Size = UDim2.fromOffset(12, 12),
+                    BackgroundColor3 = Surface,
+                    BackgroundTransparency = 0.18,
+                    BorderSizePixel = 0,
+                    ZIndex = 103
+                })
+                Corner(CheckBox, 3)
+                local CheckStroke = Stroke(CheckBox, Border, 0.18, 1)
+                local Check = Create("Frame", {
+                    Parent = CheckBox,
+                    AnchorPoint = Vector2.new(0.5, 0.5),
+                    Position = UDim2.fromScale(0.5, 0.5),
+                    Size = UDim2.fromOffset(6, 6),
+                    BackgroundColor3 = Accent,
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    ZIndex = 104
+                })
+                Corner(Check, 2)
+
+                OptionStates[CurrentBinding.Key] = {
+                    Button = Option,
+                    Label = Label,
+                    Check = Check,
+                    CheckStroke = CheckStroke,
+                    Selected = false
+                }
+                RefreshOption(CurrentBinding)
+
+                Bind(Option.MouseEnter:Connect(function()
+                    if not Selected[CurrentBinding.Key] then
+                        Tween(Option, 0.10, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+                    end
+                end))
+                Bind(Option.MouseLeave:Connect(function()
+                    if not Selected[CurrentBinding.Key] then
+                        Tween(Option, 0.10, {BackgroundTransparency = 1, BackgroundColor3 = SurfaceAlt})
+                    end
+                end))
+                Bind(Option.MouseButton1Click:Connect(function() ToggleBinding(CurrentBinding) end))
+            end
+        end))
+
+        RegisterControl(Section, Row, Name)
+        return {
+            Set = Set,
+            Get = CopySelection,
+            SetElement = function(_, Value, State)
+                local Key = typeof(Value) .. ":" .. tostring(Value)
+                for _, Binding in ipairs(Bindings) do
+                    if Binding.Key == Key then
+                        ApplyBinding(Binding, State == true, true)
+                        PublishMaster(true)
+                        break
+                    end
+                end
+            end
+        }
+    end
+
     RegisterAccentTarget(function()
         UpdateSettingsButtonAppearance(SearchSettingsOpened, true)
     end)
@@ -8722,23 +9081,135 @@ local function BuildRuntime()
             end
         end
 
+        local function SanitizeModel(Model)
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("Animator") then
+                    Library.Call(function()
+                        for _, Track in ipairs(Object:GetPlayingAnimationTracks()) do
+                            Track:Stop(0)
+                        end
+                    end)
+                    Object:Destroy()
+                elseif Object:IsA("Script") or Object:IsA("LocalScript") or Object:IsA("AnimationController") then
+                    Object:Destroy()
+                elseif Object:IsA("Motor6D") then
+                    Object.Transform = CFrame.identity
+                elseif Object:IsA("Bone") then
+                    Object.Transform = CFrame.identity
+                elseif Object:IsA("BasePart") then
+                    Object.Anchored = true
+                    Object.LocalTransparencyModifier = 0
+                    Object.AssemblyLinearVelocity = Vector3.zero
+                    Object.AssemblyAngularVelocity = Vector3.zero
+                    Object.CanCollide = false
+                    Object.CanTouch = false
+                    Object.CanQuery = false
+                    Object.CastShadow = false
+                elseif Object:IsA("ParticleEmitter") or Object:IsA("Trail") then
+                    Object.Enabled = false
+                end
+            end
+            local Humanoid = Model:FindFirstChildWhichIsA("Humanoid")
+            if Humanoid then
+                Humanoid.AutoRotate = false
+                Humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+                Humanoid.PlatformStand = false
+                Humanoid.Sit = false
+                Library.Call(function()
+                    Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+                end)
+            end
+        end
+
+        local function FreezePreviewPose(Model)
+            if not Model or not Model.Parent then return end
+            local Humanoid = Model:FindFirstChildWhichIsA("Humanoid")
+            if Humanoid then
+                Library.Call(function()
+                    for _, Track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+                        Track:Stop(0)
+                        Track:Destroy()
+                    end
+                end)
+                local Animator = Humanoid:FindFirstChildWhichIsA("Animator")
+                if Animator then
+                    Library.Call(function()
+                        for _, Track in ipairs(Animator:GetPlayingAnimationTracks()) do
+                            Track:Stop(0)
+                            Track:Destroy()
+                        end
+                    end)
+                    Animator:Destroy()
+                end
+                Humanoid.AutoRotate = false
+                Humanoid.Sit = false
+                Humanoid.PlatformStand = false
+                Library.Call(function()
+                    Humanoid.EvaluateStateMachine = false
+                end)
+            end
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("Animator") or Object:IsA("AnimationController") then
+                    Object:Destroy()
+                elseif Object:IsA("Motor6D") or Object:IsA("Bone") then
+                    Object.Transform = CFrame.identity
+                elseif Object:IsA("BasePart") then
+                    Object.AssemblyLinearVelocity = Vector3.zero
+                    Object.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+        end
+
         local PreviewBodyNames = {
-            Head = true, UpperTorso = true, LowerTorso = true,
-            LeftUpperArm = true, LeftLowerArm = true, LeftHand = true,
-            RightUpperArm = true, RightLowerArm = true, RightHand = true,
-            LeftUpperLeg = true, LeftLowerLeg = true, LeftFoot = true,
-            RightUpperLeg = true, RightLowerLeg = true, RightFoot = true
+            Head = true,
+            Torso = true,
+            UpperTorso = true,
+            LowerTorso = true,
+            LeftArm = true,
+            RightArm = true,
+            LeftLeg = true,
+            RightLeg = true,
+            LeftUpperArm = true,
+            LeftLowerArm = true,
+            LeftHand = true,
+            RightUpperArm = true,
+            RightLowerArm = true,
+            RightHand = true,
+            LeftUpperLeg = true,
+            LeftLowerLeg = true,
+            LeftFoot = true,
+            RightUpperLeg = true,
+            RightLowerLeg = true,
+            RightFoot = true
         }
+
+        local function IsPreviewBodyPart(Object)
+            if not Object:IsA("BasePart") or Object.Name == "HumanoidRootPart" or Object.Transparency >= 0.995 then
+                return false
+            end
+            if PreviewBodyNames[Object.Name] then
+                return true
+            end
+            return Object.Parent == S.Model and not Object:FindFirstAncestorWhichIsA("Accessory")
+        end
 
         local function GetPreviewParts(Model)
             local Parts = {}
-
-            for _, Object in ipairs(Model:GetChildren()) do
-                if Object:IsA("BasePart") and PreviewBodyNames[Object.Name] then
-                    Parts[#Parts + 1] = Object
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("BasePart") and Object.Name ~= "HumanoidRootPart" and Object.Transparency < 0.995 then
+                    local Accessory = Object:FindFirstAncestorWhichIsA("Accessory")
+                    if PreviewBodyNames[Object.Name] or (not Accessory and Object.Parent == Model) then
+                        Parts[#Parts + 1] = Object
+                    end
                 end
             end
-
+            if #Parts == 0 then
+                for _, Object in ipairs(Model:GetDescendants()) do
+                    if Object:IsA("BasePart") and Object.Name ~= "HumanoidRootPart" and Object.Transparency < 0.995 then
+                        Parts[#Parts + 1] = Object
+                    end
+                end
+            end
             return Parts
         end
 
@@ -8746,65 +9217,82 @@ local function BuildRuntime()
             local Minimum = Vector3.new(math.huge, math.huge, math.huge)
             local Maximum = Vector3.new(-math.huge, -math.huge, -math.huge)
             local Found = false
-
             for _, PartObject in ipairs(Parts) do
                 local Half = PartObject.Size * 0.5
                 local PartCFrame = PartObject.CFrame
-
                 for X = -1, 1, 2 do
                     for Y = -1, 1, 2 do
                         for Z = -1, 1, 2 do
                             local Point = PartCFrame:PointToWorldSpace(Vector3.new(Half.X * X, Half.Y * Y, Half.Z * Z))
-
                             Minimum = Vector3.new(
                                 math.min(Minimum.X, Point.X),
                                 math.min(Minimum.Y, Point.Y),
                                 math.min(Minimum.Z, Point.Z)
                             )
-
                             Maximum = Vector3.new(
                                 math.max(Maximum.X, Point.X),
                                 math.max(Maximum.Y, Point.Y),
                                 math.max(Maximum.Z, Point.Z)
                             )
-
                             Found = true
                         end
                     end
                 end
             end
-
-            if not Found then return nil, nil end
+            if not Found then
+                return nil, nil
+            end
             return (Minimum + Maximum) * 0.5, Maximum - Minimum
         end
 
         local function ApplyModelRotation()
-            if not S.Model or not S.Model.Parent or not S.BasePivot then return end
-
-            local Position = S.BasePivot.Position
-            local Rotation = S.BasePivot - Position
-            S.Model:PivotTo(CFrame.new(Position) * CFrame.Angles(0, math.rad(S.Rotation), 0) * Rotation)
+            if S.Model and S.Model.Parent and S.BasePivot then
+                local Position = S.BasePivot.Position
+                local Rotation = S.BasePivot - Position
+                S.Model:PivotTo(CFrame.new(Position) * CFrame.Angles(0, math.rad(S.Rotation), 0) * Rotation)
+            end
         end
 
         local function FrameModel(Model)
             local Parts = GetPreviewParts(Model)
             local Center, BoxSize = GetPartsBounds(Parts)
+            if not Center or not BoxSize then
+                local BoxCFrame, FallbackSize = Model:GetBoundingBox()
+                Center = BoxCFrame.Position
+                BoxSize = FallbackSize
+            end
 
-            if not Center or not BoxSize then return end
+            local Pivot = Model:GetPivot()
+            Model:PivotTo(CFrame.new(-Center) * Pivot)
 
-            Model:PivotTo(CFrame.new(-Center) * Model:GetPivot())
+            local FacingPart = Model:FindFirstChild("HumanoidRootPart")
+                or Model:FindFirstChild("UpperTorso")
+                or Model:FindFirstChild("Torso")
+                or Model:FindFirstChild("Head")
+            local Facing = FacingPart and FacingPart.CFrame.LookVector or Vector3.new(0, 0, -1)
+            local FlatFacing = Vector3.new(Facing.X, 0, Facing.Z)
+            if FlatFacing.Magnitude > 0.001 then
+                FlatFacing = FlatFacing.Unit
+                local CurrentYaw = math.atan2(-FlatFacing.X, -FlatFacing.Z)
+                local FrontCorrection = math.pi - CurrentYaw
+                Model:PivotTo(CFrame.Angles(0, FrontCorrection, 0) * Model:GetPivot())
+            else
+                Model:PivotTo(CFrame.Angles(0, math.pi, 0) * Model:GetPivot())
+            end
 
             Parts = GetPreviewParts(Model)
             Center, BoxSize = GetPartsBounds(Parts)
-
-            if Center then Model:PivotTo(CFrame.new(-Center) * Model:GetPivot()) end
+            if Center then
+                Model:PivotTo(CFrame.new(-Center) * Model:GetPivot())
+            else
+                BoxSize = select(2, Model:GetBoundingBox())
+            end
 
             BoxSize = Vector3.new(
                 math.max(BoxSize.X, 2),
                 math.max(BoxSize.Y, 4),
                 math.max(BoxSize.Z, 1)
             )
-
             local ViewSize = S.Viewport.AbsoluteSize
             local Aspect = ViewSize.Y > 0 and math.max(ViewSize.X / ViewSize.Y, 0.25) or 0.78
             local Vertical = math.rad(S.Camera.FieldOfView)
@@ -8813,7 +9301,6 @@ local function BuildRuntime()
             local DistanceX = (BoxSize.X * 0.5) / math.max(math.tan(Horizontal * 0.5), 0.01)
             local Distance = math.max(DistanceX, DistanceY) * 1.18 + BoxSize.Z * 0.55
             local FocusY = BoxSize.Y * 0.015
-
             S.Camera.CFrame = CFrame.new(Vector3.new(0, FocusY, Distance), Vector3.new(0, FocusY, 0))
             S.BasePivot = Model:GetPivot()
             S.Rotation = S.Mode == "3D" and S.Rotation or 0
@@ -8821,92 +9308,248 @@ local function BuildRuntime()
             S.BoundsValid = false
         end
 
-        local function CreateMannequinPart(Model, Name, Size, Position)
-            local PartObject = Create("Part", {
-                Parent = Model,
-                Name = Name,
-                Size = Size,
-                CFrame = CFrame.new(Position),
-                Anchored = true,
-                CanCollide = false,
-                CanTouch = false,
-                CanQuery = false,
-                CastShadow = false,
-                Material = Enum.Material.SmoothPlastic,
-                Color = Color3.fromRGB(86, 99, 108),
-                TopSurface = Enum.SurfaceType.Smooth,
-                BottomSurface = Enum.SurfaceType.Smooth
-            })
-
-            return PartObject
+        local function FindPreviewAttachment(Model, Name, IgnoredAccessory)
+            if not Model or type(Name) ~= "string" or Name == "" then return nil end
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("Attachment")
+                    and Object.Name == Name
+                    and Object.Parent
+                    and Object.Parent:IsA("BasePart")
+                    and (not IgnoredAccessory or not Object:IsDescendantOf(IgnoredAccessory))
+                    and not Object:FindFirstAncestorWhichIsA("Accessory") then
+                    return Object
+                end
+            end
+            return nil
         end
 
-        local function CreatePreviewMannequin()
-            local Model = Instance.new("Model")
-            Model.Name = "AtramentaEspPreviewMannequin"
+        local function AttachPreviewAccessory(Model, Accessory)
+            if not Model or not Accessory or not Accessory:IsA("Accessory") then return false end
+            local Handle = Accessory:FindFirstChild("Handle")
+            if not Handle or not Handle:IsA("BasePart") then
+                Accessory.Parent = Model
+                return true
+            end
+            local HandleAttachment = Handle:FindFirstChildWhichIsA("Attachment", true)
+            local TargetAttachment = HandleAttachment and FindPreviewAttachment(Model, HandleAttachment.Name, Accessory) or nil
+            for _, Object in ipairs(Handle:GetChildren()) do
+                if (Object:IsA("Weld") or Object:IsA("Motor6D") or Object:IsA("WeldConstraint"))
+                    and Object.Name == "AccessoryWeld" then
+                    Object:Destroy()
+                end
+            end
+            Accessory.Parent = Model
+            Handle.LocalTransparencyModifier = 0
+            Handle.Transparency = math.min(Handle.Transparency, 0.99)
+            Handle.CanCollide = false
+            Handle.CanTouch = false
+            Handle.CanQuery = false
+            if TargetAttachment and TargetAttachment.Parent and TargetAttachment.Parent:IsA("BasePart") then
+                Handle.CFrame = TargetAttachment.WorldCFrame * HandleAttachment.CFrame:Inverse()
+                local Weld = Instance.new("Weld")
+                Weld.Name = "AccessoryWeld"
+                Weld.Part0 = TargetAttachment.Parent
+                Weld.Part1 = Handle
+                Weld.C0 = TargetAttachment.CFrame
+                Weld.C1 = HandleAttachment.CFrame
+                Weld.Parent = Handle
+                return true
+            end
+            local Head = Model:FindFirstChild("Head")
+            if Head and Head:IsA("BasePart") then
+                Handle.CFrame = Head.CFrame
+                local Weld = Instance.new("WeldConstraint")
+                Weld.Name = "AccessoryWeld"
+                Weld.Part0 = Head
+                Weld.Part1 = Handle
+                Weld.Parent = Handle
+                return true
+            end
+            return false
+        end
 
-            CreateMannequinPart(Model, "Head", Vector3.new(1.55, 1.05, 1.05), Vector3.new(0, 5.55, 0))
-            CreateMannequinPart(Model, "UpperTorso", Vector3.new(2.05, 1.55, 1.05), Vector3.new(0, 4.15, 0))
-            CreateMannequinPart(Model, "LowerTorso", Vector3.new(1.75, 1.25, 1.00), Vector3.new(0, 2.75, 0))
+        local function MergeCurrentAppearance(Model)
+            local Character = LocalPlayer and LocalPlayer.Character
+            if not Character or not Model then return end
+            local ModelHumanoid = Model:FindFirstChildWhichIsA("Humanoid")
+            local ExistingAccessories = {}
+            for _, Object in ipairs(Model:GetChildren()) do
+                if Object:IsA("Accessory") then
+                    ExistingAccessories[Object.Name] = (ExistingAccessories[Object.Name] or 0) + 1
+                    local Handle = Object:FindFirstChild("Handle")
+                    if Handle and Handle:IsA("BasePart") then
+                        Handle.LocalTransparencyModifier = 0
+                    end
+                end
+            end
+            local SeenAccessories = {}
+            for _, Object in ipairs(Character:GetChildren()) do
+                if Object:IsA("Accessory")
+                    and Object.Name ~= "AtramentaCosmeticWings"
+                    and Object.Name ~= "MinecraftChinaHat" then
+                    SeenAccessories[Object.Name] = (SeenAccessories[Object.Name] or 0) + 1
+                    if SeenAccessories[Object.Name] > (ExistingAccessories[Object.Name] or 0) then
+                        local Clone
+                        Library.Call(function()
+                            local WasArchivable = Object.Archivable
+                            Object.Archivable = true
+                            Clone = Object:Clone()
+                            Object.Archivable = WasArchivable
+                        end)
+                        if Clone then
+                            local HasWrapLayer = Clone:FindFirstChildWhichIsA("WrapLayer", true) ~= nil
+                            local Added = false
+                            if HasWrapLayer and ModelHumanoid and Model.Parent then
+                                Added = Library.Call(function()
+                                    ModelHumanoid:AddAccessory(Clone)
+                                end) and Clone.Parent ~= nil
+                            end
+                            if not Added then
+                                AttachPreviewAccessory(Model, Clone)
+                            end
+                        end
+                    end
+                elseif (Object:IsA("Shirt") or Object:IsA("Pants") or Object:IsA("ShirtGraphic") or Object:IsA("BodyColors"))
+                    and not Model:FindFirstChildOfClass(Object.ClassName) then
+                    local Clone
+                    Library.Call(function()
+                        Clone = Object:Clone()
+                    end)
+                    if Clone then Clone.Parent = Model end
+                end
+            end
+            local SourceHead = Character:FindFirstChild("Head")
+            local TargetHead = Model:FindFirstChild("Head")
+            if SourceHead and TargetHead then
+                for _, Object in ipairs(SourceHead:GetChildren()) do
+                    if (Object:IsA("Decal") or Object:IsA("Texture")) and not TargetHead:FindFirstChild(Object.Name) then
+                        local Clone
+                        Library.Call(function()
+                            Clone = Object:Clone()
+                        end)
+                        if Clone then Clone.Parent = TargetHead end
+                    end
+                end
+            end
+        end
 
-            CreateMannequinPart(Model, "LeftUpperArm", Vector3.new(0.72, 1.55, 0.72), Vector3.new(-1.42, 4.15, 0))
-            CreateMannequinPart(Model, "LeftLowerArm", Vector3.new(0.62, 1.45, 0.62), Vector3.new(-1.42, 2.68, 0))
-            CreateMannequinPart(Model, "LeftHand", Vector3.new(0.62, 0.62, 0.62), Vector3.new(-1.42, 1.70, 0))
+        local function CloneCurrentCharacterModel()
+            local Character = LocalPlayer and LocalPlayer.Character
+            if not Character then
+                return nil, nil
+            end
+            local Model
+            Library.Call(function()
+                local WasArchivable = Character.Archivable
+                Character.Archivable = true
+                Model = Character:Clone()
+                Character.Archivable = WasArchivable
+            end)
+            if not Model then
+                return nil, nil
+            end
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("Tool")
+                    or Object:IsA("Highlight")
+                    or Object.Name == "AtramentaCosmeticWings"
+                    or Object.Name == "MinecraftChinaHat"
+                    or string.find(Object.Name, "AtramentaArms", 1, true)
+                    or string.find(Object.Name, "AtramentaWeaponChams", 1, true) then
+                    Library.Call(function()
+                        Object:Destroy()
+                    end)
+                end
+            end
+            local Description
+            local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+            if Humanoid then
+                Library.Call(function()
+                    Description = Humanoid:GetAppliedDescription()
+                end)
+            end
+            return Model, Description
+        end
 
-            CreateMannequinPart(Model, "RightUpperArm", Vector3.new(0.72, 1.55, 0.72), Vector3.new(1.42, 4.15, 0))
-            CreateMannequinPart(Model, "RightLowerArm", Vector3.new(0.62, 1.45, 0.62), Vector3.new(1.42, 2.68, 0))
-            CreateMannequinPart(Model, "RightHand", Vector3.new(0.62, 0.62, 0.62), Vector3.new(1.42, 1.70, 0))
+        local function CreateDescriptionModel()
+            if LocalPlayer then
+                local UserId = tonumber(LocalPlayer.UserId) or 0
+                local Creator = Players.CreateHumanoidModelFromUserIdAsync or Players.CreateHumanoidModelFromUserId
 
-            CreateMannequinPart(Model, "LeftUpperLeg", Vector3.new(0.82, 1.65, 0.82), Vector3.new(-0.48, 1.32, 0))
-            CreateMannequinPart(Model, "LeftLowerLeg", Vector3.new(0.72, 1.65, 0.72), Vector3.new(-0.48, -0.30, 0))
-            CreateMannequinPart(Model, "LeftFoot", Vector3.new(0.75, 0.48, 1.12), Vector3.new(-0.48, -1.35, -0.16))
+                if UserId > 0 and type(Creator) == "function" then
+                    local Model
+                    Library.Call(function()
+                        Model = Creator(Players, UserId)
+                    end)
 
-            CreateMannequinPart(Model, "RightUpperLeg", Vector3.new(0.82, 1.65, 0.82), Vector3.new(0.48, 1.32, 0))
-            CreateMannequinPart(Model, "RightLowerLeg", Vector3.new(0.72, 1.65, 0.72), Vector3.new(0.48, -0.30, 0))
-            CreateMannequinPart(Model, "RightFoot", Vector3.new(0.75, 0.48, 1.12), Vector3.new(0.48, -1.35, -0.16))
+                    if Model and Model:IsA("Model") then
+                        local Description
+                        local Humanoid = Model:FindFirstChildWhichIsA("Humanoid")
 
-            return Model
+                        if Humanoid then
+                            Library.Call(function()
+                                Description = Humanoid:GetAppliedDescription()
+                            end)
+                        end
+
+                        return Model, Description
+                    end
+                end
+            end
+
+            return CloneCurrentCharacterModel()
         end
 
         local ProjectModelBounds
 
         local function TryBuildModel(Generation)
-            if Generation ~= S.LoadGeneration then return false end
-
-            ClearModel(false)
-
-            local Model = CreatePreviewMannequin()
+            S.Status.Text = "LOADING LOCAL PLAYER"
+            S.Status.Visible = true
+            local Model, Description = CreateDescriptionModel()
             if Generation ~= S.LoadGeneration or not Model then
                 if Model then Model:Destroy() end
                 return false
             end
-
+            ClearModel(false)
+            Model.Name = "LocalPlayerPreview"
             Model.Parent = S.World
-
             if Generation ~= S.LoadGeneration or not Model.Parent then
-                Model:Destroy()
+                if Model then Model:Destroy() end
                 return false
             end
-
-            S.Description = nil
+            MergeCurrentAppearance(Model)
+            RunService.Heartbeat:Wait()
+            SanitizeModel(Model)
+            FreezePreviewPose(Model)
+            S.Description = Description
             S.Model = Model
             S.Rotation = 0
             FrameModel(Model)
-
+            task.defer(function()
+                if S.Model == Model and Model.Parent then
+                    FreezePreviewPose(Model)
+                    FrameModel(Model)
+                    ProjectModelBounds()
+                end
+            end)
             S.Silhouette.Visible = false
             S.Status.Visible = false
             return true
         end
 
         local function RequestModel()
-            if S.Hidden or not S.Window.Parent then return end
-
             S.LoadGeneration += 1
-            TryBuildModel(S.LoadGeneration)
-
-            if ProjectModelBounds and S.Model and S.Model.Parent then
-                ProjectModelBounds()
-            end
+            local Generation = S.LoadGeneration
+            task.spawn(function()
+                while S.Window.Parent and Generation == S.LoadGeneration and not S.Hidden do
+                    if TryBuildModel(Generation) then
+                        return
+                    end
+                    S.Status.Text = "WAITING FOR CHARACTER"
+                    S.Status.Visible = true
+                    S.Silhouette.Visible = true
+                    task.wait(1.5)
+                end
+            end)
         end
 
         ProjectModelBounds = function()
@@ -9248,11 +9891,32 @@ local function BuildRuntime()
             end
         end))
 
+        if LocalPlayer then
+            Bind(LocalPlayer.CharacterAdded:Connect(function()
+                task.delay(0.5, function()
+                    ClearModel()
+                    if not S.Hidden then
+                        RequestModel()
+                    end
+                end)
+            end))
+            Bind(LocalPlayer.CharacterAppearanceLoaded:Connect(function()
+                task.delay(0.2, function()
+                    ClearModel()
+                    if not S.Hidden then
+                        RequestModel()
+                    end
+                end)
+            end))
+        end
 
         local LastUpdate = 0
         Bind(RunService.RenderStepped:Connect(function(DeltaTime)
             if not S.Window.Visible then
                 return
+            end
+            if S.Model and S.Model.Parent then
+                FreezePreviewPose(S.Model)
             end
             if S.Model and S.Model.Parent and S.BasePivot and S.Mode ~= "3D" and S.Rotation ~= 0 then
                 S.Rotation = 0
@@ -9263,6 +9927,9 @@ local function BuildRuntime()
                 UpdateEspStyle()
                 if S.Model and S.Model.Parent then
                     ProjectModelBounds()
+                elseif os.clock() - S.LastRetry > 1.5 then
+                    S.LastRetry = os.clock()
+                    RequestModel()
                 end
             end
         end))
@@ -10996,6 +11663,24 @@ local function BuildRuntime()
         })
     end
 
+    function ApiSectionMethods:FlagSelector(Data)
+        Data = Data or {}
+        return CreateFlagSelector(
+            self.Section,
+            tostring(ApiRead(Data, "Name", "Elements")),
+            ApiRead(Data, "Items", ApiRead(Data, "Values", {})),
+            ApiNormalizeFlag(Data, ApiRead(Data, "Name", "Elements")),
+            {
+                Gear = ApiRead(Data, "Gear", false),
+                Disabled = ApiRead(Data, "Disabled", false),
+                Placeholder = ApiRead(Data, "Placeholder", "None"),
+                Width = ApiRead(Data, "Width", 168),
+                VisibleRows = ApiRead(Data, "VisibleRows", 8),
+                Callback = ApiRead(Data, "Callback")
+            }
+        )
+    end
+
     function ApiSectionMethods:Label(Data)
         return ApiCreateLabel(self.Section, Data or {})
     end
@@ -12688,6 +13373,9 @@ local function BuildRuntime()
     ApiSectionMethods.multidropdown = ApiSectionMethods.MultiDropdown
     ApiSectionMethods.multiDropdown = ApiSectionMethods.MultiDropdown
     ApiSectionMethods.multiselect = ApiSectionMethods.MultiDropdown
+    ApiSectionMethods.flagselector = ApiSectionMethods.FlagSelector
+    ApiSectionMethods.flagSelector = ApiSectionMethods.FlagSelector
+    ApiSectionMethods.elements = ApiSectionMethods.FlagSelector
     ApiSectionMethods.label = ApiSectionMethods.Label
     ApiSectionMethods.colorpicker = ApiSectionMethods.Colorpicker
     ApiSectionMethods.keybind = ApiSectionMethods.Keybind
@@ -12698,45 +13386,103 @@ local function BuildRuntime()
     function Library:AntiAimIndicator(Data)
         Data = type(Data) == "table" and Data or {}
 
-        local Existing = Menu.AntiAimIndicatorObject
+        if type(Menu.AntiAimIndicatorObject) == "table"
+            and Menu.AntiAimIndicatorObject.Root
+            and Menu.AntiAimIndicatorObject.Root.Parent
+        then
+            local Existing = Menu.AntiAimIndicatorObject
 
-        if type(Existing) == "table" and Existing.Root and Existing.Root.Parent then
-            if Data.Player then Existing:SetPlayer(Data.Player) end
-            if Data.Mode ~= nil then Existing:SetMode(Data.Mode) end
-            if Data.Profile ~= nil then Existing:SetProfile(Data.Profile) end
-            if Data.Network ~= nil then Existing:SetNetwork(Data.Network) end
-            if Data.Yaw ~= nil then Existing:SetYaw(Data.Yaw) end
-            if Data.Visible ~= nil then Existing:SetVisibility(Data.Visible) end
+            if Data.Player then
+                Existing:SetPlayer(Data.Player)
+            end
+
+            if Data.Mode ~= nil then
+                Existing:SetMode(Data.Mode)
+            end
+
+            if Data.Profile ~= nil then
+                Existing:SetProfile(Data.Profile)
+            end
+
+            if Data.Network ~= nil then
+                Existing:SetNetwork(Data.Network)
+            end
+
+            if Data.Yaw ~= nil then
+                Existing:SetYaw(Data.Yaw)
+            end
+
+            if Data.Visible ~= nil then
+                Existing:SetVisibility(Data.Visible)
+            end
+
             return Existing
         end
 
         local LocalPlayer = Players.LocalPlayer
         local Indicator = {
-            Root = nil, Player = Data.Player or LocalPlayer,
-            Mode = tostring(Data.Mode or "Manual"), Profile = tostring(Data.Profile or "Back"),
-            Network = tostring(Data.Network or "Normal"), Yaw = tonumber(Data.Yaw) or 0,
-            Visible = Data.Visible == true, AccentColor = Accent,
-            Connections = {}, Dragging = false, DragStart = nil, StartPosition = nil
+            Root = nil,
+            Glow = nil,
+            Viewport = nil,
+            World = nil,
+            Camera = nil,
+            Model = nil,
+            BasePivot = nil,
+            Character = nil,
+            Player = Data.Player or LocalPlayer,
+            Mode = tostring(Data.Mode or "Manual"),
+            Profile = tostring(Data.Profile or "Back"),
+            Network = tostring(Data.Network or "Normal"),
+            Yaw = tonumber(Data.Yaw) or 0,
+            Visible = Data.Visible == true,
+            AccentColor = Accent,
+            Connections = {},
+            Dragging = false,
+            DragStart = nil,
+            StartPosition = nil
         }
+
+        local SavedPosition = DecodePosition(
+            SavedPositions.AntiAimIndicator,
+            UDim2.fromOffset(18, 148)
+        )
 
         local Root = Create("Frame", {
             Name = "AtramentaAntiAimIndicator",
             Parent = ScreenGui,
             Active = true,
-            Position = DecodePosition(SavedPositions.AntiAimIndicator, UDim2.fromOffset(18, 148)),
-            Size = UDim2.fromOffset(238, 78),
+            Position = SavedPosition,
+            Size = UDim2.fromOffset(218, 76),
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.06,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             Visible = Indicator.Visible,
             ZIndex = 90
         })
 
         Indicator.Root = Root
+
         Corner(Root, 5)
-        Stroke(Root, Border, 0.10, 1)
+
+        local RootStroke = Stroke(
+            Root,
+            Border,
+            0.10,
+            1
+        )
+
+        local Glow = Menu:AddSoftGlow(
+            Root,
+            89,
+            6,
+            0.84,
+            true
+        )
+
+        Indicator.Glow = Glow
 
         local AccentLine = Create("Frame", {
+            Name = "AccentLine",
             Parent = Root,
             Size = UDim2.new(1, 0, 0, 2),
             BackgroundColor3 = Accent,
@@ -12744,143 +13490,165 @@ local function BuildRuntime()
             ZIndex = 93
         })
 
+        Corner(AccentLine, 2)
+
         local Header = Create("Frame", {
+            Name = "Header",
             Parent = Root,
             Position = UDim2.fromOffset(0, 2),
             Size = UDim2.new(1, 0, 0, 21),
             BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = 0.18,
+            BackgroundTransparency = 0.16,
             BorderSizePixel = 0,
             Active = true,
             ZIndex = 91
         })
 
-        Create("TextLabel", {
+        local Title = Create("TextLabel", {
             Parent = Header,
             Position = UDim2.fromOffset(8, 0),
-            Size = UDim2.fromOffset(90, 21),
+            Size = UDim2.new(1, -16, 1, 0),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
-            Text = "ANTI-AIM",
+            Text = "ANTI AIM",
             TextColor3 = PrimaryText,
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 92
         })
 
-        local PlayerLabel = Create("TextLabel", {
-            Parent = Header,
-            Position = UDim2.fromOffset(96, 0),
-            Size = UDim2.new(1, -104, 1, 0),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSans,
-            Text = "",
-            TextColor3 = MutedText,
-            TextSize = 8,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 92
-        })
-
-        local Compass = Create("Frame", {
+        local ViewportHolder = Create("Frame", {
+            Name = "Character",
             Parent = Root,
-            Position = UDim2.fromOffset(8, 29),
-            Size = UDim2.fromOffset(52, 42),
+            Position = UDim2.fromOffset(7, 28),
+            Size = UDim2.fromOffset(50, 41),
             BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = 0.20,
+            BackgroundTransparency = 0.18,
             BorderSizePixel = 0,
+            ClipsDescendants = true,
             ZIndex = 91
         })
 
-        Corner(Compass, 4)
-        Stroke(Compass, Border, 0.24, 1)
+        Corner(ViewportHolder, 4)
 
-        local Center = Create("Frame", {
-            Parent = Compass,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.fromOffset(5, 5),
-            BackgroundColor3 = Accent,
+        local ViewportStroke = Stroke(
+            ViewportHolder,
+            Accent,
+            0.52,
+            1
+        )
+
+        local Viewport = Create("ViewportFrame", {
+            Parent = ViewportHolder,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            ZIndex = 96
+            Ambient = Color3.fromRGB(150, 163, 168),
+            LightColor = Color3.fromRGB(228, 237, 240),
+            LightDirection = Vector3.new(-1, -0.7, -1),
+            ZIndex = 92
         })
 
-        Corner(Center, 100)
+        Indicator.Viewport = Viewport
 
-        local YawNeedle = Create("Frame", {
-            Parent = Compass,
-            AnchorPoint = Vector2.new(0.5, 1),
-            Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.fromOffset(2, 15),
-            BackgroundColor3 = Accent,
-            BorderSizePixel = 0,
-            Rotation = 0,
-            ZIndex = 95
+        local World = Create("WorldModel", {
+            Parent = Viewport
         })
 
-        Corner(YawNeedle, 100)
+        Indicator.World = World
+
+        local Camera = Create("Camera", {
+            Parent = Viewport,
+            FieldOfView = 34
+        })
+
+        Indicator.Camera = Camera
+        Viewport.CurrentCamera = Camera
+
+        local Directions = Create("Frame", {
+            Parent = ViewportHolder,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = 94
+        })
 
         local DirectionLabels = {}
+
         local DirectionLayout = {
-            Forward = {"F", UDim2.new(0.5, -6, 0, 1)},
-            Back = {"B", UDim2.new(0.5, -6, 1, -11)},
-            Left = {"L", UDim2.new(0, 2, 0.5, -5)},
-            Right = {"R", UDim2.new(1, -14, 0.5, -5)}
+            Left = {
+                Text = "L",
+                Position = UDim2.fromOffset(2, 16)
+            },
+            Right = {
+                Text = "R",
+                Position = UDim2.new(1, -9, 0, 16)
+            },
+            Forward = {
+                Text = "F",
+                Position = UDim2.new(0.5, -3, 0, 1)
+            },
+            Back = {
+                Text = "B",
+                Position = UDim2.new(0.5, -3, 1, -9)
+            }
         }
 
-        for Name, Definition in pairs(DirectionLayout) do
+        for Name, DirectionData in pairs(DirectionLayout) do
             DirectionLabels[Name] = Create("TextLabel", {
-                Parent = Compass,
-                Position = Definition[2],
-                Size = UDim2.fromOffset(12, 10),
+                Parent = Directions,
+                Position = DirectionData.Position,
+                Size = UDim2.fromOffset(7, 8),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSansMedium,
-                Text = Definition[1],
+                Text = DirectionData.Text,
                 TextColor3 = MutedText,
-                TextSize = 8,
-                ZIndex = 97
+                TextSize = 7,
+                ZIndex = 95
             })
         end
 
         local Info = Create("Frame", {
             Parent = Root,
-            Position = UDim2.fromOffset(69, 28),
-            Size = UDim2.new(1, -77, 0, 44),
+            Position = UDim2.fromOffset(64, 27),
+            Size = UDim2.new(1, -71, 0, 44),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ZIndex = 91
         })
 
-        local StateLabel = Create("TextLabel", {
+        local PlayerLabel = Create("TextLabel", {
             Parent = Info,
-            Size = UDim2.new(1, 0, 0, 13),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = "",
-            TextColor3 = PrimaryText,
-            TextSize = 10,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 92
-        })
-
-        local YawLabel = Create("TextLabel", {
-            Parent = Info,
-            Position = UDim2.fromOffset(0, 14),
-            Size = UDim2.new(1, 0, 0, 12),
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.new(1, 0, 0, 11),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = "",
             TextColor3 = MutedText,
             TextSize = 8,
             TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 92
+        })
+
+        local StateLabel = Create("TextLabel", {
+            Parent = Info,
+            Position = UDim2.fromOffset(0, 13),
+            Size = UDim2.new(1, 0, 0, 12),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "",
+            TextColor3 = PrimaryText,
+            TextSize = 9,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             ZIndex = 92
         })
 
         local NetworkLabel = Create("TextLabel", {
             Parent = Info,
-            Position = UDim2.fromOffset(0, 28),
-            Size = UDim2.new(1, 0, 0, 12),
+            Position = UDim2.fromOffset(0, 27),
+            Size = UDim2.new(1, 0, 0, 11),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = "",
@@ -12891,122 +13659,307 @@ local function BuildRuntime()
             ZIndex = 92
         })
 
-        function Indicator:Clamp()
-            if not self.Root or not self.Root.Parent then return end
-            self.Root.Position = Menu.ClampPopupPosition(self.Root, self.Root.Position)
+        local function ClearPreview()
+            for _, Object in ipairs(World:GetChildren()) do
+                Object:Destroy()
+            end
+
+            Indicator.Model = nil
+            Indicator.BasePivot = nil
+            Indicator.Character = nil
         end
 
-        function Indicator:RefreshState()
-            local Mode = tostring(self.Mode or "Manual")
-            local Profile = tostring(self.Profile or "Back")
-            StateLabel.Text = string.upper(Mode) .. "  ·  " .. string.upper(Profile)
-
-            local ProfileKey = string.lower(Profile)
-
-            for Name, Label in pairs(DirectionLabels) do
-                Label.TextColor3 = string.lower(Name) == ProfileKey and self.AccentColor or MutedText
+        local function PrepareModel(Model)
+            for _, Object in ipairs(Model:GetDescendants()) do
+                if Object:IsA("Script")
+                    or Object:IsA("LocalScript")
+                    or Object:IsA("ModuleScript")
+                    or Object:IsA("Tool")
+                    or Object:IsA("Sound")
+                    or Object:IsA("ParticleEmitter")
+                    or Object:IsA("Trail")
+                    or Object:IsA("Beam")
+                    or Object:IsA("BillboardGui")
+                    or Object:IsA("SurfaceGui")
+                then
+                    Object:Destroy()
+                elseif Object:IsA("BasePart") then
+                    Object.Anchored = true
+                    Object.CanCollide = false
+                    Object.CanTouch = false
+                    Object.CanQuery = false
+                    Object.CastShadow = false
+                end
             end
+        end
+
+        function Indicator:Clamp()
+            if not self.Root
+                or not self.Root.Parent
+            then
+                return
+            end
+
+            self.Root.Position = Menu.ClampPopupPosition(
+                self.Root,
+                self.Root.Position
+            )
+        end
+
+        function Indicator:RefreshCharacter(Force)
+            local Player = self.Player or LocalPlayer
+            local Character = Player and Player.Character
+
+            if not Character then
+                ClearPreview()
+                return
+            end
+
+            if not Force
+                and self.Character == Character
+                and self.Model
+                and self.Model.Parent
+            then
+                return
+            end
+
+            ClearPreview()
+
+            local OldArchivable = Character.Archivable
+            Character.Archivable = true
+            local Model = Character:Clone()
+            Character.Archivable = OldArchivable
+
+            if not Model then
+                return
+            end
+
+            PrepareModel(Model)
+
+            Model.Name = "AntiAimPreview"
+            Model.Parent = World
+
+            self.Character = Character
+            self.Model = Model
+            self.BasePivot = Model:GetPivot()
+
+            local BoundsCFrame, BoundsSize = Model:GetBoundingBox()
+            local Center = BoundsCFrame.Position
+            local Height = math.max(BoundsSize.Y, 4)
+
+            Camera.CFrame = CFrame.new(
+                Center + Vector3.new(0, Height * 0.02, Height * 1.50),
+                Center + Vector3.new(0, Height * 0.02, 0)
+            )
+
+            self:SetYaw(self.Yaw)
         end
 
         function Indicator:SetVisibility(State)
             self.Visible = State == true
             Root.Visible = self.Visible
-            if self.Visible then self:Clamp() end
+
+            if Glow then
+                Glow.Visible = self.Visible
+            end
+
+            if self.Visible then
+                self:Clamp()
+                self:RefreshCharacter(false)
+            end
         end
 
         function Indicator:SetPlayer(Player)
-            if not Player then return end
+            if not Player then
+                return
+            end
 
-            self.Player = Player
-            PlayerLabel.Text = tostring(Player.DisplayName or Player.Name or "Player")
+            if self.Player ~= Player then
+                self.Player = Player
+                self.Character = nil
+            end
+
+            PlayerLabel.Text = tostring(
+                Player.DisplayName
+                or Player.Name
+                or "Player"
+            )
+
+            if self.Visible then
+                self:RefreshCharacter(false)
+            end
         end
 
         function Indicator:SetMode(Value)
             self.Mode = tostring(Value or "Manual")
-            self:RefreshState()
+            StateLabel.Text = self.Mode .. "  /  " .. tostring(self.Profile or "Back")
         end
 
         function Indicator:SetProfile(Value)
             self.Profile = tostring(Value or "Back")
-            self:RefreshState()
+            StateLabel.Text = tostring(self.Mode or "Manual") .. "  /  " .. self.Profile
+
+            for Name, Label in pairs(DirectionLabels) do
+                Label.TextColor3 = Name == self.Profile
+                    and self.AccentColor
+                    or MutedText
+            end
         end
 
         function Indicator:SetNetwork(Value)
             self.Network = tostring(Value or "Normal")
-            NetworkLabel.Text = "net  " .. self.Network
+            NetworkLabel.Text = self.Network
         end
 
         function Indicator:SetYaw(Value)
             self.Yaw = tonumber(Value) or 0
 
-            local NormalizedYaw = ((self.Yaw + 180) % 360) - 180
-            YawNeedle.Rotation = -NormalizedYaw
-            YawLabel.Text = string.format("yaw  %+d°", math.floor(NormalizedYaw + (NormalizedYaw >= 0 and 0.5 or -0.5)))
+            if not self.Model
+                or not self.Model.Parent
+                or typeof(self.BasePivot) ~= "CFrame"
+            then
+                return
+            end
+
+            local Rotation = CFrame.Angles(
+                0,
+                math.rad(-self.Yaw),
+                0
+            )
+
+            self.Model:PivotTo(
+                CFrame.new(self.BasePivot.Position)
+                * Rotation
+                * (
+                    self.BasePivot
+                    - self.BasePivot.Position
+                )
+            )
         end
 
         function Indicator:SetAccentColor(NewColor)
-            if typeof(NewColor) ~= "Color3" then return end
+            if typeof(NewColor) ~= "Color3" then
+                return
+            end
 
             self.AccentColor = NewColor
             AccentLine.BackgroundColor3 = NewColor
-            Center.BackgroundColor3 = NewColor
-            YawNeedle.BackgroundColor3 = NewColor
-            self:RefreshState()
+
+            if ViewportStroke then
+                ViewportStroke.Color = NewColor
+            end
+
+            if Glow then
+                Glow.ImageColor3 = NewColor
+            end
+
+            self:SetProfile(self.Profile)
         end
 
         function Indicator:Destroy()
             for Index = #self.Connections, 1, -1 do
                 local Connection = self.Connections[Index]
-                if Connection and typeof(Connection) == "RBXScriptConnection" then Connection:Disconnect() end
+
+                if Connection
+                    and typeof(Connection) == "RBXScriptConnection"
+                then
+                    Connection:Disconnect()
+                end
+
                 self.Connections[Index] = nil
             end
 
-            if Root and Root.Parent then Root:Destroy() end
-            if Menu.AntiAimIndicatorObject == self then Menu.AntiAimIndicatorObject = nil end
+            if Glow
+                and Glow.Parent
+            then
+                Glow:Destroy()
+            end
+
+            if Root
+                and Root.Parent
+            then
+                Root:Destroy()
+            end
+
+            if Menu.AntiAimIndicatorObject == self then
+                Menu.AntiAimIndicatorObject = nil
+            end
         end
 
         RegisterAccentTarget(function(NewColor)
-            if Root and Root.Parent then Indicator:SetAccentColor(NewColor) end
+            if Root
+                and Root.Parent
+            then
+                Indicator:SetAccentColor(NewColor)
+            end
         end)
 
         local ViewCamera = workspace.CurrentCamera
 
         if ViewCamera then
-            Indicator.Connections[#Indicator.Connections + 1] = ViewCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-                if Root and Root.Parent then Indicator:Clamp() end
-            end)
+            Indicator.Connections[#Indicator.Connections + 1] =
+                ViewCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+                    if Root and Root.Parent then
+                        Indicator:Clamp()
+                    end
+                end)
         end
 
-        Indicator.Connections[#Indicator.Connections + 1] = Header.InputBegan:Connect(function(Input)
-            if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        Indicator.Connections[#Indicator.Connections + 1] =
+            Header.InputBegan:Connect(function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    Indicator.Dragging = true
+                    Indicator.DragStart = Input.Position
+                    Indicator.StartPosition = Root.Position
+                end
+            end)
 
-            Indicator.Dragging = true
-            Indicator.DragStart = Input.Position
-            Indicator.StartPosition = Root.Position
-        end)
+        Indicator.Connections[#Indicator.Connections + 1] =
+            UserInputService.InputChanged:Connect(function(Input)
+                if Indicator.Dragging
+                    and Input.UserInputType == Enum.UserInputType.MouseMovement
+                    and Indicator.DragStart
+                    and Indicator.StartPosition
+                then
+                    local Delta = Input.Position - Indicator.DragStart
 
-        Indicator.Connections[#Indicator.Connections + 1] = UserInputService.InputChanged:Connect(function(Input)
-            if not Indicator.Dragging or Input.UserInputType ~= Enum.UserInputType.MouseMovement
-                or not Indicator.DragStart or not Indicator.StartPosition
-            then
-                return
-            end
+                    Root.Position = Menu.ClampPopupPosition(
+                        Root,
+                        UDim2.fromOffset(
+                            Indicator.StartPosition.X.Offset + Delta.X,
+                            Indicator.StartPosition.Y.Offset + Delta.Y
+                        )
+                    )
+                end
+            end)
 
-            local Delta = Input.Position - Indicator.DragStart
+        Indicator.Connections[#Indicator.Connections + 1] =
+            UserInputService.InputEnded:Connect(function(Input)
+                if Indicator.Dragging
+                    and Input.UserInputType == Enum.UserInputType.MouseButton1
+                then
+                    Indicator.Dragging = false
+                    SavedPositions.AntiAimIndicator = EncodePosition(Root.Position)
+                    SavePositions()
+                end
+            end)
 
-            Root.Position = Menu.ClampPopupPosition(Root, UDim2.fromOffset(
-                Indicator.StartPosition.X.Offset + Delta.X,
-                Indicator.StartPosition.Y.Offset + Delta.Y
-            ))
-        end)
+        if LocalPlayer then
+            Indicator.Connections[#Indicator.Connections + 1] =
+                LocalPlayer.CharacterAdded:Connect(function()
+                    if Indicator.Player == LocalPlayer then
+                        Indicator.Character = nil
 
-        Indicator.Connections[#Indicator.Connections + 1] = UserInputService.InputEnded:Connect(function(Input)
-            if not Indicator.Dragging or Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-
-            Indicator.Dragging = false
-            SavedPositions.AntiAimIndicator = EncodePosition(Root.Position)
-            SavePositions()
-        end)
+                        if Indicator.Visible then
+                            task.defer(function()
+                                if Root and Root.Parent then
+                                    Indicator:RefreshCharacter(true)
+                                end
+                            end)
+                        end
+                    end
+                end)
+        end
 
         Menu.AntiAimIndicatorObject = Indicator
 
@@ -14257,6 +15210,7 @@ Library.setflag = Library.SetFlag
 Library.notification = Library.Notification
 Library.setnotificationlayout = Library.SetNotificationLayout
 Library.NotificationSkinVersion = 345
+Library.FlagSelectorVersion = 1
 Library.combatlog = Library.CombatLog
 Library.clearcombatlogs = Library.ClearCombatLogs
 Library.antiaimindicator = Library.AntiAimIndicator
