@@ -260,73 +260,6 @@ local function BuildRuntime()
         })
     end
 
-
-    local function CreateEdgeCorners(Parent, Name, Length, Thickness, Color, Visible, ZIndex)
-        local Holder = Create("Frame", {
-            Parent = Parent,
-            Name = Name,
-            Position = UDim2.fromOffset(0, 0),
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            Visible = Visible ~= false,
-            ZIndex = ZIndex or 20
-        })
-
-        local CornerLength = math.max(math.floor(tonumber(Length) or 28), 18)
-        local LineThickness = math.max(math.floor(tonumber(Thickness) or 2), 2)
-        local LineColor = typeof(Color) == "Color3" and Color or Accent
-        local Inset = 4
-        local Lines = {}
-
-        Menu.ChromeAccentTargets = Menu.ChromeAccentTargets or setmetatable({}, {__mode = "k"})
-
-        local function Add(NameSuffix, Position, Size)
-            local Line = Create("Frame", {
-                Parent = Holder,
-                Name = NameSuffix,
-                Position = Position,
-                Size = Size,
-                BackgroundColor3 = LineColor,
-                BackgroundTransparency = 0.05,
-                BorderSizePixel = 0,
-                ZIndex = (ZIndex or 20) + 1
-            })
-
-            Corner(Line, 2)
-            Stroke(Line, Border, 0.20, 1)
-            Lines[#Lines + 1] = Line
-            Menu.ChromeAccentTargets[Line] = true
-            return Line
-        end
-
-        Add("TopLeftHorizontal", UDim2.fromOffset(Inset, Inset), UDim2.fromOffset(CornerLength, LineThickness))
-        Add("TopLeftVertical", UDim2.fromOffset(Inset, Inset), UDim2.fromOffset(LineThickness, CornerLength))
-        Add("TopRightHorizontal", UDim2.new(1, -Inset - CornerLength, 0, Inset), UDim2.fromOffset(CornerLength, LineThickness))
-        Add("TopRightVertical", UDim2.new(1, -Inset - LineThickness, 0, Inset), UDim2.fromOffset(LineThickness, CornerLength))
-        Add("BottomLeftHorizontal", UDim2.new(0, Inset, 1, -Inset - LineThickness), UDim2.fromOffset(CornerLength, LineThickness))
-        Add("BottomLeftVertical", UDim2.new(0, Inset, 1, -Inset - CornerLength), UDim2.fromOffset(LineThickness, CornerLength))
-        Add("BottomRightHorizontal", UDim2.new(1, -Inset - CornerLength, 1, -Inset - LineThickness), UDim2.fromOffset(CornerLength, LineThickness))
-        Add("BottomRightVertical", UDim2.new(1, -Inset - LineThickness, 1, -Inset - CornerLength), UDim2.fromOffset(LineThickness, CornerLength))
-
-        local Object = {Root = Holder, Lines = Lines}
-
-        function Object:SetVisible(State)
-            Holder.Visible = State == true
-        end
-
-        function Object:SetColor(NewColor)
-            if typeof(NewColor) ~= "Color3" then return end
-
-            for Index = 1, #Lines do
-                local Line = Lines[Index]
-                if Line and Line.Parent then Line.BackgroundColor3 = NewColor end
-            end
-        end
-
-        return Object
-    end
-
     local function Bind(Connection)
         table.insert(Menu.Connections, Connection)
         return Connection
@@ -878,7 +811,6 @@ local function BuildRuntime()
     })
     Corner(Main, 0)
     Stroke(Main, Border, 0.08, 1)
-    Menu.MainEdgeCorners = CreateEdgeCorners(Main, "AtramentaMainEdgeCorners", 28, 2, Accent, true, 24)
 
     local MainScale = Create("UIScale", {
         Parent = Main,
@@ -4742,7 +4674,6 @@ local function BuildRuntime()
     })
     Corner(Menu.SettingsUI.SettingsPanel, 0)
     Stroke(Menu.SettingsUI.SettingsPanel, Border, 0.12, 1)
-    Menu.SettingsEdgeCorners = CreateEdgeCorners(Menu.SettingsUI.SettingsPanel, "AtramentaSettingsEdgeCorners", 22, 2, Accent, true, 34)
 
     Menu.SettingsUI.SettingsPanelScale = Create("UIScale", {
         Parent = Menu.SettingsUI.SettingsPanel,
@@ -5923,7 +5854,6 @@ local function BuildRuntime()
         ZIndex = 72
     })
     Corner(KeybindListWindow, 0)
-    Menu.HotkeysEdgeCorners = CreateEdgeCorners(KeybindListWindow, "AtramentaHotkeysEdgeCorners", 18, 2, Accent, true, 76)
     local KeybindListGlow = Menu:AddSoftGlow(KeybindListWindow, 71, 8, 0.80, true)
 
     local KeybindListScale = Create("UIScale", {
