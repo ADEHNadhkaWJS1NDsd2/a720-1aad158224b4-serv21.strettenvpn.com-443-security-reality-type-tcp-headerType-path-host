@@ -373,74 +373,69 @@ local ConfigState = {
 
 
 local NightfallWingsUrl = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2/a720-1aad158224b4-serv21.strettenvpn.com-443-security-reality-type-tcp-headerType-path-host/refs/heads/main/wings.luau"
+local NightfallChinaHatUrl = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2/a720-1aad158224b4-serv21.strettenvpn.com-443-security-reality-type-tcp-headerType-path-host/refs/heads/main/china.luau"
+
 local NightfallWingsController = nil
+local NightfallChinaHatController = nil
 local NightfallWingsLoading = false
+local NightfallChinaHatLoading = false
 
-local function ReplacePlain(SourceData, SearchValue, ReplacementValue)
-    if type(SourceData) ~= "string" or type(SearchValue) ~= "string" or SearchValue == "" then return SourceData end
-    local StartIndex, EndIndex = string.find(SourceData, SearchValue, 1, true)
-    if not StartIndex then return SourceData end
-    return string.sub(SourceData, 1, StartIndex - 1) .. ReplacementValue .. string.sub(SourceData, EndIndex + 1)
-end
+local function FetchExternalControllerSource(Url)
+    if type(Url) ~= "string" or Url == "" then return nil end
 
-local function PatchExternalSourceForMatcha(SourceData)
-    if type(SourceData) ~= "string" then return nil end
+    local CacheValue = tostring(math.floor(os.clock() * 1000000)) .. tostring(math.random(100000, 999999))
+    local SourceData = game:HttpGet(Url .. "?cb=" .. CacheValue)
 
-    local ProtectedCallName = "p" .. "call"
-    SourceData = ReplacePlain(SourceData,
-        ProtectedCallName .. "(function() PreviousController:Stop() end)",
-        "PreviousController:Stop()"
-    )
-    SourceData = ReplacePlain(SourceData,
-        "local Success, ScreenPoint, OnScreen = " .. ProtectedCallName .. "( WorldToScreen, WorldPoint ) if not Success or typeof(ScreenPoint) ~= \"Vector2\" or OnScreen == false then return nil end",
-        "if typeof(WorldPoint) ~= \"Vector3\" then return nil end local ScreenPoint, OnScreen = WorldToScreen(WorldPoint) if typeof(ScreenPoint) ~= \"Vector2\" or OnScreen == false then return nil end"
-    )
-    SourceData = ReplacePlain(SourceData,
-        "local Success, Value = " .. ProtectedCallName .. "( memory_read, \"float\", Address ) if Success and IsValidNumber( Value ) then return Value end return nil",
-        "local Value = memory_read(\"float\", Address) if IsValidNumber(Value) then return Value end return nil"
-    )
-    SourceData = ReplacePlain(SourceData,
-        "local Success, PrimitiveAddress = " .. ProtectedCallName .. "( memory_read, \"uintptr_t\", InstanceAddress + BasePartPrimitiveOffset ) if not Success or type(PrimitiveAddress) ~= \"number\" or PrimitiveAddress < 0x10000 then return 0 end",
-        "local PrimitiveAddress = memory_read(\"uintptr_t\", InstanceAddress + BasePartPrimitiveOffset) if type(PrimitiveAddress) ~= \"number\" or PrimitiveAddress < 0x10000 then return 0 end"
-    )
-    SourceData = ReplacePlain(SourceData,
-        ProtectedCallName .. "(function() DrawingData.Object: Remove() end)",
-        "DrawingData.Object:Remove()"
-    )
-    SourceData = ReplacePlain(SourceData,
-        "local Success, Value = " .. ProtectedCallName .. "( memory_read, TypeName, Address ) if Success then return Value end return nil",
-        "local Value = memory_read(TypeName, Address) return Value"
-    )
-    SourceData = ReplacePlain(SourceData,
-        "local Success, Position = " .. ProtectedCallName .. "(function() return Part.Position end) if not Success or typeof(Position) ~= \"Vector3\" or not IsValidVector(Position) then return nil end return Position",
-        "local Position = Part.Position if typeof(Position) ~= \"Vector3\" or not IsValidVector(Position) then return nil end return Position"
-    )
-    SourceData = ReplacePlain(SourceData,
-        "local Success, CameraCFrame, ViewportSize, FieldOfView = " .. ProtectedCallName .. "(function() return Camera.CFrame, Camera.ViewportSize, Camera.FieldOfView end) if not Success or typeof(CameraCFrame) ~= \"CFrame\" or typeof(ViewportSize) ~= \"Vector2\" or type(FieldOfView) ~= \"number\" or ViewportSize.X <= 0 or ViewportSize.Y <= 0 or FieldOfView <= 1 or FieldOfView >= 179 then return nil end",
-        "local CameraCFrame, ViewportSize, FieldOfView = Camera.CFrame, Camera.ViewportSize, Camera.FieldOfView if typeof(CameraCFrame) ~= \"CFrame\" or typeof(ViewportSize) ~= \"Vector2\" or type(FieldOfView) ~= \"number\" or ViewportSize.X <= 0 or ViewportSize.Y <= 0 or FieldOfView <= 1 or FieldOfView >= 179 then return nil end"
-    )
-    SourceData = ReplacePlain(SourceData,
-        ProtectedCallName .. "(function() DrawingObject:Remove() end)",
-        "DrawingObject:Remove()"
-    )
-
-    if string.find(SourceData, ProtectedCallName, 1, true) then
+    if type(SourceData) ~= "string" or #SourceData < 1000 then
         return nil
     end
 
     return SourceData
 end
 
+local function ExecuteExternalController(SourceData, GlobalName)
+    if type(SourceData) ~= "string" or type(GlobalName) ~= "string" or type(loadstring) ~= "function" then
+        return nil
+    end
+
+    local CompatibilityPrefix = [[
+local pcall = pcall or function(FunctionValue, ...)
+    return true, FunctionValue(...)
+end
+]]
+
+    local WrappedSource = CompatibilityPrefix .. "\nreturn (function()\n" .. SourceData .. "\nend)()"
+    local LoaderFunction = loadstring(WrappedSource)
+    if type(LoaderFunction) ~= "function" then
+        return nil
+    end
+
+    local ControllerValue = LoaderFunction()
+    if type(ControllerValue) ~= "table" then
+        ControllerValue = _G[GlobalName]
+    end
+
+    if type(ControllerValue) ~= "table" then
+        return nil
+    end
+
+    _G[GlobalName] = ControllerValue
+    return ControllerValue
+end
+
 local function GetNightfallWingsController()
     local ControllerValue = NightfallWingsController or _G.NightfallWingsController
+
     if type(ControllerValue) == "table"
         and ControllerValue.Running ~= false
         and type(ControllerValue.SetEnabled) == "function"
         and type(ControllerValue.SetColor) == "function"
+        and type(ControllerValue.SetSwingSpeed) == "function"
     then
         NightfallWingsController = ControllerValue
         return ControllerValue
     end
+
     NightfallWingsController = nil
     return nil
 end
@@ -450,9 +445,7 @@ local function ApplyNightfallWingsState()
     if not ControllerValue then return end
 
     ControllerValue:SetColor(ConfigState.NightfallWingsColor)
-    if type(ControllerValue.SetSwingSpeed) == "function" then
-        ControllerValue:SetSwingSpeed(ConfigState.NightfallWingsSwingSpeed)
-    end
+    ControllerValue:SetSwingSpeed(ConfigState.NightfallWingsSwingSpeed)
     ControllerValue:SetEnabled(ConfigState.NightfallWings)
 end
 
@@ -462,55 +455,28 @@ local function LoadNightfallWings()
     if NightfallWingsLoading then return nil end
 
     NightfallWingsLoading = true
-    local CacheValue = tostring(math.floor(os.clock() * 1000))
-    local SourceData = game:HttpGet(NightfallWingsUrl .. "?cb=" .. CacheValue)
 
-    if type(SourceData) == "string" and #SourceData > 1000 then
-        SourceData = PatchExternalSourceForMatcha(SourceData)
+    local SourceData = FetchExternalControllerSource(NightfallWingsUrl)
+    local ControllerValue = nil
 
-        if SourceData then
-            if not SourceData:find("function Controller:SetSwingSpeed", 1, true) then
-                SourceData = SourceData:gsub("local AnimationTime = 0", "local AnimationTime = 0 local RenderRevision = 0", 1)
-                SourceData = SourceData:gsub(
-                    "function Controller:SetEnabled%(Value%)%s+self%.Enabled = Value == true%s+if not self%.Enabled then%s+HideAll%(%)%s+end%s+end",
-                    "function Controller:SetEnabled(Value) local NewState = Value == true if self.Enabled == NewState then if not NewState then HideAll() end return end self.Enabled = NewState RenderRevision = RenderRevision + 1 if not NewState then HideAll() task.spawn(function() task.wait() if self.Running and not self.Enabled then HideAll() end end) end end",
-                    1
-                )
-                SourceData = SourceData:gsub(
-                    "function Controller:SetScale%(Value%)%s+if type%(Value%) ~= \"number\" then%s+return%s+end%s+Scale = Clamp%(Value, 0%.6, 1%.8%)%s+end",
-                    "function Controller:SetScale(Value) if type(Value) ~= \"number\" then return end Scale = Clamp(Value, 0.6, 1.8) end function Controller:SetSwingSpeed(Value) if type(Value) ~= \"number\" then return end FlapSpeed = Clamp(Value, 0.1, 6) self.SwingSpeed = FlapSpeed end",
-                    1
-                )
-                SourceData = SourceData:gsub("if not Controller%.Enabled then%s+return%s+end", "if not Controller.Enabled then HideAll() return end local FrameRevision = RenderRevision", 1)
-                SourceData = SourceData:gsub("%s+end%)%s+return Controller%s*$", " if not Controller.Enabled or FrameRevision ~= RenderRevision then HideAll() end end) return Controller", 1)
-            end
-
-            _G.NightfallLoadedController = nil
-            local WrappedSource = "_G.NightfallLoadedController = (function()\n" .. SourceData .. "\nend)()"
-            local LoaderFunction = loadstring(WrappedSource)
-            if type(LoaderFunction) == "function" then LoaderFunction() end
-            NightfallWingsController = _G.NightfallLoadedController or _G.NightfallWingsController
-            _G.NightfallLoadedController = nil
-        end
+    if SourceData then
+        ControllerValue = ExecuteExternalController(SourceData, "NightfallWingsController")
     end
 
     NightfallWingsLoading = false
+    NightfallWingsController = ControllerValue
+
     return GetNightfallWingsController()
 end
 
 local function SetNightfallWingsEnabled(Value)
     ConfigState.NightfallWings = Value == true
+
     local ControllerValue = GetNightfallWingsController()
 
     if not ConfigState.NightfallWings then
         if ControllerValue then
             ControllerValue:SetEnabled(false)
-            task.spawn(function()
-                task.wait()
-                if not ConfigState.NightfallWings and ControllerValue.Running ~= false then
-                    ControllerValue:SetEnabled(false)
-                end
-            end)
         end
         return
     end
@@ -522,44 +488,55 @@ local function SetNightfallWingsEnabled(Value)
 
     task.spawn(function()
         local LoadedController = LoadNightfallWings()
-        if LoadedController then ApplyNightfallWingsState() end
+        if LoadedController then
+            ApplyNightfallWingsState()
+        end
     end)
 end
 
 local function SetNightfallWingsColor(Value)
     if typeof(Value) ~= "Color3" then return end
+
     ConfigState.NightfallWingsColor = Value
+
     local ControllerValue = GetNightfallWingsController()
-    if ControllerValue then ControllerValue:SetColor(Value) end
+    if ControllerValue then
+        ControllerValue:SetColor(Value)
+    end
 end
 
 local function SetNightfallWingsSwingSpeed(Value)
     if type(Value) ~= "number" then return end
+
     ConfigState.NightfallWingsSwingSpeed = math.clamp(Value, 0.1, 6)
+
     local ControllerValue = GetNightfallWingsController()
-    if ControllerValue and type(ControllerValue.SetSwingSpeed) == "function" then
+    if ControllerValue then
         ControllerValue:SetSwingSpeed(ConfigState.NightfallWingsSwingSpeed)
     end
 end
 
 local ExistingNightfallWingsController = GetNightfallWingsController()
-if ExistingNightfallWingsController then ExistingNightfallWingsController:SetEnabled(false) end
-
-local NightfallChinaHatUrl = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2/a720-1aad158224b4-serv21.strettenvpn.com-443-security-reality-type-tcp-headerType-path-host/refs/heads/main/china.luau"
-local NightfallChinaHatController = nil
-local NightfallChinaHatLoading = false
+if ExistingNightfallWingsController then
+    ExistingNightfallWingsController:SetEnabled(false)
+end
 
 local function GetNightfallChinaHatController()
     local ControllerValue = NightfallChinaHatController or _G.NightfallChinaHatController
+
     if type(ControllerValue) == "table"
         and ControllerValue.Running ~= false
         and type(ControllerValue.SetEnabled) == "function"
         and type(ControllerValue.SetColor) == "function"
         and type(ControllerValue.SetScale) == "function"
+        and type(ControllerValue.SetHeight) == "function"
+        and type(ControllerValue.SetRadius) == "function"
+        and type(ControllerValue.SetConeHeight) == "function"
     then
         NightfallChinaHatController = ControllerValue
         return ControllerValue
     end
+
     NightfallChinaHatController = nil
     return nil
 end
@@ -570,29 +547,10 @@ local function ApplyNightfallChinaHatState()
 
     ControllerValue:SetColor(ConfigState.NightfallChinaHatColor)
     ControllerValue:SetScale(ConfigState.NightfallChinaHatScale)
-    if type(ControllerValue.SetHeight) == "function" then ControllerValue:SetHeight(ConfigState.NightfallChinaHatHeight) end
-    if type(ControllerValue.SetRadius) == "function" then ControllerValue:SetRadius(ConfigState.NightfallChinaHatRadius) end
-    if type(ControllerValue.SetConeHeight) == "function" then ControllerValue:SetConeHeight(ConfigState.NightfallChinaHatConeHeight) end
+    ControllerValue:SetHeight(ConfigState.NightfallChinaHatHeight)
+    ControllerValue:SetRadius(ConfigState.NightfallChinaHatRadius)
+    ControllerValue:SetConeHeight(ConfigState.NightfallChinaHatConeHeight)
     ControllerValue:SetEnabled(ConfigState.NightfallChinaHat)
-end
-
-local function PatchNightfallChinaHatSource(SourceData)
-    if type(SourceData) ~= "string" then return nil end
-    SourceData = PatchExternalSourceForMatcha(SourceData)
-    if not SourceData then return nil end
-
-    SourceData = SourceData:gsub("local ApexHeight = 1%.30", "local ApexHeight = 1.30 local HeightOffset = 0", 1)
-    SourceData = SourceData:gsub(
-        "local Center = HeadPosition %+ Up %* %(BrimHeight %* Scale%) local Apex = HeadPosition %+ Up %* %(ApexHeight %* Scale%)",
-        "local Center = HeadPosition + Up * ((BrimHeight + HeightOffset) * Scale) local Apex = HeadPosition + Up * ((ApexHeight + HeightOffset) * Scale)",
-        1
-    )
-    SourceData = SourceData:gsub(
-        "function Controller:SetScale%(Value%) if type%(Value%) ~= \"number\" then return end Scale = Clamp%( Value, 0%.55, 1%.65 %) end",
-        "function Controller:SetScale(Value) if type(Value) ~= \"number\" then return end Scale = Clamp(Value, 0.55, 1.65) end function Controller:SetHeight(Value) if type(Value) ~= \"number\" then return end HeightOffset = Clamp(Value, -1.25, 2.5) end function Controller:SetRadius(Value) if type(Value) ~= \"number\" then return end BrimRadius = Clamp(Value, 0.75, 3.25) InnerRadius = Clamp(BrimRadius * 0.70, 0.5, 2.5) end function Controller:SetConeHeight(Value) if type(Value) ~= \"number\" then return end ApexHeight = Clamp(Value, 0.7, 3.5) end",
-        1
-    )
-    return SourceData
 end
 
 local function LoadNightfallChinaHat()
@@ -601,31 +559,29 @@ local function LoadNightfallChinaHat()
     if NightfallChinaHatLoading then return nil end
 
     NightfallChinaHatLoading = true
-    local CacheValue = tostring(math.floor(os.clock() * 1000))
-    local SourceData = game:HttpGet(NightfallChinaHatUrl .. "?cb=" .. CacheValue)
 
-    if type(SourceData) == "string" and #SourceData > 1000 then
-        SourceData = PatchNightfallChinaHatSource(SourceData)
-        if SourceData then
-            _G.NightfallLoadedController = nil
-            local WrappedSource = "_G.NightfallLoadedController = (function()\n" .. SourceData .. "\nend)()"
-            local LoaderFunction = loadstring(WrappedSource)
-            if type(LoaderFunction) == "function" then LoaderFunction() end
-            NightfallChinaHatController = _G.NightfallLoadedController or _G.NightfallChinaHatController
-            _G.NightfallLoadedController = nil
-        end
+    local SourceData = FetchExternalControllerSource(NightfallChinaHatUrl)
+    local ControllerValue = nil
+
+    if SourceData then
+        ControllerValue = ExecuteExternalController(SourceData, "NightfallChinaHatController")
     end
 
     NightfallChinaHatLoading = false
+    NightfallChinaHatController = ControllerValue
+
     return GetNightfallChinaHatController()
 end
 
 local function SetNightfallChinaHatEnabled(Value)
     ConfigState.NightfallChinaHat = Value == true
+
     local ControllerValue = GetNightfallChinaHatController()
 
     if not ConfigState.NightfallChinaHat then
-        if ControllerValue then ControllerValue:SetEnabled(false) end
+        if ControllerValue then
+            ControllerValue:SetEnabled(false)
+        end
         return
     end
 
@@ -636,47 +592,71 @@ local function SetNightfallChinaHatEnabled(Value)
 
     task.spawn(function()
         local LoadedController = LoadNightfallChinaHat()
-        if LoadedController then ApplyNightfallChinaHatState() end
+        if LoadedController then
+            ApplyNightfallChinaHatState()
+        end
     end)
 end
 
 local function SetNightfallChinaHatColor(Value)
     if typeof(Value) ~= "Color3" then return end
+
     ConfigState.NightfallChinaHatColor = Value
+
     local ControllerValue = GetNightfallChinaHatController()
-    if ControllerValue then ControllerValue:SetColor(Value) end
+    if ControllerValue then
+        ControllerValue:SetColor(Value)
+    end
 end
 
 local function SetNightfallChinaHatScale(Value)
     if type(Value) ~= "number" then return end
+
     ConfigState.NightfallChinaHatScale = Value
+
     local ControllerValue = GetNightfallChinaHatController()
-    if ControllerValue then ControllerValue:SetScale(Value) end
+    if ControllerValue then
+        ControllerValue:SetScale(Value)
+    end
 end
 
 local function SetNightfallChinaHatHeight(Value)
     if type(Value) ~= "number" then return end
+
     ConfigState.NightfallChinaHatHeight = Value
+
     local ControllerValue = GetNightfallChinaHatController()
-    if ControllerValue and type(ControllerValue.SetHeight) == "function" then ControllerValue:SetHeight(Value) end
+    if ControllerValue then
+        ControllerValue:SetHeight(Value)
+    end
 end
 
 local function SetNightfallChinaHatRadius(Value)
     if type(Value) ~= "number" then return end
+
     ConfigState.NightfallChinaHatRadius = Value
+
     local ControllerValue = GetNightfallChinaHatController()
-    if ControllerValue and type(ControllerValue.SetRadius) == "function" then ControllerValue:SetRadius(Value) end
+    if ControllerValue then
+        ControllerValue:SetRadius(Value)
+    end
 end
 
 local function SetNightfallChinaHatConeHeight(Value)
     if type(Value) ~= "number" then return end
+
     ConfigState.NightfallChinaHatConeHeight = Value
+
     local ControllerValue = GetNightfallChinaHatController()
-    if ControllerValue and type(ControllerValue.SetConeHeight) == "function" then ControllerValue:SetConeHeight(Value) end
+    if ControllerValue then
+        ControllerValue:SetConeHeight(Value)
+    end
 end
 
 local ExistingNightfallChinaHatController = GetNightfallChinaHatController()
-if ExistingNightfallChinaHatController then ExistingNightfallChinaHatController:SetEnabled(false) end
+if ExistingNightfallChinaHatController then
+    ExistingNightfallChinaHatController:SetEnabled(false)
+end
 
 local RuntimeState = {
     TargetSpeed = 0,
