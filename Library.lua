@@ -8887,9 +8887,10 @@ local function BuildRuntime()
             BackgroundColor3 = Accent,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
+            Visible = false,
             ZIndex = 26
         })
-        S.BoxStroke = Stroke(S.Box, Accent, 0.04, 1)
+        S.BoxStroke = Stroke(S.Box, Accent, 1, 1)
 
         S.Corners = {}
         local CornerDefinitions = {
@@ -8909,6 +8910,7 @@ local function BuildRuntime()
                 Size = Definition[2],
                 BackgroundColor3 = Accent,
                 BorderSizePixel = 0,
+                Visible = false,
                 ZIndex = 27
             })
         end
@@ -8921,6 +8923,7 @@ local function BuildRuntime()
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             Active = true,
+            Visible = false,
             ZIndex = 26
         })
         Corner(S.HealthBack, 100)
@@ -8947,6 +8950,7 @@ local function BuildRuntime()
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Right,
             Active = true,
+            Visible = false,
             ZIndex = 28
         })
 
@@ -8962,6 +8966,7 @@ local function BuildRuntime()
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
+            Visible = false,
             ZIndex = 27
         })
 
@@ -8977,6 +8982,7 @@ local function BuildRuntime()
             TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
+            Visible = false,
             ZIndex = 27
         })
 
@@ -8992,6 +8998,7 @@ local function BuildRuntime()
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
+            Visible = false,
             ZIndex = 27
         })
 
@@ -9007,6 +9014,7 @@ local function BuildRuntime()
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
+            Visible = false,
             ZIndex = 27
         })
 
@@ -9022,6 +9030,7 @@ local function BuildRuntime()
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
+            Visible = false,
             ZIndex = 27
         })
 
@@ -9037,6 +9046,7 @@ local function BuildRuntime()
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
+            Visible = false,
             ZIndex = 27
         })
 
@@ -9052,6 +9062,7 @@ local function BuildRuntime()
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
+            Visible = false,
             ZIndex = 27
         })
 
@@ -9574,7 +9585,7 @@ local function BuildRuntime()
                         Object.Transform = CFrame.identity
                     end
                 elseif Object:IsA("BasePart") then
-                    Object.Anchored = true
+                    Object.Anchored = Object.Name == "HumanoidRootPart"
                     Object.LocalTransparencyModifier = 0
                     Object.AssemblyLinearVelocity = Vector3.zero
                     Object.AssemblyAngularVelocity = Vector3.zero
@@ -9593,7 +9604,7 @@ local function BuildRuntime()
                 Humanoid.PlatformStand = false
                 Humanoid.Sit = false
                 Library.Call(function()
-                    Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+                    Humanoid.EvaluateStateMachine = false
                 end)
             end
         end
@@ -9655,6 +9666,40 @@ local function BuildRuntime()
             return Object:IsA("BasePart")
                 and Object.Transparency < 0.995
                 and PreviewBodyNames[Object.Name] == true
+        end
+
+        local function StabilizeR6Rig(Model)
+            if not Model or not Model.Parent then return end
+            local Torso = Model:FindFirstChild("Torso")
+            if not Torso or not Torso:IsA("BasePart") then return end
+
+            for _, Joint in ipairs(Torso:GetChildren()) do
+                if Joint:IsA("Motor6D") and Joint.Part0 and Joint.Part1 then
+                    Joint.Part1.CFrame = Joint.Part0.CFrame * Joint.C0 * Joint.C1:Inverse()
+                end
+            end
+
+            local Root = Model:FindFirstChild("HumanoidRootPart")
+            if Root and Root:IsA("BasePart") then
+                local RootJoint = Root:FindFirstChildWhichIsA("Motor6D") or Torso:FindFirstChild("RootJoint")
+                if RootJoint and RootJoint.Part0 and RootJoint.Part1 then
+                    if RootJoint.Part0 == Root then Root.CFrame = RootJoint.Part1.CFrame * RootJoint.C1 * RootJoint.C0:Inverse()
+                    elseif RootJoint.Part1 == Root then Root.CFrame = RootJoint.Part0.CFrame * RootJoint.C0 * RootJoint.C1:Inverse() end
+                else
+                    Root.CFrame = Torso.CFrame
+                end
+            end
+
+            for _, Accessory in ipairs(Model:GetChildren()) do
+                if Accessory:IsA("Accessory") then
+                    local Handle = Accessory:FindFirstChild("Handle")
+                    local Weld = Handle and (Handle:FindFirstChild("AccessoryWeld") or Handle:FindFirstChildWhichIsA("Weld"))
+                    if Handle and Handle:IsA("BasePart") and Weld and Weld.Part0 and Weld.Part1 then
+                        if Weld.Part0 == Handle then Handle.CFrame = Weld.Part1.CFrame * Weld.C1 * Weld.C0:Inverse()
+                        elseif Weld.Part1 == Handle then Handle.CFrame = Weld.Part0.CFrame * Weld.C0 * Weld.C1:Inverse() end
+                    end
+                end
+            end
         end
 
         local function GetPreviewParts(Model)
@@ -9843,9 +9888,11 @@ local function BuildRuntime()
                 if Model then Model:Destroy() end
                 return false
             end
+            StabilizeR6Rig(Model)
             SanitizeModel(Model)
             FreezePreviewPose(Model)
             RunService.Heartbeat:Wait()
+            StabilizeR6Rig(Model)
             FreezePreviewPose(Model)
             S.Description = Description
             S.Model = Model
@@ -9853,6 +9900,7 @@ local function BuildRuntime()
             FrameModel(Model)
             task.defer(function()
                 if S.Model == Model and Model.Parent then
+                    StabilizeR6Rig(Model)
                     FreezePreviewPose(Model)
                     FrameModel(Model)
                     ProjectModelBounds()
@@ -10024,7 +10072,7 @@ local function BuildRuntime()
             local HealthAlpha = math.clamp(Health / MaxHealth, 0, 1)
             local Enabled = GetFlag("Player ESP", false)
             local DisplayEnabled = Enabled and S.BoundsValid and S.Model and S.Model.Parent ~= nil
-            local Boxes = DisplayEnabled and GetFlag("Player ESP Boxes", true)
+            local Boxes = DisplayEnabled and GetFlag("Player ESP Boxes", false)
             local BoxStyle = GetFlag("Player ESP Box Style", "Corners")
             local BoxColor = GetFlag("Player ESP Box Color", Accent)
             local FillEnabled = DisplayEnabled and GetFlag("Player ESP Fill", false)
@@ -10043,24 +10091,24 @@ local function BuildRuntime()
                 CornerObject.Visible = Boxes and BoxStyle ~= "Full"
                 CornerObject.BackgroundColor3 = BoxColor
             end
-            S.HealthBack.Visible = DisplayEnabled and GetFlag("Player ESP Health Bar", true)
+            S.HealthBack.Visible = DisplayEnabled and GetFlag("Player ESP Health Bar", false)
             S.HealthFill.Size = UDim2.fromScale(1, HealthAlpha)
             S.HealthFill.BackgroundColor3 = LowColor:Lerp(HighColor, HealthAlpha)
             S.HealthText.Visible = DisplayEnabled and GetFlag("Player ESP Health Value", false)
             S.HealthText.Text = tostring(Health)
             S.HealthText.TextColor3 = TextColor
             S.HealthText.TextSize = math.max(9, TextSize - 2)
-            S.Name.Visible = DisplayEnabled and GetFlag("Player ESP Names", true)
+            S.Name.Visible = DisplayEnabled and GetFlag("Player ESP Names", false)
             S.Name.Text = string.upper(LocalPlayer and LocalPlayer.Name or "PLAYER")
             S.Name.TextColor3 = TextColor
             S.Name.TextSize = TextSize
             local Tool = Character and Character:FindFirstChildOfClass("Tool")
-            S.Weapon.Visible = DisplayEnabled and GetFlag("Player ESP Weapon", true)
+            S.Weapon.Visible = DisplayEnabled and GetFlag("Player ESP Weapon", false)
             S.Weapon.Text = Tool and string.upper(Tool.Name) or "NONE"
             S.Weapon.TextColor3 = TextColor
             S.Weapon.TextSize = math.max(9, TextSize - 1)
 
-            S.Distance.Visible = DisplayEnabled and GetFlag("Player ESP Distance", true)
+            S.Distance.Visible = DisplayEnabled and GetFlag("Player ESP Distance", false)
             S.Distance.Text = "0m"
             S.Distance.TextColor3 = TextColor
             S.Distance.TextSize = math.max(9, TextSize - 2)
@@ -10084,7 +10132,7 @@ local function BuildRuntime()
             S.Flags.Text = "Flagged"
             S.Flags.TextColor3 = GetFlag("Player ESP Flags Color", TextColor)
             S.Flags.TextSize = math.max(9, TextSize - 2)
-            S.Silhouette.Visible = not S.Model and not S.Status.Visible
+            S.Silhouette.Visible = false
             S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(165, 181, 190) or Color3.fromRGB(139, 157, 168)
             S.Viewport.LightDirection = S.Mode == "2D" and Vector3.new(-0.8, -0.4, -1) or Vector3.new(-1, -0.75, -1)
         end
