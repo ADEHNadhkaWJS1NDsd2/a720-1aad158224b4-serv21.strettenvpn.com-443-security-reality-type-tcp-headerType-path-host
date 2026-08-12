@@ -1003,14 +1003,10 @@ local function BuildRuntime()
         Parent = TopbarInner,
         Position = UDim2.fromOffset(0, 0),
         Size = UDim2.new(1, -52, 1, 0),
-        BackgroundColor3 = Color3.fromRGB(10, 10, 13),
-        BackgroundTransparency = 0.14,
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ZIndex = 5
     })
-    Corner(SubPageHost, 2)
-    Stroke(SubPageHost, Color3.fromRGB(50, 50, 57), 0.42, 1)
-    AddPanelGradient(SubPageHost, Color3.fromRGB(18, 18, 22), Color3.fromRGB(10, 10, 13))
 
     Create("UIPadding", {
         Parent = SubPageHost,
@@ -11786,8 +11782,8 @@ local function BuildRuntime()
 
             if SubPageObject.Button then
                 Tween(SubPageObject.Button, 0.16, {
-                    BackgroundTransparency = Selected and 0.14 or 1,
-                    BackgroundColor3 = Selected and SurfaceAlt or Topbar.BackgroundColor3,
+                    BackgroundTransparency = 1,
+                    BackgroundColor3 = Topbar.BackgroundColor3,
                     TextColor3 = Selected and PrimaryText or MutedText
                 })
             end
@@ -11802,7 +11798,7 @@ local function BuildRuntime()
                 if Selected then
                     SubPageObject.Indicator.Size = UDim2.fromOffset(18, 2)
                     Tween(SubPageObject.Indicator, 0.18, {
-                        Size = UDim2.fromOffset(42, 2),
+                        Size = UDim2.fromOffset(28, 2),
                         BackgroundTransparency = 0
                     })
                 end
@@ -12479,13 +12475,13 @@ local function BuildRuntime()
             Visible = Count == 0,
             ZIndex = 4
         })
-        local ButtonWidth = math.max(68, 22 + (#Name * 7))
+        local ButtonWidth = math.max(56, 18 + (#Name * 6))
         local Button = Create("TextButton", {
             Parent = Menu.SubPageHost or Topbar,
             LayoutOrder = Count + 1,
-            Size = UDim2.fromOffset(ButtonWidth, 30),
+            Size = UDim2.fromOffset(ButtonWidth, 28),
             BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = Count == 0 and 0.14 or 1,
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
@@ -12505,7 +12501,7 @@ local function BuildRuntime()
             Parent = Button,
             AnchorPoint = Vector2.new(0.5, 1),
             Position = UDim2.new(0.5, 0, 1, -1),
-            Size = UDim2.fromOffset(42, 2),
+            Size = UDim2.fromOffset(28, 2),
             BackgroundColor3 = Accent,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
@@ -12543,7 +12539,7 @@ local function BuildRuntime()
         end
         Bind(Button.MouseEnter:Connect(function()
             if self.ActiveSubPage ~= Name then
-                Tween(Button, 0.14, {BackgroundTransparency = 0.34, BackgroundColor3 = SurfaceAlt, TextColor3 = PrimaryText})
+                Tween(Button, 0.14, {BackgroundTransparency = 1, BackgroundColor3 = Topbar.BackgroundColor3, TextColor3 = PrimaryText})
                 Tween(Scale, 0.14, {Scale = 1.025})
             end
         end))
