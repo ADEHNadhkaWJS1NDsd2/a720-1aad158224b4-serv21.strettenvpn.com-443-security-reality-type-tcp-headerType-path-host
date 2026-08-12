@@ -150,15 +150,15 @@ local function BuildRuntime()
 
     local DefaultAccent = Color3.fromRGB(205, 96, 70)
     local Accent = DefaultAccent
-    local Background = Color3.fromRGB(12, 12, 12)
-    local SidebarColor = Color3.fromRGB(15, 15, 15)
-    local Surface = Color3.fromRGB(18, 18, 18)
-    local SurfaceAlt = Color3.fromRGB(25, 25, 25)
-    local Border = Color3.fromRGB(48, 48, 48)
-    local PrimaryText = Color3.fromRGB(218, 218, 218)
-    local MutedText = Color3.fromRGB(145, 145, 145)
-    local DisabledText = Color3.fromRGB(82, 82, 82)
-    local Danger = Color3.fromRGB(205, 72, 72)
+    local Background = Color3.fromRGB(5, 8, 12)
+    local SidebarColor = Color3.fromRGB(7, 12, 17)
+    local Surface = Color3.fromRGB(10, 16, 22)
+    local SurfaceAlt = Color3.fromRGB(14, 22, 30)
+    local Border = Color3.fromRGB(29, 46, 58)
+    local PrimaryText = Color3.fromRGB(230, 237, 242)
+    local MutedText = Color3.fromRGB(138, 154, 165)
+    local DisabledText = Color3.fromRGB(76, 92, 102)
+    local Danger = Color3.fromRGB(194, 70, 88)
     local BaseScaleFactor = 1
     local AnimationFactor = 1
 
@@ -184,7 +184,6 @@ local function BuildRuntime()
         ConfigLoadGeneration = 0,
         ConfigApplying = false,
         LastConfigFlags = {},
-        CsgoStyle = true,
         ChromeAccentTargets = setmetatable({}, {__mode = "k"})
     }
 
@@ -247,7 +246,7 @@ local function BuildRuntime()
             local Color = Properties.BackgroundColor3
             local Maximum = math.max(Color.R, Color.G, Color.B)
             if Maximum <= 0.18 then
-                Properties.BackgroundTransparency = Menu.CsgoStyle and 0 or 0.08
+                Properties.BackgroundTransparency = 0.08
             end
         end
 
@@ -256,20 +255,12 @@ local function BuildRuntime()
             Object[Property] = Value
         end
 
-        if Menu.CsgoStyle and (ClassName == "TextLabel" or ClassName == "TextButton" or ClassName == "TextBox") then
-            Object.Font = Enum.Font.Code
-        end
-
         return Object
     end
 
     local function Corner(Parent, Radius)
         local Value = tonumber(Radius) or 0
-        if Menu.CsgoStyle and Value < 50 then
-            Value = math.min(Value, 1)
-        elseif Value < 50 then
-            Value = math.min(Value, 4)
-        end
+        if Value < 50 then Value = math.min(Value, 4) end
         return Create("UICorner", {
             Parent = Parent,
             CornerRadius = UDim.new(0, Value)
@@ -291,10 +282,24 @@ local function BuildRuntime()
         return Connection
     end
 
-    function Menu:AddSoftGlow(Target, ZIndex, Padding, Transparency, UseSlice)
-        if self.CsgoStyle then
-            return nil
+    local function AddChromeLine(Parent, Position, Size, Color, Transparency, ZIndex, TrackAccent)
+        if not Parent then return nil end
+        local Line = Create("Frame", {
+            Parent = Parent,
+            Position = Position,
+            Size = Size,
+            BackgroundColor3 = Color or Border,
+            BackgroundTransparency = Transparency or 0,
+            BorderSizePixel = 0,
+            ZIndex = ZIndex or ((Parent.ZIndex or 1) + 1)
+        })
+        if TrackAccent == true then
+            Menu.ChromeAccentTargets[Line] = true
         end
+        return Line
+    end
+
+    function Menu:AddSoftGlow(Target, ZIndex, Padding, Transparency, UseSlice)
         if not self.GlowAsset or not Target or not Target.Parent then
             return nil
         end
@@ -834,13 +839,13 @@ local function BuildRuntime()
         Position = DecodePosition(SavedPositions.Main, UDim2.fromScale(0.5, 0.535)),
         Size = UDim2.fromOffset(744, 610),
         BackgroundColor3 = Background,
-        BackgroundTransparency = 0,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         ZIndex = 2
     })
     Corner(Main, 0)
-    Stroke(Main, Color3.fromRGB(2, 2, 2), 0, 1)
+    Stroke(Main, Border, 0.08, 1)
 
     local MainScale = Create("UIScale", {
         Parent = Main,
@@ -927,22 +932,30 @@ local function BuildRuntime()
         Parent = Content,
         Size = UDim2.new(1, 0, 0, 64),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         ZIndex = 4
     })
     Corner(Topbar, 0)
 
-    local TopAccentLine = Create("Frame", {
-        Parent = Topbar,
-        AnchorPoint = Vector2.new(0, 1),
-        Position = UDim2.new(0, 0, 1, 0),
-        Size = UDim2.new(1, 0, 0, 2),
-        BackgroundColor3 = Accent,
-        BorderSizePixel = 0,
-        ZIndex = 8
-    })
-    Menu.ChromeAccentTargets[TopAccentLine] = true
+    local TopAccentLine = AddChromeLine(
+        Topbar,
+        UDim2.new(0, 0, 1, -2),
+        UDim2.new(1, 0, 0, 1),
+        Accent,
+        0.08,
+        8,
+        true
+    )
+    AddChromeLine(
+        Topbar,
+        UDim2.new(0, 0, 1, -1),
+        UDim2.new(1, 0, 0, 1),
+        Border,
+        0.18,
+        8,
+        false
+    )
 
     Create("Frame", {
         Parent = Topbar,
@@ -1036,13 +1049,13 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(14, 78),
         Size = UDim2.fromOffset(568, 40),
-        BackgroundColor3 = Surface,
-        BackgroundTransparency = 0,
+        BackgroundColor3 = Color3.fromRGB(9, 15, 20),
+        BackgroundTransparency = 0.05,
         BorderSizePixel = 0,
         ZIndex = 5
     })
     Corner(SearchBar, 4)
-    Stroke(SearchBar, Border, 0, 1)
+    Stroke(SearchBar, Color3.fromRGB(36, 57, 69), 0.18, 1)
 
     local SearchBox = Create("TextBox", {
         Parent = SearchBar,
@@ -1066,8 +1079,8 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(590, 78),
         Size = UDim2.fromOffset(44, 40),
-        BackgroundColor3 = Surface,
-        BackgroundTransparency = 0,
+        BackgroundColor3 = Color3.fromRGB(8, 13, 18),
+        BackgroundTransparency = 0.12,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Text = "",
@@ -1120,7 +1133,7 @@ local function BuildRuntime()
 
     Bind(SearchSettings.MouseEnter:Connect(function()
         if not SearchSettingsOpened then
-            Tween(SearchSettings, 0.12, {BackgroundColor3 = Color3.fromRGB(29, 29, 29)})
+            Tween(SearchSettings, 0.12, {BackgroundColor3 = Color3.fromRGB(14, 24, 31)})
             Tween(SearchSettingsStroke, 0.12, {Transparency = 0.25})
             Tween(SearchSettingsIcon, 0.12, {ImageColor3 = PrimaryText})
         end
@@ -1211,12 +1224,12 @@ local function BuildRuntime()
             Position = Position,
             Size = Size,
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             ZIndex = 5
         })
-        Corner(Root, 0)
-        Stroke(Root, Border, 0, 1)
+        Corner(Root, 5)
+        Stroke(Root, Border, 0.32, 1)
 
         Create("TextLabel", {
             Parent = Root,
@@ -1239,6 +1252,8 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 6
         })
+        AddChromeLine(Root, UDim2.fromOffset(10, 36), UDim2.fromOffset(46, 1), Accent, 0.08, 7, true)
+        AddChromeLine(Root, UDim2.fromOffset(1, 1), UDim2.new(1, -2, 0, 1), Border, 0.62, 6, false)
 
         local Body = Create("Frame", {
             Parent = Root,
@@ -1347,8 +1362,8 @@ local function BuildRuntime()
             Text = "",
             ZIndex = 9
         })
-        Corner(Button, 0)
-        local BorderStroke = Stroke(Button, Default and Accent or Color3.fromRGB(62, 62, 62), 0, 1)
+        Corner(Button, 3)
+        local BorderStroke = Stroke(Button, Default and Accent or Border, 0, 1)
         local Check = Icon(Button, "Check", UDim2.fromOffset(10, 10), UDim2.fromScale(0.5, 0.5), Background, 10)
         Check.Visible = Default
         return Button, BorderStroke, Check
@@ -4016,7 +4031,7 @@ local function BuildRuntime()
                     BackgroundTransparency = 0.10
                 })
                 Tween(ButtonStroke, 0.10, {
-                    Color = Color3.fromRGB(60, 60, 60)
+                    Color = Color3.fromRGB(45, 61, 69)
                 })
             end
         end))
@@ -4343,7 +4358,7 @@ local function BuildRuntime()
                     IsSelected and 0.80 or 1,
                 BackgroundColor3 =
                     IsSelected
-                    and Color3.fromRGB(31, 31, 31)
+                    and Color3.fromRGB(17, 28, 36)
                     or SurfaceAlt
             })
 
@@ -4395,8 +4410,8 @@ local function BuildRuntime()
         RefreshLabel()
 
         Bind(Button.MouseEnter:Connect(function()
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
-            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(58, 58, 58)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(40, 64, 78)})
         end))
         Bind(Button.MouseLeave:Connect(function()
             if not IsOpened then
@@ -4457,7 +4472,7 @@ local function BuildRuntime()
             IsOpened = true
             ExpandIndicator:SetOpened(true)
             ButtonStroke.Color = Accent
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
 
             OptionStates = {}
             ActivePopupCleanup = function()
@@ -4505,7 +4520,7 @@ local function BuildRuntime()
 
                 Bind(Option.MouseEnter:Connect(function()
                     if not Selected[Key] then
-                        Tween(Option, 0.10, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
+                        Tween(Option, 0.10, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
                     end
                 end))
                 Bind(Option.MouseLeave:Connect(function()
@@ -4645,7 +4660,7 @@ local function BuildRuntime()
             State.Selected = Active
             Tween(State.Button, 0.10, {
                 BackgroundTransparency = Active and 0.80 or 1,
-                BackgroundColor3 = Active and Color3.fromRGB(31, 31, 31) or SurfaceAlt
+                BackgroundColor3 = Active and Color3.fromRGB(17, 28, 36) or SurfaceAlt
             })
             Tween(State.Label, 0.10, {TextColor3 = Active and PrimaryText or MutedText})
             State.Label.Font = Active and Enum.Font.BuilderSansBold or Enum.Font.BuilderSansMedium
@@ -4733,8 +4748,8 @@ local function BuildRuntime()
         end)
 
         Bind(Button.MouseEnter:Connect(function()
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
-            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(58, 58, 58)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(40, 64, 78)})
         end))
 
         Bind(Button.MouseLeave:Connect(function()
@@ -4791,7 +4806,7 @@ local function BuildRuntime()
             IsOpened = true
             ExpandIndicator:SetOpened(true)
             ButtonStroke.Color = Accent
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
             OptionStates = {}
             ActivePopupCleanup = function()
                 IsOpened = false
@@ -4865,7 +4880,7 @@ local function BuildRuntime()
 
                 Bind(Option.MouseEnter:Connect(function()
                     if not Selected[CurrentBinding.Key] then
-                        Tween(Option, 0.10, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
+                        Tween(Option, 0.10, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
                     end
                 end))
                 Bind(Option.MouseLeave:Connect(function()
@@ -5074,6 +5089,8 @@ local function BuildRuntime()
     })
     Corner(Menu.SettingsUI.SettingsPanel, 0)
     Stroke(Menu.SettingsUI.SettingsPanel, Border, 0.12, 1)
+    AddChromeLine(Menu.SettingsUI.SettingsPanel, UDim2.fromOffset(1, 1), UDim2.new(1, -2, 0, 1), Accent, 0.10, 33, true)
+    AddChromeLine(Menu.SettingsUI.SettingsPanel, UDim2.fromOffset(1, 3), UDim2.new(1, -2, 0, 1), Border, 0.58, 31, false)
 
     Menu.SettingsUI.SettingsPanelScale = Create("UIScale", {
         Parent = Menu.SettingsUI.SettingsPanel,
@@ -5217,14 +5234,15 @@ local function BuildRuntime()
             Active = true,
             Position = DecodePosition(SavedPositions.Configs, DefaultConfigPosition),
             Size = UDim2.fromOffset(300, 150),
-            BackgroundColor3 = Background,
-            BackgroundTransparency = 0,
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 40
         })
-        Corner(S.Window, 0)
-        Stroke(S.Window, Color3.fromRGB(2, 2, 2), 0, 1)
+        Corner(S.Window, 5)
+        Stroke(S.Window, Border, 0.12, 1)
+        AddChromeLine(S.Window, UDim2.fromOffset(1, 1), UDim2.new(1, -2, 0, 1), Accent, 0.10, 43, true)
 
         S.Header = Create("Frame", {
             Parent = S.Window,
@@ -5247,6 +5265,7 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 42
         })
+        AddChromeLine(S.Header, UDim2.new(0, 12, 1, -1), UDim2.fromOffset(52, 1), Accent, 0.08, 43, true)
 
         S.DragArea = Create("TextButton", {
             Parent = S.Header,
@@ -5526,7 +5545,7 @@ local function BuildRuntime()
             S.SelectedName = Name
             for RowName, Data in pairs(S.Rows) do
                 local Selected = RowName == Name
-                Data.Root.BackgroundColor3 = Selected and Color3.fromRGB(27, 27, 27) or SurfaceAlt
+                Data.Root.BackgroundColor3 = Selected and Color3.fromRGB(11, 22, 29) or SurfaceAlt
                 Data.Root.BackgroundTransparency = Selected and 0.10 or 0.48
                 Data.Name.TextColor3 = Selected and PrimaryText or MutedText
                 Data.Marker.BackgroundTransparency = Selected and 0 or 1
@@ -5747,7 +5766,7 @@ local function BuildRuntime()
 
         local function UpdateTopButton()
             local Open = S.Open == true
-            S.Button.BackgroundColor3 = Open and Color3.fromRGB(30, 30, 30) or SurfaceAlt
+            S.Button.BackgroundColor3 = Open and Color3.fromRGB(16, 32, 43) or SurfaceAlt
             S.Button.BackgroundTransparency = Open and 0.02 or 0.12
             S.ButtonStroke.Color = Open and Accent or Border
             S.ButtonStroke.Transparency = Open and 0.16 or 0.36
@@ -5788,7 +5807,7 @@ local function BuildRuntime()
         Bind(S.Button.MouseButton1Click:Connect(S.Toggle))
         Bind(S.Button.MouseEnter:Connect(function()
             if S.Open then return end
-            S.Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            S.Button.BackgroundColor3 = Color3.fromRGB(17, 30, 39)
             S.Button.BackgroundTransparency = 0.04
             S.FolderTab.BackgroundColor3 = PrimaryText
             S.FolderBody.BackgroundColor3 = PrimaryText
@@ -5852,14 +5871,14 @@ local function BuildRuntime()
         Parent = ScreenGui,
         Position = DecodePosition(SavedPositions.Watermark, UDim2.fromOffset(28, 18)),
         Size = UDim2.fromOffset(332, 30),
-        BackgroundColor3 = Background,
-        BackgroundTransparency = 0,
+        BackgroundColor3 = Color3.fromRGB(7, 10, 14),
+        BackgroundTransparency = 0.20,
         BorderSizePixel = 0,
         Visible = SavedPositions.HideWatermark ~= true,
         ZIndex = 210
     })
     Corner(Watermark, 5)
-    Stroke(Watermark, Border, 0.22, 1)
+    Stroke(Watermark, Color3.fromRGB(30, 35, 43), 0.22, 1)
 
     local WatermarkGlow = Create("ImageLabel", {
         Parent = ScreenGui,
@@ -6246,8 +6265,8 @@ local function BuildRuntime()
         Active = true,
         Position = DecodePosition(SavedPositions.Keybinds, UDim2.fromOffset(24, 154)),
         Size = UDim2.fromOffset(146, 48),
-        BackgroundColor3 = Background,
-        BackgroundTransparency = 0,
+        BackgroundColor3 = Color3.fromRGB(8, 11, 15),
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         Visible = not KeybindListHidden,
         ZIndex = 72
@@ -7332,7 +7351,7 @@ local function BuildRuntime()
         Parent = Menu.SettingsUI.ColorPickerContainer,
         Position = UDim2.fromOffset(10, 130),
         Size = UDim2.fromOffset(154, 8),
-        BackgroundColor3 = Color3.fromRGB(55, 55, 55),
+        BackgroundColor3 = Color3.fromRGB(37, 60, 72),
         BorderSizePixel = 0,
         ZIndex = 121
     })
@@ -8574,13 +8593,14 @@ local function BuildRuntime()
             Position = SavedPreviewPosition or UDim2.new(0.5, 492, 0.5, 0),
             Size = UDim2.fromOffset(824, 522),
             BackgroundColor3 = Background,
-            BackgroundTransparency = 0,
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 20
         })
-        Corner(S.Window, 0)
-        Stroke(S.Window, Color3.fromRGB(2, 2, 2), 0, 1)
+        Corner(S.Window, 8)
+        Stroke(S.Window, Border, 0.04, 1)
+        AddChromeLine(S.Window, UDim2.fromOffset(1, 1), UDim2.new(1, -2, 0, 1), Accent, 0.10, 23, true)
         S.Glow = Menu:AddSoftGlow(S.Window, 20, 11, 0.72, true)
 
         S.Scale = Create("UIScale", {
@@ -8609,6 +8629,7 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 22
         })
+        AddChromeLine(S.Header, UDim2.new(0, 16, 1, -1), UDim2.fromOffset(68, 1), Accent, 0.08, 23, true)
 
         Create("TextLabel", {
             Parent = S.Header,
@@ -8855,7 +8876,7 @@ local function BuildRuntime()
             Parent = S.Overlay,
             Position = UDim2.fromScale(0.245, 0.10),
             Size = UDim2.fromScale(0.014, 0.80),
-            BackgroundColor3 = Color3.fromRGB(29, 29, 29),
+            BackgroundColor3 = Color3.fromRGB(14, 24, 31),
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             Active = true,
@@ -10645,7 +10666,7 @@ local function BuildRuntime()
             local Selected = ButtonName == Name
             Tween(Data.Button, 0.16, {
                 BackgroundTransparency = Selected and 0.72 or 1,
-                BackgroundColor3 = Selected and Color3.fromRGB(29, 29, 29) or SidebarColor
+                BackgroundColor3 = Selected and Color3.fromRGB(25, 42, 52) or SidebarColor
             })
             if Data.Scale then
                 Tween(Data.Scale, 0.16, {Scale = Selected and 1.025 or 1})
@@ -10688,7 +10709,7 @@ local function BuildRuntime()
             if CurrentPage ~= Name then
                 Tween(Data.Button, 0.12, {
                     BackgroundTransparency = 0.5,
-                    BackgroundColor3 = Color3.fromRGB(29, 29, 29)
+                    BackgroundColor3 = Color3.fromRGB(18, 29, 37)
                 })
             end
         end))
@@ -11878,7 +11899,7 @@ local function BuildRuntime()
         Menu.SidebarButtons[Name] = Existing
         Bind(Button.MouseEnter:Connect(function()
             if Menu.ActivePageName ~= Name then
-                Tween(Button, 0.14, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(28, 28, 28)})
+                Tween(Button, 0.14, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(14, 23, 31)})
                 Tween(Scale, 0.14, {Scale = 1.035})
                 Tween(Label, 0.14, {TextColor3 = PrimaryText})
                 Menu:SetIconColor(IconObject, PrimaryText, 0.14)
@@ -12488,7 +12509,7 @@ local function BuildRuntime()
                         end
                     end
                     Entry.BackgroundColor3 = Accent
-                    Entry.TextColor3 = Color3.fromRGB(26, 26, 26)
+                    Entry.TextColor3 = Color3.fromRGB(11, 19, 25)
                     if type(Callback) == "function" then task.spawn(Callback, Text) end
                 end))
             end
@@ -12781,6 +12802,7 @@ local function BuildRuntime()
         })
         Corner(Root, 7)
         Stroke(Root, Border, 0.22, 1)
+        AddChromeLine(Root, UDim2.fromOffset(1, 1), UDim2.new(1, -2, 0, 1), Accent, 0.10, 149, true)
         local RootGlow = Menu:AddSoftGlow(Root, 144, 12, 0.88, true)
 
         local RootScale = Create("UIScale", {
@@ -12840,6 +12862,7 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 147
         })
+        AddChromeLine(Root, UDim2.fromOffset(12, 43), UDim2.fromOffset(72, 1), Accent, 0.08, 149, true)
 
         local LeftPanel = Create("Frame", {
             Parent = Root,
@@ -15023,8 +15046,8 @@ local function BuildRuntime()
             Parent = Menu.NotificationHolder,
             Name = "AtramentaNotification",
             Size = UDim2.fromOffset(NotificationCardWidth, NotificationCardHeight),
-            BackgroundColor3 = Background,
-            BackgroundTransparency = 0,
+            BackgroundColor3 = Color3.fromRGB(8, 10, 13),
+            BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             ZIndex = 260
@@ -15033,7 +15056,7 @@ local function BuildRuntime()
         Corner(Notice, 4)
         local NoticeStroke = Stroke(
             Notice,
-            Border,
+            Color3.fromRGB(34, 38, 44),
             0.14,
             1
         )
@@ -15071,7 +15094,7 @@ local function BuildRuntime()
             Parent = Notice,
             Position = UDim2.new(0, 5, 1, -2),
             Size = UDim2.new(1, -10, 0, 1),
-            BackgroundColor3 = Color3.fromRGB(36, 36, 36),
+            BackgroundColor3 = Color3.fromRGB(29, 33, 38),
             BackgroundTransparency = 0.14,
             BorderSizePixel = 0,
             ZIndex = 261
