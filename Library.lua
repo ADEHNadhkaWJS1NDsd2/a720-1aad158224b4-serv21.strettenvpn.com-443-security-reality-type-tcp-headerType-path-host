@@ -11,7 +11,19 @@ local Library = {
 
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
-    return true, Function(...)
+
+    local Arguments = table.pack(...)
+    local Results = table.pack(xpcall(function()
+        return Function(table.unpack(Arguments, 1, Arguments.n))
+    end, function(Error)
+        return tostring(Error)
+    end))
+
+    if Results[1] ~= true then
+        return false, Results[2]
+    end
+
+    return true, table.unpack(Results, 2, Results.n)
 end
 
 local function BuildRuntime()
@@ -136,17 +148,17 @@ local function BuildRuntime()
         Boxes = 17
     }
 
-    local DefaultAccent = Color3.fromRGB(255, 160, 128)
+    local DefaultAccent = Color3.fromRGB(205, 96, 70)
     local Accent = DefaultAccent
-    local Background = Color3.fromRGB(5, 8, 12)
-    local SidebarColor = Color3.fromRGB(7, 12, 17)
-    local Surface = Color3.fromRGB(10, 16, 22)
-    local SurfaceAlt = Color3.fromRGB(14, 22, 30)
-    local Border = Color3.fromRGB(29, 46, 58)
-    local PrimaryText = Color3.fromRGB(230, 237, 242)
-    local MutedText = Color3.fromRGB(138, 154, 165)
-    local DisabledText = Color3.fromRGB(76, 92, 102)
-    local Danger = Color3.fromRGB(194, 70, 88)
+    local Background = Color3.fromRGB(12, 12, 12)
+    local SidebarColor = Color3.fromRGB(15, 15, 15)
+    local Surface = Color3.fromRGB(18, 18, 18)
+    local SurfaceAlt = Color3.fromRGB(25, 25, 25)
+    local Border = Color3.fromRGB(48, 48, 48)
+    local PrimaryText = Color3.fromRGB(218, 218, 218)
+    local MutedText = Color3.fromRGB(145, 145, 145)
+    local DisabledText = Color3.fromRGB(82, 82, 82)
+    local Danger = Color3.fromRGB(205, 72, 72)
     local BaseScaleFactor = 1
     local AnimationFactor = 1
 
@@ -171,7 +183,9 @@ local function BuildRuntime()
         DefaultFlagKnown = {},
         ConfigLoadGeneration = 0,
         ConfigApplying = false,
-        LastConfigFlags = {}
+        LastConfigFlags = {},
+        CsgoStyle = true,
+        ChromeAccentTargets = setmetatable({}, {__mode = "k"})
     }
 
     local function CloneFlagValue(Value, Seen)
@@ -233,19 +247,29 @@ local function BuildRuntime()
             local Color = Properties.BackgroundColor3
             local Maximum = math.max(Color.R, Color.G, Color.B)
             if Maximum <= 0.18 then
-                Properties.BackgroundTransparency = 0.08
+                Properties.BackgroundTransparency = Menu.CsgoStyle and 0 or 0.08
             end
         end
+
         local Object = Instance.new(ClassName)
         for Property, Value in pairs(Properties) do
             Object[Property] = Value
         end
+
+        if Menu.CsgoStyle and (ClassName == "TextLabel" or ClassName == "TextButton" or ClassName == "TextBox") then
+            Object.Font = Enum.Font.Code
+        end
+
         return Object
     end
 
     local function Corner(Parent, Radius)
         local Value = tonumber(Radius) or 0
-        if Value < 50 then Value = math.min(Value, 4) end
+        if Menu.CsgoStyle and Value < 50 then
+            Value = math.min(Value, 1)
+        elseif Value < 50 then
+            Value = math.min(Value, 4)
+        end
         return Create("UICorner", {
             Parent = Parent,
             CornerRadius = UDim.new(0, Value)
@@ -268,6 +292,9 @@ local function BuildRuntime()
     end
 
     function Menu:AddSoftGlow(Target, ZIndex, Padding, Transparency, UseSlice)
+        if self.CsgoStyle then
+            return nil
+        end
         if not self.GlowAsset or not Target or not Target.Parent then
             return nil
         end
@@ -807,13 +834,13 @@ local function BuildRuntime()
         Position = DecodePosition(SavedPositions.Main, UDim2.fromScale(0.5, 0.535)),
         Size = UDim2.fromOffset(744, 610),
         BackgroundColor3 = Background,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         ZIndex = 2
     })
     Corner(Main, 0)
-    Stroke(Main, Border, 0.08, 1)
+    Stroke(Main, Color3.fromRGB(2, 2, 2), 0, 1)
 
     local MainScale = Create("UIScale", {
         Parent = Main,
@@ -900,11 +927,22 @@ local function BuildRuntime()
         Parent = Content,
         Size = UDim2.new(1, 0, 0, 64),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 4
     })
     Corner(Topbar, 0)
+
+    local TopAccentLine = Create("Frame", {
+        Parent = Topbar,
+        AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.new(0, 0, 1, 0),
+        Size = UDim2.new(1, 0, 0, 2),
+        BackgroundColor3 = Accent,
+        BorderSizePixel = 0,
+        ZIndex = 8
+    })
+    Menu.ChromeAccentTargets[TopAccentLine] = true
 
     Create("Frame", {
         Parent = Topbar,
@@ -998,13 +1036,13 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(14, 78),
         Size = UDim2.fromOffset(568, 40),
-        BackgroundColor3 = Color3.fromRGB(9, 15, 20),
-        BackgroundTransparency = 0.05,
+        BackgroundColor3 = Surface,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 5
     })
     Corner(SearchBar, 4)
-    Stroke(SearchBar, Color3.fromRGB(36, 57, 69), 0.18, 1)
+    Stroke(SearchBar, Border, 0, 1)
 
     local SearchBox = Create("TextBox", {
         Parent = SearchBar,
@@ -1028,8 +1066,8 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(590, 78),
         Size = UDim2.fromOffset(44, 40),
-        BackgroundColor3 = Color3.fromRGB(8, 13, 18),
-        BackgroundTransparency = 0.12,
+        BackgroundColor3 = Surface,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Text = "",
@@ -1082,7 +1120,7 @@ local function BuildRuntime()
 
     Bind(SearchSettings.MouseEnter:Connect(function()
         if not SearchSettingsOpened then
-            Tween(SearchSettings, 0.12, {BackgroundColor3 = Color3.fromRGB(14, 24, 31)})
+            Tween(SearchSettings, 0.12, {BackgroundColor3 = Color3.fromRGB(29, 29, 29)})
             Tween(SearchSettingsStroke, 0.12, {Transparency = 0.25})
             Tween(SearchSettingsIcon, 0.12, {ImageColor3 = PrimaryText})
         end
@@ -1173,12 +1211,12 @@ local function BuildRuntime()
             Position = Position,
             Size = Size,
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.08,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 5
         })
-        Corner(Root, 5)
-        Stroke(Root, Border, 0.32, 1)
+        Corner(Root, 0)
+        Stroke(Root, Border, 0, 1)
 
         Create("TextLabel", {
             Parent = Root,
@@ -1309,8 +1347,8 @@ local function BuildRuntime()
             Text = "",
             ZIndex = 9
         })
-        Corner(Button, 3)
-        local BorderStroke = Stroke(Button, Default and Accent or Border, 0, 1)
+        Corner(Button, 0)
+        local BorderStroke = Stroke(Button, Default and Accent or Color3.fromRGB(62, 62, 62), 0, 1)
         local Check = Icon(Button, "Check", UDim2.fromOffset(10, 10), UDim2.fromScale(0.5, 0.5), Background, 10)
         Check.Visible = Default
         return Button, BorderStroke, Check
@@ -3978,7 +4016,7 @@ local function BuildRuntime()
                     BackgroundTransparency = 0.10
                 })
                 Tween(ButtonStroke, 0.10, {
-                    Color = Color3.fromRGB(45, 61, 69)
+                    Color = Color3.fromRGB(60, 60, 60)
                 })
             end
         end))
@@ -4305,7 +4343,7 @@ local function BuildRuntime()
                     IsSelected and 0.80 or 1,
                 BackgroundColor3 =
                     IsSelected
-                    and Color3.fromRGB(17, 28, 36)
+                    and Color3.fromRGB(31, 31, 31)
                     or SurfaceAlt
             })
 
@@ -4357,8 +4395,8 @@ local function BuildRuntime()
         RefreshLabel()
 
         Bind(Button.MouseEnter:Connect(function()
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
-            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(40, 64, 78)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
+            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(58, 58, 58)})
         end))
         Bind(Button.MouseLeave:Connect(function()
             if not IsOpened then
@@ -4419,7 +4457,7 @@ local function BuildRuntime()
             IsOpened = true
             ExpandIndicator:SetOpened(true)
             ButtonStroke.Color = Accent
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
 
             OptionStates = {}
             ActivePopupCleanup = function()
@@ -4467,7 +4505,7 @@ local function BuildRuntime()
 
                 Bind(Option.MouseEnter:Connect(function()
                     if not Selected[Key] then
-                        Tween(Option, 0.10, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+                        Tween(Option, 0.10, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
                     end
                 end))
                 Bind(Option.MouseLeave:Connect(function()
@@ -4607,7 +4645,7 @@ local function BuildRuntime()
             State.Selected = Active
             Tween(State.Button, 0.10, {
                 BackgroundTransparency = Active and 0.80 or 1,
-                BackgroundColor3 = Active and Color3.fromRGB(17, 28, 36) or SurfaceAlt
+                BackgroundColor3 = Active and Color3.fromRGB(31, 31, 31) or SurfaceAlt
             })
             Tween(State.Label, 0.10, {TextColor3 = Active and PrimaryText or MutedText})
             State.Label.Font = Active and Enum.Font.BuilderSansBold or Enum.Font.BuilderSansMedium
@@ -4695,8 +4733,8 @@ local function BuildRuntime()
         end)
 
         Bind(Button.MouseEnter:Connect(function()
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
-            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(40, 64, 78)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
+            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(58, 58, 58)})
         end))
 
         Bind(Button.MouseLeave:Connect(function()
@@ -4753,7 +4791,7 @@ local function BuildRuntime()
             IsOpened = true
             ExpandIndicator:SetOpened(true)
             ButtonStroke.Color = Accent
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
             OptionStates = {}
             ActivePopupCleanup = function()
                 IsOpened = false
@@ -4827,7 +4865,7 @@ local function BuildRuntime()
 
                 Bind(Option.MouseEnter:Connect(function()
                     if not Selected[CurrentBinding.Key] then
-                        Tween(Option, 0.10, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+                        Tween(Option, 0.10, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(31, 31, 31)})
                     end
                 end))
                 Bind(Option.MouseLeave:Connect(function()
@@ -5179,14 +5217,14 @@ local function BuildRuntime()
             Active = true,
             Position = DecodePosition(SavedPositions.Configs, DefaultConfigPosition),
             Size = UDim2.fromOffset(300, 150),
-            BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.08,
+            BackgroundColor3 = Background,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 40
         })
-        Corner(S.Window, 5)
-        Stroke(S.Window, Border, 0.12, 1)
+        Corner(S.Window, 0)
+        Stroke(S.Window, Color3.fromRGB(2, 2, 2), 0, 1)
 
         S.Header = Create("Frame", {
             Parent = S.Window,
@@ -5488,7 +5526,7 @@ local function BuildRuntime()
             S.SelectedName = Name
             for RowName, Data in pairs(S.Rows) do
                 local Selected = RowName == Name
-                Data.Root.BackgroundColor3 = Selected and Color3.fromRGB(11, 22, 29) or SurfaceAlt
+                Data.Root.BackgroundColor3 = Selected and Color3.fromRGB(27, 27, 27) or SurfaceAlt
                 Data.Root.BackgroundTransparency = Selected and 0.10 or 0.48
                 Data.Name.TextColor3 = Selected and PrimaryText or MutedText
                 Data.Marker.BackgroundTransparency = Selected and 0 or 1
@@ -5709,7 +5747,7 @@ local function BuildRuntime()
 
         local function UpdateTopButton()
             local Open = S.Open == true
-            S.Button.BackgroundColor3 = Open and Color3.fromRGB(16, 32, 43) or SurfaceAlt
+            S.Button.BackgroundColor3 = Open and Color3.fromRGB(30, 30, 30) or SurfaceAlt
             S.Button.BackgroundTransparency = Open and 0.02 or 0.12
             S.ButtonStroke.Color = Open and Accent or Border
             S.ButtonStroke.Transparency = Open and 0.16 or 0.36
@@ -5750,7 +5788,7 @@ local function BuildRuntime()
         Bind(S.Button.MouseButton1Click:Connect(S.Toggle))
         Bind(S.Button.MouseEnter:Connect(function()
             if S.Open then return end
-            S.Button.BackgroundColor3 = Color3.fromRGB(17, 30, 39)
+            S.Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
             S.Button.BackgroundTransparency = 0.04
             S.FolderTab.BackgroundColor3 = PrimaryText
             S.FolderBody.BackgroundColor3 = PrimaryText
@@ -5814,14 +5852,14 @@ local function BuildRuntime()
         Parent = ScreenGui,
         Position = DecodePosition(SavedPositions.Watermark, UDim2.fromOffset(28, 18)),
         Size = UDim2.fromOffset(332, 30),
-        BackgroundColor3 = Color3.fromRGB(7, 10, 14),
-        BackgroundTransparency = 0.20,
+        BackgroundColor3 = Background,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         Visible = SavedPositions.HideWatermark ~= true,
         ZIndex = 210
     })
     Corner(Watermark, 5)
-    Stroke(Watermark, Color3.fromRGB(30, 35, 43), 0.22, 1)
+    Stroke(Watermark, Border, 0.22, 1)
 
     local WatermarkGlow = Create("ImageLabel", {
         Parent = ScreenGui,
@@ -6195,8 +6233,7 @@ local function BuildRuntime()
 
     do
     Menu.KeybindListUI = Menu.KeybindListUI or {}
-    SavedPositions.HideKeybinds = false
-    local KeybindListHidden = false
+    local KeybindListHidden = SavedPositions.HideKeybinds == true
     local KeybindListScaleValue = math.clamp(tonumber(SavedPositions.KeybindListScale) or 100, 70, 150)
     local KeybindListSignature = ""
     local KeybindListAccumulator = 0
@@ -6209,8 +6246,8 @@ local function BuildRuntime()
         Active = true,
         Position = DecodePosition(SavedPositions.Keybinds, UDim2.fromOffset(24, 154)),
         Size = UDim2.fromOffset(146, 48),
-        BackgroundColor3 = Color3.fromRGB(8, 11, 15),
-        BackgroundTransparency = 0.08,
+        BackgroundColor3 = Background,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         Visible = not KeybindListHidden,
         ZIndex = 72
@@ -7295,7 +7332,7 @@ local function BuildRuntime()
         Parent = Menu.SettingsUI.ColorPickerContainer,
         Position = UDim2.fromOffset(10, 130),
         Size = UDim2.fromOffset(154, 8),
-        BackgroundColor3 = Color3.fromRGB(37, 60, 72),
+        BackgroundColor3 = Color3.fromRGB(55, 55, 55),
         BorderSizePixel = 0,
         ZIndex = 121
     })
@@ -8498,10 +8535,12 @@ local function BuildRuntime()
     do
     local function CreateEspPreviewWindow()
         local SavedPreviewPosition = DecodePosition(SavedPositions.EspPreviewPosition, nil)
+        local SavedPreviewHidden = SavedPositions.HideEspPreview ~= false
+        local SavedPreviewMode = SavedPositions.EspPreviewMode == "2D" and "2D" or "3D"
         local S = {
-            Hidden = true,
-            RequestedVisible = false,
-            Mode = "3D",
+            Hidden = SavedPreviewHidden,
+            RequestedVisible = not SavedPreviewHidden,
+            Mode = SavedPreviewMode,
             LoadGeneration = 0,
             LastRetry = 0,
             Rotation = 0,
@@ -8518,7 +8557,9 @@ local function BuildRuntime()
             ElementDragging = nil,
             ElementDragStart = nil,
             ElementStartOffset = nil,
+            ElementGrabOffset = Vector2.zero,
             ElementBases = {},
+            LayoutBases = {},
             BoxBounds = nil,
             DraggableElements = {},
             PreviewOrder = {},
@@ -8533,18 +8574,18 @@ local function BuildRuntime()
             Position = SavedPreviewPosition or UDim2.new(0.5, 492, 0.5, 0),
             Size = UDim2.fromOffset(824, 522),
             BackgroundColor3 = Background,
-            BackgroundTransparency = 0.08,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 20
         })
-        Corner(S.Window, 8)
-        Stroke(S.Window, Border, 0.04, 1)
+        Corner(S.Window, 0)
+        Stroke(S.Window, Color3.fromRGB(2, 2, 2), 0, 1)
         S.Glow = Menu:AddSoftGlow(S.Window, 20, 11, 0.72, true)
 
         S.Scale = Create("UIScale", {
             Parent = S.Window,
-            Scale = 1.15
+            Scale = math.clamp((tonumber(SavedPositions.EspPreviewScale) or 115) / 100, 0.8, 1.6)
         })
 
         S.Header = Create("Frame", {
@@ -8814,7 +8855,7 @@ local function BuildRuntime()
             Parent = S.Overlay,
             Position = UDim2.fromScale(0.245, 0.10),
             Size = UDim2.fromScale(0.014, 0.80),
-            BackgroundColor3 = Color3.fromRGB(14, 24, 31),
+            BackgroundColor3 = Color3.fromRGB(29, 29, 29),
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             Active = true,
@@ -9174,20 +9215,24 @@ local function BuildRuntime()
         end
 
         local function SetElementPosition(Key, Object, Position)
-            if not Object or not Object.Parent then return end
+            if not Object or not Object.Parent or typeof(Position) ~= "Vector2" then return end
+
+            S.LayoutBases[Key] = Position
+
             if S.ElementDragging == Key and typeof(S.DragLocalPosition) == "Vector2" then
-                Object.AnchorPoint = Vector2.new(0.5, 0.5)
                 Object.Position = UDim2.fromOffset(
                     math.floor(S.DragLocalPosition.X + 0.5),
                     math.floor(S.DragLocalPosition.Y + 0.5)
                 )
                 return
             end
-            Object.Position = UDim2.fromOffset(math.floor(Position.X + 0.5), math.floor(Position.Y + 0.5))
-            local Base = S.ElementBases[Key]
-            if typeof(Base) == "Vector2" then
-                SetPreviewOffset(Key, Position - Base)
-            end
+
+            local Offset = GetPreviewOffset(Key)
+            local FinalPosition = Position + Offset
+            Object.Position = UDim2.fromOffset(
+                math.floor(FinalPosition.X + 0.5),
+                math.floor(FinalPosition.Y + 0.5)
+            )
         end
 
         local function ApplyPreviewElementLayout()
@@ -9360,6 +9405,21 @@ local function BuildRuntime()
             ApplyPreviewElementLayout()
         end
 
+        local function SyncPreviewStateFromFlags()
+            for Index, Key in ipairs(PreviewStackOrder) do
+                local LoadedOrder = tonumber(Menu.Flags["Player ESP " .. Key .. " Order"])
+                S.PreviewOrder[Key] = LoadedOrder or Index
+            end
+
+            for Key in pairs(PreviewElementFlags) do
+                GetPreviewZone(Key)
+                local Offset = Menu.Flags[PreviewElementFlags[Key]]
+                if typeof(Offset) ~= "Vector2" then
+                    Menu.Flags[PreviewElementFlags[Key]] = Vector2.zero
+                end
+            end
+        end
+
         local function IsPointInsideGui(Position, Object)
             if not Object or not Object.Parent or not Object.Visible then
                 return false
@@ -9485,12 +9545,14 @@ local function BuildRuntime()
                     S.ElementDragging = Key
                     SetPreviewInspector((Key == "HealthBar" and "Health Bar") or (Key == "HealthValue" and "Health Text") or Key)
                     S.ElementDragStart = Input.Position
-                    S.ElementStartOffset = nil
+                    S.ElementStartOffset = GetPreviewOffset(Key)
                     S.PendingPreviewZone = GetPreviewZone(Key)
                     local UiScale = math.max(0.01, tonumber(S.Scale.Scale) or 1)
                     local ScreenPoint = Vector2.new(Input.Position.X, Input.Position.Y)
                     local LocalPosition = (ScreenPoint - S.Body.AbsolutePosition) / UiScale
-                    S.DragLocalPosition = LocalPosition
+                    local CurrentPosition = Vector2.new(Object.Position.X.Offset, Object.Position.Y.Offset)
+                    S.ElementGrabOffset = LocalPosition - CurrentPosition
+                    S.DragLocalPosition = CurrentPosition
                 elseif Input.UserInputType == Enum.UserInputType.MouseButton2 then
                     ResetPreviewElement(Key)
                     SetPreviewInspector(nil)
@@ -10293,6 +10355,7 @@ local function BuildRuntime()
             S.Hidden = not S.RequestedVisible
             SavedPositions.HideEspPreview = S.Hidden
             RefreshVisibility()
+            SavePositions()
 
             if S.Hidden then
                 S.Status.Visible = false
@@ -10333,6 +10396,17 @@ local function BuildRuntime()
 
         Menu.EspPreviewController.ResetLayout = function()
             ResetPreviewLayout()
+        end
+
+        Menu.EspPreviewController.RefreshFromFlags = function()
+            SyncPreviewStateFromFlags()
+            UpdateEditorElementButtons()
+            ApplyPreviewElementLayout()
+            UpdateEspStyle()
+        end
+
+        Menu.EspPreviewController.CommitLayout = function()
+            SavePreviewOrder()
         end
 
         Bind(S.ResetLayoutButton.MouseEnter:Connect(function()
@@ -10407,9 +10481,10 @@ local function BuildRuntime()
                 local DragObject = S.DraggableElements[S.ElementDragging]
                 local HalfWidth = DragObject and math.max(DragObject.AbsoluteSize.X / UiScale, 8) * 0.5 or 8
                 local HalfHeight = DragObject and math.max(DragObject.AbsoluteSize.Y / UiScale, 8) * 0.5 or 8
+                local DesiredPosition = LocalPosition - (typeof(S.ElementGrabOffset) == "Vector2" and S.ElementGrabOffset or Vector2.zero)
                 S.DragLocalPosition = Vector2.new(
-                    math.clamp(LocalPosition.X, HalfWidth + 4, math.max(HalfWidth + 4, BodySize.X - HalfWidth - 4)),
-                    math.clamp(LocalPosition.Y, HalfHeight + 4, math.max(HalfHeight + 4, BodySize.Y - HalfHeight - 4))
+                    math.clamp(DesiredPosition.X, HalfWidth + 4, math.max(HalfWidth + 4, BodySize.X - HalfWidth - 4)),
+                    math.clamp(DesiredPosition.Y, HalfHeight + 4, math.max(HalfHeight + 4, BodySize.Y - HalfHeight - 4))
                 )
                 S.PendingPreviewZone = GetPreviewSnapZone(S.ElementDragging, Input.Position)
                 SetPreviewInspector(((S.ElementDragging == "HealthBar" and "Health Bar") or (S.ElementDragging == "HealthValue" and "Health Text") or S.ElementDragging) .. "  •  " .. tostring(S.PendingPreviewZone))
@@ -10432,14 +10507,26 @@ local function BuildRuntime()
         Bind(UserInputService.InputEnded:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 and S.ElementDragging then
                 local DraggedKey = S.ElementDragging
+                local FinalPosition = typeof(S.DragLocalPosition) == "Vector2" and S.DragLocalPosition or nil
                 local FinalZone = S.PendingPreviewZone or GetPreviewZone(DraggedKey)
+
                 SetPreviewZone(DraggedKey, FinalZone)
                 ReorderPreviewElement(DraggedKey, FinalZone, Input.Position)
+
                 S.ElementDragging = nil
                 S.ElementDragStart = nil
                 S.ElementStartOffset = nil
+                S.ElementGrabOffset = Vector2.zero
                 S.DragLocalPosition = nil
                 S.PendingPreviewZone = nil
+
+                ApplyPreviewElementLayout()
+
+                local NewBase = S.LayoutBases[DraggedKey]
+                if FinalPosition and typeof(NewBase) == "Vector2" then
+                    SetPreviewOffset(DraggedKey, FinalPosition - NewBase)
+                end
+
                 ApplyPreviewElementLayout()
                 SetPreviewInspector(nil)
             end
@@ -10508,9 +10595,11 @@ local function BuildRuntime()
         task.defer(function()
             if S.Window and S.Window.Parent then PlacePreviewWithSpacing() end
         end)
+        SyncPreviewStateFromFlags()
         RefreshMode()
         UpdateEditorElementButtons()
         UpdateEspStyle()
+        RefreshVisibility()
     end
 
     CreateEspPreviewWindow()
@@ -10556,7 +10645,7 @@ local function BuildRuntime()
             local Selected = ButtonName == Name
             Tween(Data.Button, 0.16, {
                 BackgroundTransparency = Selected and 0.72 or 1,
-                BackgroundColor3 = Selected and Color3.fromRGB(25, 42, 52) or SidebarColor
+                BackgroundColor3 = Selected and Color3.fromRGB(29, 29, 29) or SidebarColor
             })
             if Data.Scale then
                 Tween(Data.Scale, 0.16, {Scale = Selected and 1.025 or 1})
@@ -10599,7 +10688,7 @@ local function BuildRuntime()
             if CurrentPage ~= Name then
                 Tween(Data.Button, 0.12, {
                     BackgroundTransparency = 0.5,
-                    BackgroundColor3 = Color3.fromRGB(18, 29, 37)
+                    BackgroundColor3 = Color3.fromRGB(29, 29, 29)
                 })
             end
         end))
@@ -11789,7 +11878,7 @@ local function BuildRuntime()
         Menu.SidebarButtons[Name] = Existing
         Bind(Button.MouseEnter:Connect(function()
             if Menu.ActivePageName ~= Name then
-                Tween(Button, 0.14, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(14, 23, 31)})
+                Tween(Button, 0.14, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(28, 28, 28)})
                 Tween(Scale, 0.14, {Scale = 1.035})
                 Tween(Label, 0.14, {TextColor3 = PrimaryText})
                 Menu:SetIconColor(IconObject, PrimaryText, 0.14)
@@ -12399,7 +12488,7 @@ local function BuildRuntime()
                         end
                     end
                     Entry.BackgroundColor3 = Accent
-                    Entry.TextColor3 = Color3.fromRGB(11, 19, 25)
+                    Entry.TextColor3 = Color3.fromRGB(26, 26, 26)
                     if type(Callback) == "function" then task.spawn(Callback, Text) end
                 end))
             end
@@ -14934,8 +15023,8 @@ local function BuildRuntime()
             Parent = Menu.NotificationHolder,
             Name = "AtramentaNotification",
             Size = UDim2.fromOffset(NotificationCardWidth, NotificationCardHeight),
-            BackgroundColor3 = Color3.fromRGB(8, 10, 13),
-            BackgroundTransparency = 0.08,
+            BackgroundColor3 = Background,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ClipsDescendants = true,
             ZIndex = 260
@@ -14944,7 +15033,7 @@ local function BuildRuntime()
         Corner(Notice, 4)
         local NoticeStroke = Stroke(
             Notice,
-            Color3.fromRGB(34, 38, 44),
+            Border,
             0.14,
             1
         )
@@ -14982,7 +15071,7 @@ local function BuildRuntime()
             Parent = Notice,
             Position = UDim2.new(0, 5, 1, -2),
             Size = UDim2.new(1, -10, 0, 1),
-            BackgroundColor3 = Color3.fromRGB(29, 33, 38),
+            BackgroundColor3 = Color3.fromRGB(36, 36, 36),
             BackgroundTransparency = 0.14,
             BorderSizePixel = 0,
             ZIndex = 261
@@ -15526,6 +15615,13 @@ local function BuildRuntime()
     end
 
     function Library:GetConfig()
+        if Menu.EspPreviewController and type(Menu.EspPreviewController.CommitLayout) == "function" then
+            Library.Call(Menu.EspPreviewController.CommitLayout)
+        end
+        if Menu.BindSystem and type(Menu.BindSystem.NormalizeStorage) == "function" then
+            Library.Call(Menu.BindSystem.NormalizeStorage)
+        end
+
         local Seen = {}
 
         local function IsFiniteNumber(Value)
@@ -15613,6 +15709,24 @@ local function BuildRuntime()
             Encoded.__AtramentaControlBinds = EncodedBinds
         end
 
+        local InterfaceState = {
+            BackgroundDim = Menu.Flags.BackgroundDim,
+            AnimationSpeed = Menu.Flags.AnimationSpeed,
+            MenuScale = Menu.Flags.MenuScale,
+            PlayerListScale = Menu.Flags.PlayerListScale or SavedPositions.PlayerListScale,
+            EspPreviewScale = Menu.Flags.EspPreviewScale or SavedPositions.EspPreviewScale,
+            HideWatermark = SavedPositions.HideWatermark,
+            WatermarkScale = SavedPositions.WatermarkScale,
+            HideKeybinds = SavedPositions.HideKeybinds,
+            KeybindListScale = SavedPositions.KeybindListScale,
+            AccentHex = SavedPositions.AccentHex,
+            AccentAlpha = Menu.Flags.AccentAlpha or SavedPositions.AccentAlpha
+        }
+        local InterfaceSuccess, EncodedInterface = Library.Call(EncodeValue, InterfaceState, 0)
+        if InterfaceSuccess and EncodedInterface ~= nil then
+            Encoded.__AtramentaInterface = EncodedInterface
+        end
+
         local Success, Source = Library.Call(HttpService.JSONEncode, HttpService, Encoded)
         if Success and type(Source) == "string" then
             return Source
@@ -15641,6 +15755,7 @@ local function BuildRuntime()
 
         ClosePopup()
         if CloseGearMenus then CloseGearMenus() end
+        if SetPickerOpen then SetPickerOpen(false) end
         Menu.QuickPanelBindCapture = false
 
         if Menu.RefreshDropdownIndicators then Menu.RefreshDropdownIndicators(true) end
@@ -15675,6 +15790,8 @@ local function BuildRuntime()
 
         local LoadedBinds = Decoded.__AtramentaControlBinds
         Decoded.__AtramentaControlBinds = nil
+        local LoadedInterface = Decoded.__AtramentaInterface
+        Decoded.__AtramentaInterface = nil
 
         local DecodedFlags = {}
         for Name, Value in pairs(Decoded) do
@@ -15684,7 +15801,7 @@ local function BuildRuntime()
         for Name in pairs(Menu.LastConfigFlags or {}) do
             if DecodedFlags[Name] == nil and Menu.DefaultFlagKnown[Name] ~= true then
                 if type(self.Setters[Name]) == "function" then
-                    self:SetFlag(Name, nil)
+                    Library.Call(function() self:SetFlag(Name, nil) end)
                 else
                     self.Flags[Name] = nil
                 end
@@ -15708,13 +15825,13 @@ local function BuildRuntime()
             Applied[Flag] = true
 
             if not FlagValuesEqual(self.Flags[Flag], Desired) then
-                self:SetFlag(Flag, Desired)
+                Library.Call(function() self:SetFlag(Flag, Desired) end)
             end
         end
 
         for Name, Value in pairs(DecodedFlags) do
             if not Applied[Name] and not FlagValuesEqual(self.Flags[Name], Value) then
-                self:SetFlag(Name, CloneFlagValue(Value))
+                Library.Call(function() self:SetFlag(Name, CloneFlagValue(Value)) end)
             end
         end
 
@@ -15733,11 +15850,35 @@ local function BuildRuntime()
             end
         end
 
-        SavedPositions.HideKeybinds = false
+        local Interface = LoadedInterface ~= nil and DecodeValue(LoadedInterface, 0) or {}
+        if type(Interface) ~= "table" then Interface = {} end
 
-        if Menu.KeybindListController then
-            if Menu.KeybindListController.SetHidden then Menu.KeybindListController.SetHidden(false) end
-            if Menu.KeybindListController.MarkDirty then Menu.KeybindListController.MarkDirty() end
+        local function ApplyInterfaceControl(Control, Value)
+            if Value == nil or type(Control) ~= "table" or type(Control.Set) ~= "function" then return end
+            Library.Call(Control.Set, Value)
+        end
+
+        ApplyInterfaceControl(Menu.SettingsUI.BackgroundDimToggle, Interface.BackgroundDim)
+        ApplyInterfaceControl(Menu.SettingsUI.AnimationSpeedSlider, Interface.AnimationSpeed)
+        ApplyInterfaceControl(Menu.SettingsUI.MenuScaleSlider, Interface.MenuScale)
+        ApplyInterfaceControl(Menu.SettingsUI.PlayerListSizeSlider, Interface.PlayerListScale)
+        ApplyInterfaceControl(Menu.SettingsUI.EspPreviewSizeSlider, Interface.EspPreviewScale)
+        ApplyInterfaceControl(Menu.SettingsUI.HideWatermarkToggle, Interface.HideWatermark)
+        ApplyInterfaceControl(Menu.SettingsUI.WatermarkSizeSlider, Interface.WatermarkScale)
+        ApplyInterfaceControl(Menu.SettingsUI.HideKeybindsToggle, Interface.HideKeybinds)
+        ApplyInterfaceControl(Menu.SettingsUI.KeybindListSizeSlider, Interface.KeybindListScale)
+
+        if type(Interface.AccentHex) == "string" then
+            local ParsedAccent, ParsedAlpha = HexToColor(Interface.AccentHex)
+            if ParsedAccent then
+                SetPickerColor(ParsedAccent, Interface.AccentAlpha ~= nil and Interface.AccentAlpha or ParsedAlpha)
+                SavedPositions.AccentHex = Interface.AccentHex
+                SavedPositions.AccentAlpha = Interface.AccentAlpha ~= nil and Interface.AccentAlpha or ParsedAlpha
+            end
+        end
+
+        if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+            Menu.KeybindListController.MarkDirty()
         end
 
         local function RefreshLoadedUI()
@@ -15752,6 +15893,9 @@ local function BuildRuntime()
                 if Menu.ConfigsUI.RemoveIcon and Menu.ConfigsUI.RemoveIcon.Sync then Menu.ConfigsUI.RemoveIcon.Sync(Accent) end
             end
 
+            if Menu.EspPreviewController and Menu.EspPreviewController.RefreshFromFlags then
+                Menu.EspPreviewController.RefreshFromFlags()
+            end
             if Menu.KeybindListController and Menu.KeybindListController.Refresh then Menu.KeybindListController.Refresh() end
             if Menu.QuickPanelController and Menu.QuickPanelController.Refresh then Menu.QuickPanelController.Refresh() end
             if Menu.PlayerListController and Menu.PlayerListController.Refresh then Menu.PlayerListController:Refresh() end
@@ -15768,6 +15912,7 @@ local function BuildRuntime()
         end)
 
         Menu.ConfigApplying = false
+        SavePositions()
         return true
     end
 
