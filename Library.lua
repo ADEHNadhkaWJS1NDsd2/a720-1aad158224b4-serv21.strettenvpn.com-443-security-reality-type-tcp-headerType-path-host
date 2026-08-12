@@ -150,15 +150,15 @@ local function BuildRuntime()
 
     local DefaultAccent = Color3.fromRGB(205, 96, 70)
     local Accent = DefaultAccent
-    local Background = Color3.fromRGB(5, 8, 12)
-    local SidebarColor = Color3.fromRGB(7, 12, 17)
-    local Surface = Color3.fromRGB(10, 16, 22)
-    local SurfaceAlt = Color3.fromRGB(14, 22, 30)
-    local Border = Color3.fromRGB(29, 46, 58)
-    local PrimaryText = Color3.fromRGB(230, 237, 242)
-    local MutedText = Color3.fromRGB(138, 154, 165)
-    local DisabledText = Color3.fromRGB(76, 92, 102)
-    local Danger = Color3.fromRGB(194, 70, 88)
+    local Background = Color3.fromRGB(10, 10, 12)
+    local SidebarColor = Color3.fromRGB(14, 14, 17)
+    local Surface = Color3.fromRGB(18, 18, 21)
+    local SurfaceAlt = Color3.fromRGB(24, 24, 28)
+    local Border = Color3.fromRGB(56, 56, 63)
+    local PrimaryText = Color3.fromRGB(228, 228, 232)
+    local MutedText = Color3.fromRGB(156, 156, 164)
+    local DisabledText = Color3.fromRGB(88, 88, 96)
+    local Danger = Color3.fromRGB(202, 72, 78)
     local BaseScaleFactor = 1
     local AnimationFactor = 1
 
@@ -297,6 +297,34 @@ local function BuildRuntime()
             Menu.ChromeAccentTargets[Line] = true
         end
         return Line
+    end
+
+    local function AddPanelChrome(Parent, Radius, ZIndex)
+        if not Parent then return nil end
+        local Inner = Create("Frame", {
+            Parent = Parent,
+            Position = UDim2.fromOffset(1, 1),
+            Size = UDim2.new(1, -2, 1, -2),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Active = false,
+            ZIndex = ZIndex or ((Parent.ZIndex or 1) + 1)
+        })
+        Corner(Inner, math.max(0, (tonumber(Radius) or 3) - 1))
+        Stroke(Inner, Color3.fromRGB(78, 78, 86), 0.58, 1)
+        return Inner
+    end
+
+    local function AddPanelGradient(Parent, TopColor, BottomColor)
+        if not Parent then return nil end
+        return Create("UIGradient", {
+            Parent = Parent,
+            Rotation = 90,
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, TopColor or Color3.fromRGB(28, 28, 32)),
+                ColorSequenceKeypoint.new(1, BottomColor or Color3.fromRGB(16, 16, 19))
+            })
+        })
     end
 
     function Menu:AddSoftGlow(Target, ZIndex, Padding, Transparency, UseSlice)
@@ -839,13 +867,14 @@ local function BuildRuntime()
         Position = DecodePosition(SavedPositions.Main, UDim2.fromScale(0.5, 0.535)),
         Size = UDim2.fromOffset(744, 610),
         BackgroundColor3 = Background,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 0.02,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         ZIndex = 2
     })
     Corner(Main, 0)
-    Stroke(Main, Border, 0.08, 1)
+    Stroke(Main, Color3.fromRGB(2, 2, 3), 0, 1)
+    AddPanelChrome(Main, 0, 3)
 
     local MainScale = Create("UIScale", {
         Parent = Main,
@@ -856,7 +885,7 @@ local function BuildRuntime()
         Parent = Main,
         Size = UDim2.fromOffset(88, 610),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 0.02,
         BorderSizePixel = 0,
         ZIndex = 3
     })
@@ -867,7 +896,7 @@ local function BuildRuntime()
         Position = UDim2.new(1, -8, 0, 0),
         Size = UDim2.new(0, 8, 1, 0),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 0.02,
         BorderSizePixel = 0,
         ZIndex = 3
     })
@@ -939,23 +968,24 @@ local function BuildRuntime()
     Corner(Topbar, 0)
 
     local TopAccentLine = AddChromeLine(
-        Topbar,
-        UDim2.new(0, 0, 1, -2),
-        UDim2.new(1, 0, 0, 1),
+        Main,
+        UDim2.fromOffset(1, 1),
+        UDim2.new(1, -2, 0, 2),
         Accent,
-        0.08,
-        8,
+        0.04,
+        10,
         true
     )
     AddChromeLine(
         Topbar,
         UDim2.new(0, 0, 1, -1),
         UDim2.new(1, 0, 0, 1),
-        Border,
-        0.18,
+        Color3.fromRGB(4, 4, 5),
+        0.10,
         8,
         false
     )
+    AddPanelGradient(Topbar, Color3.fromRGB(23, 23, 27), Color3.fromRGB(14, 14, 17))
 
     Create("Frame", {
         Parent = Topbar,
@@ -1000,7 +1030,8 @@ local function BuildRuntime()
             TextSize = 12,
             ZIndex = 6
         })
-        Corner(Button, 6)
+        Corner(Button, 2)
+        Stroke(Button, Color3.fromRGB(58, 58, 65), 0.66, 1)
         Menu.ModeButtons[Name] = Button
         return Button
     end
@@ -1021,7 +1052,7 @@ local function BuildRuntime()
         Text = "",
         ZIndex = 6
     })
-    Corner(Menu.ConfigsUI.Button, 6)
+    Corner(Menu.ConfigsUI.Button, 2)
     Menu.ConfigsUI.ButtonStroke = Stroke(Menu.ConfigsUI.Button, Border, 0.36, 1)
 
     Menu.ConfigsUI.FolderTab = Create("Frame", {
@@ -1049,13 +1080,14 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(14, 78),
         Size = UDim2.fromOffset(568, 40),
-        BackgroundColor3 = Color3.fromRGB(9, 15, 20),
+        BackgroundColor3 = Color3.fromRGB(17, 17, 20),
         BackgroundTransparency = 0.05,
         BorderSizePixel = 0,
         ZIndex = 5
     })
-    Corner(SearchBar, 4)
-    Stroke(SearchBar, Color3.fromRGB(36, 57, 69), 0.18, 1)
+    Corner(SearchBar, 2)
+    Stroke(SearchBar, Color3.fromRGB(58, 58, 65), 0.34, 1)
+    AddPanelChrome(SearchBar, 2, 6)
 
     local SearchBox = Create("TextBox", {
         Parent = SearchBar,
@@ -1079,14 +1111,14 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(590, 78),
         Size = UDim2.fromOffset(44, 40),
-        BackgroundColor3 = Color3.fromRGB(8, 13, 18),
+        BackgroundColor3 = Color3.fromRGB(16, 16, 19),
         BackgroundTransparency = 0.12,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Text = "",
         ZIndex = 5
     })
-    Corner(SearchSettings, 5)
+    Corner(SearchSettings, 2)
     local SearchSettingsStroke = Stroke(SearchSettings, Border, 0.58, 1)
     local SearchSettingsIcon = Icon(SearchSettings, "Gear", UDim2.fromOffset(18, 18), UDim2.fromScale(0.5, 0.5), MutedText, 7)
     local SettingsToggleHitbox = Create("TextButton", {
@@ -1133,7 +1165,7 @@ local function BuildRuntime()
 
     Bind(SearchSettings.MouseEnter:Connect(function()
         if not SearchSettingsOpened then
-            Tween(SearchSettings, 0.12, {BackgroundColor3 = Color3.fromRGB(14, 24, 31)})
+            Tween(SearchSettings, 0.12, {BackgroundColor3 = Color3.fromRGB(27, 27, 31)})
             Tween(SearchSettingsStroke, 0.12, {Transparency = 0.25})
             Tween(SearchSettingsIcon, 0.12, {ImageColor3 = PrimaryText})
         end
@@ -1224,43 +1256,45 @@ local function BuildRuntime()
             Position = Position,
             Size = Size,
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.08,
+            BackgroundTransparency = 0.025,
             BorderSizePixel = 0,
             ZIndex = 5
         })
-        Corner(Root, 5)
-        Stroke(Root, Border, 0.32, 1)
+        Corner(Root, 3)
+        Stroke(Root, Color3.fromRGB(3, 3, 4), 0, 1)
+        AddPanelChrome(Root, 3, 6)
+
+        local Header = Create("Frame", {
+            Parent = Root,
+            Position = UDim2.fromOffset(2, 2),
+            Size = UDim2.new(1, -4, 0, 32),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.12,
+            BorderSizePixel = 0,
+            ZIndex = 6
+        })
+        Corner(Header, 2)
+        AddPanelGradient(Header, Color3.fromRGB(30, 30, 34), Color3.fromRGB(20, 20, 23))
 
         Create("TextLabel", {
             Parent = Root,
             Position = UDim2.fromOffset(12, 0),
-            Size = UDim2.new(1, -24, 0, 36),
+            Size = UDim2.new(1, -24, 0, 34),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = Title,
-            TextColor3 = MutedText,
-            TextSize = 12,
+            TextColor3 = PrimaryText,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 6
+            ZIndex = 8
         })
-
-        Create("Frame", {
-            Parent = Root,
-            Position = UDim2.fromOffset(10, 36),
-            Size = UDim2.new(1, -20, 0, 1),
-            BackgroundColor3 = Border,
-            BorderSizePixel = 0,
-            ZIndex = 6
-        })
-        AddChromeLine(Root, UDim2.fromOffset(10, 36), UDim2.fromOffset(46, 1), Accent, 0.08, 7, true)
-        AddChromeLine(Root, UDim2.fromOffset(1, 1), UDim2.new(1, -2, 0, 1), Border, 0.62, 6, false)
 
         local Body = Create("Frame", {
             Parent = Root,
-            Position = UDim2.fromOffset(10, 42),
-            Size = UDim2.new(1, -20, 1, -50),
+            Position = UDim2.fromOffset(10, 39),
+            Size = UDim2.new(1, -20, 1, -47),
             BackgroundTransparency = 1,
-            ZIndex = 6
+            ZIndex = 7
         })
 
         Create("UIListLayout", {
@@ -1586,7 +1620,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new((Default - Minimum) / (Maximum - Minimum), 0, 0.5, 0),
             Size = UDim2.fromOffset(6, 14),
-            BackgroundColor3 = Color3.fromRGB(214, 229, 237),
+            BackgroundColor3 = Color3.fromRGB(220, 220, 224),
             BorderSizePixel = 0,
             ZIndex = 10
         })
@@ -1815,7 +1849,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(MinimumAlpha, 0, 0.5, 0),
             Size = UDim2.fromOffset(6, 14),
-            BackgroundColor3 = Color3.fromRGB(214, 229, 237),
+            BackgroundColor3 = Color3.fromRGB(220, 220, 224),
             BorderSizePixel = 0,
             ZIndex = 10
         })
@@ -1826,7 +1860,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(MaximumAlpha, 0, 0.5, 0),
             Size = UDim2.fromOffset(6, 14),
-            BackgroundColor3 = Color3.fromRGB(214, 229, 237),
+            BackgroundColor3 = Color3.fromRGB(220, 220, 224),
             BorderSizePixel = 0,
             ZIndex = 10
         })
@@ -4358,7 +4392,7 @@ local function BuildRuntime()
                     IsSelected and 0.80 or 1,
                 BackgroundColor3 =
                     IsSelected
-                    and Color3.fromRGB(17, 28, 36)
+                    and Color3.fromRGB(29, 29, 34)
                     or SurfaceAlt
             })
 
@@ -4410,8 +4444,8 @@ local function BuildRuntime()
         RefreshLabel()
 
         Bind(Button.MouseEnter:Connect(function()
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
-            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(40, 64, 78)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(29, 29, 34)})
+            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(66, 66, 74)})
         end))
         Bind(Button.MouseLeave:Connect(function()
             if not IsOpened then
@@ -4472,7 +4506,7 @@ local function BuildRuntime()
             IsOpened = true
             ExpandIndicator:SetOpened(true)
             ButtonStroke.Color = Accent
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(29, 29, 34)})
 
             OptionStates = {}
             ActivePopupCleanup = function()
@@ -4520,7 +4554,7 @@ local function BuildRuntime()
 
                 Bind(Option.MouseEnter:Connect(function()
                     if not Selected[Key] then
-                        Tween(Option, 0.10, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+                        Tween(Option, 0.10, {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(29, 29, 34)})
                     end
                 end))
                 Bind(Option.MouseLeave:Connect(function()
@@ -4660,7 +4694,7 @@ local function BuildRuntime()
             State.Selected = Active
             Tween(State.Button, 0.10, {
                 BackgroundTransparency = Active and 0.80 or 1,
-                BackgroundColor3 = Active and Color3.fromRGB(17, 28, 36) or SurfaceAlt
+                BackgroundColor3 = Active and Color3.fromRGB(29, 29, 34) or SurfaceAlt
             })
             Tween(State.Label, 0.10, {TextColor3 = Active and PrimaryText or MutedText})
             State.Label.Font = Active and Enum.Font.BuilderSansBold or Enum.Font.BuilderSansMedium
@@ -4748,8 +4782,8 @@ local function BuildRuntime()
         end)
 
         Bind(Button.MouseEnter:Connect(function()
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
-            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(40, 64, 78)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(29, 29, 34)})
+            Tween(ButtonStroke, 0.12, {Color = IsOpened and Accent or Color3.fromRGB(66, 66, 74)})
         end))
 
         Bind(Button.MouseLeave:Connect(function()
@@ -4806,7 +4840,7 @@ local function BuildRuntime()
             IsOpened = true
             ExpandIndicator:SetOpened(true)
             ButtonStroke.Color = Accent
-            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+            Tween(Button, 0.12, {BackgroundColor3 = Color3.fromRGB(29, 29, 34)})
             OptionStates = {}
             ActivePopupCleanup = function()
                 IsOpened = false
@@ -4880,7 +4914,7 @@ local function BuildRuntime()
 
                 Bind(Option.MouseEnter:Connect(function()
                     if not Selected[CurrentBinding.Key] then
-                        Tween(Option, 0.10, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(17, 28, 36)})
+                        Tween(Option, 0.10, {BackgroundTransparency = 0.84, BackgroundColor3 = Color3.fromRGB(29, 29, 34)})
                     end
                 end))
                 Bind(Option.MouseLeave:Connect(function()
@@ -5082,15 +5116,26 @@ local function BuildRuntime()
         Position = DecodePosition(SavedPositions.Settings, Main.Position),
         Size = UDim2.fromOffset(500, 526),
         BackgroundColor3 = Surface,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 0.025,
         BorderSizePixel = 0,
         Visible = false,
         ZIndex = 30
     })
-    Corner(Menu.SettingsUI.SettingsPanel, 0)
-    Stroke(Menu.SettingsUI.SettingsPanel, Border, 0.12, 1)
-    AddChromeLine(Menu.SettingsUI.SettingsPanel, UDim2.fromOffset(1, 1), UDim2.new(1, -2, 0, 1), Accent, 0.10, 33, true)
-    AddChromeLine(Menu.SettingsUI.SettingsPanel, UDim2.fromOffset(1, 3), UDim2.new(1, -2, 0, 1), Border, 0.58, 31, false)
+    Corner(Menu.SettingsUI.SettingsPanel, 3)
+    Stroke(Menu.SettingsUI.SettingsPanel, Color3.fromRGB(3, 3, 4), 0, 1)
+    AddPanelChrome(Menu.SettingsUI.SettingsPanel, 3, 33)
+
+    Menu.SettingsUI.SettingsHeader = Create("Frame", {
+        Parent = Menu.SettingsUI.SettingsPanel,
+        Position = UDim2.fromOffset(2, 2),
+        Size = UDim2.new(1, -4, 0, 48),
+        BackgroundColor3 = SurfaceAlt,
+        BackgroundTransparency = 0.10,
+        BorderSizePixel = 0,
+        ZIndex = 31
+    })
+    Corner(Menu.SettingsUI.SettingsHeader, 2)
+    AddPanelGradient(Menu.SettingsUI.SettingsHeader, Color3.fromRGB(30, 30, 34), Color3.fromRGB(19, 19, 22))
 
     Menu.SettingsUI.SettingsPanelScale = Create("UIScale", {
         Parent = Menu.SettingsUI.SettingsPanel,
@@ -5106,14 +5151,15 @@ local function BuildRuntime()
 
     Create("TextLabel", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(0, 14),
-        Size = UDim2.new(1, 0, 0, 28),
+        Position = UDim2.fromOffset(16, 2),
+        Size = UDim2.fromOffset(180, 48),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSansMedium,
-        Text = "SETTINGS",
+        Text = "Settings",
         TextColor3 = PrimaryText,
-        TextSize = 19,
-        ZIndex = 31
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 34
     })
 
     do
@@ -5240,9 +5286,9 @@ local function BuildRuntime()
             Visible = false,
             ZIndex = 40
         })
-        Corner(S.Window, 5)
-        Stroke(S.Window, Border, 0.12, 1)
-        AddChromeLine(S.Window, UDim2.fromOffset(1, 1), UDim2.new(1, -2, 0, 1), Accent, 0.10, 43, true)
+        Corner(S.Window, 3)
+        Stroke(S.Window, Color3.fromRGB(3, 3, 4), 0, 1)
+        AddPanelChrome(S.Window, 3, 43)
 
         S.Header = Create("Frame", {
             Parent = S.Window,
@@ -5253,7 +5299,8 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 41
         })
-        Corner(S.Header, 5)
+        Corner(S.Header, 2)
+        AddPanelGradient(S.Header, Color3.fromRGB(30, 30, 34), Color3.fromRGB(19, 19, 22))
 
         Create("Frame", {
             Parent = S.Header,
@@ -5265,7 +5312,7 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 42
         })
-        AddChromeLine(S.Header, UDim2.new(0, 12, 1, -1), UDim2.fromOffset(52, 1), Accent, 0.08, 43, true)
+
 
         S.DragArea = Create("TextButton", {
             Parent = S.Header,
@@ -5545,7 +5592,7 @@ local function BuildRuntime()
             S.SelectedName = Name
             for RowName, Data in pairs(S.Rows) do
                 local Selected = RowName == Name
-                Data.Root.BackgroundColor3 = Selected and Color3.fromRGB(11, 22, 29) or SurfaceAlt
+                Data.Root.BackgroundColor3 = Selected and Color3.fromRGB(27, 27, 32) or SurfaceAlt
                 Data.Root.BackgroundTransparency = Selected and 0.10 or 0.48
                 Data.Name.TextColor3 = Selected and PrimaryText or MutedText
                 Data.Marker.BackgroundTransparency = Selected and 0 or 1
@@ -7222,7 +7269,7 @@ local function BuildRuntime()
         ZIndex = 34
     })
     Corner(Menu.SettingsUI.AccentPreviewButton, 100)
-    Menu.SettingsUI.AccentPreviewStroke = Stroke(Menu.SettingsUI.AccentPreviewButton, Color3.fromRGB(218, 232, 240), 0.16, 1)
+    Menu.SettingsUI.AccentPreviewStroke = Stroke(Menu.SettingsUI.AccentPreviewButton, Color3.fromRGB(224, 224, 228), 0.16, 1)
     Menu.SettingsUI.AccentPreviewGlow = Menu:AddSoftGlow(Menu.SettingsUI.AccentPreviewButton, 34, 8, 0.20, false)
 
     RegisterAccentTarget(function(NewColor)
@@ -8573,17 +8620,8 @@ local function BuildRuntime()
             Dragging = false,
             DragStart = nil,
             StartPosition = nil,
-            ElementDragging = nil,
-            ElementDragStart = nil,
-            ElementStartOffset = nil,
-            ElementGrabOffset = Vector2.zero,
-            ElementBases = {},
-            LayoutBases = {},
             BoxBounds = nil,
-            DraggableElements = {},
-            PreviewOrder = {},
-            DragLocalPosition = nil,
-            PendingPreviewZone = nil
+            PreviewOrder = {}
         }
 
         S.Window = Create("Frame", {
@@ -8598,9 +8636,9 @@ local function BuildRuntime()
             Visible = false,
             ZIndex = 20
         })
-        Corner(S.Window, 8)
-        Stroke(S.Window, Border, 0.04, 1)
-        AddChromeLine(S.Window, UDim2.fromOffset(1, 1), UDim2.new(1, -2, 0, 1), Accent, 0.10, 23, true)
+        Corner(S.Window, 4)
+        Stroke(S.Window, Color3.fromRGB(3, 3, 4), 0, 1)
+        AddPanelChrome(S.Window, 4, 23)
         S.Glow = Menu:AddSoftGlow(S.Window, 20, 11, 0.72, true)
 
         S.Scale = Create("UIScale", {
@@ -8617,7 +8655,8 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 21
         })
-        Corner(S.Header, 8)
+        Corner(S.Header, 3)
+        AddPanelGradient(S.Header, Color3.fromRGB(30, 30, 34), Color3.fromRGB(19, 19, 22))
 
         Create("Frame", {
             Parent = S.Header,
@@ -8629,7 +8668,7 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 22
         })
-        AddChromeLine(S.Header, UDim2.new(0, 16, 1, -1), UDim2.fromOffset(68, 1), Accent, 0.08, 23, true)
+
 
         Create("TextLabel", {
             Parent = S.Header,
@@ -8650,35 +8689,17 @@ local function BuildRuntime()
             Size = UDim2.fromOffset(280, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
-            Text = "Drag elements to reposition.",
+            Text = "Live preview of the current player ESP layout.",
             TextColor3 = MutedText,
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 22
         })
 
-        S.ResetLayoutButton = Create("TextButton", {
-            Parent = S.Header,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -132, 0.5, 0),
-            Size = UDim2.fromOffset(50, 24),
-            BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.18,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = "Reset",
-            TextColor3 = MutedText,
-            TextSize = 10,
-            ZIndex = 23
-        })
-        Corner(S.ResetLayoutButton, 5)
-        Stroke(S.ResetLayoutButton, Border, 0.18, 1)
-
         S.DetachButton = Create("TextButton", {
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -68, 0.5, 0),
+            Position = UDim2.new(1, -76, 0.5, 0),
             Size = UDim2.fromOffset(54, 24),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.18,
@@ -8690,13 +8711,13 @@ local function BuildRuntime()
             TextSize = 10,
             ZIndex = 23
         })
-        Corner(S.DetachButton, 5)
+        Corner(S.DetachButton, 2)
         Stroke(S.DetachButton, Border, 0.18, 1)
 
         S.CloseButton = Create("TextButton", {
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -14, 0.5, 0),
+            Position = UDim2.new(1, -16, 0.5, 0),
             Size = UDim2.fromOffset(46, 24),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.18,
@@ -8708,20 +8729,20 @@ local function BuildRuntime()
             TextSize = 10,
             ZIndex = 23
         })
-        Corner(S.CloseButton, 5)
+        Corner(S.CloseButton, 2)
         Stroke(S.CloseButton, Border, 0.18, 1)
 
         S.ModeRail = Create("Frame", {
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -252, 0.5, 0),
+            Position = UDim2.new(1, -220, 0.5, 0),
             Size = UDim2.fromOffset(132, 28),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.12,
             BorderSizePixel = 0,
             ZIndex = 22
         })
-        Corner(S.ModeRail, 6)
+        Corner(S.ModeRail, 3)
         Stroke(S.ModeRail, Border, 0.12, 1)
 
         S.ModeHighlight = Create("Frame", {
@@ -8733,7 +8754,7 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 23
         })
-        Corner(S.ModeHighlight, 5)
+        Corner(S.ModeHighlight, 2)
 
         S.TwoDButton = Create("TextButton", {
             Parent = S.ModeRail,
@@ -8876,7 +8897,7 @@ local function BuildRuntime()
             Parent = S.Overlay,
             Position = UDim2.fromScale(0.245, 0.10),
             Size = UDim2.fromScale(0.014, 0.80),
-            BackgroundColor3 = Color3.fromRGB(14, 24, 31),
+            BackgroundColor3 = Color3.fromRGB(27, 27, 31),
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
             Active = true,
@@ -9237,17 +9258,6 @@ local function BuildRuntime()
 
         local function SetElementPosition(Key, Object, Position)
             if not Object or not Object.Parent or typeof(Position) ~= "Vector2" then return end
-
-            S.LayoutBases[Key] = Position
-
-            if S.ElementDragging == Key and typeof(S.DragLocalPosition) == "Vector2" then
-                Object.Position = UDim2.fromOffset(
-                    math.floor(S.DragLocalPosition.X + 0.5),
-                    math.floor(S.DragLocalPosition.Y + 0.5)
-                )
-                return
-            end
-
             local Offset = GetPreviewOffset(Key)
             local FinalPosition = Position + Offset
             Object.Position = UDim2.fromOffset(
@@ -9342,77 +9352,6 @@ local function BuildRuntime()
             end
         end
 
-        local function GetPreviewSnapZone(Key, ScreenPosition)
-            local Bounds = S.BoxBounds
-            if type(Bounds) ~= "table" then return PreviewDefaultZones[Key] or "Bottom" end
-            local UiScale = math.max(0.01, tonumber(S.Scale.Scale) or 1)
-            local ScreenPoint = Vector2.new(ScreenPosition.X, ScreenPosition.Y)
-            local LocalPosition = (ScreenPoint - S.Body.AbsolutePosition) / UiScale
-            if Key == "HealthBar" or Key == "HealthValue" then
-                return LocalPosition.X >= Bounds.CenterX and "Right" or "Left"
-            end
-            local Distances = {
-                Top = math.abs(LocalPosition.Y - Bounds.MinY),
-                Bottom = math.abs(LocalPosition.Y - Bounds.MaxY),
-                Left = math.abs(LocalPosition.X - Bounds.MinX),
-                Right = math.abs(LocalPosition.X - Bounds.MaxX)
-            }
-            local BestZone, BestDistance = "Top", math.huge
-            for _, Zone in ipairs({"Top", "Bottom", "Left", "Right"}) do
-                if Distances[Zone] < BestDistance then
-                    BestZone = Zone
-                    BestDistance = Distances[Zone]
-                end
-            end
-            return BestZone
-        end
-
-        local function ReorderPreviewElement(Key, Zone, ScreenPosition)
-            if Key == "HealthBar" then return end
-            local Bounds = S.BoxBounds
-            if type(Bounds) ~= "table" then return end
-
-            local UiScale = math.max(0.01, tonumber(S.Scale.Scale) or 1)
-            local ScreenPoint = Vector2.new(ScreenPosition.X, ScreenPosition.Y)
-            local LocalPosition = (ScreenPoint - S.Body.AbsolutePosition) / UiScale
-            local Candidates = {}
-
-            for _, OtherKey in ipairs(PreviewStackOrder) do
-                if OtherKey ~= Key and IsPreviewElementEnabled(OtherKey) and GetPreviewZone(OtherKey) == Zone then
-                    Candidates[#Candidates + 1] = OtherKey
-                end
-            end
-
-            table.sort(Candidates, function(A, B)
-                return GetPreviewOrder(A) < GetPreviewOrder(B)
-            end)
-
-            local InsertIndex = #Candidates + 1
-            if Zone == "Top" then
-                local Depth = math.max(0, Bounds.MinY - LocalPosition.Y)
-                InsertIndex = math.clamp(math.floor((Depth + 9) / 18) + 1, 1, #Candidates + 1)
-            elseif Zone == "Bottom" then
-                local Depth = math.max(0, LocalPosition.Y - Bounds.MaxY)
-                InsertIndex = math.clamp(math.floor((Depth + 9) / 18) + 1, 1, #Candidates + 1)
-            else
-                local StartY = Bounds.MinY
-                local RelativeY = math.max(0, LocalPosition.Y - StartY)
-                InsertIndex = math.clamp(math.floor(RelativeY / 18) + 1, 1, #Candidates + 1)
-            end
-
-            table.insert(Candidates, InsertIndex, Key)
-            for Index, OrderedKey in ipairs(Candidates) do
-                S.PreviewOrder[OrderedKey] = Index
-            end
-            SavePreviewOrder()
-        end
-
-        local function ResetPreviewElement(Key)
-            if not PreviewElementFlags[Key] then return end
-            SetPreviewZone(Key, PreviewDefaultZones[Key])
-            SetPreviewOffset(Key, Vector2.zero)
-            ApplyPreviewElementLayout()
-        end
 
         local function ResetPreviewLayout()
             for Key in pairs(PreviewElementFlags) do
@@ -9441,40 +9380,19 @@ local function BuildRuntime()
             end
         end
 
-        local function IsPointInsideGui(Position, Object)
-            if not Object or not Object.Parent or not Object.Visible then
-                return false
-            end
-            local AbsolutePosition = Object.AbsolutePosition
-            local AbsoluteSize = Object.AbsoluteSize
-            return Position.X >= AbsolutePosition.X
-                and Position.X <= AbsolutePosition.X + AbsoluteSize.X
-                and Position.Y >= AbsolutePosition.Y
-                and Position.Y <= AbsolutePosition.Y + AbsoluteSize.Y
-        end
-
-        local function IsPointOverPreviewElement(Position)
-            for _, Object in pairs(S.DraggableElements) do
-                if IsPointInsideGui(Position, Object) then
-                    return true
-                end
-            end
-            return false
-        end
-
         local EditorElementData = {
             {Name = "Box", Flag = "Player ESP Boxes"},
             {Name = "Fill", Flag = "Player ESP Fill"},
-            {Name = "Name", Flag = "Player ESP Names", PreviewKey = "Name"},
+            {Name = "Name", Flag = "Player ESP Names"},
             {Name = "Avatar", Flag = "Player ESP Profile Picture"},
-            {Name = "Health Bar", Flag = "Player ESP Health Bar", PreviewKey = "HealthBar"},
-            {Name = "Health Text", Flag = "Player ESP Health Value", PreviewKey = "HealthValue"},
-            {Name = "Weapon", Flag = "Player ESP Weapon", PreviewKey = "Weapon"},
-            {Name = "Ammo", Flag = "Player ESP Ammo", PreviewKey = "Ammo"},
-            {Name = "Distance", Flag = "Player ESP Distance", PreviewKey = "Distance"},
-            {Name = "Level", Flag = "Player ESP Level", PreviewKey = "Level"},
-            {Name = "Forcefield", Flag = "Player ESP Forcefield", PreviewKey = "Forcefield"},
-            {Name = "Flags", Flag = "Player ESP Flags", PreviewKey = "Flags"},
+            {Name = "Health Bar", Flag = "Player ESP Health Bar"},
+            {Name = "Health Text", Flag = "Player ESP Health Value"},
+            {Name = "Weapon", Flag = "Player ESP Weapon"},
+            {Name = "Ammo", Flag = "Player ESP Ammo"},
+            {Name = "Distance", Flag = "Player ESP Distance"},
+            {Name = "Level", Flag = "Player ESP Level"},
+            {Name = "Forcefield", Flag = "Player ESP Forcefield"},
+            {Name = "Flags", Flag = "Player ESP Flags"},
             {Name = "Skeleton", Flag = "Player ESP Skeleton"},
             {Name = "View Direction", Flag = "Player ESP Look Line"},
             {Name = "Tracer", Flag = "Player ESP Tracers"},
@@ -9538,71 +9456,19 @@ local function BuildRuntime()
                     LayoutOrder = Index,
                     ZIndex = 22
                 })
-                Corner(Button, 6)
-                Stroke(Button, Border, 0.10, 1)
+                Corner(Button, 2)
+                Stroke(Button, Border, 0.24, 1)
                 S.ElementButtons[Data.Name] = Button
                 Bind(Button.MouseButton1Click:Connect(function()
                     ToggleEditorFlag(Data.Flag)
                     SetPreviewInspector(nil)
                 end))
-                Bind(Button.MouseButton2Click:Connect(function()
-                    if Data.PreviewKey then
-                        ResetPreviewElement(Data.PreviewKey)
-                    end
-                    SetPreviewInspector(nil)
-                end))
             end
         end
 
-        local function RegisterPreviewDraggable(Key, Object)
-            S.DraggableElements[Key] = Object
-            Object.Active = true
-
-            Bind(Object.InputBegan:Connect(function(Input)
-                if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    if not S.BoundsValid then
-                        return
-                    end
-                    S.ElementDragging = Key
-                    SetPreviewInspector((Key == "HealthBar" and "Health Bar") or (Key == "HealthValue" and "Health Text") or Key)
-                    S.ElementDragStart = Input.Position
-                    S.ElementStartOffset = GetPreviewOffset(Key)
-                    S.PendingPreviewZone = GetPreviewZone(Key)
-                    local UiScale = math.max(0.01, tonumber(S.Scale.Scale) or 1)
-                    local ScreenPoint = Vector2.new(Input.Position.X, Input.Position.Y)
-                    local LocalPosition = (ScreenPoint - S.Body.AbsolutePosition) / UiScale
-                    local CurrentPosition = Vector2.new(Object.Position.X.Offset, Object.Position.Y.Offset)
-                    S.ElementGrabOffset = LocalPosition - CurrentPosition
-                    S.DragLocalPosition = CurrentPosition
-                elseif Input.UserInputType == Enum.UserInputType.MouseButton2 then
-                    ResetPreviewElement(Key)
-                    SetPreviewInspector(nil)
-                end
-            end))
-
-            Bind(Object.MouseEnter:Connect(function()
-                if Object:IsA("TextLabel") then
-                    Object.TextTransparency = 0
-                end
-            end))
-        end
-
-        RegisterPreviewDraggable("HealthBar", S.HealthBack)
-        RegisterPreviewDraggable("HealthValue", S.HealthText)
-        RegisterPreviewDraggable("Name", S.Name)
-        RegisterPreviewDraggable("Weapon", S.Weapon)
-        RegisterPreviewDraggable("Distance", S.Distance)
-        RegisterPreviewDraggable("Level", S.Level)
-        RegisterPreviewDraggable("Ammo", S.Ammo)
-        RegisterPreviewDraggable("Forcefield", S.Forcefield)
-        RegisterPreviewDraggable("Flags", S.Flags)
         UpdateEditorElementButtons()
         SetPreviewInspector(nil)
 
-        Bind(S.ResetLayoutButton.MouseButton1Click:Connect(function()
-            ResetPreviewLayout()
-            SetPreviewInspector(nil)
-        end))
 
         local function SaveWindowPosition()
             SavedPositions.EspPreviewPosition = EncodePosition(S.Window.Position)
@@ -10233,27 +10099,6 @@ local function BuildRuntime()
                 CenterX = CenterX
             }
 
-            S.ElementBases.HealthBar = Vector2.new(
-                math.floor(MinX - SideGap),
-                math.floor(MinY + 0.5)
-            )
-            S.ElementBases.HealthValue = Vector2.new(
-                math.floor(MinX - SideGap - 42),
-                math.floor(MinY + Height * 0.46)
-            )
-            S.ElementBases.Name = Vector2.new(
-                math.floor(CenterX),
-                math.floor(MinY - NameGap)
-            )
-            local BottomKeys = {"Weapon", "Distance", "Level", "Ammo", "Forcefield", "Flags"}
-            local BottomStart = math.floor(MaxY + InfoGap - 7)
-            local BottomStep = 18
-            for Index, Key in ipairs(BottomKeys) do
-                S.ElementBases[Key] = Vector2.new(
-                    math.floor(CenterX),
-                    math.floor(BottomStart + (Index - 1) * BottomStep)
-                )
-            end
 
             S.BoundsValid = true
             ApplyPreviewElementLayout()
@@ -10430,18 +10275,6 @@ local function BuildRuntime()
             SavePreviewOrder()
         end
 
-        Bind(S.ResetLayoutButton.MouseEnter:Connect(function()
-            Tween(S.ResetLayoutButton, 0.12, {
-                BackgroundTransparency = 0.50,
-                TextColor3 = PrimaryText
-            })
-        end))
-        Bind(S.ResetLayoutButton.MouseLeave:Connect(function()
-            Tween(S.ResetLayoutButton, 0.12, {
-                BackgroundTransparency = 0.18,
-                TextColor3 = MutedText
-            })
-        end))
 
         Bind(S.DetachButton.MouseButton1Click:Connect(function()
             S.Detached = not S.Detached
@@ -10468,9 +10301,6 @@ local function BuildRuntime()
                 return
             end
             local Position = Input.Position
-            if S.ElementDragging or IsPointOverPreviewElement(Position) then
-                return
-            end
             local BodyPosition = S.Body.AbsolutePosition
             local BodySize = S.Body.AbsoluteSize
             if Position.X < BodyPosition.X or Position.X > BodyPosition.X + BodySize.X
@@ -10494,23 +10324,7 @@ local function BuildRuntime()
         end))
 
         Bind(UserInputService.InputChanged:Connect(function(Input)
-            if S.ElementDragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
-                local UiScale = math.max(0.01, tonumber(S.Scale.Scale) or 1)
-                local ScreenPoint = Vector2.new(Input.Position.X, Input.Position.Y)
-                local LocalPosition = (ScreenPoint - S.Body.AbsolutePosition) / UiScale
-                local BodySize = S.Body.AbsoluteSize / UiScale
-                local DragObject = S.DraggableElements[S.ElementDragging]
-                local HalfWidth = DragObject and math.max(DragObject.AbsoluteSize.X / UiScale, 8) * 0.5 or 8
-                local HalfHeight = DragObject and math.max(DragObject.AbsoluteSize.Y / UiScale, 8) * 0.5 or 8
-                local DesiredPosition = LocalPosition - (typeof(S.ElementGrabOffset) == "Vector2" and S.ElementGrabOffset or Vector2.zero)
-                S.DragLocalPosition = Vector2.new(
-                    math.clamp(DesiredPosition.X, HalfWidth + 4, math.max(HalfWidth + 4, BodySize.X - HalfWidth - 4)),
-                    math.clamp(DesiredPosition.Y, HalfHeight + 4, math.max(HalfHeight + 4, BodySize.Y - HalfHeight - 4))
-                )
-                S.PendingPreviewZone = GetPreviewSnapZone(S.ElementDragging, Input.Position)
-                SetPreviewInspector(((S.ElementDragging == "HealthBar" and "Health Bar") or (S.ElementDragging == "HealthValue" and "Health Text") or S.ElementDragging) .. "  •  " .. tostring(S.PendingPreviewZone))
-                ApplyPreviewElementLayout()
-            elseif S.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
+            if S.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
                 local Delta = Input.Position - S.DragStart
                 S.Window.Position = ClampWindow(UDim2.new(
                     S.StartPosition.X.Scale,
@@ -10526,31 +10340,6 @@ local function BuildRuntime()
         end))
 
         Bind(UserInputService.InputEnded:Connect(function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 and S.ElementDragging then
-                local DraggedKey = S.ElementDragging
-                local FinalPosition = typeof(S.DragLocalPosition) == "Vector2" and S.DragLocalPosition or nil
-                local FinalZone = S.PendingPreviewZone or GetPreviewZone(DraggedKey)
-
-                SetPreviewZone(DraggedKey, FinalZone)
-                ReorderPreviewElement(DraggedKey, FinalZone, Input.Position)
-
-                S.ElementDragging = nil
-                S.ElementDragStart = nil
-                S.ElementStartOffset = nil
-                S.ElementGrabOffset = Vector2.zero
-                S.DragLocalPosition = nil
-                S.PendingPreviewZone = nil
-
-                ApplyPreviewElementLayout()
-
-                local NewBase = S.LayoutBases[DraggedKey]
-                if FinalPosition and typeof(NewBase) == "Vector2" then
-                    SetPreviewOffset(DraggedKey, FinalPosition - NewBase)
-                end
-
-                ApplyPreviewElementLayout()
-                SetPreviewInspector(nil)
-            end
             if Input.UserInputType == Enum.UserInputType.MouseButton1 and S.Dragging then
                 S.Dragging = false
                 SaveWindowPosition()
@@ -10666,7 +10455,7 @@ local function BuildRuntime()
             local Selected = ButtonName == Name
             Tween(Data.Button, 0.16, {
                 BackgroundTransparency = Selected and 0.72 or 1,
-                BackgroundColor3 = Selected and Color3.fromRGB(25, 42, 52) or SidebarColor
+                BackgroundColor3 = Selected and Color3.fromRGB(29, 29, 34) or SidebarColor
             })
             if Data.Scale then
                 Tween(Data.Scale, 0.16, {Scale = Selected and 1.025 or 1})
@@ -10709,7 +10498,7 @@ local function BuildRuntime()
             if CurrentPage ~= Name then
                 Tween(Data.Button, 0.12, {
                     BackgroundTransparency = 0.5,
-                    BackgroundColor3 = Color3.fromRGB(18, 29, 37)
+                    BackgroundColor3 = Color3.fromRGB(26, 26, 30)
                 })
             end
         end))
@@ -12048,7 +11837,7 @@ local function BuildRuntime()
             ZIndex = 10
         })
         Corner(Button, 100)
-        local BorderStroke = Stroke(Button, Color3.fromRGB(218, 232, 240), 0.16, 1)
+        local BorderStroke = Stroke(Button, Color3.fromRGB(224, 224, 228), 0.16, 1)
         local Glow = Menu:AddSoftGlow(Button, 10, 8, 0.20, false)
         local Value = typeof(Default) == "Color3" and Default or Accent
         local Alpha = math.clamp(tonumber(ApiRead(Data, "Alpha", 1)) or 1, 0, 1)
@@ -12794,16 +12583,16 @@ local function BuildRuntime()
             Position = DecodePosition(SavedPositions.PlayerList, UDim2.fromScale(0.5, 0.53)),
             Size = UDim2.fromOffset(776, 506),
             BackgroundColor3 = Background,
-            BackgroundTransparency = 0.055,
+            BackgroundTransparency = 0.025,
             BorderSizePixel = 0,
             ClipsDescendants = false,
             Visible = State.Visible,
             ZIndex = 145
         })
-        Corner(Root, 7)
-        Stroke(Root, Border, 0.22, 1)
-        AddChromeLine(Root, UDim2.fromOffset(1, 1), UDim2.new(1, -2, 0, 1), Accent, 0.10, 149, true)
-        local RootGlow = Menu:AddSoftGlow(Root, 144, 12, 0.88, true)
+        Corner(Root, 3)
+        Stroke(Root, Color3.fromRGB(3, 3, 4), 0, 1)
+        AddPanelChrome(Root, 3, 149)
+        local RootGlow = Menu:AddSoftGlow(Root, 144, 8, 0.92, true)
 
         local RootScale = Create("UIScale", {
             Parent = Root,
@@ -12814,9 +12603,13 @@ local function BuildRuntime()
             Parent = Root,
             Active = true,
             Size = UDim2.new(1, 0, 0, 44),
-            BackgroundTransparency = 1,
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.10,
+            BorderSizePixel = 0,
             ZIndex = 146
         })
+        Corner(Header, 2)
+        AddPanelGradient(Header, Color3.fromRGB(30, 30, 34), Color3.fromRGB(19, 19, 22))
 
         Icon(
             Header,
@@ -12862,31 +12655,31 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 147
         })
-        AddChromeLine(Root, UDim2.fromOffset(12, 43), UDim2.fromOffset(72, 1), Accent, 0.08, 149, true)
+
 
         local LeftPanel = Create("Frame", {
             Parent = Root,
             Position = UDim2.fromOffset(12, 54),
             Size = UDim2.fromOffset(410, 438),
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.46,
+            BackgroundTransparency = 0.10,
             BorderSizePixel = 0,
             ZIndex = 146
         })
-        Corner(LeftPanel, 5)
-        Stroke(LeftPanel, Border, 0.48, 1)
+        Corner(LeftPanel, 2)
+        Stroke(LeftPanel, Border, 0.44, 1)
 
         local RightPanel = Create("Frame", {
             Parent = Root,
             Position = UDim2.fromOffset(432, 54),
             Size = UDim2.fromOffset(332, 438),
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.46,
+            BackgroundTransparency = 0.10,
             BorderSizePixel = 0,
             ZIndex = 146
         })
-        Corner(RightPanel, 5)
-        Stroke(RightPanel, Border, 0.48, 1)
+        Corner(RightPanel, 2)
+        Stroke(RightPanel, Border, 0.44, 1)
 
         local CountLabel = Create("TextLabel", {
             Parent = LeftPanel,
