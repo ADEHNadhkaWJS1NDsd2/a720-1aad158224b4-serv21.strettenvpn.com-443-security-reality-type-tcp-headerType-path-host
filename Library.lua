@@ -8520,7 +8520,8 @@ local function BuildRuntime()
             ElementStartOffset = nil,
             ElementBases = {},
             BoxBounds = nil,
-            DraggableElements = {}
+            DraggableElements = {},
+            PreviewOrder = {}
         }
 
         S.Window = Create("Frame", {
@@ -9047,7 +9048,7 @@ local function BuildRuntime()
             Size = UDim2.new(1, -28, 0, 16),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
-            Text = "Box",
+            Text = "",
             TextColor3 = PrimaryText,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -9112,6 +9113,20 @@ local function BuildRuntime()
             "Flags",
             "HealthValue"
         }
+
+        for Index, Key in ipairs(PreviewStackOrder) do
+            S.PreviewOrder[Key] = tonumber(Menu.Flags["Player ESP " .. Key .. " Order"]) or Index
+        end
+
+        local function GetPreviewOrder(Key)
+            return tonumber(S.PreviewOrder[Key]) or 999
+        end
+
+        local function SavePreviewOrder()
+            for Key, Value in pairs(S.PreviewOrder) do
+                Menu.Flags["Player ESP " .. Key .. " Order"] = Value
+            end
+        end
 
         local function GetPreviewOffset(Key)
             local Value = Menu.Flags[PreviewElementFlags[Key]]
@@ -9182,6 +9197,17 @@ local function BuildRuntime()
                 end
             end
 
+            for _, List in pairs(ZoneLists) do
+                table.sort(List, function(A, B)
+                    local AOrder = GetPreviewOrder(A)
+                    local BOrder = GetPreviewOrder(B)
+                    if AOrder == BOrder then
+                        return tostring(A) < tostring(B)
+                    end
+                    return AOrder < BOrder
+                end)
+            end
+
             local HealthBarZone = GetPreviewZone("HealthBar")
             S.HealthBack.AnchorPoint = Vector2.zero
             SetElementPosition(
@@ -9236,7 +9262,8 @@ local function BuildRuntime()
             local Bounds = S.BoxBounds
             if type(Bounds) ~= "table" then return PreviewDefaultZones[Key] or "Bottom" end
             local UiScale = math.max(0.01, tonumber(S.Scale.Scale) or 1)
-            local LocalPosition = (ScreenPosition - S.Body.AbsolutePosition) / UiScale
+            local ScreenPoint = Vector2.new(ScreenPosition.X, ScreenPosition.Y)
+            local LocalPosition = (ScreenPoint - S.Body.AbsolutePosition) / UiScale
             if Key == "HealthBar" or Key == "HealthValue" then
                 return LocalPosition.X >= Bounds.CenterX and "Right" or "Left"
             end
@@ -9256,6 +9283,46 @@ local function BuildRuntime()
             return BestZone
         end
 
+        local function ReorderPreviewElement(Key, Zone, ScreenPosition)
+            if Key == "HealthBar" then return end
+            local Bounds = S.BoxBounds
+            if type(Bounds) ~= "table" then return end
+
+            local UiScale = math.max(0.01, tonumber(S.Scale.Scale) or 1)
+            local ScreenPoint = Vector2.new(ScreenPosition.X, ScreenPosition.Y)
+            local LocalPosition = (ScreenPoint - S.Body.AbsolutePosition) / UiScale
+            local Candidates = {}
+
+            for _, OtherKey in ipairs(PreviewStackOrder) do
+                if OtherKey ~= Key and IsPreviewElementEnabled(OtherKey) and GetPreviewZone(OtherKey) == Zone then
+                    Candidates[#Candidates + 1] = OtherKey
+                end
+            end
+
+            table.sort(Candidates, function(A, B)
+                return GetPreviewOrder(A) < GetPreviewOrder(B)
+            end)
+
+            local InsertIndex = #Candidates + 1
+            if Zone == "Top" then
+                local Depth = math.max(0, Bounds.MinY - LocalPosition.Y)
+                InsertIndex = math.clamp(math.floor((Depth + 9) / 18) + 1, 1, #Candidates + 1)
+            elseif Zone == "Bottom" then
+                local Depth = math.max(0, LocalPosition.Y - Bounds.MaxY)
+                InsertIndex = math.clamp(math.floor((Depth + 9) / 18) + 1, 1, #Candidates + 1)
+            else
+                local StartY = Bounds.MinY
+                local RelativeY = math.max(0, LocalPosition.Y - StartY)
+                InsertIndex = math.clamp(math.floor(RelativeY / 18) + 1, 1, #Candidates + 1)
+            end
+
+            table.insert(Candidates, InsertIndex, Key)
+            for Index, OrderedKey in ipairs(Candidates) do
+                S.PreviewOrder[OrderedKey] = Index
+            end
+            SavePreviewOrder()
+        end
+
         local function ResetPreviewElement(Key)
             if not PreviewElementFlags[Key] then return end
             SetPreviewZone(Key, PreviewDefaultZones[Key])
@@ -9268,6 +9335,10 @@ local function BuildRuntime()
                 SetPreviewZone(Key, PreviewDefaultZones[Key])
                 SetPreviewOffset(Key, Vector2.zero)
             end
+            for Index, Key in ipairs(PreviewStackOrder) do
+                S.PreviewOrder[Key] = Index
+            end
+            SavePreviewOrder()
             ApplyPreviewElementLayout()
         end
 
@@ -9316,7 +9387,7 @@ local function BuildRuntime()
 
         local function SetPreviewInspector(Name)
             if S.InspectorText then
-                S.InspectorText.Text = Name or "Box"
+                S.InspectorText.Text = type(Name) == "string" and Name or ""
             end
         end
 
@@ -9372,14 +9443,14 @@ local function BuildRuntime()
                 Stroke(Button, Border, 0.10, 1)
                 S.ElementButtons[Data.Name] = Button
                 Bind(Button.MouseButton1Click:Connect(function()
-                    SetPreviewInspector(Data.Name)
                     ToggleEditorFlag(Data.Flag)
+                    SetPreviewInspector(nil)
                 end))
                 Bind(Button.MouseButton2Click:Connect(function()
                     if Data.PreviewKey then
                         ResetPreviewElement(Data.PreviewKey)
-                        SetPreviewInspector(Data.Name)
                     end
+                    SetPreviewInspector(nil)
                 end))
             end
         end
@@ -9399,6 +9470,7 @@ local function BuildRuntime()
                     S.ElementStartOffset = nil
                 elseif Input.UserInputType == Enum.UserInputType.MouseButton2 then
                     ResetPreviewElement(Key)
+                    SetPreviewInspector(nil)
                 end
             end))
 
@@ -9419,10 +9491,11 @@ local function BuildRuntime()
         RegisterPreviewDraggable("Forcefield", S.Forcefield)
         RegisterPreviewDraggable("Flags", S.Flags)
         UpdateEditorElementButtons()
+        SetPreviewInspector(nil)
 
         Bind(S.ResetLayoutButton.MouseButton1Click:Connect(function()
             ResetPreviewLayout()
-            SetPreviewInspector("Box")
+            SetPreviewInspector(nil)
         end))
 
         local function SaveWindowPosition()
@@ -10289,10 +10362,9 @@ local function BuildRuntime()
         Bind(UserInputService.InputChanged:Connect(function(Input)
             if S.ElementDragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
                 local Zone = GetPreviewSnapZone(S.ElementDragging, Input.Position)
-                if Zone ~= GetPreviewZone(S.ElementDragging) then
-                    SetPreviewZone(S.ElementDragging, Zone)
-                    ApplyPreviewElementLayout()
-                end
+                SetPreviewZone(S.ElementDragging, Zone)
+                ReorderPreviewElement(S.ElementDragging, Zone, Input.Position)
+                ApplyPreviewElementLayout()
             elseif S.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
                 local Delta = Input.Position - S.DragStart
                 S.Window.Position = ClampWindow(UDim2.new(
@@ -10313,6 +10385,7 @@ local function BuildRuntime()
                 S.ElementDragging = nil
                 S.ElementDragStart = nil
                 S.ElementStartOffset = nil
+                SetPreviewInspector(nil)
             end
             if Input.UserInputType == Enum.UserInputType.MouseButton1 and S.Dragging then
                 S.Dragging = false
