@@ -151,7 +151,7 @@ local function BuildRuntime()
         Boxes = 17
     }
 
-    local DefaultAccent = Color3.fromRGB(205, 96, 70)
+    local DefaultAccent = Color3.fromRGB(86, 66, 235)
     local Accent = DefaultAccent
     local Background = Color3.fromRGB(10, 10, 12)
     local SidebarColor = Color3.fromRGB(14, 14, 17)
@@ -672,7 +672,7 @@ local function BuildRuntime()
 
     LoadPositions()
 
-    local PaletteVersion = 5
+    local PaletteVersion = 6
     local DefaultThemeColors = {}
     local LegacyThemeColors = {
         ["#469ACD"] = true,
@@ -682,7 +682,7 @@ local function BuildRuntime()
     local PaletteMigrated = tonumber(SavedPositions.PaletteVersion) ~= PaletteVersion
     if PaletteMigrated then
         SavedPositions.PaletteVersion = PaletteVersion
-        SavedPositions.AccentHex = "#FFA080"
+        SavedPositions.AccentHex = "#5642EB"
         SavedPositions.AccentAlpha = 1
     end
 
@@ -8964,6 +8964,7 @@ local function BuildRuntime()
             Text = string.upper(LocalPlayer and LocalPlayer.Name or "PLAYER"),
             TextColor3 = PrimaryText,
             TextSize = 12,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
             Visible = false,
@@ -8980,6 +8981,7 @@ local function BuildRuntime()
             Text = "NONE",
             TextColor3 = MutedText,
             TextSize = 11,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
             Visible = false,
@@ -8996,6 +8998,7 @@ local function BuildRuntime()
             Text = "0m",
             TextColor3 = MutedText,
             TextSize = 10,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
             Visible = false,
@@ -9012,6 +9015,7 @@ local function BuildRuntime()
             Text = "Level 55",
             TextColor3 = MutedText,
             TextSize = 10,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
             Visible = false,
@@ -9028,6 +9032,7 @@ local function BuildRuntime()
             Text = "16/42",
             TextColor3 = MutedText,
             TextSize = 10,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
             Visible = false,
@@ -9044,6 +9049,7 @@ local function BuildRuntime()
             Text = "[Protected]",
             TextColor3 = Accent,
             TextSize = 10,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
             Visible = false,
@@ -9060,6 +9066,7 @@ local function BuildRuntime()
             Text = "Flagged",
             TextColor3 = MutedText,
             TextSize = 10,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             TextXAlignment = Enum.TextXAlignment.Center,
             Active = true,
             Visible = false,
@@ -9119,12 +9126,11 @@ local function BuildRuntime()
         S.ElementButtonHolder = Create("ScrollingFrame", {
             Parent = S.SidePanel,
             Position = UDim2.fromOffset(14, 38),
-            Size = UDim2.new(1, -28, 0, 278),
+            Size = UDim2.new(1, -28, 0, 312),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             CanvasSize = UDim2.fromOffset(0, 0),
-            AutomaticCanvasSize = Enum.AutomaticSize.Y,
-            ScrollBarThickness = 2,
+            ScrollBarThickness = 4,
             ScrollBarImageColor3 = MutedText,
             ScrollBarImageTransparency = 0.55,
             ScrollingDirection = Enum.ScrollingDirection.Y,
@@ -9147,7 +9153,7 @@ local function BuildRuntime()
 
         Create("TextLabel", {
             Parent = S.SidePanel,
-            Position = UDim2.fromOffset(14, 330),
+            Position = UDim2.fromOffset(14, 364),
             Size = UDim2.fromOffset(160, 16),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
@@ -9160,7 +9166,7 @@ local function BuildRuntime()
 
         S.InspectorText = Create("TextLabel", {
             Parent = S.SidePanel,
-            Position = UDim2.fromOffset(14, 352),
+            Position = UDim2.fromOffset(14, 386),
             Size = UDim2.new(1, -28, 0, 16),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
@@ -9344,42 +9350,85 @@ local function BuildRuntime()
                 Flags = S.Flags
             }
 
+            local function GetObjectHeight(Object)
+                if not Object then return 18 end
+                local ScaleValue = math.max(0.01, tonumber(S.Scale.Scale) or 1)
+                local Height = Object.AbsoluteSize.Y / ScaleValue
+                if Height < 1 then
+                    Height = Object.Size.Y.Offset
+                end
+                return math.max(16, math.floor(math.max(Height, Object.Size.Y.Offset) + 0.5))
+            end
+
+            local function BuildStackHeights(List)
+                local Heights = {}
+                local Total = 0
+                for Index, Key in ipairs(List) do
+                    local Height = GetObjectHeight(Objects[Key])
+                    Heights[Index] = Height
+                    Total += Height
+                end
+                if #List > 1 then
+                    Total += (#List - 1) * 4
+                end
+                return Heights, Total
+            end
+
             local LocalBodySize = S.Body.AbsoluteSize / math.max(0.01, tonumber(S.Scale.Scale) or 1)
-            for Index, Key in ipairs(ZoneLists.Top) do
-                local Object = Objects[Key]
-                Object.AnchorPoint = Vector2.new(0.5, 1)
-                local Y = math.max(20, MinY - 6 - ((Index - 1) * 18))
-                SetElementPosition(Key, Object, Vector2.new(math.clamp(CenterX, 48, LocalBodySize.X - 48), Y))
+            local ClampedCenterX = math.clamp(CenterX, 54, LocalBodySize.X - 54)
+
+            do
+                local Heights = BuildStackHeights(ZoneLists.Top)
+                local CurrentY = MinY - 8
+                for Index, Key in ipairs(ZoneLists.Top) do
+                    local Object = Objects[Key]
+                    Object.AnchorPoint = Vector2.new(0.5, 1)
+                    SetElementPosition(Key, Object, Vector2.new(ClampedCenterX, math.max(24, CurrentY)))
+                    CurrentY -= Heights[Index] + 4
+                end
             end
 
-            for Index, Key in ipairs(ZoneLists.Bottom) do
-                local Object = Objects[Key]
-                Object.AnchorPoint = Vector2.new(0.5, 0)
-                local Y = math.min(LocalBodySize.Y - 20, MaxY + 6 + ((Index - 1) * 18))
-                SetElementPosition(Key, Object, Vector2.new(math.clamp(CenterX, 48, LocalBodySize.X - 48), Y))
+            do
+                local Heights = BuildStackHeights(ZoneLists.Bottom)
+                local CurrentY = MaxY + 8
+                for Index, Key in ipairs(ZoneLists.Bottom) do
+                    local Object = Objects[Key]
+                    Object.AnchorPoint = Vector2.new(0.5, 0)
+                    SetElementPosition(Key, Object, Vector2.new(ClampedCenterX, math.min(LocalBodySize.Y - 24, CurrentY)))
+                    CurrentY += Heights[Index] + 4
+                end
             end
 
-            local LocalBodySize = S.Body.AbsoluteSize / math.max(0.01, tonumber(S.Scale.Scale) or 1)
-            local LeftCount = #ZoneLists.Left
-            for Index, Key in ipairs(ZoneLists.Left) do
-                local Object = Objects[Key]
-                Object.AnchorPoint = Vector2.new(1, 0.5)
-                local Y = CenterY + ((Index - ((LeftCount + 1) * 0.5)) * 18)
-                local Extra = HealthBarZone == "Left" and 8 or 0
-                local ObjectWidth = math.max(Object.AbsoluteSize.X / math.max(0.01, tonumber(S.Scale.Scale) or 1), Object.Size.X.Offset, 40)
-                local X = math.max(MinX - 10 - Extra, ObjectWidth + 6)
-                SetElementPosition(Key, Object, Vector2.new(X, math.clamp(Y, 12, LocalBodySize.Y - 12)))
+            do
+                local Heights, TotalHeight = BuildStackHeights(ZoneLists.Left)
+                local CursorY = CenterY - (TotalHeight * 0.5)
+                for Index, Key in ipairs(ZoneLists.Left) do
+                    local Object = Objects[Key]
+                    local Height = Heights[Index]
+                    Object.AnchorPoint = Vector2.new(1, 0.5)
+                    local Y = CursorY + (Height * 0.5)
+                    local Extra = HealthBarZone == "Left" and 8 or 0
+                    local ObjectWidth = math.max(Object.AbsoluteSize.X / math.max(0.01, tonumber(S.Scale.Scale) or 1), Object.Size.X.Offset, 40)
+                    local X = math.max(MinX - 10 - Extra, ObjectWidth + 6)
+                    SetElementPosition(Key, Object, Vector2.new(X, math.clamp(Y, 14, LocalBodySize.Y - 14)))
+                    CursorY += Height + 4
+                end
             end
 
-            local RightCount = #ZoneLists.Right
-            for Index, Key in ipairs(ZoneLists.Right) do
-                local Object = Objects[Key]
-                Object.AnchorPoint = Vector2.new(0, 0.5)
-                local Y = CenterY + ((Index - ((RightCount + 1) * 0.5)) * 18)
-                local Extra = HealthBarZone == "Right" and 8 or 0
-                local ObjectWidth = math.max(Object.AbsoluteSize.X / math.max(0.01, tonumber(S.Scale.Scale) or 1), Object.Size.X.Offset, 40)
-                local X = math.min(MaxX + 10 + Extra, LocalBodySize.X - ObjectWidth - 6)
-                SetElementPosition(Key, Object, Vector2.new(X, math.clamp(Y, 12, LocalBodySize.Y - 12)))
+            do
+                local Heights, TotalHeight = BuildStackHeights(ZoneLists.Right)
+                local CursorY = CenterY - (TotalHeight * 0.5)
+                for Index, Key in ipairs(ZoneLists.Right) do
+                    local Object = Objects[Key]
+                    local Height = Heights[Index]
+                    Object.AnchorPoint = Vector2.new(0, 0.5)
+                    local Y = CursorY + (Height * 0.5)
+                    local Extra = HealthBarZone == "Right" and 8 or 0
+                    local ObjectWidth = math.max(Object.AbsoluteSize.X / math.max(0.01, tonumber(S.Scale.Scale) or 1), Object.Size.X.Offset, 40)
+                    local X = math.min(MaxX + 10 + Extra, LocalBodySize.X - ObjectWidth - 6)
+                    SetElementPosition(Key, Object, Vector2.new(X, math.clamp(Y, 14, LocalBodySize.Y - 14)))
+                    CursorY += Height + 4
+                end
             end
         end
 
@@ -9462,7 +9511,14 @@ local function BuildRuntime()
         end
 
         do
-            Create("UIGridLayout", {
+            Create("UIPadding", {
+                Parent = S.ElementButtonHolder,
+                PaddingTop = UDim.new(0, 2),
+                PaddingBottom = UDim.new(0, 2),
+                PaddingRight = UDim.new(0, 2)
+            })
+
+            local ElementGridLayout = Create("UIGridLayout", {
                 Parent = S.ElementButtonHolder,
                 CellSize = UDim2.new(0.5, -5, 0, 28),
                 CellPadding = UDim2.fromOffset(8, 8),
@@ -9471,6 +9527,20 @@ local function BuildRuntime()
                 VerticalAlignment = Enum.VerticalAlignment.Top,
                 SortOrder = Enum.SortOrder.LayoutOrder
             })
+            S.ElementGridLayout = ElementGridLayout
+
+            local function UpdateElementButtonCanvas()
+                local ContentHeight = ElementGridLayout.AbsoluteContentSize.Y + 4
+                S.ElementButtonHolder.CanvasSize = UDim2.fromOffset(0, math.max(ContentHeight, S.ElementButtonHolder.AbsoluteSize.Y))
+                local MaxCanvasY = math.max(0, ContentHeight - S.ElementButtonHolder.AbsoluteSize.Y)
+                if S.ElementButtonHolder.CanvasPosition.Y > MaxCanvasY then
+                    S.ElementButtonHolder.CanvasPosition = Vector2.new(0, MaxCanvasY)
+                end
+            end
+
+            Bind(ElementGridLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateElementButtonCanvas))
+            Bind(S.ElementButtonHolder:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateElementButtonCanvas))
+            task.defer(UpdateElementButtonCanvas)
 
             for Index, Data in ipairs(EditorElementData) do
                 local Button = Create("TextButton", {
@@ -10013,10 +10083,10 @@ local function BuildRuntime()
                     elseif Zone == "Right" then RightCount += 1 end
                 end
             end
-            local TopReserve = math.max(38, 14 + TopCount * 18)
-            local BottomReserve = math.max(42, 14 + BottomCount * 18)
-            local LeftReserve = LeftCount > 0 and 86 or 20
-            local RightReserve = RightCount > 0 and 86 or 20
+            local TopReserve = math.max(44, 18 + TopCount * 22)
+            local BottomReserve = math.max(48, 18 + BottomCount * 22)
+            local LeftReserve = LeftCount > 0 and 92 or 20
+            local RightReserve = RightCount > 0 and 92 or 20
             if GetPreviewZone("HealthBar") == "Left" then LeftReserve = math.max(LeftReserve, 28) end
             if GetPreviewZone("HealthBar") == "Right" then RightReserve = math.max(RightReserve, 28) end
             MinX = math.clamp(MinX - PaddingX, LeftReserve, LocalViewSize.X - RightReserve - 56)
