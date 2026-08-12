@@ -12581,14 +12581,17 @@ local function BuildRuntime()
             None = {
                 Text = Color3.fromRGB(122, 137, 144)
             },
-            Priority = {
-                Text = Color3.fromRGB(190, 163, 111)
-            },
             Whitelist = {
-                Text = Color3.fromRGB(128, 181, 150)
+                Text = Color3.fromRGB(93, 201, 132)
+            },
+            Priority = {
+                Text = Color3.fromRGB(218, 185, 86)
             },
             Enemy = {
-                Text = Color3.fromRGB(194, 126, 132)
+                Text = Color3.fromRGB(224, 92, 102)
+            },
+            Friend = {
+                Text = Color3.fromRGB(89, 153, 224)
             }
         }
 
@@ -13107,6 +13110,122 @@ local function BuildRuntime()
 
         local RefreshRows
         local RefreshSelected
+        local FriendCache = {}
+        local FriendPending = {}
+
+        local function QueueFriendCheck(Player)
+            if not Player or Player == LocalPlayer then
+                return
+            end
+
+            local UserId = tonumber(Player.UserId) or 0
+            if UserId <= 0 or FriendCache[UserId] ~= nil or FriendPending[UserId] then
+                return
+            end
+
+            FriendPending[UserId] = true
+
+            task.spawn(function()
+                local IsFriend = false
+                local Success, Result = Library.Call(
+                    LocalPlayer.IsFriendsWith,
+                    LocalPlayer,
+                    UserId
+                )
+
+                if Success then
+                    IsFriend = Result == true
+                end
+
+                FriendPending[UserId] = nil
+                FriendCache[UserId] = IsFriend
+
+                if Player.Parent == Players then
+                    if RefreshRows then
+                        RefreshRows()
+                    end
+                    if State.Selected == Player and RefreshSelected then
+                        RefreshSelected(false)
+                    end
+                end
+            end)
+        end
+
+        local function IsCachedFriend(Player)
+            if not Player or Player == LocalPlayer then
+                return false
+            end
+
+            local UserId = tonumber(Player.UserId) or 0
+            if FriendCache[UserId] == nil then
+                QueueFriendCheck(Player)
+                return false
+            end
+
+            return FriendCache[UserId] == true
+        end
+
+        local function GetPlayerPresentation(Player)
+            local Status = GetStatus(Player)
+
+            if Status == "Client" then
+                return {
+                    Status = Status,
+                    Label = "Client",
+                    Rank = 0,
+                    Style = GetStatusStyle("Client"),
+                    Highlight = true
+                }
+            end
+
+            if Status == "Whitelist" then
+                return {
+                    Status = Status,
+                    Label = "Whitelist",
+                    Rank = 1,
+                    Style = GetStatusStyle("Whitelist"),
+                    Highlight = true
+                }
+            end
+
+            if Status == "Priority" then
+                return {
+                    Status = Status,
+                    Label = "Priority",
+                    Rank = 2,
+                    Style = GetStatusStyle("Priority"),
+                    Highlight = true
+                }
+            end
+
+            if Status == "Enemy" then
+                return {
+                    Status = Status,
+                    Label = "Enemy",
+                    Rank = 3,
+                    Style = GetStatusStyle("Enemy"),
+                    Highlight = true
+                }
+            end
+
+            if IsCachedFriend(Player) then
+                return {
+                    Status = "None",
+                    Label = "Friend",
+                    Rank = 4,
+                    Style = GetStatusStyle("Friend"),
+                    Highlight = true
+                }
+            end
+
+            return {
+                Status = "None",
+                Label = "None",
+                Rank = 5,
+                Style = GetStatusStyle("None"),
+                Highlight = false
+            }
+        end
 
         local function SetStatus(Player, Status, Silent)
             if not Player or Player == LocalPlayer then
@@ -13137,6 +13256,7 @@ local function BuildRuntime()
 
             for Name, Visual in pairs(StatusOptionVisuals) do
                 local Active = Name == Status
+                    or (Status == "Friend" and Name == "None")
 
                 Visual.Text.TextColor3 =
                     Active
@@ -13362,8 +13482,13 @@ local function BuildRuntime()
                 return
             end
 
+            local Presentation = GetPlayerPresentation(Player)
+
             PlayerName.Text =
                 tostring(Player.DisplayName or Player.Name)
+            PlayerName.TextColor3 = Presentation.Highlight
+                and Presentation.Style.Text
+                or PrimaryText
 
             if Player.DisplayName ~= Player.Name then
                 PlayerInfo.Text =
@@ -13376,8 +13501,7 @@ local function BuildRuntime()
                     tostring(Player.UserId)
             end
 
-            local Status = GetStatus(Player)
-            UpdateStatusVisual(Status)
+            UpdateStatusVisual(Presentation.Label)
 
             StatusButton.Active =
                 Player ~= LocalPlayer
@@ -13402,6 +13526,8 @@ local function BuildRuntime()
         local function CreateRow(Player, Index)
             local Selected =
                 State.Selected == Player
+            local Presentation = GetPlayerPresentation(Player)
+            local Style = Presentation.Style
 
             local Row = Create("TextButton", {
                 Parent = Scroll,
@@ -13459,17 +13585,14 @@ local function BuildRuntime()
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSansMedium,
                 Text = tostring(Player.DisplayName or Player.Name),
-                TextColor3 = Selected
-                    and PrimaryText
-                    or Color3.fromRGB(190, 200, 205),
+                TextColor3 = Presentation.Highlight
+                    and Style.Text
+                    or (Selected and PrimaryText or Color3.fromRGB(190, 200, 205)),
                 TextSize = 9,
                 TextTruncate = Enum.TextTruncate.AtEnd,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 ZIndex = 151
             })
-
-            local Status = GetStatus(Player)
-            local Style = GetStatusStyle(Status)
 
             Create("TextLabel", {
                 Parent = Row,
@@ -13478,7 +13601,7 @@ local function BuildRuntime()
                 Size = UDim2.fromOffset(70, 16),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSansMedium,
-                Text = Status,
+                Text = Presentation.Label,
                 TextColor3 = Style.Text,
                 TextSize = 8,
                 TextXAlignment = Enum.TextXAlignment.Right,
@@ -13522,9 +13645,25 @@ local function BuildRuntime()
                 )
 
             local List = Players:GetPlayers()
+
+            for _, Player in ipairs(List) do
+                QueueFriendCheck(Player)
+            end
+
             table.sort(List, function(A, B)
-                if A == LocalPlayer then return true end
-                if B == LocalPlayer then return false end
+                local APresentation = GetPlayerPresentation(A)
+                local BPresentation = GetPlayerPresentation(B)
+
+                if APresentation.Rank ~= BPresentation.Rank then
+                    return APresentation.Rank < BPresentation.Rank
+                end
+
+                local ADisplay = string.lower(tostring(A.DisplayName or A.Name))
+                local BDisplay = string.lower(tostring(B.DisplayName or B.Name))
+                if ADisplay ~= BDisplay then
+                    return ADisplay < BDisplay
+                end
+
                 return string.lower(A.Name) < string.lower(B.Name)
             end)
 
@@ -13598,9 +13737,10 @@ local function BuildRuntime()
         end))
 
         Bind(Players.PlayerRemoving:Connect(function(Player)
-            Menu.PlayerStatuses[
-                tonumber(Player.UserId) or 0
-            ] = nil
+            local UserId = tonumber(Player.UserId) or 0
+            Menu.PlayerStatuses[UserId] = nil
+            FriendCache[UserId] = nil
+            FriendPending[UserId] = nil
 
             if State.Selected == Player then
                 State.Selected = nil
