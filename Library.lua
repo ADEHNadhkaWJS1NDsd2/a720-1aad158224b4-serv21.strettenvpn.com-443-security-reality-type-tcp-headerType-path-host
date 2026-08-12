@@ -8635,6 +8635,8 @@ local function BuildRuntime()
             Model = nil,
             Description = nil,
             BasePivot = nil,
+            Loading = false,
+            ReloadQueued = false,
             Dragging = false,
             DragStart = nil,
             StartPosition = nil,
@@ -9538,6 +9540,7 @@ local function BuildRuntime()
         local function ClearModel(Invalidate)
             if Invalidate ~= false then
                 S.LoadGeneration += 1
+                S.ReloadQueued = not S.Hidden
             end
             if S.Model and S.Model.Parent then
                 S.Model:Destroy()
@@ -9563,8 +9566,13 @@ local function BuildRuntime()
                     Object:Destroy()
                 elseif Object:IsA("Motor6D") then
                     Object.Transform = CFrame.identity
+                elseif Object:IsA("FaceControls") then
+                    Object:Destroy()
                 elseif Object:IsA("Bone") then
-                    Object.Transform = CFrame.identity
+                    local Head = Object:FindFirstAncestor("Head")
+                    if not Head then
+                        Object.Transform = CFrame.identity
+                    end
                 elseif Object:IsA("BasePart") then
                     Object.Anchored = true
                     Object.LocalTransparencyModifier = 0
@@ -9618,10 +9626,15 @@ local function BuildRuntime()
                 end)
             end
             for _, Object in ipairs(Model:GetDescendants()) do
-                if Object:IsA("Animator") or Object:IsA("AnimationController") then
+                if Object:IsA("Animator") or Object:IsA("AnimationController") or Object:IsA("FaceControls") then
                     Object:Destroy()
-                elseif Object:IsA("Motor6D") or Object:IsA("Bone") then
+                elseif Object:IsA("Motor6D") then
                     Object.Transform = CFrame.identity
+                elseif Object:IsA("Bone") then
+                    local Head = Object:FindFirstAncestor("Head")
+                    if not Head then
+                        Object.Transform = CFrame.identity
+                    end
                 elseif Object:IsA("BasePart") then
                     Object.AssemblyLinearVelocity = Vector3.zero
                     Object.AssemblyAngularVelocity = Vector3.zero
@@ -9891,7 +9904,7 @@ local function BuildRuntime()
             local TargetHead = Model:FindFirstChild("Head")
             if SourceHead and TargetHead then
                 for _, Object in ipairs(SourceHead:GetChildren()) do
-                    if (Object:IsA("Decal") or Object:IsA("Texture")) and not TargetHead:FindFirstChild(Object.Name) then
+                    if Object:IsA("Decal") and not TargetHead:FindFirstChild(Object.Name) then
                         local Clone
                         Library.Call(function()
                             Clone = Object:Clone()
@@ -9993,8 +10006,9 @@ local function BuildRuntime()
                 return false
             end
             MergeCurrentAppearance(Model)
-            RunService.Heartbeat:Wait()
             SanitizeModel(Model)
+            FreezePreviewPose(Model)
+            RunService.Heartbeat:Wait()
             FreezePreviewPose(Model)
             S.Description = Description
             S.Model = Model
@@ -10013,26 +10027,45 @@ local function BuildRuntime()
         end
 
         local function RequestModel()
+            if S.Model and S.Model.Parent then
+                return
+            end
+            if S.Loading then
+                S.ReloadQueued = true
+                return
+            end
+
+            S.Loading = true
+            S.ReloadQueued = false
             S.LoadGeneration += 1
             local Generation = S.LoadGeneration
             task.spawn(function()
+                RunService.Heartbeat:Wait()
                 while S.Window.Parent and Generation == S.LoadGeneration and not S.Hidden do
                     if TryBuildModel(Generation) then
+                        S.Loading = false
+                        S.ReloadQueued = false
                         return
                     end
                     local Character = LocalPlayer and LocalPlayer.Character
                     local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
                     if Character and Character.Parent and Humanoid then
-                        S.Status.Text = "RETRYING PREVIEW"
+                        S.Status.Text = "LOADING PREVIEW"
                         S.Status.Visible = true
                         S.Silhouette.Visible = false
-                        task.wait(0.35)
+                        task.wait(0.15)
                     else
                         S.Status.Text = "WAITING FOR CHARACTER"
                         S.Status.Visible = true
                         S.Silhouette.Visible = true
-                        task.wait(0.5)
+                        task.wait(0.25)
                     end
+                end
+
+                S.Loading = false
+                if S.ReloadQueued and S.Window.Parent and not S.Hidden and not S.Model then
+                    S.ReloadQueued = false
+                    task.defer(RequestModel)
                 end
             end)
         end
@@ -10259,8 +10292,6 @@ local function BuildRuntime()
 
             if S.Hidden then
                 S.Status.Visible = false
-            elseif not S.Model then
-                RequestModel()
             end
 
             if Menu.QuickPanelController and Menu.QuickPanelController.Refresh then
