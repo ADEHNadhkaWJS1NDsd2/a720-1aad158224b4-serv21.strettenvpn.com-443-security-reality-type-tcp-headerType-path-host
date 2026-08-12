@@ -8525,7 +8525,7 @@ local function BuildRuntime()
             Active = true,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = SavedPreviewPosition or UDim2.new(0.5, 492, 0.5, 0),
-            Size = UDim2.fromOffset(356, 492),
+            Size = UDim2.fromOffset(760, 500),
             BackgroundColor3 = Background,
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
@@ -8565,13 +8565,26 @@ local function BuildRuntime()
 
         Create("TextLabel", {
             Parent = S.Header,
-            Position = UDim2.fromOffset(14, 0),
-            Size = UDim2.fromOffset(154, 48),
+            Position = UDim2.fromOffset(16, 2),
+            Size = UDim2.fromOffset(180, 22),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
-            Text = "ESP Preview",
+            Text = "ESP EDITOR",
             TextColor3 = PrimaryText,
             TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 22
+        })
+
+        Create("TextLabel", {
+            Parent = S.Header,
+            Position = UDim2.fromOffset(16, 20),
+            Size = UDim2.fromOffset(280, 18),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "Drag to snap zones. Drag again inside a zone to reorder.",
+            TextColor3 = MutedText,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 22
         })
@@ -8594,10 +8607,64 @@ local function BuildRuntime()
         Corner(S.ResetLayoutButton, 5)
         Stroke(S.ResetLayoutButton, Border, 0.18, 1)
 
+        S.MinimalButton = Create("TextButton", {
+            Parent = S.Header,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -170, 0.5, 0),
+            Size = UDim2.fromOffset(56, 24),
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.18,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Minimal",
+            TextColor3 = MutedText,
+            TextSize = 10,
+            ZIndex = 23
+        })
+        Corner(S.MinimalButton, 5)
+        Stroke(S.MinimalButton, Border, 0.18, 1)
+
+        S.DetachButton = Create("TextButton", {
+            Parent = S.Header,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -110, 0.5, 0),
+            Size = UDim2.fromOffset(52, 24),
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.18,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Detach",
+            TextColor3 = MutedText,
+            TextSize = 10,
+            ZIndex = 23
+        })
+        Corner(S.DetachButton, 5)
+        Stroke(S.DetachButton, Border, 0.18, 1)
+
+        S.CloseButton = Create("TextButton", {
+            Parent = S.Header,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, -52, 0.5, 0),
+            Size = UDim2.fromOffset(40, 24),
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.18,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Close",
+            TextColor3 = MutedText,
+            TextSize = 10,
+            ZIndex = 23
+        })
+        Corner(S.CloseButton, 5)
+        Stroke(S.CloseButton, Border, 0.18, 1)
+
         S.ModeRail = Create("Frame", {
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -12, 0.5, 0),
+            Position = UDim2.new(1, -236, 0.5, 0),
             Size = UDim2.fromOffset(116, 28),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.12,
@@ -8649,8 +8716,8 @@ local function BuildRuntime()
         S.Body = Create("Frame", {
             Parent = S.Window,
             Active = true,
-            Position = UDim2.fromOffset(10, 58),
-            Size = UDim2.new(1, -20, 1, -68),
+            Position = UDim2.fromOffset(14, 58),
+            Size = UDim2.fromOffset(446, 428),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
@@ -8852,6 +8919,119 @@ local function BuildRuntime()
             ZIndex = 29
         })
 
+        for Offset = 22, 430, 22 do
+            Create("Frame", {
+                Parent = S.Body,
+                Position = UDim2.fromOffset(0, Offset),
+                Size = UDim2.new(1, 0, 0, 1),
+                BackgroundColor3 = Border,
+                BackgroundTransparency = 0.86,
+                BorderSizePixel = 0,
+                ZIndex = 22
+            })
+        end
+        for Offset = 22, 446, 22 do
+            Create("Frame", {
+                Parent = S.Body,
+                Position = UDim2.fromOffset(Offset, 0),
+                Size = UDim2.new(0, 1, 1, 0),
+                BackgroundColor3 = Border,
+                BackgroundTransparency = 0.86,
+                BorderSizePixel = 0,
+                ZIndex = 22
+            })
+        end
+
+        S.SidePanel = Create("Frame", {
+            Parent = S.Window,
+            Position = UDim2.fromOffset(472, 58),
+            Size = UDim2.fromOffset(274, 428),
+            BackgroundColor3 = Surface,
+            BackgroundTransparency = 0.08,
+            BorderSizePixel = 0,
+            ZIndex = 21
+        })
+        Corner(S.SidePanel, 7)
+        Stroke(S.SidePanel, Border, 0.08, 1)
+
+        S.ElementButtonHolder = Create("Frame", {
+            Parent = S.SidePanel,
+            Position = UDim2.fromOffset(14, 88),
+            Size = UDim2.new(1, -28, 0, 202),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = 22
+        })
+
+        Create("TextLabel", {
+            Parent = S.SidePanel,
+            Position = UDim2.fromOffset(14, 12),
+            Size = UDim2.fromOffset(160, 16),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Add element",
+            TextColor3 = MutedText,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 22
+        })
+
+        S.AddElementButton = Create("TextButton", {
+            Parent = S.SidePanel,
+            Position = UDim2.fromOffset(14, 34),
+            Size = UDim2.new(1, -28, 0, 28),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.06,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "+ Add element",
+            TextColor3 = PrimaryText,
+            TextSize = 11,
+            ZIndex = 22
+        })
+        Corner(S.AddElementButton, 6)
+        Stroke(S.AddElementButton, Border, 0.10, 1)
+
+        Create("TextLabel", {
+            Parent = S.SidePanel,
+            Position = UDim2.fromOffset(14, 72),
+            Size = UDim2.fromOffset(160, 16),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Quick elements",
+            TextColor3 = MutedText,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 22
+        })
+
+        Create("TextLabel", {
+            Parent = S.SidePanel,
+            Position = UDim2.fromOffset(14, 302),
+            Size = UDim2.fromOffset(160, 16),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = "Inspector",
+            TextColor3 = MutedText,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 22
+        })
+
+        S.InspectorText = Create("TextLabel", {
+            Parent = S.SidePanel,
+            Position = UDim2.fromOffset(14, 324),
+            Size = UDim2.new(1, -28, 0, 16),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "ESP Box",
+            TextColor3 = PrimaryText,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 22
+        })
+
         local PreviewElementFlags = {
             HealthBar = "Player ESP Health Bar Offset",
             HealthValue = "Player ESP Health Value Offset",
@@ -8987,6 +9167,95 @@ local function BuildRuntime()
             return false
         end
 
+        local EditorElementData = {
+            {Name = "ESP Box", Flag = "Player ESP Boxes", PreviewKey = nil},
+            {Name = "HP Bar", Flag = "Player ESP Health Bar", PreviewKey = "HealthBar"},
+            {Name = "Nickname", Flag = "Player ESP Names", PreviewKey = "Name"},
+            {Name = "Weapon", Flag = "Player ESP Weapon", PreviewKey = "Weapon"},
+            {Name = "Distance", Flag = "Player ESP Distance", PreviewKey = "Distance"},
+            {Name = "Protected", Flag = "Player ESP Forcefield", PreviewKey = nil},
+            {Name = "Health", Flag = "Player ESP Health Value", PreviewKey = "HealthValue"}
+        }
+
+        S.ElementButtons = {}
+
+        local function SetPreviewInspector(Name)
+            if S.InspectorText then
+                S.InspectorText.Text = Name or "ESP Box"
+            end
+        end
+
+        local function UpdateEditorElementButtons()
+            for _, Data in ipairs(EditorElementData) do
+                local Button = S.ElementButtons[Data.Name]
+                if Button then
+                    local Enabled = Menu.Flags[Data.Flag] == true
+                    Button.BackgroundColor3 = Enabled and Accent or SurfaceAlt
+                    Button.BackgroundTransparency = Enabled and 0.02 or 0.08
+                    Button.TextColor3 = Enabled and Background or PrimaryText
+                end
+            end
+        end
+
+        local function ToggleEditorFlag(Flag)
+            local NewValue = not (Menu.Flags[Flag] == true)
+            if type(Menu.Setters[Flag]) == "function" then
+                Menu.Setters[Flag](NewValue)
+            else
+                Menu.Flags[Flag] = NewValue
+            end
+            UpdateEditorElementButtons()
+        end
+
+        do
+            local PaddingX = 8
+            local PaddingY = 8
+            local Columns = 2
+            local ButtonWidth = 116
+            local ButtonHeight = 24
+            for Index, Data in ipairs(EditorElementData) do
+                local Column = (Index - 1) % Columns
+                local Row = math.floor((Index - 1) / Columns)
+                local Button = Create("TextButton", {
+                    Parent = S.ElementButtonHolder,
+                    Position = UDim2.fromOffset(Column * (ButtonWidth + PaddingX), Row * (ButtonHeight + PaddingY)),
+                    Size = UDim2.fromOffset(ButtonWidth, ButtonHeight),
+                    BackgroundColor3 = SurfaceAlt,
+                    BackgroundTransparency = 0.08,
+                    BorderSizePixel = 0,
+                    AutoButtonColor = false,
+                    Font = Enum.Font.BuilderSansMedium,
+                    Text = Data.Name,
+                    TextColor3 = PrimaryText,
+                    TextSize = 10,
+                    ZIndex = 22
+                })
+                Corner(Button, 6)
+                Stroke(Button, Border, 0.10, 1)
+                S.ElementButtons[Data.Name] = Button
+                Bind(Button.MouseButton1Click:Connect(function()
+                    SetPreviewInspector(Data.Name)
+                    ToggleEditorFlag(Data.Flag)
+                end))
+                Bind(Button.MouseButton2Click:Connect(function()
+                    if Data.PreviewKey then
+                        ResetPreviewElement(Data.PreviewKey)
+                        SetPreviewInspector(Data.Name)
+                    end
+                end))
+            end
+        end
+
+        Bind(S.AddElementButton.MouseButton1Click:Connect(function()
+            local Priority = {"Player ESP Boxes", "Player ESP Health Bar", "Player ESP Names", "Player ESP Weapon", "Player ESP Distance", "Player ESP Health Value", "Player ESP Forcefield"}
+            for _, Flag in ipairs(Priority) do
+                if Menu.Flags[Flag] ~= true then
+                    ToggleEditorFlag(Flag)
+                    break
+                end
+            end
+        end))
+
         local function RegisterPreviewDraggable(Key, Object)
             S.DraggableElements[Key] = Object
             Object.Active = true
@@ -8997,6 +9266,7 @@ local function BuildRuntime()
                         return
                     end
                     S.ElementDragging = Key
+                    SetPreviewInspector((Key == "HealthBar" and "HP Bar") or (Key == "HealthValue" and "Health") or Key)
                     S.ElementDragStart = Input.Position
                     S.ElementStartOffset = GetPreviewOffset(Key)
                 elseif Input.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -9016,8 +9286,12 @@ local function BuildRuntime()
         RegisterPreviewDraggable("Name", S.Name)
         RegisterPreviewDraggable("Weapon", S.Weapon)
         RegisterPreviewDraggable("Distance", S.Distance)
+        UpdateEditorElementButtons()
 
-        Bind(S.ResetLayoutButton.MouseButton1Click:Connect(ResetPreviewLayout))
+        Bind(S.ResetLayoutButton.MouseButton1Click:Connect(function()
+            ResetPreviewLayout()
+            SetPreviewInspector("ESP Box")
+        end))
 
         local function SaveWindowPosition()
             SavedPositions.EspPreviewPosition = EncodePosition(S.Window.Position)
@@ -9029,7 +9303,7 @@ local function BuildRuntime()
             local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
             local Size = S.Window.AbsoluteSize
             if Size.X <= 0 or Size.Y <= 0 then
-                Size = Vector2.new(356, 492)
+                Size = Vector2.new(760, 500)
             end
             Size *= S.Scale.Scale
             local HalfX = math.floor(Size.X * 0.5)
@@ -9050,7 +9324,7 @@ local function BuildRuntime()
             local Viewport = CameraObject and CameraObject.ViewportSize or Vector2.new(1920, 1080)
             local ScaleValue = math.max(0.01, tonumber(S.Scale.Scale) or 1)
             local PreviewSize = S.Window.AbsoluteSize
-            if PreviewSize.X < 2 or PreviewSize.Y < 2 then PreviewSize = Vector2.new(356, 492) end
+            if PreviewSize.X < 2 or PreviewSize.Y < 2 then PreviewSize = Vector2.new(760, 500) end
             PreviewSize *= ScaleValue
             local MainPosition = Main.AbsolutePosition
             local MainSize = Main.AbsoluteSize
@@ -9808,6 +10082,29 @@ local function BuildRuntime()
             })
         end))
 
+        Bind(S.MinimalButton.MouseButton1Click:Connect(function()
+            S.Minimal = not S.Minimal
+            S.SidePanel.Visible = not S.Minimal
+            S.Window.Size = S.Minimal and UDim2.fromOffset(472, 500) or UDim2.fromOffset(760, 500)
+            S.Window.Position = ClampWindow(S.Window.Position)
+            Tween(S.MinimalButton, 0.12, {
+                BackgroundTransparency = S.Minimal and 0.05 or 0.18,
+                TextColor3 = S.Minimal and PrimaryText or MutedText
+            })
+        end))
+
+        Bind(S.DetachButton.MouseButton1Click:Connect(function()
+            S.Detached = not S.Detached
+            Tween(S.DetachButton, 0.12, {
+                BackgroundTransparency = S.Detached and 0.05 or 0.18,
+                TextColor3 = S.Detached and PrimaryText or MutedText
+            })
+        end))
+
+        Bind(S.CloseButton.MouseButton1Click:Connect(function()
+            Menu.EspPreviewController.SetVisibility(false)
+        end))
+
         Bind(S.TwoDButton.MouseButton1Click:Connect(function()
             Menu.EspPreviewController.SetMode("2D")
         end))
@@ -9939,6 +10236,7 @@ local function BuildRuntime()
             if S.Glow then
                 S.Glow.ImageColor3 = NewColor
             end
+            UpdateEditorElementButtons()
         end)
 
         Menu.EspPreviewWindow = S.Window
@@ -9947,6 +10245,7 @@ local function BuildRuntime()
             if S.Window and S.Window.Parent then PlacePreviewWithSpacing() end
         end)
         RefreshMode()
+        UpdateEditorElementButtons()
         UpdateEspStyle()
     end
 
