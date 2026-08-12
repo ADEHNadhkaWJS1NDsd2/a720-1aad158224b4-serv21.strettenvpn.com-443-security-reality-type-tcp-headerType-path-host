@@ -1402,6 +1402,14 @@ local function BuildRuntime()
         return nil
     end
 
+    local AccentUpdateTargets = {}
+
+    local function RegisterAccentTarget(Callback)
+        if type(Callback) == "function" then
+            AccentUpdateTargets[#AccentUpdateTargets + 1] = Callback
+        end
+    end
+
     local function CreateCheckbox(Row, Default)
         local Button = Create("TextButton", {
             Parent = Row,
@@ -1470,6 +1478,15 @@ local function BuildRuntime()
 
         Menu.Setters[Flag] = Set
 
+        RegisterAccentTarget(function(NewColor)
+            if Button and Button.Parent then
+                Button.BackgroundColor3 = State and NewColor or SurfaceAlt
+            end
+            if BorderStroke and BorderStroke.Parent then
+                BorderStroke.Color = State and NewColor or Border
+            end
+        end)
+
         Bind(Button.MouseButton1Click:Connect(function()
             Set(not State)
         end))
@@ -1522,15 +1539,6 @@ local function BuildRuntime()
         })
         return Label, Box
     end
-
-    local AccentUpdateTargets = {}
-
-    local function RegisterAccentTarget(Callback)
-        if type(Callback) == "function" then
-            AccentUpdateTargets[#AccentUpdateTargets + 1] = Callback
-        end
-    end
-
 
     RegisterAccentTarget(function(NewColor)
         local Targets = Menu.ChromeAccentTargets
@@ -2756,6 +2764,10 @@ local function BuildRuntime()
             EntryScale.Scale = 1
         end
 
+        RegisterAccentTarget(function()
+            RefreshEntry()
+        end)
+
         Bind(Entry.MouseEnter:Connect(function()
             Hovered = true
             RefreshEntry()
@@ -2791,6 +2803,9 @@ local function BuildRuntime()
             if type(RefreshVisual) == "function" then RefreshVisual(State) end
             Scale.Scale = 1
         end
+        RegisterAccentTarget(function()
+            Refresh()
+        end)
         Bind(Button.MouseEnter:Connect(function()
             State.Hovered = true
             Refresh()
@@ -3000,6 +3015,14 @@ local function BuildRuntime()
             local ButtonStroke = Stroke(Button, State and Accent or Border, 0, 1)
             local Check = Icon(Button, "Check", UDim2.fromOffset(9, 9), UDim2.fromScale(0.5, 0.5), Background, 183)
             Check.Visible = State
+            RegisterAccentTarget(function(NewColor)
+                if Button and Button.Parent then
+                    Button.BackgroundColor3 = State and NewColor or SurfaceAlt
+                end
+                if ButtonStroke and ButtonStroke.Parent then
+                    ButtonStroke.Color = State and NewColor or Border
+                end
+            end)
             Bind(Button.MouseButton1Click:Connect(function()
                 State = not State
                 Check.Visible = State
@@ -4965,9 +4988,59 @@ local function BuildRuntime()
         UpdateSettingsButtonAppearance(SearchSettingsOpened, true)
     end)
 
+    RegisterAccentTarget(function(NewColor)
+        for Name, Data in pairs(Menu.SidebarButtons) do
+            local Selected = Name == Menu.ActivePageName
+            if Data.Marker and Data.Marker.Parent then
+                Data.Marker.BackgroundColor3 = NewColor
+            end
+            if Data.MarkerGlow and Data.MarkerGlow.Parent then
+                Data.MarkerGlow.ImageColor3 = NewColor
+            end
+            if Selected and Data.Icon and Data.Icon.Parent then
+                Menu:SetIconColor(Data.Icon, NewColor, 0)
+            end
+        end
+    end)
+
     local function UpdateAccentColor(NewColor)
+        if typeof(NewColor) ~= "Color3" then return end
+
         local OldColor = Accent
         Accent = NewColor
+
+        for Object, Animation in pairs(ActiveTweens) do
+            if Animation then
+                Library.Call(function() Animation:Cancel() end)
+            end
+            ActiveTweens[Object] = nil
+        end
+
+        local AccentColorPairs = {
+            {OldColor, NewColor},
+            {OldColor:Lerp(SurfaceAlt, 0.78), NewColor:Lerp(SurfaceAlt, 0.78)},
+            {OldColor:Lerp(SurfaceAlt, 0.86), NewColor:Lerp(SurfaceAlt, 0.86)},
+            {OldColor:Lerp(SurfaceAlt, 0.72), NewColor:Lerp(SurfaceAlt, 0.72)},
+            {OldColor:Lerp(SurfaceAlt, 0.68), NewColor:Lerp(SurfaceAlt, 0.68)},
+            {OldColor:Lerp(SurfaceAlt, 0.82), NewColor:Lerp(SurfaceAlt, 0.82)},
+            {OldColor:Lerp(Border, 0.38), NewColor:Lerp(Border, 0.38)},
+            {OldColor:Lerp(PrimaryText, 0.12), NewColor:Lerp(PrimaryText, 0.12)},
+            {OldColor:Lerp(Color3.new(1, 1, 1), 0.20), NewColor:Lerp(Color3.new(1, 1, 1), 0.20)}
+        }
+
+        local function ReplaceAccentDerivedColor(Color)
+            if typeof(Color) ~= "Color3" then
+                return Color, false
+            end
+
+            for _, Pair in ipairs(AccentColorPairs) do
+                if Color == Pair[1] then
+                    return Pair[2], true
+                end
+            end
+
+            return Color, false
+        end
 
         local function ReplaceSequenceColor(Sequence)
             if typeof(Sequence) ~= "ColorSequence" then
@@ -4977,100 +5050,50 @@ local function BuildRuntime()
             local Changed = false
             local Keypoints = {}
 
-            for Index, Keypoint in ipairs(
-                Sequence.Keypoints
-            ) do
-                local Color =
-                    Keypoint.Value
-
-                if Color == OldColor then
-                    Color = NewColor
-                    Changed = true
-                end
-
-                Keypoints[Index] =
-                    ColorSequenceKeypoint.new(
-                        Keypoint.Time,
-                        Color
-                    )
+            for Index, Keypoint in ipairs(Sequence.Keypoints) do
+                local Color, ColorChanged = ReplaceAccentDerivedColor(Keypoint.Value)
+                if ColorChanged then Changed = true end
+                Keypoints[Index] = ColorSequenceKeypoint.new(Keypoint.Time, Color)
             end
 
-            return Changed
-                and ColorSequence.new(
-                    Keypoints
-                )
-                or Sequence
+            return Changed and ColorSequence.new(Keypoints) or Sequence
         end
 
-        for _, Descendant in ipairs(
-            ScreenGui:GetDescendants()
-        ) do
+        for _, Descendant in ipairs(ScreenGui:GetDescendants()) do
             Library.Call(function()
                 if Descendant:IsA("GuiObject") then
-                    if Descendant.BackgroundColor3
-                        == OldColor
-                    then
-                        Descendant.BackgroundColor3 =
-                            NewColor
-                    end
+                    local Color, Changed = ReplaceAccentDerivedColor(Descendant.BackgroundColor3)
+                    if Changed then Descendant.BackgroundColor3 = Color end
                 end
 
                 if Descendant:IsA("TextLabel")
                     or Descendant:IsA("TextButton")
                     or Descendant:IsA("TextBox")
                 then
-                    if Descendant.TextColor3
-                        == OldColor
-                    then
-                        Descendant.TextColor3 =
-                            NewColor
-                    end
+                    local TextColor, TextChanged = ReplaceAccentDerivedColor(Descendant.TextColor3)
+                    if TextChanged then Descendant.TextColor3 = TextColor end
 
-                    if Descendant.TextStrokeColor3
-                        == OldColor
-                    then
-                        Descendant.TextStrokeColor3 =
-                            NewColor
-                    end
+                    local StrokeColor, StrokeChanged = ReplaceAccentDerivedColor(Descendant.TextStrokeColor3)
+                    if StrokeChanged then Descendant.TextStrokeColor3 = StrokeColor end
                 elseif Descendant:IsA("ImageLabel")
                     or Descendant:IsA("ImageButton")
                 then
-                    if Descendant.ImageColor3
-                        == OldColor
-                    then
-                        Descendant.ImageColor3 =
-                            NewColor
-                    end
+                    local ImageColor, ImageChanged = ReplaceAccentDerivedColor(Descendant.ImageColor3)
+                    if ImageChanged then Descendant.ImageColor3 = ImageColor end
                 elseif Descendant:IsA("ScrollingFrame") then
-                    if Descendant.ScrollBarImageColor3
-                        == OldColor
-                    then
-                        Descendant.ScrollBarImageColor3 =
-                            NewColor
-                    end
+                    local ScrollColor, ScrollChanged = ReplaceAccentDerivedColor(Descendant.ScrollBarImageColor3)
+                    if ScrollChanged then Descendant.ScrollBarImageColor3 = ScrollColor end
                 elseif Descendant:IsA("UIStroke") then
-                    if Descendant.Color
-                        == OldColor
-                    then
-                        Descendant.Color =
-                            NewColor
-                    end
+                    local StrokeColor, StrokeChanged = ReplaceAccentDerivedColor(Descendant.Color)
+                    if StrokeChanged then Descendant.Color = StrokeColor end
                 elseif Descendant:IsA("UIGradient") then
-                    Descendant.Color =
-                        ReplaceSequenceColor(
-                            Descendant.Color
-                        )
+                    Descendant.Color = ReplaceSequenceColor(Descendant.Color)
                 end
             end)
         end
 
-        for _, Callback in ipairs(
-            AccentUpdateTargets
-        ) do
-            Library.Call(
-                Callback,
-                NewColor
-            )
+        for _, Callback in ipairs(AccentUpdateTargets) do
+            Library.Call(Callback, NewColor)
         end
 
         if Menu.SidebarLogo
@@ -5080,15 +5103,13 @@ local function BuildRuntime()
                 or Menu.SidebarLogo:IsA("ImageButton")
             )
         then
-            Menu.SidebarLogo.ImageColor3 =
-                NewColor
+            Menu.SidebarLogo.ImageColor3 = NewColor
         end
 
         if WatermarkLogoImage
             and WatermarkLogoImage.Parent
         then
-            WatermarkLogoImage.ImageColor3 =
-                NewColor
+            WatermarkLogoImage.ImageColor3 = NewColor
         end
 
         if Menu.KeybindListController
@@ -5109,10 +5130,14 @@ local function BuildRuntime()
             Menu.PlayerListController:Refresh()
         end
 
+        if Menu.EspPreviewController
+            and Menu.EspPreviewController.RefreshFromFlags
+        then
+            Menu.EspPreviewController.RefreshFromFlags()
+        end
+
         if Menu.RefreshDropdownIndicators then
-            Menu.RefreshDropdownIndicators(
-                false
-            )
+            Menu.RefreshDropdownIndicators(false)
         end
     end
 
@@ -5839,6 +5864,10 @@ local function BuildRuntime()
             S.FolderBody.BackgroundColor3 = Open and Accent or MutedText
             S.FolderStroke.Color = Open and Accent or MutedText
         end
+
+        RegisterAccentTarget(function()
+            UpdateTopButton()
+        end)
 
         S.SetOpen = function(State)
             State = State == true
@@ -9126,7 +9155,7 @@ local function BuildRuntime()
         S.ElementButtonHolder = Create("ScrollingFrame", {
             Parent = S.SidePanel,
             Position = UDim2.fromOffset(14, 38),
-            Size = UDim2.new(1, -28, 0, 312),
+            Size = UDim2.new(1, -28, 0, 244),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             CanvasSize = UDim2.fromOffset(0, 0),
@@ -9153,7 +9182,7 @@ local function BuildRuntime()
 
         Create("TextLabel", {
             Parent = S.SidePanel,
-            Position = UDim2.fromOffset(14, 364),
+            Position = UDim2.fromOffset(14, 294),
             Size = UDim2.fromOffset(160, 16),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
@@ -9166,8 +9195,8 @@ local function BuildRuntime()
 
         S.InspectorText = Create("TextLabel", {
             Parent = S.SidePanel,
-            Position = UDim2.fromOffset(14, 386),
-            Size = UDim2.new(1, -28, 0, 16),
+            Position = UDim2.fromOffset(14, 314),
+            Size = UDim2.new(1, -28, 0, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = "",
@@ -9481,11 +9510,126 @@ local function BuildRuntime()
         }
 
         S.ElementButtons = {}
+        S.ElementButtonStrokes = {}
+        S.SelectedPreviewElement = nil
 
-        local function SetPreviewInspector(Name)
-            if S.InspectorText then
-                S.InspectorText.Text = type(Name) == "string" and Name or ""
+        local PreviewInspectorKeys = {
+            ["Name"] = "Name",
+            ["Health Bar"] = "HealthBar",
+            ["Health Text"] = "HealthValue",
+            ["Weapon"] = "Weapon",
+            ["Ammo"] = "Ammo",
+            ["Distance"] = "Distance",
+            ["Level"] = "Level",
+            ["Forcefield"] = "Forcefield",
+            ["Flags"] = "Flags"
+        }
+
+        local function FindEditorElement(Name)
+            for _, Data in ipairs(EditorElementData) do
+                if Data.Name == Name then return Data end
             end
+            return nil
+        end
+
+        S.InspectorInfo = Create("TextLabel", {
+            Parent = S.SidePanel,
+            Position = UDim2.fromOffset(14, 334),
+            Size = UDim2.new(1, -28, 0, 16),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "Select an element to edit it",
+            TextColor3 = MutedText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 22
+        })
+
+        S.InspectorControls = Create("Frame", {
+            Parent = S.SidePanel,
+            Position = UDim2.fromOffset(14, 356),
+            Size = UDim2.new(1, -28, 0, 80),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 22
+        })
+
+        local function CreateInspectorButton(Text, X, Y, Width)
+            local Button = Create("TextButton", {
+                Parent = S.InspectorControls,
+                Position = UDim2.fromOffset(X, Y),
+                Size = UDim2.fromOffset(Width, 28),
+                BackgroundColor3 = SurfaceAlt,
+                BackgroundTransparency = 0.08,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Font = Enum.Font.BuilderSansMedium,
+                Text = Text,
+                TextColor3 = PrimaryText,
+                TextSize = 9,
+                ZIndex = 23
+            })
+            Corner(Button, 2)
+            local ButtonStroke = Stroke(Button, Border, 0.24, 1)
+            Bind(Button.MouseEnter:Connect(function()
+                Tween(Button, 0.10, {BackgroundTransparency = 0.02})
+                Tween(ButtonStroke, 0.10, {Transparency = 0.10})
+            end))
+            Bind(Button.MouseLeave:Connect(function()
+                Tween(Button, 0.10, {BackgroundTransparency = 0.08})
+                Tween(ButtonStroke, 0.10, {Transparency = 0.24})
+            end))
+            return Button
+        end
+
+        S.InspectorZone = CreateInspectorButton("ZONE", 0, 0, 86)
+        S.InspectorOrderDown = CreateInspectorButton("ORDER -", 92, 0, 69)
+        S.InspectorOrderUp = CreateInspectorButton("ORDER +", 167, 0, 69)
+        S.InspectorLeft = CreateInspectorButton("←", 0, 36, 38)
+        S.InspectorUp = CreateInspectorButton("↑", 44, 36, 38)
+        S.InspectorReset = CreateInspectorButton("RESET", 88, 36, 60)
+        S.InspectorDown = CreateInspectorButton("↓", 154, 36, 38)
+        S.InspectorRight = CreateInspectorButton("→", 198, 36, 38)
+
+        local function GetSelectedInspectorKey()
+            local Selected = S.SelectedPreviewElement
+            return Selected and PreviewInspectorKeys[Selected.Name] or nil
+        end
+
+        local function RefreshPreviewInspector()
+            local Selected = S.SelectedPreviewElement
+            if not Selected then
+                S.InspectorText.Text = "Nothing selected"
+                S.InspectorInfo.Text = "Select an element to edit it"
+                S.InspectorControls.Visible = false
+                return
+            end
+
+            local Enabled = Menu.Flags[Selected.Flag] == true
+            local Key = PreviewInspectorKeys[Selected.Name]
+            S.InspectorText.Text = Selected.Name
+
+            if not Key then
+                S.InspectorInfo.Text = Enabled and "Enabled • no layout controls" or "Disabled • no layout controls"
+                S.InspectorControls.Visible = false
+                return
+            end
+
+            local Offset = GetPreviewOffset(Key)
+            local Zone = GetPreviewZone(Key)
+            local Order = GetPreviewOrder(Key)
+            S.InspectorInfo.Text = string.format(
+                "%s • %s • X %d  Y %d • #%d",
+                Enabled and "Enabled" or "Disabled",
+                Zone,
+                Offset.X,
+                Offset.Y,
+                Order
+            )
+            S.InspectorZone.Text = string.upper(Zone)
+            S.InspectorControls.Visible = true
         end
 
         local function UpdateEditorElementButtons()
@@ -9493,11 +9637,30 @@ local function BuildRuntime()
                 local Button = S.ElementButtons[Data.Name]
                 if Button then
                     local Enabled = Menu.Flags[Data.Flag] == true
+                    local Selected = S.SelectedPreviewElement == Data
                     Button.BackgroundColor3 = Enabled and Accent or SurfaceAlt
-                    Button.BackgroundTransparency = Enabled and 0.02 or 0.08
+                    Button.BackgroundTransparency = Enabled and 0.02 or (Selected and 0.02 or 0.08)
                     Button.TextColor3 = Enabled and Background or PrimaryText
+                    local ButtonStroke = S.ElementButtonStrokes[Data.Name]
+                    if ButtonStroke then
+                        ButtonStroke.Color = Selected and PrimaryText or Border
+                        ButtonStroke.Transparency = Selected and 0 or 0.24
+                        ButtonStroke.Thickness = Selected and 2 or 1
+                    end
                 end
             end
+            RefreshPreviewInspector()
+        end
+
+        local function SetPreviewInspector(Value)
+            local Data
+            if type(Value) == "table" and Value.Name and Value.Flag then
+                Data = Value
+            elseif type(Value) == "string" then
+                Data = FindEditorElement(Value)
+            end
+            S.SelectedPreviewElement = Data
+            UpdateEditorElementButtons()
         end
 
         local function ToggleEditorFlag(Flag)
@@ -9508,7 +9671,88 @@ local function BuildRuntime()
                 Menu.Flags[Flag] = NewValue
             end
             UpdateEditorElementButtons()
+            ApplyPreviewElementLayout()
         end
+
+        local function ChangeSelectedOffset(Delta)
+            local Key = GetSelectedInspectorKey()
+            if not Key or typeof(Delta) ~= "Vector2" then return end
+            SetPreviewOffset(Key, GetPreviewOffset(Key) + Delta)
+            ApplyPreviewElementLayout()
+            RefreshPreviewInspector()
+        end
+
+        local function CycleSelectedZone()
+            local Key = GetSelectedInspectorKey()
+            if not Key then return end
+            local Current = GetPreviewZone(Key)
+            local NextZone
+            if Key == "HealthBar" or Key == "HealthValue" then
+                NextZone = Current == "Left" and "Right" or "Left"
+            else
+                local Zones = {"Top", "Right", "Bottom", "Left"}
+                local Index = table.find(Zones, Current) or 1
+                NextZone = Zones[(Index % #Zones) + 1]
+            end
+            SetPreviewZone(Key, NextZone)
+            ApplyPreviewElementLayout()
+            RefreshPreviewInspector()
+        end
+
+        local function MoveSelectedOrder(Direction)
+            local Key = GetSelectedInspectorKey()
+            if not Key then return end
+            local Zone = GetPreviewZone(Key)
+            local List = {}
+            for _, OtherKey in ipairs(PreviewStackOrder) do
+                if GetPreviewZone(OtherKey) == Zone then
+                    List[#List + 1] = OtherKey
+                end
+            end
+            table.sort(List, function(A, B)
+                return GetPreviewOrder(A) < GetPreviewOrder(B)
+            end)
+            local Index = table.find(List, Key)
+            local OtherIndex = Index and math.clamp(Index + Direction, 1, #List) or nil
+            if not Index or not OtherIndex or OtherIndex == Index then return end
+            local OtherKey = List[OtherIndex]
+            local CurrentOrder = GetPreviewOrder(Key)
+            S.PreviewOrder[Key] = GetPreviewOrder(OtherKey)
+            S.PreviewOrder[OtherKey] = CurrentOrder
+            SavePreviewOrder()
+            ApplyPreviewElementLayout()
+            RefreshPreviewInspector()
+        end
+
+        local function ResetSelectedElement()
+            local Key = GetSelectedInspectorKey()
+            if not Key then return end
+            SetPreviewOffset(Key, Vector2.zero)
+            SetPreviewZone(Key, PreviewDefaultZones[Key])
+            local DefaultOrder = table.find(PreviewStackOrder, Key)
+            if DefaultOrder then
+                local CurrentOrder = GetPreviewOrder(Key)
+                for OtherKey, OtherOrder in pairs(S.PreviewOrder) do
+                    if OtherKey ~= Key and tonumber(OtherOrder) == DefaultOrder then
+                        S.PreviewOrder[OtherKey] = CurrentOrder
+                        break
+                    end
+                end
+                S.PreviewOrder[Key] = DefaultOrder
+                SavePreviewOrder()
+            end
+            ApplyPreviewElementLayout()
+            RefreshPreviewInspector()
+        end
+
+        Bind(S.InspectorZone.MouseButton1Click:Connect(CycleSelectedZone))
+        Bind(S.InspectorOrderDown.MouseButton1Click:Connect(function() MoveSelectedOrder(-1) end))
+        Bind(S.InspectorOrderUp.MouseButton1Click:Connect(function() MoveSelectedOrder(1) end))
+        Bind(S.InspectorLeft.MouseButton1Click:Connect(function() ChangeSelectedOffset(Vector2.new(-2, 0)) end))
+        Bind(S.InspectorRight.MouseButton1Click:Connect(function() ChangeSelectedOffset(Vector2.new(2, 0)) end))
+        Bind(S.InspectorUp.MouseButton1Click:Connect(function() ChangeSelectedOffset(Vector2.new(0, -2)) end))
+        Bind(S.InspectorDown.MouseButton1Click:Connect(function() ChangeSelectedOffset(Vector2.new(0, 2)) end))
+        Bind(S.InspectorReset.MouseButton1Click:Connect(ResetSelectedElement))
 
         do
             Create("UIPadding", {
@@ -9558,17 +9802,36 @@ local function BuildRuntime()
                     ZIndex = 22
                 })
                 Corner(Button, 2)
-                Stroke(Button, Border, 0.24, 1)
+                S.ElementButtonStrokes[Data.Name] = Stroke(Button, Border, 0.24, 1)
                 S.ElementButtons[Data.Name] = Button
                 Bind(Button.MouseButton1Click:Connect(function()
+                    SetPreviewInspector(Data)
                     ToggleEditorFlag(Data.Flag)
-                    SetPreviewInspector(nil)
                 end))
             end
         end
 
         UpdateEditorElementButtons()
         SetPreviewInspector(nil)
+
+        local function BindPreviewObjectSelection(Object, DisplayName)
+            if not Object then return end
+            Bind(Object.InputBegan:Connect(function(Input)
+                if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    SetPreviewInspector(DisplayName)
+                end
+            end))
+        end
+
+        BindPreviewObjectSelection(S.Name, "Name")
+        BindPreviewObjectSelection(S.HealthBack, "Health Bar")
+        BindPreviewObjectSelection(S.HealthText, "Health Text")
+        BindPreviewObjectSelection(S.Weapon, "Weapon")
+        BindPreviewObjectSelection(S.Ammo, "Ammo")
+        BindPreviewObjectSelection(S.Distance, "Distance")
+        BindPreviewObjectSelection(S.Level, "Level")
+        BindPreviewObjectSelection(S.Forcefield, "Forcefield")
+        BindPreviewObjectSelection(S.Flags, "Flags")
 
 
         local function SaveWindowPosition()
@@ -10202,6 +10465,7 @@ local function BuildRuntime()
             S.Flags.Text = "Flagged"
             S.Flags.TextColor3 = GetFlag("Player ESP Flags Color", TextColor)
             S.Flags.TextSize = math.max(9, TextSize - 2)
+            RefreshPreviewInspector()
             S.Silhouette.Visible = false
             S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(165, 181, 190) or Color3.fromRGB(139, 157, 168)
             S.Viewport.LightDirection = S.Mode == "2D" and Vector3.new(-0.8, -0.4, -1) or Vector3.new(-1, -0.75, -1)
@@ -15582,11 +15846,18 @@ local function BuildRuntime()
             return Result
         end
 
+        local ConfigExcludedFlags = {
+            AccentAlpha = true
+        }
+
         local Encoded = {}
         for Name, Value in pairs(self.Flags or {}) do
-            local Success, EncodedValue = Library.Call(EncodeValue, Value, 0)
-            if Success and EncodedValue ~= nil then
-                Encoded[tostring(Name)] = EncodedValue
+            local ConfigName = tostring(Name)
+            if ConfigExcludedFlags[ConfigName] ~= true then
+                local Success, EncodedValue = Library.Call(EncodeValue, Value, 0)
+                if Success and EncodedValue ~= nil then
+                    Encoded[ConfigName] = EncodedValue
+                end
             end
         end
         local BindsSuccess, EncodedBinds = Library.Call(EncodeValue, SavedPositions.ControlBinds or {}, 0)
@@ -15603,9 +15874,7 @@ local function BuildRuntime()
             HideWatermark = SavedPositions.HideWatermark,
             WatermarkScale = SavedPositions.WatermarkScale,
             HideKeybinds = SavedPositions.HideKeybinds,
-            KeybindListScale = SavedPositions.KeybindListScale,
-            AccentHex = SavedPositions.AccentHex,
-            AccentAlpha = Menu.Flags.AccentAlpha or SavedPositions.AccentAlpha
+            KeybindListScale = SavedPositions.KeybindListScale
         }
         local InterfaceSuccess, EncodedInterface = Library.Call(EncodeValue, InterfaceState, 0)
         if InterfaceSuccess and EncodedInterface ~= nil then
@@ -15678,13 +15947,17 @@ local function BuildRuntime()
         local LoadedInterface = Decoded.__AtramentaInterface
         Decoded.__AtramentaInterface = nil
 
+        Decoded.AccentAlpha = nil
+
         local DecodedFlags = {}
         for Name, Value in pairs(Decoded) do
-            DecodedFlags[tostring(Name)] = DecodeValue(Value, 0)
+            if tostring(Name) ~= "AccentAlpha" then
+                DecodedFlags[tostring(Name)] = DecodeValue(Value, 0)
+            end
         end
 
         for Name in pairs(Menu.LastConfigFlags or {}) do
-            if DecodedFlags[Name] == nil and Menu.DefaultFlagKnown[Name] ~= true then
+            if Name ~= "AccentAlpha" and DecodedFlags[Name] == nil and Menu.DefaultFlagKnown[Name] ~= true then
                 if type(self.Setters[Name]) == "function" then
                     Library.Call(function() self:SetFlag(Name, nil) end)
                 else
@@ -15753,14 +16026,7 @@ local function BuildRuntime()
         ApplyInterfaceControl(Menu.SettingsUI.HideKeybindsToggle, Interface.HideKeybinds)
         ApplyInterfaceControl(Menu.SettingsUI.KeybindListSizeSlider, Interface.KeybindListScale)
 
-        if type(Interface.AccentHex) == "string" then
-            local ParsedAccent, ParsedAlpha = HexToColor(Interface.AccentHex)
-            if ParsedAccent then
-                SetPickerColor(ParsedAccent, Interface.AccentAlpha ~= nil and Interface.AccentAlpha or ParsedAlpha)
-                SavedPositions.AccentHex = Interface.AccentHex
-                SavedPositions.AccentAlpha = Interface.AccentAlpha ~= nil and Interface.AccentAlpha or ParsedAlpha
-            end
-        end
+        Menu.Flags.AccentAlpha = AccentAlpha
 
         if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
             Menu.KeybindListController.MarkDirty()
