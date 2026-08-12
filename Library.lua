@@ -990,6 +990,46 @@ local function BuildRuntime()
     )
     AddPanelGradient(Topbar, Color3.fromRGB(23, 23, 27), Color3.fromRGB(14, 14, 17))
 
+    local TopbarInner = Create("Frame", {
+        Parent = Topbar,
+        Position = UDim2.fromOffset(14, 10),
+        Size = UDim2.new(1, -28, 0, 44),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 5
+    })
+
+    local SubPageHost = Create("Frame", {
+        Parent = TopbarInner,
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.new(1, -52, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(10, 10, 13),
+        BackgroundTransparency = 0.14,
+        BorderSizePixel = 0,
+        ZIndex = 5
+    })
+    Corner(SubPageHost, 2)
+    Stroke(SubPageHost, Color3.fromRGB(50, 50, 57), 0.42, 1)
+    AddPanelGradient(SubPageHost, Color3.fromRGB(18, 18, 22), Color3.fromRGB(10, 10, 13))
+
+    Create("UIPadding", {
+        Parent = SubPageHost,
+        PaddingLeft = UDim.new(0, 10),
+        PaddingRight = UDim.new(0, 10)
+    })
+
+    local SubPageLayout = Create("UIListLayout", {
+        Parent = SubPageHost,
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Padding = UDim.new(0, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+
+    Menu.SubPageHost = SubPageHost
+    Menu.SubPageLayout = SubPageLayout
+
     Create("Frame", {
         Parent = Topbar,
         Position = UDim2.fromOffset(0, 0),
@@ -1044,9 +1084,9 @@ local function BuildRuntime()
 
     Menu.ConfigsUI = Menu.ConfigsUI or {}
     Menu.ConfigsUI.Button = Create("TextButton", {
-        Parent = Topbar,
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -14, 0, 17),
+        Parent = TopbarInner,
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, 0, 0.5, 0),
         Size = UDim2.fromOffset(38, 32),
         BackgroundColor3 = SurfaceAlt,
         BackgroundTransparency = 0.12,
@@ -11746,8 +11786,8 @@ local function BuildRuntime()
 
             if SubPageObject.Button then
                 Tween(SubPageObject.Button, 0.16, {
-                    BackgroundTransparency = 1,
-                    BackgroundColor3 = Topbar.BackgroundColor3,
+                    BackgroundTransparency = Selected and 0.14 or 1,
+                    BackgroundColor3 = Selected and SurfaceAlt or Topbar.BackgroundColor3,
                     TextColor3 = Selected and PrimaryText or MutedText
                 })
             end
@@ -12439,12 +12479,13 @@ local function BuildRuntime()
             Visible = Count == 0,
             ZIndex = 4
         })
+        local ButtonWidth = math.max(68, 22 + (#Name * 7))
         local Button = Create("TextButton", {
-            Parent = Topbar,
-            Position = UDim2.fromOffset(14 + (Count * 102), 15),
-            Size = UDim2.fromOffset(96, 36),
-            BackgroundColor3 = Topbar.BackgroundColor3,
-            BackgroundTransparency = 1,
+            Parent = Menu.SubPageHost or Topbar,
+            LayoutOrder = Count + 1,
+            Size = UDim2.fromOffset(ButtonWidth, 30),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = Count == 0 and 0.14 or 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
@@ -12454,7 +12495,7 @@ local function BuildRuntime()
             Visible = self.Name == ApiState.ActivePage,
             ZIndex = 6
         })
-        Corner(Button, 0)
+        Corner(Button, 2)
 
         local Scale = Create("UIScale", {
             Parent = Button,
@@ -12502,7 +12543,7 @@ local function BuildRuntime()
         end
         Bind(Button.MouseEnter:Connect(function()
             if self.ActiveSubPage ~= Name then
-                Tween(Button, 0.14, {BackgroundTransparency = 0.96, BackgroundColor3 = SurfaceAlt, TextColor3 = PrimaryText})
+                Tween(Button, 0.14, {BackgroundTransparency = 0.34, BackgroundColor3 = SurfaceAlt, TextColor3 = PrimaryText})
                 Tween(Scale, 0.14, {Scale = 1.025})
             end
         end))
@@ -12574,6 +12615,9 @@ local function BuildRuntime()
             Search = "",
             Rows = {},
             Connections = {},
+            Refreshing = false,
+            RefreshQueued = false,
+            RefreshGeneration = 0,
             ThumbnailSerial = 0,
             DropdownOpen = false,
             StatusChanged = ApiRead(Data, "StatusChanged", ApiRead(Data, "Callback")),
@@ -13114,7 +13158,7 @@ local function BuildRuntime()
 
                 if Player.Parent == Players then
                     if RefreshRows then
-                        RefreshRows()
+                        task.defer(RefreshRows)
                     end
                     if State.Selected == Player and RefreshSelected then
                         RefreshSelected(false)
@@ -13496,6 +13540,16 @@ local function BuildRuntime()
         end
 
         local function CreateRow(Player, Index)
+            local UserId = tonumber(Player and Player.UserId) or 0
+            if UserId <= 0 then
+                return
+            end
+
+            local Existing = State.Rows[UserId]
+            if Existing and Existing.Parent then
+                Existing:Destroy()
+            end
+
             local Selected =
                 State.Selected == Player
             local Presentation = GetPlayerPresentation(Player)
@@ -13600,13 +13654,23 @@ local function BuildRuntime()
                 SelectPlayer(Player)
             end))
 
-            State.Rows[Player] = Row
+            Row.Name = "PlayerRow_" .. tostring(UserId)
+            State.Rows[UserId] = Row
         end
 
         RefreshRows = function()
-            for _, Row in pairs(State.Rows) do
-                if Row and Row.Parent then
-                    Row:Destroy()
+            if State.Refreshing then
+                State.RefreshQueued = true
+                return
+            end
+
+            State.Refreshing = true
+            State.RefreshGeneration += 1
+            local Generation = State.RefreshGeneration
+
+            for _, Child in ipairs(Scroll:GetChildren()) do
+                if Child ~= RowLayout and Child:IsA("GuiObject") then
+                    Child:Destroy()
                 end
             end
             table.clear(State.Rows)
@@ -13645,8 +13709,10 @@ local function BuildRuntime()
                 .. "]"
 
             local Index = 0
+            local SeenUserIds = {}
 
             for _, Player in ipairs(List) do
+                local UserId = tonumber(Player.UserId) or 0
                 local Haystack =
                     string.lower(
                         tostring(Player.Name)
@@ -13654,17 +13720,29 @@ local function BuildRuntime()
                         .. tostring(Player.DisplayName)
                     )
 
-                if Query == ""
-                    or string.find(
-                        Haystack,
-                        Query,
-                        1,
-                        true
-                    )
+                if UserId > 0
+                    and not SeenUserIds[UserId]
+                    and (Query == ""
+                        or string.find(
+                            Haystack,
+                            Query,
+                            1,
+                            true
+                        ))
                 then
+                    SeenUserIds[UserId] = true
                     Index += 1
                     CreateRow(Player, Index)
                 end
+            end
+
+            if Generation == State.RefreshGeneration then
+                State.Refreshing = false
+            end
+
+            if State.RefreshQueued then
+                State.RefreshQueued = false
+                task.defer(RefreshRows)
             end
         end
 
@@ -13818,6 +13896,9 @@ local function BuildRuntime()
 
         function Controller:Destroy()
             State.Visible = false
+            State.RefreshQueued = false
+            State.Refreshing = false
+            State.RefreshGeneration += 1
             if RootGlow and RootGlow.Parent then
                 RootGlow:Destroy()
             end
