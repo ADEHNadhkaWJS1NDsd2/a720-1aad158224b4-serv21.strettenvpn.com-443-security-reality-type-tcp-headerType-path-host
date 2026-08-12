@@ -8521,7 +8521,9 @@ local function BuildRuntime()
             ElementBases = {},
             BoxBounds = nil,
             DraggableElements = {},
-            PreviewOrder = {}
+            PreviewOrder = {},
+            DragLocalPosition = nil,
+            PendingPreviewZone = nil
         }
 
         S.Window = Create("Frame", {
@@ -9173,6 +9175,14 @@ local function BuildRuntime()
 
         local function SetElementPosition(Key, Object, Position)
             if not Object or not Object.Parent then return end
+            if S.ElementDragging == Key and typeof(S.DragLocalPosition) == "Vector2" then
+                Object.AnchorPoint = Vector2.new(0.5, 0.5)
+                Object.Position = UDim2.fromOffset(
+                    math.floor(S.DragLocalPosition.X + 0.5),
+                    math.floor(S.DragLocalPosition.Y + 0.5)
+                )
+                return
+            end
             Object.Position = UDim2.fromOffset(math.floor(Position.X + 0.5), math.floor(Position.Y + 0.5))
             local Base = S.ElementBases[Key]
             if typeof(Base) == "Vector2" then
@@ -9227,25 +9237,31 @@ local function BuildRuntime()
                 Flags = S.Flags
             }
 
+            local LocalBodySize = S.Body.AbsoluteSize / math.max(0.01, tonumber(S.Scale.Scale) or 1)
             for Index, Key in ipairs(ZoneLists.Top) do
                 local Object = Objects[Key]
                 Object.AnchorPoint = Vector2.new(0.5, 1)
-                SetElementPosition(Key, Object, Vector2.new(CenterX, MinY - 6 - ((Index - 1) * 18)))
+                local Y = math.max(20, MinY - 6 - ((Index - 1) * 18))
+                SetElementPosition(Key, Object, Vector2.new(math.clamp(CenterX, 48, LocalBodySize.X - 48), Y))
             end
 
             for Index, Key in ipairs(ZoneLists.Bottom) do
                 local Object = Objects[Key]
                 Object.AnchorPoint = Vector2.new(0.5, 0)
-                SetElementPosition(Key, Object, Vector2.new(CenterX, MaxY + 6 + ((Index - 1) * 18)))
+                local Y = math.min(LocalBodySize.Y - 20, MaxY + 6 + ((Index - 1) * 18))
+                SetElementPosition(Key, Object, Vector2.new(math.clamp(CenterX, 48, LocalBodySize.X - 48), Y))
             end
 
+            local LocalBodySize = S.Body.AbsoluteSize / math.max(0.01, tonumber(S.Scale.Scale) or 1)
             local LeftCount = #ZoneLists.Left
             for Index, Key in ipairs(ZoneLists.Left) do
                 local Object = Objects[Key]
                 Object.AnchorPoint = Vector2.new(1, 0.5)
                 local Y = CenterY + ((Index - ((LeftCount + 1) * 0.5)) * 18)
                 local Extra = HealthBarZone == "Left" and 8 or 0
-                SetElementPosition(Key, Object, Vector2.new(MinX - 10 - Extra, Y))
+                local ObjectWidth = math.max(Object.AbsoluteSize.X / math.max(0.01, tonumber(S.Scale.Scale) or 1), Object.Size.X.Offset, 40)
+                local X = math.max(MinX - 10 - Extra, ObjectWidth + 6)
+                SetElementPosition(Key, Object, Vector2.new(X, math.clamp(Y, 12, LocalBodySize.Y - 12)))
             end
 
             local RightCount = #ZoneLists.Right
@@ -9254,7 +9270,9 @@ local function BuildRuntime()
                 Object.AnchorPoint = Vector2.new(0, 0.5)
                 local Y = CenterY + ((Index - ((RightCount + 1) * 0.5)) * 18)
                 local Extra = HealthBarZone == "Right" and 8 or 0
-                SetElementPosition(Key, Object, Vector2.new(MaxX + 10 + Extra, Y))
+                local ObjectWidth = math.max(Object.AbsoluteSize.X / math.max(0.01, tonumber(S.Scale.Scale) or 1), Object.Size.X.Offset, 40)
+                local X = math.min(MaxX + 10 + Extra, LocalBodySize.X - ObjectWidth - 6)
+                SetElementPosition(Key, Object, Vector2.new(X, math.clamp(Y, 12, LocalBodySize.Y - 12)))
             end
         end
 
@@ -9468,6 +9486,11 @@ local function BuildRuntime()
                     SetPreviewInspector((Key == "HealthBar" and "Health Bar") or (Key == "HealthValue" and "Health Text") or Key)
                     S.ElementDragStart = Input.Position
                     S.ElementStartOffset = nil
+                    S.PendingPreviewZone = GetPreviewZone(Key)
+                    local UiScale = math.max(0.01, tonumber(S.Scale.Scale) or 1)
+                    local ScreenPoint = Vector2.new(Input.Position.X, Input.Position.Y)
+                    local LocalPosition = (ScreenPoint - S.Body.AbsolutePosition) / UiScale
+                    S.DragLocalPosition = LocalPosition
                 elseif Input.UserInputType == Enum.UserInputType.MouseButton2 then
                     ResetPreviewElement(Key)
                     SetPreviewInspector(nil)
@@ -10079,10 +10102,26 @@ local function BuildRuntime()
             local NameGap = 25
             local InfoGap = 26
             local SideGap = 10
-            MinX = math.clamp(MinX - PaddingX, 20, LocalViewSize.X - 66)
-            MinY = math.clamp(MinY - PaddingY, NameGap + 10, LocalViewSize.Y - 104)
-            MaxX = math.clamp(MaxX + PaddingX, MinX + 56, LocalViewSize.X - 20)
-            MaxY = math.clamp(MaxY + PaddingY, MinY + 110, LocalViewSize.Y - InfoGap - 20)
+            local TopCount, BottomCount, LeftCount, RightCount = 0, 0, 0, 0
+            for _, Key in ipairs(PreviewStackOrder) do
+                if IsPreviewElementEnabled(Key) then
+                    local Zone = GetPreviewZone(Key)
+                    if Zone == "Top" then TopCount += 1
+                    elseif Zone == "Bottom" then BottomCount += 1
+                    elseif Zone == "Left" then LeftCount += 1
+                    elseif Zone == "Right" then RightCount += 1 end
+                end
+            end
+            local TopReserve = math.max(38, 14 + TopCount * 18)
+            local BottomReserve = math.max(42, 14 + BottomCount * 18)
+            local LeftReserve = LeftCount > 0 and 86 or 20
+            local RightReserve = RightCount > 0 and 86 or 20
+            if GetPreviewZone("HealthBar") == "Left" then LeftReserve = math.max(LeftReserve, 28) end
+            if GetPreviewZone("HealthBar") == "Right" then RightReserve = math.max(RightReserve, 28) end
+            MinX = math.clamp(MinX - PaddingX, LeftReserve, LocalViewSize.X - RightReserve - 56)
+            MinY = math.clamp(MinY - PaddingY, TopReserve, LocalViewSize.Y - BottomReserve - 110)
+            MaxX = math.clamp(MaxX + PaddingX, MinX + 56, LocalViewSize.X - RightReserve)
+            MaxY = math.clamp(MaxY + PaddingY, MinY + 110, LocalViewSize.Y - BottomReserve)
             local Width = MaxX - MinX
             local Height = MaxY - MinY
             if Width < 56 or Height < 110 then
@@ -10361,9 +10400,19 @@ local function BuildRuntime()
 
         Bind(UserInputService.InputChanged:Connect(function(Input)
             if S.ElementDragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
-                local Zone = GetPreviewSnapZone(S.ElementDragging, Input.Position)
-                SetPreviewZone(S.ElementDragging, Zone)
-                ReorderPreviewElement(S.ElementDragging, Zone, Input.Position)
+                local UiScale = math.max(0.01, tonumber(S.Scale.Scale) or 1)
+                local ScreenPoint = Vector2.new(Input.Position.X, Input.Position.Y)
+                local LocalPosition = (ScreenPoint - S.Body.AbsolutePosition) / UiScale
+                local BodySize = S.Body.AbsoluteSize / UiScale
+                local DragObject = S.DraggableElements[S.ElementDragging]
+                local HalfWidth = DragObject and math.max(DragObject.AbsoluteSize.X / UiScale, 8) * 0.5 or 8
+                local HalfHeight = DragObject and math.max(DragObject.AbsoluteSize.Y / UiScale, 8) * 0.5 or 8
+                S.DragLocalPosition = Vector2.new(
+                    math.clamp(LocalPosition.X, HalfWidth + 4, math.max(HalfWidth + 4, BodySize.X - HalfWidth - 4)),
+                    math.clamp(LocalPosition.Y, HalfHeight + 4, math.max(HalfHeight + 4, BodySize.Y - HalfHeight - 4))
+                )
+                S.PendingPreviewZone = GetPreviewSnapZone(S.ElementDragging, Input.Position)
+                SetPreviewInspector(((S.ElementDragging == "HealthBar" and "Health Bar") or (S.ElementDragging == "HealthValue" and "Health Text") or S.ElementDragging) .. "  •  " .. tostring(S.PendingPreviewZone))
                 ApplyPreviewElementLayout()
             elseif S.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
                 local Delta = Input.Position - S.DragStart
@@ -10382,9 +10431,16 @@ local function BuildRuntime()
 
         Bind(UserInputService.InputEnded:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 and S.ElementDragging then
+                local DraggedKey = S.ElementDragging
+                local FinalZone = S.PendingPreviewZone or GetPreviewZone(DraggedKey)
+                SetPreviewZone(DraggedKey, FinalZone)
+                ReorderPreviewElement(DraggedKey, FinalZone, Input.Position)
                 S.ElementDragging = nil
                 S.ElementDragStart = nil
                 S.ElementStartOffset = nil
+                S.DragLocalPosition = nil
+                S.PendingPreviewZone = nil
+                ApplyPreviewElementLayout()
                 SetPreviewInspector(nil)
             end
             if Input.UserInputType == Enum.UserInputType.MouseButton1 and S.Dragging then
