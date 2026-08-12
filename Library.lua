@@ -138,13 +138,13 @@ local function BuildRuntime()
 
     local DefaultAccent = Color3.fromRGB(255, 160, 128)
     local Accent = DefaultAccent
-    local Background = Color3.fromRGB(4, 7, 10)
-    local SidebarColor = Color3.fromRGB(6, 10, 14)
-    local Surface = Color3.fromRGB(9, 15, 20)
-    local SurfaceAlt = Color3.fromRGB(13, 22, 29)
-    local Border = Color3.fromRGB(30, 50, 62)
-    local PrimaryText = Color3.fromRGB(226, 236, 242)
-    local MutedText = Color3.fromRGB(128, 150, 163)
+    local Background = Color3.fromRGB(5, 8, 12)
+    local SidebarColor = Color3.fromRGB(7, 12, 17)
+    local Surface = Color3.fromRGB(10, 16, 22)
+    local SurfaceAlt = Color3.fromRGB(14, 22, 30)
+    local Border = Color3.fromRGB(29, 46, 58)
+    local PrimaryText = Color3.fromRGB(230, 237, 242)
+    local MutedText = Color3.fromRGB(138, 154, 165)
     local DisabledText = Color3.fromRGB(76, 92, 102)
     local Danger = Color3.fromRGB(194, 70, 88)
     local BaseScaleFactor = 1
@@ -8525,7 +8525,7 @@ local function BuildRuntime()
             Active = true,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = SavedPreviewPosition or UDim2.new(0.5, 492, 0.5, 0),
-            Size = UDim2.fromOffset(760, 500),
+            Size = UDim2.fromOffset(824, 522),
             BackgroundColor3 = Background,
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
@@ -8592,8 +8592,8 @@ local function BuildRuntime()
         S.ResetLayoutButton = Create("TextButton", {
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -136, 0.5, 0),
-            Size = UDim2.fromOffset(48, 24),
+            Position = UDim2.new(1, -128, 0.5, 0),
+            Size = UDim2.fromOffset(50, 24),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.18,
             BorderSizePixel = 0,
@@ -8610,8 +8610,8 @@ local function BuildRuntime()
         S.MinimalButton = Create("TextButton", {
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -170, 0.5, 0),
-            Size = UDim2.fromOffset(56, 24),
+            Position = UDim2.new(1, -186, 0.5, 0),
+            Size = UDim2.fromOffset(58, 24),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.18,
             BorderSizePixel = 0,
@@ -8628,8 +8628,8 @@ local function BuildRuntime()
         S.DetachButton = Create("TextButton", {
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -110, 0.5, 0),
-            Size = UDim2.fromOffset(52, 24),
+            Position = UDim2.new(1, -68, 0.5, 0),
+            Size = UDim2.fromOffset(54, 24),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.18,
             BorderSizePixel = 0,
@@ -8646,8 +8646,8 @@ local function BuildRuntime()
         S.CloseButton = Create("TextButton", {
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -52, 0.5, 0),
-            Size = UDim2.fromOffset(40, 24),
+            Position = UDim2.new(1, -14, 0.5, 0),
+            Size = UDim2.fromOffset(46, 24),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.18,
             BorderSizePixel = 0,
@@ -8664,8 +8664,8 @@ local function BuildRuntime()
         S.ModeRail = Create("Frame", {
             Parent = S.Header,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -236, 0.5, 0),
-            Size = UDim2.fromOffset(116, 28),
+            Position = UDim2.new(1, -252, 0.5, 0),
+            Size = UDim2.fromOffset(132, 28),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.12,
             BorderSizePixel = 0,
@@ -8676,8 +8676,8 @@ local function BuildRuntime()
 
         S.ModeHighlight = Create("Frame", {
             Parent = S.ModeRail,
-            Position = UDim2.fromOffset(S.Mode == "2D" and 2 or 58, 2),
-            Size = UDim2.fromOffset(56, 24),
+            Position = UDim2.fromOffset(S.Mode == "2D" and 2 or 66, 2),
+            Size = UDim2.fromOffset(64, 24),
             BackgroundColor3 = Accent,
             BackgroundTransparency = 0.05,
             BorderSizePixel = 0,
@@ -8688,7 +8688,7 @@ local function BuildRuntime()
         S.TwoDButton = Create("TextButton", {
             Parent = S.ModeRail,
             Position = UDim2.fromOffset(2, 2),
-            Size = UDim2.fromOffset(56, 24),
+            Size = UDim2.fromOffset(64, 24),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -8701,8 +8701,8 @@ local function BuildRuntime()
 
         S.ThreeDButton = Create("TextButton", {
             Parent = S.ModeRail,
-            Position = UDim2.fromOffset(58, 2),
-            Size = UDim2.fromOffset(56, 24),
+            Position = UDim2.fromOffset(66, 2),
+            Size = UDim2.fromOffset(64, 24),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -8717,7 +8717,7 @@ local function BuildRuntime()
             Parent = S.Window,
             Active = true,
             Position = UDim2.fromOffset(14, 58),
-            Size = UDim2.fromOffset(446, 428),
+            Size = UDim2.fromOffset(516, 450),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
@@ -8904,6 +8904,66 @@ local function BuildRuntime()
             ZIndex = 27
         })
 
+        S.Level = Create("TextLabel", {
+            Parent = S.Overlay,
+            AnchorPoint = Vector2.new(0.5, 1),
+            Position = UDim2.fromScale(0.5, 1.018),
+            Size = UDim2.new(1, -24, 0, 18),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "Level 55",
+            TextColor3 = MutedText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Active = true,
+            ZIndex = 27
+        })
+
+        S.Ammo = Create("TextLabel", {
+            Parent = S.Overlay,
+            AnchorPoint = Vector2.new(0.5, 1),
+            Position = UDim2.fromScale(0.5, 1.058),
+            Size = UDim2.new(1, -24, 0, 18),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "16/42",
+            TextColor3 = MutedText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Active = true,
+            ZIndex = 27
+        })
+
+        S.Forcefield = Create("TextLabel", {
+            Parent = S.Overlay,
+            AnchorPoint = Vector2.new(0.5, 1),
+            Position = UDim2.fromScale(0.5, 1.098),
+            Size = UDim2.new(1, -24, 0, 18),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "[Protected]",
+            TextColor3 = Accent,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Active = true,
+            ZIndex = 27
+        })
+
+        S.Flags = Create("TextLabel", {
+            Parent = S.Overlay,
+            AnchorPoint = Vector2.new(0.5, 1),
+            Position = UDim2.fromScale(0.5, 1.138),
+            Size = UDim2.new(1, -24, 0, 18),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSans,
+            Text = "Flagged",
+            TextColor3 = MutedText,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Active = true,
+            ZIndex = 27
+        })
+
         S.Status = Create("TextLabel", {
             Parent = S.Body,
             AnchorPoint = Vector2.new(0.5, 0.5),
@@ -8944,8 +9004,8 @@ local function BuildRuntime()
 
         S.SidePanel = Create("Frame", {
             Parent = S.Window,
-            Position = UDim2.fromOffset(472, 58),
-            Size = UDim2.fromOffset(274, 428),
+            Position = UDim2.fromOffset(542, 58),
+            Size = UDim2.fromOffset(268, 450),
             BackgroundColor3 = Surface,
             BackgroundTransparency = 0.08,
             BorderSizePixel = 0,
@@ -8957,7 +9017,7 @@ local function BuildRuntime()
         S.ElementButtonHolder = Create("Frame", {
             Parent = S.SidePanel,
             Position = UDim2.fromOffset(14, 88),
-            Size = UDim2.new(1, -28, 0, 202),
+            Size = UDim2.new(1, -28, 0, 230),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ZIndex = 22
@@ -9008,7 +9068,7 @@ local function BuildRuntime()
 
         Create("TextLabel", {
             Parent = S.SidePanel,
-            Position = UDim2.fromOffset(14, 302),
+            Position = UDim2.fromOffset(14, 334),
             Size = UDim2.fromOffset(160, 16),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
@@ -9021,7 +9081,7 @@ local function BuildRuntime()
 
         S.InspectorText = Create("TextLabel", {
             Parent = S.SidePanel,
-            Position = UDim2.fromOffset(14, 324),
+            Position = UDim2.fromOffset(14, 356),
             Size = UDim2.new(1, -28, 0, 16),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
@@ -9037,7 +9097,11 @@ local function BuildRuntime()
             HealthValue = "Player ESP Health Value Offset",
             Name = "Player ESP Name Offset",
             Weapon = "Player ESP Weapon Offset",
-            Distance = "Player ESP Distance Offset"
+            Distance = "Player ESP Distance Offset",
+            Level = "Player ESP Level Offset",
+            Ammo = "Player ESP Ammo Offset",
+            Forcefield = "Player ESP Forcefield Offset",
+            Flags = "Player ESP Flags Offset"
         }
 
         local function GetPreviewOffset(Key)
@@ -9099,9 +9163,9 @@ local function BuildRuntime()
                 return Vector2.new(X - Base.X, Y - Base.Y)
             end
 
-            if Key == "Weapon" or Key == "Distance" then
-                local X = math.clamp(Desired.X, CenterX - Width * 0.65, CenterX + Width * 0.65)
-                local Y = math.clamp(Desired.Y, MaxY + 4, MaxY + 54)
+            if Key == "Weapon" or Key == "Distance" or Key == "Level" or Key == "Ammo" or Key == "Forcefield" or Key == "Flags" then
+                local X = math.clamp(Desired.X, CenterX - Width * 0.72, CenterX + Width * 0.72)
+                local Y = math.clamp(Desired.Y, MaxY + 4, MaxY + 90)
                 return Vector2.new(X - Base.X, Y - Base.Y)
             end
 
@@ -9129,6 +9193,22 @@ local function BuildRuntime()
             if typeof(Bases.Distance) == "Vector2" then
                 local Position = AddOffset(Bases.Distance, GetPreviewOffset("Distance"))
                 S.Distance.Position = UDim2.fromOffset(Position.X, Position.Y)
+            end
+            if typeof(Bases.Level) == "Vector2" then
+                local Position = AddOffset(Bases.Level, GetPreviewOffset("Level"))
+                S.Level.Position = UDim2.fromOffset(Position.X, Position.Y)
+            end
+            if typeof(Bases.Ammo) == "Vector2" then
+                local Position = AddOffset(Bases.Ammo, GetPreviewOffset("Ammo"))
+                S.Ammo.Position = UDim2.fromOffset(Position.X, Position.Y)
+            end
+            if typeof(Bases.Forcefield) == "Vector2" then
+                local Position = AddOffset(Bases.Forcefield, GetPreviewOffset("Forcefield"))
+                S.Forcefield.Position = UDim2.fromOffset(Position.X, Position.Y)
+            end
+            if typeof(Bases.Flags) == "Vector2" then
+                local Position = AddOffset(Bases.Flags, GetPreviewOffset("Flags"))
+                S.Flags.Position = UDim2.fromOffset(Position.X, Position.Y)
             end
         end
 
@@ -9169,12 +9249,16 @@ local function BuildRuntime()
 
         local EditorElementData = {
             {Name = "ESP Box", Flag = "Player ESP Boxes", PreviewKey = nil},
+            {Name = "Fill", Flag = "Player ESP Fill", PreviewKey = nil},
             {Name = "HP Bar", Flag = "Player ESP Health Bar", PreviewKey = "HealthBar"},
+            {Name = "Health", Flag = "Player ESP Health Value", PreviewKey = "HealthValue"},
             {Name = "Nickname", Flag = "Player ESP Names", PreviewKey = "Name"},
             {Name = "Weapon", Flag = "Player ESP Weapon", PreviewKey = "Weapon"},
             {Name = "Distance", Flag = "Player ESP Distance", PreviewKey = "Distance"},
-            {Name = "Protected", Flag = "Player ESP Forcefield", PreviewKey = nil},
-            {Name = "Health", Flag = "Player ESP Health Value", PreviewKey = "HealthValue"}
+            {Name = "Level", Flag = "Player ESP Level", PreviewKey = "Level"},
+            {Name = "Ammo", Flag = "Player ESP Ammo", PreviewKey = "Ammo"},
+            {Name = "Protected", Flag = "Player ESP Forcefield", PreviewKey = "Forcefield"},
+            {Name = "Flags", Flag = "Player ESP Flags", PreviewKey = "Flags"}
         }
 
         S.ElementButtons = {}
@@ -9208,18 +9292,20 @@ local function BuildRuntime()
         end
 
         do
-            local PaddingX = 8
-            local PaddingY = 8
-            local Columns = 2
-            local ButtonWidth = 116
-            local ButtonHeight = 24
+            Create("UIGridLayout", {
+                Parent = S.ElementButtonHolder,
+                CellSize = UDim2.new(0.5, -5, 0, 28),
+                CellPadding = UDim2.fromOffset(8, 8),
+                FillDirectionMaxCells = 2,
+                HorizontalAlignment = Enum.HorizontalAlignment.Center,
+                VerticalAlignment = Enum.VerticalAlignment.Top,
+                SortOrder = Enum.SortOrder.LayoutOrder
+            })
+
             for Index, Data in ipairs(EditorElementData) do
-                local Column = (Index - 1) % Columns
-                local Row = math.floor((Index - 1) / Columns)
                 local Button = Create("TextButton", {
                     Parent = S.ElementButtonHolder,
-                    Position = UDim2.fromOffset(Column * (ButtonWidth + PaddingX), Row * (ButtonHeight + PaddingY)),
-                    Size = UDim2.fromOffset(ButtonWidth, ButtonHeight),
+                    Size = UDim2.fromOffset(0, 0),
                     BackgroundColor3 = SurfaceAlt,
                     BackgroundTransparency = 0.08,
                     BorderSizePixel = 0,
@@ -9228,6 +9314,7 @@ local function BuildRuntime()
                     Text = Data.Name,
                     TextColor3 = PrimaryText,
                     TextSize = 10,
+                    LayoutOrder = Index,
                     ZIndex = 22
                 })
                 Corner(Button, 6)
@@ -9247,7 +9334,7 @@ local function BuildRuntime()
         end
 
         Bind(S.AddElementButton.MouseButton1Click:Connect(function()
-            local Priority = {"Player ESP Boxes", "Player ESP Health Bar", "Player ESP Names", "Player ESP Weapon", "Player ESP Distance", "Player ESP Health Value", "Player ESP Forcefield"}
+            local Priority = {"Player ESP Boxes", "Player ESP Fill", "Player ESP Health Bar", "Player ESP Health Value", "Player ESP Names", "Player ESP Weapon", "Player ESP Distance", "Player ESP Level", "Player ESP Ammo", "Player ESP Forcefield", "Player ESP Flags"}
             for _, Flag in ipairs(Priority) do
                 if Menu.Flags[Flag] ~= true then
                     ToggleEditorFlag(Flag)
@@ -9266,7 +9353,7 @@ local function BuildRuntime()
                         return
                     end
                     S.ElementDragging = Key
-                    SetPreviewInspector((Key == "HealthBar" and "HP Bar") or (Key == "HealthValue" and "Health") or Key)
+                    SetPreviewInspector((Key == "HealthBar" and "HP Bar") or (Key == "HealthValue" and "Health") or (Key == "Forcefield" and "Protected") or Key)
                     S.ElementDragStart = Input.Position
                     S.ElementStartOffset = GetPreviewOffset(Key)
                 elseif Input.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -9286,6 +9373,10 @@ local function BuildRuntime()
         RegisterPreviewDraggable("Name", S.Name)
         RegisterPreviewDraggable("Weapon", S.Weapon)
         RegisterPreviewDraggable("Distance", S.Distance)
+        RegisterPreviewDraggable("Level", S.Level)
+        RegisterPreviewDraggable("Ammo", S.Ammo)
+        RegisterPreviewDraggable("Forcefield", S.Forcefield)
+        RegisterPreviewDraggable("Flags", S.Flags)
         UpdateEditorElementButtons()
 
         Bind(S.ResetLayoutButton.MouseButton1Click:Connect(function()
@@ -9303,7 +9394,7 @@ local function BuildRuntime()
             local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
             local Size = S.Window.AbsoluteSize
             if Size.X <= 0 or Size.Y <= 0 then
-                Size = Vector2.new(760, 500)
+                Size = Vector2.new(824, 522)
             end
             Size *= S.Scale.Scale
             local HalfX = math.floor(Size.X * 0.5)
@@ -9324,7 +9415,7 @@ local function BuildRuntime()
             local Viewport = CameraObject and CameraObject.ViewportSize or Vector2.new(1920, 1080)
             local ScaleValue = math.max(0.01, tonumber(S.Scale.Scale) or 1)
             local PreviewSize = S.Window.AbsoluteSize
-            if PreviewSize.X < 2 or PreviewSize.Y < 2 then PreviewSize = Vector2.new(760, 500) end
+            if PreviewSize.X < 2 or PreviewSize.Y < 2 then PreviewSize = Vector2.new(824, 522) end
             PreviewSize *= ScaleValue
             local MainPosition = Main.AbsolutePosition
             local MainSize = Main.AbsoluteSize
@@ -9891,6 +9982,10 @@ local function BuildRuntime()
             S.Name.Size = UDim2.fromOffset(math.max(90, math.floor(Width + 60)), 20)
             S.Weapon.Size = UDim2.fromOffset(math.max(100, math.floor(Width + 70)), 18)
             S.Distance.Size = UDim2.fromOffset(math.max(70, math.floor(Width + 40)), 18)
+            S.Level.Size = UDim2.fromOffset(math.max(70, math.floor(Width + 40)), 18)
+            S.Ammo.Size = UDim2.fromOffset(math.max(70, math.floor(Width + 40)), 18)
+            S.Forcefield.Size = UDim2.fromOffset(math.max(90, math.floor(Width + 60)), 18)
+            S.Flags.Size = UDim2.fromOffset(math.max(90, math.floor(Width + 60)), 18)
 
             S.BoxBounds = {
                 MinX = MinX,
@@ -9914,14 +10009,15 @@ local function BuildRuntime()
                 math.floor(CenterX),
                 math.floor(MinY - NameGap)
             )
-            S.ElementBases.Weapon = Vector2.new(
-                math.floor(CenterX),
-                math.floor(MaxY + InfoGap - 7)
-            )
-            S.ElementBases.Distance = Vector2.new(
-                math.floor(CenterX),
-                math.floor(MaxY + InfoGap + 11)
-            )
+            local BottomKeys = {"Weapon", "Distance", "Level", "Ammo", "Forcefield", "Flags"}
+            local BottomStart = math.floor(MaxY + InfoGap - 7)
+            local BottomStep = 18
+            for Index, Key in ipairs(BottomKeys) do
+                S.ElementBases[Key] = Vector2.new(
+                    math.floor(CenterX),
+                    math.floor(BottomStart + (Index - 1) * BottomStep)
+                )
+            end
 
             for Key in pairs(PreviewElementFlags) do
                 SetPreviewOffset(Key, ConstrainPreviewOffset(Key, GetPreviewOffset(Key)))
@@ -9986,6 +10082,26 @@ local function BuildRuntime()
             S.Distance.Text = "0m"
             S.Distance.TextColor3 = TextColor
             S.Distance.TextSize = math.max(9, TextSize - 2)
+
+            S.Level.Visible = DisplayEnabled and GetFlag("Player ESP Level", false)
+            S.Level.Text = "Level 55"
+            S.Level.TextColor3 = GetFlag("Player ESP Level Color", TextColor)
+            S.Level.TextSize = math.max(9, TextSize - 2)
+
+            S.Ammo.Visible = DisplayEnabled and GetFlag("Player ESP Ammo", false)
+            S.Ammo.Text = "16/42"
+            S.Ammo.TextColor3 = GetFlag("Player ESP Ammo Color", TextColor)
+            S.Ammo.TextSize = math.max(9, TextSize - 2)
+
+            S.Forcefield.Visible = DisplayEnabled and GetFlag("Player ESP Forcefield", false)
+            S.Forcefield.Text = "[Protected]"
+            S.Forcefield.TextColor3 = GetFlag("Player ESP Forcefield Color", Accent)
+            S.Forcefield.TextSize = math.max(9, TextSize - 2)
+
+            S.Flags.Visible = DisplayEnabled and GetFlag("Player ESP Flags", false)
+            S.Flags.Text = "Flagged"
+            S.Flags.TextColor3 = GetFlag("Player ESP Flags Color", TextColor)
+            S.Flags.TextSize = math.max(9, TextSize - 2)
             S.Silhouette.Visible = not S.Model and not S.Status.Visible
             S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(165, 181, 190) or Color3.fromRGB(139, 157, 168)
             S.Viewport.LightDirection = S.Mode == "2D" and Vector3.new(-0.8, -0.4, -1) or Vector3.new(-1, -0.75, -1)
@@ -9993,7 +10109,7 @@ local function BuildRuntime()
 
         local function RefreshMode()
             local Is2D = S.Mode == "2D"
-            S.ModeHighlight.Position = UDim2.fromOffset(Is2D and 2 or 58, 2)
+            S.ModeHighlight.Position = UDim2.fromOffset(Is2D and 2 or 66, 2)
             S.TwoDButton.TextColor3 = Is2D and Background or MutedText
             S.ThreeDButton.TextColor3 = Is2D and MutedText or Background
             if Is2D then
@@ -10085,7 +10201,7 @@ local function BuildRuntime()
         Bind(S.MinimalButton.MouseButton1Click:Connect(function()
             S.Minimal = not S.Minimal
             S.SidePanel.Visible = not S.Minimal
-            S.Window.Size = S.Minimal and UDim2.fromOffset(472, 500) or UDim2.fromOffset(760, 500)
+            S.Window.Size = S.Minimal and UDim2.fromOffset(544, 522) or UDim2.fromOffset(824, 522)
             S.Window.Position = ClampWindow(S.Window.Position)
             Tween(S.MinimalButton, 0.12, {
                 BackgroundTransparency = S.Minimal and 0.05 or 0.18,
