@@ -9645,34 +9645,16 @@ local function BuildRuntime()
         local PreviewBodyNames = {
             Head = true,
             Torso = true,
-            UpperTorso = true,
-            LowerTorso = true,
-            LeftArm = true,
-            RightArm = true,
-            LeftLeg = true,
-            RightLeg = true,
-            LeftUpperArm = true,
-            LeftLowerArm = true,
-            LeftHand = true,
-            RightUpperArm = true,
-            RightLowerArm = true,
-            RightHand = true,
-            LeftUpperLeg = true,
-            LeftLowerLeg = true,
-            LeftFoot = true,
-            RightUpperLeg = true,
-            RightLowerLeg = true,
-            RightFoot = true
+            ["Left Arm"] = true,
+            ["Right Arm"] = true,
+            ["Left Leg"] = true,
+            ["Right Leg"] = true
         }
 
         local function IsPreviewBodyPart(Object)
-            if not Object:IsA("BasePart") or Object.Name == "HumanoidRootPart" or Object.Transparency >= 0.995 then
-                return false
-            end
-            if PreviewBodyNames[Object.Name] then
-                return true
-            end
-            return Object.Parent == S.Model and not Object:FindFirstAncestorWhichIsA("Accessory")
+            return Object:IsA("BasePart")
+                and Object.Transparency < 0.995
+                and PreviewBodyNames[Object.Name] == true
         end
 
         local function GetPreviewParts(Model)
@@ -9681,13 +9663,6 @@ local function BuildRuntime()
                 if Object:IsA("BasePart") and Object.Name ~= "HumanoidRootPart" and Object.Transparency < 0.995 then
                     local Accessory = Object:FindFirstAncestorWhichIsA("Accessory")
                     if PreviewBodyNames[Object.Name] or (not Accessory and Object.Parent == Model) then
-                        Parts[#Parts + 1] = Object
-                    end
-                end
-            end
-            if #Parts == 0 then
-                for _, Object in ipairs(Model:GetDescendants()) do
-                    if Object:IsA("BasePart") and Object.Name ~= "HumanoidRootPart" and Object.Transparency < 0.995 then
                         Parts[#Parts + 1] = Object
                     end
                 end
@@ -9748,7 +9723,6 @@ local function BuildRuntime()
             Model:PivotTo(CFrame.new(-Center) * Pivot)
 
             local FacingPart = Model:FindFirstChild("HumanoidRootPart")
-                or Model:FindFirstChild("UpperTorso")
                 or Model:FindFirstChild("Torso")
                 or Model:FindFirstChild("Head")
             local Facing = FacingPart and FacingPart.CFrame.LookVector or Vector3.new(0, 0, -1)
@@ -9790,201 +9764,65 @@ local function BuildRuntime()
             S.BoundsValid = false
         end
 
-        local function FindPreviewAttachment(Model, Name, IgnoredAccessory)
-            if not Model or type(Name) ~= "string" or Name == "" then return nil end
-            for _, Object in ipairs(Model:GetDescendants()) do
-                if Object:IsA("Attachment")
-                    and Object.Name == Name
-                    and Object.Parent
-                    and Object.Parent:IsA("BasePart")
-                    and (not IgnoredAccessory or not Object:IsDescendantOf(IgnoredAccessory))
-                    and not Object:FindFirstAncestorWhichIsA("Accessory") then
-                    return Object
-                end
-            end
-            return nil
-        end
+        local function CreateDescriptionModel()
+            if not LocalPlayer then return nil, nil end
 
-        local function AttachPreviewAccessory(Model, Accessory)
-            if not Model or not Accessory or not Accessory:IsA("Accessory") then return false end
-            local Handle = Accessory:FindFirstChild("Handle")
-            if not Handle or not Handle:IsA("BasePart") then
-                Accessory.Parent = Model
-                return true
-            end
-            local HandleAttachment = Handle:FindFirstChildWhichIsA("Attachment", true)
-            local TargetAttachment = HandleAttachment and FindPreviewAttachment(Model, HandleAttachment.Name, Accessory) or nil
-            for _, Object in ipairs(Handle:GetChildren()) do
-                if (Object:IsA("Weld") or Object:IsA("Motor6D") or Object:IsA("WeldConstraint"))
-                    and Object.Name == "AccessoryWeld" then
-                    Object:Destroy()
-                end
-            end
-            Accessory.Parent = Model
-            Handle.LocalTransparencyModifier = 0
-            Handle.Transparency = math.min(Handle.Transparency, 0.99)
-            Handle.CanCollide = false
-            Handle.CanTouch = false
-            Handle.CanQuery = false
-            if TargetAttachment and TargetAttachment.Parent and TargetAttachment.Parent:IsA("BasePart") then
-                Handle.CFrame = TargetAttachment.WorldCFrame * HandleAttachment.CFrame:Inverse()
-                local Weld = Instance.new("Weld")
-                Weld.Name = "AccessoryWeld"
-                Weld.Part0 = TargetAttachment.Parent
-                Weld.Part1 = Handle
-                Weld.C0 = TargetAttachment.CFrame
-                Weld.C1 = HandleAttachment.CFrame
-                Weld.Parent = Handle
-                return true
-            end
-            local Head = Model:FindFirstChild("Head")
-            if Head and Head:IsA("BasePart") then
-                Handle.CFrame = Head.CFrame
-                local Weld = Instance.new("WeldConstraint")
-                Weld.Name = "AccessoryWeld"
-                Weld.Part0 = Head
-                Weld.Part1 = Handle
-                Weld.Parent = Handle
-                return true
-            end
-            return false
-        end
+            local Character = LocalPlayer.Character
+            local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
+            local Description
 
-        local function MergeCurrentAppearance(Model)
-            local Character = LocalPlayer and LocalPlayer.Character
-            if not Character or not Model then return end
-            local ModelHumanoid = Model:FindFirstChildWhichIsA("Humanoid")
-            local ExistingAccessories = {}
-            for _, Object in ipairs(Model:GetChildren()) do
-                if Object:IsA("Accessory") then
-                    ExistingAccessories[Object.Name] = (ExistingAccessories[Object.Name] or 0) + 1
-                    local Handle = Object:FindFirstChild("Handle")
-                    if Handle and Handle:IsA("BasePart") then
-                        Handle.LocalTransparencyModifier = 0
-                    end
-                end
+            if Humanoid then
+                Library.Call(function()
+                    Description = Humanoid:GetAppliedDescription()
+                end)
             end
-            local SeenAccessories = {}
-            for _, Object in ipairs(Character:GetChildren()) do
-                if Object:IsA("Accessory")
-                    and Object.Name ~= "AtramentaCosmeticWings"
-                    and Object.Name ~= "MinecraftChinaHat" then
-                    SeenAccessories[Object.Name] = (SeenAccessories[Object.Name] or 0) + 1
-                    if SeenAccessories[Object.Name] > (ExistingAccessories[Object.Name] or 0) then
-                        local Clone
-                        Library.Call(function()
-                            local WasArchivable = Object.Archivable
-                            Object.Archivable = true
-                            Clone = Object:Clone()
-                            Object.Archivable = WasArchivable
-                        end)
-                        if Clone then
-                            local HasWrapLayer = Clone:FindFirstChildWhichIsA("WrapLayer", true) ~= nil
-                            local Added = false
-                            if HasWrapLayer and ModelHumanoid and Model.Parent then
-                                Added = Library.Call(function()
-                                    ModelHumanoid:AddAccessory(Clone)
-                                end) and Clone.Parent ~= nil
-                            end
-                            if not Added then
-                                AttachPreviewAccessory(Model, Clone)
-                            end
-                        end
-                    end
-                elseif (Object:IsA("Shirt") or Object:IsA("Pants") or Object:IsA("ShirtGraphic") or Object:IsA("BodyColors"))
-                    and not Model:FindFirstChildOfClass(Object.ClassName) then
-                    local Clone
+
+            if not Description then
+                local UserId = tonumber(LocalPlayer.UserId) or 0
+                if UserId > 0 then
                     Library.Call(function()
-                        Clone = Object:Clone()
+                        Description = Players:GetHumanoidDescriptionFromUserId(UserId)
                     end)
-                    if Clone then Clone.Parent = Model end
                 end
             end
-            local SourceHead = Character:FindFirstChild("Head")
-            local TargetHead = Model:FindFirstChild("Head")
-            if SourceHead and TargetHead then
-                for _, Object in ipairs(SourceHead:GetChildren()) do
-                    if Object:IsA("Decal") and not TargetHead:FindFirstChild(Object.Name) then
-                        local Clone
-                        Library.Call(function()
-                            Clone = Object:Clone()
-                        end)
-                        if Clone then Clone.Parent = TargetHead end
-                    end
-                end
-            end
-        end
 
-        local function CloneCurrentCharacterModel()
-            local Character = LocalPlayer and LocalPlayer.Character
-            if not Character or Character.Parent == nil then
-                return nil, nil
-            end
-            local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
-            if not Humanoid then
-                return nil, nil
-            end
+            if not Description then return nil, nil end
+
             local Model
             Library.Call(function()
-                local WasArchivable = Character.Archivable
-                Character.Archivable = true
-                Model = Character:Clone()
-                Character.Archivable = WasArchivable
+                Model = Players:CreateHumanoidModelFromDescription(Description, Enum.HumanoidRigType.R6)
             end)
-            if not Model then
-                return nil, nil
-            end
-            for _, Object in ipairs(Model:GetDescendants()) do
-                if Object:IsA("Tool")
-                    or Object:IsA("Highlight")
-                    or Object.Name == "AtramentaCosmeticWings"
-                    or Object.Name == "MinecraftChinaHat"
-                    or string.find(Object.Name, "AtramentaArms", 1, true)
-                    or string.find(Object.Name, "AtramentaWeaponChams", 1, true) then
-                    Library.Call(function()
-                        Object:Destroy()
-                    end)
-                end
-            end
-            local Description
-            Library.Call(function()
-                Description = Humanoid:GetAppliedDescription()
-            end)
-            return Model, Description
-        end
+            if not Model or not Model:IsA("Model") then return nil, nil end
 
-        local function CreateDescriptionModel()
-            local CharacterModel, CharacterDescription = CloneCurrentCharacterModel()
-            if CharacterModel then
-                return CharacterModel, CharacterDescription
-            end
-
-            if LocalPlayer then
-                local UserId = tonumber(LocalPlayer.UserId) or 0
-                local Creator = Players.CreateHumanoidModelFromUserIdAsync or Players.CreateHumanoidModelFromUserId
-
-                if UserId > 0 and type(Creator) == "function" then
-                    local Model
-                    Library.Call(function()
-                        Model = Creator(Players, UserId)
-                    end)
-
-                    if Model and Model:IsA("Model") then
-                        local Description
-                        local Humanoid = Model:FindFirstChildWhichIsA("Humanoid")
-
-                        if Humanoid then
-                            Library.Call(function()
-                                Description = Humanoid:GetAppliedDescription()
-                            end)
+            if Character then
+                local SourceHead = Character:FindFirstChild("Head")
+                local TargetHead = Model:FindFirstChild("Head")
+                if SourceHead and TargetHead then
+                    for _, Object in ipairs(TargetHead:GetChildren()) do
+                        if Object:IsA("Decal") then Object:Destroy() end
+                    end
+                    for _, Object in ipairs(SourceHead:GetChildren()) do
+                        if Object:IsA("Decal") then
+                            local Clone
+                            Library.Call(function() Clone = Object:Clone() end)
+                            if Clone then Clone.Parent = TargetHead end
                         end
+                    end
+                end
 
-                        return Model, Description
+                for _, ClassName in ipairs({"Shirt", "Pants", "ShirtGraphic", "BodyColors"}) do
+                    local Existing = Model:FindFirstChildOfClass(ClassName)
+                    if Existing then Existing:Destroy() end
+                    local Source = Character:FindFirstChildOfClass(ClassName)
+                    if Source then
+                        local Clone
+                        Library.Call(function() Clone = Source:Clone() end)
+                        if Clone then Clone.Parent = Model end
                     end
                 end
             end
 
-            return nil, nil
+            return Model, Description
         end
 
         local ProjectModelBounds
@@ -10005,7 +9843,6 @@ local function BuildRuntime()
                 if Model then Model:Destroy() end
                 return false
             end
-            MergeCurrentAppearance(Model)
             SanitizeModel(Model)
             FreezePreviewPose(Model)
             RunService.Heartbeat:Wait()
