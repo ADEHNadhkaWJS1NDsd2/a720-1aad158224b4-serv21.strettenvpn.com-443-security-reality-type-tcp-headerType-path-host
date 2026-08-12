@@ -10415,11 +10415,11 @@ local function BuildRuntime()
     CreateEspPreviewWindow()
     end
 
-    local CurrentPage = "Combat"
-    local CurrentMode = "Ragebot"
+    Menu.CurrentPage = "Combat"
+    Menu.CurrentMode = "Ragebot"
 
-    local function SelectMode(Name)
-        CurrentMode = Name
+    function Menu.SelectMode(Name)
+        Menu.CurrentMode = Name
         for ModeName, Button in pairs(Menu.ModeButtons) do
             local Selected = ModeName == Name
             Tween(Button, 0.14, {
@@ -10430,7 +10430,7 @@ local function BuildRuntime()
         end
     end
 
-    local function RestorePageSections(Page, Animated)
+    function Menu.RestorePageSections(Page, Animated)
         for _, Section in pairs(Menu.Sections) do
             if Section.Root.Parent == Page then
                 local Target = Section.HomePosition or Section.Root.Position
@@ -10442,15 +10442,15 @@ local function BuildRuntime()
         end
     end
 
-    local function SelectPage(Name)
-        CurrentPage = Name
+    function Menu.SelectPage(Name)
+        Menu.CurrentPage = Name
         Menu.ActivePageName = Name
         ClosePopup()
         local SelectedPage = Menu.Pages[Name]
         for PageName, Page in pairs(Menu.Pages) do
             Page.Visible = PageName == Name
         end
-        RestorePageSections(SelectedPage, Menu.Visible and Main.Visible)
+        Menu.RestorePageSections(SelectedPage, Menu.Visible and Main.Visible)
         for ButtonName, Data in pairs(Menu.SidebarButtons) do
             local Selected = ButtonName == Name
             Tween(Data.Button, 0.16, {
@@ -10479,23 +10479,23 @@ local function BuildRuntime()
         end
     end
 
-    SelectMode("Ragebot")
-    SelectPage("Combat")
+    Menu.SelectMode("Ragebot")
+    Menu.SelectPage("Combat")
 
     Bind(RagebotMode.MouseButton1Click:Connect(function()
-        SelectMode("Ragebot")
+        Menu.SelectMode("Ragebot")
     end))
 
     Bind(LegitbotMode.MouseButton1Click:Connect(function()
-        SelectMode("Legitbot")
+        Menu.SelectMode("Legitbot")
     end))
 
     for Name, Data in pairs(Menu.SidebarButtons) do
         Bind(Data.Button.MouseButton1Click:Connect(function()
-            SelectPage(Name)
+            Menu.SelectPage(Name)
         end))
         Bind(Data.Button.MouseEnter:Connect(function()
-            if CurrentPage ~= Name then
+            if Menu.CurrentPage ~= Name then
                 Tween(Data.Button, 0.12, {
                     BackgroundTransparency = 0.5,
                     BackgroundColor3 = Color3.fromRGB(26, 26, 30)
@@ -10503,7 +10503,7 @@ local function BuildRuntime()
             end
         end))
         Bind(Data.Button.MouseLeave:Connect(function()
-            if CurrentPage ~= Name then
+            if Menu.CurrentPage ~= Name then
                 Tween(Data.Button, 0.12, {
                     BackgroundTransparency = 1,
                     BackgroundColor3 = SidebarColor
@@ -11613,8 +11613,8 @@ local function BuildRuntime()
 
         RagebotMode.Visible = false
         LegitbotMode.Visible = false
-        CurrentPage = nil
-        CurrentMode = nil
+        Menu.CurrentPage = nil
+        Menu.CurrentMode = nil
     end
 
     local function ApiEnsureSidebarPage(Name)
@@ -11710,7 +11710,7 @@ local function BuildRuntime()
         end))
         Bind(Button.MouseButton1Click:Connect(function()
             ApiState.ActivePage = Name
-            SelectPage(Name)
+            Menu.SelectPage(Name)
             ApiState:RefreshSubPageButtons(Name)
         end))
         return Existing
@@ -13930,7 +13930,7 @@ local function BuildRuntime()
         if not self.FirstPage then
             self.FirstPage = Name
             ApiState.ActivePage = Name
-            SelectPage(Name)
+            Menu.SelectPage(Name)
             ApiState:RefreshSubPageButtons(Name)
         end
         return Object
