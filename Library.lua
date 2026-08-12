@@ -992,8 +992,8 @@ local function BuildRuntime()
 
     local TopbarInner = Create("Frame", {
         Parent = Topbar,
-        Position = UDim2.fromOffset(14, 10),
-        Size = UDim2.new(1, -28, 0, 44),
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.fromScale(1, 1),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ZIndex = 5
@@ -1002,7 +1002,7 @@ local function BuildRuntime()
     local SubPageHost = Create("Frame", {
         Parent = TopbarInner,
         Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.new(1, -52, 1, 0),
+        Size = UDim2.new(1, -58, 1, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ZIndex = 5
@@ -1025,27 +1025,6 @@ local function BuildRuntime()
 
     Menu.SubPageHost = SubPageHost
     Menu.SubPageLayout = SubPageLayout
-
-    Create("Frame", {
-        Parent = Topbar,
-        Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.fromOffset(8, 64),
-        BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.08,
-        BorderSizePixel = 0,
-        ZIndex = 4
-    })
-
-    Create("Frame", {
-        Parent = Topbar,
-        AnchorPoint = Vector2.new(0, 1),
-        Position = UDim2.new(0, 0, 1, 0),
-        Size = UDim2.new(1, 0, 0, 8),
-        BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.08,
-        BorderSizePixel = 0,
-        ZIndex = 4
-    })
 
     local DragArea = Create("Frame", {
         Parent = Topbar,
@@ -1082,7 +1061,7 @@ local function BuildRuntime()
     Menu.ConfigsUI.Button = Create("TextButton", {
         Parent = TopbarInner,
         AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, 0, 0.5, 0),
+        Position = UDim2.new(1, -10, 0.5, 0),
         Size = UDim2.fromOffset(38, 32),
         BackgroundColor3 = SurfaceAlt,
         BackgroundTransparency = 0.12,
@@ -9925,7 +9904,11 @@ local function BuildRuntime()
 
         local function CloneCurrentCharacterModel()
             local Character = LocalPlayer and LocalPlayer.Character
-            if not Character then
+            if not Character or Character.Parent == nil then
+                return nil, nil
+            end
+            local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+            if not Humanoid then
                 return nil, nil
             end
             local Model
@@ -9951,16 +9934,18 @@ local function BuildRuntime()
                 end
             end
             local Description
-            local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
-            if Humanoid then
-                Library.Call(function()
-                    Description = Humanoid:GetAppliedDescription()
-                end)
-            end
+            Library.Call(function()
+                Description = Humanoid:GetAppliedDescription()
+            end)
             return Model, Description
         end
 
         local function CreateDescriptionModel()
+            local CharacterModel, CharacterDescription = CloneCurrentCharacterModel()
+            if CharacterModel then
+                return CharacterModel, CharacterDescription
+            end
+
             if LocalPlayer then
                 local UserId = tonumber(LocalPlayer.UserId) or 0
                 local Creator = Players.CreateHumanoidModelFromUserIdAsync or Players.CreateHumanoidModelFromUserId
@@ -9986,13 +9971,14 @@ local function BuildRuntime()
                 end
             end
 
-            return CloneCurrentCharacterModel()
+            return nil, nil
         end
 
         local ProjectModelBounds
 
         local function TryBuildModel(Generation)
-            S.Status.Text = "LOADING LOCAL PLAYER"
+            local Character = LocalPlayer and LocalPlayer.Character
+            S.Status.Text = Character and Character.Parent and "LOADING LOCAL PLAYER" or "WAITING FOR CHARACTER"
             S.Status.Visible = true
             local Model, Description = CreateDescriptionModel()
             if Generation ~= S.LoadGeneration or not Model then
@@ -10034,10 +10020,19 @@ local function BuildRuntime()
                     if TryBuildModel(Generation) then
                         return
                     end
-                    S.Status.Text = "WAITING FOR CHARACTER"
-                    S.Status.Visible = true
-                    S.Silhouette.Visible = true
-                    task.wait(1.5)
+                    local Character = LocalPlayer and LocalPlayer.Character
+                    local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
+                    if Character and Character.Parent and Humanoid then
+                        S.Status.Text = "RETRYING PREVIEW"
+                        S.Status.Visible = true
+                        S.Silhouette.Visible = false
+                        task.wait(0.35)
+                    else
+                        S.Status.Text = "WAITING FOR CHARACTER"
+                        S.Status.Visible = true
+                        S.Silhouette.Visible = true
+                        task.wait(0.5)
+                    end
                 end
             end)
         end
@@ -10390,7 +10385,7 @@ local function BuildRuntime()
 
         if LocalPlayer then
             Bind(LocalPlayer.CharacterAdded:Connect(function()
-                task.delay(0.5, function()
+                task.delay(0.1, function()
                     ClearModel()
                     if not S.Hidden then
                         RequestModel()
