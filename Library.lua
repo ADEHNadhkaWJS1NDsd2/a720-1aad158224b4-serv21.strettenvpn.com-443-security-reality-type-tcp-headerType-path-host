@@ -9193,16 +9193,18 @@ local function BuildRuntime()
             ZIndex = 22
         })
 
-        S.InspectorText = Create("TextLabel", {
+        S.SelectedElementHolder = Create("ScrollingFrame", {
             Parent = S.SidePanel,
             Position = UDim2.fromOffset(14, 314),
-            Size = UDim2.new(1, -28, 0, 18),
+            Size = UDim2.new(1, -28, 0, 122),
             BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSans,
-            Text = "",
-            TextColor3 = PrimaryText,
-            TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Left,
+            BorderSizePixel = 0,
+            CanvasSize = UDim2.fromOffset(0, 0),
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = MutedText,
+            ScrollBarImageTransparency = 0.58,
+            ScrollingDirection = Enum.ScrollingDirection.Y,
+            ElasticBehavior = Enum.ElasticBehavior.Never,
             ZIndex = 22
         })
 
@@ -9511,156 +9513,134 @@ local function BuildRuntime()
 
         S.ElementButtons = {}
         S.ElementButtonStrokes = {}
-        S.SelectedPreviewElement = nil
+        S.SelectedElementRows = {}
+        S.SelectedElementsSignature = nil
 
-        local PreviewInspectorKeys = {
-            ["Name"] = "Name",
-            ["Health Bar"] = "HealthBar",
-            ["Health Text"] = "HealthValue",
-            ["Weapon"] = "Weapon",
-            ["Ammo"] = "Ammo",
-            ["Distance"] = "Distance",
-            ["Level"] = "Level",
-            ["Forcefield"] = "Forcefield",
-            ["Flags"] = "Flags"
-        }
+        Create("UIPadding", {
+            Parent = S.SelectedElementHolder,
+            PaddingTop = UDim.new(0, 2),
+            PaddingBottom = UDim.new(0, 2),
+            PaddingRight = UDim.new(0, 3)
+        })
 
-        local function FindEditorElement(Name)
-            for _, Data in ipairs(EditorElementData) do
-                if Data.Name == Name then return Data end
-            end
-            return nil
-        end
+        local SelectedElementLayout = Create("UIListLayout", {
+            Parent = S.SelectedElementHolder,
+            Padding = UDim.new(0, 4),
+            FillDirection = Enum.FillDirection.Vertical,
+            HorizontalAlignment = Enum.HorizontalAlignment.Left,
+            VerticalAlignment = Enum.VerticalAlignment.Top,
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
 
-        S.InspectorInfo = Create("TextLabel", {
-            Parent = S.SidePanel,
-            Position = UDim2.fromOffset(14, 334),
-            Size = UDim2.new(1, -28, 0, 16),
+        S.SelectedElementEmpty = Create("TextLabel", {
+            Parent = S.SelectedElementHolder,
+            Size = UDim2.new(1, -4, 0, 24),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
-            Text = "Select an element to edit it",
+            Text = "No elements enabled",
             TextColor3 = MutedText,
             TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            ZIndex = 22
+            LayoutOrder = 1,
+            ZIndex = 23
         })
 
-        S.InspectorControls = Create("Frame", {
-            Parent = S.SidePanel,
-            Position = UDim2.fromOffset(14, 356),
-            Size = UDim2.new(1, -28, 0, 80),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            Visible = false,
-            ZIndex = 22
-        })
-
-        local function CreateInspectorButton(Text, X, Y, Width)
-            local Button = Create("TextButton", {
-                Parent = S.InspectorControls,
-                Position = UDim2.fromOffset(X, Y),
-                Size = UDim2.fromOffset(Width, 28),
-                BackgroundColor3 = SurfaceAlt,
-                BackgroundTransparency = 0.08,
-                BorderSizePixel = 0,
-                AutoButtonColor = false,
-                Font = Enum.Font.BuilderSansMedium,
-                Text = Text,
-                TextColor3 = PrimaryText,
-                TextSize = 9,
-                ZIndex = 23
-            })
-            Corner(Button, 2)
-            local ButtonStroke = Stroke(Button, Border, 0.24, 1)
-            Bind(Button.MouseEnter:Connect(function()
-                Tween(Button, 0.10, {BackgroundTransparency = 0.02})
-                Tween(ButtonStroke, 0.10, {Transparency = 0.10})
-            end))
-            Bind(Button.MouseLeave:Connect(function()
-                Tween(Button, 0.10, {BackgroundTransparency = 0.08})
-                Tween(ButtonStroke, 0.10, {Transparency = 0.24})
-            end))
-            return Button
+        local function BuildSelectedElementsSignature()
+            local Enabled = {}
+            for _, Data in ipairs(EditorElementData) do
+                if Menu.Flags[Data.Flag] == true then
+                    Enabled[#Enabled + 1] = Data.Name
+                end
+            end
+            return table.concat(Enabled, "\31"), Enabled
         end
 
-        S.InspectorZone = CreateInspectorButton("ZONE", 0, 0, 86)
-        S.InspectorOrderDown = CreateInspectorButton("ORDER -", 92, 0, 69)
-        S.InspectorOrderUp = CreateInspectorButton("ORDER +", 167, 0, 69)
-        S.InspectorLeft = CreateInspectorButton("←", 0, 36, 38)
-        S.InspectorUp = CreateInspectorButton("↑", 44, 36, 38)
-        S.InspectorReset = CreateInspectorButton("RESET", 88, 36, 60)
-        S.InspectorDown = CreateInspectorButton("↓", 154, 36, 38)
-        S.InspectorRight = CreateInspectorButton("→", 198, 36, 38)
+        local function UpdateSelectedElements(Force)
+            local Signature, EnabledNames = BuildSelectedElementsSignature()
+            if not Force and Signature == S.SelectedElementsSignature then return end
+            S.SelectedElementsSignature = Signature
 
-        local function GetSelectedInspectorKey()
-            local Selected = S.SelectedPreviewElement
-            return Selected and PreviewInspectorKeys[Selected.Name] or nil
-        end
+            for _, Row in ipairs(S.SelectedElementRows) do
+                if Row and Row.Parent then Row:Destroy() end
+            end
+            table.clear(S.SelectedElementRows)
 
-        local function RefreshPreviewInspector()
-            local Selected = S.SelectedPreviewElement
-            if not Selected then
-                S.InspectorText.Text = "Nothing selected"
-                S.InspectorInfo.Text = "Select an element to edit it"
-                S.InspectorControls.Visible = false
-                return
+            S.SelectedElementEmpty.Visible = #EnabledNames == 0
+
+            for Index, Name in ipairs(EnabledNames) do
+                local Row = Create("Frame", {
+                    Parent = S.SelectedElementHolder,
+                    Size = UDim2.new(1, -4, 0, 24),
+                    BackgroundColor3 = SurfaceAlt,
+                    BackgroundTransparency = 0.24,
+                    BorderSizePixel = 0,
+                    LayoutOrder = Index + 1,
+                    ZIndex = 23
+                })
+                Corner(Row, 2)
+                Stroke(Row, Border, 0.42, 1)
+
+                local Marker = Create("Frame", {
+                    Parent = Row,
+                    AnchorPoint = Vector2.new(0, 0.5),
+                    Position = UDim2.new(0, 8, 0.5, 0),
+                    Size = UDim2.fromOffset(5, 5),
+                    BackgroundColor3 = Accent,
+                    BorderSizePixel = 0,
+                    ZIndex = 24
+                })
+                Corner(Marker, 100)
+
+                Create("TextLabel", {
+                    Parent = Row,
+                    Position = UDim2.fromOffset(21, 0),
+                    Size = UDim2.new(1, -27, 1, 0),
+                    BackgroundTransparency = 1,
+                    Font = Enum.Font.BuilderSansMedium,
+                    Text = Name,
+                    TextColor3 = PrimaryText,
+                    TextSize = 10,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    ZIndex = 24
+                })
+
+                S.SelectedElementRows[#S.SelectedElementRows + 1] = Row
             end
 
-            local Enabled = Menu.Flags[Selected.Flag] == true
-            local Key = PreviewInspectorKeys[Selected.Name]
-            S.InspectorText.Text = Selected.Name
-
-            if not Key then
-                S.InspectorInfo.Text = Enabled and "Enabled • no layout controls" or "Disabled • no layout controls"
-                S.InspectorControls.Visible = false
-                return
-            end
-
-            local Offset = GetPreviewOffset(Key)
-            local Zone = GetPreviewZone(Key)
-            local Order = GetPreviewOrder(Key)
-            S.InspectorInfo.Text = string.format(
-                "%s • %s • X %d  Y %d • #%d",
-                Enabled and "Enabled" or "Disabled",
-                Zone,
-                Offset.X,
-                Offset.Y,
-                Order
-            )
-            S.InspectorZone.Text = string.upper(Zone)
-            S.InspectorControls.Visible = true
+            task.defer(function()
+                if not S.SelectedElementHolder or not S.SelectedElementHolder.Parent then return end
+                local ContentHeight = SelectedElementLayout.AbsoluteContentSize.Y + 4
+                S.SelectedElementHolder.CanvasSize = UDim2.fromOffset(0, math.max(ContentHeight, S.SelectedElementHolder.AbsoluteSize.Y))
+                local MaxY = math.max(0, ContentHeight - S.SelectedElementHolder.AbsoluteSize.Y)
+                if S.SelectedElementHolder.CanvasPosition.Y > MaxY then
+                    S.SelectedElementHolder.CanvasPosition = Vector2.new(0, MaxY)
+                end
+            end)
         end
+
+        Bind(SelectedElementLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            local ContentHeight = SelectedElementLayout.AbsoluteContentSize.Y + 4
+            S.SelectedElementHolder.CanvasSize = UDim2.fromOffset(0, math.max(ContentHeight, S.SelectedElementHolder.AbsoluteSize.Y))
+        end))
 
         local function UpdateEditorElementButtons()
             for _, Data in ipairs(EditorElementData) do
                 local Button = S.ElementButtons[Data.Name]
                 if Button then
                     local Enabled = Menu.Flags[Data.Flag] == true
-                    local Selected = S.SelectedPreviewElement == Data
                     Button.BackgroundColor3 = Enabled and Accent or SurfaceAlt
-                    Button.BackgroundTransparency = Enabled and 0.02 or (Selected and 0.02 or 0.08)
+                    Button.BackgroundTransparency = Enabled and 0.02 or 0.08
                     Button.TextColor3 = Enabled and Background or PrimaryText
                     local ButtonStroke = S.ElementButtonStrokes[Data.Name]
                     if ButtonStroke then
-                        ButtonStroke.Color = Selected and PrimaryText or Border
-                        ButtonStroke.Transparency = Selected and 0 or 0.24
-                        ButtonStroke.Thickness = Selected and 2 or 1
+                        ButtonStroke.Color = Border
+                        ButtonStroke.Transparency = 0.24
+                        ButtonStroke.Thickness = 1
                     end
                 end
             end
-            RefreshPreviewInspector()
-        end
-
-        local function SetPreviewInspector(Value)
-            local Data
-            if type(Value) == "table" and Value.Name and Value.Flag then
-                Data = Value
-            elseif type(Value) == "string" then
-                Data = FindEditorElement(Value)
-            end
-            S.SelectedPreviewElement = Data
-            UpdateEditorElementButtons()
+            UpdateSelectedElements()
         end
 
         local function ToggleEditorFlag(Flag)
@@ -9673,86 +9653,6 @@ local function BuildRuntime()
             UpdateEditorElementButtons()
             ApplyPreviewElementLayout()
         end
-
-        local function ChangeSelectedOffset(Delta)
-            local Key = GetSelectedInspectorKey()
-            if not Key or typeof(Delta) ~= "Vector2" then return end
-            SetPreviewOffset(Key, GetPreviewOffset(Key) + Delta)
-            ApplyPreviewElementLayout()
-            RefreshPreviewInspector()
-        end
-
-        local function CycleSelectedZone()
-            local Key = GetSelectedInspectorKey()
-            if not Key then return end
-            local Current = GetPreviewZone(Key)
-            local NextZone
-            if Key == "HealthBar" or Key == "HealthValue" then
-                NextZone = Current == "Left" and "Right" or "Left"
-            else
-                local Zones = {"Top", "Right", "Bottom", "Left"}
-                local Index = table.find(Zones, Current) or 1
-                NextZone = Zones[(Index % #Zones) + 1]
-            end
-            SetPreviewZone(Key, NextZone)
-            ApplyPreviewElementLayout()
-            RefreshPreviewInspector()
-        end
-
-        local function MoveSelectedOrder(Direction)
-            local Key = GetSelectedInspectorKey()
-            if not Key then return end
-            local Zone = GetPreviewZone(Key)
-            local List = {}
-            for _, OtherKey in ipairs(PreviewStackOrder) do
-                if GetPreviewZone(OtherKey) == Zone then
-                    List[#List + 1] = OtherKey
-                end
-            end
-            table.sort(List, function(A, B)
-                return GetPreviewOrder(A) < GetPreviewOrder(B)
-            end)
-            local Index = table.find(List, Key)
-            local OtherIndex = Index and math.clamp(Index + Direction, 1, #List) or nil
-            if not Index or not OtherIndex or OtherIndex == Index then return end
-            local OtherKey = List[OtherIndex]
-            local CurrentOrder = GetPreviewOrder(Key)
-            S.PreviewOrder[Key] = GetPreviewOrder(OtherKey)
-            S.PreviewOrder[OtherKey] = CurrentOrder
-            SavePreviewOrder()
-            ApplyPreviewElementLayout()
-            RefreshPreviewInspector()
-        end
-
-        local function ResetSelectedElement()
-            local Key = GetSelectedInspectorKey()
-            if not Key then return end
-            SetPreviewOffset(Key, Vector2.zero)
-            SetPreviewZone(Key, PreviewDefaultZones[Key])
-            local DefaultOrder = table.find(PreviewStackOrder, Key)
-            if DefaultOrder then
-                local CurrentOrder = GetPreviewOrder(Key)
-                for OtherKey, OtherOrder in pairs(S.PreviewOrder) do
-                    if OtherKey ~= Key and tonumber(OtherOrder) == DefaultOrder then
-                        S.PreviewOrder[OtherKey] = CurrentOrder
-                        break
-                    end
-                end
-                S.PreviewOrder[Key] = DefaultOrder
-                SavePreviewOrder()
-            end
-            ApplyPreviewElementLayout()
-            RefreshPreviewInspector()
-        end
-
-        Bind(S.InspectorZone.MouseButton1Click:Connect(CycleSelectedZone))
-        Bind(S.InspectorOrderDown.MouseButton1Click:Connect(function() MoveSelectedOrder(-1) end))
-        Bind(S.InspectorOrderUp.MouseButton1Click:Connect(function() MoveSelectedOrder(1) end))
-        Bind(S.InspectorLeft.MouseButton1Click:Connect(function() ChangeSelectedOffset(Vector2.new(-2, 0)) end))
-        Bind(S.InspectorRight.MouseButton1Click:Connect(function() ChangeSelectedOffset(Vector2.new(2, 0)) end))
-        Bind(S.InspectorUp.MouseButton1Click:Connect(function() ChangeSelectedOffset(Vector2.new(0, -2)) end))
-        Bind(S.InspectorDown.MouseButton1Click:Connect(function() ChangeSelectedOffset(Vector2.new(0, 2)) end))
-        Bind(S.InspectorReset.MouseButton1Click:Connect(ResetSelectedElement))
 
         do
             Create("UIPadding", {
@@ -9805,33 +9705,13 @@ local function BuildRuntime()
                 S.ElementButtonStrokes[Data.Name] = Stroke(Button, Border, 0.24, 1)
                 S.ElementButtons[Data.Name] = Button
                 Bind(Button.MouseButton1Click:Connect(function()
-                    SetPreviewInspector(Data)
                     ToggleEditorFlag(Data.Flag)
                 end))
             end
         end
 
         UpdateEditorElementButtons()
-        SetPreviewInspector(nil)
-
-        local function BindPreviewObjectSelection(Object, DisplayName)
-            if not Object then return end
-            Bind(Object.InputBegan:Connect(function(Input)
-                if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    SetPreviewInspector(DisplayName)
-                end
-            end))
-        end
-
-        BindPreviewObjectSelection(S.Name, "Name")
-        BindPreviewObjectSelection(S.HealthBack, "Health Bar")
-        BindPreviewObjectSelection(S.HealthText, "Health Text")
-        BindPreviewObjectSelection(S.Weapon, "Weapon")
-        BindPreviewObjectSelection(S.Ammo, "Ammo")
-        BindPreviewObjectSelection(S.Distance, "Distance")
-        BindPreviewObjectSelection(S.Level, "Level")
-        BindPreviewObjectSelection(S.Forcefield, "Forcefield")
-        BindPreviewObjectSelection(S.Flags, "Flags")
+        UpdateSelectedElements(true)
 
 
         local function SaveWindowPosition()
@@ -10465,7 +10345,7 @@ local function BuildRuntime()
             S.Flags.Text = "Flagged"
             S.Flags.TextColor3 = GetFlag("Player ESP Flags Color", TextColor)
             S.Flags.TextSize = math.max(9, TextSize - 2)
-            RefreshPreviewInspector()
+            UpdateSelectedElements()
             S.Silhouette.Visible = false
             S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(165, 181, 190) or Color3.fromRGB(139, 157, 168)
             S.Viewport.LightDirection = S.Mode == "2D" and Vector3.new(-0.8, -0.4, -1) or Vector3.new(-1, -0.75, -1)
