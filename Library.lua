@@ -6295,7 +6295,7 @@ function Atramenta.new(Config: Window)
     Config = Atramenta.__CONFIG(Config, {
         Name = "Atramenta.rip",
         Keybind = "Insert",
-        Logo = Atramenta.Logo
+        Logo = Atramenta.Logo,
         Scale = Atramenta.Scale.Window,
         TextSize = 15
     })
@@ -10034,7 +10034,7 @@ function Atramenta:ConfigManager(ConfigManager: ConfigManager): ConfigFunctions
     end
 
     local Args = {
-        Directory = Atramenta:_Path(ConfigManager.Directory, ConfigManager.Config)
+        Directory = Atramenta:_Path(ConfigManager.Directory, ConfigManager.Config),
         EnableNotify = false,
     }
 
@@ -10571,6 +10571,7 @@ Atramenta.NilFolder.Name = "Nil-Instances"
 
 local Runtime
 local Library = {
+    BuildSignature = "AtramentaStable_4e36a67b56bc9f25",
     Flags = {},
     Setters = {},
     Folders = {
