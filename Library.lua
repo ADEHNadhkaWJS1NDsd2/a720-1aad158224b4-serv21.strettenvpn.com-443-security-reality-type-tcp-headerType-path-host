@@ -3893,7 +3893,7 @@ function Atramenta:_LoadOption(Value, TabSignal)
             Name = "Keybind",
             Default = nil,
             Flag = nil,
-            Callback = function() end
+            Callback = function() end,
             Blacklist = {}
         })
 
@@ -4729,7 +4729,7 @@ function Atramenta:_LoadElement(Parent: Frame, EnabledLine: boolean, Signal, Dis
             Name = "Keybind",
             Default = nil,
             Flag = nil,
-            Callback = function() end
+            Callback = function() end,
             Blacklist = {}
         })
 
