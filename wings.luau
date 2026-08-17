@@ -12,7 +12,7 @@ local Max = math.max
 local ReadMemory = memory_read
 local ProjectWorld = WorldToScreen
 
-local PrimitiveOffset = 0x128
+local PrimitiveOffsets = {0x188, 0x128}
 local RotationOffset = 0xC8
 
 local Previous = _G.NightfallWingsController
@@ -37,6 +37,7 @@ local ActiveCharacter = nil
 local RenderConnection = nil
 
 local Controller = {
+    Version = 3,
     Running = true,
     Enabled = true,
     Color = WingColor,
@@ -188,18 +189,39 @@ local function ReadFloat(Address)
     return IsNumber(Value) and Value or nil
 end
 
+local function IsPrimitiveValid(Primitive)
+    if type(Primitive) ~= "number" or Primitive < 0x10000 then return false end
+
+    local Address = Primitive + RotationOffset
+    local M00, M02 = ReadFloat(Address), ReadFloat(Address + 0x8)
+    local M20, M22 = ReadFloat(Address + 0x18), ReadFloat(Address + 0x20)
+    if not M00 or not M02 or not M20 or not M22 then return false end
+    if math.abs(M00) > 1.25 or math.abs(M02) > 1.25 or math.abs(M20) > 1.25 or math.abs(M22) > 1.25 then return false end
+
+    local RightLength = M00 * M00 + M20 * M20
+    local BackLength = M02 * M02 + M22 * M22
+    return RightLength > 0.15 and RightLength < 1.5 and BackLength > 0.15 and BackLength < 1.5
+end
+
 local function GetPrimitive(Part)
     if not Part then return 0 end
+
     local Cached = PrimitiveCache[Part]
-    if type(Cached) == "number" and Cached >= 0x10000 then return Cached end
+    if type(Cached) == "number" and IsPrimitiveValid(Cached) then return Cached end
+    PrimitiveCache[Part] = nil
 
     local Address = Part.Address
     if type(Address) ~= "number" or Address < 0x10000 then return 0 end
 
-    local Primitive = ReadMemory("uintptr_t", Address + PrimitiveOffset)
-    if type(Primitive) ~= "number" or Primitive < 0x10000 then return 0 end
-    PrimitiveCache[Part] = Primitive
-    return Primitive
+    for Index = 1, #PrimitiveOffsets do
+        local Primitive = ReadMemory("uintptr_t", Address + PrimitiveOffsets[Index])
+        if IsPrimitiveValid(Primitive) then
+            PrimitiveCache[Part] = Primitive
+            return Primitive
+        end
+    end
+
+    return 0
 end
 
 local function GetBasis(Part)
