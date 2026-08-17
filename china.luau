@@ -1,383 +1,1536 @@
-local Game = game
-local Players = Game:GetService("Players")
-local RunService = Game:GetService("RunService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
-local Clock = os.clock
-local Clamp = math.clamp
-local Cos = math.cos
-local Sin = math.sin
-local ReadMemory = memory_read
-local ProjectWorld = WorldToScreen
+local Camera = Workspace.CurrentCamera
 
-local PrimitiveOffsets = {0x188, 0x128}
-local RotationOffset = 0xC8
+local BasePartPrimitiveOffset = 0x188
+local PrimitiveRotationOffset = 0xC8
 
-local Previous = _G.NightfallChinaHatController
-if type(Previous) == "table" and type(Previous.Stop) == "function" then Previous:Stop() end
+local DefaultColor = Color3.fromRGB(112, 64, 225)
 
-local HatColor = Color3.fromRGB(112, 64, 225)
-local OutlineColor = Color3.fromRGB(190, 135, 255)
 local Scale = 1
-local Height = 0
-local Radius = 1.55
-local ConeHeight = 1.3
-local Glow = 0.45
-local Thickness = 2
-local SegmentCount = 24
+local BrimRadius = 1.55
+local InnerRadius = 1.08
+local BrimHeight = 0.58
+local ApexHeight = 1.30
+local HeightOffset = 0
+local SegmentCount = 32
 local SpokeStep = 2
-local RenderFps = 144
-local RenderInterval = 1 / RenderFps
-local LastRender = Clock()
 
-local Drawings = {}
-local Roles = {}
-local PrimitiveCache = {}
-local ActiveCharacter = nil
-local RenderConnection = nil
+local PreviousController = _G.NightfallChinaHatController
+
+if PreviousController and type(PreviousController.Stop) == "function" then
+    PreviousController:Stop()
+end
 
 local Controller = {
-    Version = 3,
+    Version = 4,
     Running = true,
     Enabled = true,
-    Color = HatColor,
-    OutlineColor = OutlineColor,
-    Scale = Scale,
-    Height = Height,
-    Radius = Radius,
-    ConeHeight = ConeHeight,
-    Glow = Glow,
-    Thickness = Thickness
+    Color = DefaultColor
 }
 
 _G.NightfallChinaHatController = Controller
 
-local function IsNumber(Value)
-    return type(Value) == "number" and Value == Value and Value ~= math.huge and Value ~= -math.huge and math.abs(Value) < 10000000
+local Drawings = {}
+local DrawingRoles = {}
+local PrimitiveCache = {}
+
+local ActiveCharacter = nil
+local CameraState = nil
+local TransformSamples = {}
+local InterpolationDelay = 0.050
+local LastObservedRootPosition = nil
+local LastObservedCameraPosition = nil
+local LastObservedCameraLook = nil
+local LastObservedCameraUp = nil
+local LastObservedWorldBack = nil
+local LastRootChangeTime = 0
+local LastCameraChangeTime = 0
+local PendingPosition = nil
+local PendingUp = nil
+local PendingBack = nil
+local PendingSince = 0
+local PendingRootChanged = false
+local PendingCameraChanged = false
+local PendingRotationChanged = false
+local LastSampleTime = 0
+local LastValidFrameTime = 0
+
+local Palette = {}
+local DrawingThickness = {}
+local OutlineColor = DefaultColor
+local GlowStrength = 1
+local ThicknessScale = 1
+
+local function Clamp(Value, Minimum, Maximum)
+    if Value < Minimum then
+        return Minimum
+    end
+
+    if Value > Maximum then
+        return Maximum
+    end
+
+    return Value
 end
 
-local function IsVector(Value)
-    return typeof(Value) == "Vector3" and IsNumber(Value.X) and IsNumber(Value.Y) and IsNumber(Value.Z)
+local function LerpNumber(A, B, Alpha)
+    return A + (B - A) * Alpha
 end
 
-local function Mix(A, B, Alpha)
-    return Color3.new(A.R + (B.R - A.R) * Alpha, A.G + (B.G - A.G) * Alpha, A.B + (B.B - A.B) * Alpha)
+local function MixColor(A, B, Alpha)
+    return Color3.new(
+        LerpNumber(A.R, B.R, Alpha),
+        LerpNumber(A.G, B.G, Alpha),
+        LerpNumber(A.B, B.B, Alpha)
+    )
 end
 
-local function RoleColor(Role)
-    if Role == "Outline" then return OutlineColor end
-    if Role == "Glow" then return Mix(OutlineColor, Color3.new(1, 1, 1), 0.22) end
-    if Role == "Light" then return Mix(HatColor, Color3.new(1, 1, 1), 0.48) end
-    if Role == "Shadow" then return Mix(HatColor, Color3.new(0.04, 0.02, 0.10), 0.48) end
-    return HatColor
+local function BuildPalette(BaseColor)
+    local Night = Color3.fromRGB(5, 3, 18)
+    local Indigo = Color3.fromRGB(30, 14, 90)
+    local Violet = Color3.fromRGB(145, 82, 255)
+    local Ice = Color3.fromRGB(190, 228, 255)
+    local White = Color3.fromRGB(255, 252, 255)
+
+    Palette.Core = MixColor(
+        BaseColor,
+        Violet,
+        0.24
+    )
+
+    Palette.Dark = MixColor(
+        BaseColor,
+        Night,
+        0.70
+    )
+
+    Palette.Shadow = MixColor(
+        BaseColor,
+        Indigo,
+        0.56
+    )
+
+    Palette.Light = MixColor(
+        BaseColor,
+        White,
+        0.58
+    )
+
+    Palette.Highlight = MixColor(
+        BaseColor,
+        Ice,
+        0.76
+    )
+
+    Palette.Edge = MixColor(
+        BaseColor,
+        White,
+        0.82
+    )
+
+    Palette.Glow = MixColor(
+        BaseColor,
+        Violet,
+        0.50
+    )
+
+    Palette.Edge = OutlineColor
+    Palette.Glow = MixColor(OutlineColor, Violet, 0.35)
 end
 
-local function Register(Object, Role)
-    Drawings[#Drawings + 1] = Object
-    Roles[Object] = Role
-    Object.Color = RoleColor(Role)
-    return Object
+BuildPalette(DefaultColor)
+
+local function RegisterDrawing(
+    DrawingObject,
+    Role
+)
+    Drawings[#Drawings + 1] =
+        DrawingObject
+
+    DrawingRoles[DrawingObject] =
+        Role
+
+    DrawingObject.Color =
+        Palette[Role]
+
+    return DrawingObject
 end
 
-local function NewLine(Role, Width, Transparency, ZIndex)
-    local Line = Drawing.new("Line")
-    Line.Thickness, Line.Transparency, Line.ZIndex, Line.Visible = Width, Transparency, ZIndex, false
-    return Register(Line, Role)
+local function CreateLine(
+    Role,
+    Thickness,
+    Transparency,
+    ZIndex
+)
+    local Line =
+        Drawing.new("Line")
+
+    Line.Color = Palette[Role]
+    Line.Thickness = Thickness * ThicknessScale
+    Line.Transparency = Transparency
+    DrawingThickness[Line] = Thickness
+    Line.ZIndex = ZIndex
+    Line.Visible = false
+
+    return RegisterDrawing(
+        Line,
+        Role
+    )
 end
 
-local function NewStroke(ZIndex)
+local function CreateStroke(
+    Role,
+    Thickness,
+    Transparency,
+    GlowThickness,
+    GlowTransparency,
+    ZIndex
+)
     return {
-        Glow = NewLine("Glow", Thickness + 5, 0.04 + Glow * 0.16, ZIndex),
-        Main = NewLine("Outline", Thickness, 0.96, ZIndex + 1)
+        Glow = CreateLine(
+            "Glow",
+            GlowThickness,
+            GlowTransparency,
+            ZIndex
+        ),
+
+        Main = CreateLine(
+            Role,
+            Thickness,
+            Transparency,
+            ZIndex + 1
+        )
     }
 end
 
-local OuterRing, InnerRing, MidRing, Spokes, Details = {}, {}, {}, {}, {}
+local OuterRing = {}
+local InnerRing = {}
+local Spokes = {}
+local DetailSpokes = {}
 
 for Index = 1, SegmentCount do
-    OuterRing[Index] = NewStroke(20)
-    InnerRing[Index] = NewLine(Index % 2 == 0 and "Core" or "Light", 1, 0.70, 18)
-    MidRing[Index] = NewLine(Index % 2 == 0 and "Shadow" or "Core", 1, 0.54, 17)
+    OuterRing[Index] = CreateStroke(
+        "Edge",
+        2,
+        0.96,
+        7,
+        0.075,
+        20
+    )
+
+    InnerRing[Index] = CreateLine(
+        Index % 2 == 0
+            and "Core"
+            or "Highlight",
+        1,
+        0.64,
+        17
+    )
 end
 
 for Index = 1, SegmentCount, SpokeStep do
-    Spokes[#Spokes + 1] = NewStroke(19)
-    Details[#Details + 1] = NewLine("Light", 1, 0.52, 18)
+    local Role =
+        Index % 4 == 1
+            and "Highlight"
+            or "Light"
+
+    Spokes[#Spokes + 1] = CreateStroke(
+        Role,
+        1,
+        0.88,
+        4,
+        0.055,
+        18
+    )
+
+    DetailSpokes[#DetailSpokes + 1] =
+        CreateLine(
+            Index % 4 == 1
+                and "Core"
+                or "Shadow",
+            1,
+            0.48,
+            16
+        )
 end
 
-local function ApplyStyle()
+local function ApplyPalette()
     for Index = 1, #Drawings do
-        local Object = Drawings[Index]
-        Object.Color = RoleColor(Roles[Object])
-    end
+        local DrawingObject =
+            Drawings[Index]
 
-    for Index = 1, #OuterRing do
-        OuterRing[Index].Main.Thickness = Thickness
-        OuterRing[Index].Glow.Thickness = Thickness + 5
-        OuterRing[Index].Glow.Transparency = 0.04 + Glow * 0.16
-    end
+        local Role =
+            DrawingRoles[DrawingObject]
 
-    for Index = 1, #Spokes do
-        Spokes[Index].Main.Thickness = math.max(1, Thickness - 0.5)
-        Spokes[Index].Glow.Thickness = Thickness + 3
-        Spokes[Index].Glow.Transparency = 0.025 + Glow * 0.12
+        if Role and Palette[Role] then
+            DrawingObject.Color = Palette[Role]
+        end
+
+        local BaseThickness = DrawingThickness[DrawingObject]
+        if BaseThickness then DrawingObject.Thickness = BaseThickness * ThicknessScale end
+        if Role == "Glow" then DrawingObject.Transparency = Clamp(0.03 + GlowStrength * 0.12, 0.03, 0.18) end
     end
 end
 
 local function HideAll()
-    for Index = 1, #Drawings do Drawings[Index].Visible = false end
+    for Index = 1, #Drawings do
+        Drawings[Index].Visible = false
+    end
 end
 
-local function Project(Position)
-    if type(ProjectWorld) ~= "function" or not IsVector(Position) then return nil end
-    local Point, OnScreen = ProjectWorld(Position)
-    if typeof(Point) ~= "Vector2" or OnScreen == false then return nil end
-    return Point
+local function HoldLastFrame()
+    if tick() - LastValidFrameTime > 0.20 then
+        HideAll()
+    end
 end
 
-local function SetLine(Line, A, B)
-    if not A or not B then Line.Visible = false return false end
-    Line.From, Line.To, Line.Visible = A, B, true
-    return true
+local function SafeMemoryRead(TypeName, Address)
+    return memory_read(TypeName, Address)
 end
 
-local function SetStroke(Stroke, A, B)
-    local Visible = SetLine(Stroke.Main, A, B)
-    if Visible then SetLine(Stroke.Glow, A, B) else Stroke.Glow.Visible = false end
+local function IsValidNumber(Value)
+    return type(Value) == "number"
+        and Value == Value
+        and Value ~= math.huge
+        and Value ~= -math.huge
+        and math.abs(Value) < 10000000
+end
+
+local function IsValidVector(Value)
+    return Value
+        and IsValidNumber(Value.X)
+        and IsValidNumber(Value.Y)
+        and IsValidNumber(Value.Z)
 end
 
 local function ReadFloat(Address)
-    if type(Address) ~= "number" or Address < 0x10000 then return nil end
-    local Value = ReadMemory("float", Address)
-    return IsNumber(Value) and Value or nil
+    return SafeMemoryRead(
+        "float",
+        Address
+    )
 end
 
-local function IsPrimitiveValid(Primitive)
-    if type(Primitive) ~= "number" or Primitive < 0x10000 then return false end
+local function ReadVector3(Address)
+    local X = ReadFloat(Address)
+    local Y = ReadFloat(Address + 0x4)
+    local Z = ReadFloat(Address + 0x8)
 
-    local Address = Primitive + RotationOffset
-    local M00, M02 = ReadFloat(Address), ReadFloat(Address + 0x8)
-    local M20, M22 = ReadFloat(Address + 0x18), ReadFloat(Address + 0x20)
-    if not M00 or not M02 or not M20 or not M22 then return false end
-    if math.abs(M00) > 1.25 or math.abs(M02) > 1.25 or math.abs(M20) > 1.25 or math.abs(M22) > 1.25 then return false end
+    if not IsValidNumber(X)
+        or not IsValidNumber(Y)
+        or not IsValidNumber(Z)
+    then
+        return nil
+    end
 
-    local RightLength = M00 * M00 + M20 * M20
-    local BackLength = M02 * M02 + M22 * M22
-    return RightLength > 0.15 and RightLength < 1.5 and BackLength > 0.15 and BackLength < 1.5
+    return Vector3.new(X, Y, Z)
 end
 
-local function GetPrimitive(Part)
-    if not Part then return 0 end
+local function GetPrimitiveAddress(Part)
+    local CachedAddress =
+        PrimitiveCache[Part]
 
-    local Cached = PrimitiveCache[Part]
-    if type(Cached) == "number" and IsPrimitiveValid(Cached) then return Cached end
-    PrimitiveCache[Part] = nil
+    if CachedAddress
+        and CachedAddress > 0
+    then
+        return CachedAddress
+    end
 
-    local Address = Part.Address
-    if type(Address) ~= "number" or Address < 0x10000 then return 0 end
+    local InstanceAddress =
+        Part.Address
 
-    for Index = 1, #PrimitiveOffsets do
-        local Primitive = ReadMemory("uintptr_t", Address + PrimitiveOffsets[Index])
-        if IsPrimitiveValid(Primitive) then
-            PrimitiveCache[Part] = Primitive
-            return Primitive
+    if not InstanceAddress
+        or InstanceAddress == 0
+    then
+        return 0
+    end
+
+    local PrimitiveAddress =
+        SafeMemoryRead(
+            "uintptr_t",
+            InstanceAddress
+            + BasePartPrimitiveOffset
+        )
+
+    if not PrimitiveAddress
+        or PrimitiveAddress < 0x10000
+    then
+        return 0
+    end
+
+    PrimitiveCache[Part] =
+        PrimitiveAddress
+
+    return PrimitiveAddress
+end
+
+local function ReadPartPosition(Part)
+    local Position = Part.Position
+    if typeof(Position) ~= "Vector3" or not IsValidVector(Position) then return nil end
+    return Position
+end
+
+local function ReadHorizontalBasis(Part)
+    local PrimitiveAddress =
+        GetPrimitiveAddress(Part)
+
+    if PrimitiveAddress == 0 then
+        return nil
+    end
+
+    local RotationAddress =
+        PrimitiveAddress
+        + PrimitiveRotationOffset
+
+    local M00 =
+        ReadFloat(RotationAddress)
+
+    local M02 =
+        ReadFloat(
+            RotationAddress + 0x8
+        )
+
+    local M20 =
+        ReadFloat(
+            RotationAddress + 0x18
+        )
+
+    local M22 =
+        ReadFloat(
+            RotationAddress + 0x20
+        )
+
+    if not IsValidNumber(M00)
+        or not IsValidNumber(M02)
+        or not IsValidNumber(M20)
+        or not IsValidNumber(M22)
+    then
+        PrimitiveCache[Part] = nil
+        return nil
+    end
+
+    local Up =
+        Vector3.new(0, 1, 0)
+
+    local Back =
+        Vector3.new(
+            M02,
+            0,
+            M22
+        )
+
+    if Back.Magnitude < 0.5 then
+        local RightFallback =
+            Vector3.new(
+                M00,
+                0,
+                M20
+            )
+
+        if RightFallback.Magnitude < 0.5 then
+            PrimitiveCache[Part] = nil
+            return nil
+        end
+
+        local Right =
+            RightFallback.Unit
+
+        Back =
+            Right:Cross(Up)
+    end
+
+    if Back.Magnitude < 0.5 then
+        PrimitiveCache[Part] = nil
+        return nil
+    end
+
+    Back = Back.Unit
+
+    local Right =
+        Up:Cross(Back)
+
+    if Right.Magnitude < 0.001 then
+        return nil
+    end
+
+    Right = Right.Unit
+    Back = Right:Cross(Up).Unit
+
+    return Right, Up, Back
+end
+
+local function GetHatParts(Character)
+    local RootPart =
+        Character:FindFirstChild(
+            "HumanoidRootPart"
+        )
+        or Character.PrimaryPart
+
+    local UpperTorso =
+        Character:FindFirstChild(
+            "UpperTorso"
+        )
+
+    local Torso =
+        Character:FindFirstChild(
+            "Torso"
+        )
+
+    local IsR6 =
+        Torso ~= nil
+        and UpperTorso == nil
+
+    if IsR6 then
+        return RootPart,
+            RootPart,
+            1.5
+    end
+
+    local Head =
+        Character:FindFirstChild(
+            "Head"
+        )
+
+    return Head or RootPart,
+        RootPart or Head,
+        0
+end
+
+local function ReadCameraState()
+    Camera = Workspace.CurrentCamera
+
+    if not Camera then
+        return nil
+    end
+
+    local CameraCFrame = Camera.CFrame
+    local ViewportSize = Camera.ViewportSize
+    local FieldOfView = Camera.FieldOfView
+
+    if typeof(CameraCFrame) ~= "CFrame"
+        or typeof(ViewportSize) ~= "Vector2"
+        or type(FieldOfView) ~= "number"
+        or ViewportSize.X <= 0
+        or ViewportSize.Y <= 0
+        or FieldOfView <= 1
+        or FieldOfView >= 179
+    then
+        return nil
+    end
+
+    local Position =
+        CameraCFrame.Position
+
+    local Right =
+        CameraCFrame.RightVector
+
+    local Up =
+        CameraCFrame.UpVector
+
+    local Look =
+        CameraCFrame.LookVector
+
+    if not IsValidVector(Position)
+        or not IsValidVector(Right)
+        or not IsValidVector(Up)
+        or not IsValidVector(Look)
+    then
+        return nil
+    end
+
+    local FocalLength =
+        ViewportSize.Y
+        / (
+            2
+            * math.tan(
+                math.rad(FieldOfView) * 0.5
+            )
+        )
+
+    if not IsValidNumber(FocalLength)
+        or FocalLength <= 0
+    then
+        return nil
+    end
+
+    return {
+        Position = Position,
+        Right = Right,
+        Up = Up,
+        Look = Look,
+        CenterX = ViewportSize.X * 0.5,
+        CenterY = ViewportSize.Y * 0.5,
+        Width = ViewportSize.X,
+        Height = ViewportSize.Y,
+        FocalLength = FocalLength
+    }
+end
+
+local function WorldPointToCamera(
+    WorldPoint,
+    State
+)
+    local Delta =
+        WorldPoint - State.Position
+
+    return Vector3.new(
+        Delta:Dot(State.Right),
+        Delta:Dot(State.Up),
+        Delta:Dot(State.Look)
+    )
+end
+
+local function WorldVectorToCamera(
+    WorldVector,
+    State
+)
+    return Vector3.new(
+        WorldVector:Dot(State.Right),
+        WorldVector:Dot(State.Up),
+        WorldVector:Dot(State.Look)
+    )
+end
+
+local function VectorChanged(
+    Current,
+    Previous,
+    Epsilon
+)
+    if not Current
+        or not Previous
+    then
+        return true
+    end
+
+    return (
+        Current - Previous
+    ).Magnitude > Epsilon
+end
+
+local function ResetTransformSamples()
+    TransformSamples = {}
+    LastObservedRootPosition = nil
+    LastObservedCameraPosition = nil
+    LastObservedCameraLook = nil
+    LastObservedCameraUp = nil
+    LastObservedWorldBack = nil
+    LastRootChangeTime = 0
+    LastCameraChangeTime = 0
+    PendingPosition = nil
+    PendingUp = nil
+    PendingBack = nil
+    PendingSince = 0
+    PendingRootChanged = false
+    PendingCameraChanged = false
+    PendingRotationChanged = false
+    LastSampleTime = 0
+end
+
+local function PushTransformSample(
+    Now,
+    Position,
+    Up,
+    Back
+)
+    local LastSample =
+        TransformSamples[
+            #TransformSamples
+        ]
+
+    if LastSample then
+        if Back:Dot(
+            LastSample.Back
+        ) < 0
+        then
+            Back = -Back
+        end
+
+        if Up:Dot(
+            LastSample.Up
+        ) < 0
+        then
+            Up = -Up
+        end
+
+        local Distance =
+            (
+                Position
+                - LastSample.Position
+            ).Magnitude
+
+        if Distance > 8 then
+            TransformSamples = {}
+            LastSample = nil
         end
     end
 
-    return 0
-end
+    if LastSample then
+        Position =
+            LastSample.Position:Lerp(
+                Position,
+                0.68
+            )
 
-local function GetBasis(Part)
-    local Primitive = GetPrimitive(Part)
-    if Primitive == 0 then return nil end
+        Up =
+            LastSample.Up:Lerp(
+                Up,
+                0.58
+            )
 
-    local Address = Primitive + RotationOffset
-    local M00, M02 = ReadFloat(Address), ReadFloat(Address + 0x8)
-    local M20, M22 = ReadFloat(Address + 0x18), ReadFloat(Address + 0x20)
-    if not M00 or not M02 or not M20 or not M22 then PrimitiveCache[Part] = nil return nil end
-
-    local Up = Vector3.new(0, 1, 0)
-    local Back = Vector3.new(M02, 0, M22)
-    if Back.Magnitude < 0.5 then
-        local Right = Vector3.new(M00, 0, M20)
-        if Right.Magnitude < 0.5 then PrimitiveCache[Part] = nil return nil end
-        Back = Right.Unit:Cross(Up)
+        Back =
+            LastSample.Back:Lerp(
+                Back,
+                0.52
+            )
     end
 
-    if Back.Magnitude < 0.001 then return nil end
+    if Up.Magnitude < 0.001
+        or Back.Magnitude < 0.001
+    then
+        return
+    end
+
+    Up = Up.Unit
     Back = Back.Unit
 
-    local Right = Up:Cross(Back)
-    if Right.Magnitude < 0.001 then return nil end
+    local Right =
+        Up:Cross(Back)
+
+    if Right.Magnitude < 0.001 then
+        return
+    end
+
     Right = Right.Unit
     Back = Right:Cross(Up)
-    if Back.Magnitude < 0.001 then return nil end
 
-    return Right, Up, Back.Unit
-end
-
-local function GetTransform()
-    local Character = LocalPlayer and LocalPlayer.Character
-    if not Character then return nil end
-    if Character ~= ActiveCharacter then
-        ActiveCharacter = Character
-        PrimitiveCache = {}
+    if Back.Magnitude < 0.001 then
+        return
     end
 
-    local Head = Character:FindFirstChild("Head")
-    local Root = Character:FindFirstChild("HumanoidRootPart")
-    local Upper = Character:FindFirstChild("UpperTorso")
-    local Torso = Character:FindFirstChild("Torso")
-    local PositionPart = Head or Upper or Torso or Root
-    local OrientationPart = Root or Upper or Torso or Head
-    if not PositionPart or not OrientationPart or not PositionPart:IsA("BasePart") or not OrientationPart:IsA("BasePart") then return nil end
+    Back = Back.Unit
 
-    local Position = PositionPart.Position
-    if not IsVector(Position) then return nil end
+    TransformSamples[
+        #TransformSamples + 1
+    ] = {
+        Time = Now,
+        Position = Position,
+        Up = Up,
+        Back = Back
+    }
 
-    local Right, Up, Back = GetBasis(OrientationPart)
-    if not Right then return nil end
-    return Position, Right, Up, Back
+    while #TransformSamples > 12 do
+        table.remove(
+            TransformSamples,
+            1
+        )
+    end
+
+    LastSampleTime = Now
 end
 
-local function RingPoint(Center, Right, Back, RingRadius, HeightOffset, Angle)
-    return Center + Right * (Cos(Angle) * RingRadius * Scale) + Back * (Sin(Angle) * RingRadius * Scale) + Vector3.new(0, HeightOffset * Scale, 0)
+local function QueueTransformSample(
+    Now,
+    RootPosition,
+    State,
+    WorldUp,
+    WorldBack
+)
+    local RootChanged =
+        VectorChanged(
+            RootPosition,
+            LastObservedRootPosition,
+            0.000001
+        )
+
+    local CameraChanged =
+        VectorChanged(
+            State.Position,
+            LastObservedCameraPosition,
+            0.000001
+        )
+        or VectorChanged(
+            State.Look,
+            LastObservedCameraLook,
+            0.000001
+        )
+        or VectorChanged(
+            State.Up,
+            LastObservedCameraUp,
+            0.000001
+        )
+
+    local RotationChanged =
+        VectorChanged(
+            WorldBack,
+            LastObservedWorldBack,
+            0.00001
+        )
+
+    if RootChanged then
+        LastRootChangeTime = Now
+    end
+
+    if CameraChanged then
+        LastCameraChangeTime = Now
+    end
+
+    LastObservedRootPosition =
+        RootPosition
+
+    LastObservedCameraPosition =
+        State.Position
+
+    LastObservedCameraLook =
+        State.Look
+
+    LastObservedCameraUp =
+        State.Up
+
+    LastObservedWorldBack =
+        WorldBack
+
+    if RootChanged
+        or CameraChanged
+        or RotationChanged
+        or #TransformSamples == 0
+    then
+        PendingPosition =
+            WorldPointToCamera(
+                RootPosition,
+                State
+            )
+
+        PendingUp =
+            WorldVectorToCamera(
+                WorldUp,
+                State
+            )
+
+        PendingBack =
+            WorldVectorToCamera(
+                WorldBack,
+                State
+            )
+
+        if PendingSince == 0 then
+            PendingSince = Now
+        end
+
+        PendingRootChanged =
+            PendingRootChanged
+            or RootChanged
+
+        PendingCameraChanged =
+            PendingCameraChanged
+            or CameraChanged
+
+        PendingRotationChanged =
+            PendingRotationChanged
+            or RotationChanged
+    end
+
+    if not PendingPosition then
+        return
+    end
+
+    local PendingAge =
+        Now - PendingSince
+
+    local RootIsStationary =
+        Now - LastRootChangeTime
+        >= 0.040
+
+    local CameraIsStationary =
+        Now - LastCameraChangeTime
+        >= 0.040
+
+    local Ready =
+        #TransformSamples == 0
+        or (
+            PendingRootChanged
+            and PendingCameraChanged
+        )
+        or (
+            PendingRootChanged
+            and CameraIsStationary
+            and PendingAge >= 0.014
+        )
+        or (
+            PendingCameraChanged
+            and RootIsStationary
+            and PendingAge >= 0.014
+        )
+        or (
+            PendingRotationChanged
+            and not PendingRootChanged
+            and not PendingCameraChanged
+            and Now - LastSampleTime
+                >= 1 / 60
+        )
+        or PendingAge >= 0.030
+
+    if not Ready then
+        return
+    end
+
+    PushTransformSample(
+        Now,
+        PendingPosition,
+        PendingUp,
+        PendingBack
+    )
+
+    PendingPosition = nil
+    PendingUp = nil
+    PendingBack = nil
+    PendingSince = 0
+    PendingRootChanged = false
+    PendingCameraChanged = false
+    PendingRotationChanged = false
 end
 
-local function BuildRing(Center, Right, Back, RingRadius, HeightOffset)
+local function ReadDelayedTransform(
+    Now
+)
+    local Count =
+        #TransformSamples
+
+    if Count == 0 then
+        return nil
+    end
+
+    local TargetTime =
+        Now - InterpolationDelay
+
+    while #TransformSamples >= 3
+        and TransformSamples[2].Time
+            <= TargetTime
+    do
+        table.remove(
+            TransformSamples,
+            1
+        )
+    end
+
+    local SampleA =
+        TransformSamples[1]
+
+    local SampleB =
+        TransformSamples[2]
+
+    if not SampleB
+        or TargetTime <= SampleA.Time
+    then
+        local Up =
+            SampleA.Up
+
+        local Back =
+            SampleA.Back
+
+        local Right =
+            Up:Cross(Back)
+
+        if Right.Magnitude < 0.001 then
+            return nil
+        end
+
+        Right = Right.Unit
+        Back = Right:Cross(Up).Unit
+
+        return SampleA.Position,
+            Right,
+            Up,
+            Back
+    end
+
+    local Duration =
+        SampleB.Time
+        - SampleA.Time
+
+    local Alpha =
+        Clamp(
+            (
+                TargetTime
+                - SampleA.Time
+            )
+            / math.max(
+                Duration,
+                0.001
+            ),
+            0,
+            1
+        )
+
+    local Position =
+        SampleA.Position:Lerp(
+            SampleB.Position,
+            Alpha
+        )
+
+    local Up =
+        SampleA.Up:Lerp(
+            SampleB.Up,
+            Alpha
+        )
+
+    local Back =
+        SampleA.Back:Lerp(
+            SampleB.Back,
+            Alpha
+        )
+
+    if Up.Magnitude < 0.001
+        or Back.Magnitude < 0.001
+    then
+        return nil
+    end
+
+    Up = Up.Unit
+    Back = Back.Unit
+
+    local Right =
+        Up:Cross(Back)
+
+    if Right.Magnitude < 0.001 then
+        return nil
+    end
+
+    Right = Right.Unit
+    Back = Right:Cross(Up)
+
+    if Back.Magnitude < 0.001 then
+        return nil
+    end
+
+    Back = Back.Unit
+
+    return Position,
+        Right,
+        Up,
+        Back
+end
+
+local function ProjectPoint(CameraPoint)
+    local State =
+        CameraState
+
+    if not State
+        or not CameraPoint
+        or CameraPoint.Z <= 0.05
+    then
+        return nil
+    end
+
+    local InverseDepth =
+        State.FocalLength
+        / CameraPoint.Z
+
+    local ScreenX =
+        State.CenterX
+        + CameraPoint.X * InverseDepth
+
+    local ScreenY =
+        State.CenterY
+        - CameraPoint.Y * InverseDepth
+
+    if not IsValidNumber(ScreenX)
+        or not IsValidNumber(ScreenY)
+        or math.abs(ScreenX) > State.Width * 8
+        or math.abs(ScreenY) > State.Height * 8
+    then
+        return nil
+    end
+
+    return Vector2.new(
+        ScreenX,
+        ScreenY
+    )
+end
+
+local function SetLine(
+    Line,
+    PointA,
+    PointB
+)
+    if not PointA or not PointB then
+        Line.Visible = false
+        return false
+    end
+
+    Line.From = PointA
+    Line.To = PointB
+    Line.Visible = true
+
+    return true
+end
+
+local function SetStroke(
+    Stroke,
+    PointA,
+    PointB
+)
+    local Visible =
+        SetLine(
+            Stroke.Main,
+            PointA,
+            PointB
+        )
+
+    if Visible then
+        SetLine(
+            Stroke.Glow,
+            PointA,
+            PointB
+        )
+    else
+        Stroke.Glow.Visible = false
+    end
+end
+
+local function GetRingPoint(
+    Center,
+    Right,
+    Back,
+    Radius,
+    Angle,
+    Height
+)
+    return Center
+        + Right
+        * (
+            math.cos(Angle)
+            * Radius
+            * Scale
+        )
+        + Back
+        * (
+            math.sin(Angle)
+            * Radius
+            * Scale
+        )
+        + Vector3.new(
+            0,
+            Height * Scale,
+            0
+        )
+end
+
+local function BuildProjectedRing(
+    Center,
+    Right,
+    Back,
+    Radius,
+    Height
+)
     local Points = {}
+
     for Index = 1, SegmentCount do
-        local Angle = (Index - 1) / SegmentCount * math.pi * 2
-        Points[Index] = Project(RingPoint(Center, Right, Back, RingRadius, HeightOffset, Angle))
+        local Angle =
+            (
+                Index - 1
+            )
+            / SegmentCount
+            * math.pi
+            * 2
+
+        Points[Index] =
+            ProjectPoint(
+                GetRingPoint(
+                    Center,
+                    Right,
+                    Back,
+                    Radius,
+                    Angle,
+                    Height
+                )
+            )
     end
+
     return Points
 end
 
-local function RenderRing(Ring, Points, Stroke)
+local function RenderRing(
+    Ring,
+    Points,
+    IsStroke
+)
     for Index = 1, SegmentCount do
-        local Next = Index % SegmentCount + 1
-        if Stroke then SetStroke(Ring[Index], Points[Index], Points[Next]) else SetLine(Ring[Index], Points[Index], Points[Next]) end
+        local NextIndex =
+            Index % SegmentCount + 1
+
+        if IsStroke then
+            SetStroke(
+                Ring[Index],
+                Points[Index],
+                Points[NextIndex]
+            )
+        else
+            SetLine(
+                Ring[Index],
+                Points[Index],
+                Points[NextIndex]
+            )
+        end
     end
 end
 
-local function RenderHat(Position, Right, Up, Back)
-    local Center = Position + Up * ((0.58 + Height) * Scale)
-    local Apex = Position + Up * ((0.58 + Height + ConeHeight) * Scale)
-    local InnerRadius = Radius * 0.69
-    local MidRadius = Radius * 0.43
+local function RenderHat(
+    HeadPosition,
+    Right,
+    Up,
+    Back
+)
+    local Center =
+        HeadPosition
+        + Up
+        * (
+            (
+                BrimHeight
+                + HeightOffset
+            )
+            * Scale
+        )
 
-    local Outer = BuildRing(Center, Right, Back, Radius, 0)
-    local Inner = BuildRing(Center, Right, Back, InnerRadius, 0.02)
-    local MidCenter = Center + Up * (ConeHeight * 0.48 * Scale)
-    local Mid = BuildRing(MidCenter, Right, Back, MidRadius, 0)
-    local ScreenApex = Project(Apex)
+    local Apex =
+        HeadPosition
+        + Up
+        * (
+            (
+                ApexHeight
+                + HeightOffset
+            )
+            * Scale
+        )
 
-    RenderRing(OuterRing, Outer, true)
-    RenderRing(InnerRing, Inner, false)
-    RenderRing(MidRing, Mid, false)
+    local OuterPoints =
+        BuildProjectedRing(
+            Center,
+            Right,
+            Back,
+            BrimRadius,
+            0
+        )
+
+    local InnerPoints =
+        BuildProjectedRing(
+            Center,
+            Right,
+            Back,
+            InnerRadius,
+            0.015
+        )
+
+    local ScreenApex =
+        ProjectPoint(Apex)
+
+    RenderRing(
+        OuterRing,
+        OuterPoints,
+        true
+    )
+
+    RenderRing(
+        InnerRing,
+        InnerPoints,
+        false
+    )
 
     local SpokeIndex = 1
+
     for Index = 1, SegmentCount, SpokeStep do
-        SetStroke(Spokes[SpokeIndex], ScreenApex, Outer[Index])
-        SetLine(Details[SpokeIndex], Mid[Index], Outer[Index])
+        SetStroke(
+            Spokes[SpokeIndex],
+            ScreenApex,
+            OuterPoints[Index]
+        )
+
+        SetLine(
+            DetailSpokes[SpokeIndex],
+            InnerPoints[Index],
+            OuterPoints[Index]
+        )
+
         SpokeIndex = SpokeIndex + 1
     end
 end
 
 function Controller:SetEnabled(Value)
     self.Enabled = Value == true
-    if not self.Enabled then HideAll() end
+
+    if not self.Enabled then
+        HideAll()
+    end
 end
 
 function Controller:SetColor(Value)
-    if typeof(Value) ~= "Color3" then return end
-    HatColor, self.Color = Value, Value
-    ApplyStyle()
+    if typeof(Value) ~= "Color3" then
+        return
+    end
+
+    self.Color = Value
+
+    BuildPalette(Value)
+    ApplyPalette()
 end
 
 function Controller:SetOutlineColor(Value)
     if typeof(Value) ~= "Color3" then return end
-    OutlineColor, self.OutlineColor = Value, Value
-    ApplyStyle()
-end
-
-function Controller:SetScale(Value)
-    if type(Value) ~= "number" then return end
-    Scale = Clamp(Value, 0.55, 1.8)
-    self.Scale = Scale
-end
-
-function Controller:SetHeight(Value)
-    if type(Value) ~= "number" then return end
-    Height = Clamp(Value, -1.25, 2.5)
-    self.Height = Height
-end
-
-function Controller:SetRadius(Value)
-    if type(Value) ~= "number" then return end
-    Radius = Clamp(Value, 0.75, 3.25)
-    self.Radius = Radius
-end
-
-function Controller:SetConeHeight(Value)
-    if type(Value) ~= "number" then return end
-    ConeHeight = Clamp(Value, 0.7, 3.5)
-    self.ConeHeight = ConeHeight
+    OutlineColor = Value
+    BuildPalette(self.Color)
+    ApplyPalette()
 end
 
 function Controller:SetGlow(Value)
     if type(Value) ~= "number" then return end
-    Glow = Clamp(Value, 0, 1)
-    self.Glow = Glow
-    ApplyStyle()
+    GlowStrength = Clamp(Value, 0, 1)
+    ApplyPalette()
 end
 
 function Controller:SetThickness(Value)
     if type(Value) ~= "number" then return end
-    Thickness = Clamp(Value, 1, 4)
-    self.Thickness = Thickness
-    ApplyStyle()
+    ThicknessScale = Clamp(Value, 0.5, 4)
+    ApplyPalette()
 end
 
+function Controller:SetScale(Value)
+    if type(Value) ~= "number" then
+        return
+    end
+
+    Scale = Clamp(
+        Value,
+        0.55,
+        1.65
+    )
+end
+
+function Controller:SetHeight(Value)
+    if type(Value) ~= "number" then
+        return
+    end
+
+    HeightOffset = Clamp(
+        Value,
+        -1.25,
+        2.5
+    )
+end
+
+function Controller:SetRadius(Value)
+    if type(Value) ~= "number" then
+        return
+    end
+
+    BrimRadius = Clamp(
+        Value,
+        0.75,
+        3.25
+    )
+
+    InnerRadius = Clamp(
+        BrimRadius * 0.70,
+        0.5,
+        2.5
+    )
+end
+
+function Controller:SetConeHeight(Value)
+    if type(Value) ~= "number" then
+        return
+    end
+
+    ApexHeight = Clamp(
+        Value,
+        0.7,
+        3.5
+    )
+end
+
+function Controller:Stop()
+    if not self.Running then
+        return
+    end
+
+    self.Running = false
+    self.Enabled = false
+
+    for Index = 1, #Drawings do
+        local DrawingObject =
+            Drawings[Index]
+
+        DrawingObject.Visible = false
+
+        DrawingObject:Remove()
+    end
+
+    Drawings = {}
+    DrawingRoles = {}
+    PrimitiveCache = {}
+    CameraState = nil
+    ResetTransformSamples()
+    LastValidFrameTime = 0
+
+    if _G.NightfallChinaHatController == self then
+        _G.NightfallChinaHatController = nil
+    end
+end
+
+local RenderFps = 180
+local RenderInterval = 1 / RenderFps
+local LastRenderClock = os.clock()
+
 function Controller:SetFps(Value)
-    if type(Value) ~= "number" then return end
-    RenderFps = Clamp(math.floor(Value + 0.5), 30, 240)
-    RenderInterval = 1 / RenderFps
+    if type(Value) ~= "number" then
+        return
+    end
+
+    RenderFps =
+        Clamp(
+            math.floor(Value + 0.5),
+            30,
+            360
+        )
+
+    RenderInterval =
+        1 / RenderFps
 end
 
 function Controller:GetFps()
     return RenderFps
 end
 
-function Controller:Stop()
-    if not self.Running then return end
-    self.Running, self.Enabled = false, false
-    HideAll()
-
-    for Index = 1, #Drawings do
-        local Object = Drawings[Index]
-        if Object and type(Object.Remove) == "function" then Object:Remove() end
+RunService.RenderStepped:Connect(function(RenderDeltaTime)
+    if not Controller.Running then
+        return
     end
 
-    if RenderConnection then RenderConnection:Disconnect() RenderConnection = nil end
-    Drawings, Roles, PrimitiveCache, ActiveCharacter = {}, {}, {}, nil
-    if _G.NightfallChinaHatController == self then _G.NightfallChinaHatController = nil end
-end
+    local CurrentClock =
+        os.clock()
 
-ApplyStyle()
+    local FrameElapsed =
+        CurrentClock
+        - LastRenderClock
 
-RenderConnection = RunService.RenderStepped:Connect(function()
-    if not Controller.Running then return end
+    if FrameElapsed
+        < RenderInterval
+    then
+        return
+    end
 
-    local Now = Clock()
-    if Now - LastRender < RenderInterval then return end
-    LastRender = Now
+    LastRenderClock =
+        CurrentClock
 
-    if not Controller.Enabled then HideAll() return end
+    local DeltaTime =
+        FrameElapsed
 
-    local Position, Right, Up, Back = GetTransform()
-    if not Position then HideAll() return end
-    RenderHat(Position, Right, Up, Back)
+    if not Controller.Enabled then
+        HideAll()
+        return
+    end
+
+    local Character =
+        LocalPlayer.Character
+
+    if not Character then
+        HoldLastFrame()
+        return
+    end
+
+    if type(DeltaTime) ~= "number" then
+        DeltaTime = 0.016
+    end
+
+    DeltaTime =
+        Clamp(
+            DeltaTime,
+            0.001,
+            0.05
+        )
+
+    if ActiveCharacter ~= Character then
+        ActiveCharacter = Character
+        PrimitiveCache = {}
+        CameraState = nil
+        ResetTransformSamples()
+    end
+
+    local PositionPart,
+        OrientationPart,
+        HeightFromRoot =
+        GetHatParts(Character)
+
+    if not PositionPart
+        or not OrientationPart
+    then
+        HoldLastFrame()
+        return
+    end
+
+    local State =
+        ReadCameraState()
+
+    local CurrentPosition =
+        ReadPartPosition(
+            PositionPart
+        )
+
+    local WorldRight,
+        WorldUp,
+        WorldBack =
+        ReadHorizontalBasis(
+            OrientationPart
+        )
+
+    if not State
+        or not CurrentPosition
+        or not WorldRight
+    then
+        HoldLastFrame()
+        return
+    end
+
+    CameraState = State
+
+    local Now =
+        tick()
+
+    QueueTransformSample(
+        Now,
+        CurrentPosition,
+        State,
+        WorldUp,
+        WorldBack
+    )
+
+    local Position,
+        Right,
+        Up,
+        Back =
+        ReadDelayedTransform(Now)
+
+    if not Position
+        or not Right
+    then
+        HoldLastFrame()
+        return
+    end
+
+    Position =
+        Position
+        + Up * HeightFromRoot
+
+    RenderHat(
+        Position,
+        Right,
+        Up,
+        Back
+    )
+
+    LastValidFrameTime =
+        Now
 end)
 
 return Controller
