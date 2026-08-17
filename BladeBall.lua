@@ -269,51 +269,30 @@ local function DetectPositionWarp(BallInstance, DeltaTime)
     return IsValidNumber(Deviation) and Deviation > 4.5
 end
 
-local LibraryInstance
 local LoaderUrl = "https://raw.githubusercontent.com/neaxusxgod-png/INS-ui/main/uilib.min.lua"
+local LoadedLibrary = loadstring(game:HttpGet(LoaderUrl))
+if type(LoadedLibrary) ~= "function" then return end
 
-for Index = 1, 10 do
-    local CacheBuster = "?cb=" .. tostring((math.floor(os.clock() * 1000) + Index * 7919) % 2000000000)
-    local ResponseData = game:HttpGet(LoaderUrl .. CacheBuster)
+local Lib = LoadedLibrary() or INSUI
+if type(Lib) ~= "table" or type(Lib.CreateWindow) ~= "function" then return end
 
-    if type(ResponseData) == "string" and #ResponseData > 1000 then
-        _G.NightfallLoadedLibrary = nil
-        local WrappedSource = "_G.NightfallLoadedLibrary = (function()\n" .. ResponseData .. "\nend)()"
-        local LoadedFunction = loadstring(WrappedSource)
+Lib:ApplyThemePreset("Indigo")
 
-        if type(LoadedFunction) == "function" then
-            LoadedFunction()
-        end
-
-        local PublicInstance = _G.NightfallLoadedLibrary or _G.INSui
-        if type(PublicInstance) == "table" and type(PublicInstance.CreateWindow) == "function" then
-            LibraryInstance = PublicInstance
-            break
-        end
-    end
-
-    task.wait(0.4)
-end
-
-_G.NightfallLoadedLibrary = nil
-if type(LibraryInstance) ~= "table" then return end
-
-LibraryInstance:SetTheme("Indigo")
-
-local WindowApp = LibraryInstance:CreateWindow({
+local WindowApp = Lib:CreateWindow({
     title = "Nightfall",
     subtitle = "Blade Ball",
     size = Vector2.new(700, 552),
-    configName = "Nightfall",
-    configFolder = "BladeballConfigs",
     menuKey = "F2",
-    badge = "v2",
+    smartFps = false,
+    checkboxStyle = true,
+    opacity = 98,
     logo = LOGO_URL,
     logoSize = 34,
-    checkboxStyle = true
+    configName = "Nightfall",
+    configFolder = "BladeballConfigs"
 })
 
-LibraryInstance:SetBackgroundImage(BG_URL, 0.22, 0.7, 0.09)
+Lib:SetBackgroundImage(BG_URL, 0.22, 0.7, 0.09)
 
 local ConfigState = {
     AutoParry = false,
@@ -701,6 +680,7 @@ local function GenerateRandomAccuracy()
     RuntimeState.GeneratedAccuracy = FinalValue
 end
 
+Lib:Category("COMBAT")
 local CombatTab = WindowApp:Tab("Combat", "swords")
 
 local AutoParrySection = CombatTab:Section("Auto Parry", "Left", "")
@@ -767,6 +747,7 @@ TriggerSection:Toggle("Ignore Spawn", false, function(Value)
     ConfigState.TriggerIgnoreSpawn = Value
 end)
 
+Lib:Category("VISUALS")
 local VisualsTab = WindowApp:Tab("Visuals", "eye")
 
 local ParryRangeSection = VisualsTab:Section("Parry Range", "Left", "")
@@ -931,6 +912,7 @@ CharacterSection:Toggle("Korblox", false, function(Value)
     ApplyKorblox(Value)
 end)
 
+Lib:Category("SYSTEM")
 local DetectionsTab = WindowApp:Tab("Detections", "shield")
 local DetectionSection = DetectionsTab:Section("Detections", "Left", "")
 DetectionSection:Toggle("Infinity", false, function(Value)
