@@ -1,4 +1,3 @@
-
 local HttpService = game:GetService("HttpService")
 local Camera = workspace.CurrentCamera
 local Players = game:GetService("Players")
@@ -6742,7 +6741,7 @@ task.spawn(function()
       Keys.Space.Click = false
     end
 
-    local MenuKey = Keys[string.lower(State.MenuKey)]
+    local MenuKey = Keys[State.MenuKey] or Keys[string.lower(State.MenuKey)]
 
     if MenuKey and MenuKey.Click and not State.Focus and not State.Capture then State.Open = not State.Open end
 
