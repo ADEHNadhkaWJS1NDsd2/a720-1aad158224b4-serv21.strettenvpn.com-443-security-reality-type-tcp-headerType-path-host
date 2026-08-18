@@ -5026,6 +5026,13 @@ end
 
 function InsUi:Toggle()
   State.Open = not State.Open
+  State.Focus = nil
+  State.Capture = nil
+  State.Dropdown = nil
+  State.Picker = nil
+  State.Menu = nil
+  State.SpotlightOpen = false
+  ReleaseDrags()
   return self
 end
 
@@ -6741,9 +6748,18 @@ task.spawn(function()
       Keys.Space.Click = false
     end
 
-    local MenuKey = Keys[State.MenuKey] or Keys[string.lower(State.MenuKey)]
+    local MenuKey = Keys[State.MenuKey] or Keys[string.lower(State.MenuKey)] or Keys[string.upper(State.MenuKey)]
 
-    if MenuKey and MenuKey.Click and not State.Focus and not State.Capture then State.Open = not State.Open end
+    if MenuKey and MenuKey.Click then
+      State.Open = not State.Open
+      State.Focus = nil
+      State.Capture = nil
+      State.Dropdown = nil
+      State.Picker = nil
+      State.Menu = nil
+      State.SpotlightOpen = false
+      ReleaseDrags()
+    end
 
     local Editing = State.Focus
 
