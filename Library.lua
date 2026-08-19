@@ -226,27 +226,6 @@ local function BuildRuntime()
         end
     })
 
-    local function RegisterSharedSetter(Flag, Setter)
-        Flag = tostring(Flag)
-        if type(Setter) ~= "function" then return end
-        local Existing = Menu.Setters[Flag]
-        if type(Existing) ~= "function" or Existing == Setter then
-            Menu.Setters[Flag] = Setter
-            return
-        end
-        local Dispatching = false
-        Menu.Setters[Flag] = function(Value)
-            if Dispatching then return end
-            Dispatching = true
-            Menu.SharedSetterDispatching = Menu.SharedSetterDispatching or {}
-            Menu.SharedSetterDispatching[Flag] = true
-            Library.Call(Existing, CloneFlagValue(Value))
-            Library.Call(Setter, CloneFlagValue(Value))
-            Menu.SharedSetterDispatching[Flag] = nil
-            Dispatching = false
-        end
-    end
-
     do
         local GlowBase64Data = "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"
         local CustomAsset = getcustomasset or getsynasset
@@ -1498,7 +1477,7 @@ local function BuildRuntime()
             end
         end
 
-        RegisterSharedSetter(Flag, Set)
+        Menu.Setters[Flag] = Set
 
         RegisterAccentTarget(function(NewColor)
             if Button and Button.Parent then
@@ -3624,10 +3603,8 @@ local function BuildRuntime()
     end
 
     Menu.BindSystem.NotifyFlagChanged = function(Flag, Value)
-        local FlagName = tostring(Flag)
-        local SharedDispatching = Menu.SharedSetterDispatching and Menu.SharedSetterDispatching[FlagName] == true
-        if not Menu.ConfigApplying and not SharedDispatching and Menu.RefreshFlagSelectors then
-            Menu.RefreshFlagSelectors(FlagName)
+        if not Menu.ConfigApplying and Menu.RefreshFlagSelectors then
+            Menu.RefreshFlagSelectors(tostring(Flag))
         end
         if Value ~= true then
             local ReleaseKeys = {}
@@ -4808,7 +4785,11 @@ local function BuildRuntime()
                 Wanted[typeof(Value) .. ":" .. tostring(Value)] = true
             end
             for _, Binding in ipairs(Bindings) do
-                ApplyBinding(Binding, Wanted[Binding.Key] == true, true)
+                local WantedState = Wanted[Binding.Key] == true
+                if Menu.Flags[Binding.Flag] ~= WantedState then
+                    ApplyFlagValue(Binding.Flag, WantedState)
+                end
+                ApplyBinding(Binding, Menu.Flags[Binding.Flag] == true, true)
             end
             Updating = false
             PublishMaster(true)
@@ -4816,14 +4797,9 @@ local function BuildRuntime()
 
         local function ToggleBinding(Binding)
             if Options.Disabled then return end
-            local NewValue = not Selected[Binding.Key]
-            local Setter = Menu.Setters[Binding.Flag]
-            if type(Setter) == "function" then
-                Library.Call(Setter, NewValue)
-            else
-                ApplyBinding(Binding, NewValue, true)
-            end
-            Menu.Flags[Binding.Flag] = NewValue
+            local NewValue = not (Menu.Flags[Binding.Flag] == true)
+            ApplyFlagValue(Binding.Flag, NewValue)
+            ApplyBinding(Binding, Menu.Flags[Binding.Flag] == true, true)
             PublishMaster(true)
         end
 
@@ -4835,16 +4811,6 @@ local function BuildRuntime()
         PublishMaster(false)
 
         Menu.Setters[Flag] = Set
-        for _, Binding in ipairs(Bindings) do
-            local CurrentBinding = Binding
-            RegisterSharedSetter(CurrentBinding.Flag, function(Value)
-                if Updating then return end
-                Updating = true
-                ApplyBinding(CurrentBinding, Value == true, true)
-                Updating = false
-                PublishMaster(false)
-            end)
-        end
 
         local SelectorController = {
             Flag = Flag,
@@ -4857,11 +4823,8 @@ local function BuildRuntime()
             if Updating then return end
             Updating = true
             for _, Binding in ipairs(Bindings) do
-                if Menu.Flags[Binding.Flag] == true then
-                    Selected[Binding.Key] = true
-                else
-                    Selected[Binding.Key] = nil
-                end
+                local State = Menu.Flags[Binding.Flag] == true
+                if State then Selected[Binding.Key] = true else Selected[Binding.Key] = nil end
                 RefreshOption(Binding)
             end
             Updating = false
@@ -5032,14 +4995,8 @@ local function BuildRuntime()
                 local Key = typeof(Value) .. ":" .. tostring(Value)
                 for _, Binding in ipairs(Bindings) do
                     if Binding.Key == Key then
-                        local NewValue = State == true
-                        local Setter = Menu.Setters[Binding.Flag]
-                        if type(Setter) == "function" then
-                            Library.Call(Setter, NewValue)
-                        else
-                            ApplyBinding(Binding, NewValue, true)
-                        end
-                        Menu.Flags[Binding.Flag] = NewValue
+                        ApplyFlagValue(Binding.Flag, State == true)
+                        ApplyBinding(Binding, Menu.Flags[Binding.Flag] == true, true)
                         PublishMaster(true)
                         break
                     end
@@ -9720,13 +9677,7 @@ local function BuildRuntime()
 
         local function ToggleEditorFlag(Flag)
             Flag = tostring(Flag)
-            local NewValue = not (Menu.Flags[Flag] == true)
-            Menu.Flags[Flag] = NewValue
-            local Setter = Menu.Setters[Flag]
-            if type(Setter) == "function" then
-                Library.Call(Setter, NewValue)
-                Menu.Flags[Flag] = NewValue
-            end
+            ApplyFlagValue(Flag, not (Menu.Flags[Flag] == true))
             if Menu.RefreshFlagSelectors then Menu.RefreshFlagSelectors(Flag) end
             UpdateEditorElementButtons()
             ApplyPreviewElementLayout()
@@ -15943,19 +15894,16 @@ local function BuildRuntime()
 
             Applied[Flag] = true
 
-            Library.Call(function() self:SetFlag(Flag, CloneFlagValue(Desired)) end)
-        end
-
-        for Name, Value in pairs(DecodedFlags) do
-            if not Applied[Name] then
-                Library.Call(function() self:SetFlag(Name, CloneFlagValue(Value)) end)
+            if not FlagValuesEqual(self.Flags[Flag], Desired) then
+                Library.Call(function() self:SetFlag(Flag, Desired) end)
             end
         end
 
         for Name, Value in pairs(DecodedFlags) do
-            self.Flags[Name] = CloneFlagValue(Value)
+            if not Applied[Name] and not FlagValuesEqual(self.Flags[Name], Value) then
+                Library.Call(function() self:SetFlag(Name, CloneFlagValue(Value)) end)
+            end
         end
-        if Menu.RefreshFlagSelectors then Menu.RefreshFlagSelectors() end
 
         local NextBinds = LoadedBinds ~= nil and DecodeValue(LoadedBinds, 0) or {}
         if type(NextBinds) ~= "table" then NextBinds = {} end
@@ -15999,6 +15947,7 @@ local function BuildRuntime()
         local function RefreshLoadedUI()
             if Generation ~= Menu.ConfigLoadGeneration then return end
 
+            if Menu.RefreshFlagSelectors then Menu.RefreshFlagSelectors() end
             if Menu.RefreshDropdownIndicators then Menu.RefreshDropdownIndicators(true) end
 
             UpdateAccentColor(Accent)
