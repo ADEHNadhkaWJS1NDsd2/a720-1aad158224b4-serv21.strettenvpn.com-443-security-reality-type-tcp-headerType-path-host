@@ -22519,6 +22519,9 @@ local function HybridSyncExternalVisibility(State)
 end
 
 local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
+    Runtime.BindModeDefaults = Runtime.BindModeDefaults or {}
+    Runtime.BindButtonRefreshers = Runtime.BindButtonRefreshers or {}
+
     local WindowMethods = {}
     local PageMethods = {}
     local SubPageMethods = {}
@@ -23340,7 +23343,7 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                 end
             end
 
-            Menu.BindButtonRefreshers[
+            Runtime.BindButtonRefreshers[
                 Flag
             ] = RefreshBind
 
@@ -23386,7 +23389,7 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                             Mode = function()
                                 return Existing
                                     and Existing.Mode
-                                    or Menu.BindModeDefaults[
+                                    or Runtime.BindModeDefaults[
                                         Flag
                                     ]
                                     or "Toggle"
@@ -23479,7 +23482,7 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                     and "Always"
                     or "Toggle"
 
-                Menu.BindModeDefaults[
+                Runtime.BindModeDefaults[
                     Flag
                 ] = Mode
 
@@ -23521,7 +23524,7 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                 then
                     if BindButton then
                         local Refresh =
-                            Menu.BindButtonRefreshers[
+                            Runtime.BindButtonRefreshers[
                                 Flag
                             ]
 
@@ -23640,7 +23643,7 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                 end
 
                 local Refresh =
-                    Menu.BindButtonRefreshers[
+                    Runtime.BindButtonRefreshers[
                         Flag
                     ]
 
