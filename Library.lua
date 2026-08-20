@@ -306,29 +306,19 @@ local function BuildRuntime()
     local function AddPanelChrome(Parent, Radius, ZIndex)
         if not Parent then return nil end
 
-        local Layer = Create("Frame", {
-            Parent = Parent,
-            Position = UDim2.fromOffset(1, 1),
-            Size = UDim2.new(1, -2, 1, -2),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            Active = false,
-            ZIndex = ZIndex or ((Parent.ZIndex or 1) + 1)
-        })
-        Stroke(Layer, Color3.fromRGB(58, 58, 62), 0, 1)
+        local Outer = Stroke(Parent, Color3.fromRGB(0, 0, 0), 0, 1)
+        Outer.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-        local Inner = Create("Frame", {
+        local Inner = Create("UIStroke", {
             Parent = Parent,
-            Position = UDim2.fromOffset(2, 2),
-            Size = UDim2.new(1, -4, 1, -4),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            Active = false,
-            ZIndex = (ZIndex or ((Parent.ZIndex or 1) + 1)) + 1
+            Color = Color3.fromRGB(55, 55, 59),
+            Transparency = 0.18,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            LineJoinMode = Enum.LineJoinMode.Miter
         })
-        Stroke(Inner, Color3.fromRGB(24, 24, 27), 0, 1)
 
-        return Layer
+        return Inner
     end
 
     function Menu:ApplyOldschoolChrome(Root, Header, ZIndex)
@@ -343,50 +333,39 @@ local function BuildRuntime()
             end
         end
 
-        AddPanelChrome(Root, 0, (ZIndex or Root.ZIndex) + 1)
-
-        local AccentLine = Create("Frame", {
-            Parent = Root,
-            Position = UDim2.fromOffset(3, 3),
-            Size = UDim2.new(1, -6, 0, 1),
-            BackgroundColor3 = Accent,
-            BackgroundTransparency = 0,
-            BorderSizePixel = 0,
-            Active = false,
-            ZIndex = (ZIndex or Root.ZIndex) + 4
-        })
-        Menu.ChromeAccentTargets[AccentLine] = true
-
-        local AccentShadow = Create("Frame", {
-            Parent = Root,
-            Position = UDim2.fromOffset(3, 4),
-            Size = UDim2.new(1, -6, 0, 1),
-            BackgroundColor3 = Color3.fromRGB(29, 25, 55),
-            BackgroundTransparency = 0,
-            BorderSizePixel = 0,
-            Active = false,
-            ZIndex = (ZIndex or Root.ZIndex) + 3
-        })
+        AddPanelChrome(Root, 0, ZIndex)
 
         if Header then
             Header.BackgroundColor3 = SurfaceAlt
             Header.BackgroundTransparency = 0
+
             for _, Child in ipairs(Header:GetChildren()) do
                 if Child:IsA("UICorner") then
                     Child.CornerRadius = UDim.new(0, 0)
                 end
             end
 
-            Create("Frame", {
+            local AccentLine = Create("Frame", {
                 Parent = Header,
                 AnchorPoint = Vector2.new(0, 1),
-                Position = UDim2.new(0, 3, 1, 0),
-                Size = UDim2.new(1, -6, 0, 1),
-                BackgroundColor3 = Color3.fromRGB(4, 4, 5),
-                BackgroundTransparency = 0,
+                Position = UDim2.new(0, 1, 1, 0),
+                Size = UDim2.new(1, -2, 0, 1),
+                BackgroundColor3 = Accent,
                 BorderSizePixel = 0,
                 Active = false,
                 ZIndex = Header.ZIndex + 3
+            })
+            Menu.ChromeAccentTargets[AccentLine] = true
+
+            Create("Frame", {
+                Parent = Header,
+                AnchorPoint = Vector2.new(0, 1),
+                Position = UDim2.new(0, 1, 1, -1),
+                Size = UDim2.new(1, -2, 0, 1),
+                BackgroundColor3 = Color3.fromRGB(3, 3, 4),
+                BorderSizePixel = 0,
+                Active = false,
+                ZIndex = Header.ZIndex + 2
             })
         end
     end
@@ -820,16 +799,37 @@ local function BuildRuntime()
     local ScreenGui = Create("ScreenGui", {
         Name = "AtramentaMenu",
         Parent = Parent,
-        IgnoreGuiInset = true,
+        IgnoreGuiInset = false,
         ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     })
+
+    Menu.ControlRenderers = Menu.ControlRenderers or {}
+
+    Bind(game:GetService("GuiService").MenuClosed:Connect(function()
+        Menu.QuickPanelBindCapture = false
+        Menu.BindCapture = nil
+
+        for Index = #Menu.ControlRenderers, 1, -1 do
+            local Renderer = Menu.ControlRenderers[Index]
+            if type(Renderer) == "function" then
+                Renderer()
+            else
+                table.remove(Menu.ControlRenderers, Index)
+            end
+        end
+    end))
 
     Library.Call(function()
         if syn and syn.protect_gui then
             syn.protect_gui(ScreenGui)
         end
     end)
+
+    Bind(UserInputService.WindowFocusReleased:Connect(function()
+        Menu.QuickPanelBindCapture = false
+        Menu.BindCapture = nil
+    end))
 
     local Overlay = Create("Frame", {
         Parent = ScreenGui,
@@ -1495,42 +1495,61 @@ local function BuildRuntime()
     end
 
     local function CreateCheckbox(Row, Default)
-        local Button = Create("TextButton", {
+        local Outline = Create("TextButton", {
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(10, 10),
-            BackgroundColor3 = Default and Accent or Background,
+            Size = UDim2.fromOffset(12, 12),
+            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
-            ZIndex = 9
+            ZIndex = 12
         })
-        Corner(Button, 0)
-        local BorderStroke = Stroke(Button, Default and Accent or Border, 0, 1)
-        local Check = Create("Frame", {
-            Parent = Button,
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
+
+        local Inline = Create("Frame", {
+            Parent = Outline,
+            Position = UDim2.fromOffset(1, 1),
+            Size = UDim2.new(1, -2, 1, -2),
+            BackgroundColor3 = Color3.fromRGB(52, 52, 56),
             BorderSizePixel = 0,
-            Visible = false,
-            ZIndex = 10
+            ZIndex = 13
         })
-        return Button, BorderStroke, Check
+
+        local BackgroundFrame = Create("Frame", {
+            Parent = Inline,
+            Position = UDim2.fromOffset(1, 1),
+            Size = UDim2.new(1, -2, 1, -2),
+            BackgroundColor3 = Color3.fromRGB(17, 17, 19),
+            BorderSizePixel = 0,
+            ZIndex = 14
+        })
+
+        local Fill = Create("Frame", {
+            Parent = BackgroundFrame,
+            Position = UDim2.fromOffset(1, 1),
+            Size = UDim2.new(1, -2, 1, -2),
+            BackgroundColor3 = Accent,
+            BorderSizePixel = 0,
+            Visible = Default == true,
+            ZIndex = 15
+        })
+
+        return Outline, Inline, BackgroundFrame, Fill
     end
 
     local function CreateToggle(Section, Name, Default, Flag, Options)
         Options = Options or {}
-        local Row = CreateRow(Section.Body, 23)
+        local Row = CreateRow(Section.Body, 22)
 
         if Options.Warning then
             CreateWarning(Row)
         end
 
-        Create("TextLabel", {
+        local Label = Create("TextLabel", {
             Parent = Row,
             Position = UDim2.fromOffset(Options.Warning and 15 or 0, 0),
-            Size = UDim2.new(1, Options.Warning and -58 or -43, 1, 0),
+            Size = UDim2.new(1, Options.Warning and -70 or -62, 1, 0),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = Name,
@@ -1541,57 +1560,93 @@ local function BuildRuntime()
         })
 
         if Options.Gear then
-            CreateGear(Row, -38, 13, Name, Flag, {Type = "Boolean"})
+            CreateGear(Row, -40, 13, Name, Flag, {Type = "Boolean"})
         end
 
-        local Button, BorderStroke, Check = CreateCheckbox(Row, Default)
-        local State = Default and true or false
+        local Outline, Inline, BackgroundFrame, Fill = CreateCheckbox(Row, Default)
+        local LabelHitbox = Create("TextButton", {
+            Parent = Row,
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.new(1, -58, 1, 0),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Text = "",
+            ZIndex = 10
+        })
+
+        local State = Default == true
         Menu.Flags[Flag] = State
 
+        local function Render()
+            Fill.Visible = State
+            Fill.BackgroundColor3 = Accent
+            BackgroundFrame.BackgroundColor3 = State and Color3.fromRGB(21, 21, 24) or Color3.fromRGB(15, 15, 17)
+            Inline.BackgroundColor3 = State and Color3.fromRGB(68, 68, 73) or Color3.fromRGB(48, 48, 52)
+            Label.TextColor3 = Options.Disabled and DisabledText or PrimaryText
+        end
+
         local function Set(Value)
-            State = Value and true or false
+            State = Value == true
             Menu.Flags[Flag] = State
-            Check.Visible = false
-            Tween(Button, 0.12, {
-                BackgroundColor3 = State and Accent or Background
-            })
-            Tween(BorderStroke, 0.12, {
-                Color = State and Accent or Border
-            })
+            Render()
+
             if type(Options.Callback) == "function" then
                 task.spawn(Options.Callback, State)
             end
+
             if Menu.BindSystem.NotifyFlagChanged then
                 Menu.BindSystem.NotifyFlagChanged(Flag, State)
             end
         end
 
         Menu.Setters[Flag] = Set
+        Menu.ControlRenderers[#Menu.ControlRenderers + 1] = Render
 
         RegisterAccentTarget(function(NewColor)
-            if Button and Button.Parent then
-                Button.BackgroundColor3 = State and NewColor or SurfaceAlt
-            end
-            if BorderStroke and BorderStroke.Parent then
-                BorderStroke.Color = State and NewColor or Border
+            if Fill and Fill.Parent then
+                Fill.BackgroundColor3 = NewColor
             end
         end)
 
-        Bind(Button.MouseButton1Click:Connect(function()
-            Set(not State)
+        local function Hover(StateValue)
+            if Options.Disabled then return end
+            Inline.BackgroundColor3 = StateValue
+                and (State and Color3.fromRGB(78, 78, 84) or Color3.fromRGB(62, 62, 67))
+                or (State and Color3.fromRGB(68, 68, 73) or Color3.fromRGB(48, 48, 52))
+        end
+
+        Bind(LabelHitbox.MouseEnter:Connect(function()
+            Hover(true)
         end))
 
-        Bind(Row.InputBegan:Connect(function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-                local RelativeX = Input.Position.X - Row.AbsolutePosition.X
-                local RightExclusion = (Options.Gear or Row:GetAttribute("HasBindGear") == true) and 52 or 24
-                if RelativeX < Row.AbsoluteSize.X - RightExclusion then
-                    Set(not State)
-                end
+        Bind(LabelHitbox.MouseLeave:Connect(function()
+            Hover(false)
+        end))
+
+        Bind(Outline.MouseEnter:Connect(function()
+            Hover(true)
+        end))
+
+        Bind(Outline.MouseLeave:Connect(function()
+            Hover(false)
+        end))
+
+        Bind(LabelHitbox.MouseButton1Click:Connect(function()
+            if not Options.Disabled then
+                Set(not State)
             end
         end))
 
+        Bind(Outline.MouseButton1Click:Connect(function()
+            if not Options.Disabled then
+                Set(not State)
+            end
+        end))
+
+        Render()
         RegisterControl(Section, Row, Name)
+
         return {
             Set = Set,
             Get = function()
@@ -1600,7 +1655,8 @@ local function BuildRuntime()
             Row = Row,
             Flag = Flag,
             Name = Name,
-            Section = Section
+            Section = Section,
+            Checkbox = Outline
         }
     end
 
@@ -1662,8 +1718,10 @@ local function BuildRuntime()
 
     local function CreateSlider(Section, Name, Minimum, Maximum, Default, Flag, Options)
         Options = Options or {}
+
         local Step = math.max(math.abs(tonumber(Options.Step) or 1), 0.000001)
         local Decimals = tonumber(Options.Decimals)
+
         if Decimals == nil then
             local StepText = string.format("%.8f", Step):gsub("0+$", ""):gsub("%.$", "")
             local Dot = string.find(StepText, ".", 1, true)
@@ -1671,11 +1729,12 @@ local function BuildRuntime()
         else
             Decimals = math.max(0, math.floor(Decimals + 0.5))
         end
-        local Row = CreateRow(Section.Body, 40)
+
+        local Row = CreateRow(Section.Body, 38)
 
         Create("TextLabel", {
             Parent = Row,
-            Size = UDim2.new(1, -60, 0, 16),
+            Size = UDim2.new(1, -62, 0, 15),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = Name,
@@ -1686,12 +1745,19 @@ local function BuildRuntime()
         })
 
         if Options.Gear then
-            CreateGear(Row, -43, 9, Name, Flag, {Type = "Number", Minimum = Minimum, Maximum = Maximum, Decimals = Decimals, Step = Step})
+            CreateGear(Row, -43, 9, Name, Flag, {
+                Type = "Number",
+                Minimum = Minimum,
+                Maximum = Maximum,
+                Decimals = Decimals,
+                Step = Step
+            })
         end
 
         local Prefix = tostring(Options.Prefix or "")
         local Suffix = tostring(Options.Suffix or "")
         local ValueLabel
+
         if Options.Box then
             local BoxWidth = math.max(46, 34 + (#Prefix + #Suffix) * 4)
             ValueLabel = CreateValueBox(Row, tostring(Default), 0, BoxWidth)
@@ -1700,81 +1766,88 @@ local function BuildRuntime()
                 Parent = Row,
                 AnchorPoint = Vector2.new(1, 0),
                 Position = UDim2.new(1, 0, 0, 0),
-                Size = UDim2.fromOffset(math.max(48, 34 + (#Prefix + #Suffix) * 4), 18),
+                Size = UDim2.fromOffset(math.max(52, 36 + (#Prefix + #Suffix) * 4), 15),
                 BackgroundTransparency = 1,
                 Font = Enum.Font.BuilderSans,
                 Text = tostring(Default),
                 TextColor3 = MutedText,
-                TextSize = 10,
+                TextSize = 9,
                 TextXAlignment = Enum.TextXAlignment.Right,
                 ZIndex = 8
             })
         end
 
-        local Track = Create("Frame", {
+        local TrackOutline = Create("Frame", {
             Parent = Row,
-            Position = UDim2.fromOffset(0, 28),
-            Size = UDim2.new(1, 0, 0, 2),
-            Active = true,
-            BackgroundColor3 = Border,
+            Position = UDim2.fromOffset(0, 23),
+            Size = UDim2.new(1, 0, 0, 8),
+            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
             BorderSizePixel = 0,
             ZIndex = 8
         })
-        Corner(Track, 0)
 
-        local Fill = Create("Frame", {
-            Parent = Track,
-            Size = UDim2.new((Default - Minimum) / (Maximum - Minimum), 0, 1, 0),
-            BackgroundColor3 = Accent,
+        local TrackInline = Create("Frame", {
+            Parent = TrackOutline,
+            Position = UDim2.fromOffset(1, 1),
+            Size = UDim2.new(1, -2, 1, -2),
+            BackgroundColor3 = Color3.fromRGB(52, 52, 56),
             BorderSizePixel = 0,
             ZIndex = 9
         })
-        Corner(Fill, 0)
-        local FillGlow = nil
 
-        local Knob = Create("Frame", {
-            Parent = Track,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.new((Default - Minimum) / (Maximum - Minimum), 0, 0.5, 0),
-            Size = UDim2.fromOffset(2, 8),
-            BackgroundColor3 = Accent,
+        local Track = Create("Frame", {
+            Parent = TrackInline,
+            Position = UDim2.fromOffset(1, 1),
+            Size = UDim2.new(1, -2, 1, -2),
+            BackgroundColor3 = Color3.fromRGB(15, 15, 17),
             BorderSizePixel = 0,
+            ClipsDescendants = true,
             ZIndex = 10
         })
-        Corner(Knob, 0)
-        local KnobGlow = nil
+
+        local Range = math.max(Maximum - Minimum, 0.000001)
+        local InitialAlpha = math.clamp((Default - Minimum) / Range, 0, 1)
+
+        local Fill = Create("Frame", {
+            Parent = Track,
+            Size = UDim2.new(InitialAlpha, 0, 1, 0),
+            BackgroundColor3 = Accent,
+            BorderSizePixel = 0,
+            ZIndex = 11
+        })
+
+        Create("UIGradient", {
+            Parent = Fill,
+            Rotation = 90,
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(155, 155, 155))
+            })
+        })
+
+        local Cap = Create("Frame", {
+            Parent = Track,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(InitialAlpha, 0, 0.5, 0),
+            Size = UDim2.fromOffset(1, 4),
+            BackgroundColor3 = Color3.fromRGB(235, 235, 240),
+            BorderSizePixel = 0,
+            ZIndex = 12
+        })
+
+        local Hitbox = Create("TextButton", {
+            Parent = Row,
+            Position = UDim2.fromOffset(0, 18),
+            Size = UDim2.new(1, 0, 0, 19),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Text = "",
+            ZIndex = 13
+        })
+
         local Value = Default
         local Dragging = false
-        RegisterAccentTarget(function(NewColor)
-            Fill.BackgroundColor3 = NewColor
-            if FillGlow then
-                FillGlow.ImageColor3 = NewColor
-            end
-            if KnobGlow then
-                KnobGlow.ImageColor3 = NewColor
-            end
-        end)
-        Bind(Track.MouseEnter:Connect(function()
-            Tween(Knob, 0.08, {Size = UDim2.fromOffset(3, 9)})
-            if FillGlow then
-                Tween(FillGlow, 0.12, {ImageTransparency = 0.52})
-            end
-            if KnobGlow then
-                Tween(KnobGlow, 0.12, {ImageTransparency = 0.14})
-            end
-        end))
-        Bind(Track.MouseLeave:Connect(function()
-            if not Dragging then
-                Tween(Knob, 0.08, {Size = UDim2.fromOffset(2, 8)})
-                if FillGlow then
-                    Tween(FillGlow, 0.12, {ImageTransparency = 0.62})
-                end
-                if KnobGlow then
-                    Tween(KnobGlow, 0.12, {ImageTransparency = 0.24})
-                end
-            end
-        end))
-        Menu.Flags[Flag] = Value
 
         local function FormatNumber(Number)
             if Decimals > 0 then
@@ -1800,64 +1873,104 @@ local function BuildRuntime()
             return tonumber(Parsed)
         end
 
+        local function Render()
+            local Alpha = math.clamp((Value - Minimum) / Range, 0, 1)
+            Fill.Size = UDim2.new(Alpha, 0, 1, 0)
+            Cap.Position = UDim2.new(Alpha, 0, 0.5, 0)
+            ValueLabel.Text = Format(Value)
+        end
+
         local function Set(NewValue)
             NewValue = math.clamp(tonumber(NewValue) or Value, Minimum, Maximum)
             NewValue = Minimum + math.floor(((NewValue - Minimum) / Step) + 0.5) * Step
             NewValue = math.clamp(NewValue, Minimum, Maximum)
+
             local Power = 10 ^ Decimals
             NewValue = math.floor(NewValue * Power + 0.5) / Power
+
             Value = NewValue
             Menu.Flags[Flag] = Value
-            local Alpha = (Value - Minimum) / (Maximum - Minimum)
-            SmoothSlider(Fill, Knob, Alpha, 0.12)
-            ValueLabel.Text = Format(Value)
+            Render()
+
             if type(Options.Callback) == "function" then
                 task.spawn(Options.Callback, Value)
             end
         end
 
+        local function UpdateFromX(X)
+            if Track.AbsoluteSize.X <= 0 then return end
+            local Alpha = math.clamp((X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
+            Set(Minimum + Range * Alpha)
+        end
+
+        Menu.Flags[Flag] = Value
         Menu.Setters[Flag] = Set
-        ValueLabel.Text = Format(Value)
 
-        if Options.Box and ValueLabel:IsA("TextBox") then
-            Bind(ValueLabel.Focused:Connect(function()
-                ValueLabel.Text = FormatNumber(Value)
-            end))
-            Bind(ValueLabel.FocusLost:Connect(function()
-                local Parsed = Parse(ValueLabel.Text)
-                if Parsed ~= nil then
-                    Set(Parsed)
-                else
-                    ValueLabel.Text = Format(Value)
-                end
-            end))
-        end
+        RegisterAccentTarget(function(NewColor)
+            if Fill and Fill.Parent then
+                Fill.BackgroundColor3 = NewColor
+            end
+        end)
 
-        local function Update(Input)
-            local Alpha = math.clamp((Input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-            Set(Minimum + (Maximum - Minimum) * Alpha)
-        end
+        Bind(Hitbox.MouseEnter:Connect(function()
+            TrackInline.BackgroundColor3 = Color3.fromRGB(68, 68, 73)
+        end))
 
-        Bind(Track.InputBegan:Connect(function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+        Bind(Hitbox.MouseLeave:Connect(function()
+            if not Dragging then
+                TrackInline.BackgroundColor3 = Color3.fromRGB(52, 52, 56)
+            end
+        end))
+
+        Bind(Hitbox.InputBegan:Connect(function(Input)
+            if Input.UserInputType == Enum.UserInputType.MouseButton1 and not Options.Disabled then
                 Dragging = true
-                Update(Input)
+                TrackInline.BackgroundColor3 = Color3.fromRGB(76, 76, 82)
+                UpdateFromX(Input.Position.X)
             end
         end))
 
         Bind(UserInputService.InputChanged:Connect(function(Input)
             if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
-                Update(Input)
+                UpdateFromX(Input.Position.X)
             end
         end))
 
         Bind(UserInputService.InputEnded:Connect(function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                 Dragging = false
+                TrackInline.BackgroundColor3 = Color3.fromRGB(52, 52, 56)
             end
         end))
 
+        local function ResetInputState()
+            Dragging = false
+            TrackInline.BackgroundColor3 = Color3.fromRGB(52, 52, 56)
+            Render()
+        end
+
+        Menu.ControlRenderers[#Menu.ControlRenderers + 1] = ResetInputState
+
+        Bind(UserInputService.WindowFocusReleased:Connect(ResetInputState))
+
+        if Options.Box and ValueLabel:IsA("TextBox") then
+            Bind(ValueLabel.Focused:Connect(function()
+                ValueLabel.Text = FormatNumber(Value)
+            end))
+
+            Bind(ValueLabel.FocusLost:Connect(function()
+                local Parsed = Parse(ValueLabel.Text)
+                if Parsed ~= nil then
+                    Set(Parsed)
+                else
+                    Render()
+                end
+            end))
+        end
+
+        Render()
         RegisterControl(Section, Row, Name)
+
         return {
             Row = Row,
             Set = Set,
@@ -1903,9 +2016,9 @@ local function BuildRuntime()
 
         local Track = Create("Frame", {
             Parent = Row,
-            Position = UDim2.fromOffset(0, 30),
-            Size = UDim2.new(1, 0, 0, 2),
-            BackgroundColor3 = Border,
+            Position = UDim2.fromOffset(0, 28),
+            Size = UDim2.new(1, 0, 0, 8),
+            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
             BorderSizePixel = 0,
             ZIndex = 8
         })
@@ -1965,7 +2078,7 @@ local function BuildRuntime()
             Parent = Track,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(MinimumAlpha, 0, 0.5, 0),
-            Size = UDim2.fromOffset(2, 8),
+            Size = UDim2.fromOffset(2, 6),
             BackgroundColor3 = Accent,
             BorderSizePixel = 0,
             ZIndex = 10
@@ -1976,7 +2089,7 @@ local function BuildRuntime()
             Parent = Track,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(MaximumAlpha, 0, 0.5, 0),
-            Size = UDim2.fromOffset(2, 8),
+            Size = UDim2.fromOffset(2, 6),
             BackgroundColor3 = Accent,
             BorderSizePixel = 0,
             ZIndex = 10
@@ -6011,7 +6124,7 @@ local function BuildRuntime()
     do
     Watermark = Create("Frame", {
         Parent = ScreenGui,
-        Position = DecodePosition(SavedPositions.Watermark, UDim2.fromOffset(28, 18)),
+        Position = DecodePosition(SavedPositions.Watermark, UDim2.fromOffset(18, 10)),
         Size = UDim2.fromOffset(332, 30),
         BackgroundColor3 = Background,
         BackgroundTransparency = 0,
@@ -8253,8 +8366,8 @@ local function BuildRuntime()
     local QuickPanel = Create("Frame", {
         Parent = ScreenGui,
         AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, 20),
-        Size = UDim2.fromOffset(154, 48),
+        Position = UDim2.new(0.5, 0, 0, 10),
+        Size = UDim2.fromOffset(150, 30),
         BackgroundColor3 = Background,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
@@ -8268,10 +8381,10 @@ local function BuildRuntime()
 
     local QuickPanelPadding = Create("UIPadding", {
         Parent = QuickPanel,
-        PaddingLeft = UDim.new(0, 7),
-        PaddingRight = UDim.new(0, 7),
-        PaddingTop = UDim.new(0, 6),
-        PaddingBottom = UDim.new(0, 6)
+        PaddingLeft = UDim.new(0, 6),
+        PaddingRight = UDim.new(0, 6),
+        PaddingTop = UDim.new(0, 4),
+        PaddingBottom = UDim.new(0, 4)
     })
 
     local QuickPanelLayout = Create("UIListLayout", {
@@ -8295,9 +8408,9 @@ local function BuildRuntime()
     local function CreateQuickButton(Name, IconName, Order, Callback)
         local Button = Create("TextButton", {
             Parent = QuickPanel,
-            Size = UDim2.fromOffset(42, 36),
+            Size = UDim2.fromOffset(42, 22),
             BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = 1,
+            BackgroundTransparency = 0.82,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
@@ -8305,6 +8418,7 @@ local function BuildRuntime()
             ZIndex = 237
         })
         Corner(Button, 0)
+        Stroke(Button, Color3.fromRGB(46, 46, 50), 0.28, 1)
 
         local ButtonIcon = Icon(
             Button,
@@ -8327,7 +8441,7 @@ local function BuildRuntime()
         Bind(Button.MouseEnter:Connect(function()
             if not Data.Active then
                 Tween(Button, 0.10, {
-                    BackgroundTransparency = 0.72
+                    BackgroundTransparency = 0.58
                 })
                 Menu:SetIconColor(ButtonIcon, PrimaryText, 0.10)
             end
@@ -8336,7 +8450,7 @@ local function BuildRuntime()
         Bind(Button.MouseLeave:Connect(function()
             if not Data.Active then
                 Tween(Button, 0.10, {
-                    BackgroundTransparency = 1
+                    BackgroundTransparency = 0.82
                 })
                 Menu:SetIconColor(ButtonIcon, MutedText, 0.10)
             end
@@ -8365,7 +8479,7 @@ local function BuildRuntime()
         Data.Active = State
 
         Tween(Data.Button, 0.10, {
-            BackgroundTransparency = State and 0.50 or 1,
+            BackgroundTransparency = State and 0.36 or 0.82,
             BackgroundColor3 = State and SurfaceAlt or SurfaceAlt
         })
 
