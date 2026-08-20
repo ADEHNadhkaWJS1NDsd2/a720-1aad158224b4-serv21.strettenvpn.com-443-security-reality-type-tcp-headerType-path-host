@@ -9,8 +9,8 @@ local Library = {
     }
 }
 
-Library.Build = 20
-Library.BuildName = "LayoutBindRework"
+Library.Build = 22
+Library.BuildName = "FirstOpenFix"
 
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -2340,11 +2340,25 @@ local function BuildRuntime()
     end
 
     Menu.ClampPopupPosition = function(FrameObject, Position)
-        if not FrameObject then return Position end
-        Position = typeof(Position) == "UDim2" and Position or FrameObject.Position
+        if not FrameObject then
+            return Position
+        end
 
-        local Camera = workspace.CurrentCamera
-        local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+        Position =
+            typeof(Position) == "UDim2"
+            and Position
+            or FrameObject.Position
+
+        local Viewport = ScreenGui.AbsoluteSize
+
+        if Viewport.X <= 1 or Viewport.Y <= 1 then
+            local Camera = workspace.CurrentCamera
+            Viewport =
+                Camera
+                and Camera.ViewportSize
+                or Vector2.new(1920, 1080)
+        end
+
         local Size = FrameObject.AbsoluteSize
 
         if Size.X <= 0 or Size.Y <= 0 then
@@ -2355,25 +2369,49 @@ local function BuildRuntime()
         end
 
         local Anchor = FrameObject.AnchorPoint
-        local AnchorX = Position.X.Scale * Viewport.X + Position.X.Offset
-        local AnchorY = Position.Y.Scale * Viewport.Y + Position.Y.Offset
-        local Margin = 6
 
-        local MinimumX = Margin + Size.X * Anchor.X
-        local MaximumX = Viewport.X - Margin - Size.X * (1 - Anchor.X)
-        local MinimumY = Margin + Size.Y * Anchor.Y
-        local MaximumY = Viewport.Y - Margin - Size.Y * (1 - Anchor.Y)
+        local AnchorX =
+            Position.X.Scale * Viewport.X
+            + Position.X.Offset
+
+        local AnchorY =
+            Position.Y.Scale * Viewport.Y
+            + Position.Y.Offset
+
+        local MinimumX =
+            Size.X * Anchor.X
+
+        local MaximumX =
+            Viewport.X
+            - Size.X * (1 - Anchor.X)
+
+        local MinimumY =
+            Size.Y * Anchor.Y
+
+        local MaximumY =
+            Viewport.Y
+            - Size.Y * (1 - Anchor.Y)
 
         if MaximumX < MinimumX then
             AnchorX = Viewport.X * 0.5
         else
-            AnchorX = math.clamp(AnchorX, MinimumX, MaximumX)
+            AnchorX =
+                math.clamp(
+                    AnchorX,
+                    MinimumX,
+                    MaximumX
+                )
         end
 
         if MaximumY < MinimumY then
             AnchorY = Viewport.Y * 0.5
         else
-            AnchorY = math.clamp(AnchorY, MinimumY, MaximumY)
+            AnchorY =
+                math.clamp(
+                    AnchorY,
+                    MinimumY,
+                    MaximumY
+                )
         end
 
         return UDim2.fromOffset(
@@ -6857,6 +6895,7 @@ local function BuildRuntime()
         BackgroundColor3 = Color3.fromRGB(0, 0, 0),
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
+        Active = true,
         Visible = SavedPositions.HideWatermark ~= true,
         ZIndex = 210
     })
@@ -7018,35 +7057,93 @@ local function BuildRuntime()
     end)
 
     local function GetWatermarkViewport()
-        local Camera = workspace.CurrentCamera
-        local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
-        local TopLeft = Vector2.zero
-        local BottomRight = Vector2.zero
+        local Viewport = ScreenGui.AbsoluteSize
 
-        Library.Call(function()
-            TopLeft, BottomRight = GuiService:GetGuiInset()
-        end)
+        if Viewport.X <= 1
+            or Viewport.Y <= 1
+        then
+            local Camera =
+                workspace.CurrentCamera
 
-        return Vector2.new(
-            math.max(1, Viewport.X - TopLeft.X - BottomRight.X),
-            math.max(1, Viewport.Y - TopLeft.Y - BottomRight.Y)
-        )
+            Viewport =
+                Camera
+                and Camera.ViewportSize
+                or Vector2.new(
+                    1920,
+                    1080
+                )
+        end
+
+        return Viewport
     end
 
     local function ClampWatermarkPosition(Position)
-        Position = typeof(Position) == "UDim2" and Position or Watermark.Position
+        Position =
+            typeof(Position) == "UDim2"
+            and Position
+            or Watermark.Position
 
-        local Viewport = GetWatermarkViewport()
-        local ScaleValue = WatermarkScale.Scale
-        local Width = math.max(1, Watermark.Size.X.Offset * ScaleValue)
-        local Height = math.max(1, Watermark.Size.Y.Offset * ScaleValue)
-        local Margin = 4
+        local Viewport =
+            GetWatermarkViewport()
 
-        local X = Position.X.Scale * Viewport.X + Position.X.Offset
-        local Y = Position.Y.Scale * Viewport.Y + Position.Y.Offset
+        local ScaleValue =
+            math.max(
+                0.01,
+                tonumber(
+                    WatermarkScale.Scale
+                )
+                or 1
+            )
 
-        X = math.clamp(X, Margin, math.max(Margin, Viewport.X - Width - Margin))
-        Y = math.clamp(Y, Margin, math.max(Margin, Viewport.Y - Height - Margin))
+        local Width =
+            math.max(
+                1,
+                Watermark.Size.X.Offset
+                    * ScaleValue
+            )
+
+        local Height =
+            math.max(
+                1,
+                Watermark.Size.Y.Offset
+                    * ScaleValue
+            )
+
+        local X =
+            Position.X.Scale
+                * Viewport.X
+            + Position.X.Offset
+
+        local Y =
+            Position.Y.Scale
+                * Viewport.Y
+            + Position.Y.Offset
+
+        local MaximumX =
+            math.max(
+                0,
+                Viewport.X - Width
+            )
+
+        local MaximumY =
+            math.max(
+                0,
+                Viewport.Y - Height
+            )
+
+        X =
+            math.clamp(
+                X,
+                0,
+                MaximumX
+            )
+
+        Y =
+            math.clamp(
+                Y,
+                0,
+                MaximumY
+            )
 
         return UDim2.fromOffset(
             math.floor(X + 0.5),
@@ -7055,75 +7152,215 @@ local function BuildRuntime()
     end
 
     local function ClampWatermark()
-        if not Watermark or not Watermark.Parent then return end
+        if not Watermark
+            or not Watermark.Parent
+        then
+            return
+        end
 
-        Watermark.Position = ClampWatermarkPosition(Watermark.Position)
-        SavedPositions.Watermark = EncodePosition(Watermark.Position)
+        Watermark.Position =
+            ClampWatermarkPosition(
+                Watermark.Position
+            )
+
+        SavedPositions.Watermark =
+            EncodePosition(
+                Watermark.Position
+            )
     end
 
     local function UpdateWatermarkWidth()
-        local Width = WatermarkLayout.AbsoluteContentSize.X
+        local Width =
+            WatermarkLayout.AbsoluteContentSize.X
 
-        Watermark.Size = UDim2.fromOffset(
-            math.clamp(math.floor(Width + 14), 230, 430),
-            26
+        Watermark.Size =
+            UDim2.fromOffset(
+                math.clamp(
+                    math.floor(
+                        Width + 14
+                    ),
+                    230,
+                    430
+                ),
+                26
+            )
+
+        task.defer(
+            ClampWatermark
         )
-
-        task.defer(ClampWatermark)
     end
 
-    Bind(WatermarkLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateWatermarkWidth))
+    Bind(
+        WatermarkLayout:
+            GetPropertyChangedSignal(
+                "AbsoluteContentSize"
+            ):
+            Connect(
+                UpdateWatermarkWidth
+            )
+    )
+
+    Bind(
+        Watermark:
+            GetPropertyChangedSignal(
+                "AbsoluteSize"
+            ):
+            Connect(function()
+                task.defer(
+                    ClampWatermark
+                )
+            end)
+    )
+
+    Bind(
+        WatermarkScale:
+            GetPropertyChangedSignal(
+                "Scale"
+            ):
+            Connect(function()
+                task.defer(
+                    ClampWatermark
+                )
+            end)
+    )
 
     local WatermarkDragging = false
     local WatermarkDragStart
     local WatermarkStartPosition
 
-    Bind(Watermark.InputBegan:Connect(function(Input)
-        if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+    Bind(
+        Watermark.InputBegan:
+            Connect(function(Input)
+                if Input.UserInputType
+                    ~= Enum.UserInputType.MouseButton1
+                then
+                    return
+                end
 
-        WatermarkDragging = true
-        WatermarkDragStart = Input.Position
-        WatermarkStartPosition = Watermark.Position
-    end))
+                WatermarkDragging = true
+                WatermarkDragStart =
+                    Input.Position
 
-    Bind(UserInputService.InputChanged:Connect(function(Input)
-        if not WatermarkDragging or Input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+                WatermarkStartPosition =
+                    ClampWatermarkPosition(
+                        Watermark.Position
+                    )
 
-        local Delta = Input.Position - WatermarkDragStart
+                Watermark.Position =
+                    WatermarkStartPosition
+            end)
+    )
 
-        Watermark.Position = ClampWatermarkPosition(
-            UDim2.fromOffset(
-                WatermarkStartPosition.X.Offset + Delta.X,
-                WatermarkStartPosition.Y.Offset + Delta.Y
-            )
-        )
-    end))
+    Bind(
+        UserInputService.InputChanged:
+            Connect(function(Input)
+                if not WatermarkDragging
+                    or Input.UserInputType
+                        ~= Enum.UserInputType.MouseMovement
+                then
+                    return
+                end
 
-    Bind(UserInputService.InputEnded:Connect(function(Input)
-        if Input.UserInputType ~= Enum.UserInputType.MouseButton1 or not WatermarkDragging then return end
+                local Delta =
+                    Input.Position
+                    - WatermarkDragStart
 
-        WatermarkDragging = false
-        ClampWatermark()
-        SavePositions()
-    end))
+                local Candidate =
+                    UDim2.fromOffset(
+                        WatermarkStartPosition.X.Offset
+                            + Delta.X,
+                        WatermarkStartPosition.Y.Offset
+                            + Delta.Y
+                    )
 
-    Bind(UserInputService.WindowFocusReleased:Connect(function()
-        if not WatermarkDragging then return end
+                Watermark.Position =
+                    ClampWatermarkPosition(
+                        Candidate
+                    )
+            end)
+    )
 
-        WatermarkDragging = false
-        ClampWatermark()
-        SavePositions()
-    end))
+    Bind(
+        UserInputService.InputEnded:
+            Connect(function(Input)
+                if Input.UserInputType
+                    ~= Enum.UserInputType.MouseButton1
+                    or not WatermarkDragging
+                then
+                    return
+                end
 
-    local WatermarkCamera = workspace.CurrentCamera
+                WatermarkDragging = false
+                ClampWatermark()
+                SavePositions()
+            end)
+    )
+
+    Bind(
+        UserInputService.WindowFocusReleased:
+            Connect(function()
+                if not WatermarkDragging then
+                    return
+                end
+
+                WatermarkDragging = false
+                ClampWatermark()
+                SavePositions()
+            end)
+    )
+
+    Bind(
+        RunService.RenderStepped:
+            Connect(function()
+                if WatermarkDragging then
+                    Watermark.Position =
+                        ClampWatermarkPosition(
+                            Watermark.Position
+                        )
+                end
+            end)
+    )
+
+    local WatermarkCamera =
+        workspace.CurrentCamera
 
     if WatermarkCamera then
-        Bind(WatermarkCamera:GetPropertyChangedSignal("ViewportSize"):Connect(ClampWatermark))
+        Bind(
+            WatermarkCamera:
+                GetPropertyChangedSignal(
+                    "ViewportSize"
+                ):
+                Connect(function()
+                    task.defer(
+                        ClampWatermark
+                    )
+                end)
+        )
     end
 
-    Bind(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-        task.defer(ClampWatermark)
-    end))
+    Bind(
+        ScreenGui:
+            GetPropertyChangedSignal(
+                "AbsoluteSize"
+            ):
+            Connect(function()
+                task.defer(
+                    ClampWatermark
+                )
+            end)
+    )
+
+    Bind(
+        workspace:
+            GetPropertyChangedSignal(
+                "CurrentCamera"
+            ):
+            Connect(function()
+                task.defer(
+                    ClampWatermark
+                )
+            end)
+    )
 
     local WatermarkFrames = 0
     local WatermarkElapsed = 0
@@ -9249,11 +9486,26 @@ local function BuildRuntime()
     end
 
     local function GetEspPreviewVisible()
-        if Menu.EspPreviewController
-            and type(Menu.EspPreviewController.IsVisible) == "function"
-        then
-            return Menu.EspPreviewController.IsVisible() == true
+        if Menu.EspPreviewController then
+            if type(
+                Menu.EspPreviewController.IsRequestedVisible
+            ) == "function"
+            then
+                return
+                    Menu.EspPreviewController.IsRequestedVisible()
+                    == true
+            end
+
+            if type(
+                Menu.EspPreviewController.IsVisible
+            ) == "function"
+            then
+                return
+                    Menu.EspPreviewController.IsVisible()
+                    == true
+            end
         end
+
         return false
     end
 
@@ -11592,6 +11844,32 @@ local function BuildRuntime()
             end
         end
 
+        local function RefreshVisibleLayout()
+            if not S.Window
+                or not S.Window.Parent
+                or not S.Window.Visible
+            then
+                return
+            end
+
+            S.Window.Position =
+                ClampWindow(
+                    S.Window.Position
+                )
+
+            ApplyPreviewElementLayout()
+            UpdateEditorElementButtons()
+            UpdateEspStyle()
+
+            if S.Model
+                and S.Model.Parent
+            then
+                ProjectModelBounds()
+            elseif not S.Loading then
+                RequestModel()
+            end
+        end
+
         local function RefreshVisibility()
             local Visible =
                 S.RequestedVisible == true
@@ -11604,8 +11882,19 @@ local function BuildRuntime()
                 S.Glow.Visible = Visible
             end
 
-            if Visible and not S.Model then
-                RequestModel()
+            if Visible then
+                if not S.Model then
+                    RequestModel()
+                end
+
+                task.defer(
+                    RefreshVisibleLayout
+                )
+
+                task.delay(
+                    0.04,
+                    RefreshVisibleLayout
+                )
             end
         end
 
@@ -11640,6 +11929,10 @@ local function BuildRuntime()
         end
 
         Menu.EspPreviewController.IsVisible = function()
+            return S.Window.Visible == true
+        end
+
+        Menu.EspPreviewController.IsRequestedVisible = function()
             return S.RequestedVisible == true
                 and S.Hidden ~= true
         end
@@ -11657,6 +11950,12 @@ local function BuildRuntime()
         Menu.EspPreviewController.SetMenuVisible = function(Value)
             S.MenuVisible = Value == true
             RefreshVisibility()
+
+            if S.MenuVisible then
+                task.defer(
+                    RefreshVisibleLayout
+                )
+            end
         end
 
         Menu.EspPreviewController.SetMode = function(Value)
@@ -11847,28 +12146,62 @@ local function BuildRuntime()
             UpdateEditorElementButtons()
         end)
 
-        Menu.EspPreviewWindow = S.Window
-        S.Window.Position = ClampWindow(S.Window.Position)
+        Menu.EspPreviewWindow =
+            S.Window
 
-        local EspPreviewCamera = workspace.CurrentCamera
-        if EspPreviewCamera then
-            Bind(EspPreviewCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-                if S.Window and S.Window.Parent then
-                    S.Window.Position = ClampWindow(S.Window.Position)
-                    SavedPositions.EspPreviewPosition = EncodePosition(S.Window.Position)
-                    SavePositions()
-                end
-            end))
+        if Menu.QuickPanelController
+            and type(
+                Menu.QuickPanelController.IsVisible
+            ) == "function"
+        then
+            S.MenuVisible =
+                Menu.QuickPanelController.IsVisible()
+                == true
         end
 
-        task.defer(function()
-            if S.Window and S.Window.Parent then PlacePreviewWithSpacing() end
-        end)
+        S.Window.Position =
+            ClampWindow(
+                S.Window.Position
+            )
+
+        local EspPreviewCamera =
+            workspace.CurrentCamera
+
+        if EspPreviewCamera then
+            Bind(
+                EspPreviewCamera:
+                    GetPropertyChangedSignal(
+                        "ViewportSize"
+                    ):
+                    Connect(function()
+                        if S.Window
+                            and S.Window.Parent
+                        then
+                            S.Window.Position =
+                                ClampWindow(
+                                    S.Window.Position
+                                )
+
+                            SavedPositions.EspPreviewPosition =
+                                EncodePosition(
+                                    S.Window.Position
+                                )
+
+                            SavePositions()
+                        end
+                    end)
+            )
+        end
+
         SyncPreviewStateFromFlags()
         RefreshMode()
         UpdateEditorElementButtons()
         UpdateEspStyle()
         RefreshVisibility()
+
+        task.defer(
+            RefreshVisibleLayout
+        )
     end
 
     CreateEspPreviewWindow()
@@ -15217,41 +15550,88 @@ local function BuildRuntime()
 
         local Controller = {}
 
+        local function RefreshVisiblePlayerList()
+            if not Root
+                or not Root.Parent
+                or not Root.Visible
+            then
+                return
+            end
+
+            Root.Position =
+                Menu.ClampPopupPosition(
+                    Root,
+                    Root.Position
+                )
+
+            RefreshRows()
+            RefreshSelected(false)
+        end
+
         function Controller:SetVisibility(Value)
             State.Visible = Value == true
             Menu.Flags.PlayerListVisible = State.Visible
+
             Root.Visible =
                 State.Visible
                 and State.MenuVisible ~= false
 
             if not Menu.QuickPanelTransition then
-                SavedPositions.PlayerListVisible = State.Visible
+                SavedPositions.PlayerListVisible =
+                    State.Visible
+
                 SavedPositions.WindowStates =
-                    type(SavedPositions.WindowStates) == "table"
+                    type(SavedPositions.WindowStates)
+                        == "table"
                     and SavedPositions.WindowStates
                     or {}
+
                 SavedPositions.WindowStates.PlayerList =
                     State.Visible
+
                 SavePositions()
             end
 
             if RootGlow then
-                RootGlow.Visible = Root.Visible
+                RootGlow.Visible =
+                    Root.Visible
             end
 
-            if Menu.QuickPanelController and Menu.QuickPanelController.Refresh then
+            if Root.Visible then
+                task.defer(
+                    RefreshVisiblePlayerList
+                )
+
+                task.delay(
+                    0.04,
+                    RefreshVisiblePlayerList
+                )
+            end
+
+            if Menu.QuickPanelController
+                and Menu.QuickPanelController.Refresh
+            then
                 Menu.QuickPanelController.Refresh()
             end
         end
 
         function Controller:SetMenuVisible(Value)
-            State.MenuVisible = Value == true
+            State.MenuVisible =
+                Value == true
+
             Root.Visible =
                 State.Visible
                 and State.MenuVisible
 
             if RootGlow then
-                RootGlow.Visible = Root.Visible
+                RootGlow.Visible =
+                    Root.Visible
+            end
+
+            if Root.Visible then
+                task.defer(
+                    RefreshVisiblePlayerList
+                )
             end
         end
 
@@ -15303,12 +15683,31 @@ local function BuildRuntime()
         Controller.Root = Root
         Controller.State = State
 
-        Menu.PlayerListController = Controller
+        Menu.PlayerListController =
+            Controller
+
+        if Menu.QuickPanelController
+            and type(
+                Menu.QuickPanelController.IsVisible
+            ) == "function"
+        then
+            State.MenuVisible =
+                Menu.QuickPanelController.IsVisible()
+                == true
+        end
 
         RefreshRows()
         RefreshSelected(true)
-        Controller:SetScale(State.Scale * 100)
-        Controller:SetVisibility(State.Visible)
+        Controller:SetScale(
+            State.Scale * 100
+        )
+        Controller:SetVisibility(
+            State.Visible
+        )
+
+        task.defer(
+            RefreshVisiblePlayerList
+        )
 
         return Controller
     end
@@ -22111,16 +22510,6 @@ local function HybridSyncExternalVisibility(State)
 
     if HybridMain.Library and HybridMain.Library.gui then
         HybridMain.Library.gui.Enabled = State
-    end
-
-    local Esp = Runtime.EspPreviewController
-    if Esp and type(Esp.SetMenuVisible) == "function" then
-        Esp.SetMenuVisible(State)
-    end
-
-    local PlayerList = Runtime.PlayerListController
-    if PlayerList and type(PlayerList.SetMenuVisible) == "function" then
-        PlayerList:SetMenuVisible(State)
     end
 
     local QuickPanel = Runtime.QuickPanelController
