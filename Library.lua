@@ -158,11 +158,13 @@ local function BuildRuntime()
     local Surface = Color3.fromRGB(20, 20, 25)
     local SurfaceAlt = Color3.fromRGB(25, 25, 31)
     local Border = Color3.fromRGB(43, 43, 50)
-    local SkeetOutline = Color3.fromRGB(7, 7, 10)
-    local SkeetInline = Color3.fromRGB(45, 45, 52)
-    local SkeetInner = Color3.fromRGB(12, 12, 16)
-    local SkeetTop = Color3.fromRGB(31, 31, 38)
-    local SkeetBottom = Color3.fromRGB(23, 23, 29)
+    local Skeet = {
+        Outline = Color3.fromRGB(7, 7, 10),
+        Inline = Color3.fromRGB(45, 45, 52),
+        Inner = Color3.fromRGB(12, 12, 16),
+        Top = Color3.fromRGB(31, 31, 38),
+        Bottom = Color3.fromRGB(23, 23, 29)
+    }
     local PrimaryText = Color3.fromRGB(230, 230, 234)
     local MutedText = Color3.fromRGB(147, 147, 157)
     local DisabledText = Color3.fromRGB(82, 82, 92)
@@ -291,8 +293,8 @@ local function BuildRuntime()
             Parent = Parent,
             Rotation = Rotation or 90,
             Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, TopColor or SkeetTop),
-                ColorSequenceKeypoint.new(1, BottomColor or SkeetBottom)
+                ColorSequenceKeypoint.new(0, TopColor or Skeet.Top),
+                ColorSequenceKeypoint.new(1, BottomColor or Skeet.Bottom)
             })
         })
     end
@@ -302,7 +304,7 @@ local function BuildRuntime()
             Parent = Parent,
             Position = Position or UDim2.fromOffset(0, 0),
             Size = Size or UDim2.fromScale(1, 1),
-            BackgroundColor3 = SkeetOutline,
+            BackgroundColor3 = Skeet.Outline,
             BorderSizePixel = 0,
             ZIndex = ZIndex or 8
         }
@@ -315,7 +317,7 @@ local function BuildRuntime()
             Parent = Outer,
             Position = UDim2.fromOffset(1, 1),
             Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = SkeetInline,
+            BackgroundColor3 = Skeet.Inline,
             BorderSizePixel = 0,
             ZIndex = (ZIndex or 8) + 1
         })
@@ -323,11 +325,11 @@ local function BuildRuntime()
             Parent = Inline,
             Position = UDim2.fromOffset(1, 1),
             Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = SkeetBottom,
+            BackgroundColor3 = Skeet.Bottom,
             BorderSizePixel = 0,
             ZIndex = (ZIndex or 8) + 2
         })
-        SkeetGradient(Back, SkeetTop, SkeetBottom, 90)
+        SkeetGradient(Back, Skeet.Top, Skeet.Bottom, 90)
         return Outer, Inline, Back
     end
 
@@ -986,7 +988,7 @@ local function BuildRuntime()
     })
     Corner(Topbar, 0)
 
-    local TopAccentLine = AddChromeLine(
+    Menu.TopAccentLine = AddChromeLine(
         Main,
         UDim2.fromOffset(4, 4),
         UDim2.new(1, -8, 0, 2),
@@ -995,12 +997,12 @@ local function BuildRuntime()
         19,
         true
     )
-    SkeetGradient(TopAccentLine, Accent:Lerp(Color3.new(1, 1, 1), 0.10), Accent:Lerp(Background, 0.38), 90)
+    SkeetGradient(Menu.TopAccentLine, Accent:Lerp(Color3.new(1, 1, 1), 0.10), Accent:Lerp(Background, 0.38), 90)
     Create("Frame", {
         Parent = Main,
         Position = UDim2.fromOffset(4, 6),
         Size = UDim2.new(1, -8, 0, 1),
-        BackgroundColor3 = SkeetInline,
+        BackgroundColor3 = Skeet.Inline,
         BorderSizePixel = 0,
         ZIndex = 19
     })
@@ -1064,7 +1066,7 @@ local function BuildRuntime()
         TextSize = 11,
         ZIndex = 12
     })
-    Menu.ConfigsUI.ButtonStroke = Stroke(Menu.ConfigsUI.Button, SkeetOutline, 0, 1)
+    Menu.ConfigsUI.ButtonStroke = Stroke(Menu.ConfigsUI.Button, Skeet.Outline, 0, 1)
 
     Menu.ConfigsUI.FolderTab = Create("Frame", {
         Parent = Menu.ConfigsUI.Button,
@@ -1159,14 +1161,14 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(Layout.Side, SearchY),
         Size = UDim2.new(1, -(Layout.Side * 2 + Layout.SearchHeight + Layout.Gap), 0, Layout.SearchHeight),
-        BackgroundColor3 = SkeetBottom,
+        BackgroundColor3 = Skeet.Bottom,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 5
     })
     Corner(SearchBar, 0)
-    Stroke(SearchBar, SkeetOutline, 0, 1)
-    SkeetGradient(SearchBar, SkeetTop, SkeetBottom, 90)
+    Stroke(SearchBar, Skeet.Outline, 0, 1)
+    SkeetGradient(SearchBar, Skeet.Top, Skeet.Bottom, 90)
 
     local SearchBox = Create("TextBox", {
         Parent = SearchBar,
@@ -1191,7 +1193,7 @@ local function BuildRuntime()
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, -Layout.Side, 0, SearchY),
         Size = UDim2.fromOffset(Layout.SearchHeight, Layout.SearchHeight),
-        BackgroundColor3 = SkeetBottom,
+        BackgroundColor3 = Skeet.Bottom,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         AutoButtonColor = false,
@@ -1199,8 +1201,8 @@ local function BuildRuntime()
         ZIndex = 5
     })
     Corner(SearchSettings, 0)
-    SkeetGradient(SearchSettings, SkeetTop, SkeetBottom, 90)
-    local SearchSettingsStroke = Stroke(SearchSettings, SkeetOutline, 0, 1)
+    SkeetGradient(SearchSettings, Skeet.Top, Skeet.Bottom, 90)
+    local SearchSettingsStroke = Stroke(SearchSettings, Skeet.Outline, 0, 1)
     local SearchSettingsIcon = Icon(SearchSettings, "Gear", UDim2.fromOffset(16, 16), UDim2.fromScale(0.5, 0.5), MutedText, 7)
 
     local SettingsToggleHitbox = Create("TextButton", {
@@ -1338,7 +1340,7 @@ local function BuildRuntime()
             Parent = Page,
             Position = Position,
             Size = Size,
-            BackgroundColor3 = SkeetInline,
+            BackgroundColor3 = Skeet.Inline,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 5
@@ -1348,7 +1350,7 @@ local function BuildRuntime()
             Parent = Root,
             Position = UDim2.fromOffset(1, 1),
             Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = SkeetOutline,
+            BackgroundColor3 = Skeet.Outline,
             BorderSizePixel = 0,
             ZIndex = 6
         })
@@ -1507,7 +1509,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
             Size = UDim2.fromOffset(12, 12),
-            BackgroundColor3 = SkeetOutline,
+            BackgroundColor3 = Skeet.Outline,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
@@ -1518,7 +1520,7 @@ local function BuildRuntime()
             Parent = Button,
             Position = UDim2.fromOffset(1, 1),
             Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = SkeetInline,
+            BackgroundColor3 = Skeet.Inline,
             BorderSizePixel = 0,
             ZIndex = 10
         })
@@ -1527,7 +1529,7 @@ local function BuildRuntime()
             Parent = Inline,
             Position = UDim2.fromOffset(1, 1),
             Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = SkeetBottom,
+            BackgroundColor3 = Skeet.Bottom,
             BorderSizePixel = 0,
             ZIndex = 11
         })
@@ -1552,7 +1554,7 @@ local function BuildRuntime()
             ZIndex = 13
         })
 
-        local BorderStroke = Stroke(Button, SkeetOutline, 0, 1)
+        local BorderStroke = Stroke(Button, Skeet.Outline, 0, 1)
         return Button, BorderStroke, Check
     end
 
@@ -1591,7 +1593,7 @@ local function BuildRuntime()
             Check.Visible = State
             Check.BackgroundColor3 = Accent
             Tween(BorderStroke, 0.08, {
-                Color = State and Accent:Lerp(SkeetOutline, 0.55) or SkeetOutline
+                Color = State and Accent:Lerp(Skeet.Outline, 0.55) or Skeet.Outline
             })
             if type(Options.Callback) == "function" then
                 task.spawn(Options.Callback, State)
@@ -1608,7 +1610,7 @@ local function BuildRuntime()
                 Check.BackgroundColor3 = NewColor
             end
             if BorderStroke and BorderStroke.Parent then
-                BorderStroke.Color = State and NewColor:Lerp(SkeetOutline, 0.55) or SkeetOutline
+                BorderStroke.Color = State and NewColor:Lerp(Skeet.Outline, 0.55) or Skeet.Outline
             end
         end)
 
@@ -1748,7 +1750,7 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(0, 27),
             Size = UDim2.new(1, 0, 0, 9),
             Active = true,
-            BackgroundColor3 = SkeetOutline,
+            BackgroundColor3 = Skeet.Outline,
             BorderSizePixel = 0,
             ZIndex = 8
         })
@@ -1757,7 +1759,7 @@ local function BuildRuntime()
             Parent = Track,
             Position = UDim2.fromOffset(1, 1),
             Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = SkeetInline,
+            BackgroundColor3 = Skeet.Inline,
             BorderSizePixel = 0,
             ZIndex = 9
         })
@@ -1766,11 +1768,11 @@ local function BuildRuntime()
             Parent = TrackInline,
             Position = UDim2.fromOffset(1, 1),
             Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = SkeetBottom,
+            BackgroundColor3 = Skeet.Bottom,
             BorderSizePixel = 0,
             ZIndex = 10
         })
-        SkeetGradient(TrackBack, SkeetTop, SkeetBottom, 90)
+        SkeetGradient(TrackBack, Skeet.Top, Skeet.Bottom, 90)
 
         local Fill = Create("Frame", {
             Parent = TrackBack,
@@ -1963,7 +1965,7 @@ local function BuildRuntime()
             Parent = Row,
             Position = UDim2.fromOffset(0, 30),
             Size = UDim2.new(1, 0, 0, 9),
-            BackgroundColor3 = SkeetOutline,
+            BackgroundColor3 = Skeet.Outline,
             BorderSizePixel = 0,
             ZIndex = 8
         })
@@ -1972,7 +1974,7 @@ local function BuildRuntime()
             Parent = Track,
             Position = UDim2.fromOffset(1, 1),
             Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = SkeetInline,
+            BackgroundColor3 = Skeet.Inline,
             BorderSizePixel = 0,
             ZIndex = 9
         })
@@ -1981,11 +1983,11 @@ local function BuildRuntime()
             Parent = TrackInline,
             Position = UDim2.fromOffset(1, 1),
             Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = SkeetBottom,
+            BackgroundColor3 = Skeet.Bottom,
             BorderSizePixel = 0,
             ZIndex = 10
         })
-        SkeetGradient(TrackBack, SkeetTop, SkeetBottom, 90)
+        SkeetGradient(TrackBack, Skeet.Top, Skeet.Bottom, 90)
 
         local function Round(Value)
             Value = math.clamp(tonumber(Value) or Minimum, Minimum, Maximum)
@@ -4140,7 +4142,7 @@ local function BuildRuntime()
             9,
             true
         )
-        local ButtonStroke = Stroke(Button, SkeetOutline, 0, 1)
+        local ButtonStroke = Stroke(Button, Skeet.Outline, 0, 1)
 
         RegisterAccentTarget(function(NewColor)
             if not ButtonStroke
@@ -4453,7 +4455,7 @@ local function BuildRuntime()
             9,
             true
         )
-        local ButtonStroke = Stroke(Button, SkeetOutline, 0, 1)
+        local ButtonStroke = Stroke(Button, Skeet.Outline, 0, 1)
 
         RegisterAccentTarget(function(NewColor)
             if not ButtonStroke
@@ -8656,106 +8658,110 @@ local function BuildRuntime()
     RefreshThemeButtons()
     SetPickerColor(Accent, AccentAlpha)
     SetPickerOpen(false)
-    local CombatPage = CreatePage("Combat")
-    local MiscPage = CreatePage("Misc")
-    local SettingsPage = CreatePage("Settings")
-    local VisualsPage = CreatePage("Visuals")
-    local PlayersPage = CreatePage("Players")
-    local CloudPage = CreatePage("Cloud")
+    Menu.BuildPreviewPages = function()
+        local CombatPage = CreatePage("Combat")
+        local MiscPage = CreatePage("Misc")
+        local SettingsPage = CreatePage("Settings")
+        local VisualsPage = CreatePage("Visuals")
+        local PlayersPage = CreatePage("Players")
+        local CloudPage = CreatePage("Cloud")
 
-    local General = CreateSection(CombatPage, "General", "General", UDim2.fromOffset(0, 0), UDim2.fromOffset(306, 288))
-    CreateToggle(General, "Enable ragebot", true, "EnableRagebot", {Gear = true})
-    CreateToggle(General, "Silent aimbot", false, "SilentAimbot", {Disabled = true})
-    CreateToggle(General, "Auto revolver", true, "AutoRevolver", {Warning = true, Gear = true})
-    CreateToggle(General, "Anti step", true, "AntiStep")
-    CreateSlider(General, "Backtracking", 0, 100, 75.5, "Backtracking", {Step = 0.1, Box = true})
-    CreateSlider(General, "Field of view", 0, 180, 90, "FieldOfView", {Gear = true, Box = true})
+        local General = CreateSection(CombatPage, "General", "General", UDim2.fromOffset(0, 0), UDim2.fromOffset(306, 288))
+        CreateToggle(General, "Enable ragebot", true, "EnableRagebot", {Gear = true})
+        CreateToggle(General, "Silent aimbot", false, "SilentAimbot", {Disabled = true})
+        CreateToggle(General, "Auto revolver", true, "AutoRevolver", {Warning = true, Gear = true})
+        CreateToggle(General, "Anti step", true, "AntiStep")
+        CreateSlider(General, "Backtracking", 0, 100, 75.5, "Backtracking", {Step = 0.1, Box = true})
+        CreateSlider(General, "Field of view", 0, 180, 90, "FieldOfView", {Gear = true, Box = true})
 
-    local Exploits = CreateSection(CombatPage, "Exploits", "Exploits", UDim2.fromOffset(320, 0), UDim2.fromOffset(302, 288))
-    CreateToggle(Exploits, "Enable autofire", true, "EnableAutofire", {Warning = true, Gear = true})
-    CreateSlider(Exploits, "Hitchance", 0, 100, 50, "Hitchance", {Box = true})
-    CreateDualSlider(Exploits, "Min. damage", 0, 100, 20, 80, "MinimumDamage", "OverrideDamage")
-    CreateToggle(Exploits, "Hide shots", false, "HideShots", {Disabled = true})
-    CreateToggle(Exploits, "Double tap", true, "DoubleTap", {Gear = true})
-    CreateToggle(Exploits, "Teleport boost", true, "TeleportBoost")
+        local Exploits = CreateSection(CombatPage, "Exploits", "Exploits", UDim2.fromOffset(320, 0), UDim2.fromOffset(302, 288))
+        CreateToggle(Exploits, "Enable autofire", true, "EnableAutofire", {Warning = true, Gear = true})
+        CreateSlider(Exploits, "Hitchance", 0, 100, 50, "Hitchance", {Box = true})
+        CreateDualSlider(Exploits, "Min. damage", 0, 100, 20, 80, "MinimumDamage", "OverrideDamage")
+        CreateToggle(Exploits, "Hide shots", false, "HideShots", {Disabled = true})
+        CreateToggle(Exploits, "Double tap", true, "DoubleTap", {Gear = true})
+        CreateToggle(Exploits, "Teleport boost", true, "TeleportBoost")
 
-    local Accuracy = CreateSection(CombatPage, "Accuracy", "Accuracy", UDim2.fromOffset(0, 300), UDim2.fromOffset(306, 164))
-    CreateToggle(Accuracy, "Head safety if lethal", true, "HeadSafety")
-    CreateDropdown(Accuracy, "Body aimbot", {"Prefer", "Force", "Off"}, "Prefer", "BodyAimbot", {Gear = true})
-    CreateDropdown(Accuracy, "Safe points", {"Prefer", "Force", "Off"}, "Prefer", "SafePoints", {Gear = true, Disabled = true})
+        local Accuracy = CreateSection(CombatPage, "Accuracy", "Accuracy", UDim2.fromOffset(0, 300), UDim2.fromOffset(306, 164))
+        CreateToggle(Accuracy, "Head safety if lethal", true, "HeadSafety")
+        CreateDropdown(Accuracy, "Body aimbot", {"Prefer", "Force", "Off"}, "Prefer", "BodyAimbot", {Gear = true})
+        CreateDropdown(Accuracy, "Safe points", {"Prefer", "Force", "Off"}, "Prefer", "SafePoints", {Gear = true, Disabled = true})
 
-    local Others = CreateSection(CombatPage, "Others", "Others", UDim2.fromOffset(320, 300), UDim2.fromOffset(302, 164))
-    CreateToggle(Others, "Auto stop", true, "AutoStop", {Gear = true})
-    CreateToggle(Others, "Conditions", true, "Conditions", {Warning = true})
-    CreateToggle(Others, "Auto scope", false, "AutoScope", {Disabled = true})
+        local Others = CreateSection(CombatPage, "Others", "Others", UDim2.fromOffset(320, 300), UDim2.fromOffset(302, 164))
+        CreateToggle(Others, "Auto stop", true, "AutoStop", {Gear = true})
+        CreateToggle(Others, "Conditions", true, "Conditions", {Warning = true})
+        CreateToggle(Others, "Auto scope", false, "AutoScope", {Disabled = true})
 
-    local function PopulateSimplePage(Page, LeftTitle, RightTitle, LeftControls, RightControls)
-        local Left = CreateSection(Page, LeftTitle, LeftTitle, UDim2.fromOffset(0, 0), UDim2.fromOffset(306, 230))
-        local Right = CreateSection(Page, RightTitle, RightTitle, UDim2.fromOffset(320, 0), UDim2.fromOffset(302, 230))
-        for _, Definition in ipairs(LeftControls) do
-            CreateToggle(Left, Definition[1], Definition[2], Definition[3], Definition[4])
+        local function PopulateSimplePage(Page, LeftTitle, RightTitle, LeftControls, RightControls)
+            local Left = CreateSection(Page, LeftTitle, LeftTitle, UDim2.fromOffset(0, 0), UDim2.fromOffset(306, 230))
+            local Right = CreateSection(Page, RightTitle, RightTitle, UDim2.fromOffset(320, 0), UDim2.fromOffset(302, 230))
+            for _, Definition in ipairs(LeftControls) do
+                CreateToggle(Left, Definition[1], Definition[2], Definition[3], Definition[4])
+            end
+            for _, Definition in ipairs(RightControls) do
+                CreateToggle(Right, Definition[1], Definition[2], Definition[3], Definition[4])
+            end
         end
-        for _, Definition in ipairs(RightControls) do
-            CreateToggle(Right, Definition[1], Definition[2], Definition[3], Definition[4])
-        end
+
+        PopulateSimplePage(MiscPage, "Movement", "Utility", {
+            {"Bunny hop", true, "BunnyHop"},
+            {"Auto strafe", true, "AutoStrafe"},
+            {"Air control", true, "AirControl"},
+            {"No fall damage", true, "NoFallDamage"}
+        }, {
+            {"Auto reload", true, "AutoReload"},
+            {"Third person", false, "ThirdPerson"},
+            {"Infinite stamina", false, "InfiniteStamina"},
+            {"Finish aura", false, "FinishAura"}
+        })
+
+        PopulateSimplePage(SettingsPage, "Interface", "Configuration", {
+            {"Background dim", true, "BackgroundDim"},
+            {"Blur effect", false, "BlurEffect"},
+            {"Watermark", true, "Watermark"},
+            {"Keybind list", true, "KeybindList"}
+        }, {
+            {"Cloud sync", false, "CloudSync"},
+            {"Notifications", true, "Notifications"},
+            {"Load default", false, "LoadDefault"}
+        })
+
+        PopulateSimplePage(VisualsPage, "Players", "World", {
+            {"Enable ESP", true, "EnableEsp"},
+            {"Bounding box", true, "BoundingBox"},
+            {"Health bar", true, "HealthBar"},
+            {"Weapon", true, "WeaponEsp"}
+        }, {
+            {"Crosshair", true, "Crosshair"},
+            {"Hit marker", true, "HitMarker"},
+            {"Bullet tracers", false, "BulletTracers"},
+            {"Night mode", false, "NightMode"}
+        })
+
+        PopulateSimplePage(PlayersPage, "Target", "Preview", {
+            {"Target HUD", true, "TargetHud"},
+            {"Snaplines", false, "Snaplines"},
+            {"Resolver info", true, "ResolverInfo"}
+        }, {
+            {"Preview box", true, "PreviewBox"},
+            {"Preview health", true, "PreviewHealth"},
+            {"Preview name", true, "PreviewName"},
+            {"Preview weapon", true, "PreviewWeapon"}
+        })
+
+
+        PopulateSimplePage(CloudPage, "Cloud", "Account", {
+            {"Synchronization", false, "Synchronization"},
+            {"Upload config", false, "UploadConfig"},
+            {"Download config", false, "DownloadConfig"}
+        }, {
+            {"Private mode", true, "PrivateMode"},
+            {"Remember account", true, "RememberAccount"},
+            {"Status notifications", true, "StatusNotifications"}
+        })
     end
-
-    PopulateSimplePage(MiscPage, "Movement", "Utility", {
-        {"Bunny hop", true, "BunnyHop"},
-        {"Auto strafe", true, "AutoStrafe"},
-        {"Air control", true, "AirControl"},
-        {"No fall damage", true, "NoFallDamage"}
-    }, {
-        {"Auto reload", true, "AutoReload"},
-        {"Third person", false, "ThirdPerson"},
-        {"Infinite stamina", false, "InfiniteStamina"},
-        {"Finish aura", false, "FinishAura"}
-    })
-
-    PopulateSimplePage(SettingsPage, "Interface", "Configuration", {
-        {"Background dim", true, "BackgroundDim"},
-        {"Blur effect", false, "BlurEffect"},
-        {"Watermark", true, "Watermark"},
-        {"Keybind list", true, "KeybindList"}
-    }, {
-        {"Cloud sync", false, "CloudSync"},
-        {"Notifications", true, "Notifications"},
-        {"Load default", false, "LoadDefault"}
-    })
-
-    PopulateSimplePage(VisualsPage, "Players", "World", {
-        {"Enable ESP", true, "EnableEsp"},
-        {"Bounding box", true, "BoundingBox"},
-        {"Health bar", true, "HealthBar"},
-        {"Weapon", true, "WeaponEsp"}
-    }, {
-        {"Crosshair", true, "Crosshair"},
-        {"Hit marker", true, "HitMarker"},
-        {"Bullet tracers", false, "BulletTracers"},
-        {"Night mode", false, "NightMode"}
-    })
-
-    PopulateSimplePage(PlayersPage, "Target", "Preview", {
-        {"Target HUD", true, "TargetHud"},
-        {"Snaplines", false, "Snaplines"},
-        {"Resolver info", true, "ResolverInfo"}
-    }, {
-        {"Preview box", true, "PreviewBox"},
-        {"Preview health", true, "PreviewHealth"},
-        {"Preview name", true, "PreviewName"},
-        {"Preview weapon", true, "PreviewWeapon"}
-    })
-
-
-    PopulateSimplePage(CloudPage, "Cloud", "Account", {
-        {"Synchronization", false, "Synchronization"},
-        {"Upload config", false, "UploadConfig"},
-        {"Download config", false, "DownloadConfig"}
-    }, {
-        {"Private mode", true, "PrivateMode"},
-        {"Remember account", true, "RememberAccount"},
-        {"Status notifications", true, "StatusNotifications"}
-    })
+    Menu.BuildPreviewPages()
+    Menu.BuildPreviewPages = nil
 
 
     do
@@ -12239,7 +12245,7 @@ local function BuildRuntime()
             if SubPageObject.Button then
                 Tween(SubPageObject.Button, 0.08, {
                     BackgroundTransparency = 0,
-                    BackgroundColor3 = SkeetBottom,
+                    BackgroundColor3 = Skeet.Bottom,
                     TextColor3 = Selected and PrimaryText or MutedText
                 })
             end
@@ -12342,7 +12348,7 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 14
         })
-        local BorderStroke = Stroke(Button, SkeetOutline, 0, 1)
+        local BorderStroke = Stroke(Button, Skeet.Outline, 0, 1)
         local Glow = nil
         local Value = typeof(Default) == "Color3" and Default or Accent
         local Alpha = math.clamp(tonumber(ApiRead(Data, "Alpha", 1)) or 1, 0, 1)
@@ -12713,7 +12719,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
             Size = UDim2.new(0.58, 0, 0, 19),
-            BackgroundColor3 = SkeetBottom,
+            BackgroundColor3 = Skeet.Bottom,
             BorderSizePixel = 0,
             ClearTextOnFocus = false,
             Font = Enum.Font.SourceSans,
@@ -12726,8 +12732,8 @@ local function BuildRuntime()
             ZIndex = 9
         })
         Corner(Box, 0)
-        Stroke(Box, SkeetOutline, 0, 1)
-        SkeetGradient(Box, SkeetTop, SkeetBottom, 90)
+        Stroke(Box, Skeet.Outline, 0, 1)
+        SkeetGradient(Box, Skeet.Top, Skeet.Bottom, 90)
         Create("UIPadding", {Parent = Box, PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
         RegisterControl(self.Section, Row, Name)
         local Object = {}
@@ -12944,7 +12950,7 @@ local function BuildRuntime()
             Parent = Menu.SubPageHost or SubRow,
             LayoutOrder = Count + 1,
             Size = UDim2.fromOffset(ButtonWidth, Layout.SubHeight),
-            BackgroundColor3 = SkeetBottom,
+            BackgroundColor3 = Skeet.Bottom,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -12956,8 +12962,8 @@ local function BuildRuntime()
             ZIndex = 7
         })
 
-        Stroke(Button, SkeetOutline, 0, 1)
-        SkeetGradient(Button, SkeetTop, SkeetBottom, 90)
+        Stroke(Button, Skeet.Outline, 0, 1)
+        SkeetGradient(Button, Skeet.Top, Skeet.Bottom, 90)
 
         local Indicator = Create("Frame", {
             Parent = Button,
