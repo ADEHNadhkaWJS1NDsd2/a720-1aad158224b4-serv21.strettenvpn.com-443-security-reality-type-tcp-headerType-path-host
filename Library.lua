@@ -9119,19 +9119,101 @@ local function BuildRuntime()
 
         S.Flags = Create("TextLabel", {
             Parent = S.Overlay,
-            AnchorPoint = Vector2.new(0.5, 1),
-            Position = UDim2.fromScale(0.5, 1.138),
-            Size = UDim2.new(1, -24, 0, 18),
+            AnchorPoint = Vector2.new(0, 0),
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.fromOffset(110, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = "Flagged",
             TextColor3 = MutedText,
             TextSize = 10,
             TextTruncate = Enum.TextTruncate.AtEnd,
-            TextXAlignment = Enum.TextXAlignment.Center,
+            TextXAlignment = Enum.TextXAlignment.Left,
             Active = true,
             Visible = false,
             ZIndex = 27
+        })
+
+        S.Avatar = Create("ImageLabel", {
+            Parent = S.Overlay,
+            Position = UDim2.fromOffset(0, 0),
+            Size = UDim2.fromOffset(30, 30),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.08,
+            BorderSizePixel = 0,
+            Image = LocalPlayer and ("rbxthumb://type=AvatarHeadShot&id=" .. tostring(LocalPlayer.UserId) .. "&w=100&h=100") or "",
+            ScaleType = Enum.ScaleType.Crop,
+            Active = true,
+            Visible = false,
+            ZIndex = 27
+        })
+        Corner(S.Avatar, 4)
+        S.AvatarStroke = Stroke(S.Avatar, Border, 0.20, 1)
+
+        S.HealthDelayed = Create("Frame", {
+            Parent = S.HealthBack,
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.fromScale(0, 1),
+            Size = UDim2.fromScale(1, 0.82),
+            BackgroundColor3 = Color3.fromRGB(255, 184, 92),
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 26
+        })
+        Corner(S.HealthDelayed, 100)
+
+        S.BoxGlow = Create("Frame", {
+            Parent = S.Overlay,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 25
+        })
+        S.BoxGlowStroke = Stroke(S.BoxGlow, Accent, 0.72, 2)
+
+        local function CreatePreviewLine(Name, ZIndex)
+            local Line = Create("Frame", {
+                Name = Name,
+                Parent = S.Overlay,
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                BackgroundColor3 = Accent,
+                BorderSizePixel = 0,
+                Visible = false,
+                ZIndex = ZIndex or 28
+            })
+            return Line
+        end
+
+        S.SkeletonLines = {}
+        for Index = 1, 10 do
+            S.SkeletonLines[Index] = CreatePreviewLine("Skeleton" .. tostring(Index), 28)
+        end
+        S.LookLine = CreatePreviewLine("ViewDirection", 29)
+        S.TracerLine = CreatePreviewLine("Tracer", 24)
+
+        S.Prediction = Create("Frame", {
+            Parent = S.Overlay,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Size = UDim2.fromOffset(7, 7),
+            BackgroundColor3 = Accent,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 29
+        })
+        Corner(S.Prediction, 100)
+        S.PredictionStroke = Stroke(S.Prediction, Background, 0.12, 1)
+
+        S.Offscreen = Create("TextLabel", {
+            Parent = S.Overlay,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Size = UDim2.fromOffset(22, 22),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansBold,
+            Text = "›",
+            TextColor3 = Accent,
+            TextSize = 22,
+            Visible = false,
+            ZIndex = 29
         })
 
         S.Status = Create("TextLabel", {
@@ -9249,7 +9331,8 @@ local function BuildRuntime()
             Level = "Player ESP Level Offset",
             Ammo = "Player ESP Ammo Offset",
             Forcefield = "Player ESP Forcefield Offset",
-            Flags = "Player ESP Flags Offset"
+            Flags = "Player ESP Flags Offset",
+            Avatar = "Player ESP Avatar Offset"
         }
 
         local PreviewZoneFlags = {
@@ -9261,7 +9344,8 @@ local function BuildRuntime()
             Level = "Player ESP Level Zone",
             Ammo = "Player ESP Ammo Zone",
             Forcefield = "Player ESP Forcefield Zone",
-            Flags = "Player ESP Flags Zone"
+            Flags = "Player ESP Flags Zone",
+            Avatar = "Player ESP Avatar Zone"
         }
 
         local PreviewEnabledFlags = {
@@ -9273,28 +9357,31 @@ local function BuildRuntime()
             Level = "Player ESP Level",
             Ammo = "Player ESP Ammo",
             Forcefield = "Player ESP Forcefield",
-            Flags = "Player ESP Flags"
+            Flags = "Player ESP Flags",
+            Avatar = "Player ESP Profile Picture"
         }
 
         local PreviewDefaultZones = {
             HealthBar = "Left",
             HealthValue = "Left",
             Name = "Top",
-            Level = "Top",
             Forcefield = "Top",
             Weapon = "Bottom",
-            Ammo = "Bottom",
             Distance = "Bottom",
+            Level = "Bottom",
+            Ammo = "Bottom",
+            Avatar = "Right",
             Flags = "Right"
         }
 
         local PreviewStackOrder = {
             "Name",
-            "Level",
             "Forcefield",
             "Weapon",
-            "Ammo",
             "Distance",
+            "Level",
+            "Ammo",
+            "Avatar",
             "Flags",
             "HealthValue"
         }
@@ -9319,8 +9406,10 @@ local function BuildRuntime()
         end
 
         local function SetPreviewOffset(Key, Value)
+            local Flag = PreviewElementFlags[Key]
+            if not Flag then return end
             if typeof(Value) ~= "Vector2" then Value = Vector2.zero end
-            Menu.Flags[PreviewElementFlags[Key]] = Vector2.new(
+            Menu.Flags[Flag] = Vector2.new(
                 math.floor(Value.X + (Value.X >= 0 and 0.5 or -0.5)),
                 math.floor(Value.Y + (Value.Y >= 0 and 0.5 or -0.5))
             )
@@ -9377,7 +9466,7 @@ local function BuildRuntime()
             local ZoneLists = {Top = {}, Bottom = {}, Left = {}, Right = {}}
 
             for _, Key in ipairs(PreviewStackOrder) do
-                if IsPreviewElementEnabled(Key) then
+                if Key ~= "HealthValue" and IsPreviewElementEnabled(Key) then
                     local Zone = GetPreviewZone(Key)
                     ZoneLists[Zone][#ZoneLists[Zone] + 1] = Key
                 end
@@ -9395,12 +9484,19 @@ local function BuildRuntime()
             end
 
             local HealthBarZone = GetPreviewZone("HealthBar")
+            local HealthBarBase = Vector2.new(HealthBarZone == "Right" and MaxX + 5 or MinX - 9, MinY)
             S.HealthBack.AnchorPoint = Vector2.zero
-            SetElementPosition(
-                "HealthBar",
-                S.HealthBack,
-                Vector2.new(HealthBarZone == "Right" and MaxX + 5 or MinX - 9, MinY)
-            )
+            SetElementPosition("HealthBar", S.HealthBack, HealthBarBase)
+
+            if IsPreviewElementEnabled("HealthValue") then
+                local HealthBarOffset = GetPreviewOffset("HealthBar")
+                S.HealthText.AnchorPoint = Vector2.new(1, 0.5)
+                local HealthValueBase = Vector2.new(
+                    HealthBarBase.X + HealthBarOffset.X - 4,
+                    MinY + 7
+                )
+                SetElementPosition("HealthValue", S.HealthText, HealthValueBase)
+            end
 
             local Objects = {
                 HealthValue = S.HealthText,
@@ -9410,6 +9506,7 @@ local function BuildRuntime()
                 Level = S.Level,
                 Ammo = S.Ammo,
                 Forcefield = S.Forcefield,
+                Avatar = S.Avatar,
                 Flags = S.Flags
             }
 
@@ -9479,8 +9576,8 @@ local function BuildRuntime()
             end
 
             do
-                local Heights, TotalHeight = BuildStackHeights(ZoneLists.Right)
-                local CursorY = CenterY - (TotalHeight * 0.5)
+                local Heights = BuildStackHeights(ZoneLists.Right)
+                local CursorY = MinY
                 for Index, Key in ipairs(ZoneLists.Right) do
                     local Object = Objects[Key]
                     local Height = Heights[Index]
@@ -9510,15 +9607,16 @@ local function BuildRuntime()
 
         local function SyncPreviewStateFromFlags()
             for Index, Key in ipairs(PreviewStackOrder) do
-                local LoadedOrder = tonumber(Menu.Flags["Player ESP " .. Key .. " Order"])
-                S.PreviewOrder[Key] = LoadedOrder or Index
+                S.PreviewOrder[Key] = Index
+                Menu.Flags["Player ESP " .. Key .. " Order"] = Index
             end
 
-            for Key in pairs(PreviewElementFlags) do
-                GetPreviewZone(Key)
-                local Offset = Menu.Flags[PreviewElementFlags[Key]]
-                if typeof(Offset) ~= "Vector2" then
-                    Menu.Flags[PreviewElementFlags[Key]] = Vector2.zero
+            for Key, Flag in pairs(PreviewElementFlags) do
+                if PreviewZoneFlags[Key] then
+                    Menu.Flags[PreviewZoneFlags[Key]] = PreviewDefaultZones[Key]
+                end
+                if typeof(Menu.Flags[Flag]) ~= "Vector2" then
+                    Menu.Flags[Flag] = Vector2.zero
                 end
             end
         end
@@ -9540,7 +9638,10 @@ local function BuildRuntime()
             {Name = "View Direction", Flag = "Player ESP Look Line"},
             {Name = "Tracer", Flag = "Player ESP Tracers"},
             {Name = "Offscreen", Flag = "Player ESP Offscreen"},
-            {Name = "Prediction", Flag = "Player ESP Prediction"}
+            {Name = "Prediction", Flag = "Player ESP Prediction"},
+            {Name = "Box Glow", Flag = "Player ESP Box Glow"},
+            {Name = "Visibility Colors", Flag = "Player ESP Adaptive Color"},
+            {Name = "Health Trail", Flag = "Player ESP Delayed Health"}
         }
 
         S.ElementButtons = {}
@@ -10070,64 +10171,30 @@ local function BuildRuntime()
         end
 
         local function CreateDescriptionModel()
-            if not LocalPlayer then return nil, nil end
+            if LocalPlayer then
+                local UserId = tonumber(LocalPlayer.UserId) or 0 local Creator = Players.CreateHumanoidModelFromUserIdAsync or Players.CreateHumanoidModelFromUserId
 
-            local Character = LocalPlayer.Character
-            local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
-            local Description
-
-            if Humanoid then
-                Library.Call(function()
-                    Description = Humanoid:GetAppliedDescription()
-                end)
-            end
-
-            if not Description then
-                local UserId = tonumber(LocalPlayer.UserId) or 0
-                if UserId > 0 then
+                if UserId > 0 and type(Creator) == "function" then
+                    local Model
                     Library.Call(function()
-                        Description = Players:GetHumanoidDescriptionFromUserId(UserId)
+                        Model = Creator(Players, UserId)
                     end)
-                end
-            end
 
-            if not Description then return nil, nil end
+                    if Model and Model:IsA("Model") then
+                        local Description local Humanoid = Model:FindFirstChildWhichIsA("Humanoid")
 
-            local Model
-            Library.Call(function()
-                Model = Players:CreateHumanoidModelFromDescription(Description, Enum.HumanoidRigType.R6)
-            end)
-            if not Model or not Model:IsA("Model") then return nil, nil end
-
-            if Character then
-                local SourceHead = Character:FindFirstChild("Head")
-                local TargetHead = Model:FindFirstChild("Head")
-                if SourceHead and TargetHead then
-                    for _, Object in ipairs(TargetHead:GetChildren()) do
-                        if Object:IsA("Decal") then Object:Destroy() end
-                    end
-                    for _, Object in ipairs(SourceHead:GetChildren()) do
-                        if Object:IsA("Decal") then
-                            local Clone
-                            Library.Call(function() Clone = Object:Clone() end)
-                            if Clone then Clone.Parent = TargetHead end
+                        if Humanoid then
+                            Library.Call(function()
+                                Description = Humanoid:GetAppliedDescription()
+                            end)
                         end
-                    end
-                end
 
-                for _, ClassName in ipairs({"Shirt", "Pants", "ShirtGraphic", "BodyColors"}) do
-                    local Existing = Model:FindFirstChildOfClass(ClassName)
-                    if Existing then Existing:Destroy() end
-                    local Source = Character:FindFirstChildOfClass(ClassName)
-                    if Source then
-                        local Clone
-                        Library.Call(function() Clone = Source:Clone() end)
-                        if Clone then Clone.Parent = Model end
+                        return Model, Description
                     end
                 end
             end
 
-            return Model, Description
+            return CloneCurrentCharacterModel()
         end
 
         local ProjectModelBounds
@@ -10299,6 +10366,7 @@ local function BuildRuntime()
             S.Level.Size = UDim2.fromOffset(math.max(70, math.floor(Width + 40)), 18)
             S.Ammo.Size = UDim2.fromOffset(math.max(70, math.floor(Width + 40)), 18)
             S.Forcefield.Size = UDim2.fromOffset(math.max(90, math.floor(Width + 60)), 18)
+            S.Avatar.Size = UDim2.fromOffset(30, 30)
             S.Flags.Size = UDim2.fromOffset(math.max(90, math.floor(Width + 60)), 18)
 
             S.BoxBounds = {
@@ -10324,6 +10392,106 @@ local function BuildRuntime()
             return Value
         end
 
+        local function SetPreviewLine(Line, A, B, Thickness, Color, Visible)
+            if not Line then return end
+            Visible = Visible == true and typeof(A) == "Vector2" and typeof(B) == "Vector2"
+            Line.Visible = Visible
+            if not Visible then return end
+            local Delta = B - A
+            local Length = Delta.Magnitude
+            if Length < 0.5 then
+                Line.Visible = false
+                return
+            end
+            Line.Position = UDim2.fromOffset((A.X + B.X) * 0.5, (A.Y + B.Y) * 0.5)
+            Line.Size = UDim2.fromOffset(Length, math.max(1, tonumber(Thickness) or 1))
+            Line.Rotation = math.deg(math.atan2(Delta.Y, Delta.X))
+            Line.BackgroundColor3 = Color
+        end
+
+        local function UpdatePreviewExtraGeometry(DisplayEnabled, BoxColor)
+            local Bounds = S.BoxBounds
+            if type(Bounds) ~= "table" or not S.BoundsValid then
+                if S.BoxGlow then S.BoxGlow.Visible = false end
+                if S.LookLine then S.LookLine.Visible = false end
+                if S.TracerLine then S.TracerLine.Visible = false end
+                if S.Prediction then S.Prediction.Visible = false end
+                if S.Offscreen then S.Offscreen.Visible = false end
+                for _, Line in ipairs(S.SkeletonLines or {}) do Line.Visible = false end
+                return
+            end
+
+            local MinX, MaxX = Bounds.MinX, Bounds.MaxX
+            local MinY, MaxY = Bounds.MinY, Bounds.MaxY
+            local Width, Height = Bounds.Width, Bounds.Height
+            local CenterX = Bounds.CenterX
+            local CenterY = MinY + Height * 0.5
+            local SkeletonColor = GetFlag("Player ESP Skeleton Color", BoxColor)
+            local LookColor = GetFlag("Player ESP Look Color", BoxColor)
+            local TracerColor = GetFlag("Player ESP Tracer Color", BoxColor)
+            local PredictionColor = GetFlag("Player ESP Prediction Color", BoxColor)
+            local OffscreenColor = GetFlag("Player ESP Offscreen Color", BoxColor)
+            local GlowColor = GetFlag("Player ESP Box Glow Color", BoxColor)
+
+            local SkeletonEnabled = DisplayEnabled and GetFlag("Player ESP Skeleton", false)
+            local Head = Vector2.new(CenterX, MinY + Height * 0.12)
+            local Neck = Vector2.new(CenterX, MinY + Height * 0.24)
+            local Chest = Vector2.new(CenterX, MinY + Height * 0.39)
+            local Pelvis = Vector2.new(CenterX, MinY + Height * 0.57)
+            local LShoulder = Vector2.new(CenterX - Width * 0.22, MinY + Height * 0.30)
+            local RShoulder = Vector2.new(CenterX + Width * 0.22, MinY + Height * 0.30)
+            local LHand = Vector2.new(CenterX - Width * 0.34, MinY + Height * 0.53)
+            local RHand = Vector2.new(CenterX + Width * 0.34, MinY + Height * 0.53)
+            local LFoot = Vector2.new(CenterX - Width * 0.16, MaxY)
+            local RFoot = Vector2.new(CenterX + Width * 0.16, MaxY)
+            local Pairs = {
+                {Head, Neck}, {Neck, Chest}, {Chest, Pelvis},
+                {Neck, LShoulder}, {LShoulder, LHand},
+                {Neck, RShoulder}, {RShoulder, RHand},
+                {Pelvis, LFoot}, {Pelvis, RFoot}, {LShoulder, RShoulder}
+            }
+            for Index, Line in ipairs(S.SkeletonLines or {}) do
+                local Pair = Pairs[Index]
+                SetPreviewLine(Line, Pair and Pair[1], Pair and Pair[2], 1, SkeletonColor, SkeletonEnabled and Pair ~= nil)
+            end
+
+            local LookEnabled = DisplayEnabled and GetFlag("Player ESP Look Line", false)
+            SetPreviewLine(S.LookLine, Head, Vector2.new(CenterX + Width * 0.58, MinY - Height * 0.03), 1.5, LookColor, LookEnabled)
+
+            local TracerEnabled = DisplayEnabled and GetFlag("Player ESP Tracers", false)
+            local ScaleValue = math.max(0.01, tonumber(S.Scale.Scale) or 1)
+            local BodySize = S.Body.AbsoluteSize / ScaleValue
+            SetPreviewLine(S.TracerLine, Vector2.new(BodySize.X * 0.5, BodySize.Y - 8), Vector2.new(CenterX, MaxY), 1.5, TracerColor, TracerEnabled)
+
+            local PredictionEnabled = DisplayEnabled and GetFlag("Player ESP Prediction", false)
+            S.Prediction.Visible = PredictionEnabled
+            if PredictionEnabled then
+                S.Prediction.Position = UDim2.fromOffset(MaxX + 13, MinY + Height * 0.34)
+                S.Prediction.BackgroundColor3 = PredictionColor
+            end
+
+            local OffscreenEnabled = DisplayEnabled and GetFlag("Player ESP Offscreen", false)
+            S.Offscreen.Visible = OffscreenEnabled
+            if OffscreenEnabled then
+                S.Offscreen.Position = UDim2.fromOffset(MaxX + 28, CenterY)
+                S.Offscreen.TextColor3 = OffscreenColor
+            end
+
+            local GlowEnabled = DisplayEnabled and GetFlag("Player ESP Box Glow", false)
+            S.BoxGlow.Visible = GlowEnabled
+            if GlowEnabled then
+                S.BoxGlow.Position = UDim2.fromOffset(MinX - 3, MinY - 3)
+                S.BoxGlow.Size = UDim2.fromOffset(Width + 6, Height + 6)
+                if S.BoxGlowStroke then
+                    S.BoxGlowStroke.Color = GlowColor
+                    S.BoxGlowStroke.Transparency = 0.58
+                    S.BoxGlowStroke.Thickness = 2
+                end
+            elseif S.BoxGlowStroke then
+                S.BoxGlowStroke.Transparency = 1
+            end
+        end
+
         local function UpdateEspStyle()
             local Character = LocalPlayer and LocalPlayer.Character
             local Humanoid = Character and Character:FindFirstChildWhichIsA("Humanoid")
@@ -10334,14 +10502,24 @@ local function BuildRuntime()
             local DisplayEnabled = Enabled and S.BoundsValid and S.Model and S.Model.Parent ~= nil
             local Boxes = DisplayEnabled and GetFlag("Player ESP Boxes", false)
             local BoxStyle = GetFlag("Player ESP Box Style", "Corners")
-            local BoxColor = GetFlag("Player ESP Box Color", Accent)
+            local RawBoxColor = GetFlag("Player ESP Box Color", Accent)
+            local AdaptiveEnabled = DisplayEnabled and GetFlag("Player ESP Adaptive Color", false)
+            local BoxColor = AdaptiveEnabled and GetFlag("Player ESP Adaptive Visible Color", RawBoxColor) or RawBoxColor
             local FillEnabled = DisplayEnabled and GetFlag("Player ESP Fill", false)
             local FillColor = GetFlag("Player ESP Fill Color", BoxColor)
             local FillTransparency = math.clamp(tonumber(GetFlag("Player ESP Fill Transparency", 0.78)) or 0.78, 0, 1)
             local TextColor = GetFlag("Player ESP Text Color", PrimaryText)
             local HighColor = GetFlag("Player ESP Health High Color", Color3.fromRGB(98, 236, 151))
+            local MidColor = GetFlag("Player ESP Health Mid Color", Color3.fromRGB(243, 184, 92))
             local LowColor = GetFlag("Player ESP Health Low Color", Color3.fromRGB(255, 89, 104))
+            local HealthColor
+            if HealthAlpha < 0.5 then
+                HealthColor = LowColor:Lerp(MidColor, HealthAlpha * 2)
+            else
+                HealthColor = MidColor:Lerp(HighColor, (HealthAlpha - 0.5) * 2)
+            end
             local TextSize = math.clamp(tonumber(GetFlag("Player ESP Text Size", 12)) or 12, 10, 20)
+
             S.Box.Visible = Boxes or FillEnabled
             S.Box.BackgroundColor3 = FillColor
             S.Box.BackgroundTransparency = FillEnabled and FillTransparency or 1
@@ -10351,17 +10529,24 @@ local function BuildRuntime()
                 CornerObject.Visible = Boxes and BoxStyle ~= "Full"
                 CornerObject.BackgroundColor3 = BoxColor
             end
-            S.HealthBack.Visible = DisplayEnabled and GetFlag("Player ESP Health Bar", false)
+
+            local HealthBarEnabled = DisplayEnabled and GetFlag("Player ESP Health Bar", false)
+            S.HealthBack.Visible = HealthBarEnabled
+            S.HealthDelayed.Visible = HealthBarEnabled and GetFlag("Player ESP Delayed Health", false)
+            S.HealthDelayed.Size = UDim2.fromScale(1, math.max(HealthAlpha, 0.82))
+            S.HealthDelayed.BackgroundColor3 = GetFlag("Player ESP Delayed Health Color", Color3.fromRGB(255, 184, 92))
             S.HealthFill.Size = UDim2.fromScale(1, HealthAlpha)
-            S.HealthFill.BackgroundColor3 = LowColor:Lerp(HighColor, HealthAlpha)
+            S.HealthFill.BackgroundColor3 = HealthColor
             S.HealthText.Visible = DisplayEnabled and GetFlag("Player ESP Health Value", false)
             S.HealthText.Text = tostring(Health)
-            S.HealthText.TextColor3 = TextColor
+            S.HealthText.TextColor3 = HealthColor
             S.HealthText.TextSize = math.max(9, TextSize - 2)
+
             S.Name.Visible = DisplayEnabled and GetFlag("Player ESP Names", false)
             S.Name.Text = string.upper(LocalPlayer and LocalPlayer.Name or "PLAYER")
             S.Name.TextColor3 = TextColor
             S.Name.TextSize = TextSize
+
             local Tool = Character and Character:FindFirstChildOfClass("Tool")
             S.Weapon.Visible = DisplayEnabled and GetFlag("Player ESP Weapon", false)
             S.Weapon.Text = Tool and string.upper(Tool.Name) or "NONE"
@@ -10388,10 +10573,17 @@ local function BuildRuntime()
             S.Forcefield.TextColor3 = GetFlag("Player ESP Forcefield Color", Accent)
             S.Forcefield.TextSize = math.max(9, TextSize - 2)
 
+            S.Avatar.Visible = DisplayEnabled and GetFlag("Player ESP Profile Picture", false)
+            if S.Avatar.Visible and LocalPlayer then
+                S.Avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(LocalPlayer.UserId) .. "&w=100&h=100"
+            end
+
             S.Flags.Visible = DisplayEnabled and GetFlag("Player ESP Flags", false)
             S.Flags.Text = "Flagged"
             S.Flags.TextColor3 = GetFlag("Player ESP Flags Color", TextColor)
             S.Flags.TextSize = math.max(9, TextSize - 2)
+
+            UpdatePreviewExtraGeometry(DisplayEnabled, BoxColor)
             UpdateSelectedElements()
             S.Silhouette.Visible = false
             S.Viewport.Ambient = S.Mode == "2D" and Color3.fromRGB(165, 181, 190) or Color3.fromRGB(139, 157, 168)
@@ -10507,8 +10699,36 @@ local function BuildRuntime()
             Menu.EspPreviewController.SetMode("3D")
         end))
 
+        local function BindPreviewElementDrag(Key, Object)
+            if not Object or not Object:IsA("GuiObject") then return end
+            Object.Active = true
+            Bind(Object.InputBegan:Connect(function(Input)
+                if Input.UserInputType ~= Enum.UserInputType.MouseButton1 or not S.Window.Visible or not Object.Visible then return end
+                S.ElementDragging = Key
+                S.ElementDragStart = Vector2.new(Input.Position.X, Input.Position.Y)
+                S.ElementDragOffset = GetPreviewOffset(Key)
+                S.RotatingModel = false
+            end))
+        end
+
+        BindPreviewElementDrag("HealthBar", S.HealthBack)
+        BindPreviewElementDrag("HealthValue", S.HealthText)
+        BindPreviewElementDrag("Name", S.Name)
+        BindPreviewElementDrag("Weapon", S.Weapon)
+        BindPreviewElementDrag("Distance", S.Distance)
+        BindPreviewElementDrag("Level", S.Level)
+        BindPreviewElementDrag("Ammo", S.Ammo)
+        BindPreviewElementDrag("Forcefield", S.Forcefield)
+        BindPreviewElementDrag("Avatar", S.Avatar)
+        BindPreviewElementDrag("Flags", S.Flags)
+
         local function BeginModelRotation(Input)
-            if Input.UserInputType ~= Enum.UserInputType.MouseButton1 or S.Mode ~= "3D" or not S.Window.Visible or S.RotatingModel then
+            if Input.UserInputType ~= Enum.UserInputType.MouseButton1
+                or S.Mode ~= "3D"
+                or not S.Window.Visible
+                or S.RotatingModel
+                or S.ElementDragging
+            then
                 return
             end
             local Position = Input.Position
@@ -10535,7 +10755,18 @@ local function BuildRuntime()
         end))
 
         Bind(UserInputService.InputChanged:Connect(function(Input)
-            if S.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
+            if S.ElementDragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
+                local Current = Vector2.new(Input.Position.X, Input.Position.Y)
+                local Delta = (Current - S.ElementDragStart) / math.max(0.01, tonumber(S.Scale.Scale) or 1)
+                if S.ElementDragging == "HealthBar" then Delta = Vector2.new(Delta.X, 0) end
+                local NextOffset = S.ElementDragOffset + Delta
+                NextOffset = Vector2.new(
+                    math.clamp(NextOffset.X, -180, 180),
+                    math.clamp(NextOffset.Y, -160, 160)
+                )
+                SetPreviewOffset(S.ElementDragging, NextOffset)
+                ApplyPreviewElementLayout()
+            elseif S.Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
                 local Delta = Input.Position - S.DragStart
                 S.Window.Position = ClampWindow(UDim2.new(
                     S.StartPosition.X.Scale,
@@ -10556,6 +10787,9 @@ local function BuildRuntime()
                 SaveWindowPosition()
             end
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                S.ElementDragging = nil
+                S.ElementDragStart = nil
+                S.ElementDragOffset = nil
                 S.RotatingModel = false
             end
         end))
