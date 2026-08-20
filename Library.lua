@@ -153,14 +153,14 @@ local function BuildRuntime()
 
     local DefaultAccent = Color3.fromRGB(86, 66, 235)
     local Accent = DefaultAccent
-    local Background = Color3.fromRGB(10, 10, 12)
-    local SidebarColor = Color3.fromRGB(14, 14, 17)
-    local Surface = Color3.fromRGB(18, 18, 21)
-    local SurfaceAlt = Color3.fromRGB(24, 24, 28)
-    local Border = Color3.fromRGB(56, 56, 63)
-    local PrimaryText = Color3.fromRGB(228, 228, 232)
-    local MutedText = Color3.fromRGB(156, 156, 164)
-    local DisabledText = Color3.fromRGB(88, 88, 96)
+    local Background = Color3.fromRGB(12, 12, 16)
+    local SidebarColor = Color3.fromRGB(15, 15, 20)
+    local Surface = Color3.fromRGB(19, 19, 25)
+    local SurfaceAlt = Color3.fromRGB(24, 24, 31)
+    local Border = Color3.fromRGB(48, 49, 61)
+    local PrimaryText = Color3.fromRGB(228, 228, 234)
+    local MutedText = Color3.fromRGB(151, 151, 163)
+    local DisabledText = Color3.fromRGB(86, 86, 98)
     local Danger = Color3.fromRGB(202, 72, 78)
     local BaseScaleFactor = 1
     local AnimationFactor = 1
@@ -887,9 +887,9 @@ local function BuildRuntime()
 
     local Sidebar = Create("Frame", {
         Parent = Main,
-        Size = UDim2.fromOffset(88, 610),
+        Size = UDim2.fromOffset(0, 0),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.02,
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         Visible = false,
         Active = false,
@@ -963,11 +963,21 @@ local function BuildRuntime()
         ZIndex = 3
     })
 
+    local Layout = {
+        HeaderHeight = 34,
+        SubHeight = 30,
+        SearchHeight = 36,
+        Gap = 10,
+        Side = 12,
+        ColumnGap = 10
+    }
+
     local Topbar = Create("Frame", {
         Parent = Content,
-        Size = UDim2.new(1, 0, 0, 64),
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.new(1, 0, 0, Layout.HeaderHeight + Layout.SubHeight),
         BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 4
     })
@@ -978,34 +988,24 @@ local function BuildRuntime()
         UDim2.fromOffset(1, 1),
         UDim2.new(1, -2, 0, 2),
         Accent,
-        0.04,
+        0.02,
         10,
         true
     )
-    AddChromeLine(
-        Topbar,
-        UDim2.new(0, 0, 1, -1),
-        UDim2.new(1, 0, 0, 1),
-        Color3.fromRGB(4, 4, 5),
-        0.10,
-        8,
-        false
-    )
-    AddPanelGradient(Topbar, Color3.fromRGB(23, 23, 27), Color3.fromRGB(14, 14, 17))
 
-    local TopbarInner = Create("Frame", {
+    local MainRow = Create("Frame", {
         Parent = Topbar,
         Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.fromScale(1, 1),
+        Size = UDim2.new(1, 0, 0, Layout.HeaderHeight),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ZIndex = 5
     })
 
     local MainTitle = Create("TextLabel", {
-        Parent = TopbarInner,
-        Position = UDim2.fromOffset(14, 0),
-        Size = UDim2.fromOffset(104, 31),
+        Parent = MainRow,
+        Position = UDim2.fromOffset(14, 1),
+        Size = UDim2.fromOffset(106, Layout.HeaderHeight - 2),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSansMedium,
         Text = "atramenta.rip",
@@ -1016,11 +1016,12 @@ local function BuildRuntime()
     })
 
     local PageTabHost = Create("Frame", {
-        Parent = TopbarInner,
-        Position = UDim2.fromOffset(120, 0),
-        Size = UDim2.new(1, -176, 0, 31),
+        Parent = MainRow,
+        Position = UDim2.fromOffset(122, 0),
+        Size = UDim2.new(1, -174, 1, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
+        ClipsDescendants = true,
         ZIndex = 6
     })
 
@@ -1033,29 +1034,72 @@ local function BuildRuntime()
         SortOrder = Enum.SortOrder.LayoutOrder
     })
 
+    Menu.ConfigsUI = Menu.ConfigsUI or {}
+    Menu.ConfigsUI.Button = Create("TextButton", {
+        Parent = MainRow,
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, -10, 0.5, 0),
+        Size = UDim2.fromOffset(30, 24),
+        BackgroundColor3 = SurfaceAlt,
+        BackgroundTransparency = 0.10,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Text = "",
+        ZIndex = 8
+    })
+    Corner(Menu.ConfigsUI.Button, 2)
+    Menu.ConfigsUI.ButtonStroke = Stroke(Menu.ConfigsUI.Button, Border, 0.30, 1)
+
+    Menu.ConfigsUI.FolderTab = Create("Frame", {
+        Parent = Menu.ConfigsUI.Button,
+        Position = UDim2.fromOffset(8, 6),
+        Size = UDim2.fromOffset(7, 3),
+        BackgroundColor3 = MutedText,
+        BorderSizePixel = 0,
+        ZIndex = 10
+    })
+    Corner(Menu.ConfigsUI.FolderTab, 1)
+
+    Menu.ConfigsUI.FolderBody = Create("Frame", {
+        Parent = Menu.ConfigsUI.Button,
+        Position = UDim2.fromOffset(7, 9),
+        Size = UDim2.fromOffset(16, 10),
+        BackgroundColor3 = MutedText,
+        BackgroundTransparency = 0.82,
+        BorderSizePixel = 0,
+        ZIndex = 9
+    })
+    Corner(Menu.ConfigsUI.FolderBody, 2)
+    Menu.ConfigsUI.FolderStroke = Stroke(Menu.ConfigsUI.FolderBody, MutedText, 0.02, 1)
+
+    local SubRow = Create("Frame", {
+        Parent = Topbar,
+        Position = UDim2.fromOffset(0, Layout.HeaderHeight),
+        Size = UDim2.new(1, 0, 0, Layout.SubHeight),
+        BackgroundColor3 = Background,
+        BackgroundTransparency = 0.18,
+        BorderSizePixel = 0,
+        ZIndex = 5
+    })
+
     Create("Frame", {
-        Parent = TopbarInner,
-        Position = UDim2.fromOffset(12, 31),
-        Size = UDim2.new(1, -24, 0, 1),
+        Parent = SubRow,
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.new(1, 0, 0, 1),
         BackgroundColor3 = Border,
-        BackgroundTransparency = 0.45,
+        BackgroundTransparency = 0.55,
         BorderSizePixel = 0,
         ZIndex = 6
     })
 
     local SubPageHost = Create("Frame", {
-        Parent = TopbarInner,
-        Position = UDim2.fromOffset(4, 32),
-        Size = UDim2.new(1, -62, 0, 32),
+        Parent = SubRow,
+        Position = UDim2.fromOffset(Layout.Side, 0),
+        Size = UDim2.new(1, -(Layout.Side * 2), 1, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        ZIndex = 5
-    })
-
-    Create("UIPadding", {
-        Parent = SubPageHost,
-        PaddingLeft = UDim.new(0, 10),
-        PaddingRight = UDim.new(0, 6)
+        ClipsDescendants = true,
+        ZIndex = 6
     })
 
     local SubPageLayout = Create("UIListLayout", {
@@ -1071,124 +1115,83 @@ local function BuildRuntime()
     Menu.SubPageLayout = SubPageLayout
 
     local DragArea = Create("Frame", {
-        Parent = Topbar,
+        Parent = MainRow,
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -48, 0, 0),
-        Size = UDim2.fromOffset(48, 31),
+        Position = UDim2.new(1, -44, 0, 0),
+        Size = UDim2.fromOffset(44, Layout.HeaderHeight),
         BackgroundTransparency = 1,
-        ZIndex = 5
+        ZIndex = 6
     })
 
     local function CreateModeButton(Name, X)
         local Button = Create("TextButton", {
             Parent = Topbar,
-            Position = UDim2.fromOffset(X, 17),
-            Size = UDim2.fromOffset(92, 32),
-            BackgroundColor3 = SurfaceAlt,
+            Visible = false,
+            Size = UDim2.fromOffset(1, 1),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
-            Font = Enum.Font.BuilderSansMedium,
             Text = Name,
-            TextColor3 = MutedText,
-            TextSize = 12,
-            ZIndex = 6
+            ZIndex = 4
         })
-        Corner(Button, 2)
-        Stroke(Button, Color3.fromRGB(58, 58, 65), 0.66, 1)
         Menu.ModeButtons[Name] = Button
         return Button
     end
 
-    local RagebotMode = CreateModeButton("Ragebot", 14)
-    local LegitbotMode = CreateModeButton("Legitbot", 110)
+    local RagebotMode = CreateModeButton("Ragebot", 0)
+    local LegitbotMode = CreateModeButton("Legitbot", 0)
 
-    Menu.ConfigsUI = Menu.ConfigsUI or {}
-    Menu.ConfigsUI.Button = Create("TextButton", {
-        Parent = TopbarInner,
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -10, 0, 5),
-        Size = UDim2.fromOffset(38, 32),
-        BackgroundColor3 = SurfaceAlt,
-        BackgroundTransparency = 0.12,
-        BorderSizePixel = 0,
-        AutoButtonColor = false,
-        Text = "",
-        ZIndex = 6
-    })
-    Corner(Menu.ConfigsUI.Button, 2)
-    Menu.ConfigsUI.ButtonStroke = Stroke(Menu.ConfigsUI.Button, Border, 0.36, 1)
-
-    Menu.ConfigsUI.FolderTab = Create("Frame", {
-        Parent = Menu.ConfigsUI.Button,
-        Position = UDim2.fromOffset(10, 8),
-        Size = UDim2.fromOffset(9, 4),
-        BackgroundColor3 = MutedText,
-        BorderSizePixel = 0,
-        ZIndex = 8
-    })
-    Corner(Menu.ConfigsUI.FolderTab, 2)
-    Menu.ConfigsUI.FolderBody = Create("Frame", {
-        Parent = Menu.ConfigsUI.Button,
-        Position = UDim2.fromOffset(9, 11),
-        Size = UDim2.fromOffset(20, 13),
-        BackgroundColor3 = MutedText,
-        BackgroundTransparency = 0.82,
-        BorderSizePixel = 0,
-        ZIndex = 7
-    })
-    Corner(Menu.ConfigsUI.FolderBody, 3)
-    Menu.ConfigsUI.FolderStroke = Stroke(Menu.ConfigsUI.FolderBody, MutedText, 0.02, 1)
-
+    local SearchY = Layout.HeaderHeight + Layout.SubHeight + Layout.Gap
     local SearchBar = Create("Frame", {
         Parent = Content,
-        Position = UDim2.fromOffset(59, 78),
-        Size = UDim2.fromOffset(568, 40),
-        BackgroundColor3 = Color3.fromRGB(17, 17, 20),
-        BackgroundTransparency = 0.05,
+        Position = UDim2.fromOffset(Layout.Side, SearchY),
+        Size = UDim2.new(1, -(Layout.Side * 2 + Layout.SearchHeight + Layout.Gap), 0, Layout.SearchHeight),
+        BackgroundColor3 = Surface,
+        BackgroundTransparency = 0.02,
         BorderSizePixel = 0,
         ZIndex = 5
     })
     Corner(SearchBar, 2)
-    Stroke(SearchBar, Color3.fromRGB(58, 58, 65), 0.34, 1)
-    AddPanelChrome(SearchBar, 2, 6)
+    Stroke(SearchBar, Border, 0.24, 1)
 
     local SearchBox = Create("TextBox", {
         Parent = SearchBar,
-        Position = UDim2.fromOffset(34, 0),
-        Size = UDim2.new(1, -46, 1, 0),
+        Position = UDim2.fromOffset(32, 0),
+        Size = UDim2.new(1, -42, 1, 0),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSans,
         PlaceholderText = "Search",
         PlaceholderColor3 = DisabledText,
         Text = "",
         TextColor3 = PrimaryText,
-        TextSize = 12,
+        TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Left,
         ClearTextOnFocus = false,
         ZIndex = 6
     })
 
-    Icon(SearchBar, "Search", UDim2.fromOffset(14, 14), UDim2.new(0, 16, 0.5, 0), MutedText, 7)
+    Icon(SearchBar, "Search", UDim2.fromOffset(13, 13), UDim2.new(0, 15, 0.5, 0), MutedText, 7)
 
     local SearchSettings = Create("TextButton", {
         Parent = Content,
-        Position = UDim2.fromOffset(635, 78),
-        Size = UDim2.fromOffset(44, 40),
-        BackgroundColor3 = Color3.fromRGB(16, 16, 19),
-        BackgroundTransparency = 0.12,
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -Layout.Side, 0, SearchY),
+        Size = UDim2.fromOffset(Layout.SearchHeight, Layout.SearchHeight),
+        BackgroundColor3 = Surface,
+        BackgroundTransparency = 0.02,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Text = "",
         ZIndex = 5
     })
     Corner(SearchSettings, 2)
-    local SearchSettingsStroke = Stroke(SearchSettings, Border, 0.58, 1)
-    local SearchSettingsIcon = Icon(SearchSettings, "Gear", UDim2.fromOffset(18, 18), UDim2.fromScale(0.5, 0.5), MutedText, 7)
+    local SearchSettingsStroke = Stroke(SearchSettings, Border, 0.24, 1)
+    local SearchSettingsIcon = Icon(SearchSettings, "Gear", UDim2.fromOffset(16, 16), UDim2.fromScale(0.5, 0.5), MutedText, 7)
+
     local SettingsToggleHitbox = Create("TextButton", {
         Parent = ScreenGui,
         Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.fromOffset(44, 40),
+        Size = UDim2.fromOffset(Layout.SearchHeight, Layout.SearchHeight),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         AutoButtonColor = false,
@@ -1196,6 +1199,7 @@ local function BuildRuntime()
         Visible = false,
         ZIndex = 131
     })
+
     local SearchSettingsOpened = false
 
     local function SyncSettingsToggleHitbox()
@@ -1218,20 +1222,19 @@ local function BuildRuntime()
         if Instant then
             SearchSettings.BackgroundColor3 = TargetBackground
             SearchSettingsStroke.Color = TargetStroke
-            SearchSettingsStroke.Transparency = State and 0 or 0.4
+            SearchSettingsStroke.Transparency = State and 0 or 0.24
             SearchSettingsIcon.ImageColor3 = TargetIcon
         else
-            Tween(SearchSettings, 0.14, {BackgroundColor3 = TargetBackground})
-            Tween(SearchSettingsStroke, 0.14, {Color = TargetStroke, Transparency = State and 0 or 0.4})
-            Tween(SearchSettingsIcon, 0.14, {ImageColor3 = TargetIcon})
+            Tween(SearchSettings, 0.12, {BackgroundColor3 = TargetBackground})
+            Tween(SearchSettingsStroke, 0.12, {Color = TargetStroke, Transparency = State and 0 or 0.24})
+            Tween(SearchSettingsIcon, 0.12, {ImageColor3 = TargetIcon})
         end
     end
 
     Bind(SearchSettings.MouseEnter:Connect(function()
         if not SearchSettingsOpened then
-            Tween(SearchSettings, 0.12, {BackgroundColor3 = Color3.fromRGB(27, 27, 31)})
-            Tween(SearchSettingsStroke, 0.12, {Transparency = 0.25})
-            Tween(SearchSettingsIcon, 0.12, {ImageColor3 = PrimaryText})
+            Tween(SearchSettingsStroke, 0.10, {Transparency = 0.08})
+            Tween(SearchSettingsIcon, 0.10, {ImageColor3 = PrimaryText})
         end
     end))
 
@@ -1243,10 +1246,11 @@ local function BuildRuntime()
 
     UpdateSettingsButtonAppearance(false, true)
 
+    local PageY = SearchY + Layout.SearchHeight + Layout.Gap
     local PageHolder = Create("Frame", {
         Parent = Content,
-        Position = UDim2.fromOffset(59, 132),
-        Size = UDim2.fromOffset(626, 468),
+        Position = UDim2.fromOffset(Layout.Side, PageY),
+        Size = UDim2.new(1, -(Layout.Side * 2), 1, -(PageY + Layout.Gap)),
         BackgroundTransparency = 1,
         ZIndex = 4
     })
@@ -1320,43 +1324,52 @@ local function BuildRuntime()
             Position = Position,
             Size = Size,
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.025,
+            BackgroundTransparency = 0.01,
             BorderSizePixel = 0,
             ZIndex = 5
         })
-        Corner(Root, 3)
-        Stroke(Root, Color3.fromRGB(3, 3, 4), 0, 1)
-        AddPanelChrome(Root, 3, 6)
+        Corner(Root, 2)
+        Stroke(Root, Border, 0.16, 1)
 
         local Header = Create("Frame", {
             Parent = Root,
-            Position = UDim2.fromOffset(2, 2),
-            Size = UDim2.new(1, -4, 0, 32),
+            Position = UDim2.fromOffset(1, 1),
+            Size = UDim2.new(1, -2, 0, 30),
             BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = 0.12,
+            BackgroundTransparency = 0.18,
             BorderSizePixel = 0,
             ZIndex = 6
         })
-        Corner(Header, 2)
-        AddPanelGradient(Header, Color3.fromRGB(30, 30, 34), Color3.fromRGB(20, 20, 23))
+        Corner(Header, 1)
+
+        Create("Frame", {
+            Parent = Header,
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.new(0, 0, 1, 0),
+            Size = UDim2.new(1, 0, 0, 1),
+            BackgroundColor3 = Border,
+            BackgroundTransparency = 0.46,
+            BorderSizePixel = 0,
+            ZIndex = 7
+        })
 
         Create("TextLabel", {
             Parent = Root,
-            Position = UDim2.fromOffset(12, 0),
-            Size = UDim2.new(1, -24, 0, 34),
+            Position = UDim2.fromOffset(11, 0),
+            Size = UDim2.new(1, -22, 0, 31),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
             Text = Title,
             TextColor3 = PrimaryText,
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
 
         local Body = Create("Frame", {
             Parent = Root,
-            Position = UDim2.fromOffset(10, 39),
-            Size = UDim2.new(1, -20, 1, -47),
+            Position = UDim2.fromOffset(10, 36),
+            Size = UDim2.new(1, -20, 1, -44),
             BackgroundTransparency = 1,
             ZIndex = 7
         })
@@ -10946,13 +10959,9 @@ local function BuildRuntime()
 
         for ButtonName, Data in pairs(Menu.SidebarButtons) do
             local Selected = ButtonName == Name
-
             if Data.TopTab == true then
                 if Data.Button and Data.Button.Parent then
-                    Tween(Data.Button, 0.10, {
-                        BackgroundTransparency = 1,
-                        TextColor3 = Selected and PrimaryText or MutedText
-                    })
+                    Tween(Data.Button, 0.10, {TextColor3 = Selected and PrimaryText or MutedText})
                 end
                 if Data.Marker and Data.Marker.Parent then
                     Data.Marker.Visible = Selected
@@ -10962,23 +10971,17 @@ local function BuildRuntime()
                 end
             else
                 if Data.Button and Data.Button.Parent then
-                    Tween(Data.Button, 0.16, {
+                    Tween(Data.Button, 0.12, {
                         BackgroundTransparency = Selected and 0.72 or 1,
                         BackgroundColor3 = Selected and Color3.fromRGB(29, 29, 34) or SidebarColor
                     })
                 end
-                if Data.Scale then
-                    Tween(Data.Scale, 0.16, {Scale = Selected and 1.025 or 1})
-                end
-                if Data.Marker then
-                    Data.Marker.Visible = Selected
-                end
+                if Data.Scale then Tween(Data.Scale, 0.12, {Scale = Selected and 1.025 or 1}) end
+                if Data.Marker then Data.Marker.Visible = Selected end
                 if Data.Label and Data.Label ~= Data.Button then
-                    Tween(Data.Label, 0.16, {TextColor3 = Selected and PrimaryText or MutedText})
+                    Tween(Data.Label, 0.12, {TextColor3 = Selected and PrimaryText or MutedText})
                 end
-                if Data.Icon then
-                    Menu:SetIconColor(Data.Icon, Selected and Accent or MutedText, 0.16)
-                end
+                if Data.Icon then Menu:SetIconColor(Data.Icon, Selected and Accent or MutedText, 0.12) end
             end
         end
     end
@@ -12136,12 +12139,12 @@ local function BuildRuntime()
 
         local Count = 0
         for _ in pairs(Menu.SidebarButtons) do Count += 1 end
-        local Width = math.max(44, 16 + (#tostring(Name) * 6))
+        local Width = math.max(42, 14 + (#tostring(Name) * 5.5))
 
         local Button = Create("TextButton", {
             Parent = PageTabHost,
             LayoutOrder = Count + 1,
-            Size = UDim2.fromOffset(Width, 31),
+            Size = UDim2.fromOffset(Width, Layout.HeaderHeight),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -12168,9 +12171,6 @@ local function BuildRuntime()
             Button = Button,
             Marker = Marker,
             Label = Button,
-            Scale = nil,
-            Icon = nil,
-            MarkerGlow = nil,
             TopTab = true
         }
         Menu.SidebarButtons[Name] = Existing
@@ -12216,20 +12216,15 @@ local function BuildRuntime()
             if SubPageObject.Button then
                 Tween(SubPageObject.Button, 0.10, {
                     BackgroundTransparency = 1,
-                    BackgroundColor3 = Topbar.BackgroundColor3,
                     TextColor3 = Selected and PrimaryText or MutedText
                 })
             end
 
-            if SubPageObject.Scale then
-                SubPageObject.Scale.Scale = 1
-            end
-
             if SubPageObject.Indicator then
                 SubPageObject.Indicator.Visible = Selected
+                SubPageObject.Indicator.BackgroundTransparency = Selected and 0 or 1
                 SubPageObject.Indicator.Size = UDim2.new(1, 0, 0, 1)
                 SubPageObject.Indicator.Position = UDim2.new(0, 0, 1, 0)
-                SubPageObject.Indicator.BackgroundTransparency = Selected and 0 or 1
             end
         end
 
@@ -12791,42 +12786,45 @@ local function BuildRuntime()
     end
 
     function ApiState:ReflowSubPage(SubPage)
-        if type(SubPage) ~= "table" then
-            return
-        end
+        if type(SubPage) ~= "table" then return end
 
-        local LeftY = 0
-        local RightY = 0
-        local Sections = SubPage.Sections
+        local Frame = SubPage.Frame
+        if typeof(Frame) ~= "Instance" then return end
 
-        if type(Sections) == "table" then
-            for _, Entry in ipairs(Sections) do
-                local Section = type(Entry) == "table" and Entry.Section or nil
-                local Root = type(Section) == "table" and Section.Root or nil
+        local Width = Frame.AbsoluteSize.X
+        if Width <= 1 then Width = PageHolder.AbsoluteSize.X end
+        if Width <= 1 then Width = 720 end
 
-                if typeof(Root) == "Instance" then
-                    local Height = math.max(78, tonumber(Entry.DesiredHeight) or 78)
-                    local IsRight = Entry.Side == "Right"
-                    local Y = IsRight and RightY or LeftY
-                    local Position = UDim2.fromOffset(IsRight and 319 or 0, Y)
+        local Gap = tonumber(Layout.ColumnGap) or 10
+        local ColumnWidth = math.max(250, math.floor((Width - Gap) * 0.5))
+        local LeftY, RightY = 0, 0
 
-                    Root.Position = Position
-                    Root.Size = UDim2.fromOffset(307, Height)
-                    Section.HomePosition = Position
+        for _, Entry in ipairs(SubPage.Sections or {}) do
+            local Section = type(Entry) == "table" and Entry.Section or nil
+            local Root = type(Section) == "table" and Section.Root or nil
+            if typeof(Root) == "Instance" then
+                local Height = math.max(64, tonumber(Entry.DesiredHeight) or 64)
+                local IsRight = Entry.Side == "Right"
+                local X = IsRight and (ColumnWidth + Gap) or 0
+                local Y = IsRight and RightY or LeftY
+                local Position = UDim2.fromOffset(X, Y)
 
-                    if IsRight then
-                        RightY = Y + Height + 12
-                    else
-                        LeftY = Y + Height + 12
-                    end
+                Root.Position = Position
+                Root.Size = UDim2.fromOffset(ColumnWidth, Height)
+                Section.HomePosition = Position
+
+                if IsRight then
+                    RightY = Y + Height + Gap
+                else
+                    LeftY = Y + Height + Gap
                 end
             end
         end
 
-        local Frame = SubPage.Frame
-        if typeof(Frame) == "Instance" and Frame:IsA("ScrollingFrame") then
+        if Frame:IsA("ScrollingFrame") then
             local Bottom = math.max(LeftY, RightY)
-            Frame.CanvasSize = UDim2.fromOffset(0, math.max(464, Bottom > 0 and Bottom - 12 or 464))
+            local ViewHeight = math.max(Frame.AbsoluteSize.Y, 1)
+            Frame.CanvasSize = UDim2.fromOffset(0, math.max(ViewHeight, Bottom > 0 and Bottom - Gap or ViewHeight))
         end
     end
 
@@ -12849,9 +12847,9 @@ local function BuildRuntime()
             end
             Side = LeftCount <= RightCount and "Left" or "Right"
         end
-        local MinimumHeight = math.max(78, tonumber(ApiRead(Data, "Height", 78)) or 78)
+        local MinimumHeight = math.max(64, tonumber(ApiRead(Data, "Height", 64)) or 64)
         local Key = self.PageName .. ":" .. self.Name .. ":" .. tostring(ApiRead(Data, "Name", "Section")) .. ":" .. Side .. ":" .. tostring(#self.Sections + 1)
-        local Section = CreateSection(self.Frame, Key, tostring(ApiRead(Data, "Name", "Section")), UDim2.fromOffset(0, 0), UDim2.fromOffset(307, MinimumHeight))
+        local Section = CreateSection(self.Frame, Key, tostring(ApiRead(Data, "Name", "Section")), UDim2.fromOffset(0, 0), UDim2.fromOffset(320, MinimumHeight))
         local Entry = {Section = Section, Side = Side, DesiredHeight = MinimumHeight, MinimumHeight = MinimumHeight}
         table.insert(self.Sections, Entry)
         local Layout = Section.Body and Section.Body:FindFirstChildOfClass("UIListLayout") or nil
@@ -12865,7 +12863,7 @@ local function BuildRuntime()
                 ContentHeight = Layout.AbsoluteContentSize.Y
             end
 
-            Entry.DesiredHeight = math.max(Entry.MinimumHeight, ContentHeight + 50)
+            Entry.DesiredHeight = math.max(Entry.MinimumHeight, ContentHeight + 44)
             ApiState:ReflowSubPage(self)
         end
         if typeof(Layout) == "Instance" then
@@ -12883,19 +12881,17 @@ local function BuildRuntime()
         Data = Data or {}
         local Name = tostring(ApiRead(Data, "Name", "General"))
         local Existing = self.SubPages[Name]
-        if Existing then
-            return Existing
-        end
+        if Existing then return Existing end
+
         local Count = 0
-        for _ in pairs(self.SubPages) do
-            Count += 1
-        end
+        for _ in pairs(self.SubPages) do Count += 1 end
+
         local Frame = Create("ScrollingFrame", {
             Parent = self.Frame,
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            CanvasSize = UDim2.fromOffset(0, 464),
+            CanvasSize = UDim2.fromOffset(0, 0),
             ScrollBarThickness = 2,
             ScrollBarImageColor3 = Accent,
             ScrollingDirection = Enum.ScrollingDirection.Y,
@@ -12903,12 +12899,12 @@ local function BuildRuntime()
             Visible = Count == 0,
             ZIndex = 4
         })
-        local ButtonWidth = math.max(44, 14 + (#Name * 6))
+
+        local ButtonWidth = math.max(42, 14 + (#Name * 5.5))
         local Button = Create("TextButton", {
-            Parent = Menu.SubPageHost or Topbar,
+            Parent = Menu.SubPageHost or SubRow,
             LayoutOrder = Count + 1,
-            Size = UDim2.fromOffset(ButtonWidth, 31),
-            BackgroundColor3 = SurfaceAlt,
+            Size = UDim2.fromOffset(ButtonWidth, Layout.SubHeight),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -12917,14 +12913,9 @@ local function BuildRuntime()
             TextColor3 = Count == 0 and PrimaryText or MutedText,
             TextSize = 10,
             Visible = self.Name == ApiState.ActivePage,
-            ZIndex = 6
+            ZIndex = 7
         })
-        Corner(Button, 0)
 
-        local Scale = Create("UIScale", {
-            Parent = Button,
-            Scale = 1
-        })
         local Indicator = Create("Frame", {
             Parent = Button,
             AnchorPoint = Vector2.new(0, 1),
@@ -12936,56 +12927,47 @@ local function BuildRuntime()
             Visible = Count == 0,
             ZIndex = 8
         })
-        Corner(Indicator, 0)
-        local IndicatorGlow = nil
+
         local Object = setmetatable({
             Name = Name,
             PageName = self.Name,
             Frame = Frame,
             Button = Button,
             Indicator = Indicator,
-            IndicatorGlow = IndicatorGlow,
-            Scale = Scale,
+            IndicatorGlow = nil,
+            Scale = nil,
             Slots = {Left = 0, Right = 0},
             Sections = {}
         }, ApiSubPageMethods)
+
         RegisterAccentTarget(function(NewColor)
-            if Frame and Frame.Parent then
-                Frame.ScrollBarImageColor3 = NewColor
-            end
-            if Indicator and Indicator.Parent then
-                Indicator.BackgroundColor3 = NewColor
-            end
-            if IndicatorGlow and IndicatorGlow.Parent then
-                IndicatorGlow.ImageColor3 = NewColor
-            end
+            if Frame and Frame.Parent then Frame.ScrollBarImageColor3 = NewColor end
+            if Indicator and Indicator.Parent then Indicator.BackgroundColor3 = NewColor end
         end)
+
         self.SubPages[Name] = Object
         if not self.FirstSubPage then
             self.FirstSubPage = Object
             self.ActiveSubPage = Name
         end
+
         Bind(Button.MouseEnter:Connect(function()
-            if self.ActiveSubPage ~= Name then
-                Tween(Button, 0.14, {BackgroundTransparency = 1, BackgroundColor3 = Topbar.BackgroundColor3, TextColor3 = PrimaryText})
-                Tween(Scale, 0.14, {Scale = 1.025})
-            end
+            if self.ActiveSubPage ~= Name then Tween(Button, 0.10, {TextColor3 = PrimaryText}) end
         end))
         Bind(Button.MouseLeave:Connect(function()
-            if self.ActiveSubPage ~= Name then
-                Tween(Button, 0.14, {BackgroundTransparency = 1, BackgroundColor3 = Topbar.BackgroundColor3, TextColor3 = MutedText})
-                Tween(Scale, 0.14, {Scale = 1})
-            end
-        end))
-        Bind(Button.MouseButton1Down:Connect(function()
-            Tween(Scale, 0.08, {Scale = 0.97})
-        end))
-        Bind(Button.MouseButton1Up:Connect(function()
-            Tween(Scale, 0.12, {Scale = self.ActiveSubPage == Name and 1.02 or 1.025})
+            if self.ActiveSubPage ~= Name then Tween(Button, 0.10, {TextColor3 = MutedText}) end
         end))
         Bind(Button.MouseButton1Click:Connect(function()
             ApiState:SelectSubPage(self, Name)
         end))
+        Bind(Frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+            ApiState:ReflowSubPage(Object)
+        end))
+
+        task.defer(function()
+            ApiState:ReflowSubPage(Object)
+        end)
+
         return Object
     end
 
@@ -14474,9 +14456,7 @@ local function BuildRuntime()
         end
         ApiState.WindowObject = setmetatable({Pages = {}}, ApiWindowMethods)
         local Name = tostring(ApiRead(Data, "Name", "Atramenta.rip"))
-        if MainTitle and MainTitle.Parent then
-            MainTitle.Text = string.lower(Name)
-        end
+        if MainTitle and MainTitle.Parent then MainTitle.Text = string.lower(Name) end
         for _, Object in ipairs(Menu.SettingsUI.SettingsPanel:GetChildren()) do
             if Object:IsA("TextLabel") and Object.Text == "Atramenta.rip" then
                 Object.Text = Name
