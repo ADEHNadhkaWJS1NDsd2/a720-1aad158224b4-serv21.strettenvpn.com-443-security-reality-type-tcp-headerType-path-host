@@ -6898,8 +6898,8 @@ local function BuildRuntime()
     do
     Watermark = Create("Frame", {
         Parent = ScreenGui,
-        Position = DecodePosition(SavedPositions.Watermark, UDim2.fromOffset(12, 2)),
-        Size = UDim2.fromOffset(300, 34),
+        Position = DecodePosition(SavedPositions.Watermark, UDim2.fromOffset(10, 4)),
+        Size = UDim2.fromOffset(286, 26),
         BackgroundColor3 = Color3.fromRGB(0, 0, 0),
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
@@ -6911,7 +6911,7 @@ local function BuildRuntime()
         Parent = Watermark,
         Position = UDim2.fromOffset(1, 1),
         Size = UDim2.new(1, -2, 1, -2),
-        BackgroundColor3 = Color3.fromRGB(55, 55, 60),
+        BackgroundColor3 = Color3.fromRGB(58, 58, 63),
         BorderSizePixel = 0,
         ZIndex = 211
     })
@@ -6920,7 +6920,7 @@ local function BuildRuntime()
         Parent = WatermarkInline,
         Position = UDim2.fromOffset(1, 1),
         Size = UDim2.new(1, -2, 1, -2),
-        BackgroundColor3 = Color3.fromRGB(11, 11, 13),
+        BackgroundColor3 = Color3.fromRGB(12, 12, 14),
         BorderSizePixel = 0,
         ClipsDescendants = true,
         ZIndex = 212
@@ -6930,48 +6930,37 @@ local function BuildRuntime()
         Parent = WatermarkBody,
         Rotation = 90,
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 25, 29)),
-            ColorSequenceKeypoint.new(0.18, Color3.fromRGB(17, 17, 20)),
-            ColorSequenceKeypoint.new(0.62, Color3.fromRGB(12, 12, 14)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 10))
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(21, 21, 24)),
+            ColorSequenceKeypoint.new(0.42, Color3.fromRGB(14, 14, 16)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(9, 9, 11))
         })
     })
 
-    local WatermarkAccentLine = Create("Frame", {
+    local WatermarkAccent = Create("Frame", {
         Parent = WatermarkBody,
         Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.new(1, 0, 0, 2),
-        BackgroundColor3 = Accent,
-        BorderSizePixel = 0,
-        ZIndex = 216
-    })
-
-    local WatermarkAccentShade = Create("Frame", {
-        Parent = WatermarkBody,
-        Position = UDim2.fromOffset(0, 2),
         Size = UDim2.new(1, 0, 0, 1),
-        BackgroundColor3 = Color3.fromRGB(35, 30, 66),
+        BackgroundColor3 = Accent,
         BorderSizePixel = 0,
         ZIndex = 215
     })
 
     Create("Frame", {
         Parent = WatermarkBody,
-        AnchorPoint = Vector2.new(0, 1),
-        Position = UDim2.new(0, 0, 1, 0),
+        Position = UDim2.fromOffset(0, 1),
         Size = UDim2.new(1, 0, 0, 1),
-        BackgroundColor3 = Color3.fromRGB(3, 3, 4),
+        BackgroundColor3 = Color3.fromRGB(32, 27, 58),
         BorderSizePixel = 0,
-        ZIndex = 215
+        ZIndex = 214
     })
 
     local WatermarkContent = Create("Frame", {
         Parent = WatermarkBody,
-        Position = UDim2.fromOffset(8, 4),
-        Size = UDim2.new(1, -16, 1, -6),
+        Position = UDim2.fromOffset(7, 3),
+        Size = UDim2.new(1, -14, 1, -4),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        ZIndex = 217
+        ZIndex = 216
     })
 
     local WatermarkLayout = Create("UIListLayout", {
@@ -6979,7 +6968,7 @@ local function BuildRuntime()
         FillDirection = Enum.FillDirection.Horizontal,
         HorizontalAlignment = Enum.HorizontalAlignment.Left,
         VerticalAlignment = Enum.VerticalAlignment.Center,
-        Padding = UDim.new(0, 6),
+        Padding = UDim.new(0, 5),
         SortOrder = Enum.SortOrder.LayoutOrder
     })
 
@@ -6988,353 +6977,387 @@ local function BuildRuntime()
         Scale = math.clamp((tonumber(SavedPositions.WatermarkScale) or 100) / 100, 0.7, 1.4)
     })
 
-    local WatermarkGlow = Create("ImageLabel", {
-        Parent = ScreenGui,
-        Position = Watermark.Position,
-        Size = UDim2.fromOffset(312, 46),
-        BackgroundTransparency = 1,
-        Image = Menu.GlowAsset,
-        ImageColor3 = Accent,
-        ImageTransparency = 0.88,
-        ScaleType = Enum.ScaleType.Slice,
-        SliceCenter = Rect.new(34, 34, 62, 62),
-        Visible = Watermark.Visible,
-        ZIndex = 208
-    })
-
-    local WatermarkAccentRoots = {}
-
-    local function TrackWatermarkAccentRoot(Root)
-        if Root then
-            WatermarkAccentRoots[#WatermarkAccentRoots + 1] = Root
-        end
-        return Root
-    end
-
-    local function CreateWatermarkLine(Parent, X1, Y1, X2, Y2, Color, Thickness, ZIndex)
-        local DeltaX = X2 - X1
-        local DeltaY = Y2 - Y1
-        local Length = math.sqrt(DeltaX * DeltaX + DeltaY * DeltaY)
-
-        return Create("Frame", {
-            Parent = Parent,
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Position = UDim2.fromOffset((X1 + X2) * 0.5, (Y1 + Y2) * 0.5),
-            Size = UDim2.fromOffset(math.max(Length, 1), Thickness or 1),
-            Rotation = math.deg(math.atan2(DeltaY, DeltaX)),
-            BackgroundColor3 = Color,
-            BorderSizePixel = 0,
-            ZIndex = ZIndex or 220
-        })
-    end
-
-    local function CreateWatermarkIcon(Parent, Kind, Order)
-        local Root = Create("Frame", {
-            Parent = Parent,
-            LayoutOrder = Order or 1,
-            Size = UDim2.fromOffset(14, 18),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            ZIndex = 219
-        })
-
-        local IconColor = Accent
-
-        if Kind == "Gear" then
-            Icon(Root, "Gear", UDim2.fromOffset(13, 13), UDim2.fromScale(0.5, 0.5), IconColor, 220)
-        elseif Kind == "Chart" then
-            CreateWatermarkLine(Root, 1.5, 14.5, 1.5, 5, IconColor, 1, 220)
-            CreateWatermarkLine(Root, 1.5, 14.5, 12.5, 14.5, IconColor, 1, 220)
-            CreateWatermarkLine(Root, 3, 11.5, 5.5, 9, IconColor, 1.2, 221)
-            CreateWatermarkLine(Root, 5.5, 9, 8.2, 10.2, IconColor, 1.2, 221)
-            CreateWatermarkLine(Root, 8.2, 10.2, 12, 5.2, IconColor, 1.2, 221)
-        elseif Kind == "Signal" then
-            for Index, Height in ipairs({4, 7, 10, 13}) do
-                Create("Frame", {
-                    Parent = Root,
-                    Position = UDim2.fromOffset(1 + (Index - 1) * 3, 15 - Height),
-                    Size = UDim2.fromOffset(2, Height),
-                    BackgroundColor3 = IconColor,
-                    BorderSizePixel = 0,
-                    ZIndex = 220
-                })
-            end
-        elseif Kind == "Clock" then
-            local Ring = Create("Frame", {
-                Parent = Root,
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.fromScale(0.5, 0.5),
-                Size = UDim2.fromOffset(12, 12),
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                ZIndex = 220
-            })
-            Stroke(Ring, IconColor, 0, 1)
-            Create("Frame", {
-                Parent = Ring,
-                AnchorPoint = Vector2.new(0.5, 1),
-                Position = UDim2.fromScale(0.5, 0.5),
-                Size = UDim2.fromOffset(1, 4),
-                BackgroundColor3 = IconColor,
-                BorderSizePixel = 0,
-                ZIndex = 221
-            })
-            Create("Frame", {
-                Parent = Ring,
-                AnchorPoint = Vector2.new(0, 0.5),
-                Position = UDim2.fromScale(0.5, 0.5),
-                Size = UDim2.fromOffset(4, 1),
-                Rotation = 28,
-                BackgroundColor3 = IconColor,
-                BorderSizePixel = 0,
-                ZIndex = 221
-            })
-        end
-
-        TrackWatermarkAccentRoot(Root)
-        return Root
-    end
-
-    local function CreateWatermarkSeparator(Order)
-        return Create("Frame", {
+    local function CreateText(Order, Text, Color, Bold)
+        return Create("TextLabel", {
             Parent = WatermarkContent,
             LayoutOrder = Order,
-            Size = UDim2.fromOffset(1, 14),
-            BackgroundColor3 = Color3.fromRGB(59, 59, 65),
-            BackgroundTransparency = 0.18,
-            BorderSizePixel = 0,
-            ZIndex = 218
-        })
-    end
-
-    local function CreateWatermarkItem(Order, Kind, Text, Bold)
-        local Root = Create("Frame", {
-            Parent = WatermarkContent,
-            LayoutOrder = Order,
-            Size = UDim2.fromOffset(0, 20),
-            AutomaticSize = Enum.AutomaticSize.X,
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            ZIndex = 218
-        })
-        Create("UIListLayout", {
-            Parent = Root,
-            FillDirection = Enum.FillDirection.Horizontal,
-            HorizontalAlignment = Enum.HorizontalAlignment.Left,
-            VerticalAlignment = Enum.VerticalAlignment.Center,
-            Padding = UDim.new(0, 4),
-            SortOrder = Enum.SortOrder.LayoutOrder
-        })
-        CreateWatermarkIcon(Root, Kind, 1)
-        local Label = Create("TextLabel", {
-            Parent = Root,
-            LayoutOrder = 2,
-            Size = UDim2.fromOffset(0, 20),
+            Size = UDim2.fromOffset(0, 18),
             AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             Font = Bold and Enum.Font.BuilderSansBold or Enum.Font.BuilderSansMedium,
             Text = Text,
-            TextColor3 = Bold and Color3.fromRGB(221, 221, 226) or Color3.fromRGB(188, 188, 194),
-            TextSize = 11,
+            TextColor3 = Color,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.None,
-            ZIndex = 219
+            ZIndex = 217
         })
-        return Root, Label
     end
 
-    local WatermarkBrand = Create("TextLabel", {
-        Parent = WatermarkContent,
-        LayoutOrder = 1,
-        Size = UDim2.fromOffset(0, 20),
-        AutomaticSize = Enum.AutomaticSize.X,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Font = Enum.Font.BuilderSansBold,
-        Text = "Atramenta.rip",
-        TextColor3 = Accent,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.None,
-        ZIndex = 219
-    })
-
-    local WatermarkBrandGradient = Create("UIGradient", {
-        Parent = WatermarkBrand,
-        Rotation = 0,
-        Offset = Vector2.new(-0.22, 0),
-        Color = ColorSequence.new(Accent)
-    })
-
-    CreateWatermarkSeparator(2)
-    local ReleaseText = select(2, CreateWatermarkItem(3, "Gear", "Release", true))
-    CreateWatermarkSeparator(4)
-    local FpsText = select(2, CreateWatermarkItem(5, "Chart", "0 Fps", false))
-    CreateWatermarkSeparator(6)
-    local PingText = select(2, CreateWatermarkItem(7, "Signal", "0 Ping", false))
-    CreateWatermarkSeparator(8)
-    local ClockText = select(2, CreateWatermarkItem(9, "Clock", os.date("%H:%M:%S"), false))
-
-    local function SetWatermarkAccent(NewColor)
-        NewColor = typeof(NewColor) == "Color3" and NewColor or Accent
-        WatermarkAccentLine.BackgroundColor3 = NewColor
-        WatermarkGlow.ImageColor3 = NewColor
-        local Hue, Saturation, Value = Color3.toHSV(NewColor)
-        WatermarkAccentShade.BackgroundColor3 = Color3.fromHSV(Hue, math.clamp(Saturation * 0.92, 0, 1), math.clamp(Value * 0.40, 0, 1))
-        WatermarkBrandGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromHSV((Hue - 0.012) % 1, math.clamp(Saturation, 0, 1), math.clamp(Value * 0.86 + 0.08, 0, 1))),
-            ColorSequenceKeypoint.new(0.50, NewColor:Lerp(Color3.new(1, 1, 1), 0.24)),
-            ColorSequenceKeypoint.new(1, Color3.fromHSV((Hue + 0.014) % 1, math.clamp(Saturation * 0.94, 0, 1), math.clamp(Value, 0, 1)))
-        })
-        for _, Root in ipairs(WatermarkAccentRoots) do
-            if Root and Root.Parent then
-                Menu:SetIconColor(Root, NewColor)
-            end
-        end
+    local function CreateSeparator(Order)
+        return CreateText(
+            Order,
+            "|",
+            Color3.fromRGB(72, 72, 78),
+            false
+        )
     end
 
-    RegisterAccentTarget(SetWatermarkAccent)
-    SetWatermarkAccent(Accent)
+    local Brand = CreateText(
+        1,
+        "Atramenta.rip",
+        Accent,
+        true
+    )
+
+    CreateSeparator(2)
+
+    local ReleaseText = CreateText(
+        3,
+        "release",
+        Color3.fromRGB(205, 205, 210),
+        false
+    )
+
+    CreateSeparator(4)
+
+    local FpsText = CreateText(
+        5,
+        "0 fps",
+        Color3.fromRGB(184, 184, 190),
+        false
+    )
+
+    CreateSeparator(6)
+
+    local PingText = CreateText(
+        7,
+        "0 ms",
+        Color3.fromRGB(184, 184, 190),
+        false
+    )
+
+    CreateSeparator(8)
+
+    local ClockText = CreateText(
+        9,
+        os.date("%H:%M:%S"),
+        Color3.fromRGB(184, 184, 190),
+        false
+    )
+
+    RegisterAccentTarget(function(NewColor)
+        NewColor =
+            typeof(NewColor) == "Color3"
+            and NewColor
+            or Accent
+
+        Brand.TextColor3 = NewColor
+        WatermarkAccent.BackgroundColor3 = NewColor
+    end)
 
     local function GetWatermarkArea()
         local Camera = workspace.CurrentCamera
-        local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+        local Viewport =
+            Camera
+            and Camera.ViewportSize
+            or Vector2.new(1920, 1080)
+
         local TopLeft = Vector2.zero
         local BottomRight = Vector2.zero
+
         Library.Call(function()
-            TopLeft, BottomRight = GuiService:GetGuiInset()
+            TopLeft, BottomRight =
+                GuiService:GetGuiInset()
         end)
+
         return Vector2.new(
-            math.max(1, Viewport.X - TopLeft.X - BottomRight.X),
-            math.max(1, Viewport.Y - TopLeft.Y - BottomRight.Y)
+            math.max(
+                1,
+                Viewport.X
+                    - TopLeft.X
+                    - BottomRight.X
+            ),
+            math.max(
+                1,
+                Viewport.Y
+                    - TopLeft.Y
+                    - BottomRight.Y
+            )
         )
     end
 
     local function ClampWatermarkPosition(Position)
-        Position = typeof(Position) == "UDim2" and Position or Watermark.Position
+        Position =
+            typeof(Position) == "UDim2"
+            and Position
+            or Watermark.Position
+
         local Area = GetWatermarkArea()
         local ScaleValue = WatermarkScale.Scale
-        local Width = math.max(1, Watermark.Size.X.Offset * ScaleValue)
-        local Height = math.max(1, Watermark.Size.Y.Offset * ScaleValue)
-        local Margin = 6
-        local X = Position.X.Scale * Area.X + Position.X.Offset
-        local Y = Position.Y.Scale * Area.Y + Position.Y.Offset
-        X = math.clamp(X, Margin, math.max(Margin, Area.X - Width - Margin))
-        Y = math.clamp(Y, Margin, math.max(Margin, Area.Y - Height - Margin))
-        return UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
-    end
+        local Width =
+            math.max(
+                1,
+                Watermark.Size.X.Offset
+                    * ScaleValue
+            )
+        local Height =
+            math.max(
+                1,
+                Watermark.Size.Y.Offset
+                    * ScaleValue
+            )
 
-    local function SyncWatermarkGlow()
-        local ScaleValue = WatermarkScale.Scale
-        local Width = Watermark.Size.X.Offset * ScaleValue
-        local Height = Watermark.Size.Y.Offset * ScaleValue
-        WatermarkGlow.Position = UDim2.new(Watermark.Position.X.Scale, Watermark.Position.X.Offset - 6, Watermark.Position.Y.Scale, Watermark.Position.Y.Offset - 6)
-        WatermarkGlow.Size = UDim2.fromOffset(math.floor(Width + 12), math.floor(Height + 12))
-        WatermarkGlow.Visible = Watermark.Visible
+        local Margin = 4
+
+        local X =
+            Position.X.Scale * Area.X
+            + Position.X.Offset
+
+        local Y =
+            Position.Y.Scale * Area.Y
+            + Position.Y.Offset
+
+        X = math.clamp(
+            X,
+            Margin,
+            math.max(
+                Margin,
+                Area.X - Width - Margin
+            )
+        )
+
+        Y = math.clamp(
+            Y,
+            Margin,
+            math.max(
+                Margin,
+                Area.Y - Height - Margin
+            )
+        )
+
+        return UDim2.fromOffset(
+            math.floor(X + 0.5),
+            math.floor(Y + 0.5)
+        )
     end
 
     local function ClampWatermark()
-        if not Watermark or not Watermark.Parent then return end
-        Watermark.Position = ClampWatermarkPosition(Watermark.Position)
-        SavedPositions.Watermark = EncodePosition(Watermark.Position)
-        SyncWatermarkGlow()
+        if not Watermark
+            or not Watermark.Parent
+        then
+            return
+        end
+
+        Watermark.Position =
+            ClampWatermarkPosition(
+                Watermark.Position
+            )
+
+        SavedPositions.Watermark =
+            EncodePosition(
+                Watermark.Position
+            )
     end
 
     local function UpdateWatermarkSize()
-        local ContentWidth = WatermarkLayout.AbsoluteContentSize.X
-        Watermark.Size = UDim2.fromOffset(math.clamp(math.floor(ContentWidth + 18), 250, 520), 34)
+        local Width =
+            WatermarkLayout.AbsoluteContentSize.X
+
+        Watermark.Size =
+            UDim2.fromOffset(
+                math.clamp(
+                    math.floor(Width + 14),
+                    230,
+                    430
+                ),
+                26
+            )
+
         task.defer(ClampWatermark)
     end
 
-    Bind(WatermarkLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateWatermarkSize))
-    Bind(Watermark:GetPropertyChangedSignal("Position"):Connect(SyncWatermarkGlow))
-    Bind(Watermark:GetPropertyChangedSignal("Visible"):Connect(SyncWatermarkGlow))
-
-    local WatermarkCamera = workspace.CurrentCamera
-    if WatermarkCamera then
-        Bind(WatermarkCamera:GetPropertyChangedSignal("ViewportSize"):Connect(ClampWatermark))
-    end
-
-    Bind(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-        task.defer(ClampWatermark)
-    end))
+    Bind(
+        WatermarkLayout:
+            GetPropertyChangedSignal(
+                "AbsoluteContentSize"
+            ):
+            Connect(
+                UpdateWatermarkSize
+            )
+    )
 
     local WatermarkDragging = false
     local WatermarkDragStart
     local WatermarkStartPosition
 
     Bind(Watermark.InputBegan:Connect(function(Input)
-        if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if Input.UserInputType
+            ~= Enum.UserInputType.MouseButton1
+        then
+            return
+        end
+
         WatermarkDragging = true
         WatermarkDragStart = Input.Position
-        WatermarkStartPosition = Watermark.Position
+        WatermarkStartPosition =
+            Watermark.Position
     end))
 
     Bind(UserInputService.InputChanged:Connect(function(Input)
-        if not WatermarkDragging or Input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-        local Delta = Input.Position - WatermarkDragStart
-        Watermark.Position = ClampWatermarkPosition(UDim2.fromOffset(
-            WatermarkStartPosition.X.Offset + Delta.X,
-            WatermarkStartPosition.Y.Offset + Delta.Y
-        ))
+        if not WatermarkDragging
+            or Input.UserInputType
+                ~= Enum.UserInputType.MouseMovement
+        then
+            return
+        end
+
+        local Delta =
+            Input.Position
+            - WatermarkDragStart
+
+        Watermark.Position =
+            ClampWatermarkPosition(
+                UDim2.fromOffset(
+                    WatermarkStartPosition.X.Offset
+                        + Delta.X,
+                    WatermarkStartPosition.Y.Offset
+                        + Delta.Y
+                )
+            )
     end))
 
     Bind(UserInputService.InputEnded:Connect(function(Input)
-        if Input.UserInputType ~= Enum.UserInputType.MouseButton1 or not WatermarkDragging then return end
+        if Input.UserInputType
+            ~= Enum.UserInputType.MouseButton1
+            or not WatermarkDragging
+        then
+            return
+        end
+
         WatermarkDragging = false
         ClampWatermark()
         SavePositions()
     end))
 
     Bind(UserInputService.WindowFocusReleased:Connect(function()
-        if not WatermarkDragging then return end
+        if not WatermarkDragging then
+            return
+        end
+
         WatermarkDragging = false
         ClampWatermark()
         SavePositions()
     end))
 
+    local WatermarkCamera =
+        workspace.CurrentCamera
+
+    if WatermarkCamera then
+        Bind(
+            WatermarkCamera:
+                GetPropertyChangedSignal(
+                    "ViewportSize"
+                ):
+                Connect(function()
+                    ClampWatermark()
+                end)
+        )
+    end
+
+    Bind(
+        workspace:
+            GetPropertyChangedSignal(
+                "CurrentCamera"
+            ):
+            Connect(function()
+                task.defer(
+                    ClampWatermark
+                )
+            end)
+    )
+
     local WatermarkFrames = 0
     local WatermarkElapsed = 0
     local WatermarkSecondElapsed = 0
-    local WatermarkGradientTime = 0
 
     Bind(RunService.RenderStepped:Connect(function(DeltaTime)
         WatermarkFrames += 1
         WatermarkElapsed += DeltaTime
         WatermarkSecondElapsed += DeltaTime
-        WatermarkGradientTime += math.clamp(DeltaTime, 0, 0.1)
-        WatermarkBrandGradient.Offset = Vector2.new(math.sin(WatermarkGradientTime * 0.66) * 0.34, 0)
+
         if WatermarkElapsed >= 0.5 then
-            FpsText.Text = tostring(math.floor(WatermarkFrames / WatermarkElapsed + 0.5)) .. " Fps"
+            FpsText.Text =
+                tostring(
+                    math.floor(
+                        WatermarkFrames
+                            / WatermarkElapsed
+                            + 0.5
+                    )
+                )
+                .. " fps"
+
             WatermarkFrames = 0
             WatermarkElapsed = 0
         end
+
         if WatermarkSecondElapsed >= 1 then
             local Ping = 0
+
             Library.Call(function()
-                Ping = math.floor(LocalPlayer:GetNetworkPing() * 1000 + 0.5)
+                Ping =
+                    math.floor(
+                        LocalPlayer:
+                            GetNetworkPing()
+                            * 1000
+                            + 0.5
+                    )
             end)
-            PingText.Text = tostring(Ping) .. " Ping"
-            ClockText.Text = os.date("%H:%M:%S")
+
+            PingText.Text =
+                tostring(Ping)
+                .. " ms"
+
+            ClockText.Text =
+                os.date("%H:%M:%S")
+
             WatermarkSecondElapsed = 0
         end
     end))
 
     SetWatermarkHidden = function(Hidden)
         Hidden = Hidden == true
-        Watermark.Visible = not Hidden
-        WatermarkGlow.Visible = not Hidden
-        Menu.Flags.HideWatermark = Hidden
-        SavedPositions.HideWatermark = Hidden
+
+        Watermark.Visible =
+            not Hidden
+
+        Menu.Flags.HideWatermark =
+            Hidden
+
+        SavedPositions.HideWatermark =
+            Hidden
+
         SavePositions()
     end
 
     SetWatermarkScale = function(Value)
-        Value = math.clamp(tonumber(Value) or 100, 70, 140)
-        WatermarkScale.Scale = Value / 100
-        Menu.Flags.WatermarkScale = Value
-        SavedPositions.WatermarkScale = Value
+        Value =
+            math.clamp(
+                tonumber(Value) or 100,
+                70,
+                140
+            )
+
+        WatermarkScale.Scale =
+            Value / 100
+
+        Menu.Flags.WatermarkScale =
+            Value
+
+        SavedPositions.WatermarkScale =
+            Value
+
         task.defer(function()
             ClampWatermark()
             SavePositions()
@@ -7343,7 +7366,6 @@ local function BuildRuntime()
 
     UpdateWatermarkSize()
     ClampWatermark()
-    SyncWatermarkGlow()
     end
 
     do
@@ -17950,7 +17972,7 @@ local function BuildAtramentaMain(Runtime)
             "/configs",
         },
         flags = Runtime.Flags or {},
-        ConfigFlags = Runtime.Setters or {},
+        config_flags = Runtime.Setters or {},
 
         connections = {},
         notifications = {notifs = {}, offset = 0},
