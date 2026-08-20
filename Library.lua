@@ -2252,11 +2252,11 @@ local function BuildRuntime()
         Flag = tostring(Flag or "Unknown")
         local Setter = Menu.Setters[Flag]
 
-        if type(Setter) == "function" then
+        if Setter then
             Setter(Value)
         else
             Menu.Flags[Flag] = Value
-            if type(Menu.BindSystem.NotifyFlagChanged) == "function" then
+            if Menu.BindSystem.NotifyFlagChanged then
                 Menu.BindSystem.NotifyFlagChanged(Flag, Value)
             end
         end
@@ -3626,6 +3626,7 @@ local function BuildRuntime()
     end
 
     Menu.BindSystem.IsModifierKey = IsModifierKey
+    Menu.BindSystem.IsModifierKey = IsModifierKey
     Menu.BindSystem.ReadModifiers = ReadModifiers
     Menu.BindSystem.BuildBindDisplay = BuildBindDisplay
     Menu.BindSystem.GetInputIdentity = GetInputIdentity
@@ -4786,7 +4787,7 @@ local function BuildRuntime()
             for _, Binding in ipairs(Bindings) do
                 local WantedState = Wanted[Binding.Key] == true
                 if Menu.Flags[Binding.Flag] ~= WantedState then
-                    Menu.BindSystem.ApplyFlagValue(Binding.Flag, WantedState)
+                    ApplyFlagValue(Binding.Flag, WantedState)
                 end
                 ApplyBinding(Binding, Menu.Flags[Binding.Flag] == true, true)
             end
@@ -4797,7 +4798,7 @@ local function BuildRuntime()
         local function ToggleBinding(Binding)
             if Options.Disabled then return end
             local NewValue = not (Menu.Flags[Binding.Flag] == true)
-            Menu.BindSystem.ApplyFlagValue(Binding.Flag, NewValue)
+            ApplyFlagValue(Binding.Flag, NewValue)
             ApplyBinding(Binding, Menu.Flags[Binding.Flag] == true, true)
             PublishMaster(true)
         end
@@ -4994,7 +4995,7 @@ local function BuildRuntime()
                 local Key = typeof(Value) .. ":" .. tostring(Value)
                 for _, Binding in ipairs(Bindings) do
                     if Binding.Key == Key then
-                        Menu.BindSystem.ApplyFlagValue(Binding.Flag, State == true)
+                        ApplyFlagValue(Binding.Flag, State == true)
                         ApplyBinding(Binding, Menu.Flags[Binding.Flag] == true, true)
                         PublishMaster(true)
                         break
@@ -5701,6 +5702,8 @@ local function BuildRuntime()
                 return false
             end
             SetSelected(Name)
+            UpdateAccentColor(Accent)
+            if Menu.RefreshDropdownIndicators then Menu.RefreshDropdownIndicators(true) end
             Notify("Configs", Name .. " loaded", "Success")
             return true
         end
@@ -8682,7 +8685,6 @@ local function BuildRuntime()
         local S = {
             Hidden = SavedPreviewHidden,
             RequestedVisible = not SavedPreviewHidden,
-            MenuVisible = false,
             Mode = SavedPreviewMode,
             LoadGeneration = 0,
             LastRetry = 0,
@@ -9675,8 +9677,24 @@ local function BuildRuntime()
 
         local function ToggleEditorFlag(Flag)
             Flag = tostring(Flag)
-            Menu.BindSystem.ApplyFlagValue(Flag, not (Menu.Flags[Flag] == true))
-            if Menu.RefreshFlagSelectors then Menu.RefreshFlagSelectors(Flag) end
+            local Value = not (Menu.Flags[Flag] == true)
+            local Apply = Menu.BindSystem and Menu.BindSystem.ApplyFlagValue
+
+            if type(Apply) == "function" then
+                Apply(Flag, Value)
+            else
+                local Setter = Menu.Setters[Flag]
+                if type(Setter) == "function" then
+                    Setter(Value)
+                else
+                    Menu.Flags[Flag] = Value
+                end
+            end
+
+            if type(Menu.RefreshFlagSelectors) == "function" then
+                Menu.RefreshFlagSelectors(Flag)
+            end
+
             UpdateEditorElementButtons()
             ApplyPreviewElementLayout()
         end
@@ -10399,7 +10417,6 @@ local function BuildRuntime()
             local Visible =
                 S.RequestedVisible == true
                 and S.Hidden ~= true
-                and S.MenuVisible ~= false
 
             S.Window.Visible = Visible
 
@@ -10435,7 +10452,6 @@ local function BuildRuntime()
         Menu.EspPreviewController.IsVisible = function()
             return S.RequestedVisible == true
                 and S.Hidden ~= true
-                and S.MenuVisible ~= false
         end
 
         Menu.EspPreviewController.SetScale = function(Value)
@@ -10446,7 +10462,6 @@ local function BuildRuntime()
         end
 
         Menu.EspPreviewController.SetMenuVisible = function(Value)
-            S.MenuVisible = Value == true
             RefreshVisibility()
         end
 
@@ -10986,18 +11001,6 @@ local function BuildRuntime()
             Main.Visible = false
             Overlay.Visible = false
             InputBlocker.Visible = false
-        end
-
-        local EspController = Menu.EspPreviewController
-        if EspController and type(EspController.SetMenuVisible) == "function" then
-            Library.Call(EspController.SetMenuVisible, State)
-        end
-
-        local PlayerController = Menu.PlayerListController
-        if PlayerController and type(PlayerController.SetMenuVisible) == "function" then
-            Library.Call(function()
-                PlayerController:SetMenuVisible(State)
-            end)
         end
 
         if Menu.QuickPanelController and Menu.QuickPanelController.Refresh then
@@ -12232,7 +12235,7 @@ local function BuildRuntime()
             Flag = Flag,
             Set = function(Value)
                 local Setter = Menu.Setters[Flag]
-                if type(Setter) == "function" then
+                if Setter then
                     Setter(Value)
                 end
             end,
@@ -12775,7 +12778,7 @@ local function BuildRuntime()
 
         local State = {
             Visible = ApiRead(Data, "Visible", Menu.Flags.PlayerListVisible == true) == true,
-            MenuVisible = Main.Visible == true,
+            MenuVisible = true,
             Scale = math.clamp(tonumber(ApiRead(Data, "Scale", SavedPositions.PlayerListScale or 100)) or 100, 70, 135) / 100,
             Selected = nil,
             Search = "",
@@ -14011,7 +14014,7 @@ local function BuildRuntime()
         function Controller:SetVisibility(Value)
             State.Visible = Value == true
             Menu.Flags.PlayerListVisible = State.Visible
-            Root.Visible = State.Visible and State.MenuVisible
+            Root.Visible = State.Visible
 
             if RootGlow then
                 RootGlow.Visible = Root.Visible
@@ -14023,8 +14026,8 @@ local function BuildRuntime()
         end
 
         function Controller:SetMenuVisible(Value)
-            State.MenuVisible = Value == true
-            Root.Visible = State.Visible and State.MenuVisible
+            State.MenuVisible = true
+            Root.Visible = State.Visible
 
             if RootGlow then
                 RootGlow.Visible = Root.Visible
@@ -15897,40 +15900,7 @@ local function BuildRuntime()
 
         local Applied = {}
 
-        local function SelectorHasSavedChild(Flag)
-            local Controller = Menu.FlagSelectorControllers and Menu.FlagSelectorControllers[Flag]
-            local ChildFlags = type(Controller) == "table" and Controller.ChildFlags or nil
-            if type(ChildFlags) ~= "table" then return false end
-
-            for ChildFlag in pairs(ChildFlags) do
-                if DecodedFlags[tostring(ChildFlag)] ~= nil then
-                    return true
-                end
-            end
-
-            return false
-        end
-
-        local function ApplyConfigFlag(Flag, Desired)
-            if FlagValuesEqual(self.Flags[Flag], Desired) then return end
-
-            local Value = CloneFlagValue(Desired)
-            local ApplySuccess = Library.Call(function()
-                self:SetFlag(Flag, Value)
-            end)
-
-            if not ApplySuccess then
-                self.Flags[Flag] = Value
-            end
-        end
-
-        local KnownFlags = {}
         for Flag in pairs(Menu.DefaultFlagKnown) do
-            KnownFlags[#KnownFlags + 1] = tostring(Flag)
-        end
-        table.sort(KnownFlags)
-
-        for _, Flag in ipairs(KnownFlags) do
             local Desired
             if DecodedFlags[Flag] ~= nil then
                 Desired = CloneFlagValue(DecodedFlags[Flag])
@@ -15940,21 +15910,15 @@ local function BuildRuntime()
 
             Applied[Flag] = true
 
-            if not SelectorHasSavedChild(Flag) then
-                ApplyConfigFlag(Flag, Desired)
+            if not FlagValuesEqual(self.Flags[Flag], Desired) then
+                Library.Call(function() self:SetFlag(Flag, Desired) end)
             end
         end
 
-        local ExtraFlags = {}
-        for Name in pairs(DecodedFlags) do
-            if not Applied[Name] then
-                ExtraFlags[#ExtraFlags + 1] = tostring(Name)
+        for Name, Value in pairs(DecodedFlags) do
+            if not Applied[Name] and not FlagValuesEqual(self.Flags[Name], Value) then
+                Library.Call(function() self:SetFlag(Name, CloneFlagValue(Value)) end)
             end
-        end
-        table.sort(ExtraFlags)
-
-        for _, Name in ipairs(ExtraFlags) do
-            ApplyConfigFlag(Name, DecodedFlags[Name])
         end
 
         local NextBinds = LoadedBinds ~= nil and DecodeValue(LoadedBinds, 0) or {}
@@ -16017,8 +15981,17 @@ local function BuildRuntime()
             if Menu.PlayerListController and Menu.PlayerListController.Refresh then Menu.PlayerListController:Refresh() end
         end
 
+        RefreshLoadedUI()
+
+        task.defer(function()
+            if Generation == Menu.ConfigLoadGeneration then RefreshLoadedUI() end
+        end)
+
+        task.delay(0.08, function()
+            if Generation == Menu.ConfigLoadGeneration then RefreshLoadedUI() end
+        end)
+
         Menu.ConfigApplying = false
-        Library.Call(RefreshLoadedUI)
         SavePositions()
         return true
     end
