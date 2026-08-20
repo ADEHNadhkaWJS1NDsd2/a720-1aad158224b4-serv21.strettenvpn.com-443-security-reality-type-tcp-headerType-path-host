@@ -9,8 +9,8 @@ local Library = {
     }
 }
 
-Library.Build = 19
-Library.BuildName = "StableAudited"
+Library.Build = 20
+Library.BuildName = "LayoutBindRework"
 
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -2496,7 +2496,7 @@ local function BuildRuntime()
             if type(BindData) ~= "table"
                 or type(BindData.KeyType) ~= "string"
                 or type(BindData.Key) ~= "string"
-                or (BindData.KeyType == "UserInputType" and BindData.Key == "MouseButton1") then
+                then
                 table.remove(Binds, Index)
             else
                 local CanonicalType,
@@ -3987,8 +3987,14 @@ local function BuildRuntime()
             Menu.BindSystem.LegacyAliases[LegacyAlias] = TargetFlag
         end
     end
+    Menu.BindModeDefaults = Menu.BindModeDefaults or {}
+    Menu.BindButtonRefreshers = Menu.BindButtonRefreshers or {}
+
     Menu.OpenDirectBindMenu = function(Anchor, Meta)
-        if not Anchor or not Anchor.Parent or type(Meta) ~= "table" then
+        if not Anchor
+            or not Anchor.Parent
+            or type(Meta) ~= "table"
+        then
             return
         end
 
@@ -3999,361 +4005,304 @@ local function BuildRuntime()
 
         PendingBindCapture = nil
 
-        local TargetFlag = tostring(Meta.Flag or Meta.Name or "Unknown")
-        local Info = type(Meta.Info) == "table" and Meta.Info or {}
-        local Binds = Menu.BindSystem.GetControlBinds(TargetFlag)
-        local DirectId = "Direct:" .. TargetFlag
-        local Existing
+        local TargetFlag =
+            tostring(
+                Meta.Flag
+                or Meta.Name
+                or "Unknown"
+            )
 
-        for _, Data in ipairs(Binds) do
-            if type(Data) == "table" and Data.Id == DirectId then
-                Existing = Data
-                break
+        local Info =
+            type(Meta.Info) == "table"
+            and Meta.Info
+            or {}
+
+        local Binds =
+            Menu.BindSystem.GetControlBinds(
+                TargetFlag
+            )
+
+        local DirectId =
+            "Direct:" .. TargetFlag
+
+        local function FindBind()
+            for _, BindData in ipairs(Binds) do
+                if type(BindData) == "table"
+                    and BindData.Id == DirectId
+                then
+                    return BindData
+                end
             end
         end
 
-        local BindMode = Existing and Existing.Mode or "Toggle"
-        local ShowInBinds = Existing == nil or Existing.ShowInBinds ~= false
-        local DesiredValue =
-            Existing and Menu.BindSystem.DecodeBindValue(Existing.Value)
-            or Menu.Flags[TargetFlag]
+        local Existing = FindBind()
 
-        if Info.Type == "Boolean" and DesiredValue == nil then
-            DesiredValue = true
-        end
+        local Mode =
+            Existing
+            and Existing.Mode
+            or Menu.BindModeDefaults[TargetFlag]
+            or "Toggle"
 
         ActiveGearBindMenu = Create("Frame", {
             Parent = ScreenGui,
             Active = true,
-            Position = UDim2.fromOffset(0, 0),
-            Size = UDim2.fromOffset(202, 176),
-            BackgroundColor3 = Background,
+            Size = UDim2.fromOffset(92, 84),
+            BackgroundColor3 = Color3.fromRGB(8, 8, 10),
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
-            ZIndex = 180
+            ZIndex = 190
         })
-        Corner(ActiveGearBindMenu, 0)
-        Stroke(ActiveGearBindMenu, Color3.fromRGB(0, 0, 0), 0, 1)
-        AddPanelChrome(ActiveGearBindMenu, 0, 180)
 
-        local Preferred = UDim2.fromOffset(
-            Anchor.AbsolutePosition.X + Anchor.AbsoluteSize.X + 6,
-            Anchor.AbsolutePosition.Y
+        Stroke(
+            ActiveGearBindMenu,
+            Color3.fromRGB(0, 0, 0),
+            0,
+            1
         )
-        PlacePopup(ActiveGearBindMenu, Preferred, {})
-        MakePopupDraggable(ActiveGearBindMenu, 22)
 
-        local Header = Create("Frame", {
+        local InnerStroke = Create("UIStroke", {
             Parent = ActiveGearBindMenu,
-            Position = UDim2.fromOffset(2, 2),
-            Size = UDim2.new(1, -4, 0, 22),
-            BackgroundColor3 = SurfaceAlt,
-            BorderSizePixel = 0,
-            ZIndex = 181
+            Color = Color3.fromRGB(55, 55, 60),
+            Transparency = 0,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            LineJoinMode = Enum.LineJoinMode.Miter
         })
 
-        local AccentLine = Create("Frame", {
-            Parent = Header,
-            AnchorPoint = Vector2.new(0, 1),
-            Position = UDim2.new(0, 0, 1, 0),
-            Size = UDim2.new(1, 0, 0, 1),
-            BackgroundColor3 = Accent,
-            BorderSizePixel = 0,
-            ZIndex = 183
-        })
-        RegisterAccentTarget(function(NewColor)
-            if AccentLine and AccentLine.Parent then AccentLine.BackgroundColor3 = NewColor end
-        end)
+        local Preferred =
+            UDim2.fromOffset(
+                Anchor.AbsolutePosition.X
+                    + Anchor.AbsoluteSize.X
+                    - 92,
+                Anchor.AbsolutePosition.Y
+                    + Anchor.AbsoluteSize.Y
+                    + 3
+            )
 
-        Create("TextLabel", {
-            Parent = Header,
-            Position = UDim2.fromOffset(7, 0),
-            Size = UDim2.new(1, -32, 1, 0),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = tostring(Meta.Name or TargetFlag) .. " bind",
-            TextColor3 = PrimaryText,
-            TextSize = 10,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 182
-        })
-
-        local Close = Create("TextButton", {
-            Parent = Header,
-            AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -4, 0.5, 0),
-            Size = UDim2.fromOffset(18, 18),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            Font = Enum.Font.BuilderSans,
-            Text = "×",
-            TextColor3 = MutedText,
-            TextSize = 13,
-            ZIndex = 184
-        })
+        PlacePopup(
+            ActiveGearBindMenu,
+            Preferred,
+            {}
+        )
 
         local ModeButtons = {}
-        local function CreateMode(Name, X, Width)
-            local Button = Create("TextButton", {
-                Parent = ActiveGearBindMenu,
-                Position = UDim2.fromOffset(X, 31),
-                Size = UDim2.fromOffset(Width, 22),
-                BackgroundColor3 = SurfaceAlt,
-                BorderSizePixel = 0,
-                AutoButtonColor = false,
-                Font = Enum.Font.BuilderSansMedium,
-                Text = Name,
-                TextColor3 = MutedText,
-                TextSize = 9,
-                ZIndex = 182
-            })
-            Stroke(Button, Color3.fromRGB(48, 48, 53), 0, 1)
-            ModeButtons[Name] = Button
-            return Button
+
+        local function RefreshButtons()
+            for Name, Button in pairs(ModeButtons) do
+                local Selected = Name == Mode
+                Button.TextColor3 =
+                    Selected
+                    and Accent
+                    or Color3.fromRGB(184, 184, 190)
+
+                local Marker =
+                    Button:FindFirstChild("Marker")
+
+                if Marker then
+                    Marker.Visible = Selected
+                    Marker.BackgroundColor3 = Accent
+                end
+            end
         end
 
-        local ToggleButton = CreateMode("Toggle", 8, 58)
-        local HoldButton = CreateMode("Hold", 72, 58)
-        local AlwaysButton = CreateMode("Always", 136, 58)
+        local function RefreshBindButton()
+            local Refresh =
+                Menu.BindButtonRefreshers[
+                    TargetFlag
+                ]
 
-        local Capture = Create("TextButton", {
-            Parent = ActiveGearBindMenu,
-            Position = UDim2.fromOffset(8, 60),
-            Size = UDim2.fromOffset(186, 25),
-            BackgroundColor3 = Color3.fromRGB(13, 13, 15),
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = Existing and tostring(Existing.Display or Existing.Key or "Press key") or "Press key",
-            TextColor3 = PrimaryText,
-            TextSize = 10,
-            ZIndex = 182
-        })
-        local CaptureStroke = Stroke(Capture, Color3.fromRGB(55, 55, 60), 0, 1)
+            if type(Refresh) == "function" then
+                Refresh()
+            end
+        end
 
-        Create("TextLabel", {
-            Parent = ActiveGearBindMenu,
-            Position = UDim2.fromOffset(9, 96),
-            Size = UDim2.fromOffset(86, 22),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSans,
-            Text = "Bind value",
-            TextColor3 = MutedText,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 182
-        })
+        local function SetMode(NewMode)
+            Mode =
+                NewMode == "Hold"
+                and "Hold"
+                or NewMode == "Always"
+                and "Always"
+                or "Toggle"
 
-        local function SaveExisting()
-            if not Existing then return end
-            Existing.Mode = BindMode
-            Existing.ShowInBinds = ShowInBinds
-            Existing.ControlType = tostring(Info.Type or typeof(Menu.Flags[TargetFlag]))
-            Existing.Value = Menu.BindSystem.EncodeBindValue(DesiredValue)
-            SavePositions()
+            Menu.BindModeDefaults[
+                TargetFlag
+            ] = Mode
 
-            if BindMode == "Always" then
-                Menu.BindSystem.ExecutePressed(TargetFlag, Existing)
+            Existing = FindBind()
+
+            if Existing then
+                local PreviousMode = Existing.Mode
+
+                if PreviousMode == "Always"
+                    and Mode ~= "Always"
+                    and Existing.BaseValue ~= nil
+                then
+                    Menu.BindSystem.ApplyFlagValue(
+                        TargetFlag,
+                        Menu.BindSystem.DecodeBindValue(
+                            Existing.BaseValue
+                        )
+                    )
+                end
+
+                Existing.Mode = Mode
+
+                local GateFlag =
+                    Info.GateFlag
+
+                Existing.GateFlag =
+                    Mode == "Hold"
+                    and type(GateFlag) == "string"
+                    and GateFlag ~= ""
+                    and GateFlag
+                    or nil
+
+                if Mode == "Always" then
+                    Menu.BindSystem.ExecutePressed(
+                        TargetFlag,
+                        Existing
+                    )
+                end
+
+                SavePositions()
             end
 
-            if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
+            RefreshButtons()
+            RefreshBindButton()
+
+            if Menu.KeybindListController
+                and Menu.KeybindListController.MarkDirty
+            then
                 Menu.KeybindListController.MarkDirty()
             end
         end
 
-        CreateValueControl(
-            ActiveGearBindMenu,
-            {
-                Flag = TargetFlag,
-                Name = Meta.Name,
-                Info = Info
-            },
-            DesiredValue,
-            function(Value)
-                DesiredValue = Value
-                SaveExisting()
-            end
-        )
+        local function CreateMode(Name, Y)
+            local Button = Create("TextButton", {
+                Parent = ActiveGearBindMenu,
+                Position = UDim2.fromOffset(3, Y),
+                Size = UDim2.new(1, -6, 0, 18),
+                BackgroundColor3 = Color3.fromRGB(13, 13, 15),
+                BackgroundTransparency = 0,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Font = Enum.Font.BuilderSansMedium,
+                Text = Name,
+                TextColor3 = Color3.fromRGB(184, 184, 190),
+                TextSize = 9,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 191
+            })
 
-        local ShowLabel = Create("TextButton", {
-            Parent = ActiveGearBindMenu,
-            Position = UDim2.fromOffset(8, 127),
-            Size = UDim2.fromOffset(120, 20),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            Font = Enum.Font.BuilderSans,
-            Text = "",
-            TextColor3 = MutedText,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 182
-        })
+            Create("UIPadding", {
+                Parent = Button,
+                PaddingLeft = UDim.new(0, 11)
+            })
 
-        local ShowBox = Create("Frame", {
-            Parent = ShowLabel,
-            Position = UDim2.fromOffset(0, 4),
-            Size = UDim2.fromOffset(12, 12),
-            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-            BorderSizePixel = 0,
-            ZIndex = 183
-        })
+            Create("Frame", {
+                Parent = Button,
+                Name = "Marker",
+                Position = UDim2.fromOffset(3, 7),
+                Size = UDim2.fromOffset(3, 3),
+                BackgroundColor3 = Accent,
+                BorderSizePixel = 0,
+                Visible = false,
+                ZIndex = 192
+            })
 
-        local ShowInline = Create("Frame", {
-            Parent = ShowBox,
-            Position = UDim2.fromOffset(1, 1),
-            Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = Color3.fromRGB(55, 55, 60),
-            BorderSizePixel = 0,
-            ZIndex = 184
-        })
+            ModeButtons[Name] = Button
 
-        local ShowFill = Create("Frame", {
-            Parent = ShowInline,
-            Position = UDim2.fromOffset(1, 1),
-            Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = Accent,
-            BorderSizePixel = 0,
-            ZIndex = 185
-        })
-        RegisterAccentTarget(function(NewColor)
-            if ShowFill and ShowFill.Parent then ShowFill.BackgroundColor3 = NewColor end
-        end)
+            Bind(
+                Button.MouseButton1Click:
+                    Connect(function()
+                        SetMode(Name)
+                    end)
+            )
+        end
 
-        Create("TextLabel", {
-            Parent = ShowLabel,
-            Position = UDim2.fromOffset(18, 0),
-            Size = UDim2.new(1, -18, 1, 0),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSans,
-            Text = "Show in keybinds",
-            TextColor3 = MutedText,
-            TextSize = 9,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 183
-        })
+        CreateMode("Toggle", 3)
+        CreateMode("Hold", 23)
+        CreateMode("Always", 43)
 
         local Clear = Create("TextButton", {
             Parent = ActiveGearBindMenu,
-            AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, -8, 0, 127),
-            Size = UDim2.fromOffset(58, 20),
+            Position = UDim2.fromOffset(3, 63),
+            Size = UDim2.new(1, -6, 0, 18),
             BackgroundColor3 = Color3.fromRGB(13, 13, 15),
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
             Text = "Clear",
             TextColor3 = Danger,
             TextSize = 9,
-            ZIndex = 182
-        })
-        Stroke(Clear, Color3.fromRGB(55, 55, 60), 0, 1)
-
-        Create("TextLabel", {
-            Parent = ActiveGearBindMenu,
-            Position = UDim2.fromOffset(8, 151),
-            Size = UDim2.new(1, -16, 0, 17),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSans,
-            Text = "RMB control to edit bind",
-            TextColor3 = DisabledText,
-            TextSize = 8,
             TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 182
+            ZIndex = 191
         })
 
-        local function RefreshMode()
-            for Name, Button in pairs(ModeButtons) do
-                local Selected = Name == BindMode
-                Button.BackgroundColor3 = Selected and Accent or SurfaceAlt
-                Button.TextColor3 = Selected and Background or MutedText
-            end
-            ShowFill.Visible = ShowInBinds
-        end
+        Create("UIPadding", {
+            Parent = Clear,
+            PaddingLeft = UDim.new(0, 11)
+        })
 
-        local function SetMode(Mode)
-            BindMode = Mode
-            RefreshMode()
-            SaveExisting()
-        end
+        Bind(
+            Clear.MouseButton1Click:
+                Connect(function()
+                    for Index = #Binds, 1, -1 do
+                        local BindData =
+                            Binds[Index]
 
-        Bind(ToggleButton.MouseButton1Click:Connect(function() SetMode("Toggle") end))
-        Bind(HoldButton.MouseButton1Click:Connect(function() SetMode("Hold") end))
-        Bind(AlwaysButton.MouseButton1Click:Connect(function() SetMode("Always") end))
+                        if type(BindData) == "table"
+                            and BindData.Id == DirectId
+                        then
+                            local RuntimeKey =
+                                Menu.BindSystem.GetRuntimeKey(
+                                    TargetFlag,
+                                    BindData
+                                )
 
-        Bind(ShowLabel.MouseButton1Click:Connect(function()
-            ShowInBinds = not ShowInBinds
-            RefreshMode()
-            SaveExisting()
-        end))
-
-        Bind(Clear.MouseButton1Click:Connect(function()
-            for Index = #Binds, 1, -1 do
-                if type(Binds[Index]) == "table" and Binds[Index].Id == DirectId then
-                    table.remove(Binds, Index)
-                end
-            end
-            Existing = nil
-            Capture.Text = "Press key"
-            PendingBindCapture = nil
-            SavePositions()
-            if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
-                Menu.KeybindListController.MarkDirty()
-            end
-        end))
-
-        Bind(Close.MouseButton1Click:Connect(function()
-            PendingBindCapture = nil
-            if ActiveGearBindMenu then
-                ActiveGearBindMenu:Destroy()
-                ActiveGearBindMenu = nil
-            end
-        end))
-
-        Bind(Capture.MouseButton1Click:Connect(function()
-            Capture.Text = "Press key..."
-            Capture.TextColor3 = Accent
-            CaptureStroke.Color = Accent
-
-            PendingBindCapture = {
-                Meta = {
-                    Flag = TargetFlag,
-                    Name = Meta.Name,
-                    Info = Info
-                },
-                BindId = DirectId,
-                Mode = function()
-                    return BindMode
-                end,
-                Value = function()
-                    return DesiredValue
-                end,
-                ShowInBinds = function()
-                    return ShowInBinds
-                end,
-                SetText = function(TextValue)
-                    if Capture and Capture.Parent then
-                        Capture.Text = TextValue
-                        Capture.TextColor3 = PrimaryText
-                        CaptureStroke.Color = Color3.fromRGB(55, 55, 60)
-
-                        local UpdatedBinds = Menu.BindSystem.GetControlBinds(TargetFlag)
-                        Existing = nil
-                        for _, Data in ipairs(UpdatedBinds) do
-                            if type(Data) == "table" and Data.Id == DirectId then
-                                Existing = Data
-                                break
+                            if Menu.BindRuntime[
+                                RuntimeKey
+                            ] then
+                                Menu.BindSystem.ReleaseHold(
+                                    RuntimeKey
+                                )
+                            elseif BindData.Mode == "Always"
+                                and BindData.BaseValue ~= nil
+                            then
+                                Menu.BindSystem.ApplyFlagValue(
+                                    TargetFlag,
+                                    Menu.BindSystem.DecodeBindValue(
+                                        BindData.BaseValue
+                                    )
+                                )
                             end
+
+                            table.remove(
+                                Binds,
+                                Index
+                            )
                         end
                     end
-                end
-            }
-        end))
 
-        RefreshMode()
+                    SavePositions()
+                    RefreshBindButton()
+
+                    if Menu.KeybindListController
+                        and Menu.KeybindListController.MarkDirty
+                    then
+                        Menu.KeybindListController.MarkDirty()
+                    end
+
+                    if ActiveGearBindMenu then
+                        ActiveGearBindMenu:Destroy()
+                        ActiveGearBindMenu = nil
+                    end
+                end)
+        )
+
+        RefreshButtons()
     end
-
 
     Menu.BindSystem.NormalizeStorage = function()
         SavedPositions.ControlBinds = SavedPositions.ControlBinds or {}
@@ -12326,13 +12275,6 @@ local function BuildRuntime()
             return false
         end
 
-        if KeyType == "UserInputType" and KeyName == "MouseButton1" then
-            if PendingBindCapture.SetText then
-                PendingBindCapture.SetText("LMB unavailable")
-            end
-            return true
-        end
-
         local Meta = PendingBindCapture.Meta
         local TargetFlag = Meta and tostring(Meta.Flag or "") or ""
 
@@ -19874,7 +19816,7 @@ local function BuildAtramentaMain(Runtime)
                     Name = "",
                     SortOrder = Enum.SortOrder.LayoutOrder,
                     HorizontalAlignment = Enum.HorizontalAlignment.Center,
-                    Padding = dim(0, 3)
+                    Padding = dim(0, 5)
                 })
                 
                 local empty_space = library:create("Frame", {
@@ -20709,11 +20651,11 @@ local function BuildAtramentaMain(Runtime)
                         BorderColor3 = rgb(0, 0, 0),
                         Text = "",
                         ZIndex = 2,
-                        Size = dim2(1, -8, 0, 12),
+                        Size = dim2(1, -8, 0, cfg.name and 40 or 24),
                         BorderSizePixel = 0,
                         BackgroundTransparency = 1,
                         TextXAlignment = Enum.TextXAlignment.Left,
-                        AutomaticSize = Enum.AutomaticSize.Y,
+                        AutomaticSize = Enum.AutomaticSize.None,
                         TextYAlignment = Enum.TextYAlignment.Top,
                         TextSize = 11,
                         BackgroundColor3 = rgb(255, 255, 255)
@@ -20724,9 +20666,10 @@ local function BuildAtramentaMain(Runtime)
                     cfg["right_components"] = library:create("Frame", {
                         Parent = dropdown_path,
                         Name = "",
-                        Position = dim2(1, 0, 0, -1),
+                        AnchorPoint = vec2(1, 0),
+                        Position = dim2(1, -2, 0, 1),
                         BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(0, 0, 0, 12),
+                        Size = dim2(0, 0, 0, 14),
                         BorderSizePixel = 0,
                         BackgroundColor3 = rgb(255, 255, 255)
                     })
@@ -20744,9 +20687,9 @@ local function BuildAtramentaMain(Runtime)
                     local bottom_components = library:create("Frame", {
                         Parent = dropdown_path,
                         Name = "",
-                        Position = dim2(0, 15, 0, cfg.name and 11 or 0),
+                        Position = dim2(0, 2, 0, cfg.name and 17 or 2),
                         BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, self.background and 2 or -6, 0, 0),
+                        Size = dim2(1, -4, 0, 20),
                         BorderSizePixel = 0,
                         BackgroundColor3 = rgb(255, 255, 255)
                     })
@@ -20756,9 +20699,9 @@ local function BuildAtramentaMain(Runtime)
                         Name = "",
                         AutoButtonColor = false, 
                         Text = "",
-                        Position = dim2(0, 0, 0, 2),
+                        Position = dim2(0, 0, 0, 0),
                         BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, -27, 1, 20),
+                        Size = dim2(1, 0, 0, 20),
                         BorderSizePixel = 0,
                         BackgroundColor3 = rgb(1, 1, 1)
                     })
@@ -20816,7 +20759,7 @@ local function BuildAtramentaMain(Runtime)
                             Parent = dropdown_path,
                             Name = "",
                             BackgroundTransparency = 1,
-                            Position = dim2(0, 16, 0, 1),
+                            Position = dim2(0, 2, 0, 1),
                             BorderColor3 = rgb(0, 0, 0),
                             Size = dim2(0, 0, 0, 14),
                             BorderSizePixel = 0,
@@ -21126,12 +21069,12 @@ local function BuildAtramentaMain(Runtime)
                         BorderColor3 = rgb(0, 0, 0),
                         Text = "",
                         ZIndex = 2,
-                        Size = dim2(1, -8, 0, 12),
+                        Size = dim2(1, -8, 0, 18),
                         BorderSizePixel = 0,
                         BackgroundTransparency = 1,
                         TextXAlignment = Enum.TextXAlignment.Left,
-                        AutomaticSize = Enum.AutomaticSize.Y,
-                        TextYAlignment = Enum.TextYAlignment.Top,
+                        AutomaticSize = Enum.AutomaticSize.None,
+                        TextYAlignment = Enum.TextYAlignment.Center,
                         TextSize = 11,
                         BackgroundColor3 = rgb(255, 255, 255)
                     })
@@ -21234,11 +21177,11 @@ local function BuildAtramentaMain(Runtime)
                         BorderColor3 = rgb(0, 0, 0),
                         Text = "",
                         ZIndex = 2,
-                        Size = dim2(1, -8, 0, 12),
+                        Size = dim2(1, -8, 0, 40),
                         BorderSizePixel = 0,
                         BackgroundTransparency = 1,
                         TextXAlignment = Enum.TextXAlignment.Left,
-                        AutomaticSize = Enum.AutomaticSize.Y,
+                        AutomaticSize = Enum.AutomaticSize.None,
                         TextYAlignment = Enum.TextYAlignment.Top,
                         TextSize = 11,
                         BackgroundColor3 = rgb(255, 255, 255)
@@ -21249,9 +21192,9 @@ local function BuildAtramentaMain(Runtime)
                     local bottom_components = library:create("Frame", {
                         Parent = textbox_holder,
                         Name = "",
-                        Position = dim2(0, 14, 0, 13),
+                        Position = dim2(0, 2, 0, 17),
                         BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, -6, 0, 0),
+                        Size = dim2(1, -4, 0, 20),
                         BorderSizePixel = 0,
                         BackgroundColor3 = rgb(255, 255, 255)
                     })
@@ -21259,9 +21202,9 @@ local function BuildAtramentaMain(Runtime)
                     local textbox = library:create("Frame", {
                         Parent = bottom_components,
                         Name = "",
-                        Position = dim2(0, -1, 0, 2),
+                        Position = dim2(0, 0, 0, 0),
                         BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, -27, 1, 20),
+                        Size = dim2(1, 0, 0, 20),
                         BorderSizePixel = 0,
                         BackgroundColor3 = rgb(1, 1, 1)
                     })
@@ -21296,13 +21239,14 @@ local function BuildAtramentaMain(Runtime)
                         RichText = true,
                         TextColor3 = rgb(178, 178, 178),
                         BorderColor3 = rgb(0, 0, 0),
-                        Text = "IF I SEE WEED I GOTTA LIGHT IT",
+                        Text = tostring(cfg.default or ""),
                         CursorPosition = -1,
                         BackgroundTransparency = 1,
                         TextXAlignment = Enum.TextXAlignment.Left,
                         Position = dim2(0, 6, 0, 0),
                         BorderSizePixel = 0,
-                        PlaceholderColor3 = rgb(178, 178, 178),
+                        PlaceholderText = cfg.placeholder,
+                        PlaceholderColor3 = rgb(115, 115, 120),
                         BackgroundColor3 = rgb(255, 255, 255)
                     })
                     
@@ -21327,7 +21271,7 @@ local function BuildAtramentaMain(Runtime)
                         Parent = textbox_holder,
                         Name = "",
                         BackgroundTransparency = 1,
-                        Position = dim2(0, 16, 0, 1),
+                        Position = dim2(0, 2, 0, 1),
                         BorderColor3 = rgb(0, 0, 0),
                         Size = dim2(0, 0, 0, 14),
                         BorderSizePixel = 0,
@@ -21585,22 +21529,24 @@ local function BuildAtramentaMain(Runtime)
                         BorderColor3 = rgb(0, 0, 0),
                         Text = "",
                         ZIndex = 2,
-                        Size = dim2(1, -8, 0, 12),
+                        Size = dim2(1, -8, 0, cfg.scale + (cfg.name and 22 or 6)),
                         BorderSizePixel = 0,
                         BackgroundTransparency = 1,
                         TextXAlignment = Enum.TextXAlignment.Left,
-                        AutomaticSize = Enum.AutomaticSize.Y,
+                        AutomaticSize = Enum.AutomaticSize.None,
                         TextYAlignment = Enum.TextYAlignment.Top,
                         TextSize = 11,
                         BackgroundColor3 = rgb(255, 255, 255)
                     })
                     
+                    cfg.root = list_path
+
                     local bottom_components = library:create("Frame", {
                         Parent = list_path,
                         Name = "",
-                        Position = dim2(0, 15, 0, cfg.name and 11 or 0),
+                        Position = dim2(0, 2, 0, cfg.name and 18 or 2),
                         BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, self.background and 2 or -6, 0, 0),
+                        Size = dim2(1, -4, 0, cfg.scale),
                         BorderSizePixel = 0,
                         BackgroundColor3 = rgb(255, 255, 255)
                     })
@@ -21610,9 +21556,9 @@ local function BuildAtramentaMain(Runtime)
                         Name = "",
                         AutoButtonColor = false, 
                         Text = "",
-                        Position = dim2(0, 0, 0, 2),
+                        Position = dim2(0, 0, 0, 0),
                         BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, -27, 0, cfg.scale),
+                        Size = dim2(1, 0, 0, cfg.scale),
                         BorderSizePixel = 0,
                         BackgroundColor3 = rgb(1, 1, 1)
                     })
@@ -21686,7 +21632,7 @@ local function BuildAtramentaMain(Runtime)
                             Parent = list_path,
                             Name = "",
                             BackgroundTransparency = 1,
-                            Position = dim2(0, 16, 0, 1),
+                            Position = dim2(0, 2, 0, 1),
                             BorderColor3 = rgb(0, 0, 0),
                             Size = dim2(0, 0, 0, 14),
                             BorderSizePixel = 0,
@@ -22810,171 +22756,537 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
             return Raw
         end
 
-        Flag = tostring(Flag or Name or "Unknown")
-        Name = tostring(Name or Flag)
-        Info = type(Info) == "table" and Info or {}
+        Flag =
+            tostring(
+                Flag
+                or Name
+                or "Unknown"
+            )
 
-        local Target = Anchor or Raw.root or Raw.outline or Raw.button
+        Name =
+            tostring(
+                Name
+                or Flag
+            )
 
-        if Runtime.BindSystem and type(Runtime.BindSystem.RegisterTarget) == "function" then
-            Runtime.BindSystem.RegisterTarget(Flag, Name, Info.GateFlag, nil, Info)
+        Info =
+            type(Info) == "table"
+            and Info
+            or {}
+
+        local Host =
+            EnsureControlAccessoryHost(
+                Raw,
+                Info
+            )
+
+        if Runtime.BindSystem
+            and type(
+                Runtime.BindSystem.RegisterTarget
+            ) == "function"
+        then
+            Runtime.BindSystem.RegisterTarget(
+                Flag,
+                Name,
+                Info.GateFlag,
+                nil,
+                Info
+            )
         end
 
-        if type(Raw.set) == "function" and not Raw.__AtramentaBindWrapped then
+        if type(Raw.set) == "function"
+            and not Raw.__AtramentaBindWrapped
+        then
             local OriginalSet = Raw.set
+
             Raw.set = function(Value, ...)
-                local Result = OriginalSet(Value, ...)
-                Runtime.Flags[Flag] = MainLibrary.flags[Flag]
+                local Result =
+                    OriginalSet(
+                        Value,
+                        ...
+                    )
+
+                Runtime.Flags[Flag] =
+                    MainLibrary.flags[
+                        Flag
+                    ]
+
                 return Result
             end
+
             Raw.__AtramentaBindWrapped = true
-            MainLibrary.config_flags[Flag] = Raw.set
-            Runtime.Setters[Flag] = function(Value)
-                return Raw.set(Value)
-            end
+            MainLibrary.config_flags[Flag] =
+                Raw.set
+
+            Runtime.Setters[Flag] =
+                function(Value)
+                    return Raw.set(Value)
+                end
         elseif Info.Type == "Action" then
             Runtime.Flags[Flag] = false
-            Runtime.Setters[Flag] = function()
-                if type(Raw.callback) == "function" then
-                    Raw.callback()
-                end
-            end
-        end
 
-        Runtime.Flags[Flag] = MainLibrary.flags[Flag] ~= nil and MainLibrary.flags[Flag] or Runtime.Flags[Flag]
-
-        if typeof(Target) == "Instance" and Target:IsA("GuiObject") then
-            Target.Active = true
-            Target.InputBegan:Connect(function(Input)
-                if Input.UserInputType == Enum.UserInputType.MouseButton2 then
-                    if Runtime and type(Runtime.OpenDirectBindMenu) == "function" then
-                        Runtime.OpenDirectBindMenu(Target, {
-                            Flag = Flag,
-                            Name = Name,
-                            Info = Info
-                        })
+            Runtime.Setters[Flag] =
+                function()
+                    if type(Raw.callback) == "function" then
+                        Raw.callback()
                     end
                 end
-            end)
         end
 
-        Raw.Keybind = function(Control, KeyData)
-            KeyData = type(KeyData) == "table" and KeyData or {}
+        Runtime.Flags[Flag] =
+            MainLibrary.flags[Flag] ~= nil
+            and MainLibrary.flags[Flag]
+            or Runtime.Flags[Flag]
 
-            local Key = HybridRead(
-                KeyData,
-                "Default",
-                HybridRead(KeyData, "Key", nil)
-            )
+        local BindButton
 
-            local Mode = tostring(HybridRead(KeyData, "Mode", "Toggle"))
-            Mode =
-                string.lower(Mode) == "hold" and "Hold"
-                or string.lower(Mode) == "always" and "Always"
-                or "Toggle"
-
-            local GateFlag = HybridRead(
-                KeyData,
-                "EnabledFlag",
-                HybridRead(KeyData, "GateFlag", Info.GateFlag)
-            )
-
-            local LegacyBindFlag = HybridRead(KeyData, "Flag")
-            if type(LegacyBindFlag) == "string"
-                and LegacyBindFlag ~= ""
-                and Runtime.BindSystem
-                and type(Runtime.BindSystem.RegisterTarget) == "function"
-            then
-                Runtime.BindSystem.RegisterTarget(
-                    Flag,
-                    Name,
-                    GateFlag,
-                    LegacyBindFlag,
-                    Info
+        if Host
+            and typeof(
+                Host.right_components
+            ) == "Instance"
+        then
+            BindButton =
+                MainLibrary:create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Host.right_components,
+                        Name = "",
+                        LayoutOrder = 1000,
+                        Size =
+                            UDim2.fromOffset(
+                                38,
+                                13
+                            ),
+                        BackgroundColor3 =
+                            Color3.fromRGB(
+                                0,
+                                0,
+                                0
+                            ),
+                        BorderSizePixel = 0,
+                        AutoButtonColor = false,
+                        FontFace =
+                            MainLibrary.font,
+                        Text = "[--]",
+                        TextColor3 =
+                            Color3.fromRGB(
+                                145,
+                                145,
+                                151
+                            ),
+                        TextSize = 9,
+                        ZIndex =
+                            (
+                                Host.root
+                                and Host.root.ZIndex
+                                or 1
+                            )
+                            + 7
+                    }
                 )
-            end
 
-            if typeof(Key) ~= "EnumItem" then
-                return Control
-            end
+            MainLibrary:create("UIStroke", {
+                Parent = BindButton,
+                Color = Color3.fromRGB(52, 52, 57),
+                Transparency = 0,
+                Thickness = 1,
+                ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                LineJoinMode = Enum.LineJoinMode.Miter
+            })
 
-            local KeyType =
-                tostring(Key.EnumType):find("UserInputType", 1, true)
-                and "UserInputType"
-                or "KeyCode"
+            local function FindDirectBind()
+                local Binds =
+                    Runtime.BindSystem.GetControlBinds(
+                        Flag
+                    )
 
-            local Binds = Runtime.BindSystem.GetControlBinds(Flag)
-            local Id = "Direct:" .. Flag
+                local DirectId =
+                    "Direct:"
+                    .. Flag
 
-            for Index = #Binds, 1, -1 do
-                if type(Binds[Index]) == "table"
-                    and Binds[Index].Id == Id
-                then
-                    table.remove(Binds, Index)
+                for _, BindData in ipairs(Binds) do
+                    if type(BindData) == "table"
+                        and BindData.Id == DirectId
+                    then
+                        return BindData
+                    end
                 end
             end
 
-            local Modifiers = {
-                Ctrl = false,
-                Shift = false,
-                Alt = false
-            }
+            local function RefreshBind()
+                if not BindButton
+                    or not BindButton.Parent
+                then
+                    return
+                end
 
-            local Entry = {
-                Id = Id,
-                KeyType = KeyType,
-                Key = Key.Name,
-                Modifiers = Modifiers,
-                Display = Runtime.BindSystem.BuildBindDisplay(
-                    Key.Name,
-                    Modifiers
-                ),
-                Mode = Mode,
-                ShowInBinds =
-                    HybridRead(KeyData, "ShowInBinds", true) ~= false,
-                GateFlag =
-                    Mode == "Hold"
-                    and type(GateFlag) == "string"
-                    and GateFlag ~= ""
-                    and GateFlag
-                    or nil,
-                ControlType =
-                    tostring(Info.Type or typeof(Runtime.Flags[Flag])),
-                Value = Runtime.BindSystem.EncodeBindValue(
-                    Info.Type == "Boolean"
-                    and true
-                    or Runtime.Flags[Flag]
-                ),
-                BaseValue =
-                    Runtime.BindSystem.EncodeBindValue(
-                        Runtime.Flags[Flag]
-                    )
-            }
+                local BindData =
+                    FindDirectBind()
 
-            Binds[#Binds + 1] = Entry
+                if BindData then
+                    local Display =
+                        Runtime.BindSystem.BuildBindDisplay(
+                            BindData.Key,
+                            BindData.Modifiers
+                        )
 
-            if Runtime.SavePositions then
-                Runtime.SavePositions()
+                    BindButton.Text =
+                        "["
+                        .. tostring(Display)
+                        .. "]"
+
+                    BindButton.TextColor3 =
+                        Accent
+                else
+                    BindButton.Text =
+                        "[--]"
+
+                    BindButton.TextColor3 =
+                        Color3.fromRGB(
+                            145,
+                            145,
+                            151
+                        )
+                end
             end
 
-            if Runtime.KeybindListController
-                and Runtime.KeybindListController.MarkDirty
-            then
-                Runtime.KeybindListController.MarkDirty()
-            end
+            Menu.BindButtonRefreshers[
+                Flag
+            ] = RefreshBind
 
-            if Mode == "Always" then
-                Runtime.BindSystem.ExecutePressed(Flag, Entry)
-            end
+            Raw.BindButton =
+                BindButton
 
-            return Control
+            Bind(
+                BindButton.MouseButton1Click:
+                    Connect(function()
+                        local Binds =
+                            Runtime.BindSystem.GetControlBinds(
+                                Flag
+                            )
+
+                        local DirectId =
+                            "Direct:"
+                            .. Flag
+
+                        local Existing
+
+                        for _, BindData in ipairs(Binds) do
+                            if type(BindData) == "table"
+                                and BindData.Id == DirectId
+                            then
+                                Existing = BindData
+                                break
+                            end
+                        end
+
+                        BindButton.Text =
+                            "[...]"
+
+                        BindButton.TextColor3 =
+                            Accent
+
+                        PendingBindCapture = {
+                            Meta = {
+                                Flag = Flag,
+                                Name = Name,
+                                Info = Info
+                            },
+                            BindId = DirectId,
+                            Mode = function()
+                                return Existing
+                                    and Existing.Mode
+                                    or Menu.BindModeDefaults[
+                                        Flag
+                                    ]
+                                    or "Toggle"
+                            end,
+                            Value = function()
+                                if Info.Type == "Boolean" then
+                                    return true
+                                end
+
+                                return Runtime.Flags[
+                                    Flag
+                                ]
+                            end,
+                            ShowInBinds =
+                                function()
+                                    return true
+                                end,
+                            SetText =
+                                function()
+                                    RefreshBind()
+                                end
+                        }
+                    end)
+            )
+
+            Bind(
+                BindButton.InputBegan:
+                    Connect(function(Input)
+                        if Input.UserInputType
+                            ~= Enum.UserInputType.MouseButton2
+                        then
+                            return
+                        end
+
+                        PendingBindCapture = nil
+
+                        Runtime.OpenDirectBindMenu(
+                            BindButton,
+                            {
+                                Flag = Flag,
+                                Name = Name,
+                                Info = Info
+                            }
+                        )
+                    end)
+            )
+
+            RegisterAccentTarget(
+                function()
+                    RefreshBind()
+                end
+            )
+
+            RefreshBind()
         end
+
+        Raw.Keybind =
+            function(Control, KeyData)
+                KeyData =
+                    type(KeyData) == "table"
+                    and KeyData
+                    or {}
+
+                local Key =
+                    HybridRead(
+                        KeyData,
+                        "Default",
+                        HybridRead(
+                            KeyData,
+                            "Key",
+                            nil
+                        )
+                    )
+
+                local Mode =
+                    tostring(
+                        HybridRead(
+                            KeyData,
+                            "Mode",
+                            "Toggle"
+                        )
+                    )
+
+                Mode =
+                    string.lower(Mode)
+                        == "hold"
+                    and "Hold"
+                    or string.lower(Mode)
+                        == "always"
+                    and "Always"
+                    or "Toggle"
+
+                Menu.BindModeDefaults[
+                    Flag
+                ] = Mode
+
+                local GateFlag =
+                    HybridRead(
+                        KeyData,
+                        "EnabledFlag",
+                        HybridRead(
+                            KeyData,
+                            "GateFlag",
+                            Info.GateFlag
+                        )
+                    )
+
+                local BindAlias =
+                    HybridRead(
+                        KeyData,
+                        "Flag"
+                    )
+
+                if type(BindAlias) == "string"
+                    and BindAlias ~= ""
+                    and Runtime.BindSystem
+                    and type(
+                        Runtime.BindSystem.RegisterTarget
+                    ) == "function"
+                then
+                    Runtime.BindSystem.RegisterTarget(
+                        Flag,
+                        Name,
+                        GateFlag,
+                        BindAlias,
+                        Info
+                    )
+                end
+
+                if typeof(Key)
+                    ~= "EnumItem"
+                then
+                    if BindButton then
+                        local Refresh =
+                            Menu.BindButtonRefreshers[
+                                Flag
+                            ]
+
+                        if type(Refresh)
+                            == "function"
+                        then
+                            Refresh()
+                        end
+                    end
+
+                    return Control
+                end
+
+                local KeyType =
+                    tostring(
+                        Key.EnumType
+                    ):find(
+                        "UserInputType",
+                        1,
+                        true
+                    )
+                    and "UserInputType"
+                    or "KeyCode"
+
+                local Binds =
+                    Runtime.BindSystem.GetControlBinds(
+                        Flag
+                    )
+
+                local DirectId =
+                    "Direct:"
+                    .. Flag
+
+                for Index =
+                    #Binds,
+                    1,
+                    -1
+                do
+                    if type(
+                        Binds[Index]
+                    ) == "table"
+                        and Binds[Index].Id
+                            == DirectId
+                    then
+                        table.remove(
+                            Binds,
+                            Index
+                        )
+                    end
+                end
+
+                local Modifiers = {
+                    Ctrl = false,
+                    Shift = false,
+                    Alt = false
+                }
+
+                local Entry = {
+                    Id = DirectId,
+                    KeyType = KeyType,
+                    Key = Key.Name,
+                    Modifiers =
+                        Modifiers,
+                    Display =
+                        Runtime.BindSystem.BuildBindDisplay(
+                            Key.Name,
+                            Modifiers
+                        ),
+                    Mode = Mode,
+                    ShowInBinds =
+                        HybridRead(
+                            KeyData,
+                            "ShowInBinds",
+                            true
+                        )
+                        ~= false,
+                    GateFlag =
+                        Mode == "Hold"
+                        and type(GateFlag)
+                            == "string"
+                        and GateFlag
+                            ~= ""
+                        and GateFlag
+                        or nil,
+                    ControlType =
+                        tostring(
+                            Info.Type
+                            or typeof(
+                                Runtime.Flags[
+                                    Flag
+                                ]
+                            )
+                        ),
+                    Value =
+                        Runtime.BindSystem.EncodeBindValue(
+                            Info.Type
+                                == "Boolean"
+                            and true
+                            or Runtime.Flags[
+                                Flag
+                            ]
+                        ),
+                    BaseValue =
+                        Runtime.BindSystem.EncodeBindValue(
+                            Runtime.Flags[
+                                Flag
+                            ]
+                        )
+                }
+
+                Binds[#Binds + 1] =
+                    Entry
+
+                if Runtime.SavePositions then
+                    Runtime.SavePositions()
+                end
+
+                local Refresh =
+                    Menu.BindButtonRefreshers[
+                        Flag
+                    ]
+
+                if type(Refresh)
+                    == "function"
+                then
+                    Refresh()
+                end
+
+                if Runtime.KeybindListController
+                    and Runtime.KeybindListController.MarkDirty
+                then
+                    Runtime.KeybindListController.MarkDirty()
+                end
+
+                if Mode == "Always" then
+                    Runtime.BindSystem.ExecutePressed(
+                        Flag,
+                        Entry
+                    )
+                end
+
+                return Control
+            end
 
         Raw.KeyBind = Raw.Keybind
         Raw.keybind = Raw.Keybind
         Raw.keyBind = Raw.Keybind
 
-        AttachColorpickerApi(Raw, Flag, Name, Info)
+        AttachColorpickerApi(
+            Raw,
+            Flag,
+            Name,
+            Info
+        )
 
         return Raw
     end
@@ -23224,51 +23536,71 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
 
     function SectionMethods:Keybind(Data)
         Data = Data or {}
-        local Name = tostring(HybridRead(Data, "Name", "Keybind"))
-        local Flag = HybridFlag(Data, Name)
-        local Host = CreateAccessoryHost(self.Raw, Name)
 
-        local Button = MainLibrary:create("TextButton", {
-            Parent = Host.right_components,
-            Size = UDim2.fromOffset(62, 14),
-            BackgroundColor3 = Color3.fromRGB(13, 13, 15),
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            FontFace = MainLibrary.font,
-            Text = "RMB",
-            TextColor3 = Color3.fromRGB(175, 175, 181),
-            TextSize = 10
-        })
-        MainLibrary:create("UIStroke", {
-            Parent = Button,
-            Color = Color3.fromRGB(54, 54, 59),
-            Thickness = 1
-        })
+        local Name =
+            tostring(
+                HybridRead(
+                    Data,
+                    "Name",
+                    "Keybind"
+                )
+            )
+
+        local Flag =
+            HybridFlag(
+                Data,
+                Name
+            )
+
+        local Host =
+            CreateAccessoryHost(
+                self.Raw,
+                Name
+            )
 
         local Raw = {
             root = Host.root,
-            button = Button,
-            right_components = Host.right_components,
+            right_components =
+                Host.right_components,
             flag = Flag,
             name = Name
         }
 
         MainLibrary.flags[Flag] = false
         Runtime.Flags[Flag] = false
-        Runtime.Setters[Flag] = function(Value)
-            Runtime.Flags[Flag] = Value == true
-            MainLibrary.flags[Flag] = Runtime.Flags[Flag]
-            local Callback = HybridRead(Data, "Callback")
-            if type(Callback) == "function" then
-                Callback(Runtime.Flags[Flag])
+
+        Runtime.Setters[Flag] =
+            function(Value)
+                local State =
+                    Value == true
+
+                Runtime.Flags[Flag] =
+                    State
+
+                MainLibrary.flags[Flag] =
+                    State
+
+                local Callback =
+                    HybridRead(
+                        Data,
+                        "Callback"
+                    )
+
+                if type(Callback)
+                    == "function"
+                then
+                    Callback(State)
+                end
             end
-        end
 
         local EnabledFlag =
             HybridRead(
                 Data,
                 "EnabledFlag",
-                HybridRead(Data, "GateFlag")
+                HybridRead(
+                    Data,
+                    "GateFlag"
+                )
             )
 
         AttachControlBind(
@@ -23279,13 +23611,16 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                 Type = "Boolean",
                 GateFlag = EnabledFlag
             },
-            Button
+            Host.root
         )
 
-        local LegacyFlag =
-            HybridRead(Data, "Flag")
+        local OldFlag =
+            HybridRead(
+                Data,
+                "Flag"
+            )
 
-        if type(LegacyFlag) == "string"
+        if type(OldFlag) == "string"
             and Runtime.BindSystem
             and type(
                 Runtime.BindSystem.RegisterTarget
@@ -23295,15 +23630,25 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                 Flag,
                 Name,
                 EnabledFlag,
-                LegacyFlag,
+                OldFlag,
                 {
                     Type = "Boolean",
-                    GateFlag = EnabledFlag
+                    GateFlag =
+                        EnabledFlag
                 }
             )
         end
 
-        local Key = HybridRead(Data, "Default", HybridRead(Data, "Key"))
+        local Key =
+            HybridRead(
+                Data,
+                "Default",
+                HybridRead(
+                    Data,
+                    "Key"
+                )
+            )
+
         if typeof(Key) == "EnumItem" then
             Raw:Keybind(Data)
         end
