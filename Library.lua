@@ -6527,9 +6527,43 @@ local function BuildRuntime()
                 Notify("Configs", "Could not read " .. Name, "Danger")
                 return false
             end
-            local LoadSuccess, Loaded = Library.Call(Library.LoadConfig, Library, Source)
-            if not LoadSuccess or Loaded ~= true then
-                Notify("Configs", "Could not load " .. Name, "Danger")
+            local LoadSuccess, Loaded =
+                Library.Call(
+                    Library.LoadConfig,
+                    Library,
+                    Source
+                )
+
+            if not LoadSuccess
+                or Loaded ~= true
+            then
+                local Result =
+                    Menu.LastConfigLoadResult
+
+                local Detail =
+                    type(Result) == "table"
+                    and (
+                        tostring(
+                            tonumber(Result.Applied) or 0
+                        )
+                        .. " applied / "
+                        .. tostring(
+                            tonumber(Result.Failed) or 0
+                        )
+                        .. " failed"
+                    )
+                    or "invalid config"
+
+                Notify(
+                    "Configs",
+                    "Could not load "
+                        .. Name
+                        .. " ("
+                        .. Detail
+                        .. ")",
+                    "Danger"
+                )
+
                 return false
             end
             SetSelected(Name)
@@ -17006,32 +17040,52 @@ local function BuildRuntime()
     end
 
     function Library:GetConfig()
-        if Menu.EspPreviewController and type(Menu.EspPreviewController.CommitLayout) == "function" then
+        if Menu.EspPreviewController
+            and type(Menu.EspPreviewController.CommitLayout) == "function"
+        then
             Library.Call(Menu.EspPreviewController.CommitLayout)
         end
-        if Menu.BindSystem and type(Menu.BindSystem.NormalizeStorage) == "function" then
+
+        if Menu.BindSystem
+            and type(Menu.BindSystem.NormalizeStorage) == "function"
+        then
             Library.Call(Menu.BindSystem.NormalizeStorage)
         end
 
         local Seen = {}
 
-        local function IsFiniteNumber(Value)
-            return type(Value) == "number" and Value == Value and Value > -math.huge and Value < math.huge
-        end
-
         local function EncodeValue(Value, Depth)
             Depth = Depth or 0
-            if Depth > 8 then return nil end
+            if Depth > 10 then return nil end
 
             local ValueType = typeof(Value)
+
             if ValueType == "Color3" then
-                return {__type = "Color3", R = Value.R, G = Value.G, B = Value.B}
+                return {
+                    __type = "Color3",
+                    R = Value.R,
+                    G = Value.G,
+                    B = Value.B
+                }
             elseif ValueType == "EnumItem" then
-                return {__type = "EnumItem", EnumType = tostring(Value.EnumType), Name = Value.Name}
+                return {
+                    __type = "EnumItem",
+                    EnumType = tostring(Value.EnumType),
+                    Name = Value.Name
+                }
             elseif ValueType == "Vector2" then
-                return {__type = "Vector2", X = Value.X, Y = Value.Y}
+                return {
+                    __type = "Vector2",
+                    X = Value.X,
+                    Y = Value.Y
+                }
             elseif ValueType == "Vector3" then
-                return {__type = "Vector3", X = Value.X, Y = Value.Y, Z = Value.Z}
+                return {
+                    __type = "Vector3",
+                    X = Value.X,
+                    Y = Value.Y,
+                    Z = Value.Z
+                }
             elseif ValueType == "UDim2" then
                 return {
                     __type = "UDim2",
@@ -17040,10 +17094,18 @@ local function BuildRuntime()
                     YScale = Value.Y.Scale,
                     YOffset = Value.Y.Offset
                 }
-            elseif type(Value) == "boolean" or type(Value) == "string" then
+            elseif type(Value) == "boolean"
+                or type(Value) == "string"
+            then
                 return Value
             elseif type(Value) == "number" then
-                return IsFiniteNumber(Value) and Value or nil
+                if Value == Value
+                    and Value > -math.huge
+                    and Value < math.huge
+                then
+                    return Value
+                end
+                return nil
             elseif type(Value) ~= "table" then
                 return nil
             end
@@ -17051,34 +17113,48 @@ local function BuildRuntime()
             if Seen[Value] then return nil end
             Seen[Value] = true
 
+            local Result = {}
             local IsArray = true
             local Count = 0
             local MaximumIndex = 0
+
             for Key in pairs(Value) do
                 Count += 1
-                if type(Key) ~= "number" or Key < 1 or Key % 1 ~= 0 then
+                if type(Key) ~= "number"
+                    or Key < 1
+                    or Key % 1 ~= 0
+                then
                     IsArray = false
                     break
                 end
-                if Key > MaximumIndex then MaximumIndex = Key end
+                MaximumIndex = math.max(MaximumIndex, Key)
             end
-            IsArray = IsArray and Count == MaximumIndex
 
-            local Result = {}
+            IsArray =
+                IsArray
+                and Count == MaximumIndex
+
             if IsArray then
                 for Index = 1, MaximumIndex do
-                    local EncodedItem = EncodeValue(Value[Index], Depth + 1)
-                    if EncodedItem ~= nil then
-                        Result[#Result + 1] = EncodedItem
+                    local Encoded =
+                        EncodeValue(Value[Index], Depth + 1)
+
+                    if Encoded ~= nil then
+                        Result[#Result + 1] = Encoded
                     end
                 end
             else
                 for Key, Item in pairs(Value) do
                     local KeyType = type(Key)
-                    if KeyType == "string" or KeyType == "number" then
-                        local EncodedItem = EncodeValue(Item, Depth + 1)
-                        if EncodedItem ~= nil then
-                            Result[tostring(Key)] = EncodedItem
+
+                    if KeyType == "string"
+                        or KeyType == "number"
+                    then
+                        local Encoded =
+                            EncodeValue(Item, Depth + 1)
+
+                        if Encoded ~= nil then
+                            Result[tostring(Key)] = Encoded
                         end
                     end
                 end
@@ -17088,88 +17164,158 @@ local function BuildRuntime()
             return Result
         end
 
-        local ConfigExcludedFlags = {
-            AccentAlpha = true
+        local Payload = {
+            __AtramentaVersion = 11
         }
 
-        local Encoded = {}
         for Name, Value in pairs(self.Flags or {}) do
-            local ConfigName = tostring(Name)
-            if ConfigExcludedFlags[ConfigName] ~= true then
-                local Success, EncodedValue = Library.Call(EncodeValue, Value, 0)
-                if Success and EncodedValue ~= nil then
-                    Encoded[ConfigName] = EncodedValue
+            local FlagName = tostring(Name)
+
+            if FlagName ~= "AccentAlpha" then
+                local Success, Encoded =
+                    Library.Call(EncodeValue, Value, 0)
+
+                if Success and Encoded ~= nil then
+                    Payload[FlagName] = Encoded
                 end
             end
         end
-        local BindsSuccess, EncodedBinds = Library.Call(EncodeValue, SavedPositions.ControlBinds or {}, 0)
-        if BindsSuccess and EncodedBinds ~= nil then
-            Encoded.__AtramentaControlBinds = EncodedBinds
+
+        local BindSuccess, EncodedBinds =
+            Library.Call(
+                EncodeValue,
+                SavedPositions.ControlBinds or {},
+                0
+            )
+
+        if BindSuccess and EncodedBinds ~= nil then
+            Payload.__AtramentaControlBinds =
+                EncodedBinds
         end
 
-        local InterfaceState = {
+        local Interface = {
             BackgroundDim = Menu.Flags.BackgroundDim,
             AnimationSpeed = Menu.Flags.AnimationSpeed,
             MenuScale = Menu.Flags.MenuScale,
-            PlayerListScale = Menu.Flags.PlayerListScale or SavedPositions.PlayerListScale,
-            EspPreviewScale = Menu.Flags.EspPreviewScale or SavedPositions.EspPreviewScale,
-            HideWatermark = SavedPositions.HideWatermark,
-            WatermarkScale = SavedPositions.WatermarkScale,
-            HideKeybinds = SavedPositions.HideKeybinds,
-            KeybindListScale = SavedPositions.KeybindListScale
+            PlayerListScale =
+                Menu.Flags.PlayerListScale
+                or SavedPositions.PlayerListScale,
+            EspPreviewScale =
+                Menu.Flags.EspPreviewScale
+                or SavedPositions.EspPreviewScale,
+            HideWatermark =
+                SavedPositions.HideWatermark,
+            WatermarkScale =
+                SavedPositions.WatermarkScale,
+            HideKeybinds =
+                SavedPositions.HideKeybinds,
+            KeybindListScale =
+                SavedPositions.KeybindListScale
         }
-        local InterfaceSuccess, EncodedInterface = Library.Call(EncodeValue, InterfaceState, 0)
-        if InterfaceSuccess and EncodedInterface ~= nil then
-            Encoded.__AtramentaInterface = EncodedInterface
+
+        local InterfaceSuccess, EncodedInterface =
+            Library.Call(
+                EncodeValue,
+                Interface,
+                0
+            )
+
+        if InterfaceSuccess
+            and EncodedInterface ~= nil
+        then
+            Payload.__AtramentaInterface =
+                EncodedInterface
         end
 
-        local Success, Source = Library.Call(HttpService.JSONEncode, HttpService, Encoded)
+        local Success, Source =
+            Library.Call(
+                HttpService.JSONEncode,
+                HttpService,
+                Payload
+            )
+
         if Success and type(Source) == "string" then
             return Source
         end
 
-        local SafeEncoded = {}
-        for Name, Value in pairs(Encoded) do
-            SafeEncoded[Name] = Value
-            local TestSuccess = Library.Call(HttpService.JSONEncode, HttpService, SafeEncoded)
-            if not TestSuccess then
-                SafeEncoded[Name] = nil
-            end
-        end
-
-        local FallbackSuccess, FallbackSource = Library.Call(HttpService.JSONEncode, HttpService, SafeEncoded)
-        return FallbackSuccess and FallbackSource or "{}"
+        return "{}"
     end
 
     function Library:LoadConfig(Source)
-        local Success, Decoded = Library.Call(HttpService.JSONDecode, HttpService, tostring(Source or "{}"))
-        if not Success or type(Decoded) ~= "table" then return false end
+        local Success, Decoded =
+            Library.Call(
+                HttpService.JSONDecode,
+                HttpService,
+                tostring(Source or "{}")
+            )
 
-        Menu.ConfigLoadGeneration = (tonumber(Menu.ConfigLoadGeneration) or 0) + 1
-        local Generation = Menu.ConfigLoadGeneration
+        if not Success or type(Decoded) ~= "table" then
+            return false
+        end
+
+        Menu.ConfigLoadGeneration =
+            (tonumber(Menu.ConfigLoadGeneration) or 0)
+            + 1
+
+        local Generation =
+            Menu.ConfigLoadGeneration
+
         Menu.ConfigApplying = true
 
         ClosePopup()
-        if CloseGearMenus then CloseGearMenus() end
-        if SetPickerOpen then SetPickerOpen(false) end
+
+        if CloseGearMenus then
+            CloseGearMenus()
+        end
+
+        if SetPickerOpen then
+            SetPickerOpen(false)
+        end
+
         Menu.QuickPanelBindCapture = false
 
-        if Menu.RefreshDropdownIndicators then Menu.RefreshDropdownIndicators(true) end
+        if Menu.RefreshDropdownIndicators then
+            Menu.RefreshDropdownIndicators(true)
+        end
 
         local function DecodeValue(Value, Depth)
             Depth = Depth or 0
-            if Depth > 8 or type(Value) ~= "table" then return Value end
+
+            if Depth > 10
+                or type(Value) ~= "table"
+            then
+                return Value
+            end
 
             if Value.__type == "Color3" then
-                return Color3.new(tonumber(Value.R) or 0, tonumber(Value.G) or 0, tonumber(Value.B) or 0)
+                return Color3.new(
+                    tonumber(Value.R) or 0,
+                    tonumber(Value.G) or 0,
+                    tonumber(Value.B) or 0
+                )
             elseif Value.__type == "EnumItem" then
-                local EnumName = tostring(Value.EnumType or ""):match("Enum%.(.+)")
-                local EnumType = EnumName and Enum[EnumName]
-                return EnumType and EnumType[Value.Name] or Value.Name
+                local EnumName =
+                    tostring(
+                        Value.EnumType or ""
+                    ):match("Enum%.(.+)")
+
+                local EnumType =
+                    EnumName and Enum[EnumName]
+
+                return EnumType
+                    and EnumType[Value.Name]
+                    or Value.Name
             elseif Value.__type == "Vector2" then
-                return Vector2.new(tonumber(Value.X) or 0, tonumber(Value.Y) or 0)
+                return Vector2.new(
+                    tonumber(Value.X) or 0,
+                    tonumber(Value.Y) or 0
+                )
             elseif Value.__type == "Vector3" then
-                return Vector3.new(tonumber(Value.X) or 0, tonumber(Value.Y) or 0, tonumber(Value.Z) or 0)
+                return Vector3.new(
+                    tonumber(Value.X) or 0,
+                    tonumber(Value.Y) or 0,
+                    tonumber(Value.Z) or 0
+                )
             elseif Value.__type == "UDim2" then
                 return UDim2.new(
                     tonumber(Value.XScale) or 0,
@@ -17179,135 +17325,487 @@ local function BuildRuntime()
                 )
             end
 
+            if Value.Color ~= nil
+                and Value.Transparency ~= nil
+            then
+                local ColorValue = Value.Color
+
+                if type(ColorValue) == "string" then
+                    local Clean =
+                        tostring(ColorValue):
+                            gsub("#", "")
+
+                    if #Clean == 6
+                        or #Clean == 8
+                    then
+                        local ParsedSuccess, Parsed =
+                            Library.Call(
+                                Color3.fromHex,
+                                Clean:sub(1, 6)
+                            )
+
+                        if ParsedSuccess
+                            and typeof(Parsed) == "Color3"
+                        then
+                            ColorValue = Parsed
+                        end
+                    end
+                else
+                    ColorValue =
+                        DecodeValue(
+                            ColorValue,
+                            Depth + 1
+                        )
+                end
+
+                return {
+                    Color = ColorValue,
+                    Transparency =
+                        math.clamp(
+                            tonumber(
+                                Value.Transparency
+                            ) or 0,
+                            0,
+                            1
+                        )
+                }
+            end
+
             local Result = {}
-            for Key, Item in pairs(Value) do Result[Key] = DecodeValue(Item, Depth + 1) end
+
+            for Key, Item in pairs(Value) do
+                Result[Key] =
+                    DecodeValue(
+                        Item,
+                        Depth + 1
+                    )
+            end
+
             return Result
         end
 
-        local LoadedBinds = Decoded.__AtramentaControlBinds
-        Decoded.__AtramentaControlBinds = nil
-        local LoadedInterface = Decoded.__AtramentaInterface
-        Decoded.__AtramentaInterface = nil
+        local LoadedBinds =
+            Decoded.__AtramentaControlBinds
 
-        Decoded.AccentAlpha = nil
+        local LoadedInterface =
+            Decoded.__AtramentaInterface
 
-        local DecodedFlags = {}
-        for Name, Value in pairs(Decoded) do
-            if tostring(Name) ~= "AccentAlpha" then
-                DecodedFlags[tostring(Name)] = DecodeValue(Value, 0)
+        local FlagsSource =
+            type(Decoded.Flags) == "table"
+            and Decoded.Flags
+            or Decoded
+
+        local Flags = {}
+
+        for Name, Value in pairs(FlagsSource) do
+            local FlagName = tostring(Name)
+
+            if FlagName ~= "__AtramentaVersion"
+                and FlagName ~= "__AtramentaControlBinds"
+                and FlagName ~= "__AtramentaInterface"
+                and FlagName ~= "Flags"
+                and FlagName ~= "AccentAlpha"
+            then
+                Flags[FlagName] =
+                    DecodeValue(Value, 0)
             end
         end
 
-        for Name in pairs(Menu.LastConfigFlags or {}) do
-            if Name ~= "AccentAlpha" and DecodedFlags[Name] == nil and Menu.DefaultFlagKnown[Name] ~= true then
-                if type(self.Setters[Name]) == "function" then
-                    Library.Call(function() self:SetFlag(Name, nil) end)
+        local Names = {}
+
+        for Name in pairs(Flags) do
+            Names[#Names + 1] = Name
+        end
+
+        table.sort(Names)
+
+        local AppliedCount = 0
+        local FailedCount = 0
+
+        local function MigrateLegacyBind(Name, Value)
+            if type(Value) ~= "table" then
+                return false
+            end
+
+            local RawKey =
+                Value.key
+                or Value.Key
+
+            local RawMode =
+                Value.mode
+                or Value.Mode
+
+            if RawKey == nil
+                or RawMode == nil
+            then
+                return false
+            end
+
+            local AliasMap =
+                Menu.BindSystem
+                and Menu.BindSystem.LegacyAliases
+
+            local TargetFlag =
+                type(AliasMap) == "table"
+                and AliasMap[Name]
+                or nil
+
+            if type(TargetFlag) ~= "string"
+                or TargetFlag == ""
+            then
+                return false
+            end
+
+            local KeyType
+            local KeyName
+
+            if typeof(RawKey) == "EnumItem" then
+                KeyType =
+                    tostring(RawKey.EnumType):
+                        find(
+                            "UserInputType",
+                            1,
+                            true
+                        )
+                    and "UserInputType"
+                    or "KeyCode"
+
+                KeyName = RawKey.Name
+            else
+                local KeyString =
+                    tostring(RawKey or "")
+
+                if KeyString == ""
+                    or KeyString == "..."
+                    or string.lower(KeyString) == "none"
+                then
+                    return true
+                end
+
+                KeyType =
+                    KeyString:find(
+                        "UserInputType",
+                        1,
+                        true
+                    )
+                    and "UserInputType"
+                    or "KeyCode"
+
+                KeyName =
+                    KeyString:
+                        match("([%w_]+)$")
+                    or KeyString
+            end
+
+            if Menu.BindSystem
+                and type(
+                    Menu.BindSystem.CanonicalBindKey
+                ) == "function"
+            then
+                KeyType,
+                    KeyName =
+                    Menu.BindSystem.CanonicalBindKey(
+                        KeyType,
+                        KeyName
+                    )
+            end
+
+            if not KeyType
+                or not KeyName
+                or KeyName == ""
+            then
+                return true
+            end
+
+            local Mode =
+                string.lower(
+                    tostring(RawMode)
+                )
+
+            Mode =
+                Mode == "hold"
+                and "Hold"
+                or Mode == "always"
+                and "Always"
+                or "Toggle"
+
+            local Binds =
+                Menu.BindSystem.GetControlBinds(
+                    TargetFlag
+                )
+
+            local Id =
+                "LegacyConfig:"
+                .. tostring(Name)
+
+            for Index = #Binds, 1, -1 do
+                if type(Binds[Index]) == "table"
+                    and Binds[Index].Id == Id
+                then
+                    table.remove(Binds, Index)
+                end
+            end
+
+            local Modifiers = {
+                Ctrl = false,
+                Shift = false,
+                Alt = false
+            }
+
+            local Entry = {
+                Id = Id,
+                KeyType = KeyType,
+                Key = KeyName,
+                Modifiers = Modifiers,
+                Display =
+                    Menu.BindSystem.BuildBindDisplay(
+                        KeyName,
+                        Modifiers
+                    ),
+                Mode = Mode,
+                ShowInBinds =
+                    Value.ShowInBinds ~= false,
+                ControlType = "Boolean",
+                Value =
+                    Menu.BindSystem.EncodeBindValue(
+                        true
+                    ),
+                BaseValue =
+                    Menu.BindSystem.EncodeBindValue(
+                        Menu.Flags[TargetFlag]
+                    )
+            }
+
+            Binds[#Binds + 1] = Entry
+
+            if Mode == "Always" then
+                Menu.BindSystem.ExecutePressed(
+                    TargetFlag,
+                    Entry
+                )
+            end
+
+            return true
+        end
+
+        local function ApplyFlag(Name)
+            local Value =
+                CloneFlagValue(Flags[Name])
+
+            if MigrateLegacyBind(Name, Value) then
+                AppliedCount += 1
+                return
+            end
+
+            local Setter =
+                self.Setters
+                and self.Setters[Name]
+
+            if type(Setter) == "function" then
+                local SetSuccess =
+                    Library.Call(
+                        Setter,
+                        Value
+                    )
+
+                if SetSuccess then
+                    AppliedCount += 1
                 else
-                    self.Flags[Name] = nil
+                    FailedCount += 1
+                end
+            else
+                self.Flags[Name] = Value
+                AppliedCount += 1
+
+                if Menu.BindSystem
+                    and Menu.BindSystem.NotifyFlagChanged
+                then
+                    Menu.BindSystem.NotifyFlagChanged(
+                        Name,
+                        Value
+                    )
                 end
             end
         end
 
-        Menu.LastConfigFlags = Menu.LastConfigFlags or {}
+        for _, Name in ipairs(Names) do
+            if type(Flags[Name]) ~= "boolean" then
+                ApplyFlag(Name)
+            end
+        end
+
+        for _, Name in ipairs(Names) do
+            if Flags[Name] == false then
+                ApplyFlag(Name)
+            end
+        end
+
+        for _, Name in ipairs(Names) do
+            if Flags[Name] == true then
+                ApplyFlag(Name)
+            end
+        end
+
+        Menu.LastConfigFlags =
+            Menu.LastConfigFlags or {}
+
         table.clear(Menu.LastConfigFlags)
-        for Name in pairs(DecodedFlags) do Menu.LastConfigFlags[Name] = true end
 
-        local Applied = {}
+        for Name in pairs(Flags) do
+            Menu.LastConfigFlags[Name] = true
+        end
 
-        for Flag in pairs(Menu.DefaultFlagKnown) do
-            local Desired
-            if DecodedFlags[Flag] ~= nil then
-                Desired = CloneFlagValue(DecodedFlags[Flag])
-            else
-                Desired = CloneFlagValue(Menu.DefaultFlags[Flag])
-            end
+        if LoadedBinds ~= nil then
+            local NextBinds =
+                DecodeValue(
+                    LoadedBinds,
+                    0
+                )
 
-            Applied[Flag] = true
+            if type(NextBinds) == "table" then
+                SavedPositions.ControlBinds =
+                    CloneFlagValue(NextBinds)
 
-            if not FlagValuesEqual(self.Flags[Flag], Desired) then
-                Library.Call(function() self:SetFlag(Flag, Desired) end)
+                if Menu.BindSystem
+                    and type(
+                        Menu.BindSystem.NormalizeStorage
+                    ) == "function"
+                then
+                    Menu.BindSystem.NormalizeStorage()
+                end
             end
         end
 
-        for Name, Value in pairs(DecodedFlags) do
-            if not Applied[Name] and not FlagValuesEqual(self.Flags[Name], Value) then
-                Library.Call(function() self:SetFlag(Name, CloneFlagValue(Value)) end)
+        if LoadedInterface ~= nil then
+            local Interface =
+                DecodeValue(
+                    LoadedInterface,
+                    0
+                )
+
+            if type(Interface) == "table" then
+                local function ApplyInterface(
+                    Control,
+                    Value
+                )
+                    if Value == nil
+                        or type(Control) ~= "table"
+                        or type(Control.Set) ~= "function"
+                    then
+                        return
+                    end
+
+                    Control:Set(Value)
+                end
+
+                ApplyInterface(
+                    Menu.SettingsUI.BackgroundDimToggle,
+                    Interface.BackgroundDim
+                )
+
+                ApplyInterface(
+                    Menu.SettingsUI.AnimationSpeedSlider,
+                    Interface.AnimationSpeed
+                )
+
+                ApplyInterface(
+                    Menu.SettingsUI.MenuScaleSlider,
+                    Interface.MenuScale
+                )
+
+                ApplyInterface(
+                    Menu.SettingsUI.PlayerListSizeSlider,
+                    Interface.PlayerListScale
+                )
+
+                ApplyInterface(
+                    Menu.SettingsUI.EspPreviewSizeSlider,
+                    Interface.EspPreviewScale
+                )
+
+                ApplyInterface(
+                    Menu.SettingsUI.HideWatermarkToggle,
+                    Interface.HideWatermark
+                )
+
+                ApplyInterface(
+                    Menu.SettingsUI.WatermarkSizeSlider,
+                    Interface.WatermarkScale
+                )
+
+                ApplyInterface(
+                    Menu.SettingsUI.HideKeybindsToggle,
+                    Interface.HideKeybinds
+                )
+
+                ApplyInterface(
+                    Menu.SettingsUI.KeybindListSizeSlider,
+                    Interface.KeybindListScale
+                )
             end
-        end
-
-        local NextBinds = LoadedBinds ~= nil and DecodeValue(LoadedBinds, 0) or {}
-        if type(NextBinds) ~= "table" then NextBinds = {} end
-
-        if not FlagValuesEqual(SavedPositions.ControlBinds or {}, NextBinds) then
-            SavedPositions.ControlBinds = CloneFlagValue(NextBinds)
-
-            if Menu.BindSystem and type(Menu.BindSystem.GetControlBinds) == "function" then
-                for Flag in pairs(NextBinds) do Menu.BindSystem.GetControlBinds(Flag) end
-            end
-
-            if Menu.BindSystem and type(Menu.BindSystem.NormalizeStorage) == "function" then
-                Menu.BindSystem.NormalizeStorage()
-            end
-        end
-
-        local Interface = LoadedInterface ~= nil and DecodeValue(LoadedInterface, 0) or {}
-        if type(Interface) ~= "table" then Interface = {} end
-
-        local function ApplyInterfaceControl(Control, Value)
-            if Value == nil or type(Control) ~= "table" or type(Control.Set) ~= "function" then return end
-            Library.Call(Control.Set, Value)
-        end
-
-        ApplyInterfaceControl(Menu.SettingsUI.BackgroundDimToggle, Interface.BackgroundDim)
-        ApplyInterfaceControl(Menu.SettingsUI.AnimationSpeedSlider, Interface.AnimationSpeed)
-        ApplyInterfaceControl(Menu.SettingsUI.MenuScaleSlider, Interface.MenuScale)
-        ApplyInterfaceControl(Menu.SettingsUI.PlayerListSizeSlider, Interface.PlayerListScale)
-        ApplyInterfaceControl(Menu.SettingsUI.EspPreviewSizeSlider, Interface.EspPreviewScale)
-        ApplyInterfaceControl(Menu.SettingsUI.HideWatermarkToggle, Interface.HideWatermark)
-        ApplyInterfaceControl(Menu.SettingsUI.WatermarkSizeSlider, Interface.WatermarkScale)
-        ApplyInterfaceControl(Menu.SettingsUI.HideKeybindsToggle, Interface.HideKeybinds)
-        ApplyInterfaceControl(Menu.SettingsUI.KeybindListSizeSlider, Interface.KeybindListScale)
-
-        Menu.Flags.AccentAlpha = AccentAlpha
-
-        if Menu.KeybindListController and Menu.KeybindListController.MarkDirty then
-            Menu.KeybindListController.MarkDirty()
         end
 
         local function RefreshLoadedUI()
-            if Generation ~= Menu.ConfigLoadGeneration then return end
+            if Generation
+                ~= Menu.ConfigLoadGeneration
+            then
+                return
+            end
 
-            if Menu.RefreshFlagSelectors then Menu.RefreshFlagSelectors() end
-            if Menu.RefreshDropdownIndicators then Menu.RefreshDropdownIndicators(true) end
+            if Menu.RefreshFlagSelectors then
+                Menu.RefreshFlagSelectors()
+            end
+
+            if Menu.RefreshDropdownIndicators then
+                Menu.RefreshDropdownIndicators(true)
+            end
 
             UpdateAccentColor(Accent)
 
-            if Menu.ConfigsUI then
-                if Menu.ConfigsUI.AddIcon and Menu.ConfigsUI.AddIcon.Sync then Menu.ConfigsUI.AddIcon.Sync(Accent) end
-                if Menu.ConfigsUI.RemoveIcon and Menu.ConfigsUI.RemoveIcon.Sync then Menu.ConfigsUI.RemoveIcon.Sync(Accent) end
-            end
-
-            if Menu.EspPreviewController and Menu.EspPreviewController.RefreshFromFlags then
+            if Menu.EspPreviewController
+                and Menu.EspPreviewController.RefreshFromFlags
+            then
                 Menu.EspPreviewController.RefreshFromFlags()
             end
-            if Menu.KeybindListController and Menu.KeybindListController.Refresh then Menu.KeybindListController.Refresh() end
-            if Menu.QuickPanelController and Menu.QuickPanelController.Refresh then Menu.QuickPanelController.Refresh() end
-            if Menu.PlayerListController and Menu.PlayerListController.Refresh then Menu.PlayerListController:Refresh() end
+
+            if Menu.KeybindListController
+                and Menu.KeybindListController.Refresh
+            then
+                Menu.KeybindListController.Refresh()
+            end
+
+            if Menu.QuickPanelController
+                and Menu.QuickPanelController.Refresh
+            then
+                Menu.QuickPanelController.Refresh()
+            end
+
+            if Menu.PlayerListController
+                and Menu.PlayerListController.Refresh
+            then
+                Menu.PlayerListController:Refresh()
+            end
         end
 
         RefreshLoadedUI()
 
-        task.defer(function()
-            if Generation == Menu.ConfigLoadGeneration then RefreshLoadedUI() end
-        end)
+        task.defer(RefreshLoadedUI)
 
-        task.delay(0.08, function()
-            if Generation == Menu.ConfigLoadGeneration then RefreshLoadedUI() end
-        end)
+        task.delay(
+            0.08,
+            RefreshLoadedUI
+        )
 
         Menu.ConfigApplying = false
         SavePositions()
-        return true
+
+        Menu.LastConfigLoadResult = {
+            Applied = AppliedCount,
+            Failed = FailedCount
+        }
+
+        return FailedCount == 0
+            or AppliedCount > 0
     end
 
     function Library:RefreshConfigsList(Listbox)
@@ -20551,6 +21049,9 @@ local function BuildAtramentaMain(Runtime)
                         BackgroundColor3 = rgb(255, 255, 255)
                     })
                     
+                    cfg.root = label
+                    cfg.label = label
+
                     cfg["right_components"] = library:create("Frame", {
                         Parent = label,
                         Name = "",
@@ -21505,26 +22006,50 @@ end
 
 local function HybridWrapControl(Control, Flag, MainLibrary)
     if type(Control) ~= "table" then return Control end
-    Control.Flag = Flag or Control.flag
+
+    Control.Flag = tostring(Flag or Control.Flag or Control.flag or "")
+    Control.flag = Control.Flag
     Control.Name = Control.Name or Control.name
+    Control.name = Control.Name
+
     if type(Control.set) == "function" then
-        Control.Set = function(_, Value, ...)
-            return Control.set(Value, ...)
+        Control.Set = function(SelfOrValue, Value, ...)
+            local ActualValue = SelfOrValue == Control and Value or SelfOrValue
+            if SelfOrValue == Control then
+                return Control.set(ActualValue, ...)
+            end
+            return Control.set(ActualValue, Value, ...)
         end
+        Control.setValue = Control.Set
+        Control.SetValue = Control.Set
     end
+
     Control.Get = function()
         return MainLibrary.flags[Control.Flag]
     end
+    Control.get = Control.Get
+    Control.GetValue = Control.Get
+    Control.getValue = Control.Get
+
     if type(Control.refresh_options) == "function" then
-        Control.SetItems = function(_, Items)
-            return Control.refresh_options(Items or {})
+        Control.SetItems = function(SelfOrItems, Items)
+            local ActualItems = SelfOrItems == Control and Items or SelfOrItems
+            return Control.refresh_options(type(ActualItems) == "table" and ActualItems or {})
         end
+        Control.setItems = Control.SetItems
+        Control.Refresh = Control.SetItems
+        Control.refresh = Control.SetItems
     end
+
     if type(Control.setVisible) == "function" then
-        Control.SetVisible = function(_, State)
-            return Control.setVisible(State)
+        Control.SetVisible = function(SelfOrState, State)
+            local ActualState = SelfOrState == Control and State or SelfOrState
+            return Control.setVisible(ActualState == true)
         end
+        Control.setvisible = Control.SetVisible
+        Control.setVisible = Control.setVisible
     end
+
     return Control
 end
 
@@ -22001,10 +22526,34 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
         function Raw.set(Value, AlphaValue)
             if typeof(Value) == "Color3" then
                 Current = Value
-            elseif type(Value) == "table" and typeof(Value.Color) == "Color3" then
-                Current = Value.Color
+            elseif type(Value) == "string" then
+                local Clean = tostring(Value):gsub("#", "")
+                if #Clean == 6 or #Clean == 8 then
+                    local Success, Parsed = pcall(hex, Clean:sub(1, 6))
+                    if Success and typeof(Parsed) == "Color3" then
+                        Current = Parsed
+                    end
+                end
+            elseif type(Value) == "table" then
+                local ColorValue = Value.Color or Value.color or Value.Value
+                if typeof(ColorValue) == "Color3" then
+                    Current = ColorValue
+                elseif type(ColorValue) == "string" then
+                    local Clean = tostring(ColorValue):gsub("#", "")
+                    if #Clean == 6 or #Clean == 8 then
+                        local Success, Parsed = pcall(hex, Clean:sub(1, 6))
+                        if Success and typeof(Parsed) == "Color3" then
+                            Current = Parsed
+                        end
+                    end
+                end
+
                 if Value.Transparency ~= nil then
                     CurrentAlpha = 1 - math.clamp(tonumber(Value.Transparency) or 0, 0, 1)
+                elseif Value.Alpha ~= nil then
+                    CurrentAlpha = math.clamp(tonumber(Value.Alpha) or CurrentAlpha, 0, 1)
+                elseif Value.alpha ~= nil then
+                    CurrentAlpha = math.clamp(tonumber(Value.alpha) or CurrentAlpha, 0, 1)
                 end
             end
 
@@ -22041,14 +22590,135 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
         end)
 
         Raw.set(Current, CurrentAlpha)
+
         MainLibrary.config_flags[Flag] = function(Value)
             Raw.set(Value)
+        end
+
+        MainLibrary.config_flags[Flag .. " Alpha"] = function(Value)
+            Raw.set(Current, tonumber(Value))
+        end
+
+        Raw.GetColor = function()
+            return Current
+        end
+
+        Raw.GetAlpha = function()
+            return CurrentAlpha
         end
 
         return Raw
     end
 
-    local function AttachControlBind(Raw, Flag, Name, Info, Anchor)
+    local AttachControlBind
+
+    local function EnsureControlAccessoryHost(Raw, Info)
+        if type(Raw) ~= "table" then return nil end
+
+        if typeof(Raw.right_components) == "Instance"
+            and Raw.right_components:IsA("GuiObject")
+        then
+            return Raw
+        end
+
+        local Root = Raw.root or Raw.outline or Raw.button
+        if typeof(Root) ~= "Instance" or not Root:IsA("GuiObject") then
+            return nil
+        end
+
+        local TypeName = type(Info) == "table" and tostring(Info.Type or "") or ""
+        local Offset = -3
+
+        if TypeName == "Number" then
+            Offset = -66
+        elseif TypeName == "Range" then
+            Offset = -124
+        end
+
+        local Right = MainLibrary:create("Frame", {
+            Parent = Root,
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, Offset, 0, 2),
+            Size = UDim2.new(0, 0, 0, 14),
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = (Root.ZIndex or 1) + 4
+        })
+
+        MainLibrary:create("UIListLayout", {
+            Parent = Right,
+            FillDirection = Enum.FillDirection.Horizontal,
+            HorizontalAlignment = Enum.HorizontalAlignment.Right,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding = UDim.new(0, 5)
+        })
+
+        Raw.right_components = Right
+        return Raw
+    end
+
+    local function AttachColorpickerApi(Raw, BaseFlag, BaseName, Info)
+        if type(Raw) ~= "table" then return Raw end
+
+        local function OpenColorpicker(Control, ColorData)
+            ColorData = type(ColorData) == "table" and ColorData or {}
+            local Host = EnsureControlAccessoryHost(Control, Info)
+
+            if not Host or not Host.right_components then
+                return Control
+            end
+
+            local PickerName = tostring(
+                HybridRead(
+                    ColorData,
+                    "Name",
+                    tostring(BaseName or "Color") .. " Color"
+                )
+            )
+
+            local PickerFlag = tostring(
+                HybridRead(
+                    ColorData,
+                    "Flag",
+                    tostring(BaseFlag or BaseName or "Color") .. " Color"
+                )
+            )
+
+            local Picker = CreateHybridColorPicker(
+                Host,
+                PickerName,
+                PickerFlag,
+                HybridRead(
+                    ColorData,
+                    "Default",
+                    HybridRead(ColorData, "Color", Color3.new(1, 1, 1))
+                ),
+                HybridRead(ColorData, "Alpha", 1),
+                HybridRead(ColorData, "Callback")
+            )
+
+            HybridWrapControl(Picker, PickerFlag, MainLibrary)
+            AttachControlBind(
+                Picker,
+                PickerFlag,
+                PickerName,
+                {Type = "Color"},
+                Picker.outline
+            )
+
+            return Control
+        end
+
+        Raw.Colorpicker = OpenColorpicker
+        Raw.ColorPicker = OpenColorpicker
+        Raw.colorpicker = OpenColorpicker
+        Raw.colorPicker = OpenColorpicker
+        return Raw
+    end
+
+    AttachControlBind = function(Raw, Flag, Name, Info, Anchor)
         if type(Raw) ~= "table" then
             return Raw
         end
@@ -22102,8 +22772,41 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
         end
 
         Raw.Keybind = function(Control, KeyData)
-            KeyData = KeyData or {}
-            local Key = HybridRead(KeyData, "Default", HybridRead(KeyData, "Key", Enum.KeyCode.F2))
+            KeyData = type(KeyData) == "table" and KeyData or {}
+
+            local Key = HybridRead(
+                KeyData,
+                "Default",
+                HybridRead(KeyData, "Key", nil)
+            )
+
+            local Mode = tostring(HybridRead(KeyData, "Mode", "Toggle"))
+            Mode =
+                string.lower(Mode) == "hold" and "Hold"
+                or string.lower(Mode) == "always" and "Always"
+                or "Toggle"
+
+            local GateFlag = HybridRead(
+                KeyData,
+                "EnabledFlag",
+                HybridRead(KeyData, "GateFlag", Info.GateFlag)
+            )
+
+            local LegacyBindFlag = HybridRead(KeyData, "Flag")
+            if type(LegacyBindFlag) == "string"
+                and LegacyBindFlag ~= ""
+                and Runtime.BindSystem
+                and type(Runtime.BindSystem.RegisterTarget) == "function"
+            then
+                Runtime.BindSystem.RegisterTarget(
+                    Flag,
+                    Name,
+                    GateFlag,
+                    LegacyBindFlag,
+                    Info
+                )
+            end
+
             if typeof(Key) ~= "EnumItem" then
                 return Control
             end
@@ -22113,45 +22816,78 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                 and "UserInputType"
                 or "KeyCode"
 
-            local Mode = tostring(HybridRead(KeyData, "Mode", "Toggle"))
-            Mode =
-                string.lower(Mode) == "hold" and "Hold"
-                or string.lower(Mode) == "always" and "Always"
-                or "Toggle"
-
             local Binds = Runtime.BindSystem.GetControlBinds(Flag)
             local Id = "Direct:" .. Flag
+
             for Index = #Binds, 1, -1 do
-                if type(Binds[Index]) == "table" and Binds[Index].Id == Id then
+                if type(Binds[Index]) == "table"
+                    and Binds[Index].Id == Id
+                then
                     table.remove(Binds, Index)
                 end
             end
+
+            local Modifiers = {
+                Ctrl = false,
+                Shift = false,
+                Alt = false
+            }
 
             local Entry = {
                 Id = Id,
                 KeyType = KeyType,
                 Key = Key.Name,
-                Modifiers = {Ctrl = false, Shift = false, Alt = false},
-                Display = Runtime.BindSystem.BuildBindDisplay(Key.Name, {Ctrl = false, Shift = false, Alt = false}),
-                Mode = Mode,
-                ShowInBinds = HybridRead(KeyData, "ShowInBinds", true) ~= false,
-                ControlType = tostring(Info.Type or typeof(Runtime.Flags[Flag])),
-                Value = Runtime.BindSystem.EncodeBindValue(
-                    Info.Type == "Boolean" and true or Runtime.Flags[Flag]
+                Modifiers = Modifiers,
+                Display = Runtime.BindSystem.BuildBindDisplay(
+                    Key.Name,
+                    Modifiers
                 ),
-                BaseValue = Runtime.BindSystem.EncodeBindValue(Runtime.Flags[Flag])
+                Mode = Mode,
+                ShowInBinds =
+                    HybridRead(KeyData, "ShowInBinds", true) ~= false,
+                GateFlag =
+                    Mode == "Hold"
+                    and type(GateFlag) == "string"
+                    and GateFlag ~= ""
+                    and GateFlag
+                    or nil,
+                ControlType =
+                    tostring(Info.Type or typeof(Runtime.Flags[Flag])),
+                Value = Runtime.BindSystem.EncodeBindValue(
+                    Info.Type == "Boolean"
+                    and true
+                    or Runtime.Flags[Flag]
+                ),
+                BaseValue =
+                    Runtime.BindSystem.EncodeBindValue(
+                        Runtime.Flags[Flag]
+                    )
             }
 
             Binds[#Binds + 1] = Entry
-            if Runtime.SavePositions then Runtime.SavePositions() end
-            if Runtime.KeybindListController and Runtime.KeybindListController.MarkDirty then
+
+            if Runtime.SavePositions then
+                Runtime.SavePositions()
+            end
+
+            if Runtime.KeybindListController
+                and Runtime.KeybindListController.MarkDirty
+            then
                 Runtime.KeybindListController.MarkDirty()
             end
+
             if Mode == "Always" then
                 Runtime.BindSystem.ExecutePressed(Flag, Entry)
             end
+
             return Control
         end
+
+        Raw.KeyBind = Raw.Keybind
+        Raw.keybind = Raw.Keybind
+        Raw.keyBind = Raw.Keybind
+
+        AttachColorpickerApi(Raw, Flag, Name, Info)
 
         return Raw
     end
@@ -22216,24 +22952,13 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
         })
 
         HybridWrapControl(Raw, Flag, MainLibrary)
-        AttachControlBind(Raw, Flag, Name, {Type = "Boolean"}, Raw.root)
-
-        Raw.Colorpicker = function(Control, ColorData)
-            ColorData = ColorData or {}
-            local PickerFlag = tostring(HybridRead(ColorData, "Flag", Flag .. " Color"))
-            local Picker = CreateHybridColorPicker(
-                Control,
-                tostring(HybridRead(ColorData, "Name", Name .. " Color")),
-                PickerFlag,
-                HybridRead(ColorData, "Default", HybridRead(ColorData, "Color", Color3.new(1, 1, 1))),
-                HybridRead(ColorData, "Alpha", 1),
-                HybridRead(ColorData, "Callback")
-            )
-            AttachControlBind(Picker, PickerFlag, tostring(HybridRead(ColorData, "Name", Name .. " Color")), {Type = "Color"}, Picker.outline)
-            return Control
-        end
-
-        return Raw
+        return AttachControlBind(
+            Raw,
+            Flag,
+            Name,
+            {Type = "Boolean"},
+            Raw.root
+        )
     end
 
     function SectionMethods:Slider(Data)
@@ -22359,9 +23084,37 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
 
     function SectionMethods:Label(Data)
         Data = Data or {}
+
+        local Name = tostring(
+            HybridRead(
+                Data,
+                "Name",
+                HybridRead(Data, "Text", "Label")
+            )
+        )
+
         local Raw = self.Raw:addLabel({
-            name = tostring(HybridRead(Data, "Name", HybridRead(Data, "Text", "Label")))
+            name = Name
         })
+
+        if Raw.label then
+            local Alignment =
+                string.lower(
+                    tostring(
+                        HybridRead(Data, "Alignment", "Left")
+                    )
+                )
+
+            Raw.label.TextXAlignment =
+                Alignment == "center"
+                and Enum.TextXAlignment.Center
+                or Alignment == "right"
+                and Enum.TextXAlignment.Right
+                or Enum.TextXAlignment.Left
+        end
+
+        HybridWrapControl(Raw, "", MainLibrary)
+        AttachColorpickerApi(Raw, Name, Name, {Type = "Label"})
         return Raw
     end
 
@@ -22408,6 +23161,7 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
         local Raw = {
             root = Host.root,
             button = Button,
+            right_components = Host.right_components,
             flag = Flag,
             name = Name
         }
@@ -22423,7 +23177,44 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
             end
         end
 
-        AttachControlBind(Raw, Flag, Name, {Type = "Boolean"}, Button)
+        local EnabledFlag =
+            HybridRead(
+                Data,
+                "EnabledFlag",
+                HybridRead(Data, "GateFlag")
+            )
+
+        AttachControlBind(
+            Raw,
+            Flag,
+            Name,
+            {
+                Type = "Boolean",
+                GateFlag = EnabledFlag
+            },
+            Button
+        )
+
+        local LegacyFlag =
+            HybridRead(Data, "Flag")
+
+        if type(LegacyFlag) == "string"
+            and Runtime.BindSystem
+            and type(
+                Runtime.BindSystem.RegisterTarget
+            ) == "function"
+        then
+            Runtime.BindSystem.RegisterTarget(
+                Flag,
+                Name,
+                EnabledFlag,
+                LegacyFlag,
+                {
+                    Type = "Boolean",
+                    GateFlag = EnabledFlag
+                }
+            )
+        end
 
         local Key = HybridRead(Data, "Default", HybridRead(Data, "Key"))
         if typeof(Key) == "EnumItem" then
@@ -22473,14 +23264,34 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
         Data = Data or {}
         local Name = tostring(HybridRead(Data, "Name", "List"))
         local Flag = HybridFlag(Data, Name)
+        local Items = HybridRead(Data, "Items", HybridRead(Data, "Values", {}))
+        local UserCallback = HybridRead(Data, "Callback")
+
         local Raw = self.Raw:addList({
             name = Name,
             flag = Flag,
-            items = HybridRead(Data, "Items", HybridRead(Data, "Values", {})),
+            items = Items,
             default = HybridRead(Data, "Default"),
-            callback = HybridRead(Data, "Callback") or function() end
+            callback = function(Value)
+                Runtime.Flags[Flag] = Value
+                if type(UserCallback) == "function" then
+                    UserCallback(Value)
+                end
+            end
         })
-        return HybridWrapControl(Raw, Flag, MainLibrary)
+
+        HybridWrapControl(Raw, Flag, MainLibrary)
+
+        return AttachControlBind(
+            Raw,
+            Flag,
+            Name,
+            {
+                Type = "Select",
+                Values = Items
+            },
+            Raw.root or Raw.outline
+        )
     end
 
     SectionMethods.toggle = SectionMethods.Toggle
@@ -22498,10 +23309,18 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
     SectionMethods.elements = SectionMethods.FlagSelector
     SectionMethods.label = SectionMethods.Label
     SectionMethods.colorpicker = SectionMethods.Colorpicker
+    SectionMethods.ColorPicker = SectionMethods.Colorpicker
+    SectionMethods.colorPicker = SectionMethods.Colorpicker
     SectionMethods.keybind = SectionMethods.Keybind
+    SectionMethods.KeyBind = SectionMethods.Keybind
+    SectionMethods.keyBind = SectionMethods.Keybind
     SectionMethods.button = SectionMethods.Button
     SectionMethods.textbox = SectionMethods.Textbox
+    SectionMethods.TextBox = SectionMethods.Textbox
+    SectionMethods.textBox = SectionMethods.Textbox
     SectionMethods.listbox = SectionMethods.Listbox
+    SectionMethods.ListBox = SectionMethods.Listbox
+    SectionMethods.listBox = SectionMethods.Listbox
     PageMethods.subpage = PageMethods.SubPage
     PageMethods.SubTab = PageMethods.SubPage
     PageMethods.Subtab = PageMethods.SubPage
@@ -22509,6 +23328,8 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
     PageMethods.section = PageMethods.Section
     SubPageMethods.section = SubPageMethods.Section
     WindowMethods.page = WindowMethods.Page
+    WindowMethods.Playerlist = WindowMethods.PlayerList
+    WindowMethods.playerList = WindowMethods.PlayerList
     WindowMethods.playerlist = WindowMethods.PlayerList
 
     return setmetatable({Raw = RawWindow, Pages = {}}, WindowMethods)
@@ -22738,6 +23559,148 @@ function Library:RefreshConfigsList(...)
     return ResolveRuntime():RefreshConfigsList(...)
 end
 
+function Library:SaveConfig(Name)
+    Name = tostring(Name or "")
+    Name = Name:gsub("^%s+", ""):gsub("%s+$", "")
+    Name = Name:gsub("[<>:%\"/\\|%?%*]", "_")
+
+    if Name == ""
+        or type(writefile) ~= "function"
+    then
+        return false
+    end
+
+    local RuntimeObject =
+        ResolveRuntime()
+
+    local Source =
+        RuntimeObject:GetConfig()
+
+    if type(Source) ~= "string" then
+        return false
+    end
+
+    local Folder =
+        self.Folders
+        and self.Folders.Configs
+        or "Atramenta.rip/Configs"
+
+    if type(makefolder) == "function"
+        and type(isfolder) == "function"
+        and not isfolder(Folder)
+    then
+        Library.Call(makefolder, Folder)
+    end
+
+    local Success =
+        Library.Call(
+            writefile,
+            Folder
+                .. "/"
+                .. Name
+                .. ".json",
+            Source
+        )
+
+    return Success == true
+end
+
+function Library:LoadConfigFile(Name)
+    Name = tostring(Name or "")
+    Name = Name:gsub("^%s+", ""):gsub("%s+$", "")
+
+    if Name == ""
+        or type(readfile) ~= "function"
+        or type(isfile) ~= "function"
+    then
+        return false
+    end
+
+    local Folders = {
+        self.Folders
+            and self.Folders.Configs
+            or "Atramenta.rip/Configs",
+        "Atramenta.rip/configs",
+        "obels/configs"
+    }
+
+    for _, Folder in ipairs(Folders) do
+        for _, Extension in ipairs({
+            ".json",
+            ".cfg"
+        }) do
+            local Path =
+                Folder
+                .. "/"
+                .. Name
+                .. Extension
+
+            if isfile(Path) then
+                local ReadSuccess, Source =
+                    Library.Call(
+                        readfile,
+                        Path
+                    )
+
+                if ReadSuccess
+                    and type(Source) == "string"
+                then
+                    return self:LoadConfig(Source)
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+function Library:DeleteConfig(Name)
+    if type(delfile) ~= "function"
+        or type(isfile) ~= "function"
+    then
+        return false
+    end
+
+    Name = tostring(Name or "")
+
+    local Folders = {
+        self.Folders
+            and self.Folders.Configs
+            or "Atramenta.rip/Configs",
+        "Atramenta.rip/configs",
+        "obels/configs"
+    }
+
+    local Deleted = false
+
+    for _, Folder in ipairs(Folders) do
+        for _, Extension in ipairs({
+            ".json",
+            ".cfg"
+        }) do
+            local Path =
+                Folder
+                .. "/"
+                .. Name
+                .. Extension
+
+            if isfile(Path) then
+                local Success =
+                    Library.Call(
+                        delfile,
+                        Path
+                    )
+
+                Deleted =
+                    Success == true
+                    or Deleted
+            end
+        end
+    end
+
+    return Deleted
+end
+
 function Library:Destroy()
     if HybridMain.InputConnection then
         HybridMain.InputConnection:Disconnect()
@@ -22774,6 +23737,12 @@ Library.antiaimindicator = Library.AntiAimIndicator
 Library.playerlist = Library.PlayerList
 Library.getplayerstatus = Library.GetPlayerStatus
 Library.setplayerstatus = Library.SetPlayerStatus
+Library.getconfig = Library.GetConfig
+Library.loadconfig = Library.LoadConfig
+Library.saveconfig = Library.SaveConfig
+Library.loadconfigfile = Library.LoadConfigFile
+Library.deleteconfig = Library.DeleteConfig
+Library.refreshconfigslist = Library.RefreshConfigsList
 Library.destroy = Library.Destroy
 
 return Library
