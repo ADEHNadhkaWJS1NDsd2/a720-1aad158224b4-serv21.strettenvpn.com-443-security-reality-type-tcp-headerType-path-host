@@ -641,8 +641,68 @@ local function BuildRuntime()
     local PositionSaveQueued = false
 
     local function SavePositions()
-        PositionSaveQueued = false
-        return false
+        if PositionSaveQueued then
+            return true
+        end
+
+        PositionSaveQueued = true
+
+        task.delay(0.20, function()
+            PositionSaveQueued = false
+
+            if type(writefile) ~= "function" then
+                return
+            end
+
+            if type(makefolder) == "function" then
+                Library.Call(makefolder, Library.Folders.Root)
+                Library.Call(makefolder, Library.Folders.Configs)
+            end
+
+            local Payload = {
+                Interface = SavedPositions
+            }
+
+            if type(isfile) == "function"
+                and type(readfile) == "function"
+                and isfile(PositionFile)
+            then
+                local ReadSuccess, ExistingSource =
+                    Library.Call(readfile, PositionFile)
+
+                if ReadSuccess
+                    and type(ExistingSource) == "string"
+                    and ExistingSource ~= ""
+                then
+                    local DecodeSuccess, Existing =
+                        Library.Call(
+                            HttpService.JSONDecode,
+                            HttpService,
+                            ExistingSource
+                        )
+
+                    if DecodeSuccess
+                        and type(Existing) == "table"
+                        and Existing.Config ~= nil
+                    then
+                        Payload.Config = Existing.Config
+                    end
+                end
+            end
+
+            local EncodeSuccess, Encoded =
+                Library.Call(
+                    HttpService.JSONEncode,
+                    HttpService,
+                    Payload
+                )
+
+            if EncodeSuccess and type(Encoded) == "string" then
+                Library.Call(writefile, PositionFile, Encoded)
+            end
+        end)
+
+        return true
     end
 
     local function SaveManual()
@@ -676,6 +736,12 @@ local function BuildRuntime()
     end
 
     LoadPositions()
+
+    Menu.SavedPositions = SavedPositions
+    Menu.EncodePosition = EncodePosition
+    Menu.DecodePosition = DecodePosition
+    Menu.SavePositions = SavePositions
+    Menu.QuickPanelTransition = false
 
     local PaletteVersion = 6
     local DefaultThemeColors = {}
@@ -803,6 +869,11 @@ local function BuildRuntime()
         ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     })
+
+    Library.Call(function()
+        ScreenGui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
+        ScreenGui.ClipToDeviceSafeArea = true
+    end)
 
     Menu.ControlRenderers = Menu.ControlRenderers or {}
 
@@ -2268,17 +2339,44 @@ local function BuildRuntime()
     Menu.ClampPopupPosition = function(FrameObject, Position)
         if not FrameObject then return Position end
         Position = typeof(Position) == "UDim2" and Position or FrameObject.Position
+
         local Camera = workspace.CurrentCamera
         local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
         local Size = FrameObject.AbsoluteSize
+
         if Size.X <= 0 or Size.Y <= 0 then
-            Size = Vector2.new(FrameObject.Size.X.Offset, FrameObject.Size.Y.Offset)
+            Size = Vector2.new(
+                math.max(1, FrameObject.Size.X.Offset),
+                math.max(1, FrameObject.Size.Y.Offset)
+            )
         end
-        local X = Position.X.Scale * Viewport.X + Position.X.Offset
-        local Y = Position.Y.Scale * Viewport.Y + Position.Y.Offset
-        X = math.clamp(X, 8, math.max(8, Viewport.X - Size.X - 8))
-        Y = math.clamp(Y, 8, math.max(8, Viewport.Y - Size.Y - 8))
-        return UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
+
+        local Anchor = FrameObject.AnchorPoint
+        local AnchorX = Position.X.Scale * Viewport.X + Position.X.Offset
+        local AnchorY = Position.Y.Scale * Viewport.Y + Position.Y.Offset
+        local Margin = 6
+
+        local MinimumX = Margin + Size.X * Anchor.X
+        local MaximumX = Viewport.X - Margin - Size.X * (1 - Anchor.X)
+        local MinimumY = Margin + Size.Y * Anchor.Y
+        local MaximumY = Viewport.Y - Margin - Size.Y * (1 - Anchor.Y)
+
+        if MaximumX < MinimumX then
+            AnchorX = Viewport.X * 0.5
+        else
+            AnchorX = math.clamp(AnchorX, MinimumX, MaximumX)
+        end
+
+        if MaximumY < MinimumY then
+            AnchorY = Viewport.Y * 0.5
+        else
+            AnchorY = math.clamp(AnchorY, MinimumY, MaximumY)
+        end
+
+        return UDim2.fromOffset(
+            math.floor(AnchorX + 0.5),
+            math.floor(AnchorY + 0.5)
+        )
     end
 
     local BindKeyCanonical = {
@@ -6174,6 +6272,15 @@ local function BuildRuntime()
     Bind(Watermark:GetPropertyChangedSignal("Visible"):Connect(SyncWatermarkGlow))
     Bind(Watermark:GetPropertyChangedSignal("AbsoluteSize"):Connect(SyncWatermarkGlow))
 
+    local WatermarkCamera = workspace.CurrentCamera
+    if WatermarkCamera then
+        Bind(WatermarkCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            Watermark.Position = ClampWatermarkPosition(Watermark.Position)
+            SavedPositions.Watermark = EncodePosition(Watermark.Position)
+            SyncWatermarkGlow()
+        end))
+    end
+
     Create("UIPadding", {
         Parent = Watermark,
         PaddingLeft = UDim.new(0, 9),
@@ -6882,6 +6989,16 @@ local function BuildRuntime()
             SavePositions()
         end
     end))
+
+    local KeybindListCamera = workspace.CurrentCamera
+    if KeybindListCamera then
+        Bind(KeybindListCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, KeybindListWindow.Position)
+            SavedPositions.Keybinds = EncodePosition(KeybindListWindow.Position)
+        end))
+    end
+
+    KeybindListWindow.Position = Menu.ClampPopupPosition(KeybindListWindow, KeybindListWindow.Position)
 
     Bind(RunService.Heartbeat:Connect(function(DeltaTime)
         if KeybindListHidden then return end
@@ -8366,7 +8483,7 @@ local function BuildRuntime()
     local QuickPanel = Create("Frame", {
         Parent = ScreenGui,
         AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, 10),
+        Position = UDim2.new(0.5, 0, 0, 0),
         Size = UDim2.fromOffset(150, 30),
         BackgroundColor3 = Background,
         BackgroundTransparency = 0,
@@ -8397,13 +8514,29 @@ local function BuildRuntime()
     })
 
     local QuickPanelButtons = {}
-    local QuickPanelVisible = true
-    local QuickPanelHasRestoreState = false
+    local QuickPanelVisible = SavedPositions.QuickPanelVisible ~= false
+    local QuickPanelHasRestoreState =
+        type(SavedPositions.WindowStates) == "table"
+
     local QuickPanelRestoreState = {
-        Menu = false,
-        EspPreview = false,
-        PlayerList = false
+        Menu =
+            QuickPanelHasRestoreState
+            and SavedPositions.WindowStates.Menu == true
+            or SavedPositions.MainWindowVisible ~= false,
+        EspPreview =
+            QuickPanelHasRestoreState
+            and SavedPositions.WindowStates.EspPreview == true
+            or SavedPositions.HideEspPreview == false,
+        PlayerList =
+            QuickPanelHasRestoreState
+            and SavedPositions.WindowStates.PlayerList == true
+            or SavedPositions.PlayerListVisible == true
     }
+
+    QuickPanel.Visible = QuickPanelVisible
+    if QuickPanelGlow then
+        QuickPanelGlow.Visible = QuickPanelVisible
+    end
 
     local function CreateQuickButton(Name, IconName, Order, Callback)
         local Button = Create("TextButton", {
@@ -8547,9 +8680,28 @@ local function BuildRuntime()
             GetPlayerListVisible()
 
         QuickPanelHasRestoreState = true
+
+        SavedPositions.WindowStates = {
+            Menu = QuickPanelRestoreState.Menu,
+            EspPreview = QuickPanelRestoreState.EspPreview,
+            PlayerList = QuickPanelRestoreState.PlayerList
+        }
+
+        SavedPositions.MainWindowVisible =
+            QuickPanelRestoreState.Menu
+
+        SavedPositions.PlayerListVisible =
+            QuickPanelRestoreState.PlayerList
+
+        SavedPositions.HideEspPreview =
+            not QuickPanelRestoreState.EspPreview
+
+        SavePositions()
     end
 
     local function HideQuickPanelWindows()
+        Menu.QuickPanelTransition = true
+
         if Menu.Visible then
             Menu.InternalSetVisible(false)
         end
@@ -8558,29 +8710,29 @@ local function BuildRuntime()
             Menu.EspPreviewController
 
         if EspController
-            and type(EspController.SetVisibility) == "function"
+            and type(EspController.SetMenuVisible) == "function"
         then
-            EspController.SetVisibility(false)
-        elseif EspController
-            and type(EspController.SetHidden) == "function"
-        then
-            EspController.SetHidden(true)
+            EspController.SetMenuVisible(false)
         end
 
         local PlayerController =
             Menu.PlayerListController
 
         if PlayerController
-            and type(PlayerController.SetVisibility) == "function"
+            and type(PlayerController.SetMenuVisible) == "function"
         then
-            PlayerController:SetVisibility(false)
+            PlayerController:SetMenuVisible(false)
         end
+
+        Menu.QuickPanelTransition = false
     end
 
     local function RestoreQuickPanelWindows()
         if not QuickPanelHasRestoreState then
             return
         end
+
+        Menu.QuickPanelTransition = true
 
         Menu.InternalSetVisible(
             QuickPanelRestoreState.Menu == true
@@ -8590,65 +8742,45 @@ local function BuildRuntime()
             Menu.EspPreviewController
 
         if EspController
-            and type(EspController.SetVisibility) == "function"
+            and type(EspController.SetMenuVisible) == "function"
         then
-            EspController.SetVisibility(
-                QuickPanelRestoreState.EspPreview == true
-            )
-        elseif EspController
-            and type(EspController.SetHidden) == "function"
-        then
-            EspController.SetHidden(
-                QuickPanelRestoreState.EspPreview ~= true
-            )
+            EspController.SetMenuVisible(true)
         end
 
         local PlayerController =
             Menu.PlayerListController
 
         if PlayerController
-            and type(PlayerController.SetVisibility) == "function"
+            and type(PlayerController.SetMenuVisible) == "function"
         then
-            PlayerController:SetVisibility(
-                QuickPanelRestoreState.PlayerList == true
-            )
+            PlayerController:SetMenuVisible(true)
         end
+
+        Menu.QuickPanelTransition = false
     end
 
     local function SetQuickPanelVisible(State)
         State = State == true
 
-        if State == QuickPanelVisible then
-            QuickPanel.Visible = State
-
-            if QuickPanelGlow then
-                QuickPanelGlow.Visible = State
-            end
-
-            if State then
-                RefreshQuickPanelButtons()
-            end
-
-            return
-        end
-
-        if not State then
+        if not State and QuickPanelVisible then
             CaptureQuickPanelWindowState()
         end
 
         QuickPanelVisible = State
-        QuickPanel.Visible = QuickPanelVisible
+        QuickPanel.Visible = State
+        SavedPositions.QuickPanelVisible = State
 
         if QuickPanelGlow then
-            QuickPanelGlow.Visible = QuickPanelVisible
+            QuickPanelGlow.Visible = State
         end
 
-        if QuickPanelVisible then
+        SavePositions()
+
+        if State then
             RestoreQuickPanelWindows()
             task.defer(RefreshQuickPanelButtons)
         else
             HideQuickPanelWindows()
-            task.defer(RefreshQuickPanelButtons)
         end
     end
 
@@ -8821,6 +8953,7 @@ local function BuildRuntime()
         local S = {
             Hidden = SavedPreviewHidden,
             RequestedVisible = not SavedPreviewHidden,
+            MenuVisible = true,
             Mode = SavedPreviewMode,
             LoadGeneration = 0,
             LastRetry = 0,
@@ -10761,6 +10894,7 @@ local function BuildRuntime()
             local Visible =
                 S.RequestedVisible == true
                 and S.Hidden ~= true
+                and S.MenuVisible ~= false
 
             S.Window.Visible = Visible
 
@@ -10776,9 +10910,19 @@ local function BuildRuntime()
         Menu.EspPreviewController.SetVisibility = function(Value)
             S.RequestedVisible = Value == true
             S.Hidden = not S.RequestedVisible
-            SavedPositions.HideEspPreview = S.Hidden
+
+            if not Menu.QuickPanelTransition then
+                SavedPositions.HideEspPreview = S.Hidden
+                SavedPositions.WindowStates =
+                    type(SavedPositions.WindowStates) == "table"
+                    and SavedPositions.WindowStates
+                    or {}
+                SavedPositions.WindowStates.EspPreview =
+                    S.RequestedVisible == true
+                SavePositions()
+            end
+
             RefreshVisibility()
-            SavePositions()
 
             if S.Hidden then
                 S.Status.Visible = false
@@ -10803,9 +10947,13 @@ local function BuildRuntime()
             S.Scale.Scale = Number / 100
             SavedPositions.EspPreviewScale = Number
             S.Window.Position = ClampWindow(S.Window.Position)
+            SavedPositions.EspPreviewPosition =
+                EncodePosition(S.Window.Position)
+            SavePositions()
         end
 
         Menu.EspPreviewController.SetMenuVisible = function(Value)
+            S.MenuVisible = Value == true
             RefreshVisibility()
         end
 
@@ -10999,6 +11147,18 @@ local function BuildRuntime()
 
         Menu.EspPreviewWindow = S.Window
         S.Window.Position = ClampWindow(S.Window.Position)
+
+        local EspPreviewCamera = workspace.CurrentCamera
+        if EspPreviewCamera then
+            Bind(EspPreviewCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+                if S.Window and S.Window.Parent then
+                    S.Window.Position = ClampWindow(S.Window.Position)
+                    SavedPositions.EspPreviewPosition = EncodePosition(S.Window.Position)
+                    SavePositions()
+                end
+            end))
+        end
+
         task.defer(function()
             if S.Window and S.Window.Parent then PlacePreviewWithSpacing() end
         end)
@@ -13111,7 +13271,11 @@ local function BuildRuntime()
         end
 
         local State = {
-            Visible = ApiRead(Data, "Visible", Menu.Flags.PlayerListVisible == true) == true,
+            Visible = ApiRead(
+                Data,
+                "Visible",
+                SavedPositions.PlayerListVisible == true
+            ) == true,
             MenuVisible = true,
             Scale = math.clamp(tonumber(ApiRead(Data, "Scale", SavedPositions.PlayerListScale or 100)) or 100, 70, 135) / 100,
             Selected = nil,
@@ -14324,13 +14488,15 @@ local function BuildRuntime()
                     UserInputService:GetMouseLocation()
                     - DragStart
 
-                Root.Position =
+                Root.Position = Menu.ClampPopupPosition(
+                    Root,
                     UDim2.new(
                         DragPosition.X.Scale,
                         DragPosition.X.Offset + Delta.X,
                         DragPosition.Y.Scale,
                         DragPosition.Y.Offset + Delta.Y
                     )
+                )
             end
         end))
 
@@ -14341,15 +14507,40 @@ local function BuildRuntime()
                 Dragging = false
                 SavedPositions.PlayerList =
                     EncodePosition(Root.Position)
+                SavePositions()
             end
         end))
+
+        local PlayerListCamera = workspace.CurrentCamera
+        if PlayerListCamera then
+            Bind(PlayerListCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+                if Root and Root.Parent then
+                    Root.Position = Menu.ClampPopupPosition(Root, Root.Position)
+                end
+            end))
+        end
+
+        Root.Position = Menu.ClampPopupPosition(Root, Root.Position)
 
         local Controller = {}
 
         function Controller:SetVisibility(Value)
             State.Visible = Value == true
             Menu.Flags.PlayerListVisible = State.Visible
-            Root.Visible = State.Visible
+            Root.Visible =
+                State.Visible
+                and State.MenuVisible ~= false
+
+            if not Menu.QuickPanelTransition then
+                SavedPositions.PlayerListVisible = State.Visible
+                SavedPositions.WindowStates =
+                    type(SavedPositions.WindowStates) == "table"
+                    and SavedPositions.WindowStates
+                    or {}
+                SavedPositions.WindowStates.PlayerList =
+                    State.Visible
+                SavePositions()
+            end
 
             if RootGlow then
                 RootGlow.Visible = Root.Visible
@@ -14361,8 +14552,10 @@ local function BuildRuntime()
         end
 
         function Controller:SetMenuVisible(Value)
-            State.MenuVisible = true
-            Root.Visible = State.Visible
+            State.MenuVisible = Value == true
+            Root.Visible =
+                State.Visible
+                and State.MenuVisible
 
             if RootGlow then
                 RootGlow.Visible = Root.Visible
@@ -14377,8 +14570,10 @@ local function BuildRuntime()
             Number = math.clamp(Number, 70, 135)
             State.Scale = Number / 100
             RootScale.Scale = State.Scale
+            Root.Position = Menu.ClampPopupPosition(Root, Root.Position)
             Menu.Flags.PlayerListScale = Number
             SavedPositions.PlayerListScale = Number
+            SavePositions()
         end
 
         function Controller:GetStatus(Player)
@@ -18375,418 +18570,416 @@ local function BuildAtramentaMain(Runtime)
         end 
 
         -- Elements     
-            function library:addToggle(options) 
+            function library:addToggle(options)
                 local cfg = {
-                    enabled = options.enabled ~= nil and options.enabled or (options.default or false),
+                    enabled = options.enabled ~= nil and options.enabled or (options.default == true),
                     name = options.name or "Toggle",
-                    flag = options.flag or tostring(random(1,9999999)),
-                    
-                    default = options.default or false,
-                    folding = options.folding or false, 
+                    flag = options.flag or tostring(random(1, 9999999)),
+                    default = options.default == true,
+                    folding = options.folding or false,
                     callback = options.callback or function() end,
                 }
 
-                -- Instances 
-                    local toggle = library:create("TextLabel", {
-                        Parent = self.background or self.elements,
-                        Name = "",
-                        FontFace = library.font,
-                        TextColor3 = rgb(151, 151, 151),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Text = "",
-                        ZIndex = 2,
-                        Size = dim2(1, -8, 0, 12),
-                        BorderSizePixel = 0,
-                        BackgroundTransparency = 1,
-                        TextXAlignment = Enum.TextXAlignment.Left,
-                        AutomaticSize = Enum.AutomaticSize.Y,
-                        TextYAlignment = Enum.TextYAlignment.Top,
-                        TextSize = 11,
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    })
-                    
-                    cfg["right_components"] = library:create("Frame", {
-                        Parent = toggle,
-                        Name = "",
-                        Position = dim2(1, 0, 0, -1),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(0, 0, 0, 12),
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    })
-                    
-                    library:create("UIListLayout", {
-                        Parent = cfg["right_components"],
-                        Name = "",
-                        VerticalAlignment = Enum.VerticalAlignment.Center,
-                        FillDirection = Enum.FillDirection.Horizontal,
-                        HorizontalAlignment = Enum.HorizontalAlignment.Right,
-                        Padding = dim(0, 4),
-                        SortOrder = Enum.SortOrder.LayoutOrder
-                    })
-                    
-                    library:create("UIPadding", {
-                        Parent = toggle,
-                        Name = ""
-                    })
-                    
-                    local left_components = library:create("Frame", {
-                        Parent = toggle,
-                        Name = "",
-                        BackgroundTransparency = 1,
-                        Position = dim2(0, 3, 0, 1),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(0, 0, 0, 14),
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    })
-                    
-                    library:create("UIListLayout", {
-                        Parent = left_components,
-                        Name = "",
-                        Padding = dim(0, 5),
-                        FillDirection = Enum.FillDirection.Horizontal
-                    })
-                    
-                    library:create("UIPadding", {
-                        Parent = left_components,
-                        Name = "",
-                        PaddingBottom = dim(0, 5)
-                    })
-                    
-                    local toggle_button = library:create("TextButton", {
-                        Parent = left_components,
-                        Name = "",
-                        Text = "",
-                        Position = dim2(0, 0, 0, 2),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(0, 8, 0, 8),
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = rgb(2, 2, 2),
-                        LayoutOrder = -1,
-                        AutoButtonColor = false
-                    })
-                    
-                    local inline = library:create("Frame", {
-                        Parent = toggle_button,
-                        Name = "",
-                        Position = dim2(0, 1, 0, 1),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, -2, 1, -2),
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = rgb(63, 63, 63)
-                    })
-                    
-                    library:create("UIGradient", {
-                        Parent = inline,
-                        Name = "",
-                        Rotation = 90,
-                        Color = rgbseq{rgbkey(0, rgb(232, 232, 232)), rgbkey(1, rgb(162, 162, 162))}
-                    })
-                    
-                    local accent = library:create("Frame", {
-                        Parent = inline,
-                        Name = "",
-                        Visible = false,
-                        BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, 0, 1, 0),
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = themes.preset.accent
-                    }); library:applyTheme(accent, "accent", "BackgroundColor3")
-                    
-                    library:create("UIGradient", {
-                        Parent = accent,
-                        Name = "",
-                        Rotation = 90,
-                        Color = rgbseq{rgbkey(0, rgb(255, 255, 255)), rgbkey(1, rgb(109, 109, 109))}
-                    })
-                    
-                    local text = library:create("TextButton", {
-                        Parent = left_components,
-                        Name = "",
-                        FontFace = library.font,
-                        TextColor3 = rgb(180, 180, 180),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Text = cfg.name,
-                        BackgroundTransparency = 1,
-                        Size = dim2(0, 0, 1, -1),
-                        BorderSizePixel = 0,
-                        AutomaticSize = Enum.AutomaticSize.X,
-                        TextSize = 12,
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    })
+                local toggle = library:create("Frame", {
+                    Parent = self.background or self.elements,
+                    Name = "",
+                    Size = dim2(1, -8, 0, 18),
+                    AutomaticSize = Enum.AutomaticSize.Y,
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0
+                })
 
-                    cfg.background = library:create("Frame", {
-                        Parent = toggle,
-                        Name = "",
-                        Visible = false,
-                        BorderColor3 = rgb(0, 0, 0),
-                        LayoutOrder = 99,
-                        Position = dim2(0, 0, 0, 15),
-                        Size = dim2(1, self.background and 2 or -6, 0, 0),
-                        BorderSizePixel = 0,
-                        AutomaticSize = Enum.AutomaticSize.X,
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    })
+                cfg["right_components"] = library:create("Frame", {
+                    Parent = toggle,
+                    Name = "",
+                    AnchorPoint = vec2(1, 0),
+                    Position = dim2(1, -2, 0, 1),
+                    Size = dim2(0, 0, 0, 14),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0
+                })
 
-                    library:create("UIListLayout", {
-                        Parent = cfg.background,
-                        Name = "",
-                        Padding = dim(0, 3),
-                        SortOrder = Enum.SortOrder.LayoutOrder,
-                        FillDirection = Enum.FillDirection.Vertical
-                    })
-                -- 
+                library:create("UIListLayout", {
+                    Parent = cfg["right_components"],
+                    Name = "",
+                    VerticalAlignment = Enum.VerticalAlignment.Center,
+                    FillDirection = Enum.FillDirection.Horizontal,
+                    HorizontalAlignment = Enum.HorizontalAlignment.Right,
+                    Padding = dim(0, 4),
+                    SortOrder = Enum.SortOrder.LayoutOrder
+                })
 
-                -- Functions 
-                    function cfg.set(bool) 
-                        cfg.enabled = bool == true
-                        accent.Visible = cfg.enabled 
-                        cfg.callback(cfg.enabled)
+                local hitbox = library:create("TextButton", {
+                    Parent = toggle,
+                    Name = "",
+                    Position = dim2(0, 0, 0, 0),
+                    Size = dim2(1, -24, 0, 16),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    Text = "",
+                    AutoButtonColor = false,
+                    ZIndex = 4
+                })
 
-                        flags[cfg.flag] = cfg.enabled
+                local check_outline = library:create("Frame", {
+                    Parent = toggle,
+                    Name = "",
+                    Position = dim2(0, 2, 0, 2),
+                    Size = dim2(0, 12, 0, 12),
+                    BackgroundColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    ZIndex = 5
+                })
 
-                        if cfg.folding then 
-                            cfg.background.Visible = cfg.enabled
-                        end 
-                    end 
+                local check_inline = library:create("Frame", {
+                    Parent = check_outline,
+                    Name = "",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    BackgroundColor3 = rgb(62, 62, 66),
+                    BorderSizePixel = 0,
+                    ZIndex = 6
+                })
 
-                    cfg.set(cfg.default)
+                local check_background = library:create("Frame", {
+                    Parent = check_inline,
+                    Name = "",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    BackgroundColor3 = rgb(14, 14, 16),
+                    BorderSizePixel = 0,
+                    ZIndex = 7
+                })
 
-                    library.config_flags[cfg.flag] = cfg.set
-                -- 
+                local accent = library:create("Frame", {
+                    Parent = check_background,
+                    Name = "",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    Visible = false,
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = themes.preset.accent,
+                    ZIndex = 8
+                })
+                library:applyTheme(accent, "accent", "BackgroundColor3")
 
-                -- Connections
-                    toggle_button.MouseButton1Click:Connect(function()
-                        cfg.enabled = not cfg.enabled 
-                        cfg.set(cfg.enabled)
-                    end)
+                library:create("UIGradient", {
+                    Parent = accent,
+                    Name = "",
+                    Rotation = 90,
+                    Color = rgbseq{
+                        rgbkey(0, rgb(255, 255, 255)),
+                        rgbkey(1, rgb(130, 130, 130))
+                    }
+                })
 
-                    text.MouseButton1Click:Connect(function()
-                        cfg.enabled = not cfg.enabled 
-                        cfg.set(cfg.enabled)
-                    end)
-                -- 
+                local check_mark = library:create("TextLabel", {
+                    Parent = check_background,
+                    Name = "",
+                    Position = dim2(0, -1, 0, -1),
+                    Size = dim2(1, 2, 1, 2),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    FontFace = library.font,
+                    Text = "✓",
+                    TextColor3 = rgb(238, 238, 242),
+                    TextSize = 10,
+                    TextStrokeColor3 = rgb(0, 0, 0),
+                    TextStrokeTransparency = 0.35,
+                    Visible = false,
+                    ZIndex = 9
+                })
+
+                local text_label = library:create("TextLabel", {
+                    Parent = toggle,
+                    Name = "",
+                    Position = dim2(0, 20, 0, 0),
+                    Size = dim2(1, -44, 0, 16),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    FontFace = library.font,
+                    Text = cfg.name,
+                    TextColor3 = rgb(190, 190, 194),
+                    TextSize = 12,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    ZIndex = 5
+                })
+
+                cfg.background = library:create("Frame", {
+                    Parent = toggle,
+                    Name = "",
+                    Visible = false,
+                    LayoutOrder = 99,
+                    Position = dim2(0, 18, 0, 18),
+                    Size = dim2(1, self.background and 2 or -6, 0, 0),
+                    BorderSizePixel = 0,
+                    AutomaticSize = Enum.AutomaticSize.Y,
+                    BackgroundTransparency = 1
+                })
+
+                library:create("UIListLayout", {
+                    Parent = cfg.background,
+                    Name = "",
+                    Padding = dim(0, 3),
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                    FillDirection = Enum.FillDirection.Vertical
+                })
+
+                local function render()
+                    accent.Visible = cfg.enabled
+                    check_mark.Visible = cfg.enabled
+                    check_background.BackgroundColor3 = cfg.enabled and rgb(18, 18, 21) or rgb(12, 12, 14)
+                    check_inline.BackgroundColor3 = cfg.enabled and rgb(82, 82, 88) or rgb(55, 55, 59)
+                    text_label.TextColor3 = cfg.enabled and rgb(220, 220, 224) or rgb(178, 178, 184)
+
+                    if cfg.folding then
+                        cfg.background.Visible = cfg.enabled
+                    end
+                end
+
+                function cfg.set(bool)
+                    cfg.enabled = bool == true
+                    flags[cfg.flag] = cfg.enabled
+                    render()
+                    cfg.callback(cfg.enabled)
+                end
+
+                cfg.set(cfg.enabled)
+                library.config_flags[cfg.flag] = cfg.set
+
+                hitbox.MouseButton1Click:Connect(function()
+                    cfg.set(not cfg.enabled)
+                end)
+
+                check_outline.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        cfg.set(not cfg.enabled)
+                    end
+                end)
+
+                hitbox.MouseEnter:Connect(function()
+                    check_inline.BackgroundColor3 = cfg.enabled and rgb(94, 94, 101) or rgb(70, 70, 75)
+                end)
+
+                hitbox.MouseLeave:Connect(render)
+
+                gui_service.MenuClosed:Connect(render)
 
                 return setmetatable(cfg, library)
             end
-            
-            function library:addSlider(options) 
+
+            function library:addSlider(options)
                 local cfg = {
                     name = options.name or nil,
                     suffix = options.suffix or "",
-                    flag = options.flag or tostring(2^789),
-                    callback = options.callback or function() end, 
-    
+                    flag = options.flag or tostring(2 ^ 789),
+                    callback = options.callback or function() end,
                     min = options.min or options.minimum or 0,
                     max = options.max or options.maximum or 100,
                     intervals = options.interval or options.decimal or 1,
                     default = options.default or 10,
-                    value = options.default or 10, 
-
-                    ignore = options.ignore or false, 
+                    value = options.default or 10,
+                    ignore = options.ignore or false,
                     dragging = false,
-                } 
+                }
 
-                -- Instances 
-                    local slider = library:create("TextLabel", {
-                        Parent = self.elements or self.background or self.colorpickerElements,
-                        Name = "",
-                        FontFace = library.font,
-                        TextColor3 = rgb(180, 180, 180),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Text = "",
-                        ZIndex = 2,
-                        Size = dim2(1, -8, 0, 12),
-                        BorderSizePixel = 0,
-                        BackgroundTransparency = 1,
-                        TextXAlignment = Enum.TextXAlignment.Left,
-                        AutomaticSize = Enum.AutomaticSize.Y,
-                        TextYAlignment = Enum.TextYAlignment.Top,
-                        TextSize = 11,
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    })
-                    
-                    local bottom_components = library:create("Frame", {
-                        Parent = slider,
-                        Name = "",
-                        Position = dim2(0, 15, 0, cfg.name and 13 or 0),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, self.background and 2 or -6, 0, 0),
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    })
-                    
-                    local slider_dragger = library:create("TextButton", {
-                        Parent = bottom_components,
-                        Name = "",
-                        AutoButtonColor = false, 
-                        Text = "", 
-                        Position = dim2(0, 0, 0, 2),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, -27, 1, 8),
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = rgb(1, 1, 1)
-                    })
-                    
-                    local background = library:create("Frame", {
-                        Parent = slider_dragger,
-                        Name = "",
-                        Position = dim2(0, 1, 0, 1),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(1, -2, 1, -2),
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    })
-                    
-                    local fill = library:create("Frame", {
-                        Parent = background,
-                        Name = "",
-                        BorderColor3 = rgb(0, 0, 0),
-                        Size = dim2(0, 0, 1, 0),
-                        BorderSizePixel = 0,
-                        BackgroundColor3 = themes.preset.accent
-                    }); library:applyTheme(fill, "accent", "BackgroundColor3")
-                    
-                    library:create("UIGradient", {
-                        Parent = fill,
-                        Name = "",
-                        Rotation = 90,
-                        Color = rgbseq{rgbkey(0, rgb(232, 232, 232)), rgbkey(1, rgb(162, 162, 162))}
-                    })
-                    
-                    local text_slider = library:create("TextLabel", {
-                        Parent = fill,
-                        Name = "",
-                        FontFace = library.font,
-                        TextColor3 = rgb(180, 180, 180),
-                        BorderColor3 = rgb(0, 0, 0),
-                        Text = "0%",
-                        AnchorPoint = vec2(0.5, 0),
-                        BackgroundTransparency = 1,
-                        Position = dim2(1, 0, 0, 0),
-                        BorderSizePixel = 0,
-                        AutomaticSize = Enum.AutomaticSize.XY,
-                        TextSize = 12,
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    })
-                    
-                    library:create("UIGradient", {
-                        Parent = background,
-                        Name = "",
-                        Rotation = 90,
-                        Color = rgbseq{rgbkey(0, rgb(63, 63, 63)), rgbkey(1, rgb(42, 42, 42))}
-                    })
-                    
-                    library:create("UIListLayout", {
-                        Parent = bottom_components,
-                        Name = "",
-                        SortOrder = Enum.SortOrder.LayoutOrder,
-                        Padding = dim(0, 3),
-                        FillDirection = Enum.FillDirection.Vertical
-                    })
-            
-                    library:create("UIPadding", {
-                        Parent = slider,
-                        Name = "",
-                        PaddingLeft = dim(0, 1)
-                    })
-                    
-                    if cfg.name then 
-                        local left_components = library:create("Frame", {
-                            Parent = slider,
-                            Name = "",
-                            BackgroundTransparency = 1,
-                            Position = dim2(0, 16, 0, 1),
-                            BorderColor3 = rgb(0, 0, 0),
-                            Size = dim2(0, 0, 0, 14),
-                            BorderSizePixel = 0,
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        })
-                        
-                        local text = library:create("TextLabel", {
-                            Parent = left_components,
-                            Name = "",
-                            FontFace = library.font,
-                            TextColor3 = rgb(180, 180, 180),
-                            BorderColor3 = rgb(0, 0, 0),
-                            Text = cfg.name,
-                            BackgroundTransparency = 1,
-                            Size = dim2(0, 0, 1, -1),
-                            BorderSizePixel = 0,
-                            AutomaticSize = Enum.AutomaticSize.X,
-                            TextSize = 12,
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        })
-                        
-                        library:create("UIListLayout", {
-                            Parent = left_components,
-                            Name = "",
-                            Padding = dim(0, 5),
-                            FillDirection = Enum.FillDirection.Horizontal
-                        })
-                        
-                        library:create("UIPadding", {
-                            Parent = left_components,
-                            Name = "",
-                            PaddingBottom = dim(0, 6)
-                        })
-                    end 
+                local slider = library:create("Frame", {
+                    Parent = self.elements or self.background or self.colorpickerElements,
+                    Name = "",
+                    Size = dim2(1, -8, 0, cfg.name and 38 or 22),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0
+                })
 
-                    if not self.background then 
-                        local seperator = library:create("Frame", {
-                            Parent = slider,
-                            Name = "",
-                            Position = dim2(0, 0, 1, 0),
-                            BorderColor3 = rgb(0, 0, 0),
-                            Size = dim2(0, 0, 0, 5),
-                            BorderSizePixel = 0,
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        })
-                    end 
-                -- 
+                local title = library:create("TextLabel", {
+                    Parent = slider,
+                    Name = "",
+                    Position = dim2(0, 3, 0, 0),
+                    Size = dim2(1, -70, 0, 15),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    FontFace = library.font,
+                    Text = cfg.name or "",
+                    TextColor3 = rgb(184, 184, 190),
+                    TextSize = 12,
+                    TextXAlignment = Enum.TextXAlignment.Left
+                })
 
-                -- Functions 
-                    function cfg.set(value) 
-                        cfg.value = clamp(library:round(value, cfg.intervals), cfg.min, cfg.max)
+                local value_label = library:create("TextLabel", {
+                    Parent = slider,
+                    Name = "",
+                    AnchorPoint = vec2(1, 0),
+                    Position = dim2(1, -3, 0, 0),
+                    Size = dim2(0, 64, 0, 15),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    FontFace = library.font,
+                    Text = "",
+                    TextColor3 = rgb(215, 215, 220),
+                    TextSize = 11,
+                    TextXAlignment = Enum.TextXAlignment.Right
+                })
 
-                        fill.Size = dim2((cfg.value - cfg.min) / (cfg.max - cfg.min), 0, 1, 0)
-                        text_slider.Text = tostring(cfg.value) .. cfg.suffix
+                local y = cfg.name and 20 or 4
 
-                        flags[cfg.flag] = cfg.value
-                        cfg.callback(flags[cfg.flag])
-                    end 
+                local slider_dragger = library:create("TextButton", {
+                    Parent = slider,
+                    Name = "",
+                    Position = dim2(0, 3, 0, y),
+                    Size = dim2(1, -6, 0, 10),
+                    BackgroundColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    AutoButtonColor = false,
+                    Text = ""
+                })
 
-                    cfg.set(cfg.default)
-                -- 
+                local inline = library:create("Frame", {
+                    Parent = slider_dragger,
+                    Name = "",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    BackgroundColor3 = rgb(58, 58, 63),
+                    BorderSizePixel = 0
+                })
 
-                -- Connections
-                    slider_dragger.MouseButton1Down:Connect(function()
-                        cfg.dragging = true 
-                    end)
+                local background = library:create("Frame", {
+                    Parent = inline,
+                    Name = "",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    BackgroundColor3 = rgb(13, 13, 15),
+                    BorderSizePixel = 0,
+                    ClipsDescendants = true
+                })
 
-                    library:connection(uis.InputChanged, function(input)
-                        if cfg.dragging and input.UserInputType == Enum.UserInputType.MouseMovement then 
-                            local size_x = (input.Position.X - slider_dragger.AbsolutePosition.X) / slider_dragger.AbsoluteSize.X
-                            local value = ((cfg.max - cfg.min) * size_x) + cfg.min
+                local fill = library:create("Frame", {
+                    Parent = background,
+                    Name = "",
+                    Size = dim2(0, 0, 1, 0),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = themes.preset.accent
+                })
+                library:applyTheme(fill, "accent", "BackgroundColor3")
 
-                            cfg.set(value)
-                        end
-                    end)
+                library:create("UIGradient", {
+                    Parent = fill,
+                    Name = "",
+                    Rotation = 90,
+                    Color = rgbseq{
+                        rgbkey(0, rgb(255, 255, 255)),
+                        rgbkey(0.5, rgb(205, 205, 205)),
+                        rgbkey(1, rgb(120, 120, 120))
+                    }
+                })
 
-                    library:connection(uis.InputEnded, function(input)
-                        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                            cfg.dragging = false 
-                        end 
-                    end)
-                -- 
+                local shine = library:create("Frame", {
+                    Parent = fill,
+                    Name = "",
+                    Position = dim2(0, 0, 0, 0),
+                    Size = dim2(1, 0, 0, 1),
+                    BackgroundColor3 = rgb(255, 255, 255),
+                    BackgroundTransparency = 0.58,
+                    BorderSizePixel = 0
+                })
+
+                local marker = library:create("Frame", {
+                    Parent = slider_dragger,
+                    Name = "",
+                    AnchorPoint = vec2(0.5, 0.5),
+                    Position = dim2(0, 0, 0.5, 0),
+                    Size = dim2(0, 3, 1, 4),
+                    BackgroundColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    ZIndex = 4
+                })
+
+                local marker_inner = library:create("Frame", {
+                    Parent = marker,
+                    Name = "",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    BackgroundColor3 = rgb(228, 228, 232),
+                    BorderSizePixel = 0
+                })
+
+                local function format_value(value)
+                    local rounded = library:round(value, cfg.intervals)
+                    return tostring(rounded) .. cfg.suffix
+                end
+
+                local function render()
+                    local range = math.max(cfg.max - cfg.min, 0.000001)
+                    local alpha = clamp((cfg.value - cfg.min) / range, 0, 1)
+                    fill.Size = dim2(alpha, 0, 1, 0)
+                    marker.Position = dim2(alpha, 0, 0.5, 0)
+                    value_label.Text = format_value(cfg.value)
+                end
+
+                function cfg.set(value)
+                    cfg.value = clamp(library:round(value, cfg.intervals), cfg.min, cfg.max)
+                    flags[cfg.flag] = cfg.value
+                    render()
+                    cfg.callback(cfg.value)
+                end
+
+                local function update(input)
+                    if slider_dragger.AbsoluteSize.X <= 0 then
+                        return
+                    end
+
+                    local alpha = clamp(
+                        (input.Position.X - slider_dragger.AbsolutePosition.X)
+                        / slider_dragger.AbsoluteSize.X,
+                        0,
+                        1
+                    )
+
+                    cfg.set(cfg.min + (cfg.max - cfg.min) * alpha)
+                end
+
+                slider_dragger.MouseButton1Down:Connect(function(x)
+                    cfg.dragging = true
+                    local mouse_position = uis:GetMouseLocation()
+                    update({Position = mouse_position})
+                    inline.BackgroundColor3 = rgb(78, 78, 84)
+                end)
+
+                slider_dragger.MouseEnter:Connect(function()
+                    inline.BackgroundColor3 = rgb(70, 70, 76)
+                end)
+
+                slider_dragger.MouseLeave:Connect(function()
+                    if not cfg.dragging then
+                        inline.BackgroundColor3 = rgb(58, 58, 63)
+                    end
+                end)
+
+                library:connection(uis.InputChanged, function(input)
+                    if cfg.dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        update(input)
+                    end
+                end)
+
+                local function stop_drag()
+                    cfg.dragging = false
+                    inline.BackgroundColor3 = rgb(58, 58, 63)
+                    render()
+                end
+
+                library:connection(uis.InputEnded, function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        stop_drag()
+                    end
+                end)
+
+                library:connection(uis.WindowFocusReleased, stop_drag)
+                library:connection(gui_service.MenuClosed, stop_drag)
 
                 cfg.set(cfg.default)
-
                 config_flags[cfg.flag] = cfg.set
 
                 return setmetatable(cfg, library)
-            end 
+            end
 
             function library:addDropdown(options) 
                 local cfg = {
@@ -20224,6 +20417,21 @@ local function HybridSyncExternalVisibility(State)
     HybridMain.Visible = State
     Runtime.Visible = State
 
+    if Runtime.SavedPositions
+        and Runtime.QuickPanelTransition ~= true
+    then
+        Runtime.SavedPositions.MainWindowVisible = State
+        Runtime.SavedPositions.WindowStates =
+            type(Runtime.SavedPositions.WindowStates) == "table"
+            and Runtime.SavedPositions.WindowStates
+            or {}
+        Runtime.SavedPositions.WindowStates.Menu = State
+
+        if type(Runtime.SavePositions) == "function" then
+            Runtime.SavePositions()
+        end
+    end
+
     if HybridMain.Library and HybridMain.Library.gui then
         HybridMain.Library.gui.Enabled = State
     end
@@ -20918,17 +21126,91 @@ local function ResolveHybridMain(Data)
             name = HybridRead(Data, "Name", "Atramenta.rip"),
             size = HybridRead(Data, "Size", UDim2.fromOffset(620, 560))
         })
-        HybridMain.Window = HybridBuildCompatibility(HybridMain.Library, HybridMain.RawWindow, ActiveRuntime)
 
-        if not HybridMain.InputConnection then
-            local UserInputService = game:GetService("UserInputService")
-            HybridMain.InputConnection = UserInputService.InputBegan:Connect(function(Input, Processed)
-                if Processed or UserInputService:GetFocusedTextBox() then return end
-                if Input.KeyCode == Enum.KeyCode.F2 then
-                    HybridSyncExternalVisibility(not HybridMain.Visible)
+        if ActiveRuntime.SavedPositions
+            and ActiveRuntime.DecodePosition
+            and HybridMain.RawWindow.outline
+        then
+            local SavedMainPosition =
+                ActiveRuntime.DecodePosition(
+                    ActiveRuntime.SavedPositions.MainWindow,
+                    nil
+                )
+
+            if SavedMainPosition then
+                HybridMain.RawWindow.outline.Position =
+                    SavedMainPosition
+            end
+
+            task.defer(function()
+                local Frame = HybridMain.RawWindow
+                    and HybridMain.RawWindow.outline
+
+                local Camera = workspace.CurrentCamera
+
+                if not Frame or not Camera then
+                    return
+                end
+
+                local Viewport = Camera.ViewportSize
+                local Size = Frame.AbsoluteSize
+
+                if Size.X <= 0 or Size.Y <= 0 then
+                    Size = Vector2.new(
+                        math.max(1, Frame.Size.X.Offset),
+                        math.max(1, Frame.Size.Y.Offset)
+                    )
+                end
+
+                local AbsoluteX =
+                    Frame.Position.X.Scale * Viewport.X
+                    + Frame.Position.X.Offset
+
+                local AbsoluteY =
+                    Frame.Position.Y.Scale * Viewport.Y
+                    + Frame.Position.Y.Offset
+
+                AbsoluteX = math.clamp(
+                    AbsoluteX,
+                    0,
+                    math.max(0, Viewport.X - Size.X)
+                )
+
+                AbsoluteY = math.clamp(
+                    AbsoluteY,
+                    0,
+                    math.max(0, Viewport.Y - Size.Y)
+                )
+
+                Frame.Position =
+                    UDim2.fromOffset(
+                        math.floor(AbsoluteX + 0.5),
+                        math.floor(AbsoluteY + 0.5)
+                    )
+            end)
+
+            HybridMain.RawWindow.outline:GetPropertyChangedSignal("Position"):Connect(function()
+                if not ActiveRuntime.SavedPositions then
+                    return
+                end
+
+                ActiveRuntime.SavedPositions.MainWindow =
+                    ActiveRuntime.EncodePosition(
+                        HybridMain.RawWindow.outline.Position
+                    )
+
+                if type(ActiveRuntime.SavePositions) == "function" then
+                    ActiveRuntime.SavePositions()
                 end
             end)
         end
+
+        HybridMain.Window =
+            HybridBuildCompatibility(
+                HybridMain.Library,
+                HybridMain.RawWindow,
+                ActiveRuntime
+            )
     end
 
     return HybridMain.Window
@@ -20947,7 +21229,26 @@ end
 
 function Library:Window(Data)
     local Window = ResolveHybridMain(Data or {})
-    HybridSyncExternalVisibility(true)
+    local DesiredVisible = true
+
+    if HybridMain.Runtime
+        and HybridMain.Runtime.SavedPositions
+        and HybridMain.Runtime.SavedPositions.MainWindowVisible ~= nil
+    then
+        DesiredVisible =
+            HybridMain.Runtime.SavedPositions.MainWindowVisible == true
+    end
+
+    HybridSyncExternalVisibility(DesiredVisible)
+
+    if HybridMain.Runtime
+        and HybridMain.Runtime.QuickPanelController
+        and HybridMain.Runtime.QuickPanelController.IsVisible
+        and not HybridMain.Runtime.QuickPanelController.IsVisible()
+    then
+        HybridMain.Runtime.QuickPanelController.SetVisibility(false)
+    end
+
     return Window
 end
 
