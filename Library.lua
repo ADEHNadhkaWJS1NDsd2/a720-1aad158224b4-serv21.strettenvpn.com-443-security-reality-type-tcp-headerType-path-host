@@ -9,6 +9,9 @@ local Library = {
     }
 }
 
+Library.Build = 19
+Library.BuildName = "StableAudited"
+
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
 
@@ -20122,6 +20125,11 @@ local function BuildAtramentaMain(Runtime)
                     cfg.min, cfg.max = cfg.max, cfg.min
                 end
 
+                local SliderSuffix = tostring(cfg.suffix or "")
+                local SliderMinimum = cfg.min
+                local SliderMaximum = cfg.max
+                local SliderStep = cfg.intervals
+
                 local slider = library:create("Frame", {
                     Parent = self.elements or self.background or self.colorpickerElements,
                     Name = "",
@@ -20259,7 +20267,7 @@ local function BuildAtramentaMain(Runtime)
                 })
 
                 local function decimal_count()
-                    local raw = string.format("%.8f", cfg.intervals):gsub("0+$", ""):gsub("%.$", "")
+                    local raw = string.format("%.8f", SliderStep):gsub("0+$", ""):gsub("%.$", "")
                     local dot = string.find(raw, ".", 1, true)
                     return dot and math.min(6, #raw - dot) or 0
                 end
@@ -20267,9 +20275,9 @@ local function BuildAtramentaMain(Runtime)
                 local decimals = decimal_count()
 
                 local function round_value(value)
-                    value = clamp(tonumber(value) or cfg.value, cfg.min, cfg.max)
-                    value = cfg.min + floor(((value - cfg.min) / cfg.intervals) + 0.5) * cfg.intervals
-                    value = clamp(value, cfg.min, cfg.max)
+                    value = clamp(tonumber(value) or cfg.value, SliderMinimum, SliderMaximum)
+                    value = SliderMinimum + floor(((value - SliderMinimum) / SliderStep) + 0.5) * SliderStep
+                    value = clamp(value, SliderMinimum, SliderMaximum)
                     local power = 10 ^ decimals
                     return floor(value * power + 0.5) / power
                 end
@@ -20283,12 +20291,12 @@ local function BuildAtramentaMain(Runtime)
                 end
 
                 local function render(editing)
-                    local range = max(cfg.max - cfg.min, 0.000001)
-                    local alpha = clamp((cfg.value - cfg.min) / range, 0, 1)
+                    local range = max(SliderMaximum - SliderMinimum, 0.000001)
+                    local alpha = clamp((cfg.value - SliderMinimum) / range, 0, 1)
                     fill.Size = dim2(alpha, 0, 1, 0)
                     marker.Position = dim2(alpha, 0, 0.5, 0)
                     if not editing then
-                        value_box.Text = format_number(cfg.value) .. cfg.suffix
+                        value_box.Text = format_number(cfg.value) .. SliderSuffix
                     end
                 end
 
@@ -20302,7 +20310,7 @@ local function BuildAtramentaMain(Runtime)
                 local function update_from_x(x)
                     if track.AbsoluteSize.X <= 0 then return end
                     local alpha = clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-                    cfg.set(cfg.min + (cfg.max - cfg.min) * alpha)
+                    cfg.set(SliderMinimum + (SliderMaximum - SliderMinimum) * alpha)
                 end
 
                 track_outline.MouseButton1Down:Connect(function()
@@ -20377,6 +20385,11 @@ local function BuildAtramentaMain(Runtime)
                 if cfg.max < cfg.min then
                     cfg.min, cfg.max = cfg.max, cfg.min
                 end
+
+                local RangeSuffix = tostring(cfg.suffix or "")
+                local RangeMinimum = cfg.min
+                local RangeMaximum = cfg.max
+                local RangeStep = cfg.step
 
                 local default = options.default
                 local low = type(default) == "table" and tonumber(default[1] or default.Min or default.Minimum) or tonumber(options.low) or cfg.min
@@ -20518,13 +20531,13 @@ local function BuildAtramentaMain(Runtime)
                     })
                 end
 
-                local step_text = string.format("%.8f", cfg.step):gsub("0+$", ""):gsub("%.$", "")
+                local step_text = string.format("%.8f", RangeStep):gsub("0+$", ""):gsub("%.$", "")
                 local dot = string.find(step_text, ".", 1, true)
                 local decimals = dot and math.min(6, #step_text - dot) or 0
 
                 local function round_value(value)
-                    value = clamp(tonumber(value) or cfg.min, cfg.min, cfg.max)
-                    value = cfg.min + floor(((value - cfg.min) / cfg.step) + 0.5) * cfg.step
+                    value = clamp(tonumber(value) or RangeMinimum, RangeMinimum, RangeMaximum)
+                    value = RangeMinimum + floor(((value - RangeMinimum) / RangeStep) + 0.5) * RangeStep
                     value = clamp(value, cfg.min, cfg.max)
                     local power = 10 ^ decimals
                     return floor(value * power + 0.5) / power
@@ -20539,9 +20552,9 @@ local function BuildAtramentaMain(Runtime)
                 end
 
                 local function render()
-                    local range = max(cfg.max - cfg.min, 0.000001)
-                    local low_alpha = clamp((low - cfg.min) / range, 0, 1)
-                    local high_alpha = clamp((high - cfg.min) / range, 0, 1)
+                    local range = max(RangeMaximum - RangeMinimum, 0.000001)
+                    local low_alpha = clamp((low - RangeMinimum) / range, 0, 1)
+                    local high_alpha = clamp((high - RangeMinimum) / range, 0, 1)
 
                     fill.Position = dim2(low_alpha, 0, 0, 0)
                     fill.Size = dim2(high_alpha - low_alpha, 0, 1, 0)
@@ -20549,10 +20562,10 @@ local function BuildAtramentaMain(Runtime)
                     high_marker.Position = dim2(high_alpha, 0, 0.5, 0)
 
                     if not low_box:IsFocused() then
-                        low_box.Text = format_number(low) .. cfg.suffix
+                        low_box.Text = format_number(low) .. RangeSuffix
                     end
                     if not high_box:IsFocused() then
-                        high_box.Text = format_number(high) .. cfg.suffix
+                        high_box.Text = format_number(high) .. RangeSuffix
                     end
                 end
 
@@ -20591,7 +20604,7 @@ local function BuildAtramentaMain(Runtime)
                 local function update_from_x(x)
                     if track.AbsoluteSize.X <= 0 then return end
                     local alpha = clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-                    local value = cfg.min + (cfg.max - cfg.min) * alpha
+                    local value = RangeMinimum + (RangeMaximum - RangeMinimum) * alpha
                     if cfg.dragging == "Low" then
                         cfg.set(value, high)
                     else
