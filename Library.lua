@@ -153,14 +153,14 @@ local function BuildRuntime()
 
     local DefaultAccent = Color3.fromRGB(86, 66, 235)
     local Accent = DefaultAccent
-    local Background = Color3.fromRGB(20, 20, 27)
-    local SidebarColor = Color3.fromRGB(17, 17, 23)
-    local Surface = Color3.fromRGB(25, 25, 32)
-    local SurfaceAlt = Color3.fromRGB(30, 30, 39)
-    local Border = Color3.fromRGB(42, 43, 55)
-    local PrimaryText = Color3.fromRGB(226, 226, 232)
-    local MutedText = Color3.fromRGB(151, 151, 164)
-    local DisabledText = Color3.fromRGB(82, 82, 96)
+    local Background = Color3.fromRGB(10, 10, 12)
+    local SidebarColor = Color3.fromRGB(14, 14, 17)
+    local Surface = Color3.fromRGB(18, 18, 21)
+    local SurfaceAlt = Color3.fromRGB(24, 24, 28)
+    local Border = Color3.fromRGB(56, 56, 63)
+    local PrimaryText = Color3.fromRGB(228, 228, 232)
+    local MutedText = Color3.fromRGB(156, 156, 164)
+    local DisabledText = Color3.fromRGB(88, 88, 96)
     local Danger = Color3.fromRGB(202, 72, 78)
     local BaseScaleFactor = 1
     local AnimationFactor = 1
@@ -246,20 +246,25 @@ local function BuildRuntime()
 
     local function Create(ClassName, Properties)
         Properties = Properties or {}
+        if Properties.BackgroundColor3 and Properties.BackgroundTransparency == nil then
+            local Color = Properties.BackgroundColor3
+            local Maximum = math.max(Color.R, Color.G, Color.B)
+            if Maximum <= 0.18 then
+                Properties.BackgroundTransparency = 0.08
+            end
+        end
+
         local Object = Instance.new(ClassName)
         for Property, Value in pairs(Properties) do
             Object[Property] = Value
         end
+
         return Object
     end
 
     local function Corner(Parent, Radius)
         local Value = tonumber(Radius) or 0
-        if Value >= 90 then
-            Value = 999
-        else
-            Value = 0
-        end
+        if Value < 50 then Value = math.min(Value, 4) end
         return Create("UICorner", {
             Parent = Parent,
             CornerRadius = UDim.new(0, Value)
@@ -299,15 +304,82 @@ local function BuildRuntime()
     end
 
     local function AddPanelChrome(Parent, Radius, ZIndex)
-        return nil
+        if not Parent then return nil end
+        local Inner = Create("Frame", {
+            Parent = Parent,
+            Position = UDim2.fromOffset(1, 1),
+            Size = UDim2.new(1, -2, 1, -2),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Active = false,
+            ZIndex = ZIndex or ((Parent.ZIndex or 1) + 1)
+        })
+        Corner(Inner, math.max(0, (tonumber(Radius) or 3) - 1))
+        Stroke(Inner, Color3.fromRGB(78, 78, 86), 0.58, 1)
+        return Inner
     end
 
     local function AddPanelGradient(Parent, TopColor, BottomColor)
-        return nil
+        if not Parent then return nil end
+        return Create("UIGradient", {
+            Parent = Parent,
+            Rotation = 90,
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, TopColor or Color3.fromRGB(28, 28, 32)),
+                ColorSequenceKeypoint.new(1, BottomColor or Color3.fromRGB(16, 16, 19))
+            })
+        })
     end
 
     function Menu:AddSoftGlow(Target, ZIndex, Padding, Transparency, UseSlice)
-        return nil
+        if not self.GlowAsset or not Target or not Target.Parent then
+            return nil
+        end
+
+        local Extra = math.min(Padding or 8, 7)
+        local GlowTransparency = math.max(Transparency or 0.72, 0.90)
+        local Glow = Create("ImageLabel", {
+            Parent = Target.Parent,
+            AnchorPoint = Target.AnchorPoint,
+            Position = Target.Position,
+            Size = UDim2.new(Target.Size.X.Scale, Target.Size.X.Offset + Extra * 2, Target.Size.Y.Scale, Target.Size.Y.Offset + Extra * 2),
+            BackgroundTransparency = 1,
+            Image = self.GlowAsset,
+            ImageColor3 = Accent,
+            ImageTransparency = GlowTransparency,
+            ScaleType = UseSlice == false and Enum.ScaleType.Fit or Enum.ScaleType.Slice,
+            SliceCenter = Rect.new(34, 34, 62, 62),
+            Visible = Target.Visible,
+            ZIndex = (ZIndex or Target.ZIndex) - 1
+        })
+
+        local function Sync()
+            if not Target.Parent or not Glow.Parent then
+                return
+            end
+            local Anchor = Target.AnchorPoint
+            Glow.AnchorPoint = Anchor
+            Glow.Position = UDim2.new(
+                Target.Position.X.Scale,
+                Target.Position.X.Offset + math.floor((Extra * ((Anchor.X * 2) - 1)) + 0.5),
+                Target.Position.Y.Scale,
+                Target.Position.Y.Offset + math.floor((Extra * ((Anchor.Y * 2) - 1)) + 0.5)
+            )
+            Glow.Size = UDim2.new(Target.Size.X.Scale, Target.Size.X.Offset + Extra * 2, Target.Size.Y.Scale, Target.Size.Y.Offset + Extra * 2)
+            Glow.Visible = Target.Visible
+        end
+
+        Sync()
+        Bind(Target:GetPropertyChangedSignal("Position"):Connect(Sync))
+        Bind(Target:GetPropertyChangedSignal("Size"):Connect(Sync))
+        Bind(Target:GetPropertyChangedSignal("Visible"):Connect(Sync))
+        Bind(Target.AncestryChanged:Connect(function(_, ParentObject)
+            if not ParentObject and Glow.Parent then
+                Glow:Destroy()
+            end
+        end))
+
+        return Glow
     end
 
     local ActiveTweens = setmetatable({}, { __mode = "k" })
@@ -317,7 +389,7 @@ local function BuildRuntime()
         local Previous = ActiveTweens[Object]
         if Previous then Library.Call(function() Previous:Cancel() end) end
         local RequestedDuration = (tonumber(Duration) or 0.08) / math.max(AnimationFactor, 0.05)
-        local EffectiveDuration = math.clamp(RequestedDuration, 0.015, 0.055)
+        local EffectiveDuration = math.clamp(RequestedDuration, 0.025, 0.075)
         local Animation = TweenService:Create(
             Object,
             TweenInfo.new(EffectiveDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
@@ -797,15 +869,16 @@ local function BuildRuntime()
         Active = true,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = DecodePosition(SavedPositions.Main, UDim2.fromScale(0.5, 0.535)),
-        Size = UDim2.fromOffset(720, 600),
+        Size = UDim2.fromOffset(744, 610),
         BackgroundColor3 = Background,
-        BackgroundTransparency = 0,
+        BackgroundTransparency = 0.02,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         ZIndex = 2
     })
     Corner(Main, 0)
-    Stroke(Main, Color3.fromRGB(7, 7, 11), 0, 1)
+    Stroke(Main, Color3.fromRGB(2, 2, 3), 0, 1)
+    AddPanelChrome(Main, 0, 3)
 
     local MainScale = Create("UIScale", {
         Parent = Main,
@@ -814,12 +887,13 @@ local function BuildRuntime()
 
     local Sidebar = Create("Frame", {
         Parent = Main,
-        Size = UDim2.fromOffset(0, 0),
+        Size = UDim2.fromOffset(88, 610),
         BackgroundColor3 = SidebarColor,
         BackgroundTransparency = 0.02,
         BorderSizePixel = 0,
-        ZIndex = 3,
-        Visible = false
+        Visible = false,
+        Active = false,
+        ZIndex = 3
     })
     Corner(Sidebar, 0)
 
@@ -883,55 +957,17 @@ local function BuildRuntime()
 
     local Content = Create("Frame", {
         Parent = Main,
-        Position = UDim2.fromOffset(0, 34),
-        Size = UDim2.new(1, 0, 1, -34),
+        Position = UDim2.fromOffset(0, 0),
+        Size = UDim2.fromScale(1, 1),
         BackgroundTransparency = 1,
         ZIndex = 3
     })
 
-    local MainPageTabs = Create("Frame", {
-        Parent = Main,
-        Position = UDim2.fromOffset(1, 1),
-        Size = UDim2.new(1, -2, 0, 33),
-        BackgroundColor3 = SidebarColor,
-        BackgroundTransparency = 0,
-        BorderSizePixel = 0,
-        ZIndex = 5
-    })
-    Create("UIPadding", {
-        Parent = MainPageTabs,
-        PaddingLeft = UDim.new(0, 12),
-        PaddingRight = UDim.new(0, 10)
-    })
-    Create("UIListLayout", {
-        Parent = MainPageTabs,
-        FillDirection = Enum.FillDirection.Horizontal,
-        HorizontalAlignment = Enum.HorizontalAlignment.Left,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        Padding = UDim.new(0, 3),
-        SortOrder = Enum.SortOrder.LayoutOrder
-    })
-    AddChromeLine(MainPageTabs, UDim2.new(0, 0, 1, -1), UDim2.new(1, 0, 0, 1), Accent, 0, 8, true)
-
-    local MainBrand = Create("TextLabel", {
-        Parent = MainPageTabs,
-        LayoutOrder = -100,
-        Size = UDim2.fromOffset(84, 32),
-        BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSansMedium,
-        Text = "atramenta.rip",
-        TextColor3 = PrimaryText,
-        TextSize = 10,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 7
-    })
-
     local Topbar = Create("Frame", {
         Parent = Content,
-        Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.new(1, 0, 0, 30),
-        BackgroundColor3 = Surface,
-        BackgroundTransparency = 0,
+        Size = UDim2.new(1, 0, 0, 64),
+        BackgroundColor3 = SidebarColor,
+        BackgroundTransparency = 0.08,
         BorderSizePixel = 0,
         ZIndex = 4
     })
@@ -939,8 +975,8 @@ local function BuildRuntime()
 
     local TopAccentLine = AddChromeLine(
         Main,
-        UDim2.fromOffset(1, 0),
-        UDim2.new(1, -2, 0, 1),
+        UDim2.fromOffset(1, 1),
+        UDim2.new(1, -2, 0, 2),
         Accent,
         0.04,
         10,
@@ -966,10 +1002,51 @@ local function BuildRuntime()
         ZIndex = 5
     })
 
+    local MainTitle = Create("TextLabel", {
+        Parent = TopbarInner,
+        Position = UDim2.fromOffset(14, 0),
+        Size = UDim2.fromOffset(104, 31),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.BuilderSansMedium,
+        Text = "atramenta.rip",
+        TextColor3 = PrimaryText,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 7
+    })
+
+    local PageTabHost = Create("Frame", {
+        Parent = TopbarInner,
+        Position = UDim2.fromOffset(120, 0),
+        Size = UDim2.new(1, -176, 0, 31),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 6
+    })
+
+    Create("UIListLayout", {
+        Parent = PageTabHost,
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Left,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        Padding = UDim.new(0, 2),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    })
+
+    Create("Frame", {
+        Parent = TopbarInner,
+        Position = UDim2.fromOffset(12, 31),
+        Size = UDim2.new(1, -24, 0, 1),
+        BackgroundColor3 = Border,
+        BackgroundTransparency = 0.45,
+        BorderSizePixel = 0,
+        ZIndex = 6
+    })
+
     local SubPageHost = Create("Frame", {
         Parent = TopbarInner,
-        Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.new(1, -188, 1, 0),
+        Position = UDim2.fromOffset(4, 32),
+        Size = UDim2.new(1, -62, 0, 32),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ZIndex = 5
@@ -978,7 +1055,7 @@ local function BuildRuntime()
     Create("UIPadding", {
         Parent = SubPageHost,
         PaddingLeft = UDim.new(0, 10),
-        PaddingRight = UDim.new(0, 10)
+        PaddingRight = UDim.new(0, 6)
     })
 
     local SubPageLayout = Create("UIListLayout", {
@@ -994,12 +1071,12 @@ local function BuildRuntime()
     Menu.SubPageLayout = SubPageLayout
 
     local DragArea = Create("Frame", {
-        Parent = Main,
+        Parent = Topbar,
         AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -34, 0, 1),
-        Size = UDim2.fromOffset(110, 32),
+        Position = UDim2.new(1, -48, 0, 0),
+        Size = UDim2.fromOffset(48, 31),
         BackgroundTransparency = 1,
-        ZIndex = 6
+        ZIndex = 5
     })
 
     local function CreateModeButton(Name, X)
@@ -1028,12 +1105,12 @@ local function BuildRuntime()
 
     Menu.ConfigsUI = Menu.ConfigsUI or {}
     Menu.ConfigsUI.Button = Create("TextButton", {
-        Parent = Main,
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -8, 0, 17),
-        Size = UDim2.fromOffset(22, 20),
+        Parent = TopbarInner,
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -10, 0, 5),
+        Size = UDim2.fromOffset(38, 32),
         BackgroundColor3 = SurfaceAlt,
-        BackgroundTransparency = 0,
+        BackgroundTransparency = 0.12,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Text = "",
@@ -1044,8 +1121,8 @@ local function BuildRuntime()
 
     Menu.ConfigsUI.FolderTab = Create("Frame", {
         Parent = Menu.ConfigsUI.Button,
-        Position = UDim2.fromOffset(5, 5),
-        Size = UDim2.fromOffset(6, 3),
+        Position = UDim2.fromOffset(10, 8),
+        Size = UDim2.fromOffset(9, 4),
         BackgroundColor3 = MutedText,
         BorderSizePixel = 0,
         ZIndex = 8
@@ -1053,8 +1130,8 @@ local function BuildRuntime()
     Corner(Menu.ConfigsUI.FolderTab, 2)
     Menu.ConfigsUI.FolderBody = Create("Frame", {
         Parent = Menu.ConfigsUI.Button,
-        Position = UDim2.fromOffset(4, 8),
-        Size = UDim2.fromOffset(14, 8),
+        Position = UDim2.fromOffset(9, 11),
+        Size = UDim2.fromOffset(20, 13),
         BackgroundColor3 = MutedText,
         BackgroundTransparency = 0.82,
         BorderSizePixel = 0,
@@ -1064,14 +1141,13 @@ local function BuildRuntime()
     Menu.ConfigsUI.FolderStroke = Stroke(Menu.ConfigsUI.FolderBody, MutedText, 0.02, 1)
 
     local SearchBar = Create("Frame", {
-        Parent = Topbar,
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -36, 0.5, 0),
-        Size = UDim2.fromOffset(142, 20),
-        BackgroundColor3 = Background,
-        BackgroundTransparency = 0,
+        Parent = Content,
+        Position = UDim2.fromOffset(59, 78),
+        Size = UDim2.fromOffset(568, 40),
+        BackgroundColor3 = Color3.fromRGB(17, 17, 20),
+        BackgroundTransparency = 0.05,
         BorderSizePixel = 0,
-        ZIndex = 6
+        ZIndex = 5
     })
     Corner(SearchBar, 2)
     Stroke(SearchBar, Color3.fromRGB(58, 58, 65), 0.34, 1)
@@ -1079,29 +1155,28 @@ local function BuildRuntime()
 
     local SearchBox = Create("TextBox", {
         Parent = SearchBar,
-        Position = UDim2.fromOffset(22, 0),
-        Size = UDim2.new(1, -26, 1, 0),
+        Position = UDim2.fromOffset(34, 0),
+        Size = UDim2.new(1, -46, 1, 0),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSans,
         PlaceholderText = "Search",
         PlaceholderColor3 = DisabledText,
         Text = "",
         TextColor3 = PrimaryText,
-        TextSize = 10,
+        TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left,
         ClearTextOnFocus = false,
-        ZIndex = 7
+        ZIndex = 6
     })
 
-    Icon(SearchBar, "Search", UDim2.fromOffset(10, 10), UDim2.new(0, 11, 0.5, 0), MutedText, 8)
+    Icon(SearchBar, "Search", UDim2.fromOffset(14, 14), UDim2.new(0, 16, 0.5, 0), MutedText, 7)
 
     local SearchSettings = Create("TextButton", {
-        Parent = Topbar,
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -8, 0.5, 0),
-        Size = UDim2.fromOffset(22, 20),
-        BackgroundColor3 = Background,
-        BackgroundTransparency = 0,
+        Parent = Content,
+        Position = UDim2.fromOffset(635, 78),
+        Size = UDim2.fromOffset(44, 40),
+        BackgroundColor3 = Color3.fromRGB(16, 16, 19),
+        BackgroundTransparency = 0.12,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Text = "",
@@ -1109,7 +1184,7 @@ local function BuildRuntime()
     })
     Corner(SearchSettings, 2)
     local SearchSettingsStroke = Stroke(SearchSettings, Border, 0.58, 1)
-    local SearchSettingsIcon = Icon(SearchSettings, "Gear", UDim2.fromOffset(12, 12), UDim2.fromScale(0.5, 0.5), MutedText, 8)
+    local SearchSettingsIcon = Icon(SearchSettings, "Gear", UDim2.fromOffset(18, 18), UDim2.fromScale(0.5, 0.5), MutedText, 7)
     local SettingsToggleHitbox = Create("TextButton", {
         Parent = ScreenGui,
         Position = UDim2.fromOffset(0, 0),
@@ -1170,8 +1245,8 @@ local function BuildRuntime()
 
     local PageHolder = Create("Frame", {
         Parent = Content,
-        Position = UDim2.fromOffset(10, 40),
-        Size = UDim2.new(1, -20, 1, -50),
+        Position = UDim2.fromOffset(59, 132),
+        Size = UDim2.fromOffset(626, 468),
         BackgroundTransparency = 1,
         ZIndex = 4
     })
@@ -1245,39 +1320,50 @@ local function BuildRuntime()
             Position = Position,
             Size = Size,
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0,
+            BackgroundTransparency = 0.025,
             BorderSizePixel = 0,
             ZIndex = 5
         })
-        Corner(Root, 0)
-        Stroke(Root, Border, 0, 1)
+        Corner(Root, 3)
+        Stroke(Root, Color3.fromRGB(3, 3, 4), 0, 1)
+        AddPanelChrome(Root, 3, 6)
 
-        local TitleLabel = Create("TextLabel", {
+        local Header = Create("Frame", {
             Parent = Root,
-            Position = UDim2.fromOffset(9, -7),
-            Size = UDim2.fromOffset(math.max(30, 12 + #tostring(Title) * 6), 14),
-            BackgroundColor3 = Surface,
-            BackgroundTransparency = 0,
+            Position = UDim2.fromOffset(2, 2),
+            Size = UDim2.new(1, -4, 0, 32),
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0.12,
             BorderSizePixel = 0,
-            Font = Enum.Font.BuilderSans,
-            Text = " " .. tostring(Title) .. " ",
+            ZIndex = 6
+        })
+        Corner(Header, 2)
+        AddPanelGradient(Header, Color3.fromRGB(30, 30, 34), Color3.fromRGB(20, 20, 23))
+
+        Create("TextLabel", {
+            Parent = Root,
+            Position = UDim2.fromOffset(12, 0),
+            Size = UDim2.new(1, -24, 0, 34),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.BuilderSansMedium,
+            Text = Title,
             TextColor3 = PrimaryText,
-            TextSize = 10,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
 
         local Body = Create("Frame", {
             Parent = Root,
-            Position = UDim2.fromOffset(10, 13),
-            Size = UDim2.new(1, -20, 1, -21),
+            Position = UDim2.fromOffset(10, 39),
+            Size = UDim2.new(1, -20, 1, -47),
             BackgroundTransparency = 1,
             ZIndex = 7
         })
 
         Create("UIListLayout", {
             Parent = Body,
-            Padding = UDim.new(0, 2),
+            Padding = UDim.new(0, 4),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
 
@@ -1285,8 +1371,7 @@ local function BuildRuntime()
             Root = Root,
             Body = Body,
             Controls = {},
-            HomePosition = Position,
-            TitleLabel = TitleLabel
+            HomePosition = Position
         }
         Menu.Sections[Key] = Section
         return Section
@@ -1374,31 +1459,25 @@ local function BuildRuntime()
     local function CreateCheckbox(Row, Default)
         local Button = Create("TextButton", {
             Parent = Row,
-            AnchorPoint = Vector2.new(0, 0.5),
-            Position = UDim2.new(0, 0, 0.5, 0),
-            Size = UDim2.fromOffset(9, 9),
-            BackgroundColor3 = Default and Accent or Background,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, 0, 0.5, 0),
+            Size = UDim2.fromOffset(15, 15),
+            BackgroundColor3 = Default and Accent or SurfaceAlt,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
-        Corner(Button, 0)
+        Corner(Button, 3)
         local BorderStroke = Stroke(Button, Default and Accent or Border, 0, 1)
-        local Check = Create("Frame", {
-            Parent = Button,
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            Visible = false,
-            ZIndex = 10
-        })
+        local Check = Icon(Button, "Check", UDim2.fromOffset(10, 10), UDim2.fromScale(0.5, 0.5), Background, 10)
+        Check.Visible = Default
         return Button, BorderStroke, Check
     end
 
     local function CreateToggle(Section, Name, Default, Flag, Options)
         Options = Options or {}
-        local Row = CreateRow(Section.Body, 20)
+        local Row = CreateRow(Section.Body, 27)
 
         if Options.Warning then
             CreateWarning(Row)
@@ -1406,19 +1485,19 @@ local function BuildRuntime()
 
         Create("TextLabel", {
             Parent = Row,
-            Position = UDim2.fromOffset(Options.Warning and 28 or 16, 0),
-            Size = UDim2.new(1, Options.Warning and -70 or -54, 1, 0),
+            Position = UDim2.fromOffset(Options.Warning and 15 or 0, 0),
+            Size = UDim2.new(1, Options.Warning and -58 or -43, 1, 0),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = Options.Disabled and DisabledText or PrimaryText,
-            TextSize = 10,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
 
         if Options.Gear then
-            CreateGear(Row, -20, 10, Name, Flag, {Type = "Boolean"})
+            CreateGear(Row, -38, 13, Name, Flag, {Type = "Boolean"})
         end
 
         local Button, BorderStroke, Check = CreateCheckbox(Row, Default)
@@ -1428,9 +1507,9 @@ local function BuildRuntime()
         local function Set(Value)
             State = Value and true or false
             Menu.Flags[Flag] = State
-            Check.Visible = false
-            Tween(Button, 0.08, {
-                BackgroundColor3 = State and Accent or Background
+            Check.Visible = State
+            Tween(Button, 0.12, {
+                BackgroundColor3 = State and Accent or SurfaceAlt
             })
             Tween(BorderStroke, 0.12, {
                 Color = State and Accent or Border
@@ -1447,7 +1526,7 @@ local function BuildRuntime()
 
         RegisterAccentTarget(function(NewColor)
             if Button and Button.Parent then
-                Button.BackgroundColor3 = State and NewColor or Background
+                Button.BackgroundColor3 = State and NewColor or SurfaceAlt
             end
             if BorderStroke and BorderStroke.Parent then
                 BorderStroke.Color = State and NewColor or Border
@@ -1547,16 +1626,16 @@ local function BuildRuntime()
         else
             Decimals = math.max(0, math.floor(Decimals + 0.5))
         end
-        local Row = CreateRow(Section.Body, 36)
+        local Row = CreateRow(Section.Body, 47)
 
         Create("TextLabel", {
             Parent = Row,
-            Size = UDim2.new(1, -52, 0, 15),
+            Size = UDim2.new(1, -60, 0, 18),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = Options.Disabled and DisabledText or PrimaryText,
-            TextSize = 10,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -1589,14 +1668,14 @@ local function BuildRuntime()
 
         local Track = Create("Frame", {
             Parent = Row,
-            Position = UDim2.fromOffset(0, 25),
-            Size = UDim2.new(1, 0, 0, 3),
+            Position = UDim2.fromOffset(0, 31),
+            Size = UDim2.new(1, 0, 0, 6),
             Active = true,
             BackgroundColor3 = Border,
             BorderSizePixel = 0,
             ZIndex = 8
         })
-        Corner(Track, 0)
+        Corner(Track, 2)
 
         local Fill = Create("Frame", {
             Parent = Track,
@@ -1605,19 +1684,19 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 9
         })
-        Corner(Fill, 0)
+        Corner(Fill, 2)
         local FillGlow = Menu:AddSoftGlow(Fill, 9, 8, 0.62, true)
 
         local Knob = Create("Frame", {
             Parent = Track,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new((Default - Minimum) / (Maximum - Minimum), 0, 0.5, 0),
-            Size = UDim2.fromOffset(2, 7),
-            BackgroundColor3 = Accent,
+            Size = UDim2.fromOffset(6, 14),
+            BackgroundColor3 = Color3.fromRGB(220, 220, 224),
             BorderSizePixel = 0,
             ZIndex = 10
         })
-        Corner(Knob, 0)
+        Corner(Knob, 2)
         local KnobGlow = Menu:AddSoftGlow(Knob, 10, 7, 0.24, false)
         local Value = Default
         local Dragging = false
@@ -1631,7 +1710,7 @@ local function BuildRuntime()
             end
         end)
         Bind(Track.MouseEnter:Connect(function()
-            Tween(Knob, 0.08, {Size = UDim2.fromOffset(2, 7)})
+            Tween(Knob, 0.12, {Size = UDim2.fromOffset(7, 16)})
             if FillGlow then
                 Tween(FillGlow, 0.12, {ImageTransparency = 0.52})
             end
@@ -1641,7 +1720,7 @@ local function BuildRuntime()
         end))
         Bind(Track.MouseLeave:Connect(function()
             if not Dragging then
-                Tween(Knob, 0.08, {Size = UDim2.fromOffset(2, 7)})
+                Tween(Knob, 0.12, {Size = UDim2.fromOffset(6, 14)})
                 if FillGlow then
                     Tween(FillGlow, 0.12, {ImageTransparency = 0.62})
                 end
@@ -3985,7 +4064,7 @@ local function BuildRuntime()
     local function CreateDropdown(Section, Name, Values, Default, Flag, Options)
         Options = Options or {}
         Values = type(Values) == "table" and Values or {}
-        local Row = CreateRow(Section.Body, 22)
+        local Row = CreateRow(Section.Body, 28)
 
         Create("TextLabel", {
             Parent = Row,
@@ -3994,13 +4073,13 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = Options.Disabled and DisabledText or PrimaryText,
-            TextSize = 10,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
 
         if Options.Gear then
-            CreateGear(Row, -150, 11, Name, Flag, {Type = "Dropdown", Values = Values})
+            CreateGear(Row, -124, 13, Name, Flag, {Type = "Dropdown", Values = Values})
         end
 
         local Current = Default
@@ -4011,16 +4090,16 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(140, 18),
+            Size = UDim2.fromOffset(104, 24),
             BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = 0,
+            BackgroundTransparency = 0.22,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
-        Corner(Button, 0)
-        local ButtonStroke = Stroke(Button, Border, 0, 1)
+        Corner(Button, 5)
+        local ButtonStroke = Stroke(Button, Border, 0.42, 1)
 
         RegisterAccentTarget(function(NewColor)
             if not ButtonStroke
@@ -4037,7 +4116,7 @@ local function BuildRuntime()
 
         local ValueLabel = Create("TextLabel", {
             Parent = Button,
-            Position = UDim2.fromOffset(6, 0),
+            Position = UDim2.fromOffset(9, 0),
             Size = UDim2.new(1, -30, 1, 0),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSansMedium,
@@ -4117,13 +4196,13 @@ local function BuildRuntime()
                 ),
                 Size = UDim2.fromOffset(Width, PopupHeight),
                 BackgroundColor3 = Surface,
-                BackgroundTransparency = 0,
+                BackgroundTransparency = 0.035,
                 BorderSizePixel = 0,
                 ClipsDescendants = true,
                 ZIndex = 100
             })
-            Corner(ActivePopup, 0)
-            Stroke(ActivePopup, Border, 0, 1)
+            Corner(ActivePopup, 5)
+            Stroke(ActivePopup, Border, 0.46, 1)
             Menu:AddSoftGlow(ActivePopup, 100, 6, 0.90, true)
 
             ActivePopup.Position =
@@ -4175,7 +4254,7 @@ local function BuildRuntime()
                     Parent = List,
                     Size = UDim2.new(1, -2, 0, RowHeight),
                     BackgroundColor3 = SurfaceAlt,
-                    BackgroundTransparency = Selected and 0 or 1,
+                    BackgroundTransparency = Selected and 0.80 or 1,
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
                     Text = "",
@@ -4240,7 +4319,7 @@ local function BuildRuntime()
     local function CreateMultiDropdown(Section, Name, Values, Default, Flag, Options)
         Options = Options or {}
         Values = type(Values) == "table" and Values or {}
-        local Row = CreateRow(Section.Body, 22)
+        local Row = CreateRow(Section.Body, 28)
 
         Create("TextLabel", {
             Parent = Row,
@@ -4249,7 +4328,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = Options.Disabled and DisabledText or PrimaryText,
-            TextSize = 10,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -4330,15 +4409,15 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(140, 18),
+            Size = UDim2.fromOffset(114, 24),
             BackgroundColor3 = SurfaceAlt,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
-        Corner(Button, 0)
-        local ButtonStroke = Stroke(Button, Border, 0, 1)
+        Corner(Button, 6)
+        local ButtonStroke = Stroke(Button, Border, 0.08, 1)
 
         RegisterAccentTarget(function(NewColor)
             if not ButtonStroke
@@ -10857,29 +10936,50 @@ local function BuildRuntime()
         Menu.CurrentPage = Name
         Menu.ActivePageName = Name
         ClosePopup()
+
         local SelectedPage = Menu.Pages[Name]
         for PageName, Page in pairs(Menu.Pages) do
             Page.Visible = PageName == Name
         end
+
         Menu.RestorePageSections(SelectedPage, Menu.Visible and Main.Visible)
+
         for ButtonName, Data in pairs(Menu.SidebarButtons) do
             local Selected = ButtonName == Name
-            if Data.Button and Data.Button.Parent then
-                Tween(Data.Button, 0.08, {
-                    BackgroundTransparency = 1,
-                    TextColor3 = Selected and PrimaryText or MutedText
-                })
+
+            if Data.TopTab == true then
+                if Data.Button and Data.Button.Parent then
+                    Tween(Data.Button, 0.10, {
+                        BackgroundTransparency = 1,
+                        TextColor3 = Selected and PrimaryText or MutedText
+                    })
+                end
+                if Data.Marker and Data.Marker.Parent then
+                    Data.Marker.Visible = Selected
+                    Data.Marker.BackgroundTransparency = Selected and 0 or 1
+                    Data.Marker.Size = UDim2.new(1, 0, 0, 1)
+                    Data.Marker.Position = UDim2.new(0, 0, 1, 0)
+                end
+            else
+                if Data.Button and Data.Button.Parent then
+                    Tween(Data.Button, 0.16, {
+                        BackgroundTransparency = Selected and 0.72 or 1,
+                        BackgroundColor3 = Selected and Color3.fromRGB(29, 29, 34) or SidebarColor
+                    })
+                end
+                if Data.Scale then
+                    Tween(Data.Scale, 0.16, {Scale = Selected and 1.025 or 1})
+                end
+                if Data.Marker then
+                    Data.Marker.Visible = Selected
+                end
+                if Data.Label and Data.Label ~= Data.Button then
+                    Tween(Data.Label, 0.16, {TextColor3 = Selected and PrimaryText or MutedText})
+                end
+                if Data.Icon then
+                    Menu:SetIconColor(Data.Icon, Selected and Accent or MutedText, 0.16)
+                end
             end
-            if Data.Marker and Data.Marker.Parent then
-                Data.Marker.Visible = Selected
-                Data.Marker.BackgroundTransparency = Selected and 0 or 1
-                Data.Marker.Size = UDim2.new(1, 0, 0, 1)
-                Data.Marker.Position = UDim2.new(0, 0, 1, 0)
-            end
-            if Data.Label and Data.Label ~= Data.Button and Data.Label.Parent then
-                Data.Label.TextColor3 = Selected and PrimaryText or MutedText
-            end
-            Menu:SetIconColor(Data.Icon, Selected and Accent or MutedText, 0.08)
         end
     end
 
@@ -12033,22 +12133,25 @@ local function BuildRuntime()
     local function ApiEnsureSidebarPage(Name)
         local Existing = Menu.SidebarButtons[Name]
         if Existing then return Existing end
+
         local Count = 0
         for _ in pairs(Menu.SidebarButtons) do Count += 1 end
-        local Width = math.max(48, 18 + #tostring(Name) * 6)
+        local Width = math.max(44, 16 + (#tostring(Name) * 6))
+
         local Button = Create("TextButton", {
-            Parent = MainPageTabs,
+            Parent = PageTabHost,
             LayoutOrder = Count + 1,
-            Size = UDim2.fromOffset(Width, 32),
+            Size = UDim2.fromOffset(Width, 31),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSans,
-            Text = string.lower(tostring(Name)),
+            Text = tostring(Name),
             TextColor3 = MutedText,
             TextSize = 10,
             ZIndex = 7
         })
+
         local Marker = Create("Frame", {
             Parent = Button,
             AnchorPoint = Vector2.new(0, 1),
@@ -12060,29 +12163,36 @@ local function BuildRuntime()
             Visible = false,
             ZIndex = 8
         })
+
         Existing = {
             Button = Button,
             Marker = Marker,
             Label = Button,
-            Horizontal = true
+            Scale = nil,
+            Icon = nil,
+            MarkerGlow = nil,
+            TopTab = true
         }
         Menu.SidebarButtons[Name] = Existing
 
         Bind(Button.MouseEnter:Connect(function()
             if Menu.ActivePageName ~= Name then
-                Tween(Button, 0.08, {TextColor3 = PrimaryText})
+                Tween(Button, 0.10, {TextColor3 = PrimaryText})
             end
         end))
+
         Bind(Button.MouseLeave:Connect(function()
             if Menu.ActivePageName ~= Name then
-                Tween(Button, 0.08, {TextColor3 = MutedText})
+                Tween(Button, 0.10, {TextColor3 = MutedText})
             end
         end))
+
         Bind(Button.MouseButton1Click:Connect(function()
             ApiState.ActivePage = Name
             Menu.SelectPage(Name)
             ApiState:RefreshSubPageButtons(Name)
         end))
+
         return Existing
     end
 
@@ -12102,20 +12212,27 @@ local function BuildRuntime()
         for SubPageName, SubPageObject in pairs(PageObject.SubPages) do
             local Selected = SubPageName == Name
             SubPageObject.Frame.Visible = Selected
+
             if SubPageObject.Button then
-                Tween(SubPageObject.Button, 0.08, {
+                Tween(SubPageObject.Button, 0.10, {
                     BackgroundTransparency = 1,
-                    TextColor3 = Selected and Accent or MutedText
+                    BackgroundColor3 = Topbar.BackgroundColor3,
+                    TextColor3 = Selected and PrimaryText or MutedText
                 })
             end
+
             if SubPageObject.Scale then
                 SubPageObject.Scale.Scale = 1
             end
+
             if SubPageObject.Indicator then
                 SubPageObject.Indicator.Visible = Selected
+                SubPageObject.Indicator.Size = UDim2.new(1, 0, 0, 1)
+                SubPageObject.Indicator.Position = UDim2.new(0, 0, 1, 0)
                 SubPageObject.Indicator.BackgroundTransparency = Selected and 0 or 1
             end
         end
+
         PageObject.ActiveSubPage = Name
     end
 
@@ -12168,7 +12285,7 @@ local function BuildRuntime()
         local Flag = ApiNormalizeFlag(Data, Name)
         local Default = ApiRead(Data, "Default", Accent)
         local Callback = ApiRead(Data, "Callback")
-        local Row = ExistingRow or CreateRow(Section.Body, 20)
+        local Row = ExistingRow or CreateRow(Section.Body, 27)
         if not ExistingRow then
             Create("TextLabel", {
                 Parent = Row,
@@ -12177,7 +12294,7 @@ local function BuildRuntime()
                 Font = Enum.Font.BuilderSans,
                 Text = Name,
                 TextColor3 = PrimaryText,
-                TextSize = 10,
+                TextSize = 11,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 ZIndex = 8
             })
@@ -12186,16 +12303,16 @@ local function BuildRuntime()
         local Button = Create("TextButton", {
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(20, 9),
+            Position = UDim2.new(1, -1, 0.5, 0),
+            Size = UDim2.fromOffset(13, 13),
             BackgroundColor3 = typeof(Default) == "Color3" and Default or Accent,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 10
         })
-        Corner(Button, 0)
-        local BorderStroke = Stroke(Button, Border, 0, 1)
+        Corner(Button, 100)
+        local BorderStroke = Stroke(Button, Color3.fromRGB(224, 224, 228), 0.16, 1)
         local Glow = Menu:AddSoftGlow(Button, 10, 8, 0.20, false)
         local Value = typeof(Default) == "Color3" and Default or Accent
         local Alpha = math.clamp(tonumber(ApiRead(Data, "Alpha", 1)) or 1, 0, 1)
@@ -12265,7 +12382,7 @@ local function BuildRuntime()
             GateFlag = tostring(GateFlag)
         end
 
-        local Row = ExistingRow or CreateRow(Section.Body, 20)
+        local Row = ExistingRow or CreateRow(Section.Body, 27)
 
         if not ExistingRow then
             Create("TextLabel", {
@@ -12275,7 +12392,7 @@ local function BuildRuntime()
                 Font = Enum.Font.BuilderSans,
                 Text = Name,
                 TextColor3 = PrimaryText,
-                TextSize = 10,
+                TextSize = 11,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 ZIndex = 8
             })
@@ -12309,8 +12426,8 @@ local function BuildRuntime()
 
         local GearButton, GearIcon = CreateGear(
             Row,
-            TargetFlag and -22 or -10,
-            10,
+            TargetFlag and -38 or -10,
+            13,
             TargetName or Name,
             Flag,
             {Type = "Boolean", GateFlag = GateFlag}
@@ -12517,7 +12634,7 @@ local function BuildRuntime()
         Data = Data or {}
         local Name = tostring(ApiRead(Data, "Name", "Button"))
         local Callback = ApiRead(Data, "Callback")
-        local Row = CreateRow(self.Section.Body, 22)
+        local Row = CreateRow(self.Section.Body, 30)
         local Button = Create("TextButton", {
             Parent = Row,
             Size = UDim2.fromScale(1, 1),
@@ -12527,11 +12644,11 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSansMedium,
             Text = Name,
             TextColor3 = PrimaryText,
-            TextSize = 10,
+            TextSize = 11,
             ZIndex = 8
         })
-        Corner(Button, 0)
-        Stroke(Button, Border, 0, 1)
+        Corner(Button, 5)
+        Stroke(Button, Border, 0.18, 1)
         RegisterControl(self.Section, Row, Name)
         Bind(Button.MouseButton1Click:Connect(function()
             if type(Callback) == "function" then
@@ -12546,7 +12663,7 @@ local function BuildRuntime()
         local Name = tostring(ApiRead(Data, "Name", "Textbox"))
         local Flag = ApiNormalizeFlag(Data, Name)
         local Callback = ApiRead(Data, "Callback")
-        local Row = CreateRow(self.Section.Body, 24)
+        local Row = CreateRow(self.Section.Body, 32)
         Create("TextLabel", {
             Parent = Row,
             Size = UDim2.new(0.42, -6, 1, 0),
@@ -12554,7 +12671,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = PrimaryText,
-            TextSize = 10,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -12562,7 +12679,7 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.new(0.58, 0, 0, 18),
+            Size = UDim2.new(0.58, 0, 0, 24),
             BackgroundColor3 = SurfaceAlt,
             BorderSizePixel = 0,
             ClearTextOnFocus = false,
@@ -12575,8 +12692,8 @@ local function BuildRuntime()
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 9
         })
-        Corner(Box, 0)
-        Stroke(Box, Border, 0, 1)
+        Corner(Box, 5)
+        Stroke(Box, Border, 0.18, 1)
         Create("UIPadding", {Parent = Box, PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
         RegisterControl(self.Section, Row, Name)
         local Object = {}
@@ -12606,8 +12723,8 @@ local function BuildRuntime()
             ClipsDescendants = true,
             ZIndex = 8
         })
-        Corner(Root, 0)
-        Stroke(Root, Border, 0, 1)
+        Corner(Root, 5)
+        Stroke(Root, Border, 0.18, 1)
         local Scroll = Create("ScrollingFrame", {
             Parent = Root,
             Position = UDim2.fromOffset(4, 4),
@@ -12645,7 +12762,7 @@ local function BuildRuntime()
                     LayoutOrder = Index,
                     ZIndex = 10
                 })
-                Corner(Entry, 0)
+                Corner(Entry, 4)
                 Bind(Entry.MouseButton1Click:Connect(function()
                     Object.Value = Text
                     Menu.Flags[Flag] = Text
@@ -12674,37 +12791,42 @@ local function BuildRuntime()
     end
 
     function ApiState:ReflowSubPage(SubPage)
-        if type(SubPage) ~= "table" then return end
-        local LeftY, RightY = 0, 0
+        if type(SubPage) ~= "table" then
+            return
+        end
+
+        local LeftY = 0
+        local RightY = 0
         local Sections = SubPage.Sections
-        local Frame = SubPage.Frame
-        local Width = typeof(Frame) == "Instance" and Frame.AbsoluteSize.X or 700
-        local Gap = 10
-        local Column = math.max(260, math.floor((Width - Gap) * 0.5))
+
         if type(Sections) == "table" then
             for _, Entry in ipairs(Sections) do
                 local Section = type(Entry) == "table" and Entry.Section or nil
                 local Root = type(Section) == "table" and Section.Root or nil
+
                 if typeof(Root) == "Instance" then
-                    local Height = math.max(58, tonumber(Entry.DesiredHeight) or 58)
+                    local Height = math.max(78, tonumber(Entry.DesiredHeight) or 78)
                     local IsRight = Entry.Side == "Right"
                     local Y = IsRight and RightY or LeftY
-                    local X = IsRight and Column + Gap or 0
-                    local Position = UDim2.fromOffset(X, Y)
+                    local Position = UDim2.fromOffset(IsRight and 319 or 0, Y)
+
                     Root.Position = Position
-                    Root.Size = UDim2.fromOffset(Column, Height)
+                    Root.Size = UDim2.fromOffset(307, Height)
                     Section.HomePosition = Position
+
                     if IsRight then
-                        RightY = Y + Height + 10
+                        RightY = Y + Height + 12
                     else
-                        LeftY = Y + Height + 10
+                        LeftY = Y + Height + 12
                     end
                 end
             end
         end
+
+        local Frame = SubPage.Frame
         if typeof(Frame) == "Instance" and Frame:IsA("ScrollingFrame") then
             local Bottom = math.max(LeftY, RightY)
-            Frame.CanvasSize = UDim2.fromOffset(0, math.max(Frame.AbsoluteSize.Y, Bottom > 0 and Bottom - 10 or Frame.AbsoluteSize.Y))
+            Frame.CanvasSize = UDim2.fromOffset(0, math.max(464, Bottom > 0 and Bottom - 12 or 464))
         end
     end
 
@@ -12727,9 +12849,9 @@ local function BuildRuntime()
             end
             Side = LeftCount <= RightCount and "Left" or "Right"
         end
-        local MinimumHeight = math.max(58, tonumber(ApiRead(Data, "Height", 58)) or 58)
+        local MinimumHeight = math.max(78, tonumber(ApiRead(Data, "Height", 78)) or 78)
         local Key = self.PageName .. ":" .. self.Name .. ":" .. tostring(ApiRead(Data, "Name", "Section")) .. ":" .. Side .. ":" .. tostring(#self.Sections + 1)
-        local Section = CreateSection(self.Frame, Key, tostring(ApiRead(Data, "Name", "Section")), UDim2.fromOffset(0, 0), UDim2.fromOffset(340, MinimumHeight))
+        local Section = CreateSection(self.Frame, Key, tostring(ApiRead(Data, "Name", "Section")), UDim2.fromOffset(0, 0), UDim2.fromOffset(307, MinimumHeight))
         local Entry = {Section = Section, Side = Side, DesiredHeight = MinimumHeight, MinimumHeight = MinimumHeight}
         table.insert(self.Sections, Entry)
         local Layout = Section.Body and Section.Body:FindFirstChildOfClass("UIListLayout") or nil
@@ -12743,7 +12865,7 @@ local function BuildRuntime()
                 ContentHeight = Layout.AbsoluteContentSize.Y
             end
 
-            Entry.DesiredHeight = math.max(Entry.MinimumHeight, ContentHeight + 28)
+            Entry.DesiredHeight = math.max(Entry.MinimumHeight, ContentHeight + 50)
             ApiState:ReflowSubPage(self)
         end
         if typeof(Layout) == "Instance" then
@@ -12773,7 +12895,7 @@ local function BuildRuntime()
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            CanvasSize = UDim2.fromOffset(0, 520),
+            CanvasSize = UDim2.fromOffset(0, 464),
             ScrollBarThickness = 2,
             ScrollBarImageColor3 = Accent,
             ScrollingDirection = Enum.ScrollingDirection.Y,
@@ -12781,18 +12903,18 @@ local function BuildRuntime()
             Visible = Count == 0,
             ZIndex = 4
         })
-        local ButtonWidth = math.max(44, 14 + (#Name * 5.5))
+        local ButtonWidth = math.max(44, 14 + (#Name * 6))
         local Button = Create("TextButton", {
             Parent = Menu.SubPageHost or Topbar,
             LayoutOrder = Count + 1,
-            Size = UDim2.fromOffset(ButtonWidth, 28),
+            Size = UDim2.fromOffset(ButtonWidth, 31),
             BackgroundColor3 = SurfaceAlt,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSans,
             Text = Name,
-            TextColor3 = Count == 0 and Accent or MutedText,
+            TextColor3 = Count == 0 and PrimaryText or MutedText,
             TextSize = 10,
             Visible = self.Name == ApiState.ActivePage,
             ZIndex = 6
@@ -12844,10 +12966,22 @@ local function BuildRuntime()
             self.ActiveSubPage = Name
         end
         Bind(Button.MouseEnter:Connect(function()
-            if self.ActiveSubPage ~= Name then Tween(Button, 0.08, {TextColor3 = PrimaryText}) end
+            if self.ActiveSubPage ~= Name then
+                Tween(Button, 0.14, {BackgroundTransparency = 1, BackgroundColor3 = Topbar.BackgroundColor3, TextColor3 = PrimaryText})
+                Tween(Scale, 0.14, {Scale = 1.025})
+            end
         end))
         Bind(Button.MouseLeave:Connect(function()
-            if self.ActiveSubPage ~= Name then Tween(Button, 0.08, {TextColor3 = MutedText}) end
+            if self.ActiveSubPage ~= Name then
+                Tween(Button, 0.14, {BackgroundTransparency = 1, BackgroundColor3 = Topbar.BackgroundColor3, TextColor3 = MutedText})
+                Tween(Scale, 0.14, {Scale = 1})
+            end
+        end))
+        Bind(Button.MouseButton1Down:Connect(function()
+            Tween(Scale, 0.08, {Scale = 0.97})
+        end))
+        Bind(Button.MouseButton1Up:Connect(function()
+            Tween(Scale, 0.12, {Scale = self.ActiveSubPage == Name and 1.02 or 1.025})
         end))
         Bind(Button.MouseButton1Click:Connect(function()
             ApiState:SelectSubPage(self, Name)
@@ -14340,7 +14474,9 @@ local function BuildRuntime()
         end
         ApiState.WindowObject = setmetatable({Pages = {}}, ApiWindowMethods)
         local Name = tostring(ApiRead(Data, "Name", "Atramenta.rip"))
-        if MainBrand and MainBrand.Parent then MainBrand.Text = string.lower(Name) end
+        if MainTitle and MainTitle.Parent then
+            MainTitle.Text = string.lower(Name)
+        end
         for _, Object in ipairs(Menu.SettingsUI.SettingsPanel:GetChildren()) do
             if Object:IsA("TextLabel") and Object.Text == "Atramenta.rip" then
                 Object.Text = Name
