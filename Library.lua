@@ -153,14 +153,14 @@ local function BuildRuntime()
 
     local DefaultAccent = Color3.fromRGB(86, 66, 235)
     local Accent = DefaultAccent
-    local Background = Color3.fromRGB(13, 13, 17)
-    local SidebarColor = Color3.fromRGB(16, 16, 21)
-    local Surface = Color3.fromRGB(20, 20, 26)
-    local SurfaceAlt = Color3.fromRGB(24, 24, 31)
-    local Border = Color3.fromRGB(45, 46, 57)
-    local PrimaryText = Color3.fromRGB(224, 224, 229)
-    local MutedText = Color3.fromRGB(145, 145, 155)
-    local DisabledText = Color3.fromRGB(82, 82, 92)
+    local Background = Color3.fromRGB(10, 10, 11)
+    local SidebarColor = Color3.fromRGB(13, 13, 14)
+    local Surface = Color3.fromRGB(16, 16, 18)
+    local SurfaceAlt = Color3.fromRGB(21, 21, 23)
+    local Border = Color3.fromRGB(50, 50, 54)
+    local PrimaryText = Color3.fromRGB(214, 214, 218)
+    local MutedText = Color3.fromRGB(150, 150, 156)
+    local DisabledText = Color3.fromRGB(86, 86, 92)
     local Danger = Color3.fromRGB(202, 72, 78)
     local BaseScaleFactor = 1
     local AnimationFactor = 1
@@ -305,7 +305,8 @@ local function BuildRuntime()
 
     local function AddPanelChrome(Parent, Radius, ZIndex)
         if not Parent then return nil end
-        local Inner = Create("Frame", {
+
+        local Layer = Create("Frame", {
             Parent = Parent,
             Position = UDim2.fromOffset(1, 1),
             Size = UDim2.new(1, -2, 1, -2),
@@ -314,9 +315,80 @@ local function BuildRuntime()
             Active = false,
             ZIndex = ZIndex or ((Parent.ZIndex or 1) + 1)
         })
-        Corner(Inner, math.max(0, (tonumber(Radius) or 3) - 1))
-        Stroke(Inner, Color3.fromRGB(78, 78, 86), 0.58, 1)
-        return Inner
+        Stroke(Layer, Color3.fromRGB(58, 58, 62), 0, 1)
+
+        local Inner = Create("Frame", {
+            Parent = Parent,
+            Position = UDim2.fromOffset(2, 2),
+            Size = UDim2.new(1, -4, 1, -4),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Active = false,
+            ZIndex = (ZIndex or ((Parent.ZIndex or 1) + 1)) + 1
+        })
+        Stroke(Inner, Color3.fromRGB(24, 24, 27), 0, 1)
+
+        return Layer
+    end
+
+    function Menu:ApplyOldschoolChrome(Root, Header, ZIndex)
+        if not Root then return end
+
+        Root.BackgroundColor3 = Background
+        Root.BackgroundTransparency = 0
+
+        for _, Child in ipairs(Root:GetChildren()) do
+            if Child:IsA("UICorner") then
+                Child.CornerRadius = UDim.new(0, 0)
+            end
+        end
+
+        AddPanelChrome(Root, 0, (ZIndex or Root.ZIndex) + 1)
+
+        local AccentLine = Create("Frame", {
+            Parent = Root,
+            Position = UDim2.fromOffset(3, 3),
+            Size = UDim2.new(1, -6, 0, 1),
+            BackgroundColor3 = Accent,
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0,
+            Active = false,
+            ZIndex = (ZIndex or Root.ZIndex) + 4
+        })
+        Menu.ChromeAccentTargets[AccentLine] = true
+
+        local AccentShadow = Create("Frame", {
+            Parent = Root,
+            Position = UDim2.fromOffset(3, 4),
+            Size = UDim2.new(1, -6, 0, 1),
+            BackgroundColor3 = Color3.fromRGB(29, 25, 55),
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0,
+            Active = false,
+            ZIndex = (ZIndex or Root.ZIndex) + 3
+        })
+
+        if Header then
+            Header.BackgroundColor3 = SurfaceAlt
+            Header.BackgroundTransparency = 0
+            for _, Child in ipairs(Header:GetChildren()) do
+                if Child:IsA("UICorner") then
+                    Child.CornerRadius = UDim.new(0, 0)
+                end
+            end
+
+            Create("Frame", {
+                Parent = Header,
+                AnchorPoint = Vector2.new(0, 1),
+                Position = UDim2.new(0, 3, 1, 0),
+                Size = UDim2.new(1, -6, 0, 1),
+                BackgroundColor3 = Color3.fromRGB(4, 4, 5),
+                BackgroundTransparency = 0,
+                BorderSizePixel = 0,
+                Active = false,
+                ZIndex = Header.ZIndex + 3
+            })
+        end
     end
 
     local function AddPanelGradient(Parent, TopColor, BottomColor)
@@ -5941,14 +6013,15 @@ local function BuildRuntime()
         Parent = ScreenGui,
         Position = DecodePosition(SavedPositions.Watermark, UDim2.fromOffset(28, 18)),
         Size = UDim2.fromOffset(332, 30),
-        BackgroundColor3 = Color3.fromRGB(7, 10, 14),
-        BackgroundTransparency = 0.20,
+        BackgroundColor3 = Background,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         Visible = SavedPositions.HideWatermark ~= true,
         ZIndex = 210
     })
-    Corner(Watermark, 5)
-    Stroke(Watermark, Color3.fromRGB(30, 35, 43), 0.22, 1)
+    Corner(Watermark, 0)
+    Stroke(Watermark, Color3.fromRGB(0, 0, 0), 0, 1)
+    Menu:ApplyOldschoolChrome(Watermark, nil, 210)
 
     local WatermarkGlow = Create("ImageLabel", {
         Parent = ScreenGui,
@@ -5957,7 +6030,7 @@ local function BuildRuntime()
         BackgroundTransparency = 1,
         Image = Menu.GlowAsset,
         ImageColor3 = Accent,
-        ImageTransparency = 0.84,
+        ImageTransparency = 1,
         ScaleType = Enum.ScaleType.Slice,
         SliceCenter = Rect.new(34, 34, 62, 62),
         ZIndex = 208
@@ -5981,7 +6054,7 @@ local function BuildRuntime()
             Watermark.Position.Y.Offset - 8
         )
         WatermarkGlow.Size = UDim2.fromOffset(Watermark.AbsoluteSize.X + 16, Watermark.AbsoluteSize.Y + 16)
-        WatermarkGlow.Visible = Watermark.Visible
+        WatermarkGlow.Visible = false
     end
 
     Bind(Watermark:GetPropertyChangedSignal("Position"):Connect(SyncWatermarkGlow))
@@ -6335,8 +6408,8 @@ local function BuildRuntime()
         Active = true,
         Position = DecodePosition(SavedPositions.Keybinds, UDim2.fromOffset(24, 154)),
         Size = UDim2.fromOffset(146, 48),
-        BackgroundColor3 = Color3.fromRGB(8, 11, 15),
-        BackgroundTransparency = 0.08,
+        BackgroundColor3 = Background,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         Visible = not KeybindListHidden,
         ZIndex = 72
@@ -6352,11 +6425,15 @@ local function BuildRuntime()
     local KeybindListHeader = Create("Frame", {
         Parent = KeybindListWindow,
         Active = true,
-        Position = UDim2.fromOffset(8, 5),
-        Size = UDim2.new(1, -16, 0, 18),
-        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(3, 5),
+        Size = UDim2.new(1, -6, 0, 21),
+        BackgroundColor3 = SurfaceAlt,
+        BackgroundTransparency = 0,
+        BorderSizePixel = 0,
         ZIndex = 73
     })
+    Stroke(KeybindListWindow, Color3.fromRGB(0, 0, 0), 0, 1)
+    Menu:ApplyOldschoolChrome(KeybindListWindow, KeybindListHeader, 72)
 
     local HotkeyHeaderIconHolder = Create("Frame", {
         Parent = KeybindListHeader,
@@ -6397,8 +6474,8 @@ local function BuildRuntime()
 
     local KeybindRows = Create("Frame", {
         Parent = KeybindListWindow,
-        Position = UDim2.fromOffset(8, 27),
-        Size = UDim2.new(1, -16, 1, -32),
+        Position = UDim2.fromOffset(7, 30),
+        Size = UDim2.new(1, -14, 1, -35),
         BackgroundTransparency = 1,
         ClipsDescendants = true,
         ZIndex = 73
@@ -8179,13 +8256,14 @@ local function BuildRuntime()
         Position = UDim2.new(0.5, 0, 0, 20),
         Size = UDim2.fromOffset(154, 48),
         BackgroundColor3 = Background,
-        BackgroundTransparency = 0.08,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         Visible = true,
         ZIndex = 235
     })
-    Corner(QuickPanel, 10)
-    Stroke(QuickPanel, Border, 0.34, 1)
+    Corner(QuickPanel, 0)
+    Stroke(QuickPanel, Color3.fromRGB(0, 0, 0), 0, 1)
+    Menu:ApplyOldschoolChrome(QuickPanel, nil, 235)
     local QuickPanelGlow = Menu:AddSoftGlow(QuickPanel, 234, 11, 0.88, true)
 
     local QuickPanelPadding = Create("UIPadding", {
@@ -8226,7 +8304,7 @@ local function BuildRuntime()
             LayoutOrder = Order,
             ZIndex = 237
         })
-        Corner(Button, 7)
+        Corner(Button, 0)
 
         local ButtonIcon = Icon(
             Button,
@@ -8656,14 +8734,14 @@ local function BuildRuntime()
             Position = SavedPreviewPosition or UDim2.new(0.5, 492, 0.5, 0),
             Size = UDim2.fromOffset(824, 522),
             BackgroundColor3 = Background,
-            BackgroundTransparency = 0.08,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 20
         })
-        Corner(S.Window, 4)
-        Stroke(S.Window, Color3.fromRGB(3, 3, 4), 0, 1)
-        AddPanelChrome(S.Window, 4, 23)
+        Corner(S.Window, 0)
+        Stroke(S.Window, Color3.fromRGB(0, 0, 0), 0, 1)
+        AddPanelChrome(S.Window, 0, 23)
         S.Glow = Menu:AddSoftGlow(S.Window, 20, 11, 0.72, true)
 
         S.Scale = Create("UIScale", {
@@ -8675,12 +8753,13 @@ local function BuildRuntime()
             Parent = S.Window,
             Active = true,
             Size = UDim2.new(1, 0, 0, 48),
-            BackgroundColor3 = SidebarColor,
-            BackgroundTransparency = 0.08,
+            BackgroundColor3 = SurfaceAlt,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 21
         })
-        Corner(S.Header, 3)
+        Corner(S.Header, 0)
+        Menu:ApplyOldschoolChrome(S.Window, S.Header, 23)
         AddPanelGradient(S.Header, Color3.fromRGB(30, 30, 34), Color3.fromRGB(19, 19, 22))
 
         Create("Frame", {
@@ -8736,7 +8815,7 @@ local function BuildRuntime()
             TextSize = 10,
             ZIndex = 23
         })
-        Corner(S.DetachButton, 2)
+        Corner(S.DetachButton, 0)
         Stroke(S.DetachButton, Border, 0.18, 1)
 
         S.CloseButton = Create("TextButton", {
@@ -8754,7 +8833,7 @@ local function BuildRuntime()
             TextSize = 10,
             ZIndex = 23
         })
-        Corner(S.CloseButton, 2)
+        Corner(S.CloseButton, 0)
         Stroke(S.CloseButton, Border, 0.18, 1)
 
         S.ModeRail = Create("Frame", {
@@ -10333,6 +10412,21 @@ local function BuildRuntime()
             if Value == nil then
                 return Default
             end
+
+            if typeof(Default) == "Color3" and typeof(Value) ~= "Color3" then
+                if type(Value) == "table" then
+                    local ColorValue = Value.Color or Value.color or Value[1]
+                    if typeof(ColorValue) == "Color3" then
+                        return ColorValue
+                    end
+                end
+                return Default
+            end
+
+            if type(Default) == "boolean" and type(Value) == "table" and Value.active ~= nil then
+                return Value.active == true
+            end
+
             return Value
         end
 
@@ -10465,13 +10559,13 @@ local function BuildRuntime()
             local TextSize = math.clamp(tonumber(GetFlag("Player ESP Text Size", 12)) or 12, 10, 20)
 
             S.Box.Visible = Boxes or FillEnabled
-            S.Box.BackgroundColor3 = FillColor
+            S.Box.BackgroundColor3 = typeof(FillColor) == "Color3" and FillColor or Accent
             S.Box.BackgroundTransparency = FillEnabled and FillTransparency or 1
             S.BoxStroke.Transparency = Boxes and BoxStyle == "Full" and 0.04 or 1
-            S.BoxStroke.Color = BoxColor
+            S.BoxStroke.Color = typeof(BoxColor) == "Color3" and BoxColor or Accent
             for _, CornerObject in ipairs(S.Corners) do
                 CornerObject.Visible = Boxes and BoxStyle ~= "Full"
-                CornerObject.BackgroundColor3 = BoxColor
+                CornerObject.BackgroundColor3 = typeof(BoxColor) == "Color3" and BoxColor or Accent
             end
 
             local HealthBarEnabled = DisplayEnabled and GetFlag("Player ESP Health Bar", false)
@@ -12933,15 +13027,15 @@ local function BuildRuntime()
             Position = DecodePosition(SavedPositions.PlayerList, UDim2.fromScale(0.5, 0.53)),
             Size = UDim2.fromOffset(776, 506),
             BackgroundColor3 = Background,
-            BackgroundTransparency = 0.025,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ClipsDescendants = false,
             Visible = State.Visible,
             ZIndex = 145
         })
-        Corner(Root, 3)
-        Stroke(Root, Color3.fromRGB(3, 3, 4), 0, 1)
-        AddPanelChrome(Root, 3, 149)
+        Corner(Root, 0)
+        Stroke(Root, Color3.fromRGB(0, 0, 0), 0, 1)
+        AddPanelChrome(Root, 0, 149)
         local RootGlow = Menu:AddSoftGlow(Root, 144, 8, 0.92, true)
 
         local RootScale = Create("UIScale", {
@@ -12954,12 +13048,13 @@ local function BuildRuntime()
             Active = true,
             Size = UDim2.new(1, 0, 0, 44),
             BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = 0.10,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 146
         })
-        Corner(Header, 2)
-        AddPanelGradient(Header, Color3.fromRGB(30, 30, 34), Color3.fromRGB(19, 19, 22))
+        Corner(Header, 0)
+        AddPanelGradient(Header, Color3.fromRGB(27, 27, 30), Color3.fromRGB(15, 15, 17))
+        Menu:ApplyOldschoolChrome(Root, Header, 149)
 
         Icon(
             Header,
@@ -13012,11 +13107,11 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(12, 54),
             Size = UDim2.fromOffset(410, 438),
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.10,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 146
         })
-        Corner(LeftPanel, 2)
+        Corner(LeftPanel, 0)
         Stroke(LeftPanel, Border, 0.44, 1)
 
         local RightPanel = Create("Frame", {
@@ -13024,11 +13119,11 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(432, 54),
             Size = UDim2.fromOffset(332, 438),
             BackgroundColor3 = Surface,
-            BackgroundTransparency = 0.10,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 146
         })
-        Corner(RightPanel, 2)
+        Corner(RightPanel, 0)
         Stroke(RightPanel, Border, 0.44, 1)
 
         local CountLabel = Create("TextLabel", {
@@ -16634,20 +16729,18 @@ local function BuildAtramentaMain(Runtime)
                 open = false 
             }
 
-            flags[cfg.flag] = {
+            local flagDirectory = {
                 ["animation"] = "None",
                 ["animationSpeed"] = 0.2,
                 ["color1"] = {
-                    Color3.fromRGB(255, 255, 255), 
-                    0  
+                    Color3.fromRGB(255, 255, 255),
+                    0
                 },
                 ["color2"] = {
-                    Color3.fromRGB(255, 0, 255), 
+                    Color3.fromRGB(255, 0, 255),
                     0
                 }
-            } 
-
-            local flagDirectory = flags[cfg.flag]
+            }
 
             local draggingSaturation = false
             local draggingHue = false
@@ -17108,10 +17201,8 @@ local function BuildAtramentaMain(Runtime)
                         cfg.callback(Color, a)
                     end 
 
-                    flags[cfg.flag] = {
-                        Color = Color, 
-                        Transparency = a,
-                    }
+                    flags[cfg.flag] = Color
+                    flags[cfg.flag .. " Transparency"] = a
                 end 
 
                 cfg.set(cfg.color, cfg.alpha)
@@ -17561,10 +17652,8 @@ local function BuildAtramentaMain(Runtime)
                     if cfg.callback then 
                         cfg.callback(Color, a)
                     end 
-                    flags[cfg.flag] = {
-                        Color = Color;
-                        Transparency = a 
-                    }
+                    flags[cfg.flag] = Color
+                    flags[cfg.flag .. " Transparency"] = a
                 end 
                 
                 cfg.set(cfg.color, cfg.alpha)
@@ -20057,7 +20146,7 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
             Parent = Parent,
             Name = "",
             LayoutOrder = Order,
-            Size = UDim2.fromOffset(math.max(62, #Name * 6 + 22), 21),
+            Size = UDim2.fromOffset(math.max(66, #Name * 6 + 24), 21),
             BackgroundColor3 = Color3.fromRGB(0, 0, 0),
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -20108,7 +20197,7 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
             Parent = Background,
             AnchorPoint = Vector2.new(0, 1),
             Position = UDim2.new(0, 0, 1, 0),
-            Size = UDim2.new(1, 0, 0, 1),
+            Size = UDim2.new(1, 0, 0, 2),
             BackgroundColor3 = HybridMain.Themes.preset.accent,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
@@ -20128,7 +20217,8 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
         for SubName, SubPage in pairs(Page.SubPages) do
             local Selected = SubName == Name
             SubPage.Frame.Visible = Selected
-            SubPage.Tab.Label.TextColor3 = Selected and HybridMain.Themes.preset.accent or Color3.fromRGB(150, 150, 150)
+            SubPage.Tab.Label.TextColor3 = Selected and Color3.fromRGB(224, 224, 228) or Color3.fromRGB(145, 145, 150)
+            SubPage.Tab.Background.BackgroundColor3 = Selected and Color3.fromRGB(25, 25, 28) or Color3.fromRGB(15, 15, 17)
             SubPage.Tab.Accent.BackgroundTransparency = Selected and 0 or 1
         end
         Page.ActiveSubPage = Name
@@ -20169,10 +20259,26 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
         local SubBar = MainLibrary:create("Frame", {
             Parent = PageFrame,
             Position = UDim2.fromOffset(8, 7),
-            Size = UDim2.new(1, -16, 0, 21),
-            BackgroundTransparency = 1,
+            Size = UDim2.new(1, -16, 0, 25),
+            BackgroundColor3 = Color3.fromRGB(8, 8, 9),
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 12
+        })
+
+        MainLibrary:create("UIStroke", {
+            Parent = SubBar,
+            Color = Color3.fromRGB(48, 48, 52),
+            Transparency = 0,
+            Thickness = 1,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        })
+
+        MainLibrary:create("UIPadding", {
+            Parent = SubBar,
+            PaddingLeft = UDim.new(0, 3),
+            PaddingTop = UDim.new(0, 2),
+            PaddingBottom = UDim.new(0, 2)
         })
 
         MainLibrary:create("UIListLayout", {
@@ -20184,8 +20290,8 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
 
         local SubHolder = MainLibrary:create("Frame", {
             Parent = PageFrame,
-            Position = UDim2.fromOffset(0, 34),
-            Size = UDim2.new(1, 0, 1, -34),
+            Position = UDim2.fromOffset(0, 38),
+            Size = UDim2.new(1, 0, 1, -38),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ClipsDescendants = true,
@@ -20666,6 +20772,9 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
     SectionMethods.textbox = SectionMethods.Textbox
     SectionMethods.listbox = SectionMethods.Listbox
     PageMethods.subpage = PageMethods.SubPage
+    PageMethods.SubTab = PageMethods.SubPage
+    PageMethods.Subtab = PageMethods.SubPage
+    PageMethods.subtab = PageMethods.SubPage
     PageMethods.section = PageMethods.Section
     SubPageMethods.section = SubPageMethods.Section
     WindowMethods.page = WindowMethods.Page
