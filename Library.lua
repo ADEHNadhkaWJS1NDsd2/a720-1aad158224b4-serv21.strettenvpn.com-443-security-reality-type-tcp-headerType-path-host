@@ -9,8 +9,8 @@ local Library = {
     }
 }
 
-Library.Build = 22
-Library.BuildName = "FirstOpenFix"
+Library.Build = 23
+Library.BuildName = "FullAudit"
 
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -1567,6 +1567,8 @@ local function BuildRuntime()
             AccentUpdateTargets[#AccentUpdateTargets + 1] = Callback
         end
     end
+
+    Menu.RegisterAccentTarget = RegisterAccentTarget
 
     local function CreateCheckbox(Row, Default)
         local Outline = Create("TextButton", {
@@ -12593,6 +12595,24 @@ local function BuildRuntime()
         end
     end
 
+    Menu.BindSystem.BeginCapture = function(CaptureData)
+        if type(CaptureData) ~= "table" then
+            PendingBindCapture = nil
+            return false
+        end
+
+        PendingBindCapture = CaptureData
+        return true
+    end
+
+    Menu.BindSystem.CancelCapture = function()
+        PendingBindCapture = nil
+    end
+
+    Menu.BindSystem.IsCapturing = function()
+        return PendingBindCapture ~= nil
+    end
+
     Menu.BindSystem.CaptureIdentity = function(
         KeyType,
         KeyName
@@ -22779,19 +22799,33 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
         self.SubPages[Name] = Object
         if not self.ActiveSubPage then self.ActiveSubPage = Name end
 
-        Tab.Button.MouseButton1Click:Connect(function()
-            SetSubPageSelected(self, Name)
-        end)
+        MainLibrary:connection(
+            Tab.Button.MouseButton1Click,
+            function()
+                SetSubPageSelected(self, Name)
+            end
+        )
 
-        LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            ReflowSubPage(Object)
-        end)
-        RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            ReflowSubPage(Object)
-        end)
-        Frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-            ReflowSubPage(Object)
-        end)
+        MainLibrary:connection(
+            LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"),
+            function()
+                ReflowSubPage(Object)
+            end
+        )
+
+        MainLibrary:connection(
+            RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"),
+            function()
+                ReflowSubPage(Object)
+            end
+        )
+
+        MainLibrary:connection(
+            Frame:GetPropertyChangedSignal("AbsoluteSize"),
+            function()
+                ReflowSubPage(Object)
+            end
+        )
 
         task.defer(function()
             SetSubPageSelected(self, self.ActiveSubPage)
@@ -22845,7 +22879,10 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                 if Scroll then Scroll.ScrollBarThickness = 0 end
                 ReflowSubPage(self)
             end
-            Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Resize)
+            MainLibrary:connection(
+                Layout:GetPropertyChangedSignal("AbsoluteContentSize"),
+                Resize
+            )
             task.defer(Resize)
         end
 
@@ -22954,9 +22991,12 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
             elseif type(Value) == "string" then
                 local Clean = tostring(Value):gsub("#", "")
                 if #Clean == 6 or #Clean == 8 then
-                    local Success, Parsed = pcall(hex, Clean:sub(1, 6))
-                    if Success and typeof(Parsed) == "Color3" then
-                        Current = Parsed
+                    local Red = tonumber(Clean:sub(1, 2), 16)
+                    local Green = tonumber(Clean:sub(3, 4), 16)
+                    local Blue = tonumber(Clean:sub(5, 6), 16)
+
+                    if Red and Green and Blue then
+                        Current = Color3.fromRGB(Red, Green, Blue)
                     end
                 end
             elseif type(Value) == "table" then
@@ -22966,9 +23006,12 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                 elseif type(ColorValue) == "string" then
                     local Clean = tostring(ColorValue):gsub("#", "")
                     if #Clean == 6 or #Clean == 8 then
-                        local Success, Parsed = pcall(hex, Clean:sub(1, 6))
-                        if Success and typeof(Parsed) == "Color3" then
-                            Current = Parsed
+                        local Red = tonumber(Clean:sub(1, 2), 16)
+                        local Green = tonumber(Clean:sub(3, 4), 16)
+                        local Blue = tonumber(Clean:sub(5, 6), 16)
+
+                        if Red and Green and Blue then
+                            Current = Color3.fromRGB(Red, Green, Blue)
                         end
                     end
                 end
@@ -22996,23 +23039,28 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
             end
         end
 
-        Button.MouseButton1Click:Connect(function()
-            if Runtime and type(Runtime.OpenColorPicker) == "function" then
-                Runtime.OpenColorPicker(
-                    Swatch,
-                    Current,
-                    CurrentAlpha,
-                    function(ColorValue, AlphaValue)
-                        Raw.set(ColorValue, AlphaValue)
-                    end,
-                    nil,
-                    nil,
-                    false,
-                    nil,
-                    Flag
-                )
+        MainLibrary:connection(
+            Button.MouseButton1Click,
+            function()
+                if Runtime
+                    and type(Runtime.OpenColorPicker) == "function"
+                then
+                    Runtime.OpenColorPicker(
+                        Swatch,
+                        Current,
+                        CurrentAlpha,
+                        function(ColorValue, AlphaValue)
+                            Raw.set(ColorValue, AlphaValue)
+                        end,
+                        nil,
+                        nil,
+                        false,
+                        nil,
+                        Flag
+                    )
+                end
             end
-        end)
+        )
 
         Raw.set(Current, CurrentAlpha)
 
@@ -23329,7 +23377,12 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                         .. "]"
 
                     BindButton.TextColor3 =
-                        Accent
+                        (
+                            HybridMain.Themes
+                            and HybridMain.Themes.preset
+                            and HybridMain.Themes.preset.accent
+                        )
+                        or Color3.fromRGB(86, 66, 235)
                 else
                     BindButton.Text =
                         "[--]"
@@ -23350,98 +23403,105 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
             Raw.BindButton =
                 BindButton
 
-            Bind(
-                BindButton.MouseButton1Click:
-                    Connect(function()
-                        local Binds =
-                            Runtime.BindSystem.GetControlBinds(
-                                Flag
-                            )
+            MainLibrary:connection(
+                BindButton.MouseButton1Click,
+                function()
+                    local Binds =
+                        Runtime.BindSystem.GetControlBinds(
+                            Flag
+                        )
 
-                        local DirectId =
-                            "Direct:"
-                            .. Flag
+                    local DirectId =
+                        "Direct:"
+                        .. Flag
 
-                        local Existing
+                    local Existing
 
-                        for _, BindData in ipairs(Binds) do
-                            if type(BindData) == "table"
-                                and BindData.Id == DirectId
-                            then
-                                Existing = BindData
-                                break
-                            end
+                    for _, BindData in ipairs(Binds) do
+                        if type(BindData) == "table"
+                            and BindData.Id == DirectId
+                        then
+                            Existing = BindData
+                            break
                         end
+                    end
 
-                        BindButton.Text =
-                            "[...]"
+                    BindButton.Text =
+                        "[...]"
 
-                        BindButton.TextColor3 =
-                            Accent
+                    BindButton.TextColor3 =
+                        (
+                            HybridMain.Themes
+                            and HybridMain.Themes.preset
+                            and HybridMain.Themes.preset.accent
+                        )
+                        or Color3.fromRGB(86, 66, 235)
 
-                        PendingBindCapture = {
-                            Meta = {
-                                Flag = Flag,
-                                Name = Name,
-                                Info = Info
-                            },
-                            BindId = DirectId,
-                            Mode = function()
-                                return Existing
-                                    and Existing.Mode
-                                    or Runtime.BindModeDefaults[
-                                        Flag
-                                    ]
-                                    or "Toggle"
-                            end,
-                            Value = function()
-                                if Info.Type == "Boolean" then
-                                    return true
-                                end
-
-                                return Runtime.Flags[
+                    Runtime.BindSystem.BeginCapture({
+                        Meta = {
+                            Flag = Flag,
+                            Name = Name,
+                            Info = Info
+                        },
+                        BindId = DirectId,
+                        Mode = function()
+                            return Existing
+                                and Existing.Mode
+                                or Runtime.BindModeDefaults[
                                     Flag
                                 ]
+                                or "Toggle"
+                        end,
+                        Value = function()
+                            if Info.Type == "Boolean" then
+                                return true
+                            end
+
+                            return Runtime.Flags[
+                                Flag
+                            ]
+                        end,
+                        ShowInBinds =
+                            function()
+                                return true
                             end,
-                            ShowInBinds =
-                                function()
-                                    return true
-                                end,
-                            SetText =
-                                function()
-                                    RefreshBind()
-                                end
-                        }
-                    end)
-            )
-
-            Bind(
-                BindButton.InputBegan:
-                    Connect(function(Input)
-                        if Input.UserInputType
-                            ~= Enum.UserInputType.MouseButton2
-                        then
-                            return
-                        end
-
-                        PendingBindCapture = nil
-
-                        Runtime.OpenDirectBindMenu(
-                            BindButton,
-                            {
-                                Flag = Flag,
-                                Name = Name,
-                                Info = Info
-                            }
-                        )
-                    end)
-            )
-
-            RegisterAccentTarget(
-                function()
-                    RefreshBind()
+                        SetText =
+                            function()
+                                RefreshBind()
+                            end
+                    })
                 end
             )
+
+            MainLibrary:connection(
+                BindButton.InputBegan,
+                function(Input)
+                    if Input.UserInputType
+                        ~= Enum.UserInputType.MouseButton2
+                    then
+                        return
+                    end
+
+                    Runtime.BindSystem.CancelCapture()
+
+                    Runtime.OpenDirectBindMenu(
+                        BindButton,
+                        {
+                            Flag = Flag,
+                            Name = Name,
+                            Info = Info
+                        }
+                    )
+                end
+            )
+
+            if type(Runtime.RegisterAccentTarget) == "function" then
+                Runtime.RegisterAccentTarget(
+                    function()
+                        RefreshBind()
+                    end
+                )
+            end
 
             RefreshBind()
         end
@@ -24243,20 +24303,23 @@ local function ResolveHybridMain(Data)
                     )
             end)
 
-            HybridMain.RawWindow.outline:GetPropertyChangedSignal("Position"):Connect(function()
-                if not ActiveRuntime.SavedPositions then
-                    return
-                end
+            HybridMain.Library:connection(
+                HybridMain.RawWindow.outline:GetPropertyChangedSignal("Position"),
+                function()
+                    if not ActiveRuntime.SavedPositions then
+                        return
+                    end
 
-                ActiveRuntime.SavedPositions.MainWindow =
-                    ActiveRuntime.EncodePosition(
-                        HybridMain.RawWindow.outline.Position
-                    )
+                    ActiveRuntime.SavedPositions.MainWindow =
+                        ActiveRuntime.EncodePosition(
+                            HybridMain.RawWindow.outline.Position
+                        )
 
-                if type(ActiveRuntime.SavePositions) == "function" then
-                    ActiveRuntime.SavePositions()
+                    if type(ActiveRuntime.SavePositions) == "function" then
+                        ActiveRuntime.SavePositions()
+                    end
                 end
-            end)
+            )
         end
 
         HybridMain.Window =
