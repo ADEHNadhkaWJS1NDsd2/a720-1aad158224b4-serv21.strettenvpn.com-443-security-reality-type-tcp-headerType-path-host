@@ -153,14 +153,14 @@ local function BuildRuntime()
 
     local DefaultAccent = Color3.fromRGB(86, 66, 235)
     local Accent = DefaultAccent
-    local Background = Color3.fromRGB(12, 12, 16)
-    local SidebarColor = Color3.fromRGB(15, 15, 20)
-    local Surface = Color3.fromRGB(19, 19, 25)
+    local Background = Color3.fromRGB(13, 13, 17)
+    local SidebarColor = Color3.fromRGB(16, 16, 21)
+    local Surface = Color3.fromRGB(20, 20, 26)
     local SurfaceAlt = Color3.fromRGB(24, 24, 31)
-    local Border = Color3.fromRGB(48, 49, 61)
-    local PrimaryText = Color3.fromRGB(228, 228, 234)
-    local MutedText = Color3.fromRGB(151, 151, 163)
-    local DisabledText = Color3.fromRGB(86, 86, 98)
+    local Border = Color3.fromRGB(45, 46, 57)
+    local PrimaryText = Color3.fromRGB(224, 224, 229)
+    local MutedText = Color3.fromRGB(145, 145, 155)
+    local DisabledText = Color3.fromRGB(82, 82, 92)
     local Danger = Color3.fromRGB(202, 72, 78)
     local BaseScaleFactor = 1
     local AnimationFactor = 1
@@ -332,54 +332,7 @@ local function BuildRuntime()
     end
 
     function Menu:AddSoftGlow(Target, ZIndex, Padding, Transparency, UseSlice)
-        if not self.GlowAsset or not Target or not Target.Parent then
-            return nil
-        end
-
-        local Extra = math.min(Padding or 8, 7)
-        local GlowTransparency = math.max(Transparency or 0.72, 0.90)
-        local Glow = Create("ImageLabel", {
-            Parent = Target.Parent,
-            AnchorPoint = Target.AnchorPoint,
-            Position = Target.Position,
-            Size = UDim2.new(Target.Size.X.Scale, Target.Size.X.Offset + Extra * 2, Target.Size.Y.Scale, Target.Size.Y.Offset + Extra * 2),
-            BackgroundTransparency = 1,
-            Image = self.GlowAsset,
-            ImageColor3 = Accent,
-            ImageTransparency = GlowTransparency,
-            ScaleType = UseSlice == false and Enum.ScaleType.Fit or Enum.ScaleType.Slice,
-            SliceCenter = Rect.new(34, 34, 62, 62),
-            Visible = Target.Visible,
-            ZIndex = (ZIndex or Target.ZIndex) - 1
-        })
-
-        local function Sync()
-            if not Target.Parent or not Glow.Parent then
-                return
-            end
-            local Anchor = Target.AnchorPoint
-            Glow.AnchorPoint = Anchor
-            Glow.Position = UDim2.new(
-                Target.Position.X.Scale,
-                Target.Position.X.Offset + math.floor((Extra * ((Anchor.X * 2) - 1)) + 0.5),
-                Target.Position.Y.Scale,
-                Target.Position.Y.Offset + math.floor((Extra * ((Anchor.Y * 2) - 1)) + 0.5)
-            )
-            Glow.Size = UDim2.new(Target.Size.X.Scale, Target.Size.X.Offset + Extra * 2, Target.Size.Y.Scale, Target.Size.Y.Offset + Extra * 2)
-            Glow.Visible = Target.Visible
-        end
-
-        Sync()
-        Bind(Target:GetPropertyChangedSignal("Position"):Connect(Sync))
-        Bind(Target:GetPropertyChangedSignal("Size"):Connect(Sync))
-        Bind(Target:GetPropertyChangedSignal("Visible"):Connect(Sync))
-        Bind(Target.AncestryChanged:Connect(function(_, ParentObject)
-            if not ParentObject and Glow.Parent then
-                Glow:Destroy()
-            end
-        end))
-
-        return Glow
+        return nil
     end
 
     local ActiveTweens = setmetatable({}, { __mode = "k" })
@@ -1018,7 +971,7 @@ local function BuildRuntime()
     local PageTabHost = Create("Frame", {
         Parent = MainRow,
         Position = UDim2.fromOffset(122, 0),
-        Size = UDim2.new(1, -174, 1, 0),
+        Size = UDim2.new(1, -228, 1, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ClipsDescendants = true,
@@ -1039,45 +992,45 @@ local function BuildRuntime()
         Parent = MainRow,
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -10, 0.5, 0),
-        Size = UDim2.fromOffset(30, 24),
+        Size = UDim2.fromOffset(58, 22),
         BackgroundColor3 = SurfaceAlt,
-        BackgroundTransparency = 0.10,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         AutoButtonColor = false,
-        Text = "",
+        Font = Enum.Font.BuilderSans,
+        Text = "configs",
+        TextColor3 = MutedText,
+        TextSize = 9,
         ZIndex = 8
     })
-    Corner(Menu.ConfigsUI.Button, 2)
-    Menu.ConfigsUI.ButtonStroke = Stroke(Menu.ConfigsUI.Button, Border, 0.30, 1)
+    Corner(Menu.ConfigsUI.Button, 1)
+    Menu.ConfigsUI.ButtonStroke = Stroke(Menu.ConfigsUI.Button, Border, 0.08, 1)
 
     Menu.ConfigsUI.FolderTab = Create("Frame", {
         Parent = Menu.ConfigsUI.Button,
-        Position = UDim2.fromOffset(8, 6),
-        Size = UDim2.fromOffset(7, 3),
-        BackgroundColor3 = MutedText,
+        Size = UDim2.fromOffset(1, 1),
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
+        Visible = false,
         ZIndex = 10
     })
-    Corner(Menu.ConfigsUI.FolderTab, 1)
 
     Menu.ConfigsUI.FolderBody = Create("Frame", {
         Parent = Menu.ConfigsUI.Button,
-        Position = UDim2.fromOffset(7, 9),
-        Size = UDim2.fromOffset(16, 10),
-        BackgroundColor3 = MutedText,
-        BackgroundTransparency = 0.82,
+        Size = UDim2.fromOffset(1, 1),
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
+        Visible = false,
         ZIndex = 9
     })
-    Corner(Menu.ConfigsUI.FolderBody, 2)
-    Menu.ConfigsUI.FolderStroke = Stroke(Menu.ConfigsUI.FolderBody, MutedText, 0.02, 1)
+    Menu.ConfigsUI.FolderStroke = Stroke(Menu.ConfigsUI.FolderBody, MutedText, 1, 1)
 
     local SubRow = Create("Frame", {
         Parent = Topbar,
         Position = UDim2.fromOffset(0, Layout.HeaderHeight),
         Size = UDim2.new(1, 0, 0, Layout.SubHeight),
-        BackgroundColor3 = Background,
-        BackgroundTransparency = 0.18,
+        BackgroundColor3 = Surface,
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 5
     })
@@ -1151,7 +1104,7 @@ local function BuildRuntime()
         BorderSizePixel = 0,
         ZIndex = 5
     })
-    Corner(SearchBar, 2)
+    Corner(SearchBar, 0)
     Stroke(SearchBar, Border, 0.24, 1)
 
     local SearchBox = Create("TextBox", {
@@ -1184,7 +1137,7 @@ local function BuildRuntime()
         Text = "",
         ZIndex = 5
     })
-    Corner(SearchSettings, 2)
+    Corner(SearchSettings, 0)
     local SearchSettingsStroke = Stroke(SearchSettings, Border, 0.24, 1)
     local SearchSettingsIcon = Icon(SearchSettings, "Gear", UDim2.fromOffset(16, 16), UDim2.fromScale(0.5, 0.5), MutedText, 7)
 
@@ -1474,23 +1427,29 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(15, 15),
-            BackgroundColor3 = Default and Accent or SurfaceAlt,
+            Size = UDim2.fromOffset(10, 10),
+            BackgroundColor3 = Default and Accent or Background,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
-        Corner(Button, 3)
+        Corner(Button, 0)
         local BorderStroke = Stroke(Button, Default and Accent or Border, 0, 1)
-        local Check = Icon(Button, "Check", UDim2.fromOffset(10, 10), UDim2.fromScale(0.5, 0.5), Background, 10)
-        Check.Visible = Default
+        local Check = Create("Frame", {
+            Parent = Button,
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 10
+        })
         return Button, BorderStroke, Check
     end
 
     local function CreateToggle(Section, Name, Default, Flag, Options)
         Options = Options or {}
-        local Row = CreateRow(Section.Body, 27)
+        local Row = CreateRow(Section.Body, 23)
 
         if Options.Warning then
             CreateWarning(Row)
@@ -1504,7 +1463,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = Options.Disabled and DisabledText or PrimaryText,
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -1520,9 +1479,9 @@ local function BuildRuntime()
         local function Set(Value)
             State = Value and true or false
             Menu.Flags[Flag] = State
-            Check.Visible = State
+            Check.Visible = false
             Tween(Button, 0.12, {
-                BackgroundColor3 = State and Accent or SurfaceAlt
+                BackgroundColor3 = State and Accent or Background
             })
             Tween(BorderStroke, 0.12, {
                 Color = State and Accent or Border
@@ -1578,21 +1537,22 @@ local function BuildRuntime()
             Parent = Parent,
             AnchorPoint = Vector2.new(1, 0),
             Position = UDim2.new(1, XOffset, 0, 0),
-            Size = UDim2.fromOffset(Width or 46, 20),
-            BackgroundColor3 = SurfaceAlt,
+            Size = UDim2.fromOffset(Width or 46, 18),
+            BackgroundColor3 = Background,
             BorderSizePixel = 0,
             ZIndex = 8
         })
-        Corner(Box, 3)
+        Corner(Box, 0)
+        Stroke(Box, Border, 0.28, 1)
         local Label = Create("TextBox", {
             Parent = Box,
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
             ClearTextOnFocus = false,
-            Font = Enum.Font.BuilderSansMedium,
+            Font = Enum.Font.BuilderSans,
             Text = TextValue,
             TextColor3 = PrimaryText,
-            TextSize = 11,
+            TextSize = 9,
             TextXAlignment = Enum.TextXAlignment.Center,
             ZIndex = 9
         })
@@ -1639,16 +1599,16 @@ local function BuildRuntime()
         else
             Decimals = math.max(0, math.floor(Decimals + 0.5))
         end
-        local Row = CreateRow(Section.Body, 47)
+        local Row = CreateRow(Section.Body, 40)
 
         Create("TextLabel", {
             Parent = Row,
-            Size = UDim2.new(1, -60, 0, 18),
+            Size = UDim2.new(1, -60, 0, 16),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = Options.Disabled and DisabledText or PrimaryText,
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -1681,14 +1641,14 @@ local function BuildRuntime()
 
         local Track = Create("Frame", {
             Parent = Row,
-            Position = UDim2.fromOffset(0, 31),
-            Size = UDim2.new(1, 0, 0, 6),
+            Position = UDim2.fromOffset(0, 28),
+            Size = UDim2.new(1, 0, 0, 2),
             Active = true,
             BackgroundColor3 = Border,
             BorderSizePixel = 0,
             ZIndex = 8
         })
-        Corner(Track, 2)
+        Corner(Track, 0)
 
         local Fill = Create("Frame", {
             Parent = Track,
@@ -1697,20 +1657,20 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 9
         })
-        Corner(Fill, 2)
-        local FillGlow = Menu:AddSoftGlow(Fill, 9, 8, 0.62, true)
+        Corner(Fill, 0)
+        local FillGlow = nil
 
         local Knob = Create("Frame", {
             Parent = Track,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new((Default - Minimum) / (Maximum - Minimum), 0, 0.5, 0),
-            Size = UDim2.fromOffset(6, 14),
-            BackgroundColor3 = Color3.fromRGB(220, 220, 224),
+            Size = UDim2.fromOffset(2, 8),
+            BackgroundColor3 = Accent,
             BorderSizePixel = 0,
             ZIndex = 10
         })
-        Corner(Knob, 2)
-        local KnobGlow = Menu:AddSoftGlow(Knob, 10, 7, 0.24, false)
+        Corner(Knob, 0)
+        local KnobGlow = nil
         local Value = Default
         local Dragging = false
         RegisterAccentTarget(function(NewColor)
@@ -1723,7 +1683,7 @@ local function BuildRuntime()
             end
         end)
         Bind(Track.MouseEnter:Connect(function()
-            Tween(Knob, 0.12, {Size = UDim2.fromOffset(7, 16)})
+            Tween(Knob, 0.08, {Size = UDim2.fromOffset(3, 9)})
             if FillGlow then
                 Tween(FillGlow, 0.12, {ImageTransparency = 0.52})
             end
@@ -1733,7 +1693,7 @@ local function BuildRuntime()
         end))
         Bind(Track.MouseLeave:Connect(function()
             if not Dragging then
-                Tween(Knob, 0.12, {Size = UDim2.fromOffset(6, 14)})
+                Tween(Knob, 0.08, {Size = UDim2.fromOffset(2, 8)})
                 if FillGlow then
                     Tween(FillGlow, 0.12, {ImageTransparency = 0.62})
                 end
@@ -1837,7 +1797,7 @@ local function BuildRuntime()
 
     local function CreateDualSlider(Section, Name, Minimum, Maximum, DefaultMinimum, DefaultMaximum, MinimumFlag, MaximumFlag, Options)
         Options = Options or {}
-        local Row = CreateRow(Section.Body, 51)
+        local Row = CreateRow(Section.Body, 43)
         local Prefix = tostring(Options.Prefix or "")
         local Suffix = tostring(Options.Suffix or "")
         local Step = math.max(math.abs(tonumber(Options.Step) or 1), 0.000001)
@@ -1857,7 +1817,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = Options.Disabled and DisabledText or PrimaryText,
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -1871,13 +1831,13 @@ local function BuildRuntime()
 
         local Track = Create("Frame", {
             Parent = Row,
-            Position = UDim2.fromOffset(0, 35),
-            Size = UDim2.new(1, 0, 0, 4),
+            Position = UDim2.fromOffset(0, 30),
+            Size = UDim2.new(1, 0, 0, 2),
             BackgroundColor3 = Border,
             BorderSizePixel = 0,
             ZIndex = 8
         })
-        Corner(Track, 2)
+        Corner(Track, 0)
 
         local function Round(Value)
             Value = math.clamp(tonumber(Value) or Minimum, Minimum, Maximum)
@@ -1926,32 +1886,32 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 9
         })
-        Corner(Fill, 2)
-        local FillGlow = Menu:AddSoftGlow(Fill, 9, 8, 0.62, true)
+        Corner(Fill, 0)
+        local FillGlow = nil
 
         local MinimumKnob = Create("Frame", {
             Parent = Track,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(MinimumAlpha, 0, 0.5, 0),
-            Size = UDim2.fromOffset(6, 14),
-            BackgroundColor3 = Color3.fromRGB(220, 220, 224),
+            Size = UDim2.fromOffset(2, 8),
+            BackgroundColor3 = Accent,
             BorderSizePixel = 0,
             ZIndex = 10
         })
-        Corner(MinimumKnob, 2)
+        Corner(MinimumKnob, 0)
 
         local MaximumKnob = Create("Frame", {
             Parent = Track,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(MaximumAlpha, 0, 0.5, 0),
-            Size = UDim2.fromOffset(6, 14),
-            BackgroundColor3 = Color3.fromRGB(220, 220, 224),
+            Size = UDim2.fromOffset(2, 8),
+            BackgroundColor3 = Accent,
             BorderSizePixel = 0,
             ZIndex = 10
         })
-        Corner(MaximumKnob, 2)
-        local MinimumGlow = Menu:AddSoftGlow(MinimumKnob, 10, 7, 0.24, false)
-        local MaximumGlow = Menu:AddSoftGlow(MaximumKnob, 10, 7, 0.24, false)
+        Corner(MaximumKnob, 0)
+        local MinimumGlow = nil
+        local MaximumGlow = nil
         RegisterAccentTarget(function(NewColor)
             Fill.BackgroundColor3 = NewColor
             if FillGlow then FillGlow.ImageColor3 = NewColor end
@@ -3912,13 +3872,8 @@ local function BuildRuntime()
     end
 
     Menu.CreateDropdownExpandIndicator = function(Button, ZIndex)
-        for _, Child in ipairs(
-            Button:GetChildren()
-        ) do
-            if Child.Name
-                    == "AtramentaDropdownIndicator"
-                and Child:IsA("Frame")
-            then
+        for _, Child in ipairs(Button:GetChildren()) do
+            if Child.Name == "AtramentaDropdownIndicator" then
                 Child:Destroy()
             end
         end
@@ -3927,157 +3882,88 @@ local function BuildRuntime()
             Name = "AtramentaDropdownIndicator",
             Parent = Button,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, -8, 0.5, 0),
-            Size = UDim2.fromOffset(12, 12),
+            Position = UDim2.new(1, -7, 0.5, 0),
+            Size = UDim2.fromOffset(8, 8),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ZIndex = ZIndex or 11
         })
 
-        local Horizontal = Create("Frame", {
-            Name = "Horizontal",
+        local Left = Create("Frame", {
             Parent = Root,
-            AnchorPoint = Vector2.new(0.5, 0.5),
+            AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.fromOffset(8, 1),
-            BackgroundColor3 = Accent,
-            BackgroundTransparency = 0.12,
+            Size = UDim2.fromOffset(5, 1),
+            Rotation = 35,
+            BackgroundColor3 = MutedText,
             BorderSizePixel = 0,
             ZIndex = (ZIndex or 11) + 1
         })
-        Corner(Horizontal, 1)
 
-        local Vertical = Create("Frame", {
-            Name = "Vertical",
+        local Right = Create("Frame", {
             Parent = Root,
-            AnchorPoint = Vector2.new(0.5, 0.5),
+            AnchorPoint = Vector2.new(0, 0.5),
             Position = UDim2.fromScale(0.5, 0.5),
-            Size = UDim2.fromOffset(1, 8),
-            BackgroundColor3 = Accent,
-            BackgroundTransparency = 0,
+            Size = UDim2.fromOffset(5, 1),
+            Rotation = -35,
+            BackgroundColor3 = MutedText,
             BorderSizePixel = 0,
             ZIndex = (ZIndex or 11) + 1
         })
-        Corner(Vertical, 1)
 
         local Indicator = {
             Root = Root,
-            Horizontal = Horizontal,
-            Vertical = Vertical,
+            Left = Left,
+            Right = Right,
             Opened = false,
             AccentColor = Accent
         }
 
-        function Indicator:Refresh(AnimateTransparency)
-            if not self.Root
-                or not self.Root.Parent
-            then
-                return
-            end
-
-            local CurrentAccent =
-                typeof(self.AccentColor)
-                    == "Color3"
-                and self.AccentColor
-                or Accent
-
-            self.Horizontal.BackgroundColor3 =
-                CurrentAccent
-
-            self.Vertical.BackgroundColor3 =
-                CurrentAccent
-
-            self.Vertical.Visible =
-                not self.Opened
-
-            if AnimateTransparency == true then
-                Tween(
-                    self.Horizontal,
-                    0.10,
-                    {
-                        BackgroundTransparency =
-                            self.Opened
-                            and 0
-                            or 0.12
-                    }
-                )
-
-                Tween(
-                    self.Vertical,
-                    0.10,
-                    {
-                        BackgroundTransparency = 0
-                    }
-                )
+        function Indicator:Refresh(Animate)
+            if not self.Root or not self.Root.Parent then return end
+            local Color = self.Opened and (typeof(self.AccentColor) == "Color3" and self.AccentColor or Accent) or MutedText
+            self.Left.BackgroundColor3 = Color
+            self.Right.BackgroundColor3 = Color
+            local LeftRotation = self.Opened and -35 or 35
+            local RightRotation = self.Opened and 35 or -35
+            if Animate then
+                Tween(self.Left, 0.08, {Rotation = LeftRotation})
+                Tween(self.Right, 0.08, {Rotation = RightRotation})
             else
-                self.Horizontal.BackgroundTransparency =
-                    self.Opened
-                    and 0
-                    or 0.12
-
-                self.Vertical.BackgroundTransparency =
-                    0
+                self.Left.Rotation = LeftRotation
+                self.Right.Rotation = RightRotation
             end
         end
 
         function Indicator:SetOpened(State)
-            self.Opened =
-                State == true
-
-            self:Refresh(
-                true
-            )
+            self.Opened = State == true
+            self:Refresh(true)
         end
 
         function Indicator:SetAccentColor(NewColor)
-            if typeof(NewColor)
-                ~= "Color3"
-            then
-                return
-            end
-
-            self.AccentColor =
-                NewColor
-
-            self:Refresh(
-                false
-            )
+            if typeof(NewColor) ~= "Color3" then return end
+            self.AccentColor = NewColor
+            self:Refresh(false)
         end
 
-        Menu.DropdownIndicators[
-            Indicator
-        ] = true
+        Menu.DropdownIndicators[Indicator] = true
 
         RegisterAccentTarget(function(NewColor)
-            if not Root
-                or not Root.Parent
-            then
-                Menu.DropdownIndicators[
-                    Indicator
-                ] = nil
-
+            if not Root or not Root.Parent then
+                Menu.DropdownIndicators[Indicator] = nil
                 return
             end
-
-            Indicator:SetAccentColor(
-                NewColor
-            )
+            Indicator:SetAccentColor(NewColor)
         end)
 
-        Indicator:SetAccentColor(
-            Accent
-        )
-
-        Indicator.Opened = false
         Indicator:Refresh(false)
-
         return Indicator
     end
 
     local function CreateDropdown(Section, Name, Values, Default, Flag, Options)
         Options = Options or {}
         Values = type(Values) == "table" and Values or {}
-        local Row = CreateRow(Section.Body, 28)
+        local Row = CreateRow(Section.Body, 24)
 
         Create("TextLabel", {
             Parent = Row,
@@ -4086,7 +3972,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = Options.Disabled and DisabledText or PrimaryText,
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -4103,16 +3989,16 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(104, 24),
+            Size = UDim2.fromOffset(132, 19),
             BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = 0.22,
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
-        Corner(Button, 5)
-        local ButtonStroke = Stroke(Button, Border, 0.42, 1)
+        Corner(Button, 0)
+        local ButtonStroke = Stroke(Button, Border, 0.12, 1)
 
         RegisterAccentTarget(function(NewColor)
             if not ButtonStroke
@@ -4129,10 +4015,10 @@ local function BuildRuntime()
 
         local ValueLabel = Create("TextLabel", {
             Parent = Button,
-            Position = UDim2.fromOffset(9, 0),
+            Position = UDim2.fromOffset(6, 0),
             Size = UDim2.new(1, -30, 1, 0),
             BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansMedium,
+            Font = Enum.Font.BuilderSans,
             Text = tostring(Default),
             TextColor3 = PrimaryText,
             TextSize = 10,
@@ -4209,14 +4095,14 @@ local function BuildRuntime()
                 ),
                 Size = UDim2.fromOffset(Width, PopupHeight),
                 BackgroundColor3 = Surface,
-                BackgroundTransparency = 0.035,
+                BackgroundTransparency = 0,
                 BorderSizePixel = 0,
                 ClipsDescendants = true,
                 ZIndex = 100
             })
-            Corner(ActivePopup, 5)
-            Stroke(ActivePopup, Border, 0.46, 1)
-            Menu:AddSoftGlow(ActivePopup, 100, 6, 0.90, true)
+            Corner(ActivePopup, 0)
+            Stroke(ActivePopup, Border, 0.08, 1)
+            
 
             ActivePopup.Position =
                 type(Menu.ClampPopupPosition) == "function"
@@ -4332,7 +4218,7 @@ local function BuildRuntime()
     local function CreateMultiDropdown(Section, Name, Values, Default, Flag, Options)
         Options = Options or {}
         Values = type(Values) == "table" and Values or {}
-        local Row = CreateRow(Section.Body, 28)
+        local Row = CreateRow(Section.Body, 24)
 
         Create("TextLabel", {
             Parent = Row,
@@ -4341,7 +4227,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = Options.Disabled and DisabledText or PrimaryText,
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -4422,15 +4308,15 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(114, 24),
+            Size = UDim2.fromOffset(132, 19),
             BackgroundColor3 = SurfaceAlt,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
-        Corner(Button, 6)
-        local ButtonStroke = Stroke(Button, Border, 0.08, 1)
+        Corner(Button, 0)
+        local ButtonStroke = Stroke(Button, Border, 0.12, 1)
 
         RegisterAccentTarget(function(NewColor)
             if not ButtonStroke
@@ -4447,10 +4333,10 @@ local function BuildRuntime()
 
         local ValueLabel = Create("TextLabel", {
             Parent = Button,
-            Position = UDim2.fromOffset(9, 0),
+            Position = UDim2.fromOffset(6, 0),
             Size = UDim2.new(1, -30, 1, 0),
             BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansMedium,
+            Font = Enum.Font.BuilderSans,
             Text = Placeholder,
             TextColor3 = PrimaryText,
             TextSize = 10,
@@ -4576,14 +4462,14 @@ local function BuildRuntime()
                 Position = UDim2.fromOffset(Button.AbsolutePosition.X + Button.AbsoluteSize.X - Width, Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 6),
                 Size = UDim2.fromOffset(Width, PopupHeight),
                 BackgroundColor3 = Surface,
-                BackgroundTransparency = 0.035,
+                BackgroundTransparency = 0,
                 BorderSizePixel = 0,
                 ClipsDescendants = true,
                 ZIndex = 100
             })
-            Corner(ActivePopup, 5)
-            Stroke(ActivePopup, Border, 0.46, 1)
-            Menu:AddSoftGlow(ActivePopup, 100, 6, 0.90, true)
+            Corner(ActivePopup, 0)
+            Stroke(ActivePopup, Border, 0.08, 1)
+            
             ActivePopup.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
 
             local List = Create("ScrollingFrame", {
@@ -4632,7 +4518,7 @@ local function BuildRuntime()
                     Text = "",
                     ZIndex = 102
                 })
-                Corner(Option, 5)
+                Corner(Option, 0)
 
                 local Label = Create("TextLabel", {
                     Parent = Option,
@@ -4710,7 +4596,7 @@ local function BuildRuntime()
             Bindings[#Bindings + 1] = Binding
         end
 
-        local Row = CreateRow(Section.Body, 28)
+        local Row = CreateRow(Section.Body, 24)
         Create("TextLabel", {
             Parent = Row,
             Size = UDim2.new(0.54, 0, 1, 0),
@@ -4718,7 +4604,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = Options.Disabled and DisabledText or PrimaryText,
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -4733,22 +4619,22 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(118, 24),
+            Size = UDim2.fromOffset(132, 19),
             BackgroundColor3 = SurfaceAlt,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
-        Corner(Button, 6)
-        local ButtonStroke = Stroke(Button, Border, 0.08, 1)
+        Corner(Button, 0)
+        local ButtonStroke = Stroke(Button, Border, 0.12, 1)
 
         local ValueLabel = Create("TextLabel", {
             Parent = Button,
-            Position = UDim2.fromOffset(9, 0),
+            Position = UDim2.fromOffset(6, 0),
             Size = UDim2.new(1, -30, 1, 0),
             BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansMedium,
+            Font = Enum.Font.BuilderSans,
             Text = tostring(Options.Placeholder or "None"),
             TextColor3 = MutedText,
             TextSize = 10,
@@ -4931,14 +4817,14 @@ local function BuildRuntime()
                 Position = UDim2.fromOffset(Button.AbsolutePosition.X + Button.AbsoluteSize.X - Width, Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 6),
                 Size = UDim2.fromOffset(Width, PopupHeight),
                 BackgroundColor3 = Surface,
-                BackgroundTransparency = 0.035,
+                BackgroundTransparency = 0,
                 BorderSizePixel = 0,
                 ClipsDescendants = true,
                 ZIndex = 100
             })
-            Corner(ActivePopup, 5)
-            Stroke(ActivePopup, Border, 0.46, 1)
-            Menu:AddSoftGlow(ActivePopup, 100, 6, 0.90, true)
+            Corner(ActivePopup, 0)
+            Stroke(ActivePopup, Border, 0.08, 1)
+            
             ActivePopup.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
 
             local List = Create("ScrollingFrame", {
@@ -4982,7 +4868,7 @@ local function BuildRuntime()
                     LayoutOrder = Index,
                     ZIndex = 102
                 })
-                Corner(Option, 5)
+                Corner(Option, 0)
 
                 local Label = Create("TextLabel", {
                     Parent = Option,
@@ -5020,7 +4906,7 @@ local function BuildRuntime()
                     BorderSizePixel = 0,
                     ZIndex = 104
                 })
-                Corner(Check, 2)
+                Corner(Check, 0)
 
                 OptionStates[CurrentBinding.Key] = {
                     Button = Option,
@@ -12214,8 +12100,9 @@ local function BuildRuntime()
             SubPageObject.Frame.Visible = Selected
 
             if SubPageObject.Button then
-                Tween(SubPageObject.Button, 0.10, {
-                    BackgroundTransparency = 1,
+                Tween(SubPageObject.Button, 0.08, {
+                    BackgroundTransparency = Selected and 0 or 1,
+                    BackgroundColor3 = Selected and SurfaceAlt or Surface,
                     TextColor3 = Selected and PrimaryText or MutedText
                 })
             end
@@ -12223,8 +12110,9 @@ local function BuildRuntime()
             if SubPageObject.Indicator then
                 SubPageObject.Indicator.Visible = Selected
                 SubPageObject.Indicator.BackgroundTransparency = Selected and 0 or 1
-                SubPageObject.Indicator.Size = UDim2.new(1, 0, 0, 1)
-                SubPageObject.Indicator.Position = UDim2.new(0, 0, 1, 0)
+                SubPageObject.Indicator.AnchorPoint = Vector2.new(0, 0.5)
+                SubPageObject.Indicator.Position = UDim2.new(0, 0, 0.5, 0)
+                SubPageObject.Indicator.Size = UDim2.new(0, 2, 1, -10)
             end
         end
 
@@ -12248,7 +12136,7 @@ local function BuildRuntime()
 
     local function ApiCreateLabel(Section, Data)
         local Name = tostring(ApiRead(Data, "Name", "Label"))
-        local Row = CreateRow(Section.Body, 24)
+        local Row = CreateRow(Section.Body, 21)
         local Label = Create("TextLabel", {
             Parent = Row,
             Size = UDim2.fromScale(1, 1),
@@ -12256,7 +12144,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = PrimaryText,
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = ApiRead(Data, "Alignment", "Left") == "Center" and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -12280,7 +12168,7 @@ local function BuildRuntime()
         local Flag = ApiNormalizeFlag(Data, Name)
         local Default = ApiRead(Data, "Default", Accent)
         local Callback = ApiRead(Data, "Callback")
-        local Row = ExistingRow or CreateRow(Section.Body, 27)
+        local Row = ExistingRow or CreateRow(Section.Body, 23)
         if not ExistingRow then
             Create("TextLabel", {
                 Parent = Row,
@@ -12289,7 +12177,7 @@ local function BuildRuntime()
                 Font = Enum.Font.BuilderSans,
                 Text = Name,
                 TextColor3 = PrimaryText,
-                TextSize = 11,
+                TextSize = 10,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 ZIndex = 8
             })
@@ -12299,16 +12187,16 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, -1, 0.5, 0),
-            Size = UDim2.fromOffset(13, 13),
+            Size = UDim2.fromOffset(20, 10),
             BackgroundColor3 = typeof(Default) == "Color3" and Default or Accent,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 10
         })
-        Corner(Button, 100)
-        local BorderStroke = Stroke(Button, Color3.fromRGB(224, 224, 228), 0.16, 1)
-        local Glow = Menu:AddSoftGlow(Button, 10, 8, 0.20, false)
+        Corner(Button, 0)
+        local BorderStroke = Stroke(Button, Border, 0.02, 1)
+        local Glow = nil
         local Value = typeof(Default) == "Color3" and Default or Accent
         local Alpha = math.clamp(tonumber(ApiRead(Data, "Alpha", 1)) or 1, 0, 1)
         local Object = {Button = Button, Glow = Glow, Stroke = BorderStroke, Flag = Flag}
@@ -12629,21 +12517,21 @@ local function BuildRuntime()
         Data = Data or {}
         local Name = tostring(ApiRead(Data, "Name", "Button"))
         local Callback = ApiRead(Data, "Callback")
-        local Row = CreateRow(self.Section.Body, 30)
+        local Row = CreateRow(self.Section.Body, 24)
         local Button = Create("TextButton", {
             Parent = Row,
             Size = UDim2.fromScale(1, 1),
             BackgroundColor3 = SurfaceAlt,
             BorderSizePixel = 0,
             AutoButtonColor = false,
-            Font = Enum.Font.BuilderSansMedium,
+            Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = PrimaryText,
-            TextSize = 11,
+            TextSize = 10,
             ZIndex = 8
         })
-        Corner(Button, 5)
-        Stroke(Button, Border, 0.18, 1)
+        Corner(Button, 0)
+        Stroke(Button, Border, 0.08, 1)
         RegisterControl(self.Section, Row, Name)
         Bind(Button.MouseButton1Click:Connect(function()
             if type(Callback) == "function" then
@@ -12658,7 +12546,7 @@ local function BuildRuntime()
         local Name = tostring(ApiRead(Data, "Name", "Textbox"))
         local Flag = ApiNormalizeFlag(Data, Name)
         local Callback = ApiRead(Data, "Callback")
-        local Row = CreateRow(self.Section.Body, 32)
+        local Row = CreateRow(self.Section.Body, 25)
         Create("TextLabel", {
             Parent = Row,
             Size = UDim2.new(0.42, -6, 1, 0),
@@ -12666,7 +12554,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = Name,
             TextColor3 = PrimaryText,
-            TextSize = 11,
+            TextSize = 10,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 8
         })
@@ -12674,7 +12562,7 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.new(0.58, 0, 0, 24),
+            Size = UDim2.new(0.58, 0, 0, 19),
             BackgroundColor3 = SurfaceAlt,
             BorderSizePixel = 0,
             ClearTextOnFocus = false,
@@ -12687,8 +12575,8 @@ local function BuildRuntime()
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 9
         })
-        Corner(Box, 5)
-        Stroke(Box, Border, 0.18, 1)
+        Corner(Box, 0)
+        Stroke(Box, Border, 0.08, 1)
         Create("UIPadding", {Parent = Box, PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
         RegisterControl(self.Section, Row, Name)
         local Object = {}
@@ -12900,12 +12788,13 @@ local function BuildRuntime()
             ZIndex = 4
         })
 
-        local ButtonWidth = math.max(42, 14 + (#Name * 5.5))
+        local ButtonWidth = math.max(54, 20 + (#Name * 5.5))
         local Button = Create("TextButton", {
             Parent = Menu.SubPageHost or SubRow,
             LayoutOrder = Count + 1,
             Size = UDim2.fromOffset(ButtonWidth, Layout.SubHeight),
-            BackgroundTransparency = 1,
+            BackgroundColor3 = Count == 0 and SurfaceAlt or Surface,
+            BackgroundTransparency = Count == 0 and 0 or 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSans,
@@ -12918,9 +12807,9 @@ local function BuildRuntime()
 
         local Indicator = Create("Frame", {
             Parent = Button,
-            AnchorPoint = Vector2.new(0, 1),
-            Position = UDim2.new(0, 0, 1, 0),
-            Size = UDim2.new(1, 0, 0, 1),
+            AnchorPoint = Vector2.new(0, 0.5),
+            Position = UDim2.new(0, 0, 0.5, 0),
+            Size = UDim2.new(0, 2, 1, -10),
             BackgroundColor3 = Accent,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
