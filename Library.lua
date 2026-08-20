@@ -163,16 +163,6 @@ local function BuildRuntime()
     local DisabledText = Color3.fromRGB(82, 82, 92)
     local Danger = Color3.fromRGB(202, 72, 78)
 
-    local MenuBackground = Color3.fromRGB(8, 8, 10)
-    local MenuPanel = Color3.fromRGB(13, 13, 16)
-    local MenuPanelAlt = Color3.fromRGB(18, 18, 22)
-    local MenuPanelHover = Color3.fromRGB(23, 23, 28)
-    local MenuOuterBorder = Color3.fromRGB(2, 2, 3)
-    local MenuBorder = Color3.fromRGB(43, 43, 49)
-    local MenuInnerBorder = Color3.fromRGB(70, 70, 78)
-    local MenuDivider = Color3.fromRGB(31, 31, 36)
-    local MenuTrack = Color3.fromRGB(26, 26, 31)
-
     local BaseScaleFactor = 1
     local AnimationFactor = 1
 
@@ -200,6 +190,18 @@ local function BuildRuntime()
         LastConfigFlags = {},
         FlagSelectorControllers = {},
         ChromeAccentTargets = setmetatable({}, {__mode = "k"})
+    }
+
+    Menu.Style = {
+        Background = Color3.fromRGB(8, 8, 10),
+        Panel = Color3.fromRGB(13, 13, 16),
+        PanelAlt = Color3.fromRGB(18, 18, 22),
+        PanelHover = Color3.fromRGB(23, 23, 28),
+        OuterBorder = Color3.fromRGB(2, 2, 3),
+        Border = Color3.fromRGB(43, 43, 49),
+        InnerBorder = Color3.fromRGB(70, 70, 78),
+        Divider = Color3.fromRGB(31, 31, 36),
+        Track = Color3.fromRGB(26, 26, 31)
     }
 
     local function CloneFlagValue(Value, Seen)
@@ -330,10 +332,10 @@ local function BuildRuntime()
         return Inner
     end
 
-    local function AddCheatChrome(Parent, ZIndex, AccentTop)
+    Menu.AddCheatChrome = function(Parent, ZIndex, AccentTop)
         if not Parent then return nil end
         local BaseZ = ZIndex or ((Parent.ZIndex or 1) + 1)
-        Stroke(Parent, MenuOuterBorder, 0, 1)
+        Stroke(Parent, Menu.Style.OuterBorder, 0, 1)
 
         local Inner = Create("Frame", {
             Parent = Parent,
@@ -344,7 +346,7 @@ local function BuildRuntime()
             Active = false,
             ZIndex = BaseZ
         })
-        Stroke(Inner, MenuInnerBorder, 0.48, 1)
+        Stroke(Inner, Menu.Style.InnerBorder, 0.48, 1)
 
         local Core = Create("Frame", {
             Parent = Parent,
@@ -355,20 +357,20 @@ local function BuildRuntime()
             Active = false,
             ZIndex = BaseZ
         })
-        Stroke(Core, MenuDivider, 0.20, 1)
+        Stroke(Core, Menu.Style.Divider, 0.20, 1)
 
         if AccentTop == true then
             AddChromeLine(Parent, UDim2.fromOffset(2, 2), UDim2.new(1, -4, 0, 2), Accent, 0, BaseZ + 1, true)
-            AddChromeLine(Parent, UDim2.fromOffset(2, 4), UDim2.new(1, -4, 0, 1), MenuDivider, 0.05, BaseZ + 1, false)
+            AddChromeLine(Parent, UDim2.fromOffset(2, 4), UDim2.new(1, -4, 0, 1), Menu.Style.Divider, 0.05, BaseZ + 1, false)
         end
 
         return Inner, Core
     end
 
-    local function AddControlChrome(Parent, ZIndex)
+    Menu.AddControlChrome = function(Parent, ZIndex)
         if not Parent then return nil end
         local BaseZ = ZIndex or ((Parent.ZIndex or 1) + 1)
-        Stroke(Parent, MenuOuterBorder, 0.02, 1)
+        Stroke(Parent, Menu.Style.OuterBorder, 0.02, 1)
         local Inner = Create("Frame", {
             Parent = Parent,
             Position = UDim2.fromOffset(1, 1),
@@ -378,7 +380,7 @@ local function BuildRuntime()
             Active = false,
             ZIndex = BaseZ
         })
-        Stroke(Inner, MenuBorder, 0.26, 1)
+        Stroke(Inner, Menu.Style.Border, 0.26, 1)
         return Inner
     end
 
@@ -886,14 +888,14 @@ local function BuildRuntime()
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = DecodePosition(SavedPositions.Main, UDim2.fromScale(0.5, 0.535)),
         Size = UDim2.fromOffset(744, 610),
-        BackgroundColor3 = MenuBackground,
+        BackgroundColor3 = Menu.Style.Background,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ClipsDescendants = true,
         ZIndex = 2
     })
     Corner(Main, 0)
-    AddCheatChrome(Main, 3, true)
+    Menu.AddCheatChrome(Main, 3, true)
 
     local MainScale = Create("UIScale", {
         Parent = Main,
@@ -991,7 +993,7 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(0, 0),
         Size = UDim2.new(1, 0, 0, Layout.HeaderHeight + Layout.SubHeight),
-        BackgroundColor3 = MenuPanel,
+        BackgroundColor3 = Menu.Style.Panel,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 4
@@ -1055,7 +1057,7 @@ local function BuildRuntime()
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -10, 0.5, 0),
         Size = UDim2.fromOffset(58, 22),
-        BackgroundColor3 = MenuPanelAlt,
+        BackgroundColor3 = Menu.Style.PanelAlt,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         AutoButtonColor = false,
@@ -1066,8 +1068,8 @@ local function BuildRuntime()
         ZIndex = 8
     })
     Corner(Menu.ConfigsUI.Button, 0)
-    AddControlChrome(Menu.ConfigsUI.Button, 9)
-    Menu.ConfigsUI.ButtonStroke = Stroke(Menu.ConfigsUI.Button, MenuBorder, 0.08, 1)
+    Menu.AddControlChrome(Menu.ConfigsUI.Button, 9)
+    Menu.ConfigsUI.ButtonStroke = Stroke(Menu.ConfigsUI.Button, Menu.Style.Border, 0.08, 1)
 
     Menu.ConfigsUI.FolderTab = Create("Frame", {
         Parent = Menu.ConfigsUI.Button,
@@ -1092,7 +1094,7 @@ local function BuildRuntime()
         Parent = Topbar,
         Position = UDim2.fromOffset(0, Layout.HeaderHeight),
         Size = UDim2.new(1, 0, 0, Layout.SubHeight),
-        BackgroundColor3 = MenuPanelAlt,
+        BackgroundColor3 = Menu.Style.PanelAlt,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 5
@@ -1162,13 +1164,13 @@ local function BuildRuntime()
         Parent = Content,
         Position = UDim2.fromOffset(Layout.Side, SearchY),
         Size = UDim2.new(1, -(Layout.Side * 2 + Layout.SearchHeight + Layout.Gap), 0, Layout.SearchHeight),
-        BackgroundColor3 = MenuPanel,
+        BackgroundColor3 = Menu.Style.Panel,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 5
     })
     Corner(SearchBar, 0)
-    AddControlChrome(SearchBar, 6)
+    Menu.AddControlChrome(SearchBar, 6)
     AddChromeLine(SearchBar, UDim2.fromOffset(2, 2), UDim2.new(0, 2, 1, -4), Accent, 0.18, 7, true)
 
     local SearchBox = Create("TextBox", {
@@ -1194,7 +1196,7 @@ local function BuildRuntime()
         AnchorPoint = Vector2.new(1, 0),
         Position = UDim2.new(1, -Layout.Side, 0, SearchY),
         Size = UDim2.fromOffset(Layout.SearchHeight, Layout.SearchHeight),
-        BackgroundColor3 = MenuPanel,
+        BackgroundColor3 = Menu.Style.Panel,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         AutoButtonColor = false,
@@ -1202,8 +1204,8 @@ local function BuildRuntime()
         ZIndex = 5
     })
     Corner(SearchSettings, 0)
-    AddControlChrome(SearchSettings, 6)
-    local SearchSettingsStroke = Stroke(SearchSettings, MenuBorder, 0.12, 1)
+    Menu.AddControlChrome(SearchSettings, 6)
+    local SearchSettingsStroke = Stroke(SearchSettings, Menu.Style.Border, 0.12, 1)
     local SearchSettingsIcon = Icon(SearchSettings, "Gear", UDim2.fromOffset(16, 16), UDim2.fromScale(0.5, 0.5), MutedText, 7)
 
     local SettingsToggleHitbox = Create("TextButton", {
@@ -1230,8 +1232,8 @@ local function BuildRuntime()
 
     local function UpdateSettingsButtonAppearance(State, Instant)
         SearchSettingsOpened = State and true or false
-        local TargetBackground = State and Accent:Lerp(MenuPanelAlt, 0.72) or MenuPanel
-        local TargetStroke = State and Accent or MenuBorder
+        local TargetBackground = State and Accent:Lerp(Menu.Style.PanelAlt, 0.72) or Menu.Style.Panel
+        local TargetStroke = State and Accent or Menu.Style.Border
         local TargetIcon = State and PrimaryText or MutedText
         SearchSettings.ZIndex = 5
         SearchSettingsIcon.ZIndex = 7
@@ -1341,19 +1343,19 @@ local function BuildRuntime()
             Parent = Page,
             Position = Position,
             Size = Size,
-            BackgroundColor3 = MenuPanel,
+            BackgroundColor3 = Menu.Style.Panel,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 5
         })
         Corner(Root, 0)
-        AddCheatChrome(Root, 6, false)
+        Menu.AddCheatChrome(Root, 6, false)
 
         local Header = Create("Frame", {
             Parent = Root,
             Position = UDim2.fromOffset(3, 3),
             Size = UDim2.new(1, -6, 0, 28),
-            BackgroundColor3 = MenuPanelAlt,
+            BackgroundColor3 = Menu.Style.PanelAlt,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 6
@@ -1372,7 +1374,7 @@ local function BuildRuntime()
         })
         Menu.ChromeAccentTargets[AccentStripe] = true
 
-        AddChromeLine(Header, UDim2.new(0, 0, 1, -1), UDim2.new(1, 0, 0, 1), MenuBorder, 0.18, 7, false)
+        AddChromeLine(Header, UDim2.new(0, 0, 1, -1), UDim2.new(1, 0, 0, 1), Menu.Style.Border, 0.18, 7, false)
 
         Create("TextLabel", {
             Parent = Root,
@@ -1496,15 +1498,15 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
             Size = UDim2.fromOffset(10, 10),
-            BackgroundColor3 = Default and Accent or MenuBackground,
+            BackgroundColor3 = Default and Accent or Menu.Style.Background,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
         Corner(Button, 0)
-        AddControlChrome(Button, 10)
-        local BorderStroke = Stroke(Button, Default and Accent or MenuBorder, 0, 1)
+        Menu.AddControlChrome(Button, 10)
+        local BorderStroke = Stroke(Button, Default and Accent or Menu.Style.Border, 0, 1)
         local Check = Create("Frame", {
             Parent = Button,
             Size = UDim2.fromScale(1, 1),
@@ -1550,10 +1552,10 @@ local function BuildRuntime()
             Menu.Flags[Flag] = State
             Check.Visible = false
             Tween(Button, 0.12, {
-                BackgroundColor3 = State and Accent or MenuBackground
+                BackgroundColor3 = State and Accent or Menu.Style.Background
             })
             Tween(BorderStroke, 0.12, {
-                Color = State and Accent or MenuBorder
+                Color = State and Accent or Menu.Style.Border
             })
             if type(Options.Callback) == "function" then
                 task.spawn(Options.Callback, State)
@@ -1567,10 +1569,10 @@ local function BuildRuntime()
 
         RegisterAccentTarget(function(NewColor)
             if Button and Button.Parent then
-                Button.BackgroundColor3 = State and NewColor or MenuBackground
+                Button.BackgroundColor3 = State and NewColor or Menu.Style.Background
             end
             if BorderStroke and BorderStroke.Parent then
-                BorderStroke.Color = State and NewColor or MenuBorder
+                BorderStroke.Color = State and NewColor or Menu.Style.Border
             end
         end)
 
@@ -1607,12 +1609,12 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(1, 0),
             Position = UDim2.new(1, XOffset, 0, 0),
             Size = UDim2.fromOffset(Width or 46, 18),
-            BackgroundColor3 = MenuBackground,
+            BackgroundColor3 = Menu.Style.Background,
             BorderSizePixel = 0,
             ZIndex = 8
         })
         Corner(Box, 0)
-        AddControlChrome(Box, 9)
+        Menu.AddControlChrome(Box, 9)
         local Label = Create("TextBox", {
             Parent = Box,
             Size = UDim2.fromScale(1, 1),
@@ -1713,12 +1715,12 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(0, 28),
             Size = UDim2.new(1, 0, 0, 5),
             Active = true,
-            BackgroundColor3 = MenuTrack,
+            BackgroundColor3 = Menu.Style.Track,
             BorderSizePixel = 0,
             ZIndex = 8
         })
         Corner(Track, 0)
-        AddControlChrome(Track, 9)
+        Menu.AddControlChrome(Track, 9)
 
         local Fill = Create("Frame", {
             Parent = Track,
@@ -1903,12 +1905,12 @@ local function BuildRuntime()
             Parent = Row,
             Position = UDim2.fromOffset(0, 30),
             Size = UDim2.new(1, 0, 0, 5),
-            BackgroundColor3 = MenuTrack,
+            BackgroundColor3 = Menu.Style.Track,
             BorderSizePixel = 0,
             ZIndex = 8
         })
         Corner(Track, 0)
-        AddControlChrome(Track, 9)
+        Menu.AddControlChrome(Track, 9)
 
         local function Round(Value)
             Value = math.clamp(tonumber(Value) or Minimum, Minimum, Maximum)
@@ -2966,12 +2968,12 @@ local function BuildRuntime()
             Active = true,
             Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromOffset(208, Height),
-            BackgroundColor3 = MenuPanel,
+            BackgroundColor3 = Menu.Style.Panel,
             BorderSizePixel = 0,
             ZIndex = 170
         })
         Corner(ActiveGearHotkeysMenu, 0)
-        AddCheatChrome(ActiveGearHotkeysMenu, 171, true)
+        Menu.AddCheatChrome(ActiveGearHotkeysMenu, 171, true)
 
         local Preferred = UDim2.fromOffset(ActiveGearMenu.AbsolutePosition.X + ActiveGearMenu.AbsoluteSize.X + 8, ActiveGearMenu.AbsolutePosition.Y + 42)
         PlacePopup(ActiveGearHotkeysMenu, Preferred, {ActiveGearBindMenu, ActiveGearMenu})
@@ -3251,12 +3253,12 @@ local function BuildRuntime()
             Active = true,
             Position = UDim2.fromOffset(0, 0),
             Size = UDim2.fromOffset(188, 160),
-            BackgroundColor3 = MenuPanel,
+            BackgroundColor3 = Menu.Style.Panel,
             BorderSizePixel = 0,
             ZIndex = 180
         })
         Corner(ActiveGearBindMenu, 0)
-        AddCheatChrome(ActiveGearBindMenu, 181, true)
+        Menu.AddCheatChrome(ActiveGearBindMenu, 181, true)
 
         local Preferred = UDim2.fromOffset(ActiveGearMenu.AbsolutePosition.X + ActiveGearMenu.AbsoluteSize.X + 8, ActiveGearMenu.AbsolutePosition.Y)
         PlacePopup(ActiveGearBindMenu, Preferred, {ActiveGearHotkeysMenu, ActiveGearMenu})
@@ -3542,12 +3544,12 @@ local function BuildRuntime()
             Active = true,
             Position = UDim2.fromOffset(Button.AbsolutePosition.X - 8, Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 4),
             Size = UDim2.fromOffset(142, 106),
-            BackgroundColor3 = MenuPanel,
+            BackgroundColor3 = Menu.Style.Panel,
             BorderSizePixel = 0,
             ZIndex = 160
         })
         Corner(ActiveGearMenu, 0)
-        AddCheatChrome(ActiveGearMenu, 161, true)
+        Menu.AddCheatChrome(ActiveGearMenu, 161, true)
         ActiveGearMenu.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActiveGearMenu, ActiveGearMenu.Position) or ActiveGearMenu.Position
         MakePopupDraggable(ActiveGearMenu, 14)
 
@@ -4052,7 +4054,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
             Size = UDim2.fromOffset(132, 19),
-            BackgroundColor3 = MenuPanelAlt,
+            BackgroundColor3 = Menu.Style.PanelAlt,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -4060,8 +4062,8 @@ local function BuildRuntime()
             ZIndex = 9
         })
         Corner(Button, 0)
-        AddControlChrome(Button, 10)
-        local ButtonStroke = Stroke(Button, MenuBorder, 0.08, 1)
+        Menu.AddControlChrome(Button, 10)
+        local ButtonStroke = Stroke(Button, Menu.Style.Border, 0.08, 1)
 
         RegisterAccentTarget(function(NewColor)
             if not ButtonStroke
@@ -4073,7 +4075,7 @@ local function BuildRuntime()
             ButtonStroke.Color =
                 IsOpened
                 and NewColor
-                or MenuBorder
+                or Menu.Style.Border
         end)
 
         local ValueLabel = Create("TextLabel", {
@@ -4117,7 +4119,7 @@ local function BuildRuntime()
                     BackgroundTransparency = 0.10
                 })
                 Tween(ButtonStroke, 0.10, {
-                    Color = MenuInnerBorder
+                    Color = Menu.Style.InnerBorder
                 })
             end
         end))
@@ -4128,7 +4130,7 @@ local function BuildRuntime()
                     BackgroundTransparency = 0.22
                 })
                 Tween(ButtonStroke, 0.10, {
-                    Color = MenuBorder
+                    Color = Menu.Style.Border
                 })
             end
         end))
@@ -4157,14 +4159,14 @@ local function BuildRuntime()
                     Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 5
                 ),
                 Size = UDim2.fromOffset(Width, PopupHeight),
-                BackgroundColor3 = MenuPanel,
+                BackgroundColor3 = Menu.Style.Panel,
                 BackgroundTransparency = 0,
                 BorderSizePixel = 0,
                 ClipsDescendants = true,
                 ZIndex = 100
             })
             Corner(ActivePopup, 0)
-            AddCheatChrome(ActivePopup, 101, false)
+            Menu.AddCheatChrome(ActivePopup, 101, false)
             AddChromeLine(ActivePopup, UDim2.fromOffset(2, 2), UDim2.new(1, -4, 0, 2), Accent, 0.06, 102, true)
             
 
@@ -4204,7 +4206,7 @@ local function BuildRuntime()
             ActivePopupCleanup = function()
                 IsOpened = false
                 ExpandIndicator:SetOpened(false)
-                ButtonStroke.Color = MenuBorder
+                ButtonStroke.Color = Menu.Style.Border
                 Tween(Button, 0.10, {
                     BackgroundTransparency = 0.22
                 })
@@ -4373,15 +4375,15 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
             Size = UDim2.fromOffset(132, 19),
-            BackgroundColor3 = MenuPanelAlt,
+            BackgroundColor3 = Menu.Style.PanelAlt,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
         Corner(Button, 0)
-        AddControlChrome(Button, 10)
-        local ButtonStroke = Stroke(Button, MenuBorder, 0.08, 1)
+        Menu.AddControlChrome(Button, 10)
+        local ButtonStroke = Stroke(Button, Menu.Style.Border, 0.08, 1)
 
         RegisterAccentTarget(function(NewColor)
             if not ButtonStroke
@@ -4393,7 +4395,7 @@ local function BuildRuntime()
             ButtonStroke.Color =
                 IsOpened
                 and NewColor
-                or MenuBorder
+                or Menu.Style.Border
         end)
 
         local ValueLabel = Create("TextLabel", {
@@ -4503,7 +4505,7 @@ local function BuildRuntime()
         end))
         Bind(Button.MouseLeave:Connect(function()
             if not IsOpened then
-                Tween(Button, 0.12, {BackgroundColor3 = MenuPanelAlt})
+                Tween(Button, 0.12, {BackgroundColor3 = Menu.Style.PanelAlt})
                 Tween(ButtonStroke, 0.12, {Color = Border})
             end
         end))
@@ -4526,14 +4528,14 @@ local function BuildRuntime()
                 Active = true,
                 Position = UDim2.fromOffset(Button.AbsolutePosition.X + Button.AbsoluteSize.X - Width, Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 6),
                 Size = UDim2.fromOffset(Width, PopupHeight),
-                BackgroundColor3 = MenuPanel,
+                BackgroundColor3 = Menu.Style.Panel,
                 BackgroundTransparency = 0,
                 BorderSizePixel = 0,
                 ClipsDescendants = true,
                 ZIndex = 100
             })
             Corner(ActivePopup, 0)
-            AddCheatChrome(ActivePopup, 101, false)
+            Menu.AddCheatChrome(ActivePopup, 101, false)
             AddChromeLine(ActivePopup, UDim2.fromOffset(2, 2), UDim2.new(1, -4, 0, 2), Accent, 0.06, 102, true)
             
             ActivePopup.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
@@ -4568,8 +4570,8 @@ local function BuildRuntime()
                 IsOpened = false
                 ExpandIndicator:SetOpened(false)
                 OptionStates = {}
-                ButtonStroke.Color = MenuBorder
-                Tween(Button, 0.12, {BackgroundColor3 = MenuPanelAlt})
+                ButtonStroke.Color = Menu.Style.Border
+                Tween(Button, 0.12, {BackgroundColor3 = Menu.Style.PanelAlt})
             end
 
             for _, Value in ipairs(Values) do
@@ -4577,7 +4579,7 @@ local function BuildRuntime()
                 local Option = Create("TextButton", {
                     Parent = List,
                     Size = UDim2.new(1, -2, 0, RowHeight),
-                    BackgroundColor3 = MenuPanelAlt,
+                    BackgroundColor3 = Menu.Style.PanelAlt,
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
@@ -4614,7 +4616,7 @@ local function BuildRuntime()
                 end))
                 Bind(Option.MouseLeave:Connect(function()
                     if not Selected[Key] then
-                        Tween(Option, 0.10, {BackgroundTransparency = 1, BackgroundColor3 = MenuPanel})
+                        Tween(Option, 0.10, {BackgroundTransparency = 1, BackgroundColor3 = Menu.Style.Panel})
                     end
                 end))
                 Bind(Option.MouseButton1Click:Connect(function()
@@ -4686,15 +4688,15 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
             Size = UDim2.fromOffset(132, 19),
-            BackgroundColor3 = MenuPanelAlt,
+            BackgroundColor3 = Menu.Style.PanelAlt,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 9
         })
         Corner(Button, 0)
-        AddControlChrome(Button, 10)
-        local ButtonStroke = Stroke(Button, MenuBorder, 0.08, 1)
+        Menu.AddControlChrome(Button, 10)
+        local ButtonStroke = Stroke(Button, Menu.Style.Border, 0.08, 1)
 
         local ValueLabel = Create("TextLabel", {
             Parent = Button,
@@ -4756,7 +4758,7 @@ local function BuildRuntime()
             State.Label.Font = Active and Enum.Font.BuilderSansBold or Enum.Font.BuilderSansMedium
             State.Check.BackgroundTransparency = Active and 0 or 1
             State.Check.BackgroundColor3 = Accent
-            State.CheckStroke.Color = Active and Accent or MenuBorder
+            State.CheckStroke.Color = Active and Accent or Menu.Style.Border
             State.CheckStroke.Transparency = Active and 0.04 or 0.18
         end
 
@@ -4844,7 +4846,7 @@ local function BuildRuntime()
         Menu.FlagSelectorControllers[Flag] = SelectorController
 
         RegisterAccentTarget(function(NewColor)
-            if ButtonStroke and ButtonStroke.Parent then ButtonStroke.Color = IsOpened and NewColor or MenuBorder end
+            if ButtonStroke and ButtonStroke.Parent then ButtonStroke.Color = IsOpened and NewColor or Menu.Style.Border end
             for _, State in pairs(OptionStates) do
                 if State.Selected then
                     State.Check.BackgroundColor3 = NewColor
@@ -4860,7 +4862,7 @@ local function BuildRuntime()
 
         Bind(Button.MouseLeave:Connect(function()
             if not IsOpened then
-                Tween(Button, 0.12, {BackgroundColor3 = MenuPanelAlt})
+                Tween(Button, 0.12, {BackgroundColor3 = Menu.Style.PanelAlt})
                 Tween(ButtonStroke, 0.12, {Color = Border})
             end
         end))
@@ -4883,14 +4885,14 @@ local function BuildRuntime()
                 Active = true,
                 Position = UDim2.fromOffset(Button.AbsolutePosition.X + Button.AbsoluteSize.X - Width, Button.AbsolutePosition.Y + Button.AbsoluteSize.Y + 6),
                 Size = UDim2.fromOffset(Width, PopupHeight),
-                BackgroundColor3 = MenuPanel,
+                BackgroundColor3 = Menu.Style.Panel,
                 BackgroundTransparency = 0,
                 BorderSizePixel = 0,
                 ClipsDescendants = true,
                 ZIndex = 100
             })
             Corner(ActivePopup, 0)
-            AddCheatChrome(ActivePopup, 101, false)
+            Menu.AddCheatChrome(ActivePopup, 101, false)
             AddChromeLine(ActivePopup, UDim2.fromOffset(2, 2), UDim2.new(1, -4, 0, 2), Accent, 0.06, 102, true)
             
             ActivePopup.Position = type(Menu.ClampPopupPosition) == "function" and Menu.ClampPopupPosition(ActivePopup, ActivePopup.Position) or ActivePopup.Position
@@ -4919,8 +4921,8 @@ local function BuildRuntime()
                 IsOpened = false
                 ExpandIndicator:SetOpened(false)
                 OptionStates = {}
-                ButtonStroke.Color = MenuBorder
-                Tween(Button, 0.12, {BackgroundColor3 = MenuPanelAlt})
+                ButtonStroke.Color = Menu.Style.Border
+                Tween(Button, 0.12, {BackgroundColor3 = Menu.Style.PanelAlt})
             end
 
             for Index, Binding in ipairs(Bindings) do
@@ -4928,7 +4930,7 @@ local function BuildRuntime()
                 local Option = Create("TextButton", {
                     Parent = List,
                     Size = UDim2.new(1, -2, 0, RowHeight),
-                    BackgroundColor3 = MenuPanelAlt,
+                    BackgroundColor3 = Menu.Style.PanelAlt,
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
@@ -5202,20 +5204,20 @@ local function BuildRuntime()
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = DecodePosition(SavedPositions.Settings, Main.Position),
         Size = UDim2.fromOffset(500, 526),
-        BackgroundColor3 = MenuPanel,
+        BackgroundColor3 = Menu.Style.Panel,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         Visible = false,
         ZIndex = 30
     })
     Corner(Menu.SettingsUI.SettingsPanel, 0)
-    AddCheatChrome(Menu.SettingsUI.SettingsPanel, 33, true)
+    Menu.AddCheatChrome(Menu.SettingsUI.SettingsPanel, 33, true)
 
     Menu.SettingsUI.SettingsHeader = Create("Frame", {
         Parent = Menu.SettingsUI.SettingsPanel,
         Position = UDim2.fromOffset(2, 2),
         Size = UDim2.new(1, -4, 0, 48),
-        BackgroundColor3 = MenuPanelAlt,
+        BackgroundColor3 = Menu.Style.PanelAlt,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 31
@@ -5366,20 +5368,20 @@ local function BuildRuntime()
             Active = true,
             Position = DecodePosition(SavedPositions.Configs, DefaultConfigPosition),
             Size = UDim2.fromOffset(300, 150),
-            BackgroundColor3 = MenuPanel,
+            BackgroundColor3 = Menu.Style.Panel,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 40
         })
         Corner(S.Window, 0)
-        AddCheatChrome(S.Window, 43, true)
+        Menu.AddCheatChrome(S.Window, 43, true)
 
         S.Header = Create("Frame", {
             Parent = S.Window,
             Position = UDim2.fromOffset(0, 0),
             Size = UDim2.new(1, 0, 0, 36),
-            BackgroundColor3 = MenuPanelAlt,
+            BackgroundColor3 = Menu.Style.PanelAlt,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
             ZIndex = 41
@@ -6862,7 +6864,7 @@ local function BuildRuntime()
         Parent = Menu.SettingsUI.SettingsPanel,
         Position = UDim2.fromOffset(22, 132),
         Size = UDim2.fromOffset(456, 1),
-        BackgroundColor3 = MenuBorder,
+        BackgroundColor3 = Menu.Style.Border,
         BorderSizePixel = 0,
         ZIndex = 31
     })
@@ -6871,25 +6873,25 @@ local function BuildRuntime()
         Parent = Menu.SettingsUI.SettingsPanel,
         Position = UDim2.fromOffset(22, 148),
         Size = UDim2.fromOffset(220, 358),
-        BackgroundColor3 = MenuPanelAlt,
+        BackgroundColor3 = Menu.Style.PanelAlt,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 30
     })
     Corner(Menu.SettingsUI.InterfaceCard, 0)
-    AddCheatChrome(Menu.SettingsUI.InterfaceCard, 31, false)
+    Menu.AddCheatChrome(Menu.SettingsUI.InterfaceCard, 31, false)
 
     Menu.SettingsUI.OverlayCard = Create("Frame", {
         Parent = Menu.SettingsUI.SettingsPanel,
         Position = UDim2.fromOffset(258, 148),
         Size = UDim2.fromOffset(220, 358),
-        BackgroundColor3 = MenuPanelAlt,
+        BackgroundColor3 = Menu.Style.PanelAlt,
         BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 30
     })
     Corner(Menu.SettingsUI.OverlayCard, 0)
-    AddCheatChrome(Menu.SettingsUI.OverlayCard, 31, false)
+    Menu.AddCheatChrome(Menu.SettingsUI.OverlayCard, 31, false)
 
     Create("TextLabel", {
         Parent = Menu.SettingsUI.SettingsPanel,
@@ -6933,15 +6935,15 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, XOffset, 0.5, 0),
             Size = UDim2.fromOffset(12, 12),
-            BackgroundColor3 = Default and Accent or MenuBackground,
+            BackgroundColor3 = Default and Accent or Menu.Style.Background,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Text = "",
             ZIndex = 33
         })
         Corner(Button, 0)
-        AddControlChrome(Button, 34)
-        local BorderStroke = Stroke(Button, Default and Accent or MenuBorder, 0, 1)
+        Menu.AddControlChrome(Button, 34)
+        local BorderStroke = Stroke(Button, Default and Accent or Menu.Style.Border, 0, 1)
         local Check = Icon(Button, "Check", UDim2.fromOffset(8, 8), UDim2.fromScale(0.5, 0.5), Background, 34)
         Check.Visible = Default
         return Button, BorderStroke, Check
@@ -6976,8 +6978,8 @@ local function BuildRuntime()
         local function Set(Value)
             State = Value and true or false
             Check.Visible = State
-            Button.BackgroundColor3 = State and Accent or MenuBackground
-            BorderStroke.Color = State and Accent or MenuBorder
+            Button.BackgroundColor3 = State and Accent or Menu.Style.Background
+            BorderStroke.Color = State and Accent or Menu.Style.Border
             if Callback then
                 Callback(State)
             end
@@ -7042,7 +7044,7 @@ local function BuildRuntime()
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
             Size = UDim2.fromOffset(82, 24),
-            BackgroundColor3 = MenuPanel,
+            BackgroundColor3 = Menu.Style.Panel,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -7053,8 +7055,8 @@ local function BuildRuntime()
             ZIndex = 33
         })
         Corner(Button, 0)
-        AddControlChrome(Button, 34)
-        local ButtonStroke = Stroke(Button, MenuBorder, 0.14, 1)
+        Menu.AddControlChrome(Button, 34)
+        local ButtonStroke = Stroke(Button, Menu.Style.Border, 0.14, 1)
 
         local function NormalizeBind(Value)
             if type(Value) ~= "table" then
@@ -7120,7 +7122,7 @@ local function BuildRuntime()
             )
             Button.TextColor3 = PrimaryText
             Menu.QuickPanelBindCapture = false
-            Tween(ButtonStroke, 0.10, {Color = MenuBorder})
+            Tween(ButtonStroke, 0.10, {Color = Menu.Style.Border})
             Tween(Button, 0.10, {BackgroundTransparency = 0.30})
         end
 
@@ -7198,7 +7200,7 @@ local function BuildRuntime()
             Position = UDim2.fromOffset(0, 34),
             Size = UDim2.new(1, 0, 0, 5),
             Active = true,
-            BackgroundColor3 = MenuTrack,
+            BackgroundColor3 = Menu.Style.Track,
             BorderSizePixel = 0,
             ZIndex = 32
         })
@@ -7212,7 +7214,7 @@ local function BuildRuntime()
             ZIndex = 33
         })
         Corner(Fill, 0)
-        AddControlChrome(Track, 33)
+        Menu.AddControlChrome(Track, 33)
         local FillGlow = nil
 
         local Knob = Create("Frame", {
@@ -10919,10 +10921,10 @@ local function BuildRuntime()
                     Tween(Data.Button, 0.10, {
                         TextColor3 = Selected and PrimaryText or MutedText,
                         BackgroundTransparency = Selected and 0.12 or 1,
-                        BackgroundColor3 = Selected and MenuPanelHover or MenuPanelAlt
+                        BackgroundColor3 = Selected and Menu.Style.PanelHover or Menu.Style.PanelAlt
                     })
                     if Data.Stroke and Data.Stroke.Parent then
-                        Tween(Data.Stroke, 0.10, {Color = Selected and MenuBorder or MenuDivider, Transparency = Selected and 0.12 or 1})
+                        Tween(Data.Stroke, 0.10, {Color = Selected and Menu.Style.Border or Menu.Style.Divider, Transparency = Selected and 0.12 or 1})
                     end
                 end
                 if Data.Marker and Data.Marker.Parent then
@@ -12107,7 +12109,7 @@ local function BuildRuntime()
             Parent = PageTabHost,
             LayoutOrder = Count + 1,
             Size = UDim2.fromOffset(Width, Layout.HeaderHeight),
-            BackgroundColor3 = MenuPanelAlt,
+            BackgroundColor3 = Menu.Style.PanelAlt,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -12118,7 +12120,7 @@ local function BuildRuntime()
             ZIndex = 7
         })
 
-        local TabStroke = Stroke(Button, MenuDivider, 1, 1)
+        local TabStroke = Stroke(Button, Menu.Style.Divider, 1, 1)
 
         local Marker = Create("Frame", {
             Parent = Button,
@@ -12182,13 +12184,13 @@ local function BuildRuntime()
             if SubPageObject.Button then
                 Tween(SubPageObject.Button, 0.08, {
                     BackgroundTransparency = Selected and 0.08 or 1,
-                    BackgroundColor3 = MenuPanelAlt,
+                    BackgroundColor3 = Menu.Style.PanelAlt,
                     TextColor3 = Selected and PrimaryText or MutedText
                 })
             end
 
             if SubPageObject.Stroke and SubPageObject.Stroke.Parent then
-                Tween(SubPageObject.Stroke, 0.08, {Color = Selected and MenuBorder or MenuDivider, Transparency = Selected and 0.18 or 1})
+                Tween(SubPageObject.Stroke, 0.08, {Color = Selected and Menu.Style.Border or Menu.Style.Divider, Transparency = Selected and 0.18 or 1})
             end
 
             if SubPageObject.Indicator then
@@ -12877,7 +12879,7 @@ local function BuildRuntime()
             Parent = Menu.SubPageHost or SubRow,
             LayoutOrder = Count + 1,
             Size = UDim2.fromOffset(ButtonWidth, Layout.SubHeight),
-            BackgroundColor3 = MenuPanelAlt,
+            BackgroundColor3 = Menu.Style.PanelAlt,
             BackgroundTransparency = Count == 0 and 0.08 or 1,
             BorderSizePixel = 0,
             AutoButtonColor = false,
@@ -12889,7 +12891,7 @@ local function BuildRuntime()
             ZIndex = 7
         })
 
-        local SubStroke = Stroke(Button, MenuDivider, Count == 0 and 0.18 or 1, 1)
+        local SubStroke = Stroke(Button, Menu.Style.Divider, Count == 0 and 0.18 or 1, 1)
 
         local Indicator = Create("Frame", {
             Parent = Button,
