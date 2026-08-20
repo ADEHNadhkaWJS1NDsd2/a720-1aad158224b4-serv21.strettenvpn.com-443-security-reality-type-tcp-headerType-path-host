@@ -1335,6 +1335,14 @@ local function BuildRuntime()
         return Page
     end
 
+    local AccentUpdateTargets = {}
+
+    local function RegisterAccentTarget(Callback)
+        if type(Callback) == "function" then
+            AccentUpdateTargets[#AccentUpdateTargets + 1] = Callback
+        end
+    end
+
     local function CreateSection(Page, Key, Title, Position, Size)
         local Root = Create("Frame", {
             Parent = Page,
@@ -1493,14 +1501,6 @@ local function BuildRuntime()
 
     local function CreateWarning(Row)
         return nil
-    end
-
-    local AccentUpdateTargets = {}
-
-    local function RegisterAccentTarget(Callback)
-        if type(Callback) == "function" then
-            AccentUpdateTargets[#AccentUpdateTargets + 1] = Callback
-        end
     end
 
     local function CreateCheckbox(Row, Default)
