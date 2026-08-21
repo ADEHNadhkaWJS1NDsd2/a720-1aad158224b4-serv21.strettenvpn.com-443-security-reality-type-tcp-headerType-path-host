@@ -9,8 +9,8 @@ local Library = {
     }
 }
 
-Library.Build = 28
-Library.BuildName = "BindPopupRestyle"
+Library.Build = 29
+Library.BuildName = "UIBindResizeRewrite"
 
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -1878,7 +1878,7 @@ local function BuildRuntime()
         local TrackOutline = Create("Frame", {
             Parent = Row,
             Position = UDim2.fromOffset(0, 23),
-            Size = UDim2.new(1, 0, 0, 8),
+            Size = UDim2.new(1, 0, 0, 5),
             BackgroundColor3 = Color3.fromRGB(0, 0, 0),
             BorderSizePixel = 0,
             ZIndex = 8
@@ -2447,14 +2447,32 @@ local function BuildRuntime()
     local BindKeyCanonical = {
         XButton1 = "MouseButton4",
         XButton2 = "MouseButton5",
+        MouseBackButton = "MouseButton4",
+        MouseForwardButton = "MouseButton5",
+        BrowserBack = "MouseButton4",
+        BrowserForward = "MouseButton5",
+        Mouse1 = "MouseButton1",
+        Mouse2 = "MouseButton2",
+        Mouse3 = "MouseButton3",
         Mouse4 = "MouseButton4",
         Mouse5 = "MouseButton5",
-        MouseButton4 = "MouseButton4",
-        MouseButton5 = "MouseButton5",
+        Mouse6 = "MouseButton6",
+        Mouse7 = "MouseButton7",
+        Mouse8 = "MouseButton8",
+        Button1 = "MouseButton1",
+        Button2 = "MouseButton2",
+        Button3 = "MouseButton3",
         Button4 = "MouseButton4",
         Button5 = "MouseButton5",
+        Button6 = "MouseButton6",
+        Button7 = "MouseButton7",
+        Button8 = "MouseButton8",
         ThumbMouseButton1 = "MouseButton4",
         ThumbMouseButton2 = "MouseButton5",
+        WheelUp = "MouseWheelUp",
+        WheelDown = "MouseWheelDown",
+        MouseWheelUp = "MouseWheelUp",
+        MouseWheelDown = "MouseWheelDown",
 
         NumPad0 = "KeypadZero",
         Numpad0 = "KeypadZero",
@@ -2492,7 +2510,6 @@ local function BuildRuntime()
         KeypadDecimal = "KeypadPeriod",
         NumPadPeriod = "KeypadPeriod",
         NumpadPeriod = "KeypadPeriod",
-
         NumPadDivide = "KeypadDivide",
         NumpadDivide = "KeypadDivide",
         NumPadMultiply = "KeypadMultiply",
@@ -2512,33 +2529,33 @@ local function BuildRuntime()
     }
 
     Menu.BindSystem.CanonicalBindKey = function(KeyType, KeyName)
-        KeyType = tostring(
-            KeyType or ""
-        )
-
-        KeyName = tostring(
-            KeyName or ""
-        )
+        KeyType = tostring(KeyType or "")
+        KeyName = tostring(KeyName or "")
 
         local Canonical =
-            BindKeyCanonical[
-                KeyName
-            ]
+            BindKeyCanonical[KeyName]
             or KeyName
 
         if string.match(
             Canonical,
             "^MouseButton%d+$"
         )
+            or Canonical == "MouseWheelUp"
+            or Canonical == "MouseWheelDown"
         then
             return "UserInputType",
                 Canonical
         end
 
+        if KeyType == ""
+            and Canonical ~= ""
+        then
+            KeyType = "KeyCode"
+        end
+
         return KeyType,
             Canonical
     end
-
 
     do
     local function GetControlBinds(ControlFlag)
@@ -2700,37 +2717,46 @@ local function BuildRuntime()
     end
 
     local BindKeyAliases = {
-        MouseButton2 = "RMB",
-        MouseButton3 = "MMB",
-        MouseButton4 = "M4",
-        MouseButton5 = "M5",
-        MouseButton6 = "M6",
-        MouseButton7 = "M7",
-        MouseButton8 = "M8",
-        KeypadZero = "NUM0",
-        KeypadOne = "NUM1",
-        KeypadTwo = "NUM2",
-        KeypadThree = "NUM3",
-        KeypadFour = "NUM4",
-        KeypadFive = "NUM5",
-        KeypadSix = "NUM6",
-        KeypadSeven = "NUM7",
-        KeypadEight = "NUM8",
-        KeypadNine = "NUM9",
-        KeypadPeriod = "NUM.",
-        KeypadDivide = "NUM/",
-        KeypadMultiply = "NUM*",
-        KeypadMinus = "NUM-",
-        KeypadPlus = "NUM+",
-        KeypadEnter = "NUMENTER",
-        KeypadEquals = "NUM=",
+        MouseButton1 = "MOUSE1",
+        MouseButton2 = "MOUSE2",
+        MouseButton3 = "MOUSE3",
+        MouseButton4 = "MOUSE4",
+        MouseButton5 = "MOUSE5",
+        MouseButton6 = "MOUSE6",
+        MouseButton7 = "MOUSE7",
+        MouseButton8 = "MOUSE8",
+        MouseWheelUp = "WHEEL UP",
+        MouseWheelDown = "WHEEL DOWN",
+        KeypadZero = "NUM 0",
+        KeypadOne = "NUM 1",
+        KeypadTwo = "NUM 2",
+        KeypadThree = "NUM 3",
+        KeypadFour = "NUM 4",
+        KeypadFive = "NUM 5",
+        KeypadSix = "NUM 6",
+        KeypadSeven = "NUM 7",
+        KeypadEight = "NUM 8",
+        KeypadNine = "NUM 9",
+        KeypadPeriod = "NUM .",
+        KeypadDivide = "NUM /",
+        KeypadMultiply = "NUM *",
+        KeypadMinus = "NUM -",
+        KeypadPlus = "NUM +",
+        KeypadEnter = "NUM ENTER",
+        KeypadEquals = "NUM =",
+        LeftControl = "LCTRL",
+        RightControl = "RCTRL",
+        LeftShift = "LSHIFT",
+        RightShift = "RSHIFT",
+        LeftAlt = "LALT",
+        RightAlt = "RALT",
         Return = "ENTER",
         Escape = "ESC",
-        Backspace = "BACK",
-        Delete = "DEL",
-        Insert = "INS",
-        PageUp = "PGUP",
-        PageDown = "PGDN",
+        Backspace = "BACKSPACE",
+        Delete = "DELETE",
+        Insert = "INSERT",
+        PageUp = "PAGE UP",
+        PageDown = "PAGE DOWN",
         Home = "HOME",
         End = "END",
         CapsLock = "CAPS",
@@ -3432,7 +3458,7 @@ local function BuildRuntime()
                 Parent = ParentObject,
                 AnchorPoint = Vector2.new(1, 0),
                 Position = UDim2.new(1, -11, 0, 99),
-                Size = UDim2.fromOffset(15, 15),
+                Size = UDim2.fromOffset(12, 12),
                 BackgroundColor3 = Color3.fromRGB(0, 0, 0),
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
@@ -5038,10 +5064,25 @@ local function BuildRuntime()
     Menu.BindSystem.BindMatchesInput = BindMatchesInput
 
     Menu.BindSystem.CustomMouse = {
-        Previous = {MouseButton4 = false, MouseButton5 = false},
-        States = {MouseButton4 = false, MouseButton5 = false},
-        KeyCodes = {}, InputTypes = {}
+        Previous = {},
+        States = {},
+        KeyCodes = {},
+        InputTypes = {}
     }
+
+    for Index = 4, 8 do
+        local KeyName =
+            "MouseButton"
+            .. tostring(Index)
+
+        Menu.BindSystem.CustomMouse.Previous[
+            KeyName
+        ] = false
+
+        Menu.BindSystem.CustomMouse.States[
+            KeyName
+        ] = false
+    end
 
     local function FindEnumItem(EnumType, Names)
         local Wanted = {}
@@ -5061,46 +5102,70 @@ local function BuildRuntime()
         return nil
     end
 
-    Menu.BindSystem.CustomMouse.KeyCodes.MouseButton4 =
-        FindEnumItem(
-            Enum.KeyCode,
-            {
-                "MouseBackButton",
+    for Index = 4, 8 do
+        local KeyName =
+            "MouseButton"
+            .. tostring(Index)
+
+        local KeyCodeNames = {
+            KeyName,
+            "Mouse"
+                .. tostring(Index),
+            "Button"
+                .. tostring(Index)
+        }
+
+        local InputNames = {
+            KeyName,
+            "XButton"
+                .. tostring(
+                    Index - 3
+                )
+        }
+
+        if Index == 4 then
+            KeyCodeNames[#KeyCodeNames + 1] =
+                "MouseBackButton"
+            KeyCodeNames[#KeyCodeNames + 1] =
                 "BrowserBack"
-            }
-        )
-
-    Menu.BindSystem.CustomMouse.KeyCodes.MouseButton5 =
-        FindEnumItem(
-            Enum.KeyCode,
-            {
-                "MouseForwardButton",
-                "BrowserForward"
-            }
-        )
-
-    Menu.BindSystem.CustomMouse.InputTypes.MouseButton4 =
-        FindEnumItem(
-            Enum.UserInputType,
-            {
-                "MouseButton4",
+            InputNames[#InputNames + 1] =
                 "XButton1"
-            }
-        )
-
-    Menu.BindSystem.CustomMouse.InputTypes.MouseButton5 =
-        FindEnumItem(
-            Enum.UserInputType,
-            {
-                "MouseButton5",
+        elseif Index == 5 then
+            KeyCodeNames[#KeyCodeNames + 1] =
+                "MouseForwardButton"
+            KeyCodeNames[#KeyCodeNames + 1] =
+                "BrowserForward"
+            InputNames[#InputNames + 1] =
                 "XButton2"
-            }
-        )
+        end
+
+        Menu.BindSystem.CustomMouse.KeyCodes[
+            KeyName
+        ] =
+            FindEnumItem(
+                Enum.KeyCode,
+                KeyCodeNames
+            )
+
+        Menu.BindSystem.CustomMouse.InputTypes[
+            KeyName
+        ] =
+            FindEnumItem(
+                Enum.UserInputType,
+                InputNames
+            )
+    end
 
     function Menu.BindSystem.GetCustomMouseStates()
-        local States = Menu.BindSystem.CustomMouse.States
-        States.MouseButton4 = false
-        States.MouseButton5 = false
+        local States =
+            Menu.BindSystem.CustomMouse.States
+
+        for Index = 4, 8 do
+            States[
+                "MouseButton"
+                .. tostring(Index)
+            ] = false
+        end
 
         for _, Input in ipairs(
             UserInputService:
@@ -5108,15 +5173,14 @@ local function BuildRuntime()
         ) do
             local KeyType,
                 KeyName =
-                Menu.BindSystem.
-                    GetInputIdentity(
-                        Input
-                    )
+                Menu.BindSystem.GetInputIdentity(
+                    Input
+                )
 
             if KeyType
-                and (
-                    KeyName == "MouseButton4"
-                    or KeyName == "MouseButton5"
+                and string.match(
+                    tostring(KeyName),
+                    "^MouseButton[4-8]$"
                 )
             then
                 States[KeyName] = true
@@ -5129,15 +5193,14 @@ local function BuildRuntime()
         ) do
             local KeyType,
                 KeyName =
-                Menu.BindSystem.
-                    GetInputIdentity(
-                        Input
-                    )
+                Menu.BindSystem.GetInputIdentity(
+                    Input
+                )
 
             if KeyType
-                and (
-                    KeyName == "MouseButton4"
-                    or KeyName == "MouseButton5"
+                and string.match(
+                    tostring(KeyName),
+                    "^MouseButton[4-8]$"
                 )
             then
                 States[KeyName] = true
@@ -5148,10 +5211,9 @@ local function BuildRuntime()
             Menu.BindSystem.CustomMouse.KeyCodes
         ) do
             if KeyCode
-                and UserInputService:
-                    IsKeyDown(
-                        KeyCode
-                    )
+                and UserInputService:IsKeyDown(
+                    KeyCode
+                )
             then
                 States[KeyName] = true
             end
@@ -5161,10 +5223,9 @@ local function BuildRuntime()
             Menu.BindSystem.CustomMouse.InputTypes
         ) do
             if InputType
-                and UserInputService:
-                    IsMouseButtonPressed(
-                        InputType
-                    )
+                and UserInputService:IsMouseButtonPressed(
+                    InputType
+                )
             then
                 States[KeyName] = true
             end
@@ -5185,19 +5246,17 @@ local function BuildRuntime()
 
         local StoredType,
             StoredName =
-            Menu.BindSystem.
-                CanonicalBindKey(
-                    BindData.KeyType,
-                    BindData.Key
-                )
+            Menu.BindSystem.CanonicalBindKey(
+                BindData.KeyType,
+                BindData.Key
+            )
 
         KeyType,
             KeyName =
-            Menu.BindSystem.
-                CanonicalBindKey(
-                    KeyType,
-                    KeyName
-                )
+            Menu.BindSystem.CanonicalBindKey(
+                KeyType,
+                KeyName
+            )
 
         if StoredType ~= KeyType
             or StoredName ~= KeyName
@@ -6519,62 +6578,205 @@ local function BuildRuntime()
         Parent = ScreenGui,
         Active = true,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = DecodePosition(SavedPositions.Settings, Main.Position),
-        Size = UDim2.fromOffset(500, 526),
-        BackgroundColor3 = Surface,
-        BackgroundTransparency = 0.025,
+        Position = DecodePosition(
+            SavedPositions.Settings,
+            Main.Position
+        ),
+        Size = UDim2.fromOffset(548, 442),
+        BackgroundColor3 =
+            Color3.fromRGB(
+                10,
+                10,
+                12
+            ),
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         Visible = false,
         ZIndex = 30
     })
-    Corner(Menu.SettingsUI.SettingsPanel, 3)
-    Stroke(Menu.SettingsUI.SettingsPanel, Color3.fromRGB(3, 3, 4), 0, 1)
-    AddPanelChrome(Menu.SettingsUI.SettingsPanel, 3, 33)
+
+    Corner(
+        Menu.SettingsUI.SettingsPanel,
+        0
+    )
+
+    Stroke(
+        Menu.SettingsUI.SettingsPanel,
+        Color3.fromRGB(1, 1, 2),
+        0,
+        1
+    )
+
+    Create("UIStroke", {
+        Parent =
+            Menu.SettingsUI.SettingsPanel,
+        Color =
+            Color3.fromRGB(
+                48,
+                48,
+                53
+            ),
+        Transparency = 0,
+        Thickness = 1,
+        ApplyStrokeMode =
+            Enum.ApplyStrokeMode.Border,
+        LineJoinMode =
+            Enum.LineJoinMode.Miter
+    })
+
+    Create("Frame", {
+        Parent =
+            Menu.SettingsUI.SettingsPanel,
+        Position =
+            UDim2.fromOffset(
+                1,
+                1
+            ),
+        Size =
+            UDim2.new(
+                1,
+                -2,
+                0,
+                2
+            ),
+        BackgroundColor3 =
+            Accent,
+        BorderSizePixel = 0,
+        ZIndex = 35
+    })
 
     Menu.SettingsUI.SettingsHeader = Create("Frame", {
-        Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(2, 2),
-        Size = UDim2.new(1, -4, 0, 48),
-        BackgroundColor3 = SurfaceAlt,
-        BackgroundTransparency = 0.10,
+        Parent =
+            Menu.SettingsUI.SettingsPanel,
+        Position =
+            UDim2.fromOffset(
+                2,
+                3
+            ),
+        Size =
+            UDim2.new(
+                1,
+                -4,
+                0,
+                30
+            ),
+        BackgroundColor3 =
+            Color3.fromRGB(
+                16,
+                16,
+                19
+            ),
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 31
     })
-    Corner(Menu.SettingsUI.SettingsHeader, 2)
-    AddPanelGradient(Menu.SettingsUI.SettingsHeader, Color3.fromRGB(30, 30, 34), Color3.fromRGB(19, 19, 22))
+
+    Create("Frame", {
+        Parent =
+            Menu.SettingsUI.SettingsHeader,
+        AnchorPoint =
+            Vector2.new(
+                0,
+                1
+            ),
+        Position =
+            UDim2.new(
+                0,
+                0,
+                1,
+                0
+            ),
+        Size =
+            UDim2.new(
+                1,
+                0,
+                0,
+                1
+            ),
+        BackgroundColor3 =
+            Border,
+        BorderSizePixel = 0,
+        ZIndex = 32
+    })
 
     Menu.SettingsUI.SettingsPanelScale = Create("UIScale", {
-        Parent = Menu.SettingsUI.SettingsPanel,
-        Scale = 0.96
+        Parent =
+            Menu.SettingsUI.SettingsPanel,
+        Scale = 1
     })
 
     Menu.SettingsUI.SettingsDragArea = Create("Frame", {
-        Parent = Menu.SettingsUI.SettingsPanel,
-        Size = UDim2.new(1, 0, 0, 54),
+        Parent =
+            Menu.SettingsUI.SettingsPanel,
+        Size =
+            UDim2.new(
+                1,
+                0,
+                0,
+                34
+            ),
         BackgroundTransparency = 1,
         ZIndex = 32
     })
 
     Create("TextLabel", {
-        Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(16, 2),
-        Size = UDim2.fromOffset(180, 48),
+        Parent =
+            Menu.SettingsUI.SettingsHeader,
+        Position =
+            UDim2.fromOffset(
+                10,
+                0
+            ),
+        Size =
+            UDim2.fromOffset(
+                210,
+                30
+            ),
         BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSansMedium,
-        Text = "Settings",
-        TextColor3 = PrimaryText,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        Font =
+            Enum.Font.BuilderSansMedium,
+        Text = "Atramenta / Settings",
+        TextColor3 =
+            PrimaryText,
+        TextSize = 11,
+        TextXAlignment =
+            Enum.TextXAlignment.Left,
         ZIndex = 34
     })
 
-    if Menu.ConfigsUI and Menu.ConfigsUI.Button then
-        Menu.ConfigsUI.Button.Parent = Menu.SettingsUI.SettingsHeader
-        Menu.ConfigsUI.Button.AnchorPoint = Vector2.new(1, 0.5)
-        Menu.ConfigsUI.Button.Position = UDim2.new(1, -10, 0.5, 0)
-        Menu.ConfigsUI.Button.Size = UDim2.fromOffset(72, 24)
-        Menu.ConfigsUI.Button.Text = "configs"
+    if Menu.ConfigsUI
+        and Menu.ConfigsUI.Button
+    then
+        Menu.ConfigsUI.Button.Parent =
+            Menu.SettingsUI.SettingsHeader
+        Menu.ConfigsUI.Button.AnchorPoint =
+            Vector2.new(1, 0.5)
+        Menu.ConfigsUI.Button.Position =
+            UDim2.new(
+                1,
+                -7,
+                0.5,
+                0
+            )
+        Menu.ConfigsUI.Button.Size =
+            UDim2.fromOffset(
+                66,
+                20
+            )
+        Menu.ConfigsUI.Button.Text =
+            "configs"
         Menu.ConfigsUI.Button.ZIndex = 35
+
+        local CornerObject =
+            Menu.ConfigsUI.Button:
+                FindFirstChildOfClass(
+                    "UICorner"
+                )
+
+        if CornerObject then
+            CornerObject.CornerRadius =
+                UDim.new(0, 0)
+        end
     end
 
     do
@@ -6809,7 +7011,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSansMedium,
             Text = "CONFIGS",
             TextColor3 = PrimaryText,
-            TextSize = 12,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 43
         })
@@ -6852,7 +7054,7 @@ local function BuildRuntime()
                 TextSize = 10,
                 ZIndex = 43
             })
-            Corner(Button, 3)
+            Corner(Button, 0)
             Stroke(Button, Border, 0.34, 1)
             return Button
         end
@@ -8435,117 +8637,205 @@ local function BuildRuntime()
     end
 
     Menu.SettingsUI.ProfileAvatar = Create("ImageLabel", {
-        Parent = Menu.SettingsUI.SettingsPanel,
-        AnchorPoint = Vector2.new(0, 0),
-        Position = UDim2.fromOffset(28, 58),
-        Size = UDim2.fromOffset(42, 42),
-        BackgroundColor3 = SurfaceAlt,
+        Parent =
+            Menu.SettingsUI.SettingsPanel,
+        Position =
+            UDim2.fromOffset(
+                16,
+                43
+            ),
+        Size =
+            UDim2.fromOffset(
+                32,
+                32
+            ),
+        BackgroundColor3 =
+            Color3.fromRGB(
+                17,
+                17,
+                20
+            ),
         BorderSizePixel = 0,
         Image = "",
-        ScaleType = Enum.ScaleType.Crop,
+        ScaleType =
+            Enum.ScaleType.Crop,
         ZIndex = 31
     })
-    Corner(Menu.SettingsUI.ProfileAvatar, 48)
-    Stroke(Menu.SettingsUI.ProfileAvatar, Border, 0.08, 1)
+
+    Corner(
+        Menu.SettingsUI.ProfileAvatar,
+        0
+    )
+
+    Stroke(
+        Menu.SettingsUI.ProfileAvatar,
+        Border,
+        0,
+        1
+    )
 
     Menu.SettingsUI.ProfileName = Create("TextLabel", {
-        Parent = Menu.SettingsUI.SettingsPanel,
-        AnchorPoint = Vector2.new(0, 0),
-        Position = UDim2.fromOffset(80, 60),
-        Size = UDim2.fromOffset(170, 20),
+        Parent =
+            Menu.SettingsUI.SettingsPanel,
+        Position =
+            UDim2.fromOffset(
+                58,
+                40
+            ),
+        Size =
+            UDim2.fromOffset(
+                250,
+                18
+            ),
         BackgroundTransparency = 1,
-        Font = Enum.Font.BuilderSansMedium,
-        Text = LocalPlayer and LocalPlayer.Name or "Player",
-        TextColor3 = Accent,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
+        Font =
+            Enum.Font.BuilderSansMedium,
+        Text =
+            LocalPlayer
+            and LocalPlayer.Name
+            or "Player",
+        TextColor3 =
+            PrimaryText,
+        TextSize = 12,
+        TextXAlignment =
+            Enum.TextXAlignment.Left,
+        ZIndex = 31
+    })
+
+    Create("TextLabel", {
+        Parent =
+            Menu.SettingsUI.SettingsPanel,
+        Position =
+            UDim2.fromOffset(
+                58,
+                59
+            ),
+        Size =
+            UDim2.fromOffset(
+                310,
+                16
+            ),
+        BackgroundTransparency = 1,
+        Font =
+            Enum.Font.BuilderSans,
+        Text =
+            "interface, binds and external windows",
+        TextColor3 =
+            MutedText,
+        TextSize = 10,
+        TextXAlignment =
+            Enum.TextXAlignment.Left,
+        ZIndex = 31
+    })
+
+    Create("TextLabel", {
+        Parent =
+            Menu.SettingsUI.SettingsPanel,
+        AnchorPoint =
+            Vector2.new(
+                1,
+                0
+            ),
+        Position =
+            UDim2.new(
+                1,
+                -16,
+                0,
+                48
+            ),
+        Size =
+            UDim2.fromOffset(
+                130,
+                18
+            ),
+        BackgroundTransparency = 1,
+        Font =
+            Enum.Font.BuilderSansMedium,
+        Text = "release",
+        TextColor3 =
+            Accent,
+        TextSize = 10,
+        TextXAlignment =
+            Enum.TextXAlignment.Right,
         ZIndex = 31
     })
 
     if LocalPlayer then
         task.spawn(function()
-            local Success, Thumbnail = Library.Call(function()
-                return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
-            end)
-            if Success and Menu.SettingsUI.ProfileAvatar.Parent then
-                Menu.SettingsUI.ProfileAvatar.Image = Thumbnail
+            local Success,
+                Thumbnail =
+                Library.Call(function()
+                    return
+                        Players:
+                            GetUserThumbnailAsync(
+                                LocalPlayer.UserId,
+                                Enum.ThumbnailType.HeadShot,
+                                Enum.ThumbnailSize.Size150x150
+                            )
+                end)
+
+            if Success
+                and Menu.SettingsUI.ProfileAvatar
+                and Menu.SettingsUI.ProfileAvatar.Parent
+            then
+                Menu.SettingsUI.ProfileAvatar.Image =
+                    Thumbnail
             end
         end)
     end
 
-    local function CreateInfoRow(Y, LabelText, ValueText)
-        Create("TextLabel", {
-            Parent = Menu.SettingsUI.SettingsPanel,
-            Position = UDim2.fromOffset(282, Y),
-            Size = UDim2.fromOffset(82, 18),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = LabelText,
-            TextColor3 = MutedText,
-            TextSize = 11,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 31
-        })
-
-        Create("TextLabel", {
-            Parent = Menu.SettingsUI.SettingsPanel,
-            AnchorPoint = Vector2.new(1, 0),
-            Position = UDim2.new(1, -28, 0, Y),
-            Size = UDim2.fromOffset(104, 18),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSansMedium,
-            Text = ValueText,
-            TextColor3 = Accent,
-            TextSize = 11,
-            TextXAlignment = Enum.TextXAlignment.Right,
-            ZIndex = 31
-        })
-    end
-
-    CreateInfoRow(58, "Branch:", "Release")
-    CreateInfoRow(80, "Update:", "11.09.24")
-    CreateInfoRow(102, "Valid until:", "11.10.24")
-
     Create("Frame", {
-        Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(22, 132),
-        Size = UDim2.fromOffset(456, 1),
-        BackgroundColor3 = Border,
+        Parent =
+            Menu.SettingsUI.SettingsPanel,
+        Position =
+            UDim2.fromOffset(
+                16,
+                84
+            ),
+        Size =
+            UDim2.new(
+                1,
+                -32,
+                0,
+                1
+            ),
+        BackgroundColor3 =
+            Border,
         BorderSizePixel = 0,
         ZIndex = 31
     })
 
     Menu.SettingsUI.InterfaceCard = Create("Frame", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(22, 148),
-        Size = UDim2.fromOffset(220, 358),
-        BackgroundColor3 = SurfaceAlt,
-        BackgroundTransparency = 0.18,
+        Position = UDim2.fromOffset(16, 98),
+        Size = UDim2.fromOffset(252, 326),
+        BackgroundColor3 = Color3.fromRGB(13, 13, 16),
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 30
     })
-    Corner(Menu.SettingsUI.InterfaceCard, 7)
-    Stroke(Menu.SettingsUI.InterfaceCard, Border, 0.30, 1)
+    Corner(Menu.SettingsUI.InterfaceCard, 0)
+    Stroke(Menu.SettingsUI.InterfaceCard, Border, 0, 1)
 
     Menu.SettingsUI.OverlayCard = Create("Frame", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(258, 148),
-        Size = UDim2.fromOffset(220, 358),
-        BackgroundColor3 = SurfaceAlt,
-        BackgroundTransparency = 0.18,
+        Position = UDim2.fromOffset(280, 98),
+        Size = UDim2.fromOffset(252, 326),
+        BackgroundColor3 = Color3.fromRGB(13, 13, 16),
+        BackgroundTransparency = 0,
         BorderSizePixel = 0,
         ZIndex = 30
     })
-    Corner(Menu.SettingsUI.OverlayCard, 7)
-    Stroke(Menu.SettingsUI.OverlayCard, Border, 0.30, 1)
+    Corner(Menu.SettingsUI.OverlayCard, 0)
+    Stroke(Menu.SettingsUI.OverlayCard, Border, 0, 1)
 
     Create("TextLabel", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(36, 154),
-        Size = UDim2.fromOffset(192, 18),
+        Position = UDim2.fromOffset(28, 104),
+        Size = UDim2.fromOffset(228, 18),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSansMedium,
-        Text = "Interface",
+        Text = "INTERFACE",
         TextColor3 = MutedText,
         TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Left,
@@ -8554,11 +8844,11 @@ local function BuildRuntime()
 
     Create("TextLabel", {
         Parent = Menu.SettingsUI.SettingsPanel,
-        Position = UDim2.fromOffset(272, 154),
-        Size = UDim2.fromOffset(192, 18),
+        Position = UDim2.fromOffset(292, 104),
+        Size = UDim2.fromOffset(228, 18),
         BackgroundTransparency = 1,
         Font = Enum.Font.BuilderSansMedium,
-        Text = "Overlays",
+        Text = "WINDOWS",
         TextColor3 = MutedText,
         TextSize = 11,
         TextXAlignment = Enum.TextXAlignment.Left,
@@ -8589,7 +8879,7 @@ local function BuildRuntime()
         })
         Corner(Button, 3)
         local BorderStroke = Stroke(Button, Default and Accent or Border, 0, 1)
-        local Check = Icon(Button, "Check", UDim2.fromOffset(10, 10), UDim2.fromScale(0.5, 0.5), Background, 34)
+        local Check = Icon(Button, "Check", UDim2.fromOffset(8, 8), UDim2.fromScale(0.5, 0.5), Background, 34)
         Check.Visible = Default
         return Button, BorderStroke, Check
     end
@@ -8600,7 +8890,7 @@ local function BuildRuntime()
         local Row = Create("Frame", {
             Parent = Menu.SettingsUI.SettingsPanel,
             Position = UDim2.fromOffset(X, Y),
-            Size = UDim2.fromOffset(Width, 26),
+            Size = UDim2.fromOffset(Width, 24),
             BackgroundTransparency = 1,
             ZIndex = 31
         })
@@ -8612,7 +8902,7 @@ local function BuildRuntime()
             Font = Enum.Font.BuilderSans,
             Text = LabelText,
             TextColor3 = PrimaryText,
-            TextSize = 12,
+            TextSize = 11,
             TextXAlignment = Enum.TextXAlignment.Left,
             ZIndex = 32
         })
@@ -8674,7 +8964,7 @@ local function BuildRuntime()
 
         Create("TextLabel", {
             Parent = Row,
-            Size = UDim2.new(1, -92, 1, 0),
+            Size = UDim2.new(1, -116, 1, 0),
             BackgroundTransparency = 1,
             Font = Enum.Font.BuilderSans,
             Text = LabelText,
@@ -8688,19 +8978,30 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0.5),
             Position = UDim2.new(1, 0, 0.5, 0),
-            Size = UDim2.fromOffset(82, 24),
-            BackgroundColor3 = SurfaceAlt,
-            BackgroundTransparency = 0.30,
+            Size = UDim2.fromOffset(104, 20),
+            BackgroundColor3 =
+                Color3.fromRGB(
+                    11,
+                    11,
+                    14
+                ),
+            BackgroundTransparency = 0,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.BuilderSansMedium,
             Text = "",
-            TextColor3 = MutedText,
-            TextSize = 9,
+            TextColor3 = PrimaryText,
+            TextSize = 11,
             ZIndex = 33
         })
-        Corner(Button, 5)
-        local ButtonStroke = Stroke(Button, Border, 0.50, 1)
+        Corner(Button, 0)
+        local ButtonStroke =
+            Stroke(
+                Button,
+                Border,
+                0,
+                1
+            )
 
         local function NormalizeBind(Value)
             if type(Value) ~= "table" then
@@ -8807,7 +9108,7 @@ local function BuildRuntime()
         local Row = Create("Frame", {
             Parent = Menu.SettingsUI.SettingsPanel,
             Position = UDim2.fromOffset(X, Y),
-            Size = UDim2.fromOffset(Width, 58),
+            Size = UDim2.fromOffset(Width, 50),
             BackgroundTransparency = 1,
             ZIndex = 31
         })
@@ -8828,7 +9129,7 @@ local function BuildRuntime()
             Parent = Row,
             AnchorPoint = Vector2.new(1, 0),
             Position = UDim2.new(1, 0, 0, 0),
-            Size = UDim2.fromOffset(56, 18),
+            Size = UDim2.fromOffset(64, 18),
             BackgroundTransparency = 1,
             ClearTextOnFocus = false,
             Font = Enum.Font.BuilderSansMedium,
@@ -8841,14 +9142,14 @@ local function BuildRuntime()
 
         local Track = Create("Frame", {
             Parent = Row,
-            Position = UDim2.fromOffset(0, 34),
+            Position = UDim2.fromOffset(0, 31),
             Size = UDim2.new(1, 0, 0, 8),
             Active = true,
             BackgroundColor3 = Border,
             BorderSizePixel = 0,
             ZIndex = 32
         })
-        Corner(Track, 2)
+        Corner(Track, 0)
 
         local Fill = Create("Frame", {
             Parent = Track,
@@ -8857,19 +9158,19 @@ local function BuildRuntime()
             BorderSizePixel = 0,
             ZIndex = 33
         })
-        Corner(Fill, 2)
+        Corner(Fill, 0)
         local FillGlow = Menu:AddSoftGlow(Fill, 33, 8, 0.62, true)
 
         local Knob = Create("Frame", {
             Parent = Track,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new((Default - Minimum) / (Maximum - Minimum), 0, 0.5, 0),
-            Size = UDim2.fromOffset(7, 14),
+            Size = UDim2.fromOffset(6, 11),
             BackgroundColor3 = Color3.fromRGB(226, 230, 246),
             BorderSizePixel = 0,
             ZIndex = 34
         })
-        Corner(Knob, 2)
+        Corner(Knob, 0)
         local KnobGlow = Menu:AddSoftGlow(Knob, 34, 7, 0.22, false)
 
         local Value = Default
@@ -8998,14 +9299,14 @@ local function BuildRuntime()
         Parent = Menu.SettingsUI.ColorRow,
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -1, 0.5, 0),
-        Size = UDim2.fromOffset(13, 13),
+        Size = UDim2.fromOffset(15, 15),
         BackgroundColor3 = Accent,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Text = "",
         ZIndex = 34
     })
-    Corner(Menu.SettingsUI.AccentPreviewButton, 100)
+    Corner(Menu.SettingsUI.AccentPreviewButton, 0)
     Menu.SettingsUI.AccentPreviewStroke = Stroke(Menu.SettingsUI.AccentPreviewButton, Color3.fromRGB(224, 224, 228), 0.16, 1)
     Menu.SettingsUI.AccentPreviewGlow = Menu:AddSoftGlow(Menu.SettingsUI.AccentPreviewButton, 34, 8, 0.20, false)
 
@@ -9600,63 +9901,179 @@ local function BuildRuntime()
     end
 
     local function LayoutSettingsPanel()
-        if Menu.SettingsUI.BackgroundDimToggle and Menu.SettingsUI.BackgroundDimToggle.Row then
-            Menu.SettingsUI.BackgroundDimToggle.Row.Position = UDim2.fromOffset(36, 182)
-            Menu.SettingsUI.BackgroundDimToggle.Row.Size = UDim2.fromOffset(192, 26)
+        local LeftX = 28
+        local RightX = 292
+        local RowWidth = 228
+
+        if Menu.SettingsUI.BackgroundDimToggle
+            and Menu.SettingsUI.BackgroundDimToggle.Row
+        then
+            Menu.SettingsUI.BackgroundDimToggle.Row.Position =
+                UDim2.fromOffset(
+                    LeftX,
+                    128
+                )
+            Menu.SettingsUI.BackgroundDimToggle.Row.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    24
+                )
         end
 
-        if Menu.SettingsUI.AnimationSpeedSlider and Menu.SettingsUI.AnimationSpeedSlider.Row then
-            Menu.SettingsUI.AnimationSpeedSlider.Row.Position = UDim2.fromOffset(36, 216)
-            Menu.SettingsUI.AnimationSpeedSlider.Row.Size = UDim2.fromOffset(192, 58)
+        if Menu.SettingsUI.AnimationSpeedSlider
+            and Menu.SettingsUI.AnimationSpeedSlider.Row
+        then
+            Menu.SettingsUI.AnimationSpeedSlider.Row.Position =
+                UDim2.fromOffset(
+                    LeftX,
+                    160
+                )
+            Menu.SettingsUI.AnimationSpeedSlider.Row.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    50
+                )
         end
 
-        if Menu.SettingsUI.MenuScaleSlider and Menu.SettingsUI.MenuScaleSlider.Row then
-            Menu.SettingsUI.MenuScaleSlider.Row.Position = UDim2.fromOffset(36, 280)
-            Menu.SettingsUI.MenuScaleSlider.Row.Size = UDim2.fromOffset(192, 58)
+        if Menu.SettingsUI.MenuScaleSlider
+            and Menu.SettingsUI.MenuScaleSlider.Row
+        then
+            Menu.SettingsUI.MenuScaleSlider.Row.Position =
+                UDim2.fromOffset(
+                    LeftX,
+                    216
+                )
+            Menu.SettingsUI.MenuScaleSlider.Row.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    50
+                )
         end
 
-        if Menu.SettingsUI.QuickPanelBindControl and Menu.SettingsUI.QuickPanelBindControl.Row then
-            Menu.SettingsUI.QuickPanelBindControl.Row.Position = UDim2.fromOffset(36, 348)
-            Menu.SettingsUI.QuickPanelBindControl.Row.Size = UDim2.fromOffset(192, 28)
+        if Menu.SettingsUI.QuickPanelBindControl
+            and Menu.SettingsUI.QuickPanelBindControl.Row
+        then
+            Menu.SettingsUI.QuickPanelBindControl.Row.Position =
+                UDim2.fromOffset(
+                    LeftX,
+                    274
+                )
+            Menu.SettingsUI.QuickPanelBindControl.Row.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    24
+                )
         end
 
         if Menu.SettingsUI.ColorRow then
-            Menu.SettingsUI.ColorRow.Position = UDim2.fromOffset(36, 408)
-            Menu.SettingsUI.ColorRow.Size = UDim2.fromOffset(192, 26)
+            Menu.SettingsUI.ColorRow.Position =
+                UDim2.fromOffset(
+                    LeftX,
+                    310
+                )
+            Menu.SettingsUI.ColorRow.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    24
+                )
         end
 
-        if Menu.SettingsUI.HideWatermarkToggle and Menu.SettingsUI.HideWatermarkToggle.Row then
-            Menu.SettingsUI.HideWatermarkToggle.Row.Position = UDim2.fromOffset(272, 182)
-            Menu.SettingsUI.HideWatermarkToggle.Row.Size = UDim2.fromOffset(192, 26)
+        if Menu.SettingsUI.HideWatermarkToggle
+            and Menu.SettingsUI.HideWatermarkToggle.Row
+        then
+            Menu.SettingsUI.HideWatermarkToggle.Row.Position =
+                UDim2.fromOffset(
+                    RightX,
+                    128
+                )
+            Menu.SettingsUI.HideWatermarkToggle.Row.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    24
+                )
         end
 
-        if Menu.SettingsUI.WatermarkSizeSlider and Menu.SettingsUI.WatermarkSizeSlider.Row then
-            Menu.SettingsUI.WatermarkSizeSlider.Row.Position = UDim2.fromOffset(272, 216)
-            Menu.SettingsUI.WatermarkSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
+        if Menu.SettingsUI.WatermarkSizeSlider
+            and Menu.SettingsUI.WatermarkSizeSlider.Row
+        then
+            Menu.SettingsUI.WatermarkSizeSlider.Row.Position =
+                UDim2.fromOffset(
+                    RightX,
+                    160
+                )
+            Menu.SettingsUI.WatermarkSizeSlider.Row.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    50
+                )
         end
 
-        if Menu.SettingsUI.HideKeybindsToggle and Menu.SettingsUI.HideKeybindsToggle.Row then
-            Menu.SettingsUI.HideKeybindsToggle.Row.Position = UDim2.fromOffset(272, 280)
-            Menu.SettingsUI.HideKeybindsToggle.Row.Size = UDim2.fromOffset(192, 26)
+        if Menu.SettingsUI.HideKeybindsToggle
+            and Menu.SettingsUI.HideKeybindsToggle.Row
+        then
+            Menu.SettingsUI.HideKeybindsToggle.Row.Position =
+                UDim2.fromOffset(
+                    RightX,
+                    216
+                )
+            Menu.SettingsUI.HideKeybindsToggle.Row.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    24
+                )
         end
 
-        if Menu.SettingsUI.KeybindListSizeSlider and Menu.SettingsUI.KeybindListSizeSlider.Row then
-            Menu.SettingsUI.KeybindListSizeSlider.Row.Position = UDim2.fromOffset(272, 314)
-            Menu.SettingsUI.KeybindListSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
+        if Menu.SettingsUI.KeybindListSizeSlider
+            and Menu.SettingsUI.KeybindListSizeSlider.Row
+        then
+            Menu.SettingsUI.KeybindListSizeSlider.Row.Position =
+                UDim2.fromOffset(
+                    RightX,
+                    246
+                )
+            Menu.SettingsUI.KeybindListSizeSlider.Row.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    50
+                )
         end
 
-        if Menu.SettingsUI.PlayerListSizeSlider and Menu.SettingsUI.PlayerListSizeSlider.Row then
-            Menu.SettingsUI.PlayerListSizeSlider.Row.Position = UDim2.fromOffset(272, 378)
-            Menu.SettingsUI.PlayerListSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
+        if Menu.SettingsUI.PlayerListSizeSlider
+            and Menu.SettingsUI.PlayerListSizeSlider.Row
+        then
+            Menu.SettingsUI.PlayerListSizeSlider.Row.Position =
+                UDim2.fromOffset(
+                    RightX,
+                    302
+                )
+            Menu.SettingsUI.PlayerListSizeSlider.Row.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    50
+                )
         end
 
-        if Menu.SettingsUI.EspPreviewSizeSlider and Menu.SettingsUI.EspPreviewSizeSlider.Row then
-            Menu.SettingsUI.EspPreviewSizeSlider.Row.Position = UDim2.fromOffset(272, 442)
-            Menu.SettingsUI.EspPreviewSizeSlider.Row.Size = UDim2.fromOffset(192, 58)
+        if Menu.SettingsUI.EspPreviewSizeSlider
+            and Menu.SettingsUI.EspPreviewSizeSlider.Row
+        then
+            Menu.SettingsUI.EspPreviewSizeSlider.Row.Position =
+                UDim2.fromOffset(
+                    RightX,
+                    358
+                )
+            Menu.SettingsUI.EspPreviewSizeSlider.Row.Size =
+                UDim2.fromOffset(
+                    RowWidth,
+                    50
+                )
         end
 
         if Menu.SettingsUI.SettingsPanel then
-            Menu.SettingsUI.SettingsPanel.Size = UDim2.fromOffset(500, 526)
+            Menu.SettingsUI.SettingsPanel.Size =
+                UDim2.fromOffset(
+                    548,
+                    442
+                )
         end
     end
 
@@ -13224,8 +13641,30 @@ local function BuildRuntime()
             or Mode == "Always" and "Always"
             or "Toggle"
 
-        local Modifiers = Menu.BindSystem.ReadModifiers()
-        local Binds = Menu.BindSystem.GetControlBinds(TargetFlag)
+        local Modifiers =
+            Menu.BindSystem.ReadModifiers()
+
+        if KeyType == "KeyCode" then
+            local KeyItem =
+                Enum.KeyCode[KeyName]
+
+            if KeyItem
+                and Menu.BindSystem.IsModifierKey(
+                    KeyItem
+                )
+            then
+                Modifiers = {
+                    Ctrl = false,
+                    Shift = false,
+                    Alt = false
+                }
+            end
+        end
+
+        local Binds =
+            Menu.BindSystem.GetControlBinds(
+                TargetFlag
+            )
         local ShowInBinds =
             PendingBindCapture.ShowInBinds == nil
             or PendingBindCapture.ShowInBinds()
@@ -13317,31 +13756,22 @@ local function BuildRuntime()
         end
 
         if Input.UserInputType
-            == Enum.UserInputType.MouseButton1
-        then
-            return Menu.BindSystem.
-                CaptureIdentity(
-                    "UserInputType",
-                    "MouseButton1"
-                )
-        end
-
-        if Input.UserInputType
                 == Enum.UserInputType.Keyboard
-            and Menu.BindSystem.
-                IsModifierKey(
-                    Input.KeyCode
-                )
+            and Menu.BindSystem.IsModifierKey(
+                Input.KeyCode
+            )
         then
+            PendingBindCapture.ModifierCandidate =
+                Input.KeyCode.Name
+
             return true
         end
 
         local KeyType,
             KeyName =
-            Menu.BindSystem.
-                GetInputIdentity(
-                    Input
-                )
+            Menu.BindSystem.GetInputIdentity(
+                Input
+            )
 
         if not KeyType
             or not KeyName
@@ -13349,8 +13779,11 @@ local function BuildRuntime()
             return false
         end
 
-        return Menu.BindSystem.
-            CaptureIdentity(
+        PendingBindCapture.ModifierCandidate =
+            nil
+
+        return
+            Menu.BindSystem.CaptureIdentity(
                 KeyType,
                 KeyName
             )
@@ -13611,14 +14044,9 @@ local function BuildRuntime()
 
     Bind(UserInputService.InputBegan:Connect(function(Input, Processed)
         if PendingBindCapture then
-            if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode == Enum.KeyCode.Escape then
-                if PendingBindCapture.SetText then
-                    PendingBindCapture.SetText("Press key")
-                end
-                PendingBindCapture = nil
-                return
-            end
-            if Menu.BindSystem.CaptureInput(Input) then
+            if Menu.BindSystem.CaptureInput(
+                Input
+            ) then
                 return
             end
         end
@@ -13673,18 +14101,14 @@ local function BuildRuntime()
         local FocusedTextBox = UserInputService:GetFocusedTextBox()
 
         if not FocusedTextBox and Menu.QuickPanelBindCapture then
-            if Input.UserInputType == Enum.UserInputType.Keyboard
-                and Input.KeyCode == Enum.KeyCode.Escape
+            if Input.UserInputType
+                    == Enum.UserInputType.Keyboard
+                and Menu.BindSystem.IsModifierKey(
+                    Input.KeyCode
+                )
             then
-                Menu.QuickPanelBindCapture = false
-
-                if Menu.SettingsUI.QuickPanelBindControl
-                    and Menu.SettingsUI.QuickPanelBindControl.Set
-                then
-                    Menu.SettingsUI.QuickPanelBindControl.Set(
-                        Menu.Flags["Quick Panel Bind"]
-                    )
-                end
+                Menu.QuickPanelModifierCandidate =
+                    Input.KeyCode.Name
 
                 return
             end
@@ -13750,7 +14174,117 @@ local function BuildRuntime()
     end))
 
     Bind(UserInputService.InputEnded:Connect(function(Input)
-        Menu.BindSystem.ProcessEnded(Input)
+        if PendingBindCapture
+            and Input.UserInputType
+                == Enum.UserInputType.Keyboard
+            and PendingBindCapture.ModifierCandidate
+                == Input.KeyCode.Name
+        then
+            local Candidate =
+                PendingBindCapture.ModifierCandidate
+
+            PendingBindCapture.ModifierCandidate =
+                nil
+
+            Menu.BindSystem.CaptureIdentity(
+                "KeyCode",
+                Candidate
+            )
+
+            return
+        end
+
+        if Menu.QuickPanelBindCapture
+            and Menu.QuickPanelModifierCandidate
+            and Input.UserInputType
+                == Enum.UserInputType.Keyboard
+            and Menu.QuickPanelModifierCandidate
+                == Input.KeyCode.Name
+        then
+            local Candidate =
+                Menu.QuickPanelModifierCandidate
+
+            Menu.QuickPanelModifierCandidate =
+                nil
+
+            local NewBind = {
+                KeyType = "KeyCode",
+                Key = Candidate,
+                Modifiers = {
+                    Ctrl = false,
+                    Shift = false,
+                    Alt = false
+                }
+            }
+
+            if Menu.SettingsUI.QuickPanelBindControl
+                and Menu.SettingsUI.QuickPanelBindControl.Set
+            then
+                Menu.SettingsUI.QuickPanelBindControl.Set(
+                    NewBind
+                )
+            end
+
+            return
+        end
+
+        Menu.BindSystem.ProcessEnded(
+            Input
+        )
+    end))
+
+    Bind(UserInputService.InputChanged:Connect(function(Input)
+        if Input.UserInputType
+            ~= Enum.UserInputType.MouseWheel
+        then
+            return
+        end
+
+        local Z =
+            tonumber(Input.Position.Z) or 0
+
+        if math.abs(Z) <= 0.001 then
+            return
+        end
+
+        local KeyName =
+            Z > 0
+            and "MouseWheelUp"
+            or "MouseWheelDown"
+
+        if PendingBindCapture then
+            Menu.BindSystem.CaptureIdentity(
+                "UserInputType",
+                KeyName
+            )
+            return
+        end
+
+        if Menu.QuickPanelBindCapture then
+            local NewBind = {
+                KeyType = "UserInputType",
+                Key = KeyName,
+                Modifiers =
+                    Menu.BindSystem.ReadModifiers()
+            }
+
+            if Menu.SettingsUI.QuickPanelBindControl
+                and Menu.SettingsUI.QuickPanelBindControl.Set
+            then
+                Menu.SettingsUI.QuickPanelBindControl.Set(
+                    NewBind
+                )
+            end
+
+            return
+        end
+
+        if not UserInputService:GetFocusedTextBox() then
+            Menu.BindSystem.ProcessIdentityBegan(
+                "UserInputType",
+                KeyName
+            )
+        end
     end))
 
     Menu.CustomMouseAccumulator = 0
@@ -13777,7 +14311,10 @@ local function BuildRuntime()
 
         for _, KeyName in ipairs({
             "MouseButton4",
-            "MouseButton5"
+            "MouseButton5",
+            "MouseButton6",
+            "MouseButton7",
+            "MouseButton8"
         }) do
             local IsDown =
                 States[KeyName]
@@ -18958,200 +19495,459 @@ local function BuildAtramentaMain(Runtime)
         end 
 
         function library:makeResizable(frame)
-            if not frame then
+            if not frame
+                or frame:GetAttribute(
+                    "AtramentaResizable"
+                ) == true
+            then
                 return
             end
 
-            local minimum_width = 440
-            local minimum_height = 320
-            local handle_size = 8
+            frame:SetAttribute(
+                "AtramentaResizable",
+                true
+            )
 
-            local handles = {
+            local InitialWidth =
+                math.max(
+                    frame.Size.X.Offset,
+                    1
+                )
+
+            local InitialHeight =
+                math.max(
+                    frame.Size.Y.Offset,
+                    1
+                )
+
+            local LargeWindow =
+                InitialWidth >= 400
+                or InitialHeight >= 300
+
+            local MinimumWidth =
+                LargeWindow
+                and 560
+                or math.max(
+                    120,
+                    math.floor(
+                        InitialWidth * 0.60
+                    )
+                )
+
+            local MinimumHeight =
+                LargeWindow
+                and 420
+                or math.max(
+                    100,
+                    math.floor(
+                        InitialHeight * 0.60
+                    )
+                )
+
+            local HandleSize = 9
+            local Margin = 6
+            local ActiveState
+
+            local Handles = {
                 {
-                    name = "NorthWest",
-                    position = dim2(0, 0, 0, 0),
-                    size = dim2(0, handle_size, 0, handle_size),
-                    x = -1,
-                    y = -1
+                    Name = "NorthWest",
+                    Position =
+                        dim2(0, 0, 0, 0),
+                    Size =
+                        dim2(
+                            0,
+                            HandleSize,
+                            0,
+                            HandleSize
+                        ),
+                    X = -1,
+                    Y = -1
                 },
                 {
-                    name = "North",
-                    position = dim2(0, handle_size, 0, 0),
-                    size = dim2(1, -(handle_size * 2), 0, handle_size),
-                    x = 0,
-                    y = -1
+                    Name = "North",
+                    Position =
+                        dim2(
+                            0,
+                            HandleSize,
+                            0,
+                            0
+                        ),
+                    Size =
+                        dim2(
+                            1,
+                            -(HandleSize * 2),
+                            0,
+                            HandleSize
+                        ),
+                    X = 0,
+                    Y = -1
                 },
                 {
-                    name = "NorthEast",
-                    position = dim2(1, -handle_size, 0, 0),
-                    size = dim2(0, handle_size, 0, handle_size),
-                    x = 1,
-                    y = -1
+                    Name = "NorthEast",
+                    Position =
+                        dim2(
+                            1,
+                            -HandleSize,
+                            0,
+                            0
+                        ),
+                    Size =
+                        dim2(
+                            0,
+                            HandleSize,
+                            0,
+                            HandleSize
+                        ),
+                    X = 1,
+                    Y = -1
                 },
                 {
-                    name = "East",
-                    position = dim2(1, -handle_size, 0, handle_size),
-                    size = dim2(0, handle_size, 1, -(handle_size * 2)),
-                    x = 1,
-                    y = 0
+                    Name = "East",
+                    Position =
+                        dim2(
+                            1,
+                            -HandleSize,
+                            0,
+                            HandleSize
+                        ),
+                    Size =
+                        dim2(
+                            0,
+                            HandleSize,
+                            1,
+                            -(HandleSize * 2)
+                        ),
+                    X = 1,
+                    Y = 0
                 },
                 {
-                    name = "SouthEast",
-                    position = dim2(1, -handle_size, 1, -handle_size),
-                    size = dim2(0, handle_size, 0, handle_size),
-                    x = 1,
-                    y = 1
+                    Name = "SouthEast",
+                    Position =
+                        dim2(
+                            1,
+                            -HandleSize,
+                            1,
+                            -HandleSize
+                        ),
+                    Size =
+                        dim2(
+                            0,
+                            HandleSize,
+                            0,
+                            HandleSize
+                        ),
+                    X = 1,
+                    Y = 1
                 },
                 {
-                    name = "South",
-                    position = dim2(0, handle_size, 1, -handle_size),
-                    size = dim2(1, -(handle_size * 2), 0, handle_size),
-                    x = 0,
-                    y = 1
+                    Name = "South",
+                    Position =
+                        dim2(
+                            0,
+                            HandleSize,
+                            1,
+                            -HandleSize
+                        ),
+                    Size =
+                        dim2(
+                            1,
+                            -(HandleSize * 2),
+                            0,
+                            HandleSize
+                        ),
+                    X = 0,
+                    Y = 1
                 },
                 {
-                    name = "SouthWest",
-                    position = dim2(0, 0, 1, -handle_size),
-                    size = dim2(0, handle_size, 0, handle_size),
-                    x = -1,
-                    y = 1
+                    Name = "SouthWest",
+                    Position =
+                        dim2(
+                            0,
+                            0,
+                            1,
+                            -HandleSize
+                        ),
+                    Size =
+                        dim2(
+                            0,
+                            HandleSize,
+                            0,
+                            HandleSize
+                        ),
+                    X = -1,
+                    Y = 1
                 },
                 {
-                    name = "West",
-                    position = dim2(0, 0, 0, handle_size),
-                    size = dim2(0, handle_size, 1, -(handle_size * 2)),
-                    x = -1,
-                    y = 0
+                    Name = "West",
+                    Position =
+                        dim2(
+                            0,
+                            0,
+                            0,
+                            HandleSize
+                        ),
+                    Size =
+                        dim2(
+                            0,
+                            HandleSize,
+                            1,
+                            -(HandleSize * 2)
+                        ),
+                    X = -1,
+                    Y = 0
                 }
             }
 
-            for _, data in ipairs(handles) do
-                local handle = library:create("TextButton", {
-                    Parent = frame,
-                    Name = "Resize" .. data.name,
-                    Position = data.position,
-                    Size = data.size,
-                    BackgroundTransparency = 1,
-                    BorderSizePixel = 0,
-                    Text = "",
-                    AutoButtonColor = false,
-                    ZIndex = 999
-                })
+            for _, Data in ipairs(
+                Handles
+            ) do
+                local Handle =
+                    library:create(
+                        "TextButton",
+                        {
+                            Parent = frame,
+                            Name =
+                                "Resize"
+                                .. Data.Name,
+                            Position =
+                                Data.Position,
+                            Size =
+                                Data.Size,
+                            BackgroundTransparency = 1,
+                            BorderSizePixel = 0,
+                            Text = "",
+                            AutoButtonColor = false,
+                            ZIndex = 999
+                        }
+                    )
 
-                local resizing = false
-                local start_mouse
-                local start_position
-                local start_size
+                library:connection(
+                    Handle.InputBegan,
+                    function(Input)
+                        if Input.UserInputType
+                            ~= Enum.UserInputType.MouseButton1
+                        then
+                            return
+                        end
 
-                handle.InputBegan:Connect(function(input)
-                    if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
-                        return
+                        local CameraObject =
+                            workspace.CurrentCamera
+                            or camera
+
+                        if not CameraObject then
+                            return
+                        end
+
+                        local Position =
+                            frame.AbsolutePosition
+
+                        local Size =
+                            frame.AbsoluteSize
+
+                        ActiveState = {
+                            X = Data.X,
+                            Y = Data.Y,
+                            Mouse = Input.Position,
+                            Left = Position.X,
+                            Top = Position.Y,
+                            Right =
+                                Position.X
+                                + Size.X,
+                            Bottom =
+                                Position.Y
+                                + Size.Y
+                        }
+
+                        library.resizing = true
                     end
+                )
+            end
 
-                    resizing = true
-                    library.resizing = true
-                    start_mouse = input.Position
-                    start_position = frame.Position
-                    start_size = frame.Size
-                end)
+            library:connection(
+                uis.InputChanged,
+                function(Input)
+                    local State =
+                        ActiveState
 
-                handle.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        resizing = false
-                        library.resizing = false
-                    end
-                end)
-
-                library:connection(uis.InputChanged, function(input)
-                    if not resizing
-                        or input.UserInputType ~= Enum.UserInputType.MouseMovement
+                    if not State
+                        or Input.UserInputType
+                            ~= Enum.UserInputType.MouseMovement
                     then
                         return
                     end
 
-                    local delta = input.Position - start_mouse
-                    local viewport = camera.ViewportSize
+                    local CameraObject =
+                        workspace.CurrentCamera
+                        or camera
 
-                    local x = start_position.X.Offset
-                    local y = start_position.Y.Offset
-                    local width = start_size.X.Offset
-                    local height = start_size.Y.Offset
-
-                    if data.x > 0 then
-                        width = math.max(
-                            minimum_width,
-                            start_size.X.Offset + delta.X
-                        )
-                    elseif data.x < 0 then
-                        width = math.max(
-                            minimum_width,
-                            start_size.X.Offset - delta.X
-                        )
-
-                        x =
-                            start_position.X.Offset
-                            + start_size.X.Offset
-                            - width
+                    if not CameraObject then
+                        return
                     end
 
-                    if data.y > 0 then
-                        height = math.max(
-                            minimum_height,
-                            start_size.Y.Offset + delta.Y
-                        )
-                    elseif data.y < 0 then
-                        height = math.max(
-                            minimum_height,
-                            start_size.Y.Offset - delta.Y
+                    local Viewport =
+                        CameraObject.ViewportSize
+
+                    local MaxWidth =
+                        math.max(
+                            1,
+                            Viewport.X
+                            - Margin * 2
                         )
 
-                        y =
-                            start_position.Y.Offset
-                            + start_size.Y.Offset
-                            - height
+                    local MaxHeight =
+                        math.max(
+                            1,
+                            Viewport.Y
+                            - Margin * 2
+                        )
+
+                    local MinWidth =
+                        math.min(
+                            MinimumWidth,
+                            MaxWidth
+                        )
+
+                    local MinHeight =
+                        math.min(
+                            MinimumHeight,
+                            MaxHeight
+                        )
+
+                    local Delta =
+                        Input.Position
+                        - State.Mouse
+
+                    local Left =
+                        State.Left
+
+                    local Top =
+                        State.Top
+
+                    local Right =
+                        State.Right
+
+                    local Bottom =
+                        State.Bottom
+
+                    if State.X < 0 then
+                        Left =
+                            math.clamp(
+                                State.Left
+                                + Delta.X,
+                                Margin,
+                                Right - MinWidth
+                            )
+                    elseif State.X > 0 then
+                        Right =
+                            math.clamp(
+                                State.Right
+                                + Delta.X,
+                                Left + MinWidth,
+                                Viewport.X - Margin
+                            )
                     end
 
-                    x = math.clamp(
-                        x,
-                        0,
-                        math.max(0, viewport.X - minimum_width)
-                    )
+                    if State.Y < 0 then
+                        Top =
+                            math.clamp(
+                                State.Top
+                                + Delta.Y,
+                                Margin,
+                                Bottom - MinHeight
+                            )
+                    elseif State.Y > 0 then
+                        Bottom =
+                            math.clamp(
+                                State.Bottom
+                                + Delta.Y,
+                                Top + MinHeight,
+                                Viewport.Y - Margin
+                            )
+                    end
 
-                    y = math.clamp(
-                        y,
-                        0,
-                        math.max(0, viewport.Y - minimum_height)
-                    )
+                    if Left < Margin then
+                        Left = Margin
+                    end
 
-                    width = math.clamp(
-                        width,
-                        minimum_width,
-                        math.max(minimum_width, viewport.X - x)
-                    )
+                    if Top < Margin then
+                        Top = Margin
+                    end
 
-                    height = math.clamp(
-                        height,
-                        minimum_height,
-                        math.max(minimum_height, viewport.Y - y)
-                    )
+                    Right =
+                        math.min(
+                            Right,
+                            Viewport.X - Margin
+                        )
 
-                    frame.Position = dim_offset(
-                        math.floor(x + 0.5),
-                        math.floor(y + 0.5)
-                    )
+                    Bottom =
+                        math.min(
+                            Bottom,
+                            Viewport.Y - Margin
+                        )
 
-                    frame.Size = dim2(
-                        0,
-                        math.floor(width + 0.5),
-                        0,
-                        math.floor(height + 0.5)
-                    )
-                end)
-            end
+                    if Right - Left < MinWidth then
+                        if State.X < 0 then
+                            Left =
+                                Right - MinWidth
+                        else
+                            Right =
+                                Left + MinWidth
+                        end
+                    end
 
-            library:connection(uis.WindowFocusReleased, function()
-                library.resizing = false
-            end)
+                    if Bottom - Top < MinHeight then
+                        if State.Y < 0 then
+                            Top =
+                                Bottom - MinHeight
+                        else
+                            Bottom =
+                                Top + MinHeight
+                        end
+                    end
+
+                    frame.Position =
+                        dim_offset(
+                            math.floor(
+                                Left + 0.5
+                            ),
+                            math.floor(
+                                Top + 0.5
+                            )
+                        )
+
+                    frame.Size =
+                        dim_offset(
+                            math.floor(
+                                Right - Left
+                                + 0.5
+                            ),
+                            math.floor(
+                                Bottom - Top
+                                + 0.5
+                            )
+                        )
+                end
+            )
+
+            library:connection(
+                uis.InputEnded,
+                function(Input)
+                    if Input.UserInputType
+                        == Enum.UserInputType.MouseButton1
+                    then
+                        ActiveState = nil
+                        library.resizing = false
+                    end
+                end
+            )
+
+            library:connection(
+                uis.WindowFocusReleased,
+                function()
+                    ActiveState = nil
+                    library.resizing = false
+                end
+            )
         end
 
         function library:mouseInFrame(uiobject)
@@ -20581,135 +21377,327 @@ local function BuildAtramentaMain(Runtime)
 
         function library:tab(properties)
             local cfg = {
-                name = properties.name or "visuals", 
-            } 
+                name =
+                    properties.name
+                    or "visuals",
+                selected = false
+            }
 
-            -- tab button
-                local outline = library:create("TextButton", {
-                    Parent = self.tab_holder,
-                    Name = "",
-                    FontFace = library.font,
-                    TextColor3 = rgb(0, 0, 0),
-                    BorderColor3 = rgb(0, 0, 0),
-                    Text = "",
-                    AutoButtonColor = false,
-                    Size = dim2(0, 0, 0, 30),
-                    BorderSizePixel = 0,
-                    TextSize = 14,
-                    BackgroundColor3 = rgb(0, 0, 0)
-                })
-                
-                local inline = library:create("Frame", {
-                    Parent = outline,
-                    Name = "",
-                    Position = dim2(0, 1, 0, 1),
-                    BorderColor3 = rgb(0, 0, 0),
-                    Size = dim2(1, -2, 1, -2),
-                    BorderSizePixel = 0,
-                    BackgroundColor3 = rgb(41, 41, 41)
-                })
-                
-                local background = library:create("Frame", {
-                    Parent = inline,
-                    Name = "",
-                    Position = dim2(0, 1, 0, 1),
-                    BorderColor3 = rgb(0, 0, 0),
-                    Size = dim2(1, -2, 1, -2),
-                    BorderSizePixel = 0,
-                    BackgroundColor3 = rgb(255, 255, 255)
-                })
-                
-                local gradient = library:create("UIGradient", {
-                    Parent = background,
-                    Name = "",
-                    Rotation = 90,
-                    Color = rgbseq{
-                        rgbkey(0, rgb(41, 41, 41)), 
-                        rgbkey(1, rgb(16, 16, 16))
+            local outline =
+                library:create(
+                    "TextButton",
+                    {
+                        Parent =
+                            self.tab_holder,
+                        Name = "",
+                        FontFace =
+                            library.font,
+                        Text = "",
+                        AutoButtonColor = false,
+                        Size =
+                            dim2(
+                                0,
+                                0,
+                                0,
+                                30
+                            ),
+                        BorderSizePixel = 0,
+                        BackgroundColor3 =
+                            rgb(0, 0, 0)
                     }
-                })
-                
-                local text = library:create("TextLabel", {
-                    Parent = background,
-                    Name = "",
-                    FontFace = library.font,
-                    TextColor3 = rgb(140, 140, 140),
-                    BorderColor3 = rgb(0, 0, 0),
-                    Text = cfg.name,
-                    BackgroundTransparency = 1,
-                    Position = dim2(0, 0, 0, -1),
-                    Size = dim2(1, 0, 1, 0),
-                    BorderSizePixel = 0,
-                    TextSize = 12,
-                    BackgroundColor3 = rgb(255, 255, 255)
-                }); library:applyTheme(text, "accent", "TextColor3")
-            -- 
+                )
 
-            -- page 
-                cfg["page"] = library:create("Frame", {
-                    Parent = self.page_holder,
-                    Name = "",
-                    Visible = false, 
-                    Position = dim2(0, 1, 0, 1),
-                    BorderColor3 = rgb(0, 0, 0),
-                    Size = dim2(1, -2, 1, -2),
-                    BorderSizePixel = 0,
-                    BackgroundColor3 = rgb(13, 13, 13)
-                })
-                
-                library:create("UIListLayout", {
-                    Parent = cfg["page"],
-                    Name = "",
-                    FillDirection = Enum.FillDirection.Horizontal,
-                    HorizontalFlex = Enum.UIFlexAlignment.Fill,
-                    Padding = dim(0, 11),
-                    SortOrder = Enum.SortOrder.LayoutOrder,
-                    VerticalFlex = Enum.UIFlexAlignment.Fill
-                })
-                
-                library:create("UIPadding", {
-                    Parent = cfg["page"],
-                    Name = "",
-                    PaddingTop = dim(0, 11),
-                    PaddingBottom = dim(0, 11),
-                    PaddingRight = dim(0, 11),
-                    PaddingLeft = dim(0, 11)
-                })
-            -- 
-
-            function cfg.open_tab() 
-                library:closeCurrentElement() 
-
-                if self.selected_tab then 
-                    self.selected_tab[1].TextColor3 = rgb(160,160,160)
-                    self.selected_tab[2].Visible = false 
-                    self.selected_tab[3].Color = rgbseq{
-                        rgbkey(0, rgb(41, 41, 41)),
-                        rgbkey(1, rgb(16, 16, 16))
+            local inline =
+                library:create(
+                    "Frame",
+                    {
+                        Parent = outline,
+                        Position =
+                            dim2(
+                                0,
+                                1,
+                                0,
+                                1
+                            ),
+                        Size =
+                            dim2(
+                                1,
+                                -2,
+                                1,
+                                -2
+                            ),
+                        BorderSizePixel = 0,
+                        BackgroundColor3 =
+                            rgb(43, 43, 47)
                     }
+                )
 
-                    self.selected_tab = nil 
-                end 
+            local background =
+                library:create(
+                    "Frame",
+                    {
+                        Parent = inline,
+                        Position =
+                            dim2(
+                                0,
+                                1,
+                                0,
+                                1
+                            ),
+                        Size =
+                            dim2(
+                                1,
+                                -2,
+                                1,
+                                -2
+                            ),
+                        BorderSizePixel = 0,
+                        BackgroundColor3 =
+                            rgb(14, 14, 17)
+                    }
+                )
 
-                text.TextColor3 = themes.preset.accent
-                cfg["page"].Visible = true 
-                gradient.Color = rgbseq{
-                    rgbkey(0, rgb(41, 41, 41)),
-                    rgbkey(1, rgb(25, 25, 25))
+            local selected_fill =
+                library:create(
+                    "Frame",
+                    {
+                        Parent = background,
+                        Size =
+                            dim2(
+                                1,
+                                0,
+                                1,
+                                0
+                            ),
+                        BorderSizePixel = 0,
+                        BackgroundColor3 =
+                            themes.preset.accent,
+                        BackgroundTransparency = 1
+                    }
+                )
+
+            library:applyTheme(
+                selected_fill,
+                "accent",
+                "BackgroundColor3"
+            )
+
+            local text =
+                library:create(
+                    "TextLabel",
+                    {
+                        Parent = background,
+                        FontFace =
+                            library.font,
+                        TextColor3 =
+                            rgb(
+                                145,
+                                145,
+                                150
+                            ),
+                        Text = cfg.name,
+                        BackgroundTransparency = 1,
+                        Position =
+                            dim2(
+                                0,
+                                0,
+                                0,
+                                -1
+                            ),
+                        Size =
+                            dim2(
+                                1,
+                                0,
+                                1,
+                                0
+                            ),
+                        BorderSizePixel = 0,
+                        TextSize = 12
+                    }
+                )
+
+            cfg["page"] =
+                library:create(
+                    "Frame",
+                    {
+                        Parent =
+                            self.page_holder,
+                        Visible = false,
+                        Position =
+                            dim2(
+                                0,
+                                1,
+                                0,
+                                1
+                            ),
+                        Size =
+                            dim2(
+                                1,
+                                -2,
+                                1,
+                                -2
+                            ),
+                        BorderSizePixel = 0,
+                        BackgroundColor3 =
+                            rgb(13, 13, 13)
+                    }
+                )
+
+            library:create(
+                "UIListLayout",
+                {
+                    Parent =
+                        cfg["page"],
+                    FillDirection =
+                        Enum.FillDirection.Horizontal,
+                    HorizontalFlex =
+                        Enum.UIFlexAlignment.Fill,
+                    Padding =
+                        dim(0, 11),
+                    SortOrder =
+                        Enum.SortOrder.LayoutOrder,
+                    VerticalFlex =
+                        Enum.UIFlexAlignment.Fill
                 }
-                self.selected_tab = {text, cfg["page"], gradient}
-            end 
+            )
 
-            outline.MouseButton1Down:Connect(function()
+            library:create(
+                "UIPadding",
+                {
+                    Parent =
+                        cfg["page"],
+                    PaddingTop =
+                        dim(0, 11),
+                    PaddingBottom =
+                        dim(0, 11),
+                    PaddingRight =
+                        dim(0, 11),
+                    PaddingLeft =
+                        dim(0, 11)
+                }
+            )
+
+            function cfg.open_tab()
+                library:closeCurrentElement()
+
+                if self.selected_tab then
+                    local Previous =
+                        self.selected_tab
+
+                    Previous[1].TextColor3 =
+                        rgb(
+                            145,
+                            145,
+                            150
+                        )
+
+                    Previous[2].Visible =
+                        false
+
+                    Previous[3].BackgroundColor3 =
+                        rgb(
+                            14,
+                            14,
+                            17
+                        )
+
+                    Previous[4].BackgroundTransparency =
+                        1
+
+                    if Previous[5] then
+                        Previous[5].selected =
+                            false
+                    end
+
+                    self.selected_tab = nil
+                end
+
+                cfg.selected = true
+
+                text.TextColor3 =
+                    rgb(
+                        232,
+                        232,
+                        236
+                    )
+
+                background.BackgroundColor3 =
+                    rgb(
+                        22,
+                        22,
+                        26
+                    )
+
+                selected_fill.BackgroundTransparency =
+                    0.90
+
+                cfg["page"].Visible = true
+
+                self.selected_tab = {
+                    text,
+                    cfg["page"],
+                    background,
+                    selected_fill,
+                    cfg
+                }
+            end
+
+            library:connection(
+                outline.MouseEnter,
+                function()
+                    if not cfg.selected then
+                        background.BackgroundColor3 =
+                            rgb(
+                                19,
+                                19,
+                                22
+                            )
+                        text.TextColor3 =
+                            rgb(
+                                176,
+                                176,
+                                182
+                            )
+                    end
+                end
+            )
+
+            library:connection(
+                outline.MouseLeave,
+                function()
+                    if not cfg.selected then
+                        background.BackgroundColor3 =
+                            rgb(
+                                14,
+                                14,
+                                17
+                            )
+                        text.TextColor3 =
+                            rgb(
+                                145,
+                                145,
+                                150
+                            )
+                    end
+                end
+            )
+
+            library:connection(
+                outline.MouseButton1Down,
+                function()
+                    cfg.open_tab()
+                end
+            )
+
+            if not self.selected_tab then
                 cfg.open_tab()
-            end)
+            end
 
-            if not self.selected_tab then 
-                cfg.open_tab(true) 
-            end 
-
-            return setmetatable(cfg, library)    
-        end 
+            return setmetatable(
+                cfg,
+                library
+            )
+        end
 
         function library:column(properties)
             local cfg = {
@@ -22487,18 +23475,38 @@ local function BuildAtramentaMain(Runtime)
                         end)
                     end)
 
-                    library:connection(uis.InputBegan, function(input, game_event) 
-                        if not game_event then 
-                            if input.KeyCode == cfg.key then 
-                                if cfg.mode == "toggle" then 
-                                    cfg.active = not cfg.active
-                                    cfg.set(cfg.active)
-                                elseif cfg.mode == "hold" then 
+                    library:connection(
+                        uis.InputBegan,
+                        function(input, game_event)
+                            if game_event then
+                                return
+                            end
+
+                            local SelectedKey =
+                                input.UserInputType
+                                    == Enum.UserInputType.Keyboard
+                                and input.KeyCode
+                                or input.UserInputType
+
+                            if SelectedKey
+                                == cfg.key
+                            then
+                                if cfg.mode
+                                    == "toggle"
+                                then
+                                    cfg.active =
+                                        not cfg.active
+                                    cfg.set(
+                                        cfg.active
+                                    )
+                                elseif cfg.mode
+                                    == "hold"
+                                then
                                     cfg.set(true)
                                 end
                             end
                         end
-                    end)
+                    )
 
                     library:connection(uis.InputEnded, function(input, game_event) 
                         if game_event then 
@@ -23151,69 +24159,160 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
     SubPageMethods.__index = SubPageMethods
     SectionMethods.__index = SectionMethods
 
-    local function MakeSubTabButton(Parent, Name, Order)
-        local Outline = MainLibrary:create("TextButton", {
-            Parent = Parent,
-            Name = "",
-            LayoutOrder = Order,
-            Size = UDim2.fromOffset(math.max(66, #Name * 6 + 24), 21),
-            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            Text = "",
-            ZIndex = 15
-        })
+    local function MakeSubTabButton(
+        Parent,
+        Name,
+        Order
+    )
+        local Outline =
+            MainLibrary:create(
+                "TextButton",
+                {
+                    Parent = Parent,
+                    Name = "",
+                    LayoutOrder = Order,
+                    Size =
+                        UDim2.fromOffset(
+                            math.max(
+                                70,
+                                #Name * 6 + 24
+                            ),
+                            22
+                        ),
+                    BackgroundColor3 =
+                        Color3.fromRGB(
+                            0,
+                            0,
+                            0
+                        ),
+                    BorderSizePixel = 0,
+                    AutoButtonColor = false,
+                    Text = "",
+                    ZIndex = 15
+                }
+            )
 
-        local Inline = MainLibrary:create("Frame", {
-            Parent = Outline,
-            Position = UDim2.fromOffset(1, 1),
-            Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = Color3.fromRGB(46, 46, 46),
-            BorderSizePixel = 0,
-            ZIndex = 16
-        })
+        local Inline =
+            MainLibrary:create(
+                "Frame",
+                {
+                    Parent = Outline,
+                    Position =
+                        UDim2.fromOffset(
+                            1,
+                            1
+                        ),
+                    Size =
+                        UDim2.new(
+                            1,
+                            -2,
+                            1,
+                            -2
+                        ),
+                    BackgroundColor3 =
+                        Color3.fromRGB(
+                            45,
+                            45,
+                            49
+                        ),
+                    BorderSizePixel = 0,
+                    ZIndex = 16
+                }
+            )
 
-        local Background = MainLibrary:create("Frame", {
-            Parent = Inline,
-            Position = UDim2.fromOffset(1, 1),
-            Size = UDim2.new(1, -2, 1, -2),
-            BackgroundColor3 = Color3.fromRGB(17, 17, 17),
-            BorderSizePixel = 0,
-            ZIndex = 17
-        })
+        local Background =
+            MainLibrary:create(
+                "Frame",
+                {
+                    Parent = Inline,
+                    Position =
+                        UDim2.fromOffset(
+                            1,
+                            1
+                        ),
+                    Size =
+                        UDim2.new(
+                            1,
+                            -2,
+                            1,
+                            -2
+                        ),
+                    BackgroundColor3 =
+                        Color3.fromRGB(
+                            14,
+                            14,
+                            17
+                        ),
+                    BorderSizePixel = 0,
+                    ZIndex = 17
+                }
+            )
 
-        MainLibrary:create("UIGradient", {
-            Parent = Background,
-            Rotation = 90,
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 30)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 14, 14))
-            })
-        })
+        local Accent =
+            MainLibrary:create(
+                "Frame",
+                {
+                    Parent = Background,
+                    Position =
+                        UDim2.fromOffset(
+                            0,
+                            0
+                        ),
+                    Size =
+                        UDim2.new(
+                            0,
+                            2,
+                            1,
+                            0
+                        ),
+                    BackgroundColor3 =
+                        HybridMain.Themes.preset.accent,
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    ZIndex = 19
+                }
+            )
 
-        local Label = MainLibrary:create("TextLabel", {
-            Parent = Background,
-            Size = UDim2.fromScale(1, 1),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            FontFace = MainLibrary.font,
-            Text = Name,
-            TextColor3 = Color3.fromRGB(150, 150, 150),
-            TextSize = 12,
-            ZIndex = 18
-        })
+        MainLibrary:applyTheme(
+            Accent,
+            "accent",
+            "BackgroundColor3"
+        )
 
-        local Accent = MainLibrary:create("Frame", {
-            Parent = Background,
-            AnchorPoint = Vector2.new(0, 1),
-            Position = UDim2.new(0, 0, 1, 0),
-            Size = UDim2.new(1, 0, 0, 2),
-            BackgroundColor3 = HybridMain.Themes.preset.accent,
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            ZIndex = 19
-        })
-        MainLibrary:applyTheme(Accent, "accent", "BackgroundColor3")
+        local Label =
+            MainLibrary:create(
+                "TextLabel",
+                {
+                    Parent = Background,
+                    Position =
+                        UDim2.fromOffset(
+                            7,
+                            0
+                        ),
+                    Size =
+                        UDim2.new(
+                            1,
+                            -10,
+                            1,
+                            0
+                        ),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    FontFace =
+                        MainLibrary.font,
+                    Text = Name,
+                    TextColor3 =
+                        Color3.fromRGB(
+                            145,
+                            145,
+                            150
+                        ),
+                    TextSize = 12,
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+                    ZIndex = 18
+                }
+            )
 
         return {
             Button = Outline,
@@ -23223,15 +24322,51 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
         }
     end
 
-    local function SetSubPageSelected(Page, Name)
-        for SubName, SubPage in pairs(Page.SubPages) do
-            local Selected = SubName == Name
-            SubPage.Frame.Visible = Selected
-            SubPage.Tab.Label.TextColor3 = Selected and Color3.fromRGB(224, 224, 228) or Color3.fromRGB(145, 145, 150)
-            SubPage.Tab.Background.BackgroundColor3 = Selected and Color3.fromRGB(25, 25, 28) or Color3.fromRGB(15, 15, 17)
-            SubPage.Tab.Accent.BackgroundTransparency = Selected and 0 or 1
+    local function SetSubPageSelected(
+        Page,
+        Name
+    )
+        for SubName, SubPage in pairs(
+            Page.SubPages
+        ) do
+            local Selected =
+                SubName == Name
+
+            SubPage.Frame.Visible =
+                Selected
+
+            SubPage.Tab.Label.TextColor3 =
+                Selected
+                and Color3.fromRGB(
+                    232,
+                    232,
+                    236
+                )
+                or Color3.fromRGB(
+                    145,
+                    145,
+                    150
+                )
+
+            SubPage.Tab.Background.BackgroundColor3 =
+                Selected
+                and Color3.fromRGB(
+                    22,
+                    22,
+                    26
+                )
+                or Color3.fromRGB(
+                    14,
+                    14,
+                    17
+                )
+
+            SubPage.Tab.Accent.BackgroundTransparency =
+                Selected and 0 or 1
         end
-        Page.ActiveSubPage = Name
+
+        Page.ActiveSubPage =
+            Name
     end
 
     local function ReflowSubPage(SubPage)
@@ -23897,6 +25032,7 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
             or Runtime.Flags[Flag]
 
         local BindButton
+        local BindAccent
 
         local function RefreshBind()
             if not BindButton
@@ -23910,19 +25046,38 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                     Flag
                 )
 
-            if BindData then
-                local Display =
-                    Runtime.BindSystem.BuildBindDisplay(
-                        BindData.Key,
-                        BindData.Modifiers
-                    )
+            local Display =
+                BindData
+                and Runtime.BindSystem.BuildBindDisplay(
+                    BindData.Key,
+                    BindData.Modifiers
+                )
+                or "--"
 
-                BindButton.Text =
-                    "["
-                    .. tostring(Display)
-                    .. "]"
+            Display =
+                tostring(Display or "--")
 
-                BindButton.TextColor3 =
+            BindButton.Text =
+                Display
+
+            BindButton.TextColor3 =
+                BindData
+                and Color3.fromRGB(
+                    222,
+                    222,
+                    226
+                )
+                or Color3.fromRGB(
+                    132,
+                    132,
+                    138
+                )
+
+            if BindAccent then
+                BindAccent.BackgroundTransparency =
+                    BindData and 0 or 1
+
+                BindAccent.BackgroundColor3 =
                     (
                         HybridMain.Themes
                         and HybridMain.Themes.preset
@@ -23933,27 +25088,30 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                         66,
                         235
                     )
+            end
 
+            local Width =
+                math.clamp(
+                    #Display * 6 + 18,
+                    48,
+                    118
+                )
+
+            BindButton.Size =
+                UDim2.fromOffset(
+                    Width,
+                    17
+                )
+
+            if BindData then
                 Runtime.BindModeDefaults[
                     Flag
                 ] =
-                    BindData.Mode
-                    == "Hold"
+                    BindData.Mode == "Hold"
                     and "Hold"
-                    or BindData.Mode
-                        == "Always"
+                    or BindData.Mode == "Always"
                     and "Always"
                     or "Toggle"
-            else
-                BindButton.Text =
-                    "[--]"
-
-                BindButton.TextColor3 =
-                    Color3.fromRGB(
-                        145,
-                        145,
-                        151
-                    )
             end
         end
 
@@ -23983,14 +25141,14 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                         LayoutOrder = 1000,
                         Size =
                             UDim2.fromOffset(
-                                38,
-                                13
+                                48,
+                                17
                             ),
                         BackgroundColor3 =
                             Color3.fromRGB(
-                                0,
-                                0,
-                                0
+                                11,
+                                11,
+                                14
                             ),
                         BorderSizePixel = 0,
                         AutoButtonColor = false,
@@ -23998,14 +25156,14 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                         Selectable = false,
                         FontFace =
                             MainLibrary.font,
-                        Text = "[--]",
+                        Text = "--",
                         TextColor3 =
                             Color3.fromRGB(
-                                145,
-                                145,
-                                151
+                                132,
+                                132,
+                                138
                             ),
-                        TextSize = 9,
+                        TextSize = 11,
                         ZIndex =
                             (
                                 Host.root
@@ -24035,6 +25193,42 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                         Enum.LineJoinMode.Miter
                 }
             )
+
+            BindAccent =
+                MainLibrary:create(
+                    "Frame",
+                    {
+                        Parent =
+                            BindButton,
+                        Position =
+                            UDim2.fromOffset(
+                                0,
+                                0
+                            ),
+                        Size =
+                            UDim2.new(
+                                0,
+                                2,
+                                1,
+                                0
+                            ),
+                        BackgroundColor3 =
+                            (
+                                HybridMain.Themes
+                                and HybridMain.Themes.preset
+                                and HybridMain.Themes.preset.accent
+                            )
+                            or Color3.fromRGB(
+                                86,
+                                66,
+                                235
+                            ),
+                        BackgroundTransparency = 1,
+                        BorderSizePixel = 0,
+                        ZIndex =
+                            BindButton.ZIndex + 1
+                    }
+                )
 
             Runtime.BindButtonRefreshers[
                 Flag
@@ -24066,7 +25260,7 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                         )
 
                     BindButton.Text =
-                        "[...]"
+                        "PRESS"
 
                     BindButton.TextColor3 =
                         (
@@ -24903,10 +26097,64 @@ local function ResolveHybridMain(Data)
     end
 
     if not HybridMain.RawWindow then
-        HybridMain.RawWindow = HybridMain.Library:window({
-            name = HybridRead(Data, "Name", "Atramenta.rip"),
-            size = HybridRead(Data, "Size", UDim2.fromOffset(620, 560))
-        })
+        local RequestedSize =
+            HybridRead(
+                Data,
+                "Size",
+                UDim2.fromOffset(
+                    620,
+                    560
+                )
+            )
+
+        local SavedSize =
+            ActiveRuntime.SavedPositions
+            and ActiveRuntime.SavedPositions.MainWindowSize
+
+        if type(SavedSize) == "table" then
+            local Width =
+                tonumber(
+                    SavedSize.Width
+                    or SavedSize.X
+                )
+
+            local Height =
+                tonumber(
+                    SavedSize.Height
+                    or SavedSize.Y
+                )
+
+            if Width
+                and Height
+            then
+                RequestedSize =
+                    UDim2.fromOffset(
+                        math.max(
+                            560,
+                            math.floor(
+                                Width + 0.5
+                            )
+                        ),
+                        math.max(
+                            420,
+                            math.floor(
+                                Height + 0.5
+                            )
+                        )
+                    )
+            end
+        end
+
+        HybridMain.RawWindow =
+            HybridMain.Library:window({
+                name =
+                    HybridRead(
+                        Data,
+                        "Name",
+                        "Atramenta.rip"
+                    ),
+                size = RequestedSize
+            })
 
         if ActiveRuntime.SavedPositions
             and ActiveRuntime.DecodePosition
@@ -24985,6 +26233,53 @@ local function ResolveHybridMain(Data)
                     if type(ActiveRuntime.SavePositions) == "function" then
                         ActiveRuntime.SavePositions()
                     end
+                end
+            )
+
+            local SizeSaveSerial = 0
+
+            HybridMain.Library:connection(
+                HybridMain.RawWindow.outline:
+                    GetPropertyChangedSignal(
+                        "Size"
+                    ),
+                function()
+                    if not ActiveRuntime.SavedPositions then
+                        return
+                    end
+
+                    local Size =
+                        HybridMain.RawWindow.outline.Size
+
+                    ActiveRuntime.SavedPositions.MainWindowSize = {
+                        Width =
+                            Size.X.Offset,
+                        Height =
+                            Size.Y.Offset
+                    }
+
+                    SizeSaveSerial += 1
+
+                    local Serial =
+                        SizeSaveSerial
+
+                    task.delay(
+                        0.12,
+                        function()
+                            if Serial
+                                ~= SizeSaveSerial
+                            then
+                                return
+                            end
+
+                            if type(
+                                ActiveRuntime.SavePositions
+                            ) == "function"
+                            then
+                                ActiveRuntime.SavePositions()
+                            end
+                        end
+                    )
                 end
             )
         end
