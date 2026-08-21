@@ -9,8 +9,8 @@ local Library = {
     }
 }
 
-Library.Build = 29
-Library.BuildName = "UIBindResizeRewrite"
+Library.Build = 31
+Library.BuildName = "FourCornerResize"
 
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -2444,6 +2444,607 @@ local function BuildRuntime()
         )
     end
 
+    Menu.AttachCornerResize = function(
+        Window,
+        Options
+    )
+        if not Window
+            or not Window:IsA("GuiObject")
+            or Window:GetAttribute(
+                "AtramentaCornerResize"
+            ) == true
+        then
+            return
+        end
+
+        Options =
+            type(Options) == "table"
+            and Options
+            or {}
+
+        Window:SetAttribute(
+            "AtramentaCornerResize",
+            true
+        )
+
+        SavedPositions.CornerResizeSizes =
+            type(
+                SavedPositions.CornerResizeSizes
+            ) == "table"
+            and SavedPositions.CornerResizeSizes
+            or {}
+
+        local Key =
+            tostring(
+                Options.Key
+                or Window.Name
+                or "Window"
+            )
+
+        local PositionKey =
+            tostring(
+                Options.PositionKey
+                or ""
+            )
+
+        local MinimumWidth =
+            math.max(
+                tonumber(
+                    Options.MinWidth
+                ) or 320,
+                120
+            )
+
+        local MinimumHeight =
+            math.max(
+                tonumber(
+                    Options.MinHeight
+                ) or 240,
+                100
+            )
+
+        local Margin =
+            math.max(
+                tonumber(
+                    Options.Margin
+                ) or 5,
+                0
+            )
+
+        local HandleSize =
+            math.clamp(
+                tonumber(
+                    Options.HandleSize
+                ) or 12,
+                8,
+                20
+            )
+
+        local ZIndex =
+            math.max(
+                tonumber(
+                    Options.ZIndex
+                )
+                or (
+                    Window.ZIndex
+                    + 500
+                ),
+                Window.ZIndex + 50
+            )
+
+        local OnResize =
+            type(Options.OnResize)
+                == "function"
+            and Options.OnResize
+            or nil
+
+        local SavedSize =
+            SavedPositions.CornerResizeSizes[
+                Key
+            ]
+
+        if type(SavedSize) == "table" then
+            local Width =
+                tonumber(
+                    SavedSize.Width
+                    or SavedSize.X
+                )
+
+            local Height =
+                tonumber(
+                    SavedSize.Height
+                    or SavedSize.Y
+                )
+
+            if Width
+                and Height
+            then
+                Window.Size =
+                    UDim2.fromOffset(
+                        math.max(
+                            MinimumWidth,
+                            math.floor(
+                                Width + 0.5
+                            )
+                        ),
+                        math.max(
+                            MinimumHeight,
+                            math.floor(
+                                Height + 0.5
+                            )
+                        )
+                    )
+            end
+        end
+
+        local Active
+
+        local Corners = {
+            {
+                Name = "NorthWest",
+                Position =
+                    UDim2.fromOffset(
+                        0,
+                        0
+                    ),
+                Anchor =
+                    Vector2.new(
+                        0,
+                        0
+                    ),
+                X = -1,
+                Y = -1
+            },
+            {
+                Name = "NorthEast",
+                Position =
+                    UDim2.new(
+                        1,
+                        0,
+                        0,
+                        0
+                    ),
+                Anchor =
+                    Vector2.new(
+                        1,
+                        0
+                    ),
+                X = 1,
+                Y = -1
+            },
+            {
+                Name = "SouthWest",
+                Position =
+                    UDim2.new(
+                        0,
+                        0,
+                        1,
+                        0
+                    ),
+                Anchor =
+                    Vector2.new(
+                        0,
+                        1
+                    ),
+                X = -1,
+                Y = 1
+            },
+            {
+                Name = "SouthEast",
+                Position =
+                    UDim2.fromScale(
+                        1,
+                        1
+                    ),
+                Anchor =
+                    Vector2.new(
+                        1,
+                        1
+                    ),
+                X = 1,
+                Y = 1
+            }
+        }
+
+        local function GetViewport()
+            local Size =
+                ScreenGui.AbsoluteSize
+
+            if Size.X > 1
+                and Size.Y > 1
+            then
+                return Size
+            end
+
+            local Camera =
+                workspace.CurrentCamera
+
+            return
+                Camera
+                and Camera.ViewportSize
+                or Vector2.new(
+                    1920,
+                    1080
+                )
+        end
+
+        local function ApplyBounds(
+            Left,
+            Top,
+            Right,
+            Bottom,
+            XDirection,
+            YDirection
+        )
+            local Viewport =
+                GetViewport()
+
+            local MaximumWidth =
+                math.max(
+                    MinimumWidth,
+                    Viewport.X
+                    - Margin * 2
+                )
+
+            local MaximumHeight =
+                math.max(
+                    MinimumHeight,
+                    Viewport.Y
+                    - Margin * 2
+                )
+
+            if XDirection < 0 then
+                Left =
+                    math.clamp(
+                        Left,
+                        Margin,
+                        Right - MinimumWidth
+                    )
+            else
+                Right =
+                    math.clamp(
+                        Right,
+                        Left + MinimumWidth,
+                        Viewport.X - Margin
+                    )
+            end
+
+            if YDirection < 0 then
+                Top =
+                    math.clamp(
+                        Top,
+                        Margin,
+                        Bottom - MinimumHeight
+                    )
+            else
+                Bottom =
+                    math.clamp(
+                        Bottom,
+                        Top + MinimumHeight,
+                        Viewport.Y - Margin
+                    )
+            end
+
+            local Width =
+                math.clamp(
+                    Right - Left,
+                    MinimumWidth,
+                    MaximumWidth
+                )
+
+            local Height =
+                math.clamp(
+                    Bottom - Top,
+                    MinimumHeight,
+                    MaximumHeight
+                )
+
+            if XDirection < 0 then
+                Left =
+                    Right - Width
+            else
+                Right =
+                    Left + Width
+            end
+
+            if YDirection < 0 then
+                Top =
+                    Bottom - Height
+            else
+                Bottom =
+                    Top + Height
+            end
+
+            return
+                Left,
+                Top,
+                Right,
+                Bottom
+        end
+
+        local function ApplyResize(
+            Left,
+            Top,
+            Right,
+            Bottom
+        )
+            local Width =
+                math.max(
+                    MinimumWidth,
+                    Right - Left
+                )
+
+            local Height =
+                math.max(
+                    MinimumHeight,
+                    Bottom - Top
+                )
+
+            local Anchor =
+                Window.AnchorPoint
+
+            Window.Size =
+                UDim2.fromOffset(
+                    math.floor(
+                        Width + 0.5
+                    ),
+                    math.floor(
+                        Height + 0.5
+                    )
+                )
+
+            Window.Position =
+                UDim2.fromOffset(
+                    math.floor(
+                        Left
+                        + Width
+                            * Anchor.X
+                        + 0.5
+                    ),
+                    math.floor(
+                        Top
+                        + Height
+                            * Anchor.Y
+                        + 0.5
+                    )
+                )
+
+            if OnResize then
+                OnResize(
+                    Width,
+                    Height
+                )
+            end
+        end
+
+        for _, Data in ipairs(
+            Corners
+        ) do
+            local Handle =
+                Create(
+                    "TextButton",
+                    {
+                        Parent =
+                            Window,
+                        Name =
+                            "AtramentaResize"
+                            .. Data.Name,
+                        AnchorPoint =
+                            Data.Anchor,
+                        Position =
+                            Data.Position,
+                        Size =
+                            UDim2.fromOffset(
+                                HandleSize,
+                                HandleSize
+                            ),
+                        BackgroundTransparency =
+                            1,
+                        BorderSizePixel = 0,
+                        AutoButtonColor = false,
+                        Text = "",
+                        Active = true,
+                        ZIndex = ZIndex
+                    }
+                )
+
+            Bind(
+                Handle.InputBegan:
+                    Connect(function(Input)
+                        if Input.UserInputType
+                            ~= Enum.UserInputType.MouseButton1
+                        then
+                            return
+                        end
+
+                        local Position =
+                            Window.AbsolutePosition
+
+                        local Size =
+                            Window.AbsoluteSize
+
+                        Active = {
+                            Mouse =
+                                UserInputService:
+                                    GetMouseLocation(),
+                            Left = Position.X,
+                            Top = Position.Y,
+                            Right =
+                                Position.X
+                                + Size.X,
+                            Bottom =
+                                Position.Y
+                                + Size.Y,
+                            X = Data.X,
+                            Y = Data.Y
+                        }
+
+                        Window:SetAttribute(
+                            "AtramentaCornerResizing",
+                            true
+                        )
+                    end)
+            )
+        end
+
+        Bind(
+            UserInputService.InputChanged:
+                Connect(function(Input)
+                    if not Active
+                        or Input.UserInputType
+                            ~= Enum.UserInputType.MouseMovement
+                    then
+                        return
+                    end
+
+                    local Mouse =
+                        UserInputService:
+                            GetMouseLocation()
+
+                    local Delta =
+                        Mouse
+                        - Active.Mouse
+
+                    local Left =
+                        Active.Left
+
+                    local Top =
+                        Active.Top
+
+                    local Right =
+                        Active.Right
+
+                    local Bottom =
+                        Active.Bottom
+
+                    if Active.X < 0 then
+                        Left += Delta.X
+                    else
+                        Right += Delta.X
+                    end
+
+                    if Active.Y < 0 then
+                        Top += Delta.Y
+                    else
+                        Bottom += Delta.Y
+                    end
+
+                    Left,
+                        Top,
+                        Right,
+                        Bottom =
+                        ApplyBounds(
+                            Left,
+                            Top,
+                            Right,
+                            Bottom,
+                            Active.X,
+                            Active.Y
+                        )
+
+                    ApplyResize(
+                        Left,
+                        Top,
+                        Right,
+                        Bottom
+                    )
+                end)
+        )
+
+        Bind(
+            UserInputService.InputEnded:
+                Connect(function(Input)
+                    if not Active
+                        or Input.UserInputType
+                            ~= Enum.UserInputType.MouseButton1
+                    then
+                        return
+                    end
+
+                    Active = nil
+
+                    Window:SetAttribute(
+                        "AtramentaCornerResizing",
+                        false
+                    )
+
+                    SavedPositions.CornerResizeSizes[
+                        Key
+                    ] = {
+                        Width =
+                            Window.Size.X.Offset,
+                        Height =
+                            Window.Size.Y.Offset
+                    }
+
+                    if PositionKey ~= "" then
+                        SavedPositions[
+                            PositionKey
+                        ] =
+                            EncodePosition(
+                                Window.Position
+                            )
+                    end
+
+                    SavePositions()
+                end)
+        )
+
+        local Camera =
+            workspace.CurrentCamera
+
+        if Camera then
+            Bind(
+                Camera:GetPropertyChangedSignal(
+                    "ViewportSize"
+                ):Connect(function()
+                    if not Window
+                        or not Window.Parent
+                    then
+                        return
+                    end
+
+                    Window.Position =
+                        Menu.ClampPopupPosition(
+                            Window,
+                            Window.Position
+                        )
+                end)
+            )
+        end
+
+        Window.Position =
+            Menu.ClampPopupPosition(
+                Window,
+                Window.Position
+            )
+
+        if OnResize then
+            task.defer(function()
+                if Window
+                    and Window.Parent
+                then
+                    OnResize(
+                        Window.Size.X.Offset,
+                        Window.Size.Y.Offset
+                    )
+                end
+            end)
+        end
+    end
+
+    Menu.AttachCornerResize(
+        Main,
+        {
+            Key = "MainMenu",
+            PositionKey = "Main",
+            MinWidth = 620,
+            MinHeight = 500,
+            HandleSize = 13,
+            ZIndex = 5000
+        }
+    )
+
     local BindKeyCanonical = {
         XButton1 = "MouseButton4",
         XButton2 = "MouseButton5",
@@ -2717,55 +3318,71 @@ local function BuildRuntime()
     end
 
     local BindKeyAliases = {
-        MouseButton1 = "MOUSE1",
-        MouseButton2 = "MOUSE2",
-        MouseButton3 = "MOUSE3",
-        MouseButton4 = "MOUSE4",
-        MouseButton5 = "MOUSE5",
-        MouseButton6 = "MOUSE6",
-        MouseButton7 = "MOUSE7",
-        MouseButton8 = "MOUSE8",
-        MouseWheelUp = "WHEEL UP",
-        MouseWheelDown = "WHEEL DOWN",
-        KeypadZero = "NUM 0",
-        KeypadOne = "NUM 1",
-        KeypadTwo = "NUM 2",
-        KeypadThree = "NUM 3",
-        KeypadFour = "NUM 4",
-        KeypadFive = "NUM 5",
-        KeypadSix = "NUM 6",
-        KeypadSeven = "NUM 7",
-        KeypadEight = "NUM 8",
-        KeypadNine = "NUM 9",
-        KeypadPeriod = "NUM .",
-        KeypadDivide = "NUM /",
-        KeypadMultiply = "NUM *",
-        KeypadMinus = "NUM -",
-        KeypadPlus = "NUM +",
-        KeypadEnter = "NUM ENTER",
-        KeypadEquals = "NUM =",
+        MouseButton1 = "LMB",
+        MouseButton2 = "RMB",
+        MouseButton3 = "MMB",
+        MouseButton4 = "MB4",
+        MouseButton5 = "MB5",
+        MouseButton6 = "MB6",
+        MouseButton7 = "MB7",
+        MouseButton8 = "MB8",
+        MouseWheelUp = "MWU",
+        MouseWheelDown = "MWD",
         LeftControl = "LCTRL",
         RightControl = "RCTRL",
         LeftShift = "LSHIFT",
         RightShift = "RSHIFT",
         LeftAlt = "LALT",
         RightAlt = "RALT",
+        LeftMeta = "LWIN",
+        RightMeta = "RWIN",
         Return = "ENTER",
+        KeypadEnter = "NENT",
         Escape = "ESC",
-        Backspace = "BACKSPACE",
-        Delete = "DELETE",
-        Insert = "INSERT",
-        PageUp = "PAGE UP",
-        PageDown = "PAGE DOWN",
+        Backspace = "BKSP",
+        Delete = "DEL",
+        Insert = "INS",
+        PageUp = "PGUP",
+        PageDown = "PGDN",
         Home = "HOME",
         End = "END",
         CapsLock = "CAPS",
-        Space = "SPACE",
+        Space = "SPC",
         Tab = "TAB",
+        NumLock = "NUM",
+        ScrollLock = "SCRL",
+        Pause = "PAUSE",
+        Print = "PRTSCR",
         Up = "UP",
         Down = "DOWN",
         Left = "LEFT",
         Right = "RIGHT",
+        Zero = "0",
+        One = "1",
+        Two = "2",
+        Three = "3",
+        Four = "4",
+        Five = "5",
+        Six = "6",
+        Seven = "7",
+        Eight = "8",
+        Nine = "9",
+        KeypadZero = "NUM0",
+        KeypadOne = "NUM1",
+        KeypadTwo = "NUM2",
+        KeypadThree = "NUM3",
+        KeypadFour = "NUM4",
+        KeypadFive = "NUM5",
+        KeypadSix = "NUM6",
+        KeypadSeven = "NUM7",
+        KeypadEight = "NUM8",
+        KeypadNine = "NUM9",
+        KeypadPeriod = "NUM.",
+        KeypadDivide = "NUM/",
+        KeypadMultiply = "NUM*",
+        KeypadMinus = "NUM-",
+        KeypadPlus = "NUM+",
+        KeypadEquals = "NUM=",
         Minus = "-",
         Equals = "=",
         LeftBracket = "[",
@@ -2776,7 +3393,25 @@ local function BuildRuntime()
         Comma = ",",
         Period = ".",
         Slash = "/",
-        Backquote = "`"
+        Backquote = "`",
+        ButtonA = "PAD-A",
+        ButtonB = "PAD-B",
+        ButtonX = "PAD-X",
+        ButtonY = "PAD-Y",
+        ButtonL1 = "LB",
+        ButtonR1 = "RB",
+        ButtonL2 = "LT",
+        ButtonR2 = "RT",
+        ButtonL3 = "LS",
+        ButtonR3 = "RS",
+        DPadUp = "D-UP",
+        DPadDown = "D-DN",
+        DPadLeft = "D-LT",
+        DPadRight = "D-RT",
+        Thumbstick1 = "LS",
+        Thumbstick2 = "RS",
+        ButtonStart = "START",
+        ButtonSelect = "SELECT"
     }
 
     local function FriendlyKeyName(Name)
@@ -2796,16 +3431,109 @@ local function BuildRuntime()
             return Alias
         end
 
-        local Result =
-            Canonical:
-                gsub(
-                    "(%l)(%u)",
-                    "%1 %2"
-                )
+        if #Canonical == 1 then
+            return string.upper(
+                Canonical
+            )
+        end
 
-        return string.upper(
-            Result
-        )
+        if string.match(
+            Canonical,
+            "^F%d+$"
+        ) then
+            return string.upper(
+                Canonical
+            )
+        end
+
+        local MouseIndex =
+            string.match(
+                Canonical,
+                "^MouseButton(%d+)$"
+            )
+
+        if MouseIndex then
+            local Index =
+                tonumber(MouseIndex)
+
+            if Index == 1 then
+                return "LMB"
+            elseif Index == 2 then
+                return "RMB"
+            elseif Index == 3 then
+                return "MMB"
+            end
+
+            return
+                "MB"
+                .. tostring(Index)
+        end
+
+        local Compact =
+            string.upper(
+                Canonical
+            )
+
+        Compact =
+            Compact:gsub(
+                "CONTROL",
+                "CTRL"
+            )
+
+        Compact =
+            Compact:gsub(
+                "BACKSPACE",
+                "BKSP"
+            )
+
+        Compact =
+            Compact:gsub(
+                "DELETE",
+                "DEL"
+            )
+
+        Compact =
+            Compact:gsub(
+                "INSERT",
+                "INS"
+            )
+
+        Compact =
+            Compact:gsub(
+                "PAGEUP",
+                "PGUP"
+            )
+
+        Compact =
+            Compact:gsub(
+                "PAGEDOWN",
+                "PGDN"
+            )
+
+        Compact =
+            Compact:gsub(
+                "BUTTON",
+                "BTN"
+            )
+
+        Compact =
+            Compact:gsub(
+                "%s+",
+                ""
+            )
+
+        if #Compact > 8 then
+            Compact =
+                string.sub(
+                    Compact,
+                    1,
+                    8
+                )
+        end
+
+        return Compact ~= ""
+            and Compact
+            or "?"
     end
 
     local function BuildBindDisplay(KeyName, Modifiers)
@@ -2825,7 +3553,7 @@ local function BuildRuntime()
         then
             table.insert(
                 Parts,
-                "SHIFT"
+                "SHFT"
             )
         end
 
@@ -2847,7 +3575,7 @@ local function BuildRuntime()
 
         return table.concat(
             Parts,
-            " + "
+            "+"
         )
     end
 
@@ -4199,11 +4927,6 @@ local function BuildRuntime()
                 or "Unknown"
             )
 
-        local Info =
-            type(Meta.Info) == "table"
-            and Meta.Info
-            or {}
-
         local Binds =
             type(
                 SavedPositions.ControlBinds
@@ -4279,8 +5002,8 @@ local function BuildRuntime()
                 1080
             )
 
-        local Width = 132
-        local Height = 112
+        local Width = 82
+        local Height = 67
 
         local AnchorPosition =
             Anchor.AbsolutePosition
@@ -4291,97 +5014,88 @@ local function BuildRuntime()
         local X =
             AnchorPosition.X
             + AnchorSize.X
-            + 6
+            + 4
 
         local Y =
             AnchorPosition.Y
 
-        if X + Width > Viewport.X - 6 then
+        if X + Width
+            > Viewport.X - 4
+        then
             X =
                 AnchorPosition.X
                 - Width
-                - 6
+                - 4
         end
 
-        if X < 6 then
-            X = 6
-        end
+        X =
+            math.clamp(
+                X,
+                4,
+                math.max(
+                    4,
+                    Viewport.X
+                    - Width
+                    - 4
+                )
+            )
 
-        if Y + Height > Viewport.Y - 6 then
-            Y =
-                Viewport.Y
-                - Height
-                - 6
-        end
+        Y =
+            math.clamp(
+                Y,
+                4,
+                math.max(
+                    4,
+                    Viewport.Y
+                    - Height
+                    - 4
+                )
+            )
 
-        if Y < 6 then
-            Y = 6
-        end
-
-        local Root = Create("Frame", {
-            Parent = PopupScreenGui,
-            Name = "BindModePopup",
-            Active = true,
-            Position =
-                UDim2.fromOffset(
-                    X,
-                    Y
-                ),
-            Size =
-                UDim2.fromOffset(
-                    Width,
-                    Height
-                ),
-            BackgroundColor3 =
-                Surface,
-            BackgroundTransparency = 0,
-            BorderSizePixel = 0,
-            ZIndex = 100000
-        })
+        local Root =
+            Create("Frame", {
+                Parent = PopupScreenGui,
+                Name = "BindModePopup",
+                Active = true,
+                Position =
+                    UDim2.fromOffset(
+                        X,
+                        Y
+                    ),
+                Size =
+                    UDim2.fromOffset(
+                        Width,
+                        Height
+                    ),
+                BackgroundColor3 =
+                    Color3.fromRGB(
+                        5,
+                        5,
+                        6
+                    ),
+                BorderSizePixel = 0,
+                ZIndex = 100000
+            })
 
         ActiveGearBindMenu = Root
 
-        Create("Frame", {
+        Create("UIStroke", {
             Parent = Root,
-            Position =
-                UDim2.fromOffset(
-                    0,
-                    0
+            Color =
+                Color3.fromRGB(
+                    42,
+                    42,
+                    47
                 ),
-            Size =
-                UDim2.new(
-                    1,
-                    0,
-                    0,
-                    1
-                ),
-            BackgroundColor3 =
-                Accent,
-            BorderSizePixel = 0,
-            ZIndex = 100001
+            Transparency = 0,
+            Thickness = 1,
+            ApplyStrokeMode =
+                Enum.ApplyStrokeMode.Border,
+            LineJoinMode =
+                Enum.LineJoinMode.Miter
         })
 
         Create("Frame", {
-            Parent = Root,
-            Position =
-                UDim2.fromOffset(
-                    0,
-                    1
-                ),
-            Size =
-                UDim2.new(
-                    1,
-                    0,
-                    1,
-                    -1
-                ),
-            BackgroundColor3 =
-                Border,
-            BorderSizePixel = 0,
-            ZIndex = 100000
-        })
-
-        local Inner = Create("Frame", {
             Parent = Root,
             Position =
                 UDim2.fromOffset(
@@ -4392,141 +5106,74 @@ local function BuildRuntime()
                 UDim2.new(
                     1,
                     -2,
-                    1,
-                    -2
-                ),
-            BackgroundColor3 =
-                Background,
-            BorderSizePixel = 0,
-            ZIndex = 100001
-        })
-
-        local Header = Create("Frame", {
-            Parent = Inner,
-            Position =
-                UDim2.fromOffset(
-                    0,
-                    0
-                ),
-            Size =
-                UDim2.new(
-                    1,
-                    0,
-                    0,
-                    22
-                ),
-            BackgroundColor3 =
-                Surface,
-            BorderSizePixel = 0,
-            ZIndex = 100002
-        })
-
-        Create("TextLabel", {
-            Parent = Header,
-            BackgroundTransparency = 1,
-            Position =
-                UDim2.fromOffset(
-                    8,
-                    0
-                ),
-            Size =
-                UDim2.new(
-                    1,
-                    -16,
-                    1,
-                    0
-                ),
-            Font =
-                Enum.Font.BuilderSans,
-            Text = "Bind Mode",
-            TextSize = 13,
-            TextXAlignment =
-                Enum.TextXAlignment.Left,
-            TextYAlignment =
-                Enum.TextYAlignment.Center,
-            TextColor3 =
-                PrimaryText,
-            BorderSizePixel = 0,
-            ZIndex = 100003
-        })
-
-        Create("Frame", {
-            Parent = Inner,
-            Position =
-                UDim2.fromOffset(
-                    0,
-                    22
-                ),
-            Size =
-                UDim2.new(
-                    1,
-                    0,
                     0,
                     1
                 ),
             BackgroundColor3 =
-                Border,
+                Accent,
             BorderSizePixel = 0,
             ZIndex = 100002
         })
 
-        local Content = Create("Frame", {
-            Parent = Inner,
-            Position =
-                UDim2.fromOffset(
-                    4,
-                    27
-                ),
-            Size =
-                UDim2.new(
-                    1,
-                    -8,
-                    1,
-                    -31
-                ),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            ZIndex = 100002
-        })
-
-        local List = Create("UIListLayout", {
-            Parent = Content,
-            FillDirection =
-                Enum.FillDirection.Vertical,
-            SortOrder =
-                Enum.SortOrder.LayoutOrder,
-            Padding = UDim.new(0, 3)
-        })
+        local Content =
+            Create("Frame", {
+                Parent = Root,
+                Position =
+                    UDim2.fromOffset(
+                        2,
+                        3
+                    ),
+                Size =
+                    UDim2.new(
+                        1,
+                        -4,
+                        1,
+                        -5
+                    ),
+                BackgroundColor3 =
+                    Color3.fromRGB(
+                        10,
+                        10,
+                        12
+                    ),
+                BorderSizePixel = 0,
+                ZIndex = 100001
+            })
 
         local Buttons = {}
 
         local function RefreshButtons()
-            for _, Entry in ipairs(Buttons) do
+            for _, Entry in ipairs(
+                Buttons
+            ) do
                 local Selected =
                     Entry.Mode == Mode
 
-                Entry.Bar.BackgroundTransparency =
+                Entry.Background.BackgroundColor3 =
                     Selected
-                    and 0
-                    or 1
-
-                Entry.Fill.BackgroundTransparency =
-                    Selected
-                    and 0.10
-                    or (
-                        Entry.Hover == true
-                        and 0.45
-                        or 1
+                    and Color3.fromRGB(
+                        19,
+                        19,
+                        23
+                    )
+                    or Entry.Hover
+                    and Color3.fromRGB(
+                        15,
+                        15,
+                        18
+                    )
+                    or Color3.fromRGB(
+                        10,
+                        10,
+                        12
                     )
 
                 Entry.Label.TextColor3 =
                     Selected
+                    and Accent
+                    or Entry.Hover
                     and PrimaryText
-                    or (
-                        Entry.Hover == true
-                        and PrimaryText
-                        or SecondaryText
-                    )
+                    or SecondaryText
             end
         end
 
@@ -4572,7 +5219,6 @@ local function BuildRuntime()
                 end
 
                 Existing.Mode = Mode
-
                 SavePositions()
             end
 
@@ -4588,105 +5234,89 @@ local function BuildRuntime()
             CloseMenu()
         end
 
-        local function CreateMode(Name, Order)
-            local Button = Create("TextButton", {
-                Parent = Content,
-                Size =
-                    UDim2.new(
-                        1,
-                        0,
-                        0,
-                        18
-                    ),
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                AutoButtonColor = false,
-                Text = "",
-                LayoutOrder = Order,
-                ZIndex = 100002
-            })
+        local function CreateMode(
+            Name,
+            Order
+        )
+            local Button =
+                Create("TextButton", {
+                    Parent = Content,
+                    Position =
+                        UDim2.fromOffset(
+                            0,
+                            (Order - 1) * 15
+                        ),
+                    Size =
+                        UDim2.new(
+                            1,
+                            0,
+                            0,
+                            15
+                        ),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                    AutoButtonColor = false,
+                    Text = "",
+                    ZIndex = 100002
+                })
 
-            local Fill = Create("Frame", {
-                Parent = Button,
-                Position =
-                    UDim2.fromOffset(
-                        0,
-                        0
-                    ),
-                Size =
-                    UDim2.new(
-                        1,
-                        0,
-                        1,
-                        0
-                    ),
-                BackgroundColor3 =
-                    Surface,
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                ZIndex = 100002
-            })
+            local Background =
+                Create("Frame", {
+                    Parent = Button,
+                    Size =
+                        UDim2.fromScale(
+                            1,
+                            1
+                        ),
+                    BackgroundColor3 =
+                        Color3.fromRGB(
+                            10,
+                            10,
+                            12
+                        ),
+                    BorderSizePixel = 0,
+                    ZIndex = 100002
+                })
 
-            local Bar = Create("Frame", {
-                Parent = Button,
-                Position =
-                    UDim2.fromOffset(
-                        0,
-                        0
-                    ),
-                Size =
-                    UDim2.new(
-                        0,
-                        2,
-                        1,
-                        0
-                    ),
-                BackgroundColor3 =
-                    Accent,
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                ZIndex = 100003
-            })
-
-            local Label = Create("TextLabel", {
-                Parent = Button,
-                BackgroundTransparency = 1,
-                Position =
-                    UDim2.fromOffset(
-                        8,
-                        0
-                    ),
-                Size =
-                    UDim2.new(
-                        1,
-                        -12,
-                        1,
-                        0
-                    ),
-                Font =
-                    Enum.Font.BuilderSans,
-                Text = Name,
-                TextSize = 13,
-                TextXAlignment =
-                    Enum.TextXAlignment.Left,
-                TextYAlignment =
-                    Enum.TextYAlignment.Center,
-                TextColor3 =
-                    SecondaryText,
-                BorderSizePixel = 0,
-                ZIndex = 100004
-            })
+            local Label =
+                Create("TextLabel", {
+                    Parent = Button,
+                    BackgroundTransparency = 1,
+                    Position =
+                        UDim2.fromOffset(
+                            6,
+                            0
+                        ),
+                    Size =
+                        UDim2.new(
+                            1,
+                            -9,
+                            1,
+                            0
+                        ),
+                    Font =
+                        Enum.Font.BuilderSans,
+                    Text = Name,
+                    TextSize = 10,
+                    TextXAlignment =
+                        Enum.TextXAlignment.Left,
+                    TextYAlignment =
+                        Enum.TextYAlignment.Center,
+                    TextColor3 =
+                        SecondaryText,
+                    BorderSizePixel = 0,
+                    ZIndex = 100003
+                })
 
             local Entry = {
                 Mode = Name,
-                Button = Button,
-                Fill = Fill,
-                Bar = Bar,
+                Background = Background,
                 Label = Label,
                 Hover = false
             }
 
-            Buttons[#Buttons + 1] = Entry
+            Buttons[#Buttons + 1] =
+                Entry
 
             TrackSignal(
                 Button.MouseEnter,
@@ -4716,142 +5346,88 @@ local function BuildRuntime()
         CreateMode("Hold", 2)
         CreateMode("Always", 3)
 
-        local Clear = Create("TextButton", {
-            Parent = Content,
-            Size =
-                UDim2.new(
-                    1,
-                    0,
-                    0,
-                    18
-                ),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            Text = "",
-            LayoutOrder = 4,
-            ZIndex = 100002
-        })
+        local Clear =
+            Create("TextButton", {
+                Parent = Content,
+                Position =
+                    UDim2.fromOffset(
+                        0,
+                        45
+                    ),
+                Size =
+                    UDim2.new(
+                        1,
+                        0,
+                        0,
+                        15
+                    ),
+                BackgroundColor3 =
+                    Color3.fromRGB(
+                        10,
+                        10,
+                        12
+                    ),
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Font =
+                    Enum.Font.BuilderSans,
+                Text = "Clear",
+                TextSize = 10,
+                TextColor3 =
+                    Color3.fromRGB(
+                        197,
+                        82,
+                        82
+                    ),
+                TextXAlignment =
+                    Enum.TextXAlignment.Left,
+                ZIndex = 100003
+            })
 
-        local ClearFill = Create("Frame", {
+        Create("UIPadding", {
             Parent = Clear,
-            Position =
-                UDim2.fromOffset(
+            PaddingLeft =
+                UDim.new(
                     0,
-                    0
-                ),
-            Size =
-                UDim2.new(
-                    1,
-                    0,
-                    1,
-                    0
-                ),
-            BackgroundColor3 =
-                Surface,
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            ZIndex = 100002
-        })
-
-        local ClearBar = Create("Frame", {
-            Parent = Clear,
-            Position =
-                UDim2.fromOffset(
-                    0,
-                    0
-                ),
-            Size =
-                UDim2.new(
-                    0,
-                    2,
-                    1,
-                    0
-                ),
-            BackgroundColor3 =
-                Color3.fromRGB(
-                    188,
-                    72,
-                    72
-                ),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            ZIndex = 100003
-        })
-
-        local ClearLabel = Create("TextLabel", {
-            Parent = Clear,
-            BackgroundTransparency = 1,
-            Position =
-                UDim2.fromOffset(
-                    8,
-                    0
-                ),
-            Size =
-                UDim2.new(
-                    1,
-                    -12,
-                    1,
-                    0
-                ),
-            Font =
-                Enum.Font.BuilderSans,
-            Text = "Clear",
-            TextSize = 13,
-            TextXAlignment =
-                Enum.TextXAlignment.Left,
-            TextYAlignment =
-                Enum.TextYAlignment.Center,
-            TextColor3 =
-                Color3.fromRGB(
-                    214,
-                    92,
-                    92
-                ),
-            BorderSizePixel = 0,
-            ZIndex = 100004
-        })
-
-        local ClearHover = false
-
-        local function RefreshClear()
-            ClearBar.BackgroundTransparency =
-                ClearHover
-                and 0
-                or 1
-
-            ClearFill.BackgroundTransparency =
-                ClearHover
-                and 0.45
-                or 1
-
-            ClearLabel.TextColor3 =
-                ClearHover
-                and Color3.fromRGB(
-                    232,
-                    114,
-                    114
+                    6
                 )
-                or Color3.fromRGB(
-                    214,
-                    92,
-                    92
-                )
-        end
+        })
 
         TrackSignal(
             Clear.MouseEnter,
             function()
-                ClearHover = true
-                RefreshClear()
+                Clear.BackgroundColor3 =
+                    Color3.fromRGB(
+                        18,
+                        13,
+                        14
+                    )
+
+                Clear.TextColor3 =
+                    Color3.fromRGB(
+                        225,
+                        102,
+                        102
+                    )
             end
         )
 
         TrackSignal(
             Clear.MouseLeave,
             function()
-                ClearHover = false
-                RefreshClear()
+                Clear.BackgroundColor3 =
+                    Color3.fromRGB(
+                        10,
+                        10,
+                        12
+                    )
+
+                Clear.TextColor3 =
+                    Color3.fromRGB(
+                        197,
+                        82,
+                        82
+                    )
             end
         )
 
@@ -4888,12 +5464,18 @@ local function BuildRuntime()
                     end
 
                     if type(Binds) == "table" then
-                        for Index = #Binds, 1, -1 do
+                        for Index = #Binds,
+                            1,
+                            -1
+                        do
                             if Binds[Index]
                                 == Existing
                                 or (
-                                    type(Binds[Index]) == "table"
-                                    and Binds[Index].Id == Existing.Id
+                                    type(
+                                        Binds[Index]
+                                    ) == "table"
+                                    and Binds[Index].Id
+                                        == Existing.Id
                                 )
                             then
                                 table.remove(
@@ -4930,7 +5512,8 @@ local function BuildRuntime()
             Root.AncestryChanged,
             function(_, Parent)
                 if not Parent
-                    and ActiveGearBindMenu == Root
+                    and ActiveGearBindMenu
+                        == Root
                 then
                     ActiveGearBindMenu = nil
                 end
@@ -4938,7 +5521,6 @@ local function BuildRuntime()
         )
 
         RefreshButtons()
-        RefreshClear()
     end
 
     Menu.BindSystem.NormalizeStorage = function()
@@ -9901,9 +10483,82 @@ local function BuildRuntime()
     end
 
     local function LayoutSettingsPanel()
-        local LeftX = 28
-        local RightX = 292
-        local RowWidth = 228
+        local PanelWidth =
+            math.max(
+                Menu.SettingsUI.SettingsPanel.Size.X.Offset,
+                460
+            )
+
+        local PanelHeight =
+            math.max(
+                Menu.SettingsUI.SettingsPanel.Size.Y.Offset,
+                380
+            )
+
+        local Margin = 16
+        local Gap = 12
+
+        local CardWidth =
+            math.max(
+                190,
+                math.floor(
+                    (
+                        PanelWidth
+                        - Margin * 2
+                        - Gap
+                    ) * 0.5
+                )
+            )
+
+        local CardHeight =
+            math.max(
+                260,
+                PanelHeight - 116
+            )
+
+        local LeftCardX =
+            Margin
+
+        local RightCardX =
+            Margin
+            + CardWidth
+            + Gap
+
+        local LeftX =
+            LeftCardX + 12
+
+        local RightX =
+            RightCardX + 12
+
+        local RowWidth =
+            math.max(
+                166,
+                CardWidth - 24
+            )
+
+        Menu.SettingsUI.InterfaceCard.Position =
+            UDim2.fromOffset(
+                LeftCardX,
+                98
+            )
+
+        Menu.SettingsUI.InterfaceCard.Size =
+            UDim2.fromOffset(
+                CardWidth,
+                CardHeight
+            )
+
+        Menu.SettingsUI.OverlayCard.Position =
+            UDim2.fromOffset(
+                RightCardX,
+                98
+            )
+
+        Menu.SettingsUI.OverlayCard.Size =
+            UDim2.fromOffset(
+                CardWidth,
+                CardHeight
+            )
 
         if Menu.SettingsUI.BackgroundDimToggle
             and Menu.SettingsUI.BackgroundDimToggle.Row
@@ -10067,15 +10722,20 @@ local function BuildRuntime()
                     50
                 )
         end
-
-        if Menu.SettingsUI.SettingsPanel then
-            Menu.SettingsUI.SettingsPanel.Size =
-                UDim2.fromOffset(
-                    548,
-                    442
-                )
-        end
     end
+
+    Menu.AttachCornerResize(
+        Menu.SettingsUI.SettingsPanel,
+        {
+            Key = "Settings",
+            PositionKey = "Settings",
+            MinWidth = 460,
+            MinHeight = 380,
+            HandleSize = 13,
+            ZIndex = 5200,
+            OnResize = LayoutSettingsPanel
+        }
+    )
 
     local function SetSettingsOpen(State)
         State = State and true or false
@@ -11517,6 +12177,7 @@ local function BuildRuntime()
 
         Create("TextLabel", {
             Parent = S.SidePanel,
+            Name = "SelectedTitle",
             Position = UDim2.fromOffset(14, 294),
             Size = UDim2.fromOffset(160, 16),
             BackgroundTransparency = 1,
@@ -12977,6 +13638,157 @@ local function BuildRuntime()
         end
 
 
+        local function LayoutEspEditorWindow()
+            local Width =
+                math.max(
+                    S.Window.Size.X.Offset,
+                    620
+                )
+
+            local Height =
+                math.max(
+                    S.Window.Size.Y.Offset,
+                    420
+                )
+
+            local Margin = 14
+            local Gap = 12
+            local BodyY = 58
+
+            local AvailableWidth =
+                math.max(
+                    500,
+                    Width
+                    - Margin * 2
+                    - Gap
+                )
+
+            local SideWidth =
+                math.clamp(
+                    math.floor(
+                        AvailableWidth * 0.325
+                    ),
+                    220,
+                    340
+                )
+
+            local BodyWidth =
+                math.max(
+                    280,
+                    AvailableWidth
+                    - SideWidth
+                )
+
+            local ContentHeight =
+                math.max(
+                    330,
+                    Height
+                    - BodyY
+                    - Margin
+                )
+
+            S.Body.Position =
+                UDim2.fromOffset(
+                    Margin,
+                    BodyY
+                )
+
+            S.Body.Size =
+                UDim2.fromOffset(
+                    BodyWidth,
+                    ContentHeight
+                )
+
+            S.SidePanel.Position =
+                UDim2.fromOffset(
+                    Margin
+                    + BodyWidth
+                    + Gap,
+                    BodyY
+                )
+
+            S.SidePanel.Size =
+                UDim2.fromOffset(
+                    SideWidth,
+                    ContentHeight
+                )
+
+            local ElementHeight =
+                math.max(
+                    120,
+                    math.floor(
+                        (
+                            ContentHeight
+                            - 96
+                        ) * 0.58
+                    )
+                )
+
+            S.ElementButtonHolder.Size =
+                UDim2.new(
+                    1,
+                    -28,
+                    0,
+                    ElementHeight
+                )
+
+            local SelectedTitleY =
+                38
+                + ElementHeight
+                + 12
+
+            local SelectedHolderY =
+                SelectedTitleY
+                + 20
+
+            S.SelectedElementHolder.Position =
+                UDim2.fromOffset(
+                    14,
+                    SelectedHolderY
+                )
+
+            S.SelectedElementHolder.Size =
+                UDim2.new(
+                    1,
+                    -28,
+                    1,
+                    -(
+                        SelectedHolderY
+                        + 14
+                    )
+                )
+
+            local SelectedTitle =
+                S.SidePanel:
+                    FindFirstChild(
+                        "SelectedTitle"
+                    )
+
+            if SelectedTitle then
+                SelectedTitle.Position =
+                    UDim2.fromOffset(
+                        14,
+                        SelectedTitleY
+                    )
+            end
+        end
+
+        Menu.AttachCornerResize(
+            S.Window,
+            {
+                Key = "EspEditor",
+                PositionKey = "EspPreviewPosition",
+                MinWidth = 620,
+                MinHeight = 420,
+                HandleSize = 13,
+                ZIndex = 5400,
+                OnResize =
+                    LayoutEspEditorWindow
+            }
+        )
+
+        LayoutEspEditorWindow()
+
         Bind(S.DetachButton.MouseButton1Click:Connect(function()
             S.Detached = not S.Detached
             Tween(S.DetachButton, 0.12, {
@@ -13045,6 +13857,10 @@ local function BuildRuntime()
         Bind(UserInputService.InputBegan:Connect(BeginModelRotation))
 
         Bind(S.Header.InputBegan:Connect(function(Input)
+            if S.Window:GetAttribute("AtramentaCornerResizing") then
+                return
+            end
+
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                 S.Dragging = true
                 S.DragStart = Input.Position
@@ -13345,6 +14161,10 @@ local function BuildRuntime()
     local ColorPickerWindowStartPosition
 
     Bind(Menu.SettingsUI.SettingsDragArea.InputBegan:Connect(function(Input)
+        if Menu.SettingsUI.SettingsPanel:GetAttribute("AtramentaCornerResizing") then
+            return
+        end
+
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
             SetTextInputsEnabled(false)
             SettingsDragging = true
@@ -13364,6 +14184,10 @@ local function BuildRuntime()
     end))
 
     Bind(DragArea.InputBegan:Connect(function(Input)
+        if Main:GetAttribute("AtramentaCornerResizing") then
+            return
+        end
+
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
             SetTextInputsEnabled(false)
             Dragging = true
@@ -16642,11 +17466,111 @@ local function BuildRuntime()
             task.defer(RefreshRows)
         end))
 
+        local function LayoutPlayerListWindow()
+            local Width =
+                math.max(
+                    Root.Size.X.Offset,
+                    560
+                )
+
+            local Height =
+                math.max(
+                    Root.Size.Y.Offset,
+                    390
+                )
+
+            local Margin = 12
+            local Gap = 10
+            local BodyY = 54
+
+            local AvailableWidth =
+                math.max(
+                    500,
+                    Width
+                    - Margin * 2
+                    - Gap
+                )
+
+            local LeftWidth =
+                math.clamp(
+                    math.floor(
+                        AvailableWidth
+                        * 0.55
+                    ),
+                    280,
+                    math.max(
+                        280,
+                        AvailableWidth - 220
+                    )
+                )
+
+            local RightWidth =
+                math.max(
+                    220,
+                    AvailableWidth
+                    - LeftWidth
+                )
+
+            local PanelHeight =
+                math.max(
+                    300,
+                    Height
+                    - BodyY
+                    - 14
+                )
+
+            LeftPanel.Position =
+                UDim2.fromOffset(
+                    Margin,
+                    BodyY
+                )
+
+            LeftPanel.Size =
+                UDim2.fromOffset(
+                    LeftWidth,
+                    PanelHeight
+                )
+
+            RightPanel.Position =
+                UDim2.fromOffset(
+                    Margin
+                    + LeftWidth
+                    + Gap,
+                    BodyY
+                )
+
+            RightPanel.Size =
+                UDim2.fromOffset(
+                    RightWidth,
+                    PanelHeight
+                )
+        end
+
+        Menu.AttachCornerResize(
+            Root,
+            {
+                Key = "PlayerList",
+                PositionKey = "PlayerList",
+                MinWidth = 560,
+                MinHeight = 390,
+                HandleSize = 13,
+                ZIndex = 5600,
+                OnResize =
+                    LayoutPlayerListWindow
+            }
+        )
+
+        LayoutPlayerListWindow()
+
         local Dragging = false
         local DragStart = Vector2.zero
         local DragPosition = Root.Position
 
         Bind(Header.InputBegan:Connect(function(Input)
+            if Root:GetAttribute("AtramentaCornerResizing") then
+                return
+            end
+
             if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                 Dragging = true
                 DragStart = UserInputService:GetMouseLocation()
@@ -25092,15 +26016,15 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
 
             local Width =
                 math.clamp(
-                    #Display * 6 + 18,
-                    48,
-                    118
+                    #Display * 5.5 + 14,
+                    34,
+                    92
                 )
 
             BindButton.Size =
                 UDim2.fromOffset(
                     Width,
-                    17
+                    15
                 )
 
             if BindData then
@@ -25141,8 +26065,8 @@ local function HybridBuildCompatibility(MainLibrary, RawWindow, Runtime)
                         LayoutOrder = 1000,
                         Size =
                             UDim2.fromOffset(
-                                48,
-                                17
+                                34,
+                                15
                             ),
                         BackgroundColor3 =
                             Color3.fromRGB(
