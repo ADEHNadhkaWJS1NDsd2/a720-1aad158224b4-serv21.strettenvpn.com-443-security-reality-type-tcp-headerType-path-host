@@ -9,8 +9,8 @@ local Library = {
     }
 }
 
-Library.Build = 25
-Library.BuildName = "BindPopupOldschool"
+Library.Build = 27
+Library.BuildName = "PopupLayerFix"
 
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -879,7 +879,8 @@ local function BuildRuntime()
         Parent = Parent,
         IgnoreGuiInset = false,
         ResetOnSpawn = false,
-        DisplayOrder = 10000,
+        Enabled = true,
+        DisplayOrder = 2147483647,
         ZIndexBehavior = Enum.ZIndexBehavior.Global
     })
 
@@ -973,7 +974,7 @@ local function BuildRuntime()
     })
 
     Menu.PickerInputBlocker = Create("TextButton", {
-        Parent = ScreenGui,
+        Parent = PopupScreenGui,
         Size = UDim2.fromScale(1, 1),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -4189,6 +4190,23 @@ local function BuildRuntime()
                 )
         end
 
+        local function TrackSignal(
+            Signal,
+            Callback
+        )
+            if not Signal
+                or type(Callback) ~= "function"
+            then
+                return nil
+            end
+
+            return Bind(
+                Signal:Connect(
+                    Callback
+                )
+            )
+        end
+
         local Existing =
             FindBind()
 
@@ -4431,7 +4449,7 @@ local function BuildRuntime()
             ModeButtons[Name] =
                 Button
 
-            MainLibrary:connection(
+            TrackSignal(
                 Button.MouseEnter,
                 function()
                     CurrentHover =
@@ -4446,7 +4464,7 @@ local function BuildRuntime()
                 end
             )
 
-            MainLibrary:connection(
+            TrackSignal(
                 Button.MouseLeave,
                 function()
                     if CurrentHover
@@ -4459,7 +4477,7 @@ local function BuildRuntime()
                 end
             )
 
-            MainLibrary:connection(
+            TrackSignal(
                 Button.MouseButton1Click,
                 function()
                     SetMode(Name)
@@ -4538,7 +4556,7 @@ local function BuildRuntime()
                 UDim.new(0, 10)
         })
 
-        MainLibrary:connection(
+        TrackSignal(
             Clear.MouseEnter,
             function()
                 Clear.BackgroundColor3 =
@@ -4548,7 +4566,7 @@ local function BuildRuntime()
             end
         )
 
-        MainLibrary:connection(
+        TrackSignal(
             Clear.MouseLeave,
             function()
                 Clear.BackgroundTransparency =
@@ -4556,7 +4574,7 @@ local function BuildRuntime()
             end
         )
 
-        MainLibrary:connection(
+        TrackSignal(
             Clear.MouseButton1Click,
             function()
                 Existing =
@@ -8735,7 +8753,7 @@ local function BuildRuntime()
     end)
 
     Menu.SettingsUI.ColorPickerContainer = Create("Frame", {
-        Parent = ScreenGui,
+        Parent = PopupScreenGui,
         Active = true,
         Position = UDim2.fromOffset(0, 0),
         Size = UDim2.fromOffset(174, 222),
