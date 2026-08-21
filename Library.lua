@@ -9,8 +9,8 @@ local Library = {
     }
 }
 
-Library.Build = 24
-Library.BuildName = "BindSystemRewrite"
+Library.Build = 25
+Library.BuildName = "BindPopupOldschool"
 
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -870,12 +870,33 @@ local function BuildRuntime()
         Parent = Parent,
         IgnoreGuiInset = false,
         ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        DisplayOrder = 100,
+        ZIndexBehavior = Enum.ZIndexBehavior.Global
+    })
+
+    local PopupScreenGui = Create("ScreenGui", {
+        Name = "AtramentaMenuPopups",
+        Parent = Parent,
+        IgnoreGuiInset = false,
+        ResetOnSpawn = false,
+        DisplayOrder = 10000,
+        ZIndexBehavior = Enum.ZIndexBehavior.Global
     })
 
     Library.Call(function()
-        ScreenGui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
+        ScreenGui.ScreenInsets =
+            Enum.ScreenInsets.CoreUISafeInsets
         ScreenGui.ClipToDeviceSafeArea = true
+
+        PopupScreenGui.ScreenInsets =
+            Enum.ScreenInsets.CoreUISafeInsets
+        PopupScreenGui.ClipToDeviceSafeArea = true
+    end)
+
+    Library.Call(function()
+        if syn and syn.protect_gui then
+            syn.protect_gui(PopupScreenGui)
+        end
     end)
 
     Menu.ControlRenderers = Menu.ControlRenderers or {}
@@ -4161,9 +4182,6 @@ local function BuildRuntime()
                 TargetFlag
             )
 
-        local DirectId =
-            "Direct:" .. TargetFlag
-
         local function FindBind()
             return
                 Menu.BindSystem.GetPrimaryControlBind(
@@ -4190,51 +4208,30 @@ local function BuildRuntime()
             or "Toggle"
 
         ActiveGearBindMenu = Create("Frame", {
-            Parent = ScreenGui,
+            Parent = PopupScreenGui,
             Name = "BindModePopup",
             Active = true,
-            Size = UDim2.fromOffset(104, 92),
+            Size = UDim2.fromOffset(86, 67),
             BackgroundColor3 = Background,
             BackgroundTransparency = 0,
             BorderSizePixel = 0,
-            ZIndex = 5000
+            ZIndex = 100
         })
 
-        Stroke(
+        Menu:ApplyOldschoolChrome(
             ActiveGearBindMenu,
-            Color3.fromRGB(2, 2, 3),
-            0,
-            1
+            nil,
+            100
         )
-
-        Create("UIStroke", {
-            Parent = ActiveGearBindMenu,
-            Color = Border,
-            Transparency = 0,
-            Thickness = 1,
-            ApplyStrokeMode =
-                Enum.ApplyStrokeMode.Border,
-            LineJoinMode =
-                Enum.LineJoinMode.Miter
-        })
-
-        Create("Frame", {
-            Parent = ActiveGearBindMenu,
-            Position = UDim2.fromOffset(1, 1),
-            Size = UDim2.new(1, -2, 0, 2),
-            BackgroundColor3 = Accent,
-            BorderSizePixel = 0,
-            ZIndex = 5001
-        })
 
         local Preferred =
             UDim2.fromOffset(
                 Anchor.AbsolutePosition.X
                     + Anchor.AbsoluteSize.X
-                    - 104,
+                    - 86,
                 Anchor.AbsolutePosition.Y
                     + Anchor.AbsoluteSize.Y
-                    + 3
+                    + 2
             )
 
         PlacePopup(
@@ -4244,6 +4241,7 @@ local function BuildRuntime()
         )
 
         local ModeButtons = {}
+        local CurrentHover
 
         local function RefreshButtons()
             Existing =
@@ -4268,16 +4266,11 @@ local function BuildRuntime()
 
                 Button.BackgroundColor3 =
                     Selected
-                    and Color3.fromRGB(
-                        29,
-                        29,
-                        34
-                    )
-                    or Color3.fromRGB(
-                        16,
-                        16,
-                        19
-                    )
+                    and SurfaceAlt
+                    or Background
+
+                Button.BackgroundTransparency =
+                    Selected and 0 or 1
 
                 Button.TextColor3 =
                     Selected
@@ -4292,7 +4285,6 @@ local function BuildRuntime()
                 if Marker then
                     Marker.Visible =
                         Selected
-
                     Marker.BackgroundColor3 =
                         Accent
                 end
@@ -4381,76 +4373,125 @@ local function BuildRuntime()
                             ActiveGearBindMenu,
                         Position =
                             UDim2.fromOffset(
-                                4,
+                                2,
                                 Y
                             ),
                         Size =
                             UDim2.new(
                                 1,
-                                -8,
+                                -4,
                                 0,
-                                19
+                                15
                             ),
                         BackgroundColor3 =
-                            Color3.fromRGB(
-                                16,
-                                16,
-                                19
-                            ),
+                            Background,
+                        BackgroundTransparency = 1,
                         BorderSizePixel = 0,
                         AutoButtonColor = false,
                         Font =
-                            Enum.Font.BuilderSansMedium,
+                            Enum.Font.BuilderSans,
                         Text = Name,
                         TextColor3 =
                             PrimaryText,
                         TextSize = 9,
                         TextXAlignment =
                             Enum.TextXAlignment.Left,
-                        ZIndex = 5001
+                        ZIndex = 102
                     }
                 )
 
             Create("UIPadding", {
                 Parent = Button,
                 PaddingLeft =
-                    UDim.new(0, 12)
+                    UDim.new(0, 10)
             })
 
             Create("Frame", {
                 Parent = Button,
                 Name = "Marker",
                 Position =
-                    UDim2.fromOffset(
+                    UDim2.new(
+                        0,
                         4,
-                        8
+                        0.5,
+                        -4
                     ),
                 Size =
                     UDim2.fromOffset(
-                        3,
-                        3
+                        2,
+                        8
                     ),
                 BackgroundColor3 =
                     Accent,
                 BorderSizePixel = 0,
                 Visible = false,
-                ZIndex = 5002
+                ZIndex = 103
             })
 
             ModeButtons[Name] =
                 Button
 
-            Bind(
-                Button.MouseButton1Click:
-                    Connect(function()
-                        SetMode(Name)
-                    end)
+            MainLibrary:connection(
+                Button.MouseEnter,
+                function()
+                    CurrentHover =
+                        Button
+
+                    if Name ~= Mode then
+                        Button.BackgroundColor3 =
+                            Surface
+                        Button.BackgroundTransparency =
+                            0
+                    end
+                end
+            )
+
+            MainLibrary:connection(
+                Button.MouseLeave,
+                function()
+                    if CurrentHover
+                        == Button
+                    then
+                        CurrentHover = nil
+                    end
+
+                    RefreshButtons()
+                end
+            )
+
+            MainLibrary:connection(
+                Button.MouseButton1Click,
+                function()
+                    SetMode(Name)
+                end
             )
         end
 
-        CreateMode("Toggle", 7)
-        CreateMode("Hold", 28)
-        CreateMode("Always", 49)
+        CreateMode("Toggle", 2)
+        CreateMode("Hold", 17)
+        CreateMode("Always", 32)
+
+        Create("Frame", {
+            Parent = ActiveGearBindMenu,
+            Position =
+                UDim2.fromOffset(
+                    3,
+                    48
+                ),
+            Size =
+                UDim2.new(
+                    1,
+                    -6,
+                    0,
+                    1
+                ),
+            BackgroundColor3 =
+                Border,
+            BackgroundTransparency =
+                0.30,
+            BorderSizePixel = 0,
+            ZIndex = 102
+        })
 
         local Clear =
             Create(
@@ -4460,113 +4501,133 @@ local function BuildRuntime()
                         ActiveGearBindMenu,
                     Position =
                         UDim2.fromOffset(
-                            4,
-                            70
+                            2,
+                            50
                         ),
                     Size =
                         UDim2.new(
                             1,
-                            -8,
+                            -4,
                             0,
-                            18
+                            15
                         ),
                     BackgroundColor3 =
-                        Color3.fromRGB(
-                            16,
-                            16,
-                            19
-                        ),
+                        Background,
+                    BackgroundTransparency = 1,
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
                     Font =
-                        Enum.Font.BuilderSansMedium,
+                        Enum.Font.BuilderSans,
                     Text = "Clear",
-                    TextColor3 = Danger,
+                    TextColor3 =
+                        Color3.fromRGB(
+                            181,
+                            83,
+                            83
+                        ),
                     TextSize = 9,
                     TextXAlignment =
                         Enum.TextXAlignment.Left,
-                    ZIndex = 5001
+                    ZIndex = 102
                 }
             )
 
         Create("UIPadding", {
             Parent = Clear,
             PaddingLeft =
-                UDim.new(0, 12)
+                UDim.new(0, 10)
         })
 
-        Bind(
-            Clear.MouseButton1Click:
-                Connect(function()
-                    Existing =
-                        FindBind()
+        MainLibrary:connection(
+            Clear.MouseEnter,
+            function()
+                Clear.BackgroundColor3 =
+                    Surface
+                Clear.BackgroundTransparency =
+                    0
+            end
+        )
 
-                    if Existing then
-                        local RuntimeKey =
-                            Menu.BindSystem.GetRuntimeKey(
-                                TargetFlag,
-                                Existing
-                            )
+        MainLibrary:connection(
+            Clear.MouseLeave,
+            function()
+                Clear.BackgroundTransparency =
+                    1
+            end
+        )
 
-                        if Menu.BindRuntime[
+        MainLibrary:connection(
+            Clear.MouseButton1Click,
+            function()
+                Existing =
+                    FindBind()
+
+                if Existing then
+                    local RuntimeKey =
+                        Menu.BindSystem.GetRuntimeKey(
+                            TargetFlag,
+                            Existing
+                        )
+
+                    if Menu.BindRuntime[
+                        RuntimeKey
+                    ] then
+                        Menu.BindSystem.ReleaseHold(
                             RuntimeKey
-                        ] then
-                            Menu.BindSystem.ReleaseHold(
-                                RuntimeKey
-                            )
-                        elseif Existing.Mode
-                                == "Always"
-                            and Existing.BaseValue
-                                ~= nil
-                        then
-                            Menu.BindSystem.ApplyFlagValue(
-                                TargetFlag,
-                                Menu.BindSystem.DecodeBindValue(
-                                    Existing.BaseValue
-                                )
-                            )
-                        end
-
-                        for Index = #Binds,
-                            1,
-                            -1
-                        do
-                            if Binds[Index]
-                                == Existing
-                                or (
-                                    type(
-                                        Binds[Index]
-                                    ) == "table"
-                                    and Binds[Index].Id
-                                        == Existing.Id
-                                )
-                            then
-                                table.remove(
-                                    Binds,
-                                    Index
-                                )
-                            end
-                        end
-                    end
-
-                    Menu.BindModeDefaults[
-                        TargetFlag
-                    ] = "Toggle"
-
-                    SavePositions()
-                    RefreshBindButton()
-
-                    if Menu.KeybindListController
-                        and Menu.KeybindListController.MarkDirty
+                        )
+                    elseif Existing.Mode
+                            == "Always"
+                        and Existing.BaseValue
+                            ~= nil
                     then
-                        Menu.KeybindListController.MarkDirty()
+                        Menu.BindSystem.ApplyFlagValue(
+                            TargetFlag,
+                            Menu.BindSystem.DecodeBindValue(
+                                Existing.BaseValue
+                            )
+                        )
                     end
 
-                    if ActiveGearBindMenu then
-                        ActiveGearBindMenu:Destroy()
-                        ActiveGearBindMenu = nil
+                    for Index = #Binds,
+                        1,
+                        -1
+                    do
+                        if Binds[Index]
+                            == Existing
+                            or (
+                                type(
+                                    Binds[Index]
+                                ) == "table"
+                                and Binds[Index].Id
+                                    == Existing.Id
+                            )
+                        then
+                            table.remove(
+                                Binds,
+                                Index
+                            )
+                        end
                     end
-                end)
+                end
+
+                Menu.BindModeDefaults[
+                    TargetFlag
+                ] = "Toggle"
+
+                SavePositions()
+                RefreshBindButton()
+
+                if Menu.KeybindListController
+                    and Menu.KeybindListController.MarkDirty
+                then
+                    Menu.KeybindListController.MarkDirty()
+                end
+
+                if ActiveGearBindMenu then
+                    ActiveGearBindMenu:Destroy()
+                    ActiveGearBindMenu = nil
+                end
+            end
         )
 
         RefreshButtons()
@@ -13292,11 +13353,17 @@ local function BuildRuntime()
                     and Position.Y >= ObjectPosition.Y and Position.Y <= ObjectPosition.Y + ObjectSize.Y
             end
 
-            if ActiveGearMenu
+            local GearPopupOpen =
+                ActiveGearMenu
+                or ActiveGearBindMenu
+                or ActiveGearHotkeysMenu
+
+            if GearPopupOpen
                 and not IsInside(ActiveGearMenu)
                 and not IsInside(ActiveGearBindMenu)
                 and not IsInside(ActiveGearHotkeysMenu)
-                and not IsInside(ActiveGearButton) then
+                and not IsInside(ActiveGearButton)
+            then
                 CloseGearMenus()
             end
 
@@ -13555,6 +13622,13 @@ local function BuildRuntime()
             end)
         end
         table.clear(self.Connections)
+
+        if PopupScreenGui
+            and PopupScreenGui.Parent
+        then
+            PopupScreenGui:Destroy()
+        end
+
         ScreenGui:Destroy()
     end
 
