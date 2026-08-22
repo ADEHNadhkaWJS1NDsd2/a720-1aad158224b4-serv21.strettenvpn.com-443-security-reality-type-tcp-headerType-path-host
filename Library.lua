@@ -9,8 +9,8 @@ local Library = {
     }
 }
 
-Library.Build = 32
-Library.BuildName = "FlashScopedElements"
+Library.Build = 31
+Library.BuildName = "FourCornerResize"
 
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -11998,40 +11998,6 @@ local function BuildRuntime()
             ZIndex = 27
         })
 
-        S.Flash = Create("TextLabel", {
-            Parent = S.Overlay,
-            AnchorPoint = Vector2.new(0.5, 1),
-            Position = UDim2.fromScale(0.5, 1.138),
-            Size = UDim2.new(1, -24, 0, 18),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSans,
-            Text = "[FLASH]",
-            TextColor3 = Color3.fromRGB(255, 224, 96),
-            TextSize = 10,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            TextXAlignment = Enum.TextXAlignment.Center,
-            Active = true,
-            Visible = false,
-            ZIndex = 27
-        })
-
-        S.Scoped = Create("TextLabel", {
-            Parent = S.Overlay,
-            AnchorPoint = Vector2.new(0.5, 1),
-            Position = UDim2.fromScale(0.5, 1.178),
-            Size = UDim2.new(1, -24, 0, 18),
-            BackgroundTransparency = 1,
-            Font = Enum.Font.BuilderSans,
-            Text = "[SCOPED]",
-            TextColor3 = Color3.fromRGB(116, 176, 255),
-            TextSize = 10,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-            TextXAlignment = Enum.TextXAlignment.Center,
-            Active = true,
-            Visible = false,
-            ZIndex = 27
-        })
-
         S.Flags = Create("TextLabel", {
             Parent = S.Overlay,
             AnchorPoint = Vector2.new(0, 0),
@@ -12247,8 +12213,6 @@ local function BuildRuntime()
             Level = "Player ESP Level Offset",
             Ammo = "Player ESP Ammo Offset",
             Forcefield = "Player ESP Forcefield Offset",
-            Flash = "Player ESP Flash Offset",
-            Scoped = "Player ESP Scoped Offset",
             Flags = "Player ESP Flags Offset",
             Avatar = "Player ESP Avatar Offset"
         }
@@ -12262,8 +12226,6 @@ local function BuildRuntime()
             Level = "Player ESP Level Zone",
             Ammo = "Player ESP Ammo Zone",
             Forcefield = "Player ESP Forcefield Zone",
-            Flash = "Player ESP Flash Zone",
-            Scoped = "Player ESP Scoped Zone",
             Flags = "Player ESP Flags Zone",
             Avatar = "Player ESP Avatar Zone"
         }
@@ -12277,8 +12239,6 @@ local function BuildRuntime()
             Level = "Player ESP Level",
             Ammo = "Player ESP Ammo",
             Forcefield = "Player ESP Forcefield",
-            Flash = "Player ESP Flash",
-            Scoped = "Player ESP Scoped",
             Flags = "Player ESP Flags",
             Avatar = "Player ESP Profile Picture"
         }
@@ -12288,8 +12248,6 @@ local function BuildRuntime()
             HealthValue = "Left",
             Name = "Top",
             Forcefield = "Top",
-            Flash = "Bottom",
-            Scoped = "Bottom",
             Weapon = "Bottom",
             Distance = "Bottom",
             Level = "Bottom",
@@ -12304,8 +12262,6 @@ local function BuildRuntime()
             "Weapon",
             "Distance",
             "Level",
-            "Flash",
-            "Scoped",
             "Ammo",
             "Avatar",
             "Flags",
@@ -12432,8 +12388,6 @@ local function BuildRuntime()
                 Level = S.Level,
                 Ammo = S.Ammo,
                 Forcefield = S.Forcefield,
-                Flash = S.Flash,
-                Scoped = S.Scoped,
                 Avatar = S.Avatar,
                 Flags = S.Flags
             }
@@ -12561,8 +12515,6 @@ local function BuildRuntime()
             {Name = "Distance", Flag = "Player ESP Distance"},
             {Name = "Level", Flag = "Player ESP Level"},
             {Name = "Forcefield", Flag = "Player ESP Forcefield"},
-            {Name = "Flash", Flag = "Player ESP Flash"},
-            {Name = "Scoped", Flag = "Player ESP Scoped"},
             {Name = "Flags", Flag = "Player ESP Flags"},
             {Name = "Skeleton", Flag = "Player ESP Skeleton"},
             {Name = "View Direction", Flag = "Player ESP Look Line"},
@@ -13518,16 +13470,6 @@ local function BuildRuntime()
             S.Forcefield.TextColor3 = GetFlag("Player ESP Forcefield Color", Accent)
             S.Forcefield.TextSize = math.max(9, TextSize - 2)
 
-            S.Flash.Visible = DisplayEnabled and GetFlag("Player ESP Flash", false)
-            S.Flash.Text = "[FLASH]"
-            S.Flash.TextColor3 = GetFlag("Player ESP Flash Color", Color3.fromRGB(255, 224, 96))
-            S.Flash.TextSize = math.max(9, TextSize - 2)
-
-            S.Scoped.Visible = DisplayEnabled and GetFlag("Player ESP Scoped", false)
-            S.Scoped.Text = "[SCOPED]"
-            S.Scoped.TextColor3 = GetFlag("Player ESP Scoped Color", Color3.fromRGB(116, 176, 255))
-            S.Scoped.TextSize = math.max(9, TextSize - 2)
-
             S.Avatar.Visible = DisplayEnabled and GetFlag("Player ESP Profile Picture", false)
             if S.Avatar.Visible and LocalPlayer then
                 S.Avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(LocalPlayer.UserId) .. "&w=100&h=100"
@@ -13887,8 +13829,6 @@ local function BuildRuntime()
         BindPreviewElementDrag("Level", S.Level)
         BindPreviewElementDrag("Ammo", S.Ammo)
         BindPreviewElementDrag("Forcefield", S.Forcefield)
-        BindPreviewElementDrag("Flash", S.Flash)
-        BindPreviewElementDrag("Scoped", S.Scoped)
         BindPreviewElementDrag("Avatar", S.Avatar)
         BindPreviewElementDrag("Flags", S.Flags)
 
