@@ -201,7 +201,21 @@ local function RemoveList(List)
     end
 end
 
+local function Call(Callback, ...)
+    if type(Callback) ~= "function" then return end
+    local Thread = coroutine.create(Callback)
+    coroutine.resume(Thread, ...)
+end
+
 local function LerpColor(A, B, Alpha)
+    if typeof(B) ~= "Color3" then
+        B = FromRGB(255, 255, 255)
+    end
+
+    if typeof(A) ~= "Color3" then
+        return B
+    end
+
     return NewColor3(
         A.R + (B.R - A.R) * Alpha,
         A.G + (B.G - A.G) * Alpha,
@@ -210,6 +224,10 @@ local function LerpColor(A, B, Alpha)
 end
 
 local function RgbToHsv(Color)
+    if typeof(Color) ~= "Color3" then
+        Color = FromRGB(255, 255, 255)
+    end
+
     local R, G, B = Color.R, Color.G, Color.B
     local High = Max(R, G, B)
     local Low = Min(R, G, B)
@@ -253,6 +271,10 @@ local function HsvToRgb(H, S, V)
 end
 
 local function ColorToHex(Color)
+    if typeof(Color) ~= "Color3" then
+        Color = FromRGB(255, 255, 255)
+    end
+
     return Format("#%02X%02X%02X", Floor(Color.R * 255 + 0.5), Floor(Color.G * 255 + 0.5), Floor(Color.B * 255 + 0.5))
 end
 
@@ -262,6 +284,10 @@ local function RoundStep(Value, Step)
 end
 
 local function PointIn(Position, Size, MousePosition)
+    if typeof(Position) ~= "Vector2" or typeof(Size) ~= "Vector2" or typeof(MousePosition) ~= "Vector2" then
+        return false
+    end
+
     return MousePosition.X >= Position.X and MousePosition.X <= Position.X + Size.X and MousePosition.Y >= Position.Y and MousePosition.Y <= Position.Y + Size.Y
 end
 
@@ -274,7 +300,7 @@ local function SanitizeName(Name)
 end
 
 local Library = {
-    Version = 5,
+    Version = 6,
     Theme = "Indigo",
     Windows = {},
     Background = nil
@@ -318,6 +344,8 @@ local function CloseDropdown(Window)
     RemoveList(Dropdown.Popup)
     Dropdown.Popup = {}
     Dropdown.PopupBounds = {}
+    Dropdown.PopupPosition = nil
+    Dropdown.PopupSize = nil
     Window.OpenDropdown = nil
 end
 
@@ -349,7 +377,8 @@ local function RefreshTheme(Window)
             for _, Control in ipairs(Section.Controls) do
                 if Control.Type == "Toggle" then
                     Control.Drawings.Outline.Color = Theme.Outline
-                    Control.Drawings.Box.Color = Control.Value and Theme.Accent or Theme.Control
+                    Control.BoxColor = Control.Value and Theme.Accent or Theme.Control
+                    Control.Drawings.Box.Color = Control.BoxColor
                     Control.Drawings.Text.Color = Control.Value and Theme.Text or Theme.Dim
                 elseif Control.Type == "Slider" then
                     Control.Drawings.Text.Color = Theme.Dim
@@ -360,7 +389,8 @@ local function RefreshTheme(Window)
                     Control.Drawings.Thumb.Color = Theme.Text
                 elseif Control.Type == "Dropdown" then
                     Control.Drawings.Outline.Color = Theme.Outline
-                    Control.Drawings.Box.Color = Theme.Control
+                    Control.BoxColor = Theme.Control
+                    Control.Drawings.Box.Color = Control.BoxColor
                     Control.Drawings.Text.Color = Theme.Dim
                     Control.Drawings.Arrow.Color = Theme.Dim
                 elseif Control.Type == "Colorpicker" then
@@ -369,18 +399,21 @@ local function RefreshTheme(Window)
                     Control.Drawings.Box.Color = Control.Value
                 elseif Control.Type == "Button" then
                     Control.Drawings.Outline.Color = Theme.Outline
-                    Control.Drawings.Box.Color = Theme.Control
+                    Control.BoxColor = Theme.Control
+                    Control.Drawings.Box.Color = Control.BoxColor
                     Control.Drawings.Text.Color = Theme.Text
                 elseif Control.Type == "Label" then
                     Control.Drawings.Text.Color = Theme.Dim
                 elseif Control.Type == "Keybind" then
                     Control.Drawings.Outline.Color = Theme.Outline
-                    Control.Drawings.Box.Color = Theme.Control
+                    Control.BoxColor = Theme.Control
+                    Control.Drawings.Box.Color = Control.BoxColor
                     Control.Drawings.Text.Color = Theme.Dim
                 end
 
                 if Control.Bind then
-                    Control.Bind.Box.Color = Theme.Control
+                    Control.Bind.BoxColor = Theme.Control
+                    Control.Bind.Box.Color = Control.Bind.BoxColor
                     Control.Bind.Inline.Color = Theme.Outline
                     Control.Bind.Text.Color = Theme.Dim
                 end
@@ -436,7 +469,8 @@ local function RefreshControl(Control, X, Y, Width)
         D.Box.Size = NewVector2(12, 12)
         D.Text.Position = NewVector2(X + 22, Y + 4)
         D.Text.Text = Control.Name
-        D.Box.Color = Control.Value and Theme.Accent or Theme.Control
+        Control.BoxColor = Control.Value and Theme.Accent or Theme.Control
+        D.Box.Color = Control.BoxColor
         D.Text.Color = Control.Value and Theme.Text or Theme.Dim
         Control.HitPosition = NewVector2(X, Y)
         Control.HitSize = NewVector2(Width, 22)
@@ -451,6 +485,9 @@ local function RefreshControl(Control, X, Y, Width)
             Bind.Text.Position = NewVector2(Right - 29, Y + 5)
             Bind.HitPosition = NewVector2(Right - 58, Y + 2)
             Bind.HitSize = NewVector2(58, 18)
+            if typeof(Bind.BoxColor) ~= "Color3" then
+                Bind.BoxColor = Theme.Control
+            end
         end
 
         if Control.AttachedColor then
@@ -461,8 +498,8 @@ local function RefreshControl(Control, X, Y, Width)
             Color.Box.Position = NewVector2(Right - 17 - Offset, Y + 4)
             Color.Box.Size = NewVector2(16, 14)
             Color.Box.Color = Color.Value
-            Color.HitPosition = Color.Outline.Position
-            Color.HitSize = Color.Outline.Size
+            Color.HitPosition = NewVector2(Right - 18 - Offset, Y + 3)
+            Color.HitSize = NewVector2(18, 16)
         end
     elseif Control.Type == "Slider" then
         local D = Control.Drawings
@@ -503,8 +540,8 @@ local function RefreshControl(Control, X, Y, Width)
         D.Box.Position = NewVector2(X + Width - 41, Y + 3)
         D.Box.Size = NewVector2(40, 16)
         D.Box.Color = Control.Value
-        Control.HitPosition = D.Outline.Position
-        Control.HitSize = D.Outline.Size
+        Control.HitPosition = NewVector2(X + Width - 42, Y + 2)
+        Control.HitSize = NewVector2(42, 18)
     elseif Control.Type == "Button" then
         local D = Control.Drawings
         D.Outline.Position = NewVector2(X, Y)
@@ -1279,7 +1316,7 @@ function ControlMethods:SetValue(Value, Silent)
 
     RefreshLayout(self.Window)
     RefreshTheme(self.Window)
-    if not Silent and self.Callback then self.Callback(self:GetValue()) end
+    if not Silent then Call(self.Callback, self:GetValue()) end
     return self
 end
 
@@ -1343,7 +1380,7 @@ function ControlMethods:AddColorpicker(Name, Default, Callback)
         if typeof(Value) ~= "Color3" then return self end
         self.Value = Value
         self.Box.Color = Value
-        if not Silent and self.Callback then self.Callback(Value) end
+        if not Silent then Call(self.Callback, Value) end
         return self
     end
 
@@ -1394,7 +1431,10 @@ local function CreateDropdownPopup(Control)
     local Height = #Control.Options * 21 + 2
     local Theme = Window.Theme
 
-    local Outline = NewDrawing("Square", {Position = NewVector2(X, Y), Size = NewVector2(Width, Height), Filled = true, Corner = 6, Color = Theme.Outline, Transparency = 0.55})
+    Control.PopupPosition = NewVector2(X, Y)
+    Control.PopupSize = NewVector2(Width, Height)
+
+    local Outline = NewDrawing("Square", {Position = Control.PopupPosition, Size = Control.PopupSize, Filled = true, Corner = 6, Color = Theme.Outline, Transparency = 0.55})
     local Background = NewDrawing("Square", {Position = NewVector2(X + 1, Y + 1), Size = NewVector2(Width - 2, Height - 2), Filled = true, Corner = 5, Color = Theme.Group, Transparency = 0.99})
     Insert(Control.Popup, Outline)
     Insert(Control.Popup, Background)
@@ -1512,10 +1552,10 @@ local function UpdatePicker(Picker, MousePosition)
 
     if Picker.Type == "Colorpicker" then
         Picker.Drawings.Box.Color = Color
-        if Picker.Callback then Picker.Callback(Color) end
+        Call(Picker.Callback, Color)
     else
         Picker.Box.Color = Color
-        if Picker.Callback then Picker.Callback(Color) end
+        Call(Picker.Callback, Color)
     end
 end
 
@@ -1692,12 +1732,12 @@ function WindowMethods:Run()
                     if PointIn(Entry.Position, Entry.Size, MousePosition) then
                         if Dropdown.Multi then
                             Dropdown.Value[Entry.Option] = not Dropdown.Value[Entry.Option]
-                            if Dropdown.Callback then Dropdown.Callback(Dropdown:GetValue()) end
+                            Call(Dropdown.Callback, Dropdown:GetValue())
                             RefreshDropdownPopup(Dropdown, MousePosition)
                             RefreshLayout(self)
                         else
                             Dropdown.Value = Entry.Option
-                            if Dropdown.Callback then Dropdown.Callback(Entry.Option) end
+                            Call(Dropdown.Callback, Entry.Option)
                             CloseDropdown(self)
                             RefreshLayout(self)
                         end
@@ -1707,8 +1747,7 @@ function WindowMethods:Run()
                 end
 
                 if not Consumed then
-                    local Popup = Dropdown.Popup[1]
-                    if not Popup or not PointIn(Popup.Position, Popup.Size, MousePosition) then
+                    if not PointIn(Dropdown.PopupPosition, Dropdown.PopupSize, MousePosition) then
                         CloseDropdown(self)
                     end
                 end
@@ -1786,7 +1825,7 @@ function WindowMethods:Run()
                                     elseif Control.Type == "Colorpicker" then
                                         CreatePickerPopup(Control, Control.HitPosition, Control.HitSize)
                                     elseif Control.Type == "Button" then
-                                        if Control.Callback then Control.Callback() end
+                                        Call(Control.Callback)
                                     elseif Control.Type == "Keybind" then
                                         self.Capturing = Control
                                     end
@@ -1856,15 +1895,18 @@ function WindowMethods:Run()
                         local Hover = PointIn(Control.HitPosition, Control.HitSize, MousePosition)
                         if Control.Type == "Toggle" then
                             local Target = Control.Value and Theme.Accent or Hover and Theme.Hover or Theme.Control
-                            Control.Drawings.Box.Color = LerpColor(Control.Drawings.Box.Color, Target, 0.22)
+                            Control.BoxColor = LerpColor(Control.BoxColor, Target, 0.22)
+                            Control.Drawings.Box.Color = Control.BoxColor
                         elseif Control.Type == "Dropdown" or Control.Type == "Button" or Control.Type == "Keybind" then
                             local Target = Hover and Theme.Hover or Theme.Control
-                            Control.Drawings.Box.Color = LerpColor(Control.Drawings.Box.Color, Target, 0.22)
+                            Control.BoxColor = LerpColor(Control.BoxColor, Target, 0.22)
+                            Control.Drawings.Box.Color = Control.BoxColor
                         end
 
                         if Control.Bind then
                             local BindHover = PointIn(Control.Bind.HitPosition, Control.Bind.HitSize, MousePosition)
-                            Control.Bind.Box.Color = LerpColor(Control.Bind.Box.Color, BindHover and Theme.Hover or Theme.Control, 0.22)
+                            Control.Bind.BoxColor = LerpColor(Control.Bind.BoxColor, BindHover and Theme.Hover or Theme.Control, 0.22)
+                            Control.Bind.Box.Color = Control.Bind.BoxColor
                             Control.Bind.Text.Text = self.Capturing == Control.Bind and "[...]" or "[" .. GetKeyName(Control.Bind.Key) .. "]"
                         end
                     end
