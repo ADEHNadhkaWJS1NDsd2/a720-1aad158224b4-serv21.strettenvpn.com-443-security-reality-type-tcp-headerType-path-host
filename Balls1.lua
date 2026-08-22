@@ -23,7 +23,7 @@ local Wait = task.wait
 if _G.Balls1Drawings then
     for Index = #_G.Balls1Drawings, 1, -1 do
         local Object = _G.Balls1Drawings[Index]
-        if Object and Object.Remove then
+        if Object then
             Object:Remove()
         end
     end
@@ -191,7 +191,7 @@ local function RemoveDrawing(Object)
             break
         end
     end
-    if Object.Remove then Object:Remove() end
+    Object:Remove()
 end
 
 local function RemoveList(List)
@@ -274,6 +274,7 @@ local function SanitizeName(Name)
 end
 
 local Library = {
+    Version = 5,
     Theme = "Indigo",
     Windows = {},
     Background = nil
@@ -744,9 +745,9 @@ function Library:CreateWindow(Config)
 
     setmetatable(Window, {__index = WindowMethods})
 
-    Window.Outline = NewDrawing("Square", {Filled = true, Rounding = 10, Transparency = 0.35})
-    Window.Background = NewDrawing("Square", {Filled = true, Rounding = 9, Transparency = Window.Opacity})
-    Window.Sidebar = NewDrawing("Square", {Filled = true, Rounding = 9, Transparency = 0.98})
+    Window.Outline = NewDrawing("Square", {Filled = true, Corner = 10, Transparency = 0.35})
+    Window.Background = NewDrawing("Square", {Filled = true, Corner = 9, Transparency = Window.Opacity})
+    Window.Sidebar = NewDrawing("Square", {Filled = true, Corner = 9, Transparency = 0.98})
     Window.Divider = NewDrawing("Square", {Filled = true, Transparency = 0.35})
     Window.Accent = NewDrawing("Square", {Filled = true, Transparency = 1})
     Window.Title = NewDrawing("Text", {Text = Window.TitleText, Size = 16, Font = Drawing.Fonts.System, Outline = true, Transparency = 1})
@@ -1020,7 +1021,7 @@ function WindowMethods:GetDrawings()
             Insert(List, Section.Title)
             for _, Control in ipairs(Section.Controls) do
                 for _, Object in pairs(Control.Drawings) do
-                    if Object and Object.Remove then Insert(List, Object) end
+                    if Object then Insert(List, Object) end
                 end
                 if Control.Bind then
                     Insert(List, Control.Bind.Inline)
@@ -1061,8 +1062,8 @@ function TabMethods:Section(Name, Side, Icon)
     }
     setmetatable(Section, {__index = SectionMethods})
 
-    Section.Outline = NewDrawing("Square", {Filled = true, Rounding = 8, Transparency = 0.35})
-    Section.Background = NewDrawing("Square", {Filled = true, Rounding = 7, Transparency = 0.96})
+    Section.Outline = NewDrawing("Square", {Filled = true, Corner = 8, Transparency = 0.35})
+    Section.Background = NewDrawing("Square", {Filled = true, Corner = 7, Transparency = 0.96})
     Section.Title = NewDrawing("Text", {Text = Section.Name, Size = 13, Font = Drawing.Fonts.System, Outline = true, Transparency = 1})
 
     Insert(self.Sections, Section)
@@ -1082,8 +1083,8 @@ function SectionMethods:Toggle(Name, Default, Callback)
     }
 
     Control.Drawings = {
-        Outline = NewDrawing("Square", {Filled = true, Rounding = 4, Transparency = 0.4}),
-        Box = NewDrawing("Square", {Filled = true, Rounding = 3, Transparency = 1}),
+        Outline = NewDrawing("Square", {Filled = true, Corner = 4, Transparency = 0.4}),
+        Box = NewDrawing("Square", {Filled = true, Corner = 3, Transparency = 1}),
         Text = NewDrawing("Text", {Text = Control.Name, Size = 13, Font = Drawing.Fonts.System, Outline = true, Transparency = 1})
     }
 
@@ -1111,9 +1112,9 @@ function SectionMethods:Slider(Name, Default, Step, Minimum, Maximum, Suffix, Ca
     Control.Drawings = {
         Text = NewDrawing("Text", {Text = Control.Name, Size = 12, Font = Drawing.Fonts.System, Outline = true, Transparency = 1}),
         Value = NewDrawing("Text", {Text = "", Size = 12, Font = Drawing.Fonts.System, Outline = true, Center = false, Transparency = 1}),
-        Outline = NewDrawing("Square", {Filled = true, Rounding = 4, Transparency = 0.35}),
-        Bar = NewDrawing("Square", {Filled = true, Rounding = 3, Transparency = 0.95}),
-        Fill = NewDrawing("Square", {Filled = true, Rounding = 3, Transparency = 1}),
+        Outline = NewDrawing("Square", {Filled = true, Corner = 4, Transparency = 0.35}),
+        Bar = NewDrawing("Square", {Filled = true, Corner = 3, Transparency = 0.95}),
+        Fill = NewDrawing("Square", {Filled = true, Corner = 3, Transparency = 1}),
         Thumb = NewDrawing("Circle", {Filled = true, Radius = 3, Transparency = 1})
     }
     Control.Drawings.Value.Center = false
@@ -1149,8 +1150,8 @@ function SectionMethods:Dropdown(Name, Default, Options, Multi, Callback)
     end
 
     Control.Drawings = {
-        Outline = NewDrawing("Square", {Filled = true, Rounding = 5, Transparency = 0.35}),
-        Box = NewDrawing("Square", {Filled = true, Rounding = 4, Transparency = 0.96}),
+        Outline = NewDrawing("Square", {Filled = true, Corner = 5, Transparency = 0.35}),
+        Box = NewDrawing("Square", {Filled = true, Corner = 4, Transparency = 0.96}),
         Text = NewDrawing("Text", {Text = "", Size = 12, Font = Drawing.Fonts.System, Outline = true, Transparency = 1}),
         Arrow = NewDrawing("Text", {Text = "+", Size = 12, Font = Drawing.Fonts.System, Outline = true, Transparency = 1})
     }
@@ -1170,8 +1171,8 @@ function SectionMethods:Colorpicker(Name, Default, Callback)
 
     Control.Drawings = {
         Text = NewDrawing("Text", {Text = Control.Name, Size = 12, Font = Drawing.Fonts.System, Outline = true, Transparency = 1}),
-        Outline = NewDrawing("Square", {Filled = true, Rounding = 4, Transparency = 0.4}),
-        Box = NewDrawing("Square", {Filled = true, Rounding = 3, Transparency = 1})
+        Outline = NewDrawing("Square", {Filled = true, Corner = 4, Transparency = 0.4}),
+        Box = NewDrawing("Square", {Filled = true, Corner = 3, Transparency = 1})
     }
 
     return RegisterControl(self, Control)
@@ -1186,8 +1187,8 @@ function SectionMethods:Button(Name, Callback)
     }
 
     Control.Drawings = {
-        Outline = NewDrawing("Square", {Filled = true, Rounding = 5, Transparency = 0.35}),
-        Box = NewDrawing("Square", {Filled = true, Rounding = 4, Transparency = 0.96}),
+        Outline = NewDrawing("Square", {Filled = true, Corner = 5, Transparency = 0.35}),
+        Box = NewDrawing("Square", {Filled = true, Corner = 4, Transparency = 0.96}),
         Text = NewDrawing("Text", {Text = Control.Name, Size = 12, Font = Drawing.Fonts.System, Outline = true, Center = true, Transparency = 1})
     }
 
@@ -1219,8 +1220,8 @@ function SectionMethods:Keybind(Name, Default, Mode, Callback)
     }
 
     Control.Drawings = {
-        Outline = NewDrawing("Square", {Filled = true, Rounding = 5, Transparency = 0.35}),
-        Box = NewDrawing("Square", {Filled = true, Rounding = 4, Transparency = 0.96}),
+        Outline = NewDrawing("Square", {Filled = true, Corner = 5, Transparency = 0.35}),
+        Box = NewDrawing("Square", {Filled = true, Corner = 4, Transparency = 0.96}),
         Text = NewDrawing("Text", {Text = "", Size = 12, Font = Drawing.Fonts.System, Outline = true, Center = true, Transparency = 1})
     }
 
@@ -1311,8 +1312,8 @@ function ControlMethods:AddKeybind(Default, Mode)
     }
     setmetatable(Bind, {__index = BindMethods})
 
-    Bind.Inline = NewDrawing("Square", {Filled = true, Rounding = 5, Transparency = 0.35})
-    Bind.Box = NewDrawing("Square", {Filled = true, Rounding = 4, Transparency = 0.96})
+    Bind.Inline = NewDrawing("Square", {Filled = true, Corner = 5, Transparency = 0.35})
+    Bind.Box = NewDrawing("Square", {Filled = true, Corner = 4, Transparency = 0.96})
     Bind.Text = NewDrawing("Text", {Text = "", Size = 11, Font = Drawing.Fonts.System, Outline = true, Center = true, Transparency = 1})
 
     self.Bind = Bind
@@ -1335,8 +1336,8 @@ function ControlMethods:AddColorpicker(Name, Default, Callback)
         Popup = {}
     }
 
-    Color.Outline = NewDrawing("Square", {Filled = true, Rounding = 4, Transparency = 0.4})
-    Color.Box = NewDrawing("Square", {Filled = true, Rounding = 3, Transparency = 1})
+    Color.Outline = NewDrawing("Square", {Filled = true, Corner = 4, Transparency = 0.4})
+    Color.Box = NewDrawing("Square", {Filled = true, Corner = 3, Transparency = 1})
 
     function Color:SetValue(Value, Silent)
         if typeof(Value) ~= "Color3" then return self end
@@ -1393,15 +1394,15 @@ local function CreateDropdownPopup(Control)
     local Height = #Control.Options * 21 + 2
     local Theme = Window.Theme
 
-    local Outline = NewDrawing("Square", {Position = NewVector2(X, Y), Size = NewVector2(Width, Height), Filled = true, Rounding = 6, Color = Theme.Outline, Transparency = 0.55})
-    local Background = NewDrawing("Square", {Position = NewVector2(X + 1, Y + 1), Size = NewVector2(Width - 2, Height - 2), Filled = true, Rounding = 5, Color = Theme.Group, Transparency = 0.99})
+    local Outline = NewDrawing("Square", {Position = NewVector2(X, Y), Size = NewVector2(Width, Height), Filled = true, Corner = 6, Color = Theme.Outline, Transparency = 0.55})
+    local Background = NewDrawing("Square", {Position = NewVector2(X + 1, Y + 1), Size = NewVector2(Width - 2, Height - 2), Filled = true, Corner = 5, Color = Theme.Group, Transparency = 0.99})
     Insert(Control.Popup, Outline)
     Insert(Control.Popup, Background)
 
     Control.PopupBounds = {}
     for Index, Option in ipairs(Control.Options) do
         local RowY = Y + 2 + (Index - 1) * 21
-        local Row = NewDrawing("Square", {Position = NewVector2(X + 3, RowY), Size = NewVector2(Width - 6, 19), Filled = true, Rounding = 4, Color = Theme.Group, Transparency = 1})
+        local Row = NewDrawing("Square", {Position = NewVector2(X + 3, RowY), Size = NewVector2(Width - 6, 19), Filled = true, Corner = 4, Color = Theme.Group, Transparency = 1})
         local Text = NewDrawing("Text", {Position = NewVector2(X + 10, RowY + 3), Text = tostring(Option), Size = 12, Font = Drawing.Fonts.System, Outline = true, Color = Theme.Dim, Transparency = 1})
         local Mark = NewDrawing("Square", {Position = NewVector2(X + 4, RowY + 4), Size = NewVector2(2, 11), Filled = true, Color = Theme.Accent, Transparency = 0})
         Insert(Control.Popup, Row)
@@ -1430,8 +1431,8 @@ local function CreatePickerPopup(Picker, HitPosition, HitSize)
     local Width = 154
     local Height = 142
 
-    local Outline = NewDrawing("Square", {Position = NewVector2(X, Y), Size = NewVector2(Width, Height), Filled = true, Rounding = 7, Color = Theme.Outline, Transparency = 0.6})
-    local Background = NewDrawing("Square", {Position = NewVector2(X + 1, Y + 1), Size = NewVector2(Width - 2, Height - 2), Filled = true, Rounding = 6, Color = Theme.Group, Transparency = 0.99})
+    local Outline = NewDrawing("Square", {Position = NewVector2(X, Y), Size = NewVector2(Width, Height), Filled = true, Corner = 7, Color = Theme.Outline, Transparency = 0.6})
+    local Background = NewDrawing("Square", {Position = NewVector2(X + 1, Y + 1), Size = NewVector2(Width - 2, Height - 2), Filled = true, Corner = 6, Color = Theme.Group, Transparency = 0.99})
     Insert(Picker.Popup, Outline)
     Insert(Picker.Popup, Background)
 
@@ -1538,8 +1539,8 @@ local function EnsureKeybindPanel(Window)
         Dragging = false
     }
 
-    Panel.Outline = NewDrawing("Square", {Filled = true, Rounding = 6, Transparency = 0.45})
-    Panel.Background = NewDrawing("Square", {Filled = true, Rounding = 5, Transparency = 0.96})
+    Panel.Outline = NewDrawing("Square", {Filled = true, Corner = 6, Transparency = 0.45})
+    Panel.Background = NewDrawing("Square", {Filled = true, Corner = 5, Transparency = 0.96})
     Panel.Accent = NewDrawing("Square", {Filled = true, Transparency = 1})
     Panel.Title = NewDrawing("Text", {Text = "keybinds", Size = 12, Font = Drawing.Fonts.System, Outline = true, Transparency = 1})
     Window.KeybindPanel = Panel
