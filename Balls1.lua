@@ -306,7 +306,7 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Version = 8,
+    Version = 9,
     Theme = "Indigo",
     Windows = {}
 }
@@ -317,6 +317,7 @@ local SectionMethods = {}
 local CloseDropdown
 local ClosePicker
 local CloseBindMenu
+local DropdownText
 local ToggleMethods = {}
 local SliderMethods = {}
 local DropdownMethods = {}
@@ -1425,7 +1426,7 @@ function SliderMethods:SetValue(Value, Silent)
     end
 end
 
-local function DropdownText(Control)
+DropdownText = function(Control)
     if not Control.Multi then
         return Control.Name .. ": " .. tostring(Control.Value or "-")
     end
@@ -2812,14 +2813,14 @@ function WindowMethods:Run()
                             Control.Bind.Inline.Color = Control.Bind.CurrentColor
 
                             local BindText = self.Capturing == Control.Bind and "[..]" or "[" .. GetKeyName(Control.Bind.Key) .. "]"
-                            SetTextFit(Control.Bind.Text, BindText, Max(1, Control.Bind.HitSize.X - 8), 12, 9)
+                            SetTextFit(Control.Bind.Text, BindText, Max(1, (Control.Bind.HitSize and Control.Bind.HitSize.X or 8) - 8), 12, 9)
                         end
                         if Control.Type == "Dropdown" then
                             Control.Drawings.State.Text = self.OpenDropdown == Control and "-" or "+"
-                            SetTextFit(Control.Drawings.Label, DropdownText(Control), Max(1, Control.HitSize.X - 30), 13, 10)
+                            SetTextFit(Control.Drawings.Label, DropdownText(Control), Max(1, (Control.HitSize and Control.HitSize.X or 30) - 30), 13, 10)
                         elseif Control.Type == "Keybind" then
                             local KeybindText = self.Capturing == Control and Control.Name .. " [ ... ]" or Control.Name .. " [ " .. GetKeyName(Control.Value) .. " ]"
-                            SetTextFit(Control.Drawings.Label, KeybindText, Max(1, Control.HitSize.X - 10), 13, 10)
+                            SetTextFit(Control.Drawings.Label, KeybindText, Max(1, (Control.HitSize and Control.HitSize.X or 10) - 10), 13, 10)
                         end
                     end
                 end
