@@ -270,7 +270,7 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Version = 6,
+    Version = 7,
     Theme = "Indigo",
     Windows = {}
 }
@@ -298,10 +298,56 @@ local function GetSectionHeight(Section)
     local Height = 20
 
     for _, Control in ipairs(Section.Controls) do
-        Height = Height + ControlHeight(Control)
+        if Control.Visible ~= false then
+            Height = Height + ControlHeight(Control)
+        end
     end
 
     return Max(Height + 12, 52)
+end
+
+local Layout = {
+    SidebarWidth = 130,
+    OuterPadding = 15,
+    ColumnGap = 15,
+    SectionGap = 14,
+    ControlPadding = 15,
+    TabTop = 80,
+    TabHeight = 24,
+    TabStep = 30,
+    PanelWidth = 180
+}
+
+local function Pixel(Value)
+    return Floor(Value + 0.5)
+end
+
+local function PixelVector(X, Y)
+    return NewVector2(Pixel(X), Pixel(Y))
+end
+
+local function GetPopupPosition(Window, Control, Width, Height, Gap)
+    Gap = Gap or 4
+
+    local Left = Pixel(Window.Position.X + Layout.SidebarWidth + 4)
+    local Right = Pixel(Window.Position.X + Window.Size.X - 4)
+    local Top = Pixel(Window.Position.Y + 4)
+    local Bottom = Pixel(Window.Position.Y + Window.Size.Y - 4)
+    local X = Pixel(Control.HitPosition.X + Control.HitSize.X - Width)
+    local Y = Pixel(Control.HitPosition.Y + Control.HitSize.Y + Gap)
+
+    X = Clamp(X, Left, Max(Left, Right - Width))
+
+    if Y + Height > Bottom then
+        local Above = Pixel(Control.HitPosition.Y - Height - Gap)
+        if Above >= Top then
+            Y = Above
+        else
+            Y = Max(Top, Bottom - Height)
+        end
+    end
+
+    return NewVector2(X, Y)
 end
 
 local function SetVisible(Object, State)
@@ -431,13 +477,22 @@ local function RefreshStaticColors(Window)
 end
 
 local function RefreshLayout(Window)
-    local Position = Window.Position
-    local Size = Window.Size
+    local Position = PixelVector(Window.Position.X, Window.Position.Y)
+    local Size = PixelVector(Window.Size.X, Window.Size.Y)
     local Theme = Window.Theme
-    local SidebarWidth = 130
-    local Gap = 15
-    local ContentMargin = 15
-    local GroupWidth = (Size.X - SidebarWidth - 45) / 2
+    local SidebarWidth = Layout.SidebarWidth
+    local OuterPadding = Layout.OuterPadding
+    local ColumnGap = Layout.ColumnGap
+    local ContentLeft = Position.X + SidebarWidth + OuterPadding
+    local ContentRight = Position.X + Size.X - OuterPadding
+    local ContentWidth = Max(0, ContentRight - ContentLeft)
+    local LeftWidth = Floor((ContentWidth - ColumnGap) / 2)
+    local RightWidth = Max(0, ContentWidth - ColumnGap - LeftWidth)
+    local LeftX = ContentLeft
+    local RightX = ContentLeft + LeftWidth + ColumnGap
+
+    Window.Position = Position
+    Window.Size = Size
 
     Window.MainOutline.Position = Position - NewVector2(1, 1)
     Window.MainOutline.Size = Size + NewVector2(2, 2)
@@ -485,12 +540,12 @@ local function RefreshLayout(Window)
     end
 
     for Index, Tab in ipairs(Window.Tabs) do
-        local Y = 50 + Index * 30
+        local Y = Layout.TabTop + (Index - 1) * Layout.TabStep
         Tab.Text.Position = Position + NewVector2(25, Y)
         Tab.Indicator.Position = Position + NewVector2(1, Y + 1)
         Tab.Indicator.Size = NewVector2(2, 12)
         Tab.HitPosition = Position + NewVector2(12, Y - 5)
-        Tab.HitSize = NewVector2(112, 24)
+        Tab.HitSize = NewVector2(SidebarWidth - 18, Layout.TabHeight)
     end
 
     if Window.ActiveTab then
@@ -498,132 +553,139 @@ local function RefreshLayout(Window)
         local RightY = Position.Y + 20
 
         for _, Section in ipairs(Window.ActiveTab.Sections) do
-            local Side = Section.Side == "Right" and 2 or 1
-            local X = Position.X + SidebarWidth + ContentMargin + (Side - 1) * (GroupWidth + Gap)
-            local Y = Side == 1 and LeftY or RightY
+            local IsRight = Section.Side == "Right"
+            local X = IsRight and RightX or LeftX
+            local Width = IsRight and RightWidth or LeftWidth
+            local Y = IsRight and RightY or LeftY
             local Height = GetSectionHeight(Section)
 
             Section.Position = NewVector2(X, Y)
-            Section.Size = NewVector2(GroupWidth, Height)
+            Section.Size = NewVector2(Width, Height)
 
             Section.Outline.Position = Section.Position
             Section.Outline.Size = Section.Size
             Section.Background.Position = Section.Position + NewVector2(1, 1)
             Section.Background.Size = Section.Size - NewVector2(2, 2)
 
-            local TitleWidth = Max(48, #Section.Name * 7 + 8)
+            local TitleWidth = Min(Width - 24, Max(48, #Section.Name * 7 + 10))
             Section.TitleBackground.Position = Section.Position + NewVector2(10, -2)
-            Section.TitleBackground.Size = NewVector2(TitleWidth, 4)
+            Section.TitleBackground.Size = NewVector2(Max(1, TitleWidth), 4)
             Section.TitleText.Position = Section.Position + NewVector2(14, -6)
 
             local ControlY = Y + 20
 
             for _, Control in ipairs(Section.Controls) do
-                local X0 = X + 15
-                local Width = GroupWidth - 30
+                if Control.Visible ~= false then
+                    local X0 = X + Layout.ControlPadding
+                    local ControlWidth = Max(1, Width - Layout.ControlPadding * 2)
 
-                if Control.Type == "Toggle" then
-                    Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
-                    Control.Drawings.Outline.Size = NewVector2(12, 12)
-                    Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
-                    Control.Drawings.Inline.Size = NewVector2(10, 10)
-                    Control.Drawings.Fill.Position = NewVector2(X0 + 2, ControlY + 2)
-                    Control.Drawings.Fill.Size = NewVector2(8, 8)
-                    Control.Drawings.Label.Position = NewVector2(X0 + 20, ControlY - 1)
+                    if Control.Type == "Toggle" then
+                        Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
+                        Control.Drawings.Outline.Size = NewVector2(12, 12)
+                        Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
+                        Control.Drawings.Inline.Size = NewVector2(10, 10)
+                        Control.Drawings.Fill.Position = NewVector2(X0 + 2, ControlY + 2)
+                        Control.Drawings.Fill.Size = NewVector2(8, 8)
+                        Control.Drawings.Label.Position = NewVector2(X0 + 20, ControlY - 1)
 
-                    Control.HitPosition = NewVector2(X0, ControlY - 4)
-                    Control.HitSize = NewVector2(Width, 20)
+                        Control.HitPosition = NewVector2(X0, ControlY - 4)
+                        Control.HitSize = NewVector2(ControlWidth, 20)
 
-                    local Right = X0 + Width
+                        local Right = X0 + ControlWidth
 
-                    if Control.Bind then
-                        Control.Bind.HitPosition = NewVector2(Right - 45, ControlY - 2)
-                        Control.Bind.HitSize = NewVector2(45, 16)
-                        Control.Bind.Outline.Position = Control.Bind.HitPosition
-                        Control.Bind.Outline.Size = Control.Bind.HitSize
-                        Control.Bind.Inline.Position = Control.Bind.HitPosition + NewVector2(1, 1)
-                        Control.Bind.Inline.Size = Control.Bind.HitSize - NewVector2(2, 2)
-                        Control.Bind.Text.Position = Control.Bind.HitPosition + NewVector2(22.5, 5)
-                        Right = Right - 52
+                        if Control.Bind then
+                            local BindWidth = 46
+                            Control.Bind.HitPosition = NewVector2(Right - BindWidth, ControlY - 2)
+                            Control.Bind.HitSize = NewVector2(BindWidth, 16)
+                            Control.Bind.Outline.Position = Control.Bind.HitPosition
+                            Control.Bind.Outline.Size = Control.Bind.HitSize
+                            Control.Bind.Inline.Position = Control.Bind.HitPosition + NewVector2(1, 1)
+                            Control.Bind.Inline.Size = Control.Bind.HitSize - NewVector2(2, 2)
+                            Control.Bind.Text.Position = Control.Bind.HitPosition + NewVector2(Floor(BindWidth / 2), 5)
+                            Right = Right - BindWidth - 7
+                        end
+
+                        if Control.AttachedColor then
+                            local PickerWidth = 24
+                            Control.AttachedColor.HitPosition = NewVector2(Right - PickerWidth, ControlY - 1)
+                            Control.AttachedColor.HitSize = NewVector2(PickerWidth, 14)
+                            Control.AttachedColor.Outline.Position = Control.AttachedColor.HitPosition
+                            Control.AttachedColor.Outline.Size = Control.AttachedColor.HitSize
+                            Control.AttachedColor.Fill.Position = Control.AttachedColor.HitPosition + NewVector2(1, 1)
+                            Control.AttachedColor.Fill.Size = Control.AttachedColor.HitSize - NewVector2(2, 2)
+                        end
+
+                    elseif Control.Type == "Slider" then
+                        Control.Drawings.Label.Position = NewVector2(X0, ControlY)
+                        Control.Drawings.Value.Position = NewVector2(X0 + ControlWidth - 28, ControlY)
+                        Control.Drawings.Outline.Position = NewVector2(X0, ControlY + 18)
+                        Control.Drawings.Outline.Size = NewVector2(ControlWidth, 8)
+                        Control.Drawings.Background.Position = NewVector2(X0 + 1, ControlY + 19)
+                        Control.Drawings.Background.Size = NewVector2(Max(1, ControlWidth - 2), 6)
+
+                        local Range = Control.Max - Control.Min
+                        local Percent = Range > 0 and Clamp((Control.Value - Control.Min) / Range, 0, 1) or 0
+                        local TrackWidth = Max(1, ControlWidth - 2)
+                        local FillWidth = Clamp(Pixel(TrackWidth * Percent), 1, TrackWidth)
+
+                        Control.Drawings.Fill.Position = NewVector2(X0 + 1, ControlY + 19)
+                        Control.Drawings.Fill.Size = NewVector2(FillWidth, 6)
+                        Control.Drawings.Thumb.Position = NewVector2(Clamp(X0 + FillWidth - 1, X0, X0 + ControlWidth - 3), ControlY + 17)
+                        Control.Drawings.Thumb.Size = NewVector2(3, 10)
+
+                        Control.HitPosition = NewVector2(X0, ControlY + 12)
+                        Control.HitSize = NewVector2(ControlWidth, 20)
+
+                    elseif Control.Type == "Dropdown" then
+                        Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
+                        Control.Drawings.Outline.Size = NewVector2(ControlWidth, 22)
+                        Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
+                        Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), 20)
+                        Control.Drawings.Label.Position = NewVector2(X0 + 8, ControlY + 5)
+                        Control.Drawings.State.Position = NewVector2(X0 + ControlWidth - 10, ControlY + 5)
+
+                        Control.HitPosition = NewVector2(X0, ControlY)
+                        Control.HitSize = NewVector2(ControlWidth, 22)
+
+                    elseif Control.Type == "Colorpicker" then
+                        Control.Drawings.Label.Position = NewVector2(X0, ControlY + 2)
+                        Control.Drawings.Outline.Position = NewVector2(X0 + ControlWidth - 46, ControlY)
+                        Control.Drawings.Outline.Size = NewVector2(46, 18)
+                        Control.Drawings.Fill.Position = NewVector2(X0 + ControlWidth - 45, ControlY + 1)
+                        Control.Drawings.Fill.Size = NewVector2(44, 16)
+
+                        Control.HitPosition = NewVector2(X0, ControlY - 2)
+                        Control.HitSize = NewVector2(ControlWidth, 22)
+
+                    elseif Control.Type == "Button" then
+                        Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
+                        Control.Drawings.Outline.Size = NewVector2(ControlWidth, 22)
+                        Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
+                        Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), 20)
+                        Control.Drawings.Label.Position = NewVector2(X0 + Floor(ControlWidth / 2), ControlY + 5)
+
+                        Control.HitPosition = NewVector2(X0, ControlY)
+                        Control.HitSize = NewVector2(ControlWidth, 22)
+
+                    elseif Control.Type == "Keybind" then
+                        Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
+                        Control.Drawings.Outline.Size = NewVector2(ControlWidth, 22)
+                        Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
+                        Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), 20)
+                        Control.Drawings.Label.Position = NewVector2(X0 + Floor(ControlWidth / 2), ControlY + 5)
+
+                        Control.HitPosition = NewVector2(X0, ControlY)
+                        Control.HitSize = NewVector2(ControlWidth, 22)
                     end
 
-                    if Control.AttachedColor then
-                        Control.AttachedColor.HitPosition = NewVector2(Right - 24, ControlY - 1)
-                        Control.AttachedColor.HitSize = NewVector2(24, 14)
-                        Control.AttachedColor.Outline.Position = Control.AttachedColor.HitPosition
-                        Control.AttachedColor.Outline.Size = Control.AttachedColor.HitSize
-                        Control.AttachedColor.Fill.Position = Control.AttachedColor.HitPosition + NewVector2(1, 1)
-                        Control.AttachedColor.Fill.Size = Control.AttachedColor.HitSize - NewVector2(2, 2)
-                    end
-
-                elseif Control.Type == "Slider" then
-                    Control.Drawings.Label.Position = NewVector2(X0, ControlY)
-                    Control.Drawings.Value.Position = NewVector2(X0 + Width - 60, ControlY)
-                    Control.Drawings.Outline.Position = NewVector2(X0, ControlY + 18)
-                    Control.Drawings.Outline.Size = NewVector2(Width, 8)
-                    Control.Drawings.Background.Position = NewVector2(X0 + 1, ControlY + 19)
-                    Control.Drawings.Background.Size = NewVector2(Width - 2, 6)
-
-                    local Range = Control.Max - Control.Min
-                    local Percent = Range > 0 and Clamp((Control.Value - Control.Min) / Range, 0, 1) or 0
-                    local FillWidth = Max(2, (Width - 2) * Percent)
-
-                    Control.Drawings.Fill.Position = NewVector2(X0 + 1, ControlY + 19)
-                    Control.Drawings.Fill.Size = NewVector2(FillWidth, 6)
-                    Control.Drawings.Thumb.Position = NewVector2(X0 + 1 + FillWidth, ControlY + 22)
-
-                    Control.HitPosition = NewVector2(X0, ControlY + 12)
-                    Control.HitSize = NewVector2(Width, 20)
-
-                elseif Control.Type == "Dropdown" then
-                    Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
-                    Control.Drawings.Outline.Size = NewVector2(Width, 22)
-                    Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
-                    Control.Drawings.Inline.Size = NewVector2(Width - 2, 20)
-                    Control.Drawings.Label.Position = NewVector2(X0 + 8, ControlY + 5)
-                    Control.Drawings.State.Position = NewVector2(X0 + Width - 16, ControlY + 5)
-
-                    Control.HitPosition = NewVector2(X0, ControlY)
-                    Control.HitSize = NewVector2(Width, 22)
-
-                elseif Control.Type == "Colorpicker" then
-                    Control.Drawings.Label.Position = NewVector2(X0, ControlY + 2)
-                    Control.Drawings.Outline.Position = NewVector2(X0 + Width - 46, ControlY)
-                    Control.Drawings.Outline.Size = NewVector2(46, 18)
-                    Control.Drawings.Fill.Position = NewVector2(X0 + Width - 45, ControlY + 1)
-                    Control.Drawings.Fill.Size = NewVector2(44, 16)
-
-                    Control.HitPosition = NewVector2(X0, ControlY - 2)
-                    Control.HitSize = NewVector2(Width, 22)
-
-                elseif Control.Type == "Button" then
-                    Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
-                    Control.Drawings.Outline.Size = NewVector2(Width, 22)
-                    Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
-                    Control.Drawings.Inline.Size = NewVector2(Width - 2, 20)
-                    Control.Drawings.Label.Position = NewVector2(X0 + Width / 2, ControlY + 5)
-
-                    Control.HitPosition = NewVector2(X0, ControlY)
-                    Control.HitSize = NewVector2(Width, 22)
-
-                elseif Control.Type == "Keybind" then
-                    Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
-                    Control.Drawings.Outline.Size = NewVector2(Width, 22)
-                    Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
-                    Control.Drawings.Inline.Size = NewVector2(Width - 2, 20)
-                    Control.Drawings.Label.Position = NewVector2(X0 + Width / 2, ControlY + 5)
-
-                    Control.HitPosition = NewVector2(X0, ControlY)
-                    Control.HitSize = NewVector2(Width, 22)
+                    ControlY = ControlY + ControlHeight(Control)
                 end
-
-                ControlY = ControlY + ControlHeight(Control)
             end
 
-            if Side == 1 then
-                LeftY = Y + Height + 14
+            if IsRight then
+                RightY = Y + Height + Layout.SectionGap
             else
-                RightY = Y + Height + 14
+                LeftY = Y + Height + Layout.SectionGap
             end
         end
     end
@@ -631,21 +693,23 @@ local function RefreshLayout(Window)
     if Window.KeybindPanel then
         local Panel = Window.KeybindPanel
         local Rows = Panel.Rows
+        local PanelWidth = Layout.PanelWidth
         local Height = 28 + #Rows * 18
 
         Panel.Outline.Position = Panel.Position - NewVector2(1, 1)
-        Panel.Outline.Size = NewVector2(182, Height + 2)
+        Panel.Outline.Size = NewVector2(PanelWidth + 2, Height + 2)
         Panel.Inline.Position = Panel.Position
-        Panel.Inline.Size = NewVector2(180, Height)
+        Panel.Inline.Size = NewVector2(PanelWidth, Height)
         Panel.Background.Position = Panel.Position + NewVector2(1, 1)
-        Panel.Background.Size = NewVector2(178, Height - 2)
+        Panel.Background.Size = NewVector2(PanelWidth - 2, Height - 2)
         Panel.Accent.Position = Panel.Position + NewVector2(1, 1)
-        Panel.Accent.Size = NewVector2(178, 2)
+        Panel.Accent.Size = NewVector2(PanelWidth - 2, 2)
         Panel.Title.Position = Panel.Position + NewVector2(10, 6)
 
         for Index, Row in ipairs(Rows) do
-            Row.Name.Position = Panel.Position + NewVector2(10, 10 + Index * 18)
-            Row.State.Position = Panel.Position + NewVector2(140, 10 + Index * 18)
+            local RowY = 10 + Index * 18
+            Row.Name.Position = Panel.Position + NewVector2(10, RowY)
+            Row.State.Position = Panel.Position + NewVector2(PanelWidth - 24, RowY)
         end
     end
 
@@ -725,7 +789,6 @@ local function MakeWindowDrawings(Window)
         Filled = true,
         Visible = true,
         Transparency = 0.3,
-        Corner = 12,
         Color = Theme.Outline
     })
 
@@ -733,7 +796,6 @@ local function MakeWindowDrawings(Window)
         Filled = true,
         Visible = true,
         Transparency = 0.7,
-        Corner = 12,
         Color = Theme.Background
     })
 
@@ -741,7 +803,6 @@ local function MakeWindowDrawings(Window)
         Filled = true,
         Visible = true,
         Transparency = 0.6,
-        Corner = 12,
         Color = Theme.SidebarBackground
     })
 
@@ -896,7 +957,6 @@ function TabMethods:Section(Name, Side)
         Filled = true,
         Visible = false,
         Transparency = 0.2,
-        Corner = 8,
         Color = Theme.Outline
     })
 
@@ -904,7 +964,6 @@ function TabMethods:Section(Name, Side)
         Filled = true,
         Visible = false,
         Transparency = 0.1,
-        Corner = 8,
         Color = Theme.GroupBackground
     })
 
@@ -912,7 +971,6 @@ function TabMethods:Section(Name, Side)
         Filled = true,
         Visible = false,
         Transparency = 0.6,
-        Corner = 6,
         Color = Theme.Background
     })
 
@@ -959,7 +1017,6 @@ function SectionMethods:Toggle(Name, Default, Callback)
         Filled = true,
         Visible = false,
         Transparency = 0.3,
-        Corner = 5,
         Color = Theme.Outline
     })
 
@@ -967,7 +1024,6 @@ function SectionMethods:Toggle(Name, Default, Callback)
         Filled = true,
         Visible = false,
         Transparency = 0.5,
-        Corner = 5,
         Color = Theme.Inline
     })
 
@@ -975,7 +1031,6 @@ function SectionMethods:Toggle(Name, Default, Callback)
         Filled = true,
         Visible = false,
         Transparency = 1,
-        Corner = 4,
         Color = Control.CurrentFill
     })
 
@@ -1029,7 +1084,6 @@ function ToggleMethods:AddKeybind(Default, Mode)
         Filled = true,
         Visible = false,
         Transparency = 0.3,
-        Corner = 6,
         Color = Theme.Outline
     })
 
@@ -1037,7 +1091,6 @@ function ToggleMethods:AddKeybind(Default, Mode)
         Filled = true,
         Visible = false,
         Transparency = 0.6,
-        Corner = 5,
         Color = Theme.ToggleBackground
     })
 
@@ -1080,7 +1133,6 @@ function ToggleMethods:AddColorpicker(Name, Default, Callback)
         Filled = true,
         Visible = false,
         Transparency = 0.3,
-        Corner = 4,
         Color = Theme.Outline
     })
 
@@ -1088,7 +1140,6 @@ function ToggleMethods:AddColorpicker(Name, Default, Callback)
         Filled = true,
         Visible = false,
         Transparency = 1,
-        Corner = 3,
         Color = Color
     })
 
@@ -1137,6 +1188,7 @@ function SectionMethods:Slider(Name, Default, Step, Minimum, Maximum, Suffix, Ca
         Size = 13,
         Font = Drawing.Fonts.System,
         Outline = true,
+        Center = true,
         Visible = false,
         Transparency = 1,
         Color = Theme.PrimaryText
@@ -1146,7 +1198,6 @@ function SectionMethods:Slider(Name, Default, Step, Minimum, Maximum, Suffix, Ca
         Filled = true,
         Visible = false,
         Transparency = 0.3,
-        Corner = 6,
         Color = Theme.Outline
     })
 
@@ -1154,7 +1205,6 @@ function SectionMethods:Slider(Name, Default, Step, Minimum, Maximum, Suffix, Ca
         Filled = true,
         Visible = false,
         Transparency = 0.5,
-        Corner = 6,
         Color = Theme.ToggleBackground
     })
 
@@ -1162,16 +1212,14 @@ function SectionMethods:Slider(Name, Default, Step, Minimum, Maximum, Suffix, Ca
         Filled = true,
         Visible = false,
         Transparency = 0.9,
-        Corner = 6,
         Color = Theme.AccentColor
     })
 
-    Control.Drawings.Thumb = NewDrawing("Circle", {
+    Control.Drawings.Thumb = NewDrawing("Square", {
         Filled = true,
-        Radius = 4,
-        NumSides = 24,
         Visible = false,
         Transparency = 1,
+        Size = NewVector2(3, 10),
         Color = Theme.PrimaryText
     })
 
@@ -1261,7 +1309,6 @@ function SectionMethods:Dropdown(Name, Default, Options, Multi, Callback)
         Filled = true,
         Visible = false,
         Transparency = 0.3,
-        Corner = 6,
         Color = Theme.Outline
     })
 
@@ -1269,7 +1316,6 @@ function SectionMethods:Dropdown(Name, Default, Options, Multi, Callback)
         Filled = true,
         Visible = false,
         Transparency = 0.6,
-        Corner = 6,
         Color = Theme.ToggleBackground
     })
 
@@ -1288,6 +1334,7 @@ function SectionMethods:Dropdown(Name, Default, Options, Multi, Callback)
         Size = 13,
         Font = Drawing.Fonts.System,
         Outline = true,
+        Center = true,
         Visible = false,
         Transparency = 1,
         Color = Theme.SecondaryText
@@ -1364,7 +1411,6 @@ function SectionMethods:Colorpicker(Name, Default, Callback)
         Filled = true,
         Visible = false,
         Transparency = 0.3,
-        Corner = 4,
         Color = Theme.Outline
     })
 
@@ -1372,7 +1418,6 @@ function SectionMethods:Colorpicker(Name, Default, Callback)
         Filled = true,
         Visible = false,
         Transparency = 1,
-        Corner = 3,
         Color = Color
     })
 
@@ -1414,7 +1459,6 @@ function SectionMethods:Button(Name, Callback)
         Filled = true,
         Visible = false,
         Transparency = 0.3,
-        Corner = 6,
         Color = Theme.Outline
     })
 
@@ -1422,7 +1466,6 @@ function SectionMethods:Button(Name, Callback)
         Filled = true,
         Visible = false,
         Transparency = 0.6,
-        Corner = 6,
         Color = Theme.ToggleBackground
     })
 
@@ -1456,7 +1499,6 @@ function SectionMethods:Keybind(Name, Default, Callback)
         Filled = true,
         Visible = false,
         Transparency = 0.3,
-        Corner = 6,
         Color = Theme.Outline
     })
 
@@ -1464,7 +1506,6 @@ function SectionMethods:Keybind(Name, Default, Callback)
         Filled = true,
         Visible = false,
         Transparency = 0.6,
-        Corner = 6,
         Color = Theme.ToggleBackground
     })
 
@@ -1524,6 +1565,8 @@ CloseDropdown = function(Window)
     RemoveList(Dropdown.Popup)
     Dropdown.Popup = nil
     Dropdown.PopupBounds = nil
+    Dropdown.PopupPosition = nil
+    Dropdown.PopupSize = nil
     Dropdown.Drawings.State.Text = "+"
     Window.OpenDropdown = nil
 end
@@ -1535,15 +1578,14 @@ local function CreateDropdown(Window, Control)
     local Theme = Window.Theme
     local Popup = {}
     local Bounds = {}
-    local Position = Control.HitPosition + NewVector2(0, 21)
-    local Width = Control.HitSize.X
-    local Height = #Control.Options * 20 + 2
+    local Width = Pixel(Control.HitSize.X)
+    local Height = Max(2, #Control.Options * 20 + 2)
+    local Position = GetPopupPosition(Window, Control, Width, Height, 2)
 
     Insert(Popup, NewDrawing("Square", {
         Filled = true,
         Visible = true,
         Transparency = 0.35,
-        Corner = 8,
         ZIndex = 20,
         Position = Position,
         Size = NewVector2(Width, Height),
@@ -1554,10 +1596,9 @@ local function CreateDropdown(Window, Control)
         Filled = true,
         Visible = true,
         Transparency = 0.97,
-        Corner = 7,
         ZIndex = 21,
         Position = Position + NewVector2(1, 1),
-        Size = NewVector2(Width - 2, Height - 2),
+        Size = NewVector2(Max(1, Width - 2), Max(1, Height - 2)),
         Color = Theme.GroupBackground
     }))
 
@@ -1571,7 +1612,7 @@ local function CreateDropdown(Window, Control)
             Transparency = 1,
             ZIndex = 22,
             Position = NewVector2(Position.X + 1, Y),
-            Size = NewVector2(Width - 2, 20),
+            Size = NewVector2(Max(1, Width - 2), 20),
             Color = Theme.GroupBackground
         })
 
@@ -1604,7 +1645,7 @@ local function CreateDropdown(Window, Control)
         Insert(Bounds, {
             Option = Option,
             Position = NewVector2(Position.X + 1, Y),
-            Size = NewVector2(Width - 2, 20),
+            Size = NewVector2(Max(1, Width - 2), 20),
             Background = Background,
             Indicator = Indicator,
             Text = Text
@@ -1613,6 +1654,8 @@ local function CreateDropdown(Window, Control)
 
     Control.Popup = Popup
     Control.PopupBounds = Bounds
+    Control.PopupPosition = Position
+    Control.PopupSize = NewVector2(Width, Height)
     Control.Drawings.State.Text = "-"
     Window.OpenDropdown = Control
 end
@@ -1655,9 +1698,7 @@ local function MakePicker(Window, Control)
 
     local PopupWidth = 176
     local PopupHeight = 150
-    local X = Clamp(Control.HitPosition.X + Control.HitSize.X - PopupWidth, 5, 5000)
-    local Y = Control.HitPosition.Y + Control.HitSize.Y + 4
-    local Position = NewVector2(X, Y)
+    local Position = GetPopupPosition(Window, Control, PopupWidth, PopupHeight, 4)
     local Theme = Window.Theme
     local Objects = {}
 
@@ -1670,7 +1711,6 @@ local function MakePicker(Window, Control)
         Filled = true,
         Visible = true,
         Transparency = 0.35,
-        Corner = 8,
         ZIndex = 30,
         Position = Position,
         Size = NewVector2(PopupWidth, PopupHeight),
@@ -1681,7 +1721,6 @@ local function MakePicker(Window, Control)
         Filled = true,
         Visible = true,
         Transparency = 0.98,
-        Corner = 7,
         ZIndex = 31,
         Position = Position + NewVector2(1, 1),
         Size = NewVector2(PopupWidth - 2, PopupHeight - 2),
@@ -1704,7 +1743,7 @@ local function MakePicker(Window, Control)
                 Transparency = 1,
                 ZIndex = 32,
                 Position = SvPosition + NewVector2(Column * Cell, Row * Cell),
-                Size = NewVector2(Cell + 1, Cell + 1),
+                Size = NewVector2(Cell, Cell),
                 Color = FromHSV(H, Sat, Val)
             }))
 
@@ -1714,16 +1753,18 @@ local function MakePicker(Window, Control)
 
     local HuePosition = Position + NewVector2(130, 10)
     local HueBars = {}
+    local HueSegments = 22
+    local HueBarHeight = 5
 
-    for Index = 0, 29 do
-        local Hue = 1 - Index / 29
+    for Index = 0, HueSegments - 1 do
+        local Hue = 1 - Index / (HueSegments - 1)
         local Bar = Add(NewDrawing("Square", {
             Filled = true,
             Visible = true,
             Transparency = 1,
             ZIndex = 32,
-            Position = HuePosition + NewVector2(0, Index * (110 / 30)),
-            Size = NewVector2(12, 5),
+            Position = HuePosition + NewVector2(0, Index * HueBarHeight),
+            Size = NewVector2(12, HueBarHeight),
             Color = FromHSV(Hue, 1, 1)
         }))
 
@@ -1734,7 +1775,6 @@ local function MakePicker(Window, Control)
         Filled = true,
         Visible = true,
         Transparency = 1,
-        Corner = 4,
         ZIndex = 32,
         Position = Position + NewVector2(150, 10),
         Size = NewVector2(16, 110),
@@ -1815,7 +1855,6 @@ local function EnsureKeybindPanel(Window)
         Filled = true,
         Visible = false,
         Transparency = 0.5,
-        Corner = 4,
         Color = Theme.Outline
     })
 
@@ -1823,7 +1862,6 @@ local function EnsureKeybindPanel(Window)
         Filled = true,
         Visible = false,
         Transparency = 0.7,
-        Corner = 4,
         Color = Theme.Inline
     })
 
@@ -1831,7 +1869,6 @@ local function EnsureKeybindPanel(Window)
         Filled = true,
         Visible = false,
         Transparency = 0.9,
-        Corner = 4,
         Color = Theme.GroupBackground
     })
 
@@ -1882,6 +1919,7 @@ local function RefreshKeybindPanel(Window)
                 Size = 13,
                 Font = Drawing.Fonts.System,
                 Outline = true,
+                Center = true,
                 Visible = false,
                 Transparency = 1,
                 Color = Window.Theme.SecondaryText
@@ -2217,7 +2255,7 @@ function WindowMethods:Run()
             if self.ShowKeybinds and self.KeybindPanel then
                 local Panel = self.KeybindPanel
 
-                if PointIn(Panel.Position, NewVector2(180, 24), MousePosition) then
+                if PointIn(Panel.Position, NewVector2(Layout.PanelWidth, 24), MousePosition) then
                     Panel.Dragging = true
                     Panel.MouseStart = MousePosition
                     Panel.PositionStart = Panel.Position
@@ -2256,10 +2294,10 @@ function WindowMethods:Run()
                 end
 
                 if not Used and self.OpenDropdown then
-                    local Position = self.OpenDropdown.HitPosition + NewVector2(0, 21)
-                    local Size = NewVector2(self.OpenDropdown.HitSize.X, #self.OpenDropdown.Options * 20 + 2)
+                    local Position = self.OpenDropdown.PopupPosition
+                    local Size = self.OpenDropdown.PopupSize
 
-                    if not PointIn(Position, Size, MousePosition) and not PointIn(self.OpenDropdown.HitPosition, self.OpenDropdown.HitSize, MousePosition) then
+                    if Position and Size and not PointIn(Position, Size, MousePosition) and not PointIn(self.OpenDropdown.HitPosition, self.OpenDropdown.HitSize, MousePosition) then
                         CloseDropdown(self)
                     end
                 end
