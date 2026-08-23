@@ -1,7 +1,7 @@
 local Runtime
 local Library = { Flags = {}, Setters = {}, Folders = { Root = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets" } }
-Library.Build = 37
-Library.BuildName = "SettingsRework"
+Library.Build = 38
+Library.BuildName = "SettingsLocalRegisterFix"
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
     local Arguments = table.pack(...)
@@ -5732,6 +5732,7 @@ local function BuildRuntime()
     RefreshThemeButtons()
     SetPickerColor(Accent, AccentAlpha)
     SetPickerOpen(false)
+    do
     local CombatPage = CreatePage("Combat")
     local MiscPage = CreatePage("Misc")
     local SettingsPage = CreatePage("Settings")
@@ -5786,6 +5787,7 @@ local function BuildRuntime()
     PopulateSimplePage(CloudPage, "Cloud", "Account", { {"Synchronization", false, "Synchronization"},
         {"Upload config", false, "UploadConfig"}, {"Download config", false, "DownloadConfig"} }, { {"Private mode", true, "PrivateMode"},
         {"Remember account", true, "RememberAccount"}, {"Status notifications", true, "StatusNotifications"} })
+    end
     do
     local function CreateEspPreviewWindow()
         local SavedPreviewPosition = DecodePosition(SavedPositions.EspPreviewPosition, nil)
