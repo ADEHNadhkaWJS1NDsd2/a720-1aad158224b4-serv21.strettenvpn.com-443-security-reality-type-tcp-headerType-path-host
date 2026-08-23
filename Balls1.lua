@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
+local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
@@ -269,19 +270,31 @@ local function RoundValue(Value, Step)
     end
 
     local Scale = 10 ^ Decimals
-    return Floor(Rounded * Scale + 0.5) / Scale
+    Rounded = Floor(Rounded * Scale + 0.5) / Scale
+
+    if Abs(Rounded) < 0.5 / Scale then
+        Rounded = 0
+    end
+
+    return Rounded
 end
 
 local function FormatSliderValue(Value, Step)
     local Decimals = SliderDecimals(Step)
+    local Rounded = RoundValue(Value, Step)
 
     if Decimals <= 0 then
-        return tostring(Floor(Value + 0.5))
+        return tostring(Floor(Rounded + 0.5))
     end
 
-    local Text = Format("%." .. tostring(Decimals) .. "f", Value)
+    local Text = Format("%." .. tostring(Decimals) .. "f", Rounded)
     Text = string.gsub(Text, "0+$", "")
     Text = string.gsub(Text, "%.$", "")
+
+    if Text == "-0" then
+        Text = "0"
+    end
+
     return Text
 end
 
@@ -306,8 +319,8 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Version = 9,
-    Theme = "Indigo",
+    Version = 10,
+    Theme = "Nightfall",
     Windows = {}
 }
 
@@ -388,9 +401,40 @@ local function GetTabRequiredHeight(Window, Tab)
     )
 end
 
+local function GetViewportSize()
+    local Camera = Workspace.CurrentCamera
+    local Size = Camera and Camera.ViewportSize
+
+    if TypeOf(Size) == "Vector2" then
+        return Size
+    end
+
+    return nil
+end
+
 local function FitWindowHeight(Window, Tab)
     if not Window.AutoHeight then return end
-    Window.Size = NewVector2(Window.Size.X, GetTabRequiredHeight(Window, Tab))
+
+    local Height = GetTabRequiredHeight(Window, Tab)
+    Window.Size = NewVector2(Window.Size.X, Height)
+
+    local Viewport = GetViewportSize()
+
+    if Viewport then
+        local X = Window.Position.X
+        local Y = Window.Position.Y
+        local Margin = 8
+
+        if X + Window.Size.X > Viewport.X - Margin then
+            X = Max(Margin, Viewport.X - Window.Size.X - Margin)
+        end
+
+        if Y + Height > Viewport.Y - Margin then
+            Y = Max(Margin, Viewport.Y - Height - Margin)
+        end
+
+        Window.Position = NewVector2(X, Y)
+    end
 end
 
 local function TextWidth(Text, Size)
@@ -401,16 +445,20 @@ local function TextWidth(Text, Size)
 
     for Index = 1, #Text do
         local Character = string.sub(Text, Index, Index)
-        local Factor = 0.54
+        local Factor = 0.61
 
         if Character == " " then
-            Factor = 0.30
+            Factor = 0.34
         elseif string.find("ilI1|!.,:;'`", Character, 1, true) then
-            Factor = 0.28
+            Factor = 0.31
         elseif string.find("MW@%#QO", Character, 1, true) then
-            Factor = 0.82
+            Factor = 0.86
         elseif Character == "[" or Character == "]" or Character == "(" or Character == ")" then
-            Factor = 0.36
+            Factor = 0.42
+        elseif string.find("0123456789", Character, 1, true) then
+            Factor = 0.58
+        elseif Character == Character:upper() and Character ~= Character:lower() then
+            Factor = 0.66
         end
 
         Width = Width + Size * Factor
@@ -746,7 +794,7 @@ local function RefreshLayout(Window)
 
                         if Control.Bind then
                             local BindText = "[" .. GetKeyName(Control.Bind.Key) .. "]"
-                            local BindWidth = Clamp(Pixel(TextWidth(BindText, 12) + 12), 42, Min(78, ControlWidth))
+                            local BindWidth = Clamp(Pixel(TextWidth(BindText, 12) + 16), 48, Min(92, ControlWidth))
                             Control.Bind.HitPosition = NewVector2(Right - BindWidth, ControlY - 2)
                             Control.Bind.HitSize = NewVector2(BindWidth, 16)
                             Control.Bind.Outline.Position = Control.Bind.HitPosition
@@ -773,13 +821,15 @@ local function RefreshLayout(Window)
 
                     elseif Control.Type == "Slider" then
                         local ValueText = FormatSliderValue(Control.Value, Control.Step) .. Control.Suffix
-                        local ValueWidth = Min(Floor(ControlWidth * 0.46), Max(28, Pixel(TextWidth(ValueText, 13) + 6)))
+                        local ValueWidth = Min(Floor(ControlWidth * 0.48), Max(34, Pixel(TextWidth(ValueText, 13) + 8)))
                         local LabelWidth = Max(1, ControlWidth - ValueWidth - 8)
 
                         SetTextFit(Control.Drawings.Label, Control.Name, LabelWidth, 13, 10)
-                        SetTextFit(Control.Drawings.Value, ValueText, Max(1, ValueWidth - 2), 13, 10)
+                        SetTextFit(Control.Drawings.Value, ValueText, Max(1, ValueWidth), 13, 10)
+
+                        local RenderedValueWidth = Pixel(TextWidth(Control.Drawings.Value.Text, Control.Drawings.Value.Size or 13))
                         Control.Drawings.Label.Position = NewVector2(X0, ControlY)
-                        Control.Drawings.Value.Position = NewVector2(X0 + ControlWidth - Floor(ValueWidth / 2), ControlY)
+                        Control.Drawings.Value.Position = NewVector2(Max(X0 + LabelWidth + 8, X0 + ControlWidth - RenderedValueWidth), ControlY)
                         Control.Drawings.Outline.Position = NewVector2(X0, ControlY + 18)
                         Control.Drawings.Outline.Size = NewVector2(ControlWidth, 8)
                         Control.Drawings.Background.Position = NewVector2(X0 + 1, ControlY + 19)
@@ -1368,7 +1418,7 @@ function SectionMethods:Slider(Name, Default, Step, Minimum, Maximum, Suffix, Ca
         Size = 13,
         Font = Drawing.Fonts.System,
         Outline = true,
-        Center = true,
+        Center = false,
         Visible = false,
         Transparency = 1,
         Color = Theme.PrimaryText
@@ -2766,6 +2816,13 @@ function WindowMethods:Run()
             if Find(self.Resizing, "T") then
                 Height = Max(self.MinimumSize.Y, self.SizeStart.Y - Delta.Y)
                 Y = self.PositionStart.Y + self.SizeStart.Y - Height
+            end
+
+            local RequestedHeight = Height
+
+            if self.AutoHeight and self.ActiveTab then
+                Height = Max(Height, GetTabRequiredHeight(self, self.ActiveTab))
+                self.BaseHeight = Max(self.MinimumSize.Y, RequestedHeight)
             end
 
             self.Position = NewVector2(X, Y)
