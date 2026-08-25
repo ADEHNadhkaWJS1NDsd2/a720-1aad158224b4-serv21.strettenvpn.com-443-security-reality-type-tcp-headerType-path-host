@@ -319,7 +319,7 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Version = 13,
+    Version = 15,
     Theme = "Nightfall",
     Windows = {}
 }
@@ -953,9 +953,16 @@ local function RefreshLayout(Window)
 
         for Index, Row in ipairs(Rows) do
             local RowY = 10 + Index * 18
-            SetTextFit(Row.Name, Row.Name.Text, Max(1, PanelWidth - 64), 13, 10)
+            SetTextFit(Row.Name, Row.Name.Text, Max(1, PanelWidth - 70), 13, 10)
+            SetTextFit(Row.State, Row.State.Text, 42, 13, 10)
+
+            local StateWidth = Pixel(TextWidth(Row.State.Text, Row.State.Size or 13))
+
             Row.Name.Position = Panel.Position + NewVector2(10, RowY)
-            Row.State.Position = Panel.Position + NewVector2(PanelWidth - 24, RowY)
+            Row.State.Position = Panel.Position + NewVector2(
+                PanelWidth - 10 - StateWidth,
+                RowY
+            )
         end
     end
 
@@ -2366,7 +2373,7 @@ local function RefreshKeybindPanel(Window)
                 Size = 13,
                 Font = Drawing.Fonts.System,
                 Outline = true,
-                Center = true,
+                Center = false,
                 Visible = false,
                 Transparency = 1,
                 Color = Window.Theme.SecondaryText
@@ -2398,6 +2405,16 @@ local function RefreshKeybindPanel(Window)
             Row.State.Text = Control.Value and "[ON]" or "[OFF]"
             Row.State.Color = Control.Value and Window.Theme.AccentColor or Window.Theme.SecondaryText
         end
+
+        SetTextFit(Row.State, Row.State.Text, 42, 13, 10)
+
+        local RowY = 10 + Index * 18
+        local StateWidth = Pixel(TextWidth(Row.State.Text, Row.State.Size or 13))
+
+        Row.State.Position = Panel.Position + NewVector2(
+            Layout.PanelWidth - 10 - StateWidth,
+            RowY
+        )
     end
 
     if OldCount ~= #Panel.Rows then
@@ -2967,8 +2984,8 @@ function WindowMethods:Run()
                         local Hover = PointIn(Control.HitPosition, Control.HitSize, MousePosition)
 
                         if Control.Type == "Toggle" then
-                            local Target = Control.Value and Theme.AccentColor or Hover and Theme.SecondaryText or Theme.ToggleBackground
-                            Control.CurrentFill = LerpColor(Control.CurrentFill, Target, 0.15)
+                            local Target = Control.Value and Theme.AccentColor or Theme.ToggleBackground
+                            Control.CurrentFill = LerpColor(Control.CurrentFill, Target, 0.22)
                             Control.Drawings.Fill.Color = Control.CurrentFill
                         elseif Control.Type == "Dropdown" or Control.Type == "Button" or Control.Type == "Keybind" then
                             local Target = Hover and Theme.HoverState or Theme.ToggleBackground
