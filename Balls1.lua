@@ -123,8 +123,8 @@ local KeyNames = {
     [38] = "UP",
     [39] = "RIGHT",
     [40] = "DOWN",
-    [45] = "INS",
-    [46] = "DEL",
+    [45] = "INSERT",
+    [46] = "DELETE",
     [96] = "NUM0",
     [97] = "NUM1",
     [98] = "NUM2",
@@ -319,7 +319,7 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Version = 17,
+    Version = 18,
     Theme = "Nightfall",
     Windows = {}
 }
@@ -524,6 +524,20 @@ end
 
 local function PixelVector(X, Y)
     return NewVector2(Pixel(X), Pixel(Y))
+end
+
+local function CenterTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
+    if not Object or TypeOf(Position) ~= "Vector2" or TypeOf(Size) ~= "Vector2" then return end
+
+    SetTextFit(Object, Text, Max(1, Size.X - 6), PreferredSize, MinimumSize)
+    Object.Center = false
+
+    local FontSize = Type(Object.Size) == "number" and Object.Size or PreferredSize or 13
+    local Width = Pixel(TextWidth(Object.Text, FontSize))
+    local X = Pixel(Position.X + Max(0, (Size.X - Width) / 2))
+    local Y = Pixel(Position.Y + Max(0, (Size.Y - FontSize) / 2))
+
+    Object.Position = NewVector2(X, Y)
 end
 
 local function GetPopupPosition(Window, Control, Width, Height, Gap)
@@ -826,8 +840,14 @@ local function RefreshLayout(Window)
                             Control.Bind.Outline.Size = Control.Bind.HitSize
                             Control.Bind.Inline.Position = Control.Bind.HitPosition + NewVector2(1, 1)
                             Control.Bind.Inline.Size = Control.Bind.HitSize - NewVector2(2, 2)
-                            SetTextFit(Control.Bind.Text, BindText, Max(1, BindWidth - 8), 12, 9)
-                            Control.Bind.Text.Position = Control.Bind.HitPosition + NewVector2(Floor(BindWidth / 2), 3)
+                            CenterTextInRect(
+                                Control.Bind.Text,
+                                BindText,
+                                Control.Bind.HitPosition,
+                                Control.Bind.HitSize,
+                                12,
+                                9
+                            )
                             Right = Right - BindWidth - 7
                         end
 
@@ -885,12 +905,20 @@ local function RefreshLayout(Window)
                         Control.Drawings.Outline.Size = NewVector2(ControlWidth, 22)
                         Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
                         Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), 20)
-                        SetTextFit(Control.Drawings.Label, DropdownText(Control), Max(1, ControlWidth - 30), 13, 10)
+                        SetTextFit(Control.Drawings.Label, DropdownText(Control), Max(1, ControlWidth - 36), 13, 10)
                         Control.Drawings.Label.Position = NewVector2(X0 + 8, ControlY + 4)
-                        Control.Drawings.State.Position = NewVector2(X0 + ControlWidth - 10, ControlY + 4)
 
                         Control.HitPosition = NewVector2(X0, ControlY)
                         Control.HitSize = NewVector2(ControlWidth, 22)
+
+                        CenterTextInRect(
+                            Control.Drawings.State,
+                            Control.Drawings.State.Text,
+                            NewVector2(X0 + ControlWidth - 26, ControlY),
+                            NewVector2(24, 22),
+                            13,
+                            10
+                        )
 
                     elseif Control.Type == "Colorpicker" then
                         local PickerWidth = 28
@@ -912,23 +940,36 @@ local function RefreshLayout(Window)
                         Control.Drawings.Outline.Size = NewVector2(ControlWidth, 22)
                         Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
                         Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), 20)
-                        SetTextFit(Control.Drawings.Label, Control.Name, Max(1, ControlWidth - 10), 13, 10)
-                        Control.Drawings.Label.Position = NewVector2(X0 + Floor(ControlWidth / 2), ControlY + 4)
-
                         Control.HitPosition = NewVector2(X0, ControlY)
                         Control.HitSize = NewVector2(ControlWidth, 22)
+
+                        CenterTextInRect(
+                            Control.Drawings.Label,
+                            Control.Name,
+                            Control.HitPosition,
+                            Control.HitSize,
+                            13,
+                            10
+                        )
 
                     elseif Control.Type == "Keybind" then
                         Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
                         Control.Drawings.Outline.Size = NewVector2(ControlWidth, 22)
                         Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
                         Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), 20)
-                        local KeybindText = Control.Name .. " [ " .. GetKeyName(Control.Value) .. " ]"
-                        SetTextFit(Control.Drawings.Label, KeybindText, Max(1, ControlWidth - 10), 13, 10)
-                        Control.Drawings.Label.Position = NewVector2(X0 + Floor(ControlWidth / 2), ControlY + 4)
+                        local KeybindText = Control.Name .. " [" .. GetKeyName(Control.Value) .. "]"
 
                         Control.HitPosition = NewVector2(X0, ControlY)
                         Control.HitSize = NewVector2(ControlWidth, 22)
+
+                        CenterTextInRect(
+                            Control.Drawings.Label,
+                            KeybindText,
+                            Control.HitPosition,
+                            Control.HitSize,
+                            13,
+                            10
+                        )
                     end
 
                     local RowHeight = ControlHeight(Control, Scale)
@@ -1142,7 +1183,7 @@ function Library:CreateWindow(Options)
         MinimumSize = NewVector2(520, 420),
         MenuKey = GetKeyCode(Options.menuKey or Options.MenuKey or "F2"),
         ConfigName = SafeName(Options.configName or Options.ConfigName or "Default"),
-        ConfigFolder = SafeName(Options.configFolder or Options.ConfigFolder or "Balls1"),
+        ConfigFolder = SafeName(Options.configFolder or Options.ConfigFolder or "NightfallConfigs"),
         ThemeName = self.Theme,
         Theme = Themes[self.Theme],
         Tabs = {},
@@ -1390,7 +1431,7 @@ function ToggleMethods:AddKeybind(Default, Mode)
         Size = 12,
         Font = Drawing.Fonts.System,
         Outline = true,
-        Center = true,
+        Center = false,
         Visible = false,
         Transparency = 1,
         Color = Theme.SecondaryText
@@ -1627,7 +1668,7 @@ function SectionMethods:Dropdown(Name, Default, Options, Multi, Callback)
         Size = 13,
         Font = Drawing.Fonts.System,
         Outline = true,
-        Center = true,
+        Center = false,
         Visible = false,
         Transparency = 1,
         Color = Theme.SecondaryText
@@ -1767,7 +1808,7 @@ function SectionMethods:Button(Name, Callback)
         Size = 13,
         Font = Drawing.Fonts.System,
         Outline = true,
-        Center = true,
+        Center = false,
         Visible = false,
         Transparency = 1,
         Color = Theme.PrimaryText
@@ -1803,11 +1844,11 @@ function SectionMethods:Keybind(Name, Default, Callback)
     })
 
     Control.Drawings.Label = NewDrawing("Text", {
-        Text = Control.Name .. " [ " .. GetKeyName(Control.Value) .. " ]",
+        Text = Control.Name .. " [" .. GetKeyName(Control.Value) .. "]",
         Size = 13,
         Font = Drawing.Fonts.System,
         Outline = true,
-        Center = true,
+        Center = false,
         Visible = false,
         Transparency = 1,
         Color = Theme.SecondaryText
@@ -1827,6 +1868,7 @@ function KeybindMethods:SetKey(Value)
 
     self.Key = GetKeyCode(Value)
     self.Text.Text = "[" .. GetKeyName(self.Key) .. "]"
+    RefreshLayout(self.Window)
 end
 
 function KeybindMethods:SetValue(Value, Silent)
@@ -1839,7 +1881,8 @@ function KeybindMethods:SetValue(Value, Silent)
     end
 
     self.Value = Code
-    self.Drawings.Label.Text = self.Name .. " [ " .. GetKeyName(Code) .. " ]"
+    self.Drawings.Label.Text = self.Name .. " [" .. GetKeyName(Code) .. "]"
+    RefreshLayout(self.Window)
 
     if not Silent and self.Callback then
         self.Callback(Code)
@@ -2370,7 +2413,7 @@ local function EnsureKeybindPanel(Window)
     })
 
     Panel.Title = NewDrawing("Text", {
-        Text = "keybinds",
+        Text = "Keybinds",
         Size = 13,
         Font = Drawing.Fonts.System,
         Outline = true,
@@ -2696,21 +2739,21 @@ function WindowMethods:AddSettingsTab()
     local Tab = self:Tab("Settings")
     self.SettingsTab = Tab
 
-    local Appearance = Tab:Section("Appearance", "Left")
+    local Appearance = Tab:Section("Menu", "Left")
     Appearance:Dropdown("Theme", self.ThemeName, ThemeNames, false, function(Value)
         Library:SetTheme(Value)
     end)
 
-    Appearance:Toggle("Keybind List", true, function(State)
+    Appearance:Toggle("Keybinds", true, function(State)
         self.ShowKeybinds = State
         ApplyVisibility(self)
     end)
 
-    Appearance:Keybind("Menu Bind", self.MenuKey, function(Code)
+    Appearance:Keybind("Menu Key", self.MenuKey, function(Code)
         self.MenuKey = Code
     end)
 
-    local Config = Tab:Section("Config Manager", "Right")
+    local Config = Tab:Section("Configs", "Right")
 
     Config:Button("Save Config", function()
         self:SaveConfig(self.ConfigName)
