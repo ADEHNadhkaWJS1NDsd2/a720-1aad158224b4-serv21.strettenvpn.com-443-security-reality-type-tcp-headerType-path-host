@@ -319,7 +319,7 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Version = 16,
+    Version = 17,
     Theme = "Nightfall",
     Windows = {}
 }
@@ -372,7 +372,7 @@ local Layout = {
     TabTop = 80,
     TabHeight = 24,
     TabStep = 30,
-    PanelWidth = 180
+    PanelWidth = 220
 }
 
 local function GetTabContentHeight(Tab, Scale)
@@ -676,6 +676,12 @@ local function RefreshStaticColors(Window)
         Window.KeybindPanel.Background.Color = Theme.GroupBackground
         Window.KeybindPanel.Accent.Color = Theme.AccentColor
         Window.KeybindPanel.Title.Color = Theme.PrimaryText
+
+        for _, Row in ipairs(Window.KeybindPanel.Rows) do
+            if Row.Mode then
+                Row.Mode.Color = Theme.SecondaryText
+            end
+        end
     end
 end
 
@@ -862,8 +868,14 @@ local function RefreshLayout(Window)
 
                         Control.Drawings.Fill.Position = NewVector2(X0 + 1, ControlY + 19)
                         Control.Drawings.Fill.Size = NewVector2(FillWidth, 6)
-                        Control.Drawings.Thumb.Position = NewVector2(Clamp(X0 + FillWidth - 1, X0, X0 + ControlWidth - 3), ControlY + 17)
-                        Control.Drawings.Thumb.Size = NewVector2(3, 10)
+
+                        local ThumbX = Clamp(
+                            X0 + 1 + Pixel((TrackWidth - 1) * Percent),
+                            X0 + 1,
+                            X0 + ControlWidth - 2
+                        )
+
+                        Control.Drawings.Thumb.Position = NewVector2(ThumbX, ControlY + 22)
 
                         Control.HitPosition = NewVector2(X0, ControlY + 12)
                         Control.HitSize = NewVector2(ControlWidth, 20)
@@ -953,12 +965,24 @@ local function RefreshLayout(Window)
 
         for Index, Row in ipairs(Rows) do
             local RowY = 10 + Index * 18
-            SetTextFit(Row.Name, Row.Name.Text, Max(1, PanelWidth - 70), 13, 10)
-            SetTextFit(Row.State, Row.State.Text, 42, 13, 10)
+            local StateWidthArea = 42
+            local ModeWidthArea = 52
+            local Gap = 6
+            local NameWidth = Max(1, PanelWidth - 20 - StateWidthArea - ModeWidthArea - Gap * 2)
 
+            SetTextFit(Row.Name, Row.Name.Text, NameWidth, 13, 10)
+            SetTextFit(Row.Mode, Row.Mode.Text, ModeWidthArea, 12, 10)
+            SetTextFit(Row.State, Row.State.Text, StateWidthArea, 13, 10)
+
+            local ModeWidth = Pixel(TextWidth(Row.Mode.Text, Row.Mode.Size or 12))
             local StateWidth = Pixel(TextWidth(Row.State.Text, Row.State.Size or 13))
+            local ModeLeft = PanelWidth - 10 - StateWidthArea - Gap - ModeWidthArea
 
             Row.Name.Position = Panel.Position + NewVector2(10, RowY)
+            Row.Mode.Position = Panel.Position + NewVector2(
+                ModeLeft + Floor((ModeWidthArea - ModeWidth) / 2),
+                RowY
+            )
             Row.State.Position = Panel.Position + NewVector2(
                 PanelWidth - 10 - StateWidth,
                 RowY
@@ -1000,6 +1024,7 @@ local function ApplyVisibility(Window)
 
         for _, Row in ipairs(Window.KeybindPanel.Rows) do
             Row.Name.Visible = PanelVisible
+            Row.Mode.Visible = PanelVisible
             Row.State.Visible = PanelVisible
         end
     end
@@ -1481,11 +1506,13 @@ function SectionMethods:Slider(Name, Default, Step, Minimum, Maximum, Suffix, Ca
         Color = Theme.AccentColor
     })
 
-    Control.Drawings.Thumb = NewDrawing("Square", {
+    Control.Drawings.Thumb = NewDrawing("Circle", {
         Filled = true,
         Visible = false,
         Transparency = 1,
-        Size = NewVector2(3, 10),
+        Radius = 4,
+        NumSides = 24,
+        Thickness = 1,
         Color = Theme.PrimaryText
     })
 
@@ -2377,6 +2404,16 @@ local function RefreshKeybindPanel(Window)
                 Transparency = 1,
                 Color = Window.Theme.PrimaryText
             }),
+            Mode = NewDrawing("Text", {
+                Text = "",
+                Size = 12,
+                Font = Drawing.Fonts.System,
+                Outline = true,
+                Center = false,
+                Visible = false,
+                Transparency = 1,
+                Color = Window.Theme.SecondaryText
+            }),
             State = NewDrawing("Text", {
                 Text = "",
                 Size = 13,
@@ -2395,6 +2432,7 @@ local function RefreshKeybindPanel(Window)
     while #Panel.Rows > #Desired do
         local Row = Panel.Rows[#Panel.Rows]
         RemoveDrawing(Row.Name)
+        RemoveDrawing(Row.Mode)
         RemoveDrawing(Row.State)
         Remove(Panel.Rows, #Panel.Rows)
     end
@@ -2402,7 +2440,18 @@ local function RefreshKeybindPanel(Window)
     for Index, Bind in ipairs(Desired) do
         local Row = Panel.Rows[Index]
         local Control = Bind.Control
-        SetTextFit(Row.Name, "[" .. GetKeyName(Bind.Key) .. "] " .. Control.Name, Max(1, Layout.PanelWidth - 64), 13, 10)
+        local PanelWidth = Layout.PanelWidth
+        local StateWidthArea = 42
+        local ModeWidthArea = 52
+        local Gap = 6
+        local NameWidth = Max(1, PanelWidth - 20 - StateWidthArea - ModeWidthArea - Gap * 2)
+
+        SetTextFit(Row.Name, "[" .. GetKeyName(Bind.Key) .. "] " .. Control.Name, NameWidth, 13, 10)
+
+        Row.Mode.Text = Bind.Mode == "Hold" and "Hold"
+            or Bind.Mode == "Always" and "Always"
+            or "Toggle"
+        Row.Mode.Color = Window.Theme.SecondaryText
 
         if Bind.Mode == "Hold" then
             Row.State.Text = Bind.Held and "[ON]" or "[OFF]"
@@ -2415,13 +2464,20 @@ local function RefreshKeybindPanel(Window)
             Row.State.Color = Control.Value and Window.Theme.AccentColor or Window.Theme.SecondaryText
         end
 
-        SetTextFit(Row.State, Row.State.Text, 42, 13, 10)
+        SetTextFit(Row.Mode, Row.Mode.Text, ModeWidthArea, 12, 10)
+        SetTextFit(Row.State, Row.State.Text, StateWidthArea, 13, 10)
 
         local RowY = 10 + Index * 18
+        local ModeWidth = Pixel(TextWidth(Row.Mode.Text, Row.Mode.Size or 12))
         local StateWidth = Pixel(TextWidth(Row.State.Text, Row.State.Size or 13))
+        local ModeLeft = PanelWidth - 10 - StateWidthArea - Gap - ModeWidthArea
 
+        Row.Mode.Position = Panel.Position + NewVector2(
+            ModeLeft + Floor((ModeWidthArea - ModeWidth) / 2),
+            RowY
+        )
         Row.State.Position = Panel.Position + NewVector2(
-            Layout.PanelWidth - 10 - StateWidth,
+            PanelWidth - 10 - StateWidth,
             RowY
         )
     end
