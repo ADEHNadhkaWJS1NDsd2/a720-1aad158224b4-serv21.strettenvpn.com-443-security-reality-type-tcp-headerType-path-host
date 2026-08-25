@@ -167,7 +167,7 @@ for Index = 1, 12 do
 end
 
 local function GetKeyName(Code)
-    if Type(Code) ~= "number" or Code <= 0 then return "None" end
+    if Type(Code) ~= "number" or Code <= 0 then return "-" end
     if KeyNames[Code] then return KeyNames[Code] end
     if Code >= 48 and Code <= 57 then return string.char(Code) end
     if Code >= 65 and Code <= 90 then return string.char(Code) end
@@ -319,7 +319,7 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Version = 10,
+    Version = 13,
     Theme = "Nightfall",
     Windows = {}
 }
@@ -337,24 +337,30 @@ local DropdownMethods = {}
 local ColorMethods = {}
 local KeybindMethods = {}
 
-local function ControlHeight(Control)
-    if Control.Type == "Slider" then return 40 end
-    if Control.Type == "Dropdown" then return 30 end
-    if Control.Type == "Button" then return 30 end
-    if Control.Type == "Keybind" then return 30 end
-    return 25
+local function ControlHeight(Control, Scale)
+    Scale = Type(Scale) == "number" and Scale or 1
+
+    if Control.Type == "Slider" then
+        return Max(27, Floor(40 * Scale + 0.5))
+    end
+
+    if Control.Type == "Dropdown" or Control.Type == "Button" or Control.Type == "Keybind" then
+        return Max(23, Floor(30 * Scale + 0.5))
+    end
+
+    return Max(21, Floor(25 * Scale + 0.5))
 end
 
-local function GetSectionHeight(Section)
-    local Height = 20
+local function GetSectionHeight(Section, Scale)
+    local Height = 18
 
     for _, Control in ipairs(Section.Controls) do
         if Control.Visible ~= false then
-            Height = Height + ControlHeight(Control)
+            Height = Height + ControlHeight(Control, Scale)
         end
     end
 
-    return Max(Height + 12, 52)
+    return Max(48, Height + 8)
 end
 
 local Layout = {
@@ -369,72 +375,69 @@ local Layout = {
     PanelWidth = 180
 }
 
-local function GetTabRequiredHeight(Window, Tab)
-    if not Tab then
-        return Max(Window.MinimumSize.Y, Window.BaseHeight or Window.Size.Y)
-    end
+local function GetTabContentHeight(Tab, Scale)
+    if not Tab then return 0 end
 
-    local LeftHeight = 20
-    local RightHeight = 20
+    local Gap = Max(8, Floor(Layout.SectionGap * Scale + 0.5))
+    local Left = 0
+    local Right = 0
     local LeftCount = 0
     local RightCount = 0
 
     for _, Section in ipairs(Tab.Sections) do
-        local Height = GetSectionHeight(Section)
+        local Height = GetSectionHeight(Section, Scale)
 
         if Section.Side == "Right" then
-            RightHeight = RightHeight + Height + Layout.SectionGap
+            Right = Right + Height
             RightCount = RightCount + 1
         else
-            LeftHeight = LeftHeight + Height + Layout.SectionGap
+            Left = Left + Height
             LeftCount = LeftCount + 1
         end
     end
 
-    if LeftCount > 0 then LeftHeight = LeftHeight - Layout.SectionGap end
-    if RightCount > 0 then RightHeight = RightHeight - Layout.SectionGap end
-
-    return Max(
-        Window.MinimumSize.Y,
-        Window.BaseHeight or Window.Size.Y,
-        Max(LeftHeight, RightHeight) + 15
-    )
-end
-
-local function GetViewportSize()
-    local Camera = Workspace.CurrentCamera
-    local Size = Camera and Camera.ViewportSize
-
-    if TypeOf(Size) == "Vector2" then
-        return Size
+    if LeftCount > 1 then
+        Left = Left + Gap * (LeftCount - 1)
     end
 
-    return nil
+    if RightCount > 1 then
+        Right = Right + Gap * (RightCount - 1)
+    end
+
+    return Max(Left, Right)
+end
+
+local function GetLayoutScale(Window, Tab)
+    if not Tab then return 1 end
+
+    local Available = Max(1, Window.Size.Y - 36)
+
+    if GetTabContentHeight(Tab, 1) <= Available then
+        return 1
+    end
+
+    local Low = 0.50
+    local High = 1
+
+    if GetTabContentHeight(Tab, Low) > Available then
+        return Low
+    end
+
+    for _ = 1, 10 do
+        local Mid = (Low + High) * 0.5
+
+        if GetTabContentHeight(Tab, Mid) <= Available then
+            Low = Mid
+        else
+            High = Mid
+        end
+    end
+
+    return Low
 end
 
 local function FitWindowHeight(Window, Tab)
-    if not Window.AutoHeight then return end
-
-    local Height = GetTabRequiredHeight(Window, Tab)
-    Window.Size = NewVector2(Window.Size.X, Height)
-
-    local Viewport = GetViewportSize()
-
-    if Viewport then
-        local X = Window.Position.X
-        local Y = Window.Position.Y
-        local Margin = 8
-
-        if X + Window.Size.X > Viewport.X - Margin then
-            X = Max(Margin, Viewport.X - Window.Size.X - Margin)
-        end
-
-        if Y + Height > Viewport.Y - Margin then
-            Y = Max(Margin, Viewport.Y - Height - Margin)
-        end
-
-        Window.Position = NewVector2(X, Y)
-    end
+    Window.LayoutScale = GetLayoutScale(Window, Tab)
 end
 
 local function TextWidth(Text, Size)
@@ -573,13 +576,16 @@ local function SetControlVisible(Control, State)
 end
 
 local function SetSectionVisible(Section, State)
-    SetVisible(Section.Outline, State)
-    SetVisible(Section.Background, State)
-    SetVisible(Section.TitleBackground, State)
-    SetVisible(Section.TitleText, State)
+    local SectionVisible = State and Section.LayoutVisible ~= false
+    local TitleVisible = SectionVisible and Section.TitleLayoutVisible ~= false
+
+    SetVisible(Section.Outline, SectionVisible)
+    SetVisible(Section.Background, SectionVisible)
+    SetVisible(Section.TitleBackground, TitleVisible)
+    SetVisible(Section.TitleText, TitleVisible)
 
     for _, Control in ipairs(Section.Controls) do
-        SetControlVisible(Control, State and Control.Visible)
+        SetControlVisible(Control, SectionVisible and Control.Visible and Control.LayoutVisible ~= false)
     end
 end
 
@@ -747,23 +753,36 @@ local function RefreshLayout(Window)
     end
 
     if Window.ActiveTab then
-        local LeftY = Position.Y + 20
-        local RightY = Position.Y + 20
+        local Scale = GetLayoutScale(Window, Window.ActiveTab)
+        local SectionGap = Max(8, Pixel(Layout.SectionGap * Scale))
+        local ContentTop = Position.Y + 18
+        local ContentBottom = Position.Y + Size.Y - 12
+        local LeftY = ContentTop
+        local RightY = ContentTop
+
+        Window.LayoutScale = Scale
 
         for _, Section in ipairs(Window.ActiveTab.Sections) do
             local IsRight = Section.Side == "Right"
             local X = IsRight and RightX or LeftX
             local Width = IsRight and RightWidth or LeftWidth
             local Y = IsRight and RightY or LeftY
-            local Height = GetSectionHeight(Section)
+            local Height = GetSectionHeight(Section, Scale)
 
             Section.Position = NewVector2(X, Y)
             Section.Size = NewVector2(Width, Height)
 
-            Section.Outline.Position = Section.Position
-            Section.Outline.Size = Section.Size
-            Section.Background.Position = Section.Position + NewVector2(1, 1)
-            Section.Background.Size = Section.Size - NewVector2(2, 2)
+            local VisibleTop = Max(Y, ContentTop)
+            local VisibleBottom = Min(Y + Height, ContentBottom)
+            local VisibleHeight = Max(0, VisibleBottom - VisibleTop)
+
+            Section.LayoutVisible = VisibleHeight > 0
+            Section.TitleLayoutVisible = Y >= ContentTop and Y + 12 <= ContentBottom
+
+            Section.Outline.Position = NewVector2(X, VisibleTop)
+            Section.Outline.Size = NewVector2(Width, VisibleHeight)
+            Section.Background.Position = NewVector2(X + 1, VisibleTop + 1)
+            Section.Background.Size = NewVector2(Max(1, Width - 2), Max(1, VisibleHeight - 2))
 
             local TitleWidth = Min(Width - 24, Max(48, Pixel(TextWidth(Section.Name, 13) + 10)))
             Section.TitleBackground.Position = Section.Position + NewVector2(10, -2)
@@ -771,7 +790,7 @@ local function RefreshLayout(Window)
             SetTextFit(Section.TitleText, Section.Name, Max(1, Width - 30), 13, 10)
             Section.TitleText.Position = Section.Position + NewVector2(14, -6)
 
-            local ControlY = Y + 20
+            local ControlY = Y + 18
 
             for _, Control in ipairs(Section.Controls) do
                 if Control.Visible ~= false then
@@ -787,8 +806,8 @@ local function RefreshLayout(Window)
                         Control.Drawings.Fill.Size = NewVector2(8, 8)
                         Control.Drawings.Label.Position = NewVector2(X0 + 20, ControlY - 1)
 
-                        Control.HitPosition = NewVector2(X0, ControlY - 4)
-                        Control.HitSize = NewVector2(ControlWidth, 20)
+                        Control.HitPosition = NewVector2(X0, ControlY)
+                        Control.HitSize = NewVector2(12, 12)
 
                         local Right = X0 + ControlWidth
 
@@ -807,9 +826,10 @@ local function RefreshLayout(Window)
                         end
 
                         if Control.AttachedColor then
-                            local PickerWidth = 24
-                            Control.AttachedColor.HitPosition = NewVector2(Right - PickerWidth, ControlY - 1)
-                            Control.AttachedColor.HitSize = NewVector2(PickerWidth, 14)
+                            local PickerWidth = 46
+                            local PickerHeight = 18
+                            Control.AttachedColor.HitPosition = NewVector2(Right - PickerWidth, ControlY - 3)
+                            Control.AttachedColor.HitSize = NewVector2(PickerWidth, PickerHeight)
                             Control.AttachedColor.Outline.Position = Control.AttachedColor.HitPosition
                             Control.AttachedColor.Outline.Size = Control.AttachedColor.HitSize
                             Control.AttachedColor.Fill.Position = Control.AttachedColor.HitPosition + NewVector2(1, 1)
@@ -861,15 +881,19 @@ local function RefreshLayout(Window)
                         Control.HitSize = NewVector2(ControlWidth, 22)
 
                     elseif Control.Type == "Colorpicker" then
-                        SetTextFit(Control.Drawings.Label, Control.Name, Max(1, ControlWidth - 54), 13, 10)
-                        Control.Drawings.Label.Position = NewVector2(X0, ControlY + 2)
-                        Control.Drawings.Outline.Position = NewVector2(X0 + ControlWidth - 46, ControlY)
-                        Control.Drawings.Outline.Size = NewVector2(46, 18)
-                        Control.Drawings.Fill.Position = NewVector2(X0 + ControlWidth - 45, ControlY + 1)
-                        Control.Drawings.Fill.Size = NewVector2(44, 16)
+                        local PickerWidth = 46
+                        local PickerHeight = 18
+                        local PickerPosition = NewVector2(X0 + ControlWidth - PickerWidth, ControlY - 1)
 
-                        Control.HitPosition = NewVector2(X0, ControlY - 2)
-                        Control.HitSize = NewVector2(ControlWidth, 22)
+                        SetTextFit(Control.Drawings.Label, Control.Name, Max(1, ControlWidth - PickerWidth - 8), 13, 10)
+                        Control.Drawings.Label.Position = NewVector2(X0, ControlY + 1)
+                        Control.Drawings.Outline.Position = PickerPosition
+                        Control.Drawings.Outline.Size = NewVector2(PickerWidth, PickerHeight)
+                        Control.Drawings.Fill.Position = PickerPosition + NewVector2(1, 1)
+                        Control.Drawings.Fill.Size = NewVector2(PickerWidth - 2, PickerHeight - 2)
+
+                        Control.HitPosition = PickerPosition
+                        Control.HitSize = NewVector2(PickerWidth, PickerHeight)
 
                     elseif Control.Type == "Button" then
                         Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
@@ -895,14 +919,18 @@ local function RefreshLayout(Window)
                         Control.HitSize = NewVector2(ControlWidth, 22)
                     end
 
-                    ControlY = ControlY + ControlHeight(Control)
+                    local RowHeight = ControlHeight(Control, Scale)
+                    Control.LayoutVisible = ControlY + RowHeight > ContentTop and ControlY < ContentBottom
+                    ControlY = ControlY + RowHeight
+                else
+                    Control.LayoutVisible = false
                 end
             end
 
             if IsRight then
-                RightY = Y + Height + Layout.SectionGap
+                RightY = Y + Height + SectionGap
             else
-                LeftY = Y + Height + Layout.SectionGap
+                LeftY = Y + Height + SectionGap
             end
         end
     end
@@ -1106,6 +1134,7 @@ function Library:CreateWindow(Options)
 
     Window.BaseHeight = Window.Size.Y
     Window.AutoHeight = Options.autoHeight ~= false
+    Window.LayoutScale = 1
 
     if Window.Size.X < Window.MinimumSize.X then
         Window.Size = NewVector2(Window.MinimumSize.X, Window.Size.Y)
@@ -2029,8 +2058,8 @@ local function MakePicker(Window, Control)
         end
     end
 
-    local PopupWidth = 176
-    local PopupHeight = 150
+    local PopupWidth = 192
+    local PopupHeight = 158
     local Position = GetPopupPosition(Window, Control, PopupWidth, PopupHeight, 4)
     local Theme = Window.Theme
     local Objects = {}
@@ -2060,58 +2089,122 @@ local function MakePicker(Window, Control)
         Color = Theme.GroupBackground
     }))
 
-    local SvPosition = Position + NewVector2(10, 10)
-    local SvSize = 110
     local Grid = 10
-    local Cell = SvSize / Grid
+    local CellSize = 11
+    local CellStep = 12
+    local SvSize = (Grid - 1) * CellStep + CellSize
+    local SvPosition = Position + NewVector2(9, 9)
     local SvCells = {}
+
+    Add(NewDrawing("Square", {
+        Filled = true,
+        Visible = true,
+        Transparency = 1,
+        ZIndex = 32,
+        Position = SvPosition - NewVector2(1, 1),
+        Size = NewVector2(SvSize + 2, SvSize + 2),
+        Color = Theme.Outline
+    }))
 
     for Row = 0, Grid - 1 do
         for Column = 0, Grid - 1 do
             local Sat = Column / (Grid - 1)
             local Val = 1 - Row / (Grid - 1)
+
             local CellDrawing = Add(NewDrawing("Square", {
                 Filled = true,
                 Visible = true,
                 Transparency = 1,
-                ZIndex = 32,
-                Position = SvPosition + NewVector2(Column * Cell, Row * Cell),
-                Size = NewVector2(Cell, Cell),
+                ZIndex = 33,
+                Position = SvPosition + NewVector2(Column * CellStep, Row * CellStep),
+                Size = NewVector2(CellSize, CellSize),
                 Color = FromHSV(H, Sat, Val)
             }))
 
-            Insert(SvCells, {Drawing = CellDrawing, S = Sat, V = Val})
+            Insert(SvCells, {
+                Drawing = CellDrawing,
+                S = Sat,
+                V = Val
+            })
         end
     end
 
-    local HuePosition = Position + NewVector2(130, 10)
+    local HuePosition = Position + NewVector2(137, 9)
+    local HueWidth = 12
+    local HueHeight = SvSize
+    local HueSegments = 20
+    local HueStep = 6
+    local HueCellHeight = 5
     local HueBars = {}
-    local HueSegments = 22
-    local HueBarHeight = 5
+
+    Add(NewDrawing("Square", {
+        Filled = true,
+        Visible = true,
+        Transparency = 1,
+        ZIndex = 32,
+        Position = HuePosition - NewVector2(1, 1),
+        Size = NewVector2(HueWidth + 2, HueHeight + 2),
+        Color = Theme.Outline
+    }))
 
     for Index = 0, HueSegments - 1 do
         local Hue = 1 - Index / (HueSegments - 1)
+
         local Bar = Add(NewDrawing("Square", {
             Filled = true,
             Visible = true,
             Transparency = 1,
-            ZIndex = 32,
-            Position = HuePosition + NewVector2(0, Index * HueBarHeight),
-            Size = NewVector2(12, HueBarHeight),
+            ZIndex = 33,
+            Position = HuePosition + NewVector2(0, Index * HueStep),
+            Size = NewVector2(HueWidth, HueCellHeight),
             Color = FromHSV(Hue, 1, 1)
         }))
 
         Insert(HueBars, Bar)
     end
 
-    local Preview = Add(NewDrawing("Square", {
+    local PreviewPosition = Position + NewVector2(159, 9)
+
+    Add(NewDrawing("Square", {
         Filled = true,
         Visible = true,
         Transparency = 1,
         ZIndex = 32,
-        Position = Position + NewVector2(150, 10),
-        Size = NewVector2(16, 110),
+        Position = PreviewPosition,
+        Size = NewVector2(24, 24),
+        Color = Theme.Outline
+    }))
+
+    local Preview = Add(NewDrawing("Square", {
+        Filled = true,
+        Visible = true,
+        Transparency = 1,
+        ZIndex = 33,
+        Position = PreviewPosition + NewVector2(1, 1),
+        Size = NewVector2(22, 22),
         Color = Current
+    }))
+
+    local SvMarker = Add(NewDrawing("Square", {
+        Filled = false,
+        Visible = true,
+        Transparency = 1,
+        ZIndex = 36,
+        Thickness = 2,
+        Position = SvPosition,
+        Size = NewVector2(7, 7),
+        Color = Theme.PrimaryText
+    }))
+
+    local HueMarker = Add(NewDrawing("Square", {
+        Filled = false,
+        Visible = true,
+        Transparency = 1,
+        ZIndex = 36,
+        Thickness = 2,
+        Position = HuePosition,
+        Size = NewVector2(HueWidth + 4, 6),
+        Color = Theme.PrimaryText
     }))
 
     local Hex = Add(NewDrawing("Text", {
@@ -2121,12 +2214,12 @@ local function MakePicker(Window, Control)
         Outline = true,
         Visible = true,
         Transparency = 1,
-        ZIndex = 33,
-        Position = Position + NewVector2(10, 128),
+        ZIndex = 36,
+        Position = Position + NewVector2(9, 137),
         Color = Theme.PrimaryText
     }))
 
-    Window.OpenPicker = {
+    local Picker = {
         Control = Control,
         Position = Position,
         Size = NewVector2(PopupWidth, PopupHeight),
@@ -2136,12 +2229,28 @@ local function MakePicker(Window, Control)
         SvPosition = SvPosition,
         SvSize = SvSize,
         HuePosition = HuePosition,
+        HueSize = NewVector2(HueWidth, HueHeight),
         Hue = H,
         Saturation = S,
         Value = V,
         Preview = Preview,
-        Hex = Hex
+        Hex = Hex,
+        SvMarker = SvMarker,
+        HueMarker = HueMarker
     }
+
+    local function UpdateMarkers()
+        local MarkerX = Clamp(Picker.SvPosition.X + Picker.Saturation * (Picker.SvSize - 1) - 3, Picker.SvPosition.X - 3, Picker.SvPosition.X + Picker.SvSize - 4)
+        local MarkerY = Clamp(Picker.SvPosition.Y + (1 - Picker.Value) * (Picker.SvSize - 1) - 3, Picker.SvPosition.Y - 3, Picker.SvPosition.Y + Picker.SvSize - 4)
+        Picker.SvMarker.Position = NewVector2(Pixel(MarkerX), Pixel(MarkerY))
+
+        local HueY = Clamp(Picker.HuePosition.Y + (1 - Picker.Hue) * (Picker.HueSize.Y - 1) - 2, Picker.HuePosition.Y - 2, Picker.HuePosition.Y + Picker.HueSize.Y - 4)
+        Picker.HueMarker.Position = NewVector2(Picker.HuePosition.X - 2, Pixel(HueY))
+    end
+
+    Picker.UpdateMarkers = UpdateMarkers
+    Window.OpenPicker = Picker
+    UpdateMarkers()
 end
 
 local function UpdatePicker(Window, Point)
@@ -2151,11 +2260,11 @@ local function UpdatePicker(Window, Point)
     local Changed = false
 
     if PointIn(Picker.SvPosition, NewVector2(Picker.SvSize, Picker.SvSize), Point) then
-        Picker.Saturation = Clamp((Point.X - Picker.SvPosition.X) / Picker.SvSize, 0, 1)
-        Picker.Value = 1 - Clamp((Point.Y - Picker.SvPosition.Y) / Picker.SvSize, 0, 1)
+        Picker.Saturation = Clamp((Point.X - Picker.SvPosition.X) / Max(Picker.SvSize - 1, 1), 0, 1)
+        Picker.Value = 1 - Clamp((Point.Y - Picker.SvPosition.Y) / Max(Picker.SvSize - 1, 1), 0, 1)
         Changed = true
-    elseif PointIn(Picker.HuePosition, NewVector2(12, 110), Point) then
-        Picker.Hue = 1 - Clamp((Point.Y - Picker.HuePosition.Y) / 110, 0, 1)
+    elseif PointIn(Picker.HuePosition, Picker.HueSize, Point) then
+        Picker.Hue = 1 - Clamp((Point.Y - Picker.HuePosition.Y) / Max(Picker.HueSize.Y - 1, 1), 0, 1)
         Changed = true
 
         for _, Cell in ipairs(Picker.SvCells) do
@@ -2168,6 +2277,11 @@ local function UpdatePicker(Window, Point)
     local Color = FromHSV(Picker.Hue, Picker.Saturation, Picker.Value)
     Picker.Preview.Color = Color
     Picker.Hex.Text = ColorToHex(Color)
+
+    if Picker.UpdateMarkers then
+        Picker.UpdateMarkers()
+    end
+
     Picker.Control:SetValue(Color)
 end
 
@@ -2593,7 +2707,7 @@ function WindowMethods:Run()
             if self.Open and self.ActiveTab then
                 for _, Section in ipairs(self.ActiveTab.Sections) do
                     for _, Control in ipairs(Section.Controls) do
-                        if Control.Visible and Control.Bind and PointIn(Control.Bind.HitPosition, Control.Bind.HitSize, MousePosition) then
+                        if Control.Visible and Control.LayoutVisible ~= false and Control.Bind and PointIn(Control.Bind.HitPosition, Control.Bind.HitSize, MousePosition) then
                             BindFound = Control.Bind
                             break
                         end
@@ -2738,7 +2852,7 @@ function WindowMethods:Run()
                 if not Used and self.ActiveTab then
                     for _, Section in ipairs(self.ActiveTab.Sections) do
                         for _, Control in ipairs(Section.Controls) do
-                            if Control.Visible then
+                            if Control.Visible and Control.LayoutVisible ~= false then
                                 if Control.Bind and PointIn(Control.Bind.HitPosition, Control.Bind.HitSize, MousePosition) then
                                     self.Capturing = Control.Bind
                                     Used = true
@@ -2818,16 +2932,15 @@ function WindowMethods:Run()
                 Y = self.PositionStart.Y + self.SizeStart.Y - Height
             end
 
-            local RequestedHeight = Height
-
-            if self.AutoHeight and self.ActiveTab then
-                Height = Max(Height, GetTabRequiredHeight(self, self.ActiveTab))
-                self.BaseHeight = Max(self.MinimumSize.Y, RequestedHeight)
-            end
-
             self.Position = NewVector2(X, Y)
             self.Size = NewVector2(Width, Height)
+
+            if self.ActiveTab then
+                FitWindowHeight(self, self.ActiveTab)
+            end
+
             RefreshLayout(self)
+            ApplyVisibility(self)
         end
 
         if MousePressed and self.KeybindPanel and self.KeybindPanel.Dragging then
@@ -2850,7 +2963,7 @@ function WindowMethods:Run()
 
             for _, Section in ipairs(self.ActiveTab.Sections) do
                 for _, Control in ipairs(Section.Controls) do
-                    if Control.Visible then
+                    if Control.Visible and Control.LayoutVisible ~= false then
                         local Hover = PointIn(Control.HitPosition, Control.HitSize, MousePosition)
 
                         if Control.Type == "Toggle" then
