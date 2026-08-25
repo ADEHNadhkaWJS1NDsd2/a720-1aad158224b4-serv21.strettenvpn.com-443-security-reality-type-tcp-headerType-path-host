@@ -319,7 +319,7 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Version = 15,
+    Version = 16,
     Theme = "Nightfall",
     Windows = {}
 }
@@ -826,9 +826,9 @@ local function RefreshLayout(Window)
                         end
 
                         if Control.AttachedColor then
-                            local PickerWidth = 46
-                            local PickerHeight = 18
-                            Control.AttachedColor.HitPosition = NewVector2(Right - PickerWidth, ControlY - 3)
+                            local PickerWidth = 28
+                            local PickerHeight = 12
+                            Control.AttachedColor.HitPosition = NewVector2(Right - PickerWidth, ControlY)
                             Control.AttachedColor.HitSize = NewVector2(PickerWidth, PickerHeight)
                             Control.AttachedColor.Outline.Position = Control.AttachedColor.HitPosition
                             Control.AttachedColor.Outline.Size = Control.AttachedColor.HitSize
@@ -881,9 +881,9 @@ local function RefreshLayout(Window)
                         Control.HitSize = NewVector2(ControlWidth, 22)
 
                     elseif Control.Type == "Colorpicker" then
-                        local PickerWidth = 46
-                        local PickerHeight = 18
-                        local PickerPosition = NewVector2(X0 + ControlWidth - PickerWidth, ControlY - 1)
+                        local PickerWidth = 28
+                        local PickerHeight = 12
+                        local PickerPosition = NewVector2(X0 + ControlWidth - PickerWidth, ControlY + 1)
 
                         SetTextFit(Control.Drawings.Label, Control.Name, Max(1, ControlWidth - PickerWidth - 8), 13, 10)
                         Control.Drawings.Label.Position = NewVector2(X0, ControlY + 1)
@@ -2036,6 +2036,10 @@ ClosePicker = function(Window)
     Window.OpenPicker = nil
 end
 
+local PickerWhiteGradientData = base64decode("iVBORw0KGgoAAAANSUhEUgAAAGAAAAABCAYAAAAhMKvHAAAAIElEQVR42mP8////fwYGhr8MDAz/oDQ+NrHqRs0iUh0AYiph/0LW3kIAAAAASUVORK5CYII=")
+local PickerBlackGradientData = base64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAABgCAYAAADcvRh2AAAAIklEQVR42mNggAJmJgYGBiYmGIsILuk6Ro2np/EMDAwM/wGcXwK2FR5ogAAAAABJRU5ErkJggg==")
+local PickerHueGradientData = base64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAABgCAIAAABT348hAAAAV0lEQVR42o3KOwrEMBQDwOFBqjT2/Q8ZkyZNQFtslY+XLQaBJKFoN/2lexC7U2owtc03q7CkNKX75i/XD0fIUYyb7aV7fMhijWrm+nxzhuzKpow/XH/CB9K/PIZSSRpyAAAAAElFTkSuQmCC")
+
 local function MakePicker(Window, Control)
     ClosePicker(Window)
     CloseDropdown(Window)
@@ -2065,8 +2069,8 @@ local function MakePicker(Window, Control)
         end
     end
 
-    local PopupWidth = 192
-    local PopupHeight = 158
+    local PopupWidth = 148
+    local PopupHeight = 128
     local Position = GetPopupPosition(Window, Control, PopupWidth, PopupHeight, 4)
     local Theme = Window.Theme
     local Objects = {}
@@ -2096,12 +2100,8 @@ local function MakePicker(Window, Control)
         Color = Theme.GroupBackground
     }))
 
-    local Grid = 10
-    local CellSize = 11
-    local CellStep = 12
-    local SvSize = (Grid - 1) * CellStep + CellSize
-    local SvPosition = Position + NewVector2(9, 9)
-    local SvCells = {}
+    local SvSize = 96
+    local SvPosition = Position + NewVector2(8, 8)
 
     Add(NewDrawing("Square", {
         Filled = true,
@@ -2113,36 +2113,38 @@ local function MakePicker(Window, Control)
         Color = Theme.Outline
     }))
 
-    for Row = 0, Grid - 1 do
-        for Column = 0, Grid - 1 do
-            local Sat = Column / (Grid - 1)
-            local Val = 1 - Row / (Grid - 1)
+    local SvBase = Add(NewDrawing("Square", {
+        Filled = true,
+        Visible = true,
+        Transparency = 1,
+        ZIndex = 33,
+        Position = SvPosition,
+        Size = NewVector2(SvSize, SvSize),
+        Color = FromHSV(H, 1, 1)
+    }))
 
-            local CellDrawing = Add(NewDrawing("Square", {
-                Filled = true,
-                Visible = true,
-                Transparency = 1,
-                ZIndex = 33,
-                Position = SvPosition + NewVector2(Column * CellStep, Row * CellStep),
-                Size = NewVector2(CellSize, CellSize),
-                Color = FromHSV(H, Sat, Val)
-            }))
+    Add(NewDrawing("Image", {
+        Data = PickerWhiteGradientData,
+        Visible = true,
+        Transparency = 1,
+        ZIndex = 34,
+        Position = SvPosition,
+        Size = NewVector2(SvSize, SvSize),
+        Color = FromRGB(255, 255, 255)
+    }))
 
-            Insert(SvCells, {
-                Drawing = CellDrawing,
-                S = Sat,
-                V = Val
-            })
-        end
-    end
+    Add(NewDrawing("Image", {
+        Data = PickerBlackGradientData,
+        Visible = true,
+        Transparency = 1,
+        ZIndex = 35,
+        Position = SvPosition,
+        Size = NewVector2(SvSize, SvSize),
+        Color = FromRGB(255, 255, 255)
+    }))
 
-    local HuePosition = Position + NewVector2(137, 9)
-    local HueWidth = 12
-    local HueHeight = SvSize
-    local HueSegments = 20
-    local HueStep = 6
-    local HueCellHeight = 5
-    local HueBars = {}
+    local HuePosition = Position + NewVector2(110, 8)
+    local HueSize = NewVector2(8, 96)
 
     Add(NewDrawing("Square", {
         Filled = true,
@@ -2150,27 +2152,21 @@ local function MakePicker(Window, Control)
         Transparency = 1,
         ZIndex = 32,
         Position = HuePosition - NewVector2(1, 1),
-        Size = NewVector2(HueWidth + 2, HueHeight + 2),
+        Size = HueSize + NewVector2(2, 2),
         Color = Theme.Outline
     }))
 
-    for Index = 0, HueSegments - 1 do
-        local Hue = 1 - Index / (HueSegments - 1)
+    Add(NewDrawing("Image", {
+        Data = PickerHueGradientData,
+        Visible = true,
+        Transparency = 1,
+        ZIndex = 33,
+        Position = HuePosition,
+        Size = HueSize,
+        Color = FromRGB(255, 255, 255)
+    }))
 
-        local Bar = Add(NewDrawing("Square", {
-            Filled = true,
-            Visible = true,
-            Transparency = 1,
-            ZIndex = 33,
-            Position = HuePosition + NewVector2(0, Index * HueStep),
-            Size = NewVector2(HueWidth, HueCellHeight),
-            Color = FromHSV(Hue, 1, 1)
-        }))
-
-        Insert(HueBars, Bar)
-    end
-
-    local PreviewPosition = Position + NewVector2(159, 9)
+    local PreviewPosition = Position + NewVector2(124, 8)
 
     Add(NewDrawing("Square", {
         Filled = true,
@@ -2178,7 +2174,7 @@ local function MakePicker(Window, Control)
         Transparency = 1,
         ZIndex = 32,
         Position = PreviewPosition,
-        Size = NewVector2(24, 24),
+        Size = NewVector2(18, 18),
         Color = Theme.Outline
     }))
 
@@ -2188,29 +2184,39 @@ local function MakePicker(Window, Control)
         Transparency = 1,
         ZIndex = 33,
         Position = PreviewPosition + NewVector2(1, 1),
-        Size = NewVector2(22, 22),
+        Size = NewVector2(16, 16),
         Color = Current
     }))
 
-    local SvMarker = Add(NewDrawing("Square", {
+    local SvMarker = Add(NewDrawing("Circle", {
         Filled = false,
         Visible = true,
         Transparency = 1,
-        ZIndex = 36,
-        Thickness = 2,
+        ZIndex = 38,
+        Radius = 3,
+        NumSides = 20,
+        Thickness = 1,
         Position = SvPosition,
-        Size = NewVector2(7, 7),
         Color = Theme.PrimaryText
     }))
 
-    local HueMarker = Add(NewDrawing("Square", {
-        Filled = false,
+    local HueMarkerShadow = Add(NewDrawing("Square", {
+        Filled = true,
         Visible = true,
         Transparency = 1,
-        ZIndex = 36,
-        Thickness = 2,
+        ZIndex = 37,
         Position = HuePosition,
-        Size = NewVector2(HueWidth + 4, 6),
+        Size = NewVector2(HueSize.X + 4, 3),
+        Color = Theme.Outline
+    }))
+
+    local HueMarker = Add(NewDrawing("Square", {
+        Filled = true,
+        Visible = true,
+        Transparency = 1,
+        ZIndex = 38,
+        Position = HuePosition,
+        Size = NewVector2(HueSize.X + 2, 1),
         Color = Theme.PrimaryText
     }))
 
@@ -2221,8 +2227,8 @@ local function MakePicker(Window, Control)
         Outline = true,
         Visible = true,
         Transparency = 1,
-        ZIndex = 36,
-        Position = Position + NewVector2(9, 137),
+        ZIndex = 38,
+        Position = Position + NewVector2(8, 109),
         Color = Theme.PrimaryText
     }))
 
@@ -2231,28 +2237,34 @@ local function MakePicker(Window, Control)
         Position = Position,
         Size = NewVector2(PopupWidth, PopupHeight),
         Drawings = Objects,
-        SvCells = SvCells,
-        HueBars = HueBars,
         SvPosition = SvPosition,
         SvSize = SvSize,
+        SvBase = SvBase,
         HuePosition = HuePosition,
-        HueSize = NewVector2(HueWidth, HueHeight),
+        HueSize = HueSize,
         Hue = H,
         Saturation = S,
         Value = V,
         Preview = Preview,
         Hex = Hex,
         SvMarker = SvMarker,
-        HueMarker = HueMarker
+        HueMarker = HueMarker,
+        HueMarkerShadow = HueMarkerShadow
     }
 
     local function UpdateMarkers()
-        local MarkerX = Clamp(Picker.SvPosition.X + Picker.Saturation * (Picker.SvSize - 1) - 3, Picker.SvPosition.X - 3, Picker.SvPosition.X + Picker.SvSize - 4)
-        local MarkerY = Clamp(Picker.SvPosition.Y + (1 - Picker.Value) * (Picker.SvSize - 1) - 3, Picker.SvPosition.Y - 3, Picker.SvPosition.Y + Picker.SvSize - 4)
+        local MarkerX = Picker.SvPosition.X + Picker.Saturation * (Picker.SvSize - 1)
+        local MarkerY = Picker.SvPosition.Y + (1 - Picker.Value) * (Picker.SvSize - 1)
         Picker.SvMarker.Position = NewVector2(Pixel(MarkerX), Pixel(MarkerY))
 
-        local HueY = Clamp(Picker.HuePosition.Y + (1 - Picker.Hue) * (Picker.HueSize.Y - 1) - 2, Picker.HuePosition.Y - 2, Picker.HuePosition.Y + Picker.HueSize.Y - 4)
-        Picker.HueMarker.Position = NewVector2(Picker.HuePosition.X - 2, Pixel(HueY))
+        local HueY = Clamp(
+            Picker.HuePosition.Y + (1 - Picker.Hue) * (Picker.HueSize.Y - 1),
+            Picker.HuePosition.Y,
+            Picker.HuePosition.Y + Picker.HueSize.Y - 1
+        )
+
+        Picker.HueMarkerShadow.Position = NewVector2(Picker.HuePosition.X - 2, Pixel(HueY) - 1)
+        Picker.HueMarker.Position = NewVector2(Picker.HuePosition.X - 1, Pixel(HueY))
     end
 
     Picker.UpdateMarkers = UpdateMarkers
@@ -2272,11 +2284,8 @@ local function UpdatePicker(Window, Point)
         Changed = true
     elseif PointIn(Picker.HuePosition, Picker.HueSize, Point) then
         Picker.Hue = 1 - Clamp((Point.Y - Picker.HuePosition.Y) / Max(Picker.HueSize.Y - 1, 1), 0, 1)
+        Picker.SvBase.Color = FromHSV(Picker.Hue, 1, 1)
         Changed = true
-
-        for _, Cell in ipairs(Picker.SvCells) do
-            Cell.Drawing.Color = FromHSV(Picker.Hue, Cell.S, Cell.V)
-        end
     end
 
     if not Changed then return end
