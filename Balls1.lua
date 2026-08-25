@@ -428,7 +428,9 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Version = 21,
+    Name = "Library",
+    Version = 22,
+    ApiVersion = 2,
     Theme = "Nightfall",
     Windows = {}
 }
@@ -1235,8 +1237,43 @@ local function SetTab(Window, Tab)
     ApplyVisibility(Window)
 end
 
+local function ReadOption(Options, Lower, Upper, Default)
+    if Type(Options) ~= "table" then return Default end
+
+    local Value = Options[Lower]
+    if Value == nil and Upper then Value = Options[Upper] end
+    if Value == nil then return Default end
+    return Value
+end
+
+function Library:GetVersion()
+    return self.Version, self.ApiVersion
+end
+
+function Library:GetTheme()
+    return self.Theme
+end
+
+function Library:GetThemes()
+    local Result = {}
+    for Index, Name in ipairs(ThemeNames) do Result[Index] = Name end
+    return Result
+end
+
+function Library:GetKeyName(Value)
+    return GetKeyName(GetKeyCode(Value))
+end
+
+function Library:GetKeyCode(Value)
+    return GetKeyCode(Value)
+end
+
 function Library:SetTheme(Name)
-    if Type(Name) ~= "string" or not Themes[Name] then return end
+    if Type(Name) == "table" then
+        Name = ReadOption(Name, "name", "Name", ReadOption(Name, "theme", "Theme", nil))
+    end
+
+    if Type(Name) ~= "string" or not Themes[Name] then return self end
 
     self.Theme = Name
 
@@ -1246,6 +1283,8 @@ function Library:SetTheme(Name)
         RefreshLayout(Window)
         ApplyVisibility(Window)
     end
+
+    return self
 end
 
 function Library:SetBackgroundImage()
@@ -1324,22 +1363,22 @@ function Library:CreateWindow(Options)
     Options = Type(Options) == "table" and Options or {}
 
     local Window = setmetatable({
-        Title = tostring(Options.title or Options.Title or "Nightfall"),
-        Subtitle = tostring(Options.subtitle or Options.Subtitle or ""),
-        Position = TypeOf(Options.position) == "Vector2" and Options.position or NewVector2(200, 180),
-        Size = TypeOf(Options.size) == "Vector2" and Options.size or NewVector2(550, 430),
-        MinimumSize = NewVector2(520, 420),
-        MenuKey = GetKeyCode(Options.menuKey or Options.MenuKey or "F2"),
-        ConfigName = SafeName(Options.configName or Options.ConfigName or "Default"),
-        ConfigFolder = SafeName(Options.configFolder or Options.ConfigFolder or "NightfallConfigs"),
-        ThemeName = self.Theme,
-        Theme = Themes[self.Theme],
+        Title = tostring(ReadOption(Options, "title", "Title", "Nightfall")),
+        Subtitle = tostring(ReadOption(Options, "subtitle", "Subtitle", "")),
+        Position = TypeOf(ReadOption(Options, "position", "Position", nil)) == "Vector2" and ReadOption(Options, "position", "Position", nil) or NewVector2(200, 180),
+        Size = TypeOf(ReadOption(Options, "size", "Size", nil)) == "Vector2" and ReadOption(Options, "size", "Size", nil) or NewVector2(550, 430),
+        MinimumSize = TypeOf(ReadOption(Options, "minimumSize", "MinimumSize", nil)) == "Vector2" and ReadOption(Options, "minimumSize", "MinimumSize", nil) or NewVector2(520, 420),
+        MenuKey = GetKeyCode(ReadOption(Options, "menuKey", "MenuKey", "F2")),
+        ConfigName = SafeName(ReadOption(Options, "configName", "ConfigName", "Default")),
+        ConfigFolder = SafeName(ReadOption(Options, "configFolder", "ConfigFolder", "NightfallConfigs")),
+        ThemeName = Themes[ReadOption(Options, "theme", "Theme", self.Theme)] and ReadOption(Options, "theme", "Theme", self.Theme) or self.Theme,
+        Theme = Themes[Themes[ReadOption(Options, "theme", "Theme", self.Theme)] and ReadOption(Options, "theme", "Theme", self.Theme) or self.Theme],
         Tabs = {},
         Controls = {},
         Binds = {},
         ActiveTab = nil,
         Active = true,
-        Open = Options.startOpen ~= false,
+        Open = ReadOption(Options, "startOpen", "StartOpen", true) ~= false,
         LastMouse = false,
         KeyHeld = false,
         Capturing = nil,
@@ -1350,11 +1389,11 @@ function Library:CreateWindow(Options)
         LastMouse2 = false,
         Dragging = false,
         Resizing = nil,
-        ShowKeybinds = true
+        ShowKeybinds = ReadOption(Options, "keybindList", "KeybindList", true) ~= false
     }, {__index = WindowMethods})
 
     Window.BaseHeight = Window.Size.Y
-    Window.AutoHeight = Options.autoHeight ~= false
+    Window.AutoHeight = ReadOption(Options, "autoHeight", "AutoHeight", true) ~= false
     Window.LayoutScale = 1
 
     if Window.Size.X < Window.MinimumSize.X then
@@ -1378,10 +1417,17 @@ function Library:CreateWindow(Options)
     return Window
 end
 
-function WindowMethods:Tab(Name)
+function WindowMethods:Tab(Name, Icon)
+    if Type(Name) == "table" then
+        local Options = Name
+        Name = ReadOption(Options, "name", "Name", "Tab")
+        Icon = ReadOption(Options, "icon", "Icon", "")
+    end
+
     local Tab = setmetatable({
         Window = self,
         Name = tostring(Name or "Tab"),
+        Icon = tostring(Icon or ""),
         Sections = {},
         HitPosition = NewVector2(0, 0),
         HitSize = NewVector2(0, 0)
@@ -1415,11 +1461,19 @@ function WindowMethods:Tab(Name)
     return Tab
 end
 
-function TabMethods:Section(Name, Side)
+function TabMethods:Section(Name, Side, Icon)
+    if Type(Name) == "table" then
+        local Options = Name
+        Name = ReadOption(Options, "name", "Name", "Section")
+        Side = ReadOption(Options, "side", "Side", "Left")
+        Icon = ReadOption(Options, "icon", "Icon", "")
+    end
+
     local Section = setmetatable({
         Tab = self,
         Window = self.Window,
         Name = tostring(Name or "Section"),
+        Icon = tostring(Icon or ""),
         Side = Side == "Right" and "Right" or "Left",
         Controls = {},
         Position = NewVector2(0, 0),
@@ -1482,6 +1536,13 @@ local function AddControl(Section, Control)
 end
 
 function SectionMethods:Toggle(Name, Default, Callback)
+    if Type(Name) == "table" then
+        local Options = Name
+        Name = ReadOption(Options, "name", "Name", "Toggle")
+        Default = ReadOption(Options, "default", "Default", false)
+        Callback = ReadOption(Options, "callback", "Callback", nil)
+    end
+
     local Theme = self.Window.Theme
 
     local Control = setmetatable({
@@ -1543,10 +1604,18 @@ function ToggleMethods:SetValue(Value, Silent)
     if not Silent and self.Callback then
         self.Callback(Value)
     end
+
+    return self
 end
 
 function ToggleMethods:AddKeybind(Default, Mode)
     if self.Bind then return self.Bind end
+
+    if Type(Default) == "table" then
+        local Options = Default
+        Default = ReadOption(Options, "key", "Key", ReadOption(Options, "default", "Default", "-"))
+        Mode = ReadOption(Options, "mode", "Mode", "Toggle")
+    end
 
     local Theme = self.Window.Theme
     local Bind = setmetatable({
@@ -1596,6 +1665,13 @@ end
 function ToggleMethods:AddColorpicker(Name, Default, Callback)
     if self.AttachedColor then return self.AttachedColor end
 
+    if Type(Name) == "table" then
+        local Options = Name
+        Name = ReadOption(Options, "name", "Name", "Color")
+        Default = ReadOption(Options, "default", "Default", FromRGB(255, 255, 255))
+        Callback = ReadOption(Options, "callback", "Callback", nil)
+    end
+
     local Theme = self.Window.Theme
     local Color = TypeOf(Default) == "Color3" and Default or FromRGB(255, 255, 255)
 
@@ -1631,6 +1707,17 @@ function ToggleMethods:AddColorpicker(Name, Default, Callback)
 end
 
 function SectionMethods:Slider(Name, Default, Step, Minimum, Maximum, Suffix, Callback)
+    if Type(Name) == "table" then
+        local Options = Name
+        Name = ReadOption(Options, "name", "Name", "Slider")
+        Default = ReadOption(Options, "default", "Default", 0)
+        Step = ReadOption(Options, "step", "Step", 1)
+        Minimum = ReadOption(Options, "min", "Min", ReadOption(Options, "minimum", "Minimum", 0))
+        Maximum = ReadOption(Options, "max", "Max", ReadOption(Options, "maximum", "Maximum", 100))
+        Suffix = ReadOption(Options, "suffix", "Suffix", "")
+        Callback = ReadOption(Options, "callback", "Callback", nil)
+    end
+
     local Theme = self.Window.Theme
     Minimum = Type(Minimum) == "number" and Minimum or 0
     Maximum = Type(Maximum) == "number" and Maximum or 100
@@ -1727,6 +1814,8 @@ function SliderMethods:SetValue(Value, Silent)
     if not Silent and self.Callback then
         self.Callback(Value)
     end
+
+    return self
 end
 
 DropdownText = function(Control)
@@ -1746,6 +1835,15 @@ DropdownText = function(Control)
 end
 
 function SectionMethods:Dropdown(Name, Default, Options, Multi, Callback)
+    if Type(Name) == "table" then
+        local Config = Name
+        Name = ReadOption(Config, "name", "Name", "Dropdown")
+        Default = ReadOption(Config, "default", "Default", nil)
+        Options = ReadOption(Config, "options", "Options", {})
+        Multi = ReadOption(Config, "multi", "Multi", false)
+        Callback = ReadOption(Config, "callback", "Callback", nil)
+    end
+
     local Theme = self.Window.Theme
     Options = Type(Options) == "table" and Options or {}
 
@@ -1866,9 +1964,18 @@ function DropdownMethods:SetValue(Value, Silent)
     if not Silent and self.Callback then
         self.Callback(self:GetValue())
     end
+
+    return self
 end
 
 function SectionMethods:Colorpicker(Name, Default, Callback)
+    if Type(Name) == "table" then
+        local Options = Name
+        Name = ReadOption(Options, "name", "Name", "Color")
+        Default = ReadOption(Options, "default", "Default", FromRGB(255, 255, 255))
+        Callback = ReadOption(Options, "callback", "Callback", nil)
+    end
+
     local Theme = self.Window.Theme
     local Color = TypeOf(Default) == "Color3" and Default or FromRGB(255, 255, 255)
 
@@ -1925,9 +2032,17 @@ function ColorMethods:SetValue(Value, Silent)
     if not Silent and self.Callback then
         self.Callback(Value)
     end
+
+    return self
 end
 
 function SectionMethods:Button(Name, Callback)
+    if Type(Name) == "table" then
+        local Options = Name
+        Name = ReadOption(Options, "name", "Name", "Button")
+        Callback = ReadOption(Options, "callback", "Callback", nil)
+    end
+
     local Theme = self.Window.Theme
 
     local Control = {
@@ -1967,6 +2082,13 @@ function SectionMethods:Button(Name, Callback)
 end
 
 function SectionMethods:Keybind(Name, Default, Callback)
+    if Type(Name) == "table" then
+        local Options = Name
+        Name = ReadOption(Options, "name", "Name", "Keybind")
+        Default = ReadOption(Options, "key", "Key", ReadOption(Options, "default", "Default", "-"))
+        Callback = ReadOption(Options, "callback", "Callback", nil)
+    end
+
     local Theme = self.Window.Theme
 
     local Control = setmetatable({
@@ -2020,6 +2142,7 @@ function KeybindMethods:SetKey(Value)
     self.Held = false
     self.WasPressed = self.Key > 0 and iskeypressed(self.Key) or false
     RefreshLayout(self.Window)
+    return self
 end
 
 function KeybindMethods:SetValue(Value, Silent)
@@ -2031,7 +2154,7 @@ function KeybindMethods:SetValue(Value, Silent)
         self.Held = false
         self.WasPressed = Code > 0 and iskeypressed(Code) or false
         RefreshLayout(self.Window)
-        return
+        return self
     end
 
     self.Value = Code
@@ -2041,6 +2164,8 @@ function KeybindMethods:SetValue(Value, Silent)
     if not Silent and self.Callback then
         self.Callback(Code)
     end
+
+    return self
 end
 
 function KeybindMethods:SetMode(Mode)
@@ -2056,6 +2181,8 @@ function KeybindMethods:SetMode(Mode)
         self.Control:SetValue(self.WasPressed)
         self.Held = self.WasPressed
     end
+
+    return self
 end
 
 CloseBindMenu = function(Window)
@@ -2759,6 +2886,110 @@ local function DecodeValue(Control, Value)
     return Value
 end
 
+function WindowMethods:GetPosition()
+    return self.Position
+end
+
+function WindowMethods:SetPosition(Value)
+    if TypeOf(Value) ~= "Vector2" then return self end
+    self.Position = PixelVector(Value.X, Value.Y)
+    RefreshLayout(self)
+    return self
+end
+
+function WindowMethods:GetSize()
+    return self.Size
+end
+
+function WindowMethods:SetSize(Value)
+    if TypeOf(Value) ~= "Vector2" then return self end
+
+    self.Size = NewVector2(
+        Max(self.MinimumSize.X, Pixel(Value.X)),
+        Max(self.MinimumSize.Y, Pixel(Value.Y))
+    )
+
+    FitWindowHeight(self, self.ActiveTab)
+    RefreshLayout(self)
+    ApplyVisibility(self)
+    return self
+end
+
+function WindowMethods:GetMenuKey()
+    return self.MenuKey
+end
+
+function WindowMethods:SetMenuKey(Value)
+    self.MenuKey = GetKeyCode(Value)
+    return self
+end
+
+function WindowMethods:GetKeybindListVisible()
+    return self.ShowKeybinds
+end
+
+function WindowMethods:SetKeybindListVisible(State)
+    self.ShowKeybinds = State == true
+    ApplyVisibility(self)
+    return self
+end
+
+function WindowMethods:GetTitle()
+    return self.Title
+end
+
+function WindowMethods:SetTitle(Value)
+    self.Title = tostring(Value or "")
+    self.TitleText.Text = Upper(self.Title)
+    RefreshLayout(self)
+    return self
+end
+
+function WindowMethods:GetTab(Name)
+    Name = tostring(Name or "")
+    for _, Tab in ipairs(self.Tabs) do
+        if Tab.Name == Name then return Tab end
+    end
+    return nil
+end
+
+function WindowMethods:Refresh()
+    FitWindowHeight(self, self.ActiveTab)
+    RefreshLayout(self)
+    ApplyVisibility(self)
+    return self
+end
+
+function TabMethods:GetSection(Name)
+    Name = tostring(Name or "")
+    for _, Section in ipairs(self.Sections) do
+        if Section.Name == Name then return Section end
+    end
+    return nil
+end
+
+function SectionMethods:GetControl(Name)
+    Name = tostring(Name or "")
+    for _, Control in ipairs(self.Controls) do
+        if Control.Name == Name then return Control end
+    end
+    return nil
+end
+
+local function SetApiControlVisible(Control, State)
+    Control.Visible = State ~= false
+    FitWindowHeight(Control.Window, Control.Window.ActiveTab)
+    RefreshLayout(Control.Window)
+    ApplyVisibility(Control.Window)
+    return Control
+end
+
+ToggleMethods.SetVisible = SetApiControlVisible
+SliderMethods.SetVisible = SetApiControlVisible
+DropdownMethods.SetVisible = SetApiControlVisible
+ColorMethods.SetVisible = SetApiControlVisible
+KeybindMethods.SetVisible = SetApiControlVisible
+
 function WindowMethods:SaveConfig(Name)
     if Type(writefile) ~= "function" then return false end
 
@@ -3279,3 +3510,4 @@ function WindowMethods:Run()
 end
 
 _G.Library = Library
+return Library
