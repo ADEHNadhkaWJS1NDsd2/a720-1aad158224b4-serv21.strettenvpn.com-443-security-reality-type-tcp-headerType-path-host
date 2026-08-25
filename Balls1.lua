@@ -23,20 +23,20 @@ local Wait = task.wait
 local Type = type
 local TypeOf = typeof
 
-if _G.Balls1Drawings then
-    for Index = #_G.Balls1Drawings, 1, -1 do
-        local Object = _G.Balls1Drawings[Index]
+if _G.LibraryDrawings then
+    for Index = #_G.LibraryDrawings, 1, -1 do
+        local Object = _G.LibraryDrawings[Index]
         if Object then
             Object:Remove()
         end
     end
 end
 
-_G.Balls1Token = (_G.Balls1Token or 0) + 1
-_G.Balls1Drawings = {}
+_G.LibraryToken = (_G.LibraryToken or 0) + 1
+_G.LibraryDrawings = {}
 
-local Token = _G.Balls1Token
-local Drawings = _G.Balls1Drawings
+local Token = _G.LibraryToken
+local Drawings = _G.LibraryDrawings
 
 local Themes = {
     Indigo = {
@@ -104,14 +104,18 @@ local Themes = {
 local ThemeNames = {"Indigo", "Nightfall", "Bloodmoon", "Ocean", "Mint"}
 
 local KeyNames = {
+    [3] = "BREAK",
+    [4] = "MOUSE3",
     [5] = "MOUSE4",
     [6] = "MOUSE5",
-    [8] = "BACK",
+    [8] = "BACKSPACE",
     [9] = "TAB",
+    [12] = "CLEAR",
     [13] = "ENTER",
     [16] = "SHIFT",
     [17] = "CTRL",
     [18] = "ALT",
+    [19] = "PAUSE",
     [20] = "CAPS",
     [27] = "ESC",
     [32] = "SPACE",
@@ -123,8 +127,17 @@ local KeyNames = {
     [38] = "UP",
     [39] = "RIGHT",
     [40] = "DOWN",
+    [41] = "SELECT",
+    [42] = "PRINT",
+    [43] = "EXECUTE",
+    [44] = "PRTSC",
     [45] = "INSERT",
     [46] = "DELETE",
+    [47] = "HELP",
+    [91] = "LWIN",
+    [92] = "RWIN",
+    [93] = "MENU",
+    [95] = "SLEEP",
     [96] = "NUM0",
     [97] = "NUM1",
     [98] = "NUM2",
@@ -137,15 +150,48 @@ local KeyNames = {
     [105] = "NUM9",
     [106] = "NUM*",
     [107] = "NUM+",
+    [108] = "NUMENTER",
     [109] = "NUM-",
     [110] = "NUM.",
     [111] = "NUM/",
+    [144] = "NUMLOCK",
+    [145] = "SCROLL",
     [160] = "LSHIFT",
     [161] = "RSHIFT",
     [162] = "LCTRL",
     [163] = "RCTRL",
     [164] = "LALT",
-    [165] = "RALT"
+    [165] = "RALT",
+    [166] = "BROWSERBACK",
+    [167] = "BROWSERFORWARD",
+    [168] = "REFRESH",
+    [169] = "BROWSERSTOP",
+    [170] = "SEARCH",
+    [171] = "FAVORITES",
+    [172] = "BROWSERHOME",
+    [173] = "MUTE",
+    [174] = "VOLDOWN",
+    [175] = "VOLUP",
+    [176] = "NEXTTRACK",
+    [177] = "PREVTRACK",
+    [178] = "MEDIASTOP",
+    [179] = "PLAYPAUSE",
+    [180] = "MAIL",
+    [181] = "MEDIA",
+    [182] = "APP1",
+    [183] = "APP2",
+    [186] = ";",
+    [187] = "=",
+    [188] = ",",
+    [189] = "-",
+    [190] = ".",
+    [191] = "/",
+    [192] = "`",
+    [219] = "[",
+    [220] = "\\",
+    [221] = "]",
+    [222] = "'",
+    [226] = "\\<>"
 }
 
 local KeyCodes = {}
@@ -155,36 +201,99 @@ for Code, Name in pairs(KeyNames) do
 end
 
 for Code = 48, 57 do
-    KeyCodes[string.char(Code)] = Code
+    local Name = string.char(Code)
+    KeyCodes[Name] = Code
+    KeyNames[Code] = Name
 end
 
 for Code = 65, 90 do
-    KeyCodes[string.char(Code)] = Code
+    local Name = string.char(Code)
+    KeyCodes[Name] = Code
+    KeyNames[Code] = Name
 end
 
-for Index = 1, 12 do
-    KeyCodes["F" .. tostring(Index)] = 111 + Index
+for Index = 1, 24 do
+    local Code = 111 + Index
+    local Name = "F" .. tostring(Index)
+    KeyCodes[Name] = Code
+    KeyNames[Code] = Name
+end
+
+local SymbolKeyCodes = {
+    [":"] = 186,
+    ["+"] = 187,
+    ["<"] = 188,
+    ["_"] = 189,
+    [">"] = 190,
+    ["?"] = 191,
+    ["~"] = 192,
+    ["{"] = 219,
+    ["|"] = 220,
+    ["}"] = 221,
+    ['"'] = 222
+}
+
+for Name, Code in pairs(SymbolKeyCodes) do
+    KeyCodes[Name] = Code
+end
+
+local ModifierKeys = {
+    [16] = true,
+    [17] = true,
+    [18] = true,
+    [160] = true,
+    [161] = true,
+    [162] = true,
+    [163] = true,
+    [164] = true,
+    [165] = true
+}
+
+local function IsBindableKey(Code)
+    return Type(Code) == "number"
+        and Code >= 3
+        and Code <= 255
+        and Code ~= 7
 end
 
 local function GetKeyName(Code)
-    if Type(Code) ~= "number" or Code <= 0 then return "-" end
-    if KeyNames[Code] then return KeyNames[Code] end
-    if Code >= 48 and Code <= 57 then return string.char(Code) end
-    if Code >= 65 and Code <= 90 then return string.char(Code) end
-    if Code >= 112 and Code <= 123 then return "F" .. tostring(Code - 111) end
-    return "K" .. tostring(Code)
+    if not IsBindableKey(Code) then return "-" end
+    return KeyNames[Code] or ("VK" .. tostring(Code))
 end
 
 local function GetKeyCode(Value)
     if Type(Value) == "number" then
-        return Floor(Clamp(Value, 0, 255))
+        local Code = Floor(Clamp(Value, 0, 255))
+        return IsBindableKey(Code) and Code or 0
     end
 
     if Type(Value) ~= "string" then return 0 end
 
     local Name = Upper(Value)
     if Name == "NONE" or Name == "-" then return 0 end
-    return KeyCodes[Name] or 0
+
+    local Code = KeyCodes[Name] or KeyCodes[Value]
+    return IsBindableKey(Code) and Code or 0
+end
+
+local function FindPressedBindKey()
+    if iskeypressed(27) then
+        return 0, true
+    end
+
+    for Code = 3, 255 do
+        if IsBindableKey(Code) and not ModifierKeys[Code] and iskeypressed(Code) then
+            return Code, true
+        end
+    end
+
+    for Code = 3, 255 do
+        if IsBindableKey(Code) and ModifierKeys[Code] and iskeypressed(Code) then
+            return Code, true
+        end
+    end
+
+    return 0, false
 end
 
 local function NewDrawing(Class, Properties)
@@ -319,7 +428,7 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Version = 18,
+    Version = 21,
     Theme = "Nightfall",
     Windows = {}
 }
@@ -372,7 +481,7 @@ local Layout = {
     TabTop = 80,
     TabHeight = 24,
     TabStep = 30,
-    PanelWidth = 220
+    PanelWidth = 196
 }
 
 local function GetTabContentHeight(Tab, Scale)
@@ -526,18 +635,36 @@ local function PixelVector(X, Y)
     return NewVector2(Pixel(X), Pixel(Y))
 end
 
+local function TextVerticalPosition(PositionY, Height, FontSize)
+    FontSize = Type(FontSize) == "number" and FontSize or 13
+    return Pixel(PositionY + (Height - FontSize) * 0.5 - 1)
+end
+
 local function CenterTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
     if not Object or TypeOf(Position) ~= "Vector2" or TypeOf(Size) ~= "Vector2" then return end
 
     SetTextFit(Object, Text, Max(1, Size.X - 6), PreferredSize, MinimumSize)
+    Object.Center = true
+
+    local FontSize = Type(Object.Size) == "number" and Object.Size or PreferredSize or 13
+    Object.Position = NewVector2(
+        Pixel(Position.X + Size.X * 0.5),
+        TextVerticalPosition(Position.Y, Size.Y, FontSize)
+    )
+end
+
+local function AlignTextLeftInRect(Object, Text, Position, Size, Padding, PreferredSize, MinimumSize)
+    if not Object or TypeOf(Position) ~= "Vector2" or TypeOf(Size) ~= "Vector2" then return end
+
+    Padding = Type(Padding) == "number" and Padding or 0
+    SetTextFit(Object, Text, Max(1, Size.X - Padding * 2), PreferredSize, MinimumSize)
     Object.Center = false
 
     local FontSize = Type(Object.Size) == "number" and Object.Size or PreferredSize or 13
-    local Width = Pixel(TextWidth(Object.Text, FontSize))
-    local X = Pixel(Position.X + Max(0, (Size.X - Width) / 2))
-    local Y = Pixel(Position.Y + Max(0, (Size.Y - FontSize) / 2))
-
-    Object.Position = NewVector2(X, Y)
+    Object.Position = NewVector2(
+        Pixel(Position.X + Padding),
+        TextVerticalPosition(Position.Y, Size.Y, FontSize)
+    )
 end
 
 local function GetPopupPosition(Window, Control, Width, Height, Gap)
@@ -824,7 +951,6 @@ local function RefreshLayout(Window)
                         Control.Drawings.Inline.Size = NewVector2(10, 10)
                         Control.Drawings.Fill.Position = NewVector2(X0 + 2, ControlY + 2)
                         Control.Drawings.Fill.Size = NewVector2(8, 8)
-                        Control.Drawings.Label.Position = NewVector2(X0 + 20, ControlY - 1)
 
                         Control.HitPosition = NewVector2(X0, ControlY)
                         Control.HitSize = NewVector2(12, 12)
@@ -863,19 +989,38 @@ local function RefreshLayout(Window)
                             Right = Right - PickerWidth - 7
                         end
 
-                        SetTextFit(Control.Drawings.Label, Control.Name, Max(1, Right - (X0 + 20) - 4), 13, 10)
+                        AlignTextLeftInRect(
+                            Control.Drawings.Label,
+                            Control.Name,
+                            NewVector2(X0 + 20, ControlY - 1),
+                            NewVector2(Max(1, Right - (X0 + 20) - 4), 14),
+                            0,
+                            13,
+                            10
+                        )
 
                     elseif Control.Type == "Slider" then
                         local ValueText = FormatSliderValue(Control.Value, Control.Step) .. Control.Suffix
                         local ValueWidth = Min(Floor(ControlWidth * 0.48), Max(34, Pixel(TextWidth(ValueText, 13) + 8)))
                         local LabelWidth = Max(1, ControlWidth - ValueWidth - 8)
 
-                        SetTextFit(Control.Drawings.Label, Control.Name, LabelWidth, 13, 10)
+                        AlignTextLeftInRect(
+                            Control.Drawings.Label,
+                            Control.Name,
+                            NewVector2(X0, ControlY - 1),
+                            NewVector2(LabelWidth, 15),
+                            0,
+                            13,
+                            10
+                        )
                         SetTextFit(Control.Drawings.Value, ValueText, Max(1, ValueWidth), 13, 10)
+                        Control.Drawings.Value.Center = false
 
                         local RenderedValueWidth = Pixel(TextWidth(Control.Drawings.Value.Text, Control.Drawings.Value.Size or 13))
-                        Control.Drawings.Label.Position = NewVector2(X0, ControlY)
-                        Control.Drawings.Value.Position = NewVector2(Max(X0 + LabelWidth + 8, X0 + ControlWidth - RenderedValueWidth), ControlY)
+                        Control.Drawings.Value.Position = NewVector2(
+                            Max(X0 + LabelWidth + 8, X0 + ControlWidth - RenderedValueWidth),
+                            TextVerticalPosition(ControlY - 1, 15, Control.Drawings.Value.Size or 13)
+                        )
                         Control.Drawings.Outline.Position = NewVector2(X0, ControlY + 18)
                         Control.Drawings.Outline.Size = NewVector2(ControlWidth, 8)
                         Control.Drawings.Background.Position = NewVector2(X0 + 1, ControlY + 19)
@@ -905,11 +1050,18 @@ local function RefreshLayout(Window)
                         Control.Drawings.Outline.Size = NewVector2(ControlWidth, 22)
                         Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
                         Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), 20)
-                        SetTextFit(Control.Drawings.Label, DropdownText(Control), Max(1, ControlWidth - 36), 13, 10)
-                        Control.Drawings.Label.Position = NewVector2(X0 + 8, ControlY + 4)
-
                         Control.HitPosition = NewVector2(X0, ControlY)
                         Control.HitSize = NewVector2(ControlWidth, 22)
+
+                        AlignTextLeftInRect(
+                            Control.Drawings.Label,
+                            DropdownText(Control),
+                            NewVector2(X0, ControlY),
+                            NewVector2(Max(1, ControlWidth - 28), 22),
+                            8,
+                            13,
+                            10
+                        )
 
                         CenterTextInRect(
                             Control.Drawings.State,
@@ -925,8 +1077,15 @@ local function RefreshLayout(Window)
                         local PickerHeight = 12
                         local PickerPosition = NewVector2(X0 + ControlWidth - PickerWidth, ControlY + 1)
 
-                        SetTextFit(Control.Drawings.Label, Control.Name, Max(1, ControlWidth - PickerWidth - 8), 13, 10)
-                        Control.Drawings.Label.Position = NewVector2(X0, ControlY + 1)
+                        AlignTextLeftInRect(
+                            Control.Drawings.Label,
+                            Control.Name,
+                            NewVector2(X0, ControlY),
+                            NewVector2(Max(1, ControlWidth - PickerWidth - 8), 14),
+                            0,
+                            13,
+                            10
+                        )
                         Control.Drawings.Outline.Position = PickerPosition
                         Control.Drawings.Outline.Size = NewVector2(PickerWidth, PickerHeight)
                         Control.Drawings.Fill.Position = PickerPosition + NewVector2(1, 1)
@@ -1006,28 +1165,17 @@ local function RefreshLayout(Window)
 
         for Index, Row in ipairs(Rows) do
             local RowY = 10 + Index * 18
-            local StateWidthArea = 42
-            local ModeWidthArea = 52
-            local Gap = 6
-            local NameWidth = Max(1, PanelWidth - 20 - StateWidthArea - ModeWidthArea - Gap * 2)
+            local ModeWidth = Pixel(TextWidth(Row.Mode.Text, Row.Mode.Size or 11))
+            local StateWidth = Pixel(TextWidth(Row.State.Text, Row.State.Size or 12))
+            local StateX = PanelWidth - 9 - StateWidth
+            local ModeX = StateX - 7 - ModeWidth
+            local NameWidth = Max(1, ModeX - 18)
 
-            SetTextFit(Row.Name, Row.Name.Text, NameWidth, 13, 10)
-            SetTextFit(Row.Mode, Row.Mode.Text, ModeWidthArea, 12, 10)
-            SetTextFit(Row.State, Row.State.Text, StateWidthArea, 13, 10)
+            SetTextFit(Row.Name, Row.Name.Text, NameWidth, 12, 10)
 
-            local ModeWidth = Pixel(TextWidth(Row.Mode.Text, Row.Mode.Size or 12))
-            local StateWidth = Pixel(TextWidth(Row.State.Text, Row.State.Size or 13))
-            local ModeLeft = PanelWidth - 10 - StateWidthArea - Gap - ModeWidthArea
-
-            Row.Name.Position = Panel.Position + NewVector2(10, RowY)
-            Row.Mode.Position = Panel.Position + NewVector2(
-                ModeLeft + Floor((ModeWidthArea - ModeWidth) / 2),
-                RowY
-            )
-            Row.State.Position = Panel.Position + NewVector2(
-                PanelWidth - 10 - StateWidth,
-                RowY
-            )
+            Row.Name.Position = Panel.Position + NewVector2(9, RowY)
+            Row.Mode.Position = Panel.Position + NewVector2(ModeX, RowY + 1)
+            Row.State.Position = Panel.Position + NewVector2(StateX, RowY)
         end
     end
 
@@ -1407,6 +1555,7 @@ function ToggleMethods:AddKeybind(Default, Mode)
         Key = GetKeyCode(Default),
         Mode = Mode == "Hold" and "Hold" or Mode == "Always" and "Always" or "Toggle",
         Held = false,
+        WasPressed = false,
         CurrentColor = Theme.ToggleBackground,
         HitPosition = NewVector2(0, 0),
         HitSize = NewVector2(0, 0)
@@ -1868,6 +2017,8 @@ function KeybindMethods:SetKey(Value)
 
     self.Key = GetKeyCode(Value)
     self.Text.Text = "[" .. GetKeyName(self.Key) .. "]"
+    self.Held = false
+    self.WasPressed = self.Key > 0 and iskeypressed(self.Key) or false
     RefreshLayout(self.Window)
 end
 
@@ -1877,6 +2028,9 @@ function KeybindMethods:SetValue(Value, Silent)
     if self.Control then
         self.Key = Code
         self.Text.Text = "[" .. GetKeyName(Code) .. "]"
+        self.Held = false
+        self.WasPressed = Code > 0 and iskeypressed(Code) or false
+        RefreshLayout(self.Window)
         return
     end
 
@@ -1891,7 +2045,17 @@ end
 
 function KeybindMethods:SetMode(Mode)
     if not self.Control then return end
+
     self.Mode = Mode == "Hold" and "Hold" or Mode == "Always" and "Always" or "Toggle"
+    self.Held = false
+    self.WasPressed = self.Key > 0 and iskeypressed(self.Key) or false
+
+    if self.Mode == "Always" and self.Control.Type == "Toggle" then
+        self.Control:SetValue(true)
+    elseif self.Mode == "Hold" and self.Control.Type == "Toggle" then
+        self.Control:SetValue(self.WasPressed)
+        self.Held = self.WasPressed
+    end
 end
 
 CloseBindMenu = function(Window)
@@ -2449,7 +2613,7 @@ local function RefreshKeybindPanel(Window)
             }),
             Mode = NewDrawing("Text", {
                 Text = "",
-                Size = 12,
+                Size = 11,
                 Font = Drawing.Fonts.System,
                 Outline = true,
                 Center = false,
@@ -2459,7 +2623,7 @@ local function RefreshKeybindPanel(Window)
             }),
             State = NewDrawing("Text", {
                 Text = "",
-                Size = 13,
+                Size = 12,
                 Font = Drawing.Fonts.System,
                 Outline = true,
                 Center = false,
@@ -2484,45 +2648,35 @@ local function RefreshKeybindPanel(Window)
         local Row = Panel.Rows[Index]
         local Control = Bind.Control
         local PanelWidth = Layout.PanelWidth
-        local StateWidthArea = 42
-        local ModeWidthArea = 52
-        local Gap = 6
-        local NameWidth = Max(1, PanelWidth - 20 - StateWidthArea - ModeWidthArea - Gap * 2)
 
-        SetTextFit(Row.Name, "[" .. GetKeyName(Bind.Key) .. "] " .. Control.Name, NameWidth, 13, 10)
-
-        Row.Mode.Text = Bind.Mode == "Hold" and "Hold"
-            or Bind.Mode == "Always" and "Always"
-            or "Toggle"
+        Row.Name.Text = "[" .. GetKeyName(Bind.Key) .. "] " .. Control.Name
+        Row.Mode.Text = (Bind.Mode == "Hold" and "hold"
+            or Bind.Mode == "Always" and "always"
+            or "toggle") .. " ·"
         Row.Mode.Color = Window.Theme.SecondaryText
 
-        if Bind.Mode == "Hold" then
-            Row.State.Text = Bind.Held and "[ON]" or "[OFF]"
-            Row.State.Color = Bind.Held and Window.Theme.AccentColor or Window.Theme.SecondaryText
-        elseif Bind.Mode == "Always" then
-            Row.State.Text = "[ON]"
-            Row.State.Color = Window.Theme.AccentColor
-        else
-            Row.State.Text = Control.Value and "[ON]" or "[OFF]"
-            Row.State.Color = Control.Value and Window.Theme.AccentColor or Window.Theme.SecondaryText
-        end
+        local Active = Bind.Mode == "Hold" and Bind.Held
+            or Bind.Mode == "Always"
+            or Control.Value
 
-        SetTextFit(Row.Mode, Row.Mode.Text, ModeWidthArea, 12, 10)
-        SetTextFit(Row.State, Row.State.Text, StateWidthArea, 13, 10)
+        Row.State.Text = Active and "ON" or "OFF"
+        Row.State.Color = Active and Window.Theme.AccentColor or Window.Theme.SecondaryText
+
+        SetTextFit(Row.Mode, Row.Mode.Text, 50, 11, 10)
+        SetTextFit(Row.State, Row.State.Text, 24, 12, 10)
 
         local RowY = 10 + Index * 18
-        local ModeWidth = Pixel(TextWidth(Row.Mode.Text, Row.Mode.Size or 12))
-        local StateWidth = Pixel(TextWidth(Row.State.Text, Row.State.Size or 13))
-        local ModeLeft = PanelWidth - 10 - StateWidthArea - Gap - ModeWidthArea
+        local ModeWidth = Pixel(TextWidth(Row.Mode.Text, Row.Mode.Size or 11))
+        local StateWidth = Pixel(TextWidth(Row.State.Text, Row.State.Size or 12))
+        local StateX = PanelWidth - 9 - StateWidth
+        local ModeX = StateX - 7 - ModeWidth
+        local NameWidth = Max(1, ModeX - 18)
 
-        Row.Mode.Position = Panel.Position + NewVector2(
-            ModeLeft + Floor((ModeWidthArea - ModeWidth) / 2),
-            RowY
-        )
-        Row.State.Position = Panel.Position + NewVector2(
-            PanelWidth - 10 - StateWidth,
-            RowY
-        )
+        SetTextFit(Row.Name, Row.Name.Text, NameWidth, 12, 10)
+
+        Row.Name.Position = Panel.Position + NewVector2(9, RowY)
+        Row.Mode.Position = Panel.Position + NewVector2(ModeX, RowY + 1)
+        Row.State.Position = Panel.Position + NewVector2(StateX, RowY)
     end
 
     if OldCount ~= #Panel.Rows then
@@ -2534,40 +2688,44 @@ end
 local function ProcessBind(Bind)
     local Control = Bind.Control
 
+    if not Control or Control.Type ~= "Toggle" then
+        return
+    end
+
     if Bind.Mode == "Always" then
-        if Control and Control.Type == "Toggle" and not Control.Value then
+        if not Control.Value then
             Control:SetValue(true)
         end
 
         Bind.Held = true
+        Bind.WasPressed = Bind.Key > 0 and iskeypressed(Bind.Key) or false
         return
     end
 
     if Bind.Key <= 0 then
         Bind.Held = false
+        Bind.WasPressed = false
         return
     end
 
     local Pressed = iskeypressed(Bind.Key)
 
     if Bind.Mode == "Hold" then
-        if Control and Control.Type == "Toggle" and Control.Value ~= Pressed then
+        if Control.Value ~= Pressed then
             Control:SetValue(Pressed)
         end
 
         Bind.Held = Pressed
+        Bind.WasPressed = Pressed
         return
     end
 
-    if Pressed and not Bind.Held then
-        if Control and Control.Type == "Toggle" then
-            Control:SetValue(not Control.Value)
-        end
-
-        Bind.Held = true
-    elseif not Pressed then
-        Bind.Held = false
+    if Pressed and not Bind.WasPressed then
+        Control:SetValue(not Control.Value)
     end
+
+    Bind.Held = Pressed
+    Bind.WasPressed = Pressed
 end
 
 local function EncodeValue(Control)
@@ -2705,7 +2863,7 @@ function WindowMethods:Unload()
     end
 
     if #Library.Windows == 0 then
-        _G.Balls1Token = _G.Balls1Token + 1
+        _G.LibraryToken = _G.LibraryToken + 1
 
         for Index = #Drawings, 1, -1 do
             local Object = Drawings[Index]
@@ -2775,7 +2933,7 @@ function WindowMethods:Run()
     RefreshLayout(self)
     ApplyVisibility(self)
 
-    while self.Active and _G.Balls1Token == Token do
+    while self.Active and _G.LibraryToken == Token do
         Wait()
 
         local MousePosition = NewVector2(Mouse.X, Mouse.Y)
@@ -2785,26 +2943,18 @@ function WindowMethods:Run()
         local Mouse2Down = Mouse2Pressed and not self.LastMouse2
 
         if self.Capturing then
-            local Captured = false
+            local Code, Captured = FindPressedBindKey()
 
-            for Code = 3, 255 do
-                if iskeypressed(Code) then
-                    if Code == 27 then Code = 0 end
-
-                    if self.Capturing.Control then
-                        self.Capturing:SetKey(Code)
-                    else
-                        self.Capturing:SetValue(Code)
-                    end
-
-                    self.Capturing = nil
-                    self.KeyHeld = true
-                    Captured = true
-                    break
+            if Captured then
+                if self.Capturing.Control then
+                    self.Capturing:SetKey(Code)
+                else
+                    self.Capturing:SetValue(Code)
                 end
-            end
 
-            if not Captured then
+                self.Capturing = nil
+                self.KeyHeld = Code > 0 and iskeypressed(Code) or false
+            else
                 self.KeyHeld = false
             end
         else
@@ -3128,5 +3278,4 @@ function WindowMethods:Run()
     end
 end
 
-_G.Balls1 = Library
-_G.INSui = Library
+_G.Library = Library
