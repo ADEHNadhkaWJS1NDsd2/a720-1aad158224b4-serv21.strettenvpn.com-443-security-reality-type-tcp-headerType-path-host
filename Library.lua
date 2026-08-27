@@ -118,13 +118,8 @@ local function GetGuiInset(ScreenGui)
     return TopLeft
 end
 
-local function GuiPoint(ScreenGui, Point)
-    return Point - GetGuiInset(ScreenGui)
-end
-
-local function MousePoint(ScreenGui)
-    return GuiPoint(ScreenGui, UserInputService:GetMouseLocation())
-end
+local function GuiPoint(ScreenGui,Point) return Point end
+local function MousePoint(ScreenGui) return UserInputService:GetMouseLocation()-GetGuiInset(ScreenGui) end
 
 local function MakeDraggable(Frame, Handle)
     local Dragging, DragInput, StartMouse, StartPosition
@@ -149,7 +144,7 @@ end
 
 local BindSystem={CustomPrevious={},CustomState={},PollClock=0,External=nil}
 BindSystem.Display={MouseButton2="M2",MouseButton3="M3",Insert="INS",Delete="DEL",Backspace="BACKSPACE",Tab="TAB",Return="ENTER",Escape="ESC",Space="SPACE",CapsLock="CAPS",LeftAlt="LALT",RightAlt="RALT",LeftControl="LCTRL",RightControl="RCTRL",LeftShift="LSHIFT",RightShift="RSHIFT",LeftMeta="LWIN",RightMeta="RWIN",NumLock="NUM LOCK",ScrollLock="SCROLL LOCK",Pause="PAUSE",Print="PRINT SCREEN",Home="HOME",End="END",PageUp="PAGE UP",PageDown="PAGE DOWN",Up="UP",Down="DOWN",Left="LEFT",Right="RIGHT",QuotedDouble="DOUBLE QUOTE",Hash="HASH",Dollar="DOLLAR",Percent="PERCENT",Ampersand="AMPERSAND",Quote="APOSTROPHE",LeftParenthesis="LEFT PAREN",RightParenthesis="RIGHT PAREN",Asterisk="ASTERISK",Plus="PLUS",Comma="COMMA",Minus="MINUS",Period="PERIOD",Slash="SLASH",Colon="COLON",Semicolon="SEMICOLON",LessThan="LESS THAN",Equals="EQUALS",GreaterThan="GREATER THAN",Question="QUESTION",At="AT",LeftBracket="LEFT BRACKET",BackSlash="BACKSLASH",RightBracket="RIGHT BRACKET",Caret="CARET",Underscore="UNDERSCORE",Backquote="BACKQUOTE",LeftCurly="LEFT CURLY",Pipe="PIPE",RightCurly="RIGHT CURLY",Tilde="TILDE"}
-BindSystem.Aliases={NONE=false,INS="Insert",DEL="Delete",ESC="Escape",ENTER="Return",RETURN="Return",CTRL="LeftControl",LCTRL="LeftControl",RCTRL="RightControl",ALT="LeftAlt",LALT="LeftAlt",RALT="RightAlt",SHIFT="LeftShift",LSHIFT="LeftShift",RSHIFT="RightShift",SPACE="Space",TAB="Tab",CAPS="CapsLock",M2="M2",MB2="M2",RMB="M2",MOUSE2="M2",M3="M3",MB3="M3",MMB="M3",MOUSE3="M3",M4="M4",MB4="M4",MOUSE4="M4",XBUTTON1="M4",M5="M5",MB5="M5",MOUSE5="M5",XBUTTON2="M5",M6="M6",MB6="M6",MOUSE6="M6",M7="M7",MB7="M7",MOUSE7="M7",M8="M8",MB8="M8",MOUSE8="M8"}
+BindSystem.Aliases={NONE=false,INS="Insert",DEL="Delete",ESC="Escape",ENTER="Return",RETURN="Return",CTRL="LeftControl",LCTRL="LeftControl",RCTRL="RightControl",ALT="LeftAlt",LALT="LeftAlt",RALT="RightAlt",SHIFT="LeftShift",LSHIFT="LeftShift",RSHIFT="RightShift",SPACE="Space",TAB="Tab",CAPS="CapsLock",M2="M2",MB2="M2",RMB="M2",MOUSE2="M2",M3="M3",MB3="M3",MMB="M3",MOUSE3="M3",M4="M4",MB4="M4",MOUSE4="M4",XBUTTON1="M4",MOUSEBACKBUTTON="M4",MOUSEBACK="M4",BROWSERBACK="M4",M5="M5",MB5="M5",MOUSE5="M5",XBUTTON2="M5",MOUSEFORWARDBUTTON="M5",MOUSEFORWARD="M5",BROWSERFORWARD="M5",M6="M6",MB6="M6",MOUSE6="M6",M7="M7",MB7="M7",MOUSE7="M7",M8="M8",MB8="M8",MOUSE8="M8"}
 BindSystem.MouseAliases={M4={"MouseButton4","Mouse4","MB4","M4","XButton1","MouseBackButton","MouseBack","BrowserBack"},M5={"MouseButton5","Mouse5","MB5","M5","XButton2","MouseForwardButton","MouseForward","BrowserForward"},M6={"MouseButton6","Mouse6","MB6","M6","Button6"},M7={"MouseButton7","Mouse7","MB7","M7","Button7"},M8={"MouseButton8","Mouse8","MB8","M8","Button8"}}
 BindSystem.MouseVK={M4=0x05,M5=0x06}
 BindSystem.SymbolAliases={['$']="Dollar",['%']="Percent",['&']="Ampersand",['\"']="QuotedDouble",["'"]="Quote",['(']="LeftParenthesis",[')']="RightParenthesis",['*']="Asterisk",['+']="Plus",[',']="Comma",['-']="Minus",['.']="Period",['/']="Slash",[':']="Colon",[';']="Semicolon",['<']="LessThan",['=']="Equals",['>']="GreaterThan",['?']="Question",['@']="At",['[']="LeftBracket",['\\']="BackSlash",[']']="RightBracket",['^']="Caret",['_']="Underscore",['`']="Backquote",['{']="LeftCurly",['|']="Pipe",['}']="RightCurly",['~']="Tilde",['#']="Hash"}
@@ -177,10 +172,15 @@ function BindSystem.Normalize(Value)
     return nil
 end
 function BindSystem.InputKey(Input)
-    if Input.UserInputType==Enum.UserInputType.MouseButton1 then return nil end
-    if Input.UserInputType==Enum.UserInputType.Keyboard then return Input.KeyCode~=Enum.KeyCode.Unknown and Input.KeyCode or nil end
-    local Mouse=BindSystem.MouseName(Input.UserInputType) if Mouse then return Mouse end
-    return nil
+    if not Input then return nil end
+    local Type,Code=Input.UserInputType,Input.KeyCode
+    if Type==Enum.UserInputType.MouseButton1 then return nil end
+    local Mouse=BindSystem.MouseName(Type) if Mouse then return Mouse end
+    if Code and Code~=Enum.KeyCode.Unknown then
+        local N=Code.Name
+        if N=="MouseLeftButton" then return nil elseif N=="MouseRightButton" then return "M2" elseif N=="MouseMiddleButton" then return "M3" elseif N=="MouseBackButton" or N=="MouseButton4" or N=="XButton1" then return "M4" elseif N=="MouseForwardButton" or N=="MouseButton5" or N=="XButton2" then return "M5" end
+        if Type==Enum.UserInputType.Keyboard then return Code end
+    end
 end
 function BindSystem.Matches(Input,Key)
     if Key==nil then return false end
@@ -191,23 +191,34 @@ function BindSystem.Matches(Input,Key)
 end
 function BindSystem.ExternalFunctions()
     if BindSystem.External then return BindSystem.External end
-    local Env=_G if type(getgenv)=="function" then local Ok,Result=Call(getgenv) if Ok and type(Result)=="table" then Env=Result end end
-    local Out,Seen={},{} local Names={"iskeydown","is_key_down","isKeyDown","keyisdown","key_is_down","ispressed","is_pressed","isKeyPressed"}
-    local function Add(F) if type(F)=="function" and not Seen[F] then Seen[F]=true Out[#Out+1]=F end end
-    for _,Name in ipairs(Names) do Add(Env and rawget(Env,Name)) Add(rawget(_G,Name)) end
-    local Input=Env and (rawget(Env,"input") or rawget(Env,"Input")) if type(Input)=="table" then for _,Name in ipairs(Names) do Add(rawget(Input,Name)) end end
+    local Env=_G if type(getgenv)=="function" then local Ok,V=Call(getgenv) if Ok and type(V)=="table" then Env=V end end
+    local Out,Seen={},{} local Names={"is_key_down","iskeydown","isKeyDown","keyisdown","key_is_down","ispressed","is_pressed","isKeyPressed","is_mouse_button_down","ismousebuttondown","isMouseButtonDown","is_mouse_down","ismousedown","isMouseDown","isbuttondown","is_button_down","getasynckeystate","GetAsyncKeyState"}
+    local function Add(F,Owner) if type(F)~="function" or Seen[F] then return end Seen[F]=true Out[#Out+1]={F=F,Owner=Owner} end
+    local function Scan(T) if type(T)~="table" then return end for _,N in ipairs(Names) do Add(rawget(T,N),T) end end
+    Scan(Env) Scan(_G) Scan(rawget(Env,"input")) Scan(rawget(Env,"Input")) Scan(rawget(Env,"keyboard")) Scan(rawget(Env,"Keyboard")) Scan(rawget(Env,"mouse")) Scan(rawget(Env,"Mouse")) Scan(rawget(Env,"win32")) Scan(rawget(Env,"Win32")) Scan(rawget(Env,"windows")) Scan(rawget(Env,"Windows"))
+    for _,T in ipairs({rawget(Env,"syn"),rawget(Env,"fluxus"),rawget(Env,"krnl"),rawget(Env,"executor")}) do Scan(T) end
     BindSystem.External=Out return Out
 end
-function BindSystem.ExternalState(Args) for _,F in ipairs(BindSystem.ExternalFunctions()) do for _,Arg in ipairs(Args) do local Ok,V=Call(F,Arg) if Ok and (V==true or V==1) then return true end end end return false end
+function BindSystem.ExternalState(Args)
+    local function Down(Ok,V) return Ok and (V==true or (type(V)=="number" and V~=0)) end
+    for _,Entry in ipairs(BindSystem.ExternalFunctions()) do for _,Arg in ipairs(Args) do
+        local Ok,V=Call(Entry.F,Arg) if Down(Ok,V) then return true end
+        if Entry.Owner then Ok,V=Call(Entry.F,Entry.Owner,Arg) if Down(Ok,V) then return true end end
+    end end
+    return false
+end
 function BindSystem.ReadCustomMouse(Name,Pressed)
     if Pressed and Pressed[Name] then return true end
-    local Index=tonumber(Name:match("(%d+)$")) if not Index then return false end
+    local Index=tonumber(Name:match("(%d+)$")) if not Index or Index<4 then return false end
+    local Args={} local VK=BindSystem.MouseVK[Name]
+    if VK then Args[#Args+1]=VK Args[#Args+1]=string.format("0x%02X",VK) end
+    for _,Alias in ipairs(BindSystem.MouseAliases[Name] or {}) do Args[#Args+1]=Alias end
+    if BindSystem.ExternalState(Args) then return true end
     local InputType=BindSystem.FindEnum(Enum.UserInputType,"MouseButton"..Index) or BindSystem.FindEnum(Enum.UserInputType,"XButton"..math.max(Index-3,1))
-    if InputType then local Ok,V=Call(UserInputService.IsMouseButtonPressed,UserInputService,InputType) if Ok and (V==true or V==1) then return true end end
-    local KeyCode=BindSystem.FindEnum(Enum.KeyCode,"MouseButton"..Index) or BindSystem.FindEnum(Enum.KeyCode,Index==4 and "MouseBackButton" or Index==5 and "MouseForwardButton" or "")
-    if KeyCode then local Ok,V=Call(UserInputService.IsKeyDown,UserInputService,KeyCode) if Ok and (V==true or V==1) then return true end end
-    local Args={} for _,Alias in ipairs(BindSystem.MouseAliases[Name] or {}) do Args[#Args+1]=Alias end if BindSystem.MouseVK[Name] then Args[#Args+1]=BindSystem.MouseVK[Name] end if KeyCode then Args[#Args+1]=KeyCode end if InputType then Args[#Args+1]=InputType end
-    return BindSystem.ExternalState(Args)
+    if InputType then local Ok,V=Call(UserInputService.IsMouseButtonPressed,UserInputService,InputType) if Ok and V==true then return true end end
+    local KeyCode=BindSystem.FindEnum(Enum.KeyCode,Index==4 and "MouseBackButton" or Index==5 and "MouseForwardButton" or "MouseButton"..Index)
+    if KeyCode then local Ok,V=Call(UserInputService.IsKeyDown,UserInputService,KeyCode) if Ok and V==true then return true end end
+    return false
 end
 local function KeyDisplay(Key) return BindSystem.DisplayKey(Key) end
 local function NormalizeKey(Value) return BindSystem.Normalize(Value) end
@@ -349,40 +360,18 @@ local function CreatePopupLayer(Window)
     end
     Window.ClampPopup = ClampPopup
 
-    local function UpdatePickerFromMouse(Mode)
-        local Active = Window.PickerActive
-        if not Active then return end
-        local Mouse = MousePoint(Window.ScreenGui)
-        local H, S, V = Color3.toHSV(Active.Color)
-        if Mode == "SV" then
-            local Pos, Size = GuiPoint(Window.ScreenGui, Window.PickerSV.AbsolutePosition), Window.PickerSV.AbsoluteSize
-            if Size.X <= 0 or Size.Y <= 0 then return end
-            S = math.clamp((Mouse.X - Pos.X) / Size.X, 0, 1)
-            V = 1 - math.clamp((Mouse.Y - Pos.Y) / Size.Y, 0, 1)
-        elseif Mode == "Hue" then
-            local Pos, Size = GuiPoint(Window.ScreenGui, Window.PickerHue.AbsolutePosition), Window.PickerHue.AbsoluteSize
-            if Size.Y <= 0 then return end
-            H = math.clamp((Mouse.Y - Pos.Y) / Size.Y, 0, 1)
-        elseif Mode == "Alpha" then
-            local Pos, Size = GuiPoint(Window.ScreenGui, Window.PickerAlpha.AbsolutePosition), Window.PickerAlpha.AbsoluteSize
-            if Size.X <= 0 then return end
-            Active.Alpha = math.clamp((Mouse.X - Pos.X) / Size.X, 0, 1)
-        end
-        Active.Color = Color3.fromHSV(H, S, V)
-        Window.PickerSV.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
-        Window.PickerSVCursor.Position = UDim2.new(S, 0, 1 - V, 0)
-        Window.PickerHueCursor.Position = UDim2.new(0, -2, H, 0)
-        Window.PickerAlphaCursor.Position = UDim2.new(Active.Alpha or 1, 0, 0, -2)
-        Window.PickerAlphaGradient.Color = ColorSequence.new(Active.Color)
-        Active:Set(Active.Color, Active.Alpha, true)
+    local function UpdatePickerFromPoint(Mode,Point)
+        local Active=Window.PickerActive if not Active then return end
+        local Mouse=Point or MousePoint(Window.ScreenGui) local H,S,V=Color3.toHSV(Active.Color)
+        if Mode=="SV" then local Pos,Size=Window.PickerSV.AbsolutePosition,Window.PickerSV.AbsoluteSize if Size.X<=0 or Size.Y<=0 then return end S=math.clamp((Mouse.X-Pos.X)/Size.X,0,1) V=1-math.clamp((Mouse.Y-Pos.Y)/Size.Y,0,1)
+        elseif Mode=="Hue" then local Pos,Size=Window.PickerHue.AbsolutePosition,Window.PickerHue.AbsoluteSize if Size.Y<=0 then return end H=math.clamp((Mouse.Y-Pos.Y)/Size.Y,0,1)
+        elseif Mode=="Alpha" then local Pos,Size=Window.PickerAlpha.AbsolutePosition,Window.PickerAlpha.AbsoluteSize if Size.X<=0 then return end Active.Alpha=math.clamp((Mouse.X-Pos.X)/Size.X,0,1) end
+        Active.Color=Color3.fromHSV(H,S,V) Window.PickerSV.BackgroundColor3=Color3.fromHSV(H,1,1) Window.PickerSVCursor.Position=UDim2.new(S,0,1-V,0) Window.PickerHueCursor.Position=UDim2.new(0,-2,H,0) Window.PickerAlphaCursor.Position=UDim2.new(Active.Alpha or 1,0,0,-2) Window.PickerAlphaGradient.Color=ColorSequence.new(Active.Color) Active:Set(Active.Color,Active.Alpha,true)
     end
-
-    Bind(SV.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Window.PickerDragging = "SV" UpdatePickerFromMouse("SV") end end))
-    Bind(Hue.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Window.PickerDragging = "Hue" UpdatePickerFromMouse("Hue") end end))
-    Bind(Alpha.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Window.PickerDragging = "Alpha" UpdatePickerFromMouse("Alpha") end end))
-    Bind(UserInputService.InputChanged:Connect(function(Input)
-        if Input.UserInputType == Enum.UserInputType.MouseMovement and Window.PickerDragging then UpdatePickerFromMouse(Window.PickerDragging) end
-    end))
+    Bind(SV.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="SV" UpdatePickerFromPoint("SV",Input.Position) end end))
+    Bind(Hue.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="Hue" UpdatePickerFromPoint("Hue",Input.Position) end end))
+    Bind(Alpha.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="Alpha" UpdatePickerFromPoint("Alpha",Input.Position) end end))
+    Bind(UserInputService.InputChanged:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseMovement and Window.PickerDragging then UpdatePickerFromPoint(Window.PickerDragging,Input.Position) end end))
     Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Window.PickerDragging = nil end end))
 
     Bind(UserInputService.InputBegan:Connect(function(Input)
