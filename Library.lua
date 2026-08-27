@@ -1,5 +1,7 @@
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local TextService = game:GetService("TextService")
 local Players = game:GetService("Players")
 local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
@@ -145,137 +147,99 @@ local function MakeDraggable(Frame, Handle)
     end))
 end
 
-local KeyAliases = {
-    M1 = Enum.UserInputType.MouseButton1,
-    M2 = Enum.UserInputType.MouseButton2,
-    M3 = Enum.UserInputType.MouseButton3,
-    MB1 = Enum.UserInputType.MouseButton1,
-    MB2 = Enum.UserInputType.MouseButton2,
-    MB3 = Enum.UserInputType.MouseButton3,
-    INS = Enum.KeyCode.Insert,
-    DEL = Enum.KeyCode.Delete,
-    ALT = Enum.KeyCode.LeftAlt,
-    CTRL = Enum.KeyCode.LeftControl,
-    SHIFT = Enum.KeyCode.LeftShift,
-    NONE = nil
-}
-
-local function KeyDisplay(Key)
-    if Key == nil then return "none" end
-    if typeof(Key) == "EnumItem" then
-        local Name = Key.Name
-        local Map = {MouseButton1 = "M1", MouseButton2 = "M2", MouseButton3 = "M3", Insert = "INS", Delete = "DEL", LeftAlt = "ALT", RightAlt = "ALT", LeftControl = "CTRL", RightControl = "CTRL", LeftShift = "SHIFT", RightShift = "SHIFT"}
-        return Map[Name] or Name:upper()
-    end
-    return tostring(Key)
+local BindSystem={CustomPrevious={},CustomState={},PollClock=0,External=nil}
+BindSystem.Display={MouseButton2="M2",MouseButton3="M3",Insert="INS",Delete="DEL",Backspace="BACKSPACE",Tab="TAB",Return="ENTER",Escape="ESC",Space="SPACE",CapsLock="CAPS",LeftAlt="LALT",RightAlt="RALT",LeftControl="LCTRL",RightControl="RCTRL",LeftShift="LSHIFT",RightShift="RSHIFT",LeftMeta="LWIN",RightMeta="RWIN",NumLock="NUM LOCK",ScrollLock="SCROLL LOCK",Pause="PAUSE",Print="PRINT SCREEN",Home="HOME",End="END",PageUp="PAGE UP",PageDown="PAGE DOWN",Up="UP",Down="DOWN",Left="LEFT",Right="RIGHT",QuotedDouble="DOUBLE QUOTE",Hash="HASH",Dollar="DOLLAR",Percent="PERCENT",Ampersand="AMPERSAND",Quote="APOSTROPHE",LeftParenthesis="LEFT PAREN",RightParenthesis="RIGHT PAREN",Asterisk="ASTERISK",Plus="PLUS",Comma="COMMA",Minus="MINUS",Period="PERIOD",Slash="SLASH",Colon="COLON",Semicolon="SEMICOLON",LessThan="LESS THAN",Equals="EQUALS",GreaterThan="GREATER THAN",Question="QUESTION",At="AT",LeftBracket="LEFT BRACKET",BackSlash="BACKSLASH",RightBracket="RIGHT BRACKET",Caret="CARET",Underscore="UNDERSCORE",Backquote="BACKQUOTE",LeftCurly="LEFT CURLY",Pipe="PIPE",RightCurly="RIGHT CURLY",Tilde="TILDE"}
+BindSystem.Aliases={NONE=false,INS="Insert",DEL="Delete",ESC="Escape",ENTER="Return",RETURN="Return",CTRL="LeftControl",LCTRL="LeftControl",RCTRL="RightControl",ALT="LeftAlt",LALT="LeftAlt",RALT="RightAlt",SHIFT="LeftShift",LSHIFT="LeftShift",RSHIFT="RightShift",SPACE="Space",TAB="Tab",CAPS="CapsLock",M2="M2",MB2="M2",RMB="M2",MOUSE2="M2",M3="M3",MB3="M3",MMB="M3",MOUSE3="M3",M4="M4",MB4="M4",MOUSE4="M4",XBUTTON1="M4",M5="M5",MB5="M5",MOUSE5="M5",XBUTTON2="M5",M6="M6",MB6="M6",MOUSE6="M6",M7="M7",MB7="M7",MOUSE7="M7",M8="M8",MB8="M8",MOUSE8="M8"}
+BindSystem.MouseAliases={M4={"MouseButton4","Mouse4","MB4","M4","XButton1","MouseBackButton","MouseBack","BrowserBack"},M5={"MouseButton5","Mouse5","MB5","M5","XButton2","MouseForwardButton","MouseForward","BrowserForward"},M6={"MouseButton6","Mouse6","MB6","M6","Button6"},M7={"MouseButton7","Mouse7","MB7","M7","Button7"},M8={"MouseButton8","Mouse8","MB8","M8","Button8"}}
+BindSystem.MouseVK={M4=0x05,M5=0x06}
+BindSystem.SymbolAliases={['$']="Dollar",['%']="Percent",['&']="Ampersand",['\"']="QuotedDouble",["'"]="Quote",['(']="LeftParenthesis",[')']="RightParenthesis",['*']="Asterisk",['+']="Plus",[',']="Comma",['-']="Minus",['.']="Period",['/']="Slash",[':']="Colon",[';']="Semicolon",['<']="LessThan",['=']="Equals",['>']="GreaterThan",['?']="Question",['@']="At",['[']="LeftBracket",['\\']="BackSlash",[']']="RightBracket",['^']="Caret",['_']="Underscore",['`']="Backquote",['{']="LeftCurly",['|']="Pipe",['}']="RightCurly",['~']="Tilde",['#']="Hash"}
+BindSystem.Keypad={KEYPADZERO="KeypadZero",NUMPAD0="KeypadZero",NUM0="KeypadZero",KP0="KeypadZero",KEYPADONE="KeypadOne",NUMPAD1="KeypadOne",NUM1="KeypadOne",KP1="KeypadOne",KEYPADTWO="KeypadTwo",NUMPAD2="KeypadTwo",NUM2="KeypadTwo",KP2="KeypadTwo",KEYPADTHREE="KeypadThree",NUMPAD3="KeypadThree",NUM3="KeypadThree",KP3="KeypadThree",KEYPADFOUR="KeypadFour",NUMPAD4="KeypadFour",NUM4="KeypadFour",KP4="KeypadFour",KEYPADFIVE="KeypadFive",NUMPAD5="KeypadFive",NUM5="KeypadFive",KP5="KeypadFive",KEYPADSIX="KeypadSix",NUMPAD6="KeypadSix",NUM6="KeypadSix",KP6="KeypadSix",KEYPADSEVEN="KeypadSeven",NUMPAD7="KeypadSeven",NUM7="KeypadSeven",KP7="KeypadSeven",KEYPADEIGHT="KeypadEight",NUMPAD8="KeypadEight",NUM8="KeypadEight",KP8="KeypadEight",KEYPADNINE="KeypadNine",NUMPAD9="KeypadNine",NUM9="KeypadNine",KP9="KeypadNine",KEYPADPLUS="KeypadPlus",NUMPADPLUS="KeypadPlus",KPPLUS="KeypadPlus",KEYPADMINUS="KeypadMinus",NUMPADMINUS="KeypadMinus",KPMINUS="KeypadMinus",KEYPADMULTIPLY="KeypadMultiply",NUMPADMULTIPLY="KeypadMultiply",KPMULTIPLY="KeypadMultiply",KEYPADDIVIDE="KeypadDivide",NUMPADDIVIDE="KeypadDivide",KPDIVIDE="KeypadDivide",KEYPADPERIOD="KeypadPeriod",NUMPADDECIMAL="KeypadPeriod",KPDECIMAL="KeypadPeriod",KEYPADENTER="KeypadEnter",NUMPADENTER="KeypadEnter",KPENTER="KeypadEnter",KEYPADEQUALS="KeypadEquals",NUMPADEQUALS="KeypadEquals",KPEQUALS="KeypadEquals"}
+function BindSystem.FindEnum(EnumType,Name) for _,Item in ipairs(EnumType:GetEnumItems()) do if Item.Name==Name then return Item end end end
+function BindSystem.MouseName(Item) if typeof(Item)~="EnumItem" then return nil end local N=Item.Name if N=="MouseButton2" then return "M2" end if N=="MouseButton3" then return "M3" end local I=N:match("^MouseButton([4-8])$") if I then return "M"..I end local X=N:match("^XButton([12])$") if X then return X=="1" and "M4" or "M5" end end
+function BindSystem.DisplayKey(Key)
+    if Key==nil then return "none" end
+    if type(Key)=="string" then local U=Key:upper() if U:match("^M[2-8]$") then return U end return U end
+    if typeof(Key)~="EnumItem" then return tostring(Key) end
+    local Mouse=BindSystem.MouseName(Key) if Mouse then return Mouse end
+    local Name=Key.Name local Num=Name:match("^Keypad(%a+)$")
+    if Num then local Map={Zero="0",One="1",Two="2",Three="3",Four="4",Five="5",Six="6",Seven="7",Eight="8",Nine="9",Plus="PLUS",Minus="MINUS",Multiply="MULTIPLY",Divide="DIVIDE",Period="DECIMAL",Enter="ENTER",Equals="EQUALS"} return "NUM "..(Map[Num] or Num:upper()) end
+    return BindSystem.Display[Name] or Name:upper()
 end
-
-local function NormalizeKey(Value)
-    if typeof(Value) == "EnumItem" then return Value end
-    if type(Value) ~= "string" then return nil end
-    local Upper = Value:upper()
-    if KeyAliases[Upper] ~= nil then return KeyAliases[Upper] end
-    if Upper == "NONE" or Upper == "..." then return nil end
-    for _, Code in ipairs(Enum.KeyCode:GetEnumItems()) do if Code.Name:upper() == Upper then return Code end end
-    for _, Code in ipairs(Enum.UserInputType:GetEnumItems()) do if Code.Name:upper() == Upper then return Code end end
+function BindSystem.Normalize(Value)
+    if typeof(Value)=="EnumItem" then if Value==Enum.UserInputType.MouseButton1 then return nil end local Mouse=BindSystem.MouseName(Value) return Mouse or Value end
+    if type(Value)~="string" then return nil end
+    local Symbol=BindSystem.SymbolAliases[Value] if Symbol then for _,Code in ipairs(Enum.KeyCode:GetEnumItems()) do if Code.Name==Symbol then return Code end end end
+    local U=Value:upper():gsub("[%s_%-%+]","") if U=="M1" or U=="MB1" or U=="MOUSE1" or U=="LMB" then return nil end
+    local Alias=BindSystem.Aliases[U] if Alias==false then return nil end if type(Alias)=="string" and Alias:match("^M[2-8]$") then return Alias end
+    local Name=Alias or BindSystem.Keypad[U] or Value
+    for _,Code in ipairs(Enum.KeyCode:GetEnumItems()) do if Code.Name:upper()==tostring(Name):upper() or Code.Name:upper()==U then return Code end end
+    local Mouse=U:match("^MOUSEBUTTON([2-8])$") if Mouse then return "M"..Mouse end
     return nil
 end
-
-local function InputMatches(Input, Key)
-    if typeof(Key) ~= "EnumItem" then return false end
-    if tostring(Key.EnumType):find("UserInputType", 1, true) then return Input.UserInputType == Key end
-    return Input.KeyCode == Key
+function BindSystem.InputKey(Input)
+    if Input.UserInputType==Enum.UserInputType.MouseButton1 then return nil end
+    if Input.UserInputType==Enum.UserInputType.Keyboard then return Input.KeyCode~=Enum.KeyCode.Unknown and Input.KeyCode or nil end
+    local Mouse=BindSystem.MouseName(Input.UserInputType) if Mouse then return Mouse end
+    return nil
 end
-
-local function RefreshKeybindList()
-    local Controller = Library.KeybindListController
-    if not Controller or type(Controller.Refresh) ~= "function" then return end
-    Controller:Refresh()
+function BindSystem.Matches(Input,Key)
+    if Key==nil then return false end
+    if type(Key)=="string" and not Key:upper():match("^M[2-8]$") then Key=BindSystem.Normalize(Key) end
+    local InputKey=BindSystem.InputKey(Input)
+    if type(Key)=="string" then return InputKey==Key:upper() end
+    return typeof(Key)=="EnumItem" and InputKey==Key
 end
-
-local function FireKeybind(BindData, Pressed)
+function BindSystem.ExternalFunctions()
+    if BindSystem.External then return BindSystem.External end
+    local Env=_G if type(getgenv)=="function" then local Ok,Result=Call(getgenv) if Ok and type(Result)=="table" then Env=Result end end
+    local Out,Seen={},{} local Names={"iskeydown","is_key_down","isKeyDown","keyisdown","key_is_down","ispressed","is_pressed","isKeyPressed"}
+    local function Add(F) if type(F)=="function" and not Seen[F] then Seen[F]=true Out[#Out+1]=F end end
+    for _,Name in ipairs(Names) do Add(Env and rawget(Env,Name)) Add(rawget(_G,Name)) end
+    local Input=Env and (rawget(Env,"input") or rawget(Env,"Input")) if type(Input)=="table" then for _,Name in ipairs(Names) do Add(rawget(Input,Name)) end end
+    BindSystem.External=Out return Out
+end
+function BindSystem.ExternalState(Args) for _,F in ipairs(BindSystem.ExternalFunctions()) do for _,Arg in ipairs(Args) do local Ok,V=Call(F,Arg) if Ok and (V==true or V==1) then return true end end end return false end
+function BindSystem.ReadCustomMouse(Name,Pressed)
+    if Pressed and Pressed[Name] then return true end
+    local Index=tonumber(Name:match("(%d+)$")) if not Index then return false end
+    local InputType=BindSystem.FindEnum(Enum.UserInputType,"MouseButton"..Index) or BindSystem.FindEnum(Enum.UserInputType,"XButton"..math.max(Index-3,1))
+    if InputType then local Ok,V=Call(UserInputService.IsMouseButtonPressed,UserInputService,InputType) if Ok and (V==true or V==1) then return true end end
+    local KeyCode=BindSystem.FindEnum(Enum.KeyCode,"MouseButton"..Index) or BindSystem.FindEnum(Enum.KeyCode,Index==4 and "MouseBackButton" or Index==5 and "MouseForwardButton" or "")
+    if KeyCode then local Ok,V=Call(UserInputService.IsKeyDown,UserInputService,KeyCode) if Ok and (V==true or V==1) then return true end end
+    local Args={} for _,Alias in ipairs(BindSystem.MouseAliases[Name] or {}) do Args[#Args+1]=Alias end if BindSystem.MouseVK[Name] then Args[#Args+1]=BindSystem.MouseVK[Name] end if KeyCode then Args[#Args+1]=KeyCode end if InputType then Args[#Args+1]=InputType end
+    return BindSystem.ExternalState(Args)
+end
+local function KeyDisplay(Key) return BindSystem.DisplayKey(Key) end
+local function NormalizeKey(Value) return BindSystem.Normalize(Value) end
+local function InputMatches(Input,Key) return BindSystem.Matches(Input,Key) end
+local function RefreshKeybindList() local Controller=Library.KeybindListController if Controller and type(Controller.Refresh)=="function" then Controller:Refresh() end end
+local function FireKeybind(BindData,Pressed)
     if not BindData or BindData.Destroyed then return end
-    local Mode = BindData.Mode
-    if Mode == "Hold" then
-        if BindData.Value == Pressed then return end
-        BindData.Value = Pressed
-    elseif Mode == "Toggle" then
-        if not Pressed then return end
-        BindData.Value = not BindData.Value
-    elseif Mode == "Always" then
-        BindData.Value = true
-    else
-        if not Pressed then return end
-        BindData.Value = not BindData.Value
-    end
-    if BindData.Flag then Library.Flags[BindData.Flag] = BindData.Value end
-    if type(BindData.Callback) == "function" then Call(BindData.Callback, BindData.Value) end
-    if BindData.Render then Call(BindData.Render) end
-    RefreshKeybindList()
+    local Mode=BindData.Mode
+    if Mode=="Hold" then if BindData.Value==Pressed then return end BindData.Value=Pressed elseif Mode=="Toggle" then if not Pressed then return end BindData.Value=not BindData.Value elseif Mode=="Always" then BindData.Value=true else if not Pressed then return end BindData.Value=not BindData.Value end
+    if BindData.Flag then Library.Flags[BindData.Flag]=BindData.Value end
+    if type(BindData.Callback)=="function" then Call(BindData.Callback,BindData.Value) end
+    if BindData.Render then Call(BindData.Render) end RefreshKeybindList()
 end
-
-local function CreateKeybind(Window, Row, Data, RightOffset)
-    Data = Data or {}
-    local Flag = tostring(Data.Flag or Data.Name or ("Keybind" .. tostring(#Library.Keybinds + 1)))
-    local BindData = {
-        Flag = Flag,
-        Name = tostring(Data.Name or Flag),
-        Key = NormalizeKey(Data.Default),
-        Mode = tostring(Data.Mode or "Toggle"),
-        Callback = Data.Callback,
-        EnabledFlag = Data.EnabledFlag,
-        Value = tostring(Data.Mode or "Toggle") == "Always",
-        Destroyed = false
-    }
-    Library.Flags[Flag] = BindData.Value
-    local Button = Create("TextButton", {
-        Parent = Row,
-        Size = UDim2.fromOffset(66, 16),
-        Position = UDim2.new(1, -(RightOffset or 0) - 66, 0.5, -8),
-        BackgroundTransparency = 1,
-        Text = "",
-        AutoButtonColor = false,
-        ZIndex = 15
-    })
-    local Label = Create("TextLabel", {
-        Parent = Button,
-        Size = UDim2.fromScale(1, 1),
-        BackgroundTransparency = 1,
-        TextXAlignment = Enum.TextXAlignment.Right,
-        Font = Enum.Font.SourceSans,
-        TextSize = 13,
-        TextColor3 = Colors.TextBind,
-        Text = ""
-    })
+local function CreateKeybind(Window,Row,Data,RightOffset)
+    Data=Data or {} local Flag=tostring(Data.Flag or Data.Name or ("Keybind"..tostring(#Library.Keybinds+1))) local Mode=tostring(Data.Mode or "Toggle") Mode=Mode=="Hold" and "Hold" or Mode=="Always" and "Always" or "Toggle"
+    local BindData={Flag=Flag,Name=tostring(Data.Name or Flag),Key=NormalizeKey(Data.Default),Mode=Mode,Callback=Data.Callback,EnabledFlag=Data.EnabledFlag,Value=Mode=="Always",Destroyed=false}
+    Library.Flags[Flag]=BindData.Value
+    local Button=Create("TextButton",{Parent=Row,Size=UDim2.fromOffset(70,16),Position=UDim2.new(1,-(RightOffset or 0)-70,0.5,-8),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=15})
+    local Label=Create("TextLabel",{Parent=Button,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextXAlignment=Enum.TextXAlignment.Right,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBind,Text=""})
     function BindData.Render()
-        local Capturing = Library.Capture == BindData
-        Label.Text = Capturing and "[press key]" or ("[" .. KeyDisplay(BindData.Key) .. "]")
-        Label.TextColor3 = Capturing and Accent() or Colors.TextBind
+        local Capturing=Library.Capture==BindData local Text=Capturing and "[press key]" or ("["..KeyDisplay(BindData.Key).."]")
+        Label.Text=Text Label.TextColor3=Capturing and Accent() or Colors.TextBind
+        local Width=math.clamp(TextService:GetTextSize(Text,13,Enum.Font.SourceSans,Vector2.new(180,20)).X+4,42,110) Button.Size=UDim2.fromOffset(Width,16) Button.Position=UDim2.new(1,-(RightOffset or 0)-Width,0.5,-8)
     end
     function BindData:Set(Value)
-        if type(Value) == "table" then
-            if Value.Key ~= nil or Value.key ~= nil then BindData.Key = NormalizeKey(Value.Key or Value.key) end
-            if Value.Mode ~= nil or Value.mode ~= nil then BindData.Mode = tostring(Value.Mode or Value.mode) end
-        else
-            BindData.Key = NormalizeKey(Value)
-        end
-        BindData.Render()
-        RefreshKeybindList()
+        if type(Value)=="table" then if Value.Key~=nil or Value.key~=nil then BindData.Key=NormalizeKey(Value.Key or Value.key) end if Value.Mode~=nil or Value.mode~=nil then local M=tostring(Value.Mode or Value.mode) BindData.Mode=M=="Hold" and "Hold" or M=="Always" and "Always" or "Toggle" end else BindData.Key=NormalizeKey(Value) end
+        if BindData.Mode=="Always" and BindData.Value~=true then BindData.Value=true Library.Flags[Flag]=true elseif BindData.Mode~="Always" and BindData.Value==true then BindData.Value=false Library.Flags[Flag]=false end
+        BindData.Render() RefreshKeybindList()
     end
-    RegisterFlag(Flag, BindData.Value, function(Value)
-        if type(Value) == "table" or typeof(Value) == "EnumItem" or type(Value) == "string" then BindData:Set(Value) return end
-        BindData.Value = Value == true
-        Library.Flags[Flag] = BindData.Value
-        BindData.Render()
-    end)
-    Bind(Button.MouseButton1Click:Connect(function()
-        Library.Capture = BindData
-        BindData.Render()
-    end))
-    Library.Keybinds[#Library.Keybinds + 1] = BindData
-    RegisterRenderer(BindData.Render)
-    if BindData.Mode == "Always" then task.defer(function() FireKeybind(BindData, true) end) end
-    return BindData
+    RegisterFlag(Flag,BindData.Value,function(Value) if type(Value)=="table" or typeof(Value)=="EnumItem" or type(Value)=="string" then BindData:Set(Value) return end BindData.Value=Value==true Library.Flags[Flag]=BindData.Value BindData.Render() end)
+    Bind(Button.MouseButton1Click:Connect(function() Library.Capture=BindData BindData.Render() end))
+    Library.Keybinds[#Library.Keybinds+1]=BindData RegisterRenderer(BindData.Render) if BindData.Mode=="Always" then task.defer(function() FireKeybind(BindData,true) end) end return BindData
 end
 
 local function UpdateAll()
@@ -1305,49 +1269,52 @@ function WindowMethods:ConfigSystem()
 end
 
 function Library:Watermark(Text)
-    local Parent = ParentGui()
-    local Gui = Create("ScreenGui", {Name = "AtramentaWatermark", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 101, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
-    self.Guis[#self.Guis + 1] = Gui
-    local Frame = Create("Frame", {Parent = Gui, Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(230, 22), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
-    local Label = Create("TextLabel", {Parent = Frame, Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -16, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextBright, TextXAlignment = Enum.TextXAlignment.Left, Text = tostring(Text or "Atramenta.rip")})
-    local Line = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Accent(), BorderSizePixel = 0})
-    local Scale = Create("UIScale", {Parent = Frame, Scale = 1})
-    MakeDraggable(Frame, Frame)
-    local Object = {Gui = Gui, Frame = Frame, Label = Label, Scale = Scale}
-    function Object:SetVisibility(State) Frame.Visible = State == true end
-    function Object:SetScale(Value) Scale.Scale = math.clamp((tonumber(Value) or 100) / 100, 0.5, 2) end
-    function Object:SetText(Value) Label.Text = tostring(Value or "") end
-    RegisterRenderer(function() Line.BackgroundColor3 = Accent() end)
+    local Parent=ParentGui() local Gui=Create("ScreenGui",{Name="AtramentaWatermark",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false}) self.Guis[#self.Guis+1]=Gui
+    local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,12),Size=UDim2.fromOffset(150,23),BackgroundColor3=Colors.Bg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1})})
+    local Inner=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(18,18,19)),ColorSequenceKeypoint.new(1,Color3.fromRGB(7,7,8))})})})
+    local Line=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,Accent()),ColorSequenceKeypoint.new(0.84,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})})
+    local Dot=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(7,9),Size=UDim2.fromOffset(3,3),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
+    local Label=Create("TextLabel",{Parent=Inner,Position=UDim2.fromOffset(15,1),Size=UDim2.new(1,-21,1,-2),BackgroundTransparency=1,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBright,TextXAlignment=Enum.TextXAlignment.Left,Text=tostring(Text or "Atramenta.rip"),TextTruncate=Enum.TextTruncate.None,ZIndex=5})
+    local Scale=Create("UIScale",{Parent=Frame,Scale=1}) MakeDraggable(Frame,Frame)
+    local Object={Gui=Gui,Frame=Frame,Label=Label,Scale=Scale,Line=Line,Dot=Dot}
+    function Object:Resize() local Bounds=TextService:GetTextSize(Label.Text,13,Enum.Font.SourceSans,Vector2.new(1200,23)) Frame.Size=UDim2.fromOffset(math.max(90,math.ceil(Bounds.X)+26),23) end
+    function Object:SetVisibility(State) Frame.Visible=State==true end
+    function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.5,2) end
+    function Object:SetText(Value) Label.Text=tostring(Value or "") Object:Resize() end
+    function Object:SetPosition(Position) if typeof(Position)=="UDim2" then Frame.Position=Position end end
+    Object:Resize()
+    RegisterRenderer(function() local A=Accent() Line.BackgroundColor3=A Dot.BackgroundColor3=A local G=Line:FindFirstChildOfClass("UIGradient") if G then G.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,A),ColorSequenceKeypoint.new(0.84,A),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))}) end end)
     return Object
 end
 
 function Library:KeybindList()
     if self.KeybindListController then return self.KeybindListController end
-    local Parent = ParentGui()
-    local Gui = Create("ScreenGui", {Name = "AtramentaKeybinds", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 101, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
-    self.Guis[#self.Guis + 1] = Gui
-    local Frame = Create("Frame", {Parent = Gui, Position = UDim2.fromOffset(12, 42), Size = UDim2.fromOffset(180, 24), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Visible = false}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}), Create("UIPadding", {PaddingBottom = UDim.new(0, 5)})})
-    local Header = Create("TextLabel", {Parent = Frame, Size = UDim2.new(1, 0, 0, 20), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0, Text = "keybinds", TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 13})
-    local Holder = Create("Frame", {Parent = Frame, Position = UDim2.fromOffset(6, 22), Size = UDim2.new(1, -12, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, {Create("UIListLayout", {Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder})})
-    local Scale = Create("UIScale", {Parent = Frame, Scale = 1})
-    MakeDraggable(Frame, Header)
-    local Object = {Gui = Gui, Frame = Frame, Holder = Holder, Scale = Scale, Rows = {}}
-    function Object:SetVisibility(State) Frame.Visible = State == true end
-    function Object:SetScale(Value) Scale.Scale = math.clamp((tonumber(Value) or 100) / 100, 0.5, 2) end
+    local Parent=ParentGui() local Gui=Create("ScreenGui",{Name="AtramentaKeybinds",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false}) self.Guis[#self.Guis+1]=Gui
+    local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,43),Size=UDim2.fromOffset(190,25),AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1}),Create("UIPadding",{PaddingBottom=UDim.new(0,5)})})
+    local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(19,19,20)),ColorSequenceKeypoint.new(1,Color3.fromRGB(7,7,8))})})})
+    local HeaderText=Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="keybinds",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left})
+    local Line=Create("Frame",{Parent=Header,Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,Accent()),ColorSequenceKeypoint.new(0.84,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})})
+    local Holder=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(7,23),Size=UDim2.new(1,-14,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder})})
+    local Scale=Create("UIScale",{Parent=Frame,Scale=1}) MakeDraggable(Frame,Header)
+    local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={}}
+    function Object:SetVisibility(State) Frame.Visible=State==true end
+    function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.5,2) end
     function Object:Refresh()
-        for _, Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end
-        table.clear(Object.Rows)
-        for _, BindData in ipairs(Library.Keybinds) do
-            if not BindData.Destroyed and (BindData.Value == true or BindData.Mode == "Always") then
-                local Row = Create("Frame", {Parent = Holder, Size = UDim2.new(1, 0, 0, 14), BackgroundTransparency = 1})
-                Create("TextLabel", {Parent = Row, Size = UDim2.new(0.65, 0, 1, 0), BackgroundTransparency = 1, Text = BindData.Name, TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left})
-                Create("TextLabel", {Parent = Row, Position = UDim2.new(0.65, 0, 0, 0), Size = UDim2.new(0.35, 0, 1, 0), BackgroundTransparency = 1, Text = KeyDisplay(BindData.Key), TextColor3 = Accent(), Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right})
-                Object.Rows[#Object.Rows + 1] = Row
+        for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end table.clear(Object.Rows)
+        local Width=176
+        for _,BindData in ipairs(Library.Keybinds) do
+            if not BindData.Destroyed and (BindData.Value==true or BindData.Mode=="Always") then
+                local Key=KeyDisplay(BindData.Key) local Mode=BindData.Mode=="Hold" and "hold" or BindData.Mode=="Always" and "always" or "toggled" local Right="["..Key.."]  "..Mode
+                local LeftWidth=TextService:GetTextSize(BindData.Name,12,Enum.Font.SourceSans,Vector2.new(400,16)).X local RightWidth=TextService:GetTextSize(Right,12,Enum.Font.SourceSans,Vector2.new(400,16)).X Width=math.max(Width,math.ceil(LeftWidth+RightWidth+28))
+                local Row=Create("Frame",{Parent=Holder,Size=UDim2.new(1,0,0,14),BackgroundTransparency=1})
+                Create("TextLabel",{Parent=Row,Size=UDim2.new(0.58,0,1,0),BackgroundTransparency=1,Text=BindData.Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
+                Create("TextLabel",{Parent=Row,Position=UDim2.new(0.58,0,0,0),Size=UDim2.new(0.42,0,1,0),BackgroundTransparency=1,Text=Right,TextColor3=Accent(),Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Right}) Object.Rows[#Object.Rows+1]=Row
             end
         end
+        Frame.Size=UDim2.fromOffset(math.clamp(Width,176,290),25)
     end
-    self.KeybindListController = Object
-    return Object
+    RegisterRenderer(function() local A=Accent() Line.BackgroundColor3=A local G=Line:FindFirstChildOfClass("UIGradient") if G then G.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,A),ColorSequenceKeypoint.new(0.84,A),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))}) end end)
+    self.KeybindListController=Object return Object
 end
 
 function Library:PlayerList(Data)
@@ -1438,22 +1405,36 @@ function Library:Notification(Data)
     return Frame
 end
 
-Bind(UserInputService.InputBegan:Connect(function(Input, Processed)
+Bind(UserInputService.InputBegan:Connect(function(Input,Processed)
     if Library.Capture then
-        local Capture = Library.Capture
-        if Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode == Enum.KeyCode.Escape then Capture.Key = nil else Capture.Key = Input.UserInputType == Enum.UserInputType.Keyboard and Input.KeyCode or Input.UserInputType end
-        Library.Capture = nil
-        Capture.Render()
-        RefreshKeybindList()
-        return
+        if Input.UserInputType==Enum.UserInputType.MouseButton1 then return end
+        local Capture=Library.Capture
+        if Input.UserInputType==Enum.UserInputType.Keyboard and Input.KeyCode==Enum.KeyCode.Escape then Capture.Key=nil Library.Capture=nil Capture.Render() RefreshKeybindList() return end
+        local Key=BindSystem.InputKey(Input) if not Key then return end
+        Capture.Key=Key Library.Capture=nil Capture.Render() RefreshKeybindList() return
     end
-    if not Processed and Library.ActiveWindow and InputMatches(Input, Library.MenuKeybind) then Library.ActiveWindow:Toggle() return end
-    if Processed then return end
-    for _, BindData in ipairs(Library.Keybinds) do if InputMatches(Input, BindData.Key) then FireKeybind(BindData, true) end end
+    if not Processed and Library.ActiveWindow and InputMatches(Input,Library.MenuKeybind) then Library.ActiveWindow:Toggle() return end
+    if Processed or Input.UserInputType==Enum.UserInputType.MouseButton1 then return end
+    local Key=BindSystem.InputKey(Input) if type(Key)=="string" and Key:match("^M[4-8]$") then BindSystem.CustomPrevious[Key]=true end
+    for _,BindData in ipairs(Library.Keybinds) do if InputMatches(Input,BindData.Key) then FireKeybind(BindData,true) end end
 end))
-
 Bind(UserInputService.InputEnded:Connect(function(Input)
-    for _, BindData in ipairs(Library.Keybinds) do if BindData.Mode == "Hold" and InputMatches(Input, BindData.Key) then FireKeybind(BindData, false) end end
+    if Input.UserInputType==Enum.UserInputType.MouseButton1 then return end
+    local Key=BindSystem.InputKey(Input) if type(Key)=="string" and Key:match("^M[4-8]$") then BindSystem.CustomPrevious[Key]=false end
+    for _,BindData in ipairs(Library.Keybinds) do if BindData.Mode=="Hold" and InputMatches(Input,BindData.Key) then FireKeybind(BindData,false) end end
+end))
+Bind(RunService.Heartbeat:Connect(function(Delta)
+    BindSystem.PollClock+=Delta if BindSystem.PollClock<0.02 then return end BindSystem.PollClock=0
+    local Pressed={} local Ok,Inputs=Call(UserInputService.GetMouseButtonsPressed,UserInputService)
+    if Ok and type(Inputs)=="table" then for _,Input in ipairs(Inputs) do local Key=BindSystem.InputKey(Input) if type(Key)=="string" and Key:match("^M[4-8]$") then Pressed[Key]=true end end end
+    for Index=4,8 do
+        local Name="M"..Index local Down=BindSystem.ReadCustomMouse(Name,Pressed)==true local Was=BindSystem.CustomPrevious[Name]==true
+        if Down~=Was then
+            BindSystem.CustomPrevious[Name]=Down
+            if Library.Capture and Down then local Capture=Library.Capture Capture.Key=Name Library.Capture=nil Capture.Render() RefreshKeybindList()
+            else for _,BindData in ipairs(Library.Keybinds) do if BindData.Key==Name then if Down then FireKeybind(BindData,true) elseif BindData.Mode=="Hold" then FireKeybind(BindData,false) end end end end
+        end
+    end
 end))
 
 function Library.Unload(...)
