@@ -1,7 +1,7 @@
 local Runtime
 local Library = { Flags = {}, Setters = {}, Folders = { Root = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets" } }
-Library.Build = 43
-Library.BuildName = "BankrollRework"
+Library.Build = 44
+Library.BuildName = "BankrollReworkLocalRegisterFix"
 function Library.Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
     local Arguments = table.pack(...)
@@ -5738,62 +5738,8 @@ local function BuildRuntime()
     RefreshThemeButtons()
     SetPickerColor(Accent, AccentAlpha)
     SetPickerOpen(false)
-    do
-    local CombatPage = CreatePage("Combat")
-    local MiscPage = CreatePage("Misc")
-    local SettingsPage = CreatePage("Settings")
-    local VisualsPage = CreatePage("Visuals")
-    local PlayersPage = CreatePage("Players")
-    local CloudPage = CreatePage("Cloud")
-    local General = CreateSection(CombatPage, "General", "General", UDim2.fromOffset(0, 0), UDim2.fromOffset(306, 288))
-    CreateToggle(General, "Enable ragebot", true, "EnableRagebot", {Gear = true})
-    CreateToggle(General, "Silent aimbot", false, "SilentAimbot", {Disabled = true})
-    CreateToggle(General, "Auto revolver", true, "AutoRevolver", {Warning = true, Gear = true})
-    CreateToggle(General, "Anti step", true, "AntiStep")
-    CreateSlider(General, "Backtracking", 0, 100, 75.5, "Backtracking", {Step = 0.1, Box = true})
-    CreateSlider(General, "Field of view", 0, 180, 90, "FieldOfView", {Gear = true, Box = true})
-    local Exploits = CreateSection(CombatPage, "Exploits", "Exploits", UDim2.fromOffset(320, 0), UDim2.fromOffset(302, 288))
-    CreateToggle(Exploits, "Enable autofire", true, "EnableAutofire", {Warning = true, Gear = true})
-    CreateSlider(Exploits, "Hitchance", 0, 100, 50, "Hitchance", {Box = true})
-    CreateDualSlider(Exploits, "Min. damage", 0, 100, 20, 80, "MinimumDamage", "OverrideDamage")
-    CreateToggle(Exploits, "Hide shots", false, "HideShots", {Disabled = true})
-    CreateToggle(Exploits, "Double tap", true, "DoubleTap", {Gear = true})
-    CreateToggle(Exploits, "Teleport boost", true, "TeleportBoost")
-    local Accuracy = CreateSection(CombatPage, "Accuracy", "Accuracy", UDim2.fromOffset(0, 300), UDim2.fromOffset(306, 164))
-    CreateToggle(Accuracy, "Head safety if lethal", true, "HeadSafety")
-    CreateDropdown(Accuracy, "Body aimbot", {"Prefer", "Force", "Off"}, "Prefer", "BodyAimbot", {Gear = true})
-    CreateDropdown(Accuracy, "Safe points", {"Prefer", "Force", "Off"}, "Prefer", "SafePoints", {Gear = true, Disabled = true})
-    local Others = CreateSection(CombatPage, "Others", "Others", UDim2.fromOffset(320, 300), UDim2.fromOffset(302, 164))
-    CreateToggle(Others, "Auto stop", true, "AutoStop", {Gear = true})
-    CreateToggle(Others, "Conditions", true, "Conditions", {Warning = true})
-    CreateToggle(Others, "Auto scope", false, "AutoScope", {Disabled = true})
-    local function PopulateSimplePage(Page, LeftTitle, RightTitle, LeftControls, RightControls)
-        local Left = CreateSection(Page, LeftTitle, LeftTitle, UDim2.fromOffset(0, 0), UDim2.fromOffset(306, 230))
-        local Right = CreateSection(Page, RightTitle, RightTitle, UDim2.fromOffset(320, 0), UDim2.fromOffset(302, 230))
-        for _, Definition in ipairs(LeftControls) do
-            CreateToggle(Left, Definition[1], Definition[2], Definition[3], Definition[4])
-        end
-        for _, Definition in ipairs(RightControls) do
-            CreateToggle(Right, Definition[1], Definition[2], Definition[3], Definition[4])
-        end
-    end
-    PopulateSimplePage(MiscPage, "Movement", "Utility", { {"Bunny hop", true, "BunnyHop"},
-        {"Auto strafe", true, "AutoStrafe"}, {"Air control", true, "AirControl"}, {"No fall damage", true, "NoFallDamage"} }, {
-        {"Auto reload", true, "AutoReload"}, {"Third person", false, "ThirdPerson"},
-        {"Infinite stamina", false, "InfiniteStamina"}, {"Finish aura", false, "FinishAura"} })
-    PopulateSimplePage(SettingsPage, "Interface", "Configuration", { {"Background dim", true, "BackgroundDim"},
-        {"Blur effect", false, "BlurEffect"}, {"Watermark", true, "Watermark"}, {"Keybind list", true, "KeybindList"} }, {
-        {"Cloud sync", false, "CloudSync"}, {"Notifications", true, "Notifications"}, {"Load default", false, "LoadDefault"} })
-    PopulateSimplePage(VisualsPage, "Players", "World", { {"Enable ESP", true, "EnableEsp"},
-        {"Bounding box", true, "BoundingBox"}, {"Health bar", true, "HealthBar"}, {"Weapon", true, "WeaponEsp"} }, {
-        {"Crosshair", true, "Crosshair"}, {"Hit marker", true, "HitMarker"}, {"Bullet tracers", false, "BulletTracers"}, {"Night mode", false, "NightMode"} })
-    PopulateSimplePage(PlayersPage, "Target", "Preview", { {"Target HUD", true, "TargetHud"},
-        {"Snaplines", false, "Snaplines"}, {"Resolver info", true, "ResolverInfo"} }, { {"Preview box", true, "PreviewBox"},
-        {"Preview health", true, "PreviewHealth"}, {"Preview name", true, "PreviewName"}, {"Preview weapon", true, "PreviewWeapon"} })
-    PopulateSimplePage(CloudPage, "Cloud", "Account", { {"Synchronization", false, "Synchronization"},
-        {"Upload config", false, "UploadConfig"}, {"Download config", false, "DownloadConfig"} }, { {"Private mode", true, "PrivateMode"},
-        {"Remember account", true, "RememberAccount"}, {"Status notifications", true, "StatusNotifications"} })
-    end
+    -- Built-in demo pages were removed. Public API clients populate the menu themselves.
+    -- Keeping these controls here pushed BuildRuntime over Luau's 200-local register limit.
     do
     local function CreateEspPreviewWindow()
         local SavedPreviewPosition = DecodePosition(SavedPositions.EspPreviewPosition, nil)
