@@ -6,8 +6,8 @@ local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
 local Library = {
-    Build = 51,
-    BuildName = "BankrollAPI_v51",
+    Build = 53,
+    BuildName = "BankrollAPI_v53",
     Flags = {},
     Setters = {},
     Folders = {Root = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets"},
@@ -20,8 +20,8 @@ local Library = {
     ActiveWindow = nil,
     Capture = nil
 }
-Library.Build = 51
-Library.BuildName = "BankrollAPI_v51"
+Library.Build = 53
+Library.BuildName = "BankrollAPI_v53"
 
 local function Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -407,16 +407,16 @@ local function CreatePopupLayer(Window)
         local Mouse = MousePoint(Window.ScreenGui)
         local H, S, V = Color3.toHSV(Active.Color)
         if Mode == "SV" then
-            local Pos, Size = Window.PickerSV.AbsolutePosition, Window.PickerSV.AbsoluteSize
+            local Pos, Size = GuiPoint(Window.ScreenGui, Window.PickerSV.AbsolutePosition), Window.PickerSV.AbsoluteSize
             if Size.X <= 0 or Size.Y <= 0 then return end
             S = math.clamp((Mouse.X - Pos.X) / Size.X, 0, 1)
             V = 1 - math.clamp((Mouse.Y - Pos.Y) / Size.Y, 0, 1)
         elseif Mode == "Hue" then
-            local Pos, Size = Window.PickerHue.AbsolutePosition, Window.PickerHue.AbsoluteSize
+            local Pos, Size = GuiPoint(Window.ScreenGui, Window.PickerHue.AbsolutePosition), Window.PickerHue.AbsoluteSize
             if Size.Y <= 0 then return end
             H = math.clamp((Mouse.Y - Pos.Y) / Size.Y, 0, 1)
         elseif Mode == "Alpha" then
-            local Pos, Size = Window.PickerAlpha.AbsolutePosition, Window.PickerAlpha.AbsoluteSize
+            local Pos, Size = GuiPoint(Window.ScreenGui, Window.PickerAlpha.AbsolutePosition), Window.PickerAlpha.AbsoluteSize
             if Size.X <= 0 then return end
             Active.Alpha = math.clamp((Mouse.X - Pos.X) / Size.X, 0, 1)
         end
@@ -440,11 +440,11 @@ local function CreatePopupLayer(Window)
     Bind(UserInputService.InputBegan:Connect(function(Input)
         if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
         if Window.Dropdown.Visible then
-            local Mouse, Pos, Size = MousePoint(Window.ScreenGui), Window.Dropdown.AbsolutePosition, Window.Dropdown.AbsoluteSize
+            local Mouse, Pos, Size = MousePoint(Window.ScreenGui), GuiPoint(Window.ScreenGui, Window.Dropdown.AbsolutePosition), Window.Dropdown.AbsoluteSize
             if not (Mouse.X >= Pos.X and Mouse.X <= Pos.X + Size.X and Mouse.Y >= Pos.Y and Mouse.Y <= Pos.Y + Size.Y) then Window:CloseDropdown() end
         end
         if Window.Picker.Visible then
-            local Mouse, Pos, Size = MousePoint(Window.ScreenGui), Window.Picker.AbsolutePosition, Window.Picker.AbsoluteSize
+            local Mouse, Pos, Size = MousePoint(Window.ScreenGui), GuiPoint(Window.ScreenGui, Window.Picker.AbsolutePosition), Window.Picker.AbsoluteSize
             if not (Mouse.X >= Pos.X and Mouse.X <= Pos.X + Size.X and Mouse.Y >= Pos.Y and Mouse.Y <= Pos.Y + Size.Y) then Window:ClosePicker() end
         end
     end))
@@ -518,7 +518,17 @@ function WindowMethods:OpenPicker(Object, Anchor)
     self.PickerAlphaCursor.Position = UDim2.new(Object.Alpha or 1, 0, 0, -2)
     self.PickerAlphaGradient.Color = ColorSequence.new(Object.Color)
     local AnchorPos = GuiPoint(self.ScreenGui, Anchor.AbsolutePosition)
-    local Position = self.ClampPopup(Vector2.new(220, 215), Vector2.new(AnchorPos.X + Anchor.AbsoluteSize.X + 4, AnchorPos.Y - 50))
+    local PickerSize = Vector2.new(220, 215)
+    local Viewport = self.ScreenGui.AbsoluteSize
+    if Viewport.X <= 0 or Viewport.Y <= 0 then
+        local Camera = workspace.CurrentCamera
+        Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+    end
+    local RightX = AnchorPos.X + Anchor.AbsoluteSize.X + 6
+    local LeftX = AnchorPos.X - PickerSize.X - 6
+    local X = RightX + PickerSize.X <= Viewport.X - 4 and RightX or LeftX
+    local Y = AnchorPos.Y - 10
+    local Position = self.ClampPopup(PickerSize, Vector2.new(X, Y))
     self.Picker.Position = UDim2.fromOffset(Position.X, Position.Y)
     self.Picker.Visible = true
 end
@@ -643,7 +653,7 @@ local function CreateSectionRoot(SubPage, Data)
         Create("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 8)}),
         Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4)})
     })
-    local Header = Create("TextLabel", {Parent = Container, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 0, 12), Position = UDim2.new(0.5, 0, 0, 0), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Text = string.lower(tostring(Data.Name or "section")), TextColor3 = Colors.ColHdr, Font = Enum.Font.SourceSans, TextSize = 12, ZIndex = 5}, {Create("UIPadding", {PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5)})})
+    local Header = Create("TextLabel", {Parent = Container, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 0, 12), Position = UDim2.fromOffset(8, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Text = string.lower(tostring(Data.Name or "section")), TextColor3 = Colors.ColHdr, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5}, {Create("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4)})})
     return Container, Outline, Header
 end
 
@@ -667,7 +677,9 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
     elseif type(Default) == "table" and typeof(Default.Color) == "Color3" then InitialColor = Default.Color InitialAlpha = 1 - math.clamp(tonumber(Default.Transparency) or 0, 0, 1) end
     local Flag = tostring(Data.Flag or Data.Name or ("Color" .. tostring(#Section.Controls + 1)))
     if typeof(Library.Flags[Flag]) == "Color3" then InitialColor = Library.Flags[Flag] end
-    local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(18, 12), Position = UDim2.new(1, -(RightOffset or 0) - 18, 0.5, -6), BackgroundColor3 = InitialColor, AutoButtonColor = false, Text = "", ZIndex = 20}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
+    local TallRow = Row.Size.Y.Offset > 20
+    local ButtonPosition = TallRow and UDim2.new(1, -(RightOffset or 0) - 18, 0, 0) or UDim2.new(1, -(RightOffset or 0) - 18, 0.5, -6)
+    local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(18, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Text = "", ZIndex = 20}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
     local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag}
     function Object:Set(Color, Alpha, FromPicker)
         if type(Color) == "table" and typeof(Color.Color) == "Color3" then
@@ -684,6 +696,21 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
     function Object:Get() return Object.Color end
     RegisterFlag(Flag, InitialColor, function(Value) Object:Set(Value) end)
     Bind(Button.MouseButton1Click:Connect(function() Section.Window:OpenPicker(Object, Button) end))
+    return Object
+end
+
+local function AttachColorpicker(Section, Object, Row, BaseRightOffset)
+    Object.Section = Section
+    Object.Row = Object.Row or Row
+    Object.RightOffset = tonumber(Object.RightOffset) or tonumber(BaseRightOffset) or 0
+    if type(Object.Colorpicker) ~= "function" then
+        function Object:Colorpicker(ColorData)
+            local Offset = tonumber(self.RightOffset) or 0
+            local Picker = MakeColorpicker(Section, Row, ColorData, Offset)
+            self.RightOffset = Offset + 22
+            return Picker
+        end
+    end
     return Object
 end
 
@@ -709,8 +736,10 @@ function SectionMethods:Toggle(Data)
     end
     function Object:Get() return Object.Value end
     function Object:Colorpicker(ColorData)
-        Object.RightOffset = Object.RightOffset + 22
-        return MakeColorpicker(self.Section, Row, ColorData, Object.RightOffset - 22)
+        local Offset = Object.RightOffset
+        local Picker = MakeColorpicker(self.Section, Row, ColorData, Offset)
+        Object.RightOffset = Offset + 22
+        return Picker
     end
     function Object:Keybind(KeyData)
         Object.RightOffset = Object.RightOffset + 70
@@ -731,6 +760,7 @@ function SectionMethods:Keybind(Data)
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
     Create("TextLabel", {Parent = Row, Size = UDim2.new(1, -75, 1, 0), BackgroundTransparency = 1, Text = tostring(Data.Name or "keybind"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Object = CreateKeybind(self.Window, Row, Data, 0)
+    AttachColorpicker(self, Object, Row, 70)
     AddControl(self, Object)
     return Object
 end
@@ -778,7 +808,7 @@ function SectionMethods:Slider(Data)
         local Width = Track.AbsoluteSize.X
         if Width <= 0 then return end
         local Mouse = MousePoint(self.Window.ScreenGui)
-        local T = math.clamp((Mouse.X - Track.AbsolutePosition.X) / Width, 0, 1)
+        local T = math.clamp((Mouse.X - GuiPoint(self.Window.ScreenGui, Track.AbsolutePosition).X) / Width, 0, 1)
         Object:Set(Minimum + (Maximum - Minimum) * T)
     end
     Bind(Track.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = true FromMouse() end end))
@@ -788,6 +818,7 @@ function SectionMethods:Slider(Data)
     Bind(Plus.MouseButton1Click:Connect(function() Object:Set(Object.Value + Step) end))
     RegisterFlag(Flag, Default, function(Value) Object:Set(Value) end)
     RegisterRenderer(function() Object:Render() end)
+    AttachColorpicker(self, Object, Row, 0)
     AddControl(self, Object)
     return Object
 end
@@ -839,7 +870,7 @@ function SectionMethods:RangeSlider(Data)
         local Width = Track.AbsoluteSize.X
         if Width <= 0 then return end
         local Mouse = MousePoint(self.Window.ScreenGui)
-        local T = math.clamp((Mouse.X - Track.AbsolutePosition.X) / Width, 0, 1)
+        local T = math.clamp((Mouse.X - GuiPoint(self.Window.ScreenGui, Track.AbsolutePosition).X) / Width, 0, 1)
         local Value = RoundStep(Minimum + (Maximum - Minimum) * T, Step)
         if math.abs(Value - Object.Low) <= math.abs(Value - Object.High) then Object:Set(Value, Object.High) else Object:Set(Object.Low, Value) end
     end
@@ -850,6 +881,7 @@ function SectionMethods:RangeSlider(Data)
     RegisterFlag(MinFlag, Low, function(Value) Object:Set(Value, Object.High) end)
     RegisterFlag(MaxFlag, High, function(Value) Object:Set(Object.Low, Value) end)
     RegisterRenderer(function() Object:Render() end)
+    AttachColorpicker(self, Object, Row, 0)
     AddControl(self, Object)
     return Object
 end
@@ -924,6 +956,7 @@ local function MakeDropdown(Section, Data, Multi)
     end))
     RegisterFlag(Flag, CloneValue(Default), function(Value) Object:Set(Value) end)
     RegisterRenderer(function() Object:Render() end)
+    AttachColorpicker(Section, Object, Row, 0)
     AddControl(Section, Object)
     return Object
 end
@@ -937,7 +970,7 @@ function SectionMethods:Label(Data)
     local Label = Create("TextLabel", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "label"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = tostring(Data.Alignment or "Left") == "Center" and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left})
     local Object = {Section = self, Row = Row, Label = Label, RightOffset = 0}
     function Object:Set(Value) Label.Text = tostring(Value) end
-    function Object:Colorpicker(ColorData) Object.RightOffset = Object.RightOffset + 22 return MakeColorpicker(self.Section, Row, ColorData, Object.RightOffset - 22) end
+    function Object:Colorpicker(ColorData) local Offset = Object.RightOffset local Picker = MakeColorpicker(self.Section, Row, ColorData, Offset) Object.RightOffset = Offset + 22 return Picker end
     function Object:Keybind(KeyData) Object.RightOffset = Object.RightOffset + 70 return CreateKeybind(self.Section.Window, Row, KeyData, Object.RightOffset - 70) end
     AddControl(self, Object)
     return Object
@@ -955,7 +988,9 @@ function SectionMethods:Button(Data, Callback)
     Bind(Button.MouseLeave:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Enabled = false AccentLine.Visible = false Label.TextColor3 = Colors.Text end))
     Bind(Button.MouseButton1Click:Connect(function() if type(Data.Callback) == "function" then Call(Data.Callback) end end))
     RegisterRenderer(function() AccentLine.BackgroundColor3 = Accent() end)
-    return AddControl(self, {Row = Row, Button = Button})
+    local Object = {Section = self, Row = Row, Button = Button, Frame = Frame, Label = Label, RightOffset = 0}
+    AttachColorpicker(self, Object, Row, 0)
+    return AddControl(self, Object)
 end
 
 function SectionMethods:Textbox(Data)
@@ -967,7 +1002,7 @@ function SectionMethods:Textbox(Data)
     Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Frame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Color3.fromRGB(9, 8, 10), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 18, 23)), ColorSequenceKeypoint.new(1, Color3.fromRGB(9, 8, 10))})})})
     local Box = Create("TextBox", {Parent = Frame, Size = UDim2.new(1, -12, 1, 0), Position = UDim2.fromOffset(6, 0), BackgroundTransparency = 1, Text = Default, PlaceholderText = tostring(Data.Placeholder or "..."), PlaceholderColor3 = Colors.TextDim, TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
-    local Object = {Row = Row, Box = Box, Value = Default, Flag = Flag}
+    local Object = {Section = self, Row = Row, Box = Box, Value = Default, Flag = Flag, RightOffset = 0}
     function Object:Set(Value, Silent)
         Object.Value = tostring(Value or "")
         Library.Flags[Flag] = Object.Value
@@ -979,6 +1014,7 @@ function SectionMethods:Textbox(Data)
     Bind(Box:GetPropertyChangedSignal("Text"):Connect(function() Object:Set(Box.Text) end))
     Bind(Box.Focused:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Color = Accent() end))
     Bind(Box.FocusLost:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Color = Colors.CbBorder end))
+    AttachColorpicker(self, Object, Row, 0)
     AddControl(self, Object)
     return Object
 end
@@ -988,7 +1024,7 @@ function SectionMethods:Listbox(Data)
     local Height = tonumber(Data.Height) or 110
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, Height), BackgroundTransparency = 1})
     local List = Create("ScrollingFrame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(6, 5, 7), BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Colors.TextBind}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}), Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder})})
-    local Object = {Row = Row, List = List, Items = {}, Selected = nil, Buttons = {}}
+    local Object = {Section = self, Row = Row, List = List, Items = {}, Selected = nil, Buttons = {}, RightOffset = 0}
     function Object:SetItems(Items)
         Object.Items = type(Items) == "table" and CloneValue(Items) or {}
         for _, Button in ipairs(Object.Buttons) do if Button and Button.Parent then Button:Destroy() end end
@@ -1012,7 +1048,16 @@ function SectionMethods:Listbox(Data)
         end
     end
     Object:SetItems(Data.Items or {})
+    AttachColorpicker(self, Object, Row, 0)
     return AddControl(self, Object)
+end
+
+function SectionMethods:Colorpicker(Data)
+    Data = Data or {}
+    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
+    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, -26, 1, 0), BackgroundTransparency = 1, Text = tostring(Data.Name or "color"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+    local Picker = MakeColorpicker(self, Row, Data, 0)
+    return AddControl(self, Picker)
 end
 
 local function EncodeValue(Value, Seen, Depth)
