@@ -6,8 +6,8 @@ local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
 local Library = {
-    Build = 51,
-    BuildName = "BankrollAPI_v51",
+    Build = 52,
+    BuildName = "BankrollAPI_v52",
     Flags = {},
     Setters = {},
     Folders = {Root = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets"},
@@ -20,8 +20,8 @@ local Library = {
     ActiveWindow = nil,
     Capture = nil
 }
-Library.Build = 51
-Library.BuildName = "BankrollAPI_v51"
+Library.Build = 52
+Library.BuildName = "BankrollAPI_v52"
 
 local function Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
