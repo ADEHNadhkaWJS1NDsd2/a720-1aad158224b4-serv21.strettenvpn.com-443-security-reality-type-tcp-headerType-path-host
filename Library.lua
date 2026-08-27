@@ -5,23 +5,7 @@ local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
-local Library = {
-    Build = 53,
-    BuildName = "BankrollAPI_v53",
-    Flags = {},
-    Setters = {},
-    Folders = {Root = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets"},
-    MenuKeybind = Enum.KeyCode.Insert,
-    Theme = {Accent = Color3.fromRGB(175, 100, 200)},
-    Connections = {},
-    Guis = {},
-    Keybinds = {},
-    Renderers = {},
-    ActiveWindow = nil,
-    Capture = nil
-}
-Library.Build = 53
-Library.BuildName = "BankrollAPI_v53"
+local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets"}, MenuKeybind = Enum.KeyCode.Insert, Theme = {Accent = Color3.fromRGB(175, 100, 200)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
 
 local function Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -537,8 +521,8 @@ function Library:Window(Data)
     Data = Data or {}
     if self.ActiveWindow and type(self.ActiveWindow.Destroy) == "function" then self.ActiveWindow:Destroy() end
     local Parent = ParentGui()
-    for _, Existing in ipairs(Parent:GetChildren()) do if Existing:IsA("ScreenGui") and Existing.Name == "BankrollLibrary" then Existing:Destroy() end end
-    local ScreenGui = Create("ScreenGui", {Name = "BankrollLibrary", Parent = Parent, ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Global, DisplayOrder = 100, IgnoreGuiInset = false})
+    for _, Existing in ipairs(Parent:GetChildren()) do if Existing:IsA("ScreenGui") and Existing.Name == "AtramentaLibrary" then Existing:Destroy() end end
+    local ScreenGui = Create("ScreenGui", {Name = "AtramentaLibrary", Parent = Parent, ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Global, DisplayOrder = 100, IgnoreGuiInset = false})
     self.Guis[#self.Guis + 1] = ScreenGui
     self.Holder = ScreenGui
     local Size = Data.Size
@@ -554,7 +538,7 @@ function Library:Window(Data)
     }, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
     local TitleBar = Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0}, {
         Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 20)), ColorSequenceKeypoint.new(1, Color3.fromRGB(7, 7, 7))})}),
-        Create("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "bankroll mafia"), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Color3.fromRGB(185, 182, 196)}),
+        Create("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "Atramenta.rip"), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Color3.fromRGB(185, 182, 196)}),
         Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})})
     })
     local Content = Create("Frame", {Parent = Main, Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 1, -48), BackgroundTransparency = 1, ClipsDescendants = false})
@@ -653,7 +637,7 @@ local function CreateSectionRoot(SubPage, Data)
         Create("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 8)}),
         Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4)})
     })
-    local Header = Create("TextLabel", {Parent = Container, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 0, 12), Position = UDim2.fromOffset(8, 0), AnchorPoint = Vector2.new(0, 0.5), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Text = string.lower(tostring(Data.Name or "section")), TextColor3 = Colors.ColHdr, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5}, {Create("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4)})})
+    local Header = Create("TextLabel", {Parent = Container, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 0, 14), Position = UDim2.fromOffset(8, -6), AnchorPoint = Vector2.new(0, 0), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Text = string.lower(tostring(Data.Name or "section")), TextColor3 = Colors.ColHdr, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10}, {Create("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4)})})
     return Container, Outline, Header
 end
 
@@ -678,7 +662,7 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
     local Flag = tostring(Data.Flag or Data.Name or ("Color" .. tostring(#Section.Controls + 1)))
     if typeof(Library.Flags[Flag]) == "Color3" then InitialColor = Library.Flags[Flag] end
     local TallRow = Row.Size.Y.Offset > 20
-    local ButtonPosition = TallRow and UDim2.new(1, -(RightOffset or 0) - 18, 0, 0) or UDim2.new(1, -(RightOffset or 0) - 18, 0.5, -6)
+    local ButtonPosition = TallRow and UDim2.new(1, -(RightOffset or 0) - 18, 0, 1) or UDim2.new(1, -(RightOffset or 0) - 18, 0.5, -6)
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(18, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Text = "", ZIndex = 20}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
     local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag}
     function Object:Set(Color, Alpha, FromPicker)
@@ -1125,7 +1109,7 @@ local function DecodeValue(Value, Depth)
 end
 
 function Library:GetConfig()
-    local Payload = {__AtramentaVersion = 11}
+    local Payload = {}
     for Name, Value in pairs(self.Flags or {}) do
         local Success, Encoded = Call(EncodeValue, Value, {}, 0)
         if Success and Encoded ~= nil then Payload[tostring(Name)] = Encoded end
@@ -1154,7 +1138,7 @@ function Library:LoadConfig(Source)
     local Flags, Names = {}, {}
     for Name, Value in pairs(FlagsSource) do
         local FlagName = tostring(Name)
-        if FlagName ~= "__AtramentaVersion" and FlagName ~= "__AtramentaControlBinds" and FlagName ~= "__AtramentaInterface" and FlagName ~= "Flags" and FlagName ~= "AccentAlpha" then
+        if not FlagName:match("^__Atramenta") and FlagName ~= "Flags" and FlagName ~= "AccentAlpha" then
             Flags[FlagName] = DecodeValue(Value, 0)
             Names[#Names + 1] = FlagName
         end
@@ -1322,10 +1306,10 @@ end
 
 function Library:Watermark(Text)
     local Parent = ParentGui()
-    local Gui = Create("ScreenGui", {Name = "BankrollWatermark", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 101, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
+    local Gui = Create("ScreenGui", {Name = "AtramentaWatermark", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 101, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
     self.Guis[#self.Guis + 1] = Gui
     local Frame = Create("Frame", {Parent = Gui, Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(230, 22), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
-    local Label = Create("TextLabel", {Parent = Frame, Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -16, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextBright, TextXAlignment = Enum.TextXAlignment.Left, Text = tostring(Text or "bankroll")})
+    local Label = Create("TextLabel", {Parent = Frame, Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -16, 1, 0), BackgroundTransparency = 1, Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextBright, TextXAlignment = Enum.TextXAlignment.Left, Text = tostring(Text or "Atramenta.rip")})
     local Line = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Accent(), BorderSizePixel = 0})
     local Scale = Create("UIScale", {Parent = Frame, Scale = 1})
     MakeDraggable(Frame, Frame)
@@ -1340,7 +1324,7 @@ end
 function Library:KeybindList()
     if self.KeybindListController then return self.KeybindListController end
     local Parent = ParentGui()
-    local Gui = Create("ScreenGui", {Name = "BankrollKeybinds", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 101, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
+    local Gui = Create("ScreenGui", {Name = "AtramentaKeybinds", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 101, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
     self.Guis[#self.Guis + 1] = Gui
     local Frame = Create("Frame", {Parent = Gui, Position = UDim2.fromOffset(12, 42), Size = UDim2.fromOffset(180, 24), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Visible = false}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}), Create("UIPadding", {PaddingBottom = UDim.new(0, 5)})})
     local Header = Create("TextLabel", {Parent = Frame, Size = UDim2.new(1, 0, 0, 20), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0, Text = "keybinds", TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 13})
@@ -1370,7 +1354,7 @@ function Library:PlayerList(Data)
     Data = Data or {}
     if self.PlayerListController then return self.PlayerListController end
     local Parent = ParentGui()
-    local Gui = Create("ScreenGui", {Name = "BankrollPlayerList", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 101, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
+    local Gui = Create("ScreenGui", {Name = "AtramentaPlayerList", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 101, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
     self.Guis[#self.Guis + 1] = Gui
     local Frame = Create("Frame", {Parent = Gui, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(260, 300), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Visible = Data.Visible == true}, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
     local Header = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0})
@@ -1440,7 +1424,7 @@ function Library:Notification(Data)
     local Parent = ParentGui()
     local Gui = self.NotificationGui
     if not Gui or not Gui.Parent then
-        Gui = Create("ScreenGui", {Name = "BankrollNotifications", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 200, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
+        Gui = Create("ScreenGui", {Name = "AtramentaNotifications", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 200, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
         self.Guis[#self.Guis + 1] = Gui
         self.NotificationGui = Gui
         self.NotificationHolder = Create("Frame", {Parent = Gui, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(280, 500), BackgroundTransparency = 1}, {Create("UIListLayout", {Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Top, SortOrder = Enum.SortOrder.LayoutOrder})})
@@ -1448,7 +1432,7 @@ function Library:Notification(Data)
     end
     local Frame = Create("Frame", {Parent = self.NotificationHolder, Size = UDim2.fromOffset(270, 42), BackgroundColor3 = Colors.Bg, BackgroundTransparency = 0.05, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
     Create("Frame", {Parent = Frame, Size = UDim2.fromOffset(2, 32), Position = UDim2.fromOffset(4, 5), BackgroundColor3 = Accent(), BorderSizePixel = 0})
-    Create("TextLabel", {Parent = Frame, Position = UDim2.fromOffset(12, 3), Size = UDim2.new(1, -18, 0, 14), BackgroundTransparency = 1, Text = tostring(Data.Title or "bankroll"), TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSansBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left})
+    Create("TextLabel", {Parent = Frame, Position = UDim2.fromOffset(12, 3), Size = UDim2.new(1, -18, 0, 14), BackgroundTransparency = 1, Text = tostring(Data.Title or "Atramenta.rip"), TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSansBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left})
     Create("TextLabel", {Parent = Frame, Position = UDim2.fromOffset(12, 18), Size = UDim2.new(1, -18, 0, 18), BackgroundTransparency = 1, Text = tostring(Data.Description or ""), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd})
     task.delay(math.max(tonumber(Data.Duration) or 3, 0.2), function() if Frame and Frame.Parent then Frame:Destroy() end end)
     return Frame
