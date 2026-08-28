@@ -715,7 +715,7 @@ function Library:Window(Data)
         Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})}),
         Create("Frame", {Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = Colors.TabBg, BorderSizePixel = 0, ZIndex = 0})
     })
-    local Window = setmetatable({Library = self, ScreenGui = ScreenGui, Main = Main, TitleBar = TitleBar, TitleLabel = TitleLabel, UpdateTitleLayout = UpdateTitleLayout, Content = Content, TabBar = TabBar, Pages = {}, PagesOrder = {}, ActivePage = nil, Visible = true, Destroyed = false}, WindowMethods)
+    local Window = setmetatable({Library = self, ScreenGui = ScreenGui, Main = Main, TitleBar = TitleBar, TitleLabel = TitleLabel, UpdateTitleLayout = UpdateTitleLayout, Content = Content, TabBar = TabBar, Pages = {}, PagesOrder = {}, ActivePage = nil, Visible = true, MenuVisible = true, Destroyed = false}, WindowMethods)
     self.ActiveWindow = Window
     CreatePopupLayer(Window)
     MakeDraggable(Main,TitleBar,ScreenGui)
@@ -739,13 +739,26 @@ function Library:Window(Data)
     return Window
 end
 
-function WindowMethods:SetVisible(State)
-    self.Visible = State == true
-    self.Main.Visible = self.Visible
-    if type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(self.Visible) end
-    if not self.Visible then self:CloseDropdown() self:ClosePicker() end
+function WindowMethods:ApplyVisibility()
+    local State=self.Visible==true and self.MenuVisible~=false and Library.InterfaceOpen~=false
+    self.Main.Visible=State
+    if type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(State) end
+    if not State then self:CloseDropdown() self:ClosePicker() end
+    if Library.QuickPanelController and type(Library.QuickPanelController.Refresh)=="function" then task.defer(Library.QuickPanelController.Refresh) end
 end
 
+function WindowMethods:SetVisible(State)
+    self.Visible=State==true
+    self:ApplyVisibility()
+end
+
+function WindowMethods:SetMenuVisible(State)
+    self.MenuVisible=State==true
+    self:ApplyVisibility()
+end
+
+function WindowMethods:IsVisible() return self.Visible==true and self.MenuVisible~=false and Library.InterfaceOpen~=false end
+function WindowMethods:IsRequestedVisible() return self.Visible==true end
 function WindowMethods:Toggle() self:SetVisible(not self.Visible) end
 function WindowMethods:Destroy()
     if self.Destroyed then return end
@@ -1312,7 +1325,11 @@ function Library:GetConfig()
         end
     end
     local BindSuccess,EncodedBinds=Call(EncodeValue,ControlBinds,{},0) if BindSuccess and EncodedBinds~=nil then Payload.__AtramentaControlBinds=EncodedBinds end
-    local Interface={} if self.ActiveWindow and self.ActiveWindow.Main then Interface.MainPosition=self.ActiveWindow.Main.Position Interface.MainSize=self.ActiveWindow.Main.Size end Interface.Theme=CloneValue(self.Theme) Interface.MenuBind=self.MenuBindData and {Key=self.MenuBindData.Key,Modifiers=CopyModifiers(self.MenuBindData.Modifiers)} or {Key=self.MenuKeybind,Modifiers=EmptyModifiers()} Interface.NotificationPoint=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
+    local Interface={}
+    if self.ActiveWindow and self.ActiveWindow.Main then Interface.MainPosition=self.ActiveWindow.Main.Position Interface.MainSize=self.ActiveWindow.Main.Size Interface.MainVisible=self.ActiveWindow.Visible==true end
+    if self.PlayerListController and self.PlayerListController.Frame then Interface.PlayerListPosition=self.PlayerListController.Frame.Position Interface.PlayerListVisible=self.PlayerListController.RequestedVisible==true end
+    if self.QuickPanelController and self.QuickPanelController.Root then Interface.QuickPanelPosition=self.QuickPanelController.Root.Position end
+    Interface.Theme=CloneValue(self.Theme) Interface.MenuBind=self.MenuBindData and {Key=self.MenuBindData.Key,Modifiers=CopyModifiers(self.MenuBindData.Modifiers)} or {Key=self.MenuKeybind,Modifiers=EmptyModifiers()} Interface.NotificationPoint=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
     local SuccessInterface,EncodedInterface=Call(EncodeValue,Interface,{},0) if SuccessInterface and EncodedInterface then Payload.__AtramentaInterface=EncodedInterface end
     local Success,Source=Call(HttpService.JSONEncode,HttpService,Payload) return Success and Source or "{}"
 end
@@ -1367,7 +1384,18 @@ function Library:LoadConfig(Source)
     local Interface=Decoded.__AtramentaInterface and DecodeValue(Decoded.__AtramentaInterface,0) or nil
     if type(Interface)=="table" then
         if type(Interface.Theme)=="table" then for Key,Value in pairs(Interface.Theme) do if typeof(Value)=="Color3" then self.Theme[Key]=Value end end SyncThemeColors() elseif typeof(Interface.Accent)=="Color3" then self.Theme.Accent=Interface.Accent end
-        if self.ActiveWindow and self.ActiveWindow.Main then if typeof(Interface.MainSize)=="UDim2" then self.ActiveWindow.Main.Size=Interface.MainSize end if typeof(Interface.MainPosition)=="UDim2" then self.ActiveWindow.Main.Position=Interface.MainPosition end ClampFrameToViewport(self.ActiveWindow.Main,self.ActiveWindow.ScreenGui,4) end
+        if self.ActiveWindow and self.ActiveWindow.Main then
+            if typeof(Interface.MainSize)=="UDim2" then self.ActiveWindow.Main.Size=Interface.MainSize end
+            if typeof(Interface.MainPosition)=="UDim2" then self.ActiveWindow.Main.Position=Interface.MainPosition end
+            if type(Interface.MainVisible)=="boolean" then self.ActiveWindow:SetVisible(Interface.MainVisible) end
+            ClampFrameToViewport(self.ActiveWindow.Main,self.ActiveWindow.ScreenGui,4)
+        end
+        if self.PlayerListController and self.PlayerListController.Frame then
+            if typeof(Interface.PlayerListPosition)=="UDim2" then self.PlayerListController.Frame.Position=Interface.PlayerListPosition end
+            if type(Interface.PlayerListVisible)=="boolean" then self.PlayerListController:SetVisibility(Interface.PlayerListVisible) end
+            ClampFrameToViewport(self.PlayerListController.Frame,self.PlayerListController.Gui,4)
+        end
+        if self.QuickPanelController and self.QuickPanelController.Root and typeof(Interface.QuickPanelPosition)=="UDim2" then self.QuickPanelController.Root.Position=Interface.QuickPanelPosition ClampFrameToViewport(self.QuickPanelController.Root,self.QuickPanelController.Gui,4) end
         if typeof(Interface.NotificationPoint)=="Vector2" then self.NotificationPoint=Interface.NotificationPoint if type(self.ApplyNotificationLayout)=="function" then self:ApplyNotificationLayout() end end
         if self.MenuBindData and type(Interface.MenuBind)=="table" then self.MenuBindData:Set(Interface.MenuBind) end
     end
@@ -1486,12 +1514,11 @@ function WindowMethods:ConfigSystem()
     local Theme=Page:Section({Name="theme",Side=2})
     local Selected,Listbox
     local CountLabel=Browser:Label({Name="0 configs",Alignment="Left"})
-    local SelectedLabel=Browser:Label({Name="selected: none",Alignment="Left"})
     local NameBox=Manager:Textbox({Name="config name",Flag="__ConfigName",Default="",Placeholder="enter name"})
     local Status=Manager:Label({Name="ready",Alignment="Left"})
     local function Notify(Text) Status:Set(tostring(Text)) Library:Notification({Title="config",Description=Text,Duration=2}) end
     local function SetSelected(Name)
-        Selected=Name and NormalizeConfigName(Name) or nil SelectedLabel:Set("selected: "..(Selected or "none")) if Selected then NameBox:Set(Selected,true) end
+        Selected=Name and NormalizeConfigName(Name) or nil if Selected then NameBox:Set(Selected,true) end
     end
     local function Refresh(Preserve)
         local Items=Library:ListConfigs() Listbox:SetItems(Items) CountLabel:Set(tostring(#Items)..(#Items==1 and " config" or " configs"))
@@ -1548,9 +1575,12 @@ function Library:Watermark(Text)
     local Label=Create("TextLabel",{Parent=Inner,Position=UDim2.fromOffset(8,1),Size=UDim2.new(1,-16,1,-2),BackgroundTransparency=1,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBright,TextXAlignment=Enum.TextXAlignment.Left,Text="",TextTruncate=Enum.TextTruncate.None,ZIndex=5})
     local TextGradient=Create("UIGradient",{Parent=Label,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.TextBright),ColorSequenceKeypoint.new(0.38,Colors.TextBright),ColorSequenceKeypoint.new(0.5,AccentHover()),ColorSequenceKeypoint.new(0.62,Colors.TextBright),ColorSequenceKeypoint.new(1,Colors.TextBright)}),Offset=Vector2.new(-1,0)})
     local Scale=Create("UIScale",{Parent=Frame,Scale=1}) MakeDraggable(Frame,Frame,Gui)
-    local Object={Gui=Gui,Frame=Frame,Label=Label,Scale=Scale,Line=Line,Brand=string.lower(tostring(Text or "atramenta.rip")),FPS=0,Ping=0,Alive=true}
+    local Object={Gui=Gui,Frame=Frame,Label=Label,Scale=Scale,Line=Line,Brand=string.lower(tostring(Text or "atramenta.rip")),FPS=0,Ping=0,Alive=true,RequestedVisible=true,MenuVisible=true}
+    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false end
     function Object:Resize() local Bounds=TextService:GetTextSize(Label.Text,13,Enum.Font.SourceSans,Vector2.new(1200,23)) Frame.Size=UDim2.fromOffset(math.max(170,math.ceil(Bounds.X)+18),23) end
-    function Object:SetVisibility(State) Frame.Visible=State==true end
+    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
+    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
+    function Object:IsRequestedVisible() return Object.RequestedVisible==true end
     function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.5,2) end
     function Object:SetText(Value) Object.Brand=string.lower(tostring(Value or "atramenta.rip")) Object:RefreshText() end
     function Object:SetPosition(Position) if typeof(Position)=="UDim2" then Frame.Position=Position end end
@@ -1580,8 +1610,11 @@ function Library:KeybindList()
     local Line=Create("Frame",{Parent=Header,Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,Accent()),ColorSequenceKeypoint.new(0.84,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})})
     local Holder=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(7,23),Size=UDim2.new(1,-14,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder})})
     local Scale=Create("UIScale",{Parent=Frame,Scale=1}) MakeDraggable(Frame,Header,Gui)
-    local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={}}
-    function Object:SetVisibility(State) Frame.Visible=State==true end
+    local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={},RequestedVisible=false,MenuVisible=true}
+    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false end
+    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
+    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
+    function Object:IsRequestedVisible() return Object.RequestedVisible==true end
     function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.5,2) end
     function Object:Refresh()
         for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end table.clear(Object.Rows)
@@ -1603,47 +1636,204 @@ function Library:KeybindList()
 end
 
 function Library:PlayerList(Data)
-    Data = Data or {}
+    Data=type(Data)=="table" and Data or {}
     if self.PlayerListController then return self.PlayerListController end
-    local Parent = ParentGui()
-    local Gui = Create("ScreenGui", {Name = "AtramentaPlayerList", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 101, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
-    self.Guis[#self.Guis + 1] = Gui
-    local Frame = Create("Frame", {Parent = Gui, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(260, 300), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Visible = Data.Visible == true}, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
-    local Header = Create("Frame", {Parent = Frame, Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0})
-    Create("TextLabel", {Parent = Header, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = string.lower(tostring(Data.Brand or "players")), TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 13})
-    local List = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.fromOffset(8, 30), Size = UDim2.new(1, -16, 1, -38), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Colors.TextBind}, {Create("UIListLayout", {Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder})})
-    local Scale = Create("UIScale", {Parent = Frame, Scale = math.clamp((tonumber(Data.Scale) or 100) / 100, 0.5, 2)})
-    MakeDraggable(Frame,Header,Gui)
-    local Object = {Gui = Gui, Frame = Frame, List = List, Scale = Scale, Rows = {}, Status = setmetatable({}, {__mode = "k"}), Data = Data}
-    function Object:SetVisibility(State) Frame.Visible = State == true end
-    function Object:SetScale(Value) Scale.Scale = math.clamp((tonumber(Value) or 100) / 100, 0.5, 2) end
-    function Object:Refresh()
-        for _, Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end
-        table.clear(Object.Rows)
-        local PlayersList = Players:GetPlayers()
-        table.sort(PlayersList, function(A, B) return A.Name:lower() < B.Name:lower() end)
-        for Index, Player in ipairs(PlayersList) do
-            if Player ~= Players.LocalPlayer then
-                local Row = Create("Frame", {Parent = List, Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, LayoutOrder = Index})
-                local Name = Create("TextLabel", {Parent = Row, Size = UDim2.new(0.62, 0, 1, 0), BackgroundTransparency = 1, Text = Player.Name, TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd})
-                local StatusButton = Create("TextButton", {Parent = Row, Position = UDim2.new(0.62, 0, 0, 0), Size = UDim2.new(0.38, 0, 1, 0), BackgroundTransparency = 1, Text = Object.Status[Player] or "None", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 12, AutoButtonColor = false})
-                Bind(StatusButton.MouseButton1Click:Connect(function()
-                    local Current = Object.Status[Player] or "None"
-                    local Next = Current == "None" and "Whitelist" or Current == "Whitelist" and "Enemy" or "None"
-                    Object.Status[Player] = Next
-                    StatusButton.Text = Next
-                    StatusButton.TextColor3 = Next == "Enemy" and Accent() or Colors.TextBind
-                    if type(Data.StatusChanged) == "function" then Call(Data.StatusChanged, Player, Next) end
-                end))
-                Object.Rows[#Object.Rows + 1] = Row
+    self.PlayerStatuses=type(self.PlayerStatuses)=="table" and self.PlayerStatuses or {}
+    local Parent=ParentGui()
+    local Gui=Create("ScreenGui",{Name="AtramentaPlayerList",Parent=Parent,ResetOnSpawn=false,DisplayOrder=150,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
+    self.Guis[#self.Guis+1]=Gui
+    local Frame=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.72,0.52),Size=UDim2.fromOffset(620,390),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ZIndex=150},{
+        Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1})
+    })
+    local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,24),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true,ZIndex=151},{
+        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})
+    })
+    local AccentLine=Create("Frame",{Parent=Header,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=153},{
+        Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,Accent()),ColorSequenceKeypoint.new(0.82,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})
+    })
+    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(9,0),Size=UDim2.new(1,-18,1,0),BackgroundTransparency=1,Text=string.lower(tostring(Data.Brand or "atramenta.rip")).." | player list",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=152})
+    local Left=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(8,32),Size=UDim2.new(0.60,-12,1,-40),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.12,BorderSizePixel=0,ZIndex=151},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.28})})
+    local Right=Create("Frame",{Parent=Frame,Position=UDim2.new(0.60,2,0,32),Size=UDim2.new(0.40,-10,1,-40),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.12,BorderSizePixel=0,ZIndex=151},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.28})})
+    local Count=Create("TextLabel",{Parent=Left,Position=UDim2.fromOffset(8,5),Size=UDim2.new(1,-16,0,17),BackgroundTransparency=1,Text="players [0]",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=152})
+    local Search=Create("TextBox",{Parent=Left,Position=UDim2.fromOffset(8,27),Size=UDim2.new(1,-16,0,25),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ClearTextOnFocus=false,PlaceholderText="search player...",PlaceholderColor3=Colors.TextDim,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=152},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.30}),Create("UIPadding",{PaddingLeft=UDim.new(0,7),PaddingRight=UDim.new(0,7)})})
+    local ListRoot=Create("Frame",{Parent=Left,Position=UDim2.fromOffset(8,59),Size=UDim2.new(1,-16,1,-67),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.35,BorderSizePixel=0,ClipsDescendants=true,ZIndex=152},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.38})})
+    local ListHeader=Create("Frame",{Parent=ListRoot,Size=UDim2.new(1,0,0,23),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.38,BorderSizePixel=0,ZIndex=153})
+    Create("TextLabel",{Parent=ListHeader,Position=UDim2.fromOffset(35,0),Size=UDim2.new(1,-125,1,0),BackgroundTransparency=1,Text="name",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
+    Create("TextLabel",{Parent=ListHeader,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-8,0,0),Size=UDim2.fromOffset(78,23),BackgroundTransparency=1,Text="status",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right,ZIndex=154})
+    local List=Create("ScrollingFrame",{Parent=ListRoot,Position=UDim2.fromOffset(0,24),Size=UDim2.new(1,0,1,-24),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=2,ScrollBarImageColor3=Colors.TextDim,ZIndex=153},{Create("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder}),Create("UIPadding",{PaddingTop=UDim.new(0,3),PaddingBottom=UDim.new(0,3),PaddingLeft=UDim.new(0,4),PaddingRight=UDim.new(0,4)})})
+    local SelectedTitle=Create("TextLabel",{Parent=Right,Position=UDim2.fromOffset(8,5),Size=UDim2.new(1,-16,0,17),BackgroundTransparency=1,Text="selected player",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=152})
+    Create("Frame",{Parent=Right,Position=UDim2.fromOffset(8,25),Size=UDim2.new(1,-16,0,1),BackgroundColor3=Colors.SectionBorder,BackgroundTransparency=0.30,BorderSizePixel=0,ZIndex=152})
+    local Empty=Create("TextLabel",{Parent=Right,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.52),Size=UDim2.new(1,-20,0,24),BackgroundTransparency=1,Text="no player selected",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=12,ZIndex=152})
+    local Profile=Create("Frame",{Parent=Right,Position=UDim2.fromOffset(8,33),Size=UDim2.new(1,-16,1,-41),BackgroundTransparency=1,Visible=false,ZIndex=152})
+    local AvatarHolder=Create("Frame",{Parent=Profile,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,5),Size=UDim2.fromOffset(76,76),BackgroundColor3=Colors.Control,BorderSizePixel=0,ClipsDescendants=true,ZIndex=153},{Create("UICorner",{CornerRadius=UDim.new(1,0)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
+    local Avatar=Create("ImageLabel",{Parent=AvatarHolder,Position=UDim2.fromOffset(2,2),Size=UDim2.new(1,-4,1,-4),BackgroundTransparency=1,Image="",ScaleType=Enum.ScaleType.Crop,ZIndex=154},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
+    local User=Create("TextLabel",{Parent=Profile,Position=UDim2.fromOffset(0,89),Size=UDim2.new(1,0,0,18),BackgroundTransparency=1,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=153})
+    local Info=Create("TextLabel",{Parent=Profile,Position=UDim2.fromOffset(0,107),Size=UDim2.new(1,0,0,16),BackgroundTransparency=1,Text="",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=153})
+    Create("Frame",{Parent=Profile,Position=UDim2.fromOffset(0,133),Size=UDim2.new(1,0,0,1),BackgroundColor3=Colors.SectionBorder,BackgroundTransparency=0.25,BorderSizePixel=0,ZIndex=153})
+    Create("TextLabel",{Parent=Profile,Position=UDim2.fromOffset(0,144),Size=UDim2.new(1,0,0,17),BackgroundTransparency=1,Text="status",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=153})
+    local StatusButton=Create("TextButton",{Parent=Profile,Position=UDim2.fromOffset(0,165),Size=UDim2.new(1,0,0,27),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.42,BorderSizePixel=0,AutoButtonColor=false,Text="None",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=155},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.32}),Create("UIPadding",{PaddingLeft=UDim.new(0,8),PaddingRight=UDim.new(0,8)})})
+    local StatusArrow=Create("TextLabel",{Parent=StatusButton,AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-7,0.5,0),Size=UDim2.fromOffset(12,14),BackgroundTransparency=1,Text="v",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,ZIndex=156})
+    local StatusDrop=Create("Frame",{Parent=Profile,Position=UDim2.fromOffset(0,196),Size=UDim2.new(1,0,0,75),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.08,BorderSizePixel=0,Visible=false,ClipsDescendants=true,ZIndex=165},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.22}),Create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder})})
+    local ActionHolder=Create("Frame",{Parent=Profile,Position=UDim2.fromOffset(0,207),Size=UDim2.new(1,0,0,28),BackgroundTransparency=1,ZIndex=153},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Left,Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder})})
+    local Scale=Create("UIScale",{Parent=Frame,Scale=math.clamp((tonumber(Data.Scale) or 100)/100,0.65,1.5)})
+    local StatusColors={Client=Accent(),None=Colors.TextDim,Whitelist=Color3.fromRGB(87,196,129),Enemy=Color3.fromRGB(224,92,102)}
+    local Object={Gui=Gui,Frame=Frame,Header=Header,List=List,Scale=Scale,Rows={},RequestedVisible=Data.Visible==true,MenuVisible=true,Selected=nil,Search="",Data=Data,DropOpen=false}
+    local function NormalizeStatus(Status)
+        Status=tostring(Status or "None")
+        if Status=="Whitelist" or Status=="Enemy" then return Status end
+        return "None"
+    end
+    local function ReadStatus(Player)
+        if not Player then return "None" end
+        if Player==Players.LocalPlayer then return "Client" end
+        local UserId=tonumber(Player.UserId) or 0 local External
+        if type(Data.GetStatus)=="function" then local Ok,Value=Call(Data.GetStatus,Player) if Ok then External=Value end end
+        local Status=NormalizeStatus(External or Library.PlayerStatuses[UserId])
+        Library.PlayerStatuses[UserId]=Status
+        return Status
+    end
+    local RefreshRows local RefreshSelected
+    local function CloseDrop()
+        Object.DropOpen=false StatusDrop.Visible=false StatusArrow.Text="v" ActionHolder.Position=UDim2.fromOffset(0,207)
+    end
+    local function SetStatus(Player,Status,Silent)
+        if not Player or Player==Players.LocalPlayer then return "Client" end
+        Status=NormalizeStatus(Status) Library.PlayerStatuses[tonumber(Player.UserId) or 0]=Status
+        if not Silent and type(Data.StatusChanged)=="function" then Call(Data.StatusChanged,Player,Status) end
+        if RefreshRows then RefreshRows() end if RefreshSelected and Object.Selected==Player then RefreshSelected(false) end
+        return Status
+    end
+    local function MakeStatusOption(Name,Order)
+        local Button=Create("TextButton",{Parent=StatusDrop,Size=UDim2.new(1,0,0,25),BackgroundColor3=Colors.Control,BackgroundTransparency=1,BorderSizePixel=0,AutoButtonColor=false,Text=string.lower(Name),TextColor3=StatusColors[Name] or Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,LayoutOrder=Order,ZIndex=166},{Create("UIPadding",{PaddingLeft=UDim.new(0,8)})})
+        Bind(Button.MouseEnter:Connect(function() Button.BackgroundTransparency=0.72 end))
+        Bind(Button.MouseLeave:Connect(function() Button.BackgroundTransparency=1 end))
+        Bind(Button.MouseButton1Click:Connect(function() if Object.Selected then SetStatus(Object.Selected,Name,false) end CloseDrop() end))
+    end
+    MakeStatusOption("None",1) MakeStatusOption("Whitelist",2) MakeStatusOption("Enemy",3)
+    local function MakeAction(Name,CallbackKey,Order)
+        local Button=Create("TextButton",{Parent=ActionHolder,Size=UDim2.new(0.5,-2,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.62,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Order,ZIndex=154},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.40})})
+        Bind(Button.MouseButton1Click:Connect(function() local Callback=Data[CallbackKey] if type(Callback)=="function" and Object.Selected then task.spawn(Callback,Object.Selected) end end))
+        return Button
+    end
+    MakeAction("spectate","Spectate",1)
+    local Unspectate=Create("TextButton",{Parent=ActionHolder,Size=UDim2.new(0.5,-2,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.62,BorderSizePixel=0,Text="unspectate",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=2,ZIndex=154},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.40})})
+    Bind(Unspectate.MouseButton1Click:Connect(function() if type(Data.Unspectate)=="function" then task.spawn(Data.Unspectate) end end))
+    RefreshSelected=function(LoadImage)
+        local Player=Object.Selected local Valid=Player and Player.Parent==Players
+        Empty.Visible=not Valid Profile.Visible=Valid CloseDrop()
+        if not Valid then Object.Selected=nil Avatar.Image="" User.Text="" Info.Text="" return end
+        if LoadImage~=false then Avatar.Image="rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=150&h=150" end
+        User.Text=Player.Name
+        Info.Text=(Player.DisplayName~=Player.Name and Player.DisplayName.."  ·  " or "")..tostring(Player.UserId)
+        local Status=ReadStatus(Player) StatusButton.Text=Status StatusButton.TextColor3=StatusColors[Status] or Colors.Text
+        StatusButton.Active=Player~=Players.LocalPlayer StatusArrow.Visible=Player~=Players.LocalPlayer
+    end
+    local function Select(Player)
+        if Player and Player.Parent~=Players then Player=nil end Object.Selected=Player
+        if RefreshRows then RefreshRows() end if RefreshSelected then RefreshSelected(true) end
+    end
+    RefreshRows=function()
+        for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end table.clear(Object.Rows)
+        local Query=string.lower(Object.Search or "") local Items=Players:GetPlayers()
+        table.sort(Items,function(A,B)
+            if A==Players.LocalPlayer then return true end if B==Players.LocalPlayer then return false end
+            local Rank={Enemy=1,Whitelist=2,None=3} local SA,SB=ReadStatus(A),ReadStatus(B)
+            if Rank[SA] and Rank[SB] and Rank[SA]~=Rank[SB] then return Rank[SA]<Rank[SB] end
+            return A.Name:lower()<B.Name:lower()
+        end)
+        local VisibleCount=0
+        for _,Player in ipairs(Items) do
+            local SearchName=string.lower(Player.Name.." "..Player.DisplayName)
+            if Query=="" or string.find(SearchName,Query,1,true) then
+                VisibleCount+=1 local Status=ReadStatus(Player) local Selected=Object.Selected==Player
+                local Row=Create("TextButton",{Parent=List,Size=UDim2.new(1,0,0,29),BackgroundColor3=Selected and Colors.Control or Colors.Bg,BackgroundTransparency=Selected and 0.34 or 0.88,BorderSizePixel=0,Text="",AutoButtonColor=false,LayoutOrder=VisibleCount,ZIndex=153},{Create("UICorner",{CornerRadius=UDim.new(0,2)})})
+                if Selected then Create("Frame",{Parent=Row,Position=UDim2.fromOffset(0,5),Size=UDim2.fromOffset(2,19),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=155}) end
+                local MiniHolder=Create("Frame",{Parent=Row,AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,7,0.5,0),Size=UDim2.fromOffset(18,18),BackgroundColor3=Colors.Control,BorderSizePixel=0,ClipsDescendants=true,ZIndex=154},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
+                Create("ImageLabel",{Parent=MiniHolder,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Image="rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=48&h=48",ScaleType=Enum.ScaleType.Crop,ZIndex=155},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
+                Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(32,0),Size=UDim2.new(1,-125,1,0),BackgroundTransparency=1,Text=Player.Name,TextColor3=Selected and Colors.TextBright or Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=154})
+                Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-7,0,0),Size=UDim2.fromOffset(82,29),BackgroundTransparency=1,Text=string.lower(Status),TextColor3=StatusColors[Status] or Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=154})
+                Bind(Row.MouseButton1Click:Connect(function() Select(Player) end)) Object.Rows[#Object.Rows+1]=Row
             end
         end
+        Count.Text="players ["..tostring(VisibleCount).."]"
     end
+    Bind(StatusButton.MouseButton1Click:Connect(function()
+        if not Object.Selected or Object.Selected==Players.LocalPlayer then return end
+        Object.DropOpen=not Object.DropOpen StatusDrop.Visible=Object.DropOpen StatusArrow.Text=Object.DropOpen and "^" or "v" ActionHolder.Position=Object.DropOpen and UDim2.fromOffset(0,281) or UDim2.fromOffset(0,207)
+    end))
+    function Object:ApplyVisibility()
+        Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
+        if not Frame.Visible then CloseDrop() end
+        if Library.QuickPanelController and type(Library.QuickPanelController.Refresh)=="function" then task.defer(Library.QuickPanelController.Refresh) end
+    end
+    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
+    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
+    function Object:IsVisible() return Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false end
+    function Object:IsRequestedVisible() return Object.RequestedVisible==true end
+    function Object:Toggle() Object:SetVisibility(not Object.RequestedVisible) end
+    function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.65,1.5) end
+    function Object:SetStatus(Player,Status) return SetStatus(Player,Status,false) end
+    function Object:GetStatus(Player) return ReadStatus(Player) end
+    function Object:SelectPlayer(Player) Select(Player) end
+    function Object:Refresh() RefreshRows() RefreshSelected(false) end
+    Bind(Search:GetPropertyChangedSignal("Text"):Connect(function() Object.Search=Search.Text RefreshRows() end))
     Bind(Players.PlayerAdded:Connect(function() task.defer(function() Object:Refresh() end) end))
-    Bind(Players.PlayerRemoving:Connect(function() task.defer(function() Object:Refresh() end) end))
-    Object:Refresh()
-    BindFrameToViewport(Frame,Gui,4) self.PlayerListController = Object
-    return Object
+    Bind(Players.PlayerRemoving:Connect(function(Player) Library.PlayerStatuses[tonumber(Player.UserId) or 0]=nil if Object.Selected==Player then Object.Selected=nil end task.defer(function() Object:Refresh() end) end))
+    MakeDraggable(Frame,Header,Gui) BindFrameToViewport(Frame,Gui,4)
+    RegisterRenderer(function()
+        local A=Accent() StatusColors.Client=A AccentLine.BackgroundColor3=A
+        local Gradient=AccentLine:FindFirstChildOfClass("UIGradient") if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,A),ColorSequenceKeypoint.new(0.82,A),ColorSequenceKeypoint.new(1,Color3.new())}) end
+        if Object.Selected then RefreshSelected(false) end
+    end)
+    Object:Refresh() self.PlayerListController=Object Object:ApplyVisibility() return Object
+end
+
+function Library:QuickPanel(Data)
+    Data=type(Data)=="table" and Data or {}
+    if self.QuickPanelController then return self.QuickPanelController end
+    self.InterfaceOpen=self.InterfaceOpen~=false
+    local Parent=ParentGui()
+    local Gui=Create("ScreenGui",{Name="AtramentaQuickPanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=190,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
+    self.Guis[#self.Guis+1]=Gui
+    local Root=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,8),Size=UDim2.fromOffset(174,29),BackgroundColor3=Color3.fromRGB(4,4,5),BorderSizePixel=0,Visible=self.InterfaceOpen,Active=true,ZIndex=190},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(1,1,2),Thickness=1})})
+    local Inner=Create("Frame",{Parent=Root,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,ZIndex=191},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(0.55,Colors.TitleBg),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
+    local AccentLine=Create("Frame",{Parent=Inner,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=194},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,Accent()),ColorSequenceKeypoint.new(0.82,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
+    local Holder=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(5,4),Size=UDim2.new(1,-10,1,-8),BackgroundTransparency=1,ZIndex=192},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Center,VerticalAlignment=Enum.VerticalAlignment.Center,Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder})})
+    local Object={Gui=Gui,Root=Root,Buttons={}}
+    local function RequestedMenu() local Window=Library.ActiveWindow return Window and Window.Visible==true or false end
+    local function RequestedPlayers() local Controller=Library.PlayerListController return Controller and Controller.RequestedVisible==true or false end
+    local function Paint(Button,State)
+        Button.BackgroundTransparency=State and 0.38 or 0.80 Button.TextColor3=State and Accent() or Colors.Text
+        local Stroke=Button:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=State and Accent() or Colors.SectionBorder Stroke.Transparency=State and 0.10 or 0.55 end
+    end
+    local function Make(Name,Order,Callback)
+        local Button=Create("TextButton",{Parent=Holder,Size=UDim2.new(0.5,-3,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.80,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Order,ZIndex=193},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.55})})
+        Object.Buttons[Name]=Button Bind(Button.MouseButton1Click:Connect(Callback)) return Button
+    end
+    function Object.Refresh()
+        if Object.Buttons.Menu then Paint(Object.Buttons.Menu,RequestedMenu()) end
+        if Object.Buttons.PlayerList then Paint(Object.Buttons.PlayerList,RequestedPlayers()) end
+    end
+    Make("Menu",1,function() local Window=Library.ActiveWindow if Window then Window:SetVisible(not Window.Visible) end Object.Refresh() end)
+    Make("PlayerList",2,function() local Controller=Library.PlayerListController if Controller then Controller:SetVisibility(not Controller.RequestedVisible) end Object.Refresh() end)
+    function Object:SetInterfaceVisible(State)
+        State=State==true Library.InterfaceOpen=State Root.Visible=State
+        local Window=Library.ActiveWindow if Window and type(Window.SetMenuVisible)=="function" then Window:SetMenuVisible(State) end
+        local PlayersPanel=Library.PlayerListController if PlayersPanel and type(PlayersPanel.SetMenuVisible)=="function" then PlayersPanel:SetMenuVisible(State) end
+        local Watermark=Library.WatermarkController if Watermark and type(Watermark.SetMenuVisible)=="function" then Watermark:SetMenuVisible(State) end
+        local Keybinds=Library.KeybindListController if Keybinds and type(Keybinds.SetMenuVisible)=="function" then Keybinds:SetMenuVisible(State) end
+        if not State and type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(false)
+        elseif State and Window and Window:IsVisible() and type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(true) end
+        Object.Refresh()
+    end
+    function Object:ToggleInterface() Object:SetInterfaceVisible(not (Library.InterfaceOpen~=false)) end
+    function Object:IsVisible() return Library.InterfaceOpen~=false end
+    MakeDraggable(Root,Root,Gui) BindFrameToViewport(Root,Gui,4)
+    RegisterRenderer(function()
+        local A=Accent() AccentLine.BackgroundColor3=A local Gradient=AccentLine:FindFirstChildOfClass("UIGradient")
+        if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,A),ColorSequenceKeypoint.new(0.82,A),ColorSequenceKeypoint.new(1,Color3.new())}) end Object.Refresh()
+    end)
+    self.QuickPanelController=Object Object.Refresh() return Object
 end
 
 function Library:GetNotificationAlign()
@@ -1785,7 +1975,13 @@ Bind(UserInputService.InputBegan:Connect(function(Input,Processed)
         local Point=Input.Position
         for _,BindData in ipairs(Library.Keybinds) do if BindData.Button and PointInside(BindData.Button,Point) then return end end
     end
-    if not Processed and Library.ActiveWindow then local MenuBind=Library.MenuBindData if MenuBind and InputMatches(Input,MenuBind.Key,MenuBind.Modifiers) or not MenuBind and InputMatches(Input,Library.MenuKeybind) then Library.ActiveWindow:Toggle() return end end
+    if not Processed and Library.ActiveWindow then
+        local MenuBind=Library.MenuBindData
+        if MenuBind and InputMatches(Input,MenuBind.Key,MenuBind.Modifiers) or not MenuBind and InputMatches(Input,Library.MenuKeybind) then
+            if Library.QuickPanelController and type(Library.QuickPanelController.ToggleInterface)=="function" then Library.QuickPanelController:ToggleInterface() else Library.ActiveWindow:Toggle() end
+            return
+        end
+    end
     if Processed or Input.UserInputType==Enum.UserInputType.MouseButton1 then return end
     for _,BindData in ipairs(Library.Keybinds) do if InputMatches(Input,BindData.Key,BindData.Modifiers) then FireKeybind(BindData,true) end end
 end))
@@ -1816,6 +2012,8 @@ function Library.Unload(...)
     for Index = #Library.Guis, 1, -1 do local Gui = Library.Guis[Index] if Gui and Gui.Parent then Call(function() Gui:Destroy() end) end Library.Guis[Index] = nil end
     Library.ActiveWindow = nil
     Library.PlayerListController = nil
+    Library.QuickPanelController = nil
+    Library.InterfaceOpen = true
     Library.KeybindListController = nil
     Library.NotificationGui = nil
     Library.NotificationHolder = nil
@@ -1843,11 +2041,13 @@ function Library:SetFlag(Name, Value)
 end
 
 function Library:SetVisible(State)
-    if self.ActiveWindow then self.ActiveWindow:SetVisible(State) end
+    if self.QuickPanelController and type(self.QuickPanelController.SetInterfaceVisible)=="function" then self.QuickPanelController:SetInterfaceVisible(State==true)
+    elseif self.ActiveWindow then self.ActiveWindow:SetVisible(State) end
 end
 
 function Library:Toggle()
-    if self.ActiveWindow then self.ActiveWindow:Toggle() end
+    if self.QuickPanelController and type(self.QuickPanelController.ToggleInterface)=="function" then self.QuickPanelController:ToggleInterface()
+    elseif self.ActiveWindow then self.ActiveWindow:Toggle() end
 end
 
 Library.window = Library.Window
