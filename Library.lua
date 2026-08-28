@@ -735,7 +735,7 @@ function Library:Window(Data)
             end
         end
     end)
-    task.defer(function() if self.ActiveWindow==Window and type(self.SetNotificationPreviewVisible)=="function" then self:SetNotificationPreviewVisible(true) end end)
+    task.defer(function() if self.ActiveWindow==Window and Window:IsVisible() and type(self.SetNotificationPreviewVisible)=="function" then self:SetNotificationPreviewVisible(true) end end)
     return Window
 end
 
@@ -1244,24 +1244,36 @@ function SectionMethods:Colorpicker(Data)
     return AddControl(self, Picker)
 end
 
+local function CleanConfigNumber(Value)
+    if type(Value) ~= "number" or Value ~= Value or Value <= -math.huge or Value >= math.huge then return nil end
+    local Scaled = Value * 1000000
+    local Rounded = (Scaled >= 0 and math.floor(Scaled + 0.5) or math.ceil(Scaled - 0.5)) / 1000000
+    if math.abs(Rounded) < 0.0000005 then Rounded = 0 end
+    return Rounded
+end
+
 local function EncodeValue(Value, Seen, Depth)
     Depth = Depth or 0
     if Depth > 10 then return nil end
     local ValueType = typeof(Value)
-    if ValueType == "Color3" then return {__type = "Color3", R = Value.R, G = Value.G, B = Value.B} end
+    if ValueType == "Color3" then
+        return {__type = "Color3", R = CleanConfigNumber(Value.R), G = CleanConfigNumber(Value.G), B = CleanConfigNumber(Value.B)}
+    end
     if ValueType == "EnumItem" then return {__type = "EnumItem", EnumType = tostring(Value.EnumType), Name = Value.Name} end
-    if ValueType == "Vector2" then return {__type = "Vector2", X = Value.X, Y = Value.Y} end
-    if ValueType == "Vector3" then return {__type = "Vector3", X = Value.X, Y = Value.Y, Z = Value.Z} end
-    if ValueType == "UDim2" then return {__type = "UDim2", XScale = Value.X.Scale, XOffset = Value.X.Offset, YScale = Value.Y.Scale, YOffset = Value.Y.Offset} end
+    if ValueType == "Vector2" then return {__type = "Vector2", X = CleanConfigNumber(Value.X), Y = CleanConfigNumber(Value.Y)} end
+    if ValueType == "Vector3" then return {__type = "Vector3", X = CleanConfigNumber(Value.X), Y = CleanConfigNumber(Value.Y), Z = CleanConfigNumber(Value.Z)} end
+    if ValueType == "UDim2" then
+        return {__type = "UDim2", XScale = CleanConfigNumber(Value.X.Scale), XOffset = CleanConfigNumber(Value.X.Offset), YScale = CleanConfigNumber(Value.Y.Scale), YOffset = CleanConfigNumber(Value.Y.Offset)}
+    end
     if type(Value) == "boolean" or type(Value) == "string" then return Value end
-    if type(Value) == "number" then if Value == Value and Value > -math.huge and Value < math.huge then return Value end return nil end
+    if type(Value) == "number" then return CleanConfigNumber(Value) end
     if type(Value) ~= "table" then return nil end
     Seen = Seen or {}
     if Seen[Value] then return nil end
     Seen[Value] = true
     local Result, Count, MaxIndex, Array = {}, 0, 0, true
     for Key in pairs(Value) do
-        Count = Count + 1
+        Count += 1
         if type(Key) ~= "number" or Key < 1 or Key % 1 ~= 0 then Array = false break end
         MaxIndex = math.max(MaxIndex, Key)
     end
@@ -1286,7 +1298,13 @@ end
 local function DecodeValue(Value, Depth)
     Depth = Depth or 0
     if Depth > 10 or type(Value) ~= "table" then return Value end
-    if Value.__type == "Color3" then return Color3.new(tonumber(Value.R) or 0, tonumber(Value.G) or 0, tonumber(Value.B) or 0) end
+    if Value.__type == "Color3" then
+        if type(Value.Hex) == "string" then
+            local Clean = Value.Hex:gsub("#", "")
+            if #Clean >= 6 then local Success, Parsed = Call(Color3.fromHex, Clean:sub(1, 6)) if Success then return Parsed end end
+        end
+        return Color3.new(tonumber(Value.R) or 0, tonumber(Value.G) or 0, tonumber(Value.B) or 0)
+    end
     if Value.__type == "EnumItem" then
         local EnumName = tostring(Value.EnumType or ""):match("Enum%.(.+)")
         local EnumType = EnumName and Enum[EnumName]
@@ -1294,7 +1312,13 @@ local function DecodeValue(Value, Depth)
     end
     if Value.__type == "Vector2" then return Vector2.new(tonumber(Value.X) or 0, tonumber(Value.Y) or 0) end
     if Value.__type == "Vector3" then return Vector3.new(tonumber(Value.X) or 0, tonumber(Value.Y) or 0, tonumber(Value.Z) or 0) end
-    if Value.__type == "UDim2" then return UDim2.new(tonumber(Value.XScale) or 0, tonumber(Value.XOffset) or 0, tonumber(Value.YScale) or 0, tonumber(Value.YOffset) or 0) end
+    if Value.__type == "UDim2" then
+        if type(Value.X) == "table" or type(Value.Y) == "table" then
+            local X, Y = type(Value.X) == "table" and Value.X or {}, type(Value.Y) == "table" and Value.Y or {}
+            return UDim2.new(tonumber(X.Scale) or 0, tonumber(X.Offset) or 0, tonumber(Y.Scale) or 0, tonumber(Y.Offset) or 0)
+        end
+        return UDim2.new(tonumber(Value.XScale) or 0, tonumber(Value.XOffset) or 0, tonumber(Value.YScale) or 0, tonumber(Value.YOffset) or 0)
+    end
     if Value.Color ~= nil and Value.Transparency ~= nil then
         local ColorValue = DecodeValue(Value.Color, Depth + 1)
         if type(ColorValue) == "string" then
@@ -1308,98 +1332,257 @@ local function DecodeValue(Value, Depth)
     return Result
 end
 
-function Library:GetConfig()
-    local Payload,BindFlags={},{}
-    for _,BindData in ipairs(self.Keybinds or {}) do if BindData and BindData.Flag then BindFlags[tostring(BindData.Flag)]=true end end
-    for Name,Value in pairs(self.Flags or {}) do
-        local FlagName=tostring(Name)
-        if FlagName:sub(1,2)~="__" and not BindFlags[FlagName] then local Success,Encoded=Call(EncodeValue,Value,{},0) if Success and Encoded~=nil then Payload[FlagName]=Encoded end end
+local ConfigKeyPriority = {Config = 1, Interface = 2, Binds = 3, Flags = 4, __type = -30, Format = -29, Version = -28, Id = -20, Key = -19, KeyType = -18, Mode = -17, Modifiers = -16, EnumType = -15, Name = -14, R = -13, G = -12, B = -11, X = -13, Y = -12, Z = -11, XScale = -13, XOffset = -12, YScale = -11, YOffset = -10}
+local function ConfigTableIsArray(Value)
+    if type(Value) ~= "table" then return false, 0 end
+    local Count, MaxIndex = 0, 0
+    for Key in pairs(Value) do
+        if type(Key) ~= "number" or Key < 1 or Key % 1 ~= 0 then return false, 0 end
+        Count += 1
+        MaxIndex = math.max(MaxIndex, Key)
     end
-    local ControlBinds={}
-    for _,BindData in ipairs(self.Keybinds or {}) do
-        if BindData and type(BindData.Flag)=="string" then
-            local Target=tostring(BindData.TargetFlag or BindData.Flag) local Key=BindData.Key local KeyType="KeyCode"
-            if type(Key)=="string" then KeyType="UserInputType" elseif typeof(Key)=="EnumItem" then KeyType=tostring(Key.EnumType):find("UserInputType",1,true) and "UserInputType" or "KeyCode" Key=Key.Name end
-            local Entry={Id="Main:"..tostring(BindData.Flag),KeyType=KeyType,Key=Key,Modifiers=CopyModifiers(BindData.Modifiers),Display=BindSystem.DisplayChord(BindData.Key,BindData.Modifiers),Mode=BindData.Mode,ShowInBinds=true,ControlType="Boolean"}
-            ControlBinds[Target]=ControlBinds[Target] or {} ControlBinds[Target][#ControlBinds[Target]+1]=Entry
+    return Count == MaxIndex, MaxIndex
+end
+
+local function ConfigSortedKeys(Value)
+    local Keys = {}
+    for Key in pairs(Value) do Keys[#Keys + 1] = tostring(Key) end
+    table.sort(Keys, function(A, B)
+        local AP, BP = ConfigKeyPriority[A] or 100, ConfigKeyPriority[B] or 100
+        if AP ~= BP then return AP < BP end
+        local AL, BL = A:lower(), B:lower()
+        if AL ~= BL then return AL < BL end
+        return A < B
+    end)
+    return Keys
+end
+
+local function ConfigJsonScalar(Value)
+    local Success, Source = Call(HttpService.JSONEncode, HttpService, Value)
+    return Success and Source or "null"
+end
+
+local function PrettyConfigJson(Value, Depth)
+    Depth = Depth or 0
+    local ValueType = type(Value)
+    if ValueType ~= "table" then return ConfigJsonScalar(Value) end
+    local IsArray, Length = ConfigTableIsArray(Value)
+    local Indent = string.rep("  ", Depth)
+    local ChildIndent = string.rep("  ", Depth + 1)
+    if IsArray then
+        if Length == 0 then return "[]" end
+        local Inline = Length <= 8
+        if Inline then
+            local Parts = {}
+            for Index = 1, Length do
+                if type(Value[Index]) == "table" then Inline = false break end
+                Parts[Index] = PrettyConfigJson(Value[Index], Depth + 1)
+            end
+            if Inline then return "[ " .. table.concat(Parts, ", ") .. " ]" end
+        end
+        local Lines = {"["}
+        for Index = 1, Length do
+            Lines[#Lines + 1] = ChildIndent .. PrettyConfigJson(Value[Index], Depth + 1) .. (Index < Length and "," or "")
+        end
+        Lines[#Lines + 1] = Indent .. "]"
+        return table.concat(Lines, "\n")
+    end
+    local Keys = ConfigSortedKeys(Value)
+    if #Keys == 0 then return "{}" end
+    local Inline = #Keys <= 5
+    if Inline then
+        local Parts = {}
+        for Index, Key in ipairs(Keys) do
+            if type(Value[Key]) == "table" then Inline = false break end
+            Parts[Index] = ConfigJsonScalar(Key) .. ": " .. PrettyConfigJson(Value[Key], Depth + 1)
+        end
+        if Inline then return "{ " .. table.concat(Parts, ", ") .. " }" end
+    end
+    local Lines = {"{"}
+    for Index, Key in ipairs(Keys) do
+        local KeyText = ConfigJsonScalar(Key)
+        Lines[#Lines + 1] = ChildIndent .. KeyText .. ": " .. PrettyConfigJson(Value[Key], Depth + 1) .. (Index < #Keys and "," or "")
+    end
+    Lines[#Lines + 1] = Indent .. "}"
+    return table.concat(Lines, "\n")
+end
+
+function Library:GetConfig()
+    local Flags, BindFlags = {}, {}
+    for _, BindData in ipairs(self.Keybinds or {}) do
+        if BindData and BindData.Flag then BindFlags[tostring(BindData.Flag)] = true end
+    end
+    for Name, Value in pairs(self.Flags or {}) do
+        local FlagName = tostring(Name)
+        if FlagName:sub(1, 2) ~= "__" and not BindFlags[FlagName] and type(self.Setters[FlagName]) == "function" then
+            local Success, Encoded = Call(EncodeValue, Value, {}, 0)
+            if Success and Encoded ~= nil then Flags[FlagName] = Encoded end
         end
     end
-    local BindSuccess,EncodedBinds=Call(EncodeValue,ControlBinds,{},0) if BindSuccess and EncodedBinds~=nil then Payload.__AtramentaControlBinds=EncodedBinds end
-    local Interface={}
-    if self.ActiveWindow and self.ActiveWindow.Main then Interface.MainPosition=self.ActiveWindow.Main.Position Interface.MainSize=self.ActiveWindow.Main.Size Interface.MainVisible=self.ActiveWindow.Visible==true end
-    if self.PlayerListController and self.PlayerListController.Frame then Interface.PlayerListPosition=self.PlayerListController.Frame.Position Interface.PlayerListVisible=self.PlayerListController.RequestedVisible==true end
-    if self.QuickPanelController and self.QuickPanelController.Root then Interface.QuickPanelPosition=self.QuickPanelController.Root.Position end
-    Interface.Theme=CloneValue(self.Theme) Interface.MenuBind=self.MenuBindData and {Key=self.MenuBindData.Key,Modifiers=CopyModifiers(self.MenuBindData.Modifiers)} or {Key=self.MenuKeybind,Modifiers=EmptyModifiers()} Interface.NotificationPoint=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
-    local SuccessInterface,EncodedInterface=Call(EncodeValue,Interface,{},0) if SuccessInterface and EncodedInterface then Payload.__AtramentaInterface=EncodedInterface end
-    local Success,Source=Call(HttpService.JSONEncode,HttpService,Payload) return Success and Source or "{}"
+
+    local ControlBinds = {}
+    for _, BindData in ipairs(self.Keybinds or {}) do
+        if BindData and type(BindData.Flag) == "string" then
+            local Target = tostring(BindData.TargetFlag or BindData.Flag)
+            local Key, KeyType = BindData.Key, "KeyCode"
+            if Key == nil then Key = "none"
+            elseif type(Key) == "string" then
+                KeyType = "UserInputType"
+            elseif typeof(Key) == "EnumItem" then
+                KeyType = tostring(Key.EnumType):find("UserInputType", 1, true) and "UserInputType" or "KeyCode"
+                Key = Key.Name
+            end
+            local Entry = {Id = "Main:" .. tostring(BindData.Flag), KeyType = KeyType, Key = Key, Mode = BindData.Mode, Modifiers = CopyModifiers(BindData.Modifiers)}
+            local Existing = ControlBinds[Target]
+            if Existing == nil then
+                ControlBinds[Target] = Entry
+            elseif Existing.Key ~= nil or Existing.key ~= nil then
+                ControlBinds[Target] = {Existing, Entry}
+            else
+                Existing[#Existing + 1] = Entry
+            end
+        end
+    end
+
+    local Interface = {}
+    if self.ActiveWindow and self.ActiveWindow.Main then
+        Interface.MainPosition = self.ActiveWindow.Main.Position
+        Interface.MainSize = self.ActiveWindow.Main.Size
+        Interface.MainVisible = self.ActiveWindow.Visible == true
+    end
+    if self.PlayerListController and self.PlayerListController.Frame then
+        Interface.PlayerListPosition = self.PlayerListController.Frame.Position
+        Interface.PlayerListVisible = self.PlayerListController.RequestedVisible == true
+    end
+    if self.QuickPanelController and self.QuickPanelController.Root then Interface.QuickPanelPosition = self.QuickPanelController.Root.Position end
+    Interface.Theme = CloneValue(self.Theme)
+    Interface.MenuBind = self.MenuBindData and {Key = self.MenuBindData.Key, Modifiers = CopyModifiers(self.MenuBindData.Modifiers)} or {Key = self.MenuKeybind, Modifiers = EmptyModifiers()}
+    Interface.NotificationPoint = typeof(self.NotificationPoint) == "Vector2" and self.NotificationPoint or Vector2.new(0.94, 0.08)
+
+    local EncodedInterface, EncodedBinds = {}, {}
+    local InterfaceSuccess, InterfaceValue = Call(EncodeValue, Interface, {}, 0)
+    if InterfaceSuccess and type(InterfaceValue) == "table" then EncodedInterface = InterfaceValue end
+    local BindsSuccess, BindsValue = Call(EncodeValue, ControlBinds, {}, 0)
+    if BindsSuccess and type(BindsValue) == "table" then EncodedBinds = BindsValue end
+
+    local Payload = {
+        Config = {Format = "Atramenta", Version = 2},
+        Interface = EncodedInterface,
+        Binds = EncodedBinds,
+        Flags = Flags
+    }
+    return PrettyConfigJson(Payload, 0)
 end
 
 function Library:LoadConfig(Source)
     CancelCapture()
-    local Success,Decoded=Call(HttpService.JSONDecode,HttpService,tostring(Source or "{}")) if not Success or type(Decoded)~="table" then return false end
-    local FlagsSource=type(Decoded.Flags)=="table" and Decoded.Flags or Decoded local Flags,Names,BindFlags={},{},{}
-    for _,BindData in ipairs(self.Keybinds or {}) do if BindData and BindData.Flag then BindFlags[tostring(BindData.Flag)]=true end end
-    for Name,Value in pairs(FlagsSource) do
-        local FlagName=tostring(Name)
-        if FlagName:sub(1,2)~="__" and FlagName~="Flags" and FlagName~="AccentAlpha" and not BindFlags[FlagName] then Flags[FlagName]=DecodeValue(Value,0) Names[#Names+1]=FlagName end
+    local Success, Decoded = Call(HttpService.JSONDecode, HttpService, tostring(Source or "{}"))
+    if not Success or type(Decoded) ~= "table" then return false end
+
+    local FlagsSource
+    if type(Decoded.Flags) == "table" then FlagsSource = Decoded.Flags
+    elseif type(Decoded.flags) == "table" then FlagsSource = Decoded.flags
+    elseif type(Decoded.Settings) == "table" then FlagsSource = Decoded.Settings
+    elseif type(Decoded.settings) == "table" then FlagsSource = Decoded.settings
+    else FlagsSource = Decoded end
+
+    local Flags, Names, BindFlags = {}, {}, {}
+    for _, BindData in ipairs(self.Keybinds or {}) do if BindData and BindData.Flag then BindFlags[tostring(BindData.Flag)] = true end end
+    for Name, Value in pairs(FlagsSource) do
+        local FlagName = tostring(Name)
+        if FlagName:sub(1, 2) ~= "__" and FlagName ~= "Flags" and FlagName ~= "flags" and FlagName ~= "Settings" and FlagName ~= "settings"
+            and FlagName ~= "Config" and FlagName ~= "config" and FlagName ~= "Interface" and FlagName ~= "interface" and FlagName ~= "Binds" and FlagName ~= "binds"
+            and FlagName ~= "AccentAlpha" and not BindFlags[FlagName] then
+            Flags[FlagName] = DecodeValue(Value, 0)
+            Names[#Names + 1] = FlagName
+        end
     end
     table.sort(Names)
-    local Applied,Failed=0,0
+    local Applied, Failed = 0, 0
     local function Apply(Name)
-        local Value=CloneValue(Flags[Name]) local Setter=self.Setters[Name]
-        if type(Setter)=="function" then local Ok=Call(Setter,Value) if Ok then Applied+=1 else Failed+=1 end else self.Flags[Name]=Value Applied+=1 end
+        local Value, Setter = CloneValue(Flags[Name]), self.Setters[Name]
+        if type(Setter) == "function" then
+            local Ok = Call(Setter, Value)
+            if Ok then Applied += 1 else Failed += 1 end
+        else
+            self.Flags[Name] = Value
+            Applied += 1
+        end
     end
-    for _,Name in ipairs(Names) do if type(Flags[Name])~="boolean" then Apply(Name) end end
-    for _,Name in ipairs(Names) do if Flags[Name]==false then Apply(Name) end end
-    for _,Name in ipairs(Names) do if Flags[Name]==true then Apply(Name) end end
+    for _, Name in ipairs(Names) do if type(Flags[Name]) ~= "boolean" then Apply(Name) end end
+    for _, Name in ipairs(Names) do if Flags[Name] == false then Apply(Name) end end
+    for _, Name in ipairs(Names) do if Flags[Name] == true then Apply(Name) end end
 
-    local LoadedBinds=Decoded.__AtramentaControlBinds or FlagsSource.__AtramentaControlBinds
-    if LoadedBinds~=nil then LoadedBinds=DecodeValue(LoadedBinds,0) end
-    local function EntryFrom(Value,BindData)
-        Value=DecodeValue(Value,0) if type(Value)~="table" then return nil end
-        if Value.Key~=nil or Value.key~=nil then return Value end
-        local PreferredId="Main:"..tostring(BindData.Flag)
-        local First
-        for _,Entry in pairs(Value) do
-            if type(Entry)=="table" and (Entry.Key~=nil or Entry.key~=nil) then First=First or Entry if tostring(Entry.Id or Entry.id or "")==PreferredId then return Entry end end
+    local LoadedBinds = Decoded.Binds or Decoded.binds or Decoded.__AtramentaControlBinds or FlagsSource.__AtramentaControlBinds
+    if LoadedBinds ~= nil then LoadedBinds = DecodeValue(LoadedBinds, 0) end
+    local function EntryFrom(Value, BindData)
+        Value = DecodeValue(Value, 0)
+        if type(Value) ~= "table" then return nil end
+        if Value.Key ~= nil or Value.key ~= nil or tostring(Value.Display or Value.display or ""):lower() == "none" then return Value end
+        local PreferredId, First = "Main:" .. tostring(BindData.Flag), nil
+        for _, Entry in pairs(Value) do
+            if type(Entry) == "table" and (Entry.Key ~= nil or Entry.key ~= nil or tostring(Entry.Display or Entry.display or ""):lower() == "none") then
+                First = First or Entry
+                if tostring(Entry.Id or Entry.id or "") == PreferredId then return Entry end
+            end
         end
         return First
     end
-    for _,BindData in ipairs(self.Keybinds or {}) do
+    for _, BindData in ipairs(self.Keybinds or {}) do
         local Stored
-        if type(LoadedBinds)=="table" then Stored=EntryFrom(LoadedBinds[tostring(BindData.TargetFlag or BindData.Flag)],BindData) or EntryFrom(LoadedBinds[tostring(BindData.Flag)],BindData) end
-        if not Stored then Stored=EntryFrom(FlagsSource[tostring(BindData.Flag)],BindData) end
+        if type(LoadedBinds) == "table" then
+            Stored = EntryFrom(LoadedBinds[tostring(BindData.TargetFlag or BindData.Flag)], BindData) or EntryFrom(LoadedBinds[tostring(BindData.Flag)], BindData)
+        end
+        if not Stored then Stored = EntryFrom(FlagsSource[tostring(BindData.Flag)], BindData) end
         if Stored then
-            local Key=Stored.Key~=nil and Stored.Key or Stored.key local Modifiers=Stored.Modifiers or Stored.modifiers
-            local KeyType=tostring(Stored.KeyType or Stored.keyType or Stored.Type or "")
-            if type(Key)=="string" then
-                local Tail=Key:match("([%w_]+)$") if Tail then Key=Tail end
-                local Compact=Key:upper():gsub("[%s_%-%+]","")
-                if KeyType:find("UserInputType",1,true) or Compact=="MOUSEBUTTON2" or Compact=="MOUSEBUTTON3" then if Compact=="MOUSEBUTTON2" then Key="M2" elseif Compact=="MOUSEBUTTON3" then Key="M3" end end
+            local Key = Stored.Key ~= nil and Stored.Key or Stored.key
+            if Key == nil and tostring(Stored.Display or Stored.display or ""):lower() == "none" then Key = "none" end
+            local Modifiers = Stored.Modifiers or Stored.modifiers
+            local KeyType = tostring(Stored.KeyType or Stored.keyType or Stored.Type or "")
+            if type(Key) == "string" then
+                local Tail = Key:match("([%w_]+)$")
+                if Tail then Key = Tail end
+                local Compact = Key:upper():gsub("[%s_%-%+]", "")
+                if KeyType:find("UserInputType", 1, true) or Compact == "MOUSEBUTTON2" or Compact == "MOUSEBUTTON3" then
+                    if Compact == "MOUSEBUTTON2" then Key = "M2" elseif Compact == "MOUSEBUTTON3" then Key = "M3" end
+                end
             end
-            BindData:Set({Key=Key,Modifiers=Modifiers,Mode=Stored.Mode or Stored.mode}) Applied+=1
+            BindData:Set({Key = Key, Modifiers = Modifiers, Mode = Stored.Mode or Stored.mode})
+            Applied += 1
         end
     end
 
-    local Interface=Decoded.__AtramentaInterface and DecodeValue(Decoded.__AtramentaInterface,0) or nil
-    if type(Interface)=="table" then
-        if type(Interface.Theme)=="table" then for Key,Value in pairs(Interface.Theme) do if typeof(Value)=="Color3" then self.Theme[Key]=Value end end SyncThemeColors() elseif typeof(Interface.Accent)=="Color3" then self.Theme.Accent=Interface.Accent end
+    local InterfaceSource = Decoded.Interface or Decoded.interface or Decoded.__AtramentaInterface or FlagsSource.__AtramentaInterface
+    local Interface = InterfaceSource and DecodeValue(InterfaceSource, 0) or nil
+    if type(Interface) == "table" then
+        if type(Interface.Theme) == "table" then
+            for Key, Value in pairs(Interface.Theme) do if typeof(Value) == "Color3" then self.Theme[Key] = Value end end
+            SyncThemeColors()
+        elseif typeof(Interface.Accent) == "Color3" then self.Theme.Accent = Interface.Accent end
         if self.ActiveWindow and self.ActiveWindow.Main then
-            if typeof(Interface.MainSize)=="UDim2" then self.ActiveWindow.Main.Size=Interface.MainSize end
-            if typeof(Interface.MainPosition)=="UDim2" then self.ActiveWindow.Main.Position=Interface.MainPosition end
-            if type(Interface.MainVisible)=="boolean" then self.ActiveWindow:SetVisible(Interface.MainVisible) end
-            ClampFrameToViewport(self.ActiveWindow.Main,self.ActiveWindow.ScreenGui,4)
+            if typeof(Interface.MainSize) == "UDim2" then self.ActiveWindow.Main.Size = Interface.MainSize end
+            if typeof(Interface.MainPosition) == "UDim2" then self.ActiveWindow.Main.Position = Interface.MainPosition end
+            if type(Interface.MainVisible) == "boolean" then self.ActiveWindow:SetVisible(Interface.MainVisible) end
+            ClampFrameToViewport(self.ActiveWindow.Main, self.ActiveWindow.ScreenGui, 4)
         end
         if self.PlayerListController and self.PlayerListController.Frame then
-            if typeof(Interface.PlayerListPosition)=="UDim2" then self.PlayerListController.Frame.Position=Interface.PlayerListPosition end
-            if type(Interface.PlayerListVisible)=="boolean" then self.PlayerListController:SetVisibility(Interface.PlayerListVisible) end
-            ClampFrameToViewport(self.PlayerListController.Frame,self.PlayerListController.Gui,4)
+            if typeof(Interface.PlayerListPosition) == "UDim2" then self.PlayerListController.Frame.Position = Interface.PlayerListPosition end
+            if type(Interface.PlayerListVisible) == "boolean" then self.PlayerListController:SetVisibility(Interface.PlayerListVisible) end
+            ClampFrameToViewport(self.PlayerListController.Frame, self.PlayerListController.Gui, 4)
         end
-        if self.QuickPanelController and self.QuickPanelController.Root and typeof(Interface.QuickPanelPosition)=="UDim2" then self.QuickPanelController.Root.Position=Interface.QuickPanelPosition ClampFrameToViewport(self.QuickPanelController.Root,self.QuickPanelController.Gui,4) end
-        if typeof(Interface.NotificationPoint)=="Vector2" then self.NotificationPoint=Interface.NotificationPoint if type(self.ApplyNotificationLayout)=="function" then self:ApplyNotificationLayout() end end
-        if self.MenuBindData and type(Interface.MenuBind)=="table" then self.MenuBindData:Set(Interface.MenuBind) end
+        if self.QuickPanelController and self.QuickPanelController.Root and typeof(Interface.QuickPanelPosition) == "UDim2" then
+            self.QuickPanelController.Root.Position = Interface.QuickPanelPosition
+            ClampFrameToViewport(self.QuickPanelController.Root, self.QuickPanelController.Gui, 4)
+        end
+        if typeof(Interface.NotificationPoint) == "Vector2" then
+            self.NotificationPoint = Interface.NotificationPoint
+            if type(self.ApplyNotificationLayout) == "function" then self:ApplyNotificationLayout() end
+        end
+        if self.MenuBindData and type(Interface.MenuBind) == "table" then self.MenuBindData:Set(Interface.MenuBind) end
     end
-    UpdateAll() self.LastConfigLoadResult={Applied=Applied,Failed=Failed} return Failed==0 or Applied>0
+    UpdateAll()
+    self.LastConfigLoadResult = {Applied = Applied, Failed = Failed}
+    return Failed == 0 or Applied > 0
 end
 
 local function NormalizeConfigName(Name)
@@ -1795,7 +1978,7 @@ function Library:QuickPanel(Data)
     local Parent=ParentGui()
     local Gui=Create("ScreenGui",{Name="AtramentaQuickPanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=190,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui
-    local Root=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,8),Size=UDim2.fromOffset(174,29),BackgroundColor3=Color3.fromRGB(4,4,5),BorderSizePixel=0,Visible=self.InterfaceOpen,Active=true,ZIndex=190},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(1,1,2),Thickness=1})})
+    local Root=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,8),Size=UDim2.fromOffset(174,29),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0,BorderSizePixel=0,Visible=self.InterfaceOpen,Active=true,ZIndex=190},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.58})})
     local Inner=Create("Frame",{Parent=Root,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,ZIndex=191},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(0.55,Colors.TitleBg),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
     local AccentLine=Create("Frame",{Parent=Inner,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=194},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,Accent()),ColorSequenceKeypoint.new(0.82,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
     local Holder=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(5,4),Size=UDim2.new(1,-10,1,-8),BackgroundTransparency=1,ZIndex=192},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Center,VerticalAlignment=Enum.VerticalAlignment.Center,Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder})})
@@ -1803,8 +1986,8 @@ function Library:QuickPanel(Data)
     local function RequestedMenu() local Window=Library.ActiveWindow return Window and Window.Visible==true or false end
     local function RequestedPlayers() local Controller=Library.PlayerListController return Controller and Controller.RequestedVisible==true or false end
     local function Paint(Button,State)
-        Button.BackgroundTransparency=State and 0.38 or 0.80 Button.TextColor3=State and Accent() or Colors.Text
-        local Stroke=Button:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=State and Accent() or Colors.SectionBorder Stroke.Transparency=State and 0.10 or 0.55 end
+        Button.BackgroundTransparency=State and 0.60 or 0.84 Button.TextColor3=State and Accent() or Colors.Text
+        local Stroke=Button:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=State and Accent() or Colors.SectionBorder Stroke.Transparency=State and 0.68 or 0.72 end
     end
     local function Make(Name,Order,Callback)
         local Button=Create("TextButton",{Parent=Holder,Size=UDim2.new(0.5,-3,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.80,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Order,ZIndex=193},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.55})})
@@ -1908,7 +2091,9 @@ end
 
 function Library:SetNotificationPreviewVisible(State)
     self:EnsureNotificationGui()
-    if self.NotificationPreview and self.NotificationPreview.Parent then self.NotificationPreview.Visible=State==true end
+    local Window=self.ActiveWindow
+    State=State==true and self.InterfaceOpen~=false and Window and Window:IsVisible() or false
+    if self.NotificationPreview and self.NotificationPreview.Parent then self.NotificationPreview.Visible=State end
 end
 
 function Library:Notification(Data)
