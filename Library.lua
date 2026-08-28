@@ -7,7 +7,7 @@ local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
-local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Directory = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets", Fonts = "Atramenta.rip/Fonts"}, MenuKeybind = Enum.KeyCode.Insert, Theme = {Accent = Color3.fromRGB(86, 66, 235)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
+local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Directory = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets", Fonts = "Atramenta.rip/Fonts"}, MenuKeybind = Enum.KeyCode.Insert, Theme = {Accent = Color3.fromRGB(150, 120, 150)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
 
 local function Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -73,25 +73,25 @@ function Library:LoadFont(Name, Weight, Style)
 end
 
 local Colors = {
-    Bg = Color3.fromRGB(10, 10, 11),
-    TitleBg = Color3.fromRGB(13, 13, 14),
-    Text = Color3.fromRGB(150, 150, 156),
-    TextBright = Color3.fromRGB(214, 214, 218),
-    TextDim = Color3.fromRGB(86, 86, 92),
-    TextBind = Color3.fromRGB(150, 150, 156),
-    Section = Color3.fromRGB(16, 16, 18),
-    CbBg = Color3.fromRGB(15, 15, 17),
-    CbBorder = Color3.fromRGB(52, 52, 56),
-    SliderTrack = Color3.fromRGB(15, 15, 17),
-    DropdownBg = Color3.fromRGB(16, 16, 18),
-    DropdownBord = Color3.fromRGB(50, 50, 54),
-    Divider = Color3.fromRGB(50, 50, 54),
-    TabBg = Color3.fromRGB(13, 13, 14),
-    ColHdr = Color3.fromRGB(150, 150, 156),
-    SectionBorder = Color3.fromRGB(50, 50, 54)
+    Bg = Color3.fromRGB(8, 8, 8),
+    TitleBg = Color3.fromRGB(0, 0, 0),
+    Text = Color3.fromRGB(140, 130, 140),
+    TextBright = Color3.fromRGB(197, 197, 197),
+    TextDim = Color3.fromRGB(77, 72, 77),
+    TextBind = Color3.fromRGB(127, 115, 127),
+    Section = Color3.fromRGB(8, 8, 8),
+    CbBg = Color3.fromRGB(0, 0, 0),
+    CbBorder = Color3.fromRGB(56, 52, 56),
+    SliderTrack = Color3.fromRGB(24, 24, 24),
+    DropdownBg = Color3.fromRGB(8, 8, 8),
+    DropdownBord = Color3.fromRGB(56, 52, 56),
+    Divider = Color3.fromRGB(56, 52, 56),
+    TabBg = Color3.fromRGB(0, 0, 0),
+    ColHdr = Color3.fromRGB(127, 115, 127),
+    SectionBorder = Color3.fromRGB(56, 52, 56)
 }
 
-local function Accent() return Library.Theme.Accent or Color3.fromRGB(86, 66, 235) end
+local function Accent() return Library.Theme.Accent or Color3.fromRGB(150, 120, 150) end
 local function AccentDark()
     local H, S, V = Color3.toHSV(Accent())
     return Color3.fromHSV(H, S, V * 0.32)
@@ -562,7 +562,7 @@ function Library:Window(Data)
         ClipsDescendants = false
     }, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
     local TitleBar = Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0}, {
-        Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(13, 13, 14))})}),
+        Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))})}),
         Create("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "Atramenta.rip"), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Color3.fromRGB(214, 214, 218)}),
         Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})})
     })
@@ -610,7 +610,7 @@ function WindowMethods:Page(Data)
     local Name = tostring(Data.Name or ("page" .. tostring(#self.PagesOrder + 1)))
     if self.Pages[Name] then return self.Pages[Name] end
     local Button = Create("TextButton", {Parent = self.TabBar, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, ZIndex = 2})
-    local Divider = Create("Frame", {Parent = Button, Size = UDim2.fromOffset(1, 14), Position = UDim2.new(1, -1, 0.5, -7), BackgroundColor3 = Color3.fromRGB(50, 50, 54), BorderSizePixel = 0, ZIndex = 3})
+    local Divider = Create("Frame", {Parent = Button, Size = UDim2.fromOffset(1, 14), Position = UDim2.new(1, -1, 0.5, -7), BackgroundColor3 = Color3.fromRGB(56, 52, 56), BorderSizePixel = 0, ZIndex = 3})
     local Panel = Create("Frame", {Parent = self.Content, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
     local SubBar = Create("Frame", {Parent = Panel, Size = UDim2.new(1, -20, 0, 22), Position = UDim2.fromOffset(10, 4), BackgroundTransparency = 1, Visible = false})
     local SubLayout = Create("UIListLayout", {Parent = SubBar, FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 18)})
@@ -631,8 +631,8 @@ function PageMethods:SubPage(Data)
     self.SubBar.Visible = true
     local Button = Create("TextButton", {Parent = self.SubBar, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, LayoutOrder = #self.SubPagesOrder + 1})
     local Frame = Create("Frame", {Parent = self.Holder, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
-    local Left = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.fromOffset(10, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(50, 50, 54), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
-    local Right = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.new(0.5, 5, 0, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(50, 50, 54), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
+    local Left = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.fromOffset(10, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(56, 52, 56), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
+    local Right = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.new(0.5, 5, 0, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(56, 52, 56), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
     local SubPage = setmetatable({Page = self, Name = Name, Button = Button, Frame = Frame, Left = Left, Right = Right, Sections = {}, Order = 0}, SubPageMethods)
     self.SubPages[Name] = SubPage
     self.SubPagesOrder[#self.SubPagesOrder + 1] = SubPage
@@ -909,7 +909,7 @@ local function MakeDropdown(Section, Data, Multi)
     end
     local Row = Create("Frame", {Parent = Section.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
     Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local DropFrame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Colors.DropdownBg, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.DropdownBord, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 11))})})})
+    local DropFrame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Colors.DropdownBg, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.DropdownBord, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 8))})})})
     local Text = Create("TextLabel", {Parent = DropFrame, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.fromOffset(7, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Text = "", TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextTruncate = Enum.TextTruncate.AtEnd})
     local Arrow = Create("TextLabel", {Parent = DropFrame, Size = UDim2.fromOffset(14, 17), Position = UDim2.new(1, -14, 0, 0), BackgroundTransparency = 1, Text = "▼", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 9})
     local Button = Create("TextButton", {Parent = DropFrame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 5})
@@ -989,7 +989,7 @@ function SectionMethods:Button(Data, Callback)
     if type(Data) == "string" then Data = {Name = Data, Callback = Callback} end
     Data = Data or {}
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1})
-    local Frame = Create("Frame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(21, 21, 23), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Color3.fromRGB(50, 50, 54), Thickness = 1, Enabled = false}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(21, 21, 23)), ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 17))})})})
+    local Frame = Create("Frame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(12, 11, 12), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Color3.fromRGB(56, 52, 56), Thickness = 1, Enabled = false}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(12, 11, 12)), ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 8))})})})
     local AccentLine = Create("Frame", {Parent = Frame, Size = UDim2.new(0, 2, 1, -6), Position = UDim2.new(0, 1, 0.5, -3), AnchorPoint = Vector2.new(0, 0.5), BackgroundColor3 = Accent(), Visible = false, BorderSizePixel = 0})
     local Label = Create("TextLabel", {Parent = Frame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "button"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13})
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false})
@@ -1009,7 +1009,7 @@ function SectionMethods:Textbox(Data)
     if type(Library.Flags[Flag]) == "string" then Default = Library.Flags[Flag] end
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
     Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Frame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Color3.fromRGB(16, 16, 18), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(21, 21, 23)), ColorSequenceKeypoint.new(1, Color3.fromRGB(16, 16, 18))})})})
+    local Frame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Color3.fromRGB(8, 8, 8), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(12, 11, 12)), ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 8))})})})
     local Box = Create("TextBox", {Parent = Frame, Size = UDim2.new(1, -12, 1, 0), Position = UDim2.fromOffset(6, 0), BackgroundTransparency = 1, Text = Default, PlaceholderText = tostring(Data.Placeholder or "..."), PlaceholderColor3 = Colors.TextDim, TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
     local Object = {Section = self, Row = Row, Box = Box, Value = Default, Flag = Flag, RightOffset = 0}
     function Object:Set(Value, Silent)
@@ -1032,7 +1032,7 @@ function SectionMethods:Listbox(Data)
     Data = Data or {}
     local Height = tonumber(Data.Height) or 110
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, Height), BackgroundTransparency = 1})
-    local List = Create("ScrollingFrame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(10, 10, 11), BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Colors.TextBind}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}), Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder})})
+    local List = Create("ScrollingFrame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(8, 8, 8), BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Colors.TextBind}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}), Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder})})
     local Object = {Section = self, Row = Row, List = List, Items = {}, Selected = nil, Buttons = {}, RightOffset = 0}
     function Object:SetItems(Items)
         Object.Items = type(Items) == "table" and CloneValue(Items) or {}
@@ -1365,7 +1365,7 @@ end
 function Library:Watermark(Text)
     local Parent=ParentGui() local Gui=Create("ScreenGui",{Name="AtramentaWatermark",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false}) self.Guis[#self.Guis+1]=Gui
     local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,12),Size=UDim2.fromOffset(250,23),BackgroundColor3=Color3.fromRGB(5,5,6),BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1})})
-    local Inner=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,1)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(21,21,23)),ColorSequenceKeypoint.new(0.52,Color3.fromRGB(16,16,18)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,10,11))})})})
+    local Inner=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,1)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(12,11,12)),ColorSequenceKeypoint.new(0.52,Color3.fromRGB(8,8,8)),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})})
     local LineGradient=Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,AccentDark()),ColorSequenceKeypoint.new(0.28,Accent()),ColorSequenceKeypoint.new(0.5,AccentHover()),ColorSequenceKeypoint.new(0.72,Accent()),ColorSequenceKeypoint.new(1,AccentDark())}),Offset=Vector2.new(-1,0)})
     local Line=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=4},{LineGradient})
     local Label=Create("TextLabel",{Parent=Inner,Position=UDim2.fromOffset(8,1),Size=UDim2.new(1,-16,1,-2),BackgroundTransparency=1,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBright,TextXAlignment=Enum.TextXAlignment.Left,Text="",TextTruncate=Enum.TextTruncate.None,ZIndex=5})
@@ -1397,7 +1397,7 @@ function Library:KeybindList()
     if self.KeybindListController then return self.KeybindListController end
     local Parent=ParentGui() local Gui=Create("ScreenGui",{Name="AtramentaKeybinds",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false}) self.Guis[#self.Guis+1]=Gui
     local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,43),Size=UDim2.fromOffset(190,25),AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1}),Create("UIPadding",{PaddingBottom=UDim.new(0,5)})})
-    local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(21,21,23)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,10,11))})})})
+    local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(12,11,12)),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})})
     local HeaderText=Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="keybinds",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left})
     local Line=Create("Frame",{Parent=Header,Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,Accent()),ColorSequenceKeypoint.new(0.84,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})})
     local Holder=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(7,23),Size=UDim2.new(1,-14,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder})})
@@ -1470,7 +1470,10 @@ end
 
 function Library:SetNotificationLayout(Position, Scale)
     self.NotificationPosition = tostring(Position or self.NotificationPosition or "Top Right")
-    self.NotificationScaleValue = math.clamp(tonumber(Scale) or self.NotificationScaleValue or 1, 0.5, 2)
+    local RawScale = tonumber(Scale)
+    if RawScale == nil then RawScale = tonumber(self.NotificationScaleValue) or 1 end
+    if RawScale > 4 then RawScale = RawScale / 100 end
+    self.NotificationScaleValue = math.clamp(RawScale, 0.5, 1.6)
     local Holder = self.NotificationHolder
     if not Holder or not Holder.Parent then return end
     local Map = {
@@ -1498,42 +1501,58 @@ function Library:Notification(Data)
     if not Gui or not Gui.Parent then
         Gui=Create("ScreenGui",{Name="AtramentaNotifications",Parent=Parent,ResetOnSpawn=false,DisplayOrder=200,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
         self.Guis[#self.Guis+1]=Gui self.NotificationGui=Gui
-        self.NotificationHolder=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-12,0,12),Size=UDim2.fromOffset(370,650),BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,5),HorizontalAlignment=Enum.HorizontalAlignment.Right,VerticalAlignment=Enum.VerticalAlignment.Top,SortOrder=Enum.SortOrder.LayoutOrder})})
+        self.NotificationHolder=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-10,0,10),Size=UDim2.fromOffset(320,560),BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,4),HorizontalAlignment=Enum.HorizontalAlignment.Right,VerticalAlignment=Enum.VerticalAlignment.Top,SortOrder=Enum.SortOrder.LayoutOrder})})
         self:SetNotificationLayout(self.NotificationPosition or "Top Right",self.NotificationScaleValue or 1)
     end
     self.NotificationSerial=(self.NotificationSerial or 0)+1
-    local Title=tostring(Data.Title or "Atramenta.rip") local Description=tostring(Data.Description or "") local Mode=tostring(Data.Mode or "Info"):lower()
-    local MaxTextWidth=314 local DescBounds=TextService:GetTextSize(Description,12,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,1000)) local TitleBounds=TextService:GetTextSize(Title,12,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,18))
-    local ModeBounds=TextService:GetTextSize(Mode,10,Enum.Font.SourceSans,Vector2.new(90,14)) local Width=math.clamp(math.ceil(math.max(TitleBounds.X+ModeBounds.X+42,math.min(DescBounds.X,MaxTextWidth)+26)),210,350)
-    local DescWidth=Width-22 local Wrapped=TextService:GetTextSize(Description,12,Enum.Font.SourceSans,Vector2.new(DescWidth,1000)) local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),14,48)
-    local Height=Description=="" and 28 or 29+DescHeight
+    local Title=tostring(Data.Title or "Atramenta") local Description=tostring(Data.Description or "") local Mode=tostring(Data.Mode or "Info"):lower()
+    local MaxTextWidth=252
+    local DescBounds=TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,1000))
+    local TitleBounds=TextService:GetTextSize(Title,11,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,16))
+    local ModeBounds=TextService:GetTextSize(Mode,9,Enum.Font.SourceSans,Vector2.new(74,14))
+    local Width=math.clamp(math.ceil(math.max(TitleBounds.X+ModeBounds.X+32,math.min(DescBounds.X,MaxTextWidth)+18)),176,292)
+    local DescWidth=Width-16
+    local Wrapped=TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(DescWidth,1000))
+    local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),13,30)
+    local Height=Description=="" and 22 or 22+DescHeight
     local Wrapper=Create("Frame",{Parent=self.NotificationHolder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=self.NotificationSerial})
     local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromScale(1,1),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,GroupTransparency=1})
-    local Panel=Create("Frame",{Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.fromRGB(10,10,11),BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(50,50,54),Thickness=1,Transparency=0.08}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(21,21,23)),ColorSequenceKeypoint.new(0.28,Color3.fromRGB(16,16,18)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,10,11))})})})
-    local AccentLine=Create("Frame",{Parent=Panel,Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.12,Accent()),ColorSequenceKeypoint.new(0.88,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})})
-    local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(1,2),Size=UDim2.new(1,-2,0,18),BackgroundColor3=Color3.fromRGB(13,13,14),BackgroundTransparency=0.18,BorderSizePixel=0})
-    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(8,0),Size=UDim2.new(1,-70,1,0),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
-    local ModeLabel=Create("TextLabel",{Parent=Header,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-8,0,0),Size=UDim2.fromOffset(math.clamp(ModeBounds.X+4,28,72),18),BackgroundTransparency=1,Text=Mode,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right})
-    if Description~="" then Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(9,22),Size=UDim2.new(1,-18,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=12,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top}) end
-    local Duration=math.max(tonumber(Data.Duration) or 3,0.35) local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,1,1,-1),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3})
+    local Panel=Create("Frame",{Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Colors.Bg,BorderSizePixel=0},{
+        Create("UICorner",{CornerRadius=UDim.new(0,2)}),
+        Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0}),
+        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(12,11,12)),ColorSequenceKeypoint.new(1,Colors.Bg)})})
+    })
+    local AccentLine=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,2,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3})
+    local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.22,BorderSizePixel=0})
+    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-62,1,0),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
+    local ModeLabel=Create("TextLabel",{Parent=Header,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-6,0,0),Size=UDim2.fromOffset(math.clamp(ModeBounds.X+3,24,58),17),BackgroundTransparency=1,Text=Mode,TextColor3=Accent(),Font=Enum.Font.SourceSans,TextSize=9,TextXAlignment=Enum.TextXAlignment.Right})
+    if Description~="" then
+        Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top})
+    end
+    local Duration=math.max(tonumber(Data.Duration) or 3,0.35)
+    local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,2,1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4})
     local Direction=string.find(string.lower(self.NotificationPosition or "Top Right"),"left",1,true) and -1 or string.find(string.lower(self.NotificationPosition or "Top Right"),"center",1,true) and 0 or 1
-    Group.Position=UDim2.fromOffset(Direction*12,0)
-    local Enter=TweenService:Create(Group,TweenInfo.new(0.16,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}) Enter:Play()
-    local ProgressTween=TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,0,1)}) ProgressTween:Play()
+    Group.Position=UDim2.fromOffset(Direction*9,0)
+    TweenService:Create(Group,TweenInfo.new(0.14,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
+    TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,0,1)}):Play()
     RegisterRenderer(function()
-        if not Panel.Parent then return end local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A
-        local G=AccentLine:FindFirstChildOfClass("UIGradient") if G then G.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.12,A),ColorSequenceKeypoint.new(0.88,A),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))}) end
+        if not Panel.Parent then return end
+        local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A ModeLabel.TextColor3=A
     end)
-    local Alive=true local function Close()
+    local Alive=true
+    local function Close()
         if not Alive then return end Alive=false
-        local Exit=TweenService:Create(Group,TweenInfo.new(0.14,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*10,0),GroupTransparency=1}) Exit:Play()
-        task.delay(0.15,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
+        TweenService:Create(Group,TweenInfo.new(0.12,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*8,0),GroupTransparency=1}):Play()
+        task.delay(0.13,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
     end
     Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end end))
     task.delay(Duration,Close)
     local Count=0 local Oldest
-    for _,Child in ipairs(self.NotificationHolder:GetChildren()) do if Child:IsA("Frame") then Count+=1 if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end end end
-    if Count>7 and Oldest and Oldest~=Wrapper then Oldest:Destroy() end
+    local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or tonumber(self.NotificationMaximumVisible) or 8),1)
+    for _,Child in ipairs(self.NotificationHolder:GetChildren()) do
+        if Child:IsA("Frame") then Count+=1 if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end end
+    end
+    if Count>Maximum and Oldest and Oldest~=Wrapper then Oldest:Destroy() end
     return Wrapper
 end
 
