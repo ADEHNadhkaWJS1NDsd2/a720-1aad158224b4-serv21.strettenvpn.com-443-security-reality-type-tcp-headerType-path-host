@@ -7,7 +7,7 @@ local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
-local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets"}, MenuKeybind = Enum.KeyCode.Insert, Theme = {Accent = Color3.fromRGB(175, 100, 200)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
+local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Directory = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets", Fonts = "Atramenta.rip/Fonts"}, MenuKeybind = Enum.KeyCode.Insert, Theme = {Accent = Color3.fromRGB(86, 66, 235)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
 
 local function Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -38,34 +38,60 @@ local function ParentGui()
     return CoreGui
 end
 
+local function EnsureFolder(Path)
+    if type(Path) ~= "string" or Path == "" or type(makefolder) ~= "function" then return false end
+    if type(isfolder) == "function" and isfolder(Path) then return true end
+    local Success = Call(makefolder, Path)
+    return Success == true
+end
+
 local function EnsureFolders()
-    if type(makefolder) ~= "function" then return end
-    if type(isfolder) ~= "function" or not isfolder(Library.Folders.Root) then Call(makefolder, Library.Folders.Root) end
-    if type(isfolder) ~= "function" or not isfolder(Library.Folders.Configs) then Call(makefolder, Library.Folders.Configs) end
-    if type(isfolder) ~= "function" or not isfolder(Library.Folders.Assets) then Call(makefolder, Library.Folders.Assets) end
+    EnsureFolder(Library.Folders.Root)
+    EnsureFolder(Library.Folders.Configs)
+    EnsureFolder(Library.Folders.Assets)
+    EnsureFolder(Library.Folders.Fonts)
 end
 EnsureFolders()
 
+function Library:FontPath(Name)
+    local FileName = tostring(Name or ""):gsub("\\", "/"):match("([^/]+)$") or ""
+    if FileName == "" then return self.Folders.Fonts end
+    return self.Folders.Fonts .. "/" .. FileName
+end
+
+function Library:LoadFont(Name, Weight, Style)
+    EnsureFolders()
+    local Path = self:FontPath(Name)
+    if type(isfile) == "function" and not isfile(Path) then return nil, nil, Path end
+    local AssetFunction = type(getcustomasset) == "function" and getcustomasset or type(getsynasset) == "function" and getsynasset or nil
+    if not AssetFunction then return nil, nil, Path end
+    local AssetSuccess, Asset = Call(AssetFunction, Path)
+    if not AssetSuccess or type(Asset) ~= "string" or Asset == "" then return nil, nil, Path end
+    local FontSuccess, FontFace = Call(Font.new, Asset, Weight or Enum.FontWeight.Regular, Style or Enum.FontStyle.Normal)
+    if not FontSuccess or typeof(FontFace) ~= "Font" then return nil, Asset, Path end
+    return FontFace, Asset, Path
+end
+
 local Colors = {
-    Bg = Color3.fromRGB(9, 9, 9),
-    TitleBg = Color3.fromRGB(7, 7, 7),
-    Text = Color3.fromRGB(168, 165, 178),
-    TextBright = Color3.fromRGB(205, 202, 215),
-    TextDim = Color3.fromRGB(82, 79, 95),
-    TextBind = Color3.fromRGB(64, 61, 75),
-    Section = Color3.fromRGB(78, 74, 90),
-    CbBg = Color3.fromRGB(18, 16, 20),
-    CbBorder = Color3.fromRGB(52, 49, 60),
-    SliderTrack = Color3.fromRGB(26, 24, 30),
-    DropdownBg = Color3.fromRGB(16, 14, 18),
-    DropdownBord = Color3.fromRGB(50, 47, 58),
-    Divider = Color3.fromRGB(46, 44, 55),
-    TabBg = Color3.fromRGB(13, 13, 13),
-    ColHdr = Color3.fromRGB(85, 82, 98),
-    SectionBorder = Color3.fromRGB(22, 22, 22)
+    Bg = Color3.fromRGB(10, 10, 11),
+    TitleBg = Color3.fromRGB(13, 13, 14),
+    Text = Color3.fromRGB(150, 150, 156),
+    TextBright = Color3.fromRGB(214, 214, 218),
+    TextDim = Color3.fromRGB(86, 86, 92),
+    TextBind = Color3.fromRGB(150, 150, 156),
+    Section = Color3.fromRGB(16, 16, 18),
+    CbBg = Color3.fromRGB(15, 15, 17),
+    CbBorder = Color3.fromRGB(52, 52, 56),
+    SliderTrack = Color3.fromRGB(15, 15, 17),
+    DropdownBg = Color3.fromRGB(16, 16, 18),
+    DropdownBord = Color3.fromRGB(50, 50, 54),
+    Divider = Color3.fromRGB(50, 50, 54),
+    TabBg = Color3.fromRGB(13, 13, 14),
+    ColHdr = Color3.fromRGB(150, 150, 156),
+    SectionBorder = Color3.fromRGB(50, 50, 54)
 }
 
-local function Accent() return Library.Theme.Accent or Color3.fromRGB(175, 100, 200) end
+local function Accent() return Library.Theme.Accent or Color3.fromRGB(86, 66, 235) end
 local function AccentDark()
     local H, S, V = Color3.toHSV(Accent())
     return Color3.fromHSV(H, S, V * 0.32)
@@ -144,14 +170,14 @@ end
 
 local BindSystem={CaptureDelay=0.08}
 BindSystem.Display={MouseButton2="M2",MouseButton3="M3",Insert="INS",Delete="DEL",Backspace="BACKSPACE",Tab="TAB",Return="ENTER",Escape="ESC",Space="SPACE",CapsLock="CAPS",LeftAlt="LALT",RightAlt="RALT",LeftControl="LCTRL",RightControl="RCTRL",LeftShift="LSHIFT",RightShift="RSHIFT",LeftMeta="LWIN",RightMeta="RWIN",NumLock="NUM LOCK",ScrollLock="SCROLL LOCK",Pause="PAUSE",Print="PRINT SCREEN",Home="HOME",End="END",PageUp="PAGE UP",PageDown="PAGE DOWN",Up="UP",Down="DOWN",Left="LEFT",Right="RIGHT",QuotedDouble="DOUBLE QUOTE",Exclamation="EXCLAMATION",Hash="HASH",Dollar="DOLLAR",Percent="PERCENT",Ampersand="AMPERSAND",Quote="APOSTROPHE",LeftParenthesis="LEFT PAREN",RightParenthesis="RIGHT PAREN",Asterisk="ASTERISK",Plus="PLUS",Comma="COMMA",Minus="MINUS",Period="PERIOD",Slash="SLASH",Colon="COLON",Semicolon="SEMICOLON",LessThan="LESS THAN",Equals="EQUALS",GreaterThan="GREATER THAN",Question="QUESTION",At="AT",LeftBracket="LEFT BRACKET",BackSlash="BACKSLASH",RightBracket="RIGHT BRACKET",Caret="CARET",Underscore="UNDERSCORE",Backquote="BACKQUOTE",LeftCurly="LEFT CURLY",Pipe="PIPE",RightCurly="RIGHT CURLY",Tilde="TILDE"}
-BindSystem.Aliases={NONE=false,INS="Insert",DEL="Delete",ESC="Escape",ENTER="Return",RETURN="Return",CTRL="LeftControl",LCTRL="LeftControl",RCTRL="RightControl",ALT="LeftAlt",LALT="LeftAlt",RALT="RightAlt",SHIFT="LeftShift",LSHIFT="LeftShift",RSHIFT="RightShift",SPACE="Space",TAB="Tab",CAPS="CapsLock",M2="M2",MB2="M2",RMB="M2",MOUSE2="M2",M3="M3",MB3="M3",MMB="M3",MOUSE3="M3"}
+BindSystem.Aliases={NONE=false,INS="Insert",DEL="Delete",ESC="Escape",ENTER="Return",RETURN="Return",CTRL="LeftControl",LCTRL="LeftControl",RCTRL="RightControl",ALT="LeftAlt",LALT="LeftAlt",RALT="RightAlt",SHIFT="LeftShift",LSHIFT="LeftShift",RSHIFT="RightShift",SPACE="Space",TAB="Tab",CAPS="CapsLock",M2="M2",MB2="M2",RMB="M2",MOUSE2="M2",MOUSEBUTTON2="M2",M3="M3",MB3="M3",MMB="M3",MOUSE3="M3",MOUSEBUTTON3="M3"}
 BindSystem.SymbolAliases={['!']="Exclamation",['@']="At",['#']="Hash",['$']="Dollar",['%']="Percent",['^']="Caret",['&']="Ampersand",['*']="Asterisk",['(']="LeftParenthesis",[')']="RightParenthesis",['_']="Underscore",['+']="Plus",['{']="LeftCurly",['}']="RightCurly",['|']="Pipe",[':']="Colon",['\"']="QuotedDouble",['<']="LessThan",['>']="GreaterThan",['?']="Question",['~']="Tilde",[',']="Comma",['-']="Minus",['.']="Period",['/']="Slash",[';']="Semicolon",["'"]="Quote",['[']="LeftBracket",['\\']="BackSlash",[']']="RightBracket",['`']="Backquote",['=']="Equals"}
 BindSystem.ShiftedSymbols={One="Exclamation",Two="At",Three="Hash",Four="Dollar",Five="Percent",Six="Caret",Seven="Ampersand",Eight="Asterisk",Nine="LeftParenthesis",Zero="RightParenthesis",Minus="Underscore",Equals="Plus",LeftBracket="LeftCurly",RightBracket="RightCurly",BackSlash="Pipe",Semicolon="Colon",Quote="QuotedDouble",Comma="LessThan",Period="GreaterThan",Slash="Question",Backquote="Tilde"}
 BindSystem.SymbolKeys={Exclamation={"One",true},At={"Two",true},Hash={"Three",true},Dollar={"Four",true},Percent={"Five",true},Caret={"Six",true},Ampersand={"Seven",true},Asterisk={"Eight",true},LeftParenthesis={"Nine",true},RightParenthesis={"Zero",true},Underscore={"Minus",true},Plus={"Equals",true},LeftCurly={"LeftBracket",true},RightCurly={"RightBracket",true},Pipe={"BackSlash",true},Colon={"Semicolon",true},QuotedDouble={"Quote",true},LessThan={"Comma",true},GreaterThan={"Period",true},Question={"Slash",true},Tilde={"Backquote",true},Comma={"Comma",false},Minus={"Minus",false},Period={"Period",false},Slash={"Slash",false},Semicolon={"Semicolon",false},Quote={"Quote",false},LeftBracket={"LeftBracket",false},BackSlash={"BackSlash",false},RightBracket={"RightBracket",false},Backquote={"Backquote",false},Equals={"Equals",false}}
 BindSystem.Keypad={KEYPADZERO="KeypadZero",NUMPAD0="KeypadZero",NUM0="KeypadZero",KP0="KeypadZero",KEYPADONE="KeypadOne",NUMPAD1="KeypadOne",NUM1="KeypadOne",KP1="KeypadOne",KEYPADTWO="KeypadTwo",NUMPAD2="KeypadTwo",NUM2="KeypadTwo",KP2="KeypadTwo",KEYPADTHREE="KeypadThree",NUMPAD3="KeypadThree",NUM3="KeypadThree",KP3="KeypadThree",KEYPADFOUR="KeypadFour",NUMPAD4="KeypadFour",NUM4="KeypadFour",KP4="KeypadFour",KEYPADFIVE="KeypadFive",NUMPAD5="KeypadFive",NUM5="KeypadFive",KP5="KeypadFive",KEYPADSIX="KeypadSix",NUMPAD6="KeypadSix",NUM6="KeypadSix",KP6="KeypadSix",KEYPADSEVEN="KeypadSeven",NUMPAD7="KeypadSeven",NUM7="KeypadSeven",KP7="KeypadSeven",KEYPADEIGHT="KeypadEight",NUMPAD8="KeypadEight",NUM8="KeypadEight",KP8="KeypadEight",KEYPADNINE="KeypadNine",NUMPAD9="KeypadNine",NUM9="KeypadNine",KP9="KeypadNine",KEYPADPLUS="KeypadPlus",NUMPADPLUS="KeypadPlus",KPPLUS="KeypadPlus",KEYPADMINUS="KeypadMinus",NUMPADMINUS="KeypadMinus",KPMINUS="KeypadMinus",KEYPADMULTIPLY="KeypadMultiply",NUMPADMULTIPLY="KeypadMultiply",KPMULTIPLY="KeypadMultiply",KEYPADDIVIDE="KeypadDivide",NUMPADDIVIDE="KeypadDivide",KPDIVIDE="KeypadDivide",KEYPADPERIOD="KeypadPeriod",NUMPADDECIMAL="KeypadPeriod",KPDECIMAL="KeypadPeriod",KEYPADENTER="KeypadEnter",NUMPADENTER="KeypadEnter",KPENTER="KeypadEnter",KEYPADEQUALS="KeypadEquals",NUMPADEQUALS="KeypadEquals",KPEQUALS="KeypadEquals"}
 
 local function EmptyModifiers() return {Ctrl=false,Shift=false,Alt=false} end
-local function CopyModifiers(Value) Value=type(Value)=="table" and Value or {}; return {Ctrl=Value.Ctrl==true,Shift=Value.Shift==true,Alt=Value.Alt==true} end
+local function CopyModifiers(Value) Value=type(Value)=="table" and Value or {}; return {Ctrl=Value.Ctrl==true or Value.ctrl==true or Value.Control==true,Shift=Value.Shift==true or Value.shift==true,Alt=Value.Alt==true or Value.alt==true} end
 local function IsModifierKey(Key) return Key==Enum.KeyCode.LeftControl or Key==Enum.KeyCode.RightControl or Key==Enum.KeyCode.LeftShift or Key==Enum.KeyCode.RightShift or Key==Enum.KeyCode.LeftAlt or Key==Enum.KeyCode.RightAlt end
 local function ModifierName(Key) if Key==Enum.KeyCode.LeftControl or Key==Enum.KeyCode.RightControl then return "Ctrl" elseif Key==Enum.KeyCode.LeftShift or Key==Enum.KeyCode.RightShift then return "Shift" elseif Key==Enum.KeyCode.LeftAlt or Key==Enum.KeyCode.RightAlt then return "Alt" end end
 local function KeyDown(Key) local Ok,Value=Call(UserInputService.IsKeyDown,UserInputService,Key); return Ok and Value==true end
@@ -241,13 +267,13 @@ local function BeginCapture(BindData)
     BindData.Render()
 end
 
-local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl)
+local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFlag)
     Data=Data or {}
     local Flag=tostring(Data.Flag or Data.Name or ("Keybind"..tostring(#Library.Keybinds+1)))
     local Mode=tostring(Data.Mode or "Toggle") Mode=Mode=="Hold" and "Hold" or Mode=="Always" and "Always" or "Toggle"
     local Initial=TargetControl and TargetControl:Get() or Mode=="Always"
     local InitialKey,InitialModifiers=BindSystem.NormalizeBinding(Data.Default,Data.Modifiers)
-    local BindData={Window=Window,Flag=Flag,Name=tostring(Data.Name or Flag),Key=InitialKey,Modifiers=InitialModifiers,Mode=Mode,Callback=Data.Callback,EnabledFlag=Data.EnabledFlag,TargetControl=TargetControl,Value=Initial,Destroyed=false}
+    local BindData={Window=Window,Flag=Flag,TargetFlag=tostring(TargetFlag or Flag),Name=tostring(Data.Name or Flag),Key=InitialKey,Modifiers=InitialModifiers,Mode=Mode,Callback=Data.Callback,EnabledFlag=Data.EnabledFlag,TargetControl=TargetControl,Value=Initial,Destroyed=false}
     Library.Flags[Flag]=Initial
     local Button=Create("TextButton",{Parent=Row,Size=UDim2.fromOffset(70,16),Position=UDim2.new(1,-(RightOffset or 0)-70,0.5,-8),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=15})
     local Label=Create("TextLabel",{Parent=Button,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextXAlignment=Enum.TextXAlignment.Right,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBind,Text=""})
@@ -262,7 +288,7 @@ local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl)
     end
 
     function BindData:SetMode(NewMode,ApplyState)
-        NewMode=tostring(NewMode) NewMode=NewMode=="Hold" and "Hold" or NewMode=="Always" and "Always" or "Toggle"
+        NewMode=string.lower(tostring(NewMode)) NewMode=NewMode=="hold" and "Hold" or NewMode=="always" and "Always" or "Toggle"
         local Previous=BindData.Mode local Current=BindData.TargetControl and BindData.TargetControl:Get() or BindData.Value==true BindData.Mode=NewMode
         local Desired=Current if NewMode=="Always" then Desired=true elseif Previous=="Always" then Desired=false end
         if ApplyState~=false and Desired~=Current then
@@ -275,7 +301,7 @@ local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl)
     function BindData:Set(Value)
         if type(Value)=="table" then
             if Value.Key~=nil or Value.key~=nil then BindData.Key,BindData.Modifiers=BindSystem.NormalizeBinding(Value.Key or Value.key,Value.Modifiers or Value.modifiers) end
-            if Value.Mode~=nil or Value.mode~=nil then local NewMode=Value.Mode or Value.mode BindData:SetMode(NewMode,tostring(NewMode)=="Always") end
+            if Value.Mode~=nil or Value.mode~=nil then local NewMode=Value.Mode or Value.mode BindData:SetMode(NewMode,string.lower(tostring(NewMode))=="always") end
         else BindData.Key,BindData.Modifiers=BindSystem.NormalizeBinding(Value,nil) end
         BindData.Value=BindData.TargetControl and BindData.TargetControl:Get() or BindData.Value Library.Flags[Flag]=BindData.Value
         BindData.Render() RefreshKeybindList()
@@ -525,8 +551,8 @@ function Library:Window(Data)
     self.Guis[#self.Guis + 1] = ScreenGui
     self.Holder = ScreenGui
     local Size = Data.Size
-    local Width, Height = 680, 500
-    if typeof(Size) == "UDim2" then Width = math.max(Size.X.Offset, 448) Height = math.max(Size.Y.Offset, 446) end
+    local Width, Height = 620, 540
+    if typeof(Size) == "UDim2" then Width = math.max(Size.X.Offset, 520) Height = math.max(Size.Y.Offset, 480) end
     local Main = Create("Frame", {
         Parent = ScreenGui,
         Size = UDim2.fromOffset(Width, Height),
@@ -536,8 +562,8 @@ function Library:Window(Data)
         ClipsDescendants = false
     }, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
     local TitleBar = Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0}, {
-        Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 20)), ColorSequenceKeypoint.new(1, Color3.fromRGB(7, 7, 7))})}),
-        Create("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "Atramenta.rip"), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Color3.fromRGB(185, 182, 196)}),
+        Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(13, 13, 14))})}),
+        Create("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "Atramenta.rip"), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Color3.fromRGB(214, 214, 218)}),
         Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})})
     })
     local Content = Create("Frame", {Parent = Main, Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 1, -48), BackgroundTransparency = 1, ClipsDescendants = false})
@@ -584,7 +610,7 @@ function WindowMethods:Page(Data)
     local Name = tostring(Data.Name or ("page" .. tostring(#self.PagesOrder + 1)))
     if self.Pages[Name] then return self.Pages[Name] end
     local Button = Create("TextButton", {Parent = self.TabBar, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, ZIndex = 2})
-    local Divider = Create("Frame", {Parent = Button, Size = UDim2.fromOffset(1, 14), Position = UDim2.new(1, -1, 0.5, -7), BackgroundColor3 = Color3.fromRGB(32, 30, 38), BorderSizePixel = 0, ZIndex = 3})
+    local Divider = Create("Frame", {Parent = Button, Size = UDim2.fromOffset(1, 14), Position = UDim2.new(1, -1, 0.5, -7), BackgroundColor3 = Color3.fromRGB(50, 50, 54), BorderSizePixel = 0, ZIndex = 3})
     local Panel = Create("Frame", {Parent = self.Content, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
     local SubBar = Create("Frame", {Parent = Panel, Size = UDim2.new(1, -20, 0, 22), Position = UDim2.fromOffset(10, 4), BackgroundTransparency = 1, Visible = false})
     local SubLayout = Create("UIListLayout", {Parent = SubBar, FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 18)})
@@ -605,8 +631,8 @@ function PageMethods:SubPage(Data)
     self.SubBar.Visible = true
     local Button = Create("TextButton", {Parent = self.SubBar, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, LayoutOrder = #self.SubPagesOrder + 1})
     local Frame = Create("Frame", {Parent = self.Holder, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
-    local Left = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.fromOffset(10, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(55, 52, 64), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
-    local Right = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.new(0.5, 5, 0, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(55, 52, 64), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
+    local Left = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.fromOffset(10, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(50, 50, 54), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
+    local Right = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.new(0.5, 5, 0, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(50, 50, 54), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
     local SubPage = setmetatable({Page = self, Name = Name, Button = Button, Frame = Frame, Left = Left, Right = Right, Sections = {}, Order = 0}, SubPageMethods)
     self.SubPages[Name] = SubPage
     self.SubPagesOrder[#self.SubPagesOrder + 1] = SubPage
@@ -726,7 +752,7 @@ function SectionMethods:Toggle(Data)
     end
     function Object:Keybind(KeyData)
         Object.RightOffset=Object.RightOffset+70
-        return CreateKeybind(self.Section.Window,Row,KeyData,Object.RightOffset-70,Object)
+        return CreateKeybind(self.Section.Window,Row,KeyData,Object.RightOffset-70,Object,Object.Flag)
     end
     Object.Section = self
     RegisterFlag(Flag, Default, function(Value) Object:Set(Value) end)
@@ -883,7 +909,7 @@ local function MakeDropdown(Section, Data, Multi)
     end
     local Row = Create("Frame", {Parent = Section.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
     Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local DropFrame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Colors.DropdownBg, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.DropdownBord, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 20)), ColorSequenceKeypoint.new(1, Color3.fromRGB(9, 9, 9))})})})
+    local DropFrame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Colors.DropdownBg, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.DropdownBord, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 11))})})})
     local Text = Create("TextLabel", {Parent = DropFrame, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.fromOffset(7, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Text = "", TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextTruncate = Enum.TextTruncate.AtEnd})
     local Arrow = Create("TextLabel", {Parent = DropFrame, Size = UDim2.fromOffset(14, 17), Position = UDim2.new(1, -14, 0, 0), BackgroundTransparency = 1, Text = "▼", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 9})
     local Button = Create("TextButton", {Parent = DropFrame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 5})
@@ -963,7 +989,7 @@ function SectionMethods:Button(Data, Callback)
     if type(Data) == "string" then Data = {Name = Data, Callback = Callback} end
     Data = Data or {}
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1})
-    local Frame = Create("Frame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(22, 20, 26), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Color3.fromRGB(42, 38, 50), Thickness = 1, Enabled = false}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 20, 26)), ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 9, 11))})})})
+    local Frame = Create("Frame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(21, 21, 23), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Color3.fromRGB(50, 50, 54), Thickness = 1, Enabled = false}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(21, 21, 23)), ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 15, 17))})})})
     local AccentLine = Create("Frame", {Parent = Frame, Size = UDim2.new(0, 2, 1, -6), Position = UDim2.new(0, 1, 0.5, -3), AnchorPoint = Vector2.new(0, 0.5), BackgroundColor3 = Accent(), Visible = false, BorderSizePixel = 0})
     local Label = Create("TextLabel", {Parent = Frame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "button"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13})
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false})
@@ -983,7 +1009,7 @@ function SectionMethods:Textbox(Data)
     if type(Library.Flags[Flag]) == "string" then Default = Library.Flags[Flag] end
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
     Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Frame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Color3.fromRGB(9, 8, 10), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 18, 23)), ColorSequenceKeypoint.new(1, Color3.fromRGB(9, 8, 10))})})})
+    local Frame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Color3.fromRGB(16, 16, 18), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(21, 21, 23)), ColorSequenceKeypoint.new(1, Color3.fromRGB(16, 16, 18))})})})
     local Box = Create("TextBox", {Parent = Frame, Size = UDim2.new(1, -12, 1, 0), Position = UDim2.fromOffset(6, 0), BackgroundTransparency = 1, Text = Default, PlaceholderText = tostring(Data.Placeholder or "..."), PlaceholderColor3 = Colors.TextDim, TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
     local Object = {Section = self, Row = Row, Box = Box, Value = Default, Flag = Flag, RightOffset = 0}
     function Object:Set(Value, Silent)
@@ -1006,7 +1032,7 @@ function SectionMethods:Listbox(Data)
     Data = Data or {}
     local Height = tonumber(Data.Height) or 110
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, Height), BackgroundTransparency = 1})
-    local List = Create("ScrollingFrame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(6, 5, 7), BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Colors.TextBind}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}), Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder})})
+    local List = Create("ScrollingFrame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(10, 10, 11), BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Colors.TextBind}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}), Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder})})
     local Object = {Section = self, Row = Row, List = List, Items = {}, Selected = nil, Buttons = {}, RightOffset = 0}
     function Object:SetItems(Items)
         Object.Items = type(Items) == "table" and CloneValue(Items) or {}
@@ -1108,78 +1134,77 @@ local function DecodeValue(Value, Depth)
 end
 
 function Library:GetConfig()
-    local Payload, BindFlags = {}, {}
-    for _, BindData in ipairs(self.Keybinds or {}) do if BindData and BindData.Flag then BindFlags[tostring(BindData.Flag)] = true end end
-    for Name, Value in pairs(self.Flags or {}) do
-        local FlagName = tostring(Name)
-        if FlagName:sub(1, 2) ~= "__" and not BindFlags[FlagName] then
-            local Success, Encoded = Call(EncodeValue, Value, {}, 0)
-            if Success and Encoded ~= nil then Payload[FlagName] = Encoded end
+    local Payload,BindFlags={},{}
+    for _,BindData in ipairs(self.Keybinds or {}) do if BindData and BindData.Flag then BindFlags[tostring(BindData.Flag)]=true end end
+    for Name,Value in pairs(self.Flags or {}) do
+        local FlagName=tostring(Name)
+        if FlagName:sub(1,2)~="__" and not BindFlags[FlagName] then local Success,Encoded=Call(EncodeValue,Value,{},0) if Success and Encoded~=nil then Payload[FlagName]=Encoded end end
+    end
+    local ControlBinds={}
+    for _,BindData in ipairs(self.Keybinds or {}) do
+        if BindData and type(BindData.Flag)=="string" then
+            local Target=tostring(BindData.TargetFlag or BindData.Flag) local Key=BindData.Key local KeyType="KeyCode"
+            if type(Key)=="string" then KeyType="UserInputType" elseif typeof(Key)=="EnumItem" then KeyType=tostring(Key.EnumType):find("UserInputType",1,true) and "UserInputType" or "KeyCode" Key=Key.Name end
+            local Entry={Id="Main:"..tostring(BindData.Flag),KeyType=KeyType,Key=Key,Modifiers=CopyModifiers(BindData.Modifiers),Display=BindSystem.DisplayChord(BindData.Key,BindData.Modifiers),Mode=BindData.Mode,ShowInBinds=true,ControlType="Boolean"}
+            ControlBinds[Target]=ControlBinds[Target] or {} ControlBinds[Target][#ControlBinds[Target]+1]=Entry
         end
     end
-    local ControlBinds = {}
-    for _, BindData in ipairs(self.Keybinds or {}) do
-        if BindData and type(BindData.Flag) == "string" then
-            ControlBinds[BindData.Flag] = {Key = BindData.Key, Modifiers = BindData.Modifiers, Mode = BindData.Mode}
-        end
-    end
-    local BindSuccess, EncodedBinds = Call(EncodeValue, ControlBinds, {}, 0)
-    if BindSuccess and EncodedBinds ~= nil then Payload.__AtramentaControlBinds = EncodedBinds end
-    local Interface = {}
-    if self.ActiveWindow and self.ActiveWindow.Main then Interface.MainPosition = self.ActiveWindow.Main.Position end
-    Interface.Accent = self.Theme.Accent
-    local SuccessInterface, EncodedInterface = Call(EncodeValue, Interface, {}, 0)
-    if SuccessInterface and EncodedInterface then Payload.__AtramentaInterface = EncodedInterface end
-    local Success, Source = Call(HttpService.JSONEncode, HttpService, Payload)
-    return Success and Source or "{}"
+    local BindSuccess,EncodedBinds=Call(EncodeValue,ControlBinds,{},0) if BindSuccess and EncodedBinds~=nil then Payload.__AtramentaControlBinds=EncodedBinds end
+    local Interface={} if self.ActiveWindow and self.ActiveWindow.Main then Interface.MainPosition=self.ActiveWindow.Main.Position end Interface.Accent=self.Theme.Accent
+    local SuccessInterface,EncodedInterface=Call(EncodeValue,Interface,{},0) if SuccessInterface and EncodedInterface then Payload.__AtramentaInterface=EncodedInterface end
+    local Success,Source=Call(HttpService.JSONEncode,HttpService,Payload) return Success and Source or "{}"
 end
 
 function Library:LoadConfig(Source)
     CancelCapture()
-    local Success, Decoded = Call(HttpService.JSONDecode, HttpService, tostring(Source or "{}"))
-    if not Success or type(Decoded) ~= "table" then return false end
-    local FlagsSource = type(Decoded.Flags) == "table" and Decoded.Flags or Decoded
-    local Flags, Names, BindFlags = {}, {}, {}
-    for _, BindData in ipairs(self.Keybinds or {}) do if BindData and BindData.Flag then BindFlags[tostring(BindData.Flag)] = true end end
-    for Name, Value in pairs(FlagsSource) do
-        local FlagName = tostring(Name)
-        if FlagName:sub(1, 2) ~= "__" and FlagName ~= "Flags" and FlagName ~= "AccentAlpha" and not BindFlags[FlagName] then
-            Flags[FlagName] = DecodeValue(Value, 0)
-            Names[#Names + 1] = FlagName
-        end
+    local Success,Decoded=Call(HttpService.JSONDecode,HttpService,tostring(Source or "{}")) if not Success or type(Decoded)~="table" then return false end
+    local FlagsSource=type(Decoded.Flags)=="table" and Decoded.Flags or Decoded local Flags,Names,BindFlags={},{},{}
+    for _,BindData in ipairs(self.Keybinds or {}) do if BindData and BindData.Flag then BindFlags[tostring(BindData.Flag)]=true end end
+    for Name,Value in pairs(FlagsSource) do
+        local FlagName=tostring(Name)
+        if FlagName:sub(1,2)~="__" and FlagName~="Flags" and FlagName~="AccentAlpha" and not BindFlags[FlagName] then Flags[FlagName]=DecodeValue(Value,0) Names[#Names+1]=FlagName end
     end
     table.sort(Names)
-    local Applied, Failed = 0, 0
+    local Applied,Failed=0,0
     local function Apply(Name)
-        local Value = CloneValue(Flags[Name])
-        local Setter = self.Setters[Name]
-        if type(Setter) == "function" then
-            local Ok = Call(Setter, Value)
-            if Ok then Applied = Applied + 1 else Failed = Failed + 1 end
-        else
-            self.Flags[Name] = Value
-            Applied = Applied + 1
+        local Value=CloneValue(Flags[Name]) local Setter=self.Setters[Name]
+        if type(Setter)=="function" then local Ok=Call(Setter,Value) if Ok then Applied+=1 else Failed+=1 end else self.Flags[Name]=Value Applied+=1 end
+    end
+    for _,Name in ipairs(Names) do if type(Flags[Name])~="boolean" then Apply(Name) end end
+    for _,Name in ipairs(Names) do if Flags[Name]==false then Apply(Name) end end
+    for _,Name in ipairs(Names) do if Flags[Name]==true then Apply(Name) end end
+
+    local LoadedBinds=Decoded.__AtramentaControlBinds or FlagsSource.__AtramentaControlBinds
+    if LoadedBinds~=nil then LoadedBinds=DecodeValue(LoadedBinds,0) end
+    local function EntryFrom(Value,BindData)
+        Value=DecodeValue(Value,0) if type(Value)~="table" then return nil end
+        if Value.Key~=nil or Value.key~=nil then return Value end
+        local PreferredId="Main:"..tostring(BindData.Flag)
+        local First
+        for _,Entry in pairs(Value) do
+            if type(Entry)=="table" and (Entry.Key~=nil or Entry.key~=nil) then First=First or Entry if tostring(Entry.Id or Entry.id or "")==PreferredId then return Entry end end
+        end
+        return First
+    end
+    for _,BindData in ipairs(self.Keybinds or {}) do
+        local Stored
+        if type(LoadedBinds)=="table" then Stored=EntryFrom(LoadedBinds[tostring(BindData.TargetFlag or BindData.Flag)],BindData) or EntryFrom(LoadedBinds[tostring(BindData.Flag)],BindData) end
+        if not Stored then Stored=EntryFrom(FlagsSource[tostring(BindData.Flag)],BindData) end
+        if Stored then
+            local Key=Stored.Key~=nil and Stored.Key or Stored.key local Modifiers=Stored.Modifiers or Stored.modifiers
+            local KeyType=tostring(Stored.KeyType or Stored.keyType or Stored.Type or "")
+            if type(Key)=="string" then
+                local Tail=Key:match("([%w_]+)$") if Tail then Key=Tail end
+                local Compact=Key:upper():gsub("[%s_%-%+]","")
+                if KeyType:find("UserInputType",1,true) or Compact=="MOUSEBUTTON2" or Compact=="MOUSEBUTTON3" then if Compact=="MOUSEBUTTON2" then Key="M2" elseif Compact=="MOUSEBUTTON3" then Key="M3" end end
+            end
+            BindData:Set({Key=Key,Modifiers=Modifiers,Mode=Stored.Mode or Stored.mode}) Applied+=1
         end
     end
-    for _, Name in ipairs(Names) do if type(Flags[Name]) ~= "boolean" then Apply(Name) end end
-    for _, Name in ipairs(Names) do if Flags[Name] == false then Apply(Name) end end
-    for _, Name in ipairs(Names) do if Flags[Name] == true then Apply(Name) end end
-    local LoadedBinds = Decoded.__AtramentaControlBinds and DecodeValue(Decoded.__AtramentaControlBinds, 0) or nil
-    if type(LoadedBinds) == "table" then
-        for _, BindData in ipairs(self.Keybinds or {}) do
-            local Stored = LoadedBinds[BindData.Flag]
-            if type(Stored) == "table" and Stored[1] ~= nil and Stored.Key == nil and Stored.key == nil then Stored = Stored[1] end
-            if type(Stored) == "table" then BindData:Set(Stored) end
-        end
-    end
-    local Interface = Decoded.__AtramentaInterface and DecodeValue(Decoded.__AtramentaInterface, 0) or nil
-    if type(Interface) == "table" then
-        if typeof(Interface.Accent) == "Color3" then self.Theme.Accent = Interface.Accent end
-        if self.ActiveWindow and self.ActiveWindow.Main and typeof(Interface.MainPosition) == "UDim2" then self.ActiveWindow.Main.Position = Interface.MainPosition end
-    end
-    UpdateAll()
-    self.LastConfigLoadResult = {Applied = Applied, Failed = Failed}
-    return Failed == 0 or Applied > 0
+
+    local Interface=Decoded.__AtramentaInterface and DecodeValue(Decoded.__AtramentaInterface,0) or nil
+    if type(Interface)=="table" then if typeof(Interface.Accent)=="Color3" then self.Theme.Accent=Interface.Accent end if self.ActiveWindow and self.ActiveWindow.Main and typeof(Interface.MainPosition)=="UDim2" then self.ActiveWindow.Main.Position=Interface.MainPosition end end
+    UpdateAll() self.LastConfigLoadResult={Applied=Applied,Failed=Failed} return Failed==0 or Applied>0
 end
 
 local function NormalizeConfigName(Name)
@@ -1339,12 +1364,12 @@ end
 
 function Library:Watermark(Text)
     local Parent=ParentGui() local Gui=Create("ScreenGui",{Name="AtramentaWatermark",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false}) self.Guis[#self.Guis+1]=Gui
-    local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,12),Size=UDim2.fromOffset(250,23),BackgroundColor3=Color3.fromRGB(5,5,6),BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1})})
-    local Inner=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(19,19,20)),ColorSequenceKeypoint.new(0.52,Color3.fromRGB(11,11,12)),ColorSequenceKeypoint.new(1,Color3.fromRGB(6,6,7))})})})
-    local LineGradient=Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.18,Accent()),ColorSequenceKeypoint.new(0.5,AccentHover()),ColorSequenceKeypoint.new(0.82,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})
+    local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,12),Size=UDim2.fromOffset(250,23),BackgroundColor3=Color3.fromRGB(5,5,6),BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1})})
+    local Inner=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,1)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(21,21,23)),ColorSequenceKeypoint.new(0.52,Color3.fromRGB(16,16,18)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,10,11))})})})
+    local LineGradient=Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,AccentDark()),ColorSequenceKeypoint.new(0.28,Accent()),ColorSequenceKeypoint.new(0.5,AccentHover()),ColorSequenceKeypoint.new(0.72,Accent()),ColorSequenceKeypoint.new(1,AccentDark())}),Offset=Vector2.new(-1,0)})
     local Line=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=4},{LineGradient})
-    local Label=Create("TextLabel",{Parent=Inner,Position=UDim2.fromOffset(8,1),Size=UDim2.new(1,-16,1,-2),BackgroundTransparency=1,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Color3.new(1,1,1),TextXAlignment=Enum.TextXAlignment.Left,Text="",TextTruncate=Enum.TextTruncate.None,ZIndex=5})
-    local TextGradient=Create("UIGradient",{Parent=Label,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.TextBright),ColorSequenceKeypoint.new(0.35,Colors.TextBright),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(0.65,Colors.TextBright),ColorSequenceKeypoint.new(1,Colors.TextBright)}),Offset=Vector2.new(-1,0)})
+    local Label=Create("TextLabel",{Parent=Inner,Position=UDim2.fromOffset(8,1),Size=UDim2.new(1,-16,1,-2),BackgroundTransparency=1,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBright,TextXAlignment=Enum.TextXAlignment.Left,Text="",TextTruncate=Enum.TextTruncate.None,ZIndex=5})
+    local TextGradient=Create("UIGradient",{Parent=Label,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.TextBright),ColorSequenceKeypoint.new(0.38,Colors.TextBright),ColorSequenceKeypoint.new(0.5,AccentHover()),ColorSequenceKeypoint.new(0.62,Colors.TextBright),ColorSequenceKeypoint.new(1,Colors.TextBright)}),Offset=Vector2.new(-1,0)})
     local Scale=Create("UIScale",{Parent=Frame,Scale=1}) MakeDraggable(Frame,Frame)
     local Object={Gui=Gui,Frame=Frame,Label=Label,Scale=Scale,Line=Line,Brand=tostring(Text or "Atramenta.rip"),FPS=0,Ping=0,Alive=true}
     function Object:Resize() local Bounds=TextService:GetTextSize(Label.Text,13,Enum.Font.SourceSans,Vector2.new(1200,23)) Frame.Size=UDim2.fromOffset(math.max(170,math.ceil(Bounds.X)+18),23) end
@@ -1357,17 +1382,12 @@ function Library:Watermark(Text)
     local Frames,Elapsed,InfoElapsed,Phase=0,0,0,0
     Bind(RunService.RenderStepped:Connect(function(Delta)
         if not Object.Alive or not Frame.Parent then return end
-        Frames+=1 Elapsed+=Delta InfoElapsed+=Delta Phase=(Phase+Delta*0.52)%1
+        Frames+=1 Elapsed+=Delta InfoElapsed+=Delta Phase=(Phase+Delta*0.72)%2
         if Elapsed>=0.45 then Object.FPS=Frames/Elapsed Frames=0 Elapsed=0 end
-        if InfoElapsed>=0.45 then
-            local Player=Players.LocalPlayer local Success,Value=Call(function() return Player and Player:GetNetworkPing() end)
-            if Success and type(Value)=="number" then Object.Ping=Value*1000 end
-            InfoElapsed=0 Object:RefreshText()
-        end
-        local Base=Accent() local H,S,V=Color3.toHSV(Base) local C1=Color3.fromHSV((H+Phase)%1,math.max(S,0.58),math.max(V,0.86)) local C2=Color3.fromHSV((H+Phase+0.10)%1,math.max(S,0.58),math.max(V,0.92)) local C3=Color3.fromHSV((H+Phase+0.20)%1,math.max(S,0.58),math.max(V,0.86))
-        LineGradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,C1),ColorSequenceKeypoint.new(0.5,C2),ColorSequenceKeypoint.new(0.84,C3),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})
-        TextGradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.TextBright),ColorSequenceKeypoint.new(0.30,Colors.TextBright),ColorSequenceKeypoint.new(0.48,C1),ColorSequenceKeypoint.new(0.54,C2),ColorSequenceKeypoint.new(0.60,C3),ColorSequenceKeypoint.new(0.78,Colors.TextBright),ColorSequenceKeypoint.new(1,Colors.TextBright)})
-        TextGradient.Offset=Vector2.new((Phase*2)-1,0)
+        if InfoElapsed>=0.45 then local Player=Players.LocalPlayer local Success,Value=Call(function() return Player and Player:GetNetworkPing() end) if Success and type(Value)=="number" then Object.Ping=Value*1000 end InfoElapsed=0 Object:RefreshText() end
+        local A=Accent() local Dark=AccentDark() local Bright=AccentHover() local Offset=Phase-1
+        LineGradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Dark),ColorSequenceKeypoint.new(0.28,A),ColorSequenceKeypoint.new(0.5,Bright),ColorSequenceKeypoint.new(0.72,A),ColorSequenceKeypoint.new(1,Dark)}) LineGradient.Offset=Vector2.new(Offset,0)
+        TextGradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.TextBright),ColorSequenceKeypoint.new(0.38,Colors.TextBright),ColorSequenceKeypoint.new(0.5,Bright),ColorSequenceKeypoint.new(0.62,Colors.TextBright),ColorSequenceKeypoint.new(1,Colors.TextBright)}) TextGradient.Offset=Vector2.new(Offset,0)
     end))
     RegisterRenderer(function() Object:RefreshText() end)
     return Object
@@ -1377,7 +1397,7 @@ function Library:KeybindList()
     if self.KeybindListController then return self.KeybindListController end
     local Parent=ParentGui() local Gui=Create("ScreenGui",{Name="AtramentaKeybinds",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false}) self.Guis[#self.Guis+1]=Gui
     local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,43),Size=UDim2.fromOffset(190,25),AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1}),Create("UIPadding",{PaddingBottom=UDim.new(0,5)})})
-    local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(19,19,20)),ColorSequenceKeypoint.new(1,Color3.fromRGB(7,7,8))})})})
+    local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(21,21,23)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,10,11))})})})
     local HeaderText=Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="keybinds",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left})
     local Line=Create("Frame",{Parent=Header,Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,Accent()),ColorSequenceKeypoint.new(0.84,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})})
     local Holder=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(7,23),Size=UDim2.new(1,-14,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder})})
@@ -1473,23 +1493,48 @@ function Library:SetNotificationLayout(Position, Scale)
 end
 
 function Library:Notification(Data)
-    if type(Data) == "string" then Data = {Description = Data} end
-    Data = Data or {}
-    local Parent = ParentGui()
-    local Gui = self.NotificationGui
+    if type(Data)=="string" then Data={Description=Data} end Data=Data or {}
+    local Parent=ParentGui() local Gui=self.NotificationGui
     if not Gui or not Gui.Parent then
-        Gui = Create("ScreenGui", {Name = "AtramentaNotifications", Parent = Parent, ResetOnSpawn = false, DisplayOrder = 200, ZIndexBehavior = Enum.ZIndexBehavior.Global, IgnoreGuiInset = false})
-        self.Guis[#self.Guis + 1] = Gui
-        self.NotificationGui = Gui
-        self.NotificationHolder = Create("Frame", {Parent = Gui, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(280, 500), BackgroundTransparency = 1}, {Create("UIListLayout", {Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Top, SortOrder = Enum.SortOrder.LayoutOrder})})
-        self:SetNotificationLayout(self.NotificationPosition or "Top Right", self.NotificationScaleValue or 1)
+        Gui=Create("ScreenGui",{Name="AtramentaNotifications",Parent=Parent,ResetOnSpawn=false,DisplayOrder=200,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
+        self.Guis[#self.Guis+1]=Gui self.NotificationGui=Gui
+        self.NotificationHolder=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-12,0,12),Size=UDim2.fromOffset(370,650),BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,5),HorizontalAlignment=Enum.HorizontalAlignment.Right,VerticalAlignment=Enum.VerticalAlignment.Top,SortOrder=Enum.SortOrder.LayoutOrder})})
+        self:SetNotificationLayout(self.NotificationPosition or "Top Right",self.NotificationScaleValue or 1)
     end
-    local Frame = Create("Frame", {Parent = self.NotificationHolder, Size = UDim2.fromOffset(270, 42), BackgroundColor3 = Colors.Bg, BackgroundTransparency = 0.05, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
-    Create("Frame", {Parent = Frame, Size = UDim2.fromOffset(2, 32), Position = UDim2.fromOffset(4, 5), BackgroundColor3 = Accent(), BorderSizePixel = 0})
-    Create("TextLabel", {Parent = Frame, Position = UDim2.fromOffset(12, 3), Size = UDim2.new(1, -18, 0, 14), BackgroundTransparency = 1, Text = tostring(Data.Title or "Atramenta.rip"), TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSansBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left})
-    Create("TextLabel", {Parent = Frame, Position = UDim2.fromOffset(12, 18), Size = UDim2.new(1, -18, 0, 18), BackgroundTransparency = 1, Text = tostring(Data.Description or ""), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd})
-    task.delay(math.max(tonumber(Data.Duration) or 3, 0.2), function() if Frame and Frame.Parent then Frame:Destroy() end end)
-    return Frame
+    self.NotificationSerial=(self.NotificationSerial or 0)+1
+    local Title=tostring(Data.Title or "Atramenta.rip") local Description=tostring(Data.Description or "") local Mode=tostring(Data.Mode or "Info"):lower()
+    local MaxTextWidth=314 local DescBounds=TextService:GetTextSize(Description,12,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,1000)) local TitleBounds=TextService:GetTextSize(Title,12,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,18))
+    local ModeBounds=TextService:GetTextSize(Mode,10,Enum.Font.SourceSans,Vector2.new(90,14)) local Width=math.clamp(math.ceil(math.max(TitleBounds.X+ModeBounds.X+42,math.min(DescBounds.X,MaxTextWidth)+26)),210,350)
+    local DescWidth=Width-22 local Wrapped=TextService:GetTextSize(Description,12,Enum.Font.SourceSans,Vector2.new(DescWidth,1000)) local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),14,48)
+    local Height=Description=="" and 28 or 29+DescHeight
+    local Wrapper=Create("Frame",{Parent=self.NotificationHolder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=self.NotificationSerial})
+    local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromScale(1,1),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,GroupTransparency=1})
+    local Panel=Create("Frame",{Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.fromRGB(10,10,11),BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(50,50,54),Thickness=1,Transparency=0.08}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(21,21,23)),ColorSequenceKeypoint.new(0.28,Color3.fromRGB(16,16,18)),ColorSequenceKeypoint.new(1,Color3.fromRGB(10,10,11))})})})
+    local AccentLine=Create("Frame",{Parent=Panel,Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.12,Accent()),ColorSequenceKeypoint.new(0.88,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})})
+    local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(1,2),Size=UDim2.new(1,-2,0,18),BackgroundColor3=Color3.fromRGB(13,13,14),BackgroundTransparency=0.18,BorderSizePixel=0})
+    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(8,0),Size=UDim2.new(1,-70,1,0),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
+    local ModeLabel=Create("TextLabel",{Parent=Header,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-8,0,0),Size=UDim2.fromOffset(math.clamp(ModeBounds.X+4,28,72),18),BackgroundTransparency=1,Text=Mode,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right})
+    if Description~="" then Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(9,22),Size=UDim2.new(1,-18,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=12,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top}) end
+    local Duration=math.max(tonumber(Data.Duration) or 3,0.35) local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,1,1,-1),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3})
+    local Direction=string.find(string.lower(self.NotificationPosition or "Top Right"),"left",1,true) and -1 or string.find(string.lower(self.NotificationPosition or "Top Right"),"center",1,true) and 0 or 1
+    Group.Position=UDim2.fromOffset(Direction*12,0)
+    local Enter=TweenService:Create(Group,TweenInfo.new(0.16,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}) Enter:Play()
+    local ProgressTween=TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,0,1)}) ProgressTween:Play()
+    RegisterRenderer(function()
+        if not Panel.Parent then return end local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A
+        local G=AccentLine:FindFirstChildOfClass("UIGradient") if G then G.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.12,A),ColorSequenceKeypoint.new(0.88,A),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))}) end
+    end)
+    local Alive=true local function Close()
+        if not Alive then return end Alive=false
+        local Exit=TweenService:Create(Group,TweenInfo.new(0.14,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*10,0),GroupTransparency=1}) Exit:Play()
+        task.delay(0.15,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
+    end
+    Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end end))
+    task.delay(Duration,Close)
+    local Count=0 local Oldest
+    for _,Child in ipairs(self.NotificationHolder:GetChildren()) do if Child:IsA("Frame") then Count+=1 if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end end end
+    if Count>7 and Oldest and Oldest~=Wrapper then Oldest:Destroy() end
+    return Wrapper
 end
 
 local function PointInside(Object,Point)
