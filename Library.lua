@@ -72,9 +72,28 @@ function Library:FontPath(Name)
     return self.Folders.Fonts .. "/" .. FileName
 end
 
-function Library:LoadFont(Name, Weight, Style)
+function Library:EnsureFont(Name, Source)
     EnsureFolders()
     local Path = self:FontPath(Name)
+    if type(isfile) == "function" and isfile(Path) then return true, Path end
+    if type(writefile) ~= "function" then return false, Path end
+    local Body = Source
+    if type(Source) == "string" and Source:match("^https?://") then
+        local Success, Result = Call(function() return game:HttpGet(Source) end)
+        Body = Success and Result or nil
+    elseif type(Source) == "function" then
+        local Success, Result = Call(Source)
+        Body = Success and Result or nil
+    end
+    if type(Body) ~= "string" or #Body < 128 then return false, Path end
+    local Saved = Call(writefile, Path, Body)
+    return Saved == true and (type(isfile) ~= "function" or isfile(Path)), Path
+end
+
+function Library:LoadFont(Name, Weight, Style, Source)
+    EnsureFolders()
+    local Path = self:FontPath(Name)
+    if type(isfile) == "function" and not isfile(Path) and Source ~= nil then self:EnsureFont(Name, Source) end
     if type(isfile) == "function" and not isfile(Path) then return nil, nil, Path end
     local AssetFunction = type(getcustomasset) == "function" and getcustomasset or type(getsynasset) == "function" and getsynasset or nil
     if not AssetFunction then return nil, nil, Path end
@@ -699,12 +718,14 @@ function Library:Window(Data)
             end
         end
     end)
+    task.defer(function() if self.ActiveWindow==Window and type(self.SetNotificationPreviewVisible)=="function" then self:SetNotificationPreviewVisible(true) end end)
     return Window
 end
 
 function WindowMethods:SetVisible(State)
     self.Visible = State == true
     self.Main.Visible = self.Visible
+    if type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(self.Visible) end
     if not self.Visible then self:CloseDropdown() self:ClosePicker() end
 end
 
@@ -712,6 +733,7 @@ function WindowMethods:Toggle() self:SetVisible(not self.Visible) end
 function WindowMethods:Destroy()
     if self.Destroyed then return end
     self.Destroyed = true
+    if type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(false) end
     if self.ScreenGui and self.ScreenGui.Parent then self.ScreenGui:Destroy() end
     if Library.ActiveWindow == self then Library.ActiveWindow = nil end
 end
@@ -1262,7 +1284,7 @@ function Library:GetConfig()
         end
     end
     local BindSuccess,EncodedBinds=Call(EncodeValue,ControlBinds,{},0) if BindSuccess and EncodedBinds~=nil then Payload.__AtramentaControlBinds=EncodedBinds end
-    local Interface={} if self.ActiveWindow and self.ActiveWindow.Main then Interface.MainPosition=self.ActiveWindow.Main.Position Interface.MainSize=self.ActiveWindow.Main.Size end Interface.Theme=CloneValue(self.Theme) Interface.MenuBind=self.MenuBindData and {Key=self.MenuBindData.Key,Modifiers=CopyModifiers(self.MenuBindData.Modifiers)} or {Key=self.MenuKeybind,Modifiers=EmptyModifiers()}
+    local Interface={} if self.ActiveWindow and self.ActiveWindow.Main then Interface.MainPosition=self.ActiveWindow.Main.Position Interface.MainSize=self.ActiveWindow.Main.Size end Interface.Theme=CloneValue(self.Theme) Interface.MenuBind=self.MenuBindData and {Key=self.MenuBindData.Key,Modifiers=CopyModifiers(self.MenuBindData.Modifiers)} or {Key=self.MenuKeybind,Modifiers=EmptyModifiers()} Interface.NotificationPoint=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
     local SuccessInterface,EncodedInterface=Call(EncodeValue,Interface,{},0) if SuccessInterface and EncodedInterface then Payload.__AtramentaInterface=EncodedInterface end
     local Success,Source=Call(HttpService.JSONEncode,HttpService,Payload) return Success and Source or "{}"
 end
@@ -1318,6 +1340,7 @@ function Library:LoadConfig(Source)
     if type(Interface)=="table" then
         if type(Interface.Theme)=="table" then for Key,Value in pairs(Interface.Theme) do if typeof(Value)=="Color3" then self.Theme[Key]=Value end end SyncThemeColors() elseif typeof(Interface.Accent)=="Color3" then self.Theme.Accent=Interface.Accent end
         if self.ActiveWindow and self.ActiveWindow.Main then if typeof(Interface.MainSize)=="UDim2" then self.ActiveWindow.Main.Size=Interface.MainSize end if typeof(Interface.MainPosition)=="UDim2" then self.ActiveWindow.Main.Position=Interface.MainPosition end ClampFrameToViewport(self.ActiveWindow.Main,self.ActiveWindow.ScreenGui,4) end
+        if typeof(Interface.NotificationPoint)=="Vector2" then self.NotificationPoint=Interface.NotificationPoint if type(self.ApplyNotificationLayout)=="function" then self:ApplyNotificationLayout() end end
         if self.MenuBindData and type(Interface.MenuBind)=="table" then self.MenuBindData:Set(Interface.MenuBind) end
     end
     UpdateAll() self.LastConfigLoadResult={Applied=Applied,Failed=Failed} return Failed==0 or Applied>0
@@ -1478,8 +1501,6 @@ function WindowMethods:ConfigSystem()
     Interface:Toggle({Name="keybind list",Flag="__InterfaceKeybindList",Default=false,Callback=function(Value) if Library.KeybindListController then Library.KeybindListController:SetVisibility(Value==true) end end})
     Interface:Slider({Name="watermark scale",Flag="__InterfaceWatermarkScale",Min=60,Max=160,Default=100,Step=5,Suffix="%",Callback=function(Value) if Library.WatermarkController then Library.WatermarkController:SetScale(Value) end end})
     Interface:Slider({Name="keybind scale",Flag="__InterfaceKeybindScale",Min=60,Max=160,Default=100,Step=5,Suffix="%",Callback=function(Value) if Library.KeybindListController then Library.KeybindListController:SetScale(Value) end end})
-    Interface:Dropdown({Name="notifications",Flag="__NotificationPosition",Default=Library.NotificationPosition or "Top Right",Items={"Top Left","Top Center","Top Right","Middle Left","Middle Center","Middle Right","Bottom Left","Bottom Center","Bottom Right"},Callback=function(Value) Library:SetNotificationLayout(Value,Library.NotificationScaleValue or 1) end})
-    Interface:Slider({Name="notification scale",Flag="__NotificationScale",Min=60,Max=160,Default=100,Step=5,Suffix="%",Callback=function(Value) Library:SetNotificationLayout(Library.NotificationPosition or "Top Right",Value) end})
 
     local function ThemePicker(Name,Flag,Key)
         Theme:Label({Name=Name,Alignment="Left"}):Colorpicker({Name=Name,Flag=Flag,Default=Library.Theme[Key],Callback=function(Value) Library:ChangeTheme(Key,Value) end})
@@ -1597,45 +1618,84 @@ function Library:PlayerList(Data)
     return Object
 end
 
-function Library:SetNotificationLayout(Position, Scale)
-    self.NotificationPosition = tostring(Position or self.NotificationPosition or "Top Right")
-    local RawScale = tonumber(Scale)
-    if RawScale == nil then RawScale = tonumber(self.NotificationScaleValue) or 1 end
-    if RawScale > 4 then RawScale = RawScale / 100 end
-    self.NotificationScaleValue = math.clamp(RawScale, 0.5, 1.6)
-    local Holder = self.NotificationHolder
-    if not Holder or not Holder.Parent then return end
-    local Map = {
-        ["Top Left"] = {Vector2.new(0, 0), UDim2.fromOffset(12, 12), Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Top},
-        ["Top Center"] = {Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 12), Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Top},
-        ["Top Right"] = {Vector2.new(1, 0), UDim2.new(1, -12, 0, 12), Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Top},
-        ["Middle Left"] = {Vector2.new(0, 0.5), UDim2.new(0, 12, 0.5, 0), Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center},
-        ["Middle Center"] = {Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Center},
-        ["Middle Right"] = {Vector2.new(1, 0.5), UDim2.new(1, -12, 0.5, 0), Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center},
-        ["Bottom Left"] = {Vector2.new(0, 1), UDim2.new(0, 12, 1, -12), Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Bottom},
-        ["Bottom Center"] = {Vector2.new(0.5, 1), UDim2.new(0.5, 0, 1, -12), Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Bottom},
-        ["Bottom Right"] = {Vector2.new(1, 1), UDim2.new(1, -12, 1, -12), Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Bottom}
-    }
-    local Data = Map[self.NotificationPosition] or Map["Top Right"]
-    local Viewport=GetViewportSize(Holder:FindFirstAncestorOfClass("ScreenGui"))
+function Library:GetNotificationAlign()
+    local Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
+    Point=Vector2.new(math.clamp(Point.X,0.02,0.98),math.clamp(Point.Y,0.02,0.98))
+    self.NotificationPoint=Point
+    local AX=Point.X<0.34 and 0 or Point.X>0.66 and 1 or 0.5
+    local AY=Point.Y<0.34 and 0 or Point.Y>0.66 and 1 or 0.5
+    local H=AX==0 and Enum.HorizontalAlignment.Left or AX==1 and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Center
+    local V=AY==0 and Enum.VerticalAlignment.Top or AY==1 and Enum.VerticalAlignment.Bottom or Enum.VerticalAlignment.Center
+    return Point,Vector2.new(AX,AY),H,V
+end
+
+function Library:ApplyNotificationLayout()
+    local Holder=self.NotificationHolder
+    local Gui=self.NotificationGui
+    if not Holder or not Holder.Parent or not Gui or not Gui.Parent then return end
+    local Point,Anchor,H,V=self:GetNotificationAlign()
+    local Viewport=GetViewportSize(Gui)
     Holder.Size=UDim2.fromOffset(math.max(140,math.min(320,Viewport.X-24)),math.max(120,math.min(560,Viewport.Y-24)))
-    Holder.AnchorPoint = Data[1]
-    Holder.Position = Data[2]
-    local Layout = Holder:FindFirstChildOfClass("UIListLayout")
-    if Layout then Layout.HorizontalAlignment = Data[3] Layout.VerticalAlignment = Data[4] end
-    if not self.NotificationScale or not self.NotificationScale.Parent then self.NotificationScale = Create("UIScale", {Parent = Holder, Scale = self.NotificationScaleValue}) else self.NotificationScale.Scale = self.NotificationScaleValue end
+    Holder.AnchorPoint=Anchor Holder.Position=UDim2.fromScale(Point.X,Point.Y)
+    local Layout=Holder:FindFirstChildOfClass("UIListLayout")
+    if Layout then Layout.HorizontalAlignment=H Layout.VerticalAlignment=V end
+    if self.NotificationPreview and self.NotificationPreview.Parent then self.NotificationPreview.Position=UDim2.fromScale(Point.X,Point.Y) end
+end
+
+function Library:SetNotificationLayout(Position)
+    if typeof(Position)=="Vector2" then self.NotificationPoint=Position
+    elseif typeof(Position)=="UDim2" then self.NotificationPoint=Vector2.new(Position.X.Scale,Position.Y.Scale)
+    elseif type(Position)=="string" then
+        local Map={
+            ["Top Left"]=Vector2.new(0.06,0.08),["Top Center"]=Vector2.new(0.5,0.08),["Top Right"]=Vector2.new(0.94,0.08),
+            ["Middle Left"]=Vector2.new(0.06,0.5),["Middle Center"]=Vector2.new(0.5,0.5),["Middle Right"]=Vector2.new(0.94,0.5),
+            ["Bottom Left"]=Vector2.new(0.06,0.92),["Bottom Center"]=Vector2.new(0.5,0.92),["Bottom Right"]=Vector2.new(0.94,0.92)
+        }
+        if Map[Position] then self.NotificationPoint=Map[Position] end
+    end
+    self:ApplyNotificationLayout()
+end
+
+function Library:EnsureNotificationGui()
+    local Parent=ParentGui() local Gui=self.NotificationGui
+    if Gui and Gui.Parent and self.NotificationHolder and self.NotificationHolder.Parent then return Gui end
+    Gui=Create("ScreenGui",{Name="AtramentaNotifications",Parent=Parent,ResetOnSpawn=false,DisplayOrder=200,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
+    self.Guis[#self.Guis+1]=Gui self.NotificationGui=Gui
+    self.NotificationHolder=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-10,0,10),Size=UDim2.fromOffset(320,560),BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,4),HorizontalAlignment=Enum.HorizontalAlignment.Right,VerticalAlignment=Enum.VerticalAlignment.Top,SortOrder=Enum.SortOrder.LayoutOrder})})
+    local Preview=Create("Frame",{Name="NotificationExample",Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.94,0.08),Size=UDim2.fromOffset(238,42),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ZIndex=5000},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
+    local AccentLine=Create("Frame",{Parent=Preview,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,2,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5002})
+    local Header=Create("Frame",{Parent=Preview,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.22,BorderSizePixel=0,ZIndex=5001})
+    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text="atramenta.rip",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=5002})
+    Create("TextLabel",{Parent=Preview,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,18),BackgroundTransparency=1,Text="example notification - drag me",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=5002})
+    self.NotificationPreview=Preview
+    local Dragging=false local StartMouse local StartPoint
+    Bind(Preview.InputBegan:Connect(function(Input)
+        if Input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
+        Dragging=true StartMouse=Input.Position StartPoint=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
+    end))
+    Bind(UserInputService.InputChanged:Connect(function(Input)
+        if not Dragging or Input.UserInputType~=Enum.UserInputType.MouseMovement then return end
+        local Viewport=GetViewportSize(Gui) if Viewport.X<=0 or Viewport.Y<=0 then return end
+        local Delta=Input.Position-StartMouse
+        local HalfX=(Preview.AbsoluteSize.X*0.5+6)/Viewport.X local HalfY=(Preview.AbsoluteSize.Y*0.5+6)/Viewport.Y
+        self.NotificationPoint=Vector2.new(math.clamp(StartPoint.X+Delta.X/Viewport.X,HalfX,1-HalfX),math.clamp(StartPoint.Y+Delta.Y/Viewport.Y,HalfY,1-HalfY))
+        self:ApplyNotificationLayout()
+    end))
+    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Dragging=false end end))
+    Bind(Gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:ApplyNotificationLayout() end))
+    RegisterRenderer(function() if Preview and Preview.Parent then AccentLine.BackgroundColor3=Accent() end end)
+    self:ApplyNotificationLayout()
+    return Gui
+end
+
+function Library:SetNotificationPreviewVisible(State)
+    self:EnsureNotificationGui()
+    if self.NotificationPreview and self.NotificationPreview.Parent then self.NotificationPreview.Visible=State==true end
 end
 
 function Library:Notification(Data)
     if type(Data)=="string" then Data={Description=Data} end Data=Data or {}
-    local Parent=ParentGui() local Gui=self.NotificationGui
-    if not Gui or not Gui.Parent then
-        Gui=Create("ScreenGui",{Name="AtramentaNotifications",Parent=Parent,ResetOnSpawn=false,DisplayOrder=200,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
-        self.Guis[#self.Guis+1]=Gui self.NotificationGui=Gui
-        self.NotificationHolder=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-10,0,10),Size=UDim2.fromOffset(320,560),BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,4),HorizontalAlignment=Enum.HorizontalAlignment.Right,VerticalAlignment=Enum.VerticalAlignment.Top,SortOrder=Enum.SortOrder.LayoutOrder})})
-        Bind(Gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:SetNotificationLayout(self.NotificationPosition or "Top Right",self.NotificationScaleValue or 1) end))
-        self:SetNotificationLayout(self.NotificationPosition or "Top Right",self.NotificationScaleValue or 1)
-    end
+    local Gui=self:EnsureNotificationGui()
     self.NotificationSerial=(self.NotificationSerial or 0)+1
     local Title=string.lower(tostring(Data.Title or "atramenta.rip")) local Description=tostring(Data.Description or "") local GenericTitles={warn=true,warning=true,success=true,error=true,info=true,notice=true} if GenericTitles[Title] then Title="atramenta.rip" end
     local MaxTextWidth=252
@@ -1649,26 +1709,19 @@ function Library:Notification(Data)
     local Wrapper=Create("Frame",{Parent=self.NotificationHolder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=self.NotificationSerial})
     local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromScale(1,1),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,GroupTransparency=1})
     local Panel=Create("Frame",{Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Colors.Bg,BorderSizePixel=0},{
-        Create("UICorner",{CornerRadius=UDim.new(0,2)}),
-        Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0}),
-        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})
+        Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})
     })
     local AccentLine=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,2,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3})
     local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.22,BorderSizePixel=0})
     Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
-    if Description~="" then
-        Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top})
-    end
+    if Description~="" then Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top}) end
     local Duration=math.max(tonumber(Data.Duration) or 3,0.35)
     local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,2,1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4})
-    local Direction=string.find(string.lower(self.NotificationPosition or "Top Right"),"left",1,true) and -1 or string.find(string.lower(self.NotificationPosition or "Top Right"),"center",1,true) and 0 or 1
+    local Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08) local Direction=Point.X<0.34 and -1 or Point.X>0.66 and 1 or 0
     Group.Position=UDim2.fromOffset(Direction*9,0)
     TweenService:Create(Group,TweenInfo.new(0.14,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
     TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,0,1)}):Play()
-    RegisterRenderer(function()
-        if not Panel.Parent then return end
-        local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A
-    end)
+    RegisterRenderer(function() if not Panel.Parent then return end local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A end)
     local Alive=true
     local function Close()
         if not Alive then return end Alive=false
@@ -1677,11 +1730,8 @@ function Library:Notification(Data)
     end
     Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end end))
     task.delay(Duration,Close)
-    local Count=0 local Oldest
-    local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or tonumber(self.NotificationMaximumVisible) or 8),1)
-    for _,Child in ipairs(self.NotificationHolder:GetChildren()) do
-        if Child:IsA("Frame") then Count+=1 if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end end
-    end
+    local Count=0 local Oldest local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or tonumber(self.NotificationMaximumVisible) or 8),1)
+    for _,Child in ipairs(self.NotificationHolder:GetChildren()) do if Child:IsA("Frame") then Count+=1 if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end end end
     if Count>Maximum and Oldest and Oldest~=Wrapper then Oldest:Destroy() end
     return Wrapper
 end
@@ -1741,7 +1791,8 @@ function Library.Unload(...)
     Library.KeybindListController = nil
     Library.NotificationGui = nil
     Library.NotificationHolder = nil
-    Library.NotificationScale = nil
+    Library.NotificationPreview = nil
+    Library.NotificationPoint = nil
     Library.Holder = nil
     table.clear(Library.Renderers)
     if rawget(AtramentaEnvironment, "Library") == Library then AtramentaEnvironment.Library = nil end
