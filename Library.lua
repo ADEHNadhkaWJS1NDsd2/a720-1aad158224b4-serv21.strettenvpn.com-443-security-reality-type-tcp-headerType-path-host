@@ -341,8 +341,23 @@ local function KeyDisplay(Key,Modifiers) return BindSystem.DisplayChord(Key,Modi
 local function NormalizeKey(Value) return BindSystem.Normalize(Value) end
 local function InputMatches(Input,Key,Modifiers) return BindSystem.Matches(Input,Key,Modifiers) end
 local function RefreshKeybindList() local Controller=Library.KeybindListController if Controller and type(Controller.Refresh)=="function" then Controller:Refresh() end end
+local function KeybindGateOpen(BindData)
+    if not BindData or BindData.EnabledFlag == nil then return true end
+    local Flag = tostring(BindData.EnabledFlag)
+    return Library.Flags[Flag] == true
+end
 local function FireKeybind(BindData,Pressed)
     if not BindData or BindData.Destroyed then return end
+    if Pressed == true and not KeybindGateOpen(BindData) then
+        if BindData.Value == true then
+            BindData.Value = false
+            Library.Flags[BindData.Flag] = false
+            if type(BindData.Callback) == "function" then Call(BindData.Callback,false) end
+            BindData.Render()
+            RefreshKeybindList()
+        end
+        return
+    end
     local Current=BindData.TargetControl and BindData.TargetControl:Get() or BindData.Value==true
     local Mode,Value=BindData.Mode,Current
     if Mode=="Hold" then Value=Pressed==true elseif Mode=="Toggle" then if not Pressed then return end Value=not Current elseif Mode=="Always" then Value=true else if not Pressed then return end Value=not Current end
@@ -379,7 +394,9 @@ local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFla
     local Mode=tostring(Data.Mode or "Toggle") Mode=Mode=="Hold" and "Hold" or Mode=="Always" and "Always" or "Toggle"
     local Initial=TargetControl and TargetControl:Get() or Mode=="Always"
     local InitialKey,InitialModifiers=BindSystem.NormalizeBinding(Data.Default,Data.Modifiers)
-    local BindData={Window=Window,Flag=Flag,TargetFlag=tostring(TargetFlag or Flag),Name=tostring(Data.Name or Flag),Key=InitialKey,Modifiers=InitialModifiers,Mode=Mode,Callback=Data.Callback,EnabledFlag=Data.EnabledFlag,TargetControl=TargetControl,Value=Initial,Destroyed=false}
+    local DisplayName=tostring(Data.Name or "")
+    if DisplayName=="" or string.lower(DisplayName)=="keybind" then DisplayName=tostring(TargetFlag or Data.Flag or Flag) end
+    local BindData={Window=Window,Flag=Flag,TargetFlag=tostring(TargetFlag or Flag),Name=DisplayName,Key=InitialKey,Modifiers=InitialModifiers,Mode=Mode,Callback=Data.Callback,EnabledFlag=Data.EnabledFlag,TargetControl=TargetControl,Value=Initial,Destroyed=false}
     Library.Flags[Flag]=Initial
     local Button=Create("TextButton",{Parent=Row,Size=UDim2.fromOffset(70,16),Position=UDim2.new(1,-(RightOffset or 0)-70,0.5,-8),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=15})
     local Label=Create("TextLabel",{Parent=Button,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextXAlignment=Enum.TextXAlignment.Right,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBind,Text=""})
@@ -875,7 +892,18 @@ function SectionMethods:Toggle(Data)
         Object.Value = Value == true
         Library.Flags[Flag] = Object.Value
         Object:Render()
+        if not Object.Value then
+            for _,BindData in ipairs(Library.Keybinds) do
+                if BindData and tostring(BindData.EnabledFlag or "")==Flag and BindData.Value==true then
+                    BindData.Value=false
+                    Library.Flags[BindData.Flag]=false
+                    if type(BindData.Callback)=="function" then Call(BindData.Callback,false) end
+                    if BindData.Render then BindData.Render() end
+                end
+            end
+        end
         if not Silent and type(Data.Callback) == "function" then Call(Data.Callback, Object.Value) end
+        RefreshKeybindList()
     end
     function Object:Get() return Object.Value end
     function Object:Colorpicker(ColorData)
@@ -1560,7 +1588,7 @@ function Library:KeybindList()
         local Width=176
         for _,BindData in ipairs(Library.Keybinds) do
             if BindData.TargetControl then BindData.Value=BindData.TargetControl:Get() end
-            if not BindData.Destroyed and (BindData.Value==true or BindData.Mode=="Always") then
+            if not BindData.Destroyed and KeybindGateOpen(BindData) and (BindData.Value==true or BindData.Mode=="Always") then
                 local Key=KeyDisplay(BindData.Key,BindData.Modifiers) local Mode=BindData.Mode=="Hold" and "hold" or BindData.Mode=="Always" and "always" or "toggled" local Right="["..Key.."]  "..Mode
                 local LeftWidth=TextService:GetTextSize(BindData.Name,12,Enum.Font.SourceSans,Vector2.new(400,16)).X local RightWidth=TextService:GetTextSize(Right,12,Enum.Font.SourceSans,Vector2.new(400,16)).X Width=math.max(Width,math.ceil(LeftWidth+RightWidth+28))
                 local Row=Create("Frame",{Parent=Holder,Size=UDim2.new(1,0,0,14),BackgroundTransparency=1})
