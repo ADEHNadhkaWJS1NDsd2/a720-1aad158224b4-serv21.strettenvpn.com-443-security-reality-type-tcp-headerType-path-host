@@ -1354,6 +1354,10 @@ end
 
 function Library:SaveConfig(Name)
     Name = NormalizeConfigName(Name)
+    if self.MenuBuildComplete == false then
+        self.LastConfigSaveError = "menu build incomplete"
+        return false
+    end
     if Name == "" or type(writefile) ~= "function" then return false end
     EnsureFolders()
     local Source = self:GetConfig()
@@ -1433,8 +1437,27 @@ function WindowMethods:ConfigSystem()
     local function CurrentName(AllowInput) local Name=Selected if (not Name or Name=="") and AllowInput then Name=NormalizeConfigName(NameBox:Get()) end return NormalizeConfigName(Name or "") end
     Listbox=Browser:Listbox({Items={},Height=164,Callback=function(Value) SetSelected(Value) Status:Set("selected "..tostring(Value)) end})
     Browser:Button({Name="refresh",Callback=function() Refresh(true) end})
-    Manager:Button({Name="create",Callback=function() local Name=NormalizeConfigName(NameBox:Get()) if Name=="" then Notify("enter a config name") return end if Library:ConfigExists(Name) then Notify(Name.." already exists") return end if Library:SaveConfig(Name) then SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." created") else Notify("failed to create "..Name) end end})
-    Manager:Button({Name="save",Callback=function() local Name=CurrentName(true) if Name=="" then Notify("select or enter a config") return end if Library:SaveConfig(Name) then SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." saved") else Notify("failed to save "..Name) end end})
+    Manager:Button({Name="create",Callback=function()
+        local Name=NormalizeConfigName(NameBox:Get())
+        if Name=="" then Notify("enter a config name") return end
+        if Library:ConfigExists(Name) then Notify(Name.." already exists") return end
+        Library.LastConfigSaveError=nil
+        if Library:SaveConfig(Name) then
+            SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." created")
+        else
+            Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not created" or "failed to create "..Name)
+        end
+    end})
+    Manager:Button({Name="save",Callback=function()
+        local Name=CurrentName(true)
+        if Name=="" then Notify("select or enter a config") return end
+        Library.LastConfigSaveError=nil
+        if Library:SaveConfig(Name) then
+            SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." saved")
+        else
+            Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not overwritten" or "failed to save "..Name)
+        end
+    end})
     Manager:Button({Name="load",Callback=function() local Name=CurrentName(false) if Name=="" then Notify("select a config") return end if Library:LoadConfigFile(Name) then SetSelected(Name) Notify(Name.." loaded") else Notify("failed to load "..Name) end end})
     Manager:Button({Name="delete",Callback=function() local Name=CurrentName(false) if Name=="" then Notify("select a config") return end if Library:DeleteConfig(Name) then SetSelected(nil) NameBox:Set("",true) Refresh(false) Notify(Name.." deleted") else Notify("failed to delete "..Name) end end})
 
