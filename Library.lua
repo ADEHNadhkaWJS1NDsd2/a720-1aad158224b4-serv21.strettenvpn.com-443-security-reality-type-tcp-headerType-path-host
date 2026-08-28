@@ -638,8 +638,8 @@ function Library:Window(Data)
     self.Guis[#self.Guis + 1] = ScreenGui
     self.Holder = ScreenGui
     local Size = Data.Size
-    local Width, Height = 780, 580
-    if typeof(Size) == "UDim2" then Width = math.max(Size.X.Offset, 620) Height = math.max(Size.Y.Offset, 500) end
+    local Width, Height = 720, 580
+    if typeof(Size) == "UDim2" then Width = math.max(Size.X.Offset, 560) Height = math.max(Size.Y.Offset, 480) end
     local Main = Create("Frame", {
         Parent = ScreenGui,
         Size = UDim2.fromOffset(Width, Height),
@@ -650,20 +650,23 @@ function Library:Window(Data)
     }, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
     local TitleBar = Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0}, {
         Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))})}),
-        Create("TextLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = string.lower(tostring(Data.Name or "atramenta.rip")), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Color3.fromRGB(214, 214, 218)}),
         Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})})
     })
+    local TitleLabel = Create("TextLabel", {Name = "Title", Parent = TitleBar, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.new(1, -28, 1, 0), BackgroundTransparency = 1, Text = string.lower(tostring(Data.Name or "atramenta.rip")),
+        Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Color3.fromRGB(214, 214, 218), TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 3})
     local Content = Create("Frame", {Parent = Main, Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 1, -48), BackgroundTransparency = 1, ClipsDescendants = false})
     local TabBar = Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.new(0, 0, 1, -26), BackgroundColor3 = Colors.TabBg, BorderSizePixel = 0}, {
         Create("UICorner", {CornerRadius = UDim.new(0, 4)}),
         Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})}),
         Create("Frame", {Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = Colors.TabBg, BorderSizePixel = 0, ZIndex = 0})
     })
-    local Window = setmetatable({Library = self, ScreenGui = ScreenGui, Main = Main, TitleBar = TitleBar, Content = Content, TabBar = TabBar, Pages = {}, PagesOrder = {}, ActivePage = nil, Visible = true, Destroyed = false}, WindowMethods)
+    local Window = setmetatable({Library = self, ScreenGui = ScreenGui, Main = Main, TitleBar = TitleBar, TitleLabel = TitleLabel, Content = Content, TabBar = TabBar, Pages = {}, PagesOrder = {}, ActivePage = nil, Visible = true, Destroyed = false}, WindowMethods)
     self.ActiveWindow = Window
     CreatePopupLayer(Window)
     MakeDraggable(Main,TitleBar,ScreenGui)
-    MakeResizable(Window,Vector2.new(620,480))
+    MakeResizable(Window,Vector2.new(560,480))
     RegisterRenderer(function()
         SyncThemeColors()
         local A = Accent()
