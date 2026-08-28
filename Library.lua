@@ -652,22 +652,34 @@ function Library:Window(Data)
         Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))})}),
         Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})})
     })
-    local TitleCenter = Create("Frame", {Name = "TitleCenter", Parent = TitleBar, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.new(1, -16, 1, -2), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 2}, {
-        Create("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center,
-            VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 0)})
-    })
-    local TitleLabel = Create("TextLabel", {Name = "Title", Parent = TitleCenter, AutomaticSize = Enum.AutomaticSize.XY, Size = UDim2.fromOffset(0, 0),
-        BackgroundTransparency = 1, Text = string.lower(tostring(Data.Name or "atramenta.rip")), Font = Enum.Font.SourceSans, TextSize = 13,
+    local TitleLabel = Create("TextLabel", {Name = "Title", Parent = TitleBar, AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(0, 0), BackgroundTransparency = 1,
+        Text = string.lower(tostring(Data.Name or "atramenta.rip")), Font = Enum.Font.SourceSans, TextSize = 13,
         TextColor3 = Color3.fromRGB(214, 214, 218), TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center,
-        TextTruncate = Enum.TextTruncate.None, ZIndex = 3})
+        TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 3})
+    local function UpdateTitleLayout()
+        if not TitleBar.Parent or not TitleLabel.Parent then return end
+        local Absolute = TitleBar.AbsoluteSize
+        local WidthPixels = math.max(math.floor(Absolute.X + 0.5), 0)
+        local HeightPixels = math.max(math.floor(Absolute.Y + 0.5), 0)
+        local CenterX = math.floor(WidthPixels * 0.5 + 0.5)
+        local CenterY = math.floor(HeightPixels * 0.5 + 0.5)
+        TitleLabel.Position = UDim2.fromOffset(CenterX, CenterY)
+        TitleLabel.Size = UDim2.fromOffset(math.max(WidthPixels - 16, 0), HeightPixels)
+        TitleLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+        TitleLabel.TextXAlignment = Enum.TextXAlignment.Center
+        TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
+    end
+    Bind(TitleBar:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateTitleLayout))
+    Bind(Main:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateTitleLayout))
+    task.defer(UpdateTitleLayout)
     local Content = Create("Frame", {Parent = Main, Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 1, -48), BackgroundTransparency = 1, ClipsDescendants = false})
     local TabBar = Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.new(0, 0, 1, -26), BackgroundColor3 = Colors.TabBg, BorderSizePixel = 0}, {
         Create("UICorner", {CornerRadius = UDim.new(0, 4)}),
         Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})}),
         Create("Frame", {Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = Colors.TabBg, BorderSizePixel = 0, ZIndex = 0})
     })
-    local Window = setmetatable({Library = self, ScreenGui = ScreenGui, Main = Main, TitleBar = TitleBar, TitleCenter = TitleCenter, TitleLabel = TitleLabel, Content = Content, TabBar = TabBar, Pages = {}, PagesOrder = {}, ActivePage = nil, Visible = true, Destroyed = false}, WindowMethods)
+    local Window = setmetatable({Library = self, ScreenGui = ScreenGui, Main = Main, TitleBar = TitleBar, TitleLabel = TitleLabel, UpdateTitleLayout = UpdateTitleLayout, Content = Content, TabBar = TabBar, Pages = {}, PagesOrder = {}, ActivePage = nil, Visible = true, Destroyed = false}, WindowMethods)
     self.ActiveWindow = Window
     CreatePopupLayer(Window)
     MakeDraggable(Main,TitleBar,ScreenGui)
