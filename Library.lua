@@ -18,6 +18,19 @@ local function Call(Function, ...)
 end
 Library.Call = Call
 
+local GlobalEnvironment = type(getgenv) == "function" and getgenv() or _G
+local AtramentaEnvironment = rawget(GlobalEnvironment, "Atramenta")
+if type(AtramentaEnvironment) ~= "table" then
+    AtramentaEnvironment = {}
+    rawset(GlobalEnvironment, "Atramenta", AtramentaEnvironment)
+end
+local PreviousAtramentaLibrary = rawget(AtramentaEnvironment, "Library")
+if type(PreviousAtramentaLibrary) == "table" and PreviousAtramentaLibrary ~= Library and type(PreviousAtramentaLibrary.Unload) == "function" then
+    Call(function() PreviousAtramentaLibrary:Unload() end)
+end
+AtramentaEnvironment.Library = Library
+Library.Environment = AtramentaEnvironment
+
 local function Bind(Connection)
     if Connection then Library.Connections[#Library.Connections + 1] = Connection end
     return Connection
@@ -625,7 +638,7 @@ function Library:Window(Data)
     self.Guis[#self.Guis + 1] = ScreenGui
     self.Holder = ScreenGui
     local Size = Data.Size
-    local Width, Height = 900, 680
+    local Width, Height = 780, 580
     if typeof(Size) == "UDim2" then Width = math.max(Size.X.Offset, 620) Height = math.max(Size.Y.Offset, 500) end
     local Main = Create("Frame", {
         Parent = ScreenGui,
@@ -650,7 +663,7 @@ function Library:Window(Data)
     self.ActiveWindow = Window
     CreatePopupLayer(Window)
     MakeDraggable(Main,TitleBar,ScreenGui)
-    MakeResizable(Window,Vector2.new(620,500))
+    MakeResizable(Window,Vector2.new(620,480))
     RegisterRenderer(function()
         SyncThemeColors()
         local A = Accent()
@@ -1688,6 +1701,7 @@ function Library.Unload(...)
     Library.NotificationScale = nil
     Library.Holder = nil
     table.clear(Library.Renderers)
+    if rawget(AtramentaEnvironment, "Library") == Library then AtramentaEnvironment.Library = nil end
 end
 Library.Destroy = Library.Unload
 
