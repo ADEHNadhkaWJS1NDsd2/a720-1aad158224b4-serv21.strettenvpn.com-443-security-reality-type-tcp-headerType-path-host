@@ -1787,9 +1787,10 @@ end
 function Library:KeybindList()
     if self.KeybindListController then return self.KeybindListController end
     local Parent=ParentGui() local Gui=Create("ScreenGui",{Name="AtramentaKeybinds",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false}) self.Guis[#self.Guis+1]=Gui
-    local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,43),Size=UDim2.fromOffset(190,25),AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1}),Create("UIPadding",{PaddingBottom=UDim.new(0,5)})})
+    local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,43),Size=UDim2.fromOffset(270,25),AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1}),Create("UIPadding",{PaddingBottom=UDim.new(0,5)})})
     local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})})
     local HeaderText=Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="keybinds",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left})
+    local HeaderCount=Create("TextLabel",{Parent=Header,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-7,0,0),Size=UDim2.fromOffset(110,20),BackgroundTransparency=1,Text="",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right})
     local Line=Create("Frame",{Parent=Header,Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,Accent()),ColorSequenceKeypoint.new(0.84,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})})
     local Holder=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(7,23),Size=UDim2.new(1,-14,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder})})
     local Scale=Create("UIScale",{Parent=Frame,Scale=1}) MakeDraggable(Frame,Header,Gui)
@@ -1801,21 +1802,53 @@ function Library:KeybindList()
     function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.5,2) end
     function Object:Refresh()
         for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end table.clear(Object.Rows)
-        local Width=176
+
+        local Width=256
+        local Assigned,Active=0,0
         for _,BindData in ipairs(Library.Keybinds) do
             if BindData.TargetControl then BindData.Value=BindData.TargetControl:Get() end
-            if not BindData.Destroyed and KeybindGateOpen(BindData) and (BindData.Value==true or BindData.Mode=="Always") then
-                local Key=KeyDisplay(BindData.Key,BindData.Modifiers) local Mode=BindData.Mode=="Hold" and "hold" or BindData.Mode=="Always" and "always" or "toggled" local Right="["..Key.."]  "..Mode
-                local LeftWidth=TextService:GetTextSize(BindData.Name,12,Enum.Font.SourceSans,Vector2.new(400,16)).X local RightWidth=TextService:GetTextSize(Right,12,Enum.Font.SourceSans,Vector2.new(400,16)).X Width=math.max(Width,math.ceil(LeftWidth+RightWidth+28))
-                local Row=Create("Frame",{Parent=Holder,Size=UDim2.new(1,0,0,14),BackgroundTransparency=1})
-                Create("TextLabel",{Parent=Row,Size=UDim2.new(0.58,0,1,0),BackgroundTransparency=1,Text=BindData.Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
-                Create("TextLabel",{Parent=Row,Position=UDim2.new(0.58,0,0,0),Size=UDim2.new(0.42,0,1,0),BackgroundTransparency=1,Text=Right,TextColor3=Accent(),Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Right}) Object.Rows[#Object.Rows+1]=Row
+            local Key=NormalizeKey(BindData.Key)
+            if not BindData.Destroyed and Key~=nil then
+                Assigned+=1
+                local GateOpen=KeybindGateOpen(BindData)
+                local IsActive=GateOpen and (BindData.Value==true or BindData.Mode=="Always")
+                if IsActive then Active+=1 end
+
+                local KeyText="["..KeyDisplay(BindData.Key,BindData.Modifiers).."]"
+                local ModeText=BindData.Mode=="Hold" and "hold" or BindData.Mode=="Always" and "always" or "toggle"
+                local StateText=not GateOpen and "disabled" or IsActive and "on" or "off"
+                local StateColor=IsActive and Accent() or Colors.TextDim
+                local NameColor=IsActive and Colors.TextBright or Colors.Text
+                local KeyColor=IsActive and Accent() or Colors.TextBind
+
+                local NameWidth=TextService:GetTextSize(BindData.Name,12,Enum.Font.SourceSans,Vector2.new(500,16)).X
+                local RightText=KeyText.."  "..ModeText.."  "..StateText
+                local RightWidth=TextService:GetTextSize(RightText,11,Enum.Font.SourceSans,Vector2.new(500,16)).X
+                Width=math.max(Width,math.ceil(NameWidth+RightWidth+34))
+
+                local Row=Create("Frame",{Parent=Holder,Size=UDim2.new(1,0,0,16),BackgroundColor3=IsActive and Accent() or Colors.Control,BackgroundTransparency=IsActive and 0.91 or 1,BorderSizePixel=0,LayoutOrder=Assigned})
+                local Dot=Create("Frame",{Parent=Row,AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,0,0.5,0),Size=UDim2.fromOffset(3,10),BackgroundColor3=StateColor,BackgroundTransparency=IsActive and 0 or 0.55,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
+                Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-176,1,0),BackgroundTransparency=1,Text=BindData.Name,TextColor3=NameColor,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
+                Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-89,0,0),Size=UDim2.fromOffset(82,16),BackgroundTransparency=1,Text=KeyText,TextColor3=KeyColor,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd})
+                Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-39,0,0),Size=UDim2.fromOffset(46,16),BackgroundTransparency=1,Text=ModeText,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right})
+                Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,0),Size=UDim2.fromOffset(36,16),BackgroundTransparency=1,Text=StateText,TextColor3=StateColor,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right})
+                Object.Rows[#Object.Rows+1]=Row
             end
         end
-        Frame.Size=UDim2.fromOffset(math.clamp(Width,176,290),25)
+
+        HeaderCount.Text=tostring(Active).." active / "..tostring(Assigned)
+        if Assigned==0 then
+            local Empty=Create("TextLabel",{Parent=Holder,Size=UDim2.new(1,0,0,16),BackgroundTransparency=1,Text="no keybinds assigned",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left})
+            Object.Rows[#Object.Rows+1]=Empty
+        end
+        Frame.Size=UDim2.fromOffset(math.clamp(Width,256,380),25)
     end
-    RegisterRenderer(function() local A=Accent() Line.BackgroundColor3=A local G=Line:FindFirstChildOfClass("UIGradient") if G then G.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,A),ColorSequenceKeypoint.new(0.84,A),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))}) end end)
-    BindFrameToViewport(Frame,Gui,4) self.KeybindListController=Object return Object
+    RegisterRenderer(function()
+        local A=Accent() Line.BackgroundColor3=A
+        local G=Line:FindFirstChildOfClass("UIGradient") if G then G.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,A),ColorSequenceKeypoint.new(0.84,A),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))}) end
+        Object:Refresh()
+    end)
+    BindFrameToViewport(Frame,Gui,4) self.KeybindListController=Object Object:Refresh() return Object
 end
 
 function Library:PlayerList(Data)
@@ -1825,7 +1858,7 @@ function Library:PlayerList(Data)
     local Parent=ParentGui()
     local Gui=Create("ScreenGui",{Name="AtramentaPlayerList",Parent=Parent,ResetOnSpawn=false,DisplayOrder=150,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui
-    local Frame=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.72,0.52),Size=UDim2.fromOffset(586,344),BackgroundColor3=Color3.fromRGB(2,2,3),BorderSizePixel=0,Visible=false,Active=true,ZIndex=150},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(0,0,0),Thickness=1})})
+    local Frame=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.72,0.52),Size=UDim2.fromOffset(720,420),BackgroundColor3=Color3.fromRGB(2,2,3),BorderSizePixel=0,Visible=false,Active=true,ZIndex=150},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(0,0,0),Thickness=1})})
     local Inner=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=151},{Create("UICorner",{CornerRadius=UDim.new(0,1)})})
     local Header=Create("Frame",{Parent=Inner,Size=UDim2.new(1,0,0,21),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true,ZIndex=152},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.TitleBg)})})})
     local AccentLine=Create("Frame",{Parent=Header,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=154},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.12,Accent()),ColorSequenceKeypoint.new(0.88,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
@@ -1963,7 +1996,8 @@ function Library:PlayerList(Data)
     Bind(Search:GetPropertyChangedSignal("Text"):Connect(function() Object.Search=Search.Text RefreshRows() end))
     Bind(Players.PlayerAdded:Connect(function() task.defer(function() Object:Refresh() end) end))
     Bind(Players.PlayerRemoving:Connect(function(Player) Library.PlayerStatuses[tonumber(Player.UserId) or 0]=nil if Object.Selected==Player then Object.Selected=nil end task.defer(function() Object:Refresh() end) end))
-    MakeDraggable(Frame,Header,Gui) BindFrameToViewport(Frame,Gui,4)
+    MakeDraggable(Frame,Header,Gui)
+    MakeResizable({Main=Frame,ScreenGui=Gui},Vector2.new(520,300))
     RegisterRenderer(function()
         local A=Accent() StatusColors.Client=A AccentLine.BackgroundColor3=A
         local Gradient=AccentLine:FindFirstChildOfClass("UIGradient") if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.12,A),ColorSequenceKeypoint.new(0.88,A),ColorSequenceKeypoint.new(1,Color3.new())}) end
@@ -2244,7 +2278,7 @@ Bind(UserInputService.InputBegan:Connect(function(Input,Processed)
     if not Processed and Library.ActiveWindow then
         local MenuBind=Library.MenuBindData
         if MenuBind and InputMatches(Input,MenuBind.Key,MenuBind.Modifiers) or not MenuBind and InputMatches(Input,Library.MenuKeybind) then
-            if Library.QuickPanelController and type(Library.QuickPanelController.ToggleInterface)=="function" then Library.QuickPanelController:ToggleInterface() else Library.ActiveWindow:Toggle() end
+            Library.ActiveWindow:Toggle()
             return
         end
     end
