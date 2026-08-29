@@ -1759,7 +1759,7 @@ function Library:Watermark(Text)
     local TextGradient=Create("UIGradient",{Parent=Label,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.TextBright),ColorSequenceKeypoint.new(0.38,Colors.TextBright),ColorSequenceKeypoint.new(0.5,AccentHover()),ColorSequenceKeypoint.new(0.62,Colors.TextBright),ColorSequenceKeypoint.new(1,Colors.TextBright)}),Offset=Vector2.new(-1,0)})
     local Scale=Create("UIScale",{Parent=Frame,Scale=1}) MakeDraggable(Frame,Frame,Gui)
     local Object={Gui=Gui,Frame=Frame,Label=Label,Scale=Scale,Line=Line,Brand=string.lower(tostring(Text or "atramenta.rip")),FPS=0,Ping=0,Alive=true,RequestedVisible=true,MenuVisible=true}
-    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false end
+    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false end
     function Object:Resize() local Bounds=TextService:GetTextSize(Label.Text,13,Enum.Font.SourceSans,Vector2.new(1200,23)) Frame.Size=UDim2.fromOffset(math.max(170,math.ceil(Bounds.X)+18),23) end
     function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
     function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
@@ -1790,12 +1790,10 @@ function Library:KeybindList()
     local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,43),Size=UDim2.fromOffset(270,25),AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1}),Create("UIPadding",{PaddingBottom=UDim.new(0,5)})})
     local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})})
     local HeaderText=Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="keybinds",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left})
-    local HeaderCount=Create("TextLabel",{Parent=Header,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-7,0,0),Size=UDim2.fromOffset(110,20),BackgroundTransparency=1,Text="",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right})
-    local Line=Create("Frame",{Parent=Header,Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,Accent()),ColorSequenceKeypoint.new(0.84,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})})
     local Holder=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(7,23),Size=UDim2.new(1,-14,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder})})
     local Scale=Create("UIScale",{Parent=Frame,Scale=1}) MakeDraggable(Frame,Header,Gui)
     local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={},RequestedVisible=false,MenuVisible=true}
-    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false end
+    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false end
     function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
     function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
     function Object:IsRequestedVisible() return Object.RequestedVisible==true end
@@ -1804,7 +1802,7 @@ function Library:KeybindList()
         for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end table.clear(Object.Rows)
 
         local Width=256
-        local Assigned,Active=0,0
+        local Assigned=0
         for _,BindData in ipairs(Library.Keybinds) do
             if BindData.TargetControl then BindData.Value=BindData.TargetControl:Get() end
             local Key=NormalizeKey(BindData.Key)
@@ -1812,8 +1810,6 @@ function Library:KeybindList()
                 Assigned+=1
                 local GateOpen=KeybindGateOpen(BindData)
                 local IsActive=GateOpen and (BindData.Value==true or BindData.Mode=="Always")
-                if IsActive then Active+=1 end
-
                 local KeyText="["..KeyDisplay(BindData.Key,BindData.Modifiers).."]"
                 local ModeText=BindData.Mode=="Hold" and "hold" or BindData.Mode=="Always" and "always" or "toggle"
                 local StateText=not GateOpen and "disabled" or IsActive and "on" or "off"
@@ -1827,8 +1823,7 @@ function Library:KeybindList()
                 Width=math.max(Width,math.ceil(NameWidth+RightWidth+34))
 
                 local Row=Create("Frame",{Parent=Holder,Size=UDim2.new(1,0,0,16),BackgroundColor3=IsActive and Accent() or Colors.Control,BackgroundTransparency=IsActive and 0.91 or 1,BorderSizePixel=0,LayoutOrder=Assigned})
-                local Dot=Create("Frame",{Parent=Row,AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,0,0.5,0),Size=UDim2.fromOffset(3,10),BackgroundColor3=StateColor,BackgroundTransparency=IsActive and 0 or 0.55,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-                Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-176,1,0),BackgroundTransparency=1,Text=BindData.Name,TextColor3=NameColor,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
+                Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,-169,1,0),BackgroundTransparency=1,Text=BindData.Name,TextColor3=NameColor,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
                 Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-89,0,0),Size=UDim2.fromOffset(82,16),BackgroundTransparency=1,Text=KeyText,TextColor3=KeyColor,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd})
                 Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-39,0,0),Size=UDim2.fromOffset(46,16),BackgroundTransparency=1,Text=ModeText,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right})
                 Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,0),Size=UDim2.fromOffset(36,16),BackgroundTransparency=1,Text=StateText,TextColor3=StateColor,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right})
@@ -1836,18 +1831,13 @@ function Library:KeybindList()
             end
         end
 
-        HeaderCount.Text=tostring(Active).." active / "..tostring(Assigned)
         if Assigned==0 then
             local Empty=Create("TextLabel",{Parent=Holder,Size=UDim2.new(1,0,0,16),BackgroundTransparency=1,Text="no keybinds assigned",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left})
             Object.Rows[#Object.Rows+1]=Empty
         end
         Frame.Size=UDim2.fromOffset(math.clamp(Width,256,380),25)
     end
-    RegisterRenderer(function()
-        local A=Accent() Line.BackgroundColor3=A
-        local G=Line:FindFirstChildOfClass("UIGradient") if G then G.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.16,A),ColorSequenceKeypoint.new(0.84,A),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))}) end
-        Object:Refresh()
-    end)
+    RegisterRenderer(function() Object:Refresh() end)
     BindFrameToViewport(Frame,Gui,4) self.KeybindListController=Object Object:Refresh() return Object
 end
 
@@ -2038,10 +2028,11 @@ function Library:QuickPanel(Data)
         State=State==true Library.InterfaceOpen=State Root.Visible=State
         local Window=Library.ActiveWindow if Window and type(Window.SetMenuVisible)=="function" then Window:SetMenuVisible(State) end
         local PlayersPanel=Library.PlayerListController if PlayersPanel and type(PlayersPanel.SetMenuVisible)=="function" then PlayersPanel:SetMenuVisible(State) end
-        local Watermark=Library.WatermarkController if Watermark and type(Watermark.SetMenuVisible)=="function" then Watermark:SetMenuVisible(State) end
-        local Keybinds=Library.KeybindListController if Keybinds and type(Keybinds.SetMenuVisible)=="function" then Keybinds:SetMenuVisible(State) end
-        if not State and type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(false)
-        elseif State and Window and Window:IsVisible() and type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(true) end
+        local Watermark=Library.WatermarkController if Watermark and type(Watermark.ApplyVisibility)=="function" then Watermark:ApplyVisibility() end
+        local Keybinds=Library.KeybindListController if Keybinds and type(Keybinds.ApplyVisibility)=="function" then Keybinds:ApplyVisibility() end
+        if type(Library.SetNotificationPreviewVisible)=="function" then
+            Library:SetNotificationPreviewVisible(State and Window and Window:IsVisible())
+        end
         Object.Refresh()
     end
     function Object:ToggleInterface() Object:SetInterfaceVisible(not (Library.InterfaceOpen~=false)) end
@@ -2278,7 +2269,11 @@ Bind(UserInputService.InputBegan:Connect(function(Input,Processed)
     if not Processed and Library.ActiveWindow then
         local MenuBind=Library.MenuBindData
         if MenuBind and InputMatches(Input,MenuBind.Key,MenuBind.Modifiers) or not MenuBind and InputMatches(Input,Library.MenuKeybind) then
-            Library.ActiveWindow:Toggle()
+            if Library.QuickPanelController and type(Library.QuickPanelController.ToggleInterface)=="function" then
+                Library.QuickPanelController:ToggleInterface()
+            else
+                Library.ActiveWindow:Toggle()
+            end
             return
         end
     end
