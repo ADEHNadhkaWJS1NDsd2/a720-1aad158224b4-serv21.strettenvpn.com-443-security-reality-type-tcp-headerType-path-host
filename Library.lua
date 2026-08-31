@@ -637,8 +637,12 @@ local function CreatePopupLayer(Window)
 end
 
 function WindowMethods:CloseDropdown()
+    local PreviousOwner = self.DropdownOwner
     self.Dropdown.Visible = false
     self.DropdownOwner = nil
+    if PreviousOwner and type(PreviousOwner.Render) == "function" then
+        Call(PreviousOwner.Render)
+    end
 end
 
 function WindowMethods:ClosePicker()
@@ -692,6 +696,9 @@ function WindowMethods:OpenDropdown(Owner, Anchor, Items, Selected, Multi, Callb
     local Position = self.ClampPopup(Vector2.new(Width, math.max(22, Height)), Vector2.new(AnchorPos.X, AnchorPos.Y + Anchor.AbsoluteSize.Y + 2))
     self.Dropdown.Position = UDim2.fromOffset(Position.X, Position.Y)
     self.Dropdown.Visible = true
+    if Owner and type(Owner.Render) == "function" then
+        Call(Owner.Render)
+    end
 end
 
 function WindowMethods:OpenPicker(Object, Anchor)
@@ -1149,7 +1156,9 @@ local function MakeDropdown(Section, Data, Multi)
         if Multi then
             Text.Text = #Object.Value > 0 and table.concat(Object.Value, ", ") or tostring(Data.Placeholder or "none")
         else Text.Text = tostring(Object.Value or "") end
-        Arrow.TextColor3 = Section.Window.DropdownOwner == Object and Section.Window.Dropdown.Visible and Accent() or Colors.TextBind
+        local IsOpen = Section.Window.DropdownOwner == Object and Section.Window.Dropdown.Visible
+        Arrow.Text = IsOpen and "▲" or "▼"
+        Arrow.TextColor3 = IsOpen and Accent() or Colors.TextBind
     end
     function Object:Set(Value, Silent)
         if Multi then
