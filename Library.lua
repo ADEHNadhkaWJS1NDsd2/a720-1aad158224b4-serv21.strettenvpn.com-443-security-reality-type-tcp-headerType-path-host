@@ -1694,7 +1694,6 @@ function WindowMethods:ConfigSystem()
     local Browser=Page:Section({Name="configs",Side=1})
     local Manager=Page:Section({Name="config actions",Side=2})
     local Interface=Page:Section({Name="interface",Side=1})
-    local Theme=Page:Section({Name="theme",Side=2})
     local Selected,Listbox
     local CountLabel=Browser:Label({Name="0 configs",Alignment="Left"})
     local NameBox=Manager:Textbox({Name="config name",Flag="__ConfigName",Default="",Placeholder="enter name"})
@@ -1735,16 +1734,36 @@ function WindowMethods:ConfigSystem()
     Manager:Button({Name="delete",Callback=function() local Name=CurrentName(false) if Name=="" then Notify("select a config") return end if Library:DeleteConfig(Name) then SetSelected(nil) NameBox:Set("",true) Refresh(false) Notify(Name.." deleted") else Notify("failed to delete "..Name) end end})
 
     Library.MenuBindData=Interface:Keybind({Name="menu bind",Flag="__AtramentaMenuBind",Default=Enum.KeyCode.F2,Mode="Toggle",Callback=function() end})
-    Interface:Toggle({Name="watermark",Flag="__InterfaceWatermark",Default=true,Callback=function(Value) if Library.WatermarkController then Library.WatermarkController:SetVisibility(Value==true) end end})
-    Interface:Toggle({Name="keybind list",Flag="__InterfaceKeybindList",Default=false,Callback=function(Value) if Library.KeybindListController then Library.KeybindListController:SetVisibility(Value==true) end end})
-    Interface:Slider({Name="watermark scale",Flag="__InterfaceWatermarkScale",Min=60,Max=160,Default=100,Step=5,Suffix="%",Callback=function(Value) if Library.WatermarkController then Library.WatermarkController:SetScale(Value) end end})
-    Interface:Slider({Name="keybind scale",Flag="__InterfaceKeybindScale",Min=60,Max=160,Default=100,Step=5,Suffix="%",Callback=function(Value) if Library.KeybindListController then Library.KeybindListController:SetScale(Value) end end})
 
-    local function ThemePicker(Name,Flag,Key)
-        Theme:Label({Name=Name,Alignment="Left"}):Colorpicker({Name=Name,Flag=Flag,Default=Library.Theme[Key],Callback=function(Value) Library:ChangeTheme(Key,Value) end})
+    -- Theme / watermark / keybind-list controls live in the standalone Theme panel.
+    -- Keep their flags registered here so old configs continue to load exactly as before.
+    RegisterFlag("__InterfaceWatermark",true,function(Value)
+        Library.Flags.__InterfaceWatermark=Value==true
+        if Library.WatermarkController then Library.WatermarkController:SetVisibility(Value==true) end
+    end)
+    RegisterFlag("__InterfaceKeybindList",false,function(Value)
+        Library.Flags.__InterfaceKeybindList=Value==true
+        if Library.KeybindListController then Library.KeybindListController:SetVisibility(Value==true) end
+    end)
+    RegisterFlag("__InterfaceWatermarkScale",100,function(Value)
+        local Number=math.clamp(tonumber(Value) or 100,60,160)
+        Library.Flags.__InterfaceWatermarkScale=Number
+        if Library.WatermarkController then Library.WatermarkController:SetScale(Number) end
+    end)
+    RegisterFlag("__InterfaceKeybindScale",100,function(Value)
+        local Number=math.clamp(tonumber(Value) or 100,60,160)
+        Library.Flags.__InterfaceKeybindScale=Number
+        if Library.KeybindListController then Library.KeybindListController:SetScale(Number) end
+    end)
+    for _,ThemeData in ipairs({
+        {"__ThemeAccent","Accent"},{"__ThemeBackground","Background"},{"__ThemeSurface","Surface"},{"__ThemeControl","Control"},{"__ThemeBorder","Border"},
+        {"__ThemeText","Text"},{"__ThemeTextBright","TextBright"},{"__ThemeTextDim","TextDim"},{"__ThemeHeader","Header"}
+    }) do
+        local Flag,Key=ThemeData[1],ThemeData[2]
+        RegisterFlag(Flag,Library.Theme[Key],function(Value)
+            if typeof(Value)=="Color3" then Library.Flags[Flag]=Value Library:ChangeTheme(Key,Value) end
+        end)
     end
-    ThemePicker("accent","__ThemeAccent","Accent") ThemePicker("background","__ThemeBackground","Background") ThemePicker("surface","__ThemeSurface","Surface") ThemePicker("controls","__ThemeControl","Control") ThemePicker("border","__ThemeBorder","Border")
-    ThemePicker("text","__ThemeText","Text") ThemePicker("bright text","__ThemeTextBright","TextBright") ThemePicker("muted text","__ThemeTextDim","TextDim") ThemePicker("section text","__ThemeHeader","Header")
     Refresh(false)
     self.ConfigPage,self.SettingsPage,self.ConfigListbox,self.RefreshConfigs=Page,Page,Listbox,Refresh return Page
 end
@@ -1786,22 +1805,43 @@ end
 
 function Library:KeybindList()
     if self.KeybindListController then return self.KeybindListController end
-    local Parent=ParentGui() local Gui=Create("ScreenGui",{Name="AtramentaKeybinds",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false}) self.Guis[#self.Guis+1]=Gui
-    local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,43),Size=UDim2.fromOffset(270,25),AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1}),Create("UIPadding",{PaddingBottom=UDim.new(0,5)})})
-    local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})})
-    local HeaderText=Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="keybinds",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left})
-    local Holder=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(7,23),Size=UDim2.new(1,-14,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder})})
-    local Scale=Create("UIScale",{Parent=Frame,Scale=1}) MakeDraggable(Frame,Header,Gui)
+    local Parent=ParentGui()
+    local Gui=Create("ScreenGui",{Name="AtramentaKeybinds",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
+    self.Guis[#self.Guis+1]=Gui
+
+    local Frame=Create("Frame",{
+        Parent=Gui,Position=UDim2.fromOffset(12,43),Size=UDim2.fromOffset(188,24),AutomaticSize=Enum.AutomaticSize.Y,
+        BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false
+    },{Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1}),Create("UIPadding",{PaddingBottom=UDim.new(0,3)})})
+    local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,19),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{
+        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})
+    })
+    local HeaderText=Create("TextLabel",{
+        Parent=Header,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Keybinds",TextColor3=Colors.TextBright,
+        Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center
+    })
+    local Holder=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(4,21),Size=UDim2.new(1,-8,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},{
+        Create("UIListLayout",{Padding=UDim.new(0,1),SortOrder=Enum.SortOrder.LayoutOrder})
+    })
+    local Scale=Create("UIScale",{Parent=Frame,Scale=1})
+    MakeDraggable(Frame,Header,Gui)
+
     local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={},RequestedVisible=false,MenuVisible=true}
     function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false end
-    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
+    function Object:SetVisibility(State) Object.RequestedVisible=State==true Library.Flags.__InterfaceKeybindList=Object.RequestedVisible Object:ApplyVisibility() end
     function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
     function Object:IsRequestedVisible() return Object.RequestedVisible==true end
-    function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.5,2) end
-    function Object:Refresh()
-        for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end table.clear(Object.Rows)
+    function Object:SetScale(Value)
+        local Number=math.clamp(tonumber(Value) or 100,60,160)
+        Library.Flags.__InterfaceKeybindScale=Number
+        Scale.Scale=Number/100
+    end
 
-        local Width=256
+    function Object:Refresh()
+        for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end
+        table.clear(Object.Rows)
+
+        local DesiredWidth=180
         local Assigned=0
         for _,BindData in ipairs(Library.Keybinds) do
             if BindData.TargetControl then BindData.Value=BindData.TargetControl:Get() end
@@ -1809,36 +1849,60 @@ function Library:KeybindList()
             if not BindData.Destroyed and Key~=nil then
                 Assigned+=1
                 local GateOpen=KeybindGateOpen(BindData)
-                local IsActive=GateOpen and (BindData.Value==true or BindData.Mode=="Always")
+                local Active=GateOpen and (BindData.Mode=="Always" or BindData.Value==true)
+                local ModeText
+                if BindData.Mode=="Always" then
+                    ModeText="Always"
+                elseif BindData.Mode=="Hold" then
+                    ModeText=Active and "Holded" or "Hold"
+                else
+                    ModeText=Active and "Toggled" or "Toggle"
+                end
+
                 local KeyText="["..KeyDisplay(BindData.Key,BindData.Modifiers).."]"
-                local ModeText=BindData.Mode=="Hold" and "hold" or BindData.Mode=="Always" and "always" or "toggle"
-                local StateText=not GateOpen and "disabled" or IsActive and "on" or "off"
-                local StateColor=IsActive and Accent() or Colors.TextDim
-                local NameColor=IsActive and Colors.TextBright or Colors.Text
-                local KeyColor=IsActive and Accent() or Colors.TextBind
+                local ModeDisplay="["..ModeText.."]"
+                local RightText=KeyText.." "..ModeDisplay
+                local NameText=tostring(BindData.Name or BindData.TargetFlag or BindData.Flag or "bind")
+                local NameWidth=TextService:GetTextSize(NameText,12,Enum.Font.SourceSans,Vector2.new(700,15)).X
+                local RightWidth=TextService:GetTextSize(RightText,11,Enum.Font.SourceSans,Vector2.new(700,15)).X
+                DesiredWidth=math.max(DesiredWidth,math.ceil(NameWidth+RightWidth+20))
 
-                local NameWidth=TextService:GetTextSize(BindData.Name,12,Enum.Font.SourceSans,Vector2.new(500,16)).X
-                local RightText=KeyText.."  "..ModeText.."  "..StateText
-                local RightWidth=TextService:GetTextSize(RightText,11,Enum.Font.SourceSans,Vector2.new(500,16)).X
-                Width=math.max(Width,math.ceil(NameWidth+RightWidth+34))
-
-                local Row=Create("Frame",{Parent=Holder,Size=UDim2.new(1,0,0,16),BackgroundColor3=IsActive and Accent() or Colors.Control,BackgroundTransparency=IsActive and 0.91 or 1,BorderSizePixel=0,LayoutOrder=Assigned})
-                Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,-169,1,0),BackgroundTransparency=1,Text=BindData.Name,TextColor3=NameColor,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
-                Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-89,0,0),Size=UDim2.fromOffset(82,16),BackgroundTransparency=1,Text=KeyText,TextColor3=KeyColor,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd})
-                Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-39,0,0),Size=UDim2.fromOffset(46,16),BackgroundTransparency=1,Text=ModeText,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right})
-                Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,0),Size=UDim2.fromOffset(36,16),BackgroundTransparency=1,Text=StateText,TextColor3=StateColor,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right})
+                local Row=Create("Frame",{
+                    Parent=Holder,Size=UDim2.new(1,0,0,15),BackgroundColor3=Active and Accent() or Colors.Control,
+                    BackgroundTransparency=Active and 0.91 or 1,BorderSizePixel=0,LayoutOrder=Assigned
+                })
+                local RightLabel=Create("TextLabel",{
+                    Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,0),Size=UDim2.fromOffset(math.ceil(RightWidth)+2,15),
+                    BackgroundTransparency=1,Text=RightText,TextColor3=Active and Accent() or (GateOpen and Colors.TextBind or Colors.TextDim),
+                    Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,TextYAlignment=Enum.TextYAlignment.Center
+                })
+                local NameLabel=Create("TextLabel",{
+                    Parent=Row,Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,-(math.ceil(RightWidth)+8),1,0),BackgroundTransparency=1,
+                    Text=NameText,TextColor3=Active and Colors.TextBright or (GateOpen and Colors.Text or Colors.TextDim),
+                    Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd
+                })
                 Object.Rows[#Object.Rows+1]=Row
             end
         end
 
         if Assigned==0 then
-            local Empty=Create("TextLabel",{Parent=Holder,Size=UDim2.new(1,0,0,16),BackgroundTransparency=1,Text="no keybinds assigned",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left})
+            local Empty=Create("TextLabel",{Parent=Holder,Size=UDim2.new(1,0,0,15),BackgroundTransparency=1,Text="no keybinds assigned",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left})
             Object.Rows[#Object.Rows+1]=Empty
         end
-        Frame.Size=UDim2.fromOffset(math.clamp(Width,256,380),25)
+        Frame.Size=UDim2.fromOffset(math.clamp(DesiredWidth,180,350),24)
     end
-    RegisterRenderer(function() Object:Refresh() end)
-    BindFrameToViewport(Frame,Gui,4) self.KeybindListController=Object Object:Refresh() return Object
+
+    RegisterRenderer(function()
+        Header.BackgroundColor3=Colors.TitleBg
+        HeaderText.TextColor3=Colors.TextBright
+        Object:Refresh()
+    end)
+    BindFrameToViewport(Frame,Gui,4)
+    self.KeybindListController=Object
+    Object:SetScale(Library.Flags.__InterfaceKeybindScale or 100)
+    Object:SetVisibility(Library.Flags.__InterfaceKeybindList==true)
+    Object:Refresh()
+    return Object
 end
 
 function Library:PlayerList(Data)
@@ -1996,6 +2060,156 @@ function Library:PlayerList(Data)
     Object:Refresh() self.PlayerListController=Object Object:ApplyVisibility() return Object
 end
 
+function Library:ThemePanel()
+    if self.ThemePanelController then return self.ThemePanelController end
+    local Parent=ParentGui()
+    local Gui=Create("ScreenGui",{Name="AtramentaThemePanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=195,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
+    self.Guis[#self.Guis+1]=Gui
+    local Frame=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.47),Size=UDim2.fromOffset(386,332),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ZIndex=195},{
+        Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1}),Create("UICorner",{CornerRadius=UDim.new(0,2)})
+    })
+    local Title=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true,ZIndex=196},{
+        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})
+    })
+    local TitleText=Create("TextLabel",{Parent=Title,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Theme",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=197})
+    local Tabs=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(6,27),Size=UDim2.new(1,-12,0,24),BackgroundTransparency=1,ZIndex=196},{
+        Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,3),SortOrder=Enum.SortOrder.LayoutOrder})
+    })
+    local Content=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(6,56),Size=UDim2.new(1,-12,1,-62),BackgroundTransparency=1,ZIndex=196})
+    MakeDraggable(Frame,Title,Gui)
+    BindFrameToViewport(Frame,Gui,4)
+
+    local Object={Gui=Gui,Frame=Frame,RequestedVisible=false,MenuVisible=true,Buttons={},Panels={},ActiveTab="Colors"}
+    function Object:ApplyVisibility()
+        Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
+        if type(Library.SetNotificationPreviewVisible)=="function" then
+            local Window=Library.ActiveWindow
+            local MainVisible=Window and Window:IsVisible() or false
+            Library:SetNotificationPreviewVisible(Frame.Visible or MainVisible)
+        end
+    end
+    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() if Library.QuickPanelController and Library.QuickPanelController.Refresh then Library.QuickPanelController.Refresh() end end
+    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
+    function Object:IsVisible() return Frame.Visible==true end
+    function Object:IsRequestedVisible() return Object.RequestedVisible==true end
+    function Object:Toggle() Object:SetVisibility(not Object.RequestedVisible) end
+
+    local function Panel(Name)
+        local P=Create("Frame",{Parent=Content,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false,ZIndex=197})
+        Object.Panels[Name]=P
+        return P
+    end
+    local function Select(Name)
+        Object.ActiveTab=Name
+        for TabName,P in pairs(Object.Panels) do P.Visible=TabName==Name end
+        for TabName,B in pairs(Object.Buttons) do
+            local Active=TabName==Name
+            B.TextColor3=Active and Colors.TextBright or Colors.TextDim
+            B.BackgroundTransparency=Active and 0.62 or 0.88
+            local Stroke=B:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Active and Accent() or Colors.SectionBorder end
+        end
+    end
+    local TabNames={"Colors","UI","Binds","Notifs"}
+    for Index,Name in ipairs(TabNames) do
+        local Button=Create("TextButton",{Parent=Tabs,Size=UDim2.new(0.25,-3,1,0),BackgroundColor3=Colors.Control,BackgroundTransparency=0.88,BorderSizePixel=0,Text=Name,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Index,ZIndex=197},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.35})})
+        Object.Buttons[Name]=Button
+        Bind(Button.MouseButton1Click:Connect(function() Select(Name) end))
+    end
+
+    local function SectionBox(ParentFrame,Name,Position,Size)
+        local Box=Create("Frame",{Parent=ParentFrame,Position=Position,Size=Size,BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.28,BorderSizePixel=0,ZIndex=198},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.25})})
+        Create("TextLabel",{Parent=Box,Position=UDim2.fromOffset(6,2),Size=UDim2.new(1,-12,0,17),BackgroundTransparency=1,Text=Name,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=199})
+        return Box
+    end
+    local function SetFlagValue(Flag,Value)
+        local Setter=Library.Setters[Flag]
+        if type(Setter)=="function" then Call(Setter,Value) else Library.Flags[Flag]=Value end
+    end
+    local function ToggleRow(ParentFrame,Y,Name,Flag,Default)
+        if Library.Flags[Flag]==nil then Library.Flags[Flag]=Default==true end
+        local Button=Create("TextButton",{Parent=ParentFrame,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,20),BackgroundColor3=Colors.Control,BackgroundTransparency=0.72,BorderSizePixel=0,Text="",AutoButtonColor=false,ZIndex=199},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.42})})
+        local L=Create("TextLabel",{Parent=Button,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-82,1,0),BackgroundTransparency=1,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200})
+        local S=Create("TextLabel",{Parent=Button,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-6,0,0),Size=UDim2.fromOffset(68,20),BackgroundTransparency=1,Text="",Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right,ZIndex=200})
+        local function Paint()
+            local V=Library.Flags[Flag]==true
+            S.Text=V and "enabled" or "disabled" S.TextColor3=V and Accent() or Colors.TextDim
+            L.TextColor3=V and Colors.TextBright or Colors.Text
+        end
+        Bind(Button.MouseButton1Click:Connect(function() SetFlagValue(Flag,not (Library.Flags[Flag]==true)) Paint() end))
+        RegisterRenderer(Paint) return Button
+    end
+    local function ScaleRow(ParentFrame,Y,Name,Flag,Default)
+        if type(Library.Flags[Flag])~="number" then Library.Flags[Flag]=Default or 100 end
+        local Row=Create("Frame",{Parent=ParentFrame,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,20),BackgroundColor3=Colors.Control,BackgroundTransparency=0.72,BorderSizePixel=0,ZIndex=199},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.42})})
+        Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-112,1,0),BackgroundTransparency=1,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200})
+        local Minus=Create("TextButton",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-78,0,2),Size=UDim2.fromOffset(18,16),BackgroundTransparency=1,Text="-",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=12,ZIndex=200})
+        local ValueLabel=Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-24,0,0),Size=UDim2.fromOffset(50,20),BackgroundTransparency=1,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=200})
+        local Plus=Create("TextButton",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-4,0,2),Size=UDim2.fromOffset(18,16),BackgroundTransparency=1,Text="+",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=12,ZIndex=200})
+        local function Apply(Delta)
+            local V=math.clamp((tonumber(Library.Flags[Flag]) or Default or 100)+(Delta or 0),60,160)
+            SetFlagValue(Flag,V) ValueLabel.Text=tostring(math.floor(V+0.5)).."%"
+        end
+        Bind(Minus.MouseButton1Click:Connect(function() Apply(-5) end)) Bind(Plus.MouseButton1Click:Connect(function() Apply(5) end))
+        RegisterRenderer(function() ValueLabel.Text=tostring(math.floor((tonumber(Library.Flags[Flag]) or Default or 100)+0.5)).."%" end)
+        return Row
+    end
+    local function ActionRow(ParentFrame,Y,Name,Callback)
+        local B=Create("TextButton",{Parent=ParentFrame,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,20),BackgroundColor3=Colors.Control,BackgroundTransparency=0.72,BorderSizePixel=0,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,ZIndex=199},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.42})})
+        Bind(B.MouseButton1Click:Connect(Callback)) return B
+    end
+
+    local ColorsPanel=Panel("Colors")
+    local Left=SectionBox(ColorsPanel,"base",UDim2.fromOffset(0,0),UDim2.new(0.5,-3,1,0))
+    local Right=SectionBox(ColorsPanel,"text",UDim2.new(0.5,3,0,0),UDim2.new(0.5,-3,1,0))
+    local ColorDefs={
+        {"accent","__ThemeAccent","Accent",Left},{"background","__ThemeBackground","Background",Left},{"surface","__ThemeSurface","Surface",Left},{"controls","__ThemeControl","Control",Left},{"border","__ThemeBorder","Border",Left},
+        {"text","__ThemeText","Text",Right},{"bright text","__ThemeTextBright","TextBright",Right},{"muted text","__ThemeTextDim","TextDim",Right},{"section text","__ThemeHeader","Header",Right}
+    }
+    local Counts={[Left]=0,[Right]=0}
+    for _,Def in ipairs(ColorDefs) do
+        local Name,Flag,Key,Box=Def[1],Def[2],Def[3],Def[4] Counts[Box]+=1 local Y=21+(Counts[Box]-1)*25
+        local Row=Create("Frame",{Parent=Box,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,21),BackgroundColor3=Colors.Control,BackgroundTransparency=0.72,BorderSizePixel=0,ZIndex=199},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.42})})
+        Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-38,1,0),BackgroundTransparency=1,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200})
+        local Swatch=Create("TextButton",{Parent=Row,AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-5,0.5,0),Size=UDim2.fromOffset(25,13),BackgroundColor3=Library.Theme[Key],BorderSizePixel=0,Text="",AutoButtonColor=false,ZIndex=200},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
+        local PickerObject={Color=Library.Theme[Key],Alpha=1}
+        function PickerObject:Set(Color,Alpha)
+            if typeof(Color)~="Color3" then return end
+            PickerObject.Color=Color PickerObject.Alpha=Alpha or 1 Swatch.BackgroundColor3=Color SetFlagValue(Flag,Color)
+        end
+        Bind(Swatch.MouseButton1Click:Connect(function()
+            local Window=Library.ActiveWindow
+            if Window and type(Window.OpenPicker)=="function" then PickerObject.Color=Library.Theme[Key] Window:OpenPicker(PickerObject,Swatch) end
+        end))
+        RegisterRenderer(function() if Swatch and Swatch.Parent then Swatch.BackgroundColor3=Library.Theme[Key] end end)
+    end
+
+    local UIPanel=Panel("UI") local UIBox=SectionBox(UIPanel,"watermark",UDim2.fromOffset(0,0),UDim2.fromScale(1,1))
+    ToggleRow(UIBox,24,"Watermark","__InterfaceWatermark",true)
+    ScaleRow(UIBox,48,"Watermark scale","__InterfaceWatermarkScale",100)
+    Create("TextLabel",{Parent=UIBox,Position=UDim2.fromOffset(8,78),Size=UDim2.new(1,-16,0,34),BackgroundTransparency=1,Text="Watermark stays draggable. Its position is saved with the interface config.",TextWrapped=true,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=199})
+
+    local BindsPanel=Panel("Binds") local BindsBox=SectionBox(BindsPanel,"keybind list",UDim2.fromOffset(0,0),UDim2.fromScale(1,1))
+    ToggleRow(BindsBox,24,"Keybind list","__InterfaceKeybindList",false)
+    ScaleRow(BindsBox,48,"Keybind scale","__InterfaceKeybindScale",100)
+    Create("TextLabel",{Parent=BindsBox,Position=UDim2.fromOffset(8,78),Size=UDim2.new(1,-16,0,48),BackgroundTransparency=1,Text="Hold -> Holded while pressed\nToggle -> Toggled while active\nAlways -> Always",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=199})
+
+    local NotifsPanel=Panel("Notifs") local NotifBox=SectionBox(NotifsPanel,"notifications",UDim2.fromOffset(0,0),UDim2.fromScale(1,1))
+    Create("TextLabel",{Parent=NotifBox,Position=UDim2.fromOffset(8,24),Size=UDim2.new(1,-16,0,42),BackgroundTransparency=1,Text="Drag the example notification anywhere. Every script notification and hit log uses that exact anchor point.",TextWrapped=true,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=199})
+    ActionRow(NotifBox,72,"show / refresh example",function() Library:SetNotificationPreviewVisible(true) end)
+    ActionRow(NotifBox,96,"reset to top right",function() Library:SetNotificationLayout(Vector2.new(0.94,0.08)) end)
+    ActionRow(NotifBox,120,"center",function() Library:SetNotificationLayout(Vector2.new(0.5,0.5)) end)
+
+    RegisterRenderer(function()
+        local Stroke=Frame:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end
+        Frame.BackgroundColor3=Colors.Bg Title.BackgroundColor3=Colors.TitleBg TitleText.TextColor3=Colors.TextBright
+        Select(Object.ActiveTab)
+    end)
+    Select("Colors")
+    self.ThemePanelController=Object
+    Object:ApplyVisibility()
+    return Object
+end
+
 function Library:QuickPanel(Data)
     Data=type(Data)=="table" and Data or {}
     if self.QuickPanelController then return self.QuickPanelController end
@@ -2003,35 +2217,40 @@ function Library:QuickPanel(Data)
     local Parent=ParentGui()
     local Gui=Create("ScreenGui",{Name="AtramentaQuickPanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=190,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui
-    local Root=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,8),Size=UDim2.fromOffset(174,29),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0,BorderSizePixel=0,Visible=self.InterfaceOpen,Active=true,ZIndex=190},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.58})})
+    local Root=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,8),Size=UDim2.fromOffset(258,29),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0,BorderSizePixel=0,Visible=self.InterfaceOpen,Active=true,ZIndex=190},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.58})})
     local Inner=Create("Frame",{Parent=Root,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,ZIndex=191},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(0.55,Colors.TitleBg),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
     local AccentLine=Create("Frame",{Parent=Inner,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=194},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,Accent()),ColorSequenceKeypoint.new(0.82,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
     local Holder=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(5,4),Size=UDim2.new(1,-10,1,-8),BackgroundTransparency=1,ZIndex=192},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Center,VerticalAlignment=Enum.VerticalAlignment.Center,Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder})})
     local Object={Gui=Gui,Root=Root,Buttons={}}
     local function RequestedMenu() local Window=Library.ActiveWindow return Window and Window.Visible==true or false end
     local function RequestedPlayers() local Controller=Library.PlayerListController return Controller and Controller.RequestedVisible==true or false end
+    local function RequestedTheme() local Controller=Library.ThemePanelController return Controller and Controller.RequestedVisible==true or false end
     local function Paint(Button,State)
         Button.BackgroundTransparency=State and 0.60 or 0.84 Button.TextColor3=State and Accent() or Colors.Text
         local Stroke=Button:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=State and Accent() or Colors.SectionBorder Stroke.Transparency=State and 0.68 or 0.72 end
     end
     local function Make(Name,Order,Callback)
-        local Button=Create("TextButton",{Parent=Holder,Size=UDim2.new(0.5,-3,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.80,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Order,ZIndex=193},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.55})})
+        local Button=Create("TextButton",{Parent=Holder,Size=UDim2.new(1/3,-4,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.80,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Order,ZIndex=193},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.55})})
         Object.Buttons[Name]=Button Bind(Button.MouseButton1Click:Connect(Callback)) return Button
     end
     function Object.Refresh()
         if Object.Buttons.Menu then Paint(Object.Buttons.Menu,RequestedMenu()) end
         if Object.Buttons.PlayerList then Paint(Object.Buttons.PlayerList,RequestedPlayers()) end
+        if Object.Buttons.Theme then Paint(Object.Buttons.Theme,RequestedTheme()) end
     end
     Make("Menu",1,function() local Window=Library.ActiveWindow if Window then Window:SetVisible(not Window.Visible) end Object.Refresh() end)
     Make("PlayerList",2,function() local Controller=Library.PlayerListController if Controller then Controller:SetVisibility(not Controller.RequestedVisible) end Object.Refresh() end)
+    Make("Theme",3,function() local Controller=Library:ThemePanel() Controller:Toggle() Object.Refresh() end)
     function Object:SetInterfaceVisible(State)
         State=State==true Library.InterfaceOpen=State Root.Visible=State
         local Window=Library.ActiveWindow if Window and type(Window.SetMenuVisible)=="function" then Window:SetMenuVisible(State) end
         local PlayersPanel=Library.PlayerListController if PlayersPanel and type(PlayersPanel.SetMenuVisible)=="function" then PlayersPanel:SetMenuVisible(State) end
+        local ThemePanel=Library.ThemePanelController if ThemePanel and type(ThemePanel.SetMenuVisible)=="function" then ThemePanel:SetMenuVisible(State) end
         local Watermark=Library.WatermarkController if Watermark and type(Watermark.ApplyVisibility)=="function" then Watermark:ApplyVisibility() end
         local Keybinds=Library.KeybindListController if Keybinds and type(Keybinds.ApplyVisibility)=="function" then Keybinds:ApplyVisibility() end
         if type(Library.SetNotificationPreviewVisible)=="function" then
-            Library:SetNotificationPreviewVisible(State and Window and Window:IsVisible())
+            local ThemeVisible=ThemePanel and ThemePanel:IsVisible() or false
+            Library:SetNotificationPreviewVisible(State and ((Window and Window:IsVisible()) or ThemeVisible))
         end
         Object.Refresh()
     end
@@ -2066,7 +2285,15 @@ function Library:ApplyNotificationLayout()
     Holder.AnchorPoint=Anchor Holder.Position=UDim2.fromScale(Point.X,Point.Y)
     local Layout=Holder:FindFirstChildOfClass("UIListLayout")
     if Layout then Layout.HorizontalAlignment=H Layout.VerticalAlignment=V end
-    if self.NotificationPreview and self.NotificationPreview.Parent then self.NotificationPreview.Position=UDim2.fromScale(Point.X,Point.Y) end
+    if self.NotificationPreview and self.NotificationPreview.Parent then
+        self.NotificationPreview.AnchorPoint=Anchor
+        self.NotificationPreview.Position=UDim2.fromScale(Point.X,Point.Y)
+    end
+    if self.CombatLogHolder and self.CombatLogHolder.Parent then
+        self.CombatLogHolder.AnchorPoint=Anchor self.CombatLogHolder.Position=UDim2.fromScale(Point.X,Point.Y)
+        local CombatLayout=self.CombatLogHolder:FindFirstChildOfClass("UIListLayout")
+        if CombatLayout then CombatLayout.HorizontalAlignment=H CombatLayout.VerticalAlignment=V end
+    end
 end
 
 function Library:SetNotificationLayout(Position)
@@ -2104,8 +2331,14 @@ function Library:EnsureNotificationGui()
         if not Dragging or Input.UserInputType~=Enum.UserInputType.MouseMovement then return end
         local Viewport=GetViewportSize(Gui) if Viewport.X<=0 or Viewport.Y<=0 then return end
         local Delta=Input.Position-StartMouse
-        local HalfX=(Preview.AbsoluteSize.X*0.5+6)/Viewport.X local HalfY=(Preview.AbsoluteSize.Y*0.5+6)/Viewport.Y
-        self.NotificationPoint=Vector2.new(math.clamp(StartPoint.X+Delta.X/Viewport.X,HalfX,1-HalfX),math.clamp(StartPoint.Y+Delta.Y/Viewport.Y,HalfY,1-HalfY))
+        local Raw=Vector2.new(StartPoint.X+Delta.X/Viewport.X,StartPoint.Y+Delta.Y/Viewport.Y)
+        local AX=Raw.X<0.34 and 0 or Raw.X>0.66 and 1 or 0.5
+        local AY=Raw.Y<0.34 and 0 or Raw.Y>0.66 and 1 or 0.5
+        local MarginX=6/Viewport.X local MarginY=6/Viewport.Y
+        local Width=Preview.AbsoluteSize.X/Viewport.X local Height=Preview.AbsoluteSize.Y/Viewport.Y
+        local MinX=MarginX+Width*AX local MaxX=1-MarginX-Width*(1-AX)
+        local MinY=MarginY+Height*AY local MaxY=1-MarginY-Height*(1-AY)
+        self.NotificationPoint=Vector2.new(math.clamp(Raw.X,MinX,MaxX),math.clamp(Raw.Y,MinY,MaxY))
         self:ApplyNotificationLayout()
     end))
     Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Dragging=false end end))
@@ -2118,24 +2351,16 @@ end
 function Library:SetNotificationPreviewVisible(State)
     self:EnsureNotificationGui()
     local Window=self.ActiveWindow
-    State=State==true and self.InterfaceOpen~=false and Window and Window:IsVisible() or false
+    local ThemePanel=self.ThemePanelController
+    local ContextVisible=(Window and Window:IsVisible()) or (ThemePanel and ThemePanel:IsVisible()) or false
+    State=State==true and self.InterfaceOpen~=false and ContextVisible or false
     if self.NotificationPreview and self.NotificationPreview.Parent then self.NotificationPreview.Visible=State end
 end
 
 
 function Library:GetCombatLogAlign(Position)
-    Position=tostring(Position or self.CombatLogPosition or "Top Right")
-    local Map={
-        ["Top Left"]=Vector2.new(0.015,0.145),["Top Center"]=Vector2.new(0.5,0.145),["Top Right"]=Vector2.new(0.985,0.145),
-        ["Middle Left"]=Vector2.new(0.015,0.5),["Middle Center"]=Vector2.new(0.5,0.5),["Middle Right"]=Vector2.new(0.985,0.5),
-        ["Bottom Left"]=Vector2.new(0.015,0.92),["Bottom Center"]=Vector2.new(0.5,0.92),["Bottom Right"]=Vector2.new(0.985,0.92)
-    }
-    local Point=Map[Position] or Map["Top Right"]
-    local AX=Point.X<0.34 and 0 or Point.X>0.66 and 1 or 0.5
-    local AY=Point.Y<0.34 and 0 or Point.Y>0.66 and 1 or 0.5
-    local H=AX==0 and Enum.HorizontalAlignment.Left or AX==1 and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Center
-    local V=AY==0 and Enum.VerticalAlignment.Top or AY==1 and Enum.VerticalAlignment.Bottom or Enum.VerticalAlignment.Center
-    return Position,Point,Vector2.new(AX,AY),H,V
+    local Point,Anchor,H,V=self:GetNotificationAlign()
+    return "Example",Point,Anchor,H,V
 end
 
 function Library:EnsureCombatLogGui()
@@ -2143,19 +2368,20 @@ function Library:EnsureCombatLogGui()
     if Gui and Gui.Parent and self.CombatLogHolder and self.CombatLogHolder.Parent then return Gui end
     Gui=Create("ScreenGui",{Name="AtramentaCombatLogs",Parent=Parent,ResetOnSpawn=false,DisplayOrder=199,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui self.CombatLogGui=Gui
-    local Holder=Create("Frame",{Name="CombatLogHolder",Parent=Gui,AnchorPoint=Vector2.new(1,0),Position=UDim2.fromScale(0.985,0.145),Size=UDim2.fromOffset(320,520),BackgroundTransparency=1,ZIndex=4500},{Create("UIListLayout",{Padding=UDim.new(0,4),HorizontalAlignment=Enum.HorizontalAlignment.Right,VerticalAlignment=Enum.VerticalAlignment.Top,SortOrder=Enum.SortOrder.LayoutOrder})})
+    local Point,Anchor,H,V=self:GetNotificationAlign()
+    local Holder=Create("Frame",{Name="CombatLogHolder",Parent=Gui,AnchorPoint=Anchor,Position=UDim2.fromScale(Point.X,Point.Y),Size=UDim2.fromOffset(320,520),BackgroundTransparency=1,ZIndex=4500},{Create("UIListLayout",{Padding=UDim.new(0,4),HorizontalAlignment=H,VerticalAlignment=V,SortOrder=Enum.SortOrder.LayoutOrder})})
     self.CombatLogHolder=Holder
     self.CombatLogScaleObject=Create("UIScale",{Parent=Holder,Scale=1})
-    self:SetCombatLogLayout(self.CombatLogPosition or "Top Right",self.CombatLogScale or 100)
+    self:SetCombatLogLayout(nil,self.CombatLogScale or 100)
     return Gui
 end
 
 function Library:SetCombatLogLayout(Position,Scale)
-    if Position~=nil then self.CombatLogPosition=tostring(Position) end
+    self.CombatLogPosition="Example"
     self.CombatLogScale=math.clamp(tonumber(Scale) or tonumber(self.CombatLogScale) or 100,60,160)
     local Gui=self.CombatLogGui local Holder=self.CombatLogHolder
     if not Gui or not Gui.Parent or not Holder or not Holder.Parent then return end
-    local _,Point,Anchor,H,V=self:GetCombatLogAlign(self.CombatLogPosition)
+    local Point,Anchor,H,V=self:GetNotificationAlign()
     Holder.AnchorPoint=Anchor Holder.Position=UDim2.fromScale(Point.X,Point.Y)
     local Layout=Holder:FindFirstChildOfClass("UIListLayout") if Layout then Layout.HorizontalAlignment=H Layout.VerticalAlignment=V end
     local ScaleObject=self.CombatLogScaleObject if ScaleObject and ScaleObject.Parent then ScaleObject.Scale=self.CombatLogScale/100 end
@@ -2164,7 +2390,7 @@ end
 function Library:CombatLogNotification(Data)
     if type(Data)=="string" then Data={Description=Data} end Data=Data or {}
     local Gui=self:EnsureCombatLogGui()
-    self:SetCombatLogLayout(Data.Position or self.CombatLogPosition or "Top Right",Data.Scale or self.CombatLogScale or 100)
+    self:SetCombatLogLayout(nil,Data.Scale or self.CombatLogScale or 100)
     self.CombatLogSerial=(self.CombatLogSerial or 0)+1
     local Title=string.lower(tostring(Data.Title or "log")) local Description=tostring(Data.Description or "")
     local MaxTextWidth=270
@@ -2308,6 +2534,7 @@ function Library.Unload(...)
     Library.ActiveWindow = nil
     Library.PlayerListController = nil
     Library.QuickPanelController = nil
+    Library.ThemePanelController = nil
     Library.InterfaceOpen = true
     Library.KeybindListController = nil
     Library.NotificationGui = nil
