@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
 local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Directory = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets", Fonts = "Atramenta.rip/Fonts", Themes = "Atramenta.rip/Themes"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(150, 120, 150), Background = Color3.fromRGB(8, 8, 8), Surface = Color3.fromRGB(0, 0, 0), Control = Color3.fromRGB(12, 11, 12), Border = Color3.fromRGB(56, 52, 56), Text = Color3.fromRGB(140, 130, 140), TextBright = Color3.fromRGB(197, 197, 197), TextDim = Color3.fromRGB(77, 72, 77), Header = Color3.fromRGB(127, 115, 127)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
-Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Easing="Quad",TextSize=13,CompactQuickPanel=true,KeepWatermarkOpen=true}
+Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Easing="Quad",TextSize=13,CompactPanel=true,KeepWatermarkOpen=true}
 Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=false}
 Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}
 Library.ThemePresets = {
@@ -798,7 +798,7 @@ function WindowMethods:ApplyVisibility()
     self.Main.Visible=State
     if type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(State) end
     if not State then self:CloseDropdown() self:ClosePicker() end
-    if Library.QuickPanelController and type(Library.QuickPanelController.Refresh)=="function" then task.defer(Library.QuickPanelController.Refresh) end
+    if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
 end
 
 function WindowMethods:SetVisible(State)
@@ -827,7 +827,7 @@ function WindowMethods:Page(Data)
     local Name = tostring(Data.Name or ("page" .. tostring(#self.PagesOrder + 1)))
     if self.Pages[Name] then return self.Pages[Name] end
     local Button = Create("TextButton", {Parent = self.TabBar, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, ZIndex = 2})
-    local Divider = Create("Frame", {Parent = Button, Size = UDim2.fromOffset(1, 14), Position = UDim2.new(1, -1, 0.5, -7), BackgroundColor3 = Color3.fromRGB(56, 52, 56), BorderSizePixel = 0, ZIndex = 3})
+    local Divider = Create("Frame", {Parent = Button, Size = UDim2.fromOffset(1, 14), Position = UDim2.new(1, -1, 0.5, -7), BackgroundColor3 = Colors.Divider, BorderSizePixel = 0, ZIndex = 3})
     local Panel = Create("Frame", {Parent = self.Content, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
     local SubBar = Create("Frame", {Parent = Panel, Size = UDim2.new(1, -20, 0, 22), Position = UDim2.fromOffset(10, 4), BackgroundTransparency = 1, Visible = false})
     local SubLayout = Create("UIListLayout", {Parent = SubBar, FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 18)})
@@ -876,10 +876,11 @@ local function CreateSectionRoot(SubPage, Data)
     local Container = Create("Frame", {Parent = Parent, Size = UDim2.new(1, -2, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = SubPage.Order})
     local Outline = Create("Frame", {Parent = Container, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, {
         Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}),
-        Create("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 18), PaddingBottom = UDim.new(0, 8)}),
+        Create("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 11), PaddingBottom = UDim.new(0, 8)}),
         Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4)})
     })
-    local Header = Create("TextLabel", {Parent = Container, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 0, 14), Position = UDim2.fromOffset(8, 2), AnchorPoint = Vector2.new(0, 0), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Text = string.lower(tostring(Data.Name or "section")), TextColor3 = Colors.ColHdr, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10}, {Create("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4)})})
+    -- Header straddles the section border. Visible text starts at X=8, exactly like controls.
+    local Header = Create("TextLabel", {Parent = Container, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 0, 14), Position = UDim2.fromOffset(4, -7), AnchorPoint = Vector2.new(0, 0), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Text = string.lower(tostring(Data.Name or "section")), TextColor3 = Colors.ColHdr, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10}, {Create("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4)})})
     RegisterRenderer(function() SyncThemeColors() Header.BackgroundColor3=Colors.Bg Header.TextColor3=Colors.ColHdr local Stroke=Outline:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end end)
     return Container, Outline, Header
 end
@@ -1219,7 +1220,7 @@ function SectionMethods:Button(Data, Callback)
     Data = Data or {}
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1})
     local Frame = Create("Frame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Colors.Control, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Color3.fromRGB(56, 52, 56), Thickness = 1, Enabled = false}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Control), ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 8))})})})
-    local AccentLine = Create("Frame", {Parent = Frame, Size = UDim2.new(0, 2, 1, -6), Position = UDim2.new(0, 1, 0.5, -3), AnchorPoint = Vector2.new(0, 0.5), BackgroundColor3 = Accent(), Visible = false, BorderSizePixel = 0})
+    local AccentLine = Create("Frame", {Parent = Frame, Size = UDim2.new(0, 1, 1, -2), Position = UDim2.fromOffset(1, 1), AnchorPoint = Vector2.zero, BackgroundColor3 = Accent(), Visible = false, BorderSizePixel = 0, ZIndex = 2})
     local Label = Create("TextLabel", {Parent = Frame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "button"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13})
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false})
     Bind(Button.MouseEnter:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Enabled = true AccentLine.Visible = true Label.TextColor3 = Colors.TextBright end))
@@ -1508,7 +1509,8 @@ function Library:GetConfig()
         Interface.PlayerListPosition = self.PlayerListController.Frame.Position
         Interface.PlayerListVisible = self.PlayerListController.RequestedVisible == true
     end
-    if self.QuickPanelController and self.QuickPanelController.Root then Interface.QuickPanelPosition = self.QuickPanelController.Root.Position end
+    local PanelController = self.PanelController or self.QuickPanelController
+    if PanelController and PanelController.Root then Interface.PanelPosition = PanelController.Root.Position end
     Interface.Theme = CloneValue(self.Theme)
     Interface.MenuBind = self.MenuBindData and {Key = self.MenuBindData.Key, Modifiers = CopyModifiers(self.MenuBindData.Modifiers)} or {Key = self.MenuKeybind, Modifiers = EmptyModifiers()}
     Interface.NotificationPoint = typeof(self.NotificationPoint) == "Vector2" and self.NotificationPoint or Vector2.new(0.94, 0.08)
@@ -1624,9 +1626,11 @@ function Library:LoadConfig(Source)
             if type(Interface.PlayerListVisible) == "boolean" then self.PlayerListController:SetVisibility(Interface.PlayerListVisible) end
             ClampFrameToViewport(self.PlayerListController.Frame, self.PlayerListController.Gui, 4)
         end
-        if self.QuickPanelController and self.QuickPanelController.Root and typeof(Interface.QuickPanelPosition) == "UDim2" then
-            self.QuickPanelController.Root.Position = Interface.QuickPanelPosition
-            ClampFrameToViewport(self.QuickPanelController.Root, self.QuickPanelController.Gui, 4)
+        local PanelController = self.PanelController or self.QuickPanelController
+        local SavedPanelPosition = Interface.PanelPosition or Interface.QuickPanelPosition
+        if PanelController and PanelController.Root and typeof(SavedPanelPosition) == "UDim2" then
+            PanelController.Root.Position = SavedPanelPosition
+            ClampFrameToViewport(PanelController.Root, PanelController.Gui, 4)
         end
         if typeof(Interface.NotificationPoint) == "Vector2" then
             self.NotificationPoint = Interface.NotificationPoint
@@ -2092,7 +2096,7 @@ function Library:PlayerList(Data)
     function Object:ApplyVisibility()
         Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
         if not Frame.Visible then CloseDrop() end
-        if Library.QuickPanelController and type(Library.QuickPanelController.Refresh)=="function" then task.defer(Library.QuickPanelController.Refresh) end
+        if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
     end
     function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
     function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
@@ -2160,7 +2164,7 @@ function Library:ThemePanel()
             local Window=Library.ActiveWindow
             Library:SetNotificationPreviewVisible(State or (Window and Window:IsVisible()) or false)
         end
-        if Library.QuickPanelController and type(Library.QuickPanelController.Refresh)=="function" then task.defer(Library.QuickPanelController.Refresh) end
+        if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
     end
     function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
     function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
@@ -2191,12 +2195,14 @@ function Library:ThemePanel()
         local Controller=Library.KeybindListController
         if Controller and type(Controller.Refresh)=="function" then Controller:Refresh() end
     end
-    local function ApplyQuickPanelSize()
-        local Controller=Library.QuickPanelController
+    local function ApplyPanelSize()
+        local Controller=Library.PanelController or Library.QuickPanelController
         local Root=Controller and Controller.Root
+        if Library.Flags.__ThemePanelWidth==nil and Library.Flags.__ThemeQuickPanelWidth~=nil then Library.Flags.__ThemePanelWidth=Library.Flags.__ThemeQuickPanelWidth end
+        if Library.Flags.__ThemePanelHeight==nil and Library.Flags.__ThemeQuickPanelHeight~=nil then Library.Flags.__ThemePanelHeight=Library.Flags.__ThemeQuickPanelHeight end
         if not Root or not Root.Parent then return end
-        local W=math.clamp(tonumber(Library.Flags.__ThemeQuickPanelWidth) or 258,210,420)
-        local H=math.clamp(tonumber(Library.Flags.__ThemeQuickPanelHeight) or 29,24,44)
+        local W=math.clamp(tonumber(Library.Flags.__ThemePanelWidth) or 258,210,420)
+        local H=math.clamp(tonumber(Library.Flags.__ThemePanelHeight) or 29,24,44)
         Root.Size=UDim2.fromOffset(W,H)
     end
 
@@ -2298,7 +2304,7 @@ function Library:ThemePanel()
     -- UI: only settings that are actually connected to live UI objects.
     local UIPage=Object:Page({Name="UI"})
     local WatermarkSection=UIPage:Section({Name="watermark",Side=1})
-    local PanelSection=UIPage:Section({Name="quick panel",Side=2})
+    local PanelSection=UIPage:Section({Name="panel",Side=2})
     local WatermarkToggle=WatermarkSection:Toggle({Name="enabled",Flag="__ThemePanelWatermark",Default=Library.Flags.__InterfaceWatermark~=false,Callback=function(Value)
         Library.Flags.__InterfaceWatermark=Value==true
         local Controller=Library.WatermarkController
@@ -2310,17 +2316,17 @@ function Library:ThemePanel()
         local Controller=Library.WatermarkController
         if Controller and type(Controller.SetScale)=="function" then Controller:SetScale(Number) end
     end})
-    PanelSection:Slider({Name="width",Flag="__ThemeQuickPanelWidth",Min=210,Max=420,Default=tonumber(Library.Flags.__ThemeQuickPanelWidth) or 258,Step=2,Suffix=" px",Callback=function(Value)
-        Library.Flags.__ThemeQuickPanelWidth=Value ApplyQuickPanelSize()
+    PanelSection:Slider({Name="width",Flag="__ThemePanelWidth",Min=210,Max=420,Default=tonumber(Library.Flags.__ThemePanelWidth) or 258,Step=2,Suffix=" px",Callback=function(Value)
+        Library.Flags.__ThemePanelWidth=Value ApplyPanelSize()
     end})
-    PanelSection:Slider({Name="height",Flag="__ThemeQuickPanelHeight",Min=24,Max=44,Default=tonumber(Library.Flags.__ThemeQuickPanelHeight) or 29,Step=1,Suffix=" px",Callback=function(Value)
-        Library.Flags.__ThemeQuickPanelHeight=Value ApplyQuickPanelSize()
+    PanelSection:Slider({Name="height",Flag="__ThemePanelHeight",Min=24,Max=44,Default=tonumber(Library.Flags.__ThemePanelHeight) or 29,Step=1,Suffix=" px",Callback=function(Value)
+        Library.Flags.__ThemePanelHeight=Value ApplyPanelSize()
     end})
     PanelSection:Button({Name="reset panel size",Callback=function()
-        local WSetter=Library.Setters.__ThemeQuickPanelWidth local HSetter=Library.Setters.__ThemeQuickPanelHeight
-        if type(WSetter)=="function" then Call(WSetter,258) else Library.Flags.__ThemeQuickPanelWidth=258 end
-        if type(HSetter)=="function" then Call(HSetter,29) else Library.Flags.__ThemeQuickPanelHeight=29 end
-        ApplyQuickPanelSize()
+        local WSetter=Library.Setters.__ThemePanelWidth local HSetter=Library.Setters.__ThemePanelHeight
+        if type(WSetter)=="function" then Call(WSetter,258) else Library.Flags.__ThemePanelWidth=258 end
+        if type(HSetter)=="function" then Call(HSetter,29) else Library.Flags.__ThemePanelHeight=29 end
+        ApplyPanelSize()
     end})
 
     -- BINDS: all controls use the same Toggle/Slider widgets as the menu.
@@ -2402,17 +2408,18 @@ function Library:ThemePanel()
         if KeybindScale and KeybindScale:Get()~=KeybindValue then KeybindScale:Set(KeybindValue,true) end
     end)
 
-    ApplyQuickPanelSize()
+    ApplyPanelSize()
     Object:ApplyVisibility()
     return Object
 end
 
-function Library:QuickPanel(Data)
+function Library:Panel(Data)
     Data=type(Data)=="table" and Data or {}
-    if self.QuickPanelController then return self.QuickPanelController end
+    if self.PanelController then return self.PanelController end
+    if self.QuickPanelController then self.PanelController=self.QuickPanelController return self.PanelController end
     self.InterfaceOpen=self.InterfaceOpen~=false
     local Parent=ParentGui()
-    local Gui=Create("ScreenGui",{Name="AtramentaQuickPanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=190,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
+    local Gui=Create("ScreenGui",{Name="AtramentaPanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=190,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui
     local Root=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,8),Size=UDim2.fromOffset(258,29),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0,BorderSizePixel=0,Visible=self.InterfaceOpen,Active=true,ZIndex=190},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.58})})
     local Inner=Create("Frame",{Parent=Root,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,ZIndex=191},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(0.55,Colors.TitleBg),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
@@ -2458,7 +2465,15 @@ function Library:QuickPanel(Data)
         local A=Accent() AccentLine.BackgroundColor3=A local Gradient=AccentLine:FindFirstChildOfClass("UIGradient")
         if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,A),ColorSequenceKeypoint.new(0.82,A),ColorSequenceKeypoint.new(1,Color3.new())}) end Object.Refresh()
     end)
-    self.QuickPanelController=Object Object.Refresh() return Object
+    self.PanelController=Object
+    self.QuickPanelController=Object -- compatibility alias for older Atramenta builds
+    Object.Refresh()
+    return Object
+end
+
+function Library:QuickPanel(Data)
+    -- Deprecated compatibility alias. New code should use Library:Panel().
+    return self:Panel(Data)
 end
 
 function Library:GetNotificationAlign()
@@ -2694,8 +2709,9 @@ Bind(UserInputService.InputBegan:Connect(function(Input,Processed)
     if not Processed and Library.ActiveWindow then
         local MenuBind=Library.MenuBindData
         if MenuBind and InputMatches(Input,MenuBind.Key,MenuBind.Modifiers) or not MenuBind and InputMatches(Input,Library.MenuKeybind) then
-            if Library.QuickPanelController and type(Library.QuickPanelController.ToggleInterface)=="function" then
-                Library.QuickPanelController:ToggleInterface()
+            local PanelController=Library.PanelController or Library.QuickPanelController
+            if PanelController and type(PanelController.ToggleInterface)=="function" then
+                PanelController:ToggleInterface()
             else
                 Library.ActiveWindow:Toggle()
             end
@@ -2732,6 +2748,7 @@ function Library.Unload(...)
     for Index = #Library.Guis, 1, -1 do local Gui = Library.Guis[Index] if Gui and Gui.Parent then Call(function() Gui:Destroy() end) end Library.Guis[Index] = nil end
     Library.ActiveWindow = nil
     Library.PlayerListController = nil
+    Library.PanelController = nil
     Library.QuickPanelController = nil
     Library.ThemePanelController = nil
     Library.InterfaceOpen = true
@@ -2767,12 +2784,14 @@ function Library:SetFlag(Name, Value)
 end
 
 function Library:SetVisible(State)
-    if self.QuickPanelController and type(self.QuickPanelController.SetInterfaceVisible)=="function" then self.QuickPanelController:SetInterfaceVisible(State==true)
+    local PanelController=self.PanelController or self.QuickPanelController
+    if PanelController and type(PanelController.SetInterfaceVisible)=="function" then PanelController:SetInterfaceVisible(State==true)
     elseif self.ActiveWindow then self.ActiveWindow:SetVisible(State) end
 end
 
 function Library:Toggle()
-    if self.QuickPanelController and type(self.QuickPanelController.ToggleInterface)=="function" then self.QuickPanelController:ToggleInterface()
+    local PanelController=self.PanelController or self.QuickPanelController
+    if PanelController and type(PanelController.ToggleInterface)=="function" then PanelController:ToggleInterface()
     elseif self.ActiveWindow then self.ActiveWindow:Toggle() end
 end
 
