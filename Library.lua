@@ -7,7 +7,16 @@ local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
-local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Directory = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets", Fonts = "Atramenta.rip/Fonts"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(150, 120, 150), Background = Color3.fromRGB(8, 8, 8), Surface = Color3.fromRGB(0, 0, 0), Control = Color3.fromRGB(12, 11, 12), Border = Color3.fromRGB(56, 52, 56), Text = Color3.fromRGB(140, 130, 140), TextBright = Color3.fromRGB(197, 197, 197), TextDim = Color3.fromRGB(77, 72, 77), Header = Color3.fromRGB(127, 115, 127)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
+local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Directory = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets", Fonts = "Atramenta.rip/Fonts", Themes = "Atramenta.rip/Themes"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(150, 120, 150), Background = Color3.fromRGB(8, 8, 8), Surface = Color3.fromRGB(0, 0, 0), Control = Color3.fromRGB(12, 11, 12), Border = Color3.fromRGB(56, 52, 56), Text = Color3.fromRGB(140, 130, 140), TextBright = Color3.fromRGB(197, 197, 197), TextDim = Color3.fromRGB(77, 72, 77), Header = Color3.fromRGB(127, 115, 127)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
+Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Easing="Quad",TextSize=13,CompactQuickPanel=true,KeepWatermarkOpen=true}
+Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=false}
+Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}
+Library.ThemePresets = {
+    Atramenta={Accent=Color3.fromRGB(150,120,150),Background=Color3.fromRGB(8,8,8),Surface=Color3.fromRGB(0,0,0),Control=Color3.fromRGB(12,11,12),Border=Color3.fromRGB(56,52,56),Text=Color3.fromRGB(140,130,140),TextBright=Color3.fromRGB(197,197,197),TextDim=Color3.fromRGB(77,72,77),Header=Color3.fromRGB(127,115,127)},
+    Bankroll={Accent=Color3.fromRGB(123,98,145),Background=Color3.fromRGB(6,6,7),Surface=Color3.fromRGB(1,1,2),Control=Color3.fromRGB(15,14,17),Border=Color3.fromRGB(51,47,56),Text=Color3.fromRGB(151,145,156),TextBright=Color3.fromRGB(215,213,217),TextDim=Color3.fromRGB(77,73,82),Header=Color3.fromRGB(132,122,140)},
+    Midnight={Accent=Color3.fromRGB(90,112,170),Background=Color3.fromRGB(6,7,11),Surface=Color3.fromRGB(3,4,7),Control=Color3.fromRGB(12,14,21),Border=Color3.fromRGB(42,47,62),Text=Color3.fromRGB(139,145,160),TextBright=Color3.fromRGB(211,216,228),TextDim=Color3.fromRGB(70,75,88),Header=Color3.fromRGB(116,126,151)},
+    Crimson={Accent=Color3.fromRGB(169,72,87),Background=Color3.fromRGB(9,6,7),Surface=Color3.fromRGB(3,2,2),Control=Color3.fromRGB(18,11,13),Border=Color3.fromRGB(59,40,44),Text=Color3.fromRGB(153,137,140),TextBright=Color3.fromRGB(221,210,212),TextDim=Color3.fromRGB(83,68,71),Header=Color3.fromRGB(147,115,121)}
+}
 
 local function Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -63,6 +72,7 @@ local function EnsureFolders()
     EnsureFolder(Library.Folders.Configs)
     EnsureFolder(Library.Folders.Assets)
     EnsureFolder(Library.Folders.Fonts)
+    EnsureFolder(Library.Folders.Themes)
 end
 EnsureFolders()
 
@@ -157,6 +167,38 @@ function Library:ChangeTheme(Index, Color)
         local Renderer=self.Renderers[RendererIndex]
         if type(Renderer)=="function" then Call(Renderer) else table.remove(self.Renderers,RendererIndex) end
     end
+end
+
+function Library:ApplyThemePreset(Preset)
+    if type(Preset)~="table" then return false end
+    for Key,Value in pairs(Preset) do if typeof(Value)=="Color3" and self.Theme[Key]~=nil then self:ChangeTheme(Key,Value) end end
+    return true
+end
+
+local function ThemeColorToTable(Color) return {r=math.floor(Color.R*255+0.5),g=math.floor(Color.G*255+0.5),b=math.floor(Color.B*255+0.5)} end
+local function ThemeColorFromTable(Value) if type(Value)~="table" then return nil end return Color3.fromRGB(math.clamp(tonumber(Value.r) or 0,0,255),math.clamp(tonumber(Value.g) or 0,0,255),math.clamp(tonumber(Value.b) or 0,0,255)) end
+function Library:ThemeFilePath(Name)
+    local Clean=tostring(Name or ""):gsub("[^%w%-%_ ]",""):gsub("%s+","_")
+    if Clean=="" then return nil end
+    return self.Folders.Themes.."/"..Clean..".json"
+end
+function Library:SaveCustomTheme(Name)
+    EnsureFolders() local Path=self:ThemeFilePath(Name) if not Path or type(writefile)~="function" then return false end
+    local Data={} for Key,Value in pairs(self.Theme) do if typeof(Value)=="Color3" then Data[Key]=ThemeColorToTable(Value) end end
+    local Ok,Body=Call(HttpService.JSONEncode,HttpService,Data) if not Ok then return false end
+    return Call(writefile,Path,Body)==true
+end
+function Library:LoadCustomTheme(Name)
+    local Path=self:ThemeFilePath(Name) if not Path or type(readfile)~="function" or type(isfile)=="function" and not isfile(Path) then return false end
+    local Ok,Body=Call(readfile,Path) if not Ok or type(Body)~="string" then return false end
+    local DecodedOk,Data=Call(HttpService.JSONDecode,HttpService,Body) if not DecodedOk or type(Data)~="table" then return false end
+    local Preset={} for Key,Value in pairs(Data) do local Color=ThemeColorFromTable(Value) if Color then Preset[Key]=Color end end
+    return self:ApplyThemePreset(Preset)
+end
+function Library:DeleteCustomTheme(Name)
+    local Path=self:ThemeFilePath(Name) if not Path or type(delfile)~="function" then return false end
+    if type(isfile)=="function" and not isfile(Path) then return false end
+    return Call(delfile,Path)==true
 end
 
 local function RegisterRenderer(Renderer)
@@ -388,6 +430,17 @@ local function BeginCapture(BindData)
     BindData.Render()
 end
 
+local function CleanKeybindDisplayName(Value)
+    local Text=tostring(Value or ""):gsub("^%s+",""):gsub("%s+$","")
+    -- UI-only cleanup: keep the feature name, strip redundant bind/keybind suffixes.
+    Text=Text:gsub("[%s_%-]+[Kk][Ee][Yy][Bb][Ii][Nn][Dd]%s*$","")
+    Text=Text:gsub("[%s_%-]+[Bb][Ii][Nn][Dd]%s*$","")
+    Text=Text:gsub("^%s+",""):gsub("%s+$","")
+    if Text=="" then Text="Keybind" end
+    if Text:lower()==Text and #Text>0 then Text=Text:sub(1,1):upper()..Text:sub(2) end
+    return Text
+end
+
 local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFlag)
     Data=Data or {}
     local Flag=tostring(Data.Flag or Data.Name or ("Keybind"..tostring(#Library.Keybinds+1)))
@@ -396,6 +449,7 @@ local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFla
     local InitialKey,InitialModifiers=BindSystem.NormalizeBinding(Data.Default,Data.Modifiers)
     local DisplayName=tostring(Data.Name or "")
     if DisplayName=="" or string.lower(DisplayName)=="keybind" then DisplayName=tostring(TargetFlag or Data.Flag or Flag) end
+    DisplayName=CleanKeybindDisplayName(DisplayName)
     local BindData={Window=Window,Flag=Flag,TargetFlag=tostring(TargetFlag or Flag),Name=DisplayName,Key=InitialKey,Modifiers=InitialModifiers,Mode=Mode,Callback=Data.Callback,EnabledFlag=Data.EnabledFlag,TargetControl=TargetControl,Value=Initial,Destroyed=false}
     Library.Flags[Flag]=Initial
     local Button=Create("TextButton",{Parent=Row,Size=UDim2.fromOffset(70,16),Position=UDim2.new(1,-(RightOffset or 0)-70,0.5,-8),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=15})
@@ -1838,6 +1892,8 @@ function Library:KeybindList()
     end
 
     function Object:Refresh()
+        Header.Visible=Library.KeybindSettings.ShowHeader~=false
+        Holder.Position=UDim2.fromOffset(4,Header.Visible and 21 or 3)
         for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end
         table.clear(Object.Rows)
 
@@ -1850,6 +1906,7 @@ function Library:KeybindList()
                 Assigned+=1
                 local GateOpen=KeybindGateOpen(BindData)
                 local Active=GateOpen and (BindData.Mode=="Always" or BindData.Value==true)
+                if Library.KeybindSettings.ShowInactive==false and not Active then continue end
                 local ModeText
                 if BindData.Mode=="Always" then
                     ModeText="Always"
@@ -1862,18 +1919,18 @@ function Library:KeybindList()
                 local KeyText="["..KeyDisplay(BindData.Key,BindData.Modifiers).."]"
                 local ModeDisplay="["..ModeText.."]"
                 local RightText=KeyText.." "..ModeDisplay
-                local NameText=tostring(BindData.Name or BindData.TargetFlag or BindData.Flag or "bind")
+                local NameText=CleanKeybindDisplayName(BindData.Name or BindData.TargetFlag or BindData.Flag or "bind") if Library.KeybindSettings.LowercaseNames then NameText=string.lower(NameText) end
                 local NameWidth=TextService:GetTextSize(NameText,12,Enum.Font.SourceSans,Vector2.new(700,15)).X
                 local RightWidth=TextService:GetTextSize(RightText,11,Enum.Font.SourceSans,Vector2.new(700,15)).X
                 DesiredWidth=math.max(DesiredWidth,math.ceil(NameWidth+RightWidth+20))
 
                 local Row=Create("Frame",{
-                    Parent=Holder,Size=UDim2.new(1,0,0,15),BackgroundColor3=Active and Accent() or Colors.Control,
-                    BackgroundTransparency=Active and 0.91 or 1,BorderSizePixel=0,LayoutOrder=Assigned
+                    Parent=Holder,Size=UDim2.new(1,0,0,Library.KeybindSettings.CompactRows and 14 or 17),BackgroundColor3=Active and Accent() or Colors.Control,
+                    BackgroundTransparency=Active and (Library.KeybindSettings.AccentActive and 0.91 or 1) or 1,BorderSizePixel=0,LayoutOrder=Assigned
                 })
                 local RightLabel=Create("TextLabel",{
                     Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,0),Size=UDim2.fromOffset(math.ceil(RightWidth)+2,15),
-                    BackgroundTransparency=1,Text=RightText,TextColor3=Active and Accent() or (GateOpen and Colors.TextBind or Colors.TextDim),
+                    BackgroundTransparency=1,Text=RightText,TextColor3=Active and (Library.KeybindSettings.AccentActive and Accent() or Colors.TextBright) or (GateOpen and Colors.TextBind or Colors.TextDim),
                     Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,TextYAlignment=Enum.TextYAlignment.Center
                 })
                 local NameLabel=Create("TextLabel",{
@@ -2065,149 +2122,143 @@ function Library:ThemePanel()
     local Parent=ParentGui()
     local Gui=Create("ScreenGui",{Name="AtramentaThemePanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=195,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui
-    local Frame=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.47),Size=UDim2.fromOffset(386,332),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ZIndex=195},{
-        Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1}),Create("UICorner",{CornerRadius=UDim.new(0,2)})
-    })
-    local Title=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true,ZIndex=196},{
-        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})
-    })
+    local Frame=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.47),Size=UDim2.fromOffset(520,356),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ZIndex=195},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1}),Create("UICorner",{CornerRadius=UDim.new(0,2)})})
+    local Title=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true,ZIndex=196},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
     local TitleText=Create("TextLabel",{Parent=Title,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Theme",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=197})
-    local Tabs=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(6,27),Size=UDim2.new(1,-12,0,24),BackgroundTransparency=1,ZIndex=196},{
-        Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,3),SortOrder=Enum.SortOrder.LayoutOrder})
-    })
-    local Content=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(6,56),Size=UDim2.new(1,-12,1,-62),BackgroundTransparency=1,ZIndex=196})
-    MakeDraggable(Frame,Title,Gui)
-    BindFrameToViewport(Frame,Gui,4)
+    local Content=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(7,28),Size=UDim2.new(1,-14,1,-62),BackgroundTransparency=1,ZIndex=196})
+    local Tabs=Create("Frame",{Parent=Frame,Position=UDim2.new(0,7,1,-28),Size=UDim2.new(1,-14,0,22),BackgroundTransparency=1,ZIndex=196},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,3),SortOrder=Enum.SortOrder.LayoutOrder})})
+    MakeDraggable(Frame,Title,Gui) BindFrameToViewport(Frame,Gui,4)
 
     local Object={Gui=Gui,Frame=Frame,RequestedVisible=false,MenuVisible=true,Buttons={},Panels={},ActiveTab="Colors"}
-    function Object:ApplyVisibility()
-        Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
-        if type(Library.SetNotificationPreviewVisible)=="function" then
-            local Window=Library.ActiveWindow
-            local MainVisible=Window and Window:IsVisible() or false
-            Library:SetNotificationPreviewVisible(Frame.Visible or MainVisible)
-        end
-    end
+    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false if type(Library.SetNotificationPreviewVisible)=="function" then local W=Library.ActiveWindow local M=W and W:IsVisible() or false Library:SetNotificationPreviewVisible(Frame.Visible or M) end end
     function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() if Library.QuickPanelController and Library.QuickPanelController.Refresh then Library.QuickPanelController.Refresh() end end
     function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
     function Object:IsVisible() return Frame.Visible==true end
     function Object:IsRequestedVisible() return Object.RequestedVisible==true end
     function Object:Toggle() Object:SetVisibility(not Object.RequestedVisible) end
 
-    local function Panel(Name)
-        local P=Create("Frame",{Parent=Content,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false,ZIndex=197})
-        Object.Panels[Name]=P
-        return P
-    end
+    local function Panel(Name) local P=Create("Frame",{Parent=Content,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false,ZIndex=197}) Object.Panels[Name]=P return P end
     local function Select(Name)
         Object.ActiveTab=Name
         for TabName,P in pairs(Object.Panels) do P.Visible=TabName==Name end
-        for TabName,B in pairs(Object.Buttons) do
-            local Active=TabName==Name
-            B.TextColor3=Active and Colors.TextBright or Colors.TextDim
-            B.BackgroundTransparency=Active and 0.62 or 0.88
-            local Stroke=B:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Active and Accent() or Colors.SectionBorder end
-        end
+        for TabName,B in pairs(Object.Buttons) do local A=TabName==Name B.TextColor3=A and Colors.TextBright or Colors.TextDim B.BackgroundTransparency=A and 0.62 or 0.90 local S=B:FindFirstChildOfClass("UIStroke") if S then S.Color=A and Accent() or Colors.SectionBorder S.Transparency=A and 0.40 or 0.72 end end
     end
-    local TabNames={"Colors","UI","Binds","Notifs"}
-    for Index,Name in ipairs(TabNames) do
-        local Button=Create("TextButton",{Parent=Tabs,Size=UDim2.new(0.25,-3,1,0),BackgroundColor3=Colors.Control,BackgroundTransparency=0.88,BorderSizePixel=0,Text=Name,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Index,ZIndex=197},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.35})})
-        Object.Buttons[Name]=Button
-        Bind(Button.MouseButton1Click:Connect(function() Select(Name) end))
+    for Index,Name in ipairs({"Colors","Themes","UI","Binds","Notifs"}) do
+        local B=Create("TextButton",{Parent=Tabs,Size=UDim2.new(0.2,-3,1,0),BackgroundColor3=Colors.Control,BackgroundTransparency=0.90,BorderSizePixel=0,Text=Name,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Index,ZIndex=197},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.72})})
+        Object.Buttons[Name]=B Bind(B.MouseButton1Click:Connect(function() Select(Name) end))
     end
 
     local function SectionBox(ParentFrame,Name,Position,Size)
-        local Box=Create("Frame",{Parent=ParentFrame,Position=Position,Size=Size,BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.28,BorderSizePixel=0,ZIndex=198},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.25})})
-        Create("TextLabel",{Parent=Box,Position=UDim2.fromOffset(6,2),Size=UDim2.new(1,-12,0,17),BackgroundTransparency=1,Text=Name,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=199})
+        local Box=Create("Frame",{Parent=ParentFrame,Position=Position,Size=Size,BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=198},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.15})})
+        Create("TextLabel",{Parent=Box,AutomaticSize=Enum.AutomaticSize.X,Position=UDim2.fromOffset(7,-7),Size=UDim2.fromOffset(0,14),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.ColHdr,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200},{Create("UIPadding",{PaddingLeft=UDim.new(0,4),PaddingRight=UDim.new(0,4)})})
         return Box
     end
-    local function SetFlagValue(Flag,Value)
-        local Setter=Library.Setters[Flag]
-        if type(Setter)=="function" then Call(Setter,Value) else Library.Flags[Flag]=Value end
+    local function SetFlagValue(Flag,Value) local Setter=Library.Setters[Flag] if type(Setter)=="function" then Call(Setter,Value) else Library.Flags[Flag]=Value end end
+    local function ToggleRow(P,Y,Name,Getter,Setter)
+        local Row=Create("TextButton",{Parent=P,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,18),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=199})
+        local Box=Create("Frame",{Parent=Row,Position=UDim2.fromOffset(0,3),Size=UDim2.fromOffset(10,10),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,ZIndex=200},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
+        local Fill=Create("Frame",{Parent=Box,Position=UDim2.fromOffset(2,2),Size=UDim2.fromOffset(6,6),BackgroundColor3=Accent(),BorderSizePixel=0,Visible=false,ZIndex=201})
+        local Label=Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(16,0),Size=UDim2.new(1,-16,1,0),BackgroundTransparency=1,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200})
+        local function Paint() local V=Getter()==true Fill.Visible=V Fill.BackgroundColor3=Accent() Label.TextColor3=V and Colors.TextBright or Colors.Text end
+        Bind(Row.MouseButton1Click:Connect(function() Setter(not (Getter()==true)) Paint() end)) RegisterRenderer(Paint) return Row
     end
-    local function ToggleRow(ParentFrame,Y,Name,Flag,Default)
-        if Library.Flags[Flag]==nil then Library.Flags[Flag]=Default==true end
-        local Button=Create("TextButton",{Parent=ParentFrame,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,20),BackgroundColor3=Colors.Control,BackgroundTransparency=0.72,BorderSizePixel=0,Text="",AutoButtonColor=false,ZIndex=199},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.42})})
-        local L=Create("TextLabel",{Parent=Button,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-82,1,0),BackgroundTransparency=1,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200})
-        local S=Create("TextLabel",{Parent=Button,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-6,0,0),Size=UDim2.fromOffset(68,20),BackgroundTransparency=1,Text="",Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right,ZIndex=200})
-        local function Paint()
-            local V=Library.Flags[Flag]==true
-            S.Text=V and "enabled" or "disabled" S.TextColor3=V and Accent() or Colors.TextDim
-            L.TextColor3=V and Colors.TextBright or Colors.Text
-        end
-        Bind(Button.MouseButton1Click:Connect(function() SetFlagValue(Flag,not (Library.Flags[Flag]==true)) Paint() end))
-        RegisterRenderer(Paint) return Button
+    local function ChoiceRow(P,Y,Name,Getter,Setter,Items)
+        local Row=Create("Frame",{Parent=P,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,31),BackgroundTransparency=1,ZIndex=199})
+        Create("TextLabel",{Parent=Row,Size=UDim2.new(1,0,0,12),BackgroundTransparency=1,Text=Name,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200})
+        local Drop=Create("TextButton",{Parent=Row,Position=UDim2.fromOffset(0,14),Size=UDim2.new(1,0,0,16),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Text="",AutoButtonColor=false,ZIndex=200},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.28}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
+        local Text=Create("TextLabel",{Parent=Drop,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-18,1,0),BackgroundTransparency=1,Text="",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=201})
+        Create("TextLabel",{Parent=Drop,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-4,0,0),Size=UDim2.fromOffset(10,16),BackgroundTransparency=1,Text="+",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,ZIndex=201})
+        local I=1 local function Paint() local V=tostring(Getter()) Text.Text=V for Index,Item in ipairs(Items) do if tostring(Item)==V then I=Index break end end end
+        Bind(Drop.MouseButton1Click:Connect(function() I=I%#Items+1 Setter(Items[I]) Paint() end)) RegisterRenderer(Paint) return Row
     end
-    local function ScaleRow(ParentFrame,Y,Name,Flag,Default)
-        if type(Library.Flags[Flag])~="number" then Library.Flags[Flag]=Default or 100 end
-        local Row=Create("Frame",{Parent=ParentFrame,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,20),BackgroundColor3=Colors.Control,BackgroundTransparency=0.72,BorderSizePixel=0,ZIndex=199},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.42})})
-        Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-112,1,0),BackgroundTransparency=1,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200})
-        local Minus=Create("TextButton",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-78,0,2),Size=UDim2.fromOffset(18,16),BackgroundTransparency=1,Text="-",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=12,ZIndex=200})
-        local ValueLabel=Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-24,0,0),Size=UDim2.fromOffset(50,20),BackgroundTransparency=1,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=200})
-        local Plus=Create("TextButton",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-4,0,2),Size=UDim2.fromOffset(18,16),BackgroundTransparency=1,Text="+",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=12,ZIndex=200})
-        local function Apply(Delta)
-            local V=math.clamp((tonumber(Library.Flags[Flag]) or Default or 100)+(Delta or 0),60,160)
-            SetFlagValue(Flag,V) ValueLabel.Text=tostring(math.floor(V+0.5)).."%"
-        end
-        Bind(Minus.MouseButton1Click:Connect(function() Apply(-5) end)) Bind(Plus.MouseButton1Click:Connect(function() Apply(5) end))
-        RegisterRenderer(function() ValueLabel.Text=tostring(math.floor((tonumber(Library.Flags[Flag]) or Default or 100)+0.5)).."%" end)
-        return Row
+    local function NumberRow(P,Y,Name,Getter,Setter,Min,Max,Step,Suffix)
+        local Row=Create("Frame",{Parent=P,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,30),BackgroundTransparency=1,ZIndex=199})
+        Create("TextLabel",{Parent=Row,Size=UDim2.new(1,0,0,12),BackgroundTransparency=1,Text=Name,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200})
+        local Track=Create("Frame",{Parent=Row,Position=UDim2.fromOffset(0,18),Size=UDim2.new(1,0,0,4),BackgroundColor3=Color3.fromRGB(22,21,23),BorderSizePixel=0,ZIndex=200})
+        local Fill=Create("Frame",{Parent=Track,Size=UDim2.fromScale(0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=201})
+        local Value=Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,11),Size=UDim2.fromOffset(72,13),BackgroundTransparency=1,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right,ZIndex=202})
+        local function SetFromX(X) local P0,S0=Track.AbsolutePosition,Track.AbsoluteSize if S0.X<=0 then return end local T=math.clamp((X-P0.X)/S0.X,0,1) local N=Min+(Max-Min)*T N=math.floor(N/Step+0.5)*Step Setter(math.clamp(N,Min,Max)) end
+        local Drag=false Bind(Track.InputBegan:Connect(function(I) if I.UserInputType==Enum.UserInputType.MouseButton1 then Drag=true SetFromX(I.Position.X) end end)) Bind(UserInputService.InputChanged:Connect(function(I) if Drag and I.UserInputType==Enum.UserInputType.MouseMovement then SetFromX(I.Position.X) end end)) Bind(UserInputService.InputEnded:Connect(function(I) if I.UserInputType==Enum.UserInputType.MouseButton1 then Drag=false end end))
+        local function Paint() local N=tonumber(Getter()) or Min Fill.Size=UDim2.new(math.clamp((N-Min)/(Max-Min),0,1),0,1,0) Fill.BackgroundColor3=Accent() Value.Text=(Step<1 and string.format("%.2f",N) or tostring(math.floor(N+0.5)))..tostring(Suffix or "") end RegisterRenderer(Paint) return Row
     end
-    local function ActionRow(ParentFrame,Y,Name,Callback)
-        local B=Create("TextButton",{Parent=ParentFrame,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,20),BackgroundColor3=Colors.Control,BackgroundTransparency=0.72,BorderSizePixel=0,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,ZIndex=199},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.42})})
-        Bind(B.MouseButton1Click:Connect(Callback)) return B
+    local function ActionRow(P,Y,Name,Callback)
+        local B=Create("TextButton",{Parent=P,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,18),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,ZIndex=199},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.30}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})}) Bind(B.MouseButton1Click:Connect(Callback)) return B
     end
 
+    -- COLORS
     local ColorsPanel=Panel("Colors")
-    local Left=SectionBox(ColorsPanel,"base",UDim2.fromOffset(0,0),UDim2.new(0.5,-3,1,0))
-    local Right=SectionBox(ColorsPanel,"text",UDim2.new(0.5,3,0,0),UDim2.new(0.5,-3,1,0))
-    local ColorDefs={
-        {"accent","__ThemeAccent","Accent",Left},{"background","__ThemeBackground","Background",Left},{"surface","__ThemeSurface","Surface",Left},{"controls","__ThemeControl","Control",Left},{"border","__ThemeBorder","Border",Left},
-        {"text","__ThemeText","Text",Right},{"bright text","__ThemeTextBright","TextBright",Right},{"muted text","__ThemeTextDim","TextDim",Right},{"section text","__ThemeHeader","Header",Right}
-    }
-    local Counts={[Left]=0,[Right]=0}
+    local Base=SectionBox(ColorsPanel,"base",UDim2.fromOffset(0,4),UDim2.new(0.5,-4,1,-8))
+    local TextBox=SectionBox(ColorsPanel,"text",UDim2.new(0.5,4,0,4),UDim2.new(0.5,-4,1,-8))
+    local ColorDefs={{"accent","__ThemeAccent","Accent",Base},{"background","__ThemeBackground","Background",Base},{"surface","__ThemeSurface","Surface",Base},{"controls","__ThemeControl","Control",Base},{"border","__ThemeBorder","Border",Base},{"text","__ThemeText","Text",TextBox},{"bright text","__ThemeTextBright","TextBright",TextBox},{"muted text","__ThemeTextDim","TextDim",TextBox},{"section text","__ThemeHeader","Header",TextBox}}
+    local Counts={[Base]=0,[TextBox]=0}
     for _,Def in ipairs(ColorDefs) do
-        local Name,Flag,Key,Box=Def[1],Def[2],Def[3],Def[4] Counts[Box]+=1 local Y=21+(Counts[Box]-1)*25
-        local Row=Create("Frame",{Parent=Box,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,21),BackgroundColor3=Colors.Control,BackgroundTransparency=0.72,BorderSizePixel=0,ZIndex=199},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.42})})
-        Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-38,1,0),BackgroundTransparency=1,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200})
-        local Swatch=Create("TextButton",{Parent=Row,AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-5,0.5,0),Size=UDim2.fromOffset(25,13),BackgroundColor3=Library.Theme[Key],BorderSizePixel=0,Text="",AutoButtonColor=false,ZIndex=200},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
-        local PickerObject={Color=Library.Theme[Key],Alpha=1}
-        function PickerObject:Set(Color,Alpha)
-            if typeof(Color)~="Color3" then return end
-            PickerObject.Color=Color PickerObject.Alpha=Alpha or 1 Swatch.BackgroundColor3=Color SetFlagValue(Flag,Color)
-        end
-        Bind(Swatch.MouseButton1Click:Connect(function()
-            local Window=Library.ActiveWindow
-            if Window and type(Window.OpenPicker)=="function" then PickerObject.Color=Library.Theme[Key] Window:OpenPicker(PickerObject,Swatch) end
-        end))
-        RegisterRenderer(function() if Swatch and Swatch.Parent then Swatch.BackgroundColor3=Library.Theme[Key] end end)
+        local Name,Flag,Key,Box=Def[1],Def[2],Def[3],Def[4] Counts[Box]+=1 local Y=15+(Counts[Box]-1)*25
+        local Row=Create("Frame",{Parent=Box,Position=UDim2.fromOffset(7,Y),Size=UDim2.new(1,-14,0,20),BackgroundTransparency=1,ZIndex=199})
+        Create("TextLabel",{Parent=Row,Size=UDim2.new(1,-38,1,0),BackgroundTransparency=1,Text=Name,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=200})
+        local Swatch=Create("TextButton",{Parent=Row,AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,0,0.5,0),Size=UDim2.fromOffset(25,12),BackgroundColor3=Library.Theme[Key],BorderSizePixel=0,Text="",AutoButtonColor=false,ZIndex=200},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
+        local Picker={Color=Library.Theme[Key],Alpha=1}
+        function Picker:Set(Color,Alpha) if typeof(Color)~="Color3" then return end Picker.Color=Color Picker.Alpha=Alpha or 1 Swatch.BackgroundColor3=Color SetFlagValue(Flag,Color) end
+        Bind(Swatch.MouseButton1Click:Connect(function() local W=Library.ActiveWindow if W and type(W.OpenPicker)=="function" then Picker.Color=Library.Theme[Key] W:OpenPicker(Picker,Swatch) end end)) RegisterRenderer(function() if Swatch.Parent then Swatch.BackgroundColor3=Library.Theme[Key] end end)
     end
 
-    local UIPanel=Panel("UI") local UIBox=SectionBox(UIPanel,"watermark",UDim2.fromOffset(0,0),UDim2.fromScale(1,1))
-    ToggleRow(UIBox,24,"Watermark","__InterfaceWatermark",true)
-    ScaleRow(UIBox,48,"Watermark scale","__InterfaceWatermarkScale",100)
-    Create("TextLabel",{Parent=UIBox,Position=UDim2.fromOffset(8,78),Size=UDim2.new(1,-16,0,34),BackgroundTransparency=1,Text="Watermark stays draggable. Its position is saved with the interface config.",TextWrapped=true,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=199})
+    -- THEMES
+    local ThemesPanel=Panel("Themes")
+    local Presets=SectionBox(ThemesPanel,"presets",UDim2.fromOffset(0,4),UDim2.new(0.48,-3,1,-8))
+    local Custom=SectionBox(ThemesPanel,"custom themes",UDim2.new(0.48,5,0,4),UDim2.new(0.52,-5,1,-8))
+    local py=16
+    for _,Name in ipairs({"Atramenta","Bankroll","Midnight","Crimson"}) do ActionRow(Presets,py,string.lower(Name),function() Library:ApplyThemePreset(Library.ThemePresets[Name]) end) py+=23 end
+    ActionRow(Presets,py+5,"reset to atramenta",function() Library:ApplyThemePreset(Library.ThemePresets.Atramenta) end)
+    Create("TextLabel",{Parent=Custom,Position=UDim2.fromOffset(7,18),Size=UDim2.new(1,-14,0,12),BackgroundTransparency=1,Text="theme name",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=199})
+    local NameFrame=Create("Frame",{Parent=Custom,Position=UDim2.fromOffset(7,33),Size=UDim2.new(1,-14,0,18),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,ZIndex=199},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.3})})
+    local NameInput=Create("TextBox",{Parent=NameFrame,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text="",PlaceholderText="my_theme",PlaceholderColor3=Colors.TextDim,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ClearTextOnFocus=false,ZIndex=200})
+    ActionRow(Custom,58,"save current",function() if Library:SaveCustomTheme(NameInput.Text) then Library:Notification({Title="theme",Description="saved "..NameInput.Text,Duration=1.6}) end end)
+    ActionRow(Custom,81,"load",function() if Library:LoadCustomTheme(NameInput.Text) then Library:Notification({Title="theme",Description="loaded "..NameInput.Text,Duration=1.6}) end end)
+    ActionRow(Custom,104,"delete",function() if Library:DeleteCustomTheme(NameInput.Text) then Library:Notification({Title="theme",Description="deleted "..NameInput.Text,Duration=1.6}) end end)
+    Create("TextLabel",{Parent=Custom,Position=UDim2.fromOffset(8,137),Size=UDim2.new(1,-16,0,55),BackgroundTransparency=1,Text="Colors are saved to\nAtramenta.rip/Themes\nand can be loaded later.",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=199})
 
-    local BindsPanel=Panel("Binds") local BindsBox=SectionBox(BindsPanel,"keybind list",UDim2.fromOffset(0,0),UDim2.fromScale(1,1))
-    ToggleRow(BindsBox,24,"Keybind list","__InterfaceKeybindList",false)
-    ScaleRow(BindsBox,48,"Keybind scale","__InterfaceKeybindScale",100)
-    Create("TextLabel",{Parent=BindsBox,Position=UDim2.fromOffset(8,78),Size=UDim2.new(1,-16,0,48),BackgroundTransparency=1,Text="Hold -> Holded while pressed\nToggle -> Toggled while active\nAlways -> Always",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=199})
+    -- UI
+    local UIPanel=Panel("UI")
+    local Transitions=SectionBox(UIPanel,"transitions",UDim2.fromOffset(0,4),UDim2.new(0.5,-4,0,132))
+    local Interface=SectionBox(UIPanel,"interface",UDim2.new(0.5,4,0,4),UDim2.new(0.5,-4,0,132))
+    local Extras=SectionBox(UIPanel,"extras",UDim2.fromOffset(0,144),UDim2.new(1,0,1,-148))
+    ChoiceRow(Transitions,15,"menu transition",function() return Library.ThemeEditorSettings.MenuTransition end,function(V) Library.ThemeEditorSettings.MenuTransition=V end,{"Fade","Instant","Slide"})
+    NumberRow(Transitions,51,"duration",function() return Library.ThemeEditorSettings.TransitionDuration end,function(V) Library.ThemeEditorSettings.TransitionDuration=V end,0.05,0.5,0.01,"s")
+    ChoiceRow(Transitions,87,"easing",function() return Library.ThemeEditorSettings.Easing end,function(V) Library.ThemeEditorSettings.Easing=V end,{"Quad","Sine","Quint","Linear"})
+    NumberRow(Interface,15,"text size",function() return Library.ThemeEditorSettings.TextSize end,function(V) Library.ThemeEditorSettings.TextSize=V end,10,16,1,"")
+    ToggleRow(Interface,51,"compact quick panel",function() return Library.ThemeEditorSettings.CompactQuickPanel end,function(V) Library.ThemeEditorSettings.CompactQuickPanel=V end)
+    ToggleRow(Interface,75,"keep watermark open",function() return Library.ThemeEditorSettings.KeepWatermarkOpen end,function(V) Library.ThemeEditorSettings.KeepWatermarkOpen=V end)
+    ToggleRow(Extras,15,"watermark",function() return Library.Flags.__InterfaceWatermark==true end,function(V) SetFlagValue("__InterfaceWatermark",V) end)
+    NumberRow(Extras,39,"watermark scale",function() return Library.Flags.__InterfaceWatermarkScale or 100 end,function(V) SetFlagValue("__InterfaceWatermarkScale",V) end,60,160,5,"%")
 
-    local NotifsPanel=Panel("Notifs") local NotifBox=SectionBox(NotifsPanel,"notifications",UDim2.fromOffset(0,0),UDim2.fromScale(1,1))
-    Create("TextLabel",{Parent=NotifBox,Position=UDim2.fromOffset(8,24),Size=UDim2.new(1,-16,0,42),BackgroundTransparency=1,Text="Drag the example notification anywhere. Every script notification and hit log uses that exact anchor point.",TextWrapped=true,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=199})
-    ActionRow(NotifBox,72,"show / refresh example",function() Library:SetNotificationPreviewVisible(true) end)
-    ActionRow(NotifBox,96,"reset to top right",function() Library:SetNotificationLayout(Vector2.new(0.94,0.08)) end)
-    ActionRow(NotifBox,120,"center",function() Library:SetNotificationLayout(Vector2.new(0.5,0.5)) end)
+    -- BINDS
+    local BindsPanel=Panel("Binds")
+    local Display=SectionBox(BindsPanel,"display",UDim2.fromOffset(0,4),UDim2.new(0.5,-4,1,-8))
+    local Behavior=SectionBox(BindsPanel,"behavior",UDim2.new(0.5,4,0,4),UDim2.new(0.5,-4,1,-8))
+    ToggleRow(Display,15,"keybind list",function() return Library.Flags.__InterfaceKeybindList==true end,function(V) SetFlagValue("__InterfaceKeybindList",V) end)
+    NumberRow(Display,39,"scale",function() return Library.Flags.__InterfaceKeybindScale or 100 end,function(V) SetFlagValue("__InterfaceKeybindScale",V) end,60,160,5,"%")
+    ToggleRow(Display,75,"show header",function() return Library.KeybindSettings.ShowHeader end,function(V) Library.KeybindSettings.ShowHeader=V if Library.KeybindListController then Library.KeybindListController:Refresh() end end)
+    ToggleRow(Display,99,"show inactive",function() return Library.KeybindSettings.ShowInactive end,function(V) Library.KeybindSettings.ShowInactive=V if Library.KeybindListController then Library.KeybindListController:Refresh() end end)
+    ToggleRow(Behavior,15,"accent active",function() return Library.KeybindSettings.AccentActive end,function(V) Library.KeybindSettings.AccentActive=V if Library.KeybindListController then Library.KeybindListController:Refresh() end end)
+    ToggleRow(Behavior,39,"compact rows",function() return Library.KeybindSettings.CompactRows end,function(V) Library.KeybindSettings.CompactRows=V if Library.KeybindListController then Library.KeybindListController:Refresh() end end)
+    ToggleRow(Behavior,63,"lowercase names",function() return Library.KeybindSettings.LowercaseNames end,function(V) Library.KeybindSettings.LowercaseNames=V if Library.KeybindListController then Library.KeybindListController:Refresh() end end)
+    Create("TextLabel",{Parent=Behavior,Position=UDim2.fromOffset(8,96),Size=UDim2.new(1,-16,0,58),BackgroundTransparency=1,Text="Hold -> Holded\nToggle -> Toggled\nAlways -> Always",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=199})
 
-    RegisterRenderer(function()
-        local Stroke=Frame:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end
-        Frame.BackgroundColor3=Colors.Bg Title.BackgroundColor3=Colors.TitleBg TitleText.TextColor3=Colors.TextBright
-        Select(Object.ActiveTab)
-    end)
-    Select("Colors")
-    self.ThemePanelController=Object
-    Object:ApplyVisibility()
-    return Object
+    -- NOTIFS
+    local NotifsPanel=Panel("Notifs")
+    local Style=SectionBox(NotifsPanel,"notifications",UDim2.fromOffset(0,4),UDim2.new(0.5,-4,1,-8))
+    local Layout=SectionBox(NotifsPanel,"layout",UDim2.new(0.5,4,0,4),UDim2.new(0.5,-4,1,-8))
+    NumberRow(Style,15,"default lifetime",function() return Library.NotificationSettings.DefaultDuration end,function(V) Library.NotificationSettings.DefaultDuration=V end,1,8,0.25,"s")
+    NumberRow(Style,51,"animation speed",function() return Library.NotificationSettings.AnimationSpeed end,function(V) Library.NotificationSettings.AnimationSpeed=V end,0.5,2,0.1,"x")
+    NumberRow(Style,87,"maximum visible",function() return Library.NotificationSettings.MaximumVisible end,function(V) Library.NotificationSettings.MaximumVisible=V Library.NotificationMaximumVisible=V end,1,12,1,"")
+    ToggleRow(Style,123,"progress bar",function() return Library.NotificationSettings.Progress end,function(V) Library.NotificationSettings.Progress=V end)
+    NumberRow(Layout,15,"notification scale",function() return Library.NotificationSettings.Scale end,function(V) Library.NotificationSettings.Scale=V Library:ApplyNotificationLayout() end,70,140,5,"%")
+    ActionRow(Layout,55,"show example",function() Library:SetNotificationPreviewVisible(true) end)
+    ActionRow(Layout,78,"reset top right",function() Library:SetNotificationLayout(Vector2.new(0.94,0.08)) end)
+    ActionRow(Layout,101,"center",function() Library:SetNotificationLayout(Vector2.new(0.5,0.5)) end)
+    Create("TextLabel",{Parent=Layout,Position=UDim2.fromOffset(8,132),Size=UDim2.new(1,-16,0,64),BackgroundTransparency=1,Text="Drag the example notification.\nAll script notifications and hit logs\nuse that exact point.",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=199})
+
+    RegisterRenderer(function() local S=Frame:FindFirstChildOfClass("UIStroke") if S then S.Color=Colors.SectionBorder end Frame.BackgroundColor3=Colors.Bg Title.BackgroundColor3=Colors.TitleBg TitleText.TextColor3=Colors.TextBright Select(Object.ActiveTab) end)
+    Select("Colors") self.ThemePanelController=Object Object:ApplyVisibility() return Object
 end
 
 function Library:QuickPanel(Data)
@@ -2282,6 +2333,7 @@ function Library:ApplyNotificationLayout()
     local Point,Anchor,H,V=self:GetNotificationAlign()
     local Viewport=GetViewportSize(Gui)
     Holder.Size=UDim2.fromOffset(math.max(140,math.min(320,Viewport.X-24)),math.max(120,math.min(560,Viewport.Y-24)))
+    local HolderScale=Holder:FindFirstChildOfClass("UIScale") or Create("UIScale",{Parent=Holder,Scale=1}) HolderScale.Scale=math.clamp(tonumber((self.NotificationSettings or {}).Scale) or 100,70,140)/100
     Holder.AnchorPoint=Anchor Holder.Position=UDim2.fromScale(Point.X,Point.Y)
     local Layout=Holder:FindFirstChildOfClass("UIListLayout")
     if Layout then Layout.HorizontalAlignment=H Layout.VerticalAlignment=V end
@@ -2450,22 +2502,23 @@ function Library:Notification(Data)
     local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.22,BorderSizePixel=0})
     Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
     if Description~="" then Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top}) end
-    local Duration=math.max(tonumber(Data.Duration) or 3,0.35)
-    local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,2,1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4})
+    local Duration=math.max(tonumber(Data.Duration) or tonumber((self.NotificationSettings or {}).DefaultDuration) or 3,0.35)
+    local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,2,1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4,Visible=(self.NotificationSettings or {}).Progress~=false})
     local Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08) local Direction=Point.X<0.34 and -1 or Point.X>0.66 and 1 or 0
     Group.Position=UDim2.fromOffset(Direction*9,0)
-    TweenService:Create(Group,TweenInfo.new(0.14,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
+    local AnimSpeed=math.max(tonumber((self.NotificationSettings or {}).AnimationSpeed) or 1,0.1)
+    TweenService:Create(Group,TweenInfo.new(0.14/AnimSpeed,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
     TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,0,1)}):Play()
     RegisterRenderer(function() if not Panel.Parent then return end local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A end)
     local Alive=true
     local function Close()
         if not Alive then return end Alive=false
-        TweenService:Create(Group,TweenInfo.new(0.12,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*8,0),GroupTransparency=1}):Play()
-        task.delay(0.13,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
+        TweenService:Create(Group,TweenInfo.new(0.12/AnimSpeed,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*8,0),GroupTransparency=1}):Play()
+        task.delay(0.13/AnimSpeed,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
     end
     Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end end))
     task.delay(Duration,Close)
-    local Count=0 local Oldest local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or tonumber(self.NotificationMaximumVisible) or 8),1)
+    local Count=0 local Oldest local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or tonumber((self.NotificationSettings or {}).MaximumVisible) or tonumber(self.NotificationMaximumVisible) or 8),1)
     for _,Child in ipairs(self.NotificationHolder:GetChildren()) do if Child:IsA("Frame") then Count+=1 if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end end end
     if Count>Maximum and Oldest and Oldest~=Wrapper then Oldest:Destroy() end
     return Wrapper
