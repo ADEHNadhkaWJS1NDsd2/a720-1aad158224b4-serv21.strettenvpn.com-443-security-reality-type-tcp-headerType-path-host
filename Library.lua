@@ -9,7 +9,7 @@ local CoreGui = game:GetService("CoreGui")
 
 local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Directory = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets", Fonts = "Atramenta.rip/Fonts", Themes = "Atramenta.rip/Themes"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(150, 120, 150), Background = Color3.fromRGB(8, 8, 8), Surface = Color3.fromRGB(0, 0, 0), Control = Color3.fromRGB(12, 11, 12), Border = Color3.fromRGB(56, 52, 56), Text = Color3.fromRGB(140, 130, 140), TextBright = Color3.fromRGB(197, 197, 197), TextDim = Color3.fromRGB(77, 72, 77), Header = Color3.fromRGB(127, 115, 127)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
 Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Easing="Quad",TextSize=13,CompactPanel=true,KeepWatermarkOpen=true}
-Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=false}
+Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=true}
 Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}
 Library.ThemePresets = {
     Atramenta={Accent=Color3.fromRGB(150,120,150),Background=Color3.fromRGB(8,8,8),Surface=Color3.fromRGB(0,0,0),Control=Color3.fromRGB(12,11,12),Border=Color3.fromRGB(56,52,56),Text=Color3.fromRGB(140,130,140),TextBright=Color3.fromRGB(197,197,197),TextDim=Color3.fromRGB(77,72,77),Header=Color3.fromRGB(127,115,127)},
@@ -1511,6 +1511,10 @@ function Library:GetConfig()
     end
     local PanelController = self.PanelController or self.QuickPanelController
     if PanelController and PanelController.Root then Interface.PanelPosition = PanelController.Root.Position end
+    if self.ConfigurationPanelController and self.ConfigurationPanelController.Frame then
+        Interface.ConfigurationPosition = self.ConfigurationPanelController.Frame.Position
+        Interface.ConfigurationVisible = self.ConfigurationPanelController.RequestedVisible == true
+    end
     Interface.Theme = CloneValue(self.Theme)
     Interface.MenuBind = self.MenuBindData and {Key = self.MenuBindData.Key, Modifiers = CopyModifiers(self.MenuBindData.Modifiers)} or {Key = self.MenuKeybind, Modifiers = EmptyModifiers()}
     Interface.NotificationPoint = typeof(self.NotificationPoint) == "Vector2" and self.NotificationPoint or Vector2.new(0.94, 0.08)
@@ -1632,6 +1636,14 @@ function Library:LoadConfig(Source)
             PanelController.Root.Position = SavedPanelPosition
             ClampFrameToViewport(PanelController.Root, PanelController.Gui, 4)
         end
+        local ConfigurationPanel = self.ConfigurationPanelController
+        if ConfigurationPanel and ConfigurationPanel.Frame then
+            if typeof(Interface.ConfigurationPosition) == "UDim2" then
+                ConfigurationPanel.Frame.Position = Interface.ConfigurationPosition
+                ClampFrameToViewport(ConfigurationPanel.Frame, ConfigurationPanel.Gui, 4)
+            end
+            if type(Interface.ConfigurationVisible) == "boolean" then ConfigurationPanel:SetVisibility(Interface.ConfigurationVisible) end
+        end
         if typeof(Interface.NotificationPoint) == "Vector2" then
             self.NotificationPoint = Interface.NotificationPoint
             if type(self.ApplyNotificationLayout) == "function" then self:ApplyNotificationLayout() end
@@ -1746,55 +1758,120 @@ function Library:RefreshConfigsList(Listbox)
     return Items
 end
 
-function WindowMethods:ConfigSystem()
-    if self.ConfigPage then return self.ConfigPage end
-    local Page=self:Page({Name="settings"})
+function Library:ConfigurationPanel()
+    local Existing=self.ConfigurationPanelController
+    if Existing and Existing.Gui and Existing.Gui.Parent and Existing.Frame and Existing.Frame.Parent then return Existing end
+    if Existing and Existing.Gui and Existing.Gui.Parent then Existing.Gui:Destroy() end
+
+    local Parent=ParentGui()
+    local Gui=Create("ScreenGui",{Name="AtramentaConfiguration",Parent=Parent,ResetOnSpawn=false,DisplayOrder=194,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
+    self.Guis[#self.Guis+1]=Gui
+
+    local Width,Height=520,390
+    local Main=Create("Frame",{
+        Parent=Gui,Size=UDim2.fromOffset(Width,Height),Position=UDim2.new(0.5,-math.floor(Width/2),0.5,-math.floor(Height/2)),
+        BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ClipsDescendants=false
+    },{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
+    local TitleBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true},{
+        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(28,28,32)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0))})}),
+        Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
+    })
+    local TitleLabel=Create("TextLabel",{Parent=TitleBar,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Configuration",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,ZIndex=4})
+    local Content=Create("Frame",{Parent=Main,Position=UDim2.fromOffset(0,22),Size=UDim2.new(1,0,1,-22),BackgroundTransparency=1,ClipsDescendants=false})
+    local TabBar=Create("Frame",{Parent=Main,Size=UDim2.fromOffset(0,0),Position=UDim2.new(0,0,1,0),BackgroundTransparency=1,Visible=false})
+
+    local Object=setmetatable({
+        Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,
+        Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,
+        RequestedVisible=false,Visible=false,MenuVisible=true,Destroyed=false
+    },WindowMethods)
+
+    function Object:ApplyVisibility()
+        local State=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
+        Object.Visible=State Main.Visible=State
+        if not State then Object:CloseDropdown() Object:ClosePicker() end
+        local Controller=Library.PanelController or Library.QuickPanelController
+        if Controller and type(Controller.Refresh)=="function" then task.defer(Controller.Refresh) end
+    end
+    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
+    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
+    function Object:IsVisible() return Main.Visible==true end
+    function Object:IsRequestedVisible() return Object.RequestedVisible==true end
+    function Object:Toggle() Object:SetVisibility(not Object.RequestedVisible) end
+    function Object:Destroy()
+        if Object.Destroyed then return end
+        Object.Destroyed=true
+        if Gui and Gui.Parent then Gui:Destroy() end
+        if Library.ConfigurationPanelController==Object then Library.ConfigurationPanelController=nil end
+    end
+
+    self.ConfigurationPanelController=Object
+    CreatePopupLayer(Object)
+    MakeDraggable(Main,TitleBar,Gui)
+    BindFrameToViewport(Main,Gui,4)
+
+    local Page=Object:Page({Name="configuration"})
+    if Page.Button then Page.Button.Visible=false end
+    TabBar.Visible=false
+    Content.Size=UDim2.new(1,0,1,-22)
+
     local Browser=Page:Section({Name="configs",Side=1})
     local Manager=Page:Section({Name="config actions",Side=2})
-    local Interface=Page:Section({Name="interface",Side=1})
+    local Interface=Page:Section({Name="interface",Side=2})
     local Selected,Listbox
     local CountLabel=Browser:Label({Name="0 configs",Alignment="Left"})
     local NameBox=Manager:Textbox({Name="config name",Flag="__ConfigName",Default="",Placeholder="enter name"})
     local Status=Manager:Label({Name="ready",Alignment="Left"})
     local function Notify(Text) Status:Set(tostring(Text)) Library:Notification({Title="config",Description=Text,Duration=2}) end
     local function SetSelected(Name)
-        Selected=Name and NormalizeConfigName(Name) or nil if Selected then NameBox:Set(Selected,true) end
+        Selected=Name and NormalizeConfigName(Name) or nil
+        if Selected then NameBox:Set(Selected,true) end
     end
     local function Refresh(Preserve)
-        local Items=Library:ListConfigs() Listbox:SetItems(Items) CountLabel:Set(tostring(#Items)..(#Items==1 and " config" or " configs"))
-        if Preserve~=false and Selected and table.find(Items,Selected) then Listbox:Set(Selected) else SetSelected(nil) end Status:Set("ready") return Items
+        local Items=Library:ListConfigs()
+        Listbox:SetItems(Items)
+        CountLabel:Set(tostring(#Items)..(#Items==1 and " config" or " configs"))
+        if Preserve~=false and Selected and table.find(Items,Selected) then Listbox:Set(Selected) else SetSelected(nil) end
+        Status:Set("ready")
+        return Items
     end
-    local function CurrentName(AllowInput) local Name=Selected if (not Name or Name=="") and AllowInput then Name=NormalizeConfigName(NameBox:Get()) end return NormalizeConfigName(Name or "") end
-    Listbox=Browser:Listbox({Items={},Height=164,Callback=function(Value) SetSelected(Value) Status:Set("selected "..tostring(Value)) end})
+    local function CurrentName(AllowInput)
+        local Name=Selected
+        if (not Name or Name=="") and AllowInput then Name=NormalizeConfigName(NameBox:Get()) end
+        return NormalizeConfigName(Name or "")
+    end
+    Listbox=Browser:Listbox({Items={},Height=238,Callback=function(Value) SetSelected(Value) Status:Set("selected "..tostring(Value)) end})
     Browser:Button({Name="refresh",Callback=function() Refresh(true) end})
     Manager:Button({Name="create",Callback=function()
         local Name=NormalizeConfigName(NameBox:Get())
         if Name=="" then Notify("enter a config name") return end
         if Library:ConfigExists(Name) then Notify(Name.." already exists") return end
         Library.LastConfigSaveError=nil
-        if Library:SaveConfig(Name) then
-            SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." created")
-        else
-            Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not created" or "failed to create "..Name)
-        end
+        if Library:SaveConfig(Name) then SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." created")
+        else Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not created" or "failed to create "..Name) end
     end})
     Manager:Button({Name="save",Callback=function()
         local Name=CurrentName(true)
         if Name=="" then Notify("select or enter a config") return end
         Library.LastConfigSaveError=nil
-        if Library:SaveConfig(Name) then
-            SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." saved")
-        else
-            Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not overwritten" or "failed to save "..Name)
-        end
+        if Library:SaveConfig(Name) then SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." saved")
+        else Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not overwritten" or "failed to save "..Name) end
     end})
-    Manager:Button({Name="load",Callback=function() local Name=CurrentName(false) if Name=="" then Notify("select a config") return end if Library:LoadConfigFile(Name) then SetSelected(Name) Notify(Name.." loaded") else Notify("failed to load "..Name) end end})
-    Manager:Button({Name="delete",Callback=function() local Name=CurrentName(false) if Name=="" then Notify("select a config") return end if Library:DeleteConfig(Name) then SetSelected(nil) NameBox:Set("",true) Refresh(false) Notify(Name.." deleted") else Notify("failed to delete "..Name) end end})
+    Manager:Button({Name="load",Callback=function()
+        local Name=CurrentName(false)
+        if Name=="" then Notify("select a config") return end
+        if Library:LoadConfigFile(Name) then SetSelected(Name) Notify(Name.." loaded") else Notify("failed to load "..Name) end
+    end})
+    Manager:Button({Name="delete",Callback=function()
+        local Name=CurrentName(false)
+        if Name=="" then Notify("select a config") return end
+        if Library:DeleteConfig(Name) then SetSelected(nil) NameBox:Set("",true) Refresh(false) Notify(Name.." deleted") else Notify("failed to delete "..Name) end
+    end})
 
-    Library.MenuBindData=Interface:Keybind({Name="menu bind",Flag="__AtramentaMenuBind",Default=Enum.KeyCode.F2,Mode="Toggle",Callback=function() end})
+    Library.MenuBindData=Interface:Keybind({Name="menu",Flag="__AtramentaMenuBind",Default=Enum.KeyCode.F2,Mode="Toggle",Callback=function() end})
+    Interface:Button({Name="unload",Callback=function() Library.Unload() end})
 
-    -- Theme / watermark / keybind-list controls live in the standalone Theme panel.
-    -- Keep their flags registered here so old configs continue to load exactly as before.
+    -- Keep interface/theme flags registered so old configs remain compatible.
     RegisterFlag("__InterfaceWatermark",true,function(Value)
         Library.Flags.__InterfaceWatermark=Value==true
         if Library.WatermarkController then Library.WatermarkController:SetVisibility(Value==true) end
@@ -1822,8 +1899,31 @@ function WindowMethods:ConfigSystem()
             if typeof(Value)=="Color3" then Library.Flags[Flag]=Value Library:ChangeTheme(Key,Value) end
         end)
     end
+
+    Object.ConfigListbox=Listbox
+    Object.RefreshConfigs=Refresh
     Refresh(false)
-    self.ConfigPage,self.SettingsPage,self.ConfigListbox,self.RefreshConfigs=Page,Page,Listbox,Refresh return Page
+    Object:ApplyVisibility()
+
+    RegisterRenderer(function()
+        SyncThemeColors()
+        Main.BackgroundColor3=Colors.Bg TitleBar.BackgroundColor3=Colors.TitleBg TitleLabel.TextColor3=Colors.TextBright
+        local Stroke=Main:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end
+        local Line=TitleBar:FindFirstChild("AccentLine")
+        if Line then
+            local A=Accent() Line.BackgroundColor3=A
+            local Gradient=Line:FindFirstChildOfClass("UIGradient")
+            if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,A),ColorSequenceKeypoint.new(1,Color3.new())}) end
+        end
+    end)
+    return Object
+end
+
+function WindowMethods:ConfigSystem()
+    -- Configuration is now a standalone panel opened from Library:Panel().
+    local Panel=Library:ConfigurationPanel()
+    self.ConfigPanel=Panel
+    return Panel
 end
 
 function Library:Watermark(Text)
@@ -1875,7 +1975,7 @@ function Library:KeybindList()
         Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})
     })
     local HeaderText=Create("TextLabel",{
-        Parent=Header,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Keybinds",TextColor3=Colors.TextBright,
+        Parent=Header,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="keybinds",TextColor3=Colors.TextBright,
         Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center
     })
     local Holder=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(4,21),Size=UDim2.new(1,-8,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},{
@@ -1923,7 +2023,7 @@ function Library:KeybindList()
                 local KeyText="["..KeyDisplay(BindData.Key,BindData.Modifiers).."]"
                 local ModeDisplay="["..ModeText.."]"
                 local RightText=KeyText.." "..ModeDisplay
-                local NameText=CleanKeybindDisplayName(BindData.Name or BindData.TargetFlag or BindData.Flag or "bind") if Library.KeybindSettings.LowercaseNames then NameText=string.lower(NameText) end
+                local NameText=string.lower(CleanKeybindDisplayName(BindData.Name or BindData.TargetFlag or BindData.Flag or "bind"))
                 local NameWidth=TextService:GetTextSize(NameText,12,Enum.Font.SourceSans,Vector2.new(700,15)).X
                 local RightWidth=TextService:GetTextSize(RightText,11,Enum.Font.SourceSans,Vector2.new(700,15)).X
                 DesiredWidth=math.max(DesiredWidth,math.ceil(NameWidth+RightWidth+20))
@@ -2201,7 +2301,7 @@ function Library:ThemePanel()
         if Library.Flags.__ThemePanelWidth==nil and Library.Flags.__ThemeQuickPanelWidth~=nil then Library.Flags.__ThemePanelWidth=Library.Flags.__ThemeQuickPanelWidth end
         if Library.Flags.__ThemePanelHeight==nil and Library.Flags.__ThemeQuickPanelHeight~=nil then Library.Flags.__ThemePanelHeight=Library.Flags.__ThemeQuickPanelHeight end
         if not Root or not Root.Parent then return end
-        local W=math.clamp(tonumber(Library.Flags.__ThemePanelWidth) or 258,210,420)
+        local W=math.clamp(tonumber(Library.Flags.__ThemePanelWidth) or 330,300,500)
         local H=math.clamp(tonumber(Library.Flags.__ThemePanelHeight) or 29,24,44)
         Root.Size=UDim2.fromOffset(W,H)
     end
@@ -2316,7 +2416,7 @@ function Library:ThemePanel()
         local Controller=Library.WatermarkController
         if Controller and type(Controller.SetScale)=="function" then Controller:SetScale(Number) end
     end})
-    PanelSection:Slider({Name="width",Flag="__ThemePanelWidth",Min=210,Max=420,Default=tonumber(Library.Flags.__ThemePanelWidth) or 258,Step=2,Suffix=" px",Callback=function(Value)
+    PanelSection:Slider({Name="width",Flag="__ThemePanelWidth",Min=300,Max=500,Default=tonumber(Library.Flags.__ThemePanelWidth) or 330,Step=2,Suffix=" px",Callback=function(Value)
         Library.Flags.__ThemePanelWidth=Value ApplyPanelSize()
     end})
     PanelSection:Slider({Name="height",Flag="__ThemePanelHeight",Min=24,Max=44,Default=tonumber(Library.Flags.__ThemePanelHeight) or 29,Step=1,Suffix=" px",Callback=function(Value)
@@ -2324,7 +2424,7 @@ function Library:ThemePanel()
     end})
     PanelSection:Button({Name="reset panel size",Callback=function()
         local WSetter=Library.Setters.__ThemePanelWidth local HSetter=Library.Setters.__ThemePanelHeight
-        if type(WSetter)=="function" then Call(WSetter,258) else Library.Flags.__ThemePanelWidth=258 end
+        if type(WSetter)=="function" then Call(WSetter,330) else Library.Flags.__ThemePanelWidth=330 end
         if type(HSetter)=="function" then Call(HSetter,29) else Library.Flags.__ThemePanelHeight=29 end
         ApplyPanelSize()
     end})
@@ -2355,9 +2455,6 @@ function Library:ThemePanel()
     end})
     BindStyle:Toggle({Name="compact rows",Flag="__ThemeBindCompactRows",Default=Library.KeybindSettings.CompactRows~=false,Callback=function(Value)
         Library.KeybindSettings.CompactRows=Value==true RefreshKeybindPanel()
-    end})
-    BindStyle:Toggle({Name="lowercase names",Flag="__ThemeBindLowercase",Default=Library.KeybindSettings.LowercaseNames==true,Callback=function(Value)
-        Library.KeybindSettings.LowercaseNames=Value==true RefreshKeybindPanel()
     end})
     BindStyle:Label({Name="Hold -> Holded   |   Toggle -> Toggled   |   Always -> Always",Alignment="Left"})
 
@@ -2421,7 +2518,7 @@ function Library:Panel(Data)
     local Parent=ParentGui()
     local Gui=Create("ScreenGui",{Name="AtramentaPanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=190,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui
-    local Root=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,8),Size=UDim2.fromOffset(258,29),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0,BorderSizePixel=0,Visible=self.InterfaceOpen,Active=true,ZIndex=190},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.58})})
+    local Root=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,8),Size=UDim2.fromOffset(330,29),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0,BorderSizePixel=0,Visible=self.InterfaceOpen,Active=true,ZIndex=190},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.58})})
     local Inner=Create("Frame",{Parent=Root,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,ZIndex=191},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(0.55,Colors.TitleBg),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
     local AccentLine=Create("Frame",{Parent=Inner,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=194},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,Accent()),ColorSequenceKeypoint.new(0.82,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
     local Holder=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(5,4),Size=UDim2.new(1,-10,1,-8),BackgroundTransparency=1,ZIndex=192},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Center,VerticalAlignment=Enum.VerticalAlignment.Center,Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder})})
@@ -2429,27 +2526,31 @@ function Library:Panel(Data)
     local function RequestedMenu() local Window=Library.ActiveWindow return Window and Window.Visible==true or false end
     local function RequestedPlayers() local Controller=Library.PlayerListController return Controller and Controller.RequestedVisible==true or false end
     local function RequestedTheme() local Controller=Library.ThemePanelController return Controller and Controller.RequestedVisible==true or false end
+    local function RequestedConfiguration() local Controller=Library.ConfigurationPanelController return Controller and Controller.RequestedVisible==true or false end
     local function Paint(Button,State)
         Button.BackgroundTransparency=State and 0.60 or 0.84 Button.TextColor3=State and Accent() or Colors.Text
         local Stroke=Button:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=State and Accent() or Colors.SectionBorder Stroke.Transparency=State and 0.68 or 0.72 end
     end
     local function Make(Name,Order,Callback)
-        local Button=Create("TextButton",{Parent=Holder,Size=UDim2.new(1/3,-4,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.80,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Order,ZIndex=193},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.55})})
+        local Button=Create("TextButton",{Parent=Holder,Size=UDim2.new(1/4,-4,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.80,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Order,ZIndex=193},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.55})})
         Object.Buttons[Name]=Button Bind(Button.MouseButton1Click:Connect(Callback)) return Button
     end
     function Object.Refresh()
         if Object.Buttons.Menu then Paint(Object.Buttons.Menu,RequestedMenu()) end
         if Object.Buttons.PlayerList then Paint(Object.Buttons.PlayerList,RequestedPlayers()) end
         if Object.Buttons.Theme then Paint(Object.Buttons.Theme,RequestedTheme()) end
+        if Object.Buttons.Configuration then Paint(Object.Buttons.Configuration,RequestedConfiguration()) end
     end
     Make("Menu",1,function() local Window=Library.ActiveWindow if Window then Window:SetVisible(not Window.Visible) end Object.Refresh() end)
     Make("PlayerList",2,function() local Controller=Library.PlayerListController if Controller then Controller:SetVisibility(not Controller.RequestedVisible) end Object.Refresh() end)
     Make("Theme",3,function() local Controller=Library:ThemePanel() Controller:Toggle() Object.Refresh() end)
+    Make("Configuration",4,function() local Controller=Library:ConfigurationPanel() Controller:Toggle() Object.Refresh() end)
     function Object:SetInterfaceVisible(State)
         State=State==true Library.InterfaceOpen=State Root.Visible=State
         local Window=Library.ActiveWindow if Window and type(Window.SetMenuVisible)=="function" then Window:SetMenuVisible(State) end
         local PlayersPanel=Library.PlayerListController if PlayersPanel and type(PlayersPanel.SetMenuVisible)=="function" then PlayersPanel:SetMenuVisible(State) end
         local ThemePanel=Library.ThemePanelController if ThemePanel and type(ThemePanel.SetMenuVisible)=="function" then ThemePanel:SetMenuVisible(State) end
+        local ConfigurationPanel=Library.ConfigurationPanelController if ConfigurationPanel and type(ConfigurationPanel.SetMenuVisible)=="function" then ConfigurationPanel:SetMenuVisible(State) end
         local Watermark=Library.WatermarkController if Watermark and type(Watermark.ApplyVisibility)=="function" then Watermark:ApplyVisibility() end
         local Keybinds=Library.KeybindListController if Keybinds and type(Keybinds.ApplyVisibility)=="function" then Keybinds:ApplyVisibility() end
         if type(Library.SetNotificationPreviewVisible)=="function" then
@@ -2751,6 +2852,7 @@ function Library.Unload(...)
     Library.PanelController = nil
     Library.QuickPanelController = nil
     Library.ThemePanelController = nil
+    Library.ConfigurationPanelController = nil
     Library.InterfaceOpen = true
     Library.KeybindListController = nil
     Library.NotificationGui = nil
