@@ -696,15 +696,12 @@ local function CenterTextInRect(Object, Text, Position, Size, PreferredSize, Min
     local FontSize = GetTextSize(Object, PreferredSize or 13)
     Object.Position = NewVector2(
         Pixel(Position.X + Size.X * 0.5),
-        TextVerticalPosition(Position.Y, Size.Y, FontSize)
+        TextVerticalPosition(Position.Y, Size.Y, FontSize) + 4
     )
 end
 
 local function CenterBindTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
     CenterTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
-    if Object and TypeOf(Object.Position) == "Vector2" then
-        Object.Position = PixelVector(Object.Position.X, Object.Position.Y + 2)
-    end
 end
 
 local function AlignTextLeftInRect(Object, Text, Position, Size, Padding, PreferredSize, MinimumSize)
@@ -2926,7 +2923,7 @@ LayoutKeybindPanel = function(Window)
         local RowTop = Pixel(Panel.Position.Y + HeaderHeight + (Index - 1) * RowHeight)
         local RowLeft = Pixel(Panel.Position.X + 4)
         local RowWidth = Pixel(PanelWidth - 8)
-        local TextY = TextTop(RowTop, RowHeight, 12) + 2
+        local TextY = TextTop(RowTop, RowHeight, 12) + 4
         local ModeLeft = Pixel(Panel.Position.X + PanelWidth - RightPadding - ModeWidth)
         local KeyLeft = Pixel(ModeLeft - MetaGap - KeyWidth)
         local NameLeft = Pixel(Panel.Position.X + LeftPadding)
