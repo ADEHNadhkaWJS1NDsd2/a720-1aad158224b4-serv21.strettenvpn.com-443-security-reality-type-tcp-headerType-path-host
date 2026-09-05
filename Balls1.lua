@@ -2,6 +2,17 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
+
+if not LocalPlayer then
+    for _ = 1, 200 do
+        task.wait(0.05)
+        LocalPlayer = Players.LocalPlayer
+        if LocalPlayer then break end
+    end
+end
+
+if not LocalPlayer then return end
+
 local Mouse = LocalPlayer:GetMouse()
 
 local Insert = table.insert
@@ -428,8 +439,8 @@ local function SafeName(Name)
 end
 
 local Library = {
-    Name = "Library",
-    Version = 22,
+    Name = "Nightfall",
+    Version = 23,
     ApiVersion = 2,
     Theme = "Nightfall",
     Windows = {}
@@ -447,6 +458,7 @@ local SliderMethods = {}
 local DropdownMethods = {}
 local ColorMethods = {}
 local KeybindMethods = {}
+local LabelMethods = {}
 
 local function ControlHeight(Control, Scale)
     Scale = Type(Scale) == "number" and Scale or 1
@@ -796,6 +808,8 @@ local function RefreshStaticColors(Window)
                     Control.CurrentColor = Theme.ToggleBackground
                     Control.Drawings.Inline.Color = Control.CurrentColor
                     Control.Drawings.Label.Color = Theme.SecondaryText
+                elseif Control.Type == "Label" then
+                    Control.Drawings.Label.Color = Theme.SecondaryText
                 end
 
                 if Control.Bind then
@@ -1095,6 +1109,19 @@ local function RefreshLayout(Window)
 
                         Control.HitPosition = PickerPosition
                         Control.HitSize = NewVector2(PickerWidth, PickerHeight)
+
+                    elseif Control.Type == "Label" then
+                        Control.HitPosition = NewVector2(-1000000, -1000000)
+                        Control.HitSize = NewVector2(1, 1)
+                        AlignTextLeftInRect(
+                            Control.Drawings.Label,
+                            Control.Value,
+                            NewVector2(X0, ControlY - 1),
+                            NewVector2(ControlWidth, 14),
+                            0,
+                            13,
+                            10
+                        )
 
                     elseif Control.Type == "Button" then
                         Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
@@ -1534,6 +1561,48 @@ local function AddControl(Section, Control)
     ApplyVisibility(Section.Window)
     return Control
 end
+
+function SectionMethods:Label(Name)
+    if Type(Name) == "table" then
+        local Options = Name
+        Name = ReadOption(Options, "name", "Name", ReadOption(Options, "value", "Value", "Label"))
+    end
+
+    local Control = setmetatable({
+        Type = "Label",
+        Name = tostring(Name or "Label"),
+        Value = tostring(Name or "Label"),
+        Drawings = {},
+        HitPosition = NewVector2(-1000000, -1000000),
+        HitSize = NewVector2(1, 1)
+    }, {__index = LabelMethods})
+
+    Control.Drawings.Label = NewDrawing("Text", {
+        Text = Control.Value,
+        Size = 13,
+        Font = Drawing.Fonts.System,
+        Outline = true,
+        Visible = false,
+        Transparency = 1,
+        Color = self.Window.Theme.SecondaryText
+    })
+
+    return AddControl(self, Control)
+end
+
+function LabelMethods:GetValue()
+    return self.Value
+end
+
+function LabelMethods:SetValue(Value)
+    self.Value = tostring(Value or "")
+    self.Name = self.Value
+    self.Drawings.Label.Text = self.Value
+    RefreshLayout(self.Window)
+    return self
+end
+
+LabelMethods.Set = LabelMethods.SetValue
 
 function SectionMethods:Toggle(Name, Default, Callback)
     if Type(Name) == "table" then
@@ -2989,6 +3058,7 @@ SliderMethods.SetVisible = SetApiControlVisible
 DropdownMethods.SetVisible = SetApiControlVisible
 ColorMethods.SetVisible = SetApiControlVisible
 KeybindMethods.SetVisible = SetApiControlVisible
+LabelMethods.SetVisible = SetApiControlVisible
 
 function WindowMethods:SaveConfig(Name)
     if Type(writefile) ~= "function" then return false end
@@ -3000,7 +3070,7 @@ function WindowMethods:SaveConfig(Name)
     }
 
     for Index, Control in ipairs(self.Controls) do
-        if Control.Type ~= "Button" then
+        if Control.Type ~= "Button" and Control.Type ~= "Label" then
             Data.Controls[tostring(Index)] = EncodeValue(Control)
         end
     end
@@ -3014,8 +3084,18 @@ function WindowMethods:SaveConfig(Name)
 
     local ConfigName = SafeName(Name or self.ConfigName)
     local Path = self.ConfigFolder .. "/" .. ConfigName .. ".json"
-    writefile(Path, HttpService:JSONEncode(Data))
-    return true
+
+    local EncodeOk, Encoded = pcall(function()
+        return HttpService:JSONEncode(Data)
+    end)
+
+    if not EncodeOk or Type(Encoded) ~= "string" then return false end
+
+    local WriteOk = pcall(function()
+        writefile(Path, Encoded)
+    end)
+
+    return WriteOk == true
 end
 
 function WindowMethods:LoadConfig(Name)
@@ -3025,8 +3105,17 @@ function WindowMethods:LoadConfig(Name)
     local Path = self.ConfigFolder .. "/" .. ConfigName .. ".json"
     if not isfile(Path) then return false end
 
-    local Data = HttpService:JSONDecode(readfile(Path))
-    if Type(Data) ~= "table" then return false end
+    local ReadOk, Raw = pcall(function()
+        return readfile(Path)
+    end)
+
+    if not ReadOk or Type(Raw) ~= "string" then return false end
+
+    local DecodeOk, Data = pcall(function()
+        return HttpService:JSONDecode(Raw)
+    end)
+
+    if not DecodeOk or Type(Data) ~= "table" then return false end
 
     if Type(Data.Theme) == "string" and Themes[Data.Theme] then
         Library:SetTheme(Data.Theme)
@@ -3036,7 +3125,7 @@ function WindowMethods:LoadConfig(Name)
         for Index, Control in ipairs(self.Controls) do
             local Value = Data.Controls[tostring(Index)]
 
-            if Value ~= nil and Control.Type ~= "Button" then
+            if Value ~= nil and Control.Type ~= "Button" and Control.Type ~= "Label" then
                 Value = DecodeValue(Control, Value)
 
                 if Control.SetValue then
@@ -3081,6 +3170,8 @@ function WindowMethods:SetOpen(State)
 end
 
 function WindowMethods:Unload()
+    if not self.Active then return end
+
     self.Active = false
     CloseDropdown(self)
     ClosePicker(self)
@@ -3093,31 +3184,75 @@ function WindowMethods:Unload()
         end
     end
 
-    if #Library.Windows == 0 then
-        _G.LibraryToken = _G.LibraryToken + 1
-
-        for Index = #Drawings, 1, -1 do
-            local Object = Drawings[Index]
-            if Object then Object:Remove() end
-            Drawings[Index] = nil
+    local function Drop(Object)
+        if Object then
+            RemoveDrawing(Object)
         end
-    else
-        for _, Tab in ipairs(self.Tabs) do
-            Tab.Text:Remove()
-            Tab.Indicator:Remove()
+    end
 
-            for _, Section in ipairs(Tab.Sections) do
-                Section.Outline:Remove()
-                Section.Background:Remove()
-                Section.TitleBackground:Remove()
-                Section.TitleText:Remove()
+    Drop(self.MainOutline)
+    Drop(self.MainBackground)
+    Drop(self.Sidebar)
+    Drop(self.SidebarDivider)
+    Drop(self.AccentLine)
+    Drop(self.TitleText)
 
-                for _, Control in ipairs(Section.Controls) do
-                    for _, Object in pairs(Control.Drawings) do
-                        if TypeOf(Object) == "Drawing" then Object:Remove() end
+    for _, Corner in pairs(self.ResizeCorners or {}) do
+        Drop(Corner.Horizontal)
+        Drop(Corner.Vertical)
+    end
+
+    for _, Tab in ipairs(self.Tabs or {}) do
+        Drop(Tab.Text)
+        Drop(Tab.Indicator)
+
+        for _, Section in ipairs(Tab.Sections or {}) do
+            Drop(Section.Outline)
+            Drop(Section.Background)
+            Drop(Section.TitleBackground)
+            Drop(Section.TitleText)
+
+            for _, Control in ipairs(Section.Controls or {}) do
+                for _, Object in pairs(Control.Drawings or {}) do
+                    if TypeOf(Object) == "Drawing" then
+                        Drop(Object)
                     end
                 end
+
+                if Control.Bind then
+                    Drop(Control.Bind.Outline)
+                    Drop(Control.Bind.Inline)
+                    Drop(Control.Bind.Text)
+                end
+
+                if Control.AttachedColor then
+                    Drop(Control.AttachedColor.Outline)
+                    Drop(Control.AttachedColor.Fill)
+                end
             end
+        end
+    end
+
+    local Panel = self.KeybindPanel
+    if Panel then
+        Drop(Panel.Outline)
+        Drop(Panel.Inline)
+        Drop(Panel.Background)
+        Drop(Panel.Accent)
+        Drop(Panel.Title)
+
+        for _, Row in ipairs(Panel.Rows or {}) do
+            Drop(Row.Name)
+            Drop(Row.Mode)
+            Drop(Row.State)
+        end
+    end
+
+    if #Library.Windows == 0 then
+        _G.LibraryToken = (_G.LibraryToken or 0) + 1
+
+        while #Drawings > 0 do
+            Drop(Drawings[#Drawings])
         end
     end
 end
@@ -3133,7 +3268,7 @@ function WindowMethods:AddSettingsTab()
         Library:SetTheme(Value)
     end)
 
-    Appearance:Toggle("Keybinds", true, function(State)
+    Appearance:Toggle("Keybinds", self.ShowKeybinds, function(State)
         self.ShowKeybinds = State
         ApplyVisibility(self)
     end)
@@ -3509,5 +3644,6 @@ function WindowMethods:Run()
     end
 end
 
+_G.NightfallLibrary = Library
 _G.Library = Library
 return Library
