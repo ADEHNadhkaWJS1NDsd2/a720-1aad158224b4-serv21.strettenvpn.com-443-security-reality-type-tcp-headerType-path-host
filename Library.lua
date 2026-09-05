@@ -45,10 +45,85 @@ local function Bind(Connection)
     return Connection
 end
 
+Library.ThemeBindings = type(Library.ThemeBindings) == "table"
+    and Library.ThemeBindings
+    or setmetatable({}, {__mode = "k"})
+
+Library.ThemeBindingKeys = {
+    "Accent", "Background", "Surface", "Control", "Border",
+    "Text", "TextBright", "TextDim", "Header"
+}
+
+local function GetThemeBindingKey(Color)
+    if typeof(Color) ~= "Color3" then return nil end
+    for _, Key in ipairs(Library.ThemeBindingKeys) do
+        if Library.Theme[Key] == Color then
+            return Key
+        end
+    end
+    return nil
+end
+
+local function CaptureThemeBinding(Object, Property, Value)
+    if not Object or type(Property) ~= "string" then return end
+
+    local Allowed =
+        Property == "BackgroundColor3"
+        or Property == "TextColor3"
+        or Property == "PlaceholderColor3"
+        or Property == "TextStrokeColor3"
+        or Property == "ImageColor3"
+        or Property == "ScrollBarImageColor3"
+        or Property == "BorderColor3"
+        or Property == "Color"
+
+    if not Allowed then return end
+
+    local Entry = Library.ThemeBindings[Object]
+
+    if typeof(Value) == "Color3" then
+        local Key = GetThemeBindingKey(Value)
+        if not Key then return end
+        Entry = Entry or {}
+        Entry[Property] = {Kind = "Color3", Key = Key}
+        Library.ThemeBindings[Object] = Entry
+        return
+    end
+
+    if typeof(Value) == "ColorSequence" then
+        local Points = {}
+        local Bound = false
+
+        for Index, Point in ipairs(Value.Keypoints) do
+            local Key = GetThemeBindingKey(Point.Value)
+            Points[Index] = {
+                Time = Point.Time,
+                Key = Key,
+                Color = Key and nil or Point.Value
+            }
+            if Key then Bound = true end
+        end
+
+        if Bound then
+            Entry = Entry or {}
+            Entry[Property] = {Kind = "ColorSequence", Points = Points}
+            Library.ThemeBindings[Object] = Entry
+        end
+    end
+end
+
 local function Create(Class, Properties, Children)
     local Object = Instance.new(Class)
-    for Key, Value in pairs(Properties or {}) do Object[Key] = Value end
-    for _, Child in ipairs(Children or {}) do Child.Parent = Object end
+
+    for Key, Value in pairs(Properties or {}) do
+        Object[Key] = Value
+        CaptureThemeBinding(Object, Key, Value)
+    end
+
+    for _, Child in ipairs(Children or {}) do
+        Child.Parent = Object
+    end
+
     return Object
 end
 
@@ -142,37 +217,122 @@ local function AccentBorder()
     return Color3.fromHSV(H, S, V * 0.82)
 end
 
-function Library:ChangeTheme(Index, Color)
-    local Name=tostring(Index or "")
-    if typeof(Color)~="Color3" then return end
-    local Map={accent="Accent",background="Background",surface="Surface",control="Control",border="Border",text="Text",textbright="TextBright",textdim="TextDim",header="Header"}
-    local Key=Map[Name:lower()] or Name
-    local Old=self.Theme[Key]
-    self.Theme[Key]=Color
-    if typeof(Old)=="Color3" and Old~=Color then
-        local Properties={"BackgroundColor3","TextColor3","ImageColor3","ScrollBarImageColor3","Color"}
-        for _,Gui in ipairs(self.Guis) do
-            if Gui and Gui.Parent then
-                for _,Object in ipairs(Gui:GetDescendants()) do
-                    for _,Property in ipairs(Properties) do
-                        local Success,Value=Call(function() return Object[Property] end)
-                        if Success and typeof(Value)=="Color3" and Value==Old then Call(function() Object[Property]=Color end) end
+local ThemeFlagMap = {
+    Accent = "__ThemeAccent",
+    Background = "__ThemeBackground",
+    Surface = "__ThemeSurface",
+    Control = "__ThemeControl",
+    Border = "__ThemeBorder",
+    Text = "__ThemeText",
+    TextBright = "__ThemeTextBright",
+    TextDim = "__ThemeTextDim",
+    Header = "__ThemeHeader"
+}
+
+local function ApplyThemeBindings()
+    for Object, Properties in pairs(Library.ThemeBindings or {}) do
+        if typeof(Object) == "Instance" and type(Properties) == "table" then
+            for Property, Binding in pairs(Properties) do
+                if type(Binding) == "table" then
+                    if Binding.Kind == "Color3" then
+                        local Color = Library.Theme[Binding.Key]
+                        if typeof(Color) == "Color3" then
+                            Call(function()
+                                Object[Property] = Color
+                            end)
+                        end
+                    elseif Binding.Kind == "ColorSequence" and type(Binding.Points) == "table" then
+                        local Points = {}
+
+                        for Index, Point in ipairs(Binding.Points) do
+                            local Color = Point.Key and Library.Theme[Point.Key] or Point.Color
+
+                            if typeof(Color) == "Color3" then
+                                Points[Index] = ColorSequenceKeypoint.new(Point.Time, Color)
+                            end
+                        end
+
+                        if #Points > 0 then
+                            Call(function()
+                                Object[Property] = ColorSequence.new(Points)
+                            end)
+                        end
                     end
                 end
             end
         end
     end
+end
+
+local function RenderTheme()
     SyncThemeColors()
-    for RendererIndex=#self.Renderers,1,-1 do
-        local Renderer=self.Renderers[RendererIndex]
-        if type(Renderer)=="function" then Call(Renderer) else table.remove(self.Renderers,RendererIndex) end
+    ApplyThemeBindings()
+
+    for RendererIndex = #Library.Renderers, 1, -1 do
+        local Renderer = Library.Renderers[RendererIndex]
+
+        if type(Renderer) == "function" then
+            Call(Renderer)
+        else
+            table.remove(Library.Renderers, RendererIndex)
+        end
     end
 end
 
-function Library:ApplyThemePreset(Preset)
-    if type(Preset)~="table" then return false end
-    for Key,Value in pairs(Preset) do if typeof(Value)=="Color3" and self.Theme[Key]~=nil then self:ChangeTheme(Key,Value) end end
+function Library:ChangeTheme(Index, Color)
+    local Name = tostring(Index or "")
+    if typeof(Color) ~= "Color3" then return false end
+
+    local Map = {
+        accent = "Accent",
+        background = "Background",
+        surface = "Surface",
+        control = "Control",
+        border = "Border",
+        text = "Text",
+        textbright = "TextBright",
+        textdim = "TextDim",
+        header = "Header"
+    }
+
+    local Key = Map[Name:lower()] or Name
+    if self.Theme[Key] == nil then return false end
+
+    self.Theme[Key] = Color
+
+    local Flag = ThemeFlagMap[Key]
+    if Flag then
+        self.Flags[Flag] = Color
+    end
+
+    RenderTheme()
     return true
+end
+
+function Library:ApplyThemePreset(Preset)
+    if type(Preset) ~= "table" then return false end
+
+    local Changed = false
+
+    -- Commit all colors first, render once after the whole preset is ready.
+    for Key, Value in pairs(Preset) do
+        if typeof(Value) == "Color3" and self.Theme[Key] ~= nil then
+            self.Theme[Key] = Value
+
+            local Flag = ThemeFlagMap[Key]
+            if Flag then
+                self.Flags[Flag] = Value
+            end
+
+            Changed = true
+        end
+    end
+
+    if Changed then
+        RenderTheme()
+    end
+
+    return Changed
 end
 
 local function ThemeColorToTable(Color) return {r=math.floor(Color.R*255+0.5),g=math.floor(Color.G*255+0.5),b=math.floor(Color.B*255+0.5)} end
@@ -497,7 +657,7 @@ local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFla
     end)
     Bind(Button.MouseButton1Click:Connect(function() BeginCapture(BindData) end))
     Bind(Button.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then OpenModeMenu() end end))
-    Library.Keybinds[#Library.Keybinds+1]=BindData RegisterRenderer(BindData.Render)
+    Library.Keybinds[#Library.Keybinds+1]=BindData RegisterRenderer(BindData.Render) RefreshKeybindList()
     if BindData.Mode=="Always" then task.defer(function() if not BindData.Destroyed then if BindData.TargetControl then BindData.TargetControl:Set(true) BindData.Value=true elseif type(BindData.Callback)=="function" then Call(BindData.Callback,true) end end RefreshKeybindList() end) end
     return BindData
 end
@@ -915,6 +1075,7 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
     local TallRow = Row.Size.Y.Offset > 20
     local ButtonPosition = TallRow and UDim2.new(1, -(RightOffset or 0) - 18, 0, 1) or UDim2.new(1, -(RightOffset or 0) - 18, 0.5, -6)
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(18, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Text = "", ZIndex = 20}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
+    Library.ThemeBindings[Button] = nil
     local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag}
     function Object:Set(Color, Alpha, FromPicker)
         if type(Color) == "table" and typeof(Color.Color) == "Color3" then
@@ -1885,7 +2046,7 @@ function Library:ConfigurationPanel()
         Library.Flags.__InterfaceWatermark=Value==true
         if Library.WatermarkController then Library.WatermarkController:SetVisibility(Value==true) end
     end)
-    RegisterFlag("__InterfaceKeybindList",false,function(Value)
+    RegisterFlag("__InterfaceKeybindList",true,function(Value)
         Library.Flags.__InterfaceKeybindList=Value==true
         if Library.KeybindListController then Library.KeybindListController:SetVisibility(Value==true) end
     end)
@@ -1993,7 +2154,7 @@ function Library:KeybindList()
     local Scale=Create("UIScale",{Parent=Frame,Scale=1})
     MakeDraggable(Frame,Header,Gui)
 
-    local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={},RequestedVisible=false,MenuVisible=true}
+    local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={},RequestedVisible=true,MenuVisible=true}
     function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false end
     function Object:SetVisibility(State) Object.RequestedVisible=State==true Library.Flags.__InterfaceKeybindList=Object.RequestedVisible Object:ApplyVisibility() end
     function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
@@ -2070,7 +2231,7 @@ function Library:KeybindList()
     BindFrameToViewport(Frame,Gui,4)
     self.KeybindListController=Object
     Object:SetScale(Library.Flags.__InterfaceKeybindScale or 100)
-    Object:SetVisibility(Library.Flags.__InterfaceKeybindList==true)
+    Object:SetVisibility(Library.Flags.__InterfaceKeybindList~=false)
     Object:Refresh()
     return Object
 end
