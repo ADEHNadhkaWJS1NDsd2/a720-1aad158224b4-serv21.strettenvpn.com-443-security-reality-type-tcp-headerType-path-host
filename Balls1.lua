@@ -2046,7 +2046,7 @@ function SectionMethods:Dropdown(Name, Default, Options, Multi, Callback)
     })
 
     Control.Drawings.State = NewDrawing("Text", {
-        Text = "v",
+        Text = "+",
         Size = CONTROL_TEXT_SIZE,
         Font = Drawing.Fonts.System,
         Outline = true,
@@ -3830,7 +3830,7 @@ function WindowMethods:Run()
                             SetTextFit(Control.Bind.Text, BindText, Max(1, (Control.Bind.HitSize and Control.Bind.HitSize.X or 8) - 8), CONTROL_TEXT_SIZE, CONTROL_TEXT_SIZE)
                         end
                         if Control.Type == "Dropdown" then
-                            Control.Drawings.State.Text = self.OpenDropdown == Control and "^" or "v"
+                            Control.Drawings.State.Text = self.OpenDropdown == Control and "-" or "+"
                             SetTextFit(Control.Drawings.Label, DropdownText(Control), Max(1, (Control.HitSize and Control.HitSize.X or 30) - 30), CONTROL_TEXT_SIZE, CONTROL_TEXT_SIZE)
                         elseif Control.Type == "Keybind" then
                             local KeybindText = self.Capturing == Control and Control.Name .. " [ ... ]" or Control.Name .. " [" .. GetKeyName(Control.Value) .. "]"
