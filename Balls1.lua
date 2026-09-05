@@ -312,6 +312,7 @@ local CONTROL_TEXT_SIZE = 12
 local CONTROL_ROW_HEIGHT = 22
 local CONTROL_SLOT_HEIGHT = 30
 local TEXT_Y_NUDGE = 1
+local BIND_TEXT_Y_NUDGE = 2
 
 local function SetTextSize(Object, Value)
     if not Object then return 13 end
@@ -699,6 +700,13 @@ local function CenterTextInRect(Object, Text, Position, Size, PreferredSize, Min
     )
 end
 
+local function CenterBindTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
+    CenterTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
+    if Object and TypeOf(Object.Position) == "Vector2" then
+        Object.Position = PixelVector(Object.Position.X, Object.Position.Y + BIND_TEXT_Y_NUDGE)
+    end
+end
+
 local function AlignTextLeftInRect(Object, Text, Position, Size, Padding, PreferredSize, MinimumSize)
     if not Object or TypeOf(Position) ~= "Vector2" or TypeOf(Size) ~= "Vector2" then return end
 
@@ -1049,14 +1057,14 @@ local function RefreshLayout(Window)
                             local BindText = "[" .. GetKeyName(Control.Bind.Key) .. "]"
                             local BindWidth = Clamp(Pixel(TextWidth(BindText, CONTROL_TEXT_SIZE) + 16), 48, Min(92, ControlWidth))
                             local BindHeight = 16
-                            local BindY = Pixel(RowCenterY - BindHeight * 0.5)
+                            local BindY = Pixel(RowCenterY - BindHeight * 0.5 + 1)
                             Control.Bind.HitPosition = NewVector2(Right - BindWidth, BindY)
                             Control.Bind.HitSize = NewVector2(BindWidth, BindHeight)
                             Control.Bind.Outline.Position = Control.Bind.HitPosition
                             Control.Bind.Outline.Size = Control.Bind.HitSize
                             Control.Bind.Inline.Position = Control.Bind.HitPosition + NewVector2(1, 1)
                             Control.Bind.Inline.Size = Control.Bind.HitSize - NewVector2(2, 2)
-                            CenterTextInRect(
+                            CenterBindTextInRect(
                                 Control.Bind.Text,
                                 BindText,
                                 Control.Bind.Inline.Position,
@@ -1226,16 +1234,17 @@ local function RefreshLayout(Window)
                         )
 
                     elseif Control.Type == "Keybind" then
-                        Control.Drawings.Outline.Position = NewVector2(X0, BoxY)
+                        local KeybindBoxY = BoxY + 1
+                        Control.Drawings.Outline.Position = NewVector2(X0, KeybindBoxY)
                         Control.Drawings.Outline.Size = NewVector2(ControlWidth, CONTROL_ROW_HEIGHT)
-                        Control.Drawings.Inline.Position = NewVector2(X0 + 1, BoxY + 1)
+                        Control.Drawings.Inline.Position = NewVector2(X0 + 1, KeybindBoxY + 1)
                         Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), CONTROL_ROW_HEIGHT - 2)
                         local KeybindText = Control.Name .. " [" .. GetKeyName(Control.Value) .. "]"
 
                         Control.HitPosition = NewVector2(X0, RowTop)
                         Control.HitSize = NewVector2(ControlWidth, RowHeight)
 
-                        CenterTextInRect(
+                        CenterBindTextInRect(
                             Control.Drawings.Label,
                             KeybindText,
                             Control.Drawings.Inline.Position,
@@ -2917,7 +2926,7 @@ LayoutKeybindPanel = function(Window)
         local RowTop = Pixel(Panel.Position.Y + HeaderHeight + (Index - 1) * RowHeight)
         local RowLeft = Pixel(Panel.Position.X + 4)
         local RowWidth = Pixel(PanelWidth - 8)
-        local TextY = Pixel(RowTop + Max(1, Floor((RowHeight - 12) * 0.5)) - 1)
+        local TextY = TextVerticalPosition(RowTop, RowHeight, 12) + BIND_TEXT_Y_NUDGE
         local ModeLeft = Pixel(Panel.Position.X + PanelWidth - RightPadding - ModeWidth)
         local KeyLeft = Pixel(ModeLeft - MetaGap - KeyWidth)
         local NameLeft = Pixel(Panel.Position.X + LeftPadding)
