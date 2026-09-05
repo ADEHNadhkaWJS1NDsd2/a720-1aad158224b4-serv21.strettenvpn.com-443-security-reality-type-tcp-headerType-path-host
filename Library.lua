@@ -1,2930 +1,1117 @@
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local TextService = game:GetService("TextService")
-local Players = game:GetService("Players")
-local GuiService = game:GetService("GuiService")
-local HttpService = game:GetService("HttpService")
-local CoreGui = game:GetService("CoreGui")
+-- Atramenta compatibility layer for Matcha UI Binding.
+-- Designed to keep the public API used by Nightfall while avoiding Roblox GUI APIs
+-- that Matcha does not expose (Instance.new, GetPropertyChangedSignal, task.defer, etc.).
 
-local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Directory = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets", Fonts = "Atramenta.rip/Fonts", Themes = "Atramenta.rip/Themes"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(150, 120, 150), Background = Color3.fromRGB(8, 8, 8), Surface = Color3.fromRGB(0, 0, 0), Control = Color3.fromRGB(12, 11, 12), Border = Color3.fromRGB(56, 52, 56), Text = Color3.fromRGB(140, 130, 140), TextBright = Color3.fromRGB(197, 197, 197), TextDim = Color3.fromRGB(77, 72, 77), Header = Color3.fromRGB(127, 115, 127)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
-Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Easing="Quad",TextSize=13,CompactPanel=true,KeepWatermarkOpen=true}
-Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=true}
-Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}
-Library.ThemePresets = {
-    Atramenta={Accent=Color3.fromRGB(150,120,150),Background=Color3.fromRGB(8,8,8),Surface=Color3.fromRGB(0,0,0),Control=Color3.fromRGB(12,11,12),Border=Color3.fromRGB(56,52,56),Text=Color3.fromRGB(140,130,140),TextBright=Color3.fromRGB(197,197,197),TextDim=Color3.fromRGB(77,72,77),Header=Color3.fromRGB(127,115,127)},
-    Bankroll={Accent=Color3.fromRGB(123,98,145),Background=Color3.fromRGB(6,6,7),Surface=Color3.fromRGB(1,1,2),Control=Color3.fromRGB(15,14,17),Border=Color3.fromRGB(51,47,56),Text=Color3.fromRGB(151,145,156),TextBright=Color3.fromRGB(215,213,217),TextDim=Color3.fromRGB(77,73,82),Header=Color3.fromRGB(132,122,140)},
-    Midnight={Accent=Color3.fromRGB(90,112,170),Background=Color3.fromRGB(6,7,11),Surface=Color3.fromRGB(3,4,7),Control=Color3.fromRGB(12,14,21),Border=Color3.fromRGB(42,47,62),Text=Color3.fromRGB(139,145,160),TextBright=Color3.fromRGB(211,216,228),TextDim=Color3.fromRGB(70,75,88),Header=Color3.fromRGB(116,126,151)},
-    Crimson={Accent=Color3.fromRGB(169,72,87),Background=Color3.fromRGB(9,6,7),Surface=Color3.fromRGB(3,2,2),Control=Color3.fromRGB(18,11,13),Border=Color3.fromRGB(59,40,44),Text=Color3.fromRGB(153,137,140),TextBright=Color3.fromRGB(221,210,212),TextDim=Color3.fromRGB(83,68,71),Header=Color3.fromRGB(147,115,121)}
+local Library = {
+    Flags = {},
+    Setters = {},
+    Windows = {},
+    RegisteredTabs = {},
+    ActiveWindow = nil,
+    MenuKeybind = nil,
+    Theme = {
+        Accent = Color3.fromRGB(122, 134, 255)
+    }
 }
 
-local function Call(Function, ...)
-    if type(Function) ~= "function" then return false, nil end
-    local Args = table.pack(...)
-    local Results = table.pack(xpcall(function() return Function(table.unpack(Args, 1, Args.n)) end, function(Error) return tostring(Error) end))
-    if Results[1] ~= true then return false, Results[2] end
-    return true, table.unpack(Results, 2, Results.n)
-end
-Library.Call = Call
+local function SafeCall(Function, ...)
+    if type(Function) ~= "function" then
+        return false, nil
+    end
 
-local GlobalEnvironment = type(getgenv) == "function" and getgenv() or _G
-local AtramentaEnvironment = rawget(GlobalEnvironment, "Atramenta")
-if type(AtramentaEnvironment) ~= "table" then
-    AtramentaEnvironment = {}
-    rawset(GlobalEnvironment, "Atramenta", AtramentaEnvironment)
-end
-local PreviousAtramentaLibrary = rawget(AtramentaEnvironment, "Library")
-if type(PreviousAtramentaLibrary) == "table" and PreviousAtramentaLibrary ~= Library and type(PreviousAtramentaLibrary.Unload) == "function" then
-    Call(function() PreviousAtramentaLibrary:Unload() end)
-end
-AtramentaEnvironment.Library = Library
-Library.Environment = AtramentaEnvironment
+    local Args = {...}
+    local Success, ResultA, ResultB, ResultC = pcall(function()
+        return Function(table.unpack(Args))
+    end)
 
-local function Bind(Connection)
-    if Connection then Library.Connections[#Library.Connections + 1] = Connection end
-    return Connection
+    if not Success then
+        return false, ResultA
+    end
+
+    return true, ResultA, ResultB, ResultC
 end
 
-local function Create(Class, Properties, Children)
-    local Object = Instance.new(Class)
-    for Key, Value in pairs(Properties or {}) do Object[Key] = Value end
-    for _, Child in ipairs(Children or {}) do Child.Parent = Object end
+local function Notify(Message, Title, Duration)
+    if type(notify) == "function" then
+        SafeCall(notify, tostring(Message or ""), tostring(Title or "Atramenta"), tonumber(Duration) or 3)
+    elseif type(print) == "function" then
+        print("[Atramenta] " .. tostring(Message or ""))
+    end
+end
+
+local function GetGlobalEnvironment()
+    if type(getfenv) == "function" then
+        local Success, Environment = pcall(getfenv, 0)
+        if Success and type(Environment) == "table" then
+            return Environment
+        end
+    end
+
+    if type(_G) == "table" then
+        return _G
+    end
+
+    return nil
+end
+
+local function SanitizeId(Value)
+    local Text = tostring(Value or "control")
+    Text = Text:gsub("[^%w_%-]", "_")
+    Text = Text:gsub("_+", "_")
+    if Text == "" then
+        Text = "control"
+    end
+    return string.lower(Text)
+end
+
+local NextId = 0
+local function MakeId(Prefix, Flag)
+    NextId = NextId + 1
+    return "atr_" .. SanitizeId(Prefix) .. "_" .. SanitizeId(Flag) .. "_" .. tostring(NextId)
+end
+
+local function SideName(Value)
+    if Value == 2 or tostring(Value):lower() == "right" then
+        return "Right"
+    end
+    return "Left"
+end
+
+local function NormalizeKeyMode(Value)
+    local Mode = string.lower(tostring(Value or "toggle"))
+    if Mode == "hold" or Mode == "always" or Mode == "click" then
+        return Mode
+    end
+    return "toggle"
+end
+
+local function NormalizeKey(Value)
+    if Value == nil then
+        return 0
+    end
+    if type(Value) == "number" then
+        return Value
+    end
+    if typeof(Value) == "EnumItem" then
+        return Value
+    end
+    return 0
+end
+
+local function DecimalPlaces(Step)
+    Step = tonumber(Step) or 1
+    if Step >= 1 then
+        return 0
+    end
+
+    local Places = 0
+    local Test = Step
+    while Places < 4 and math.abs(Test - math.floor(Test + 0.5)) > 0.000001 do
+        Test = Test * 10
+        Places = Places + 1
+    end
+    return Places
+end
+
+local function NativeGet(Id)
+    if type(UI) == "table" and type(UI.GetValue) == "function" then
+        local Success, Value = SafeCall(UI.GetValue, Id)
+        if Success then
+            return Value
+        end
+    end
+    return nil
+end
+
+local function NativeSet(Id, Value)
+    if type(UI) == "table" and type(UI.SetValue) == "function" then
+        SafeCall(UI.SetValue, Id, Value)
+    end
+end
+
+local BaseControl = {}
+BaseControl.__index = BaseControl
+
+function BaseControl:Get()
+    return self.Value
+end
+
+function BaseControl:Set(Value, Silent)
+    self.Value = Value
+    if self.Flag then
+        Library.Flags[self.Flag] = Value
+    end
+    if self.Id then
+        NativeSet(self.Id, Value)
+    end
+    if not Silent and type(self.Callback) == "function" then
+        SafeCall(self.Callback, Value)
+    end
+    return self.Value
+end
+
+function BaseControl:SetValue(Value)
+    return self:Set(Value)
+end
+
+function BaseControl:GetValue()
+    return self:Get()
+end
+
+local ToggleControl = setmetatable({}, BaseControl)
+ToggleControl.__index = ToggleControl
+
+function ToggleControl:Get()
+    local Value = NativeGet(self.Id)
+    if type(Value) == "boolean" then
+        self.Value = Value
+        Library.Flags[self.Flag] = Value
+    end
+    return self.Value == true
+end
+
+function ToggleControl:Set(Value, Silent)
+    Value = Value == true
+    local Changed = self.Value ~= Value
+    self.Value = Value
+    Library.Flags[self.Flag] = Value
+    NativeSet(self.Id, Value)
+
+    if Changed and not Silent and type(self.Callback) == "function" then
+        SafeCall(self.Callback, Value)
+    end
+    return Value
+end
+
+function ToggleControl:Keybind(Data)
+    Data = Data or {}
+
+    local Object = {
+        Type = "Keybind",
+        Id = MakeId("keybind", Data.Flag or Data.Name or self.Flag),
+        Flag = tostring(Data.Flag or Data.Name or (self.Flag .. " Keybind")),
+        Name = tostring(Data.Name or self.Name or "Keybind"),
+        Key = NormalizeKey(Data.Default),
+        Mode = NormalizeKeyMode(Data.Mode),
+        Native = nil,
+        ParentToggle = self
+    }
+
+    function Object:Get()
+        if self.Native and type(self.Native.IsEnabled) == "function" then
+            local Success, Value = SafeCall(self.Native.IsEnabled, self.Native)
+            if Success then
+                Library.Flags[self.Flag] = Value == true
+                return Value == true
+            end
+        end
+        return Library.Flags[self.Flag] == true
+    end
+
+    function Object:Set(Value)
+        Library.Flags[self.Flag] = Value == true
+        return Library.Flags[self.Flag]
+    end
+
+    function Object:GetKey()
+        if self.Native and type(self.Native.GetKey) == "function" then
+            local Success, Value = SafeCall(self.Native.GetKey, self.Native)
+            if Success then
+                self.Key = Value
+            end
+        end
+        return self.Key
+    end
+
+    function Object:SetKey(Value)
+        self.Key = NormalizeKey(Value)
+        if self.Native and type(self.Native.SetKey) == "function" then
+            SafeCall(self.Native.SetKey, self.Native, self.Key)
+        end
+    end
+
+    function Object:GetType()
+        if self.Native and type(self.Native.GetType) == "function" then
+            local Success, Value = SafeCall(self.Native.GetType, self.Native)
+            if Success and type(Value) == "string" then
+                self.Mode = Value
+            end
+        end
+        return self.Mode
+    end
+
+    function Object:SetType(Value)
+        self.Mode = NormalizeKeyMode(Value)
+        if self.Native and type(self.Native.SetType) == "function" then
+            SafeCall(self.Native.SetType, self.Native, self.Mode)
+        end
+    end
+
+    function Object:AddToHotkey(Label)
+        self.HotkeyLabel = tostring(Label or self.Name)
+        self.ShowHotkey = true
+    end
+
+    function Object:RemoveFromHotkey()
+        self.ShowHotkey = false
+    end
+
+    Library.Flags[Object.Flag] = false
+    self.KeybindObject = Object
     return Object
 end
 
-local function ParentGui()
-    if type(gethui) == "function" then
-        local Success, Result = Call(gethui)
-        if Success and typeof(Result) == "Instance" then return Result end
+function ToggleControl:Colorpicker(Data)
+    Data = Data or {}
+
+    local Default = Data.Default
+    local Color = Color3.new(1, 1, 1)
+    local Alpha = 1
+
+    if typeof(Default) == "Color3" then
+        Color = Default
+    elseif type(Default) == "table" and typeof(Default.Color) == "Color3" then
+        Color = Default.Color
+        Alpha = 1 - math.clamp(tonumber(Default.Transparency) or 0, 0, 1)
     end
-    return CoreGui
-end
 
-local function EnsureFolder(Path)
-    if type(Path) ~= "string" or Path == "" or type(makefolder) ~= "function" then return false end
-    if type(isfolder) == "function" and isfolder(Path) then return true end
-    local Success = Call(makefolder, Path)
-    return Success == true
-end
+    local Object = {
+        Type = "Colorpicker",
+        Id = MakeId("color", Data.Flag or Data.Name or self.Flag),
+        Flag = tostring(Data.Flag or Data.Name or (self.Flag .. " Color")),
+        Color = Color,
+        Alpha = Alpha,
+        Callback = Data.Callback
+    }
 
-local function EnsureFolders()
-    EnsureFolder(Library.Folders.Root)
-    EnsureFolder(Library.Folders.Configs)
-    EnsureFolder(Library.Folders.Assets)
-    EnsureFolder(Library.Folders.Fonts)
-    EnsureFolder(Library.Folders.Themes)
-end
-EnsureFolders()
-
-function Library:FontPath(Name)
-    local FileName = tostring(Name or ""):gsub("\\", "/"):match("([^/]+)$") or ""
-    if FileName == "" then return self.Folders.Fonts end
-    return self.Folders.Fonts .. "/" .. FileName
-end
-
-function Library:EnsureFont(Name, Source)
-    EnsureFolders()
-    local Path = self:FontPath(Name)
-    if type(isfile) == "function" and isfile(Path) then return true, Path end
-    if type(writefile) ~= "function" then return false, Path end
-    local Body = Source
-    if type(Source) == "string" and Source:match("^https?://") then
-        local Success, Result = Call(function() return game:HttpGet(Source) end)
-        Body = Success and Result or nil
-    elseif type(Source) == "function" then
-        local Success, Result = Call(Source)
-        Body = Success and Result or nil
+    function Object:Get()
+        return self.Color
     end
-    if type(Body) ~= "string" or #Body < 128 then return false, Path end
-    local Saved = Call(writefile, Path, Body)
-    return Saved == true and (type(isfile) ~= "function" or isfile(Path)), Path
+
+    function Object:Set(NewColor, NewAlpha, Silent)
+        if typeof(NewColor) ~= "Color3" then
+            return self.Color
+        end
+        self.Color = NewColor
+        if NewAlpha ~= nil then
+            self.Alpha = math.clamp(tonumber(NewAlpha) or 1, 0, 1)
+        end
+        Library.Flags[self.Flag] = self.Color
+        if not Silent and type(self.Callback) == "function" then
+            SafeCall(self.Callback, self.Color, self.Alpha)
+        end
+        return self.Color
+    end
+
+    Library.Flags[Object.Flag] = Color
+    self.ColorpickerObject = Object
+    return Object
 end
 
-function Library:LoadFont(Name, Weight, Style, Source)
-    EnsureFolders()
-    local Path = self:FontPath(Name)
-    if type(isfile) == "function" and not isfile(Path) and Source ~= nil then self:EnsureFont(Name, Source) end
-    if type(isfile) == "function" and not isfile(Path) then return nil, nil, Path end
-    local AssetFunction = type(getcustomasset) == "function" and getcustomasset or type(getsynasset) == "function" and getsynasset or nil
-    if not AssetFunction then return nil, nil, Path end
-    local AssetSuccess, Asset = Call(AssetFunction, Path)
-    if not AssetSuccess or type(Asset) ~= "string" or Asset == "" then return nil, nil, Path end
-    local FontSuccess, FontFace = Call(Font.new, Asset, Weight or Enum.FontWeight.Regular, Style or Enum.FontStyle.Normal)
-    if not FontSuccess or typeof(FontFace) ~= "Font" then return nil, Asset, Path end
-    return FontFace, Asset, Path
-end
+function ToggleControl:Render(NativeSection)
+    local Object = self
+    local NativeToggle = NativeSection:Toggle(self.Id, self.Name, self.Value == true, function(State)
+        State = State == true
+        if Object.Value ~= State then
+            Object.Value = State
+            Library.Flags[Object.Flag] = State
+            if type(Object.Callback) == "function" then
+                SafeCall(Object.Callback, State)
+            end
+        end
+    end)
+    self.Native = NativeToggle
 
-local Colors = {
-    Bg = Library.Theme.Background, TitleBg = Library.Theme.Surface, Control = Library.Theme.Control, Text = Library.Theme.Text, TextBright = Library.Theme.TextBright,
-    TextDim = Library.Theme.TextDim, TextBind = Library.Theme.Header, Section = Library.Theme.Background, CbBg = Library.Theme.Surface,
-    CbBorder = Library.Theme.Border, SliderTrack = Color3.fromRGB(24,22,24), DropdownBg = Library.Theme.Background,
-    DropdownBord = Library.Theme.Border, Divider = Library.Theme.Border, TabBg = Library.Theme.Surface, ColHdr = Library.Theme.Header,
-    SectionBorder = Library.Theme.Border
-}
-local function SyncThemeColors()
-    Colors.Bg=Library.Theme.Background or Colors.Bg Colors.TitleBg=Library.Theme.Surface or Colors.TitleBg Colors.Control=Library.Theme.Control or Colors.Control Colors.Text=Library.Theme.Text or Colors.Text
-    Colors.TextBright=Library.Theme.TextBright or Colors.TextBright Colors.TextDim=Library.Theme.TextDim or Colors.TextDim Colors.TextBind=Library.Theme.Header or Colors.TextBind
-    Colors.Section=Colors.Bg Colors.CbBg=Colors.TitleBg Colors.CbBorder=Library.Theme.Border or Colors.CbBorder Colors.DropdownBg=Colors.Bg Colors.DropdownBord=Colors.CbBorder
-    Colors.Divider=Colors.CbBorder Colors.TabBg=Colors.TitleBg Colors.ColHdr=Library.Theme.Header or Colors.ColHdr Colors.SectionBorder=Colors.CbBorder
-end
+    if self.KeybindObject then
+        local Keybind = self.KeybindObject
+        local NativeKeybind = NativeSection:Keybind(Keybind.Id, Keybind.Key, Keybind.Mode)
+        Keybind.Native = NativeKeybind
 
-local function Accent() return Library.Theme.Accent or Color3.fromRGB(150, 120, 150) end
-local function AccentDark()
-    local H, S, V = Color3.toHSV(Accent())
-    return Color3.fromHSV(H, S, V * 0.32)
-end
-local function AccentHover()
-    local H, S, V = Color3.toHSV(Accent())
-    return Color3.fromHSV(H, S, math.min(V * 1.09, 1))
-end
-local function AccentBorder()
-    local H, S, V = Color3.toHSV(Accent())
-    return Color3.fromHSV(H, S, V * 0.82)
-end
+        if Keybind.ShowHotkey and NativeKeybind and type(NativeKeybind.AddToHotkey) == "function" then
+            SafeCall(NativeKeybind.AddToHotkey, NativeKeybind, Keybind.HotkeyLabel or Keybind.Name, self.Id)
+        end
+    end
 
-function Library:ChangeTheme(Index, Color)
-    local Name=tostring(Index or "")
-    if typeof(Color)~="Color3" then return end
-    local Map={accent="Accent",background="Background",surface="Surface",control="Control",border="Border",text="Text",textbright="TextBright",textdim="TextDim",header="Header"}
-    local Key=Map[Name:lower()] or Name
-    local Old=self.Theme[Key]
-    self.Theme[Key]=Color
-    if typeof(Old)=="Color3" and Old~=Color then
-        local Properties={"BackgroundColor3","TextColor3","ImageColor3","ScrollBarImageColor3","Color"}
-        for _,Gui in ipairs(self.Guis) do
-            if Gui and Gui.Parent then
-                for _,Object in ipairs(Gui:GetDescendants()) do
-                    for _,Property in ipairs(Properties) do
-                        local Success,Value=Call(function() return Object[Property] end)
-                        if Success and typeof(Value)=="Color3" and Value==Old then Call(function() Object[Property]=Color end) end
+    if self.ColorpickerObject then
+        local Picker = self.ColorpickerObject
+        local Color = Picker.Color
+        local NativePicker = NativeSection:ColorPicker(
+            Picker.Id,
+            Color.R,
+            Color.G,
+            Color.B,
+            Picker.Alpha,
+            function(NewColor, NewAlpha)
+                if typeof(NewColor) == "Color3" then
+                    Picker.Color = NewColor
+                    Picker.Alpha = tonumber(NewAlpha) or Picker.Alpha
+                    Library.Flags[Picker.Flag] = NewColor
+                    if type(Picker.Callback) == "function" then
+                        SafeCall(Picker.Callback, NewColor, Picker.Alpha)
                     end
                 end
             end
-        end
-    end
-    SyncThemeColors()
-    for RendererIndex=#self.Renderers,1,-1 do
-        local Renderer=self.Renderers[RendererIndex]
-        if type(Renderer)=="function" then Call(Renderer) else table.remove(self.Renderers,RendererIndex) end
+        )
+        Picker.Native = NativePicker
     end
 end
 
-function Library:ApplyThemePreset(Preset)
-    if type(Preset)~="table" then return false end
-    for Key,Value in pairs(Preset) do if typeof(Value)=="Color3" and self.Theme[Key]~=nil then self:ChangeTheme(Key,Value) end end
-    return true
-end
+local SliderControl = setmetatable({}, BaseControl)
+SliderControl.__index = SliderControl
 
-local function ThemeColorToTable(Color) return {r=math.floor(Color.R*255+0.5),g=math.floor(Color.G*255+0.5),b=math.floor(Color.B*255+0.5)} end
-local function ThemeColorFromTable(Value) if type(Value)~="table" then return nil end return Color3.fromRGB(math.clamp(tonumber(Value.r) or 0,0,255),math.clamp(tonumber(Value.g) or 0,0,255),math.clamp(tonumber(Value.b) or 0,0,255)) end
-function Library:ThemeFilePath(Name)
-    local Clean=tostring(Name or ""):gsub("[^%w%-%_ ]",""):gsub("%s+","_")
-    if Clean=="" then return nil end
-    return self.Folders.Themes.."/"..Clean..".json"
-end
-function Library:SaveCustomTheme(Name)
-    EnsureFolders() local Path=self:ThemeFilePath(Name) if not Path or type(writefile)~="function" then return false end
-    local Data={} for Key,Value in pairs(self.Theme) do if typeof(Value)=="Color3" then Data[Key]=ThemeColorToTable(Value) end end
-    local Ok,Body=Call(HttpService.JSONEncode,HttpService,Data) if not Ok then return false end
-    return Call(writefile,Path,Body)==true
-end
-function Library:LoadCustomTheme(Name)
-    local Path=self:ThemeFilePath(Name) if not Path or type(readfile)~="function" or type(isfile)=="function" and not isfile(Path) then return false end
-    local Ok,Body=Call(readfile,Path) if not Ok or type(Body)~="string" then return false end
-    local DecodedOk,Data=Call(HttpService.JSONDecode,HttpService,Body) if not DecodedOk or type(Data)~="table" then return false end
-    local Preset={} for Key,Value in pairs(Data) do local Color=ThemeColorFromTable(Value) if Color then Preset[Key]=Color end end
-    return self:ApplyThemePreset(Preset)
-end
-function Library:DeleteCustomTheme(Name)
-    local Path=self:ThemeFilePath(Name) if not Path or type(delfile)~="function" then return false end
-    if type(isfile)=="function" and not isfile(Path) then return false end
-    return Call(delfile,Path)==true
-end
-
-local function RegisterRenderer(Renderer)
-    Library.Renderers[#Library.Renderers + 1] = Renderer
-    Call(Renderer)
-    return Renderer
-end
-
-local function RegisterFlag(Flag, Default, Setter)
-    if type(Flag) ~= "string" or Flag == "" then return end
-    if Library.Flags[Flag] == nil then Library.Flags[Flag] = Default end
-    if type(Setter) == "function" then Library.Setters[Flag] = Setter end
-end
-
-local function CloneValue(Value, Seen)
-    if type(Value) ~= "table" then return Value end
-    Seen = Seen or {}
-    if Seen[Value] then return Seen[Value] end
-    local Result = {}
-    Seen[Value] = Result
-    for Key, Item in pairs(Value) do Result[CloneValue(Key, Seen)] = CloneValue(Item, Seen) end
-    return Result
-end
-
-local function GetGuiInset(ScreenGui)
-    if ScreenGui and ScreenGui.IgnoreGuiInset then return Vector2.zero end
-    local TopLeft = GuiService:GetGuiInset()
-    return TopLeft
-end
-
-local function GuiPoint(ScreenGui,Point) return Point end
-local function MousePoint(ScreenGui) return UserInputService:GetMouseLocation()-GetGuiInset(ScreenGui) end
-
-local function GetViewportSize(ScreenGui)
-    local Viewport=ScreenGui and ScreenGui.AbsoluteSize or Vector2.zero
-    if Viewport.X<=0 or Viewport.Y<=0 then
-        local Camera=workspace.CurrentCamera
-        Viewport=Camera and Camera.ViewportSize or Vector2.new(1920,1080)
+function SliderControl:Get()
+    local Value = NativeGet(self.Id)
+    if type(Value) == "number" then
+        self.Value = Value
+        Library.Flags[self.Flag] = Value
     end
-    return Viewport
+    return self.Value
 end
 
-local function ClampFrameToViewport(Frame,ScreenGui,Margin)
-    if not Frame or not Frame.Parent then return end
-    Margin=math.max(tonumber(Margin) or 4,0)
-    local Viewport=GetViewportSize(ScreenGui or Frame:FindFirstAncestorOfClass("ScreenGui"))
-    local Size=Frame.AbsoluteSize
-    local MaxWidth=math.max(80,Viewport.X-Margin*2) local MaxHeight=math.max(60,Viewport.Y-Margin*2)
-    if (Size.X>MaxWidth or Size.Y>MaxHeight) and Frame.Size.X.Scale==0 and Frame.Size.Y.Scale==0 then
-        Frame.Size=UDim2.fromOffset(math.min(Size.X,MaxWidth),math.min(Size.Y,MaxHeight))
-        Size=Frame.AbsoluteSize
+function SliderControl:Set(Value, Silent)
+    Value = tonumber(Value) or self.Min
+    Value = math.clamp(Value, self.Min, self.Max)
+    local Changed = self.Value ~= Value
+    self.Value = Value
+    Library.Flags[self.Flag] = Value
+    NativeSet(self.Id, Value)
+    if Changed and not Silent and type(self.Callback) == "function" then
+        SafeCall(self.Callback, Value)
     end
-    local X=math.clamp(Frame.AbsolutePosition.X,Margin,math.max(Margin,Viewport.X-Size.X-Margin))
-    local Y=math.clamp(Frame.AbsolutePosition.Y,Margin,math.max(Margin,Viewport.Y-Size.Y-Margin))
-    local Anchor=Frame.AnchorPoint
-    Frame.Position=UDim2.fromOffset(X+Size.X*Anchor.X,Y+Size.Y*Anchor.Y)
+    return Value
 end
 
-local function BindFrameToViewport(Frame,ScreenGui,Margin)
-    local Queued=false
-    local function Queue()
-        if Queued then return end
-        Queued=true
-        task.defer(function() Queued=false ClampFrameToViewport(Frame,ScreenGui,Margin) end)
-    end
-    if ScreenGui then Bind(ScreenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(Queue)) end
-    Bind(Frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(Queue))
-    task.defer(Queue)
-end
+function SliderControl:Render(NativeSection)
+    local Object = self
+    local Label = self.Name
+    local Suffix = tostring(self.Suffix or "")
 
-local function MakeDraggable(Frame,Handle,ScreenGui)
-    local Dragging,DragInput,StartMouse,StartAbsolute
-    ScreenGui=ScreenGui or Frame:FindFirstAncestorOfClass("ScreenGui")
-    Bind(Handle.InputBegan:Connect(function(Input)
-        if Input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
-        Dragging=true StartMouse=Input.Position StartAbsolute=Frame.AbsolutePosition
-        Bind(Input.Changed:Connect(function() if Input.UserInputState==Enum.UserInputState.End then Dragging=false end end))
-    end))
-    Bind(Handle.InputChanged:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseMovement then DragInput=Input end end))
-    Bind(UserInputService.InputChanged:Connect(function(Input)
-        if not Dragging or Input~=DragInput then return end
-        local Delta=Input.Position-StartMouse local Viewport=GetViewportSize(ScreenGui) local Size=Frame.AbsoluteSize
-        local X=math.clamp(StartAbsolute.X+Delta.X,4,math.max(4,Viewport.X-Size.X-4))
-        local Y=math.clamp(StartAbsolute.Y+Delta.Y,4,math.max(4,Viewport.Y-Size.Y-4))
-        local Anchor=Frame.AnchorPoint Frame.Position=UDim2.fromOffset(X+Size.X*Anchor.X,Y+Size.Y*Anchor.Y)
-    end))
-    BindFrameToViewport(Frame,ScreenGui,4)
-end
-
-local function MakeResizable(Window,MinimumSize)
-    local Frame=Window.Main MinimumSize=MinimumSize or Vector2.new(620,500)
-    local Active,StartMouse,StartSize,StartPosition
-    local Corners={{"TL",0,0,-1,-1},{"TR",1,0,1,-1},{"BL",0,1,-1,1},{"BR",1,1,1,1}}
-    for _,Data in ipairs(Corners) do
-        local Name,XScale,YScale,XDirection,YDirection=table.unpack(Data)
-        local Handle=Create("TextButton",{Name="Resize"..Name,Parent=Frame,AnchorPoint=Vector2.new(XScale,YScale),Position=UDim2.fromScale(XScale,YScale),Size=UDim2.fromOffset(18,18),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=5000})
-        Bind(Handle.InputBegan:Connect(function(Input)
-            if Input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
-            Active={X=XDirection,Y=YDirection} StartMouse=Input.Position StartSize=Frame.AbsoluteSize StartPosition=Frame.AbsolutePosition
-        end))
-    end
-    Bind(UserInputService.InputChanged:Connect(function(Input)
-        if not Active or Input.UserInputType~=Enum.UserInputType.MouseMovement then return end
-        local Delta=Input.Position-StartMouse local Viewport=GetViewportSize(Window.ScreenGui)
-        local MaxWidth=math.max(320,Viewport.X-8) local MaxHeight=math.max(280,Viewport.Y-8)
-        local MinWidth=math.min(MinimumSize.X,MaxWidth) local MinHeight=math.min(MinimumSize.Y,MaxHeight)
-        local Width=math.clamp(StartSize.X+Delta.X*Active.X,MinWidth,MaxWidth) local Height=math.clamp(StartSize.Y+Delta.Y*Active.Y,MinHeight,MaxHeight)
-        local X=StartPosition.X local Y=StartPosition.Y
-        if Active.X<0 then X=StartPosition.X+(StartSize.X-Width) end
-        if Active.Y<0 then Y=StartPosition.Y+(StartSize.Y-Height) end
-        X=math.clamp(X,4,math.max(4,Viewport.X-Width-4)) Y=math.clamp(Y,4,math.max(4,Viewport.Y-Height-4))
-        Frame.AnchorPoint=Vector2.zero Frame.Position=UDim2.fromOffset(X,Y) Frame.Size=UDim2.fromOffset(Width,Height)
-    end))
-    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Active=nil end end))
-    BindFrameToViewport(Frame,Window.ScreenGui,4)
-end
-
-local BindSystem={CaptureDelay=0.08}
-BindSystem.Display={MouseButton2="M2",MouseButton3="M3",Insert="INS",Delete="DEL",Backspace="BACKSPACE",Tab="TAB",Return="ENTER",Escape="ESC",Space="SPACE",CapsLock="CAPS",LeftAlt="LALT",RightAlt="RALT",LeftControl="LCTRL",RightControl="RCTRL",LeftShift="LSHIFT",RightShift="RSHIFT",LeftMeta="LWIN",RightMeta="RWIN",NumLock="NUM LOCK",ScrollLock="SCROLL LOCK",Pause="PAUSE",Print="PRINT SCREEN",Home="HOME",End="END",PageUp="PAGE UP",PageDown="PAGE DOWN",Up="UP",Down="DOWN",Left="LEFT",Right="RIGHT",QuotedDouble="DOUBLE QUOTE",Exclamation="EXCLAMATION",Hash="HASH",Dollar="DOLLAR",Percent="PERCENT",Ampersand="AMPERSAND",Quote="APOSTROPHE",LeftParenthesis="LEFT PAREN",RightParenthesis="RIGHT PAREN",Asterisk="ASTERISK",Plus="PLUS",Comma="COMMA",Minus="MINUS",Period="PERIOD",Slash="SLASH",Colon="COLON",Semicolon="SEMICOLON",LessThan="LESS THAN",Equals="EQUALS",GreaterThan="GREATER THAN",Question="QUESTION",At="AT",LeftBracket="LEFT BRACKET",BackSlash="BACKSLASH",RightBracket="RIGHT BRACKET",Caret="CARET",Underscore="UNDERSCORE",Backquote="BACKQUOTE",LeftCurly="LEFT CURLY",Pipe="PIPE",RightCurly="RIGHT CURLY",Tilde="TILDE"}
-BindSystem.Aliases={NONE=false,INS="Insert",DEL="Delete",ESC="Escape",ENTER="Return",RETURN="Return",CTRL="LeftControl",LCTRL="LeftControl",RCTRL="RightControl",ALT="LeftAlt",LALT="LeftAlt",RALT="RightAlt",SHIFT="LeftShift",LSHIFT="LeftShift",RSHIFT="RightShift",SPACE="Space",TAB="Tab",CAPS="CapsLock",M2="M2",MB2="M2",RMB="M2",MOUSE2="M2",MOUSEBUTTON2="M2",M3="M3",MB3="M3",MMB="M3",MOUSE3="M3",MOUSEBUTTON3="M3"}
-BindSystem.SymbolAliases={['!']="Exclamation",['@']="At",['#']="Hash",['$']="Dollar",['%']="Percent",['^']="Caret",['&']="Ampersand",['*']="Asterisk",['(']="LeftParenthesis",[')']="RightParenthesis",['_']="Underscore",['+']="Plus",['{']="LeftCurly",['}']="RightCurly",['|']="Pipe",[':']="Colon",['\"']="QuotedDouble",['<']="LessThan",['>']="GreaterThan",['?']="Question",['~']="Tilde",[',']="Comma",['-']="Minus",['.']="Period",['/']="Slash",[';']="Semicolon",["'"]="Quote",['[']="LeftBracket",['\\']="BackSlash",[']']="RightBracket",['`']="Backquote",['=']="Equals"}
-BindSystem.ShiftedSymbols={One="Exclamation",Two="At",Three="Hash",Four="Dollar",Five="Percent",Six="Caret",Seven="Ampersand",Eight="Asterisk",Nine="LeftParenthesis",Zero="RightParenthesis",Minus="Underscore",Equals="Plus",LeftBracket="LeftCurly",RightBracket="RightCurly",BackSlash="Pipe",Semicolon="Colon",Quote="QuotedDouble",Comma="LessThan",Period="GreaterThan",Slash="Question",Backquote="Tilde"}
-BindSystem.SymbolKeys={Exclamation={"One",true},At={"Two",true},Hash={"Three",true},Dollar={"Four",true},Percent={"Five",true},Caret={"Six",true},Ampersand={"Seven",true},Asterisk={"Eight",true},LeftParenthesis={"Nine",true},RightParenthesis={"Zero",true},Underscore={"Minus",true},Plus={"Equals",true},LeftCurly={"LeftBracket",true},RightCurly={"RightBracket",true},Pipe={"BackSlash",true},Colon={"Semicolon",true},QuotedDouble={"Quote",true},LessThan={"Comma",true},GreaterThan={"Period",true},Question={"Slash",true},Tilde={"Backquote",true},Comma={"Comma",false},Minus={"Minus",false},Period={"Period",false},Slash={"Slash",false},Semicolon={"Semicolon",false},Quote={"Quote",false},LeftBracket={"LeftBracket",false},BackSlash={"BackSlash",false},RightBracket={"RightBracket",false},Backquote={"Backquote",false},Equals={"Equals",false}}
-BindSystem.Keypad={KEYPADZERO="KeypadZero",NUMPAD0="KeypadZero",NUM0="KeypadZero",KP0="KeypadZero",KEYPADONE="KeypadOne",NUMPAD1="KeypadOne",NUM1="KeypadOne",KP1="KeypadOne",KEYPADTWO="KeypadTwo",NUMPAD2="KeypadTwo",NUM2="KeypadTwo",KP2="KeypadTwo",KEYPADTHREE="KeypadThree",NUMPAD3="KeypadThree",NUM3="KeypadThree",KP3="KeypadThree",KEYPADFOUR="KeypadFour",NUMPAD4="KeypadFour",NUM4="KeypadFour",KP4="KeypadFour",KEYPADFIVE="KeypadFive",NUMPAD5="KeypadFive",NUM5="KeypadFive",KP5="KeypadFive",KEYPADSIX="KeypadSix",NUMPAD6="KeypadSix",NUM6="KeypadSix",KP6="KeypadSix",KEYPADSEVEN="KeypadSeven",NUMPAD7="KeypadSeven",NUM7="KeypadSeven",KP7="KeypadSeven",KEYPADEIGHT="KeypadEight",NUMPAD8="KeypadEight",NUM8="KeypadEight",KP8="KeypadEight",KEYPADNINE="KeypadNine",NUMPAD9="KeypadNine",NUM9="KeypadNine",KP9="KeypadNine",KEYPADPLUS="KeypadPlus",NUMPADPLUS="KeypadPlus",KPPLUS="KeypadPlus",KEYPADMINUS="KeypadMinus",NUMPADMINUS="KeypadMinus",KPMINUS="KeypadMinus",KEYPADMULTIPLY="KeypadMultiply",NUMPADMULTIPLY="KeypadMultiply",KPMULTIPLY="KeypadMultiply",KEYPADDIVIDE="KeypadDivide",NUMPADDIVIDE="KeypadDivide",KPDIVIDE="KeypadDivide",KEYPADPERIOD="KeypadPeriod",NUMPADDECIMAL="KeypadPeriod",KPDECIMAL="KeypadPeriod",KEYPADENTER="KeypadEnter",NUMPADENTER="KeypadEnter",KPENTER="KeypadEnter",KEYPADEQUALS="KeypadEquals",NUMPADEQUALS="KeypadEquals",KPEQUALS="KeypadEquals"}
-
-local function EmptyModifiers() return {Ctrl=false,Shift=false,Alt=false} end
-local function CopyModifiers(Value) Value=type(Value)=="table" and Value or {}; return {Ctrl=Value.Ctrl==true or Value.ctrl==true or Value.Control==true,Shift=Value.Shift==true or Value.shift==true,Alt=Value.Alt==true or Value.alt==true} end
-local function IsModifierKey(Key) return Key==Enum.KeyCode.LeftControl or Key==Enum.KeyCode.RightControl or Key==Enum.KeyCode.LeftShift or Key==Enum.KeyCode.RightShift or Key==Enum.KeyCode.LeftAlt or Key==Enum.KeyCode.RightAlt end
-local function ModifierName(Key) if Key==Enum.KeyCode.LeftControl or Key==Enum.KeyCode.RightControl then return "Ctrl" elseif Key==Enum.KeyCode.LeftShift or Key==Enum.KeyCode.RightShift then return "Shift" elseif Key==Enum.KeyCode.LeftAlt or Key==Enum.KeyCode.RightAlt then return "Alt" end end
-local function KeyDown(Key) local Ok,Value=Call(UserInputService.IsKeyDown,UserInputService,Key); return Ok and Value==true end
-function BindSystem.ReadModifiers(Exclude)
-    local M={Ctrl=KeyDown(Enum.KeyCode.LeftControl) or KeyDown(Enum.KeyCode.RightControl),Shift=KeyDown(Enum.KeyCode.LeftShift) or KeyDown(Enum.KeyCode.RightShift),Alt=KeyDown(Enum.KeyCode.LeftAlt) or KeyDown(Enum.KeyCode.RightAlt)}
-    local Name=ModifierName(Exclude) if Name then M[Name]=false end
-    return M
-end
-
-function BindSystem.DisplayKey(Key)
-    if Key==nil then return "none" end
-    if type(Key)=="string" then return BindSystem.Display[Key] or Key:upper() end
-    if typeof(Key)~="EnumItem" then return tostring(Key) end
-    local Name=Key.Name local Number=Name:match("^Keypad(%a+)$")
-    if Number then local Map={Zero="0",One="1",Two="2",Three="3",Four="4",Five="5",Six="6",Seven="7",Eight="8",Nine="9",Plus="PLUS",Minus="MINUS",Multiply="MULTIPLY",Divide="DIVIDE",Period="DECIMAL",Enter="ENTER",Equals="EQUALS"}; return "NUM "..(Map[Number] or Number:upper()) end
-    return BindSystem.Display[Name] or Name:upper()
-end
-function BindSystem.DisplayChord(Key,Modifiers)
-    local M=CopyModifiers(Modifiers) local Parts={} local Symbol=typeof(Key)=="EnumItem" and M.Shift and BindSystem.ShiftedSymbols[Key.Name] or nil
-    if M.Ctrl then Parts[#Parts+1]="CTRL" end
-    if M.Alt then Parts[#Parts+1]="ALT" end
-    if Symbol then Parts[#Parts+1]=BindSystem.Display[Symbol] or Symbol:upper() else if M.Shift then Parts[#Parts+1]="SHIFT" end Parts[#Parts+1]=BindSystem.DisplayKey(Key) end
-    return table.concat(Parts,"+")
-end
-
-function BindSystem.Normalize(Value)
-    if typeof(Value)=="EnumItem" then if Value==Enum.UserInputType.MouseButton1 then return nil end if Value==Enum.UserInputType.MouseButton2 then return "M2" end if Value==Enum.UserInputType.MouseButton3 then return "M3" end if Value.EnumType==Enum.KeyCode then return Value end return nil end
-    if type(Value)~="string" then return nil end
-    local Symbol=BindSystem.SymbolAliases[Value] or BindSystem.SymbolKeys[Value] and Value or nil
-    if Symbol and BindSystem.SymbolKeys[Symbol] then local Code=Enum.KeyCode[BindSystem.SymbolKeys[Symbol][1]]; return Code end
-    local Compact=Value:upper():gsub("[%s_%-%+]","")
-    if Compact=="M1" or Compact=="MB1" or Compact=="MOUSE1" or Compact=="LMB" then return nil end
-    local Alias=BindSystem.Aliases[Compact] if Alias==false then return nil end if Alias=="M2" or Alias=="M3" then return Alias end
-    local Wanted=Alias or BindSystem.Keypad[Compact] or Value
-    for _,Code in ipairs(Enum.KeyCode:GetEnumItems()) do if Code.Name:upper()==tostring(Wanted):upper() or Code.Name:upper()==Compact then return Code end end
-end
-function BindSystem.NormalizeBinding(Value,Modifiers)
-    local M=CopyModifiers(Modifiers)
-    if type(Value)=="string" then local Symbol=BindSystem.SymbolAliases[Value] or BindSystem.SymbolKeys[Value] and Value or nil; local Def=Symbol and BindSystem.SymbolKeys[Symbol] or nil; if Def then M.Shift=Def[2]==true return Enum.KeyCode[Def[1]],M end end
-    local Key=BindSystem.Normalize(Value) if not Key then return nil,M end return Key,M
-end
-function BindSystem.InputKey(Input) if not Input then return nil end if Input.UserInputType==Enum.UserInputType.MouseButton1 then return nil end if Input.UserInputType==Enum.UserInputType.MouseButton2 then return "M2" end if Input.UserInputType==Enum.UserInputType.MouseButton3 then return "M3" end if Input.UserInputType==Enum.UserInputType.Keyboard and Input.KeyCode~=Enum.KeyCode.Unknown then return Input.KeyCode end end
-function BindSystem.ModifiersMatch(Expected,Exclude) local A=CopyModifiers(Expected) local B=BindSystem.ReadModifiers(Exclude); return A.Ctrl==B.Ctrl and A.Shift==B.Shift and A.Alt==B.Alt end
-function BindSystem.Matches(Input,Key,Modifiers) local Expected=BindSystem.Normalize(Key) if not Expected then return false end local Current=BindSystem.InputKey(Input) if type(Expected)=="string" then return Current==Expected and BindSystem.ModifiersMatch(Modifiers,nil) end return typeof(Current)=="EnumItem" and Current==Expected and BindSystem.ModifiersMatch(Modifiers,Expected) end
-function BindSystem.ReleaseMatches(Input,Key) local Expected=BindSystem.Normalize(Key) if not Expected then return false end local Current=BindSystem.InputKey(Input) if type(Expected)=="string" then return Current==Expected end return typeof(Current)=="EnumItem" and Current==Expected end
-function BindSystem.KeyId(Key) Key=BindSystem.Normalize(Key) if not Key then return nil end if type(Key)=="string" then return "mouse:"..Key end return "key:"..Key.Name end
-function BindSystem.PressedSnapshot()
-    local Pressed={} local Success,Keys=Call(UserInputService.GetKeysPressed,UserInputService)
-    if Success and type(Keys)=="table" then for _,Input in ipairs(Keys) do local Key=BindSystem.InputKey(Input) local Id=BindSystem.KeyId(Key) if Id then Pressed[Id]=true end end end
-    for _,Code in ipairs(Enum.KeyCode:GetEnumItems()) do if Code~=Enum.KeyCode.Unknown then local Ok,Down=Call(UserInputService.IsKeyDown,UserInputService,Code) if Ok and Down==true then local Id=BindSystem.KeyId(Code) if Id then Pressed[Id]=true end end end end
-    for _,Pair in ipairs({{Enum.UserInputType.MouseButton2,"M2"},{Enum.UserInputType.MouseButton3,"M3"}}) do local Ok,Down=Call(UserInputService.IsMouseButtonPressed,UserInputService,Pair[1]) if Ok and Down==true then Pressed[BindSystem.KeyId(Pair[2])]=true end end
-    return Pressed
-end
-local function KeyDisplay(Key,Modifiers) return BindSystem.DisplayChord(Key,Modifiers) end
-local function NormalizeKey(Value) return BindSystem.Normalize(Value) end
-local function InputMatches(Input,Key,Modifiers) return BindSystem.Matches(Input,Key,Modifiers) end
-local function RefreshKeybindList() local Controller=Library.KeybindListController if Controller and type(Controller.Refresh)=="function" then Controller:Refresh() end end
-local function KeybindGateOpen(BindData)
-    if not BindData or BindData.EnabledFlag == nil then return true end
-    local Flag = tostring(BindData.EnabledFlag)
-    return Library.Flags[Flag] == true
-end
-local function FireKeybind(BindData,Pressed)
-    if not BindData or BindData.Destroyed then return end
-    if Pressed == true and not KeybindGateOpen(BindData) then
-        if BindData.Value == true then
-            BindData.Value = false
-            Library.Flags[BindData.Flag] = false
-            if type(BindData.Callback) == "function" then Call(BindData.Callback,false) end
-            BindData.Render()
-            RefreshKeybindList()
-        end
-        return
-    end
-    local Current=BindData.TargetControl and BindData.TargetControl:Get() or BindData.Value==true
-    local Mode,Value=BindData.Mode,Current
-    if Mode=="Hold" then Value=Pressed==true elseif Mode=="Toggle" then if not Pressed then return end Value=not Current elseif Mode=="Always" then Value=true else if not Pressed then return end Value=not Current end
-    if BindData.TargetControl then
-        BindData.TargetControl:Set(Value)
-        BindData.Value=BindData.TargetControl:Get()
+    if self.IsFloat then
+        local Places = DecimalPlaces(self.Step)
+        local Format = "%." .. tostring(Places) .. "f" .. Suffix
+        self.Native = NativeSection:SliderFloat(
+            self.Id,
+            Label,
+            self.Min,
+            self.Max,
+            self.Value,
+            Format,
+            function(Value)
+                if type(Value) == "number" and Object.Value ~= Value then
+                    Object.Value = Value
+                    Library.Flags[Object.Flag] = Value
+                    if type(Object.Callback) == "function" then
+                        SafeCall(Object.Callback, Value)
+                    end
+                end
+            end
+        )
     else
-        if BindData.Value==Value and Mode=="Hold" then return end
-        BindData.Value=Value Library.Flags[BindData.Flag]=Value
-        if type(BindData.Callback)=="function" then Call(BindData.Callback,Value) end
+        self.Native = NativeSection:SliderInt(
+            self.Id,
+            Label,
+            self.Min,
+            self.Max,
+            self.Value,
+            function(Value)
+                if type(Value) == "number" and Object.Value ~= Value then
+                    Object.Value = Value
+                    Library.Flags[Object.Flag] = Value
+                    if type(Object.Callback) == "function" then
+                        SafeCall(Object.Callback, Value)
+                    end
+                end
+            end
+        )
     end
-    Library.Flags[BindData.Flag]=BindData.Value
-    BindData.Render() RefreshKeybindList()
 end
 
-local function CancelCapture()
-    local Capture = Library.Capture
-    if not Capture then return end
-    Library.Capture = nil
-    if Capture.Bind and Capture.Bind.Render then Capture.Bind.Render() end
+local LabelControl = setmetatable({}, BaseControl)
+LabelControl.__index = LabelControl
+
+function LabelControl:Set(Value)
+    self.Value = tostring(Value or "")
+    return self.Value
 end
 
-local function BeginCapture(BindData)
-    CancelCapture()
-    if BindData.Window then BindData.Window:CloseDropdown() end
-    local Blocked=BindSystem.PressedSnapshot()
-    Library.Capture={Bind=BindData,Started=os.clock(),Blocked=Blocked,Armed=next(Blocked)==nil,Pending=nil,PendingId=nil,PendingModifiers=EmptyModifiers(),ModifierCandidates={}}
-    BindData.Render()
+function LabelControl:Render(NativeSection)
+    NativeSection:Text(tostring(self.Value or ""))
 end
 
-local function CleanKeybindDisplayName(Value)
-    local Text=tostring(Value or ""):gsub("^%s+",""):gsub("%s+$","")
-    -- UI-only cleanup: keep the feature name, strip redundant bind/keybind suffixes.
-    Text=Text:gsub("[%s_%-]+[Kk][Ee][Yy][Bb][Ii][Nn][Dd]%s*$","")
-    Text=Text:gsub("[%s_%-]+[Bb][Ii][Nn][Dd]%s*$","")
-    Text=Text:gsub("^%s+",""):gsub("%s+$","")
-    if Text=="" then Text="Keybind" end
-    if Text:lower()==Text and #Text>0 then Text=Text:sub(1,1):upper()..Text:sub(2) end
-    return Text
-end
+local ButtonControl = setmetatable({}, BaseControl)
+ButtonControl.__index = ButtonControl
 
-local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFlag)
-    Data=Data or {}
-    local Flag=tostring(Data.Flag or Data.Name or ("Keybind"..tostring(#Library.Keybinds+1)))
-    local Mode=tostring(Data.Mode or "Toggle") Mode=Mode=="Hold" and "Hold" or Mode=="Always" and "Always" or "Toggle"
-    local Initial=TargetControl and TargetControl:Get() or Mode=="Always"
-    local InitialKey,InitialModifiers=BindSystem.NormalizeBinding(Data.Default,Data.Modifiers)
-    local DisplayName=tostring(Data.Name or "")
-    if DisplayName=="" or string.lower(DisplayName)=="keybind" then DisplayName=tostring(TargetFlag or Data.Flag or Flag) end
-    DisplayName=CleanKeybindDisplayName(DisplayName)
-    local BindData={Window=Window,Flag=Flag,TargetFlag=tostring(TargetFlag or Flag),Name=DisplayName,Key=InitialKey,Modifiers=InitialModifiers,Mode=Mode,Callback=Data.Callback,EnabledFlag=Data.EnabledFlag,TargetControl=TargetControl,Value=Initial,Destroyed=false}
-    Library.Flags[Flag]=Initial
-    local Button=Create("TextButton",{Parent=Row,Size=UDim2.fromOffset(70,16),Position=UDim2.new(1,-(RightOffset or 0)-70,0.5,-8),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=15})
-    local Label=Create("TextLabel",{Parent=Button,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextXAlignment=Enum.TextXAlignment.Right,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBind,Text=""})
-    BindData.Button=Button
-
-    function BindData.Render()
-        local Capture=Library.Capture local Capturing=Capture and Capture.Bind==BindData local Text
-        if Capturing and not Capture.Armed then Text="[release keys]" elseif Capturing and Capture.Pending then Text="[release "..BindSystem.DisplayChord(Capture.Pending,Capture.PendingModifiers).."]" elseif Capturing and next(Capture.ModifierCandidates or {}) then local Names={} for _,Key in pairs(Capture.ModifierCandidates) do Names[#Names+1]=BindSystem.DisplayKey(Key) end table.sort(Names) Text="["..table.concat(Names,"+").." + key]" elseif Capturing then Text="[press key]" else Text="["..BindSystem.DisplayChord(BindData.Key,BindData.Modifiers).."]" end
-        Label.Text=Text Label.TextColor3=Capturing and Accent() or Colors.TextBind
-        local Width=math.clamp(TextService:GetTextSize(Text,13,Enum.Font.SourceSans,Vector2.new(220,20)).X+4,42,130)
-        Button.Size=UDim2.fromOffset(Width,16) Button.Position=UDim2.new(1,-(RightOffset or 0)-Width,0.5,-8)
-    end
-
-    function BindData:SetMode(NewMode,ApplyState)
-        NewMode=string.lower(tostring(NewMode)) NewMode=NewMode=="hold" and "Hold" or NewMode=="always" and "Always" or "Toggle"
-        local Previous=BindData.Mode local Current=BindData.TargetControl and BindData.TargetControl:Get() or BindData.Value==true BindData.Mode=NewMode
-        local Desired=Current if NewMode=="Always" then Desired=true elseif Previous=="Always" then Desired=false end
-        if ApplyState~=false and Desired~=Current then
-            if BindData.TargetControl then BindData.TargetControl:Set(Desired) else BindData.Value=Desired Library.Flags[Flag]=Desired if type(BindData.Callback)=="function" then Call(BindData.Callback,Desired) end end
+function ButtonControl:Render(NativeSection)
+    local Callback = self.Callback
+    NativeSection:Button(self.Name, function()
+        if type(Callback) == "function" then
+            SafeCall(Callback)
         end
-        BindData.Value=BindData.TargetControl and BindData.TargetControl:Get() or (ApplyState~=false and Desired or BindData.Value)
-        Library.Flags[Flag]=BindData.Value BindData.Render() RefreshKeybindList()
-    end
-
-    function BindData:Set(Value)
-        if type(Value)=="table" then
-            if Value.Key~=nil or Value.key~=nil then BindData.Key,BindData.Modifiers=BindSystem.NormalizeBinding(Value.Key or Value.key,Value.Modifiers or Value.modifiers) end
-            if Value.Mode~=nil or Value.mode~=nil then local NewMode=Value.Mode or Value.mode BindData:SetMode(NewMode,string.lower(tostring(NewMode))=="always") end
-        else BindData.Key,BindData.Modifiers=BindSystem.NormalizeBinding(Value,nil) end
-        BindData.Value=BindData.TargetControl and BindData.TargetControl:Get() or BindData.Value Library.Flags[Flag]=BindData.Value
-        BindData.Render() RefreshKeybindList()
-    end
-
-    local function OpenModeMenu()
-        CancelCapture()
-        local Owner={Get=function() return BindData.Mode end}
-        Window:OpenDropdown(Owner,Button,{"Hold","Toggle","Always"},BindData.Mode,false,function(Value) BindData:SetMode(Value,true) end)
-    end
-
-    RegisterFlag(Flag,BindData.Value,function(Value)
-        if type(Value)=="table" or typeof(Value)=="EnumItem" or type(Value)=="string" then BindData:Set(Value) return end
-        if BindData.TargetControl then BindData.TargetControl:Set(Value==true) BindData.Value=BindData.TargetControl:Get() else BindData.Value=Value==true end
-        Library.Flags[Flag]=BindData.Value BindData.Render()
     end)
-    Bind(Button.MouseButton1Click:Connect(function() BeginCapture(BindData) end))
-    Bind(Button.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then OpenModeMenu() end end))
-    Library.Keybinds[#Library.Keybinds+1]=BindData RegisterRenderer(BindData.Render)
-    if BindData.Mode=="Always" then task.defer(function() if not BindData.Destroyed then if BindData.TargetControl then BindData.TargetControl:Set(true) BindData.Value=true elseif type(BindData.Callback)=="function" then Call(BindData.Callback,true) end end RefreshKeybindList() end) end
-    return BindData
 end
 
-local function UpdateAll()
-    for Index = #Library.Renderers, 1, -1 do
-        local Renderer = Library.Renderers[Index]
-        if type(Renderer) == "function" then Call(Renderer) else table.remove(Library.Renderers, Index) end
+local TextboxControl = setmetatable({}, BaseControl)
+TextboxControl.__index = TextboxControl
+
+function TextboxControl:Get()
+    local Value = NativeGet(self.Id)
+    if type(Value) == "string" then
+        self.Value = Value
+        Library.Flags[self.Flag] = Value
+    end
+    return self.Value
+end
+
+function TextboxControl:Set(Value, Silent)
+    Value = tostring(Value or "")
+    local Changed = self.Value ~= Value
+    self.Value = Value
+    Library.Flags[self.Flag] = Value
+    NativeSet(self.Id, Value)
+    if Changed and not Silent and type(self.Callback) == "function" then
+        SafeCall(self.Callback, Value)
+    end
+    return Value
+end
+
+function TextboxControl:Render(NativeSection)
+    local Object = self
+    self.Native = NativeSection:InputText(self.Id, self.Name, self.Value, function(Value)
+        Value = tostring(Value or "")
+        if Object.Value ~= Value then
+            Object.Value = Value
+            Library.Flags[Object.Flag] = Value
+            if type(Object.Callback) == "function" then
+                SafeCall(Object.Callback, Value)
+            end
+        end
+    end)
+end
+
+local DropdownControl = setmetatable({}, BaseControl)
+DropdownControl.__index = DropdownControl
+
+function DropdownControl:Get()
+    local Index = NativeGet(self.Id)
+    if type(Index) == "number" then
+        local Item = self.Items[Index + 1]
+        if Item ~= nil then
+            self.Value = Item
+            self.Index = Index
+            Library.Flags[self.Flag] = Item
+        end
+    end
+    return self.Value
+end
+
+function DropdownControl:Set(Value, Silent)
+    local Index
+    local Item
+
+    if type(Value) == "number" then
+        Index = math.clamp(math.floor(Value), 0, math.max(#self.Items - 1, 0))
+        Item = self.Items[Index + 1]
+    else
+        for ItemIndex, Candidate in ipairs(self.Items) do
+            if tostring(Candidate) == tostring(Value) then
+                Index = ItemIndex - 1
+                Item = Candidate
+                break
+            end
+        end
+    end
+
+    if Index == nil then
+        return self.Value
+    end
+
+    local Changed = self.Index ~= Index
+    self.Index = Index
+    self.Value = Item
+    Library.Flags[self.Flag] = Item
+    NativeSet(self.Id, Index)
+
+    if Changed and not Silent and type(self.Callback) == "function" then
+        SafeCall(self.Callback, Item)
+    end
+    return Item
+end
+
+function DropdownControl:SetItems(Items)
+    if type(Items) == "table" then
+        self.Items = Items
+        if #self.Items > 0 and self.Value == nil then
+            self.Index = 0
+            self.Value = self.Items[1]
+        end
+    end
+end
+
+function DropdownControl:Render(NativeSection)
+    local Object = self
+    self.Native = NativeSection:Combo(self.Id, self.Name, self.Items, self.Index or 0, function(Index, Text)
+        if type(Index) == "number" then
+            Object.Index = Index
+            Object.Value = Text or Object.Items[Index + 1]
+            Library.Flags[Object.Flag] = Object.Value
+            if type(Object.Callback) == "function" then
+                SafeCall(Object.Callback, Object.Value)
+            end
+        end
+    end)
+end
+
+local RangeControl = setmetatable({}, BaseControl)
+RangeControl.__index = RangeControl
+
+function RangeControl:Get()
+    return {self.Low, self.High}
+end
+
+function RangeControl:Set(A, B, Silent)
+    if type(A) == "table" then
+        B = A[2] or A.Max or A.Maximum
+        A = A[1] or A.Min or A.Minimum
+    end
+    A = math.clamp(tonumber(A) or self.Low, self.Min, self.Max)
+    B = math.clamp(tonumber(B) or self.High, self.Min, self.Max)
+    if A > B then
+        A, B = B, A
+    end
+    self.Low, self.High = A, B
+    Library.Flags[self.Flag] = {A, B}
+    NativeSet(self.LowId, A)
+    NativeSet(self.HighId, B)
+    if not Silent and type(self.Callback) == "function" then
+        SafeCall(self.Callback, A, B)
+    end
+    return {A, B}
+end
+
+function RangeControl:Render(NativeSection)
+    local Object = self
+    local Places = DecimalPlaces(self.Step)
+    local Format = "%." .. tostring(Places) .. "f" .. tostring(self.Suffix or "")
+
+    NativeSection:SliderFloat(self.LowId, self.Name .. " Min", self.Min, self.Max, self.Low, Format, function(Value)
+        if type(Value) == "number" then
+            Object:Set(Value, Object.High)
+        end
+    end)
+
+    NativeSection:SliderFloat(self.HighId, self.Name .. " Max", self.Min, self.Max, self.High, Format, function(Value)
+        if type(Value) == "number" then
+            Object:Set(Object.Low, Value)
+        end
+    end)
+end
+
+local SectionMethods = {}
+SectionMethods.__index = SectionMethods
+
+function SectionMethods:AddControl(Control)
+    self.Controls[#self.Controls + 1] = Control
+    return Control
+end
+
+function SectionMethods:Toggle(Data)
+    Data = Data or {}
+    local Flag = tostring(Data.Flag or Data.Name or "toggle")
+    local Default = Data.Default == true
+    if type(Library.Flags[Flag]) == "boolean" then
+        Default = Library.Flags[Flag]
+    end
+
+    local Object = setmetatable({
+        Type = "Toggle",
+        Id = MakeId(self.Page.Name, Flag),
+        Flag = Flag,
+        Name = tostring(Data.Name or Flag),
+        Value = Default,
+        Callback = Data.Callback,
+        Native = nil
+    }, ToggleControl)
+
+    Library.Flags[Flag] = Default
+    Library.Setters[Flag] = function(Value)
+        return Object:Set(Value)
+    end
+
+    return self:AddControl(Object)
+end
+
+function SectionMethods:Slider(Data)
+    Data = Data or {}
+    local Flag = tostring(Data.Flag or Data.Name or "slider")
+    local Minimum = tonumber(Data.Min) or 0
+    local Maximum = tonumber(Data.Max) or 100
+    local Step = tonumber(Data.Step) or 1
+    local Default = math.clamp(tonumber(Data.Default) or Minimum, Minimum, Maximum)
+    if type(Library.Flags[Flag]) == "number" then
+        Default = math.clamp(Library.Flags[Flag], Minimum, Maximum)
+    end
+
+    local IsFloat = Step < 1 or Minimum % 1 ~= 0 or Maximum % 1 ~= 0 or Default % 1 ~= 0
+    local Object = setmetatable({
+        Type = "Slider",
+        Id = MakeId(self.Page.Name, Flag),
+        Flag = Flag,
+        Name = tostring(Data.Name or Flag),
+        Min = Minimum,
+        Max = Maximum,
+        Step = Step,
+        Value = Default,
+        Suffix = Data.Suffix,
+        IsFloat = IsFloat,
+        Callback = Data.Callback,
+        Native = nil
+    }, SliderControl)
+
+    Library.Flags[Flag] = Default
+    Library.Setters[Flag] = function(Value)
+        return Object:Set(Value)
+    end
+
+    return self:AddControl(Object)
+end
+
+function SectionMethods:RangeSlider(Data)
+    Data = Data or {}
+    local Flag = tostring(Data.Flag or Data.Name or "range")
+    local Minimum = tonumber(Data.Min) or 0
+    local Maximum = tonumber(Data.Max) or 100
+    local Default = type(Data.Default) == "table" and Data.Default or {Minimum, Maximum}
+    local Low = math.clamp(tonumber(Default[1]) or Minimum, Minimum, Maximum)
+    local High = math.clamp(tonumber(Default[2]) or Maximum, Minimum, Maximum)
+    if Low > High then
+        Low, High = High, Low
+    end
+
+    local Object = setmetatable({
+        Type = "RangeSlider",
+        Flag = Flag,
+        Name = tostring(Data.Name or Flag),
+        Min = Minimum,
+        Max = Maximum,
+        Step = tonumber(Data.Step) or 1,
+        Low = Low,
+        High = High,
+        Suffix = Data.Suffix,
+        Callback = Data.Callback,
+        LowId = MakeId(self.Page.Name, Flag .. "_min"),
+        HighId = MakeId(self.Page.Name, Flag .. "_max")
+    }, RangeControl)
+
+    Library.Flags[Flag] = {Low, High}
+    Library.Setters[Flag] = function(Value)
+        return Object:Set(Value)
+    end
+
+    return self:AddControl(Object)
+end
+
+function SectionMethods:Dropdown(Data)
+    Data = Data or {}
+    local Flag = tostring(Data.Flag or Data.Name or "dropdown")
+    local Items = type(Data.Items) == "table" and Data.Items or {}
+    local Default = Data.Default
+    local Index = 0
+
+    if Default == nil then
+        Default = Items[1]
+    end
+
+    for ItemIndex, Item in ipairs(Items) do
+        if tostring(Item) == tostring(Default) then
+            Index = ItemIndex - 1
+            Default = Item
+            break
+        end
+    end
+
+    local Object = setmetatable({
+        Type = "Dropdown",
+        Id = MakeId(self.Page.Name, Flag),
+        Flag = Flag,
+        Name = tostring(Data.Name or Flag),
+        Items = Items,
+        Value = Default,
+        Index = Index,
+        Callback = Data.Callback,
+        Native = nil
+    }, DropdownControl)
+
+    Library.Flags[Flag] = Default
+    Library.Setters[Flag] = function(Value)
+        return Object:Set(Value)
+    end
+
+    return self:AddControl(Object)
+end
+
+function SectionMethods:MultiDropdown(Data)
+    -- Native Matcha UI Binding has no multi-select combo. Keep API compatibility
+    -- by rendering one toggle per item and exposing a table of selected values.
+    Data = Data or {}
+    local Flag = tostring(Data.Flag or Data.Name or "multi")
+    local Items = type(Data.Items) == "table" and Data.Items or {}
+    local Selected = type(Data.Default) == "table" and Data.Default or {}
+    local Object = {
+        Type = "MultiDropdown",
+        Flag = Flag,
+        Name = tostring(Data.Name or Flag),
+        Items = Items,
+        Selected = {},
+        Callback = Data.Callback,
+        ToggleIds = {}
+    }
+
+    for _, Item in ipairs(Selected) do
+        Object.Selected[tostring(Item)] = true
+    end
+
+    function Object:Get()
+        local Result = {}
+        for _, Item in ipairs(self.Items) do
+            if self.Selected[tostring(Item)] then
+                Result[#Result + 1] = Item
+            end
+        end
+        return Result
+    end
+
+    function Object:Set(Values, Silent)
+        self.Selected = {}
+        if type(Values) == "table" then
+            for _, Item in ipairs(Values) do
+                self.Selected[tostring(Item)] = true
+            end
+        end
+        Library.Flags[self.Flag] = self:Get()
+        if not Silent and type(self.Callback) == "function" then
+            SafeCall(self.Callback, Library.Flags[self.Flag])
+        end
+        return Library.Flags[self.Flag]
+    end
+
+    function Object:Render(NativeSection)
+        NativeSection:Text(self.Name)
+        for Index, Item in ipairs(self.Items) do
+            local Key = tostring(Item)
+            local Id = self.ToggleIds[Index]
+            if not Id then
+                Id = MakeId(self.Flag, Key)
+                self.ToggleIds[Index] = Id
+            end
+            NativeSection:Toggle(Id, Key, self.Selected[Key] == true, function(State)
+                self.Selected[Key] = State == true
+                Library.Flags[self.Flag] = self:Get()
+                if type(self.Callback) == "function" then
+                    SafeCall(self.Callback, Library.Flags[self.Flag])
+                end
+            end)
+        end
+    end
+
+    Library.Flags[Flag] = Object:Get()
+    Library.Setters[Flag] = function(Value)
+        return Object:Set(Value)
+    end
+    return self:AddControl(Object)
+end
+
+function SectionMethods:Textbox(Data)
+    Data = Data or {}
+    local Flag = tostring(Data.Flag or Data.Name or "textbox")
+    local Default = tostring(Data.Default or "")
+    if type(Library.Flags[Flag]) == "string" then
+        Default = Library.Flags[Flag]
+    end
+
+    local Object = setmetatable({
+        Type = "Textbox",
+        Id = MakeId(self.Page.Name, Flag),
+        Flag = Flag,
+        Name = tostring(Data.Name or Flag),
+        Value = Default,
+        Callback = Data.Callback,
+        Native = nil
+    }, TextboxControl)
+
+    Library.Flags[Flag] = Default
+    Library.Setters[Flag] = function(Value)
+        return Object:Set(Value)
+    end
+
+    return self:AddControl(Object)
+end
+
+function SectionMethods:Label(Data)
+    if type(Data) ~= "table" then
+        Data = {Name = tostring(Data or "")}
+    end
+
+    local Object = setmetatable({
+        Type = "Label",
+        Value = tostring(Data.Name or "")
+    }, LabelControl)
+
+    return self:AddControl(Object)
+end
+
+function SectionMethods:Button(Data, Callback)
+    if type(Data) == "string" then
+        Data = {Name = Data, Callback = Callback}
+    end
+    Data = Data or {}
+
+    local Object = setmetatable({
+        Type = "Button",
+        Name = tostring(Data.Name or "Button"),
+        Callback = Data.Callback
+    }, ButtonControl)
+
+    return self:AddControl(Object)
+end
+
+function SectionMethods:Keybind(Data)
+    -- Matcha requires a keybind to immediately follow a toggle. For standalone
+    -- keybind requests we create a visible compatibility toggle.
+    Data = Data or {}
+    local Toggle = self:Toggle({
+        Name = tostring(Data.Name or "Keybind"),
+        Flag = tostring(Data.EnabledFlag or (Data.Flag or Data.Name or "Keybind") .. " Enabled"),
+        Default = false
+    })
+    return Toggle:Keybind(Data)
+end
+
+function SectionMethods:Text(Data)
+    return self:Label(type(Data) == "table" and Data or {Name = tostring(Data or "")})
+end
+
+function SectionMethods:Info(Text)
+    return self:Label({Name = tostring(Text or "")})
+end
+
+local PageMethods = {}
+PageMethods.__index = PageMethods
+
+function PageMethods:Section(Data)
+    Data = Data or {}
+    local Section = setmetatable({
+        Page = self,
+        Name = tostring(Data.Name or "Section"),
+        Side = SideName(Data.Side),
+        Controls = {}
+    }, SectionMethods)
+
+    self.Sections[#self.Sections + 1] = Section
+    return Section
+end
+
+function PageMethods:Render(Tab)
+    for _, Section in ipairs(self.Sections) do
+        local Success, NativeSection = SafeCall(Tab.Section, Tab, Section.Name, Section.Side)
+        if Success and NativeSection then
+            for _, Control in ipairs(Section.Controls) do
+                if Control and type(Control.Render) == "function" then
+                    SafeCall(Control.Render, Control, NativeSection)
+                end
+            end
+        end
     end
 end
 
 local WindowMethods = {}
 WindowMethods.__index = WindowMethods
-local PageMethods = {}
-PageMethods.__index = PageMethods
-local SubPageMethods = {}
-SubPageMethods.__index = SubPageMethods
-local SectionMethods = {}
-SectionMethods.__index = SectionMethods
 
-local function ReflowTabs(Window)
-    local Count = #Window.PagesOrder
-    if Count == 0 then return end
-    for Index, Page in ipairs(Window.PagesOrder) do
-        Page.Button.Size = UDim2.new(1 / Count, 0, 1, 0)
-        Page.Button.Position = UDim2.new((Index - 1) / Count, 0, 0, 0)
-        if Page.Divider then Page.Divider.Visible = Index < Count end
+function WindowMethods:Page(Data)
+    Data = Data or {}
+    local Name = tostring(Data.Name or ("Page " .. tostring(#self.Pages + 1)))
+    local Page = setmetatable({
+        Window = self,
+        Name = Name,
+        Sections = {},
+        Removed = false
+    }, PageMethods)
+
+    self.Pages[#self.Pages + 1] = Page
+
+    local TabName = self.Name
+    if Name ~= "" then
+        TabName = self.Name .. " - " .. Name
     end
-end
+    Page.TabName = TabName
 
-local function SelectPage(Window, Page)
-    Window.ActivePage = Page
-    for _, Item in ipairs(Window.PagesOrder) do
-        local Selected = Item == Page
-        Item.Panel.Visible = Selected
-        Item.Button.TextColor3 = Selected and Colors.TextBright or Colors.TextDim
-    end
-end
-
-local function SelectSubPage(Page, SubPage)
-    Page.ActiveSubPage = SubPage
-    for _, Item in ipairs(Page.SubPagesOrder) do
-        local Selected = Item == SubPage
-        Item.Frame.Visible = Selected
-        Item.Button.TextColor3 = Selected and Accent() or Colors.TextDim
-    end
-end
-
-local function CreatePopupLayer(Window)
-    local Dropdown = Create("Frame", {
-        Parent = Window.ScreenGui,
-        Size = UDim2.fromOffset(120, 100),
-        BackgroundColor3 = Colors.Bg,
-        BorderSizePixel = 0,
-        Visible = false,
-        ZIndex = 1000
-    }, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.DropdownBord, Thickness = 1})})
-    local Scroll = Create("ScrollingFrame", {
-        Parent = Dropdown,
-        Size = UDim2.new(1, -2, 1, -2),
-        Position = UDim2.fromOffset(1, 1),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        CanvasSize = UDim2.fromOffset(0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        ScrollingDirection = Enum.ScrollingDirection.Y,
-        ScrollBarThickness = 2,
-        ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80),
-        ZIndex = 1001
-    }, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder})})
-    Window.Dropdown = Dropdown
-    Window.DropdownScroll = Scroll
-
-    local Picker = Create("Frame", {
-        Parent = Window.ScreenGui,
-        Size = UDim2.fromOffset(220, 215),
-        BackgroundColor3 = Colors.Bg,
-        BorderSizePixel = 0,
-        Visible = false,
-        ZIndex = 2000
-    }, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
-    local SV = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(180, 180), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = Color3.new(1, 0, 0), BorderSizePixel = 0, ZIndex = 2001})
-    Create("Frame", {Parent = SV, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2002}, {Create("UIGradient", {Rotation = 0, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})})})
-    Create("Frame", {Parent = SV, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 2003}, {Create("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})})})
-    local SVCursor = Create("Frame", {Parent = SV, Size = UDim2.fromOffset(6, 6), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(1, 0), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2004}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
-    local Hue = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(14, 180), Position = UDim2.fromOffset(198, 10), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2001}, {Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)), ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)), ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)), ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)), ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))})})})
-    local HueCursor = Create("Frame", {Parent = Hue, Size = UDim2.new(1, 4, 0, 2), Position = UDim2.fromOffset(-2, 0), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2002}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
-    local Alpha = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(180, 11), Position = UDim2.fromOffset(10, 196), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2001})
-    local AlphaGradient = Create("UIGradient", {Parent = Alpha, Rotation = 0, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})})
-    local AlphaCursor = Create("Frame", {Parent = Alpha, Size = UDim2.new(0, 2, 1, 4), Position = UDim2.new(1, 0, 0, -2), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2002}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
-    Window.Picker = Picker
-    Window.PickerSV = SV
-    Window.PickerSVCursor = SVCursor
-    Window.PickerHue = Hue
-    Window.PickerHueCursor = HueCursor
-    Window.PickerAlpha = Alpha
-    Window.PickerAlphaGradient = AlphaGradient
-    Window.PickerAlphaCursor = AlphaCursor
-    Window.PickerActive = nil
-    Window.PickerDragging = nil
-
-    local function ClampPopup(Size, Position)
-        local Viewport = Window.ScreenGui.AbsoluteSize
-        if Viewport.X <= 0 or Viewport.Y <= 0 then
-            local Camera = workspace.CurrentCamera
-            Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
-        end
-        return Vector2.new(math.clamp(Position.X, 4, math.max(4, Viewport.X - Size.X - 4)), math.clamp(Position.Y, 4, math.max(4, Viewport.Y - Size.Y - 4)))
-    end
-    Window.ClampPopup = ClampPopup
-
-    local function UpdatePickerFromPoint(Mode,Point)
-        local Active=Window.PickerActive if not Active then return end
-        local Mouse=Point or MousePoint(Window.ScreenGui) local H,S,V=Color3.toHSV(Active.Color)
-        if Mode=="SV" then local Pos,Size=Window.PickerSV.AbsolutePosition,Window.PickerSV.AbsoluteSize if Size.X<=0 or Size.Y<=0 then return end S=math.clamp((Mouse.X-Pos.X)/Size.X,0,1) V=1-math.clamp((Mouse.Y-Pos.Y)/Size.Y,0,1)
-        elseif Mode=="Hue" then local Pos,Size=Window.PickerHue.AbsolutePosition,Window.PickerHue.AbsoluteSize if Size.Y<=0 then return end H=math.clamp((Mouse.Y-Pos.Y)/Size.Y,0,1)
-        elseif Mode=="Alpha" then local Pos,Size=Window.PickerAlpha.AbsolutePosition,Window.PickerAlpha.AbsoluteSize if Size.X<=0 then return end Active.Alpha=math.clamp((Mouse.X-Pos.X)/Size.X,0,1) end
-        Active.Color=Color3.fromHSV(H,S,V) Window.PickerSV.BackgroundColor3=Color3.fromHSV(H,1,1) Window.PickerSVCursor.Position=UDim2.new(S,0,1-V,0) Window.PickerHueCursor.Position=UDim2.new(0,-2,H,0) Window.PickerAlphaCursor.Position=UDim2.new(Active.Alpha or 1,0,0,-2) Window.PickerAlphaGradient.Color=ColorSequence.new(Active.Color) Active:Set(Active.Color,Active.Alpha,true)
-    end
-    Bind(SV.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="SV" UpdatePickerFromPoint("SV",Input.Position) end end))
-    Bind(Hue.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="Hue" UpdatePickerFromPoint("Hue",Input.Position) end end))
-    Bind(Alpha.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="Alpha" UpdatePickerFromPoint("Alpha",Input.Position) end end))
-    Bind(UserInputService.InputChanged:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseMovement and Window.PickerDragging then UpdatePickerFromPoint(Window.PickerDragging,Input.Position) end end))
-    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Window.PickerDragging = nil end end))
-
-    Bind(UserInputService.InputBegan:Connect(function(Input)
-        if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        if Window.Dropdown.Visible then
-            local Mouse, Pos, Size = MousePoint(Window.ScreenGui), GuiPoint(Window.ScreenGui, Window.Dropdown.AbsolutePosition), Window.Dropdown.AbsoluteSize
-            if not (Mouse.X >= Pos.X and Mouse.X <= Pos.X + Size.X and Mouse.Y >= Pos.Y and Mouse.Y <= Pos.Y + Size.Y) then Window:CloseDropdown() end
-        end
-        if Window.Picker.Visible then
-            local Mouse, Pos, Size = MousePoint(Window.ScreenGui), GuiPoint(Window.ScreenGui, Window.Picker.AbsolutePosition), Window.Picker.AbsoluteSize
-            if not (Mouse.X >= Pos.X and Mouse.X <= Pos.X + Size.X and Mouse.Y >= Pos.Y and Mouse.Y <= Pos.Y + Size.Y) then Window:ClosePicker() end
-        end
-    end))
-end
-
-function WindowMethods:CloseDropdown()
-    local PreviousOwner = self.DropdownOwner
-    self.Dropdown.Visible = false
-    self.DropdownOwner = nil
-    if PreviousOwner and type(PreviousOwner.Render) == "function" then
-        Call(PreviousOwner.Render)
-    end
-end
-
-function WindowMethods:ClosePicker()
-    self.Picker.Visible = false
-    self.PickerActive = nil
-    self.PickerDragging = nil
-end
-
-function WindowMethods:OpenDropdown(Owner, Anchor, Items, Selected, Multi, Callback)
-    self:ClosePicker()
-    self:CloseDropdown()
-    self.DropdownOwner = Owner
-    local Scroll = self.DropdownScroll
-    for _, Child in ipairs(Scroll:GetChildren()) do if Child:IsA("TextButton") then Child:Destroy() end end
-    local RowHeight = 18
-    for Index, Value in ipairs(Items or {}) do
-        local IsSelected = Multi and type(Selected) == "table" and table.find(Selected, Value) ~= nil or Selected == Value
-        local Button = Create("TextButton", {
-            Parent = Scroll,
-            Size = UDim2.new(1, 0, 0, RowHeight),
-            BackgroundTransparency = 1,
-            BackgroundColor3 = Colors.DropdownBg,
-            Text = tostring(Value),
-            TextColor3 = IsSelected and Accent() or Colors.Text,
-            Font = Enum.Font.SourceSans,
-            TextSize = 13,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            AutoButtonColor = false,
-            LayoutOrder = Index,
-            ZIndex = 1002
-        }, {Create("UIPadding", {PaddingLeft = UDim.new(0, 7)})})
-        Bind(Button.MouseEnter:Connect(function() Button.BackgroundTransparency = 0.9 Button.BackgroundColor3 = Accent() Button.TextColor3 = Colors.TextBright end))
-        Bind(Button.MouseLeave:Connect(function()
-            local ActiveSelected = Multi and type(Owner.Get) == "function" and table.find(Owner:Get(), Value) ~= nil or (type(Owner.Get) == "function" and Owner:Get() == Value)
-            Button.BackgroundTransparency = 1
-            Button.TextColor3 = ActiveSelected and Accent() or Colors.Text
-        end))
-        Bind(Button.MouseButton1Click:Connect(function()
-            Callback(Value)
-            if not Multi then self:CloseDropdown() else
-                local ActiveSelected = type(Owner.Get) == "function" and table.find(Owner:Get(), Value) ~= nil
-                Button.TextColor3 = ActiveSelected and Accent() or Colors.Text
+    if type(UI) == "table" and type(UI.AddTab) == "function" then
+        UI.AddTab(TabName, function(Tab)
+            if not Page.Removed then
+                Page:Render(Tab)
             end
-        end))
+        end)
+        Library.RegisteredTabs[TabName] = true
+    else
+        Notify("Matcha UI Binding global 'UI' is unavailable", "Atramenta", 5)
     end
-    local Width = math.max(Anchor.AbsoluteSize.X, 120)
-    local Height = math.min((#Items * RowHeight) + 4, 180)
-    self.Dropdown.Size = UDim2.fromOffset(Width, math.max(22, Height))
-    Scroll.CanvasPosition = Vector2.zero
-    local AnchorPos = GuiPoint(self.ScreenGui, Anchor.AbsolutePosition)
-    local Position = self.ClampPopup(Vector2.new(Width, math.max(22, Height)), Vector2.new(AnchorPos.X, AnchorPos.Y + Anchor.AbsoluteSize.Y + 2))
-    self.Dropdown.Position = UDim2.fromOffset(Position.X, Position.Y)
-    self.Dropdown.Visible = true
-    if Owner and type(Owner.Render) == "function" then
-        Call(Owner.Render)
+
+    return Page
+end
+
+function WindowMethods:Destroy()
+    for _, Page in ipairs(self.Pages) do
+        Page.Removed = true
+        if Page.TabName and Library.RegisteredTabs[Page.TabName] and type(UI) == "table" and type(UI.RemoveTab) == "function" then
+            SafeCall(UI.RemoveTab, Page.TabName)
+            Library.RegisteredTabs[Page.TabName] = nil
+        end
+    end
+    self.Destroyed = true
+    if Library.ActiveWindow == self then
+        Library.ActiveWindow = nil
     end
 end
 
-function WindowMethods:OpenPicker(Object, Anchor)
-    self:CloseDropdown()
-    self.PickerActive = Object
-    local H, S, V = Color3.toHSV(Object.Color)
-    self.PickerSV.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
-    self.PickerSVCursor.Position = UDim2.new(S, 0, 1 - V, 0)
-    self.PickerHueCursor.Position = UDim2.new(0, -2, H, 0)
-    self.PickerAlphaCursor.Position = UDim2.new(Object.Alpha or 1, 0, 0, -2)
-    self.PickerAlphaGradient.Color = ColorSequence.new(Object.Color)
-    local AnchorPos = GuiPoint(self.ScreenGui, Anchor.AbsolutePosition)
-    local PickerSize = Vector2.new(220, 215)
-    local Viewport = self.ScreenGui.AbsoluteSize
-    if Viewport.X <= 0 or Viewport.Y <= 0 then
-        local Camera = workspace.CurrentCamera
-        Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
-    end
-    local RightX = AnchorPos.X + Anchor.AbsoluteSize.X + 6
-    local LeftX = AnchorPos.X - PickerSize.X - 6
-    local X = RightX + PickerSize.X <= Viewport.X - 4 and RightX or LeftX
-    local Y = AnchorPos.Y - 10
-    local Position = self.ClampPopup(PickerSize, Vector2.new(X, Y))
-    self.Picker.Position = UDim2.fromOffset(Position.X, Position.Y)
-    self.Picker.Visible = true
+function WindowMethods:SetVisible(State)
+    self.Visible = State == true
+end
+
+function WindowMethods:Toggle()
+    self.Visible = not self.Visible
+end
+
+function WindowMethods:IsVisible()
+    return self.Visible ~= false
 end
 
 function Library:Window(Data)
     Data = Data or {}
-    if self.ActiveWindow and type(self.ActiveWindow.Destroy) == "function" then self.ActiveWindow:Destroy() end
-    local Parent = ParentGui()
-    for _, Existing in ipairs(Parent:GetChildren()) do if Existing:IsA("ScreenGui") and Existing.Name == "AtramentaLibrary" then Existing:Destroy() end end
-    local ScreenGui = Create("ScreenGui", {Name = "AtramentaLibrary", Parent = Parent, ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Global, DisplayOrder = 100, IgnoreGuiInset = false})
-    self.Guis[#self.Guis + 1] = ScreenGui
-    self.Holder = ScreenGui
-    local Size = Data.Size
-    local Width, Height = 720, 580
-    if typeof(Size) == "UDim2" then Width = math.max(Size.X.Offset, 560) Height = math.max(Size.Y.Offset, 480) end
-    local Main = Create("Frame", {
-        Parent = ScreenGui,
-        Size = UDim2.fromOffset(Width, Height),
-        Position = UDim2.new(0.5, -math.floor(Width / 2), 0.5, -math.floor(Height / 2)),
-        BackgroundColor3 = Colors.Bg,
-        BorderSizePixel = 0,
-        ClipsDescendants = false
-    }, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
-    local TitleBar = Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0}, {
-        Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))})}),
-        Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})})
-    })
-    local TitleLabel = Create("TextLabel", {Name = "Title", Parent = TitleBar, AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(0, 0), BackgroundTransparency = 1,
-        Text = string.lower(tostring(Data.Name or "atramenta.rip")), Font = Enum.Font.SourceSans, TextSize = 13,
-        TextColor3 = Color3.fromRGB(214, 214, 218), TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center,
-        TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 3})
-    local function UpdateTitleLayout()
-        if not TitleBar.Parent or not TitleLabel.Parent then return end
-        local Absolute = TitleBar.AbsoluteSize
-        local WidthPixels = math.max(math.floor(Absolute.X + 0.5), 0)
-        local HeightPixels = math.max(math.floor(Absolute.Y + 0.5), 0)
-        local CenterX = math.floor(WidthPixels * 0.5 + 0.5)
-        local CenterY = math.floor(HeightPixels * 0.5 + 0.5)
-        TitleLabel.Position = UDim2.fromOffset(CenterX, CenterY)
-        TitleLabel.Size = UDim2.fromOffset(math.max(WidthPixels - 16, 0), HeightPixels)
-        TitleLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-        TitleLabel.TextXAlignment = Enum.TextXAlignment.Center
-        TitleLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+    if self.ActiveWindow and type(self.ActiveWindow.Destroy) == "function" then
+        self.ActiveWindow:Destroy()
     end
-    Bind(TitleBar:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateTitleLayout))
-    Bind(Main:GetPropertyChangedSignal("AbsoluteSize"):Connect(UpdateTitleLayout))
-    task.defer(UpdateTitleLayout)
-    local Content = Create("Frame", {Parent = Main, Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 1, -48), BackgroundTransparency = 1, ClipsDescendants = false})
-    local TabBar = Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.new(0, 0, 1, -26), BackgroundColor3 = Colors.TabBg, BorderSizePixel = 0}, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 4)}),
-        Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})}),
-        Create("Frame", {Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = Colors.TabBg, BorderSizePixel = 0, ZIndex = 0})
-    })
-    local Window = setmetatable({Library = self, ScreenGui = ScreenGui, Main = Main, TitleBar = TitleBar, TitleLabel = TitleLabel, UpdateTitleLayout = UpdateTitleLayout, Content = Content, TabBar = TabBar, Pages = {}, PagesOrder = {}, ActivePage = nil, Visible = true, MenuVisible = true, Destroyed = false}, WindowMethods)
+
+    local Window = setmetatable({
+        Library = self,
+        Name = tostring(Data.Name or "Atramenta"),
+        Pages = {},
+        Visible = true,
+        Destroyed = false
+    }, WindowMethods)
+
     self.ActiveWindow = Window
-    CreatePopupLayer(Window)
-    MakeDraggable(Main,TitleBar,ScreenGui)
-    MakeResizable(Window,Vector2.new(560,480))
-    RegisterRenderer(function()
-        SyncThemeColors()
-        local A = Accent()
-        Main.BackgroundColor3=Colors.Bg TitleBar.BackgroundColor3=Colors.TitleBg TabBar.BackgroundColor3=Colors.TabBg
-        local MainStroke=Main:FindFirstChildOfClass("UIStroke") if MainStroke then MainStroke.Color=Colors.SectionBorder end
-        local TitleLine = TitleBar:FindFirstChild("AccentLine")
-        local TabLine = TabBar:FindFirstChild("AccentLine")
-        for _, Line in ipairs({TitleLine, TabLine}) do
-            if Line then
-                Line.BackgroundColor3 = A
-                local Gradient = Line:FindFirstChildOfClass("UIGradient")
-                if Gradient then Gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, A), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))}) end
-            end
-        end
-    end)
-    task.defer(function() if self.ActiveWindow==Window and Window:IsVisible() and type(self.SetNotificationPreviewVisible)=="function" then self:SetNotificationPreviewVisible(true) end end)
+    self.Windows[#self.Windows + 1] = Window
     return Window
 end
 
-function WindowMethods:ApplyVisibility()
-    local State=self.Visible==true and self.MenuVisible~=false and Library.InterfaceOpen~=false
-    self.Main.Visible=State
-    if type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(State) end
-    if not State then self:CloseDropdown() self:ClosePicker() end
-    if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
-end
-
-function WindowMethods:SetVisible(State)
-    self.Visible=State==true
-    self:ApplyVisibility()
-end
-
-function WindowMethods:SetMenuVisible(State)
-    self.MenuVisible=State==true
-    self:ApplyVisibility()
-end
-
-function WindowMethods:IsVisible() return self.Visible==true and self.MenuVisible~=false and Library.InterfaceOpen~=false end
-function WindowMethods:IsRequestedVisible() return self.Visible==true end
-function WindowMethods:Toggle() self:SetVisible(not self.Visible) end
-function WindowMethods:Destroy()
-    if self.Destroyed then return end
-    self.Destroyed = true
-    if type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(false) end
-    if self.ScreenGui and self.ScreenGui.Parent then self.ScreenGui:Destroy() end
-    if Library.ActiveWindow == self then Library.ActiveWindow = nil end
-end
-
-function WindowMethods:Page(Data)
-    Data = Data or {}
-    local Name = tostring(Data.Name or ("page" .. tostring(#self.PagesOrder + 1)))
-    if self.Pages[Name] then return self.Pages[Name] end
-    local Button = Create("TextButton", {Parent = self.TabBar, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, ZIndex = 2})
-    local Divider = Create("Frame", {Parent = Button, Size = UDim2.fromOffset(1, 14), Position = UDim2.new(1, -1, 0.5, -7), BackgroundColor3 = Colors.Divider, BorderSizePixel = 0, ZIndex = 3})
-    local Panel = Create("Frame", {Parent = self.Content, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
-    local SubBar = Create("Frame", {Parent = Panel, Size = UDim2.new(1, -20, 0, 22), Position = UDim2.fromOffset(10, 4), BackgroundTransparency = 1, Visible = false})
-    local SubLayout = Create("UIListLayout", {Parent = SubBar, FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 18)})
-    local Holder = Create("Frame", {Parent = Panel, Size = UDim2.new(1, 0, 1, -32), Position = UDim2.fromOffset(0, 32), BackgroundTransparency = 1, ClipsDescendants = true})
-    local Page = setmetatable({Window = self, Name = Name, Button = Button, Divider = Divider, Panel = Panel, SubBar = SubBar, SubLayout = SubLayout, Holder = Holder, SubPages = {}, SubPagesOrder = {}, ActiveSubPage = nil, DefaultSubPage = nil}, PageMethods)
-    self.Pages[Name] = Page
-    self.PagesOrder[#self.PagesOrder + 1] = Page
-    ReflowTabs(self)
-    Bind(Button.MouseButton1Click:Connect(function() SelectPage(self, Page) end))
-    if not self.ActivePage then SelectPage(self, Page) end
-    return Page
-end
-
-function PageMethods:SubPage(Data)
-    Data = Data or {}
-    local Name = tostring(Data.Name or ("sub" .. tostring(#self.SubPagesOrder + 1)))
-    if self.SubPages[Name] then return self.SubPages[Name] end
-    self.SubBar.Visible = true
-    local Button = Create("TextButton", {Parent = self.SubBar, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, LayoutOrder = #self.SubPagesOrder + 1})
-    local Frame = Create("Frame", {Parent = self.Holder, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
-    local Left = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.fromOffset(10, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(56, 52, 56), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
-    local Right = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.new(0.5, 5, 0, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(56, 52, 56), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
-    local SubPage = setmetatable({Page = self, Name = Name, Button = Button, Frame = Frame, Left = Left, Right = Right, Sections = {}, Order = 0}, SubPageMethods)
-    self.SubPages[Name] = SubPage
-    self.SubPagesOrder[#self.SubPagesOrder + 1] = SubPage
-    Bind(Button.MouseButton1Click:Connect(function() SelectSubPage(self, SubPage) end))
-    if not self.ActiveSubPage then SelectSubPage(self, SubPage) end
-    return SubPage
-end
-
-function PageMethods:Section(Data)
-    if not self.DefaultSubPage then
-        self.DefaultSubPage = self:SubPage({Name = self.Name, Columns = 2})
-        self.SubBar.Visible = false
-        self.Holder.Position = UDim2.fromOffset(0, 0)
-        self.Holder.Size = UDim2.fromScale(1, 1)
-    end
-    return self.DefaultSubPage:Section(Data)
-end
-
-local function CreateSectionRoot(SubPage, Data)
-    Data = Data or {}
-    local Side = tonumber(Data.Side) == 2 and 2 or 1
-    local Parent = Side == 2 and SubPage.Right or SubPage.Left
-    SubPage.Order = SubPage.Order + 1
-    local Container = Create("Frame", {Parent = Parent, Size = UDim2.new(1, -2, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = SubPage.Order})
-    local Outline = Create("Frame", {Parent = Container, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, {
-        Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}),
-        Create("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 11), PaddingBottom = UDim.new(0, 8)}),
-        Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4)})
-    })
-    -- Header straddles the section border. Visible text starts at X=8, exactly like controls.
-    local Header = Create("TextLabel", {Parent = Container, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 0, 14), Position = UDim2.fromOffset(4, -7), AnchorPoint = Vector2.new(0, 0), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Text = string.lower(tostring(Data.Name or "section")), TextColor3 = Colors.ColHdr, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 10}, {Create("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4)})})
-    RegisterRenderer(function() SyncThemeColors() Header.BackgroundColor3=Colors.Bg Header.TextColor3=Colors.ColHdr local Stroke=Outline:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end end)
-    return Container, Outline, Header
-end
-
-function SubPageMethods:Section(Data)
-    local Container, Outline, Header = CreateSectionRoot(self, Data)
-    local Section = setmetatable({SubPage = self, Window = self.Page.Window, Root = Container, Body = Outline, Header = Header, Controls = {}}, SectionMethods)
-    self.Sections[#self.Sections + 1] = Section
-    return Section
-end
-
-local function AddControl(Section, Object)
-    Section.Controls[#Section.Controls + 1] = Object
-    return Object
-end
-
-local function MakeColorpicker(Section, Row, Data, RightOffset)
-    Data = Data or {}
-    local Default = Data.Default
-    local InitialColor, InitialAlpha = Color3.new(1, 1, 1), 1
-    if typeof(Default) == "Color3" then InitialColor = Default
-    elseif type(Default) == "table" and typeof(Default.Color) == "Color3" then InitialColor = Default.Color InitialAlpha = 1 - math.clamp(tonumber(Default.Transparency) or 0, 0, 1) end
-    local Flag = tostring(Data.Flag or Data.Name or ("Color" .. tostring(#Section.Controls + 1)))
-    if typeof(Library.Flags[Flag]) == "Color3" then InitialColor = Library.Flags[Flag] end
-    local TallRow = Row.Size.Y.Offset > 20
-    local ButtonPosition = TallRow and UDim2.new(1, -(RightOffset or 0) - 18, 0, 1) or UDim2.new(1, -(RightOffset or 0) - 18, 0.5, -6)
-    local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(18, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Text = "", ZIndex = 20}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
-    local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag}
-    function Object:Set(Color, Alpha, FromPicker)
-        if type(Color) == "table" and typeof(Color.Color) == "Color3" then
-            Alpha = 1 - math.clamp(tonumber(Color.Transparency) or 0, 0, 1)
-            Color = Color.Color
-        end
-        if typeof(Color) ~= "Color3" then return end
-        Object.Color = Color
-        if Alpha ~= nil then Object.Alpha = math.clamp(tonumber(Alpha) or 1, 0, 1) end
-        Library.Flags[Flag] = Object.Color
-        Button.BackgroundColor3 = Object.Color
-        if type(Data.Callback) == "function" then Call(Data.Callback, Object.Color, Object.Alpha) end
-    end
-    function Object:Get() return Object.Color end
-    RegisterFlag(Flag, InitialColor, function(Value) Object:Set(Value) end)
-    Bind(Button.MouseButton1Click:Connect(function() Section.Window:OpenPicker(Object, Button) end))
-    return Object
-end
-
-local function AttachColorpicker(Section, Object, Row, BaseRightOffset)
-    Object.Section = Section
-    Object.Row = Object.Row or Row
-    Object.RightOffset = tonumber(Object.RightOffset) or tonumber(BaseRightOffset) or 0
-    if type(Object.Colorpicker) ~= "function" then
-        function Object:Colorpicker(ColorData)
-            local Offset = tonumber(self.RightOffset) or 0
-            local Picker = MakeColorpicker(Section, Row, ColorData, Offset)
-            self.RightOffset = Offset + 22
-            return Picker
-        end
-    end
-    return Object
-end
-
-function SectionMethods:Toggle(Data)
-    Data = Data or {}
-    local Name, Flag = tostring(Data.Name or "toggle"), tostring(Data.Flag or Data.Name or "toggle")
-    local Default = Data.Default == true
-    if Library.Flags[Flag] ~= nil then Default = Library.Flags[Flag] == true end
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
-    local Box = Create("Frame", {Parent = Row, Size = UDim2.fromOffset(9, 9), Position = UDim2.new(0, 0, 0.5, -4.5), BackgroundColor3 = Colors.CbBg}, {Create("UICorner", {CornerRadius = UDim.new(0, 1)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
-    local Label = Create("TextLabel", {Parent = Row, Position = UDim2.fromOffset(15, 0), Size = UDim2.new(1, -15, 1, 0), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 10})
-    local Object = {Row = Row, Box = Box, Label = Label, Value = Default, Flag = Flag, RightOffset = 0}
-    function Object:Render()
-        Box.BackgroundColor3 = Object.Value and Accent() or Colors.CbBg
-        Box:FindFirstChildOfClass("UIStroke").Color = Object.Value and Accent() or Colors.CbBorder
-    end
-    function Object:Set(Value, Silent)
-        Object.Value = Value == true
-        Library.Flags[Flag] = Object.Value
-        Object:Render()
-        if not Object.Value then
-            for _,BindData in ipairs(Library.Keybinds) do
-                if BindData and tostring(BindData.EnabledFlag or "")==Flag and BindData.Value==true then
-                    BindData.Value=false
-                    Library.Flags[BindData.Flag]=false
-                    if type(BindData.Callback)=="function" then Call(BindData.Callback,false) end
-                    if BindData.Render then BindData.Render() end
-                end
-            end
-        end
-        if not Silent and type(Data.Callback) == "function" then Call(Data.Callback, Object.Value) end
-        RefreshKeybindList()
-    end
-    function Object:Get() return Object.Value end
-    function Object:Colorpicker(ColorData)
-        local Offset = Object.RightOffset
-        local Picker = MakeColorpicker(self.Section, Row, ColorData, Offset)
-        Object.RightOffset = Offset + 22
-        return Picker
-    end
-    function Object:Keybind(KeyData)
-        Object.RightOffset=Object.RightOffset+70
-        return CreateKeybind(self.Section.Window,Row,KeyData,Object.RightOffset-70,Object,Object.Flag)
-    end
-    Object.Section = self
-    RegisterFlag(Flag, Default, function(Value) Object:Set(Value) end)
-    RegisterRenderer(function() Object:Render() end)
-    Bind(Button.MouseButton1Click:Connect(function() Object:Set(not Object.Value) end))
-    Bind(Button.MouseEnter:Connect(function() Box:FindFirstChildOfClass("UIStroke").Color = Object.Value and Accent() or AccentBorder() Label.TextColor3 = Colors.TextBright end))
-    Bind(Button.MouseLeave:Connect(function() Object:Render() Label.TextColor3 = Colors.Text end))
-    AddControl(self, Object)
-    return Object
-end
-
-function SectionMethods:Keybind(Data)
-    Data = Data or {}
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, -75, 1, 0), BackgroundTransparency = 1, Text = tostring(Data.Name or "keybind"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Object = CreateKeybind(self.Window, Row, Data, 0)
-    AttachColorpicker(self, Object, Row, 70)
-    AddControl(self, Object)
-    return Object
-end
-
-local function RoundStep(Value, Step)
-    Step = tonumber(Step) or 0
-    if Step <= 0 then return Value end
-    return math.floor(Value / Step + 0.5) * Step
-end
-
-function SectionMethods:Slider(Data)
-    Data = Data or {}
-    local Name, Flag = tostring(Data.Name or "slider"), tostring(Data.Flag or Data.Name or "slider")
-    local Minimum, Maximum = tonumber(Data.Min) or 0, tonumber(Data.Max) or 100
-    local Step = tonumber(Data.Step) or 1
-    local Default = math.clamp(tonumber(Data.Default) or Minimum, Minimum, Maximum)
-    if type(Library.Flags[Flag]) == "number" then Default = math.clamp(Library.Flags[Flag], Minimum, Maximum) end
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 12), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Minus = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(12, 12), Position = UDim2.fromOffset(0, 13), BackgroundTransparency = 1, Text = "-", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSansBold, TextSize = 14})
-    local Plus = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(12, 12), Position = UDim2.new(1, -12, 0, 13), BackgroundTransparency = 1, Text = "+", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSansBold, TextSize = 14})
-    local Track = Create("Frame", {Parent = Row, Size = UDim2.new(1, -36, 0, 3), Position = UDim2.fromOffset(18, 17), BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0})
-    local Fill = Create("Frame", {Parent = Track, Size = UDim2.new(0, 0, 1, 0), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, AccentDark()), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, AccentDark())})})})
-    local ValueLabel = Create("TextLabel", {Parent = Track, Size = UDim2.fromOffset(56, 12), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 1, Text = "", TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 12, ZIndex = 5}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
-    local Object = {Row = Row, Value = Default, Flag = Flag}
-    function Object:Render()
-        local Ratio = Maximum > Minimum and math.clamp((Object.Value - Minimum) / (Maximum - Minimum), 0, 1) or 0
-        Fill.Size = UDim2.new(Ratio, 0, 1, 0)
-        ValueLabel.Position = UDim2.new(Ratio, 0, 0.5, 0)
-        local Decimals = Step < 1 and math.max(0, math.ceil(-math.log10(Step))) or 0
-        ValueLabel.Text = string.format("%." .. tostring(math.min(Decimals, 4)) .. "f", Object.Value) .. tostring(Data.Suffix or "")
-        local Gradient = Fill:FindFirstChildOfClass("UIGradient")
-        if Gradient then Gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, AccentDark()), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, AccentDark())}) end
-    end
-    function Object:Set(Value, Silent)
-        Value = math.clamp(RoundStep(tonumber(Value) or Minimum, Step), Minimum, Maximum)
-        Object.Value = Value
-        Library.Flags[Flag] = Value
-        Object:Render()
-        if not Silent and type(Data.Callback) == "function" then Call(Data.Callback, Value) end
-    end
-    function Object:Get() return Object.Value end
-    local Dragging = false
-    local function FromMouse()
-        local Width = Track.AbsoluteSize.X
-        if Width <= 0 then return end
-        local Mouse = MousePoint(self.Window.ScreenGui)
-        local T = math.clamp((Mouse.X - GuiPoint(self.Window.ScreenGui, Track.AbsolutePosition).X) / Width, 0, 1)
-        Object:Set(Minimum + (Maximum - Minimum) * T)
-    end
-    Bind(Track.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = true FromMouse() end end))
-    Bind(UserInputService.InputChanged:Connect(function(Input) if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then FromMouse() end end))
-    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end))
-    Bind(Minus.MouseButton1Click:Connect(function() Object:Set(Object.Value - Step) end))
-    Bind(Plus.MouseButton1Click:Connect(function() Object:Set(Object.Value + Step) end))
-    RegisterFlag(Flag, Default, function(Value) Object:Set(Value) end)
-    RegisterRenderer(function() Object:Render() end)
-    AttachColorpicker(self, Object, Row, 0)
-    AddControl(self, Object)
-    return Object
-end
-
-function SectionMethods:RangeSlider(Data)
-    Data = Data or {}
-    local Minimum, Maximum = tonumber(Data.Min) or 0, tonumber(Data.Max) or 100
-    local Step = tonumber(Data.Step) or 1
-    local Default = type(Data.Default) == "table" and Data.Default or {Minimum, Maximum}
-    local Low = math.clamp(tonumber(Default[1]) or Minimum, Minimum, Maximum)
-    local High = math.clamp(tonumber(Default[2]) or Maximum, Minimum, Maximum)
-    if Low > High then Low, High = High, Low end
-    local Flag = tostring(Data.Flag or Data.Name or "range")
-    local MinFlag = tostring(Data.MinFlag or (Flag .. " Minimum"))
-    local MaxFlag = tostring(Data.MaxFlag or (Flag .. " Maximum"))
-    if type(Library.Flags[MinFlag]) == "number" then Low = Library.Flags[MinFlag] end
-    if type(Library.Flags[MaxFlag]) == "number" then High = Library.Flags[MaxFlag] end
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 12), BackgroundTransparency = 1, Text = tostring(Data.Name or "range"), TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Track = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 4), Position = UDim2.fromOffset(0, 20), BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0})
-    local Fill = Create("Frame", {Parent = Track, BackgroundColor3 = Accent(), BorderSizePixel = 0})
-    local LowLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromOffset(60, 10), Position = UDim2.fromOffset(0, 24), BackgroundTransparency = 1, TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left})
-    local HighLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromOffset(60, 10), Position = UDim2.new(1, -60, 0, 24), BackgroundTransparency = 1, TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right})
-    local Object = {Row = Row, Low = Low, High = High, Flag = Flag}
-    function Object:Render()
-        local A = Maximum > Minimum and (Object.Low - Minimum) / (Maximum - Minimum) or 0
-        local B = Maximum > Minimum and (Object.High - Minimum) / (Maximum - Minimum) or 1
-        Fill.Position = UDim2.new(A, 0, 0, 0)
-        Fill.Size = UDim2.new(math.max(0, B - A), 0, 1, 0)
-        Fill.BackgroundColor3 = Accent()
-        LowLabel.Text = tostring(Object.Low) .. tostring(Data.Suffix or "")
-        HighLabel.Text = tostring(Object.High) .. tostring(Data.Suffix or "")
-    end
-    function Object:Set(A, B, Silent)
-        if type(A) == "table" then B = A[2] or A.Max or A.Maximum A = A[1] or A.Min or A.Minimum end
-        A = math.clamp(RoundStep(tonumber(A) or Object.Low, Step), Minimum, Maximum)
-        B = math.clamp(RoundStep(tonumber(B) or Object.High, Step), Minimum, Maximum)
-        if A > B then A, B = B, A end
-        Object.Low, Object.High = A, B
-        Library.Flags[Flag] = {A, B}
-        Library.Flags[MinFlag] = A
-        Library.Flags[MaxFlag] = B
-        Object:Render()
-        if not Silent and type(Data.Callback) == "function" then Call(Data.Callback, A, B) end
-    end
-    function Object:Get() return {Object.Low, Object.High} end
-    local Dragging
-    local function FromMouse()
-        local Width = Track.AbsoluteSize.X
-        if Width <= 0 then return end
-        local Mouse = MousePoint(self.Window.ScreenGui)
-        local T = math.clamp((Mouse.X - GuiPoint(self.Window.ScreenGui, Track.AbsolutePosition).X) / Width, 0, 1)
-        local Value = RoundStep(Minimum + (Maximum - Minimum) * T, Step)
-        if math.abs(Value - Object.Low) <= math.abs(Value - Object.High) then Object:Set(Value, Object.High) else Object:Set(Object.Low, Value) end
-    end
-    Bind(Track.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = true FromMouse() end end))
-    Bind(UserInputService.InputChanged:Connect(function(Input) if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then FromMouse() end end))
-    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end))
-    RegisterFlag(Flag, {Low, High}, function(Value) Object:Set(Value) end)
-    RegisterFlag(MinFlag, Low, function(Value) Object:Set(Value, Object.High) end)
-    RegisterFlag(MaxFlag, High, function(Value) Object:Set(Object.Low, Value) end)
-    RegisterRenderer(function() Object:Render() end)
-    AttachColorpicker(self, Object, Row, 0)
-    AddControl(self, Object)
-    return Object
-end
-
-local function MakeDropdown(Section, Data, Multi)
-    Data = Data or {}
-    local Name, Flag = tostring(Data.Name or "dropdown"), tostring(Data.Flag or Data.Name or "dropdown")
-    local Items = type(Data.Items) == "table" and CloneValue(Data.Items) or {}
-    local Default = Data.Default
-    if Multi then
-        Default = type(Default) == "table" and CloneValue(Default) or {}
-        if type(Library.Flags[Flag]) == "table" then Default = CloneValue(Library.Flags[Flag]) end
-    else
-        if Default == nil then Default = Items[1] end
-        if Library.Flags[Flag] ~= nil then Default = Library.Flags[Flag] end
-    end
-    local Row = Create("Frame", {Parent = Section.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local DropFrame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Colors.DropdownBg, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.DropdownBord, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 8))})})})
-    local Text = Create("TextLabel", {Parent = DropFrame, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.fromOffset(7, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Text = "", TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextTruncate = Enum.TextTruncate.AtEnd})
-    local Arrow = Create("TextLabel", {Parent = DropFrame, Size = UDim2.fromOffset(14, 17), Position = UDim2.new(1, -14, 0, 0), BackgroundTransparency = 1, Text = "▼", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 9})
-    local Button = Create("TextButton", {Parent = DropFrame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 5})
-    local Object = {Section = Section, Row = Row, Frame = DropFrame, Items = Items, Value = Default, Flag = Flag, Multi = Multi}
-    function Object:Get() return Multi and CloneValue(Object.Value) or Object.Value end
-    function Object:Render()
-        if Multi then
-            Text.Text = #Object.Value > 0 and table.concat(Object.Value, ", ") or tostring(Data.Placeholder or "none")
-        else Text.Text = tostring(Object.Value or "") end
-        local IsOpen = Section.Window.DropdownOwner == Object and Section.Window.Dropdown.Visible
-        Arrow.Text = IsOpen and "▲" or "▼"
-        Arrow.TextColor3 = IsOpen and Accent() or Colors.TextBind
-    end
-    function Object:Set(Value, Silent)
-        if Multi then
-            local Next = {}
-            if type(Value) == "table" then
-                for _, Item in ipairs(Value) do if table.find(Object.Items, Item) and not table.find(Next, Item) then Next[#Next + 1] = Item end end
-            end
-            if Data.AllowEmpty == false and #Next == 0 and Object.Items[1] then Next[1] = Object.Items[1] end
-            local Maximum = tonumber(Data.Max) or #Object.Items
-            while #Next > Maximum do table.remove(Next) end
-            Object.Value = Next
-            Library.Flags[Flag] = CloneValue(Next)
-        else
-            if table.find(Object.Items, Value) == nil and #Object.Items > 0 then Value = Object.Items[1] end
-            Object.Value = Value
-            Library.Flags[Flag] = Value
-        end
-        Object:Render()
-        if not Silent and type(Data.Callback) == "function" then Call(Data.Callback, Object:Get()) end
-    end
-    function Object:SetItems(NewItems)
-        Object.Items = type(NewItems) == "table" and CloneValue(NewItems) or {}
-        if Multi then Object:Set(Object.Value, true) else if table.find(Object.Items, Object.Value) == nil then Object:Set(Object.Items[1], true) end end
-    end
-    local function Choose(Value)
-        if Multi then
-            local Next = Object:Get()
-            local Index = table.find(Next, Value)
-            if Index then
-                if Data.AllowEmpty == false and #Next <= 1 then return end
-                table.remove(Next, Index)
-            else
-                if #Next >= (tonumber(Data.Max) or #Object.Items) then return end
-                Next[#Next + 1] = Value
-            end
-            Object:Set(Next)
-        else Object:Set(Value) end
-    end
-    Bind(Button.MouseButton1Click:Connect(function()
-        if Section.Window.DropdownOwner == Object and Section.Window.Dropdown.Visible then Section.Window:CloseDropdown() Object:Render() return end
-        Section.Window:OpenDropdown(Object, DropFrame, Object.Items, Object.Value, Multi, Choose)
-        Object:Render()
-    end))
-    RegisterFlag(Flag, CloneValue(Default), function(Value) Object:Set(Value) end)
-    RegisterRenderer(function() Object:Render() end)
-    AttachColorpicker(Section, Object, Row, 0)
-    AddControl(Section, Object)
-    return Object
-end
-
-function SectionMethods:Dropdown(Data) return MakeDropdown(self, Data, false) end
-function SectionMethods:MultiDropdown(Data) return MakeDropdown(self, Data, true) end
-
-function SectionMethods:Label(Data)
-    Data = Data or {}
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
-    local Label = Create("TextLabel", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "label"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = tostring(Data.Alignment or "Left") == "Center" and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left})
-    local Object = {Section = self, Row = Row, Label = Label, RightOffset = 0}
-    function Object:Set(Value) Label.Text = tostring(Value) end
-    function Object:Colorpicker(ColorData) local Offset = Object.RightOffset local Picker = MakeColorpicker(self.Section, Row, ColorData, Offset) Object.RightOffset = Offset + 22 return Picker end
-    function Object:Keybind(KeyData) Object.RightOffset = Object.RightOffset + 70 return CreateKeybind(self.Section.Window, Row, KeyData, Object.RightOffset - 70) end
-    AddControl(self, Object)
-    return Object
-end
-
-function SectionMethods:Button(Data, Callback)
-    if type(Data) == "string" then Data = {Name = Data, Callback = Callback} end
-    Data = Data or {}
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1})
-    local Frame = Create("Frame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Colors.Control, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Color3.fromRGB(56, 52, 56), Thickness = 1, Enabled = false}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Control), ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 8))})})})
-    local AccentLine = Create("Frame", {Parent = Frame, Size = UDim2.new(0, 1, 1, -2), Position = UDim2.fromOffset(1, 1), AnchorPoint = Vector2.zero, BackgroundColor3 = Accent(), Visible = false, BorderSizePixel = 0, ZIndex = 2})
-    local Label = Create("TextLabel", {Parent = Frame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "button"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13})
-    local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false})
-    Bind(Button.MouseEnter:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Enabled = true AccentLine.Visible = true Label.TextColor3 = Colors.TextBright end))
-    Bind(Button.MouseLeave:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Enabled = false AccentLine.Visible = false Label.TextColor3 = Colors.Text end))
-    Bind(Button.MouseButton1Click:Connect(function() if type(Data.Callback) == "function" then Call(Data.Callback) end end))
-    RegisterRenderer(function() AccentLine.BackgroundColor3 = Accent() end)
-    local Object = {Section = self, Row = Row, Button = Button, Frame = Frame, Label = Label, RightOffset = 0}
-    AttachColorpicker(self, Object, Row, 0)
-    return AddControl(self, Object)
-end
-
-function SectionMethods:Textbox(Data)
-    Data = Data or {}
-    local Name, Flag = tostring(Data.Name or "textbox"), tostring(Data.Flag or Data.Name or "textbox")
-    local Default = tostring(Data.Default or "")
-    if type(Library.Flags[Flag]) == "string" then Default = Library.Flags[Flag] end
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Frame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Color3.fromRGB(8, 8, 8), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Control), ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 8))})})})
-    local Box = Create("TextBox", {Parent = Frame, Size = UDim2.new(1, -12, 1, 0), Position = UDim2.fromOffset(6, 0), BackgroundTransparency = 1, Text = Default, PlaceholderText = tostring(Data.Placeholder or "..."), PlaceholderColor3 = Colors.TextDim, TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
-    local Object = {Section = self, Row = Row, Box = Box, Value = Default, Flag = Flag, RightOffset = 0}
-    function Object:Set(Value, Silent)
-        Object.Value = tostring(Value or "")
-        Library.Flags[Flag] = Object.Value
-        if Box.Text ~= Object.Value then Box.Text = Object.Value end
-        if not Silent and type(Data.Callback) == "function" then Call(Data.Callback, Object.Value) end
-    end
-    function Object:Get() return Object.Value end
-    RegisterFlag(Flag, Default, function(Value) Object:Set(Value) end)
-    Bind(Box:GetPropertyChangedSignal("Text"):Connect(function() Object:Set(Box.Text) end))
-    Bind(Box.Focused:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Color = Accent() end))
-    Bind(Box.FocusLost:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Color = Colors.CbBorder end))
-    AttachColorpicker(self, Object, Row, 0)
-    AddControl(self, Object)
-    return Object
-end
-
-function SectionMethods:Listbox(Data)
-    Data = Data or {}
-    local Height = tonumber(Data.Height) or 110
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, Height), BackgroundTransparency = 1})
-    local List = Create("ScrollingFrame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(8, 8, 8), BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Colors.TextBind}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}), Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder})})
-    local Object = {Section = self, Row = Row, List = List, Items = {}, Selected = nil, Buttons = {}, RightOffset = 0}
-    function Object:SetItems(Items)
-        Object.Items = type(Items) == "table" and CloneValue(Items) or {}
-        for _, Button in ipairs(Object.Buttons) do if Button and Button.Parent then Button:Destroy() end end
-        table.clear(Object.Buttons)
-        if Object.Selected and not table.find(Object.Items, Object.Selected) then Object.Selected = nil end
-        for Index, Item in ipairs(Object.Items) do
-            local Button = Create("TextButton", {Parent = List, Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = tostring(Item), TextColor3 = Item == Object.Selected and Accent() or Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false, LayoutOrder = Index}, {Create("UIPadding", {PaddingLeft = UDim.new(0, 6)})})
-            Object.Buttons[#Object.Buttons + 1] = Button
-            Bind(Button.MouseButton1Click:Connect(function()
-                Object.Selected = Item
-                for I, Other in ipairs(Object.Buttons) do Other.TextColor3 = Object.Items[I] == Object.Selected and Accent() or Colors.Text end
-                if type(Data.Callback) == "function" then Call(Data.Callback, Item) end
-            end))
-        end
-    end
-    function Object:Get() return Object.Selected end
-    function Object:Set(Value)
-        if table.find(Object.Items, Value) then
-            Object.Selected = Value
-            for I, Other in ipairs(Object.Buttons) do Other.TextColor3 = Object.Items[I] == Object.Selected and Accent() or Colors.Text end
-        end
-    end
-    Object:SetItems(Data.Items or {})
-    AttachColorpicker(self, Object, Row, 0)
-    return AddControl(self, Object)
-end
-
-function SectionMethods:Colorpicker(Data)
-    Data = Data or {}
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, -26, 1, 0), BackgroundTransparency = 1, Text = tostring(Data.Name or "color"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Picker = MakeColorpicker(self, Row, Data, 0)
-    return AddControl(self, Picker)
-end
-
-local function CleanConfigNumber(Value)
-    if type(Value) ~= "number" or Value ~= Value or Value <= -math.huge or Value >= math.huge then return nil end
-    local Scaled = Value * 1000000
-    local Rounded = (Scaled >= 0 and math.floor(Scaled + 0.5) or math.ceil(Scaled - 0.5)) / 1000000
-    if math.abs(Rounded) < 0.0000005 then Rounded = 0 end
-    return Rounded
-end
-
-local function EncodeValue(Value, Seen, Depth)
-    Depth = Depth or 0
-    if Depth > 10 then return nil end
-    local ValueType = typeof(Value)
-    if ValueType == "Color3" then
-        return {__type = "Color3", R = CleanConfigNumber(Value.R), G = CleanConfigNumber(Value.G), B = CleanConfigNumber(Value.B)}
-    end
-    if ValueType == "EnumItem" then return {__type = "EnumItem", EnumType = tostring(Value.EnumType), Name = Value.Name} end
-    if ValueType == "Vector2" then return {__type = "Vector2", X = CleanConfigNumber(Value.X), Y = CleanConfigNumber(Value.Y)} end
-    if ValueType == "Vector3" then return {__type = "Vector3", X = CleanConfigNumber(Value.X), Y = CleanConfigNumber(Value.Y), Z = CleanConfigNumber(Value.Z)} end
-    if ValueType == "UDim2" then
-        return {__type = "UDim2", XScale = CleanConfigNumber(Value.X.Scale), XOffset = CleanConfigNumber(Value.X.Offset), YScale = CleanConfigNumber(Value.Y.Scale), YOffset = CleanConfigNumber(Value.Y.Offset)}
-    end
-    if type(Value) == "boolean" or type(Value) == "string" then return Value end
-    if type(Value) == "number" then return CleanConfigNumber(Value) end
-    if type(Value) ~= "table" then return nil end
-    Seen = Seen or {}
-    if Seen[Value] then return nil end
-    Seen[Value] = true
-    local Result, Count, MaxIndex, Array = {}, 0, 0, true
-    for Key in pairs(Value) do
-        Count += 1
-        if type(Key) ~= "number" or Key < 1 or Key % 1 ~= 0 then Array = false break end
-        MaxIndex = math.max(MaxIndex, Key)
-    end
-    Array = Array and Count == MaxIndex
-    if Array then
-        for Index = 1, MaxIndex do
-            local Encoded = EncodeValue(Value[Index], Seen, Depth + 1)
-            if Encoded ~= nil then Result[#Result + 1] = Encoded end
-        end
-    else
-        for Key, Item in pairs(Value) do
-            if type(Key) == "string" or type(Key) == "number" then
-                local Encoded = EncodeValue(Item, Seen, Depth + 1)
-                if Encoded ~= nil then Result[tostring(Key)] = Encoded end
-            end
-        end
-    end
-    Seen[Value] = nil
-    return Result
-end
-
-local function DecodeValue(Value, Depth)
-    Depth = Depth or 0
-    if Depth > 10 or type(Value) ~= "table" then return Value end
-    if Value.__type == "Color3" then
-        if type(Value.Hex) == "string" then
-            local Clean = Value.Hex:gsub("#", "")
-            if #Clean >= 6 then local Success, Parsed = Call(Color3.fromHex, Clean:sub(1, 6)) if Success then return Parsed end end
-        end
-        return Color3.new(tonumber(Value.R) or 0, tonumber(Value.G) or 0, tonumber(Value.B) or 0)
-    end
-    if Value.__type == "EnumItem" then
-        local EnumName = tostring(Value.EnumType or ""):match("Enum%.(.+)")
-        local EnumType = EnumName and Enum[EnumName]
-        return EnumType and EnumType[Value.Name] or Value.Name
-    end
-    if Value.__type == "Vector2" then return Vector2.new(tonumber(Value.X) or 0, tonumber(Value.Y) or 0) end
-    if Value.__type == "Vector3" then return Vector3.new(tonumber(Value.X) or 0, tonumber(Value.Y) or 0, tonumber(Value.Z) or 0) end
-    if Value.__type == "UDim2" then
-        if type(Value.X) == "table" or type(Value.Y) == "table" then
-            local X, Y = type(Value.X) == "table" and Value.X or {}, type(Value.Y) == "table" and Value.Y or {}
-            return UDim2.new(tonumber(X.Scale) or 0, tonumber(X.Offset) or 0, tonumber(Y.Scale) or 0, tonumber(Y.Offset) or 0)
-        end
-        return UDim2.new(tonumber(Value.XScale) or 0, tonumber(Value.XOffset) or 0, tonumber(Value.YScale) or 0, tonumber(Value.YOffset) or 0)
-    end
-    if Value.Color ~= nil and Value.Transparency ~= nil then
-        local ColorValue = DecodeValue(Value.Color, Depth + 1)
-        if type(ColorValue) == "string" then
-            local Clean = ColorValue:gsub("#", "")
-            if #Clean >= 6 then local Success, Parsed = Call(Color3.fromHex, Clean:sub(1, 6)) if Success then ColorValue = Parsed end end
-        end
-        return {Color = ColorValue, Transparency = math.clamp(tonumber(Value.Transparency) or 0, 0, 1)}
-    end
-    local Result = {}
-    for Key, Item in pairs(Value) do Result[Key] = DecodeValue(Item, Depth + 1) end
-    return Result
-end
-
-local ConfigKeyPriority = {Config = 1, Interface = 2, Binds = 3, Flags = 4, __type = -30, Format = -29, Version = -28, Id = -20, Key = -19, KeyType = -18, Mode = -17, Modifiers = -16, EnumType = -15, Name = -14, R = -13, G = -12, B = -11, X = -13, Y = -12, Z = -11, XScale = -13, XOffset = -12, YScale = -11, YOffset = -10}
-local function ConfigTableIsArray(Value)
-    if type(Value) ~= "table" then return false, 0 end
-    local Count, MaxIndex = 0, 0
-    for Key in pairs(Value) do
-        if type(Key) ~= "number" or Key < 1 or Key % 1 ~= 0 then return false, 0 end
-        Count += 1
-        MaxIndex = math.max(MaxIndex, Key)
-    end
-    return Count == MaxIndex, MaxIndex
-end
-
-local function ConfigSortedKeys(Value)
-    local Keys = {}
-    for Key in pairs(Value) do Keys[#Keys + 1] = tostring(Key) end
-    table.sort(Keys, function(A, B)
-        local AP, BP = ConfigKeyPriority[A] or 100, ConfigKeyPriority[B] or 100
-        if AP ~= BP then return AP < BP end
-        local AL, BL = A:lower(), B:lower()
-        if AL ~= BL then return AL < BL end
-        return A < B
-    end)
-    return Keys
-end
-
-local function ConfigJsonScalar(Value)
-    local Success, Source = Call(HttpService.JSONEncode, HttpService, Value)
-    return Success and Source or "null"
-end
-
-local function PrettyConfigJson(Value, Depth)
-    Depth = Depth or 0
-    local ValueType = type(Value)
-    if ValueType ~= "table" then return ConfigJsonScalar(Value) end
-    local IsArray, Length = ConfigTableIsArray(Value)
-    local Indent = string.rep("  ", Depth)
-    local ChildIndent = string.rep("  ", Depth + 1)
-    if IsArray then
-        if Length == 0 then return "[]" end
-        local Inline = Length <= 8
-        if Inline then
-            local Parts = {}
-            for Index = 1, Length do
-                if type(Value[Index]) == "table" then Inline = false break end
-                Parts[Index] = PrettyConfigJson(Value[Index], Depth + 1)
-            end
-            if Inline then return "[ " .. table.concat(Parts, ", ") .. " ]" end
-        end
-        local Lines = {"["}
-        for Index = 1, Length do
-            Lines[#Lines + 1] = ChildIndent .. PrettyConfigJson(Value[Index], Depth + 1) .. (Index < Length and "," or "")
-        end
-        Lines[#Lines + 1] = Indent .. "]"
-        return table.concat(Lines, "\n")
-    end
-    local Keys = ConfigSortedKeys(Value)
-    if #Keys == 0 then return "{}" end
-    local Inline = #Keys <= 5
-    if Inline then
-        local Parts = {}
-        for Index, Key in ipairs(Keys) do
-            if type(Value[Key]) == "table" then Inline = false break end
-            Parts[Index] = ConfigJsonScalar(Key) .. ": " .. PrettyConfigJson(Value[Key], Depth + 1)
-        end
-        if Inline then return "{ " .. table.concat(Parts, ", ") .. " }" end
-    end
-    local Lines = {"{"}
-    for Index, Key in ipairs(Keys) do
-        local KeyText = ConfigJsonScalar(Key)
-        Lines[#Lines + 1] = ChildIndent .. KeyText .. ": " .. PrettyConfigJson(Value[Key], Depth + 1) .. (Index < #Keys and "," or "")
-    end
-    Lines[#Lines + 1] = Indent .. "}"
-    return table.concat(Lines, "\n")
-end
-
-function Library:GetConfig()
-    local Flags, BindFlags = {}, {}
-    for _, BindData in ipairs(self.Keybinds or {}) do
-        if BindData and BindData.Flag then BindFlags[tostring(BindData.Flag)] = true end
-    end
-    for Name, Value in pairs(self.Flags or {}) do
-        local FlagName = tostring(Name)
-        if FlagName:sub(1, 2) ~= "__" and not BindFlags[FlagName] and type(self.Setters[FlagName]) == "function" then
-            local Success, Encoded = Call(EncodeValue, Value, {}, 0)
-            if Success and Encoded ~= nil then Flags[FlagName] = Encoded end
-        end
-    end
-
-    local ControlBinds = {}
-    for _, BindData in ipairs(self.Keybinds or {}) do
-        if BindData and type(BindData.Flag) == "string" then
-            local Target = tostring(BindData.TargetFlag or BindData.Flag)
-            local Key, KeyType = BindData.Key, "KeyCode"
-            if Key == nil then Key = "none"
-            elseif type(Key) == "string" then
-                KeyType = "UserInputType"
-            elseif typeof(Key) == "EnumItem" then
-                KeyType = tostring(Key.EnumType):find("UserInputType", 1, true) and "UserInputType" or "KeyCode"
-                Key = Key.Name
-            end
-            local Entry = {Id = "Main:" .. tostring(BindData.Flag), KeyType = KeyType, Key = Key, Mode = BindData.Mode, Modifiers = CopyModifiers(BindData.Modifiers)}
-            local Existing = ControlBinds[Target]
-            if Existing == nil then
-                ControlBinds[Target] = Entry
-            elseif Existing.Key ~= nil or Existing.key ~= nil then
-                ControlBinds[Target] = {Existing, Entry}
-            else
-                Existing[#Existing + 1] = Entry
-            end
-        end
-    end
-
-    local Interface = {}
-    if self.ActiveWindow and self.ActiveWindow.Main then
-        Interface.MainPosition = self.ActiveWindow.Main.Position
-        Interface.MainSize = self.ActiveWindow.Main.Size
-        Interface.MainVisible = self.ActiveWindow.Visible == true
-    end
-    if self.PlayerListController and self.PlayerListController.Frame then
-        Interface.PlayerListPosition = self.PlayerListController.Frame.Position
-        Interface.PlayerListVisible = self.PlayerListController.RequestedVisible == true
-    end
-    local PanelController = self.PanelController or self.QuickPanelController
-    if PanelController and PanelController.Root then Interface.PanelPosition = PanelController.Root.Position end
-    if self.ConfigurationPanelController and self.ConfigurationPanelController.Frame then
-        Interface.ConfigurationPosition = self.ConfigurationPanelController.Frame.Position
-        Interface.ConfigurationVisible = self.ConfigurationPanelController.RequestedVisible == true
-    end
-    Interface.Theme = CloneValue(self.Theme)
-    Interface.MenuBind = self.MenuBindData and {Key = self.MenuBindData.Key, Modifiers = CopyModifiers(self.MenuBindData.Modifiers)} or {Key = self.MenuKeybind, Modifiers = EmptyModifiers()}
-    Interface.NotificationPoint = typeof(self.NotificationPoint) == "Vector2" and self.NotificationPoint or Vector2.new(0.94, 0.08)
-
-    local EncodedInterface, EncodedBinds = {}, {}
-    local InterfaceSuccess, InterfaceValue = Call(EncodeValue, Interface, {}, 0)
-    if InterfaceSuccess and type(InterfaceValue) == "table" then EncodedInterface = InterfaceValue end
-    local BindsSuccess, BindsValue = Call(EncodeValue, ControlBinds, {}, 0)
-    if BindsSuccess and type(BindsValue) == "table" then EncodedBinds = BindsValue end
-
-    local Payload = {
-        Config = {Format = "Atramenta", Version = 2},
-        Interface = EncodedInterface,
-        Binds = EncodedBinds,
-        Flags = Flags
-    }
-    return PrettyConfigJson(Payload, 0)
-end
-
-function Library:LoadConfig(Source)
-    CancelCapture()
-    local Success, Decoded = Call(HttpService.JSONDecode, HttpService, tostring(Source or "{}"))
-    if not Success or type(Decoded) ~= "table" then return false end
-
-    local FlagsSource
-    if type(Decoded.Flags) == "table" then FlagsSource = Decoded.Flags
-    elseif type(Decoded.flags) == "table" then FlagsSource = Decoded.flags
-    elseif type(Decoded.Settings) == "table" then FlagsSource = Decoded.Settings
-    elseif type(Decoded.settings) == "table" then FlagsSource = Decoded.settings
-    else FlagsSource = Decoded end
-
-    local Flags, Names, BindFlags = {}, {}, {}
-    for _, BindData in ipairs(self.Keybinds or {}) do if BindData and BindData.Flag then BindFlags[tostring(BindData.Flag)] = true end end
-    for Name, Value in pairs(FlagsSource) do
-        local FlagName = tostring(Name)
-        if FlagName:sub(1, 2) ~= "__" and FlagName ~= "Flags" and FlagName ~= "flags" and FlagName ~= "Settings" and FlagName ~= "settings"
-            and FlagName ~= "Config" and FlagName ~= "config" and FlagName ~= "Interface" and FlagName ~= "interface" and FlagName ~= "Binds" and FlagName ~= "binds"
-            and FlagName ~= "AccentAlpha" and not BindFlags[FlagName] then
-            Flags[FlagName] = DecodeValue(Value, 0)
-            Names[#Names + 1] = FlagName
-        end
-    end
-    table.sort(Names)
-    local Applied, Failed = 0, 0
-    local function Apply(Name)
-        local Value, Setter = CloneValue(Flags[Name]), self.Setters[Name]
-        if type(Setter) == "function" then
-            local Ok = Call(Setter, Value)
-            if Ok then Applied += 1 else Failed += 1 end
-        else
-            self.Flags[Name] = Value
-            Applied += 1
-        end
-    end
-    for _, Name in ipairs(Names) do if type(Flags[Name]) ~= "boolean" then Apply(Name) end end
-    for _, Name in ipairs(Names) do if Flags[Name] == false then Apply(Name) end end
-    for _, Name in ipairs(Names) do if Flags[Name] == true then Apply(Name) end end
-
-    local LoadedBinds = Decoded.Binds or Decoded.binds or Decoded.__AtramentaControlBinds or FlagsSource.__AtramentaControlBinds
-    if LoadedBinds ~= nil then LoadedBinds = DecodeValue(LoadedBinds, 0) end
-    local function EntryFrom(Value, BindData)
-        Value = DecodeValue(Value, 0)
-        if type(Value) ~= "table" then return nil end
-        if Value.Key ~= nil or Value.key ~= nil or tostring(Value.Display or Value.display or ""):lower() == "none" then return Value end
-        local PreferredId, First = "Main:" .. tostring(BindData.Flag), nil
-        for _, Entry in pairs(Value) do
-            if type(Entry) == "table" and (Entry.Key ~= nil or Entry.key ~= nil or tostring(Entry.Display or Entry.display or ""):lower() == "none") then
-                First = First or Entry
-                if tostring(Entry.Id or Entry.id or "") == PreferredId then return Entry end
-            end
-        end
-        return First
-    end
-    for _, BindData in ipairs(self.Keybinds or {}) do
-        local Stored
-        if type(LoadedBinds) == "table" then
-            Stored = EntryFrom(LoadedBinds[tostring(BindData.TargetFlag or BindData.Flag)], BindData) or EntryFrom(LoadedBinds[tostring(BindData.Flag)], BindData)
-        end
-        if not Stored then Stored = EntryFrom(FlagsSource[tostring(BindData.Flag)], BindData) end
-        if Stored then
-            local Key = Stored.Key ~= nil and Stored.Key or Stored.key
-            if Key == nil and tostring(Stored.Display or Stored.display or ""):lower() == "none" then Key = "none" end
-            local Modifiers = Stored.Modifiers or Stored.modifiers
-            local KeyType = tostring(Stored.KeyType or Stored.keyType or Stored.Type or "")
-            if type(Key) == "string" then
-                local Tail = Key:match("([%w_]+)$")
-                if Tail then Key = Tail end
-                local Compact = Key:upper():gsub("[%s_%-%+]", "")
-                if KeyType:find("UserInputType", 1, true) or Compact == "MOUSEBUTTON2" or Compact == "MOUSEBUTTON3" then
-                    if Compact == "MOUSEBUTTON2" then Key = "M2" elseif Compact == "MOUSEBUTTON3" then Key = "M3" end
-                end
-            end
-            BindData:Set({Key = Key, Modifiers = Modifiers, Mode = Stored.Mode or Stored.mode})
-            Applied += 1
-        end
-    end
-
-    local InterfaceSource = Decoded.Interface or Decoded.interface or Decoded.__AtramentaInterface or FlagsSource.__AtramentaInterface
-    local Interface = InterfaceSource and DecodeValue(InterfaceSource, 0) or nil
-    if type(Interface) == "table" then
-        if type(Interface.Theme) == "table" then
-            for Key, Value in pairs(Interface.Theme) do if typeof(Value) == "Color3" then self.Theme[Key] = Value end end
-            SyncThemeColors()
-        elseif typeof(Interface.Accent) == "Color3" then self.Theme.Accent = Interface.Accent end
-        if self.ActiveWindow and self.ActiveWindow.Main then
-            if typeof(Interface.MainSize) == "UDim2" then self.ActiveWindow.Main.Size = Interface.MainSize end
-            if typeof(Interface.MainPosition) == "UDim2" then self.ActiveWindow.Main.Position = Interface.MainPosition end
-            if type(Interface.MainVisible) == "boolean" then self.ActiveWindow:SetVisible(Interface.MainVisible) end
-            ClampFrameToViewport(self.ActiveWindow.Main, self.ActiveWindow.ScreenGui, 4)
-        end
-        if self.PlayerListController and self.PlayerListController.Frame then
-            if typeof(Interface.PlayerListPosition) == "UDim2" then self.PlayerListController.Frame.Position = Interface.PlayerListPosition end
-            if type(Interface.PlayerListVisible) == "boolean" then self.PlayerListController:SetVisibility(Interface.PlayerListVisible) end
-            ClampFrameToViewport(self.PlayerListController.Frame, self.PlayerListController.Gui, 4)
-        end
-        local PanelController = self.PanelController or self.QuickPanelController
-        local SavedPanelPosition = Interface.PanelPosition or Interface.QuickPanelPosition
-        if PanelController and PanelController.Root and typeof(SavedPanelPosition) == "UDim2" then
-            PanelController.Root.Position = SavedPanelPosition
-            ClampFrameToViewport(PanelController.Root, PanelController.Gui, 4)
-        end
-        local ConfigurationPanel = self.ConfigurationPanelController
-        if ConfigurationPanel and ConfigurationPanel.Frame then
-            if typeof(Interface.ConfigurationPosition) == "UDim2" then
-                ConfigurationPanel.Frame.Position = Interface.ConfigurationPosition
-                ClampFrameToViewport(ConfigurationPanel.Frame, ConfigurationPanel.Gui, 4)
-            end
-            if type(Interface.ConfigurationVisible) == "boolean" then ConfigurationPanel:SetVisibility(Interface.ConfigurationVisible) end
-        end
-        if typeof(Interface.NotificationPoint) == "Vector2" then
-            self.NotificationPoint = Interface.NotificationPoint
-            if type(self.ApplyNotificationLayout) == "function" then self:ApplyNotificationLayout() end
-        end
-        if self.MenuBindData and type(Interface.MenuBind) == "table" then self.MenuBindData:Set(Interface.MenuBind) end
-    end
-    UpdateAll()
-    self.LastConfigLoadResult = {Applied = Applied, Failed = Failed}
-    return Failed == 0 or Applied > 0
-end
-
-local function NormalizeConfigName(Name)
-    Name = tostring(Name or ""):gsub("[%c%?%*%:%\"%<%>%|/\\]", ""):gsub("^%s+", ""):gsub("%s+$", "")
-    return Name:sub(1, 64)
-end
-
-local function ConfigPath(Name) return Library.Folders.Configs .. "/" .. NormalizeConfigName(Name) .. ".json" end
-local LegacyFolders = {"Atramenta.rip/Configs", "Atramenta.rip/configs", "obels/configs"}
-
-function Library:ListConfigs()
-    EnsureFolders()
-    local Seen, Items = {}, {}
-    if type(listfiles) == "function" then
-        for _, Folder in ipairs(LegacyFolders) do
-            if type(isfolder) ~= "function" or isfolder(Folder) then
-                local Success, Files = Call(listfiles, Folder)
-                if Success and type(Files) == "table" then
-                    for _, File in ipairs(Files) do
-                        local Name = tostring(File):match("([^/\\]+)%.json$") or tostring(File):match("([^/\\]+)%.cfg$")
-                        if Name and not Seen[Name:lower()] and Name ~= "Atramenta" and Name ~= "AtramentaConfigs" then
-                            Seen[Name:lower()] = true
-                            Items[#Items + 1] = Name
-                        end
-                    end
-                end
-            end
-        end
-    end
-    table.sort(Items, function(A, B) return A:lower() < B:lower() end)
-    return Items
-end
-
-function Library:ConfigExists(Name)
-    Name = NormalizeConfigName(Name)
-    if Name == "" then return false end
-    if type(isfile) == "function" and isfile(ConfigPath(Name)) then return true end
-    for _, Folder in ipairs(LegacyFolders) do
-        if type(isfile) == "function" and (isfile(Folder .. "/" .. Name .. ".json") or isfile(Folder .. "/" .. Name .. ".cfg")) then return true end
-    end
-    return false
-end
-
-function Library:SaveConfig(Name)
-    Name = NormalizeConfigName(Name)
-    if self.MenuBuildComplete == false then
-        self.LastConfigSaveError = "menu build incomplete"
-        return false
-    end
-    if Name == "" or type(writefile) ~= "function" then return false end
-    EnsureFolders()
-    local Source = self:GetConfig()
-    if type(Source) ~= "string" then return false end
-    return Call(writefile, ConfigPath(Name), Source) == true
-end
-
-function Library:LoadConfigFile(Name)
-    Name = NormalizeConfigName(Name)
-    if Name == "" or type(readfile) ~= "function" then return false end
-    local Paths, Seen = {}, {}
-    local function Push(Path)
-        if not Seen[Path] then Seen[Path] = true Paths[#Paths + 1] = Path end
-    end
-    Push(ConfigPath(Name))
-    for _, Folder in ipairs(LegacyFolders) do
-        Push(Folder .. "/" .. Name .. ".json")
-        Push(Folder .. "/" .. Name .. ".cfg")
-    end
-    for _, Path in ipairs(Paths) do
-        local Exists = type(isfile) ~= "function" or isfile(Path)
-        if Exists then
-            local Success, Source = Call(readfile, Path)
-            if Success and type(Source) == "string" and self:LoadConfig(Source) then return true end
-        end
-    end
-    return false
-end
-
-function Library:DeleteConfig(Name)
-    Name = NormalizeConfigName(Name)
-    if Name == "" or type(delfile) ~= "function" then return false end
-    local Deleted, Paths, Seen = false, {}, {}
-    local function Push(Path)
-        if not Seen[Path] then Seen[Path] = true Paths[#Paths + 1] = Path end
-    end
-    Push(ConfigPath(Name))
-    for _, Folder in ipairs(LegacyFolders) do
-        Push(Folder .. "/" .. Name .. ".json")
-        Push(Folder .. "/" .. Name .. ".cfg")
-    end
-    for _, Path in ipairs(Paths) do
-        if type(isfile) ~= "function" or isfile(Path) then
-            local Success = Call(delfile, Path)
-            Deleted = Success == true or Deleted
-        end
-    end
-    return Deleted
-end
-
-function Library:RefreshConfigsList(Listbox)
-    local Items = self:ListConfigs()
-    if type(Listbox) == "table" and type(Listbox.SetItems) == "function" then Listbox:SetItems(Items) end
-    return Items
-end
-
-function Library:ConfigurationPanel()
-    local Existing=self.ConfigurationPanelController
-    if Existing and Existing.Gui and Existing.Gui.Parent and Existing.Frame and Existing.Frame.Parent then return Existing end
-    if Existing and Existing.Gui and Existing.Gui.Parent then Existing.Gui:Destroy() end
-
-    local Parent=ParentGui()
-    local Gui=Create("ScreenGui",{Name="AtramentaConfiguration",Parent=Parent,ResetOnSpawn=false,DisplayOrder=194,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
-    self.Guis[#self.Guis+1]=Gui
-
-    local Width,Height=520,390
-    local Main=Create("Frame",{
-        Parent=Gui,Size=UDim2.fromOffset(Width,Height),Position=UDim2.new(0.5,-math.floor(Width/2),0.5,-math.floor(Height/2)),
-        BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ClipsDescendants=false
-    },{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
-    local TitleBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true},{
-        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(28,28,32)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0))})}),
-        Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
-    })
-    local TitleLabel=Create("TextLabel",{Parent=TitleBar,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Configuration",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,ZIndex=4})
-    local Content=Create("Frame",{Parent=Main,Position=UDim2.fromOffset(0,22),Size=UDim2.new(1,0,1,-22),BackgroundTransparency=1,ClipsDescendants=false})
-    local TabBar=Create("Frame",{Parent=Main,Size=UDim2.fromOffset(0,0),Position=UDim2.new(0,0,1,0),BackgroundTransparency=1,Visible=false})
-
-    local Object=setmetatable({
-        Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,
-        Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,
-        RequestedVisible=false,Visible=false,MenuVisible=true,Destroyed=false
-    },WindowMethods)
-
-    function Object:ApplyVisibility()
-        local State=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
-        Object.Visible=State Main.Visible=State
-        if not State then Object:CloseDropdown() Object:ClosePicker() end
-        local Controller=Library.PanelController or Library.QuickPanelController
-        if Controller and type(Controller.Refresh)=="function" then task.defer(Controller.Refresh) end
-    end
-    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
-    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
-    function Object:IsVisible() return Main.Visible==true end
-    function Object:IsRequestedVisible() return Object.RequestedVisible==true end
-    function Object:Toggle() Object:SetVisibility(not Object.RequestedVisible) end
-    function Object:Destroy()
-        if Object.Destroyed then return end
-        Object.Destroyed=true
-        if Gui and Gui.Parent then Gui:Destroy() end
-        if Library.ConfigurationPanelController==Object then Library.ConfigurationPanelController=nil end
-    end
-
-    self.ConfigurationPanelController=Object
-    CreatePopupLayer(Object)
-    MakeDraggable(Main,TitleBar,Gui)
-    BindFrameToViewport(Main,Gui,4)
-
-    local Page=Object:Page({Name="configuration"})
-    if Page.Button then Page.Button.Visible=false end
-    TabBar.Visible=false
-    Content.Size=UDim2.new(1,0,1,-22)
-
-    local Browser=Page:Section({Name="configs",Side=1})
-    local Manager=Page:Section({Name="config actions",Side=2})
-    local Interface=Page:Section({Name="interface",Side=2})
-    local Selected,Listbox
-    local CountLabel=Browser:Label({Name="0 configs",Alignment="Left"})
-    local NameBox=Manager:Textbox({Name="config name",Flag="__ConfigName",Default="",Placeholder="enter name"})
-    local Status=Manager:Label({Name="ready",Alignment="Left"})
-    local function Notify(Text) Status:Set(tostring(Text)) Library:Notification({Title="config",Description=Text,Duration=2}) end
-    local function SetSelected(Name)
-        Selected=Name and NormalizeConfigName(Name) or nil
-        if Selected then NameBox:Set(Selected,true) end
-    end
-    local function Refresh(Preserve)
-        local Items=Library:ListConfigs()
-        Listbox:SetItems(Items)
-        CountLabel:Set(tostring(#Items)..(#Items==1 and " config" or " configs"))
-        if Preserve~=false and Selected and table.find(Items,Selected) then Listbox:Set(Selected) else SetSelected(nil) end
-        Status:Set("ready")
-        return Items
-    end
-    local function CurrentName(AllowInput)
-        local Name=Selected
-        if (not Name or Name=="") and AllowInput then Name=NormalizeConfigName(NameBox:Get()) end
-        return NormalizeConfigName(Name or "")
-    end
-    Listbox=Browser:Listbox({Items={},Height=238,Callback=function(Value) SetSelected(Value) Status:Set("selected "..tostring(Value)) end})
-    Browser:Button({Name="refresh",Callback=function() Refresh(true) end})
-    Manager:Button({Name="create",Callback=function()
-        local Name=NormalizeConfigName(NameBox:Get())
-        if Name=="" then Notify("enter a config name") return end
-        if Library:ConfigExists(Name) then Notify(Name.." already exists") return end
-        Library.LastConfigSaveError=nil
-        if Library:SaveConfig(Name) then SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." created")
-        else Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not created" or "failed to create "..Name) end
-    end})
-    Manager:Button({Name="save",Callback=function()
-        local Name=CurrentName(true)
-        if Name=="" then Notify("select or enter a config") return end
-        Library.LastConfigSaveError=nil
-        if Library:SaveConfig(Name) then SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." saved")
-        else Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not overwritten" or "failed to save "..Name) end
-    end})
-    Manager:Button({Name="load",Callback=function()
-        local Name=CurrentName(false)
-        if Name=="" then Notify("select a config") return end
-        if Library:LoadConfigFile(Name) then SetSelected(Name) Notify(Name.." loaded") else Notify("failed to load "..Name) end
-    end})
-    Manager:Button({Name="delete",Callback=function()
-        local Name=CurrentName(false)
-        if Name=="" then Notify("select a config") return end
-        if Library:DeleteConfig(Name) then SetSelected(nil) NameBox:Set("",true) Refresh(false) Notify(Name.." deleted") else Notify("failed to delete "..Name) end
-    end})
-
-    Library.MenuBindData=Interface:Keybind({Name="menu",Flag="__AtramentaMenuBind",Default=Enum.KeyCode.F2,Mode="Toggle",Callback=function() end})
-    Interface:Button({Name="unload",Callback=function() Library.Unload() end})
-
-    -- Keep interface/theme flags registered so old configs remain compatible.
-    RegisterFlag("__InterfaceWatermark",true,function(Value)
-        Library.Flags.__InterfaceWatermark=Value==true
-        if Library.WatermarkController then Library.WatermarkController:SetVisibility(Value==true) end
-    end)
-    RegisterFlag("__InterfaceKeybindList",false,function(Value)
-        Library.Flags.__InterfaceKeybindList=Value==true
-        if Library.KeybindListController then Library.KeybindListController:SetVisibility(Value==true) end
-    end)
-    RegisterFlag("__InterfaceWatermarkScale",100,function(Value)
-        local Number=math.clamp(tonumber(Value) or 100,60,160)
-        Library.Flags.__InterfaceWatermarkScale=Number
-        if Library.WatermarkController then Library.WatermarkController:SetScale(Number) end
-    end)
-    RegisterFlag("__InterfaceKeybindScale",100,function(Value)
-        local Number=math.clamp(tonumber(Value) or 100,60,160)
-        Library.Flags.__InterfaceKeybindScale=Number
-        if Library.KeybindListController then Library.KeybindListController:SetScale(Number) end
-    end)
-    for _,ThemeData in ipairs({
-        {"__ThemeAccent","Accent"},{"__ThemeBackground","Background"},{"__ThemeSurface","Surface"},{"__ThemeControl","Control"},{"__ThemeBorder","Border"},
-        {"__ThemeText","Text"},{"__ThemeTextBright","TextBright"},{"__ThemeTextDim","TextDim"},{"__ThemeHeader","Header"}
-    }) do
-        local Flag,Key=ThemeData[1],ThemeData[2]
-        RegisterFlag(Flag,Library.Theme[Key],function(Value)
-            if typeof(Value)=="Color3" then Library.Flags[Flag]=Value Library:ChangeTheme(Key,Value) end
-        end)
-    end
-
-    Object.ConfigListbox=Listbox
-    Object.RefreshConfigs=Refresh
-    Refresh(false)
-    Object:ApplyVisibility()
-
-    RegisterRenderer(function()
-        SyncThemeColors()
-        Main.BackgroundColor3=Colors.Bg TitleBar.BackgroundColor3=Colors.TitleBg TitleLabel.TextColor3=Colors.TextBright
-        local Stroke=Main:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end
-        local Line=TitleBar:FindFirstChild("AccentLine")
-        if Line then
-            local A=Accent() Line.BackgroundColor3=A
-            local Gradient=Line:FindFirstChildOfClass("UIGradient")
-            if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,A),ColorSequenceKeypoint.new(1,Color3.new())}) end
-        end
-    end)
-    return Object
-end
-
-function WindowMethods:ConfigSystem()
-    -- Configuration is now a standalone panel opened from Library:Panel().
-    local Panel=Library:ConfigurationPanel()
-    self.ConfigPanel=Panel
-    return Panel
-end
-
-function Library:Watermark(Text)
-    local Parent=ParentGui() local Gui=Create("ScreenGui",{Name="AtramentaWatermark",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false}) self.Guis[#self.Guis+1]=Gui
-    local Frame=Create("Frame",{Parent=Gui,Position=UDim2.fromOffset(12,12),Size=UDim2.fromOffset(250,23),BackgroundColor3=Color3.fromRGB(5,5,6),BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1})})
-    local Inner=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,1)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(0.52,Color3.fromRGB(8,8,8)),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})})
-    local LineGradient=Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,AccentDark()),ColorSequenceKeypoint.new(0.28,Accent()),ColorSequenceKeypoint.new(0.5,AccentHover()),ColorSequenceKeypoint.new(0.72,Accent()),ColorSequenceKeypoint.new(1,AccentDark())}),Offset=Vector2.new(-1,0)})
-    local Line=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=4},{LineGradient})
-    local Label=Create("TextLabel",{Parent=Inner,Position=UDim2.fromOffset(8,1),Size=UDim2.new(1,-16,1,-2),BackgroundTransparency=1,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBright,TextXAlignment=Enum.TextXAlignment.Left,Text="",TextTruncate=Enum.TextTruncate.None,ZIndex=5})
-    local TextGradient=Create("UIGradient",{Parent=Label,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.TextBright),ColorSequenceKeypoint.new(0.38,Colors.TextBright),ColorSequenceKeypoint.new(0.5,AccentHover()),ColorSequenceKeypoint.new(0.62,Colors.TextBright),ColorSequenceKeypoint.new(1,Colors.TextBright)}),Offset=Vector2.new(-1,0)})
-    local Scale=Create("UIScale",{Parent=Frame,Scale=1}) MakeDraggable(Frame,Frame,Gui)
-    local Object={Gui=Gui,Frame=Frame,Label=Label,Scale=Scale,Line=Line,Brand=string.lower(tostring(Text or "atramenta.rip")),FPS=0,Ping=0,Alive=true,RequestedVisible=true,MenuVisible=true}
-    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false end
-    function Object:Resize() local Bounds=TextService:GetTextSize(Label.Text,13,Enum.Font.SourceSans,Vector2.new(1200,23)) Frame.Size=UDim2.fromOffset(math.max(170,math.ceil(Bounds.X)+18),23) end
-    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
-    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
-    function Object:IsRequestedVisible() return Object.RequestedVisible==true end
-    function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.5,2) end
-    function Object:SetText(Value) Object.Brand=string.lower(tostring(Value or "atramenta.rip")) Object:RefreshText() end
-    function Object:SetPosition(Position) if typeof(Position)=="UDim2" then Frame.Position=Position end end
-    function Object:RefreshText() Label.Text=string.format("%s | FPS %d | PING %d MS | release",Object.Brand,math.max(0,math.floor(Object.FPS+0.5)),math.max(0,math.floor(Object.Ping+0.5))) Object:Resize() end
-    Object:RefreshText()
-    local Frames,Elapsed,InfoElapsed,Phase=0,0,0,0
-    Bind(RunService.RenderStepped:Connect(function(Delta)
-        if not Object.Alive or not Frame.Parent then return end
-        Frames+=1 Elapsed+=Delta InfoElapsed+=Delta Phase=(Phase+Delta*0.72)%2
-        if Elapsed>=0.45 then Object.FPS=Frames/Elapsed Frames=0 Elapsed=0 end
-        if InfoElapsed>=0.45 then local Player=Players.LocalPlayer local Success,Value=Call(function() return Player and Player:GetNetworkPing() end) if Success and type(Value)=="number" then Object.Ping=Value*1000 end InfoElapsed=0 Object:RefreshText() end
-        local A=Accent() local Dark=AccentDark() local Bright=AccentHover() local Offset=Phase-1
-        LineGradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Dark),ColorSequenceKeypoint.new(0.28,A),ColorSequenceKeypoint.new(0.5,Bright),ColorSequenceKeypoint.new(0.72,A),ColorSequenceKeypoint.new(1,Dark)}) LineGradient.Offset=Vector2.new(Offset,0)
-        TextGradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.TextBright),ColorSequenceKeypoint.new(0.38,Colors.TextBright),ColorSequenceKeypoint.new(0.5,Bright),ColorSequenceKeypoint.new(0.62,Colors.TextBright),ColorSequenceKeypoint.new(1,Colors.TextBright)}) TextGradient.Offset=Vector2.new(Offset,0)
-    end))
-    RegisterRenderer(function() Object:RefreshText() end)
-    BindFrameToViewport(Frame,Gui,4) self.WatermarkController=Object
-    return Object
-end
-
-function Library:KeybindList()
-    if self.KeybindListController then return self.KeybindListController end
-    local Parent=ParentGui()
-    local Gui=Create("ScreenGui",{Name="AtramentaKeybinds",Parent=Parent,ResetOnSpawn=false,DisplayOrder=101,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
-    self.Guis[#self.Guis+1]=Gui
-
-    local Frame=Create("Frame",{
-        Parent=Gui,Position=UDim2.fromOffset(12,43),Size=UDim2.fromOffset(188,24),AutomaticSize=Enum.AutomaticSize.Y,
-        BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false
-    },{Create("UIStroke",{Color=Color3.fromRGB(2,2,3),Thickness=1}),Create("UIPadding",{PaddingBottom=UDim.new(0,3)})})
-    local Header=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,19),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0},{
-        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})
-    })
-    local HeaderText=Create("TextLabel",{
-        Parent=Header,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="keybinds",TextColor3=Colors.TextBright,
-        Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center
-    })
-    local Holder=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(4,21),Size=UDim2.new(1,-8,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1},{
-        Create("UIListLayout",{Padding=UDim.new(0,1),SortOrder=Enum.SortOrder.LayoutOrder})
-    })
-    local Scale=Create("UIScale",{Parent=Frame,Scale=1})
-    MakeDraggable(Frame,Header,Gui)
-
-    local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={},RequestedVisible=false,MenuVisible=true}
-    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false end
-    function Object:SetVisibility(State) Object.RequestedVisible=State==true Library.Flags.__InterfaceKeybindList=Object.RequestedVisible Object:ApplyVisibility() end
-    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
-    function Object:IsRequestedVisible() return Object.RequestedVisible==true end
-    function Object:SetScale(Value)
-        local Number=math.clamp(tonumber(Value) or 100,60,160)
-        Library.Flags.__InterfaceKeybindScale=Number
-        Scale.Scale=Number/100
-    end
-
-    function Object:Refresh()
-        Header.Visible=Library.KeybindSettings.ShowHeader~=false
-        Holder.Position=UDim2.fromOffset(4,Header.Visible and 21 or 3)
-        for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end
-        table.clear(Object.Rows)
-
-        local DesiredWidth=180
-        local Assigned=0
-        for _,BindData in ipairs(Library.Keybinds) do
-            if BindData.TargetControl then BindData.Value=BindData.TargetControl:Get() end
-            local Key=NormalizeKey(BindData.Key)
-            if not BindData.Destroyed and Key~=nil then
-                Assigned+=1
-                local GateOpen=KeybindGateOpen(BindData)
-                local Active=GateOpen and (BindData.Mode=="Always" or BindData.Value==true)
-                if Library.KeybindSettings.ShowInactive==false and not Active then continue end
-                local ModeText
-                if BindData.Mode=="Always" then
-                    ModeText="Always"
-                elseif BindData.Mode=="Hold" then
-                    ModeText=Active and "Holded" or "Hold"
-                else
-                    ModeText=Active and "Toggled" or "Toggle"
-                end
-
-                local KeyText="["..KeyDisplay(BindData.Key,BindData.Modifiers).."]"
-                local ModeDisplay="["..ModeText.."]"
-                local RightText=KeyText.." "..ModeDisplay
-                local NameText=string.lower(CleanKeybindDisplayName(BindData.Name or BindData.TargetFlag or BindData.Flag or "bind"))
-                local NameWidth=TextService:GetTextSize(NameText,12,Enum.Font.SourceSans,Vector2.new(700,15)).X
-                local RightWidth=TextService:GetTextSize(RightText,11,Enum.Font.SourceSans,Vector2.new(700,15)).X
-                DesiredWidth=math.max(DesiredWidth,math.ceil(NameWidth+RightWidth+20))
-
-                local Row=Create("Frame",{
-                    Parent=Holder,Size=UDim2.new(1,0,0,Library.KeybindSettings.CompactRows and 14 or 17),BackgroundColor3=Active and Accent() or Colors.Control,
-                    BackgroundTransparency=Active and (Library.KeybindSettings.AccentActive and 0.91 or 1) or 1,BorderSizePixel=0,LayoutOrder=Assigned
-                })
-                local RightLabel=Create("TextLabel",{
-                    Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,0),Size=UDim2.fromOffset(math.ceil(RightWidth)+2,15),
-                    BackgroundTransparency=1,Text=RightText,TextColor3=Active and (Library.KeybindSettings.AccentActive and Accent() or Colors.TextBright) or (GateOpen and Colors.TextBind or Colors.TextDim),
-                    Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,TextYAlignment=Enum.TextYAlignment.Center
-                })
-                local NameLabel=Create("TextLabel",{
-                    Parent=Row,Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,-(math.ceil(RightWidth)+8),1,0),BackgroundTransparency=1,
-                    Text=NameText,TextColor3=Active and Colors.TextBright or (GateOpen and Colors.Text or Colors.TextDim),
-                    Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd
-                })
-                Object.Rows[#Object.Rows+1]=Row
-            end
-        end
-
-        if Assigned==0 then
-            local Empty=Create("TextLabel",{Parent=Holder,Size=UDim2.new(1,0,0,15),BackgroundTransparency=1,Text="no keybinds assigned",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left})
-            Object.Rows[#Object.Rows+1]=Empty
-        end
-        Frame.Size=UDim2.fromOffset(math.clamp(DesiredWidth,180,350),24)
-    end
-
-    RegisterRenderer(function()
-        Header.BackgroundColor3=Colors.TitleBg
-        HeaderText.TextColor3=Colors.TextBright
-        Object:Refresh()
-    end)
-    BindFrameToViewport(Frame,Gui,4)
-    self.KeybindListController=Object
-    Object:SetScale(Library.Flags.__InterfaceKeybindScale or 100)
-    Object:SetVisibility(Library.Flags.__InterfaceKeybindList==true)
-    Object:Refresh()
-    return Object
-end
-
-function Library:PlayerList(Data)
-    Data=type(Data)=="table" and Data or {}
-    if self.PlayerListController then return self.PlayerListController end
-    self.PlayerStatuses=type(self.PlayerStatuses)=="table" and self.PlayerStatuses or {}
-    local Parent=ParentGui()
-    local Gui=Create("ScreenGui",{Name="AtramentaPlayerList",Parent=Parent,ResetOnSpawn=false,DisplayOrder=150,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
-    self.Guis[#self.Guis+1]=Gui
-    local Frame=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.72,0.52),Size=UDim2.fromOffset(720,420),BackgroundColor3=Color3.fromRGB(2,2,3),BorderSizePixel=0,Visible=false,Active=true,ZIndex=150},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(0,0,0),Thickness=1})})
-    local Inner=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=151},{Create("UICorner",{CornerRadius=UDim.new(0,1)})})
-    local Header=Create("Frame",{Parent=Inner,Size=UDim2.new(1,0,0,21),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true,ZIndex=152},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.TitleBg)})})})
-    local AccentLine=Create("Frame",{Parent=Header,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=154},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.12,Accent()),ColorSequenceKeypoint.new(0.88,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
-    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text=string.lower(tostring(Data.Brand or "atramenta.rip")).."  /  playerlist",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=153})
-    local Body=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(6,27),Size=UDim2.new(1,-12,1,-33),BackgroundTransparency=1,ZIndex=152})
-    local Left=Create("Frame",{Parent=Body,Size=UDim2.new(0.60,-3,1,0),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.50,BorderSizePixel=0,ZIndex=152},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.52})})
-    local Right=Create("Frame",{Parent=Body,Position=UDim2.new(0.60,4,0,0),Size=UDim2.new(0.40,-4,1,0),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.50,BorderSizePixel=0,ZIndex=152},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.52})})
-    local LeftHead=Create("Frame",{Parent=Left,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.10,BorderSizePixel=0,ZIndex=153})
-    local Count=Create("TextLabel",{Parent=LeftHead,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="players  0",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    Create("Frame",{Parent=LeftHead,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Colors.SectionBorder,BackgroundTransparency=0.62,BorderSizePixel=0,ZIndex=154})
-    local Search=Create("TextBox",{Parent=Left,Position=UDim2.fromOffset(6,26),Size=UDim2.new(1,-12,0,22),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.22,BorderSizePixel=0,ClearTextOnFocus=false,PlaceholderText="search...",PlaceholderColor3=Colors.TextDim,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=153},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.60}),Create("UIPadding",{PaddingLeft=UDim.new(0,7),PaddingRight=UDim.new(0,7)})})
-    local ListHead=Create("Frame",{Parent=Left,Position=UDim2.fromOffset(6,54),Size=UDim2.new(1,-12,0,18),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.48,BorderSizePixel=0,ZIndex=153})
-    Create("TextLabel",{Parent=ListHead,Position=UDim2.fromOffset(28,0),Size=UDim2.new(1,-116,1,0),BackgroundTransparency=1,Text="name",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    Create("TextLabel",{Parent=ListHead,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-6,0,0),Size=UDim2.fromOffset(82,18),BackgroundTransparency=1,Text="status",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right,ZIndex=154})
-    local List=Create("ScrollingFrame",{Parent=Left,Position=UDim2.fromOffset(6,73),Size=UDim2.new(1,-12,1,-79),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.68,BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=2,ScrollBarImageColor3=Colors.TextDim,ZIndex=153},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.70}),Create("UIListLayout",{Padding=UDim.new(0,1),SortOrder=Enum.SortOrder.LayoutOrder}),Create("UIPadding",{PaddingTop=UDim.new(0,2),PaddingBottom=UDim.new(0,2),PaddingLeft=UDim.new(0,2),PaddingRight=UDim.new(0,2)})})
-    local RightHead=Create("Frame",{Parent=Right,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.10,BorderSizePixel=0,ZIndex=153})
-    Create("TextLabel",{Parent=RightHead,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="selected",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    Create("Frame",{Parent=RightHead,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Colors.SectionBorder,BackgroundTransparency=0.62,BorderSizePixel=0,ZIndex=154})
-    local Empty=Create("TextLabel",{Parent=Right,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.50),Size=UDim2.new(1,-16,0,20),BackgroundTransparency=1,Text="no player selected",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,ZIndex=153})
-    local Profile=Create("Frame",{Parent=Right,Position=UDim2.fromOffset(7,27),Size=UDim2.new(1,-14,1,-34),BackgroundTransparency=1,Visible=false,ZIndex=153})
-    local Identity=Create("Frame",{Parent=Profile,Size=UDim2.new(1,0,0,58),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.58,BorderSizePixel=0,ZIndex=153},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.66})})
-    local AvatarHolder=Create("Frame",{Parent=Identity,Position=UDim2.fromOffset(6,6),Size=UDim2.fromOffset(46,46),BackgroundColor3=Colors.Control,BorderSizePixel=0,ClipsDescendants=true,ZIndex=154},{Create("UICorner",{CornerRadius=UDim.new(1,0)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.40})})
-    local Avatar=Create("ImageLabel",{Parent=AvatarHolder,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundTransparency=1,Image="",ScaleType=Enum.ScaleType.Crop,ZIndex=155},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-    local User=Create("TextLabel",{Parent=Identity,Position=UDim2.fromOffset(60,8),Size=UDim2.new(1,-66,0,18),BackgroundTransparency=1,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    local Info=Create("TextLabel",{Parent=Identity,Position=UDim2.fromOffset(60,28),Size=UDim2.new(1,-66,0,16),BackgroundTransparency=1,Text="",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    Create("TextLabel",{Parent=Profile,Position=UDim2.fromOffset(0,69),Size=UDim2.new(1,0,0,15),BackgroundTransparency=1,Text="status",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    local StatusButton=Create("TextButton",{Parent=Profile,Position=UDim2.fromOffset(0,87),Size=UDim2.new(1,0,0,24),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.30,BorderSizePixel=0,AutoButtonColor=false,Text="Neutral",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=156},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.58}),Create("UIPadding",{PaddingLeft=UDim.new(0,7),PaddingRight=UDim.new(0,7)})})
-    local StatusArrow=Create("TextLabel",{Parent=StatusButton,AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-7,0.5,0),Size=UDim2.fromOffset(11,14),BackgroundTransparency=1,Text="v",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,ZIndex=157})
-    local StatusDrop=Create("Frame",{Parent=Profile,Position=UDim2.fromOffset(0,114),Size=UDim2.new(1,0,0,66),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.04,BorderSizePixel=0,Visible=false,ClipsDescendants=true,ZIndex=170},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.44}),Create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder})})
-    local ActionHolder=Create("Frame",{Parent=Profile,Position=UDim2.new(0,0,1,-27),Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,ZIndex=154},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Left,Padding=UDim.new(0,3),SortOrder=Enum.SortOrder.LayoutOrder})})
-    local Scale=Create("UIScale",{Parent=Frame,Scale=math.clamp((tonumber(Data.Scale) or 100)/100,0.65,1.5)})
-    local StatusColors={Client=Accent(),Neutral=Colors.TextDim,Whitelist=Color3.fromRGB(87,196,129),Enemy=Color3.fromRGB(224,92,102)}
-    local Object={Gui=Gui,Frame=Frame,Header=Header,List=List,Scale=Scale,Rows={},RequestedVisible=Data.Visible==true,MenuVisible=true,Selected=nil,Search="",Data=Data,DropOpen=false}
-    local function NormalizeStatus(Status)
-        Status=tostring(Status or "Neutral")
-        if Status=="None" or Status=="none" or Status=="" then return "Neutral" end
-        if Status=="Whitelist" or Status=="Enemy" or Status=="Neutral" then return Status end
-        return "Neutral"
-    end
-    local function ReadStatus(Player)
-        if not Player then return "Neutral" end
-        if Player==Players.LocalPlayer then return "Client" end
-        local UserId=tonumber(Player.UserId) or 0 local External
-        if type(Data.GetStatus)=="function" then local Ok,Value=Call(Data.GetStatus,Player) if Ok then External=Value end end
-        local Status=NormalizeStatus(External or Library.PlayerStatuses[UserId])
-        Library.PlayerStatuses[UserId]=Status
-        return Status
-    end
-    local RefreshRows local RefreshSelected
-    local function CloseDrop() Object.DropOpen=false StatusDrop.Visible=false StatusArrow.Text="v" end
-    local function SetStatus(Player,Status,Silent)
-        if not Player or Player==Players.LocalPlayer then return "Client" end
-        Status=NormalizeStatus(Status) Library.PlayerStatuses[tonumber(Player.UserId) or 0]=Status
-        if not Silent and type(Data.StatusChanged)=="function" then Call(Data.StatusChanged,Player,Status) end
-        if RefreshRows then RefreshRows() end if RefreshSelected and Object.Selected==Player then RefreshSelected(false) end
-        return Status
-    end
-    local function MakeStatusOption(Name,Order)
-        local Button=Create("TextButton",{Parent=StatusDrop,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.Control,BackgroundTransparency=1,BorderSizePixel=0,AutoButtonColor=false,Text=Name,TextColor3=StatusColors[Name] or Colors.Text,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,LayoutOrder=Order,ZIndex=171},{Create("UIPadding",{PaddingLeft=UDim.new(0,7)})})
-        Bind(Button.MouseEnter:Connect(function() Button.BackgroundTransparency=0.78 end))
-        Bind(Button.MouseLeave:Connect(function() Button.BackgroundTransparency=1 end))
-        Bind(Button.MouseButton1Click:Connect(function() if Object.Selected then SetStatus(Object.Selected,Name,false) end CloseDrop() end))
-    end
-    MakeStatusOption("Neutral",1) MakeStatusOption("Whitelist",2) MakeStatusOption("Enemy",3)
-    local function MakeAction(Name,CallbackKey,Order)
-        local Button=Create("TextButton",{Parent=ActionHolder,Size=UDim2.new(0.5,-2,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.38,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=10,AutoButtonColor=false,LayoutOrder=Order,ZIndex=155},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.62})})
-        Bind(Button.MouseEnter:Connect(function() Button.BackgroundTransparency=0.22 Button.TextColor3=Colors.TextBright end))
-        Bind(Button.MouseLeave:Connect(function() Button.BackgroundTransparency=0.38 Button.TextColor3=Colors.Text end))
-        Bind(Button.MouseButton1Click:Connect(function() local Callback=Data[CallbackKey] if type(Callback)~="function" then return end if CallbackKey=="Unspectate" then task.spawn(Callback) elseif Object.Selected then task.spawn(Callback,Object.Selected) end end))
-        return Button
-    end
-    MakeAction("spectate","Spectate",1)
-    MakeAction("unspectate","Unspectate",2)
-    RefreshSelected=function(LoadImage)
-        local Player=Object.Selected local Valid=Player and Player.Parent==Players
-        Empty.Visible=not Valid Profile.Visible=Valid CloseDrop()
-        if not Valid then Object.Selected=nil Avatar.Image="" User.Text="" Info.Text="" return end
-        if LoadImage~=false then Avatar.Image="rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=150&h=150" end
-        User.Text=Player.Name
-        Info.Text=(Player.DisplayName~=Player.Name and Player.DisplayName.."  /  " or "")..tostring(Player.UserId)
-        local Status=ReadStatus(Player) StatusButton.Text=Status StatusButton.TextColor3=StatusColors[Status] or Colors.Text
-        StatusButton.Active=Player~=Players.LocalPlayer StatusArrow.Visible=Player~=Players.LocalPlayer
-    end
-    local function Select(Player)
-        if Player and Player.Parent~=Players then Player=nil end Object.Selected=Player
-        if RefreshRows then RefreshRows() end if RefreshSelected then RefreshSelected(true) end
-    end
-    RefreshRows=function()
-        for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end table.clear(Object.Rows)
-        local Query=string.lower(Object.Search or "") local Items=Players:GetPlayers()
-        table.sort(Items,function(A,B)
-            if A==Players.LocalPlayer then return true end if B==Players.LocalPlayer then return false end
-            local Rank={Enemy=1,Whitelist=2,Neutral=3} local SA,SB=ReadStatus(A),ReadStatus(B)
-            if Rank[SA] and Rank[SB] and Rank[SA]~=Rank[SB] then return Rank[SA]<Rank[SB] end
-            return A.Name:lower()<B.Name:lower()
-        end)
-        local VisibleCount=0
-        for _,Player in ipairs(Items) do
-            local SearchName=string.lower(Player.Name.." "..Player.DisplayName)
-            if Query=="" or string.find(SearchName,Query,1,true) then
-                VisibleCount+=1 local Status=ReadStatus(Player) local Selected=Object.Selected==Player
-                local Row=Create("TextButton",{Parent=List,Size=UDim2.new(1,0,0,24),BackgroundColor3=Colors.Control,BackgroundTransparency=Selected and 0.54 or 1,BorderSizePixel=0,Text="",AutoButtonColor=false,LayoutOrder=VisibleCount,ZIndex=154})
-                Create("Frame",{Parent=Row,Position=UDim2.fromOffset(0,3),Size=UDim2.fromOffset(1,18),BackgroundColor3=Accent(),BackgroundTransparency=Selected and 0 or 1,BorderSizePixel=0,ZIndex=156})
-                local MiniHolder=Create("Frame",{Parent=Row,AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,5,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Colors.Control,BorderSizePixel=0,ClipsDescendants=true,ZIndex=155},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-                Create("ImageLabel",{Parent=MiniHolder,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Image="rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=48&h=48",ScaleType=Enum.ScaleType.Crop,ZIndex=156},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-                local NameLabel=Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(27,0),Size=UDim2.new(1,-116,1,0),BackgroundTransparency=1,Text=Player.Name,TextColor3=Selected and Colors.TextBright or Colors.Text,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=155})
-                local StatusLabel=Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-5,0,0),Size=UDim2.fromOffset(82,24),BackgroundTransparency=1,Text=Status,TextColor3=StatusColors[Status] or Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=9,TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=155})
-                Bind(Row.MouseEnter:Connect(function() if Object.Selected~=Player then Row.BackgroundTransparency=0.86 NameLabel.TextColor3=Colors.TextBright end end))
-                Bind(Row.MouseLeave:Connect(function() if Object.Selected~=Player then Row.BackgroundTransparency=1 NameLabel.TextColor3=Colors.Text end end))
-                Bind(Row.MouseButton1Click:Connect(function() Select(Player) end))
-                Object.Rows[#Object.Rows+1]=Row
-            end
-        end
-        Count.Text="players  "..tostring(VisibleCount)
-    end
-    Bind(StatusButton.MouseButton1Click:Connect(function()
-        if not Object.Selected or Object.Selected==Players.LocalPlayer then return end
-        Object.DropOpen=not Object.DropOpen StatusDrop.Visible=Object.DropOpen StatusArrow.Text=Object.DropOpen and "^" or "v"
-    end))
-    function Object:ApplyVisibility()
-        Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
-        if not Frame.Visible then CloseDrop() end
-        if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
-    end
-    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
-    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
-    function Object:IsVisible() return Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false end
-    function Object:IsRequestedVisible() return Object.RequestedVisible==true end
-    function Object:Toggle() Object:SetVisibility(not Object.RequestedVisible) end
-    function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.65,1.5) end
-    function Object:SetStatus(Player,Status) return SetStatus(Player,Status,false) end
-    function Object:GetStatus(Player) return ReadStatus(Player) end
-    function Object:SelectPlayer(Player) Select(Player) end
-    function Object:Refresh() RefreshRows() RefreshSelected(false) end
-    Bind(Search:GetPropertyChangedSignal("Text"):Connect(function() Object.Search=Search.Text RefreshRows() end))
-    Bind(Players.PlayerAdded:Connect(function() task.defer(function() Object:Refresh() end) end))
-    Bind(Players.PlayerRemoving:Connect(function(Player) Library.PlayerStatuses[tonumber(Player.UserId) or 0]=nil if Object.Selected==Player then Object.Selected=nil end task.defer(function() Object:Refresh() end) end))
-    MakeDraggable(Frame,Header,Gui)
-    MakeResizable({Main=Frame,ScreenGui=Gui},Vector2.new(520,300))
-    RegisterRenderer(function()
-        local A=Accent() StatusColors.Client=A AccentLine.BackgroundColor3=A
-        local Gradient=AccentLine:FindFirstChildOfClass("UIGradient") if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.12,A),ColorSequenceKeypoint.new(0.88,A),ColorSequenceKeypoint.new(1,Color3.new())}) end
-        if Object.Selected then RefreshSelected(false) end
-    end)
-    Object:Refresh() self.PlayerListController=Object Object:ApplyVisibility() return Object
-end
-
-function Library:ThemePanel()
-    local Existing=self.ThemePanelController
-    if Existing and Existing.Gui and Existing.Gui.Parent and Existing.Frame and Existing.Frame.Parent then return Existing end
-    if Existing and Existing.Gui and Existing.Gui.Parent then Existing.Gui:Destroy() end
-
-    local Parent=ParentGui()
-    local Gui=Create("ScreenGui",{Name="AtramentaThemePanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=195,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
-    self.Guis[#self.Guis+1]=Gui
-
-    local Width,Height=640,470
-    local Main=Create("Frame",{
-        Parent=Gui,Size=UDim2.fromOffset(Width,Height),
-        Position=UDim2.new(0.5,-math.floor(Width/2),0.5,-math.floor(Height/2)),
-        BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ClipsDescendants=false
-    },{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
-
-    local TitleBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true},{
-        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(28,28,32)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0))})}),
-        Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
-    })
-    local TitleLabel=Create("TextLabel",{Parent=TitleBar,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Theme",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,ZIndex=4})
-    local Content=Create("Frame",{Parent=Main,Position=UDim2.fromOffset(0,22),Size=UDim2.new(1,0,1,-48),BackgroundTransparency=1,ClipsDescendants=false})
-    local TabBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,26),Position=UDim2.new(0,0,1,-26),BackgroundColor3=Colors.TabBg,BorderSizePixel=0},{
-        Create("UICorner",{CornerRadius=UDim.new(0,4)}),
-        Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})}),
-        Create("Frame",{Size=UDim2.new(1,0,0,6),BackgroundColor3=Colors.TabBg,BorderSizePixel=0,ZIndex=0})
-    })
-
-    local Object=setmetatable({
-        Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,
-        Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,
-        RequestedVisible=false,Visible=false,MenuVisible=true,Destroyed=false
-    },WindowMethods)
-
-    function Object:ApplyVisibility()
-        local State=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
-        Object.Visible=State
-        Main.Visible=State
-        if not State then Object:CloseDropdown() Object:ClosePicker() end
-        if type(Library.SetNotificationPreviewVisible)=="function" then
-            local Window=Library.ActiveWindow
-            Library:SetNotificationPreviewVisible(State or (Window and Window:IsVisible()) or false)
-        end
-        if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
-    end
-    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
-    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
-    function Object:IsVisible() return Main.Visible==true end
-    function Object:IsRequestedVisible() return Object.RequestedVisible==true end
-    function Object:Toggle() Object:SetVisibility(not Object.RequestedVisible) end
-    function Object:Destroy()
-        if Object.Destroyed then return end
-        Object.Destroyed=true
-        if Gui and Gui.Parent then Gui:Destroy() end
-        if Library.ThemePanelController==Object then Library.ThemePanelController=nil end
-    end
-
-    self.ThemePanelController=Object
-    CreatePopupLayer(Object)
-    MakeDraggable(Main,TitleBar,Gui)
-    MakeResizable(Object,Vector2.new(580,410))
-    BindFrameToViewport(Main,Gui,4)
-
-    local function SetFlagValue(Flag,Value)
-        local Setter=Library.Setters[Flag]
-        if type(Setter)=="function" then Call(Setter,Value) else Library.Flags[Flag]=Value end
-    end
-    local function Notify(Text)
-        Library:Notification({Title="theme",Description=tostring(Text),Duration=1.8})
-    end
-    local function RefreshKeybindPanel()
-        local Controller=Library.KeybindListController
-        if Controller and type(Controller.Refresh)=="function" then Controller:Refresh() end
-    end
-    local function ApplyPanelSize()
-        local Controller=Library.PanelController or Library.QuickPanelController
-        local Root=Controller and Controller.Root
-        if Library.Flags.__ThemePanelWidth==nil and Library.Flags.__ThemeQuickPanelWidth~=nil then Library.Flags.__ThemePanelWidth=Library.Flags.__ThemeQuickPanelWidth end
-        if Library.Flags.__ThemePanelHeight==nil and Library.Flags.__ThemeQuickPanelHeight~=nil then Library.Flags.__ThemePanelHeight=Library.Flags.__ThemeQuickPanelHeight end
-        if not Root or not Root.Parent then return end
-        local W=math.clamp(tonumber(Library.Flags.__ThemePanelWidth) or 330,300,500)
-        local H=math.clamp(tonumber(Library.Flags.__ThemePanelHeight) or 29,24,44)
-        Root.Size=UDim2.fromOffset(W,H)
-    end
-
-    -- COLORS: only the library's native Colorpicker controls.
-    local ColorsPage=Object:Page({Name="Colors"})
-    local BaseColors=ColorsPage:Section({Name="base",Side=1})
-    local TextColors=ColorsPage:Section({Name="text",Side=2})
-    local ColorControls={}
-    local function ThemeColor(Section,Name,Key,Flag)
-        local Picker=Section:Colorpicker({Name=Name,Flag=Flag,Default=Library.Theme[Key],Callback=function(Value)
-            if typeof(Value)=="Color3" then Library:ChangeTheme(Key,Value) end
-        end})
-        ColorControls[Key]=Picker
-        return Picker
-    end
-    ThemeColor(BaseColors,"accent","Accent","__ThemeAccent")
-    ThemeColor(BaseColors,"background","Background","__ThemeBackground")
-    ThemeColor(BaseColors,"surface","Surface","__ThemeSurface")
-    ThemeColor(BaseColors,"controls","Control","__ThemeControl")
-    ThemeColor(BaseColors,"border","Border","__ThemeBorder")
-    BaseColors:Button({Name="reset colors",Callback=function()
-        Library:ApplyThemePreset(Library.ThemePresets.Atramenta)
-        Notify("colors reset")
-    end})
-    ThemeColor(TextColors,"text","Text","__ThemeText")
-    ThemeColor(TextColors,"bright text","TextBright","__ThemeTextBright")
-    ThemeColor(TextColors,"muted text","TextDim","__ThemeTextDim")
-    ThemeColor(TextColors,"section text","Header","__ThemeHeader")
-
-    local function RefreshThemeColorControls()
-        for Key,Picker in pairs(ColorControls) do
-            local Value=Library.Theme[Key]
-            if Picker and typeof(Value)=="Color3" then
-                Picker.Color=Value
-                if Picker.Button and Picker.Button.Parent then Picker.Button.BackgroundColor3=Value end
-                Library.Flags[Picker.Flag]=Value
-            end
-        end
-    end
-    RegisterRenderer(RefreshThemeColorControls)
-
-    -- THEMES: native Dropdown/Textbox/Listbox/Button controls.
-    local ThemesPage=Object:Page({Name="Themes"})
-    local Presets=ThemesPage:Section({Name="presets",Side=1})
-    local Custom=ThemesPage:Section({Name="custom themes",Side=2})
-    local PresetNames={"Atramenta","Bankroll","Midnight","Crimson"}
-    local SelectedPreset="Atramenta"
-    Presets:Dropdown({Name="preset",Flag="__ThemePresetChoice",Default=SelectedPreset,Items=PresetNames,Callback=function(Value)
-        SelectedPreset=tostring(Value or "Atramenta")
-    end})
-    Presets:Button({Name="apply preset",Callback=function()
-        local Preset=Library.ThemePresets[SelectedPreset]
-        if Preset and Library:ApplyThemePreset(Preset) then RefreshThemeColorControls() Notify(string.lower(SelectedPreset).." loaded") end
-    end})
-    Presets:Button({Name="atramenta default",Callback=function()
-        SelectedPreset="Atramenta"
-        Library:ApplyThemePreset(Library.ThemePresets.Atramenta)
-        RefreshThemeColorControls()
-        Notify("atramenta loaded")
-    end})
-
-    local NameBox=Custom:Textbox({Name="theme name",Flag="__ThemeCustomName",Default="my_theme",Placeholder="theme name"})
-    local ThemeList
-    local function ListCustomThemes()
-        EnsureFolders()
-        if type(listfiles)~="function" then return {} end
-        local Ok,Files=Call(listfiles,Library.Folders.Themes)
-        if not Ok or type(Files)~="table" then return {} end
-        local Result,Seen={},{}
-        for _,Path in ipairs(Files) do
-            local Name=tostring(Path):gsub("\\","/"):match("([^/]+)%.json$")
-            if Name and Name~="" and not Seen[Name] then Seen[Name]=true Result[#Result+1]=Name end
-        end
-        table.sort(Result,function(A,B) return string.lower(A)<string.lower(B) end)
-        return Result
-    end
-    local function RefreshThemeList(SelectName)
-        if not ThemeList then return end
-        local Items=ListCustomThemes()
-        ThemeList:SetItems(Items)
-        if SelectName and table.find(Items,SelectName) then ThemeList:Set(SelectName) end
-    end
-    ThemeList=Custom:Listbox({Height=112,Items={},Callback=function(Value) if Value then NameBox:Set(tostring(Value),true) end end})
-    Custom:Button({Name="refresh",Callback=function() RefreshThemeList() end})
-    Custom:Button({Name="save current",Callback=function()
-        local Name=tostring(NameBox:Get() or "")
-        if Library:SaveCustomTheme(Name) then RefreshThemeList(Name:gsub("%s+","_")) Notify("saved "..Name) else Notify("failed to save theme") end
-    end})
-    Custom:Button({Name="load selected",Callback=function()
-        local Name=ThemeList:Get() or NameBox:Get()
-        if Library:LoadCustomTheme(Name) then RefreshThemeColorControls() Notify("loaded "..tostring(Name)) else Notify("failed to load theme") end
-    end})
-    Custom:Button({Name="delete selected",Callback=function()
-        local Name=ThemeList:Get() or NameBox:Get()
-        if Library:DeleteCustomTheme(Name) then RefreshThemeList() Notify("deleted "..tostring(Name)) else Notify("failed to delete theme") end
-    end})
-    task.defer(RefreshThemeList)
-
-    -- UI: only settings that are actually connected to live UI objects.
-    local UIPage=Object:Page({Name="UI"})
-    local WatermarkSection=UIPage:Section({Name="watermark",Side=1})
-    local PanelSection=UIPage:Section({Name="panel",Side=2})
-    local WatermarkToggle=WatermarkSection:Toggle({Name="enabled",Flag="__ThemePanelWatermark",Default=Library.Flags.__InterfaceWatermark~=false,Callback=function(Value)
-        Library.Flags.__InterfaceWatermark=Value==true
-        local Controller=Library.WatermarkController
-        if Controller and type(Controller.SetVisibility)=="function" then Controller:SetVisibility(Value==true) end
-    end})
-    local WatermarkScale=WatermarkSection:Slider({Name="scale",Flag="__ThemePanelWatermarkScale",Min=60,Max=160,Default=tonumber(Library.Flags.__InterfaceWatermarkScale) or 100,Step=5,Suffix="%",Callback=function(Value)
-        local Number=math.clamp(tonumber(Value) or 100,60,160)
-        Library.Flags.__InterfaceWatermarkScale=Number
-        local Controller=Library.WatermarkController
-        if Controller and type(Controller.SetScale)=="function" then Controller:SetScale(Number) end
-    end})
-    PanelSection:Slider({Name="width",Flag="__ThemePanelWidth",Min=300,Max=500,Default=tonumber(Library.Flags.__ThemePanelWidth) or 330,Step=2,Suffix=" px",Callback=function(Value)
-        Library.Flags.__ThemePanelWidth=Value ApplyPanelSize()
-    end})
-    PanelSection:Slider({Name="height",Flag="__ThemePanelHeight",Min=24,Max=44,Default=tonumber(Library.Flags.__ThemePanelHeight) or 29,Step=1,Suffix=" px",Callback=function(Value)
-        Library.Flags.__ThemePanelHeight=Value ApplyPanelSize()
-    end})
-    PanelSection:Button({Name="reset panel size",Callback=function()
-        local WSetter=Library.Setters.__ThemePanelWidth local HSetter=Library.Setters.__ThemePanelHeight
-        if type(WSetter)=="function" then Call(WSetter,330) else Library.Flags.__ThemePanelWidth=330 end
-        if type(HSetter)=="function" then Call(HSetter,29) else Library.Flags.__ThemePanelHeight=29 end
-        ApplyPanelSize()
-    end})
-
-    -- BINDS: all controls use the same Toggle/Slider widgets as the menu.
-    local BindsPage=Object:Page({Name="Binds"})
-    local BindList=BindsPage:Section({Name="keybind list",Side=1})
-    local BindStyle=BindsPage:Section({Name="display",Side=2})
-    local KeybindToggle=BindList:Toggle({Name="enabled",Flag="__ThemePanelKeybindList",Default=Library.Flags.__InterfaceKeybindList==true,Callback=function(Value)
-        Library.Flags.__InterfaceKeybindList=Value==true
-        local Controller=Library.KeybindListController
-        if Controller and type(Controller.SetVisibility)=="function" then Controller:SetVisibility(Value==true) end
-    end})
-    local KeybindScale=BindList:Slider({Name="scale",Flag="__ThemePanelKeybindScale",Min=60,Max=160,Default=tonumber(Library.Flags.__InterfaceKeybindScale) or 100,Step=5,Suffix="%",Callback=function(Value)
-        local Number=math.clamp(tonumber(Value) or 100,60,160)
-        Library.Flags.__InterfaceKeybindScale=Number
-        local Controller=Library.KeybindListController
-        if Controller and type(Controller.SetScale)=="function" then Controller:SetScale(Number) end
-    end})
-    BindList:Toggle({Name="show header",Flag="__ThemeBindShowHeader",Default=Library.KeybindSettings.ShowHeader~=false,Callback=function(Value)
-        Library.KeybindSettings.ShowHeader=Value==true RefreshKeybindPanel()
-    end})
-    BindList:Toggle({Name="show inactive",Flag="__ThemeBindShowInactive",Default=Library.KeybindSettings.ShowInactive~=false,Callback=function(Value)
-        Library.KeybindSettings.ShowInactive=Value==true RefreshKeybindPanel()
-    end})
-    BindStyle:Toggle({Name="accent active",Flag="__ThemeBindAccentActive",Default=Library.KeybindSettings.AccentActive~=false,Callback=function(Value)
-        Library.KeybindSettings.AccentActive=Value==true RefreshKeybindPanel()
-    end})
-    BindStyle:Toggle({Name="compact rows",Flag="__ThemeBindCompactRows",Default=Library.KeybindSettings.CompactRows~=false,Callback=function(Value)
-        Library.KeybindSettings.CompactRows=Value==true RefreshKeybindPanel()
-    end})
-    BindStyle:Label({Name="Hold -> Holded   |   Toggle -> Toggled   |   Always -> Always",Alignment="Left"})
-
-    -- NOTIFS: native controls, all callbacks are connected to notification runtime.
-    local NotifsPage=Object:Page({Name="Notifs"})
-    local NotificationStyle=NotifsPage:Section({Name="notifications",Side=1})
-    local NotificationLayout=NotifsPage:Section({Name="layout",Side=2})
-    NotificationStyle:Slider({Name="default lifetime",Flag="__ThemeNotifLifetime",Min=1,Max=8,Default=tonumber(Library.NotificationSettings.DefaultDuration) or 3,Step=0.25,Suffix=" s",Callback=function(Value)
-        Library.NotificationSettings.DefaultDuration=Value
-    end})
-    NotificationStyle:Slider({Name="animation speed",Flag="__ThemeNotifAnimation",Min=0.5,Max=2,Default=tonumber(Library.NotificationSettings.AnimationSpeed) or 1,Step=0.1,Suffix="x",Callback=function(Value)
-        Library.NotificationSettings.AnimationSpeed=Value
-    end})
-    NotificationStyle:Slider({Name="maximum visible",Flag="__ThemeNotifMaximum",Min=1,Max=12,Default=tonumber(Library.NotificationSettings.MaximumVisible) or 8,Step=1,Callback=function(Value)
-        Library.NotificationSettings.MaximumVisible=math.floor(Value+0.5) Library.NotificationMaximumVisible=Library.NotificationSettings.MaximumVisible
-    end})
-    NotificationStyle:Toggle({Name="progress bar",Flag="__ThemeNotifProgress",Default=Library.NotificationSettings.Progress~=false,Callback=function(Value)
-        Library.NotificationSettings.Progress=Value==true
-    end})
-    NotificationLayout:Slider({Name="scale",Flag="__ThemeNotifScale",Min=70,Max=140,Default=tonumber(Library.NotificationSettings.Scale) or 100,Step=5,Suffix="%",Callback=function(Value)
-        Library.NotificationSettings.Scale=Value Library:ApplyNotificationLayout()
-    end})
-    NotificationLayout:Button({Name="show example",Callback=function() Library:SetNotificationPreviewVisible(true) end})
-    NotificationLayout:Button({Name="top right",Callback=function() Library:SetNotificationLayout(Vector2.new(0.94,0.08)) end})
-    NotificationLayout:Button({Name="center",Callback=function() Library:SetNotificationLayout(Vector2.new(0.5,0.5)) end})
-    NotificationLayout:Label({Name="drag the example notification to set the exact position for notifications and hit logs",Alignment="Left"})
-
-    RegisterRenderer(function()
-        SyncThemeColors()
-        Main.BackgroundColor3=Colors.Bg TitleBar.BackgroundColor3=Colors.TitleBg TabBar.BackgroundColor3=Colors.TabBg TitleLabel.TextColor3=Colors.TextBright
-        local Stroke=Main:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end
-        for _,Bar in ipairs({TitleBar,TabBar}) do
-            local Line=Bar:FindFirstChild("AccentLine")
-            if Line then
-                local A=Accent() Line.BackgroundColor3=A
-                local Gradient=Line:FindFirstChildOfClass("UIGradient")
-                if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,A),ColorSequenceKeypoint.new(1,Color3.new())}) end
-            end
-        end
-        RefreshThemeColorControls()
-        local WatermarkState=Library.Flags.__InterfaceWatermark~=false
-        if WatermarkToggle and WatermarkToggle:Get()~=WatermarkState then WatermarkToggle:Set(WatermarkState,true) end
-        local WatermarkValue=math.clamp(tonumber(Library.Flags.__InterfaceWatermarkScale) or 100,60,160)
-        if WatermarkScale and WatermarkScale:Get()~=WatermarkValue then WatermarkScale:Set(WatermarkValue,true) end
-        local KeybindState=Library.Flags.__InterfaceKeybindList==true
-        if KeybindToggle and KeybindToggle:Get()~=KeybindState then KeybindToggle:Set(KeybindState,true) end
-        local KeybindValue=math.clamp(tonumber(Library.Flags.__InterfaceKeybindScale) or 100,60,160)
-        if KeybindScale and KeybindScale:Get()~=KeybindValue then KeybindScale:Set(KeybindValue,true) end
-    end)
-
-    ApplyPanelSize()
-    Object:ApplyVisibility()
-    return Object
-end
-
-function Library:Panel(Data)
-    Data=type(Data)=="table" and Data or {}
-    if self.PanelController then return self.PanelController end
-    if self.QuickPanelController then self.PanelController=self.QuickPanelController return self.PanelController end
-    self.InterfaceOpen=self.InterfaceOpen~=false
-    local Parent=ParentGui()
-    local Gui=Create("ScreenGui",{Name="AtramentaPanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=190,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
-    self.Guis[#self.Guis+1]=Gui
-    local Root=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,8),Size=UDim2.fromOffset(330,29),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0,BorderSizePixel=0,Visible=self.InterfaceOpen,Active=true,ZIndex=190},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.58})})
-    local Inner=Create("Frame",{Parent=Root,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,ZIndex=191},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(0.55,Colors.TitleBg),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
-    local AccentLine=Create("Frame",{Parent=Inner,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=194},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,Accent()),ColorSequenceKeypoint.new(0.82,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
-    local Holder=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(5,4),Size=UDim2.new(1,-10,1,-8),BackgroundTransparency=1,ZIndex=192},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Center,VerticalAlignment=Enum.VerticalAlignment.Center,Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder})})
-    local Object={Gui=Gui,Root=Root,Buttons={}}
-    local function RequestedMenu() local Window=Library.ActiveWindow return Window and Window.Visible==true or false end
-    local function RequestedPlayers() local Controller=Library.PlayerListController return Controller and Controller.RequestedVisible==true or false end
-    local function RequestedTheme() local Controller=Library.ThemePanelController return Controller and Controller.RequestedVisible==true or false end
-    local function RequestedConfiguration() local Controller=Library.ConfigurationPanelController return Controller and Controller.RequestedVisible==true or false end
-    local function Paint(Button,State)
-        Button.BackgroundTransparency=State and 0.60 or 0.84 Button.TextColor3=State and Accent() or Colors.Text
-        local Stroke=Button:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=State and Accent() or Colors.SectionBorder Stroke.Transparency=State and 0.68 or 0.72 end
-    end
-    local function Make(Name,Order,Callback)
-        local Button=Create("TextButton",{Parent=Holder,Size=UDim2.new(1/4,-4,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.80,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Order,ZIndex=193},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.55})})
-        Object.Buttons[Name]=Button Bind(Button.MouseButton1Click:Connect(Callback)) return Button
-    end
-    function Object.Refresh()
-        if Object.Buttons.Menu then Paint(Object.Buttons.Menu,RequestedMenu()) end
-        if Object.Buttons.PlayerList then Paint(Object.Buttons.PlayerList,RequestedPlayers()) end
-        if Object.Buttons.Theme then Paint(Object.Buttons.Theme,RequestedTheme()) end
-        if Object.Buttons.Configuration then Paint(Object.Buttons.Configuration,RequestedConfiguration()) end
-    end
-    Make("Menu",1,function() local Window=Library.ActiveWindow if Window then Window:SetVisible(not Window.Visible) end Object.Refresh() end)
-    Make("PlayerList",2,function() local Controller=Library.PlayerListController if Controller then Controller:SetVisibility(not Controller.RequestedVisible) end Object.Refresh() end)
-    Make("Theme",3,function() local Controller=Library:ThemePanel() Controller:Toggle() Object.Refresh() end)
-    Make("Configuration",4,function() local Controller=Library:ConfigurationPanel() Controller:Toggle() Object.Refresh() end)
-    function Object:SetInterfaceVisible(State)
-        State=State==true Library.InterfaceOpen=State Root.Visible=State
-        local Window=Library.ActiveWindow if Window and type(Window.SetMenuVisible)=="function" then Window:SetMenuVisible(State) end
-        local PlayersPanel=Library.PlayerListController if PlayersPanel and type(PlayersPanel.SetMenuVisible)=="function" then PlayersPanel:SetMenuVisible(State) end
-        local ThemePanel=Library.ThemePanelController if ThemePanel and type(ThemePanel.SetMenuVisible)=="function" then ThemePanel:SetMenuVisible(State) end
-        local ConfigurationPanel=Library.ConfigurationPanelController if ConfigurationPanel and type(ConfigurationPanel.SetMenuVisible)=="function" then ConfigurationPanel:SetMenuVisible(State) end
-        local Watermark=Library.WatermarkController if Watermark and type(Watermark.ApplyVisibility)=="function" then Watermark:ApplyVisibility() end
-        local Keybinds=Library.KeybindListController if Keybinds and type(Keybinds.ApplyVisibility)=="function" then Keybinds:ApplyVisibility() end
-        if type(Library.SetNotificationPreviewVisible)=="function" then
-            local ThemeVisible=ThemePanel and ThemePanel:IsVisible() or false
-            Library:SetNotificationPreviewVisible(State and ((Window and Window:IsVisible()) or ThemeVisible))
-        end
-        Object.Refresh()
-    end
-    function Object:ToggleInterface() Object:SetInterfaceVisible(not (Library.InterfaceOpen~=false)) end
-    function Object:IsVisible() return Library.InterfaceOpen~=false end
-    MakeDraggable(Root,Root,Gui) BindFrameToViewport(Root,Gui,4)
-    RegisterRenderer(function()
-        local A=Accent() AccentLine.BackgroundColor3=A local Gradient=AccentLine:FindFirstChildOfClass("UIGradient")
-        if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,A),ColorSequenceKeypoint.new(0.82,A),ColorSequenceKeypoint.new(1,Color3.new())}) end Object.Refresh()
-    end)
-    self.PanelController=Object
-    self.QuickPanelController=Object -- compatibility alias for older Atramenta builds
-    Object.Refresh()
-    return Object
-end
-
-function Library:QuickPanel(Data)
-    -- Deprecated compatibility alias. New code should use Library:Panel().
-    return self:Panel(Data)
-end
-
-function Library:GetNotificationAlign()
-    local Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
-    Point=Vector2.new(math.clamp(Point.X,0.02,0.98),math.clamp(Point.Y,0.02,0.98))
-    self.NotificationPoint=Point
-    local AX=Point.X<0.34 and 0 or Point.X>0.66 and 1 or 0.5
-    local AY=Point.Y<0.34 and 0 or Point.Y>0.66 and 1 or 0.5
-    local H=AX==0 and Enum.HorizontalAlignment.Left or AX==1 and Enum.HorizontalAlignment.Right or Enum.HorizontalAlignment.Center
-    local V=AY==0 and Enum.VerticalAlignment.Top or AY==1 and Enum.VerticalAlignment.Bottom or Enum.VerticalAlignment.Center
-    return Point,Vector2.new(AX,AY),H,V
-end
-
-function Library:ApplyNotificationLayout()
-    local Holder=self.NotificationHolder
-    local Gui=self.NotificationGui
-    if not Holder or not Holder.Parent or not Gui or not Gui.Parent then return end
-    local Point,Anchor,H,V=self:GetNotificationAlign()
-    local Viewport=GetViewportSize(Gui)
-    Holder.Size=UDim2.fromOffset(math.max(140,math.min(320,Viewport.X-24)),math.max(120,math.min(560,Viewport.Y-24)))
-    local HolderScale=Holder:FindFirstChildOfClass("UIScale") or Create("UIScale",{Parent=Holder,Scale=1}) HolderScale.Scale=math.clamp(tonumber((self.NotificationSettings or {}).Scale) or 100,70,140)/100
-    Holder.AnchorPoint=Anchor Holder.Position=UDim2.fromScale(Point.X,Point.Y)
-    local Layout=Holder:FindFirstChildOfClass("UIListLayout")
-    if Layout then Layout.HorizontalAlignment=H Layout.VerticalAlignment=V end
-    if self.NotificationPreview and self.NotificationPreview.Parent then
-        self.NotificationPreview.AnchorPoint=Anchor
-        self.NotificationPreview.Position=UDim2.fromScale(Point.X,Point.Y)
-    end
-    if self.CombatLogHolder and self.CombatLogHolder.Parent then
-        self.CombatLogHolder.AnchorPoint=Anchor self.CombatLogHolder.Position=UDim2.fromScale(Point.X,Point.Y)
-        local CombatLayout=self.CombatLogHolder:FindFirstChildOfClass("UIListLayout")
-        if CombatLayout then CombatLayout.HorizontalAlignment=H CombatLayout.VerticalAlignment=V end
-    end
-end
-
-function Library:SetNotificationLayout(Position)
-    if typeof(Position)=="Vector2" then self.NotificationPoint=Position
-    elseif typeof(Position)=="UDim2" then self.NotificationPoint=Vector2.new(Position.X.Scale,Position.Y.Scale)
-    elseif type(Position)=="string" then
-        local Map={
-            ["Top Left"]=Vector2.new(0.06,0.08),["Top Center"]=Vector2.new(0.5,0.08),["Top Right"]=Vector2.new(0.94,0.08),
-            ["Middle Left"]=Vector2.new(0.06,0.5),["Middle Center"]=Vector2.new(0.5,0.5),["Middle Right"]=Vector2.new(0.94,0.5),
-            ["Bottom Left"]=Vector2.new(0.06,0.92),["Bottom Center"]=Vector2.new(0.5,0.92),["Bottom Right"]=Vector2.new(0.94,0.92)
-        }
-        if Map[Position] then self.NotificationPoint=Map[Position] end
-    end
-    self:ApplyNotificationLayout()
-end
-
-function Library:EnsureNotificationGui()
-    local Parent=ParentGui() local Gui=self.NotificationGui
-    if Gui and Gui.Parent and self.NotificationHolder and self.NotificationHolder.Parent then return Gui end
-    Gui=Create("ScreenGui",{Name="AtramentaNotifications",Parent=Parent,ResetOnSpawn=false,DisplayOrder=200,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
-    self.Guis[#self.Guis+1]=Gui self.NotificationGui=Gui
-    self.NotificationHolder=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-10,0,10),Size=UDim2.fromOffset(320,560),BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,4),HorizontalAlignment=Enum.HorizontalAlignment.Right,VerticalAlignment=Enum.VerticalAlignment.Top,SortOrder=Enum.SortOrder.LayoutOrder})})
-    local Preview=Create("Frame",{Name="NotificationExample",Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.94,0.08),Size=UDim2.fromOffset(238,42),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ZIndex=5000},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
-    local AccentLine=Create("Frame",{Parent=Preview,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,2,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5002})
-    local Header=Create("Frame",{Parent=Preview,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.22,BorderSizePixel=0,ZIndex=5001})
-    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text="atramenta.rip",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=5002})
-    Create("TextLabel",{Parent=Preview,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,18),BackgroundTransparency=1,Text="example notification - drag me",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=5002})
-    self.NotificationPreview=Preview
-    local Dragging=false local StartMouse local StartPoint
-    Bind(Preview.InputBegan:Connect(function(Input)
-        if Input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
-        Dragging=true StartMouse=Input.Position StartPoint=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
-    end))
-    Bind(UserInputService.InputChanged:Connect(function(Input)
-        if not Dragging or Input.UserInputType~=Enum.UserInputType.MouseMovement then return end
-        local Viewport=GetViewportSize(Gui) if Viewport.X<=0 or Viewport.Y<=0 then return end
-        local Delta=Input.Position-StartMouse
-        local Raw=Vector2.new(StartPoint.X+Delta.X/Viewport.X,StartPoint.Y+Delta.Y/Viewport.Y)
-        local AX=Raw.X<0.34 and 0 or Raw.X>0.66 and 1 or 0.5
-        local AY=Raw.Y<0.34 and 0 or Raw.Y>0.66 and 1 or 0.5
-        local MarginX=6/Viewport.X local MarginY=6/Viewport.Y
-        local Width=Preview.AbsoluteSize.X/Viewport.X local Height=Preview.AbsoluteSize.Y/Viewport.Y
-        local MinX=MarginX+Width*AX local MaxX=1-MarginX-Width*(1-AX)
-        local MinY=MarginY+Height*AY local MaxY=1-MarginY-Height*(1-AY)
-        self.NotificationPoint=Vector2.new(math.clamp(Raw.X,MinX,MaxX),math.clamp(Raw.Y,MinY,MaxY))
-        self:ApplyNotificationLayout()
-    end))
-    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Dragging=false end end))
-    Bind(Gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:ApplyNotificationLayout() end))
-    RegisterRenderer(function() if Preview and Preview.Parent then AccentLine.BackgroundColor3=Accent() end end)
-    self:ApplyNotificationLayout()
-    return Gui
-end
-
-function Library:SetNotificationPreviewVisible(State)
-    self:EnsureNotificationGui()
-    local Window=self.ActiveWindow
-    local ThemePanel=self.ThemePanelController
-    local ContextVisible=(Window and Window:IsVisible()) or (ThemePanel and ThemePanel:IsVisible()) or false
-    State=State==true and self.InterfaceOpen~=false and ContextVisible or false
-    if self.NotificationPreview and self.NotificationPreview.Parent then self.NotificationPreview.Visible=State end
-end
-
-
-function Library:GetCombatLogAlign(Position)
-    local Point,Anchor,H,V=self:GetNotificationAlign()
-    return "Example",Point,Anchor,H,V
-end
-
-function Library:EnsureCombatLogGui()
-    local Parent=ParentGui() local Gui=self.CombatLogGui
-    if Gui and Gui.Parent and self.CombatLogHolder and self.CombatLogHolder.Parent then return Gui end
-    Gui=Create("ScreenGui",{Name="AtramentaCombatLogs",Parent=Parent,ResetOnSpawn=false,DisplayOrder=199,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
-    self.Guis[#self.Guis+1]=Gui self.CombatLogGui=Gui
-    local Point,Anchor,H,V=self:GetNotificationAlign()
-    local Holder=Create("Frame",{Name="CombatLogHolder",Parent=Gui,AnchorPoint=Anchor,Position=UDim2.fromScale(Point.X,Point.Y),Size=UDim2.fromOffset(320,520),BackgroundTransparency=1,ZIndex=4500},{Create("UIListLayout",{Padding=UDim.new(0,4),HorizontalAlignment=H,VerticalAlignment=V,SortOrder=Enum.SortOrder.LayoutOrder})})
-    self.CombatLogHolder=Holder
-    self.CombatLogScaleObject=Create("UIScale",{Parent=Holder,Scale=1})
-    self:SetCombatLogLayout(nil,self.CombatLogScale or 100)
-    return Gui
-end
-
-function Library:SetCombatLogLayout(Position,Scale)
-    self.CombatLogPosition="Example"
-    self.CombatLogScale=math.clamp(tonumber(Scale) or tonumber(self.CombatLogScale) or 100,60,160)
-    local Gui=self.CombatLogGui local Holder=self.CombatLogHolder
-    if not Gui or not Gui.Parent or not Holder or not Holder.Parent then return end
-    local Point,Anchor,H,V=self:GetNotificationAlign()
-    Holder.AnchorPoint=Anchor Holder.Position=UDim2.fromScale(Point.X,Point.Y)
-    local Layout=Holder:FindFirstChildOfClass("UIListLayout") if Layout then Layout.HorizontalAlignment=H Layout.VerticalAlignment=V end
-    local ScaleObject=self.CombatLogScaleObject if ScaleObject and ScaleObject.Parent then ScaleObject.Scale=self.CombatLogScale/100 end
-end
-
-function Library:CombatLogNotification(Data)
-    if type(Data)=="string" then Data={Description=Data} end Data=Data or {}
-    local Gui=self:EnsureCombatLogGui()
-    self:SetCombatLogLayout(nil,Data.Scale or self.CombatLogScale or 100)
-    self.CombatLogSerial=(self.CombatLogSerial or 0)+1
-    local Title=string.lower(tostring(Data.Title or "log")) local Description=tostring(Data.Description or "")
-    local MaxTextWidth=270
-    local DescBounds=TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,1000))
-    local TitleBounds=TextService:GetTextSize(Title,11,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,16))
-    local Viewport=GetViewportSize(Gui) local MaximumWidth=math.max(150,math.min(310,Viewport.X-28))
-    local Width=math.clamp(math.ceil(math.max(TitleBounds.X+20,math.min(DescBounds.X,MaxTextWidth)+20)),math.min(170,MaximumWidth),MaximumWidth)
-    local DescWidth=Width-18 local Wrapped=TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(DescWidth,1000))
-    local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),13,34) local Height=Description=="" and 22 or 22+DescHeight
-    local Wrapper=Create("Frame",{Parent=self.CombatLogHolder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=self.CombatLogSerial,ZIndex=4501})
-    local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,GroupTransparency=1,ZIndex=4502})
-    local Panel=Create("Frame",{Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=4503},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.12}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
-    local AccentLine=Create("Frame",{Parent=Panel,Size=UDim2.new(0,2,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4505})
-    local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.24,BorderSizePixel=0,ZIndex=4504})
-    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=4505})
-    if Description~="" then Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=4505}) end
-    local Duration=math.max(tonumber(Data.Duration) or 3,0.35)
-    local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,2,1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4506})
-    local _,Point=self:GetCombatLogAlign(self.CombatLogPosition) local Direction=Point.X<0.34 and -1 or Point.X>0.66 and 1 or 0
-    Group.Position=UDim2.fromOffset(Direction*8,0)
-    TweenService:Create(Group,TweenInfo.new(0.12,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
-    TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,0,1)}):Play()
-    RegisterRenderer(function() if not Panel.Parent then return end local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A end)
-    local Alive=true
-    local function Close()
-        if not Alive then return end Alive=false
-        TweenService:Create(Group,TweenInfo.new(0.10,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*7,0),GroupTransparency=1}):Play()
-        task.delay(0.11,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
-    end
-    Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end end))
-    task.delay(Duration,Close)
-    local Count=0 local Oldest local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or 8),1)
-    for _,Child in ipairs(self.CombatLogHolder:GetChildren()) do if Child:IsA("Frame") then Count+=1 if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end end end
-    if Count>Maximum and Oldest and Oldest~=Wrapper then Oldest:Destroy() end
-    return Wrapper
-end
-
-function Library:Notification(Data)
-    if type(Data)=="string" then Data={Description=Data} end Data=Data or {}
-    local Gui=self:EnsureNotificationGui()
-    self.NotificationSerial=(self.NotificationSerial or 0)+1
-    local Title=string.lower(tostring(Data.Title or "atramenta.rip")) local Description=tostring(Data.Description or "") local GenericTitles={warn=true,warning=true,success=true,error=true,info=true,notice=true} if GenericTitles[Title] then Title="atramenta.rip" end
-    local MaxTextWidth=252
-    local DescBounds=TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,1000))
-    local TitleBounds=TextService:GetTextSize(Title,11,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,16))
-    local Viewport=GetViewportSize(Gui) local MaximumWidth=math.max(140,math.min(292,Viewport.X-24)) local Width=math.clamp(math.ceil(math.max(TitleBounds.X+18,math.min(DescBounds.X,MaxTextWidth)+18)),math.min(160,MaximumWidth),MaximumWidth)
-    local DescWidth=Width-16
-    local Wrapped=TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(DescWidth,1000))
-    local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),13,30)
-    local Height=Description=="" and 22 or 22+DescHeight
-    local Wrapper=Create("Frame",{Parent=self.NotificationHolder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=self.NotificationSerial})
-    local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromScale(1,1),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,GroupTransparency=1})
-    local Panel=Create("Frame",{Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Colors.Bg,BorderSizePixel=0},{
-        Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})
-    })
-    local AccentLine=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,2,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3})
-    local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.22,BorderSizePixel=0})
-    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
-    if Description~="" then Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top}) end
-    local Duration=math.max(tonumber(Data.Duration) or tonumber((self.NotificationSettings or {}).DefaultDuration) or 3,0.35)
-    local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,2,1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4,Visible=(self.NotificationSettings or {}).Progress~=false})
-    local Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08) local Direction=Point.X<0.34 and -1 or Point.X>0.66 and 1 or 0
-    Group.Position=UDim2.fromOffset(Direction*9,0)
-    local AnimSpeed=math.max(tonumber((self.NotificationSettings or {}).AnimationSpeed) or 1,0.1)
-    TweenService:Create(Group,TweenInfo.new(0.14/AnimSpeed,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
-    TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,0,1)}):Play()
-    RegisterRenderer(function() if not Panel.Parent then return end local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A end)
-    local Alive=true
-    local function Close()
-        if not Alive then return end Alive=false
-        TweenService:Create(Group,TweenInfo.new(0.12/AnimSpeed,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*8,0),GroupTransparency=1}):Play()
-        task.delay(0.13/AnimSpeed,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
-    end
-    Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end end))
-    task.delay(Duration,Close)
-    local Count=0 local Oldest local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or tonumber((self.NotificationSettings or {}).MaximumVisible) or tonumber(self.NotificationMaximumVisible) or 8),1)
-    for _,Child in ipairs(self.NotificationHolder:GetChildren()) do if Child:IsA("Frame") then Count+=1 if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end end end
-    if Count>Maximum and Oldest and Oldest~=Wrapper then Oldest:Destroy() end
-    return Wrapper
-end
-
-local function PointInside(Object,Point)
-    if not Object or not Object.Parent then return false end
-    local P,S=Object.AbsolutePosition,Object.AbsoluteSize
-    return Point.X>=P.X and Point.X<=P.X+S.X and Point.Y>=P.Y and Point.Y<=P.Y+S.Y
-end
-
-Bind(UserInputService.InputBegan:Connect(function(Input,Processed)
-    local Capture=Library.Capture
-    if Capture then
-        if Input.UserInputType==Enum.UserInputType.MouseButton1 then return end
-        if Input.UserInputType==Enum.UserInputType.Keyboard and Input.KeyCode==Enum.KeyCode.Escape and not next(Capture.ModifierCandidates or {}) then CancelCapture() return end
-        local Key=BindSystem.InputKey(Input) local Id=BindSystem.KeyId(Key) if not Key or not Id then return end
-        if not Capture.Armed or os.clock()-Capture.Started<BindSystem.CaptureDelay then return end
-        if typeof(Key)=="EnumItem" and IsModifierKey(Key) then Capture.ModifierCandidates[Id]=Key Capture.Bind.Render() return end
-        if not Capture.Pending then Capture.Pending,Capture.PendingId=Key,Id Capture.PendingModifiers=BindSystem.ReadModifiers(nil) Capture.Bind.Render() end
-        return
-    end
-    if Input.UserInputType==Enum.UserInputType.MouseButton2 then
-        local Point=Input.Position
-        for _,BindData in ipairs(Library.Keybinds) do if BindData.Button and PointInside(BindData.Button,Point) then return end end
-    end
-    if not Processed and Library.ActiveWindow then
-        local MenuBind=Library.MenuBindData
-        if MenuBind and InputMatches(Input,MenuBind.Key,MenuBind.Modifiers) or not MenuBind and InputMatches(Input,Library.MenuKeybind) then
-            local PanelController=Library.PanelController or Library.QuickPanelController
-            if PanelController and type(PanelController.ToggleInterface)=="function" then
-                PanelController:ToggleInterface()
-            else
-                Library.ActiveWindow:Toggle()
-            end
-            return
-        end
-    end
-    if Processed or Input.UserInputType==Enum.UserInputType.MouseButton1 then return end
-    for _,BindData in ipairs(Library.Keybinds) do if InputMatches(Input,BindData.Key,BindData.Modifiers) then FireKeybind(BindData,true) end end
-end))
-
-Bind(UserInputService.InputEnded:Connect(function(Input)
-    if Input.UserInputType==Enum.UserInputType.MouseButton1 then return end
-    local Capture=Library.Capture
-    if Capture then
-        local Key=BindSystem.InputKey(Input) local Id=BindSystem.KeyId(Key) if not Id then return end
-        if Capture.Blocked[Id] then Capture.Blocked[Id]=nil if next(Capture.Blocked)==nil then Capture.Armed=true Capture.Started=os.clock() Capture.Bind.Render() end return end
-        if not Capture.Armed then return end
-        if Capture.PendingId==Id then
-            local BindData=Capture.Bind BindData.Key,BindData.Modifiers=BindSystem.NormalizeBinding(Capture.Pending,Capture.PendingModifiers) Library.Capture=nil BindData.Render() RefreshKeybindList() return
-        end
-        if Capture.ModifierCandidates and Capture.ModifierCandidates[Id] then
-            local Candidate=Capture.ModifierCandidates[Id] Capture.ModifierCandidates[Id]=nil
-            if not Capture.Pending then local BindData=Capture.Bind BindData.Key,BindData.Modifiers=BindSystem.NormalizeBinding(Candidate,EmptyModifiers()) Library.Capture=nil BindData.Render() RefreshKeybindList() else Capture.Bind.Render() end
-        end
-        return
-    end
-    for _,BindData in ipairs(Library.Keybinds) do if BindData.Mode=="Hold" and BindSystem.ReleaseMatches(Input,BindData.Key) then FireKeybind(BindData,false) end end
-end))
-
-function Library.Unload(...)
-    for _, BindData in ipairs(Library.Keybinds) do BindData.Destroyed = true end
-    table.clear(Library.Keybinds)
-    for Index = #Library.Connections, 1, -1 do local Connection = Library.Connections[Index] if Connection then Call(function() Connection:Disconnect() end) end Library.Connections[Index] = nil end
-    for Index = #Library.Guis, 1, -1 do local Gui = Library.Guis[Index] if Gui and Gui.Parent then Call(function() Gui:Destroy() end) end Library.Guis[Index] = nil end
-    Library.ActiveWindow = nil
-    Library.PlayerListController = nil
-    Library.PanelController = nil
-    Library.QuickPanelController = nil
-    Library.ThemePanelController = nil
-    Library.ConfigurationPanelController = nil
-    Library.InterfaceOpen = true
-    Library.KeybindListController = nil
-    Library.NotificationGui = nil
-    Library.NotificationHolder = nil
-    Library.NotificationPreview = nil
-    Library.NotificationPoint = nil
-    Library.CombatLogGui = nil
-    Library.CombatLogHolder = nil
-    Library.CombatLogScaleObject = nil
-    Library.CombatLogPosition = nil
-    Library.CombatLogScale = nil
-    Library.Holder = nil
-    table.clear(Library.Renderers)
-    if rawget(AtramentaEnvironment, "Library") == Library then AtramentaEnvironment.Library = nil end
-end
-Library.Destroy = Library.Unload
-
-function Library:GetFlag(Name)
-    return self.Flags[Name]
-end
-
-function Library:SetFlag(Name, Value)
-    local Setter = self.Setters[Name]
-    if type(Setter) == "function" then
-        local Success = Call(Setter, Value)
-        return Success == true
-    end
-    self.Flags[Name] = Value
-    UpdateAll()
+function Library:ChangeTheme(Name, Color)
+    if tostring(Name):lower() == "accent" and typeof(Color) == "Color3" then
+        self.Theme.Accent = Color
+    end
+    -- Matcha owns the native overlay theme, so this is intentionally metadata-only.
     return true
 end
 
+function Library:ApplyThemePreset(Preset)
+    if type(Preset) == "table" and typeof(Preset.Accent) == "Color3" then
+        self.Theme.Accent = Preset.Accent
+    end
+    return true
+end
+
+function Library:GetFlag(Name)
+    return self.Flags[tostring(Name)]
+end
+
+function Library:SetFlag(Name, Value)
+    Name = tostring(Name)
+    local Setter = self.Setters[Name]
+    if type(Setter) == "function" then
+        return Setter(Value)
+    end
+    self.Flags[Name] = Value
+    return true
+end
+
+function Library:ThemePanel()
+    Notify("Theme is controlled by Matcha's native menu.", "Nightfall", 3)
+    return nil
+end
+
+function Library:ConfigurationPanel()
+    Notify("Use script flags or Matcha's native UI values for configuration.", "Nightfall", 3)
+    return nil
+end
+
+function Library:KeybindList()
+    Notify("Matcha keybinds use the native hotkey overlay.", "Nightfall", 3)
+    return nil
+end
+
+function Library:Notification(Message, Duration, Title)
+    Notify(Message, Title or "Nightfall", Duration or 3)
+end
+
 function Library:SetVisible(State)
-    local PanelController=self.PanelController or self.QuickPanelController
-    if PanelController and type(PanelController.SetInterfaceVisible)=="function" then PanelController:SetInterfaceVisible(State==true)
-    elseif self.ActiveWindow then self.ActiveWindow:SetVisible(State) end
+    if self.ActiveWindow and type(self.ActiveWindow.SetVisible) == "function" then
+        self.ActiveWindow:SetVisible(State)
+    end
 end
 
 function Library:Toggle()
-    local PanelController=self.PanelController or self.QuickPanelController
-    if PanelController and type(PanelController.ToggleInterface)=="function" then PanelController:ToggleInterface()
-    elseif self.ActiveWindow then self.ActiveWindow:Toggle() end
+    if self.ActiveWindow and type(self.ActiveWindow.Toggle) == "function" then
+        self.ActiveWindow:Toggle()
+    end
 end
 
+function Library:Unload()
+    for TabName in pairs(self.RegisteredTabs) do
+        if type(UI) == "table" and type(UI.RemoveTab) == "function" then
+            SafeCall(UI.RemoveTab, TabName)
+        end
+        self.RegisteredTabs[TabName] = nil
+    end
+
+    for _, Window in ipairs(self.Windows) do
+        Window.Destroyed = true
+        for _, Page in ipairs(Window.Pages or {}) do
+            Page.Removed = true
+        end
+    end
+
+    self.ActiveWindow = nil
+end
+
+Library.Destroy = Library.Unload
 Library.window = Library.Window
-Library.setvisible = Library.SetVisible
-Library.toggle = Library.Toggle
 Library.getflag = Library.GetFlag
 Library.setflag = Library.SetFlag
+Library.toggle = Library.Toggle
+Library.setvisible = Library.SetVisible
 Library.notification = Library.Notification
-Library.setnotificationlayout = Library.SetNotificationLayout
-Library.combatlognotification = Library.CombatLogNotification
-Library.setcombatloglayout = Library.SetCombatLogLayout
-Library.watermark = Library.Watermark
-Library.keybindlist = Library.KeybindList
-Library.playerlist = Library.PlayerList
-Library.getconfig = Library.GetConfig
-Library.loadconfig = Library.LoadConfig
-Library.saveconfig = Library.SaveConfig
-Library.configexists = Library.ConfigExists
-Library.loadconfigfile = Library.LoadConfigFile
-Library.deleteconfig = Library.DeleteConfig
-Library.refreshconfigslist = Library.RefreshConfigsList
 Library.destroy = Library.Destroy
 
+local GlobalEnvironment = GetGlobalEnvironment()
+if type(GlobalEnvironment) == "table" then
+    local Atramenta = GlobalEnvironment.Atramenta
+    if type(Atramenta) ~= "table" then
+        Atramenta = {}
+        GlobalEnvironment.Atramenta = Atramenta
+    end
+    Atramenta.Library = Library
+    GlobalEnvironment.MatchaAtramentaLibrary = Library
+end
+
+if type(_G) == "table" then
+    local Atramenta = _G.Atramenta
+    if type(Atramenta) ~= "table" then
+        Atramenta = {}
+        _G.Atramenta = Atramenta
+    end
+    Atramenta.Library = Library
+    _G.MatchaAtramentaLibrary = Library
+end
+
+-- Kept for normal Luau/executors. Matcha drops top-level return values from loadstring,
+-- so Matcha consumers should read MatchaAtramentaLibrary / Atramenta.Library instead.
 return Library
