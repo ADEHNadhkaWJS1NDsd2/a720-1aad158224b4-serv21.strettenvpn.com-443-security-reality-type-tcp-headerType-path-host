@@ -683,7 +683,8 @@ end
 
 local function TextVerticalPosition(PositionY, Height, FontSize)
     FontSize = Type(FontSize) == "number" and FontSize or 13
-    return Pixel(PositionY + (Height - FontSize) * 0.5 + 1)
+    local BaselineOffset = Max(2, Floor(FontSize * 0.28 + 0.5))
+    return Pixel(PositionY + (Height - FontSize) * 0.5 + BaselineOffset)
 end
 
 local function CenterTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
@@ -908,7 +909,15 @@ local function RefreshLayout(Window)
     Window.AccentLine.Position = Position
     Window.AccentLine.Size = NewVector2(Size.X, 2)
 
-    Window.TitleText.Position = Position + NewVector2(20, 15)
+    AlignTextLeftInRect(
+        Window.TitleText,
+        Upper(Window.Title),
+        Position,
+        NewVector2(Size.X, 30),
+        20,
+        16,
+        16
+    )
 
     local Bounds = {
         TL = Position,
@@ -983,8 +992,15 @@ local function RefreshLayout(Window)
             local TitleWidth = Min(Width - 24, Max(48, Pixel(TextWidth(Section.Name, 13) + 10)))
             Section.TitleBackground.Position = Section.Position + NewVector2(10, -2)
             Section.TitleBackground.Size = NewVector2(Max(1, TitleWidth), 4)
-            SetTextFit(Section.TitleText, Section.Name, Max(1, Width - 30), 13, 10)
-            Section.TitleText.Position = NewVector2(Section.Position.X + 14, Section.Position.Y - 5)
+            AlignTextLeftInRect(
+                Section.TitleText,
+                Section.Name,
+                NewVector2(Section.Position.X + 10, Section.Position.Y - 9),
+                NewVector2(Max(1, Width - 20), 18),
+                4,
+                13,
+                13
+            )
 
             local ControlY = Y + 18
 
@@ -1041,11 +1057,11 @@ local function RefreshLayout(Window)
                         AlignTextLeftInRect(
                             Control.Drawings.Label,
                             Control.Name,
-                            NewVector2(X0 + 20, ControlY - 1),
-                            NewVector2(Max(1, Right - (X0 + 20) - 4), 14),
+                            NewVector2(X0 + 20, ControlY),
+                            NewVector2(Max(1, Right - (X0 + 20) - 4), 12),
                             0,
                             13,
-                            10
+                            13
                         )
 
                     elseif Control.Type == "Slider" then
@@ -1056,11 +1072,11 @@ local function RefreshLayout(Window)
                         AlignTextLeftInRect(
                             Control.Drawings.Label,
                             Control.Name,
-                            NewVector2(X0, ControlY - 1),
-                            NewVector2(LabelWidth, 15),
+                            NewVector2(X0, ControlY),
+                            NewVector2(LabelWidth, 14),
                             0,
                             13,
-                            10
+                            13
                         )
                         SetTextFit(Control.Drawings.Value, ValueText, Max(1, ValueWidth), 13, 10)
                         Control.Drawings.Value.Center = false
@@ -1115,10 +1131,10 @@ local function RefreshLayout(Window)
                         CenterTextInRect(
                             Control.Drawings.State,
                             Control.Drawings.State.Text,
-                            NewVector2(X0 + ControlWidth - 26, ControlY),
-                            NewVector2(24, 22),
+                            NewVector2(X0 + ControlWidth - 26, ControlY + 1),
+                            NewVector2(24, 20),
                             13,
-                            10
+                            13
                         )
 
                     elseif Control.Type == "Colorpicker" then
@@ -1130,10 +1146,10 @@ local function RefreshLayout(Window)
                             Control.Drawings.Label,
                             Control.Name,
                             NewVector2(X0, ControlY),
-                            NewVector2(Max(1, ControlWidth - PickerWidth - 8), 14),
+                            NewVector2(Max(1, ControlWidth - PickerWidth - 8), 12),
                             0,
                             13,
-                            10
+                            13
                         )
                         Control.Drawings.Outline.Position = PickerPosition
                         Control.Drawings.Outline.Size = NewVector2(PickerWidth, PickerHeight)
@@ -1149,11 +1165,11 @@ local function RefreshLayout(Window)
                         AlignTextLeftInRect(
                             Control.Drawings.Label,
                             Control.Value,
-                            NewVector2(X0, ControlY - 1),
+                            NewVector2(X0, ControlY),
                             NewVector2(ControlWidth, 14),
                             0,
                             13,
-                            10
+                            13
                         )
 
                     elseif Control.Type == "Button" then
@@ -1167,10 +1183,10 @@ local function RefreshLayout(Window)
                         CenterTextInRect(
                             Control.Drawings.Label,
                             Control.Name,
-                            Control.HitPosition,
-                            Control.HitSize,
+                            Control.Drawings.Inline.Position,
+                            Control.Drawings.Inline.Size,
                             13,
-                            10
+                            13
                         )
 
                     elseif Control.Type == "Keybind" then
@@ -1186,10 +1202,10 @@ local function RefreshLayout(Window)
                         CenterTextInRect(
                             Control.Drawings.Label,
                             KeybindText,
-                            Control.HitPosition,
-                            Control.HitSize,
+                            Control.Drawings.Inline.Position,
+                            Control.Drawings.Inline.Size,
                             13,
-                            10
+                            13
                         )
                     end
 
@@ -2368,9 +2384,17 @@ local function CreateBindMenu(Window, Bind)
             Visible = true,
             Transparency = 1,
             ZIndex = 44,
-            Position = NewVector2(Position.X + 10, Y + 5),
             Color = Selected and Theme.PrimaryText or Theme.SecondaryText
         }))
+        AlignTextLeftInRect(
+            Text,
+            Mode,
+            NewVector2(Position.X + 1, Y),
+            NewVector2(Width - 2, RowHeight),
+            9,
+            12,
+            12
+        )
 
         Insert(Entries, {
             Mode = Mode,
@@ -2468,9 +2492,17 @@ local function CreateDropdown(Window, Control)
             Visible = true,
             Transparency = 1,
             ZIndex = 24,
-            Position = NewVector2(Position.X + 12, Y + 5),
             Color = Selected and Theme.PrimaryText or Theme.SecondaryText
         })
+        AlignTextLeftInRect(
+            Text,
+            tostring(Option),
+            NewVector2(Position.X + 1, Y),
+            NewVector2(Max(1, Width - 2), 20),
+            11,
+            13,
+            13
+        )
 
         Insert(Popup, Background)
         Insert(Popup, Indicator)
@@ -2694,9 +2726,17 @@ local function MakePicker(Window, Control)
         Visible = true,
         Transparency = 1,
         ZIndex = 38,
-        Position = Position + NewVector2(8, 109),
         Color = Theme.PrimaryText
     }))
+    AlignTextLeftInRect(
+        Hex,
+        ColorToHex(Current),
+        NewVector2(Position.X, Position.Y + 102),
+        NewVector2(PopupWidth, 22),
+        8,
+        12,
+        12
+    )
 
     local Picker = {
         Control = Control,
