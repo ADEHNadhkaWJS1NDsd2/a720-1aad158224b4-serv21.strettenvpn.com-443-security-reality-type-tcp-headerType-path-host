@@ -311,23 +311,19 @@ local TextSizes = {}
 local CONTROL_TEXT_SIZE = 12
 local CONTROL_ROW_HEIGHT = 22
 local CONTROL_SLOT_HEIGHT = 30
-local TEXT_Y_NUDGE = 1
-local BIND_TEXT_Y_NUDGE = 2
 
 local function SetTextSize(Object, Value)
     if not Object then return 13 end
     Value = Type(Value) == "number" and Max(1, Floor(Value + 0.5)) or 13
     TextSizes[Object] = Value
 
-    local Success = pcall(function()
-        Object.FontSize = Value
+    pcall(function()
+        Object.Size = Value
     end)
 
-    if not Success then
-        pcall(function()
-            Object.Size = Value
-        end)
-    end
+    pcall(function()
+        Object.FontSize = Value
+    end)
 
     return Value
 end
@@ -682,9 +678,13 @@ local function PixelVector(X, Y)
     return NewVector2(Pixel(X), Pixel(Y))
 end
 
-local function TextVerticalPosition(PositionY, Height, FontSize)
+local function TextTop(PositionY, Height, FontSize)
     FontSize = Type(FontSize) == "number" and FontSize or CONTROL_TEXT_SIZE
-    return Pixel(PositionY + Max(0, (Height - FontSize) * 0.5) + TEXT_Y_NUDGE)
+    return Floor(PositionY + (Height - FontSize) * 0.5 + 0.5)
+end
+
+local function TextVerticalPosition(PositionY, Height, FontSize)
+    return TextTop(PositionY, Height, FontSize)
 end
 
 local function CenterTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
@@ -702,9 +702,6 @@ end
 
 local function CenterBindTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
     CenterTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
-    if Object and TypeOf(Object.Position) == "Vector2" then
-        Object.Position = PixelVector(Object.Position.X, Object.Position.Y + BIND_TEXT_Y_NUDGE)
-    end
 end
 
 local function AlignTextLeftInRect(Object, Text, Position, Size, Padding, PreferredSize, MinimumSize)
@@ -1057,7 +1054,7 @@ local function RefreshLayout(Window)
                             local BindText = "[" .. GetKeyName(Control.Bind.Key) .. "]"
                             local BindWidth = Clamp(Pixel(TextWidth(BindText, CONTROL_TEXT_SIZE) + 16), 48, Min(92, ControlWidth))
                             local BindHeight = 16
-                            local BindY = Pixel(RowCenterY - BindHeight * 0.5 + 1)
+                            local BindY = Pixel(RowCenterY - BindHeight * 0.5)
                             Control.Bind.HitPosition = NewVector2(Right - BindWidth, BindY)
                             Control.Bind.HitSize = NewVector2(BindWidth, BindHeight)
                             Control.Bind.Outline.Position = Control.Bind.HitPosition
@@ -1234,7 +1231,7 @@ local function RefreshLayout(Window)
                         )
 
                     elseif Control.Type == "Keybind" then
-                        local KeybindBoxY = BoxY + 1
+                        local KeybindBoxY = BoxY
                         Control.Drawings.Outline.Position = NewVector2(X0, KeybindBoxY)
                         Control.Drawings.Outline.Size = NewVector2(ControlWidth, CONTROL_ROW_HEIGHT)
                         Control.Drawings.Inline.Position = NewVector2(X0 + 1, KeybindBoxY + 1)
@@ -2919,14 +2916,14 @@ LayoutKeybindPanel = function(Window)
     Panel.Title.Center = true
     Panel.Title.Position = PixelVector(
         Panel.Position.X + PanelWidth * 0.5,
-        Panel.Position.Y + 4
+        TextTop(Panel.Position.Y, 22, 12)
     )
 
     for Index, Row in ipairs(Panel.Rows) do
         local RowTop = Pixel(Panel.Position.Y + HeaderHeight + (Index - 1) * RowHeight)
         local RowLeft = Pixel(Panel.Position.X + 4)
         local RowWidth = Pixel(PanelWidth - 8)
-        local TextY = TextVerticalPosition(RowTop, RowHeight, 12) + BIND_TEXT_Y_NUDGE
+        local TextY = TextTop(RowTop, RowHeight, 12)
         local ModeLeft = Pixel(Panel.Position.X + PanelWidth - RightPadding - ModeWidth)
         local KeyLeft = Pixel(ModeLeft - MetaGap - KeyWidth)
         local NameLeft = Pixel(Panel.Position.X + LeftPadding)
