@@ -889,7 +889,6 @@ local function RefreshStaticColors(Window)
 
         for _, Row in ipairs(Panel.Rows) do
             Row.Background.Color = Theme.AccentColor
-            Row.ActiveBar.Color = Theme.AccentColor
             Row.Name.Color = Row.Active and Theme.PrimaryText or Theme.SecondaryText
             Row.Key.Color = Row.Active and Theme.PrimaryText or Theme.SecondaryText
             Row.Mode.Color = Row.Active and (Library.KeybindSettings.AccentActive ~= false and Theme.AccentColor or Theme.PrimaryText) or Theme.SecondaryText
@@ -2840,7 +2839,7 @@ local function EnsureKeybindPanel(Window)
 
     Window.KeybindPanel = {
         Position = NewVector2(50, 400),
-        Width = 180,
+        Width = 210,
         Rows = {},
         Dragging = false
     }
@@ -2891,17 +2890,17 @@ LayoutKeybindPanel = function(Window)
     local Panel = Window.KeybindPanel
     if not Panel then return end
 
-    local PanelWidth = Panel.Width or 194
+    local PanelWidth = Panel.Width or 210
     local HeaderVisible = Library.KeybindSettings.ShowHeader ~= false
-    local RowHeight = Library.KeybindSettings.CompactRows ~= false and 18 or 21
-    local HeaderHeight = HeaderVisible and 22 or 4
-    local BottomPadding = 4
+    local RowHeight = Library.KeybindSettings.CompactRows ~= false and 22 or 24
+    local HeaderHeight = HeaderVisible and 24 or 5
+    local BottomPadding = 5
     local PanelHeight = HeaderHeight + #Panel.Rows * RowHeight + BottomPadding
-    local LeftPadding = 8
-    local RightPadding = 8
-    local KeyWidth = 42
-    local ModeWidth = 66
-    local MetaGap = 4
+    local LeftPadding = 10
+    local RightPadding = 10
+    local KeyWidth = 36
+    local ModeWidth = 72
+    local ColumnGap = 8
 
     Panel.Outline.Position = PixelVector(Panel.Position.X - 1, Panel.Position.Y - 1)
     Panel.Outline.Size = PixelVector(PanelWidth + 2, PanelHeight + 2)
@@ -2909,30 +2908,30 @@ LayoutKeybindPanel = function(Window)
     Panel.Inline.Size = PixelVector(PanelWidth, PanelHeight)
     Panel.Background.Position = PixelVector(Panel.Position.X + 1, Panel.Position.Y + 1)
     Panel.Background.Size = PixelVector(PanelWidth - 2, PanelHeight - 2)
-    Panel.Accent.Position = PixelVector(Panel.Position.X + 1, Panel.Position.Y + 1)
-    Panel.Accent.Size = PixelVector(PanelWidth - 2, 1)
+    Panel.Accent.Position = PixelVector(-100000, -100000)
+    Panel.Accent.Size = PixelVector(1, 1)
 
     SetTextSize(Panel.Title, 12)
     Panel.Title.Center = true
     Panel.Title.Position = PixelVector(
         Panel.Position.X + PanelWidth * 0.5,
-        TextTop(Panel.Position.Y, 22, 12)
+        TextTop(Panel.Position.Y, HeaderHeight, 12)
     )
 
     for Index, Row in ipairs(Panel.Rows) do
         local RowTop = Pixel(Panel.Position.Y + HeaderHeight + (Index - 1) * RowHeight)
-        local RowLeft = Pixel(Panel.Position.X + 4)
-        local RowWidth = Pixel(PanelWidth - 8)
-        local TextY = TextTop(RowTop, RowHeight, 12) + 4
+        local RowLeft = Pixel(Panel.Position.X + 5)
+        local RowWidth = Pixel(PanelWidth - 10)
+        local TextY = TextTop(RowTop, RowHeight, 12)
         local ModeLeft = Pixel(Panel.Position.X + PanelWidth - RightPadding - ModeWidth)
-        local KeyLeft = Pixel(ModeLeft - MetaGap - KeyWidth)
+        local KeyLeft = Pixel(ModeLeft - ColumnGap - KeyWidth)
         local NameLeft = Pixel(Panel.Position.X + LeftPadding)
-        local NameWidth = Max(1, KeyLeft - MetaGap - NameLeft)
+        local NameWidth = Max(1, KeyLeft - ColumnGap - NameLeft)
 
-        Row.Background.Position = PixelVector(RowLeft, RowTop)
-        Row.Background.Size = PixelVector(RowWidth, RowHeight)
-        Row.ActiveBar.Position = PixelVector(RowLeft, RowTop + 2)
-        Row.ActiveBar.Size = PixelVector(2, Max(1, RowHeight - 4))
+        Row.Background.Position = PixelVector(RowLeft, RowTop + 1)
+        Row.Background.Size = PixelVector(RowWidth, Max(1, RowHeight - 2))
+        Row.ActiveBar.Position = PixelVector(-100000, -100000)
+        Row.ActiveBar.Size = PixelVector(1, 1)
 
         SetTextFit(Row.Name, Row.Name.Text, NameWidth, 12, 12)
         SetTextFit(Row.Key, Row.Key.Text, KeyWidth, 12, 12)
@@ -3027,8 +3026,8 @@ local function RefreshKeybindPanel(Window)
         Remove(Panel.Rows, #Panel.Rows)
     end
 
-    local DesiredWidth = 194
-    local FixedMetaWidth = 8 + 42 + 4 + 66 + 8
+    local DesiredWidth = 210
+    local FixedMetaWidth = 10 + 36 + 8 + 72 + 8 + 10
 
     for Index, Entry in ipairs(Desired) do
         local Bind = Entry.Bind
@@ -3047,7 +3046,7 @@ local function RefreshKeybindPanel(Window)
         local NameText = CleanKeybindDisplayName(Bind.Control.Name)
         local NameWidth = TextWidth(NameText, 12)
 
-        DesiredWidth = Max(DesiredWidth, Pixel(NameWidth + FixedMetaWidth + 12))
+        DesiredWidth = Max(DesiredWidth, Pixel(NameWidth + FixedMetaWidth))
 
         Row.Active = Active
         Row.Order = Entry.Order
@@ -3055,14 +3054,13 @@ local function RefreshKeybindPanel(Window)
         Row.Key.Text = "[" .. GetKeyName(Bind.Key) .. "]"
         Row.Mode.Text = "[" .. ModeText .. "]"
         Row.Background.Color = Window.Theme.AccentColor
-        Row.Background.Transparency = 0.10
-        Row.ActiveBar.Color = Window.Theme.AccentColor
+        Row.Background.Transparency = 0.08
         Row.Name.Color = Active and Window.Theme.PrimaryText or Window.Theme.SecondaryText
         Row.Key.Color = Active and Window.Theme.PrimaryText or Window.Theme.SecondaryText
         Row.Mode.Color = Active and (Library.KeybindSettings.AccentActive ~= false and Window.Theme.AccentColor or Window.Theme.PrimaryText) or Window.Theme.SecondaryText
     end
 
-    Panel.Width = Clamp(DesiredWidth, 194, 360)
+    Panel.Width = Clamp(DesiredWidth, 210, 380)
     LayoutKeybindPanel(Window)
 
     local Visible = Window.ShowKeybinds == true
