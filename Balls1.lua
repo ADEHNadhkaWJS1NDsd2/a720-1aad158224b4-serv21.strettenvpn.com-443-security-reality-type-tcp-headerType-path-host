@@ -2893,15 +2893,15 @@ LayoutKeybindPanel = function(Window)
 
     local PanelWidth = Panel.Width or 220
     local HeaderVisible = Library.KeybindSettings.ShowHeader ~= false
-    local RowHeight = 20
-    local RowGap = 4
+    local RowHeight = 22
+    local RowGap = 3
     local HeaderHeight = HeaderVisible and 24 or 6
     local BottomPadding = 6
     local LeftPadding = 10
     local RightPadding = 10
     local RowInset = 6
-    local KeyWidth = 48
-    local ModeWidth = 76
+    local KeyWidth = 50
+    local ModeWidth = 78
     local MetaGap = 8
     local RowAreaHeight = #Panel.Rows > 0 and (#Panel.Rows * RowHeight + Max(0, #Panel.Rows - 1) * RowGap) or 0
     local PanelHeight = HeaderHeight + RowAreaHeight + BottomPadding
@@ -2926,7 +2926,7 @@ LayoutKeybindPanel = function(Window)
         local RowTop = Pixel(Panel.Position.Y + HeaderHeight + (Index - 1) * (RowHeight + RowGap))
         local RowLeft = Pixel(Panel.Position.X + RowInset)
         local RowWidth = Pixel(PanelWidth - RowInset * 2)
-        local TextY = TextTop(RowTop, RowHeight, 12)
+        local TextY = Pixel(RowTop + ((RowHeight - 12) * 0.5) - 1)
         local ModeLeft = Pixel(Panel.Position.X + PanelWidth - RightPadding - ModeWidth)
         local KeyLeft = Pixel(ModeLeft - MetaGap - KeyWidth)
         local NameLeft = Pixel(Panel.Position.X + LeftPadding)
@@ -3031,7 +3031,7 @@ local function RefreshKeybindPanel(Window)
     end
 
     local DesiredWidth = 220
-    local FixedMetaWidth = 10 + 48 + 8 + 76 + 10
+    local FixedMetaWidth = 10 + 50 + 8 + 78 + 10
 
     for Index, Entry in ipairs(Desired) do
         local Bind = Entry.Bind
