@@ -702,6 +702,9 @@ end
 
 local function CenterBindTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
     CenterTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
+    if Object and TypeOf(Object.Position) == "Vector2" then
+        Object.Position = PixelVector(Object.Position.X, Object.Position.Y + 2)
+    end
 end
 
 local function AlignTextLeftInRect(Object, Text, Position, Size, Padding, PreferredSize, MinimumSize)
@@ -1301,7 +1304,7 @@ local function ApplyVisibility(Window)
         Panel.Outline.Visible = PanelVisible
         Panel.Inline.Visible = PanelVisible
         Panel.Background.Visible = PanelVisible
-        Panel.Accent.Visible = PanelVisible and HeaderVisible
+        Panel.Accent.Visible = false
         Panel.Title.Visible = PanelVisible and HeaderVisible
 
         for _, Row in ipairs(Panel.Rows) do
@@ -1309,7 +1312,7 @@ local function ApplyVisibility(Window)
             Row.Key.Visible = PanelVisible
             Row.Mode.Visible = PanelVisible
             Row.Background.Visible = PanelVisible and Row.Active and Library.KeybindSettings.AccentActive ~= false
-            Row.ActiveBar.Visible = PanelVisible and Row.Active and Library.KeybindSettings.AccentActive ~= false
+            Row.ActiveBar.Visible = false
         end
     end
 end
@@ -2923,7 +2926,7 @@ LayoutKeybindPanel = function(Window)
         local RowTop = Pixel(Panel.Position.Y + HeaderHeight + (Index - 1) * RowHeight)
         local RowLeft = Pixel(Panel.Position.X + 4)
         local RowWidth = Pixel(PanelWidth - 8)
-        local TextY = TextTop(RowTop, RowHeight, 12)
+        local TextY = TextTop(RowTop, RowHeight, 12) + 2
         local ModeLeft = Pixel(Panel.Position.X + PanelWidth - RightPadding - ModeWidth)
         local KeyLeft = Pixel(ModeLeft - MetaGap - KeyWidth)
         local NameLeft = Pixel(Panel.Position.X + LeftPadding)
@@ -3070,7 +3073,7 @@ local function RefreshKeybindPanel(Window)
     Panel.Outline.Visible = Visible
     Panel.Inline.Visible = Visible
     Panel.Background.Visible = Visible
-    Panel.Accent.Visible = Visible and HeaderVisible
+    Panel.Accent.Visible = false
     Panel.Title.Visible = Visible and HeaderVisible
 
     for _, Row in ipairs(Panel.Rows) do
@@ -3078,7 +3081,7 @@ local function RefreshKeybindPanel(Window)
         Row.Key.Visible = Visible
         Row.Mode.Visible = Visible
         Row.Background.Visible = Visible and Row.Active and Library.KeybindSettings.AccentActive ~= false
-        Row.ActiveBar.Visible = Visible and Row.Active and Library.KeybindSettings.AccentActive ~= false
+        Row.ActiveBar.Visible = false
     end
 end
 
