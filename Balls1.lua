@@ -308,6 +308,8 @@ local function FindPressedBindKey()
 end
 
 local TextSizes = {}
+local CONTROL_TEXT_SIZE = 13
+local CONTROL_ROW_HEIGHT = 22
 
 local function SetTextSize(Object, Value)
     if not Object then return 13 end
@@ -471,7 +473,7 @@ end
 
 local Library = {
     Name = "Nightfall",
-    Version = 25,
+    Version = 26,
     ApiVersion = 2,
     Theme = "Nightfall",
     Windows = {}
@@ -682,8 +684,8 @@ local function PixelVector(X, Y)
 end
 
 local function TextVerticalPosition(PositionY, Height, FontSize)
-    FontSize = Type(FontSize) == "number" and FontSize or 13
-    return Pixel(PositionY + Max(0, (Height - FontSize) * 0.5) - 1)
+    FontSize = Type(FontSize) == "number" and FontSize or CONTROL_TEXT_SIZE
+    return Pixel(PositionY + Max(0, (Height - FontSize) * 0.5))
 end
 
 local function CenterTextInRect(Object, Text, Position, Size, PreferredSize, MinimumSize)
@@ -709,6 +711,21 @@ local function AlignTextLeftInRect(Object, Text, Position, Size, Padding, Prefer
     local FontSize = GetTextSize(Object, PreferredSize or 13)
     Object.Position = NewVector2(
         Pixel(Position.X + Padding),
+        TextVerticalPosition(Position.Y, Size.Y, FontSize)
+    )
+end
+
+local function AlignTextRightInRect(Object, Text, Position, Size, Padding, PreferredSize, MinimumSize)
+    if not Object or TypeOf(Position) ~= "Vector2" or TypeOf(Size) ~= "Vector2" then return end
+
+    Padding = Type(Padding) == "number" and Padding or 0
+    SetTextFit(Object, Text, Max(1, Size.X - Padding * 2), PreferredSize, MinimumSize)
+    Object.Center = false
+
+    local FontSize = GetTextSize(Object, PreferredSize or CONTROL_TEXT_SIZE)
+    local Width = Pixel(TextWidth(Object.Text, FontSize))
+    Object.Position = NewVector2(
+        Pixel(Position.X + Size.X - Padding - Width),
         TextVerticalPosition(Position.Y, Size.Y, FontSize)
     )
 end
@@ -1025,7 +1042,7 @@ local function RefreshLayout(Window)
 
                         if Control.Bind then
                             local BindText = "[" .. GetKeyName(Control.Bind.Key) .. "]"
-                            local BindWidth = Clamp(Pixel(TextWidth(BindText, 12) + 16), 48, Min(92, ControlWidth))
+                            local BindWidth = Clamp(Pixel(TextWidth(BindText, CONTROL_TEXT_SIZE) + 16), 48, Min(92, ControlWidth))
                             Control.Bind.HitPosition = NewVector2(Right - BindWidth, ControlY - 2)
                             Control.Bind.HitSize = NewVector2(BindWidth, 16)
                             Control.Bind.Outline.Position = Control.Bind.HitPosition
@@ -1037,8 +1054,8 @@ local function RefreshLayout(Window)
                                 BindText,
                                 Control.Bind.HitPosition,
                                 Control.Bind.HitSize,
-                                12,
-                                9
+                                CONTROL_TEXT_SIZE,
+                                CONTROL_TEXT_SIZE
                             )
                             Right = Right - BindWidth - 7
                         end
@@ -1061,13 +1078,13 @@ local function RefreshLayout(Window)
                             NewVector2(X0 + 20, ControlY),
                             NewVector2(Max(1, Right - (X0 + 20) - 4), 12),
                             0,
-                            13,
-                            13
+                            CONTROL_TEXT_SIZE,
+                            CONTROL_TEXT_SIZE
                         )
 
                     elseif Control.Type == "Slider" then
                         local ValueText = FormatSliderValue(Control.Value, Control.Step) .. Control.Suffix
-                        local ValueWidth = Min(Floor(ControlWidth * 0.48), Max(34, Pixel(TextWidth(ValueText, 13) + 8)))
+                        local ValueWidth = Min(Floor(ControlWidth * 0.48), Max(34, Pixel(TextWidth(ValueText, CONTROL_TEXT_SIZE) + 8)))
                         local LabelWidth = Max(1, ControlWidth - ValueWidth - 8)
 
                         AlignTextLeftInRect(
@@ -1076,16 +1093,16 @@ local function RefreshLayout(Window)
                             NewVector2(X0, ControlY),
                             NewVector2(LabelWidth, 14),
                             0,
-                            13,
-                            13
+                            CONTROL_TEXT_SIZE,
+                            CONTROL_TEXT_SIZE
                         )
-                        SetTextFit(Control.Drawings.Value, ValueText, Max(1, ValueWidth), 13, 10)
+                        SetTextFit(Control.Drawings.Value, ValueText, Max(1, ValueWidth), CONTROL_TEXT_SIZE, CONTROL_TEXT_SIZE)
                         Control.Drawings.Value.Center = false
 
-                        local RenderedValueWidth = Pixel(TextWidth(Control.Drawings.Value.Text, GetTextSize(Control.Drawings.Value, 13)))
+                        local RenderedValueWidth = Pixel(TextWidth(Control.Drawings.Value.Text, GetTextSize(Control.Drawings.Value, CONTROL_TEXT_SIZE)))
                         Control.Drawings.Value.Position = NewVector2(
                             Max(X0 + LabelWidth + 8, X0 + ControlWidth - RenderedValueWidth),
-                            TextVerticalPosition(ControlY - 1, 15, GetTextSize(Control.Drawings.Value, 13))
+                            TextVerticalPosition(ControlY - 1, 15, GetTextSize(Control.Drawings.Value, CONTROL_TEXT_SIZE))
                         )
                         Control.Drawings.Outline.Position = NewVector2(X0, ControlY + 18)
                         Control.Drawings.Outline.Size = NewVector2(ControlWidth, 8)
@@ -1113,29 +1130,33 @@ local function RefreshLayout(Window)
 
                     elseif Control.Type == "Dropdown" then
                         Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
-                        Control.Drawings.Outline.Size = NewVector2(ControlWidth, 22)
+                        Control.Drawings.Outline.Size = NewVector2(ControlWidth, CONTROL_ROW_HEIGHT)
                         Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
-                        Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), 20)
+                        Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), CONTROL_ROW_HEIGHT - 2)
                         Control.HitPosition = NewVector2(X0, ControlY)
-                        Control.HitSize = NewVector2(ControlWidth, 22)
+                        Control.HitSize = NewVector2(ControlWidth, CONTROL_ROW_HEIGHT)
+
+                        local TextRectPosition = Control.Drawings.Inline.Position
+                        local TextRectSize = Control.Drawings.Inline.Size
 
                         AlignTextLeftInRect(
                             Control.Drawings.Label,
                             DropdownText(Control),
-                            NewVector2(X0, ControlY),
-                            NewVector2(Max(1, ControlWidth - 28), 22),
-                            8,
-                            13,
-                            10
+                            TextRectPosition,
+                            NewVector2(Max(1, TextRectSize.X - 24), TextRectSize.Y),
+                            7,
+                            CONTROL_TEXT_SIZE,
+                            CONTROL_TEXT_SIZE
                         )
 
-                        CenterTextInRect(
+                        AlignTextRightInRect(
                             Control.Drawings.State,
                             Control.Drawings.State.Text,
-                            NewVector2(X0 + ControlWidth - 26, ControlY + 1),
-                            NewVector2(24, 20),
-                            13,
-                            13
+                            TextRectPosition,
+                            TextRectSize,
+                            8,
+                            CONTROL_TEXT_SIZE,
+                            CONTROL_TEXT_SIZE
                         )
 
                     elseif Control.Type == "Colorpicker" then
@@ -1175,38 +1196,38 @@ local function RefreshLayout(Window)
 
                     elseif Control.Type == "Button" then
                         Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
-                        Control.Drawings.Outline.Size = NewVector2(ControlWidth, 22)
+                        Control.Drawings.Outline.Size = NewVector2(ControlWidth, CONTROL_ROW_HEIGHT)
                         Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
-                        Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), 20)
+                        Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), CONTROL_ROW_HEIGHT - 2)
                         Control.HitPosition = NewVector2(X0, ControlY)
-                        Control.HitSize = NewVector2(ControlWidth, 22)
+                        Control.HitSize = NewVector2(ControlWidth, CONTROL_ROW_HEIGHT)
 
                         CenterTextInRect(
                             Control.Drawings.Label,
                             Control.Name,
                             Control.Drawings.Inline.Position,
                             Control.Drawings.Inline.Size,
-                            13,
-                            13
+                            CONTROL_TEXT_SIZE,
+                            CONTROL_TEXT_SIZE
                         )
 
                     elseif Control.Type == "Keybind" then
                         Control.Drawings.Outline.Position = NewVector2(X0, ControlY)
-                        Control.Drawings.Outline.Size = NewVector2(ControlWidth, 22)
+                        Control.Drawings.Outline.Size = NewVector2(ControlWidth, CONTROL_ROW_HEIGHT)
                         Control.Drawings.Inline.Position = NewVector2(X0 + 1, ControlY + 1)
-                        Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), 20)
+                        Control.Drawings.Inline.Size = NewVector2(Max(1, ControlWidth - 2), CONTROL_ROW_HEIGHT - 2)
                         local KeybindText = Control.Name .. " [" .. GetKeyName(Control.Value) .. "]"
 
                         Control.HitPosition = NewVector2(X0, ControlY)
-                        Control.HitSize = NewVector2(ControlWidth, 22)
+                        Control.HitSize = NewVector2(ControlWidth, CONTROL_ROW_HEIGHT)
 
                         CenterTextInRect(
                             Control.Drawings.Label,
                             KeybindText,
                             Control.Drawings.Inline.Position,
                             Control.Drawings.Inline.Size,
-                            13,
-                            13
+                            CONTROL_TEXT_SIZE,
+                            CONTROL_TEXT_SIZE
                         )
                     end
 
@@ -1997,7 +2018,7 @@ function SectionMethods:Dropdown(Name, Default, Options, Multi, Callback)
 
     Control.Drawings.Label = NewDrawing("Text", {
         Text = DropdownText(Control),
-        Size = 13,
+        Size = CONTROL_TEXT_SIZE,
         Font = Drawing.Fonts.System,
         Outline = true,
         Visible = false,
@@ -2006,8 +2027,8 @@ function SectionMethods:Dropdown(Name, Default, Options, Multi, Callback)
     })
 
     Control.Drawings.State = NewDrawing("Text", {
-        Text = "+",
-        Size = 13,
+        Text = "v",
+        Size = CONTROL_TEXT_SIZE,
         Font = Drawing.Fonts.System,
         Outline = true,
         Center = false,
@@ -2164,7 +2185,7 @@ function SectionMethods:Button(Name, Callback)
 
     Control.Drawings.Label = NewDrawing("Text", {
         Text = Control.Name,
-        Size = 13,
+        Size = CONTROL_TEXT_SIZE,
         Font = Drawing.Fonts.System,
         Outline = true,
         Center = false,
@@ -2211,7 +2232,7 @@ function SectionMethods:Keybind(Name, Default, Callback)
 
     Control.Drawings.Label = NewDrawing("Text", {
         Text = Control.Name .. " [" .. GetKeyName(Control.Value) .. "]",
-        Size = 13,
+        Size = CONTROL_TEXT_SIZE,
         Font = Drawing.Fonts.System,
         Outline = true,
         Center = false,
@@ -3787,14 +3808,14 @@ function WindowMethods:Run()
                             Control.Bind.Inline.Color = Control.Bind.CurrentColor
 
                             local BindText = self.Capturing == Control.Bind and "[..]" or "[" .. GetKeyName(Control.Bind.Key) .. "]"
-                            SetTextFit(Control.Bind.Text, BindText, Max(1, (Control.Bind.HitSize and Control.Bind.HitSize.X or 8) - 8), 12, 9)
+                            SetTextFit(Control.Bind.Text, BindText, Max(1, (Control.Bind.HitSize and Control.Bind.HitSize.X or 8) - 8), CONTROL_TEXT_SIZE, CONTROL_TEXT_SIZE)
                         end
                         if Control.Type == "Dropdown" then
-                            Control.Drawings.State.Text = self.OpenDropdown == Control and "-" or "+"
-                            SetTextFit(Control.Drawings.Label, DropdownText(Control), Max(1, (Control.HitSize and Control.HitSize.X or 30) - 30), 13, 10)
+                            Control.Drawings.State.Text = self.OpenDropdown == Control and "^" or "v"
+                            SetTextFit(Control.Drawings.Label, DropdownText(Control), Max(1, (Control.HitSize and Control.HitSize.X or 30) - 30), CONTROL_TEXT_SIZE, CONTROL_TEXT_SIZE)
                         elseif Control.Type == "Keybind" then
                             local KeybindText = self.Capturing == Control and Control.Name .. " [ ... ]" or Control.Name .. " [ " .. GetKeyName(Control.Value) .. " ]"
-                            SetTextFit(Control.Drawings.Label, KeybindText, Max(1, (Control.HitSize and Control.HitSize.X or 10) - 10), 13, 10)
+                            SetTextFit(Control.Drawings.Label, KeybindText, Max(1, (Control.HitSize and Control.HitSize.X or 10) - 10), CONTROL_TEXT_SIZE, CONTROL_TEXT_SIZE)
                         end
                     end
                 end
