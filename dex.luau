@@ -1,13 +1,3 @@
--- https://github.com/LorekeeperZinnia/Dex
-
---[[
-	Dex
-	Created by Moon
-	Modified for Infinite Yield
-
-	Dex is a debugging suite designed to help the user debug games and find any potential vulnerabilities.
-]]
-
 local nodes = {}
 local selection
 
@@ -24,24 +14,24 @@ local service = setmetatable({}, {
 	end
 })
 
--- prevent environment implosion from references
--- mainly from the executor not having some game properties in their game variable
--- so we gotta use vanilla game
+
+
+
 local oldgame = game
 local game = workspace.Parent
 
 local EmbeddedModules = {
 	Explorer = function()
---[[
-	Explorer App Module
-	
-	The main explorer interface
-]]
 
-		-- Common Locals
-		local Main,Lib,Apps,Settings -- Main Containers
-		local Explorer, Properties, ScriptViewer, Notebook -- Major Apps
-		local API,RMD,env,service,plr,create,createSimple -- Main Locals
+
+
+
+
+
+		
+		local Main,Lib,Apps,Settings 
+		local Explorer, Properties, ScriptViewer, Notebook 
+		local API,RMD,env,service,plr,create,createSimple 
 
 		local function initDeps(data)
 			Main = data.Main
@@ -91,7 +81,7 @@ local EmbeddedModules = {
 				local rootParObj = ffa(root,"Instance")
 				local par = nodes[rootParObj]
 
-				-- Nil Handling
+				
 				if not par then
 					if nilMap[root] then
 						nilCons[root] = nilCons[root] or {
@@ -115,7 +105,7 @@ local EmbeddedModules = {
 				local newNode = {Obj = root, Parent = par}
 				nodes[root] = newNode
 
-				-- Automatic sorting if expanded
+				
 				if sortingEnabled and expanded[par] and par.Sorted then
 					local left,right = 1,#par
 					local floor = math.floor
@@ -151,7 +141,7 @@ local EmbeddedModules = {
 				local insts = getDescendants(root)
 				for i = 1,#insts do
 					local obj = insts[i]
-					if nodes[obj] then continue end -- Deferred
+					if nodes[obj] then continue end 
 
 					local par = nodes[ffa(obj,"Instance")]
 					if not par then continue end
@@ -159,7 +149,7 @@ local EmbeddedModules = {
 					nodes[obj] = newNode
 					par[#par+1] = newNode
 
-					-- Nil Handling
+					
 					if isNil then
 						nilMap[obj] = true
 						nilCons[obj] = nilCons[obj] or {
@@ -186,7 +176,7 @@ local EmbeddedModules = {
 				local node = nodes[root]
 				if not node then return end
 
-				-- Nil Handling
+				
 				if nilMap[node.Obj] then
 					moveObject(node.Obj)
 					return
@@ -227,7 +217,7 @@ local EmbeddedModules = {
 				local newPar = nodes[ffa(obj,"Instance")]
 				if oldPar == newPar then return end
 
-				-- Nil Handling
+				
 				if not newPar then
 					if nilMap[obj] then
 						newPar = nilNode
@@ -375,7 +365,7 @@ local EmbeddedModules = {
 			end
 
 			Explorer.NodeSorter = function(a,b)
-				if a.Del or b.Del then return false end -- Ghost node
+				if a.Del or b.Del then return false end 
 
 				local aClass = a.Class
 				local bClass = b.Class
@@ -453,7 +443,7 @@ local EmbeddedModules = {
 
 				recur(nodes[game],1)
 
-				-- Nil Instances
+				
 				if env.getnilinstances then
 					if not (isSearching and not searchResults[nilNode]) then
 						tree[count] = nilNode
@@ -935,11 +925,11 @@ local EmbeddedModules = {
 				if expanded == Explorer.SearchExpanded then context:AddRegistered("CLEAR_SEARCH_AND_JUMP_TO") end
 				if env.setclipboard then context:AddRegistered("COPY_PATH") end
 				context:AddRegistered("INSERT_OBJECT")
-				-- context:AddRegistered("SAVE_INST")
-				-- context:AddRegistered("CALL_FUNCTION")
-				-- context:AddRegistered("VIEW_CONNECTIONS")
-				-- context:AddRegistered("GET_REFERENCES")
-				-- context:AddRegistered("VIEW_API")
+				
+				
+				
+				
+				
 
 				context:QueueDivider()
 
@@ -1320,7 +1310,7 @@ local EmbeddedModules = {
 					end
 				end})
 
-				-- this code is very bad but im lazy and it works so cope
+				
 				local clth = function(str)
 					if str:sub(1, 28) == "game:GetService(\"Workspace\")" then str = str:gsub("game:GetService%(\"Workspace\"%)", "workspace", 1) end
 					if str:sub(1, 27 + #plr.Name) == "game:GetService(\"Players\")." .. plr.Name then str = str:gsub("game:GetService%(\"Players\"%)." .. plr.Name, "game:GetService(\"Players\").LocalPlayer", 1) end
@@ -1352,25 +1342,25 @@ local EmbeddedModules = {
 					Explorer.InsertObjectContext:Show(x,y)
 				end})
 
-				--[[context:Register("CALL_FUNCTION",{Name = "Call Function", IconMap = Explorer.ClassIcons, Icon = 66, OnClick = function()
+				
 
-				end})
 
-				context:Register("GET_REFERENCES",{Name = "Get Lua References", IconMap = Explorer.ClassIcons, Icon = 34, OnClick = function()
 
-				end})
 
-				context:Register("SAVE_INST",{Name = "Save to File", IconMap = Explorer.MiscIcons, Icon = "Save", OnClick = function()
 
-				end})
 
-                context:Register("VIEW_CONNECTIONS",{Name = "View Connections", OnClick = function()
-                    
-                end})
 
-				context:Register("VIEW_API",{Name = "View API Page", IconMap = Explorer.MiscIcons, Icon = "Reference", OnClick = function()
 
-				end})]]
+
+
+
+
+
+
+
+
+
+
 
 				context:Register("VIEW_OBJECT",{Name = "View Object (Right click to reset)", IconMap = Explorer.ClassIcons, Icon = 5, OnClick = function()
 					local sList = selection.List
@@ -1532,18 +1522,18 @@ local EmbeddedModules = {
 				local nilInsts = env.getnilinstances()
 				local game = game
 				local getDescs = game.GetDescendants
-				--local newNilMap = {}
-				--local newNilRoots = {}
-				--local nilRoots = Explorer.NilRoots
-				--local connect = game.DescendantAdded.Connect
-				--local disconnect
-				--if not nilRoots then nilRoots = {} Explorer.NilRoots = nilRoots end
+				
+				
+				
+				
+				
+				
 
 				for i = 1,#nilInsts do
 					local obj = nilInsts[i]
 					if obj ~= game then
 						nilMap[obj] = true
-						--newNilRoots[obj] = true
+						
 
 						local descs = getDescs(obj)
 						for j = 1,#descs do
@@ -1552,16 +1542,16 @@ local EmbeddedModules = {
 					end
 				end
 
-				-- Remove unmapped nil nodes
-		--[[for i = 1,#nilNode do
-			local node = nilNode[i]
-			if not newNilMap[node.Obj] then
-				nilMap[node.Obj] = nil
-				coroutine.wrap(removeObject)(node)
-			end
-		end]]
+				
+		
 
-				--nilMap = newNilMap
+
+
+
+
+
+
+				
 
 				for i = 1,#nilInsts do
 					local obj = nilInsts[i]
@@ -1569,27 +1559,27 @@ local EmbeddedModules = {
 					if not node then coroutine.wrap(addObject)(obj) end
 				end
 
-		--[[
-		-- Remove old root connections
-		for obj in next,nilRoots do
-			if not newNilRoots[obj] then
-				if not disconnect then disconnect = obj[1].Disconnect end
-				disconnect(obj[1])
-				disconnect(obj[2])
-			end
-		end
 		
-		for obj in next,newNilRoots do
-			if not nilRoots[obj] then
-				nilRoots[obj] = {
-					connect(obj.DescendantAdded,addObject),
-					connect(obj.DescendantRemoving,removeObject)
-				}
-			end
-		end]]
 
-				--nilMap = newNilMap
-				--Explorer.NilRoots = newNilRoots
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+				
+				
 
 				Explorer.Update()
 				Explorer.Refresh()
@@ -1811,72 +1801,72 @@ local EmbeddedModules = {
 					end
 				end
 
-		--[=[if #query > 0 then
-			local expandTable = Explorer.SearchExpanded
-			local specFilters
-			
-			local lower = string.lower
-			local find = string.find
-			local tostring = tostring
-			
-			local lowerQuery = lower(query)
-			
-			local function defaultSearch(root)
-				local expandedpar = false
-				for i = 1,#root do
-					local node = root[i]
-					local obj = node.Obj
-					
-					if find(lower(tostring(obj)),lowerQuery,1,true) then
-						expandTable[node] = 0
-						searchResults[node] = true
-						if not expandedpar then
-							local parnode = node.Parent
-							while parnode and (not searchResults[parnode] or expandTable[parnode] == 0) do
-								expanded[parnode] = true
-								searchResults[parnode] = true
-								parnode = parnode.Parent
-							end
-							expandedpar = true
-						end
-					elseif ExplorerSearch[lower(tostring(obj))] then
-						
-					end
-					
-					if #node > 0 then defaultSearch(node) end
-				end
-			end
+		
 
-			if Main.Elevated then
-				local start = tick()
-				searchFunc,specFilters = Explorer.BuildSearchFunc(query)
-				--print("BUILD SEARCH",tick()-start)
-			else
-				searchFunc = defaultSearch
-			end
 
-			if specFilters then
-				table.clear(specResults)
-				for i = 1,#specFilters do -- Specific search filers that returns list of matches
-					local resMap = {}
-					specResults[i] = resMap
-					local objs = specFilters[i]()
-					for c = 1,#objs do
-						local node = nodes[objs[c]]
-						if node then
-							resMap[node] = true
-						end
-					end
-				end
-			end
-			
-			if searchFunc then
-				local start = tick()
-				searchFunc(nodes[game])
-				searchFunc(nilNode)
-				--warn(tick()-start)
-			end
-		end]=]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 				Explorer.ForceUpdate()
 			end
@@ -2095,7 +2085,7 @@ local EmbeddedModules = {
 				end
 				holder:ClearAllChildren()
 
-				-- Updates theme
+				
 				for i,v in pairs(Explorer.SelectionVisualGui:GetChildren()) do
 					v.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
 				end
@@ -2210,13 +2200,13 @@ local EmbeddedModules = {
 				scrollV.Gui.Parent = window.GuiElems.Content
 				scrollH.Gui.Parent = window.GuiElems.Content
 
-				-- Init stuff that requires the window
+				
 				Explorer.InitRenameBox()
 				Explorer.InitSearch()
 				Explorer.InitDelCleaner()
 				selection.Changed:Connect(Explorer.UpdateSelectionVisuals)
 
-				-- Window events
+				
 				window.GuiElems.Main:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 					if Explorer.Active then
 						Explorer.UpdateView()
@@ -2238,14 +2228,14 @@ local EmbeddedModules = {
 				window.OnDeactivate:Connect(function() Explorer.Active = false end)
 				window.OnMinimize:Connect(function() Explorer.Active = false end)
 
-				-- Settings
+				
 				autoUpdateSearch = Settings.Explorer.AutoUpdateSearch
 
-				-- Fill in nodes
+				
 				nodes[game] = {Obj = game}
 				expanded[nodes[game]] = true
 
-				-- Nil Instances
+				
 				if env.getnilinstances then
 					nodes[nilNode.Obj] = nilNode
 				end
@@ -2287,16 +2277,16 @@ local EmbeddedModules = {
 		return {InitDeps = initDeps, InitAfterMain = initAfterMain, Main = main}
 	end,
 	Properties = function()
---[[
-	Properties App Module
-	
-	The main properties interface
-]]
 
-		-- Common Locals
-		local Main,Lib,Apps,Settings -- Main Containers
-		local Explorer, Properties, ScriptViewer, Notebook -- Major Apps
-		local API,RMD,env,service,plr,create,createSimple -- Main Locals
+
+
+
+
+
+		
+		local Main,Lib,Apps,Settings 
+		local Explorer, Properties, ScriptViewer, Notebook 
+		local API,RMD,env,service,plr,create,createSimple 
 
 		local function initDeps(data)
 			Main = data.Main
@@ -2639,7 +2629,7 @@ local EmbeddedModules = {
 												local propValSub = propVal
 
 												for j = 1,#indexes do
-													if not firstValSub or not propValSub then break end -- PhysicalProperties
+													if not firstValSub or not propValSub then break end 
 													local indexName = indexes[j]
 													firstValSub = firstValSub[indexName]
 													propValSub = propValSub[indexName]
@@ -2676,8 +2666,8 @@ local EmbeddedModules = {
 				end
 			end
 
-			-- Fetches the properties to be displayed based on the explorer selection
-			Settings.Properties.ShowAttributes = true -- im making it true anyway since its useful by default and people complain
+			
+			Settings.Properties.ShowAttributes = true 
 			Properties.ShowExplorerProps = function()
 				local maxConflictCheck = Settings.Properties.MaxConflictCheck
 				local sList = Explorer.Selection.List
@@ -2766,10 +2756,10 @@ local EmbeddedModules = {
 					end
 				end)
 
-				-- Find conflicts and get auto-update instances
+				
 				Properties.ClassLists = classLists
 				Properties.ComputeConflicts()
-				--warn("CONFLICT",tick()-start)
+				
 				if #props > 0 then
 					props[#props+1] = Properties.AddAttributeProp
 				end
@@ -2826,7 +2816,7 @@ local EmbeddedModules = {
 				return subProp
 			end
 
-			Properties.GetExpandedProps = function(prop) -- TODO: Optimize using table
+			Properties.GetExpandedProps = function(prop) 
 				local result = {}
 				local typeData = prop.ValueType
 				local typeName = typeData.Name
@@ -3397,7 +3387,7 @@ local EmbeddedModules = {
 						Properties.SetProp(editor.CurrentProp,BrickColor.new(col))
 					end)
 
-					editor.OnMoreColors:Connect(function() -- TODO: Special Case BasePart.BrickColor to BasePart.Color
+					editor.OnMoreColors:Connect(function() 
 						editor:Close()
 						local colProp
 						for i,v in pairs(API.Classes.BasePart.Properties) do
@@ -3589,7 +3579,7 @@ local EmbeddedModules = {
 				local offset = 4
 				local endOffset = 6
 
-				-- Offsetting the ValueBox for ValueType specific buttons
+				
 				if (typeName == "Color3" or typeName == "BrickColor" or typeName == "ColorSequence") then
 					colorButton.Visible = true
 					enumArrow.Visible = false
@@ -3617,7 +3607,7 @@ local EmbeddedModules = {
 				valueBox.Position = UDim2.new(0,offset,0,0)
 				valueBox.Size = UDim2.new(1,-endOffset,1,0)
 
-				-- Right button
+				
 				if inputFullName == gName and typeData.Category == "Class" then
 					Main.MiscIcons:DisplayByKey(guiElems.RightButtonIcon, "Delete")
 					guiElems.RightButtonIcon.Visible = true
@@ -3631,7 +3621,7 @@ local EmbeddedModules = {
 					rightButton.Visible = false
 				end
 
-				-- Displays the correct ValueBox for the ValueType, and sets it to the prop value
+				
 				if typeName == "bool" or typeName == "PhysicalProperties" then
 					valueBox.Visible = false
 					checkbox.Visible = true
@@ -3684,13 +3674,13 @@ local EmbeddedModules = {
 				local stringSplit = string.split
 				local scaleType = Settings.Properties.ScaleType
 
-				-- Clear connections
+				
 				for i = 1,#propCons do
 					propCons[i]:Disconnect()
 				end
 				table.clear(propCons)
 
-				-- Hide full name viewer
+				
 				Properties.FullNameFrame.Visible = false
 				Properties.FullNameFrameAttach.Disable()
 
@@ -3724,7 +3714,7 @@ local EmbeddedModules = {
 								guiElems.RowButton.Visible = true
 							end
 						else
-							-- Revert special row stuff
+							
 							nameFrame.Visible = true
 							guiElems.RowButton.Visible = false
 
@@ -3763,7 +3753,7 @@ local EmbeddedModules = {
 								editAttributeButton.Visible = (prop.IsAttribute and not prop.RootType)
 								toggleAttributes.Visible = false
 
-								-- Moving around the frames
+								
 								if scaleType == 0 then
 									nameFrame.Size = UDim2.new(0,Properties.ViewWidth - leftOffset - 1,1,0)
 									valueFrame.Position = UDim2.new(0,Properties.ViewWidth,0,0)
@@ -3783,7 +3773,7 @@ local EmbeddedModules = {
 								expand.Visible = typeData.Category == "DataType" and Properties.ExpandableTypes[typeName] or Properties.ExpandableProps[gName]
 								propNameBox.TextColor3 = tags.ReadOnly and Settings.Theme.PlaceholderText or Settings.Theme.Text
 
-								-- Display property value
+								
 								Properties.DisplayProp(prop,i)
 								if propObj then
 									if prop.IsAttribute then
@@ -3797,7 +3787,7 @@ local EmbeddedModules = {
 									end
 								end
 
-								-- Position and resize Input Box
+								
 								local beforeVisible = valueBox.Visible
 								local inputFullName = inputProp and (inputProp.Class.."."..inputProp.Name..(inputProp.SubName or ""))
 								if gName == inputFullName then
@@ -3835,7 +3825,7 @@ local EmbeddedModules = {
 								end
 							end
 
-							-- Expand
+							
 							if prop.CategoryName or Properties.ExpandableTypes[prop.ValueType and prop.ValueType.Name] or Properties.ExpandableProps[gName] then
 								if Lib.CheckMouseInGui(expand) then
 									Main.MiscIcons:DisplayByKey(expand.Icon, expanded[gName] and "Collapse_Over" or "Expand_Over")
@@ -4119,7 +4109,7 @@ local EmbeddedModules = {
 				Properties.FullNameFrameAttach = Lib.AttachTo(fullNameFrame)
 			end
 
-			Properties.Init = function() -- TODO: MAKE BETTER
+			Properties.Init = function() 
 				local guiItems = create({
 					{1,"Folder",{Name="Items",}},
 					{2,"Frame",{BackgroundColor3=Color3.new(0.20392157137394,0.20392157137394,0.20392157137394),BorderSizePixel=0,Name="ToolBar",Parent={1},Size=UDim2.new(1,0,0,22),}},
@@ -4135,7 +4125,7 @@ local EmbeddedModules = {
 					{12,"Frame",{BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=1,ClipsDescendants=true,Name="List",Parent={1},Position=UDim2.new(0,0,0,23),Size=UDim2.new(1,0,1,-23),}},
 				})
 
-				-- Vars
+				
 				categoryOrder =	API.CategoryOrder
 				for category,_ in next,categoryOrder do
 					if not Properties.CollapsedCategories[category] then
@@ -4144,7 +4134,7 @@ local EmbeddedModules = {
 				end
 				expanded["Sound.SoundId"] = true
 
-				-- Init window
+				
 				window = Lib.Window.new()
 				Properties.Window = window
 				window:SetTitle("Properties")
@@ -4157,7 +4147,7 @@ local EmbeddedModules = {
 
 				Properties.InitEntryStuff()
 
-				-- Window events
+				
 				window.GuiElems.Main:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 					if Properties.Window:IsContentVisible() then
 						Properties.UpdateView()
@@ -4175,7 +4165,7 @@ local EmbeddedModules = {
 					Properties.Refresh()
 				end)
 
-				-- Init scrollbars
+				
 				scrollV = Lib.ScrollBar.new()		
 				scrollV.WheelIncrement = 3
 				scrollV.Gui.Position = UDim2.new(1,-16,0,23)
@@ -4193,7 +4183,7 @@ local EmbeddedModules = {
 					Properties.Refresh()
 				end)
 
-				-- Setup Gui
+				
 				window.GuiElems.Line.Position = UDim2.new(0,0,0,22)
 				toolBar.Parent = window.GuiElems.Content
 				propsFrame.Parent = window.GuiElems.Content
@@ -4210,16 +4200,16 @@ local EmbeddedModules = {
 		return {InitDeps = initDeps, InitAfterMain = initAfterMain, Main = main}
 	end,
 	ScriptViewer = function()
---[[
-	Script Viewer App Module
-	
-	A script viewer that is basically a notepad
-]]
 
-		-- Common Locals
-		local Main,Lib,Apps,Settings -- Main Containers
-		local Explorer, Properties, ScriptViewer, Notebook -- Major Apps
-		local API,RMD,env,service,plr,create,createSimple -- Main Locals
+
+
+
+
+
+		
+		local Main,Lib,Apps,Settings 
+		local Explorer, Properties, ScriptViewer, Notebook 
+		local API,RMD,env,service,plr,create,createSimple 
 
 		local function initDeps(data)
 			Main = data.Main
@@ -4266,7 +4256,7 @@ local EmbeddedModules = {
 				codeFrame.Frame.Size = UDim2.new(1,0,1,-20)
 				codeFrame.Frame.Parent = window.GuiElems.Content
 
-				-- TODO: REMOVE AND MAKE BETTER
+				
 				local copy = Instance.new("TextButton", window.GuiElems.Content)
 				copy.BackgroundTransparency = 1
 				copy.Size = UDim2.new(0.5,0,0,20)
@@ -4305,7 +4295,7 @@ local EmbeddedModules = {
 				dumpbtn.MouseButton1Click:Connect(function()
 					if PreviousScr ~= nil then
 						pcall(function()
-							-- thanks King.Kevin#6025 you'll obviously be credited (no discord tag since that can easily be impersonated)
+							
 							local getgc = getgc or get_gc_objects
 							local getupvalues = (debug and debug.getupvalues) or getupvalues or getupvals
 							local getconstants = (debug and debug.getconstants) or getconstants or getconsts
@@ -4398,16 +4388,16 @@ local EmbeddedModules = {
 		return {InitDeps = initDeps, InitAfterMain = initAfterMain, Main = main}
 	end,
 	Lib = function()
---[[
-	Lib Module
-	
-	Container for functions and classes
-]]
 
-		-- Common Locals
-		local Main,Lib,Apps,Settings -- Main Containers
-		local Explorer, Properties, ScriptViewer, Notebook -- Major Apps
-		local API,RMD,env,service,plr,create,createSimple -- Main Locals
+
+
+
+
+
+		
+		local Main,Lib,Apps,Settings 
+		local Explorer, Properties, ScriptViewer, Notebook 
+		local API,RMD,env,service,plr,create,createSimple 
 
 		local function initDeps(data)
 			Main = data.Main
@@ -4436,10 +4426,10 @@ local EmbeddedModules = {
 
 			local renderStepped = service.RunService.RenderStepped
 			local signalWait = renderStepped.wait
-			local PH = newproxy() -- Placeholder, must be replaced in constructor
+			local PH = newproxy() 
 			local SIGNAL = newproxy()
 
-			-- Usually for classes that work with a Roblox Object
+			
 			local function initObj(props,mt)
 				local type = type
 				local function copy(t)
@@ -4465,7 +4455,7 @@ local EmbeddedModules = {
 				__newindex = function(self,ind,val) if not props[ind] then self.Gui[ind] = val else rawset(self,ind,val) end end}
 			end
 
-			-- Functions
+			
 
 			Lib.FormatLuaString = (function()
 				local string = string
@@ -4559,12 +4549,12 @@ local EmbeddedModules = {
 
 			Lib.ParseXML = (function()
 				local func = function()
-					-- Only exists to parse RMD
-					-- from https://github.com/jonathanpoelen/xmlparser
+					
+					
 
 					local string, print, pairs = string, print, pairs
 
-					-- http://lua-users.org/wiki/StringTrim
+					
 					local trim = function(s)
 						local from = s:match"^%s*()"
 						return from > #s and "" or s:match(".*%S", from)
@@ -4576,7 +4566,7 @@ local EmbeddedModules = {
 					local E = string.byte('E', 1)
 
 					function parse(s, evalEntities)
-						-- remove comments
+						
 						s = s:gsub('<!%-%-(.-)%-%->', '')
 
 						local entities, tentities = {}
@@ -4602,7 +4592,7 @@ local EmbeddedModules = {
 						end
 
 						s:gsub('<([?!/]?)([-:_%w]+)%s*(/?>?)([^<]*)', function(type, name, closed, txt)
-							-- open
+							
 							if #type == 0 then
 								local a = {}
 								if #closed == 0 then
@@ -4625,25 +4615,25 @@ local EmbeddedModules = {
 								end
 
 								addtext(txt)
-								-- close
+								
 							elseif '/' == type then
 								t = l[#l]
 								l[#l] = nil
 
 								addtext(txt)
-								-- ENTITY
+								
 							elseif '!' == type then
 								if E == name:byte(1) then
 									txt:gsub('([_%w]+)%s+(.)(.-)%2', function(name, q, entity)
 										entities[#entities+1] = {name=name, value=entity}
 									end, 1)
 								end
-								-- elseif '?' == type then
-								--	 print('?	' .. name .. ' // ' .. attrs .. '$$')
-								-- elseif '-' == type then
-								--	 print('comment	' .. name .. ' // ' .. attrs .. '$$')
-								-- else
-								--	 print('o	' .. #p .. ' // ' .. name .. ' // ' .. attrs .. '$$')
+								
+								
+								
+								
+								
+								
 							end
 						end)
 
@@ -4866,7 +4856,7 @@ local EmbeddedModules = {
 				return Lib.LoadCustomAsset(filepath)
 			end
 
-			-- Classes
+			
 
 			Lib.Signal = (function()
 				local funcs = {}
@@ -6044,16 +6034,16 @@ local EmbeddedModules = {
 					leftSide.Frame.Resizer.Position = UDim2.new(0,leftSide.Width,0,0)
 					rightSide.Frame.Resizer.Position = UDim2.new(0,-5,0,0)
 
-					--leftSide.Frame.Visible = (#leftSide.Windows > 0)
-					--rightSide.Frame.Visible = (#rightSide.Windows > 0)
+					
+					
 
-			--[[if #leftSide.Windows > 0 and leftSide.Frame.Position == UDim2.new(0,-leftSide.Width-5,0,0) then
-				leftSide.Frame:TweenPosition(UDim2.new(0,0,0,0),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.3,true)
-			elseif #leftSide.Windows == 0 and leftSide.Frame.Position == UDim2.new(0,0,0,0) then
-				leftSide.Frame:TweenPosition(UDim2.new(0,-leftSide.Width-5,0,0),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.3,true)
-			end
-			local rightTweenPos = (#rightSide.Windows == 0 and UDim2.new(1,5,0,0) or UDim2.new(1,-rightSide.Width,0,0))
-			rightSide.Frame:TweenPosition(rightTweenPos,Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.3,true)]]
+			
+
+
+
+
+
+
 					local leftHidden = #leftSide.Windows == 0 or leftSide.Hidden
 					local rightHidden = #rightSide.Windows == 0 or rightSide.Hidden
 					local leftPos = (leftHidden and UDim2.new(0,-leftSide.Width-10,0,0) or UDim2.new(0,0,0,0))
@@ -6201,7 +6191,7 @@ local EmbeddedModules = {
 
 				end
 
-				local function renderSide(side,noTween) -- TODO: Use existing resizers
+				local function renderSide(side,noTween) 
 					local currentPos = 0
 					local sideFramePos = getSideFramePos(side)
 					local template = side.WindowResizer:Clone()
@@ -6216,7 +6206,7 @@ local EmbeddedModules = {
 						local size = UDim2.new(0,side.Width,0,v.SizeY)
 						local pos = UDim2.new(sideFramePos.X.Scale,sideFramePos.X.Offset,0,currentPos)
 						Lib.ShowGui(v.Gui)
-						--v.GuiElems.Main:TweenSizeAndPosition(size,pos,Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.3,true)
+						
 						if noTween then
 							v.GuiElems.Main.Size = size
 							v.GuiElems.Main.Position = pos
@@ -6241,8 +6231,8 @@ local EmbeddedModules = {
 						end
 					end
 
-					--side.Frame.Back.Position = UDim2.new(0,0,0,0)
-					--side.Frame.Back.Size = UDim2.new(0,side.Width,1,0)
+					
+					
 				end
 
 				local function updateSide(side,noTween)
@@ -6287,10 +6277,10 @@ local EmbeddedModules = {
 						count = count + 1
 					end
 
-			--[[local leftTweenPos = (#leftSide.Windows == 0 and UDim2.new(0,-leftSide.Width-5,0,0) or UDim2.new(0,0,0,0))
-			leftSide.Frame:TweenPosition(leftTweenPos,Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.3,true)
-			local rightTweenPos = (#rightSide.Windows == 0 and UDim2.new(1,5,0,0) or UDim2.new(1,-rightSide.Width,0,0))
-			rightSide.Frame:TweenPosition(rightTweenPos,Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.3,true)]]
+			
+
+
+
 				end
 
 				funcs.SetMinimized = function(self,set,mode)
@@ -6408,7 +6398,7 @@ local EmbeddedModules = {
 					if not silent then
 						side.Hidden = false
 					end
-					-- updateWindows(silent)
+					
 				end
 
 				funcs.Close = function(self)
@@ -6529,13 +6519,13 @@ local EmbeddedModules = {
 					if align then
 						window:AlignTo(targetSide,pos,size,data.Silent)
 					else
-						if align == nil and window.ClosedSide then -- Regular open
+						if align == nil and window.ClosedSide then 
 							window:AlignTo(window.ClosedSide,window.SidePos,size,true)
 							static.SetSideVisible(window.ClosedSide,true)
 						else
 							if table.find(visibleWindows,window) then return end
 
-							-- TODO: make better
+							
 							window.GuiElems.Main.Size = UDim2.new(0,window.SizeX,0,20)
 							local ti = TweenInfo.new(0.2,Enum.EasingStyle.Quad,Enum.EasingDirection.Out)
 							window:StopTweens()
@@ -6878,7 +6868,7 @@ local EmbeddedModules = {
 								newEntry.Icon.Visible = false
 							else
 								local iconIndex = item.Disabled and item.DisabledIcon or item.Icon
-								-- Explorer.MiscIcons:DisplayExplorerIcons(newEntry.Icon, iconIndex)
+								
 								if item.IconMap then
 									if type(iconIndex) == "number" then
 										item.IconMap:Display(newEntry.Icon, iconIndex)
@@ -6942,12 +6932,12 @@ local EmbeddedModules = {
 						self:Refresh()
 					end
 
-					-- Vars
+					
 					local reverseY = false
 					local x,y = x or mouse.X, y or mouse.Y
 					local maxX,maxY = mouse.ViewSizeX,mouse.ViewSizeY
 
-					-- Position and show
+					
 					if x + self.Width > maxX then
 						x = self.ReverseX and x - self.Width or maxX - self.Width
 					end
@@ -6956,8 +6946,8 @@ local EmbeddedModules = {
 					self.Gui.DisplayOrder = Main.DisplayOrders.Menu
 					Lib.ShowGui(self.Gui)
 
-					-- Size adjustment
-					local toSize = elems.List.UIListLayout.AbsoluteContentSize.Y + 6 -- Padding
+					
+					local toSize = elems.List.UIListLayout.AbsoluteContentSize.Y + 6 
 					if self.MaxHeight and toSize > self.MaxHeight then
 						elems.List.CanvasSize = UDim2.new(0,0,0,toSize-6)
 						toSize = self.MaxHeight
@@ -6966,7 +6956,7 @@ local EmbeddedModules = {
 					end
 					if y + toSize > maxY then reverseY = true end
 
-					-- Close event
+					
 					local closable
 					if self.CloseEvent then self.CloseEvent:Disconnect() end
 					self.CloseEvent = service.UserInputService.InputBegan:Connect(function(input)
@@ -6980,7 +6970,7 @@ local EmbeddedModules = {
 						end
 					end)
 
-					-- Resize
+					
 					if reverseY then
 						elems.Main.Position = UDim2.new(0,x,0,y-(self.ReverseYOffset or 0))
 						local newY = y - toSize - (self.ReverseYOffset or 0)
@@ -6990,7 +6980,7 @@ local EmbeddedModules = {
 						elems.Main:TweenSize(UDim2.new(0,self.Width,0,toSize),Enum.EasingDirection.Out,Enum.EasingStyle.Quart,0.2,true)
 					end
 
-					-- Close debounce
+					
 					Lib.FastWait()
 					if self.SearchEnabled and self.FocusSearchOnShow then elems.SearchBar:CaptureFocus() end
 					closable = true
@@ -7617,7 +7607,7 @@ local EmbeddedModules = {
 					local after = line:sub(cursorX+1)
 
 					text = text:gsub("\r\n","\n")
-					text = self:ConvertText(text,true) -- Tab Convert
+					text = self:ConvertText(text,true) 
 
 					local textLines = text:split("\n")
 					local insert = table.insert
@@ -7646,7 +7636,7 @@ local EmbeddedModules = {
 					self.ScrollH:ScrollTo(self.ScrollH.Index + x)
 				end
 
-				-- x and y starts at 0
+				
 				funcs.TabAdjust = function(self,x,y)
 					local lines = self.Lines
 					local line = lines[y+1]
@@ -7751,7 +7741,7 @@ local EmbeddedModules = {
 
 					cursorX = cursorX + self:TabAdjust(cursorX,cursorY)
 
-					-- Update modified
+					
 					self.CursorX = cursorX
 					self.CursorY = cursorY
 
@@ -7789,7 +7779,7 @@ local EmbeddedModules = {
 				funcs.PreHighlight = function(self)
 					local start = tick()
 					local text = self.Text:gsub("\\\\","	")
-					--print("BACKSLASH SUB",tick()-start)
+					
 					local textLen = #text
 					local found = {}
 					local foundMap = {}
@@ -7863,14 +7853,14 @@ local EmbeddedModules = {
 
 						while pos > lineEnd do
 							curLine = curLine + 1
-							--lineTableCount = 1
+							
 							lineEnd = newLines[curLine] or textLen+1
 						end
 						while true do
 							local lineTable = foundHighlights[curLine]
 							if not lineTable then lineTable = {} foundHighlights[curLine] = lineTable end
 							lineTable[pos] = {typ,ending}
-							--lineTableCount = lineTableCount + 1
+							
 
 							if ending > lineEnd then
 								curLine = curLine + 1
@@ -7881,11 +7871,11 @@ local EmbeddedModules = {
 						end
 
 						lastEnding = ending
-						--if i < 200 then print(curLine) end
+						
 					end
 					self.PreHighlights = foundHighlights
-					--print(tick()-start)
-					--print(#found,curLine)
+					
+					
 				end
 
 				funcs.HighlightLine = function(self,line)
@@ -7912,7 +7902,7 @@ local EmbeddedModules = {
 						if relativePos < 1 then
 							currentType = data[1]
 							lastEnding = data[2] - lineStart
-							--warn(pos,data[2])
+							
 						else
 							preHighlightMap[relativePos] = {data[1],data[2]-lineStart}
 						end
@@ -8078,7 +8068,7 @@ local EmbeddedModules = {
 						local curType = highlights[colStart]
 						local curTemplate = richTemplates[typeMap[curType]] or textTemplate
 
-						-- Selection Highlight
+						
 						local selectionRange = self.SelectionRange
 						local selPos1 = selectionRange[1]
 						local selPos2 = selectionRange[2]
@@ -8098,7 +8088,7 @@ local EmbeddedModules = {
 							lineFrame.SelectionHighlight.Visible = false
 						end
 
-						-- Selection Text Color for first char
+						
 						local inSelection = selRelaY >= selRow and selRelaY <= sel2Row and (selRelaY == selRow and viewX >= selColumn or selRelaY ~= selRow) and (selRelaY == sel2Row and viewX < sel2Column or selRelaY ~= sel2Row)
 						if inSelection then
 							curType = -999
@@ -8110,7 +8100,7 @@ local EmbeddedModules = {
 							local selRelaX = relaX-1
 							local posType = highlights[relaX]
 
-							-- Selection Text Color
+							
 							local inSelection = selRelaY >= selRow and selRelaY <= sel2Row and (selRelaY == selRow and selRelaX >= selColumn or selRelaY ~= selRow) and (selRelaY == sel2Row and selRelaX < sel2Column or selRelaY ~= sel2Row)
 							if inSelection then
 								posType = -999
@@ -8130,7 +8120,7 @@ local EmbeddedModules = {
 						end
 
 						local lastText = gsub(sub(lineText,colStart,viewX+maxCols),"['\"<>&]",richReplace)
-						--warn("SUB",colStart,viewX+maxCols-1)
+						
 						if #lastText > 0 then
 							resText = resText .. (curTemplate ~= textTemplate and (curTemplate .. lastText .. "</font>") or lastText)
 						end
@@ -8150,7 +8140,7 @@ local EmbeddedModules = {
 					self.Frame.LineNumbers.Text = lineNumberStr
 					self:UpdateCursor()
 
-					--print("REFRESH TIME",tick()-start)
+					
 				end
 
 				funcs.UpdateView = function(self)
@@ -8219,7 +8209,7 @@ local EmbeddedModules = {
 					self:MapNewLines()
 					self:PreHighlight()
 					self:Refresh()
-					--self.TextChanged:Fire()
+					
 				end
 
 				funcs.ConvertText = function(self,text,toEditor)
@@ -8230,13 +8220,13 @@ local EmbeddedModules = {
 					end
 				end
 
-				funcs.GetText = function(self) -- TODO: better (use new tab format)
+				funcs.GetText = function(self) 
 					local source = table.concat(self.Lines,"\n")
-					return self:ConvertText(source,false) -- Tab Convert
+					return self:ConvertText(source,false) 
 				end
 
 				funcs.SetText = function(self,txt)
-					txt = self:ConvertText(txt,true) -- Tab Convert
+					txt = self:ConvertText(txt,true) 
 					local lines = self.Lines
 					table.clear(lines)
 					local count = 1
@@ -8388,7 +8378,7 @@ local EmbeddedModules = {
 					local checkmark = filler.checkmark
 					local ripples_container = checkbox.ripples
 
-					-- walls
+					
 					local top, bottom, left, right = filler.top, filler.bottom, filler.left, filler.right
 
 					self.Gui = checkbox
@@ -8420,31 +8410,31 @@ local EmbeddedModules = {
 						end
 					end)
 
-					-- Old:
-			--[[checkbox.InputBegan:Connect(function(i)
-				if i.UserInputType == Enum.UserInputType.MouseButton1 then
-					local release
-					release = service.UserInputService.InputEnded:Connect(function(input)
-						if input.UserInputType == Enum.UserInputType.MouseButton1 then
-							release:Disconnect()
+					
+			
 
-							if Lib.CheckMouseInGui(checkbox) then
-								if self.Style == 0 then
-									ripple(ripples_container, self.Disabled and self.Colors.Disabled or self.Colors.Primary)
-								end
 
-								if not self.Disabled then
-									self:SetState(not self.Toggled,true)
-								else
-									self:Paint()
-								end
-								
-								self.OnInput:Fire()
-							end
-						end
-					end)
-				end
-			end)]]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 					self:Paint()
 				end
@@ -8755,7 +8745,7 @@ local EmbeddedModules = {
 				return {new = new}
 			end)()
 
-			Lib.ColorPicker = (function() -- TODO: Convert to newer class model
+			Lib.ColorPicker = (function() 
 				local funcs = {}
 
 				local function new()
@@ -9038,17 +9028,17 @@ local EmbeddedModules = {
 						end)
 					end
 
-			--[[local function UpdateBox(TextBox, Value, IsHSV, ...)
-				local number = tonumber(TextBox.Text)
-				if number then
-					number = math.clamp(math.floor(number), 0, Value) / Value
-					local HSV = Color3.fromHSV(func(number))
-					red, green, blue = HSV.R, HSV.G, HSV.B
-					
-					TextBox.Text = tostring(number):sub(4)
-					updateColor(IsHSV)
-				end
-			end]]
+			
+
+
+
+
+
+
+
+
+
+
 
 					local function updateHue(str)
 						local num = tonumber(str)
@@ -9202,7 +9192,7 @@ local EmbeddedModules = {
 			end)()
 
 			Lib.NumberSequenceEditor = (function()
-				local function new() -- TODO: Convert to newer class model
+				local function new() 
 					local newMt = setmetatable({},{})
 					newMt.OnSelect = Lib.Signal.new()
 					newMt.OnCancel = Lib.Signal.new()
@@ -9698,7 +9688,7 @@ local EmbeddedModules = {
 				return {new = new}
 			end)()
 
-			Lib.ColorSequenceEditor = (function() -- TODO: Convert to newer class model
+			Lib.ColorSequenceEditor = (function() 
 				local function new()
 					local newMt = setmetatable({},{})
 					newMt.OnSelect = Lib.Signal.new()
@@ -10442,13 +10432,13 @@ local EmbeddedModules = {
 		return {InitDeps = initDeps, InitAfterMain = initAfterMain, Main = main}
 	end,
 	Console = function()
---[[
-	Console Module
-]]
-		-- Common Locals
-		local Main,Lib,Apps,Settings -- Main Containers
-		local Explorer, Properties, ScriptViewer, Notebook -- Major Apps
-		local API,RMD,env,service,plr,create,createSimple -- Main Locals
+
+
+
+		
+		local Main,Lib,Apps,Settings 
+		local Explorer, Properties, ScriptViewer, Notebook 
+		local API,RMD,env,service,plr,create,createSimple 
 
 		local function initDeps(data)
 			Main = data.Main
@@ -10477,19 +10467,19 @@ local EmbeddedModules = {
 
 			local window,ConsoleFrame
 
-			local OutputLimit = 500 -- Same as Roblox Console.
+			local OutputLimit = 500 
 
 
-			-- Instances: 29 | Scripts: 1 | Modules: 1 | Tags: 0
+			
 			local G2L = {};
 
-			-- StarterGui.ScreenGui
+			
 			window = Lib.Window.new()
 			window:SetTitle("Console")
 			window:Resize(500,400)
 			Console.Window = window
 
-			-- StarterGui.ScreenGui.Console
+			
 			ConsoleFrame = Instance.new("ImageButton", window.GuiElems.Content);
 			ConsoleFrame["BorderSizePixel"] = 0;
 			ConsoleFrame["AutoButtonColor"] = false;
@@ -10502,8 +10492,8 @@ local EmbeddedModules = {
 			ConsoleFrame["Position"] = UDim2.new(0,0,0,0);
 
 
-			-- StarterGui.ScreenGui.Console.CommandLine
-			G2L["3"] = Lib.Frame.new().Gui--Instance.new("Frame", ConsoleFrame);
+			
+			G2L["3"] = Lib.Frame.new().Gui
 			G2L["3"].Parent = ConsoleFrame
 			G2L["3"]["BorderSizePixel"] = 0;
 			G2L["3"]["BackgroundColor3"] = Color3.fromRGB(37, 37, 37);
@@ -10515,13 +10505,13 @@ local EmbeddedModules = {
 			G2L["3"]["Name"] = [[CommandLine]];
 
 
-			-- StarterGui.ScreenGui.Console.CommandLine.UIStroke
+			
 			G2L["4"] = Instance.new("UIStroke", G2L["3"]);
 			G2L["4"]["Transparency"] = 0.65;
 			G2L["4"]["Thickness"] = 1.25;
 
 
-			-- StarterGui.ScreenGui.Console.CommandLine.ScrollingFrame
+			
 			G2L["5"] = Instance.new("ScrollingFrame", G2L["3"]);
 			G2L["5"]["Active"] = true;
 			G2L["5"]["ScrollingDirection"] = Enum.ScrollingDirection.X;
@@ -10539,7 +10529,7 @@ local EmbeddedModules = {
 			G2L["5"]["ScrollBarThickness"] = 2;
 			G2L["5"]["BackgroundTransparency"] = 1;
 
-			-- StarterGui.ScreenGui.Console.CommandLine.ScrollingFrame.TextBox
+			
 			G2L["6"] = Instance.new("TextBox", G2L["5"]);
 			G2L["6"]["CursorPosition"] = -1;
 			G2L["6"]["TextXAlignment"] = Enum.TextXAlignment.Left;
@@ -10558,12 +10548,12 @@ local EmbeddedModules = {
 			G2L["6"]["BackgroundTransparency"] = 1;
 
 
-			-- StarterGui.ScreenGui.Console.CommandLine.ScrollingFrame.TextBox.UIPadding
+			
 			G2L["7"] = Instance.new("UIPadding", G2L["6"]);
 			G2L["7"]["PaddingLeft"] = UDim.new(0, 7);
 
 
-			-- StarterGui.ScreenGui.Console.CommandLine.ScrollingFrame.Highlight
+			
 			G2L["8"] = Instance.new("TextLabel", G2L["5"]);
 			G2L["8"]["Interactable"] = false;
 			G2L["8"]["ZIndex"] = 2;
@@ -10583,7 +10573,7 @@ local EmbeddedModules = {
 			G2L["8"]["Name"] = [[Highlight]];
 
 
-			-- StarterGui.ScreenGui.Console.CommandLine.ScrollingFrame.Highlight.UIPadding
+			
 			G2L["9"] = Instance.new("UIPadding", G2L["8"]);
 			G2L["9"]["PaddingLeft"] = UDim.new(0, 7);
 
@@ -10604,7 +10594,7 @@ local EmbeddedModules = {
 			scrollbar.Gui.Up.ZIndex = 3
 			scrollbar.Gui.Down.ZIndex = 3
 
-			-- StarterGui.ScreenGui.Console.Output
+			
 			G2L["a"] = Instance.new("ScrollingFrame", ConsoleFrame);
 			G2L["a"]["Active"] = true;
 			G2L["a"]["BorderSizePixel"] = 0;
@@ -10632,36 +10622,36 @@ local EmbeddedModules = {
 				end
 			end)
 
-			-- StarterGui.ScreenGui.Console.Output.UIListLayout
+			
 			G2L["b"] = Instance.new("UIListLayout", G2L["a"]);
 			G2L["b"]["SortOrder"] = Enum.SortOrder.LayoutOrder;
 
 
-			-- StarterGui.ScreenGui.Console.Output.UIStroke
+			
 			G2L["c"] = Instance.new("UIStroke", G2L["a"]);
 			G2L["c"]["Transparency"] = 0.7;
 			G2L["c"]["Thickness"] = 1.25;
 			G2L["c"]["Color"] = Color3.fromRGB(12, 12, 12);
 
 
-			-- StarterGui.ScreenGui.Console.Output.OutputTextSize
+			
 			G2L["d"] = Instance.new("NumberValue", G2L["a"]);
 			G2L["d"]["Name"] = [[OutputTextSize]];
 			G2L["d"]["Value"] = 15;
 
 
-			-- StarterGui.ScreenGui.Console.Output.OutputLimit
+			
 			G2L["e"] = Instance.new("NumberValue", G2L["a"]);
 			G2L["e"]["Name"] = [[OutputLimit]];
 			G2L["e"]["Value"] = OutputLimit;
 
 
-			-- StarterGui.ScreenGui.Console.Output.UIPadding
+			
 			G2L["f"] = Instance.new("UIPadding", G2L["a"]);
 			G2L["f"]["PaddingTop"] = UDim.new(0, 2);
 
 
-			-- StarterGui.ScreenGui.Console.TextSizeBox
+			
 			G2L["10"] = Instance.new("Frame", ConsoleFrame);
 			G2L["10"]["BorderSizePixel"] = 0;
 			G2L["10"]["BackgroundColor3"] = Color3.fromRGB(37, 37, 37);
@@ -10672,7 +10662,7 @@ local EmbeddedModules = {
 			G2L["10"]["Name"] = [[TextSizeBox]];
 
 
-			-- StarterGui.ScreenGui.Console.TextSizeBox.TextBox
+			
 			G2L["11"] = Instance.new("TextBox", G2L["10"]);
 			G2L["11"]["PlaceholderColor3"] = Color3.fromRGB(108, 108, 108);
 			G2L["11"]["BorderSizePixel"] = 0;
@@ -10689,7 +10679,7 @@ local EmbeddedModules = {
 			G2L["11"]["BackgroundTransparency"] = 1;
 
 
-			-- StarterGui.ScreenGui.Console.TextSizeBox.TextBox.UIPadding
+			
 			G2L["12"] = Instance.new("UIPadding", G2L["11"]);
 			G2L["12"]["PaddingTop"] = UDim.new(0, 2);
 			G2L["12"]["PaddingRight"] = UDim.new(0, 5);
@@ -10697,13 +10687,13 @@ local EmbeddedModules = {
 			G2L["12"]["PaddingBottom"] = UDim.new(0, 2);
 
 
-			-- StarterGui.ScreenGui.Console.TextSizeBox.UIStroke
+			
 			G2L["13"] = Instance.new("UIStroke", G2L["10"]);
 			G2L["13"]["Transparency"] = 0.65;
 			G2L["13"]["Thickness"] = 1.25;
 
 
-			-- StarterGui.ScreenGui.Console.Clear
+			
 			G2L["14"] = Instance.new("ImageButton", ConsoleFrame);
 			G2L["14"]["BorderSizePixel"] = 0;
 			G2L["14"]["BackgroundColor3"] = Color3.fromRGB(57, 57, 57);
@@ -10713,7 +10703,7 @@ local EmbeddedModules = {
 			G2L["14"]["Position"] = UDim2.new(1, -42, 0, 4);
 
 
-			-- StarterGui.ScreenGui.Console.Clear.TextLabel
+			
 			G2L["15"] = Instance.new("TextLabel", G2L["14"]);
 			G2L["15"]["TextWrapped"] = true;
 			G2L["15"]["Interactable"] = false;
@@ -10729,13 +10719,13 @@ local EmbeddedModules = {
 			G2L["15"]["Text"] = [[Clear]];
 
 
-			-- StarterGui.ScreenGui.Console.Clear.UIPadding
+			
 			G2L["16"] = Instance.new("UIPadding", G2L["14"]);
 			G2L["16"]["PaddingTop"] = UDim.new(0, 1);
 			G2L["16"]["PaddingBottom"] = UDim.new(0, 1);
 
 
-			-- StarterGui.ScreenGui.Console.OutputTemplate
+			
 			G2L["17"] = Instance.new("TextBox", ConsoleFrame);
 			G2L["17"]["Visible"] = false;
 			G2L["17"]["Active"] = false;
@@ -10759,13 +10749,13 @@ local EmbeddedModules = {
 			G2L["17"]["BackgroundTransparency"] = 1;
 
 
-			-- StarterGui.ScreenGui.Console.OutputTemplate.UIPadding
+			
 			G2L["18"] = Instance.new("UIPadding", G2L["17"]);
 			G2L["18"]["PaddingRight"] = UDim.new(0, 6);
 			G2L["18"]["PaddingLeft"] = UDim.new(0, 6);
 
 
-			-- StarterGui.ScreenGui.Console.CtrlScroll
+			
 			G2L["19"] = Instance.new("ImageButton", ConsoleFrame);
 			G2L["19"]["BorderSizePixel"] = 0;
 			G2L["19"]["BackgroundColor3"] = Color3.fromRGB(57, 57, 57);
@@ -10775,7 +10765,7 @@ local EmbeddedModules = {
 			G2L["19"]["Position"] = UDim2.new(0, 46, 0, 4);
 
 
-			-- StarterGui.ScreenGui.Console.CtrlScroll.TextLabel
+			
 			G2L["1a"] = Instance.new("TextLabel", G2L["19"]);
 			G2L["1a"]["TextWrapped"] = true;
 			G2L["1a"]["Interactable"] = false;
@@ -10791,12 +10781,12 @@ local EmbeddedModules = {
 			G2L["1a"]["Text"] = [[Ctrl Scroll]];
 
 
-			-- StarterGui.ScreenGui.Console.CtrlScroll.UIPadding
+			
 			G2L["1b"] = Instance.new("UIPadding", G2L["19"]);
 			G2L["1b"]["PaddingTop"] = UDim.new(0, 1);
 			G2L["1b"]["PaddingBottom"] = UDim.new(0, 1);
 
-			-- StarterGui.ScreenGui.Console.AutoScroll
+			
 			G2L["20"] = Instance.new("ImageButton", ConsoleFrame);
 			G2L["20"]["BorderSizePixel"] = 0;
 			G2L["20"]["BackgroundColor3"] = Color3.fromRGB(57, 57, 57);
@@ -10806,7 +10796,7 @@ local EmbeddedModules = {
 			G2L["20"]["Position"] = UDim2.new(0, 110, 0, 4);
 
 
-			-- StarterGui.ScreenGui.Console.AutoScroll.TextLabel
+			
 			G2L["1e"] = Instance.new("TextLabel", G2L["20"]);
 			G2L["1e"]["TextWrapped"] = true;
 			G2L["1e"]["Interactable"] = false;
@@ -10822,23 +10812,23 @@ local EmbeddedModules = {
 			G2L["1e"]["Text"] = [[Auto Scroll]];
 
 
-			-- StarterGui.ScreenGui.Console.AutoScroll.UIPadding
+			
 			G2L["1f"] = Instance.new("UIPadding", G2L["20"]);
 			G2L["1f"]["PaddingTop"] = UDim.new(0, 1);
 			G2L["1f"]["PaddingBottom"] = UDim.new(0, 1);
 
 
-			-- StarterGui.ScreenGui.ConsoleHandler
+			
 			G2L["1c"] = Instance.new("LocalScript", G2L["1"]);
 			G2L["1c"]["Name"] = [[ConsoleHandler]];
 
 
-			-- StarterGui.ScreenGui.ConsoleHandler.SyntaxHighlighter
+			
 			G2L["1d"] = Instance.new("ModuleScript", G2L["1c"]);
 			G2L["1d"]["Name"] = [[SyntaxHighlighter]];
 
 
-			-- Require G2L wrapper
+			
 			local G2L_REQUIRE = require;
 			local G2L_MODULES = {};
 			local function require(Module)
@@ -11038,7 +11028,7 @@ local EmbeddedModules = {
 			};
 
 			Console.Init = function()
-				-- StarterGui.ScreenGui.ConsoleHandler
+				
 
 				local CtrlScroll = false
 				local AutoScroll = false
@@ -11062,7 +11052,7 @@ local EmbeddedModules = {
 
 
 
-				-- MOUSE STUFFS
+				
 
 				if CtrlScroll == true then
 					Console.CtrlScroll.BackgroundColor3 = Color3.fromRGB(11, 90, 175)
@@ -11109,7 +11099,7 @@ local EmbeddedModules = {
 					end
 				end)
 
-				-- Console part
+				
 				local displayedOutput = {}
 				local OutputLimit = Console.Output.OutputLimit
 
@@ -11237,13 +11227,13 @@ local EmbeddedModules = {
 		return {InitDeps = initDeps, InitAfterMain = initAfterMain, Main = main}
 	end,
 	SaveInstance = function()
---[[
-	Save Instance Module
-]]
-		-- Common Locals
-		local Main,Lib,Apps,Settings -- Main Containers
-		local Explorer, Properties, ScriptViewer, Notebook -- Major Apps
-		local API,RMD,env,service,plr,create,createSimple -- Main Locals
+
+
+
+		
+		local Main,Lib,Apps,Settings 
+		local Explorer, Properties, ScriptViewer, Notebook 
+		local API,RMD,env,service,plr,create,createSimple 
 
 		local function initDeps(data)
 			Main = data.Main
@@ -11299,13 +11289,13 @@ local EmbeddedModules = {
 				listlayout.VerticalAlignment = Enum.VerticalAlignment.Center
 				listlayout.Padding = UDim.new(0, 10)
 
-				-- Checkbox
+				
 				local checkbox = Lib.Checkbox.new()
 
 				checkbox.Gui.Parent = frame.Gui
 				checkbox.Gui.Size = UDim2.new(0,15,0,15)
 
-				-- Label
+				
 				local label = Lib.Label.new()
 
 				label.Gui.Parent = frame.Gui
@@ -11332,7 +11322,7 @@ local EmbeddedModules = {
 				listlayout.VerticalAlignment = Enum.VerticalAlignment.Center
 				listlayout.Padding = UDim.new(0, 10)
 
-				-- Textbox
+				
 				local textbox = Lib.ViewportTextBox.new()
 
 				textbox.Gui.Parent = frame.Gui
@@ -11345,7 +11335,7 @@ local EmbeddedModules = {
 				textbox.Gui.AutomaticSize = Enum.AutomaticSize.X
 				textbox.TextBox.AutomaticSize = Enum.AutomaticSize.X
 
-				-- Label
+				
 				local label = Lib.Label.new()
 
 				label.Gui.Parent = frame.Gui
@@ -11371,7 +11361,7 @@ local EmbeddedModules = {
 				listlayout.VerticalAlignment = Enum.VerticalAlignment.Center
 				listlayout.Padding = UDim.new(0, 10)
 
-				-- Textbox
+				
 				local dropdown = Lib.ViewportTextBox.new()
 
 				dropdown.Gui.Parent = frame.Gui
@@ -11381,7 +11371,7 @@ local EmbeddedModules = {
 					dropdown.Gui.Size = UDim2.new(0,65,0,15)
 				end
 
-				-- Label
+				
 				local label = Lib.Label.new()
 
 				label.Gui.Parent = frame.Gui
@@ -11401,9 +11391,9 @@ local EmbeddedModules = {
 				window:Resize(350,350)
 				SaveInstance.Window = window
 
-				-- ListFrame
+				
 
-				-- Fake ScrollBar dex, because its too advanced
+				
 				ListFrame = Instance.new("ScrollingFrame")
 				ListFrame.Parent = window.GuiElems.Content
 				ListFrame.Size = UDim2.new(1, 0,1, -40)
@@ -11444,7 +11434,7 @@ local EmbeddedModules = {
 				Padding.PaddingRight = UDim.new(0, 10)
 				Padding.PaddingTop = UDim.new(0, 5)
 
-				-- Options
+				
 
 				local Decompile = AddCheckbox("Decompile Scripts (LocalScript and ModuleScript)", SaveInstanceArgs.Decompile)
 				Decompile.OnInput:Connect(function()
@@ -11508,7 +11498,7 @@ local EmbeddedModules = {
 				end)
 
 
-				-- Decompile buttons below
+				
 				local FilenameTextBox = Lib.ViewportTextBox.new()
 				FilenameTextBox.Gui.Parent = window.GuiElems.Content
 				FilenameTextBox.Size = UDim2.new(1,0, 0,20)
@@ -11560,11 +11550,11 @@ local EmbeddedModules = {
 	end
 }
 
--- Main vars
+
 local Main, Explorer, Properties, ScriptViewer, DefaultSettings, Notebook, Serializer, Lib, Console, SaveInstance
 local API, RM
 
--- Default Settings
+
 DefaultSettings = (function()
 	local rgb = Color3.fromRGB
 	return {
@@ -11574,7 +11564,7 @@ DefaultSettings = (function()
 			TeleportToOffset = Vector3.new(0,0,0),
 			ClickToRename = true,
 			AutoUpdateSearch = true,
-			AutoUpdateMode = 0, -- 0 Default, 1 no tree update, 2 no descendant events, 3 frozen
+			AutoUpdateMode = 0, 
 			PartSelectionBox = true,
 			GuiSelectionBox = true,
 			CopyPathUseGetChildren = true
@@ -11589,15 +11579,15 @@ DefaultSettings = (function()
 			NumberRounding = 3,
 			ShowAttributes = false,
 			MaxAttributes = 50,
-			ScaleType = 1 -- 0 Full Name Shown, 1 Equal Halves
+			ScaleType = 1 
 		},
 		Theme = {
 			_Recurse = true,
 			Main1 = rgb(52,52,52),
 			Main2 = rgb(45,45,45),
-			Outline1 = rgb(33,33,33), -- Mainly frames
-			Outline2 = rgb(55,55,55), -- Mainly button
-			Outline3 = rgb(30,30,30), -- Mainly textbox
+			Outline1 = rgb(33,33,33), 
+			Outline2 = rgb(55,55,55), 
+			Outline3 = rgb(30,30,30), 
 			TextBox = rgb(38,38,38),
 			Menu = rgb(32,32,32),
 			ListSelection = rgb(11,90,175),
@@ -11639,7 +11629,7 @@ DefaultSettings = (function()
 	}
 end)()
 
--- Vars
+
 local Settings = {}
 local Apps = {}
 local env = {}
@@ -11677,7 +11667,7 @@ Main = (function()
 	Main.ModuleList = {"Explorer", "Properties", "ScriptViewer", "Console", "SaveInstance"}
 	Main.Elevated = false
 	Main.MissingEnv = {}
-	Main.Version = "" -- Beta 1.0.0
+	Main.Version = "" 
 	Main.Mouse = plr:GetMouse()
 	Main.AppControls = {}
 	Main.Apps = Apps
@@ -11717,36 +11707,36 @@ Main = (function()
 	end
 
 	Main.LoadModule = function(name)
-		--[[if Main.Elevated then -- If you don't have filesystem api then ur outta luck tbh
-			local control
+		
 
-			if EmbeddedModules then -- Offline Modules
-				control = EmbeddedModules[name]()
 
-				if not control then Main.Error("Missing Embedded Module: "..name) end
-			end
 
-			Main.AppControls[name] = control
-			control.InitDeps(Main.GetInitDeps())
 
-			local moduleData = control.Main()
-			Apps[name] = moduleData
-			return moduleData
-		else
-			local module = script:WaitForChild("Modules"):WaitForChild(name, 2)
-			if not module then Main.Error("CANNOT FIND MODULE " .. name) end
 
-			local control = require(module)
-			Main.AppControls[name] = control
-			control.InitDeps(Main.GetInitDeps())
 
-			local moduleData = control.Main()
-			Apps[name] = moduleData
-			return moduleData
-		end]]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 		local control
 
-		if EmbeddedModules then -- Offline Modules
+		if EmbeddedModules then 
 			control = EmbeddedModules[name]()
 
 			if not control then Main.Error("Missing Embedded Module: "..name) end
@@ -11768,7 +11758,7 @@ Main = (function()
 			end
 		end
 
-		-- Init Major Apps and define them in modules
+		
 		Explorer = Apps.Explorer
 		Properties = Apps.Properties
 		ScriptViewer = Apps.ScriptViewer
@@ -11799,7 +11789,7 @@ Main = (function()
 			rawset(self, name, func)
 		end})
 
-		-- file
+		
 		env.readfile = missing("function", readfile)
 		env.writefile = missing("function", writefile)
 		env.appendfile = missing("function", appendfile)
@@ -11808,7 +11798,7 @@ Main = (function()
 		env.loadfile = missing("function", loadfile)
 		env.movefileas = missing("function", movefileas)
 		env.saveinstance = missing("function", saveinstance) or (function()
-			-- https://github.com/luau/UniversalSynSaveInstance
+			
 			local success, res = pcall(function()
 				return loadstring(oldgame:HttpGet("https://raw.githubusercontent.com/luau/SynSaveInstance/main/saveinstance.luau"))()
 			end)
@@ -11818,27 +11808,498 @@ Main = (function()
 			return tostring(name):gsub("[*\\?:<>|]+", ""):sub(1, 175)
 		end
 
-		-- debug
+		
 		env.getupvalues = missing("function", (debug and debug.getupvalues) or getupvalues or getupvals)
 		env.getconstants = missing("function", (debug and debug.getconstants) or getconstants or getconsts)
 		env.getinfo = missing("function", (debug and (debug.getinfo or debug.info)) or getinfo)
 		env.islclosure = missing("function", islclosure or is_l_closure or is_lclosure)
 		env.checkcaller = missing("function", checkcaller)
-		--env.getreg = missing("function", getreg)
+		
 		env.getgc = missing("function", getgc or get_gc_objects)
-		--env.base64encode = missing("function", crypt and crypt.base64 and crypt.base64.encode)
+		
 		env.getscriptbytecode = missing("function", getscriptbytecode)
 
-		-- other
-		--env.setfflag = missing("function", setfflag)
+		
+		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
-		env.decompile = missing("function", decompile) or (env.getscriptbytecode and env.request and (function()
-			local success, err = pcall(function()
-				loadstring(oldgame:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/konstant.lua"))()
-			end)
 
-			return (success and decompile) or nil
-		end)())
+		local function makeBytecodeDecompiler(getbc)
+			local opnames = {
+				"NOP","BREAK","LOADNIL","LOADB","LOADN","LOADK","MOVE","GETGLOBAL","SETGLOBAL","GETUPVAL","SETUPVAL","CLOSEUPVALS","GETIMPORT","GETTABLE","SETTABLE","GETTABLEKS","SETTABLEKS","GETTABLEN","SETTABLEN","NEWCLOSURE","NAMECALL","CALL","RETURN","JUMP","JUMPBACK","JUMPIF","JUMPIFNOT","JUMPIFEQ","JUMPIFLE","JUMPIFLT","JUMPIFNOTEQ","JUMPIFNOTLE","JUMPIFNOTLT","ADD","SUB","MUL","DIV","MOD","POW","ADDK","SUBK","MULK","DIVK","MODK","POWK","AND","OR","ANDK","ORK","CONCAT","NOT","MINUS","LENGTH","NEWTABLE","DUPTABLE","SETLIST","FORNPREP","FORNLOOP","FORGLOOP","FORGPREP_INEXT","FASTCALL3","FORGPREP_NEXT","NATIVECALL","GETVARARGS","DUPCLOSURE","PREPVARARGS","LOADKX","JUMPX","FASTCALL","COVERAGE","CAPTURE","SUBRK","DIVRK","FASTCALL1","FASTCALL2","FASTCALL2K","FORGPREP","JUMPXEQKNIL","JUMPXEQKB","JUMPXEQKN","JUMPXEQKS","IDIV","IDIVK","GETUDATAKS","SETUDATAKS","NAMECALLUDATA","NEWCLASSMEMBER","CALLFB","CMPPROTO","FASTPCALL","NEWCLASS"
+			}
+			local auxops = {}
+			for _, n in ipairs({
+				"GETGLOBAL","SETGLOBAL","GETIMPORT","GETTABLEKS","SETTABLEKS","NAMECALL","JUMPIFEQ","JUMPIFLE","JUMPIFLT","JUMPIFNOTEQ","JUMPIFNOTLE","JUMPIFNOTLT","NEWTABLE","SETLIST","FORGLOOP","FASTCALL3","LOADKX","FASTCALL2","FASTCALL2K","JUMPXEQKNIL","JUMPXEQKB","JUMPXEQKN","JUMPXEQKS","GETUDATAKS","SETUDATAKS","NAMECALLUDATA","NEWCLASSMEMBER","CALLFB","CMPPROTO","NEWCLASS"
+			}) do
+				auxops[n] = true
+			end
+			local function reader(data)
+				return {d=data,p=1,n=#data}
+			end
+			local function u8(r)
+				if r.p > r.n then error("unexpected eof") end
+				local v = string.byte(r.d,r.p)
+				r.p += 1
+				return v
+			end
+			local function bytes(r,n)
+				if r.p+n-1 > r.n then error("unexpected eof") end
+				local s = string.sub(r.d,r.p,r.p+n-1)
+				r.p += n
+				return s
+			end
+			local function skip(r,n)
+				if r.p+n-1 > r.n then error("unexpected eof") end
+				r.p += n
+			end
+			local function var(r)
+				local v = 0
+				local sh = 0
+				while true do
+					local b = u8(r)
+					v += (b % 128) * 2^sh
+					if b < 128 then return v end
+					sh += 7
+					if sh > 63 then error("invalid varint") end
+				end
+			end
+			local function u32(r)
+				local a,b,c,d = u8(r),u8(r),u8(r),u8(r)
+				return a+b*256+c*65536+d*16777216
+			end
+			local function i32(r)
+				local v = u32(r)
+				return v >= 2147483648 and v-4294967296 or v
+			end
+			local function f32(r)
+				local w = u32(r)
+				local s = w >= 2147483648 and -1 or 1
+				local e = math.floor(w/8388608)%256
+				local f = w%8388608
+				if e == 255 then
+					return f == 0 and s*math.huge or 0/0
+				elseif e == 0 then
+					return s*2^-126*(f/8388608)
+				end
+				return s*2^(e-127)*(1+f/8388608)
+			end
+			local function f64(r)
+				local lo,hi = u32(r),u32(r)
+				local s = hi >= 2147483648 and -1 or 1
+				local e = math.floor(hi/1048576)%2048
+				local f = (hi%1048576)*4294967296+lo
+				if e == 2047 then
+					return f == 0 and s*math.huge or 0/0
+				elseif e == 0 then
+					return s*2^-1022*(f/4503599627370496)
+				end
+				return s*2^(e-1023)*(1+f/4503599627370496)
+			end
+			local function abcv(w)
+				return math.floor(w/256)%256,math.floor(w/65536)%256,math.floor(w/16777216)%256
+			end
+			local function dv(w)
+				local d = math.floor(w/65536)%65536
+				return d >= 32768 and d-65536 or d
+			end
+			local function ev(w)
+				local e = math.floor(w/256)%16777216
+				return e >= 8388608 and e-16777216 or e
+			end
+			local function opid(w,m)
+				return ((w%256)*m)%256
+			end
+			local function score(words,m)
+				local i,s,valid = 1,0,0
+				while i <= #words do
+					local id = opid(words[i],m)
+					local n = opnames[id+1]
+					if not n then
+						s -= 12
+						i += 1
+					else
+						valid += 1
+						s += 4
+						if n == "RETURN" or n == "CALL" or n == "LOADK" or n == "GETIMPORT" or n == "MOVE" then s += 2 end
+						if auxops[n] then
+							if i == #words then
+								s -= 20
+								break
+							end
+							i += 2
+						else
+							i += 1
+						end
+					end
+				end
+				return valid == 0 and -1e30 or s
+			end
+			local function multiplier(words)
+				local candidates = {1,203,227}
+				local bm,bs = 1,-1e30
+				for _,m in ipairs(candidates) do
+					local s = score(words,m)
+					if s > bs then bm,bs = m,s end
+				end
+				if bs < 0 then
+					for m=1,255,2 do
+						local s = score(words,m)
+						if s > bs then bm,bs = m,s end
+					end
+				end
+				return bm
+			end
+			local function decode(words)
+				local m = multiplier(words)
+				local out = {}
+				local i = 1
+				while i <= #words do
+					local w = words[i]
+					local id = opid(w,m)
+					local n = opnames[id+1] or "UNKNOWN"
+					local a,b,c = abcv(w)
+					local x = {pc=i-1,w=w,id=id,n=n,a=a,b=b,c=c,d=dv(w),e=ev(w),size=1}
+					if auxops[n] and i < #words then
+						x.aux = words[i+1]
+						x.size = 2
+					end
+					out[#out+1] = x
+					i += x.size
+				end
+				return out
+			end
+			local function readconst(r,strings)
+				local t = u8(r)
+				if t == 0 then
+					return {t=t,v=nil}
+				elseif t == 1 then
+					return {t=t,v=u8(r)~=0}
+				elseif t == 2 then
+					return {t=t,v=f64(r)}
+				elseif t == 3 then
+					local i = var(r)
+					return {t=t,v=strings[i]}
+				elseif t == 4 then
+					return {t=t,v=u32(r)}
+				elseif t == 5 then
+					local n = var(r)
+					local v = {}
+					for i=1,n do v[i]=var(r) end
+					return {t=t,v=v}
+				elseif t == 6 then
+					return {t=t,v=var(r)}
+				elseif t == 7 then
+					return {t=t,v={f32(r),f32(r),f32(r),f32(r)}}
+				elseif t == 8 then
+					local n = var(r)
+					local v = {}
+					for i=1,n do v[i]={var(r),i32(r)} end
+					return {t=t,v=v}
+				elseif t == 9 then
+					local neg = u8(r)~=0
+					local v = var(r)
+					return {t=t,v=neg and -v or v}
+				elseif t == 10 then
+					local cn,pc,mc = var(r),var(r),var(r)
+					local v = {cn=cn,p={},m={}}
+					for i=1,pc do v.p[i]=var(r) end
+					for i=1,mc do v.m[i]=var(r) end
+					return {t=t,v=v}
+				elseif t == 11 then
+					return {t=t,v={f64(r),f64(r),f64(r),f64(r)}}
+				end
+				error("unsupported constant tag "..tostring(t))
+			end
+			local function readproto(r,mod)
+				local p = {}
+				p.max = u8(r)
+				p.params = u8(r)
+				p.ups = u8(r)
+				p.vararg = u8(r)~=0
+				if mod.version >= 4 then
+					p.flags = u8(r)
+					local ts = var(r)
+					if ts > 0 then skip(r,ts) end
+				else
+					p.flags = 0
+				end
+				local nc = var(r)
+				p.words = {}
+				for i=1,nc do p.words[i]=u32(r) end
+				p.ins = decode(p.words)
+				local nk = var(r)
+				p.k = {}
+				for i=1,nk do p.k[i]=readconst(r,mod.strings) end
+				local np = var(r)
+				p.children = {}
+				for i=1,np do p.children[i]=var(r)+1 end
+				p.line = var(r)
+				local dn = var(r)
+				p.name = dn~=0 and mod.strings[dn] or nil
+				if u8(r)~=0 then
+					local lg = u8(r)
+					skip(r,nc)
+					local spans = nc > 0 and math.floor((nc-1)/2^lg)+1 or 0
+					skip(r,spans*4)
+				end
+				if u8(r)~=0 then
+					local nl = var(r)
+					for _=1,nl do
+						var(r)
+						var(r)
+						var(r)
+						u8(r)
+					end
+					local nu = var(r)
+					for _=1,nu do var(r) end
+				end
+				if mod.version == 10 or mod.version >= 11 then
+					local nf = var(r)
+					for _=1,nf do
+						u8(r)
+						var(r)
+					end
+				end
+				if mod.version >= 12 and bit32.band(p.flags or 0,8)~=0 then
+					var(r)
+				end
+				return p
+			end
+			local function deserialize(data)
+				local r = reader(data)
+				local version = u8(r)
+				if version == 0 then error(bytes(r,r.n-r.p+1)) end
+				if not ((version>=3 and version<=14) or version==100) then error("unsupported bytecode version "..tostring(version)) end
+				local tv = version>=4 and u8(r) or 0
+				local ns = var(r)
+				local strings = {}
+				for i=1,ns do strings[i]=bytes(r,var(r)) end
+				if tv == 3 then
+					while true do
+						local i = u8(r)
+						if i == 0 then break end
+						var(r)
+					end
+				end
+				local mod = {version=version,typeversion=tv,strings=strings,protos={}}
+				local np = var(r)
+				for i=1,np do
+					local endp
+					if version == 10 or version >= 12 or version == 100 then
+						local sz = var(r)
+						endp = r.p+sz
+					end
+					mod.protos[i]=readproto(r,mod)
+					if endp and r.p < endp then r.p=endp end
+				end
+				mod.main = var(r)+1
+				return mod
+			end
+			local function q(v)
+				return string.format("%q",tostring(v))
+			end
+			local function ident(s)
+				return type(s)=="string" and s:match("^[%a_][%w_]*$")~=nil
+			end
+			local function kval(p,i)
+				local k = p.k[i+1]
+				if not k then return "nil" end
+				if k.t == 0 then return "nil"
+				elseif k.t == 1 then return tostring(k.v)
+				elseif k.t == 2 or k.t == 9 then return tostring(k.v)
+				elseif k.t == 3 then return q(k.v)
+				elseif k.t == 7 then return ("Vector3.new(%s,%s,%s)"):format(tostring(k.v[1]),tostring(k.v[2]),tostring(k.v[3]))
+				elseif k.t == 11 then return ("Vector3.new(%s,%s,%s)"):format(tostring(k.v[1]),tostring(k.v[2]),tostring(k.v[3]))
+				elseif k.t == 5 or k.t == 8 then return "{}"
+				end
+				return "nil"
+			end
+			local function kstr(p,i)
+				local k = p.k[i+1]
+				return k and k.t==3 and k.v or nil
+			end
+			local function prop(base,key)
+				return ident(key) and (base.."."..key) or (base.."["..q(key or "?").."]")
+			end
+			local function importpath(p,aux)
+				local n = math.floor(aux/1073741824)%4
+				local ids = {
+					math.floor(aux/1048576)%1024,
+					math.floor(aux/1024)%1024,
+					aux%1024
+				}
+				local out
+				for i=1,n do
+					local s = kstr(p,ids[i]) or ("k"..tostring(ids[i]))
+					out = out and prop(out,s) or (ident(s) and s or ("_G["..q(s).."]"))
+				end
+				return out or "_G"
+			end
+			local function customsource(mod,p,depth,seen)
+				depth = depth or 0
+				seen = seen or {}
+				if seen[p] then return "function(...) end" end
+				seen[p]=true
+				local ind = string.rep("\t",depth)
+				local body = ind.."\t"
+				local lines = {}
+				local declared = {}
+				local expr = {}
+				local method = {}
+				local function reg(i) return expr[i] or ("v"..tostring(i)) end
+				local function emit(s) lines[#lines+1]=body..s end
+				local function setr(i,s)
+					expr[i]=s
+					local n="v"..tostring(i)
+					if declared[i] then emit(n.." = "..s) else declared[i]=true emit("local "..n.." = "..s) end
+				end
+				for i=0,p.params-1 do
+					declared[i]=true
+					expr[i]="a"..tostring(i+1)
+				end
+				local bin={ADD="+",SUB="-",MUL="*",DIV="/",MOD="%",POW="^",AND="and",OR="or",IDIV="//"}
+				local bink={ADDK="+",SUBK="-",MULK="*",DIVK="/",MODK="%",POWK="^",ANDK="and",ORK="or",IDIVK="//"}
+				for _,x in ipairs(p.ins) do
+					local n=x.n
+					if n=="LOADNIL" then setr(x.a,"nil")
+					elseif n=="LOADB" then setr(x.a,x.b~=0 and "true" or "false")
+					elseif n=="LOADN" then setr(x.a,tostring(x.d))
+					elseif n=="LOADK" then setr(x.a,kval(p,math.floor(x.w/65536)%65536))
+					elseif n=="LOADKX" then setr(x.a,kval(p,x.aux or 0))
+					elseif n=="MOVE" then setr(x.a,reg(x.b))
+					elseif n=="GETGLOBAL" then
+						local s=kstr(p,x.aux or 0)
+						setr(x.a,s and (ident(s) and s or ("_G["..q(s).."]")) or "_G")
+					elseif n=="SETGLOBAL" then
+						local s=kstr(p,x.aux or 0)
+						emit((s and (ident(s) and s or ("_G["..q(s).."]")) or "_G").." = "..reg(x.a))
+					elseif n=="GETIMPORT" then setr(x.a,importpath(p,x.aux or 0))
+					elseif n=="GETUPVAL" then setr(x.a,"upvalue"..tostring(x.b))
+					elseif n=="SETUPVAL" then emit("upvalue"..tostring(x.b).." = "..reg(x.a))
+					elseif n=="GETTABLE" then setr(x.a,reg(x.b).."["..reg(x.c).."]")
+					elseif n=="SETTABLE" then emit(reg(x.b).."["..reg(x.c).."] = "..reg(x.a))
+					elseif n=="GETTABLEKS" or n=="GETUDATAKS" then
+						local ci=n=="GETUDATAKS" and ((x.aux or 0)%65536) or (x.aux or 0)
+						setr(x.a,prop(reg(x.b),kstr(p,ci)))
+					elseif n=="SETTABLEKS" or n=="SETUDATAKS" then
+						local ci=n=="SETUDATAKS" and ((x.aux or 0)%65536) or (x.aux or 0)
+						emit(prop(reg(x.b),kstr(p,ci)).." = "..reg(x.a))
+					elseif n=="GETTABLEN" then setr(x.a,reg(x.b).."["..tostring(x.c+1).."]")
+					elseif n=="SETTABLEN" then emit(reg(x.b).."["..tostring(x.c+1).."] = "..reg(x.a))
+					elseif bin[n] then setr(x.a,"("..reg(x.b).." "..bin[n].." "..reg(x.c)..")")
+					elseif bink[n] then setr(x.a,"("..reg(x.b).." "..bink[n].." "..kval(p,x.c)..")")
+					elseif n=="SUBRK" then setr(x.a,"("..kval(p,x.b).." - "..reg(x.c)..")")
+					elseif n=="DIVRK" then setr(x.a,"("..kval(p,x.b).." / "..reg(x.c)..")")
+					elseif n=="NOT" then setr(x.a,"(not "..reg(x.b)..")")
+					elseif n=="MINUS" then setr(x.a,"(-"..reg(x.b)..")")
+					elseif n=="LENGTH" then setr(x.a,"(#"..reg(x.b)..")")
+					elseif n=="CONCAT" then
+						local a={}
+						for r=x.b,x.c do a[#a+1]=reg(r) end
+						setr(x.a,"("..table.concat(a," .. ")..")")
+					elseif n=="NEWTABLE" or n=="DUPTABLE" then setr(x.a,"{}")
+					elseif n=="SETLIST" then
+						local count=x.c==0 and 1 or x.c-1
+						local start=(x.aux or 1)
+						for j=0,count-1 do emit(reg(x.a).."["..tostring(start+j).."] = "..reg(x.b+j)) end
+					elseif n=="NAMECALL" or n=="NAMECALLUDATA" then
+						local ci=n=="NAMECALLUDATA" and ((x.aux or 0)%65536) or (x.aux or 0)
+						method[x.a]={base=reg(x.b),name=kstr(p,ci) or "method"}
+						expr[x.a]=method[x.a].base..":"..method[x.a].name
+						expr[x.a+1]=method[x.a].base
+					elseif n=="CALL" or n=="CALLFB" then
+						local argc=x.b==0 and 0 or x.b-1
+						local args={}
+						local m=method[x.a]
+						for j=1,argc do
+							if not (m and j==1) then args[#args+1]=reg(x.a+j) end
+						end
+						local call=(m and (m.base..":"..m.name) or reg(x.a)).."("..table.concat(args,", ")..")"
+						method[x.a]=nil
+						if x.c==1 then
+							emit(call)
+						elseif x.c==0 or x.c==2 then
+							setr(x.a,call)
+						else
+							local lhs={}
+							for j=0,x.c-2 do
+								declared[x.a+j]=true
+								expr[x.a+j]="v"..tostring(x.a+j)
+								lhs[#lhs+1]="v"..tostring(x.a+j)
+							end
+							emit(table.concat(lhs,", ").." = "..call)
+						end
+					elseif n=="GETVARARGS" then setr(x.a,"...")
+					elseif n=="NEWCLOSURE" then
+						local ci=p.children[x.d+1]
+						local cp=ci and mod.protos[ci]
+						setr(x.a,cp and customsource(mod,cp,depth+1,seen) or "function(...) end")
+					elseif n=="DUPCLOSURE" then
+						local k=p.k[x.d+1]
+						local cp=k and k.t==6 and mod.protos[(k.v or 0)+1]
+						setr(x.a,cp and customsource(mod,cp,depth+1,seen) or "function(...) end")
+					elseif n=="RETURN" then
+						local count=x.b==0 and 1 or x.b-1
+						local a={}
+						for j=0,count-1 do a[#a+1]=reg(x.a+j) end
+						emit(#a>0 and ("return "..table.concat(a,", ")) or "return")
+					elseif n=="JUMPIF" then
+						emit("if "..reg(x.a).." then end")
+					elseif n=="JUMPIFNOT" then
+						emit("if not "..reg(x.a).." then end")
+					elseif n=="JUMPIFEQ" or n=="JUMPIFLE" or n=="JUMPIFLT" or n=="JUMPIFNOTEQ" or n=="JUMPIFNOTLE" or n=="JUMPIFNOTLT" then
+						local rb=(x.aux or 0)%256
+						local cmp={JUMPIFEQ="==",JUMPIFLE="<=",JUMPIFLT="<",JUMPIFNOTEQ="~=",JUMPIFNOTLE=">",JUMPIFNOTLT=">="}
+						emit("if "..reg(x.a).." "..cmp[n].." "..reg(rb).." then end")
+					elseif n=="JUMPXEQKNIL" then
+						local notf=math.floor((x.aux or 0)/2147483648)%2
+						emit("if "..reg(x.a)..(notf==1 and " ~= nil" or " == nil").." then end")
+					elseif n=="JUMPXEQKB" then
+						local aux=x.aux or 0
+						local val=aux%2~=0
+						local notf=math.floor(aux/2147483648)%2
+						local cmp=notf==1 and "~=" or "=="
+						emit("if "..reg(x.a).." "..cmp.." "..tostring(val).." then end")
+					elseif n=="JUMPXEQKN" or n=="JUMPXEQKS" then
+						local aux=x.aux or 0
+						local ci=aux%16777216
+						local notf=math.floor(aux/2147483648)%2
+						emit("if "..reg(x.a).." "..(notf==1 and "~=" or "==").." "..kval(p,ci).." then end")
+					elseif n=="FORNPREP" then
+						emit("for v"..tostring(x.a+3).." = "..reg(x.a+2)..", "..reg(x.a)..", "..reg(x.a+1).." do")
+					elseif n=="FORNLOOP" then
+						emit("end")
+					elseif n=="FORGPREP" or n=="FORGPREP_INEXT" or n=="FORGPREP_NEXT" then
+						emit("for v"..tostring(x.a+3).." in "..reg(x.a)..", "..reg(x.a+1)..", "..reg(x.a+2).." do")
+					elseif n=="FORGLOOP" then
+						emit("end")
+					elseif n=="NEWCLASS" then
+						setr(x.a,"{}")
+					elseif n=="NEWCLASSMEMBER" then
+						local s=kstr(p,x.aux or 0) or "member"
+						emit(prop(reg(x.a),s).." = "..reg(x.c))
+					end
+				end
+				seen[p]=nil
+				local args={}
+				for i=1,p.params do args[i]="a"..tostring(i) end
+				if p.vararg then args[#args+1]="..." end
+				local bodytext=table.concat(lines,"\n")
+				if depth==0 then return bodytext end
+				if bodytext=="" then return "function("..table.concat(args,", ")..") end" end
+				return "function("..table.concat(args,", ")..")\n"..bodytext.."\n"..ind.."end"
+			end
+			return function(scr)
+				local ok,bc=pcall(getbc,scr)
+				if not ok then error(bc) end
+				if type(bc)~="string" or #bc==0 then error("empty bytecode") end
+				local mod=deserialize(bc)
+				local p=mod.protos[mod.main]
+				if not p then error("main proto missing") end
+				return customsource(mod,p,0,{})
+			end
+		end
+		env.decompile = env.getscriptbytecode and makeBytecodeDecompiler(env.getscriptbytecode) or nil
 		env.isViableDecompileScript = function(obj)
 			if obj:IsA("ModuleScript") then
 				return true
@@ -11877,7 +12338,7 @@ Main = (function()
 
 				end
 			else
-				-- TODO: Notification
+				
 			end
 		else
 			Main.ResetSettings()
@@ -11928,7 +12389,7 @@ Main = (function()
 		Main.RawAPI = rawAPI
 		api = jsonDecode(rawAPI)
 
-		-- backup for kaboom
+		
 		if not api then
 			rawAPI = oldgame:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/rbx_api.dat")
 			Main.RawAPI = rawAPI
@@ -12187,7 +12648,7 @@ Main = (function()
 		end
 	end
 
-	Main.CreateIntro = function(initStatus) -- TODO: Must theme and show errors
+	Main.CreateIntro = function(initStatus) 
 		local gui = create({
 			{1,"ScreenGui",{Name="Intro",}},
 			{2,"Frame",{Active=true,BackgroundColor3=Color3.new(0.20392157137394,0.20392157137394,0.20392157137394),BorderSizePixel=0,Name="Main",Parent={1},Position=UDim2.new(0.5,-175,0.5,-100),Size=UDim2.new(0,350,0,200),}},
@@ -12342,7 +12803,7 @@ Main = (function()
 	end
 
 	Main.CreateApp = function(data)
-		if Main.MenuApps[data.Name] then return end -- TODO: Handle conflict
+		if Main.MenuApps[data.Name] then return end 
 		local control = {}
 
 		local app = Main.AppTemplate:Clone()
@@ -12431,7 +12892,7 @@ Main = (function()
 		Main.MainGui.OpenButton.Text = val and "X" or "Dex"
 		if val then Main.MainGui.OpenButton.MainFrame.Visible = true end
 		Main.MainGui.OpenButton.MainFrame:TweenSize(val and UDim2.new(0,224,0,200) or UDim2.new(0,0,0,0),Enum.EasingDirection.Out,Enum.EasingStyle.Quad,0.2,true)
-		--Main.MainGui.OpenButton.BackgroundTransparency = val and 0 or (Lib.CheckMouseInGui(Main.MainGui.OpenButton) and 0 or 0.2)
+		
 		service.TweenService:Create(Main.MainGui.OpenButton,TweenInfo.new(0.2,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{BackgroundTransparency = val and 0 or (Lib.CheckMouseInGui(Main.MainGui.OpenButton) and 0 or 0.2)}):Play()
 
 		if Main.MainGuiMouseEvent then Main.MainGuiMouseEvent:Disconnect() end
@@ -12504,7 +12965,7 @@ Main = (function()
 			end
 		end)
 
-		-- Create Main Apps
+		
 		Main.CreateApp({Name = "Explorer", IconMap = Main.LargeIcons, Icon = "Explorer", Open = true, Window = Explorer.Window})
 
 		Main.CreateApp({Name = "Properties", IconMap = Main.LargeIcons, Icon = "Properties", Open = true, Window = Properties.Window})
@@ -12554,16 +13015,16 @@ Main = (function()
 		Main.LoadSettings()
 		Main.SetupFilesystem()
 
-		-- Load Lib
+		
 		local intro = Main.CreateIntro("Initializing Library")
 		Lib = Main.LoadModule("Lib")
 		Lib.FastWait()
 
-		-- Init other stuff
-		--Main.IncompatibleTest()
+		
+		
 
-		-- Init icons
-		Main.MiscIcons = Lib.IconMap.new("http://www.roblox.com/asset/?id=6511490623",256,256,16,16) -- 6579106223
+		
+		Main.MiscIcons = Lib.IconMap.new("http://www.roblox.com/asset/?id=6511490623",256,256,16,16) 
 
 		Main.MiscIcons:SetDict({
 			["Reference"] = 0;
@@ -12611,7 +13072,7 @@ Main = (function()
 			Explorer = 0, Properties = 1, Script_Viewer = 2, Watcher = 3, Output = 4
 		})
 
-		-- Fetch version if needed
+		
 		intro.SetProgress("Fetching Roblox Version",0.2)
 		if Main.Elevated then
 			local fileVer = Lib.ReadFile("dex/deps_version.dat")
@@ -12625,13 +13086,13 @@ Main = (function()
 			end
 			Main.RobloxVersion = Main.RobloxVersion or oldgame:HttpGet("http://setup.roblox.com/versionQTStudio")
 
-			-- backup for kaboom
+			
 			if #Main.RobloxVersion < 1 then
 				Main.RobloxVersion = oldgame:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/deps_version.dat"):gsub("%s+", "")
 			end
 		end
 
-		-- Fetch external deps
+		
 		intro.SetProgress("Fetching API",0.35)
 		API = Main.FetchAPI()
 		Lib.FastWait()
@@ -12639,20 +13100,20 @@ Main = (function()
 		RMD = Main.FetchRMD()
 		Lib.FastWait()
 
-		-- Save external deps locally if needed
+		
 		if Main.Elevated and env.writefile and not Main.LocalDepsUpToDate() then
 			env.writefile("dex/deps_version.dat",Main.ClientVersion.."\n"..Main.RobloxVersion)
 			env.writefile("dex/rbx_api.dat",Main.RawAPI)
 			env.writefile("dex/rbx_rmd.dat",Main.RawRMD)
 		end
 
-		-- Load other modules
+		
 		intro.SetProgress("Loading Modules",0.75)
-		Main.AppControls.Lib.InitDeps(Main.GetInitDeps()) -- Missing deps now available
+		Main.AppControls.Lib.InitDeps(Main.GetInitDeps()) 
 		Main.LoadModules()
 		Lib.FastWait()
 
-		-- Init other modules
+		
 		intro.SetProgress("Initializing Modules",0.9)
 		Explorer.Init()
 		Properties.Init()
@@ -12661,14 +13122,14 @@ Main = (function()
 		SaveInstance.Init()
 		Lib.FastWait()
 
-		-- Done
+		
 		intro.SetProgress("Complete",1)
 		coroutine.wrap(function()
 			Lib.FastWait(1.25)
 			intro.Close()
 		end)()
 
-		-- Init window system, create main menu, show explorer and properties
+		
 		Lib.Window.Init()
 		Main.CreateMainGui()
 		Explorer.Window:Show({Align = "right", Pos = 1, Size = 0.5, Silent = true})
@@ -12679,5 +13140,5 @@ Main = (function()
 	return Main
 end)()
 
--- Start
+
 Main.Init()
