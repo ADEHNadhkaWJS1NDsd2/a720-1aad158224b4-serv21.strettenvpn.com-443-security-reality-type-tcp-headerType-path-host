@@ -1405,7 +1405,7 @@ local EmbeddedModules = {
 					for _, v in next, selection.List do
 						if v.Obj:IsA("LuaSourceContainer") and env.isViableDecompileScript(v.Obj) then
 							local success, source = pcall(env.decompile, v.Obj)
-							if not success or not source then source = ("-- DEX - %s failed to decompile %s"):format(env.executor, v.Obj.ClassName) end
+							if not success then source = "Decompiler error: " .. tostring(source) elseif type(source) ~= "string" then source = "Decompiler returned no source" end
 							local fileName = ("%i.%s.%s.Source.txt"):format(game.PlaceId, v.Obj.ClassName, env.parsefile(v.Obj.Name))
 							env.writefile(fileName, source)
 							task.wait(0.2)
@@ -4237,11 +4237,25 @@ local EmbeddedModules = {
 			local ScriptViewer = {}
 			local window, codeFrame
 			local PreviousScr = nil
+			local CurrentSource = ""
 
 			ScriptViewer.ViewScript = function(scr)
 				local success, source = pcall(env.decompile, scr)
-				if not success or not source then source, PreviousScr = ("-- DEX - %s failed to decompile %s"):format(env.executor, scr.ClassName), nil else PreviousScr = scr end
-				codeFrame:SetText(source:gsub("\0", "\\0"))
+				if not success then
+					CurrentSource = "Decompiler error: " .. tostring(source) .. "\nScript: " .. scr:GetFullName()
+					PreviousScr = nil
+				elseif type(source) ~= "string" or source == "" then
+					CurrentSource = "Decompiler returned no source\nScript: " .. scr:GetFullName()
+					PreviousScr = nil
+				else
+					CurrentSource = source
+					PreviousScr = scr
+				end
+				local display = CurrentSource
+				if #display > 1500000 then
+					display = string.sub(display, 1, 1500000) .. "\n\nOutput is too large for Script Viewer. Copy/Save still uses the full source."
+				end
+				codeFrame:SetText(display:gsub("\0", "\\0"))
 				window:Show()
 			end
 
@@ -4264,8 +4278,7 @@ local EmbeddedModules = {
 				copy.TextColor3 = Color3.new(1,1,1)
 
 				copy.MouseButton1Click:Connect(function()
-					local source = codeFrame:GetText()
-					env.setclipboard(source)
+					env.setclipboard(CurrentSource)
 				end)
 
 				local save = Instance.new("TextButton",window.GuiElems.Content)
@@ -4276,10 +4289,9 @@ local EmbeddedModules = {
 				save.TextColor3 = Color3.new(1,1,1)
 
 				save.MouseButton1Click:Connect(function()
-					local source = codeFrame:GetText()
 					local filename = "Place_"..game.PlaceId.."_Script_"..os.time()..".txt"
 
-					env.writefile(filename, source)
+					env.writefile(filename, CurrentSource)
 					if env.movefileas then
 						env.movefileas(filename, ".txt")
 					end
@@ -11824,6 +11836,16 @@ Main = (function()
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
 		local function makeBytecodeDecompiler(getbc)
+			local MAX_PROTO_DEPTH = 160
+			local YIELD_EVERY = 4096
+			local globalWork = 0
+			local function cooperate(step)
+				globalWork += step or 1
+				if globalWork >= YIELD_EVERY then
+					globalWork = 0
+					if task and task.wait then task.wait() end
+				end
+			end
 			local opnames = {
 				"NOP","BREAK","LOADNIL","LOADB","LOADN","LOADK","MOVE","GETGLOBAL","SETGLOBAL","GETUPVAL","SETUPVAL","CLOSEUPVALS","GETIMPORT","GETTABLE","SETTABLE","GETTABLEKS","SETTABLEKS","GETTABLEN","SETTABLEN","NEWCLOSURE","NAMECALL","CALL","RETURN","JUMP","JUMPBACK","JUMPIF","JUMPIFNOT","JUMPIFEQ","JUMPIFLE","JUMPIFLT","JUMPIFNOTEQ","JUMPIFNOTLE","JUMPIFNOTLT","ADD","SUB","MUL","DIV","MOD","POW","ADDK","SUBK","MULK","DIVK","MODK","POWK","AND","OR","ANDK","ORK","CONCAT","NOT","MINUS","LENGTH","NEWTABLE","DUPTABLE","SETLIST","FORNPREP","FORNLOOP","FORGLOOP","FORGPREP_INEXT","FASTCALL3","FORGPREP_NEXT","NATIVECALL","GETVARARGS","DUPCLOSURE","PREPVARARGS","LOADKX","JUMPX","FASTCALL","COVERAGE","CAPTURE","SUBRK","DIVRK","FASTCALL1","FASTCALL2","FASTCALL2K","FORGPREP","JUMPXEQKNIL","JUMPXEQKB","JUMPXEQKN","JUMPXEQKS","IDIV","IDIVK","GETUDATAKS","SETUDATAKS","NAMECALLUDATA","NEWCLASSMEMBER","CALLFB","CMPPROTO","FASTPCALL","NEWCLASS"
 			}
@@ -11935,23 +11957,21 @@ Main = (function()
 			local function opid(w,m)
 				return ((w%256)*m)%256
 			end
-			local function score(words,m)
+			local function score(words,m,limit)
 				local i,s,valid = 1,0,0
-				while i <= #words do
+				local stop=math.min(#words,limit or #words)
+				while i <= stop do
 					local id = opid(words[i],m)
 					local n = opnames[id+1]
 					if not n then
-						s -= 12
+						s -= 24
 						i += 1
 					else
 						valid += 1
 						s += 4
 						if n == "RETURN" or n == "CALL" or n == "LOADK" or n == "GETIMPORT" or n == "MOVE" then s += 2 end
 						if auxops[n] then
-							if i == #words then
-								s -= 20
-								break
-							end
+							if i >= #words then s -= 40 break end
 							i += 2
 						else
 							i += 1
@@ -11961,30 +11981,47 @@ Main = (function()
 				return valid == 0 and -1e30 or s
 			end
 			local function multiplier(words)
-				local bm,bs = 1,-1e30
+				if #words==0 then return 1 end
+				local sample=math.min(#words,4096)
+				local best={}
 				for m=1,255,2 do
-					local sc = score(words,m)
-					if sc > bs then bm,bs = m,sc end
+					cooperate(32)
+					local sc=score(words,m,sample)
+					best[#best+1]={m=m,s=sc}
+				end
+				table.sort(best,function(a,b) return a.s>b.s end)
+				local bm,bs=best[1].m,-1e30
+				for i=1,math.min(4,#best) do
+					local sc=score(words,best[i].m)
+					if sc>bs then bm,bs=best[i].m,sc end
 				end
 				return bm
 			end
-			local function decode(words)
-				local m = multiplier(words)
+			local function decode(words,mod)
+				local m = mod and mod.opmul or nil
+				if not m then
+					m=multiplier(words)
+					if mod and #words>=32 then mod.opmul=m end
+				end
 				local out = {}
 				local i = 1
+				local unknown=0
 				while i <= #words do
 					local w = words[i]
 					local id = opid(w,m)
-					local n = opnames[id+1] or "UNKNOWN"
+					local n = opnames[id+1]
+					if not n then unknown+=1 n="UNKNOWN" end
 					local a,b,c = abcv(w)
 					local x = {pc=i-1,w=w,id=id,n=n,a=a,b=b,c=c,d=dv(w),e=ev(w),size=1}
-					if auxops[n] and i < #words then
+					if auxops[n] then
+						if i>=#words then error("missing AUX at pc "..tostring(i-1)) end
 						x.aux = words[i+1]
 						x.size = 2
 					end
 					out[#out+1] = x
 					i += x.size
 				end
+				if unknown>0 then error("unknown opcode count "..tostring(unknown).." with key "..tostring(m)) end
 				return out
 			end
 			local function readconst(r,strings)
@@ -12043,12 +12080,20 @@ Main = (function()
 					p.flags = 0
 				end
 				local nc = var(r)
+				if nc > 10000000 then error("instruction count too large: "..tostring(nc)) end
 				p.words = {}
-				for i=1,nc do p.words[i]=u32(r) end
-				p.ins = decode(p.words)
+				for i=1,nc do
+					p.words[i]=u32(r)
+					if i%4096==0 then cooperate(4096) end
+				end
+				p.ins = decode(p.words,mod)
 				local nk = var(r)
+				if nk > 5000000 then error("constant count too large: "..tostring(nk)) end
 				p.k = {}
-				for i=1,nk do p.k[i]=readconst(r,mod.strings) end
+				for i=1,nk do
+					p.k[i]=readconst(r,mod.strings)
+					if i%2048==0 then cooperate(4096) end
+				end
 				local np = var(r)
 				p.children = {}
 				for i=1,np do p.children[i]=var(r)+1 end
@@ -12096,9 +12141,14 @@ Main = (function()
 				if version == 0 then error(bytes(r,r.n-r.p+1)) end
 				if not ((version>=3 and version<=14) or version==100) then error("unsupported bytecode version "..tostring(version)) end
 				local tv = version>=4 and u8(r) or 0
+				if version>=4 and (tv<1 or tv>3) then error("unsupported bytecode type version "..tostring(tv)) end
 				local ns = var(r)
+				if ns > 5000000 then error("string count too large: "..tostring(ns)) end
 				local strings = {}
-				for i=1,ns do strings[i]=bytes(r,var(r)) end
+				for i=1,ns do
+					strings[i]=bytes(r,var(r))
+					if i%2048==0 then cooperate(4096) end
+				end
 				if tv == 3 then
 					while true do
 						local i = u8(r)
@@ -12108,6 +12158,7 @@ Main = (function()
 				end
 				local mod = {version=version,typeversion=tv,strings=strings,protos={}}
 				local np = var(r)
+				if np > 1000000 then error("proto count too large: "..tostring(np)) end
 				for i=1,np do
 					local endp
 					if version >= 12 then
@@ -12115,7 +12166,12 @@ Main = (function()
 						endp = r.p+sz
 					end
 					mod.protos[i]=readproto(r,mod)
-					if endp and r.p < endp then r.p=endp end
+					cooperate(64)
+					if endp then
+						if endp > r.n+1 then error("proto extends past bytecode") end
+						if r.p > endp then error("proto parser overread") end
+						if r.p < endp then r.p=endp end
+					end
 				end
 				mod.main = var(r)+1
 				return mod
@@ -12141,15 +12197,24 @@ Main = (function()
 					if k.v[4] and k.v[4] ~= 0 then return ("vector.create(%s,%s,%s,%s)"):format(tostring(k.v[1]),tostring(k.v[2]),tostring(k.v[3]),tostring(k.v[4])) end
 					return ("Vector3.new(%s,%s,%s)"):format(tostring(k.v[1]),tostring(k.v[2]),tostring(k.v[3]))
 				elseif k.t == 5 then
-					return "{}"
+					local items={}
+					for _,keyi in ipairs(k.v) do
+						local ks=p.k[keyi+1]
+						local lhs=ks and ks.t==3 and ident(ks.v) and ks.v or ("["..kval(p,keyi).."]")
+						items[#items+1]=lhs.." = 0"
+					end
+					return "{"..table.concat(items,", ").."}"
 				elseif k.t == 8 then
 					local items={}
 					for _,pair in ipairs(k.v) do
 						local keyi,vali=pair[1],pair[2]
+						local ks=p.k[keyi+1]
+						local lhs=ks and ks.t==3 and ident(ks.v) and ks.v or ("["..kval(p,keyi).."]")
 						if vali and vali >= 0 then
-							local ks=p.k[keyi+1]
-							local lhs=ks and ks.t==3 and ident(ks.v) and ks.v or ("["..kval(p,keyi).."]")
-							items[#items+1]=lhs.." = "..kval(p,vali)
+							local vv=p.k[vali+1]
+							if vv and vv.t~=0 then items[#items+1]=lhs.." = "..kval(p,vali) end
+						else
+							items[#items+1]=lhs.." = 0"
 						end
 					end
 					return "{"..table.concat(items,", ").."}"
@@ -12181,6 +12246,7 @@ Main = (function()
 				depth = depth or 0
 				seen = seen or {}
 				upmap = upmap or {}
+				if depth > MAX_PROTO_DEPTH then return "function(...) end" end
 				if seen[p] then return "function(...) end" end
 				seen[p]=true
 				local ind = string.rep("\t",depth)
@@ -12200,8 +12266,15 @@ Main = (function()
 				local elseAt = {}
 				local repeatAt = {}
 				local forceVar = {}
+				local loopRanges = {}
+				local pinned = {}
+				local phiRegs = {}
+				local forceRanges = {}
 				local byPc = {}
 				local indexByPc = {}
+				local function breathe()
+					cooperate(1)
+				end
 				local function cleanname(s)
 					if not ident(s) then return nil end
 					if s=="and" or s=="break" or s=="continue" or s=="do" or s=="else" or s=="elseif" or s=="end" or s=="false" or s=="for" or s=="function" or s=="if" or s=="in" or s=="local" or s=="nil" or s=="not" or s=="or" or s=="repeat" or s=="return" or s=="then" or s=="true" or s=="until" or s=="while" then return nil end
@@ -12214,12 +12287,16 @@ Main = (function()
 					usedNames[s]+=1
 					return s..tostring(usedNames[s])
 				end
-				local function dbgname(r,pc)
+				local function dbglocal(r,pc)
 					if p.locals then
 						for _,l in ipairs(p.locals) do
-							if l.reg==r and pc>=l.start and pc<l.finish then return cleanname(l.name) end
+							if l.reg==r and pc>=l.start and pc<l.finish then return l end
 						end
 					end
+				end
+				local function dbgname(r,pc)
+					local l=dbglocal(r,pc)
+					return l and cleanname(l.name) or nil
 				end
 				local function upname(i)
 					return upmap[i] or (p.upnames and cleanname(p.upnames[i+1])) or ("upvalue"..tostring(i))
@@ -12300,6 +12377,22 @@ Main = (function()
 					setexpr(r,s)
 					return s
 				end
+				local function multiassign(regs,rhs,pc)
+					local lhs,fresh={},{}
+					for _,r in ipairs(regs) do
+						clearMulti(r)
+						local nm=varname(r,pc,nil)
+						lhs[#lhs+1]=nm
+						if not vars[r] then fresh[#fresh+1]=nm end
+					end
+					if #fresh==#regs then
+						emit("local "..table.concat(lhs,", ").." = "..rhs)
+					else
+						if #fresh>0 then emit("local "..table.concat(fresh,", ")) end
+						emit(table.concat(lhs,", ").." = "..rhs)
+					end
+					for _,r in ipairs(regs) do vars[r]=true expr[r]=names[r] end
+				end
 				local function nextpc(x)
 					return x.pc+x.size
 				end
@@ -12354,6 +12447,7 @@ Main = (function()
 					local np=nextpc(x)
 					if x.n=="CMPPROTO" then
 						addsucc(b,jumptarget(x))
+						addsucc(b,np)
 					elseif cfgcondops[x.n] or loopops[x.n] then
 						addsucc(b,jumptarget(x))
 						addsucc(b,np)
@@ -12371,12 +12465,16 @@ Main = (function()
 					end
 				end
 				local reachableBlock={}
-				local function visitBlock(id)
-					if not id or reachableBlock[id] then return end
-					reachableBlock[id]=true
-					for _,sid in ipairs(blocks[id].succ) do visitBlock(sid) end
+				local stack={blockOf[0] or 1}
+				while #stack>0 do
+					local id=stack[#stack]
+					stack[#stack]=nil
+					if id and not reachableBlock[id] then
+						reachableBlock[id]=true
+						for _,sid in ipairs(blocks[id].succ) do stack[#stack+1]=sid end
+					end
+					breathe()
 				end
-				visitBlock(blockOf[0] or 1)
 				local reachablePc={}
 				for _,b in ipairs(blocks) do
 					if reachableBlock[b.id] then
@@ -12433,22 +12531,36 @@ Main = (function()
 					end
 				end
 				local function forceRange(a,b)
-					for _,y in ipairs(p.ins) do
-						if y.pc>a and y.pc<b then
-							for _,r in ipairs(writeRegs(y)) do forceVar[r]=true end
+					if b>a then forceRanges[#forceRanges+1]={a,b} end
+				end
+				for ii,lx in ipairs(p.ins) do
+					if lx.n=="FORNPREP" then
+						for jj=ii+1,#p.ins do
+							local bx=p.ins[jj]
+							if bx.n=="FORNLOOP" and bx.a==lx.a and jumptarget(bx)<=nextpc(lx) then
+								loopRanges[#loopRanges+1]={start=lx.pc,finish=nextpc(bx),cont=bx.pc}
+								break
+							end
 						end
+					elseif lx.n=="FORGPREP" or lx.n=="FORGPREP_INEXT" or lx.n=="FORGPREP_NEXT" then
+						local bx=byPc[jumptarget(lx)]
+						if bx and bx.n=="FORGLOOP" then loopRanges[#loopRanges+1]={start=lx.pc,finish=nextpc(bx),cont=bx.pc} end
 					end
 				end
 				for i,x in ipairs(p.ins) do
 					if condops[x.n] and not boolFold[x.pc] then
 						local target=jumptarget(x)
-						if target>x.pc then
+						local np=nextpc(x)
+						if target==np then
+							skipPc[x.pc]=true
+						elseif target>np then
 							local ti=indexByPc[target]
 							local prev=ti and p.ins[ti-1] or nil
 							if prev and (prev.n=="JUMPBACK" or prev.n=="JUMP" or prev.n=="JUMPX") then
 								local pt=jumptarget(prev)
 								if prev.n=="JUMPBACK" and pt<=x.pc then
 									structure[x.pc]="while"
+									loopRanges[#loopRanges+1]={start=x.pc,finish=target,cont=x.pc}
 									skipPc[prev.pc]=true
 									endAt[target]=(endAt[target] or 0)+1
 									forceRange(x.pc,target)
@@ -12470,18 +12582,57 @@ Main = (function()
 							end
 						elseif target<x.pc then
 							structure[x.pc]="until"
+							loopRanges[#loopRanges+1]={start=target,finish=nextpc(x),cont=x.pc}
 							repeatAt[target]=(repeatAt[target] or 0)+1
 							forceRange(target,x.pc+1)
 						end
 					end
 				end
+				for _,b in ipairs(blocks) do
+					if reachableBlock[b.id] and #b.pred>1 then
+						for _,pid in ipairs(b.pred) do
+							local pb=blocks[pid]
+							if pb then
+								for _,y in ipairs(pb.ins) do
+									for _,r in ipairs(writeRegs(y)) do phiRegs[r]=true forceVar[r]=true end
+								end
+							end
+						end
+					end
+					breathe()
+				end
+				if #forceRanges>0 then
+					local delta={}
+					for _,fr in ipairs(forceRanges) do
+						local si=(indexByPc[fr[1]] or 0)+1
+						local ei=indexByPc[fr[2]] or (#p.ins+1)
+						delta[si]=(delta[si] or 0)+1
+						delta[ei]=(delta[ei] or 0)-1
+					end
+					local active=0
+					for ii,y in ipairs(p.ins) do
+						active += delta[ii] or 0
+						if active>0 then for _,r in ipairs(writeRegs(y)) do forceVar[r]=true end end
+						breathe()
+					end
+				end
 				for i=0,p.params-1 do
-					local dn=dbgname(i,0)
+					local dl=dbglocal(i,0)
+					local dn=dl and cleanname(dl.name) or nil
 					local n=unique(dn or ("a"..tostring(i+1))) or ("a"..tostring(i+1))
 					names[i]=n
 					nameLife[i]=dn
 					vars[i]=true
 					expr[i]=n
+				end
+				for r in pairs(phiRegs) do
+					if r>=p.params then
+						local hint
+						if p.locals then for _,l in ipairs(p.locals) do if l.reg==r then hint=cleanname(l.name) break end end end
+						local n=unique(hint or ("v"..tostring(r))) or ("v"..tostring(r))
+						names[r]=n pinned[r]=true vars[r]=true expr[r]=n
+						emit("local "..n)
+					end
 				end
 				local bin={ADD="+",SUB="-",MUL="*",DIV="/",MOD="%",POW="^",AND="and",OR="or",IDIV="//"}
 				local bink={ADDK="+",SUBK="-",MULK="*",DIVK="/",MODK="%",POWK="^",ANDK="and",ORK="or",IDIVK="//"}
@@ -12533,6 +12684,13 @@ Main = (function()
 					end
 					return "true"
 				end
+				local function loopfor(pc)
+					local best
+					for _,lr in ipairs(loopRanges) do
+						if pc>lr.start and pc<lr.finish and (not best or lr.start>=best.start) then best=lr end
+					end
+					return best
+				end
 				local function purecall(fn,m)
 					if m then return false end
 					if fn=="type" or fn=="typeof" or fn=="tostring" or fn=="tonumber" then return true end
@@ -12545,6 +12703,7 @@ Main = (function()
 				end
 				local i=1
 				while i<=#p.ins do
+					breathe()
 					local x=p.ins[i]
 					local n=x.n
 					if not reachablePc[x.pc] then i+=1 continue end
@@ -12636,8 +12795,8 @@ Main = (function()
 								vals[#vals+1]=reg(r)
 							end
 							local tn=unique("values") or "values"
-							emit("local "..tn.." = {"..table.concat(vals,", ").."}")
-							emit("table.move("..tn..", 1, #"..tn..", "..tostring(start)..", "..reg(x.a)..")")
+							emit("local "..tn.." = table.pack("..table.concat(vals,", ")..")")
+							emit("table.move("..tn..", 1, "..tn..".n, "..tostring(start)..", "..reg(x.a)..")")
 						else
 							local count=x.c-1
 							for j=0,count-1 do emit(reg(x.a).."["..tostring(start+j).."] = "..reg(x.b+j)) end
@@ -12681,18 +12840,9 @@ Main = (function()
 							if purecall(fn,m) and not forceVar[x.a] and not dbgname(x.a,x.pc) then put(x.a,call,x.pc,false) else materialize(x.a,call,x.pc) end
 							top=x.a+1
 						else
-							local lhs={}
-							local missing={}
-							for j=0,x.c-2 do
-								local r=x.a+j
-								clearMulti(r)
-								local nm=varname(r,x.pc,nil)
-								if not vars[r] then vars[r]=true missing[#missing+1]=nm end
-								expr[r]=nm
-								lhs[#lhs+1]=nm
-							end
-							if #missing>0 then emit("local "..table.concat(missing,", ")) end
-							emit(table.concat(lhs,", ").." = "..call)
+							local regs={}
+							for j=0,x.c-2 do regs[#regs+1]=x.a+j end
+							multiassign(regs,call,x.pc)
 							top=x.a+x.c-1
 						end
 					elseif n=="GETVARARGS" then
@@ -12704,18 +12854,9 @@ Main = (function()
 							put(x.a,"...",x.pc,false)
 							top=x.a+1
 						else
-							local lhs={}
-							local missing={}
-							for j=0,x.b-2 do
-								local r=x.a+j
-								clearMulti(r)
-								local nm=varname(r,x.pc,nil)
-								if not vars[r] then vars[r]=true missing[#missing+1]=nm end
-								expr[r]=nm
-								lhs[#lhs+1]=nm
-							end
-							if #missing>0 then emit("local "..table.concat(missing,", ")) end
-							emit(table.concat(lhs,", ").." = ...")
+							local regs={}
+							for j=0,x.b-2 do regs[#regs+1]=x.a+j end
+							multiassign(regs,"...",x.pc)
 							top=x.a+x.b-1
 						end
 					elseif n=="NEWCLOSURE" or n=="DUPCLOSURE" then
@@ -12732,10 +12873,8 @@ Main = (function()
 							for u=0,cp.ups-1 do
 								local cx=p.ins[i+1+u]
 								if cx and cx.n=="CAPTURE" then
-									if cx.a==0 then
-										caps[u]=reg(cx.b)
-									elseif cx.a==1 then
-										forceVar[cx.b]=true
+									if cx.a==0 or cx.a==1 then
+										if cx.a==1 then forceVar[cx.b]=true end
 										local value=reg(cx.b)
 										if not vars[cx.b] then value=materialize(cx.b,value,x.pc) end
 										caps[u]=value
@@ -12746,17 +12885,14 @@ Main = (function()
 								end
 							end
 						end
-						materialize(x.a,cp and customsource(mod,cp,depth+1,seen,caps) or "function(...) end",x.pc)
-					elseif n=="CLOSEUPVALS" then
-						for r=x.a,(p.max or x.a)-1 do
-							names[r]=nil
-							nameLife[r]=nil
-							vars[r]=nil
-							expr[r]=nil
-							multi[r]=nil
-							method[r]=nil
+						local childSource="function(...) end"
+						if cp then
+							local okChild,resChild=pcall(customsource,mod,cp,depth+1,seen,caps)
+							if okChild and type(resChild)=="string" and resChild~="" then childSource=resChild end
 						end
-						if top>x.a then top=x.a end
+						materialize(x.a,childSource,x.pc)
+					elseif n=="CLOSEUPVALS" then
+						for r=x.a,(p.max or x.a)-1 do if vars[r] then forceVar[r]=true end end
 					elseif n=="RETURN" then
 						local a={}
 						if x.b==0 then
@@ -12795,7 +12931,14 @@ Main = (function()
 						emitLevel("end",level)
 					elseif n=="JUMP" or n=="JUMPBACK" or n=="JUMPX" then
 						local t=jumptarget(x)
-						if t<x.pc then emit("continue") end
+						local lr=loopfor(x.pc)
+						if lr and (t==lr.cont or t<=lr.start) then
+							emit("continue")
+						elseif lr and t>=lr.finish then
+							emit("break")
+						elseif t<x.pc then
+							emit("continue")
+						end
 					elseif n=="NEWCLASS" then materialize(x.a,"{}",x.pc)
 					elseif n=="NEWCLASSMEMBER" then
 						local s=kstr(p,x.aux or 0) or "member"
@@ -12816,12 +12959,15 @@ Main = (function()
 			end
 			return function(scr)
 				local ok,bc=pcall(getbc,scr)
-				if not ok then error(bc) end
-				if type(bc)~="string" or #bc==0 then error("empty bytecode") end
-				local mod=deserialize(bc)
+				if not ok then error("getscriptbytecode: "..tostring(bc),0) end
+				if type(bc)~="string" or #bc==0 then error("empty bytecode",0) end
+				local okMod,mod=pcall(deserialize,bc)
+				if not okMod then error("deserialize: "..tostring(mod),0) end
 				local p=mod.protos[mod.main]
-				if not p then error("main proto missing") end
-				return customsource(mod,p,0,{})
+				if not p then error("main proto missing",0) end
+				local okSource,source=pcall(customsource,mod,p,0,{})
+				if not okSource then error("reconstruct: "..tostring(source),0) end
+				return source
 			end
 		end
 		env.decompile = env.getscriptbytecode and makeBytecodeDecompiler(env.getscriptbytecode) or nil
