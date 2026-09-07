@@ -11863,6 +11863,32 @@ Main = (function()
 					if sh > 63 then error("invalid varint") end
 				end
 			end
+			local function decmuladd(v,m,a)
+				local out={}
+				local carry=a
+				for i=#v,1,-1 do
+					local n=(string.byte(v,i)-48)*m+carry
+					out[#out+1]=string.char(48+(n%10))
+					carry=math.floor(n/10)
+				end
+				while carry>0 do
+					out[#out+1]=string.char(48+(carry%10))
+					carry=math.floor(carry/10)
+				end
+				for i=1,math.floor(#out/2) do out[i],out[#out-i+1]=out[#out-i+1],out[i] end
+				return table.concat(out)
+			end
+			local function var64str(r)
+				local groups={}
+				while true do
+					local b=u8(r)
+					groups[#groups+1]=b%128
+					if b<128 then break end
+				end
+				local v="0"
+				for i=#groups,1,-1 do v=decmuladd(v,128,groups[i]) end
+				return v
+			end
 			local function u32(r)
 				local a,b,c,d = u8(r),u8(r),u8(r),u8(r)
 				return a+b*256+c*65536+d*16777216
@@ -11935,17 +11961,10 @@ Main = (function()
 				return valid == 0 and -1e30 or s
 			end
 			local function multiplier(words)
-				local candidates = {1,203,227}
 				local bm,bs = 1,-1e30
-				for _,m in ipairs(candidates) do
-					local s = score(words,m)
-					if s > bs then bm,bs = m,s end
-				end
-				if bs < 0 then
-					for m=1,255,2 do
-						local s = score(words,m)
-						if s > bs then bm,bs = m,s end
-					end
+				for m=1,255,2 do
+					local sc = score(words,m)
+					if sc > bs then bm,bs = m,sc end
 				end
 				return bm
 			end
@@ -11997,8 +12016,8 @@ Main = (function()
 					return {t=t,v=v}
 				elseif t == 9 then
 					local neg = u8(r)~=0
-					local v = var(r)
-					return {t=t,v=neg and -v or v}
+					local v = var64str(r)
+					return {t=t,v=(neg and v~="0") and ("-"..v) or v}
 				elseif t == 10 then
 					local cn,pc,mc = var(r),var(r),var(r)
 					local v = {cn=cn,p={},m={}}
@@ -12042,18 +12061,24 @@ Main = (function()
 					local spans = nc > 0 and math.floor((nc-1)/2^lg)+1 or 0
 					skip(r,spans*4)
 				end
+				p.locals = {}
+				p.upnames = {}
 				if u8(r)~=0 then
 					local nl = var(r)
 					for _=1,nl do
-						var(r)
-						var(r)
-						var(r)
-						u8(r)
+						local ni = var(r)
+						local sp = var(r)
+						local ep = var(r)
+						local rg = u8(r)
+						p.locals[#p.locals+1] = {name=mod.strings[ni],start=sp,finish=ep,reg=rg}
 					end
 					local nu = var(r)
-					for _=1,nu do var(r) end
+					for i=1,nu do
+						local ni = var(r)
+						p.upnames[i] = mod.strings[ni]
+					end
 				end
-				if mod.version == 10 or mod.version >= 11 then
+				if mod.version >= 11 then
 					local nf = var(r)
 					for _=1,nf do
 						u8(r)
@@ -12085,7 +12110,7 @@ Main = (function()
 				local np = var(r)
 				for i=1,np do
 					local endp
-					if version == 10 or version >= 12 or version == 100 then
+					if version >= 12 then
 						local sz = var(r)
 						endp = r.p+sz
 					end
@@ -12106,11 +12131,28 @@ Main = (function()
 				if not k then return "nil" end
 				if k.t == 0 then return "nil"
 				elseif k.t == 1 then return tostring(k.v)
-				elseif k.t == 2 or k.t == 9 then return tostring(k.v)
+				elseif k.t == 2 then return k.v==math.huge and "math.huge" or k.v==-math.huge and "-math.huge" or k.v~=k.v and "(0/0)" or tostring(k.v)
+				elseif k.t == 9 then return tostring(k.v)
 				elseif k.t == 3 then return q(k.v)
-				elseif k.t == 7 then return ("Vector3.new(%s,%s,%s)"):format(tostring(k.v[1]),tostring(k.v[2]),tostring(k.v[3]))
-				elseif k.t == 11 then return ("Vector3.new(%s,%s,%s)"):format(tostring(k.v[1]),tostring(k.v[2]),tostring(k.v[3]))
-				elseif k.t == 5 or k.t == 8 then return "{}"
+				elseif k.t == 7 then
+					if k.v[4] and k.v[4] ~= 0 then return ("vector.create(%s,%s,%s,%s)"):format(tostring(k.v[1]),tostring(k.v[2]),tostring(k.v[3]),tostring(k.v[4])) end
+					return ("Vector3.new(%s,%s,%s)"):format(tostring(k.v[1]),tostring(k.v[2]),tostring(k.v[3]))
+				elseif k.t == 11 then
+					if k.v[4] and k.v[4] ~= 0 then return ("vector.create(%s,%s,%s,%s)"):format(tostring(k.v[1]),tostring(k.v[2]),tostring(k.v[3]),tostring(k.v[4])) end
+					return ("Vector3.new(%s,%s,%s)"):format(tostring(k.v[1]),tostring(k.v[2]),tostring(k.v[3]))
+				elseif k.t == 5 then
+					return "{}"
+				elseif k.t == 8 then
+					local items={}
+					for _,pair in ipairs(k.v) do
+						local keyi,vali=pair[1],pair[2]
+						if vali and vali >= 0 then
+							local ks=p.k[keyi+1]
+							local lhs=ks and ks.t==3 and ident(ks.v) and ks.v or ("["..kval(p,keyi).."]")
+							items[#items+1]=lhs.." = "..kval(p,vali)
+						end
+					end
+					return "{"..table.concat(items,", ").."}"
 				end
 				return "nil"
 			end
@@ -12135,154 +12177,637 @@ Main = (function()
 				end
 				return out or "_G"
 			end
-			local function customsource(mod,p,depth,seen)
+			local function customsource(mod,p,depth,seen,upmap)
 				depth = depth or 0
 				seen = seen or {}
+				upmap = upmap or {}
 				if seen[p] then return "function(...) end" end
 				seen[p]=true
 				local ind = string.rep("\t",depth)
-				local body = ind.."\t"
 				local lines = {}
-				local declared = {}
+				local level = 1
 				local expr = {}
+				local vars = {}
+				local names = {}
+				local nameLife = {}
 				local method = {}
-				local function reg(i) return expr[i] or ("v"..tostring(i)) end
-				local function emit(s) lines[#lines+1]=body..s end
-				local function setr(i,s)
-					expr[i]=s
-					local n="v"..tostring(i)
-					if declared[i] then emit(n.." = "..s) else declared[i]=true emit("local "..n.." = "..s) end
+				local multi = {}
+				local top = p.params
+				local usedNames = {}
+				local skipPc = {}
+				local structure = {}
+				local endAt = {}
+				local elseAt = {}
+				local repeatAt = {}
+				local forceVar = {}
+				local byPc = {}
+				local indexByPc = {}
+				local function cleanname(s)
+					if not ident(s) then return nil end
+					if s=="and" or s=="break" or s=="continue" or s=="do" or s=="else" or s=="elseif" or s=="end" or s=="false" or s=="for" or s=="function" or s=="if" or s=="in" or s=="local" or s=="nil" or s=="not" or s=="or" or s=="repeat" or s=="return" or s=="then" or s=="true" or s=="until" or s=="while" then return nil end
+					return s
+				end
+				local function unique(s)
+					s=cleanname(s)
+					if not s then return nil end
+					if not usedNames[s] then usedNames[s]=1 return s end
+					usedNames[s]+=1
+					return s..tostring(usedNames[s])
+				end
+				local function dbgname(r,pc)
+					if p.locals then
+						for _,l in ipairs(p.locals) do
+							if l.reg==r and pc>=l.start and pc<l.finish then return cleanname(l.name) end
+						end
+					end
+				end
+				local function upname(i)
+					return upmap[i] or (p.upnames and cleanname(p.upnames[i+1])) or ("upvalue"..tostring(i))
+				end
+				local function bodyindent()
+					return ind..string.rep("\t",level)
+				end
+				local function emit(s)
+					lines[#lines+1]=bodyindent()..s
+				end
+				local function emitLevel(s,l)
+					lines[#lines+1]=ind..string.rep("\t",l)..s
+				end
+				local function reg(i)
+					return vars[i] and names[i] or expr[i] or multi[i] or names[i] or ("v"..tostring(i))
+				end
+				local function touch(r,count)
+					local t=r+(count or 1)
+					if t>top then top=t end
+				end
+				local function clearMulti(r)
+					multi[r]=nil
+				end
+				local function suggest(s)
+					local svc=s:match('^game:GetService%("([%w_]+)"%)$')
+					if svc then return svc end
+					local cls=s:match('^Instance%.new%("([%w_]+)"%)$')
+					if cls then return cls:sub(1,1):lower()..cls:sub(2) end
+					local req=s:match('^require%((.+)%)$')
+					if req then
+						local last=req:match('%.([%a_][%w_]*)$')
+						if last then return last end
+					end
+				end
+				local function varname(r,pc,s)
+					local d=dbgname(r,pc)
+					if not d and nameLife[r] then
+						names[r]=nil
+						nameLife[r]=nil
+						vars[r]=nil
+						expr[r]=nil
+						multi[r]=nil
+					end
+					if d and nameLife[r]~=d then
+						local n=unique(d) or ("v"..tostring(r))
+						names[r]=n
+						nameLife[r]=d
+						vars[r]=nil
+						expr[r]=nil
+						multi[r]=nil
+						return n
+					end
+					if names[r] then return names[r] end
+					local n=unique(d or suggest(s) or ("v"..tostring(r))) or ("v"..tostring(r))
+					names[r]=n
+					nameLife[r]=d
+					return n
+				end
+				local function setexpr(r,s)
+					clearMulti(r)
+					touch(r,1)
+					expr[r]=s
+					if vars[r] then
+						emit(names[r].." = "..s)
+						expr[r]=names[r]
+					end
+				end
+				local function materialize(r,s,pc)
+					clearMulti(r)
+					touch(r,1)
+					local n=varname(r,pc,s)
+					if vars[r] then emit(n.." = "..s) else vars[r]=true emit("local "..n.." = "..s) end
+					expr[r]=n
+					return n
+				end
+				local function put(r,s,pc,hard)
+					if hard or forceVar[r] or dbgname(r,pc) then return materialize(r,s,pc) end
+					setexpr(r,s)
+					return s
+				end
+				local function nextpc(x)
+					return x.pc+x.size
+				end
+				local function jumptarget(x)
+					return x.pc+1+(x.n=="JUMPX" and x.e or x.d)
+				end
+				for i,x in ipairs(p.ins) do byPc[x.pc]=x indexByPc[x.pc]=i end
+				local condops={JUMPIF=true,JUMPIFNOT=true,JUMPIFEQ=true,JUMPIFLE=true,JUMPIFLT=true,JUMPIFNOTEQ=true,JUMPIFNOTLE=true,JUMPIFNOTLT=true,JUMPXEQKNIL=true,JUMPXEQKB=true,JUMPXEQKN=true,JUMPXEQKS=true}
+				local cfgcondops={JUMPIF=true,JUMPIFNOT=true,JUMPIFEQ=true,JUMPIFLE=true,JUMPIFLT=true,JUMPIFNOTEQ=true,JUMPIFNOTLE=true,JUMPIFNOTLT=true,JUMPXEQKNIL=true,JUMPXEQKB=true,JUMPXEQKN=true,JUMPXEQKS=true,CMPPROTO=true}
+				local loopops={FORNPREP=true,FORNLOOP=true,FORGLOOP=true}
+				local uncondops={JUMP=true,JUMPBACK=true,JUMPX=true,FORGPREP=true,FORGPREP_INEXT=true,FORGPREP_NEXT=true}
+				local terminalops={RETURN=true}
+				local leaders={[0]=true}
+				for _,x in ipairs(p.ins) do
+					local np=nextpc(x)
+					if cfgcondops[x.n] or loopops[x.n] then
+						local t=jumptarget(x)
+						if byPc[t] then leaders[t]=true end
+						if byPc[np] then leaders[np]=true end
+					elseif uncondops[x.n] then
+						local t=jumptarget(x)
+						if byPc[t] then leaders[t]=true end
+						if byPc[np] then leaders[np]=true end
+					elseif x.n=="LOADB" and x.c~=0 then
+						local t=x.pc+1+x.c
+						if byPc[t] then leaders[t]=true end
+						if byPc[np] then leaders[np]=true end
+					elseif terminalops[x.n] and byPc[np] then
+						leaders[np]=true
+					end
+				end
+				local blocks={}
+				local blockOf={}
+				local cur
+				for _,x in ipairs(p.ins) do
+					if leaders[x.pc] or not cur then
+						cur={id=#blocks+1,start=x.pc,finish=x.pc,ins={},succ={},pred={}}
+						blocks[#blocks+1]=cur
+					end
+					cur.finish=x.pc
+					cur.ins[#cur.ins+1]=x
+					blockOf[x.pc]=cur.id
+				end
+				local function addsucc(b,pc)
+					local id=blockOf[pc]
+					if not id then return end
+					for _,v in ipairs(b.succ) do if v==id then return end end
+					b.succ[#b.succ+1]=id
+				end
+				for _,b in ipairs(blocks) do
+					local x=b.ins[#b.ins]
+					local np=nextpc(x)
+					if x.n=="CMPPROTO" then
+						addsucc(b,jumptarget(x))
+					elseif cfgcondops[x.n] or loopops[x.n] then
+						addsucc(b,jumptarget(x))
+						addsucc(b,np)
+					elseif uncondops[x.n] then
+						addsucc(b,jumptarget(x))
+					elseif x.n=="LOADB" and x.c~=0 then
+						addsucc(b,x.pc+1+x.c)
+					elseif not terminalops[x.n] then
+						addsucc(b,np)
+					end
+				end
+				for _,b in ipairs(blocks) do
+					for _,sid in ipairs(b.succ) do
+						blocks[sid].pred[#blocks[sid].pred+1]=b.id
+					end
+				end
+				local reachableBlock={}
+				local function visitBlock(id)
+					if not id or reachableBlock[id] then return end
+					reachableBlock[id]=true
+					for _,sid in ipairs(blocks[id].succ) do visitBlock(sid) end
+				end
+				visitBlock(blockOf[0] or 1)
+				local reachablePc={}
+				for _,b in ipairs(blocks) do
+					if reachableBlock[b.id] then
+						for _,x in ipairs(b.ins) do reachablePc[x.pc]=true end
+					end
+				end
+				local function writeRegs(x)
+					local n=x.n
+					if n=="NAMECALL" or n=="NAMECALLUDATA" then return {x.a,x.a+1} end
+					if n=="CALL" or n=="CALLFB" then
+						if x.c==1 then return {} end
+						local out={}
+						local count=x.c==0 and 1 or x.c-1
+						for j=0,count-1 do out[#out+1]=x.a+j end
+						return out
+					end
+					if n=="GETVARARGS" then
+						local out={}
+						local count=x.b==0 and 1 or x.b-1
+						for j=0,count-1 do out[#out+1]=x.a+j end
+						return out
+					end
+					if n=="FORNPREP" or n=="FORNLOOP" then return {x.a+2,x.a+3} end
+					if n=="FORGLOOP" then
+						local out={x.a+2}
+						local count=(x.aux or 1)%256
+						for j=0,count-1 do out[#out+1]=x.a+3+j end
+						return out
+					end
+					local writesA={
+						LOADNIL=true,LOADB=true,LOADN=true,LOADK=true,MOVE=true,GETGLOBAL=true,GETUPVAL=true,GETIMPORT=true,
+						GETTABLE=true,GETTABLEKS=true,GETTABLEN=true,NEWCLOSURE=true,ADD=true,SUB=true,MUL=true,DIV=true,MOD=true,POW=true,
+						ADDK=true,SUBK=true,MULK=true,DIVK=true,MODK=true,POWK=true,AND=true,OR=true,ANDK=true,ORK=true,CONCAT=true,
+						NOT=true,MINUS=true,LENGTH=true,NEWTABLE=true,DUPTABLE=true,DUPCLOSURE=true,LOADKX=true,SUBRK=true,DIVRK=true,
+						IDIV=true,IDIVK=true,GETUDATAKS=true,NEWCLASS=true
+					}
+					return writesA[n] and {x.a} or {}
+				end
+				local selfRead = {ADD=true,SUB=true,MUL=true,DIV=true,MOD=true,POW=true,AND=true,OR=true,IDIV=true,SUBRK=true,DIVRK=true,ADDK=true,SUBK=true,MULK=true,DIVK=true,MODK=true,POWK=true,ANDK=true,ORK=true,IDIVK=true,NOT=true,MINUS=true,LENGTH=true,GETTABLE=true,GETTABLEKS=true,GETTABLEN=true}
+				for _,x in ipairs(p.ins) do
+					if selfRead[x.n] and (x.a==x.b or x.a==x.c) then forceVar[x.a]=true end
+				end
+				local boolFold={}
+				for _,x in ipairs(p.ins) do
+					if condops[x.n] and x.n~="CMPPROTO" then
+						local target=jumptarget(x)
+						local f=byPc[nextpc(x)]
+						local j=byPc[target]
+						if f and j and f.n=="LOADB" and j.n=="LOADB" and f.a==j.a and f.c~=0 and f.pc+1+f.c==nextpc(j) then
+							boolFold[x.pc]={reg=f.a,fall=f.b~=0,jump=j.b~=0}
+							skipPc[f.pc]=true
+							skipPc[j.pc]=true
+						end
+					end
+				end
+				local function forceRange(a,b)
+					for _,y in ipairs(p.ins) do
+						if y.pc>a and y.pc<b then
+							for _,r in ipairs(writeRegs(y)) do forceVar[r]=true end
+						end
+					end
+				end
+				for i,x in ipairs(p.ins) do
+					if condops[x.n] and not boolFold[x.pc] then
+						local target=jumptarget(x)
+						if target>x.pc then
+							local ti=indexByPc[target]
+							local prev=ti and p.ins[ti-1] or nil
+							if prev and (prev.n=="JUMPBACK" or prev.n=="JUMP" or prev.n=="JUMPX") then
+								local pt=jumptarget(prev)
+								if prev.n=="JUMPBACK" and pt<=x.pc then
+									structure[x.pc]="while"
+									skipPc[prev.pc]=true
+									endAt[target]=(endAt[target] or 0)+1
+									forceRange(x.pc,target)
+								elseif pt>target then
+									structure[x.pc]="ifelse"
+									elseAt[prev.pc]=(elseAt[prev.pc] or 0)+1
+									skipPc[prev.pc]=true
+									endAt[pt]=(endAt[pt] or 0)+1
+									forceRange(x.pc,pt)
+								else
+									structure[x.pc]="if"
+									endAt[target]=(endAt[target] or 0)+1
+									forceRange(x.pc,target)
+								end
+							else
+								structure[x.pc]="if"
+								endAt[target]=(endAt[target] or 0)+1
+								forceRange(x.pc,target)
+							end
+						elseif target<x.pc then
+							structure[x.pc]="until"
+							repeatAt[target]=(repeatAt[target] or 0)+1
+							forceRange(target,x.pc+1)
+						end
+					end
 				end
 				for i=0,p.params-1 do
-					declared[i]=true
-					expr[i]="a"..tostring(i+1)
+					local dn=dbgname(i,0)
+					local n=unique(dn or ("a"..tostring(i+1))) or ("a"..tostring(i+1))
+					names[i]=n
+					nameLife[i]=dn
+					vars[i]=true
+					expr[i]=n
 				end
 				local bin={ADD="+",SUB="-",MUL="*",DIV="/",MOD="%",POW="^",AND="and",OR="or",IDIV="//"}
 				local bink={ADDK="+",SUBK="-",MULK="*",DIVK="/",MODK="%",POWK="^",ANDK="and",ORK="or",IDIVK="//"}
-				for _,x in ipairs(p.ins) do
+				local function jumpcond(x)
 					local n=x.n
-					if n=="LOADNIL" then setr(x.a,"nil")
-					elseif n=="LOADB" then setr(x.a,x.b~=0 and "true" or "false")
-					elseif n=="LOADN" then setr(x.a,tostring(x.d))
-					elseif n=="LOADK" then setr(x.a,kval(p,math.floor(x.w/65536)%65536))
-					elseif n=="LOADKX" then setr(x.a,kval(p,x.aux or 0))
-					elseif n=="MOVE" then setr(x.a,reg(x.b))
-					elseif n=="GETGLOBAL" then
-						local s=kstr(p,x.aux or 0)
-						setr(x.a,s and (ident(s) and s or ("_G["..q(s).."]")) or "_G")
-					elseif n=="SETGLOBAL" then
-						local s=kstr(p,x.aux or 0)
-						emit((s and (ident(s) and s or ("_G["..q(s).."]")) or "_G").." = "..reg(x.a))
-					elseif n=="GETIMPORT" then setr(x.a,importpath(p,x.aux or 0))
-					elseif n=="GETUPVAL" then setr(x.a,"upvalue"..tostring(x.b))
-					elseif n=="SETUPVAL" then emit("upvalue"..tostring(x.b).." = "..reg(x.a))
-					elseif n=="GETTABLE" then setr(x.a,reg(x.b).."["..reg(x.c).."]")
-					elseif n=="SETTABLE" then emit(reg(x.b).."["..reg(x.c).."] = "..reg(x.a))
-					elseif n=="GETTABLEKS" or n=="GETUDATAKS" then
-						local ci=n=="GETUDATAKS" and ((x.aux or 0)%65536) or (x.aux or 0)
-						setr(x.a,prop(reg(x.b),kstr(p,ci)))
-					elseif n=="SETTABLEKS" or n=="SETUDATAKS" then
-						local ci=n=="SETUDATAKS" and ((x.aux or 0)%65536) or (x.aux or 0)
-						emit(prop(reg(x.b),kstr(p,ci)).." = "..reg(x.a))
-					elseif n=="GETTABLEN" then setr(x.a,reg(x.b).."["..tostring(x.c+1).."]")
-					elseif n=="SETTABLEN" then emit(reg(x.b).."["..tostring(x.c+1).."] = "..reg(x.a))
-					elseif bin[n] then setr(x.a,"("..reg(x.b).." "..bin[n].." "..reg(x.c)..")")
-					elseif bink[n] then setr(x.a,"("..reg(x.b).." "..bink[n].." "..kval(p,x.c)..")")
-					elseif n=="SUBRK" then setr(x.a,"("..kval(p,x.b).." - "..reg(x.c)..")")
-					elseif n=="DIVRK" then setr(x.a,"("..kval(p,x.b).." / "..reg(x.c)..")")
-					elseif n=="NOT" then setr(x.a,"(not "..reg(x.b)..")")
-					elseif n=="MINUS" then setr(x.a,"(-"..reg(x.b)..")")
-					elseif n=="LENGTH" then setr(x.a,"(#"..reg(x.b)..")")
-					elseif n=="CONCAT" then
-						local a={}
-						for r=x.b,x.c do a[#a+1]=reg(r) end
-						setr(x.a,"("..table.concat(a," .. ")..")")
-					elseif n=="NEWTABLE" or n=="DUPTABLE" then setr(x.a,"{}")
-					elseif n=="SETLIST" then
-						local count=x.c==0 and 1 or x.c-1
-						local start=(x.aux or 1)
-						for j=0,count-1 do emit(reg(x.a).."["..tostring(start+j).."] = "..reg(x.b+j)) end
-					elseif n=="NAMECALL" or n=="NAMECALLUDATA" then
-						local ci=n=="NAMECALLUDATA" and ((x.aux or 0)%65536) or (x.aux or 0)
-						method[x.a]={base=reg(x.b),name=kstr(p,ci) or "method"}
-						expr[x.a]=method[x.a].base..":"..method[x.a].name
-						expr[x.a+1]=method[x.a].base
-					elseif n=="CALL" or n=="CALLFB" then
-						local argc=x.b==0 and 0 or x.b-1
-						local args={}
-						local m=method[x.a]
-						for j=1,argc do
-							if not (m and j==1) then args[#args+1]=reg(x.a+j) end
-						end
-						local call=(m and (m.base..":"..m.name) or reg(x.a)).."("..table.concat(args,", ")..")"
-						method[x.a]=nil
-						if x.c==1 then
-							emit(call)
-						elseif x.c==0 or x.c==2 then
-							setr(x.a,call)
-						else
-							local lhs={}
-							for j=0,x.c-2 do
-								declared[x.a+j]=true
-								expr[x.a+j]="v"..tostring(x.a+j)
-								lhs[#lhs+1]="v"..tostring(x.a+j)
-							end
-							emit(table.concat(lhs,", ").." = "..call)
-						end
-					elseif n=="GETVARARGS" then setr(x.a,"...")
-					elseif n=="NEWCLOSURE" then
-						local ci=p.children[x.d+1]
-						local cp=ci and mod.protos[ci]
-						setr(x.a,cp and customsource(mod,cp,depth+1,seen) or "function(...) end")
-					elseif n=="DUPCLOSURE" then
-						local k=p.k[x.d+1]
-						local cp=k and k.t==6 and mod.protos[(k.v or 0)+1]
-						setr(x.a,cp and customsource(mod,cp,depth+1,seen) or "function(...) end")
-					elseif n=="RETURN" then
-						local count=x.b==0 and 1 or x.b-1
-						local a={}
-						for j=0,count-1 do a[#a+1]=reg(x.a+j) end
-						emit(#a>0 and ("return "..table.concat(a,", ")) or "return")
-					elseif n=="JUMPIF" then
-						emit("if "..reg(x.a).." then end")
-					elseif n=="JUMPIFNOT" then
-						emit("if not "..reg(x.a).." then end")
-					elseif n=="JUMPIFEQ" or n=="JUMPIFLE" or n=="JUMPIFLT" or n=="JUMPIFNOTEQ" or n=="JUMPIFNOTLE" or n=="JUMPIFNOTLT" then
-						local rb=(x.aux or 0)%256
-						local cmp={JUMPIFEQ="==",JUMPIFLE="<=",JUMPIFLT="<",JUMPIFNOTEQ="~=",JUMPIFNOTLE=">",JUMPIFNOTLT=">="}
-						emit("if "..reg(x.a).." "..cmp[n].." "..reg(rb).." then end")
-					elseif n=="JUMPXEQKNIL" then
+					if n=="JUMPIF" then return reg(x.a) end
+					if n=="JUMPIFNOT" then return "(not "..reg(x.a)..")" end
+					local rb=(x.aux or 0)%256
+					local direct={JUMPIFEQ="==",JUMPIFLE="<=",JUMPIFLT="<",JUMPIFNOTEQ="~=",JUMPIFNOTLE=">",JUMPIFNOTLT=">="}
+					if direct[n] then return reg(x.a).." "..direct[n].." "..reg(rb) end
+					if n=="JUMPXEQKNIL" then
 						local notf=math.floor((x.aux or 0)/2147483648)%2
-						emit("if "..reg(x.a)..(notf==1 and " ~= nil" or " == nil").." then end")
+						return reg(x.a)..(notf==1 and " ~= nil" or " == nil")
 					elseif n=="JUMPXEQKB" then
 						local aux=x.aux or 0
 						local val=aux%2~=0
 						local notf=math.floor(aux/2147483648)%2
-						local cmp=notf==1 and "~=" or "=="
-						emit("if "..reg(x.a).." "..cmp.." "..tostring(val).." then end")
+						return reg(x.a).." "..(notf==1 and "~=" or "==").." "..tostring(val)
 					elseif n=="JUMPXEQKN" or n=="JUMPXEQKS" then
 						local aux=x.aux or 0
 						local ci=aux%16777216
 						local notf=math.floor(aux/2147483648)%2
-						emit("if "..reg(x.a).." "..(notf==1 and "~=" or "==").." "..kval(p,ci).." then end")
+						return reg(x.a).." "..(notf==1 and "~=" or "==").." "..kval(p,ci)
+					elseif n=="CMPPROTO" then
+						return "true"
+					end
+					return "true"
+				end
+				local function fallcond(x)
+					local n=x.n
+					if n=="JUMPIF" then return "(not "..reg(x.a)..")" end
+					if n=="JUMPIFNOT" then return reg(x.a) end
+					local rb=(x.aux or 0)%256
+					local inv={JUMPIFEQ="~=",JUMPIFLE=">",JUMPIFLT=">=",JUMPIFNOTEQ="==",JUMPIFNOTLE="<=",JUMPIFNOTLT="<"}
+					if inv[n] then return reg(x.a).." "..inv[n].." "..reg(rb) end
+					if n=="JUMPXEQKNIL" then
+						local notf=math.floor((x.aux or 0)/2147483648)%2
+						return reg(x.a)..(notf==1 and " == nil" or " ~= nil")
+					elseif n=="JUMPXEQKB" then
+						local aux=x.aux or 0
+						local val=aux%2~=0
+						local notf=math.floor(aux/2147483648)%2
+						return reg(x.a).." "..(notf==1 and "==" or "~=").." "..tostring(val)
+					elseif n=="JUMPXEQKN" or n=="JUMPXEQKS" then
+						local aux=x.aux or 0
+						local ci=aux%16777216
+						local notf=math.floor(aux/2147483648)%2
+						return reg(x.a).." "..(notf==1 and "==" or "~=").." "..kval(p,ci)
+					end
+					return "true"
+				end
+				local function purecall(fn,m)
+					if m then return false end
+					if fn=="type" or fn=="typeof" or fn=="tostring" or fn=="tonumber" then return true end
+					local safeString={["string.byte"]=true,["string.char"]=true,["string.find"]=true,["string.format"]=true,["string.len"]=true,["string.lower"]=true,["string.match"]=true,["string.pack"]=true,["string.packsize"]=true,["string.rep"]=true,["string.reverse"]=true,["string.sub"]=true,["string.unpack"]=true,["string.upper"]=true}
+					if safeString[fn] or fn:match("^bit32%.") then return true end
+					if fn:match("^Vector[23]%.new$") or fn:match("^CFrame%.") or fn:match("^Color3%.") or fn:match("^UDim2?%.") then return true end
+					if fn=="NumberRange.new" or fn=="NumberSequence.new" or fn=="ColorSequence.new" then return true end
+					if fn:match("^math%.") and fn~="math.random" and fn~="math.randomseed" then return true end
+					return false
+				end
+				local i=1
+				while i<=#p.ins do
+					local x=p.ins[i]
+					local n=x.n
+					if not reachablePc[x.pc] then i+=1 continue end
+					if endAt[x.pc] then
+						for _=1,endAt[x.pc] do level=math.max(1,level-1) emitLevel("end",level) end
+					end
+					if repeatAt[x.pc] then
+						for _=1,repeatAt[x.pc] do emit("repeat") level+=1 end
+					end
+					if elseAt[x.pc] then
+						for _=1,elseAt[x.pc] do level=math.max(1,level-1) emitLevel("else",level) level+=1 end
+					end
+					if skipPc[x.pc] then i+=1 continue end
+					local bf=boolFold[x.pc]
+					if bf then
+						local value
+						if bf.jump==bf.fall then
+							value=bf.jump and "true" or "false"
+						elseif bf.jump then
+							value="("..jumpcond(x)..")"
+						else
+							value="("..fallcond(x)..")"
+						end
+						put(bf.reg,value,x.pc,false)
+						i+=1
+						continue
+					end
+					local st=structure[x.pc]
+					if st=="if" or st=="ifelse" then
+						emit("if "..fallcond(x).." then")
+						level+=1
+						i+=1
+						continue
+					elseif st=="while" then
+						emit("while "..fallcond(x).." do")
+						level+=1
+						i+=1
+						continue
+					elseif st=="until" then
+						level=math.max(1,level-1)
+						emitLevel("until "..fallcond(x),level)
+						i+=1
+						continue
+					end
+					if n=="LOADNIL" then put(x.a,"nil",x.pc,false)
+					elseif n=="LOADB" then put(x.a,x.b~=0 and "true" or "false",x.pc,false)
+					elseif n=="LOADN" then put(x.a,tostring(x.d),x.pc,false)
+					elseif n=="LOADK" then put(x.a,kval(p,math.floor(x.w/65536)%65536),x.pc,false)
+					elseif n=="LOADKX" then put(x.a,kval(p,x.aux or 0),x.pc,false)
+					elseif n=="MOVE" then put(x.a,reg(x.b),x.pc,false)
+					elseif n=="GETGLOBAL" then
+						local s=kstr(p,x.aux or 0)
+						put(x.a,s and (ident(s) and s or ("_G["..q(s).."]")) or "_G",x.pc,false)
+					elseif n=="SETGLOBAL" then
+						local s=kstr(p,x.aux or 0)
+						emit((s and (ident(s) and s or ("_G["..q(s).."]")) or "_G").." = "..reg(x.a))
+					elseif n=="GETIMPORT" then put(x.a,importpath(p,x.aux or 0),x.pc,false)
+					elseif n=="GETUPVAL" then put(x.a,upname(x.b),x.pc,false)
+					elseif n=="SETUPVAL" then emit(upname(x.b).." = "..reg(x.a))
+					elseif n=="GETTABLE" then put(x.a,reg(x.b).."["..reg(x.c).."]",x.pc,false)
+					elseif n=="SETTABLE" then emit(reg(x.b).."["..reg(x.c).."] = "..reg(x.a))
+					elseif n=="GETTABLEKS" or n=="GETUDATAKS" then
+						local ci=n=="GETUDATAKS" and ((x.aux or 0)%65536) or (x.aux or 0)
+						put(x.a,prop(reg(x.b),kstr(p,ci)),x.pc,false)
+					elseif n=="SETTABLEKS" or n=="SETUDATAKS" then
+						local ci=n=="SETUDATAKS" and ((x.aux or 0)%65536) or (x.aux or 0)
+						emit(prop(reg(x.b),kstr(p,ci)).." = "..reg(x.a))
+					elseif n=="GETTABLEN" then put(x.a,reg(x.b).."["..tostring(x.c+1).."]",x.pc,false)
+					elseif n=="SETTABLEN" then emit(reg(x.b).."["..tostring(x.c+1).."] = "..reg(x.a))
+					elseif bin[n] then put(x.a,"("..reg(x.b).." "..bin[n].." "..reg(x.c)..")",x.pc,false)
+					elseif bink[n] then put(x.a,"("..reg(x.b).." "..bink[n].." "..kval(p,x.c)..")",x.pc,false)
+					elseif n=="SUBRK" then put(x.a,"("..kval(p,x.b).." - "..reg(x.c)..")",x.pc,false)
+					elseif n=="DIVRK" then put(x.a,"("..kval(p,x.b).." / "..reg(x.c)..")",x.pc,false)
+					elseif n=="NOT" then put(x.a,"(not "..reg(x.b)..")",x.pc,false)
+					elseif n=="MINUS" then put(x.a,"(-"..reg(x.b)..")",x.pc,false)
+					elseif n=="LENGTH" then put(x.a,"(#"..reg(x.b)..")",x.pc,false)
+					elseif n=="CONCAT" then
+						local a={}
+						for r=x.b,x.c do a[#a+1]=reg(r) end
+						put(x.a,"("..table.concat(a," .. ")..")",x.pc,false)
+					elseif n=="NEWTABLE" then materialize(x.a,"{}",x.pc)
+					elseif n=="DUPTABLE" then materialize(x.a,kval(p,x.d),x.pc)
+					elseif n=="SETLIST" then
+						local start=x.aux or 1
+						if x.c==0 then
+							local vals={}
+							for r=x.b,top-1 do
+								if multi[r] then vals[#vals+1]=multi[r] break end
+								vals[#vals+1]=reg(r)
+							end
+							local tn=unique("values") or "values"
+							emit("local "..tn.." = {"..table.concat(vals,", ").."}")
+							emit("table.move("..tn..", 1, #"..tn..", "..tostring(start)..", "..reg(x.a)..")")
+						else
+							local count=x.c-1
+							for j=0,count-1 do emit(reg(x.a).."["..tostring(start+j).."] = "..reg(x.b+j)) end
+						end
+					elseif n=="NAMECALL" or n=="NAMECALLUDATA" then
+						local ci=n=="NAMECALLUDATA" and ((x.aux or 0)%65536) or (x.aux or 0)
+						clearMulti(x.a)
+						clearMulti(x.a+1)
+						touch(x.a,2)
+						method[x.a]={base=reg(x.b),name=kstr(p,ci) or "method"}
+						expr[x.a]=method[x.a].base..":"..method[x.a].name
+						expr[x.a+1]=method[x.a].base
+					elseif n=="CALL" or n=="CALLFB" then
+						local args={}
+						local m=method[x.a]
+						if x.b==0 then
+							for r=x.a+1,top-1 do
+								if not (m and r==x.a+1) then
+									if multi[r] then args[#args+1]=multi[r] break end
+									args[#args+1]=reg(r)
+								end
+							end
+						else
+							for j=1,x.b-1 do
+								if not (m and j==1) then args[#args+1]=reg(x.a+j) end
+							end
+						end
+						local fn=m and (m.base..":"..m.name) or reg(x.a)
+						local call=fn.."("..table.concat(args,", ")..")"
+						method[x.a]=nil
+						if x.c==1 then
+							emit(call)
+							expr[x.a]=nil
+							multi[x.a]=nil
+							top=x.a
+						elseif x.c==0 then
+							expr[x.a]=nil
+							multi[x.a]=call
+							top=x.a+1
+						elseif x.c==2 then
+							if purecall(fn,m) and not forceVar[x.a] and not dbgname(x.a,x.pc) then put(x.a,call,x.pc,false) else materialize(x.a,call,x.pc) end
+							top=x.a+1
+						else
+							local lhs={}
+							local missing={}
+							for j=0,x.c-2 do
+								local r=x.a+j
+								clearMulti(r)
+								local nm=varname(r,x.pc,nil)
+								if not vars[r] then vars[r]=true missing[#missing+1]=nm end
+								expr[r]=nm
+								lhs[#lhs+1]=nm
+							end
+							if #missing>0 then emit("local "..table.concat(missing,", ")) end
+							emit(table.concat(lhs,", ").." = "..call)
+							top=x.a+x.c-1
+						end
+					elseif n=="GETVARARGS" then
+						if x.b==0 then
+							expr[x.a]=nil
+							multi[x.a]="..."
+							top=x.a+1
+						elseif x.b==2 then
+							put(x.a,"...",x.pc,false)
+							top=x.a+1
+						else
+							local lhs={}
+							local missing={}
+							for j=0,x.b-2 do
+								local r=x.a+j
+								clearMulti(r)
+								local nm=varname(r,x.pc,nil)
+								if not vars[r] then vars[r]=true missing[#missing+1]=nm end
+								expr[r]=nm
+								lhs[#lhs+1]=nm
+							end
+							if #missing>0 then emit("local "..table.concat(missing,", ")) end
+							emit(table.concat(lhs,", ").." = ...")
+							top=x.a+x.b-1
+						end
+					elseif n=="NEWCLOSURE" or n=="DUPCLOSURE" then
+						local cp
+						if n=="NEWCLOSURE" then
+							local ci=p.children[x.d+1]
+							cp=ci and mod.protos[ci]
+						else
+							local k=p.k[x.d+1]
+							cp=k and k.t==6 and mod.protos[(k.v or 0)+1]
+						end
+						local caps={}
+						if cp then
+							for u=0,cp.ups-1 do
+								local cx=p.ins[i+1+u]
+								if cx and cx.n=="CAPTURE" then
+									if cx.a==0 then
+										caps[u]=reg(cx.b)
+									elseif cx.a==1 then
+										forceVar[cx.b]=true
+										local value=reg(cx.b)
+										if not vars[cx.b] then value=materialize(cx.b,value,x.pc) end
+										caps[u]=value
+									elseif cx.a==2 then
+										caps[u]=upname(cx.b)
+									end
+									skipPc[cx.pc]=true
+								end
+							end
+						end
+						materialize(x.a,cp and customsource(mod,cp,depth+1,seen,caps) or "function(...) end",x.pc)
+					elseif n=="CLOSEUPVALS" then
+						for r=x.a,(p.max or x.a)-1 do
+							names[r]=nil
+							nameLife[r]=nil
+							vars[r]=nil
+							expr[r]=nil
+							multi[r]=nil
+							method[r]=nil
+						end
+						if top>x.a then top=x.a end
+					elseif n=="RETURN" then
+						local a={}
+						if x.b==0 then
+							for r=x.a,top-1 do
+								if multi[r] then a[#a+1]=multi[r] break end
+								a[#a+1]=reg(r)
+							end
+						else
+							for j=0,x.b-2 do a[#a+1]=reg(x.a+j) end
+						end
+						emit(#a>0 and ("return "..table.concat(a,", ")) or "return")
 					elseif n=="FORNPREP" then
-						emit("for v"..tostring(x.a+3).." = "..reg(x.a+2)..", "..reg(x.a)..", "..reg(x.a+1).." do")
+						local vr=x.a+3
+						local vn=varname(vr,x.pc,nil)
+						vars[vr]=true expr[vr]=vn
+						emit("for "..vn.." = "..reg(x.a+2)..", "..reg(x.a)..", "..reg(x.a+1).." do")
+						level+=1
 					elseif n=="FORNLOOP" then
-						emit("end")
+						level=math.max(1,level-1)
+						emitLevel("end",level)
 					elseif n=="FORGPREP" or n=="FORGPREP_INEXT" or n=="FORGPREP_NEXT" then
-						emit("for v"..tostring(x.a+3).." in "..reg(x.a)..", "..reg(x.a+1)..", "..reg(x.a+2).." do")
+						local target=x.pc+1+x.d
+						local loop=byPc[target]
+						local vc=loop and loop.n=="FORGLOOP" and ((loop.aux or 1)%256) or 1
+						if vc==0 then vc=1 end
+						local vl={}
+						for j=0,vc-1 do
+							local r=x.a+3+j
+							local nm=varname(r,x.pc,nil)
+							vars[r]=true expr[r]=nm vl[#vl+1]=nm
+						end
+						emit("for "..table.concat(vl,", ").." in "..reg(x.a)..", "..reg(x.a+1)..", "..reg(x.a+2).." do")
+						level+=1
 					elseif n=="FORGLOOP" then
-						emit("end")
-					elseif n=="NEWCLASS" then
-						setr(x.a,"{}")
+						level=math.max(1,level-1)
+						emitLevel("end",level)
+					elseif n=="JUMP" or n=="JUMPBACK" or n=="JUMPX" then
+						local t=jumptarget(x)
+						if t<x.pc then emit("continue") end
+					elseif n=="NEWCLASS" then materialize(x.a,"{}",x.pc)
 					elseif n=="NEWCLASSMEMBER" then
 						local s=kstr(p,x.aux or 0) or "member"
 						emit(prop(reg(x.a),s).." = "..reg(x.c))
 					end
+					i+=1
 				end
+				local finalpc=#p.words
+				if endAt[finalpc] then for _=1,endAt[finalpc] do level=math.max(1,level-1) emitLevel("end",level) end end
 				seen[p]=nil
 				local args={}
-				for i=1,p.params do args[i]="a"..tostring(i) end
+				for i=0,p.params-1 do args[#args+1]=names[i] or ("a"..tostring(i+1)) end
 				if p.vararg then args[#args+1]="..." end
 				local bodytext=table.concat(lines,"\n")
 				if depth==0 then return bodytext end
