@@ -42,7 +42,7 @@ local function dexCacheBust(url)
 end
 local DEX_SOURCE_URL = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2/a720-1aad158224b4-serv21.strettenvpn.com-443-security-reality-type-tcp-headerType-path-host/refs/heads/main/dex.luau"
 GENV.DEX_SOURCE_URL = GENV.DEX_SOURCE_URL or DEX_SOURCE_URL
-GENV.DEX_BUILD_ID = "V19_"..dexCacheToken()
+GENV.DEX_BUILD_ID = "V21_"..dexCacheToken()
 GENV.DEX_PRETTY_MODE = GENV.DEX_PRETTY_MODE or "aggressive"
 GENV.DEX_PRETTY_INLINE_FIELDS = GENV.DEX_PRETTY_INLINE_FIELDS or 5
 GENV.DEX_PRETTY_INLINE_WIDTH = GENV.DEX_PRETTY_INLINE_WIDTH or 140
@@ -11925,7 +11925,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V20"
+		local DECOMPILER_VERSION = "V21"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -13810,40 +13810,236 @@ Main = (function()
 					end
 					return a
 				end
+
+				local function camelname4(s)
+					if type(s)~="string" then return nil end
+					s=s:gsub("[^%w_ ]"," "):gsub("_"," ")
+					local out=""
+					for part in s:gmatch("[%w]+") do
+						if out=="" then out=part:sub(1,1):lower()..part:sub(2)
+						else out=out..part:sub(1,1):upper()..part:sub(2) end
+					end
+					if out=="" or out:match("^%d") or not ident(out) then return nil end
+					return out
+				end
+				local function saferename4(a,old,new,starti,endi,base)
+					if not old or not new or old==new then return end
+					local text=table.concat(a,"\n")
+					if countword(text,new)>0 then
+						local n=2
+						local root=new
+						while countword(text,new)>0 do new=root..tostring(n) n+=1 end
+					end
+					for j=starti,math.min(endi or #a,#a) do
+						if dep(a[j])<base then break end
+						a[j]=replaceword(a[j],old,new)
+					end
+				end
+				local function renameinstances4(a)
+					local used={}
+					for _,line in ipairs(a) do
+						for n in tr(line):gmatch("%f[%a_][%a_][%w_]*%f[^%w_]") do used[n]=true end
+					end
+					local i=1
+					while i<=#a do
+						local lead,islocal,var,rhs=parseassign3(a[i])
+						if lead and islocal and var and rhs then
+							local class=tr(rhs):match('^Instance%.new%("([%w_]+)"%)$')
+							local special
+							if not class then
+								if tr(rhs):match('Players%.LocalPlayer:WaitForChild%("PlayerGui"%)') then special="playerGui"
+								elseif tr(rhs):match(':WaitForChild%("PlayerGui"%)') then special="playerGui" end
+							end
+							if class or special then
+								local base=#lead
+								local stop=#a
+								local objname=special
+								if class then
+									local fallback={
+										ScreenGui="screenGui",BillboardGui="billboardGui",Frame="frame",ImageLabel="imageLabel",TextLabel="textLabel",TextButton="textButton",
+										UIGradient="gradient",UIStroke="stroke",UIScale="uiScale",NumberValue="progress",UICorner="corner",ImageButton="imageButton",
+										Folder="folder",Part="part",Model="model",Attachment="attachment",Sound="sound"
+									}
+									objname=fallback[class] or camelname4(class)
+									for j=i+1,#a do
+										local d=dep(a[j])
+										if d<base then stop=j-1 break end
+										if d==base then
+											local _,_,av=parseassign3(a[j])
+											if av==var then stop=j-1 break end
+											local nm=tr(a[j]):match('^'..var..'%.Name%s*=%s*"([^"]+)"$')
+											if nm then objname=camelname4(nm) or objname break end
+										end
+									end
+								end
+								if objname and objname~=var then
+									local root=objname
+									local n=2
+									while used[objname] and objname~=var do objname=root..tostring(n) n+=1 end
+									used[objname]=true
+									for j=i,stop do a[j]=replaceword(a[j],var,objname) end
+								end
+							end
+						end
+						i+=1
+					end
+					return a
+				end
+				local function foldservicevars4(a)
+					local i=1
+					while i<=#a-1 do
+						local l0,loc0,v0,r0=parseassign3(a[i])
+						local l1,loc1,v1,r1=parseassign3(a[i+1])
+						if l0 and l1==l0 and v0==v1 and tr(r0)=="game" then
+							local svc=tr(r1):match('^'..v0..':GetService%("([%w_]+)"%)$')
+							if svc then
+								local name=svc=="Workspace" and "workspace" or svc
+								if ident(name) then
+									local text=table.concat(a,"\n")
+									if countword(text,name)>0 then
+										local root=name
+										local n=2
+										while countword(text,name)>0 do name=root..tostring(n) n+=1 end
+									end
+									a[i]=l0.."local "..name..' = game:GetService("'..svc..'")'
+									table.remove(a,i+1)
+									local base=#l0
+									local j=i+1
+									while j<=#a do
+										if dep(a[j])<base then break end
+										if dep(a[j])==base then
+											local _,_,av=parseassign3(a[j])
+											if av==v0 then break end
+										end
+										a[j]=replaceword(a[j],v0,name)
+										j+=1
+									end
+									i+=1
+									continue
+								end
+							end
+						end
+						i+=1
+					end
+					return a
+				end
+				local function folditerprep4(a)
+					local i=1
+					while i<=#a-3 do
+						local l0,loc0,v0,r0=parseassign3(a[i])
+						local l1,loc1,v1,r1=parseassign3(a[i+1])
+						if l0 and l1==l0 and tr(r0)=="ipairs" and v0 and v1 and r1 then
+							local t2=tr(a[i+2])
+							local third=t2:match('^'..v0..'%s*,%s*'..v1..'%s*,%s*(v%d+)%s*=%s*'..v0..'%s*%(%s*'..v1..'%s*%)$')
+							if third then
+								local lead,iv1,iv2,iiter=a[i+3]:match('^(\t*)for%s+([%a_][%w_]*),%s*([%a_][%w_]*)%s+in%s+(.+)%s+do%s*$')
+								if lead==l0 and iiter and countword(iiter,v0)==1 and countword(iiter,v1)==1 and countword(iiter,third)==1 then
+									local item=iv2
+									if item:match("^v%d+$") then item="item" end
+									a[i]=l0.."for "..(iv1:match("^v%d+$") and "_" or iv1)..", "..item.." in ipairs("..tr(r1)..") do"
+									table.remove(a,i+3)
+									table.remove(a,i+2)
+									table.remove(a,i+1)
+									local depth=#l0
+									local j=i+1
+									while j<=#a do
+										if dep(a[j])==depth and tr(a[j])=="end" then break end
+										a[j]=replaceword(a[j],iv2,item)
+										j+=1
+									end
+									i+=1
+									continue
+								end
+							end
+						end
+						i+=1
+					end
+					return a
+				end
+				local function foldkeymaps4(a)
+					local out={}
+					local i=1
+					while i<=#a do
+						local lead,islocal,var,rhs=parseassign3(a[i])
+						if lead and islocal and var and tr(rhs)=="{}" then
+							local pairs={}
+							local j=i+1
+							while j<=#a and dep(a[j])==#lead do
+								local key,val=tr(a[j]):match('^'..var..'%[(.+)%]%s*=%s*(.+)$')
+								if not key then break end
+								pairs[#pairs+1]={key=key,value=val}
+								j+=1
+							end
+							if #pairs>=3 then
+								local joined=""
+								for _,p0 in ipairs(pairs) do joined=joined..p0.key.." "..p0.value.." " end
+								local name
+								if joined:find("Enum.KeyCode.Button",1,true) or joined:find("DPad",1,true) then name="gamepadButtonImages"
+								elseif joined:find("backspace.png",1,true) or joined:find("shift.png",1,true) then name="keyboardButtonImages"
+								elseif joined:find("Controls/",1,true) then name="keyImages"
+								elseif joined:find("Enum.KeyCode.",1,true) then name="keyNames" end
+								if name then
+									local block={lead.."local "..name.." = {"}
+									for _,p0 in ipairs(pairs) do block[#block+1]=lead.."\t["..p0.key.."] = "..prettyexpr2(p0.value).."," end
+									block[#block+1]=lead.."}"
+									for _,ln in ipairs(block) do out[#out+1]=ln end
+									for k=j,#a do a[k]=replaceword(a[k],var,name) end
+									i=j
+								else
+									out[#out+1]=a[i] i+=1
+								end
+							else out[#out+1]=a[i] i+=1 end
+						else out[#out+1]=a[i] i+=1 end
+					end
+					return out
+				end
+				local function invalidreceiver4(lhs)
+					lhs=tr(lhs)
+					local recv=lhs:match('^(.+)%.([%a_][%w_]*)$')
+					if not recv then return false end
+					recv=tr(recv)
+					if recv:match('^["\']') or recv:match('^[%+%-]?%d') or recv=="true" or recv=="false" or recv=="nil" then return true end
+					if recv:match('^Enum%.[%w_]+%.[%w_]+$') then return true end
+					return false
+				end
+				local function semanticvalid4(a)
+					for _,line in ipairs(a) do
+						local t=tr(line)
+						local lhs=topassign2(t)
+						if lhs and invalidreceiver4(lhs) then return false end
+						if t:match('^Instance%.new%b()%.') and t:find("%s*=",1) then return false end
+					end
+					return true
+				end
+				local function safesimplify4(a)
+					a=joinlocalassign2(a)
+					a=foldservicevars4(a)
+					a=foldarrayassignments3(a)
+					a=folditerprep4(a)
+					a=simplifygenericfor3(a)
+					a=renameservicevars3(a)
+					a=renameinstances4(a)
+					a=foldkeymaps4(a)
+					a=renamemoduleloops3(a)
+					a=prunelocaldecls3(a)
+					return a
+				end
 				final=compactlocals(final)
 				if GENV.DEX_PRETTY_MODE~="off" then
-					final=joinlocalassign2(final)
-					if GENV.DEX_PRETTY_DATAFLOW~=false then
-						final=foldselfchains3(final)
-						final=foldsingleusetemps3(final)
-						final=foldselfchains3(final)
-						final=foldconditiontemps3(final)
-						final=foldbuiltinaliases3(final)
-						final=foldfunctionargs3(final)
-						final=foldselfchains3(final)
-						final=foldarrayassignments3(final)
-						final=simplifygenericfor3(final)
-						final=renametableiter3(final)
-						final=renameservicevars3(final)
-						final=renamemoduleloops3(final)
-						final=foldbuiltinclosures3(final)
-						final=foldpcallrequire3(final)
-					end
-					final=foldaliases(final)
-					final=foldbuilders(final)
-					final=foldbuilders2(final)
-					final=foldaliases(final)
-					final=foldbuilders2(final)
-					final=foldreceiveraliases2(final)
-					final=foldaliases(final)
-					final=joinlocalassign2(final)
-					final=renameconfig2(final)
-					final=foldbuilders2(final)
-					final=foldrootconfig2(final)
-					final=foldreceiveraliases2(final)
-					final=foldservicechains2(final)
-					final=foldreceiveraliases2(final)
-					if GENV.DEX_PRETTY_DATAFLOW~=false then
+					local baseline={}
+					for i,line in ipairs(final) do baseline[i]=line end
+					if GENV.DEX_SSA_SAFE_PRETTY~=false then
+						final=safesimplify4(final)
+						final=foldbuilders2(final)
+						final=joinlocalassign2(final)
+						final=renameconfig2(final)
+						final=foldbuilders2(final)
+						final=foldrootconfig2(final)
+						final=foldservicechains2(final)
+						final=safesimplify4(final)
+						if not semanticvalid4(final) then final=baseline end
+					else
+						final=joinlocalassign2(final)
 						final=foldselfchains3(final)
 						final=foldsingleusetemps3(final)
 						final=foldconditiontemps3(final)
@@ -13856,7 +14052,11 @@ Main = (function()
 						final=renamemoduleloops3(final)
 						final=foldbuiltinclosures3(final)
 						final=foldpcallrequire3(final)
-						final=prunelocaldecls3(final)
+						final=foldaliases(final)
+						final=foldbuilders(final)
+						final=foldbuilders2(final)
+						final=renameconfig2(final)
+						final=foldrootconfig2(final)
 					end
 				end
 				final=compactlocals(final)
@@ -13925,6 +14125,12 @@ Main = (function()
 					if not ident(s) then return nil end
 					if s=="and" or s=="break" or s=="continue" or s=="do" or s=="else" or s=="elseif" or s=="end" or s=="false" or s=="for" or s=="function" or s=="if" or s=="in" or s=="local" or s=="nil" or s=="not" or s=="or" or s=="repeat" or s=="return" or s=="then" or s=="true" or s=="until" or s=="while" then return nil end
 					return s
+				end
+				for _,capturedName in pairs(upmap) do
+					if type(capturedName)=="string" then
+						local cn=cleanname(capturedName)
+						if cn then usedNames[cn]=math.max(usedNames[cn] or 0,1) end
+					end
 				end
 				local function unique(s)
 					s=cleanname(s)
@@ -14153,6 +14359,36 @@ Main = (function()
 								if al~=bl then addscore(al and rb or x.a,3) else addscore(x.a,1) addscore(rb,1) end
 							end
 						end
+					end
+					local promptProps={Style=true,HoldDuration=true,GamepadKeyCode=true,KeyboardKeyCode=true,ClickablePrompt=true,PromptButtonHoldBegan=true,PromptButtonHoldEnded=true,Triggered=true,TriggerEnded=true,PromptHidden=true,ActionText=true,ObjectText=true,UIOffset=true,AutoLocalize=true,RootLocalizationTable=true}
+					local inputProps={UserInputType=true,UserInputState=true,KeyCode=true,Position=true,Delta=true}
+					local guiProps={Size=true,Position=true,AnchorPoint=true,BackgroundTransparency=true,Parent=true,Visible=true}
+					local propScores={}
+					local function propscore(r,name,weight)
+						if type(r)~="number" or r<0 or r>=(p.params or 0) or type(name)~="string" then return end
+						local ps=propScores[r]
+						if not ps then ps={} propScores[r]=ps end
+						ps[name]=(ps[name] or 0)+(weight or 1)
+					end
+					for _,x in ipairs(p.ins) do
+						if x.n=="GETTABLEKS" or x.n=="GETUDATAKS" then
+							local ci=x.n=="GETUDATAKS" and ((x.aux or 0)%65536) or (x.aux or 0)
+							local key=kstr(p,ci)
+							if promptProps[key] then propscore(x.b,"prompt",4)
+							elseif inputProps[key] then propscore(x.b,"input",3)
+							elseif guiProps[key] then propscore(x.b,"gui",1) end
+						elseif x.n=="NAMECALL" or x.n=="NAMECALLUDATA" then
+							local ci=x.n=="NAMECALLUDATA" and ((x.aux or 0)%65536) or (x.aux or 0)
+							local key=kstr(p,ci)
+							if key=="GetAttribute" then propscore(x.b,"prompt",2)
+							elseif key=="GetFullName" then propscore(x.b,"instance",2)
+							elseif key=="Connect" then propscore(x.b,"signal",1) end
+						end
+					end
+					for r,ps in pairs(propScores) do
+						local best,bn=nil,-1
+						for name,n in pairs(ps) do if n>bn then best,bn=name,n end end
+						if best and bn>=3 and not semanticHints[r] then semanticHints[r]=best end
 					end
 					for r,n in pairs(score) do
 						if n>=8 then semanticHints[r]=n>=28 and "opcode" or "state" end
@@ -14842,6 +15078,145 @@ Main = (function()
 					end
 					return out
 				end
+				local ssaDefs={}
+				local ssaWriteId={}
+				local ssaPhiId={}
+				local ssaNext=1
+				local function newSsaDef(reg,pc,op,kind)
+					local id=ssaNext
+					ssaNext+=1
+					ssaDefs[id]={id=id,reg=reg,pc=pc,op=op,kind=kind or "write",uses=0,blocks={},receiver=false,cross=false}
+					return id
+				end
+				local ssaParam={}
+				for r=0,(p.params or 0)-1 do ssaParam[r]=newSsaDef(r,-1,"PARAM","param") end
+				for _,y in ipairs(p.ins) do
+					local wm={}
+					for _,r in ipairs(writeRegs(y)) do wm[r]=newSsaDef(r,y.pc,y.n,"write") end
+					ssaWriteId[y.pc]=wm
+				end
+				local function ssaCopy(m)
+					local o={}
+					if m then for r,id in pairs(m) do o[r]=id end end
+					return o
+				end
+				local function ssaMapEq(a,b)
+					for r,id in pairs(a or {}) do if (b or {})[r]~=id then return false end end
+					for r,id in pairs(b or {}) do if (a or {})[r]~=id then return false end end
+					return true
+				end
+				local function ssaPhi(bid,r)
+					local pm=ssaPhiId[bid]
+					if not pm then pm={} ssaPhiId[bid]=pm end
+					if not pm[r] then pm[r]=newSsaDef(r,blocks[bid] and blocks[bid].start or -1,"PHI","phi") end
+					return pm[r]
+				end
+				local ssaIn,ssaOut={},{}
+				local ssaEntry=blockOf[0] or 1
+				local ssaRounds=0
+				local ssaChanged=true
+				while ssaChanged and ssaRounds<256 do
+					ssaChanged=false
+					ssaRounds+=1
+					for _,b in ipairs(blocks) do
+						if reachableBlock[b.id] then
+							local incoming={}
+							if b.id==ssaEntry then
+								for r,id in pairs(ssaParam) do incoming[r]=id end
+							else
+								local first=true
+								local seenAny=false
+								for _,pid in ipairs(b.pred) do
+									if reachableBlock[pid] and ssaOut[pid] then
+										seenAny=true
+										if first then
+											incoming=ssaCopy(ssaOut[pid])
+											first=false
+										else
+											local keys={}
+											for r in pairs(incoming) do keys[r]=true end
+											for r in pairs(ssaOut[pid]) do keys[r]=true end
+											for r in pairs(keys) do
+												local a=incoming[r]
+												local c=ssaOut[pid][r]
+												if a~=c then incoming[r]=ssaPhi(b.id,r) end
+											end
+										end
+									end
+								end
+								if not seenAny then incoming={} end
+							end
+							local st=ssaCopy(incoming)
+							for _,y in ipairs(b.ins) do
+								for r,id in pairs(ssaWriteId[y.pc] or {}) do st[r]=id end
+							end
+							if not ssaMapEq(ssaIn[b.id],incoming) then ssaIn[b.id]=incoming ssaChanged=true end
+							if not ssaMapEq(ssaOut[b.id],st) then ssaOut[b.id]=st ssaChanged=true end
+						end
+					end
+					breathe()
+				end
+				local ssaReadAt={}
+				local ssaMutationOps={SETTABLE=true,SETTABLEKS=true,SETTABLEN=true,SETUDATAKS=true,SETLIST=true,NEWCLASSMEMBER=true}
+				for _,b in ipairs(blocks) do
+					if reachableBlock[b.id] then
+						local st=ssaCopy(ssaIn[b.id] or {})
+						for _,y in ipairs(b.ins) do
+							local rm={}
+							for _,r in ipairs(readRegs(y)) do
+								local id=st[r]
+								if id then
+									rm[r]=id
+									local d=ssaDefs[id]
+									if d then
+										d.uses+=1
+										d.blocks[b.id]=true
+										if (y.n=="SETTABLE" or y.n=="SETTABLEKS" or y.n=="SETTABLEN" or y.n=="SETUDATAKS") and r==y.b then d.receiver=true end
+										if y.n=="SETLIST" and r==y.a then d.receiver=true end
+										if y.n=="NAMECALL" or y.n=="NAMECALLUDATA" then if r==y.b then d.receiver=true end end
+										if y.n=="NEWCLASSMEMBER" and r==y.a then d.receiver=true end
+									end
+								end
+							end
+							ssaReadAt[y.pc]=rm
+							for r,id in pairs(ssaWriteId[y.pc] or {}) do st[r]=id end
+						end
+					end
+				end
+				local ssaPhiCount=0
+				local ssaReceiverDefs=0
+				for _,pm in pairs(ssaPhiId) do
+					for r,id in pairs(pm) do
+						ssaPhiCount+=1
+						phiRegs[r]=true
+						forceVar[r]=true
+						local d=ssaDefs[id]
+						if d then d.cross=true end
+					end
+				end
+				for _,d in pairs(ssaDefs) do
+					local bc=0
+					for _ in pairs(d.blocks) do bc+=1 end
+					if bc>1 then d.cross=true end
+					if d.receiver then
+						ssaReceiverDefs+=1
+						forceVar[d.reg]=true
+					end
+					if d.cross and d.kind~="param" then forceVar[d.reg]=true end
+					if d.uses>1 and (d.op=="CALL" or d.op=="CALLFB" or d.op=="NEWCLOSURE" or d.op=="DUPCLOSURE" or d.op=="NEWTABLE" or d.op=="DUPTABLE" or d.op=="NEWCLASS") then
+						forceVar[d.reg]=true
+					end
+				end
+				if depth==0 then
+					GENV.DEX_LAST_ANALYSIS={
+						version=DECOMPILER_VERSION,
+						blocks=#blocks,
+						ssaDefs=ssaNext-1,
+						phi=ssaPhiCount,
+						stableReceivers=ssaReceiverDefs,
+						instructions=#p.ins
+					}
+				end
 				local blockUse,blockDef={},{}
 				for _,b in ipairs(blocks) do
 					local use,def={},{}
@@ -14881,6 +15256,15 @@ Main = (function()
 				local selfRead = {ADD=true,SUB=true,MUL=true,DIV=true,MOD=true,POW=true,AND=true,OR=true,IDIV=true,SUBRK=true,DIVRK=true,ADDK=true,SUBK=true,MULK=true,DIVK=true,MODK=true,POWK=true,ANDK=true,ORK=true,IDIVK=true,NOT=true,MINUS=true,LENGTH=true,GETTABLE=true,GETTABLEKS=true,GETTABLEN=true}
 				for _,x in ipairs(p.ins) do
 					if selfRead[x.n] and (x.a==x.b or x.a==x.c) then forceVar[x.a]=true end
+					if x.n=="SETTABLE" or x.n=="SETTABLEKS" or x.n=="SETTABLEN" or x.n=="SETUDATAKS" then
+						forceVar[x.b]=true
+					elseif x.n=="SETLIST" then
+						forceVar[x.a]=true
+					elseif x.n=="NAMECALL" or x.n=="NAMECALLUDATA" then
+						forceVar[x.b]=true
+					elseif x.n=="NEWCLASSMEMBER" then
+						forceVar[x.a]=true
+					end
 				end
 				local boolFold={}
 				for _,x in ipairs(p.ins) do
@@ -15666,6 +16050,8 @@ Main = (function()
 			if GENV.DEX_PRETTY_DATAFLOW==nil then GENV.DEX_PRETTY_DATAFLOW=true end
 			if GENV.DEX_PRETTY_SEMANTIC_LOCALS==nil then GENV.DEX_PRETTY_SEMANTIC_LOCALS=true end
 			if GENV.DEX_PRETTY_FOLD_CLOSURES==nil then GENV.DEX_PRETTY_FOLD_CLOSURES=true end
+			if GENV.DEX_SSA_SAFE_PRETTY==nil then GENV.DEX_SSA_SAFE_PRETTY=true end
+			if GENV.DEX_STRICT_LVALUE_VALIDATION==nil then GENV.DEX_STRICT_LVALUE_VALIDATION=true end
 			GENV.DEX_DECOMPILE=env.decompile
 			GENV.DEX_GET_BYTECODE=env.getscriptbytecode
 			GENV.DEX_GET_SCRIPT_CLOSURE=env.getscriptclosure
