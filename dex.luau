@@ -11879,7 +11879,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V11"
+		local DECOMPILER_VERSION = "V12"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -12550,14 +12550,38 @@ Main = (function()
 				while #final>0 and tr(final[#final])=="" do final[#final]=nil end
 				return table.concat(final,"\n")
 			end
-			local function customsource(mod,p,depth,seen,upmap)
+			local function validstructure(s)
+				local stack={}
+				local function trim(x) return (x:gsub("^%s+",""):gsub("%s+$","")) end
+				local function hasloop()
+					for i=#stack,1,-1 do local k=stack[i] if k=="while" or k=="for" or k=="repeat" then return true end end
+					return false
+				end
+				for line in (s.."\n"):gmatch("(.-)\n") do
+					local t=trim(line)
+					if t:match("^if%s+.+%s+then$") then stack[#stack+1]="if"
+					elseif t:match("^while%s+.+%s+do$") then stack[#stack+1]="while"
+					elseif t:match("^for%s+.+%s+do$") then stack[#stack+1]="for"
+					elseif t=="repeat" then stack[#stack+1]="repeat"
+					elseif t=="do" then stack[#stack+1]="do"
+					elseif (t:match("^local%s+function%s+") or t:match("^function%s+") or t:find("function%s*%(",1)) and not t:match("^return%s+function") and not t:match("%f[%a]end%f[%A]") then stack[#stack+1]="function"
+					elseif t:match("^elseif%s+.+%s+then$") or t=="else" then if stack[#stack]~="if" then return false end
+					elseif t=="end" then if #stack==0 or stack[#stack]=="repeat" then return false end stack[#stack]=nil
+					elseif t:match("^until%s+") then if stack[#stack]~="repeat" then return false end stack[#stack]=nil
+					elseif t=="continue" or t=="break" then if not hasloop() then return false end
+					end
+				end
+				return #stack==0
+			end
+			local function customsource(mod,p,depth,seen,upmap,exprMode)
 				depth = depth or 0
 				seen = seen or {}
 				upmap = upmap or {}
+				exprMode = exprMode or false
 				if depth > MAX_PROTO_DEPTH then return "function(...) end" end
 				if seen[p] then return "function(...) end" end
 				seen[p]=true
-				local ind = string.rep("\t",depth)
+				local ind = exprMode and "" or string.rep("\t",depth)
 				local lines = {}
 				local level = 1
 				local expr = {}
@@ -12669,12 +12693,22 @@ Main = (function()
 					nameLife[r]=d
 					return n
 				end
+				local function emitassign(lhs,s,islocal)
+					if type(s)=="string" and s:find("\n",1,true) then
+						local parts={}
+						for line in (s.."\n"):gmatch("(.-)\n") do parts[#parts+1]=line end
+						emit((islocal and "local " or "")..lhs.." = "..(parts[1] or "nil"))
+						for j=2,#parts do lines[#lines+1]=bodyindent()..parts[j] end
+					else
+						emit((islocal and "local " or "")..lhs.." = "..s)
+					end
+				end
 				local function setexpr(r,s)
 					clearMulti(r)
 					touch(r,1)
 					expr[r]=s
 					if vars[r] then
-						emit(names[r].." = "..s)
+						emitassign(names[r],s,false)
 						expr[r]=names[r]
 					end
 				end
@@ -12682,7 +12716,7 @@ Main = (function()
 					clearMulti(r)
 					touch(r,1)
 					local n=varname(r,pc,s)
-					if vars[r] then emit(n.." = "..s) else vars[r]=true emit("local "..n.." = "..s) end
+					if vars[r] then emitassign(n,s,false) else vars[r]=true emitassign(n,s,true) end
 					expr[r]=n
 					return n
 				end
@@ -12794,6 +12828,52 @@ Main = (function()
 					if reachableBlock[b.id] then
 						for _,x in ipairs(b.ins) do reachablePc[x.pc]=true end
 					end
+				end
+				local entryBlock=blockOf[0] or 1
+				local dom={}
+				local allReach={}
+				for id in pairs(reachableBlock) do allReach[id]=true end
+				for _,b in ipairs(blocks) do
+					if reachableBlock[b.id] then
+						if b.id==entryBlock then dom[b.id]={[b.id]=true} else
+							local d={}
+							for id in pairs(allReach) do d[id]=true end
+							dom[b.id]=d
+						end
+					else
+						dom[b.id]={}
+					end
+				end
+				local domChanged=true
+				local domRounds=0
+				while domChanged and domRounds<512 do
+					domChanged=false domRounds+=1
+					for _,b in ipairs(blocks) do
+						if reachableBlock[b.id] and b.id~=entryBlock then
+							local nd=nil
+							for _,pid in ipairs(b.pred) do
+								if reachableBlock[pid] then
+									if not nd then
+										nd={}
+										for k in pairs(dom[pid]) do nd[k]=true end
+									else
+										for k in pairs(nd) do if not dom[pid][k] then nd[k]=nil end end
+									end
+								end
+							end
+							nd=nd or {}
+							nd[b.id]=true
+							local old=dom[b.id]
+							local eq=true
+							for k in pairs(nd) do if not old[k] then eq=false break end end
+							if eq then for k in pairs(old) do if not nd[k] then eq=false break end end end
+							if not eq then dom[b.id]=nd domChanged=true end
+						end
+					end
+					breathe()
+				end
+				local function dominates(a,b)
+					return a and b and dom[b] and dom[b][a] or false
 				end
 				local function writeRegs(x)
 					local n=x.n
@@ -12922,18 +13002,26 @@ Main = (function()
 				local function forceRange(a,b)
 					if b>a then forceRanges[#forceRanges+1]={a,b} end
 				end
+				local loopByPrepPc={}
+				local loopByLatchPc={}
 				for ii,lx in ipairs(p.ins) do
 					if lx.n=="FORNPREP" then
+						local exit=jumptarget(lx)
 						for jj=ii+1,#p.ins do
 							local bx=p.ins[jj]
-							if bx.n=="FORNLOOP" and bx.a==lx.a and jumptarget(bx)<=nextpc(lx) then
-								loopRanges[#loopRanges+1]={start=lx.pc,finish=nextpc(bx),cont=bx.pc}
+							if bx.pc>=exit then break end
+							if bx.n=="FORNLOOP" and bx.a==lx.a and jumptarget(bx)==nextpc(lx) and nextpc(bx)==exit then
+								local lr={kind="forn",start=lx.pc,finish=exit,cont=bx.pc,prep=lx.pc,latch=bx.pc,emitted=false}
+								loopRanges[#loopRanges+1]=lr loopByPrepPc[lx.pc]=lr loopByLatchPc[bx.pc]=lr
 								break
 							end
 						end
 					elseif lx.n=="FORGPREP" or lx.n=="FORGPREP_INEXT" or lx.n=="FORGPREP_NEXT" then
 						local bx=byPc[jumptarget(lx)]
-						if bx and bx.n=="FORGLOOP" then loopRanges[#loopRanges+1]={start=lx.pc,finish=nextpc(bx),cont=bx.pc} end
+						if bx and bx.n=="FORGLOOP" and bx.a==lx.a and jumptarget(bx)==nextpc(lx) then
+							local lr={kind="forg",start=lx.pc,finish=nextpc(bx),cont=bx.pc,prep=lx.pc,latch=bx.pc,emitted=false}
+							loopRanges[#loopRanges+1]=lr loopByPrepPc[lx.pc]=lr loopByLatchPc[bx.pc]=lr
+						end
 					end
 				end
 				local structuredCond={}
@@ -12972,7 +13060,7 @@ Main = (function()
 						if latch and (latch.n=="JUMPBACK" or latch.n=="JUMP" or latch.n=="JUMPX") then
 							local hid=blockOf[jumptarget(latch)]
 							local hb=hid and blocks[hid]
-							if hb and hb.start<=b.start then
+							if hb and hb.start<=b.start and dominates(hid,b.id) then
 								local old=backLatch[hid]
 								if not old or b.start>old.start then backLatch[hid]=b end
 							end
@@ -12993,11 +13081,12 @@ Main = (function()
 							local exitId=fr and jid or fid
 							local eb=exitId and blocks[exitId]
 							if eb and eb.start>b.start then
-								structure[hx.pc]={kind="whilecfg",mode=(bodyId==fid and "fall" or "jump")}
+								local lr={kind="while",start=hb.start,finish=eb.start,cont=hb.start,latch=latch.pc,emitted=false}
+								structure[hx.pc]={kind="whilecfg",mode=(bodyId==fid and "fall" or "jump"),loop=lr}
 								structuredCond[hx.pc]=true
 								skipPc[latch.pc]=true
 								endAt[eb.start]=(endAt[eb.start] or 0)+1
-								loopRanges[#loopRanges+1]={start=hb.start,finish=eb.start,cont=hb.start}
+								loopRanges[#loopRanges+1]=lr
 							end
 						end
 					end
@@ -13010,10 +13099,15 @@ Main = (function()
 						if target==np then
 							skipPc[x.pc]=true
 						elseif target< x.pc then
-							structure[x.pc]={kind="untilcfg",mode="fall"}
-							repeatAt[target]=(repeatAt[target] or 0)+1
-							structuredCond[x.pc]=true
-							loopRanges[#loopRanges+1]={start=target,finish=nextpc(x),cont=x.pc}
+							local hid=blockOf[target]
+							local bid=blockOf[x.pc]
+							if hid and bid and dominates(hid,bid) then
+								local lr={kind="repeat",start=target,finish=nextpc(x),cont=x.pc,latch=x.pc,emitted=false}
+								structure[x.pc]={kind="untilcfg",mode="fall",loop=lr}
+								repeatAt[target]=(repeatAt[target] or 0)+1
+								structuredCond[x.pc]=true
+								loopRanges[#loopRanges+1]=lr
+							end
 						elseif target>np and byPc[target] then
 							local fallId=blockOf[np]
 							local jumpId=blockOf[target]
@@ -13052,10 +13146,20 @@ Main = (function()
 				end
 				for _,b in ipairs(blocks) do
 					if reachableBlock[b.id] then
-						if #b.succ>1 then
+						local last=b.ins[#b.ins]
+						local fall=last and blockOf[nextpc(last)] or nil
+						local nonFall=false
+						for _,sid in ipairs(b.succ) do if sid~=fall then nonFall=true break end end
+						if #b.succ>1 or nonFall then
 							for r in pairs(liveOut[b.id]) do forceVar[r]=true end
 						end
-						if #b.pred>1 then
+						local nonLinearPred=false
+						for _,pid in ipairs(b.pred) do
+							local pb=blocks[pid]
+							local pl=pb and pb.ins[#pb.ins]
+							if not pl or nextpc(pl)~=b.start then nonLinearPred=true break end
+						end
+						if #b.pred>1 or nonLinearPred then
 							for r in pairs(liveIn[b.id]) do
 								forceVar[r]=true
 								if r>=p.params then phiRegs[r]=true end
@@ -13063,6 +13167,12 @@ Main = (function()
 						end
 					end
 					breathe()
+				end
+				for _,x in ipairs(p.ins) do
+					if cfgcondops[x.n] then
+						forceVar[x.a]=true
+						if x.n=="JUMPIFEQ" or x.n=="JUMPIFLE" or x.n=="JUMPIFLT" or x.n=="JUMPIFNOTEQ" or x.n=="JUMPIFNOTLE" or x.n=="JUMPIFNOTLT" then forceVar[(x.aux or 0)%256]=true end
+					end
 				end
 				for i=0,p.params-1 do
 					local dl=dbglocal(i,0)
@@ -13137,7 +13247,7 @@ Main = (function()
 				local function loopfor(pc)
 					local best
 					for _,lr in ipairs(loopRanges) do
-						if pc>lr.start and pc<lr.finish and (not best or lr.start>=best.start) then best=lr end
+						if lr.emitted and pc>lr.start and pc<lr.finish and (not best or lr.start>=best.start) then best=lr end
 					end
 					return best
 				end
@@ -13176,6 +13286,21 @@ Main = (function()
 					if elseAt[x.pc] then
 						for _=1,elseAt[x.pc] do level=math.max(1,level-1) emitLevel("else",level) level+=1 end
 					end
+					local bid=blockOf[x.pc]
+					local bb=bid and blocks[bid]
+					if bb and bb.start==x.pc and x.pc~=0 then
+						local nonLinearPred=false
+						for _,pid in ipairs(bb.pred) do
+							local pb=blocks[pid]
+							local pl=pb and pb.ins[#pb.ins]
+							if not pl or nextpc(pl)~=bb.start then nonLinearPred=true break end
+						end
+						if #bb.pred>1 or nonLinearPred then
+							for r in pairs(liveIn[bid] or {}) do
+								if vars[r] then expr[r]=names[r] else expr[r]=nil multi[r]=nil end
+							end
+						end
+					end
 					if skipPc[x.pc] then i+=1 continue end
 					local bf=boolFold[x.pc]
 					if bf then
@@ -13199,10 +13324,12 @@ Main = (function()
 						continue
 					elseif type(st)=="table" and st.kind=="whilecfg" then
 						emit("while "..(st.mode=="jump" and jumpcond(x) or fallcond(x)).." do")
+						if st.loop then st.loop.emitted=true end
 						level+=1
 						i+=1
 						continue
 					elseif type(st)=="table" and st.kind=="untilcfg" then
+						if st.loop then st.loop.emitted=true end
 						level=math.max(1,level-1)
 						emitLevel("until "..(st.mode=="jump" and jumpcond(x) or fallcond(x)),level)
 						i+=1
@@ -13357,7 +13484,7 @@ Main = (function()
 						end
 						local childSource="function(...) end"
 						if cp then
-							local okChild,resChild=pcall(customsource,mod,cp,depth+1,seen,caps)
+							local okChild,resChild=pcall(customsource,mod,cp,depth+1,seen,caps,true)
 							if okChild and type(resChild)=="string" and resChild~="" then childSource=resChild end
 						end
 						materialize(x.a,childSource,x.pc)
@@ -13375,30 +13502,37 @@ Main = (function()
 						end
 						emit(#a>0 and ("return "..table.concat(a,", ")) or "return")
 					elseif n=="FORNPREP" then
-						local vr=x.a+3
-						local vn=varname(vr,x.pc,nil)
-						vars[vr]=true expr[vr]=vn
-						emit("for "..vn.." = "..reg(x.a+2)..", "..reg(x.a)..", "..reg(x.a+1).." do")
-						level+=1
-					elseif n=="FORNLOOP" then
-						level=math.max(1,level-1)
-						emitLevel("end",level)
-					elseif n=="FORGPREP" or n=="FORGPREP_INEXT" or n=="FORGPREP_NEXT" then
-						local target=x.pc+1+x.d
-						local loop=byPc[target]
-						local vc=loop and loop.n=="FORGLOOP" and ((loop.aux or 1)%256) or 1
-						if vc==0 then vc=1 end
-						local vl={}
-						for j=0,vc-1 do
-							local r=x.a+3+j
-							local nm=varname(r,x.pc,nil)
-							vars[r]=true expr[r]=nm vl[#vl+1]=nm
+						local lr=loopByPrepPc[x.pc]
+						if lr then
+							local vr=x.a+3
+							local vn=varname(vr,x.pc,nil)
+							vars[vr]=true expr[vr]=vn lr.emitted=true
+							emit("for "..vn.." = "..reg(x.a+2)..", "..reg(x.a)..", "..reg(x.a+1).." do")
+							level+=1
 						end
-						emit("for "..table.concat(vl,", ").." in "..reg(x.a)..", "..reg(x.a+1)..", "..reg(x.a+2).." do")
-						level+=1
+					elseif n=="FORNLOOP" then
+						local lr=loopByLatchPc[x.pc]
+						if lr and lr.emitted then level=math.max(1,level-1) emitLevel("end",level) end
+					elseif n=="FORGPREP" or n=="FORGPREP_INEXT" or n=="FORGPREP_NEXT" then
+						local lr=loopByPrepPc[x.pc]
+						if lr then
+							local target=x.pc+1+x.d
+							local loop=byPc[target]
+							local vc=loop and loop.n=="FORGLOOP" and ((loop.aux or 1)%256) or 1
+							if vc==0 then vc=1 end
+							local vl={}
+							for j=0,vc-1 do
+								local r=x.a+3+j
+								local nm=varname(r,x.pc,nil)
+								vars[r]=true expr[r]=nm vl[#vl+1]=nm
+							end
+							lr.emitted=true
+							emit("for "..table.concat(vl,", ").." in "..reg(x.a)..", "..reg(x.a+1)..", "..reg(x.a+2).." do")
+							level+=1
+						end
 					elseif n=="FORGLOOP" then
-						level=math.max(1,level-1)
-						emitLevel("end",level)
+						local lr=loopByLatchPc[x.pc]
+						if lr and lr.emitted then level=math.max(1,level-1) emitLevel("end",level) end
 					elseif n=="JUMP" or n=="JUMPBACK" or n=="JUMPX" then
 						local t=jumptarget(x)
 						local lr=loopfor(x.pc)
@@ -13406,8 +13540,6 @@ Main = (function()
 							emit("continue")
 						elseif lr and t>=lr.finish then
 							emit("break")
-						elseif t<x.pc then
-							emit("continue")
 						end
 					elseif n=="NEWCLASS" then materialize(x.a,"{}",x.pc)
 					elseif n=="NEWCLASSMEMBER" then
@@ -13425,8 +13557,30 @@ Main = (function()
 				if p.vararg then args[#args+1]="..." end
 				local rawbody=table.concat(lines,"\n")
 				local okClean,bodytext=pcall(cleanupsource,rawbody)
-				if not okClean or type(bodytext)~="string" then bodytext=rawbody end
-				if depth==0 then return bodytext end
+				if not okClean or type(bodytext)~="string" or not validstructure(bodytext) then bodytext=rawbody end
+				if not validstructure(bodytext) then
+					local safe={}
+					local stack={}
+					local function trim(x) return (x:gsub("^%s+",""):gsub("%s+$","")) end
+					local function hasloop() for j=#stack,1,-1 do local k=stack[j] if k=="while" or k=="for" or k=="repeat" then return true end end return false end
+					for line in (bodytext.."\n"):gmatch("(.-)\n") do
+						local t=trim(line)
+						if (t=="continue" or t=="break") and not hasloop() then
+						else
+							safe[#safe+1]=line
+							if t:match("^if%s+.+%s+then$") then stack[#stack+1]="if"
+							elseif t:match("^while%s+.+%s+do$") then stack[#stack+1]="while"
+							elseif t:match("^for%s+.+%s+do$") then stack[#stack+1]="for"
+							elseif t=="repeat" then stack[#stack+1]="repeat"
+							elseif t=="do" then stack[#stack+1]="do"
+							elseif (t:match("^local%s+function%s+") or t:match("^function%s+") or t:find("function%s*%(",1)) and not t:match("^return%s+function") and not t:match("%f[%a]end%f[%A]") then stack[#stack+1]="function"
+							elseif t=="end" and #stack>0 and stack[#stack]~="repeat" then stack[#stack]=nil
+							elseif t:match("^until%s+") and stack[#stack]=="repeat" then stack[#stack]=nil end
+						end
+					end
+					bodytext=table.concat(safe,"\n")
+				end
+				if depth==0 and not exprMode then return bodytext end
 				if bodytext=="" then return "function("..table.concat(args,", ")..") end" end
 				return "function("..table.concat(args,", ")..")\n"..bodytext.."\n"..ind.."end"
 			end
