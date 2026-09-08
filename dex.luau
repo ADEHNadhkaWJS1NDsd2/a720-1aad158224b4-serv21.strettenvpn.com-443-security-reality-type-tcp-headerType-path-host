@@ -11957,52 +11957,102 @@ Main = (function()
 			local function opid(w,m)
 				return ((w%256)*m)%256
 			end
-			local function score(words,m,limit)
-				local i,s,valid = 1,0,0
+			local function opcodeAvailable(n,version)
+				if version==100 then return true end
+				if n=="IDIV" or n=="IDIVK" then return version>=4 end
+				if n=="SUBRK" or n=="DIVRK" then return version>=5 end
+				if n=="FASTCALL3" then return version>=6 end
+				if n=="GETUDATAKS" or n=="SETUDATAKS" or n=="NAMECALLUDATA" then return version>=9 end
+				if n=="NEWCLASSMEMBER" then return version>=10 end
+				if n=="CALLFB" or n=="CMPPROTO" then return version>=11 end
+				if n=="FASTPCALL" then return version>=14 end
+				if n=="NEWCLASS" then return false end
+				return true
+			end
+			local function score(words,m,limit,version)
+				local i,s,valid,unknown = 1,0,0,0
 				local stop=math.min(#words,limit or #words)
+				local prev=nil
 				while i <= stop do
-					local id = opid(words[i],m)
+					local w=words[i]
+					local id = opid(w,m)
 					local n = opnames[id+1]
-					if not n then
-						s -= 24
+					if not n or not opcodeAvailable(n,version or 100) then
+						unknown += 1
+						s -= 30
 						i += 1
+						prev=nil
 					else
 						valid += 1
-						s += 4
+						s += 5
 						if n == "RETURN" or n == "CALL" or n == "LOADK" or n == "GETIMPORT" or n == "MOVE" then s += 2 end
-						if auxops[n] then
-							if i >= #words then s -= 40 break end
-							i += 2
-						else
-							i += 1
+						local sz=auxops[n] and 2 or 1
+						if sz==2 and i>=#words then s-=100 break end
+						if n=="JUMP" or n=="JUMPBACK" or n=="JUMPIF" or n=="JUMPIFNOT" or n=="JUMPIFEQ" or n=="JUMPIFLE" or n=="JUMPIFLT" or n=="JUMPIFNOTEQ" or n=="JUMPIFNOTLE" or n=="JUMPIFNOTLT" or n=="FORNPREP" or n=="FORNLOOP" or n=="FORGLOOP" or n=="FORGPREP_INEXT" or n=="FORGPREP_NEXT" or n=="FORGPREP" or n=="JUMPXEQKNIL" or n=="JUMPXEQKB" or n=="JUMPXEQKN" or n=="JUMPXEQKS" or n=="CMPPROTO" then
+							local t=(i-1)+1+dv(w)
+							if t<0 or t>#words then s-=35 else s+=2 end
+						elseif n=="JUMPX" then
+							local t=(i-1)+1+ev(w)
+							if t<0 or t>#words then s-=35 else s+=2 end
+						elseif n=="LOADB" then
+							local _,_,c=abcv(w)
+							if c>0 and i+c>#words+1 then s-=15 end
 						end
+						if n=="CAPTURE" then
+							if prev=="NEWCLOSURE" or prev=="CAPTURE" then s+=5 else s-=8 end
+						end
+						if n=="NAMECALL" and i+2<=#words then
+							local nn=opnames[opid(words[i+2],m)+1]
+							if nn=="CALL" or nn=="CALLFB" then s+=8 else s-=10 end
+						end
+						prev=n
+						i += sz
 					end
 				end
-				return valid == 0 and -1e30 or s
+				return valid == 0 and -1e30 or s,unknown,valid
 			end
-			local function multiplier(words)
+			local function multiplier(words,mod,ignoreHint)
 				if #words==0 then return 1 end
+				local version=mod and mod.version or 100
 				local sample=math.min(#words,4096)
+				if mod and mod.opmul and not ignoreHint then
+					local _,u,v=score(words,mod.opmul,sample,version)
+					if u==0 and v>0 then return mod.opmul end
+				end
 				local best={}
 				for m=1,255,2 do
 					cooperate(32)
-					local sc=score(words,m,sample)
-					best[#best+1]={m=m,s=sc}
+					local sc,u=score(words,m,sample,version)
+					best[#best+1]={m=m,s=sc,u=u}
 				end
-				table.sort(best,function(a,b) return a.s>b.s end)
-				local bm,bs=best[1].m,-1e30
-				for i=1,math.min(4,#best) do
-					local sc=score(words,best[i].m)
-					if sc>bs then bm,bs=best[i].m,sc end
+				table.sort(best,function(a,b) if a.u~=b.u then return a.u<b.u end return a.s>b.s end)
+				local bm,bs,bu=best[1].m,-1e30,math.huge
+				for i=1,math.min(8,#best) do
+					local sc,u=score(words,best[i].m,nil,version)
+					if u<bu or (u==bu and sc>bs) then bm,bs,bu=best[i].m,sc,u end
 				end
 				return bm
 			end
-			local function decode(words,mod)
-				local m = mod and mod.opmul or nil
-				if not m then
-					m=multiplier(words)
-					if mod and #words>=32 then mod.opmul=m end
+			local function futureScore(words,pos,m,version,depth,memo)
+				if pos>#words or depth<=0 then return 0 end
+				local key=pos*32+depth
+				local cached=memo[key]
+				if cached then return cached end
+				local n=opnames[opid(words[pos],m)+1]
+				local out
+				if n and opcodeAvailable(n,version) then
+					local sz=auxops[n] and 2 or 1
+					if pos+sz-1>#words then out=-50 else out=7+futureScore(words,pos+sz,m,version,depth-1,memo) end
+				else
+					local a=-5+futureScore(words,pos+1,m,version,depth-1,memo)
+					local b=pos<#words and (-7+futureScore(words,pos+2,m,version,depth-1,memo)) or -1e9
+					out=math.max(a,b)
 				end
+				memo[key]=out
+				return out
+			end
+			local function decodepass(words,mod,m)
+				local version=mod and mod.version or 100
 				local out = {}
 				local i = 1
 				local unknown=0
@@ -12010,18 +12060,34 @@ Main = (function()
 					local w = words[i]
 					local id = opid(w,m)
 					local n = opnames[id+1]
-					if not n then unknown+=1 n="UNKNOWN" end
+					local known=n and opcodeAvailable(n,version)
+					if not known then n="UNKNOWN" unknown+=1 end
 					local a,b,c = abcv(w)
 					local x = {pc=i-1,w=w,id=id,n=n,a=a,b=b,c=c,d=dv(w),e=ev(w),size=1}
-					if auxops[n] then
-						if i>=#words then error("missing AUX at pc "..tostring(i-1)) end
-						x.aux = words[i+1]
-						x.size = 2
+					if known and auxops[n] then
+						if i<#words then x.aux=words[i+1] x.size=2 else x.n="UNKNOWN" unknown+=1 end
+					elseif not known and i<#words then
+						local memo={}
+						local s1=futureScore(words,i+1,m,version,10,memo)
+						local s2=futureScore(words,i+2,m,version,10,memo)-2
+						if s2>s1 then x.aux=words[i+1] x.size=2 end
 					end
 					out[#out+1] = x
 					i += x.size
 				end
-				if unknown>0 then error("unknown opcode count "..tostring(unknown).." with key "..tostring(m)) end
+				return out,unknown
+			end
+			local function decode(words,mod)
+				local m=multiplier(words,mod,false)
+				local out,unknown=decodepass(words,mod,m)
+				if unknown>0 then
+					local m2=multiplier(words,mod,true)
+					if m2~=m then
+						local out2,u2=decodepass(words,mod,m2)
+						if u2<unknown then out,unknown,m=out2,u2,m2 end
+					end
+				end
+				if mod and #words>=32 and unknown==0 then mod.opmul=m end
 				return out
 			end
 			local function readconst(r,strings)
@@ -12321,6 +12387,7 @@ Main = (function()
 					multi[r]=nil
 				end
 				local function suggest(s)
+					if type(s)~="string" then return nil end
 					local svc=s:match('^game:GetService%("([%w_]+)"%)$')
 					if svc then return svc end
 					local cls=s:match('^Instance%.new%("([%w_]+)"%)$')
@@ -12692,7 +12759,7 @@ Main = (function()
 					return best
 				end
 				local function purecall(fn,m)
-					if m then return false end
+					if m or type(fn)~="string" then return false end
 					if fn=="type" or fn=="typeof" or fn=="tostring" or fn=="tonumber" then return true end
 					local safeString={["string.byte"]=true,["string.char"]=true,["string.find"]=true,["string.format"]=true,["string.len"]=true,["string.lower"]=true,["string.match"]=true,["string.pack"]=true,["string.packsize"]=true,["string.rep"]=true,["string.reverse"]=true,["string.sub"]=true,["string.unpack"]=true,["string.upper"]=true}
 					if safeString[fn] or fn:match("^bit32%.") then return true end
@@ -12748,7 +12815,16 @@ Main = (function()
 						i+=1
 						continue
 					end
-					if n=="LOADNIL" then put(x.a,"nil",x.pc,false)
+					if n=="UNKNOWN" then
+						for r=0,(p.max or 0)-1 do
+							local v=expr[r] or multi[r]
+							if v and not vars[r] and type(v)=="string" then materialize(r,v,x.pc) end
+							if vars[r] then expr[r]=names[r] else expr[r]=nil end
+							multi[r]=nil
+							forceVar[r]=true
+						end
+						top=math.max(top,p.params or 0)
+					elseif n=="LOADNIL" then put(x.a,"nil",x.pc,false)
 					elseif n=="LOADB" then put(x.a,x.b~=0 and "true" or "false",x.pc,false)
 					elseif n=="LOADN" then put(x.a,tostring(x.d),x.pc,false)
 					elseif n=="LOADK" then put(x.a,kval(p,math.floor(x.w/65536)%65536),x.pc,false)
