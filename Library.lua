@@ -11,8 +11,8 @@ local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Di
 Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Easing="Quad",TextSize=13,CompactPanel=true,KeepWatermarkOpen=true}
 Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=true}
 Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}
-Library.ThemePresets = {
-    Atramenta={Accent=Color3.fromRGB(150,120,150),Background=Color3.fromRGB(8,8,8),Surface=Color3.fromRGB(0,0,0),Control=Color3.fromRGB(12,11,12),Border=Color3.fromRGB(56,52,56),Text=Color3.fromRGB(140,130,140),TextBright=Color3.fromRGB(197,197,197),TextDim=Color3.fromRGB(77,72,77),Header=Color3.fromRGB(127,115,127)},
+Library.ThemePresets = {RGB
+    Atramenta={Accent=Color3.fromRGB(150,120,150),Background=Color3.fromRGB(8,8,8),Surface=Color3.fromRGB(0,0,0),Control=Color3.fromRGB(12,11,12),Border=Color3.fromRGB(56,52,56),Text=Color3.from(140,130,140),TextBright=Color3.fromRGB(197,197,197),TextDim=Color3.fromRGB(77,72,77),Header=Color3.fromRGB(127,115,127)},
     Bankroll={Accent=Color3.fromRGB(123,98,145),Background=Color3.fromRGB(6,6,7),Surface=Color3.fromRGB(1,1,2),Control=Color3.fromRGB(15,14,17),Border=Color3.fromRGB(51,47,56),Text=Color3.fromRGB(151,145,156),TextBright=Color3.fromRGB(215,213,217),TextDim=Color3.fromRGB(77,73,82),Header=Color3.fromRGB(132,122,140)},
     Midnight={Accent=Color3.fromRGB(90,112,170),Background=Color3.fromRGB(6,7,11),Surface=Color3.fromRGB(3,4,7),Control=Color3.fromRGB(12,14,21),Border=Color3.fromRGB(42,47,62),Text=Color3.fromRGB(139,145,160),TextBright=Color3.fromRGB(211,216,228),TextDim=Color3.fromRGB(70,75,88),Header=Color3.fromRGB(116,126,151)},
     Crimson={Accent=Color3.fromRGB(169,72,87),Background=Color3.fromRGB(9,6,7),Surface=Color3.fromRGB(3,2,2),Control=Color3.fromRGB(18,11,13),Border=Color3.fromRGB(59,40,44),Text=Color3.fromRGB(153,137,140),TextBright=Color3.fromRGB(221,210,212),TextDim=Color3.fromRGB(83,68,71),Header=Color3.fromRGB(147,115,121)}
@@ -279,6 +279,45 @@ local function RenderTheme()
     end
 end
 
+function Library:RefreshThemeNow()
+    RenderTheme()
+
+    local Controllers = {
+        self.ActiveWindow,
+        self.PlayerListController,
+        self.ThemePanelController,
+        self.ConfigurationPanelController,
+        self.KeybindListController,
+        self.PanelController or self.QuickPanelController,
+        self.WatermarkController
+    }
+
+    for _, Controller in ipairs(Controllers) do
+        if type(Controller) == "table" then
+            if type(Controller.Refresh) == "function" then
+                Call(Controller.Refresh, Controller)
+            end
+
+            if type(Controller.ApplyVisibility) == "function" then
+                Call(Controller.ApplyVisibility, Controller)
+            end
+        end
+    end
+
+    task.defer(function()
+        RenderTheme()
+
+        for _, Controller in ipairs(Controllers) do
+            if type(Controller) == "table" and type(Controller.Refresh) == "function" then
+                Call(Controller.Refresh, Controller)
+            end
+        end
+    end)
+
+    return true
+end
+
+
 function Library:ChangeTheme(Index, Color)
     local Name = tostring(Index or "")
     if typeof(Color) ~= "Color3" then return false end
@@ -305,7 +344,7 @@ function Library:ChangeTheme(Index, Color)
         self.Flags[Flag] = Color
     end
 
-    RenderTheme()
+    self:RefreshThemeNow()
     return true
 end
 
@@ -1787,7 +1826,7 @@ function Library:LoadConfig(Source)
     if type(Interface) == "table" then
         if type(Interface.Theme) == "table" then
             for Key, Value in pairs(Interface.Theme) do if typeof(Value) == "Color3" then self.Theme[Key] = Value end end
-            SyncThemeColors()
+            self:RefreshThemeNow()
         elseif typeof(Interface.Accent) == "Color3" then self.Theme.Accent = Interface.Accent end
         if self.ActiveWindow and self.ActiveWindow.Main then
             if typeof(Interface.MainSize) == "UDim2" then self.ActiveWindow.Main.Size = Interface.MainSize end
@@ -2204,10 +2243,7 @@ function Library:KeybindList()
                 })
                 local RightLabel=Create("TextLabel",{
                     Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,0),Size=UDim2.fromOffset(math.ceil(RightWidth)+2,15),
-                    -- Inactive keybind text follows Theme.Text, not Theme.Header.
-                    -- Previously Colors.TextBind pointed at Header ("section text"),
-                    -- so changing the normal text color left inactive binds pink.
-                    BackgroundTransparency=1,Text=RightText,TextColor3=Active and (Library.KeybindSettings.AccentActive and Accent() or Colors.TextBright) or (GateOpen and Colors.Text or Colors.TextDim),
+                    BackgroundTransparency=1,Text=RightText,TextColor3=Active and (Library.KeybindSettings.AccentActive and Accent() or Colors.TextBright) or (GateOpen and Colors.TextBind or Colors.TextDim),
                     Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,TextYAlignment=Enum.TextYAlignment.Center
                 })
                 local NameLabel=Create("TextLabel",{
@@ -2684,63 +2720,286 @@ function Library:ThemePanel()
 end
 
 function Library:Panel(Data)
-    Data=type(Data)=="table" and Data or {}
+    Data = type(Data) == "table" and Data or {}
+
     if self.PanelController then return self.PanelController end
-    if self.QuickPanelController then self.PanelController=self.QuickPanelController return self.PanelController end
-    self.InterfaceOpen=self.InterfaceOpen~=false
-    local Parent=ParentGui()
-    local Gui=Create("ScreenGui",{Name="AtramentaPanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=190,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
-    self.Guis[#self.Guis+1]=Gui
-    local Root=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0),Position=UDim2.new(0.5,0,0,8),Size=UDim2.fromOffset(330,29),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0,BorderSizePixel=0,Visible=self.InterfaceOpen,Active=true,ZIndex=190},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.58})})
-    local Inner=Create("Frame",{Parent=Root,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,ZIndex=191},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(0.55,Colors.TitleBg),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
-    local AccentLine=Create("Frame",{Parent=Inner,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=194},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,Accent()),ColorSequenceKeypoint.new(0.82,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
-    local Holder=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(5,4),Size=UDim2.new(1,-10,1,-8),BackgroundTransparency=1,ZIndex=192},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Center,VerticalAlignment=Enum.VerticalAlignment.Center,Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder})})
-    local Object={Gui=Gui,Root=Root,Buttons={}}
-    local function RequestedMenu() local Window=Library.ActiveWindow return Window and Window.Visible==true or false end
-    local function RequestedPlayers() local Controller=Library.PlayerListController return Controller and Controller.RequestedVisible==true or false end
-    local function RequestedTheme() local Controller=Library.ThemePanelController return Controller and Controller.RequestedVisible==true or false end
-    local function RequestedConfiguration() local Controller=Library.ConfigurationPanelController return Controller and Controller.RequestedVisible==true or false end
-    local function Paint(Button,State)
-        Button.BackgroundTransparency=State and 0.60 or 0.84 Button.TextColor3=State and Accent() or Colors.Text
-        local Stroke=Button:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=State and Accent() or Colors.SectionBorder Stroke.Transparency=State and 0.68 or 0.72 end
+    if self.QuickPanelController then self.PanelController = self.QuickPanelController return self.PanelController end
+
+    self.InterfaceOpen = self.InterfaceOpen ~= false
+
+    local Parent = ParentGui()
+    local Gui = Create("ScreenGui", {
+        Name = "AtramentaPanel",
+        Parent = Parent,
+        ResetOnSpawn = false,
+        DisplayOrder = 190,
+        ZIndexBehavior = Enum.ZIndexBehavior.Global,
+        IgnoreGuiInset = false
+    })
+
+    self.Guis[#self.Guis + 1] = Gui
+
+    local Root = Create("Frame", {
+        Parent = Gui,
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, 8),
+        Size = UDim2.fromOffset(336, 30),
+        BackgroundColor3 = Colors.Bg,
+        BorderSizePixel = 0,
+        Visible = self.InterfaceOpen,
+        Active = true,
+        ZIndex = 190
+    }, {
+        Create("UICorner", {CornerRadius = UDim.new(0, 2)}),
+        Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1, Transparency = 0.34})
+    })
+
+    local Inner = Create("Frame", {
+        Parent = Root,
+        Position = UDim2.fromOffset(1, 1),
+        Size = UDim2.new(1, -2, 1, -2),
+        BackgroundColor3 = Colors.TitleBg,
+        BorderSizePixel = 0,
+        ZIndex = 191
+    }, {
+        Create("UICorner", {CornerRadius = UDim.new(0, 2)}),
+        Create("UIGradient", {
+            Rotation = 90,
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Colors.Control),
+                ColorSequenceKeypoint.new(0.48, Colors.TitleBg),
+                ColorSequenceKeypoint.new(1, Colors.Bg)
+            })
+        })
+    })
+
+    local TopAccent = Create("Frame", {
+        Parent = Inner,
+        Size = UDim2.new(1, 0, 0, 1),
+        BackgroundColor3 = Accent(),
+        BorderSizePixel = 0,
+        ZIndex = 194
+    }, {
+        Create("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.new()),
+                ColorSequenceKeypoint.new(0.15, Accent()),
+                ColorSequenceKeypoint.new(0.85, Accent()),
+                ColorSequenceKeypoint.new(1, Color3.new())
+            })
+        })
+    })
+
+    local Holder = Create("Frame", {
+        Parent = Inner,
+        Position = UDim2.fromOffset(4, 3),
+        Size = UDim2.new(1, -8, 1, -6),
+        BackgroundTransparency = 1,
+        ZIndex = 192
+    }, {
+        Create("UIListLayout", {
+            FillDirection = Enum.FillDirection.Horizontal,
+            HorizontalAlignment = Enum.HorizontalAlignment.Center,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+    })
+
+    local Object = {Gui = Gui, Root = Root, Buttons = {}}
+
+    local function RequestedMenu()
+        local Window = Library.ActiveWindow
+        return Window and Window.Visible == true or false
     end
-    local function Make(Name,Order,Callback)
-        local Button=Create("TextButton",{Parent=Holder,Size=UDim2.new(1/4,-4,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.80,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,AutoButtonColor=false,LayoutOrder=Order,ZIndex=193},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.55})})
-        Object.Buttons[Name]=Button Bind(Button.MouseButton1Click:Connect(Callback)) return Button
+
+    local function RequestedPlayers()
+        local Controller = Library.PlayerListController
+        return Controller and Controller.RequestedVisible == true or false
     end
+
+    local function RequestedTheme()
+        local Controller = Library.ThemePanelController
+        return Controller and Controller.RequestedVisible == true or false
+    end
+
+    local function RequestedConfiguration()
+        local Controller = Library.ConfigurationPanelController
+        return Controller and Controller.RequestedVisible == true or false
+    end
+
+    local function Paint(Button, State)
+        local Hovered = Button:GetAttribute("AtramentaHover") == true
+
+        Button.BackgroundColor3 = Colors.Control
+        Button.BackgroundTransparency = State and 0.18 or Hovered and 0.34 or 0.56
+        Button.TextColor3 = State and Colors.TextBright or Hovered and Colors.TextBright or Colors.Text
+
+        local Stroke = Button:FindFirstChildOfClass("UIStroke")
+        if Stroke then
+            Stroke.Color = State and AccentBorder() or Colors.SectionBorder
+            Stroke.Transparency = State and 0.10 or Hovered and 0.34 or 0.56
+        end
+
+        local Indicator = Button:FindFirstChild("Indicator")
+        if Indicator then
+            Indicator.BackgroundColor3 = Accent()
+            Indicator.Visible = State == true
+        end
+    end
+
+    local function Make(Name, Order, Callback)
+        local Button = Create("TextButton", {
+            Parent = Holder,
+            Size = UDim2.new(0.25, -3, 1, 0),
+            BackgroundColor3 = Colors.Control,
+            BackgroundTransparency = 0.56,
+            BorderSizePixel = 0,
+            Text = string.lower(Name),
+            TextColor3 = Colors.Text,
+            Font = Enum.Font.SourceSans,
+            TextSize = 11,
+            AutoButtonColor = false,
+            LayoutOrder = Order,
+            ZIndex = 193
+        }, {
+            Create("UICorner", {CornerRadius = UDim.new(0, 2)}),
+            Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1, Transparency = 0.56}),
+            Create("Frame", {
+                Name = "Indicator",
+                AnchorPoint = Vector2.new(0.5, 1),
+                Position = UDim2.new(0.5, 0, 1, -1),
+                Size = UDim2.new(1, -8, 0, 1),
+                BackgroundColor3 = Accent(),
+                BorderSizePixel = 0,
+                Visible = false,
+                ZIndex = 194
+            })
+        })
+
+        Bind(Button.MouseEnter:Connect(function()
+            Button:SetAttribute("AtramentaHover", true)
+            Object.Refresh()
+        end))
+
+        Bind(Button.MouseLeave:Connect(function()
+            Button:SetAttribute("AtramentaHover", false)
+            Object.Refresh()
+        end))
+
+        Bind(Button.MouseButton1Click:Connect(Callback))
+
+        Object.Buttons[Name] = Button
+        return Button
+    end
+
     function Object.Refresh()
-        if Object.Buttons.Menu then Paint(Object.Buttons.Menu,RequestedMenu()) end
-        if Object.Buttons.PlayerList then Paint(Object.Buttons.PlayerList,RequestedPlayers()) end
-        if Object.Buttons.Theme then Paint(Object.Buttons.Theme,RequestedTheme()) end
-        if Object.Buttons.Configuration then Paint(Object.Buttons.Configuration,RequestedConfiguration()) end
+        if Object.Buttons.Menu then Paint(Object.Buttons.Menu, RequestedMenu()) end
+        if Object.Buttons.PlayerList then Paint(Object.Buttons.PlayerList, RequestedPlayers()) end
+        if Object.Buttons.Theme then Paint(Object.Buttons.Theme, RequestedTheme()) end
+        if Object.Buttons.Configuration then Paint(Object.Buttons.Configuration, RequestedConfiguration()) end
     end
-    Make("Menu",1,function() local Window=Library.ActiveWindow if Window then Window:SetVisible(not Window.Visible) end Object.Refresh() end)
-    Make("PlayerList",2,function() local Controller=Library.PlayerListController if Controller then Controller:SetVisibility(not Controller.RequestedVisible) end Object.Refresh() end)
-    Make("Theme",3,function() local Controller=Library:ThemePanel() Controller:Toggle() Object.Refresh() end)
-    Make("Configuration",4,function() local Controller=Library:ConfigurationPanel() Controller:Toggle() Object.Refresh() end)
+
+    Make("Menu", 1, function()
+        local Window = Library.ActiveWindow
+        if Window then Window:SetVisible(not Window.Visible) end
+        Object.Refresh()
+    end)
+
+    Make("PlayerList", 2, function()
+        local Controller = Library.PlayerListController
+        if Controller then Controller:SetVisibility(not Controller.RequestedVisible) end
+        Object.Refresh()
+    end)
+
+    Make("Theme", 3, function()
+        local Controller = Library:ThemePanel()
+        Controller:Toggle()
+        Object.Refresh()
+    end)
+
+    Make("Configuration", 4, function()
+        local Controller = Library:ConfigurationPanel()
+        Controller:Toggle()
+        Object.Refresh()
+    end)
+
     function Object:SetInterfaceVisible(State)
-        State=State==true Library.InterfaceOpen=State Root.Visible=State
-        local Window=Library.ActiveWindow if Window and type(Window.SetMenuVisible)=="function" then Window:SetMenuVisible(State) end
-        local PlayersPanel=Library.PlayerListController if PlayersPanel and type(PlayersPanel.SetMenuVisible)=="function" then PlayersPanel:SetMenuVisible(State) end
-        local ThemePanel=Library.ThemePanelController if ThemePanel and type(ThemePanel.SetMenuVisible)=="function" then ThemePanel:SetMenuVisible(State) end
-        local ConfigurationPanel=Library.ConfigurationPanelController if ConfigurationPanel and type(ConfigurationPanel.SetMenuVisible)=="function" then ConfigurationPanel:SetMenuVisible(State) end
-        local Watermark=Library.WatermarkController if Watermark and type(Watermark.ApplyVisibility)=="function" then Watermark:ApplyVisibility() end
-        local Keybinds=Library.KeybindListController if Keybinds and type(Keybinds.ApplyVisibility)=="function" then Keybinds:ApplyVisibility() end
-        if type(Library.SetNotificationPreviewVisible)=="function" then
-            local ThemeVisible=ThemePanel and ThemePanel:IsVisible() or false
+        State = State == true
+        Library.InterfaceOpen = State
+        Root.Visible = State
+
+        local Window = Library.ActiveWindow
+        if Window and type(Window.SetMenuVisible) == "function" then Window:SetMenuVisible(State) end
+
+        local PlayersPanel = Library.PlayerListController
+        if PlayersPanel and type(PlayersPanel.SetMenuVisible) == "function" then PlayersPanel:SetMenuVisible(State) end
+
+        local ThemePanel = Library.ThemePanelController
+        if ThemePanel and type(ThemePanel.SetMenuVisible) == "function" then ThemePanel:SetMenuVisible(State) end
+
+        local ConfigurationPanel = Library.ConfigurationPanelController
+        if ConfigurationPanel and type(ConfigurationPanel.SetMenuVisible) == "function" then ConfigurationPanel:SetMenuVisible(State) end
+
+        local Watermark = Library.WatermarkController
+        if Watermark and type(Watermark.ApplyVisibility) == "function" then Watermark:ApplyVisibility() end
+
+        local Keybinds = Library.KeybindListController
+        if Keybinds and type(Keybinds.ApplyVisibility) == "function" then Keybinds:ApplyVisibility() end
+
+        if type(Library.SetNotificationPreviewVisible) == "function" then
+            local ThemeVisible = ThemePanel and ThemePanel:IsVisible() or false
             Library:SetNotificationPreviewVisible(State and ((Window and Window:IsVisible()) or ThemeVisible))
         end
+
         Object.Refresh()
     end
-    function Object:ToggleInterface() Object:SetInterfaceVisible(not (Library.InterfaceOpen~=false)) end
-    function Object:IsVisible() return Library.InterfaceOpen~=false end
-    MakeDraggable(Root,Root,Gui) BindFrameToViewport(Root,Gui,4)
+
+    function Object:ToggleInterface()
+        Object:SetInterfaceVisible(not (Library.InterfaceOpen ~= false))
+    end
+
+    function Object:IsVisible()
+        return Library.InterfaceOpen ~= false
+    end
+
+    MakeDraggable(Root, Root, Gui)
+    BindFrameToViewport(Root, Gui, 4)
+
     RegisterRenderer(function()
-        local A=Accent() AccentLine.BackgroundColor3=A local Gradient=AccentLine:FindFirstChildOfClass("UIGradient")
-        if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.18,A),ColorSequenceKeypoint.new(0.82,A),ColorSequenceKeypoint.new(1,Color3.new())}) end Object.Refresh()
+        local A = Accent()
+
+        Root.BackgroundColor3 = Colors.Bg
+        Inner.BackgroundColor3 = Colors.TitleBg
+
+        local RootStroke = Root:FindFirstChildOfClass("UIStroke")
+        if RootStroke then RootStroke.Color = Colors.SectionBorder end
+
+        local InnerGradient = Inner:FindFirstChildOfClass("UIGradient")
+        if InnerGradient then
+            InnerGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Colors.Control),
+                ColorSequenceKeypoint.new(0.48, Colors.TitleBg),
+                ColorSequenceKeypoint.new(1, Colors.Bg)
+            })
+        end
+
+        TopAccent.BackgroundColor3 = A
+        local Gradient = TopAccent:FindFirstChildOfClass("UIGradient")
+        if Gradient then
+            Gradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.new()),
+                ColorSequenceKeypoint.new(0.15, A),
+                ColorSequenceKeypoint.new(0.85, A),
+                ColorSequenceKeypoint.new(1, Color3.new())
+            })
+        end
+
+        Object.Refresh()
     end)
-    self.PanelController=Object
-    self.QuickPanelController=Object -- compatibility alias for older Atramenta builds
+
+    self.PanelController = Object
+    self.QuickPanelController = Object
     Object.Refresh()
     return Object
 end
