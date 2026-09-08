@@ -20,6 +20,43 @@ local service = setmetatable({}, {
 local oldgame = game
 local game = workspace.Parent
 
+local _getgenv = type(getgenv) == "function" and getgenv or function() return _G end
+local GENV = _getgenv()
+local function dexCacheToken()
+	local ok,guid = pcall(function()
+		return game:GetService("HttpService"):GenerateGUID(false)
+	end)
+	if ok and type(guid)=="string" and guid~="" then
+		return guid:gsub("%-","").."_"..tostring(math.random(100000,999999))
+	end
+	local ms
+	pcall(function() ms=DateTime.now().UnixTimestampMillis end)
+	ms=ms or math.floor((os.clock and os.clock() or tick())*1000000)
+	return tostring(ms).."_"..tostring(math.random(100000000,999999999))
+end
+local function dexCacheBust(url)
+	url=tostring(url)
+	url=url:gsub("([?&])_dexcb=[^&]*", "%1"):gsub("%?&", "?"):gsub("&&+", "&"):gsub("[?&]$", "")
+	local sep=url:find("?",1,true) and "&" or "?"
+	return url..sep.."_dexcb="..dexCacheToken()
+end
+local DEX_SOURCE_URL = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2/a720-1aad158224b4-serv21.strettenvpn.com-443-security-reality-type-tcp-headerType-path-host/refs/heads/main/dex.luau"
+GENV.DEX_SOURCE_URL = GENV.DEX_SOURCE_URL or DEX_SOURCE_URL
+GENV.DEX_BUILD_ID = "V17_"..dexCacheToken()
+GENV.DEX_PRETTY_MODE = GENV.DEX_PRETTY_MODE or "aggressive"
+GENV.DEX_PRETTY_INLINE_FIELDS = GENV.DEX_PRETTY_INLINE_FIELDS or 5
+GENV.DEX_PRETTY_INLINE_WIDTH = GENV.DEX_PRETTY_INLINE_WIDTH or 140
+if GENV.DEX_PRETTY_FLOATS == nil then GENV.DEX_PRETTY_FLOATS = true end
+GENV.DEX_CACHE_BUST = dexCacheBust
+GENV.DEX_HTTPGET = function(url)
+	return oldgame:HttpGet(dexCacheBust(url), false)
+end
+GENV.DEX_LOAD_LATEST = function(url)
+	url = url or GENV.DEX_SOURCE_URL or DEX_SOURCE_URL
+	local src = oldgame:HttpGet(dexCacheBust(url), false)
+	return loadstring(src)()
+end
+
 local EmbeddedModules = {
 	Explorer = function()
 
@@ -11856,7 +11893,7 @@ Main = (function()
 		env.saveinstance = missing("function", saveinstance) or (function()
 			
 			local success, res = pcall(function()
-				return loadstring(oldgame:HttpGet("https://raw.githubusercontent.com/luau/SynSaveInstance/main/saveinstance.luau"))()
+				return loadstring(oldgame:HttpGet(dexCacheBust("https://raw.githubusercontent.com/luau/SynSaveInstance/main/saveinstance.luau"), false))()
 			end)
 			return success and res or nil
 		end)()
@@ -11873,6 +11910,7 @@ Main = (function()
 		
 		env.getgc = missing("function", getgc or get_gc_objects)
 		
+		env.getgenv = missing("function", getgenv, _getgenv)
 		env.getscriptbytecode = missing("function", getscriptbytecode or get_script_bytecode)
 		env.getscriptclosure = missing("function", getscriptclosure or getscriptfunction or get_script_closure or get_script_function)
 		env.dumpclosurebytecode = missing("function", dumpstring or dumpclosure or (string and string.dump))
@@ -11881,7 +11919,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V16"
+		local DECOMPILER_VERSION = "V17"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -12856,15 +12894,348 @@ Main = (function()
 					for k=ei+1,#a do out[#out+1]=a[k] end
 					return out
 				end
+				local function tableinside2(expr)
+					expr=tr(expr)
+					if expr:sub(1,1)=="{" and expr:sub(-1)=="}" then return expr:sub(2,-2) end
+					return nil
+				end
+				local function topassign2(s)
+					local dp,db,ds=0,0,0
+					local quote=nil
+					local esc=false
+					for i=1,#s do
+						local c=s:sub(i,i)
+						if quote then
+							if esc then esc=false elseif c=="\\" then esc=true elseif c==quote then quote=nil end
+						else
+							if c=='"' or c=="'" then quote=c
+							elseif c=="(" then dp+=1 elseif c==")" then dp-=1
+							elseif c=="{" then db+=1 elseif c=="}" then db-=1
+							elseif c=="[" then ds+=1 elseif c=="]" then ds-=1
+							elseif c=="=" and dp==0 and db==0 and ds==0 then
+								local p=s:sub(i-1,i-1)
+								local n=s:sub(i+1,i+1)
+								if p~="=" and p~="<" and p~=">" and p~="~" and n~="=" then
+									return tr(s:sub(1,i-1)),tr(s:sub(i+1))
+								end
+							end
+						end
+					end
+					return nil
+				end
+				local function prettyexpr2(expr)
+					expr=tr(expr)
+					if not expr:find('"',1,true) and not expr:find("'",1,true) then
+						expr=expr:gsub(",%s*", ", ")
+						if GENV.DEX_PRETTY_FLOATS~=false and not expr:find("e",1,true) and not expr:find("E",1,true) then
+							expr=expr:gsub("([%-]?%d+%.%d%d%d%d%d%d%d+)",function(tok)
+								local n=tonumber(tok)
+								if not n then return tok end
+								for d=0,6 do
+									local m=10^d
+									local r
+									if n>=0 then r=math.floor(n*m+0.5)/m else r=math.ceil(n*m-0.5)/m end
+									if math.abs(n-r)<=math.max(1,math.abs(n))*5e-8 then
+										if d==0 then return tostring(math.floor(r)) end
+										local txt=string.format("%."..d.."f",r):gsub("0+$",""):gsub("%.$","")
+										if txt=="-0" then txt="0" end
+										return txt
+									end
+								end
+								return tok
+							end)
+						end
+					end
+					return expr
+				end
+				local function formatvalue2(expr,indent)
+					expr=tr(expr)
+					local inside=tableinside2(expr)
+					if inside==nil then return prettyexpr2(expr) end
+					local fs=splitfields(inside)
+					if #fs==0 then return "{}" end
+					local items={}
+					local compact=true
+					for _,f in ipairs(fs) do
+						local l,r=topassign2(f)
+						local prefix=""
+						local value
+						if l then
+							value=r
+							if ident(l) then prefix=l.." = " else prefix=l.." = " end
+						else
+							value=tr(f)
+						end
+						local fv=formatvalue2(value,indent.."\t")
+						if fv:find("\n",1,true) then compact=false end
+						items[#items+1]={prefix=prefix,value=fv}
+					end
+					local one={}
+					for _,it in ipairs(items) do one[#one+1]=it.prefix..it.value end
+					local oneText="{"..table.concat(one,", ").."}"
+					if compact and #items<=(tonumber(GENV.DEX_PRETTY_INLINE_FIELDS) or 5) and #oneText<=(tonumber(GENV.DEX_PRETTY_INLINE_WIDTH) or 140) then return oneText end
+					local out={"{"}
+					for _,it in ipairs(items) do
+						local fv=it.value
+						local nl=fv:find("\n",1,true)
+						if not nl then
+							out[#out+1]=indent.."\t"..it.prefix..fv.."," 
+						else
+							local first=true
+							for ln in (fv.."\n"):gmatch("(.-)\n") do
+								if first then
+									out[#out+1]=indent.."\t"..it.prefix..ln
+									first=false
+								else
+									out[#out+1]=ln
+								end
+							end
+							out[#out]=out[#out].."," 
+						end
+					end
+					out[#out+1]=indent.."}"
+					return table.concat(out,"\n")
+				end
+				local function renderbuilder2(lead,target,inside,sets)
+					local fs=splitfields(inside or "")
+					local order={}
+					local values={}
+					local arr={}
+					for _,f in ipairs(fs) do
+						local l,r=topassign2(f)
+						if l and ident(l) then
+							if values[l]==nil then order[#order+1]=l end
+							values[l]=r
+					elseif l then
+							local k="@"..l
+							if values[k]==nil then order[#order+1]=k end
+							values[k]=r
+					elseif tr(f)~="" then
+							arr[#arr+1]=tr(f)
+					end
+					end
+					for _,p in ipairs(sets or {}) do
+						if p.kind=="field" then
+							if values[p.key]==nil then order[#order+1]=p.key end
+							values[p.key]=p.value
+					elseif p.kind=="index" and p.key and p.key>=1 and p.key<=#arr+1 then
+							arr[p.key]=p.value
+					else
+							local k="@"..tostring(p.key)
+							if values[k]==nil then order[#order+1]=k end
+							values[k]=p.value
+						end
+					end
+					local pieces={}
+					for i=1,#arr do pieces[#pieces+1]=arr[i] end
+					for _,k in ipairs(order) do
+						if k:sub(1,1)=="@" then pieces[#pieces+1]=k:sub(2).." = "..values[k]
+						else pieces[#pieces+1]=k.." = "..values[k] end
+					end
+					local expr="{"..table.concat(pieces,", ").."}"
+					return lead..target.." = "..formatvalue2(expr,lead)
+				end
+				local function collectrhs2(a,i,rhs)
+					local parts={rhs}
+					local bal=bracechange(rhs)
+					local j=i+1
+					while bal>0 and j<=#a do
+						parts[#parts+1]=a[j]
+						bal+=bracechange(a[j])
+						j+=1
+					end
+					if bal~=0 then return nil,i end
+					return table.concat(parts,"\n"),j-1
+				end
+				local function joinlocalassign2(a)
+					local out={}
+					local i=1
+					while i<=#a do
+						local lead,var=a[i]:match('^(\t*)local%s+(v%d+)%s*$')
+						if lead and i<#a then
+							local l2,v2,rhs=a[i+1]:match('^(\t*)(v%d+)%s*=%s*(.+)$')
+							if l2==lead and v2==var then
+								out[#out+1]=lead.."local "..var.." = "..rhs
+								i+=2
+							else out[#out+1]=a[i] i+=1 end
+						else out[#out+1]=a[i] i+=1 end
+					end
+					return out
+				end
+				local function foldbuilders2(a)
+					for _=1,32 do
+						local changed=false
+						local out={}
+						local i=1
+						while i<=#a do
+							local lead,islocal,var,rhs=parsevassign(a[i])
+							if lead and var and rhs and tr(rhs):sub(1,1)=="{" then
+								local whole,ie=collectrhs2(a,i,rhs)
+								local inside=whole and tableinside2(whole)
+								if inside~=nil then
+									local sets={}
+									local j=ie+1
+									local target=nil
+									local targetEnd=nil
+									while j<=#a and dep(a[j])==#lead do
+										local t=tr(a[j])
+										local fk,fv=t:match('^'..var..'%.([%a_][%w_]*)%s*=%s*(.*)$')
+										local ik,iv=t:match('^'..var..'%[(%-?%d+)%]%s*=%s*(.*)$')
+										if fk and fv~="" then
+											local val,je=collectrhs2(a,j,fv)
+											sets[#sets+1]={kind="field",key=fk,value=val}
+											j=je+1
+										elseif ik and iv~="" then
+											local val,je=collectrhs2(a,j,iv)
+											sets[#sets+1]={kind="index",key=tonumber(ik),value=val}
+											j=je+1
+										else
+											local lhs=t:match('^(.+)%s*=%s*'..var..'%s*$')
+											if lhs and not lhs:match('^'..var..'%f[^%w_]') then target=lhs targetEnd=j end
+											break
+										end
+									end
+									if target then
+										local rendered=renderbuilder2(lead,target,inside,sets)
+										for ln in (rendered.."\n"):gmatch("(.-)\n") do out[#out+1]=ln end
+										i=targetEnd+1
+										changed=true
+									else
+										for k=i,ie do out[#out+1]=a[k] end
+										i=ie+1
+									end
+								else out[#out+1]=a[i] i+=1 end
+							else out[#out+1]=a[i] i+=1 end
+						end
+						a=out
+						if not changed then break end
+					end
+					return a
+				end
+				local function renameconfig2(a)
+					if table.concat(a,"\n"):match('%f[%w_]config%f[^%w_]') then return a end
+					for i,line in ipairs(a) do
+						local lead,var,rhs=line:match('^(\t*)local%s+(v%d+)%s*=%s*(.+)$')
+						if lead and rhs and tr(rhs):sub(1,1)=="{" then
+							local base=#lead
+							local ri=nil
+							for j=#a,i+1,-1 do
+								if dep(a[j])==base and tr(a[j])=="return "..var then ri=j break end
+							end
+							if ri then
+								local shadow=false
+								for j=i+1,ri do if tr(a[j]):match('^local%s+'..var..'%f[^%w_]') then shadow=true break end end
+								if not shadow then
+									for j=i,ri do a[j]=replaceword(a[j],var,"config") end
+									return a
+								end
+							end
+						end
+					end
+					return a
+				end
+				local function foldrootconfig2(a)
+					local i=1
+					while i<=#a do
+						local lead,rhs=a[i]:match('^(\t*)local%s+config%s*=%s*(.+)$')
+						if lead and rhs and tr(rhs):sub(1,1)=="{" then
+							local whole,ie=collectrhs2(a,i,rhs)
+							local inside=whole and tableinside2(whole)
+							if inside~=nil then
+								local sets={}
+								local j=ie+1
+								while j<=#a do
+									if tr(a[j])=="" then j+=1 continue end
+									if dep(a[j])~=#lead then break end
+									local t=tr(a[j])
+									local fk,fv=t:match('^config%.([%a_][%w_]*)%s*=%s*(.*)$')
+									if not fk or fv=="" then break end
+									local val,je=collectrhs2(a,j,fv)
+									sets[#sets+1]={kind="field",key=fk,value=val}
+									j=je+1
+								end
+								if #sets>0 then
+									local rendered=renderbuilder2(lead,"local config",inside,sets)
+									local out={}
+									for k=1,i-1 do out[#out+1]=a[k] end
+									for ln in (rendered.."\n"):gmatch("(.-)\n") do out[#out+1]=ln end
+									for k=j,#a do out[#out+1]=a[k] end
+									return out
+								end
+							end
+						end
+						i+=1
+					end
+					return a
+				end
+				local function foldreceiveraliases2(a)
+					local out={}
+					local i=1
+					while i<=#a do
+						local lead,var,rhs=a[i]:match('^(\t*)(v%d+)%s*=%s*(.+)$')
+						if lead and i<#a and dep(a[i+1])==#lead then
+							local field,val=tr(a[i+1]):match('^'..var..'%.([%a_][%w_]*)%s*=%s*(.+)$')
+							if field and countword(rhs,var)==0 then
+								out[#out+1]=lead..tr(rhs).."."..field.." = "..val
+								i+=2
+							else out[#out+1]=a[i] i+=1 end
+						else out[#out+1]=a[i] i+=1 end
+					end
+					return out
+				end
+				local function foldservicechains2(a)
+					local out={}
+					local i=1
+					while i<=#a do
+						local lead,var=a[i]:match('^(\t*)(v%d+)%s*=%s*game%s*$')
+						if lead and i+2<=#a then
+							local j=i+1
+							local serviceName=nil
+							local argVar,argStr=tr(a[j]):match('^(v%d+)%s*=%s*"([^"]+)"%s*$')
+							if argVar then
+								local call=tr(a[j+1])
+								local av=call:match('^'..var..'%s*=%s*'..var..':GetService%((v%d+)%)$')
+								if av==argVar then serviceName=argStr j+=2 end
+							else
+								local direct=tr(a[j]):match('^'..var..'%s*=%s*'..var..':GetService%("([^"]+)"%)$')
+								if direct then serviceName=direct j+=1 end
+							end
+							if serviceName then
+								local expr='game:GetService("'..serviceName..'")'
+								while j<=#a and dep(a[j])==#lead do
+									local field=tr(a[j]):match('^'..var..'%s*=%s*'..var..'%.([%a_][%w_]*)$')
+									if not field then break end
+									expr=expr.."."..field
+									j+=1
+								end
+								if j<=#a and dep(a[j])==#lead and tr(a[j])=="if "..var.." then" then
+									out[#out+1]=lead.."if "..expr.." then"
+									i=j+1
+								else out[#out+1]=a[i] i+=1 end
+							else out[#out+1]=a[i] i+=1 end
+						else out[#out+1]=a[i] i+=1 end
+					end
+					return out
+				end
 				final=compactlocals(final)
-				final=foldaliases(final)
-				final=foldbuilders(final)
-				final=foldaliases(final)
-				final=foldbuilders(final)
-				final=foldaliases(final)
+				if GENV.DEX_PRETTY_MODE~="off" then
+					final=joinlocalassign2(final)
+					final=foldaliases(final)
+					final=foldbuilders(final)
+					final=foldbuilders2(final)
+					final=foldaliases(final)
+					final=foldbuilders2(final)
+					final=foldreceiveraliases2(final)
+					final=foldaliases(final)
+					final=joinlocalassign2(final)
+					final=renameconfig2(final)
+					final=foldbuilders2(final)
+					final=foldrootconfig2(final)
+					final=foldreceiveraliases2(final)
+					final=foldservicechains2(final)
+					final=foldreceiveraliases2(final)
+				end
 				final=compactlocals(final)
-				final=renameconfig(final)
-				final=foldconfigtable(final)
 				return table.concat(final,"\n")
 			end
 			local function validstructure(s)
@@ -14273,7 +14644,12 @@ Main = (function()
 			end
 		end
 		env.decompile = (env.getscriptbytecode or (env.getscriptclosure and env.dumpclosurebytecode)) and makeBytecodeDecompiler(env.getscriptbytecode) or nil
-		pcall(function() getgenv().DEX_CUSTOM_DECOMPILER_VERSION=DECOMPILER_VERSION end)
+		pcall(function()
+			GENV.DEX_CUSTOM_DECOMPILER_VERSION=DECOMPILER_VERSION
+			GENV.DEX_DECOMPILE=env.decompile
+			GENV.DEX_GET_BYTECODE=env.getscriptbytecode
+			GENV.DEX_GET_SCRIPT_CLOSURE=env.getscriptclosure
+		end)
 		env.isViableDecompileScript = function(obj)
 			if obj:IsA("ModuleScript") then
 				return true
@@ -14365,7 +14741,7 @@ Main = (function()
 
 		
 		if not api then
-			rawAPI = oldgame:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/rbx_api.dat")
+			rawAPI = oldgame:HttpGet(dexCacheBust("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/rbx_api.dat"), false)
 			Main.RawAPI = rawAPI
 			api = jsonDecode(rawAPI)
 		end
@@ -14507,7 +14883,7 @@ Main = (function()
 					Main.DepsVersionData[1] = ""
 				end
 			end
-			rawXML = rawXML or oldgame:HttpGet("https://raw.githubusercontent.com/CloneTrooper1019/Roblox-Client-Tracker/roblox/ReflectionMetadata.xml")
+			rawXML = rawXML or oldgame:HttpGet(dexCacheBust("https://raw.githubusercontent.com/CloneTrooper1019/Roblox-Client-Tracker/roblox/ReflectionMetadata.xml"), false)
 		else
 			if script:FindFirstChild("RMD") then
 				rawXML = require(script.RMD)
@@ -15062,7 +15438,7 @@ Main = (function()
 
 			
 			if #Main.RobloxVersion < 1 then
-				Main.RobloxVersion = oldgame:HttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/deps_version.dat"):gsub("%s+", "")
+				Main.RobloxVersion = oldgame:HttpGet(dexCacheBust("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/deps_version.dat"), false):gsub("%s+", "")
 			end
 		end
 
