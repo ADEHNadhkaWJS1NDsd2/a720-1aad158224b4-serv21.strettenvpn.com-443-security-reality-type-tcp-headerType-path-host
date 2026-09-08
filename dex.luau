@@ -11879,7 +11879,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V12"
+		local DECOMPILER_VERSION = "V13"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -12812,6 +12812,265 @@ Main = (function()
 						blocks[sid].pred[#blocks[sid].pred+1]=b.id
 					end
 				end
+				local CUNDEF={}
+				local CNAC={}
+				local CNIL={}
+				local function cval(t,v)
+					return {t=t,v=v}
+				end
+				local function ceq(a,b)
+					if a==b then return true end
+					if type(a)~="table" or type(b)~="table" then return false end
+					return a.t~=nil and a.t==b.t and a.v==b.v
+				end
+				local function cmeet(a,b)
+					a=a or CUNDEF
+					b=b or CUNDEF
+					if a==CUNDEF then return b end
+					if b==CUNDEF then return a end
+					if a==CNAC or b==CNAC then return CNAC end
+					return ceq(a,b) and a or CNAC
+				end
+				local function ccopy(a)
+					local o={}
+					for r=0,(p.max or 0)-1 do o[r]=a and a[r] or CUNDEF end
+					return o
+				end
+				local function cstateeq(a,b)
+					for r=0,(p.max or 0)-1 do
+						if not ceq((a and a[r]) or CUNDEF,(b and b[r]) or CUNDEF) then return false end
+					end
+					return true
+				end
+				local function ck(i)
+					local k=p.k[(i or -1)+1]
+					if not k then return CNAC end
+					if k.t==0 then return CNIL end
+					if k.t==1 then return cval("b",not not k.v) end
+					if k.t==2 then return cval("n",k.v) end
+					if k.t==9 then return CNAC end
+					if k.t==3 then return cval("s",k.v) end
+					return CNAC
+				end
+				local function ctruth(v)
+					if v==CUNDEF or v==CNAC then return nil end
+					if v==CNIL then return false end
+					if v.t=="b" then return v.v end
+					return true
+				end
+				local function cnum(v)
+					return type(v)=="table" and v~=CNAC and v~=CUNDEF and v~=CNIL and v.t=="n" and v.v or nil
+				end
+				local function cscalar(v)
+					if v==CNIL then return "nil",nil end
+					if type(v)=="table" and v~=CNAC and v~=CUNDEF then return v.t,v.v end
+				end
+				local function cwrite(st,r,v)
+					if type(r)=="number" and r>=0 and r<(p.max or 0) then st[r]=v or CNAC end
+				end
+				local function carith(op,a,b)
+					local av,bv=cnum(a),cnum(b)
+					if av==nil or bv==nil then return CNAC end
+					local ok,res=pcall(function()
+						if op=="ADD" then return av+bv end
+						if op=="SUB" then return av-bv end
+						if op=="MUL" then return av*bv end
+						if op=="DIV" then return av/bv end
+						if op=="MOD" then return av%bv end
+						if op=="POW" then return av^bv end
+						if op=="IDIV" then return math.floor(av/bv) end
+					end)
+					return ok and type(res)=="number" and cval("n",res) or CNAC
+				end
+				local cWriteA={LOADNIL=true,LOADB=true,LOADN=true,LOADK=true,MOVE=true,GETGLOBAL=true,GETUPVAL=true,GETIMPORT=true,GETTABLE=true,GETTABLEKS=true,GETTABLEN=true,NEWCLOSURE=true,ADD=true,SUB=true,MUL=true,DIV=true,MOD=true,POW=true,ADDK=true,SUBK=true,MULK=true,DIVK=true,MODK=true,POWK=true,AND=true,OR=true,ANDK=true,ORK=true,CONCAT=true,NOT=true,MINUS=true,LENGTH=true,NEWTABLE=true,DUPTABLE=true,DUPCLOSURE=true,LOADKX=true,SUBRK=true,DIVRK=true,IDIV=true,IDIVK=true,GETUDATAKS=true,NEWCLASS=true}
+				local function cunknownwrites(x)
+					local n=x.n
+					if n=="NAMECALL" or n=="NAMECALLUDATA" then return {x.a,x.a+1} end
+					if n=="CALL" or n=="CALLFB" then
+						if x.c==1 then return {} end
+						local o={}
+						local count=x.c==0 and 1 or x.c-1
+						for j=0,count-1 do o[#o+1]=x.a+j end
+						return o
+					end
+					if n=="GETVARARGS" then
+						local o={}
+						local count=x.b==0 and 1 or x.b-1
+						for j=0,count-1 do o[#o+1]=x.a+j end
+						return o
+					end
+					if n=="FORNPREP" or n=="FORNLOOP" then return {x.a+2,x.a+3} end
+					if n=="FORGLOOP" then
+						local o={x.a+2}
+						local count=(x.aux or 1)%256
+						for j=0,count-1 do o[#o+1]=x.a+3+j end
+						return o
+					end
+					return cWriteA[n] and {x.a} or {}
+				end
+				local function ctransfer(st,x)
+					local n=x.n
+					if n=="LOADNIL" then cwrite(st,x.a,CNIL)
+					elseif n=="LOADB" then cwrite(st,x.a,cval("b",x.b~=0))
+					elseif n=="LOADN" then cwrite(st,x.a,cval("n",x.d))
+					elseif n=="LOADK" then cwrite(st,x.a,ck(math.floor(x.w/65536)%65536))
+					elseif n=="LOADKX" then cwrite(st,x.a,ck(x.aux or 0))
+					elseif n=="MOVE" then cwrite(st,x.a,st[x.b] or CUNDEF)
+					elseif n=="NOT" then
+						local v=ctruth(st[x.b] or CUNDEF)
+						cwrite(st,x.a,v==nil and CNAC or cval("b",not v))
+					elseif n=="MINUS" then
+						local v=cnum(st[x.b] or CUNDEF)
+						cwrite(st,x.a,v==nil and CNAC or cval("n",-v))
+					elseif n=="LENGTH" then
+						local v=st[x.b] or CUNDEF
+						cwrite(st,x.a,(type(v)=="table" and v.t=="s") and cval("n",#v.v) or CNAC)
+					elseif n=="ADD" or n=="SUB" or n=="MUL" or n=="DIV" or n=="MOD" or n=="POW" or n=="IDIV" then
+						cwrite(st,x.a,carith(n,st[x.b] or CUNDEF,st[x.c] or CUNDEF))
+					elseif n=="ADDK" or n=="SUBK" or n=="MULK" or n=="DIVK" or n=="MODK" or n=="POWK" or n=="IDIVK" then
+						cwrite(st,x.a,carith(n:sub(1,-2),st[x.b] or CUNDEF,ck(x.c)))
+					elseif n=="AND" or n=="OR" or n=="ANDK" or n=="ORK" then
+						local left=st[x.b] or CUNDEF
+						local lt=ctruth(left)
+						local right=(n=="ANDK" or n=="ORK") and ck(x.c) or (st[x.c] or CUNDEF)
+						if lt==nil then cwrite(st,x.a,CNAC)
+						elseif n=="AND" or n=="ANDK" then cwrite(st,x.a,lt and right or left)
+						else cwrite(st,x.a,lt and left or right) end
+					elseif n=="SUBRK" then cwrite(st,x.a,carith("SUB",ck(x.b),st[x.c] or CUNDEF))
+					elseif n=="DIVRK" then cwrite(st,x.a,carith("DIV",ck(x.b),st[x.c] or CUNDEF))
+					elseif n=="CONCAT" then
+						local ss={}
+						local good=true
+						for r=x.b,x.c do
+							local t,v=cscalar(st[r] or CUNDEF)
+							if t=="s" or t=="n" then ss[#ss+1]=tostring(v) else good=false break end
+						end
+						cwrite(st,x.a,good and cval("s",table.concat(ss)) or CNAC)
+					else
+						for _,r in ipairs(cunknownwrites(x)) do cwrite(st,r,CNAC) end
+					end
+				end
+				local function cevalbranch(x,st)
+					local n=x.n
+					if n=="JUMPIF" or n=="JUMPIFNOT" then
+						local v=ctruth(st[x.a] or CUNDEF)
+						if v==nil then return nil end
+						return n=="JUMPIF" and v or not v
+					end
+					if n=="JUMPIFEQ" or n=="JUMPIFNOTEQ" or n=="JUMPIFLE" or n=="JUMPIFLT" or n=="JUMPIFNOTLE" or n=="JUMPIFNOTLT" then
+						local a=st[x.a] or CUNDEF
+						local b=st[(x.aux or 0)%256] or CUNDEF
+						if a==CUNDEF or a==CNAC or b==CUNDEF or b==CNAC then return nil end
+						local at,av=cscalar(a)
+						local bt,bv=cscalar(b)
+						if n=="JUMPIFEQ" or n=="JUMPIFNOTEQ" then
+							local eq=at==bt and av==bv
+							return n=="JUMPIFEQ" and eq or not eq
+						end
+						if at~=bt or (at~="n" and at~="s") then return nil end
+						local ok,res=pcall(function()
+							if n=="JUMPIFLE" then return av<=bv end
+							if n=="JUMPIFLT" then return av<bv end
+							if n=="JUMPIFNOTLE" then return not (av<=bv) end
+							return not (av<bv)
+						end)
+						return ok and res or nil
+					end
+					if n=="JUMPXEQKNIL" then
+						local a=st[x.a] or CUNDEF
+						if a==CUNDEF or a==CNAC then return nil end
+						local eq=a==CNIL
+						local notf=math.floor((x.aux or 0)/2147483648)%2
+						return notf==1 and not eq or eq
+					end
+					if n=="JUMPXEQKB" then
+						local a=st[x.a] or CUNDEF
+						if a==CUNDEF or a==CNAC then return nil end
+						local at,av=cscalar(a)
+						local val=(x.aux or 0)%2~=0
+						local eq=at=="b" and av==val
+						local notf=math.floor((x.aux or 0)/2147483648)%2
+						return notf==1 and not eq or eq
+					end
+					if n=="JUMPXEQKN" or n=="JUMPXEQKS" then
+						local a=st[x.a] or CUNDEF
+						if a==CUNDEF or a==CNAC then return nil end
+						local b=ck((x.aux or 0)%16777216)
+						if b==CNAC then return nil end
+						local eq=ceq(a,b)
+						local notf=math.floor((x.aux or 0)/2147483648)%2
+						return notf==1 and not eq or eq
+					end
+					return nil
+				end
+				local staticBranch={}
+				local function constpass()
+					local constIn,constOut={},{}
+					local entryConst=blockOf[0] or 1
+					local init={}
+					for r=0,(p.max or 0)-1 do init[r]=r<(p.params or 0) and CNAC or CNIL end
+					local changed=true
+					local rounds=0
+					while changed and rounds<512 do
+						changed=false
+						rounds+=1
+						for _,b in ipairs(blocks) do
+							local incoming=nil
+							local any=false
+							if b.id==entryConst then incoming=ccopy(init) any=true end
+							for _,pid in ipairs(b.pred) do
+								local po=constOut[pid]
+								if po then
+									if not any then
+										incoming=ccopy(po)
+										any=true
+									else
+										for r=0,(p.max or 0)-1 do incoming[r]=cmeet(incoming[r],po[r]) end
+									end
+								end
+							end
+							if any then
+								if not constIn[b.id] or not cstateeq(constIn[b.id],incoming) then constIn[b.id]=incoming changed=true end
+								local st=ccopy(incoming)
+								for _,y in ipairs(b.ins) do ctransfer(st,y) end
+								if not constOut[b.id] or not cstateeq(constOut[b.id],st) then constOut[b.id]=st changed=true end
+							end
+						end
+						breathe()
+					end
+					local pruned=false
+					for _,b in ipairs(blocks) do
+						local st=constIn[b.id] and ccopy(constIn[b.id]) or nil
+						if st then
+							for j,y in ipairs(b.ins) do
+								if j==#b.ins and cfgcondops[y.n] and y.n~="CMPPROTO" and staticBranch[y.pc]==nil then
+									local br=cevalbranch(y,st)
+									if br~=nil then
+										staticBranch[y.pc]=br
+										local pc=br and jumptarget(y) or nextpc(y)
+										local sid=blockOf[pc]
+										b.succ=sid and {sid} or {}
+										pruned=true
+									end
+								end
+								ctransfer(st,y)
+							end
+						end
+					end
+					return pruned
+				end
+				for _=1,8 do
+					local pruned=constpass()
+					if not pruned then break end
+					for _,b in ipairs(blocks) do b.pred={} end
+					for _,b in ipairs(blocks) do
+						for _,sid in ipairs(b.succ) do blocks[sid].pred[#blocks[sid].pred+1]=b.id end
+					end
+				end
+				for _,b in ipairs(blocks) do b.pred={} end
+				for _,b in ipairs(blocks) do
+					for _,sid in ipairs(b.succ) do blocks[sid].pred[#blocks[sid].pred+1]=b.id end
+				end
 				local reachableBlock={}
 				local stack={blockOf[0] or 1}
 				while #stack>0 do
@@ -12988,7 +13247,7 @@ Main = (function()
 				end
 				local boolFold={}
 				for _,x in ipairs(p.ins) do
-					if condops[x.n] and x.n~="CMPPROTO" then
+					if condops[x.n] and x.n~="CMPPROTO" and staticBranch[x.pc]==nil then
 						local target=jumptarget(x)
 						local f=byPc[nextpc(x)]
 						local j=byPc[target]
@@ -13021,6 +13280,40 @@ Main = (function()
 						if bx and bx.n=="FORGLOOP" and bx.a==lx.a and jumptarget(bx)==nextpc(lx) then
 							local lr={kind="forg",start=lx.pc,finish=nextpc(bx),cont=bx.pc,prep=lx.pc,latch=bx.pc,emitted=false}
 							loopRanges[#loopRanges+1]=lr loopByPrepPc[lx.pc]=lr loopByLatchPc[bx.pc]=lr
+						end
+					end
+				end
+				for _,lr in ipairs(loopRanges) do
+					if lr.kind=="forn" then
+						local px=byPc[lr.prep]
+						local vr=px and (px.a+3) or nil
+						local startId=px and blockOf[nextpc(px)] or nil
+						if vr and startId then
+							local q={{id=startId,open=true}}
+							local qi=1
+							local seenState={}
+							local used=false
+							while qi<=#q and not used and qi<4096 do
+								local it=q[qi]
+								qi+=1
+								local key=tostring(it.id)..":"..tostring(it.open)
+								if not seenState[key] then
+									seenState[key]=true
+									local b=blocks[it.id]
+									if b and b.start>lr.start and b.start<lr.finish then
+										local open=it.open
+										for _,y in ipairs(b.ins) do
+											if open then
+												for _,r in ipairs(readRegs(y)) do if r==vr then used=true break end end
+												if used then break end
+												for _,r in ipairs(writeRegs(y)) do if r==vr then open=false break end end
+											end
+										end
+										if not used and b.finish<lr.cont then for _,sid in ipairs(b.succ) do q[#q+1]={id=sid,open=open} end end
+									end
+								end
+							end
+							lr.iterUnused=not used
 						end
 					end
 				end
@@ -13093,7 +13386,7 @@ Main = (function()
 					breathe()
 				end
 				for _,x in ipairs(p.ins) do
-					if condops[x.n] and not boolFold[x.pc] and not structuredCond[x.pc] then
+					if condops[x.n] and staticBranch[x.pc]==nil and not boolFold[x.pc] and not structuredCond[x.pc] then
 						local target=jumptarget(x)
 						local np=nextpc(x)
 						if target==np then
@@ -13302,6 +13595,7 @@ Main = (function()
 						end
 					end
 					if skipPc[x.pc] then i+=1 continue end
+					if staticBranch[x.pc]~=nil then i+=1 continue end
 					local bf=boolFold[x.pc]
 					if bf then
 						local value
@@ -13505,8 +13799,13 @@ Main = (function()
 						local lr=loopByPrepPc[x.pc]
 						if lr then
 							local vr=x.a+3
-							local vn=varname(vr,x.pc,nil)
-							vars[vr]=true expr[vr]=vn lr.emitted=true
+							local vn
+							if lr.iterUnused then
+								vn="_" expr[vr]=nil
+							else
+								vn=varname(vr,x.pc,nil) vars[vr]=true expr[vr]=vn
+							end
+							lr.emitted=true
 							emit("for "..vn.." = "..reg(x.a+2)..", "..reg(x.a)..", "..reg(x.a+1).." do")
 							level+=1
 						end
