@@ -12372,11 +12372,11 @@ Main = (function()
 					ls=n
 				end
 				mt=ifmatch(ls)
-				local pref={0}
+				local pref={[0]=0}
 				for i,line in ipairs(ls) do
 					local t=tr(line)
 					local control=t=="" or t=="else" or t=="end" or t:match("^if%s+.+%s+then$") or t:match("^elseif%s+.+%s+then$")
-					pref[i]=pref[i-1]+(control and 0 or 1)
+					pref[i]=(pref[i-1] or 0)+(control and 0 or 1)
 				end
 				local diff={}
 				for a,b in pairs(mt) do
@@ -13138,7 +13138,9 @@ Main = (function()
 				local args={}
 				for i=0,p.params-1 do args[#args+1]=names[i] or ("a"..tostring(i+1)) end
 				if p.vararg then args[#args+1]="..." end
-				local bodytext=cleanupsource(table.concat(lines,"\n"))
+				local rawbody=table.concat(lines,"\n")
+				local okClean,bodytext=pcall(cleanupsource,rawbody)
+				if not okClean or type(bodytext)~="string" then bodytext=rawbody end
 				if depth==0 then return bodytext end
 				if bodytext=="" then return "function("..table.concat(args,", ")..") end" end
 				return "function("..table.concat(args,", ")..")\n"..bodytext.."\n"..ind.."end"
