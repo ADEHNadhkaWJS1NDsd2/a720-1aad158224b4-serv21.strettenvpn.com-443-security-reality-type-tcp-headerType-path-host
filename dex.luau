@@ -11881,7 +11881,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V15"
+		local DECOMPILER_VERSION = "V16"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -12664,33 +12664,45 @@ Main = (function()
 					end
 					return out
 				end
+				local function parsevassign(line)
+					local lead,var,rhs=line:match('^(\t*)local%s+(v%d+)%s*=%s*(.+)$')
+					if lead then return lead,true,var,rhs end
+					lead,var,rhs=line:match('^(\t*)(v%d+)%s*=%s*(.+)$')
+					if lead then return lead,false,var,rhs end
+					return nil
+				end
+				local function redefsoon(a,from,var,depth)
+					for k=from,#a do
+						local t=tr(a[k])
+						local d=dep(a[k])
+						if d<depth then return true end
+						if d==depth then
+							if t=="end" or t=="else" or t:match('^elseif%s+') or t:match('^until%s+') then return true end
+							if t:match('^'..var..'%s*=') or t:match('^local%s+'..var..'%s*=') then return true end
+							if countword(t,var)>0 then return false end
+							if t:match('^return') then return true end
+						end
+					end
+					return true
+				end
 				local function foldaliases(a)
-					for _=1,8 do
+					for _=1,16 do
 						local changed=false
 						local del={}
 						for i=1,#a-1 do
 							if not del[i] then
-								local lead,loc,var,rhs=a[i]:match('^(\t*)(local%s+)?(v%d+)%s*=%s*(.+)$')
-								if lead and var and dep(a[i+1])==#lead then
+								local lead,islocal,var,rhs=parsevassign(a[i])
+								if lead and dep(a[i+1])==#lead then
 									local t2=tr(a[i+1])
 									local args=t2:match('^'..var..'%s*=%s*'..var..'%((.*)%)$')
 									if args then
-										a[i+1]=lead..(loc or "")..var.." = "..tr(rhs).."("..args..")"
+										a[i+1]=lead..(islocal and "local " or "")..var.." = "..tr(rhs).."("..args..")"
 										del[i]=true changed=true
 									else
 										local lhs=t2:match('^(.+)%s*=%s*'..var..'$')
-										if lhs and not lhs:match('^'..var..'%f[^%w_]') then
-											local safe=false
-											local k=i+2
-											while k<=#a and tr(a[k])=="" do k+=1 end
-											if k>#a then safe=true else
-												local tk=tr(a[k])
-												if dep(a[k])<#lead or tk:match('^'..var..'%s*=') or tk:match('^local%s+'..var..'%s*=') or tk=="end" or tk=="else" or tk:match('^elseif%s+') or tk:match('^return') then safe=true end
-											end
-											if safe then
-												a[i+1]=lead..lhs.." = "..tr(rhs)
-												del[i]=true changed=true
-											end
+										if lhs and not lhs:match('^'..var..'%f[^%w_]') and redefsoon(a,i+2,var,#lead) then
+											a[i+1]=lead..lhs.." = "..tr(rhs)
+											del[i]=true changed=true
 										end
 									end
 								end
@@ -12704,13 +12716,14 @@ Main = (function()
 					return a
 				end
 				local function foldbuilders(a)
-					for _=1,6 do
+					for _=1,10 do
 						local changed=false
 						local out={}
 						local i=1
 						while i<=#a do
-							local lead,loc,var,inside=a[i]:match('^(\t*)(local%s+)?(v%d+)%s*=%s*{(.*)}%s*$')
-							if lead and var then
+							local lead,islocal,var,rhs=parsevassign(a[i])
+							local inside=rhs and rhs:match('^{(.*)}%s*$')
+							if lead and var and inside then
 								local sets={}
 								local j=i+1
 								local target=nil
@@ -12719,18 +12732,31 @@ Main = (function()
 									local fk,fv=t:match('^'..var..'%.([%a_][%w_]*)%s*=%s*(.+)$')
 									local ik,iv=t:match('^'..var..'%[(%-?%d+)%]%s*=%s*(.+)$')
 									local lhs=t:match('^(.+)%s*=%s*'..var..'$')
-									if fk then sets[#sets+1]={kind="field",key=fk,value=fv}
-									elseif ik then sets[#sets+1]={kind="index",key=tonumber(ik),value=iv}
-									elseif lhs and not lhs:match('^'..var..'%f[^%w_]') then target=lhs break
-									else break end
+									if fk then
+										sets[#sets+1]={kind="field",key=fk,value=fv}
+									elseif ik then
+										sets[#sets+1]={kind="index",key=tonumber(ik),value=iv}
+									elseif lhs and not lhs:match('^'..var..'%f[^%w_]') and redefsoon(a,j+1,var,#lead) then
+										target=lhs
+										break
+									else
+										break
+									end
 									j+=1
 								end
 								if target then
 									local rendered=renderbuilder(lead,target,inside,sets)
 									for line in (rendered.."\n"):gmatch("(.-)\n") do out[#out+1]=line end
-									i=j+1 changed=true
-								else out[#out+1]=a[i] i+=1 end
-							else out[#out+1]=a[i] i+=1 end
+									i=j+1
+									changed=true
+								else
+									out[#out+1]=a[i]
+									i+=1
+								end
+							else
+								out[#out+1]=a[i]
+								i+=1
+							end
 						end
 						a=out
 						if not changed then break end
@@ -12740,11 +12766,12 @@ Main = (function()
 				local function renameconfig(a)
 					local candidate=nil
 					local ci=nil
+					local base=nil
 					for i,line in ipairs(a) do
 						local lead,var=line:match('^(\t*)local%s+(v%d+)%s*=%s*{}%s*$')
-						if lead and #lead==0 then
+						if lead then
 							for j=#a,i+1,-1 do
-								if tr(a[j])=="return "..var then candidate=var ci=i break end
+								if dep(a[j])==#lead and tr(a[j])=="return "..var then candidate=var ci=i base=#lead break end
 							end
 						end
 						if candidate then break end
@@ -12754,7 +12781,7 @@ Main = (function()
 					for i,line in ipairs(a) do
 						if i~=ci and countword(line,candidate)>0 then
 							local t=tr(line)
-							if t~="return "..candidate and not t:match('^'..candidate..'%.[%a_][%w_]*%s*=') and not t:match('^'..candidate..'%[.+%]%s*=') then bad=true break end
+							if t~="return "..candidate and not t:match('^'..candidate..'%.([%a_][%w_]*)%s*=') and not t:match('^'..candidate..'%[.+%]%s*=') then bad=true break end
 						end
 					end
 					if bad then return a end
@@ -12776,16 +12803,21 @@ Main = (function()
 					return d
 				end
 				local function foldconfigtable(a)
-					local si,ei
-					for i,line in ipairs(a) do if tr(line)=="local config = {}" and dep(line)==0 then si=i break end end
+					local si,ei,base,lead
+					for i,line in ipairs(a) do
+						local l=line:match('^(\t*)local%s+config%s*=%s*{}%s*$')
+						if l then si=i base=#l lead=l break end
+					end
 					if not si then return a end
-					for i=#a,si+1,-1 do if tr(a[i])=="return config" and dep(a[i])==0 then ei=i break end end
+					for i=#a,si+1,-1 do
+						if dep(a[i])==base and tr(a[i])=="return config" then ei=i break end
+					end
 					if not ei then return a end
 					local fields={}
 					local i=si+1
 					while i<ei do
 						if tr(a[i])=="" then i+=1 continue end
-						if dep(a[i])~=0 then return a end
+						if dep(a[i])~=base then return a end
 						local key,rhs=tr(a[i]):match('^config%.([%a_][%w_]*)%s*=%s*(.+)$')
 						if not key or countword(rhs,"config")>0 then return a end
 						local block={rhs}
@@ -12801,25 +12833,32 @@ Main = (function()
 						i=j
 					end
 					if #fields<4 then return a end
-					local repl={"local config = {"}
+					local repl={lead.."local config = {"}
 					for _,f in ipairs(fields) do
 						if #f.block==1 then
-							repl[#repl+1]="\t"..f.key.." = "..tr(f.block[1])..","
+							repl[#repl+1]=lead.."\t"..f.key.." = "..tr(f.block[1]).."," 
 						else
-							repl[#repl+1]="\t"..f.key.." = "..tr(f.block[1])
-							for k=2,#f.block-1 do repl[#repl+1]="\t"..f.block[k] end
-							repl[#repl+1]="\t"..tr(f.block[#f.block])..","
+							repl[#repl+1]=lead.."\t"..f.key.." = "..tr(f.block[1])
+							for k=2,#f.block-1 do
+								local ln=f.block[k]
+								local stripped=ln:gsub("^"..lead,"")
+								repl[#repl+1]=lead.."\t"..stripped
+							end
+							local last=tr(f.block[#f.block])
+							repl[#repl+1]=lead.."\t"..last.."," 
 						end
 					end
-					repl[#repl+1]="}"
+					repl[#repl+1]=lead.."}"
 					local out={}
 					for k=1,si-1 do out[#out+1]=a[k] end
 					for _,line in ipairs(repl) do out[#out+1]=line end
-					out[#out+1]="return config"
+					out[#out+1]=lead.."return config"
 					for k=ei+1,#a do out[#out+1]=a[k] end
 					return out
 				end
 				final=compactlocals(final)
+				final=foldaliases(final)
+				final=foldbuilders(final)
 				final=foldaliases(final)
 				final=foldbuilders(final)
 				final=foldaliases(final)
