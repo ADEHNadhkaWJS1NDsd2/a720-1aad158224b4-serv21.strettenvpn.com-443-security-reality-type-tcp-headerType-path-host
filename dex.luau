@@ -925,6 +925,7 @@ local EmbeddedModules = {
 				if expanded == Explorer.SearchExpanded then context:AddRegistered("CLEAR_SEARCH_AND_JUMP_TO") end
 				if env.setclipboard then context:AddRegistered("COPY_PATH") end
 				context:AddRegistered("INSERT_OBJECT")
+				context:AddRegistered("SELECT_SERVICE")
 				
 				
 				
@@ -1341,6 +1342,11 @@ local EmbeddedModules = {
 					local x,y = Explorer.LastRightClickX or mouse.X, Explorer.LastRightClickY or mouse.Y
 					Explorer.InsertObjectContext:Show(x,y)
 				end})
+				context:Register("SELECT_SERVICE",{Name = "Select Service", IconMap = Explorer.ClassIcons, Icon = 1, OnClick = function()
+					local mouse = Main.Mouse
+					local x,y = Explorer.LastRightClickX or mouse.X, Explorer.LastRightClickY or mouse.Y
+					if Explorer.ServiceContext then Explorer.ServiceContext:Show(x,y) end
+				end})
 
 				
 
@@ -1718,6 +1724,44 @@ local EmbeddedModules = {
 				end
 
 				Explorer.InsertObjectContext = context
+				local serviceContext = Lib.ContextMenu.new()
+				serviceContext.SearchEnabled = true
+				serviceContext.MaxHeight = 400
+				serviceContext:ApplyTheme({
+					ContentColor = Settings.Theme.Main2,
+					OutlineColor = Settings.Theme.Outline1,
+					DividerColor = Settings.Theme.Outline1,
+					TextColor = Settings.Theme.Text,
+					HighlightColor = Settings.Theme.ButtonHover
+				})
+				local services = {}
+				for _,class in pairs(API.Classes) do
+					if class.Tags and class.Tags.Service then
+						local rmdEntry = RMD.Classes[class.Name]
+						services[#services+1] = {class.Name,rmdEntry and rmdEntry.ClassCategory or "Services",rmdEntry and tonumber(rmdEntry.ExplorerImageIndex) or 0}
+					end
+				end
+				table.sort(services,function(a,b) if a[2]~=b[2] then return a[2]<b[2] end return a[1]<b[1] end)
+				local function selectService(name)
+					local ok,obj = pcall(game.GetService,game,name)
+					if not ok or not obj then return end
+					if not nodes[obj] then pcall(addObject,obj) end
+					local node = nodes[obj]
+					if node then
+						selection:Set(node)
+						Explorer.MakeNodeVisible(node,true)
+						Explorer.ViewNode(node)
+					end
+				end
+				local lastServiceCategory = ""
+				for _,entry in ipairs(services) do
+					if entry[2]~=lastServiceCategory then
+						serviceContext:AddDivider(entry[2])
+						lastServiceCategory=entry[2]
+					end
+					serviceContext:Add({Name=entry[1],IconMap=Explorer.ClassIcons,Icon=entry[3],OnClick=selectService})
+				end
+				Explorer.ServiceContext = serviceContext
 			end
 
 			Explorer._SearchFilters = {} do
@@ -11835,6 +11879,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
+		local DECOMPILER_VERSION = "V11"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -11855,6 +11900,24 @@ Main = (function()
 			}) do
 				auxops[n] = true
 			end
+			local opcodeIndex = {}
+			for i,n in ipairs(opnames) do opcodeIndex[n]=i-1 end
+			local robloxServices,robloxClasses,robloxEnums = {},{},{}
+			pcall(function()
+				if API and API.Classes then
+					for name,class in pairs(API.Classes) do
+						robloxClasses[name]=true
+						if class.Tags and class.Tags.Service then robloxServices[name]=true end
+					end
+				end
+				if API and API.Enums then
+					for name in pairs(API.Enums) do robloxEnums[name]=true end
+				end
+			end)
+			local immutableConstructors = {
+				Axes=true,BrickColor=true,CFrame=true,Color3=true,ColorSequence=true,ColorSequenceKeypoint=true,Content=true,DateTime=true,Faces=true,FloatCurveKey=true,Font=true,NumberRange=true,NumberSequence=true,NumberSequenceKeypoint=true,Path2DControlPoint=true,PhysicalProperties=true,Ray=true,Rect=true,Region3=true,Region3int16=true,RotationCurveKey=true,TweenInfo=true,UDim=true,UDim2=true,Vector2=true,Vector2int16=true,Vector3=true,Vector3int16=true
+			}
+			local vmNoopOps = {NOP=true,BREAK=true,COVERAGE=true,PREPVARARGS=true,NATIVECALL=true,FASTCALL=true,FASTCALL1=true,FASTCALL2=true,FASTCALL2K=true,FASTCALL3=true,FASTPCALL=true,CAPTURE=true}
 			local function reader(data)
 				return {d=data,p=1,n=#data}
 			end
@@ -12318,27 +12381,39 @@ Main = (function()
 					local p=x:match("^\t*") or ""
 					return #p
 				end
-				local function ifmatch(a)
-					local stacks={}
+				local function opener(t)
+					if t:match("^if%s+.+%s+then$") then return "if" end
+					if t:match("^while%s+.+%s+do$") then return "end" end
+					if t:match("^for%s+.+%s+do$") then return "end" end
+					if t=="repeat" then return "repeat" end
+					if t:match("^do$") then return "end" end
+					if t:match("^local%s+function%s+") or t:match("^function%s+") then return "end" end
+					if t:find("function%s*%(") and not t:match("%f[%a]end%f[%A]") then return "end" end
+					return nil
+				end
+				local function pairifs(a)
+					local stack={}
 					local mt={}
 					for i,line in ipairs(a) do
 						local t=tr(line)
 						local d=dep(line)
-						if t:match("^if%s+.+%s+then$") then
-							stacks[d]=stacks[d] or {}
-							stacks[d][#stacks[d]+1]=i
+						local k=opener(t)
+						if k then
+							stack[#stack+1]={kind=k,depth=d,line=i}
 						elseif t=="end" then
-							local st=stacks[d]
-							if st and #st>0 then
-								local j=st[#st]
-								st[#st]=nil
-								mt[j]=i
+							local top=stack[#stack]
+							if top and top.depth==d and top.kind~="repeat" then
+								stack[#stack]=nil
+								if top.kind=="if" then mt[top.line]=i end
 							end
+						elseif t:match("^until%s+") then
+							local top=stack[#stack]
+							if top and top.depth==d and top.kind=="repeat" then stack[#stack]=nil end
 						end
 					end
 					return mt
 				end
-				local mt=ifmatch(ls)
+				local mt=pairifs(ls)
 				local del={}
 				local rep={}
 				for i=1,#ls-1 do
@@ -12371,7 +12446,27 @@ Main = (function()
 					end
 					ls=n
 				end
-				mt=ifmatch(ls)
+				local td={}
+				for i=1,#ls do
+					local lead,name=ls[i]:match("^(\t*)local%s+([%a_][%w_]*)%s*=%s*{}%s*$")
+					if name then
+						local vals={}
+						local j=i+1
+						local want=1
+						while j<=#ls do
+							local idx,val=ls[j]:match("^"..lead..name:gsub("([^%w])","%%%1").."%[(%d+)%]%s*=%s*(.+)$")
+							if tonumber(idx)~=want or not val then break end
+							vals[#vals+1]=val want+=1 td[j]=true j+=1
+						end
+						if #vals>=2 then ls[i]=lead.."local "..name.." = {"..table.concat(vals,", ").."}" else for k=i+1,j-1 do td[k]=nil end end
+					end
+				end
+				if next(td) then
+					local n={}
+					for i,line in ipairs(ls) do if not td[i] then n[#n+1]=line end end
+					ls=n
+				end
+				mt=pairifs(ls)
 				local pref={[0]=0}
 				for i,line in ipairs(ls) do
 					local t=tr(line)
@@ -12385,14 +12480,75 @@ Main = (function()
 						diff[b+1]=(diff[b+1] or 0)-1
 					end
 				end
-				local out={}
+				local compact={}
 				local active=0
 				for i,line in ipairs(ls) do
 					active+=diff[i] or 0
-					if active==0 then out[#out+1]=line end
+					if active==0 then compact[#compact+1]=line end
 				end
-				while #out>0 and tr(out[#out])=="" do out[#out]=nil end
-				return table.concat(out,"\n")
+				local out={}
+				local stack={}
+				local function findclose(depth,kind)
+					for j=#stack,1,-1 do
+						local b=stack[j]
+						if b.depth<depth then break end
+						if b.depth==depth and (not kind or b.kind==kind) then return j end
+					end
+					return nil
+				end
+				for _,line in ipairs(compact) do
+					local t=tr(line)
+					local d=dep(line)
+					local k=opener(t)
+					if k then
+						stack[#stack+1]={kind=k,depth=d,seenElse=false}
+						out[#out+1]=line
+					elseif t:match("^elseif%s+.+%s+then$") then
+						local j=findclose(d,"if")
+						if j and not stack[j].seenElse then
+							out[#out+1]=line
+						end
+					elseif t=="else" then
+						local j=findclose(d,"if")
+						if j and not stack[j].seenElse then
+							stack[j].seenElse=true
+							out[#out+1]=line
+						end
+					elseif t=="end" then
+						local j=findclose(d)
+						if j and stack[j].kind~="repeat" then
+							for z=#stack,j,-1 do stack[z]=nil end
+							out[#out+1]=line
+						end
+					elseif t:match("^until%s+") then
+						local j=findclose(d,"repeat")
+						if j then
+							for z=#stack,j,-1 do stack[z]=nil end
+							out[#out+1]=line
+						end
+					else
+						out[#out+1]=line
+					end
+				end
+				for i=#stack,1,-1 do
+					local b=stack[i]
+					if b.kind=="repeat" then
+						out[#out+1]=string.rep("\t",b.depth).."until false"
+					else
+						out[#out+1]=string.rep("\t",b.depth).."end"
+					end
+				end
+				local final={}
+				local last=""
+				for _,line in ipairs(out) do
+					local t=tr(line)
+					if not (t=="end" and last=="end" and dep(line)==0) then
+						final[#final+1]=line
+					end
+					last=t
+				end
+				while #final>0 and tr(final[#final])=="" do final[#final]=nil end
+				return table.concat(final,"\n")
 			end
 			local function customsource(mod,p,depth,seen,upmap)
 				depth = depth or 0
@@ -12475,9 +12631,14 @@ Main = (function()
 				local function suggest(s)
 					if type(s)~="string" then return nil end
 					local svc=s:match('^game:GetService%("([%w_]+)"%)$')
-					if svc then return svc end
+					if svc and (next(robloxServices)==nil or robloxServices[svc]) then
+						if svc=="Workspace" then return "workspace" end
+						return svc
+					end
 					local cls=s:match('^Instance%.new%("([%w_]+)"%)$')
-					if cls then return cls:sub(1,1):lower()..cls:sub(2) end
+					if cls and (next(robloxClasses)==nil or robloxClasses[cls]) then return cls:sub(1,1):lower()..cls:sub(2) end
+					local et=s:match("^Enum%.([%w_]+)%.[%w_]+$")
+					if et and (next(robloxEnums)==nil or robloxEnums[et]) then return et:sub(1,1):lower()..et:sub(2) end
 					local req=s:match('^require%((.+)%)$')
 					if req then
 						local last=req:match('%.([%a_][%w_]*)$')
@@ -12553,7 +12714,7 @@ Main = (function()
 					return x.pc+1+(x.n=="JUMPX" and x.e or x.d)
 				end
 				for i,x in ipairs(p.ins) do byPc[x.pc]=x indexByPc[x.pc]=i end
-				local condops={JUMPIF=true,JUMPIFNOT=true,JUMPIFEQ=true,JUMPIFLE=true,JUMPIFLT=true,JUMPIFNOTEQ=true,JUMPIFNOTLE=true,JUMPIFNOTLT=true,JUMPXEQKNIL=true,JUMPXEQKB=true,JUMPXEQKN=true,JUMPXEQKS=true}
+				local condops={JUMPIF=true,JUMPIFNOT=true,JUMPIFEQ=true,JUMPIFLE=true,JUMPIFLT=true,JUMPIFNOTEQ=true,JUMPIFNOTLE=true,JUMPIFNOTLT=true,JUMPXEQKNIL=true,JUMPXEQKB=true,JUMPXEQKN=true,JUMPXEQKS=true,CMPPROTO=true}
 				local cfgcondops={JUMPIF=true,JUMPIFNOT=true,JUMPIFEQ=true,JUMPIFLE=true,JUMPIFLT=true,JUMPIFNOTEQ=true,JUMPIFNOTLE=true,JUMPIFNOTLT=true,JUMPXEQKNIL=true,JUMPXEQKB=true,JUMPXEQKN=true,JUMPXEQKS=true,CMPPROTO=true}
 				local loopops={FORNPREP=true,FORNLOOP=true,FORGLOOP=true}
 				local uncondops={JUMP=true,JUMPBACK=true,JUMPX=true,FORGPREP=true,FORGPREP_INEXT=true,FORGPREP_NEXT=true}
@@ -12666,6 +12827,81 @@ Main = (function()
 					}
 					return writesA[n] and {x.a} or {}
 				end
+				local function readRegs(x)
+					local n=x.n
+					local out={}
+					local function add(r)
+						if type(r)=="number" and r>=0 and r<255 then out[#out+1]=r end
+					end
+					if n=="MOVE" or n=="NOT" or n=="MINUS" or n=="LENGTH" then add(x.b)
+					elseif n=="SETGLOBAL" or n=="SETUPVAL" then add(x.a)
+					elseif n=="GETTABLE" then add(x.b) add(x.c)
+					elseif n=="SETTABLE" then add(x.a) add(x.b) add(x.c)
+					elseif n=="GETTABLEKS" or n=="GETTABLEN" or n=="GETUDATAKS" then add(x.b)
+					elseif n=="SETTABLEKS" or n=="SETTABLEN" or n=="SETUDATAKS" then add(x.a) add(x.b)
+					elseif n=="NAMECALL" or n=="NAMECALLUDATA" then add(x.b)
+					elseif n=="CALL" or n=="CALLFB" then
+						add(x.a)
+						local last=x.b==0 and math.max(x.a,(p.max or x.a+1)-1) or (x.a+x.b-1)
+						for r=x.a+1,last do add(r) end
+					elseif n=="RETURN" then
+						local last=x.b==0 and math.max(x.a,(p.max or x.a+1)-1) or (x.a+x.b-2)
+						for r=x.a,last do add(r) end
+					elseif cfgcondops[n] then
+						add(x.a)
+						if n=="JUMPIFEQ" or n=="JUMPIFLE" or n=="JUMPIFLT" or n=="JUMPIFNOTEQ" or n=="JUMPIFNOTLE" or n=="JUMPIFNOTLT" then add((x.aux or 0)%256) end
+					elseif n=="ADD" or n=="SUB" or n=="MUL" or n=="DIV" or n=="MOD" or n=="POW" or n=="AND" or n=="OR" or n=="IDIV" then add(x.b) add(x.c)
+					elseif n=="ADDK" or n=="SUBK" or n=="MULK" or n=="DIVK" or n=="MODK" or n=="POWK" or n=="ANDK" or n=="ORK" or n=="IDIVK" then add(x.b)
+					elseif n=="SUBRK" or n=="DIVRK" then add(x.c)
+					elseif n=="CONCAT" then for r=x.b,x.c do add(r) end
+					elseif n=="SETLIST" then
+						add(x.a)
+						local last=x.c==0 and math.max(x.b,(p.max or x.b+1)-1) or (x.b+x.c-2)
+						for r=x.b,last do add(r) end
+					elseif n=="FORNPREP" or n=="FORNLOOP" then for r=x.a,x.a+3 do add(r) end
+					elseif n=="FORGPREP" or n=="FORGPREP_INEXT" or n=="FORGPREP_NEXT" or n=="FORGLOOP" then
+						for r=x.a,x.a+2 do add(r) end
+					elseif n=="NEWCLASS" and x.b~=255 then add(x.b)
+					elseif n=="NEWCLASSMEMBER" then add(x.a) add(x.c)
+					end
+					return out
+				end
+				local blockUse,blockDef={},{}
+				for _,b in ipairs(blocks) do
+					local use,def={},{}
+					if reachableBlock[b.id] then
+						for _,y in ipairs(b.ins) do
+							for _,r in ipairs(readRegs(y)) do if not def[r] then use[r]=true end end
+							for _,r in ipairs(writeRegs(y)) do def[r]=true end
+						end
+					end
+					blockUse[b.id]=use blockDef[b.id]=def
+				end
+				local liveIn,liveOut={},{}
+				for _,b in ipairs(blocks) do liveIn[b.id]={} liveOut[b.id]={} end
+				local function sameSet(a,b)
+					for k in pairs(a) do if not b[k] then return false end end
+					for k in pairs(b) do if not a[k] then return false end end
+					return true
+				end
+				local changed=true
+				local rounds=0
+				while changed and rounds<512 do
+					changed=false rounds+=1
+					for bi=#blocks,1,-1 do
+						local b=blocks[bi]
+						if reachableBlock[b.id] then
+							local no={}
+							for _,sid in ipairs(b.succ) do if reachableBlock[sid] then for r in pairs(liveIn[sid]) do no[r]=true end end end
+							local ni={}
+							for r in pairs(blockUse[b.id]) do ni[r]=true end
+							for r in pairs(no) do if not blockDef[b.id][r] then ni[r]=true end end
+							if not sameSet(no,liveOut[b.id]) then liveOut[b.id]=no changed=true end
+							if not sameSet(ni,liveIn[b.id]) then liveIn[b.id]=ni changed=true end
+						end
+					end
+					breathe()
+				end
 				local selfRead = {ADD=true,SUB=true,MUL=true,DIV=true,MOD=true,POW=true,AND=true,OR=true,IDIV=true,SUBRK=true,DIVRK=true,ADDK=true,SUBK=true,MULK=true,DIVK=true,MODK=true,POWK=true,ANDK=true,ORK=true,IDIVK=true,NOT=true,MINUS=true,LENGTH=true,GETTABLE=true,GETTABLEKS=true,GETTABLEN=true}
 				for _,x in ipairs(p.ins) do
 					if selfRead[x.n] and (x.a==x.b or x.a==x.c) then forceVar[x.a]=true end
@@ -12700,93 +12936,133 @@ Main = (function()
 						if bx and bx.n=="FORGLOOP" then loopRanges[#loopRanges+1]={start=lx.pc,finish=nextpc(bx),cont=bx.pc} end
 					end
 				end
-				for i,x in ipairs(p.ins) do
-					if condops[x.n] and not boolFold[x.pc] then
-						local target=jumptarget(x)
-						local np=nextpc(x)
-						if target==np then
-							skipPc[x.pc]=true
-						elseif target>np then
-							local handled=false
-							local fall=byPc[np]
-							if fall and (fall.n=="JUMP" or fall.n=="JUMPX" or fall.n=="JUMPBACK") then
-								local ft=jumptarget(fall)
-								if ft==target then
-									skipPc[x.pc]=true
-									skipPc[fall.pc]=true
-									handled=true
-								elseif fall.pc==np and ft>target and fall.n~="JUMPBACK" then
-									structure[target]={kind="lateif",ins=x}
-									skipPc[x.pc]=true
-									skipPc[fall.pc]=true
-									endAt[ft]=(endAt[ft] or 0)+1
-									forceRange(target,ft)
-									handled=true
+				local structuredCond={}
+				local function singleUncondBlock(id)
+					local b=id and blocks[id]
+					if not b or not reachableBlock[id] or #b.ins~=1 then return nil end
+					local y=b.ins[1]
+					if y.n=="JUMP" or y.n=="JUMPBACK" or y.n=="JUMPX" then return y end
+				end
+				local function canReachWithin(startId,goalId,minpc,maxpc)
+					if not startId or not goalId then return false end
+					local qids={startId}
+					local qi=1
+					local seenIds={}
+					local steps=0
+					while qi<=#qids and steps<math.min(#blocks+8,4096) do
+						local id=qids[qi] qi+=1 steps+=1
+						if id==goalId then return true end
+						if not seenIds[id] then
+							seenIds[id]=true
+							local b=blocks[id]
+							if b and b.start>=minpc and b.start<=maxpc then
+								for _,sid in ipairs(b.succ) do
+									local sb=blocks[sid]
+									if sb and reachableBlock[sid] and sb.start>=minpc and sb.start<=maxpc and not seenIds[sid] then qids[#qids+1]=sid end
 								end
 							end
-							if not handled then
-								local ti=indexByPc[target]
-								local prev=ti and p.ins[ti-1] or nil
-								if prev and (prev.n=="JUMPBACK" or prev.n=="JUMP" or prev.n=="JUMPX") then
-									local pt=jumptarget(prev)
-									if prev.n=="JUMPBACK" and pt<=x.pc then
-										structure[x.pc]="while"
-										loopRanges[#loopRanges+1]={start=x.pc,finish=target,cont=x.pc}
-										skipPc[prev.pc]=true
-										endAt[target]=(endAt[target] or 0)+1
-										forceRange(x.pc,target)
-									elseif pt>target then
-										structure[x.pc]="ifelse"
-										elseAt[prev.pc]=(elseAt[prev.pc] or 0)+1
-										skipPc[prev.pc]=true
-										endAt[pt]=(endAt[pt] or 0)+1
-										forceRange(x.pc,pt)
-									else
-										structure[x.pc]="if"
-										endAt[target]=(endAt[target] or 0)+1
-										forceRange(x.pc,target)
-									end
-								else
-									structure[x.pc]="if"
-									endAt[target]=(endAt[target] or 0)+1
-									forceRange(x.pc,target)
-								end
+						end
+					end
+					return false
+				end
+				local backLatch={}
+				for _,b in ipairs(blocks) do
+					if reachableBlock[b.id] then
+						local latch=b.ins[#b.ins]
+						if latch and (latch.n=="JUMPBACK" or latch.n=="JUMP" or latch.n=="JUMPX") then
+							local hid=blockOf[jumptarget(latch)]
+							local hb=hid and blocks[hid]
+							if hb and hb.start<=b.start then
+								local old=backLatch[hid]
+								if not old or b.start>old.start then backLatch[hid]=b end
 							end
-						elseif target<x.pc then
-							structure[x.pc]="until"
-							loopRanges[#loopRanges+1]={start=target,finish=nextpc(x),cont=x.pc}
-							repeatAt[target]=(repeatAt[target] or 0)+1
-							forceRange(target,x.pc+1)
 						end
 					end
 				end
-				for _,b in ipairs(blocks) do
-					if reachableBlock[b.id] and #b.pred>1 then
-						for _,pid in ipairs(b.pred) do
-							local pb=blocks[pid]
-							if pb then
-								for _,y in ipairs(pb.ins) do
-									for _,r in ipairs(writeRegs(y)) do phiRegs[r]=true forceVar[r]=true end
-								end
+				for hid,b in pairs(backLatch) do
+					local latch=b.ins[#b.ins]
+					local hb=blocks[hid]
+					local hx=hb and hb.ins[#hb.ins]
+					if hx and condops[hx.n] and not boolFold[hx.pc] and not structuredCond[hx.pc] then
+						local fid=blockOf[nextpc(hx)]
+						local jid=blockOf[jumptarget(hx)]
+						local fr=fid and canReachWithin(fid,b.id,hb.start,b.finish) or false
+						local jr=jid and canReachWithin(jid,b.id,hb.start,b.finish) or false
+						if fr~=jr then
+							local bodyId=fr and fid or jid
+							local exitId=fr and jid or fid
+							local eb=exitId and blocks[exitId]
+							if eb and eb.start>b.start then
+								structure[hx.pc]={kind="whilecfg",mode=(bodyId==fid and "fall" or "jump")}
+								structuredCond[hx.pc]=true
+								skipPc[latch.pc]=true
+								endAt[eb.start]=(endAt[eb.start] or 0)+1
+								loopRanges[#loopRanges+1]={start=hb.start,finish=eb.start,cont=hb.start}
 							end
 						end
 					end
 					breathe()
 				end
-				if #forceRanges>0 then
-					local delta={}
-					for _,fr in ipairs(forceRanges) do
-						local si=(indexByPc[fr[1]] or 0)+1
-						local ei=indexByPc[fr[2]] or (#p.ins+1)
-						delta[si]=(delta[si] or 0)+1
-						delta[ei]=(delta[ei] or 0)-1
+				for _,x in ipairs(p.ins) do
+					if condops[x.n] and not boolFold[x.pc] and not structuredCond[x.pc] then
+						local target=jumptarget(x)
+						local np=nextpc(x)
+						if target==np then
+							skipPc[x.pc]=true
+						elseif target< x.pc then
+							structure[x.pc]={kind="untilcfg",mode="fall"}
+							repeatAt[target]=(repeatAt[target] or 0)+1
+							structuredCond[x.pc]=true
+							loopRanges[#loopRanges+1]={start=target,finish=nextpc(x),cont=x.pc}
+						elseif target>np and byPc[target] then
+							local fallId=blockOf[np]
+							local jumpId=blockOf[target]
+							local trampoline=singleUncondBlock(fallId)
+							if trampoline then
+								local ft=jumptarget(trampoline)
+								if ft>target and byPc[ft] then
+									structure[x.pc]={kind="ifcfg",mode="jump"}
+									skipPc[trampoline.pc]=true
+									endAt[ft]=(endAt[ft] or 0)+1
+									structuredCond[x.pc]=true
+								end
+							end
+							if not structuredCond[x.pc] then
+								local ti=indexByPc[target]
+								local prev=ti and p.ins[ti-1] or nil
+								if prev and (prev.n=="JUMP" or prev.n=="JUMPX" or prev.n=="JUMPBACK") then
+									local ft=jumptarget(prev)
+									if ft>target and byPc[ft] then
+										structure[x.pc]={kind="ifcfg",mode="fall"}
+										elseAt[target]=(elseAt[target] or 0)+1
+										skipPc[prev.pc]=true
+										endAt[ft]=(endAt[ft] or 0)+1
+										structuredCond[x.pc]=true
+									end
+								end
+							end
+							if not structuredCond[x.pc] then
+								structure[x.pc]={kind="ifcfg",mode="fall"}
+								endAt[target]=(endAt[target] or 0)+1
+								structuredCond[x.pc]=true
+							end
+						end
 					end
-					local active=0
-					for ii,y in ipairs(p.ins) do
-						active += delta[ii] or 0
-						if active>0 then for _,r in ipairs(writeRegs(y)) do forceVar[r]=true end end
-						breathe()
+					breathe()
+				end
+				for _,b in ipairs(blocks) do
+					if reachableBlock[b.id] then
+						if #b.succ>1 then
+							for r in pairs(liveOut[b.id]) do forceVar[r]=true end
+						end
+						if #b.pred>1 then
+							for r in pairs(liveIn[b.id]) do
+								forceVar[r]=true
+								if r>=p.params then phiRegs[r]=true end
+							end
+						end
 					end
+					breathe()
 				end
 				for i=0,p.params-1 do
 					local dl=dbglocal(i,0)
@@ -12829,7 +13105,7 @@ Main = (function()
 						local notf=math.floor(aux/2147483648)%2
 						return reg(x.a).." "..(notf==1 and "~=" or "==").." "..kval(p,ci)
 					elseif n=="CMPPROTO" then
-						return "true"
+						return "type("..reg(x.a)..") ~= \"function\""
 					end
 					return "true"
 				end
@@ -12853,6 +13129,8 @@ Main = (function()
 						local ci=aux%16777216
 						local notf=math.floor(aux/2147483648)%2
 						return reg(x.a).." "..(notf==1 and "==" or "~=").." "..kval(p,ci)
+					elseif n=="CMPPROTO" then
+						return "type("..reg(x.a)..") == \"function\""
 					end
 					return "true"
 				end
@@ -12867,11 +13145,21 @@ Main = (function()
 					if m or type(fn)~="string" then return false end
 					if fn=="type" or fn=="typeof" or fn=="tostring" or fn=="tonumber" then return true end
 					local safeString={["string.byte"]=true,["string.char"]=true,["string.find"]=true,["string.format"]=true,["string.len"]=true,["string.lower"]=true,["string.match"]=true,["string.pack"]=true,["string.packsize"]=true,["string.rep"]=true,["string.reverse"]=true,["string.sub"]=true,["string.unpack"]=true,["string.upper"]=true}
-					if safeString[fn] or fn:match("^bit32%.") then return true end
-					if fn:match("^Vector[23]%.new$") or fn:match("^CFrame%.") or fn:match("^Color3%.") or fn:match("^UDim2?%.") then return true end
-					if fn=="NumberRange.new" or fn=="NumberSequence.new" or fn=="ColorSequence.new" then return true end
+					if safeString[fn] or fn:match("^bit32%.") or fn:match("^buffer%.read") then return true end
+					local root=fn:match("^([%a_][%w_]*)%.")
+					if root and immutableConstructors[root] then return true end
 					if fn:match("^math%.") and fn~="math.random" and fn~="math.randomseed" then return true end
 					return false
+				end
+				local function normalizecall(m,args,call)
+					if m and m.base=="game" and m.name=="GetService" and #args==1 then
+						local svc=args[1]:match('^"([%w_]+)"$')
+						if svc and (next(robloxServices)==nil or robloxServices[svc]) then
+							if svc=="Workspace" then return "workspace" end
+							return 'game:GetService("'..svc..'")'
+						end
+					end
+					return call
 				end
 				local i=1
 				while i<=#p.ins do
@@ -12904,24 +13192,19 @@ Main = (function()
 						continue
 					end
 					local st=structure[x.pc]
-					if type(st)=="table" and st.kind=="lateif" then
-						emit("if "..jumpcond(st.ins).." then")
-						level+=1
-						st=nil
-					end
-					if st=="if" or st=="ifelse" then
-						emit("if "..fallcond(x).." then")
+					if type(st)=="table" and st.kind=="ifcfg" then
+						emit("if "..(st.mode=="jump" and jumpcond(x) or fallcond(x)).." then")
 						level+=1
 						i+=1
 						continue
-					elseif st=="while" then
-						emit("while "..fallcond(x).." do")
+					elseif type(st)=="table" and st.kind=="whilecfg" then
+						emit("while "..(st.mode=="jump" and jumpcond(x) or fallcond(x)).." do")
 						level+=1
 						i+=1
 						continue
-					elseif st=="until" then
+					elseif type(st)=="table" and st.kind=="untilcfg" then
 						level=math.max(1,level-1)
-						emitLevel("until "..fallcond(x),level)
+						emitLevel("until "..(st.mode=="jump" and jumpcond(x) or fallcond(x)),level)
 						i+=1
 						continue
 					end
@@ -12934,6 +13217,7 @@ Main = (function()
 							forceVar[r]=true
 						end
 						top=math.max(top,p.params or 0)
+					elseif vmNoopOps[n] then
 					elseif n=="LOADNIL" then put(x.a,"nil",x.pc,false)
 					elseif n=="LOADB" then put(x.a,x.b~=0 and "true" or "false",x.pc,false)
 					elseif n=="LOADN" then put(x.a,tostring(x.d),x.pc,false)
@@ -13011,7 +13295,7 @@ Main = (function()
 							end
 						end
 						local fn=m and (m.base..":"..m.name) or reg(x.a)
-						local call=fn.."("..table.concat(args,", ")..")"
+						local call=normalizecall(m,args,fn.."("..table.concat(args,", ")..")")
 						method[x.a]=nil
 						if x.c==1 then
 							emit(call)
@@ -13134,6 +13418,7 @@ Main = (function()
 				end
 				local finalpc=#p.words
 				if endAt[finalpc] then for _=1,endAt[finalpc] do level=math.max(1,level-1) emitLevel("end",level) end end
+				while level>1 do level-=1 emitLevel("end",level) end
 				seen[p]=nil
 				local args={}
 				for i=0,p.params-1 do args[#args+1]=names[i] or ("a"..tostring(i+1)) end
@@ -13147,18 +13432,19 @@ Main = (function()
 			end
 			return function(scr)
 				local ok,bc=pcall(getbc,scr)
-				if not ok then error("getscriptbytecode: "..tostring(bc),0) end
-				if type(bc)~="string" or #bc==0 then error("empty bytecode",0) end
+				if not ok then error("["..DECOMPILER_VERSION.."] getscriptbytecode: "..tostring(bc),0) end
+				if type(bc)~="string" or #bc==0 then error("["..DECOMPILER_VERSION.."] empty bytecode",0) end
 				local okMod,mod=pcall(deserialize,bc)
-				if not okMod then error("deserialize: "..tostring(mod),0) end
+				if not okMod then error("["..DECOMPILER_VERSION.."] deserialize: "..tostring(mod),0) end
 				local p=mod.protos[mod.main]
-				if not p then error("main proto missing",0) end
+				if not p then error("["..DECOMPILER_VERSION.."] main proto missing",0) end
 				local okSource,source=pcall(customsource,mod,p,0,{})
-				if not okSource then error("reconstruct: "..tostring(source),0) end
+				if not okSource then error("["..DECOMPILER_VERSION.."] reconstruct: "..tostring(source),0) end
 				return source
 			end
 		end
 		env.decompile = env.getscriptbytecode and makeBytecodeDecompiler(env.getscriptbytecode) or nil
+		pcall(function() getgenv().DEX_CUSTOM_DECOMPILER_VERSION=DECOMPILER_VERSION end)
 		env.isViableDecompileScript = function(obj)
 			if obj:IsA("ModuleScript") then
 				return true
