@@ -12308,6 +12308,92 @@ Main = (function()
 				end
 				return out or "_G"
 			end
+			local function cleanupsource(s)
+				local ls={}
+				for line in (s.."\n"):gmatch("(.-)\n") do ls[#ls+1]=line end
+				local function tr(x)
+					return (x:gsub("^%s+",""):gsub("%s+$",""))
+				end
+				local function dep(x)
+					local p=x:match("^\t*") or ""
+					return #p
+				end
+				local function ifmatch(a)
+					local stacks={}
+					local mt={}
+					for i,line in ipairs(a) do
+						local t=tr(line)
+						local d=dep(line)
+						if t:match("^if%s+.+%s+then$") then
+							stacks[d]=stacks[d] or {}
+							stacks[d][#stacks[d]+1]=i
+						elseif t=="end" then
+							local st=stacks[d]
+							if st and #st>0 then
+								local j=st[#st]
+								st[#st]=nil
+								mt[j]=i
+							end
+						end
+					end
+					return mt
+				end
+				local mt=ifmatch(ls)
+				local del={}
+				local rep={}
+				for i=1,#ls-1 do
+					if tr(ls[i])=="else" then
+						local d=dep(ls[i])
+						local j=i+1
+						while j<=#ls and tr(ls[j])=="" do j+=1 end
+						local t=j<=#ls and tr(ls[j]) or ""
+						if j<=#ls and dep(ls[j])==d+1 and t:match("^if%s+.+%s+then$") then
+							local e=mt[j]
+							if e then
+								local k=e+1
+								while k<=#ls and tr(ls[k])=="" do k+=1 end
+								if k<=#ls and dep(ls[k])==d and tr(ls[k])=="end" then
+									local c=t:match("^if%s+(.+)%s+then$")
+									if c then
+										rep[i]=string.rep("\t",d).."elseif "..c.." then"
+										del[j]=true
+										del[e]=true
+									end
+								end
+							end
+						end
+					end
+				end
+				if next(del) or next(rep) then
+					local n={}
+					for i,line in ipairs(ls) do
+						if not del[i] then n[#n+1]=rep[i] or line end
+					end
+					ls=n
+				end
+				mt=ifmatch(ls)
+				local pref={0}
+				for i,line in ipairs(ls) do
+					local t=tr(line)
+					local control=t=="" or t=="else" or t=="end" or t:match("^if%s+.+%s+then$") or t:match("^elseif%s+.+%s+then$")
+					pref[i]=pref[i-1]+(control and 0 or 1)
+				end
+				local diff={}
+				for a,b in pairs(mt) do
+					if (pref[b-1] or 0)-(pref[a] or 0)==0 then
+						diff[a]=(diff[a] or 0)+1
+						diff[b+1]=(diff[b+1] or 0)-1
+					end
+				end
+				local out={}
+				local active=0
+				for i,line in ipairs(ls) do
+					active+=diff[i] or 0
+					if active==0 then out[#out+1]=line end
+				end
+				while #out>0 and tr(out[#out])=="" do out[#out]=nil end
+				return table.concat(out,"\n")
+			end
 			local function customsource(mod,p,depth,seen,upmap)
 				depth = depth or 0
 				seen = seen or {}
@@ -12621,31 +12707,50 @@ Main = (function()
 						if target==np then
 							skipPc[x.pc]=true
 						elseif target>np then
-							local ti=indexByPc[target]
-							local prev=ti and p.ins[ti-1] or nil
-							if prev and (prev.n=="JUMPBACK" or prev.n=="JUMP" or prev.n=="JUMPX") then
-								local pt=jumptarget(prev)
-								if prev.n=="JUMPBACK" and pt<=x.pc then
-									structure[x.pc]="while"
-									loopRanges[#loopRanges+1]={start=x.pc,finish=target,cont=x.pc}
-									skipPc[prev.pc]=true
-									endAt[target]=(endAt[target] or 0)+1
-									forceRange(x.pc,target)
-								elseif pt>target then
-									structure[x.pc]="ifelse"
-									elseAt[prev.pc]=(elseAt[prev.pc] or 0)+1
-									skipPc[prev.pc]=true
-									endAt[pt]=(endAt[pt] or 0)+1
-									forceRange(x.pc,pt)
+							local handled=false
+							local fall=byPc[np]
+							if fall and (fall.n=="JUMP" or fall.n=="JUMPX" or fall.n=="JUMPBACK") then
+								local ft=jumptarget(fall)
+								if ft==target then
+									skipPc[x.pc]=true
+									skipPc[fall.pc]=true
+									handled=true
+								elseif fall.pc==np and ft>target and fall.n~="JUMPBACK" then
+									structure[target]={kind="lateif",ins=x}
+									skipPc[x.pc]=true
+									skipPc[fall.pc]=true
+									endAt[ft]=(endAt[ft] or 0)+1
+									forceRange(target,ft)
+									handled=true
+								end
+							end
+							if not handled then
+								local ti=indexByPc[target]
+								local prev=ti and p.ins[ti-1] or nil
+								if prev and (prev.n=="JUMPBACK" or prev.n=="JUMP" or prev.n=="JUMPX") then
+									local pt=jumptarget(prev)
+									if prev.n=="JUMPBACK" and pt<=x.pc then
+										structure[x.pc]="while"
+										loopRanges[#loopRanges+1]={start=x.pc,finish=target,cont=x.pc}
+										skipPc[prev.pc]=true
+										endAt[target]=(endAt[target] or 0)+1
+										forceRange(x.pc,target)
+									elseif pt>target then
+										structure[x.pc]="ifelse"
+										elseAt[prev.pc]=(elseAt[prev.pc] or 0)+1
+										skipPc[prev.pc]=true
+										endAt[pt]=(endAt[pt] or 0)+1
+										forceRange(x.pc,pt)
+									else
+										structure[x.pc]="if"
+										endAt[target]=(endAt[target] or 0)+1
+										forceRange(x.pc,target)
+									end
 								else
 									structure[x.pc]="if"
 									endAt[target]=(endAt[target] or 0)+1
 									forceRange(x.pc,target)
 								end
-							else
-								structure[x.pc]="if"
-								endAt[target]=(endAt[target] or 0)+1
-								forceRange(x.pc,target)
 							end
 						elseif target<x.pc then
 							structure[x.pc]="until"
@@ -12799,6 +12904,11 @@ Main = (function()
 						continue
 					end
 					local st=structure[x.pc]
+					if type(st)=="table" and st.kind=="lateif" then
+						emit("if "..jumpcond(st.ins).." then")
+						level+=1
+						st=nil
+					end
 					if st=="if" or st=="ifelse" then
 						emit("if "..fallcond(x).." then")
 						level+=1
@@ -13028,7 +13138,7 @@ Main = (function()
 				local args={}
 				for i=0,p.params-1 do args[#args+1]=names[i] or ("a"..tostring(i+1)) end
 				if p.vararg then args[#args+1]="..." end
-				local bodytext=table.concat(lines,"\n")
+				local bodytext=cleanupsource(table.concat(lines,"\n"))
 				if depth==0 then return bodytext end
 				if bodytext=="" then return "function("..table.concat(args,", ")..") end" end
 				return "function("..table.concat(args,", ")..")\n"..bodytext.."\n"..ind.."end"
