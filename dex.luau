@@ -11925,7 +11925,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V21"
+		local DECOMPILER_VERSION = "V22"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -12771,11 +12771,13 @@ Main = (function()
 						local lead,name=a[i]:match('^(\t*)local%s+([%a_][%w_]*)%s*$')
 						if lead and name then
 							local names={name}
+							local seen={[name]=true}
 							local j=i+1
 							while j<=#a do
 								local l2,n2=a[j]:match('^(\t*)local%s+([%a_][%w_]*)%s*$')
 								if l2~=lead or not n2 then break end
-								names[#names+1]=n2 j+=1
+								if not seen[n2] then names[#names+1]=n2 seen[n2]=true end
+								j+=1
 							end
 							if #names>=2 then
 								table.sort(names,function(x,y)
@@ -14029,15 +14031,54 @@ Main = (function()
 					local baseline={}
 					for i,line in ipairs(final) do baseline[i]=line end
 					if GENV.DEX_SSA_SAFE_PRETTY~=false then
-						final=safesimplify4(final)
-						final=foldbuilders2(final)
-						final=joinlocalassign2(final)
-						final=renameconfig2(final)
-						final=foldbuilders2(final)
-						final=foldrootconfig2(final)
-						final=foldservicechains2(final)
-						final=safesimplify4(final)
-						if not semanticvalid4(final) then final=baseline end
+						local prettyApplied=0
+						local prettyRejected=0
+						local function clone4(a)
+							local o={}
+							for i,line in ipairs(a) do o[i]=line end
+							return o
+						end
+						local function transaction4(pass,a)
+							local ok,cand=pcall(pass,clone4(a))
+							if ok and type(cand)=="table" and semanticvalid4(cand) then
+								prettyApplied+=1
+								return cand
+							end
+							prettyRejected+=1
+							return a
+						end
+						local passes={
+							joinlocalassign2,
+							foldselfchains3,
+							foldsingleusetemps3,
+							foldconditiontemps3,
+							foldbuiltinaliases3,
+							foldfunctionargs3,
+							foldarrayassignments3,
+							simplifygenericfor3,
+							renametableiter3,
+							renameservicevars3,
+							renameinstances4,
+							foldkeymaps4,
+							renamemoduleloops3,
+							foldbuiltinclosures3,
+							foldpcallrequire3,
+							foldaliases,
+							foldbuilders,
+							foldbuilders2,
+							renameconfig2,
+							foldrootconfig2,
+							foldservicechains2,
+							foldservicevars4,
+							prunelocaldecls3,
+							compactlocals,
+						}
+						for _=1,2 do
+							for _,pass in ipairs(passes) do final=transaction4(pass,final) end
+						end
+						if depth==0 then
+							GENV.DEX_LAST_PRETTY={version=DECOMPILER_VERSION,applied=prettyApplied,rejected=prettyRejected,baselineLines=#baseline,finalLines=#final}
+						end
 					else
 						final=joinlocalassign2(final)
 						final=foldselfchains3(final)
@@ -14111,6 +14152,10 @@ Main = (function()
 				local elseAt = {}
 				local repeatAt = {}
 				local forceVar = {}
+				local forceDef = {}
+				local ssaDefs
+				local ssaWriteId
+				local ssaReadAt
 				local loopRanges = {}
 				local pinned = {}
 				local phiRegs = {}
@@ -14137,7 +14182,8 @@ Main = (function()
 					if not s then return nil end
 					if not usedNames[s] then usedNames[s]=1 return s end
 					usedNames[s]+=1
-					return s..tostring(usedNames[s])
+					local sep=s:match("^v%d+$") and "_" or ""
+					return s..sep..tostring(usedNames[s])
 				end
 				local function dbglocal(r,pc)
 					if p.locals then
@@ -14240,8 +14286,14 @@ Main = (function()
 					expr[r]=n
 					return n
 				end
+				local function forcedef(r,pc)
+					if forceVar[r] then return true end
+					local wm=ssaWriteId and ssaWriteId[pc]
+					local id=wm and wm[r]
+					return id and forceDef[id] or false
+				end
 				local function put(r,s,pc,hard)
-					if hard or forceVar[r] or dbgname(r,pc) then return materialize(r,s,pc) end
+					if hard or forcedef(r,pc) or dbgname(r,pc) then return materialize(r,s,pc) end
 					setexpr(r,s)
 					return s
 				end
@@ -15078,14 +15130,15 @@ Main = (function()
 					end
 					return out
 				end
-				local ssaDefs={}
-				local ssaWriteId={}
+				ssaDefs={}
+				ssaWriteId={}
 				local ssaPhiId={}
 				local ssaNext=1
 				local function newSsaDef(reg,pc,op,kind)
 					local id=ssaNext
 					ssaNext+=1
-					ssaDefs[id]={id=id,reg=reg,pc=pc,op=op,kind=kind or "write",uses=0,blocks={},receiver=false,cross=false}
+					local db=pc and pc>=0 and blockOf[pc] or (blockOf[0] or 1)
+					ssaDefs[id]={id=id,reg=reg,pc=pc,op=op,kind=kind or "write",uses=0,blocks={},receiver=false,cross=false,defBlock=db,firstUsePc=nil,lastUsePc=nil}
 					return id
 				end
 				local ssaParam={}
@@ -15156,7 +15209,7 @@ Main = (function()
 					end
 					breathe()
 				end
-				local ssaReadAt={}
+				ssaReadAt={}
 				local ssaMutationOps={SETTABLE=true,SETTABLEKS=true,SETTABLEN=true,SETUDATAKS=true,SETLIST=true,NEWCLASSMEMBER=true}
 				for _,b in ipairs(blocks) do
 					if reachableBlock[b.id] then
@@ -15171,6 +15224,9 @@ Main = (function()
 									if d then
 										d.uses+=1
 										d.blocks[b.id]=true
+										if d.defBlock and d.defBlock~=b.id then d.cross=true end
+										if not d.firstUsePc or y.pc<d.firstUsePc then d.firstUsePc=y.pc end
+										if not d.lastUsePc or y.pc>d.lastUsePc then d.lastUsePc=y.pc end
 										if (y.n=="SETTABLE" or y.n=="SETTABLEKS" or y.n=="SETTABLEN" or y.n=="SETUDATAKS") and r==y.b then d.receiver=true end
 										if y.n=="SETLIST" and r==y.a then d.receiver=true end
 										if y.n=="NAMECALL" or y.n=="NAMECALLUDATA" then if r==y.b then d.receiver=true end end
@@ -15185,13 +15241,19 @@ Main = (function()
 				end
 				local ssaPhiCount=0
 				local ssaReceiverDefs=0
-				for _,pm in pairs(ssaPhiId) do
+				for bid,pm in pairs(ssaPhiId) do
 					for r,id in pairs(pm) do
 						ssaPhiCount+=1
 						phiRegs[r]=true
-						forceVar[r]=true
 						local d=ssaDefs[id]
 						if d then d.cross=true end
+						local b=blocks[bid]
+						if b then
+							for _,pid in ipairs(b.pred) do
+								local incoming=ssaOut[pid] and ssaOut[pid][r]
+								if incoming then forceDef[incoming]=true end
+							end
+						end
 					end
 				end
 				for _,d in pairs(ssaDefs) do
@@ -15200,20 +15262,23 @@ Main = (function()
 					if bc>1 then d.cross=true end
 					if d.receiver then
 						ssaReceiverDefs+=1
-						forceVar[d.reg]=true
+						forceDef[d.id]=true
 					end
-					if d.cross and d.kind~="param" then forceVar[d.reg]=true end
+					if d.cross and d.kind~="param" then forceDef[d.id]=true end
 					if d.uses>1 and (d.op=="CALL" or d.op=="CALLFB" or d.op=="NEWCLOSURE" or d.op=="DUPCLOSURE" or d.op=="NEWTABLE" or d.op=="DUPTABLE" or d.op=="NEWCLASS") then
-						forceVar[d.reg]=true
+						forceDef[d.id]=true
 					end
 				end
 				if depth==0 then
+					local forcedCount=0
+					for _ in pairs(forceDef) do forcedCount+=1 end
 					GENV.DEX_LAST_ANALYSIS={
 						version=DECOMPILER_VERSION,
 						blocks=#blocks,
 						ssaDefs=ssaNext-1,
 						phi=ssaPhiCount,
 						stableReceivers=ssaReceiverDefs,
+						forcedDefs=forcedCount,
 						instructions=#p.ins
 					}
 				end
@@ -15255,15 +15320,9 @@ Main = (function()
 				end
 				local selfRead = {ADD=true,SUB=true,MUL=true,DIV=true,MOD=true,POW=true,AND=true,OR=true,IDIV=true,SUBRK=true,DIVRK=true,ADDK=true,SUBK=true,MULK=true,DIVK=true,MODK=true,POWK=true,ANDK=true,ORK=true,IDIVK=true,NOT=true,MINUS=true,LENGTH=true,GETTABLE=true,GETTABLEKS=true,GETTABLEN=true}
 				for _,x in ipairs(p.ins) do
-					if selfRead[x.n] and (x.a==x.b or x.a==x.c) then forceVar[x.a]=true end
-					if x.n=="SETTABLE" or x.n=="SETTABLEKS" or x.n=="SETTABLEN" or x.n=="SETUDATAKS" then
-						forceVar[x.b]=true
-					elseif x.n=="SETLIST" then
-						forceVar[x.a]=true
-					elseif x.n=="NAMECALL" or x.n=="NAMECALLUDATA" then
-						forceVar[x.b]=true
-					elseif x.n=="NEWCLASSMEMBER" then
-						forceVar[x.a]=true
+					if selfRead[x.n] and (x.a==x.b or x.a==x.c) then
+						local id=ssaWriteId[x.pc] and ssaWriteId[x.pc][x.a]
+						if id and ssaDefs[id] and ssaDefs[id].cross then forceDef[id]=true end
 					end
 				end
 				local boolFold={}
@@ -15527,33 +15586,13 @@ Main = (function()
 				end
 				for _,b in ipairs(blocks) do
 					if reachableBlock[b.id] then
-						local last=b.ins[#b.ins]
-						local fall=last and blockOf[nextpc(last)] or nil
-						local nonFall=false
-						for _,sid in ipairs(b.succ) do if sid~=fall then nonFall=true break end end
-						if #b.succ>1 or nonFall then
-							for r in pairs(liveOut[b.id]) do forceVar[r]=true end
-						end
-						local nonLinearPred=false
-						for _,pid in ipairs(b.pred) do
-							local pb=blocks[pid]
-							local pl=pb and pb.ins[#pb.ins]
-							if not pl or nextpc(pl)~=b.start then nonLinearPred=true break end
-						end
-						if #b.pred>1 or nonLinearPred then
-							for r in pairs(liveIn[b.id]) do
-								forceVar[r]=true
-								if r>=p.params then phiRegs[r]=true end
-							end
+						for r in pairs(liveOut[b.id] or {}) do
+							local id=ssaOut[b.id] and ssaOut[b.id][r]
+							local d=id and ssaDefs[id]
+							if d and d.cross then forceDef[id]=true end
 						end
 					end
 					breathe()
-				end
-				for _,x in ipairs(p.ins) do
-					if cfgcondops[x.n] then
-						forceVar[x.a]=true
-						if x.n=="JUMPIFEQ" or x.n=="JUMPIFLE" or x.n=="JUMPIFLT" or x.n=="JUMPIFNOTEQ" or x.n=="JUMPIFNOTLE" or x.n=="JUMPIFNOTLT" then forceVar[(x.aux or 0)%256]=true end
-					end
 				end
 				for i=0,p.params-1 do
 					local dl=dbglocal(i,0)
@@ -15816,7 +15855,10 @@ Main = (function()
 							multi[x.a]=call
 							top=x.a+1
 						elseif x.c==2 then
-							if purecall(fn,m) and not forceVar[x.a] and not dbgname(x.a,x.pc) then put(x.a,call,x.pc,false) else materialize(x.a,call,x.pc) end
+							local wid=ssaWriteId[x.pc] and ssaWriteId[x.pc][x.a]
+							local wd=wid and ssaDefs[wid]
+							local singleSafe=wd and wd.uses==1 and not wd.cross and not wd.receiver
+							if (purecall(fn,m) or singleSafe) and not forcedef(x.a,x.pc) and not dbgname(x.a,x.pc) then put(x.a,call,x.pc,false) else materialize(x.a,call,x.pc) end
 							top=x.a+1
 						else
 							local regs={}
@@ -16051,6 +16093,7 @@ Main = (function()
 			if GENV.DEX_PRETTY_SEMANTIC_LOCALS==nil then GENV.DEX_PRETTY_SEMANTIC_LOCALS=true end
 			if GENV.DEX_PRETTY_FOLD_CLOSURES==nil then GENV.DEX_PRETTY_FOLD_CLOSURES=true end
 			if GENV.DEX_SSA_SAFE_PRETTY==nil then GENV.DEX_SSA_SAFE_PRETTY=true end
+			if GENV.DEX_DEF_SENSITIVE_RECOVERY==nil then GENV.DEX_DEF_SENSITIVE_RECOVERY=true end
 			if GENV.DEX_STRICT_LVALUE_VALIDATION==nil then GENV.DEX_STRICT_LVALUE_VALIDATION=true end
 			GENV.DEX_DECOMPILE=env.decompile
 			GENV.DEX_GET_BYTECODE=env.getscriptbytecode
