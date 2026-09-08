@@ -11873,13 +11873,15 @@ Main = (function()
 		
 		env.getgc = missing("function", getgc or get_gc_objects)
 		
-		env.getscriptbytecode = missing("function", getscriptbytecode)
+		env.getscriptbytecode = missing("function", getscriptbytecode or get_script_bytecode)
+		env.getscriptclosure = missing("function", getscriptclosure or getscriptfunction or get_script_closure or get_script_function)
+		env.dumpclosurebytecode = missing("function", dumpstring or dumpclosure or (string and string.dump))
 
 		
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V13"
+		local DECOMPILER_VERSION = "V15"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -12548,6 +12550,282 @@ Main = (function()
 					last=t
 				end
 				while #final>0 and tr(final[#final])=="" do final[#final]=nil end
+				local function countword(s,w)
+					local n=0
+					local p="%f[%w_]"..w.."%f[^%w_]"
+					s:gsub(p,function() n+=1 return w end)
+					return n
+				end
+				local function replaceword(s,w,r)
+					return (s:gsub("%f[%w_]"..w.."%f[^%w_]",r))
+				end
+				local function simpleatom(s)
+					s=tr(s)
+					if s:match('^[-+]?%d+%.?%d*[eE]?[-+]?%d*$') or s=="true" or s=="false" or s=="nil" or s=="..." then return true end
+					if s:match('^".*"$') or s:match("^'.*'$") then return true end
+					if s:match('^[%a_][%w_%.]*$') then return true end
+					if s:match('^Enum%.[%w_]+%.[%w_]+$') then return true end
+					return false
+				end
+				local function wrapexpr(s)
+					s=tr(s)
+					return simpleatom(s) and s or ("("..s..")")
+				end
+				local function splitfields(s)
+					local out={}
+					local start=1
+					local dp,db,ds=0,0,0
+					local quote=nil
+					local esc=false
+					for i=1,#s do
+						local c=s:sub(i,i)
+						if quote then
+							if esc then esc=false elseif c=="\\" then esc=true elseif c==quote then quote=nil end
+						else
+							if c=='"' or c=="'" then quote=c
+							elseif c=="(" then dp+=1 elseif c==")" then dp-=1
+							elseif c=="{" then db+=1 elseif c=="}" then db-=1
+							elseif c=="[" then ds+=1 elseif c=="]" then ds-=1
+							elseif c=="," and dp==0 and db==0 and ds==0 then
+								out[#out+1]=tr(s:sub(start,i-1))
+								start=i+1
+							end
+						end
+					end
+					local tail=tr(s:sub(start))
+					if tail~="" then out[#out+1]=tail end
+					return out
+				end
+				local function renderbuilder(lead,target,inside,sets)
+					local fields=splitfields(inside)
+					local order={}
+					local map={}
+					local arr={}
+					for _,f in ipairs(fields) do
+						local k,v=f:match('^([%a_][%w_]*)%s*=%s*(.+)$')
+						if k then
+							if not map[k] then order[#order+1]=k end
+							map[k]=v
+						elseif f~="" then arr[#arr+1]=f end
+					end
+					for _,p in ipairs(sets) do
+						if p.kind=="field" then
+							if not map[p.key] then order[#order+1]=p.key end
+							map[p.key]=p.value
+						elseif p.kind=="index" and type(p.key)=="number" and p.key>=1 and p.key<=#arr+1 then
+							arr[p.key]=p.value
+						else
+							local key=tostring(p.key)
+							if not map[key] then order[#order+1]=key end
+							map[key]=p.value
+						end
+					end
+					local total=#arr+#order
+					if total==0 then return lead..target.." = {}" end
+					local pieces={}
+					for i=1,#arr do pieces[#pieces+1]=arr[i] end
+					for _,k in ipairs(order) do
+						if ident(k) then pieces[#pieces+1]=k.." = "..map[k] else pieces[#pieces+1]="["..k.."] = "..map[k] end
+					end
+					local one=lead..target.." = {"..table.concat(pieces,", ").."}"
+					if #one<=150 and total<=5 then return one end
+					local out={lead..target.." = {"}
+					for _,p in ipairs(pieces) do out[#out+1]=lead.."\t"..p.."," end
+					out[#out+1]=lead.."}"
+					return table.concat(out,"\n")
+				end
+				local function compactlocals(a)
+					local out={}
+					local i=1
+					while i<=#a do
+						local lead,name=a[i]:match('^(\t*)local%s+([%a_][%w_]*)%s*$')
+						if lead and name then
+							local names={name}
+							local j=i+1
+							while j<=#a do
+								local l2,n2=a[j]:match('^(\t*)local%s+([%a_][%w_]*)%s*$')
+								if l2~=lead or not n2 then break end
+								names[#names+1]=n2 j+=1
+							end
+							if #names>=2 then
+								table.sort(names,function(x,y)
+									local nx=tonumber(x:match('^v(%d+)$'))
+									local ny=tonumber(y:match('^v(%d+)$'))
+									if nx and ny then return nx<ny end
+									return x<y
+								end)
+								out[#out+1]=lead.."local "..table.concat(names,", ") i=j
+							else out[#out+1]=a[i] i+=1 end
+						else
+							local l,n=a[i]:match('^(\t*)local%s+([%a_][%w_]*)%s*=%s*nil%s*$')
+							out[#out+1]=(l and n) and (l.."local "..n) or a[i]
+							i+=1
+						end
+					end
+					return out
+				end
+				local function foldaliases(a)
+					for _=1,8 do
+						local changed=false
+						local del={}
+						for i=1,#a-1 do
+							if not del[i] then
+								local lead,loc,var,rhs=a[i]:match('^(\t*)(local%s+)?(v%d+)%s*=%s*(.+)$')
+								if lead and var and dep(a[i+1])==#lead then
+									local t2=tr(a[i+1])
+									local args=t2:match('^'..var..'%s*=%s*'..var..'%((.*)%)$')
+									if args then
+										a[i+1]=lead..(loc or "")..var.." = "..tr(rhs).."("..args..")"
+										del[i]=true changed=true
+									else
+										local lhs=t2:match('^(.+)%s*=%s*'..var..'$')
+										if lhs and not lhs:match('^'..var..'%f[^%w_]') then
+											local safe=false
+											local k=i+2
+											while k<=#a and tr(a[k])=="" do k+=1 end
+											if k>#a then safe=true else
+												local tk=tr(a[k])
+												if dep(a[k])<#lead or tk:match('^'..var..'%s*=') or tk:match('^local%s+'..var..'%s*=') or tk=="end" or tk=="else" or tk:match('^elseif%s+') or tk:match('^return') then safe=true end
+											end
+											if safe then
+												a[i+1]=lead..lhs.." = "..tr(rhs)
+												del[i]=true changed=true
+											end
+										end
+									end
+								end
+							end
+						end
+						if not changed then break end
+						local n={}
+						for i,line in ipairs(a) do if not del[i] then n[#n+1]=line end end
+						a=n
+					end
+					return a
+				end
+				local function foldbuilders(a)
+					for _=1,6 do
+						local changed=false
+						local out={}
+						local i=1
+						while i<=#a do
+							local lead,loc,var,inside=a[i]:match('^(\t*)(local%s+)?(v%d+)%s*=%s*{(.*)}%s*$')
+							if lead and var then
+								local sets={}
+								local j=i+1
+								local target=nil
+								while j<=#a and dep(a[j])==#lead do
+									local t=tr(a[j])
+									local fk,fv=t:match('^'..var..'%.([%a_][%w_]*)%s*=%s*(.+)$')
+									local ik,iv=t:match('^'..var..'%[(%-?%d+)%]%s*=%s*(.+)$')
+									local lhs=t:match('^(.+)%s*=%s*'..var..'$')
+									if fk then sets[#sets+1]={kind="field",key=fk,value=fv}
+									elseif ik then sets[#sets+1]={kind="index",key=tonumber(ik),value=iv}
+									elseif lhs and not lhs:match('^'..var..'%f[^%w_]') then target=lhs break
+									else break end
+									j+=1
+								end
+								if target then
+									local rendered=renderbuilder(lead,target,inside,sets)
+									for line in (rendered.."\n"):gmatch("(.-)\n") do out[#out+1]=line end
+									i=j+1 changed=true
+								else out[#out+1]=a[i] i+=1 end
+							else out[#out+1]=a[i] i+=1 end
+						end
+						a=out
+						if not changed then break end
+					end
+					return a
+				end
+				local function renameconfig(a)
+					local candidate=nil
+					local ci=nil
+					for i,line in ipairs(a) do
+						local lead,var=line:match('^(\t*)local%s+(v%d+)%s*=%s*{}%s*$')
+						if lead and #lead==0 then
+							for j=#a,i+1,-1 do
+								if tr(a[j])=="return "..var then candidate=var ci=i break end
+							end
+						end
+						if candidate then break end
+					end
+					if not candidate then return a end
+					local bad=false
+					for i,line in ipairs(a) do
+						if i~=ci and countword(line,candidate)>0 then
+							local t=tr(line)
+							if t~="return "..candidate and not t:match('^'..candidate..'%.[%a_][%w_]*%s*=') and not t:match('^'..candidate..'%[.+%]%s*=') then bad=true break end
+						end
+					end
+					if bad then return a end
+					for i,line in ipairs(a) do a[i]=replaceword(line,candidate,"config") end
+					return a
+				end
+				local function bracechange(s)
+					local d=0
+					local quote=nil
+					local esc=false
+					for i=1,#s do
+						local c=s:sub(i,i)
+						if quote then
+							if esc then esc=false elseif c=="\\" then esc=true elseif c==quote then quote=nil end
+						else
+							if c=='"' or c=="'" then quote=c elseif c=="{" then d+=1 elseif c=="}" then d-=1 end
+						end
+					end
+					return d
+				end
+				local function foldconfigtable(a)
+					local si,ei
+					for i,line in ipairs(a) do if tr(line)=="local config = {}" and dep(line)==0 then si=i break end end
+					if not si then return a end
+					for i=#a,si+1,-1 do if tr(a[i])=="return config" and dep(a[i])==0 then ei=i break end end
+					if not ei then return a end
+					local fields={}
+					local i=si+1
+					while i<ei do
+						if tr(a[i])=="" then i+=1 continue end
+						if dep(a[i])~=0 then return a end
+						local key,rhs=tr(a[i]):match('^config%.([%a_][%w_]*)%s*=%s*(.+)$')
+						if not key or countword(rhs,"config")>0 then return a end
+						local block={rhs}
+						local bal=bracechange(rhs)
+						local j=i+1
+						while bal>0 and j<ei do
+							block[#block+1]=a[j]
+							bal+=bracechange(a[j])
+							j+=1
+						end
+						if bal~=0 then return a end
+						fields[#fields+1]={key=key,block=block}
+						i=j
+					end
+					if #fields<4 then return a end
+					local repl={"local config = {"}
+					for _,f in ipairs(fields) do
+						if #f.block==1 then
+							repl[#repl+1]="\t"..f.key.." = "..tr(f.block[1])..","
+						else
+							repl[#repl+1]="\t"..f.key.." = "..tr(f.block[1])
+							for k=2,#f.block-1 do repl[#repl+1]="\t"..f.block[k] end
+							repl[#repl+1]="\t"..tr(f.block[#f.block])..","
+						end
+					end
+					repl[#repl+1]="}"
+					local out={}
+					for k=1,si-1 do out[#out+1]=a[k] end
+					for _,line in ipairs(repl) do out[#out+1]=line end
+					out[#out+1]="return config"
+					for k=ei+1,#a do out[#out+1]=a[k] end
+					return out
+				end
+				final=compactlocals(final)
+				final=foldaliases(final)
+				final=foldbuilders(final)
+				final=foldaliases(final)
+				final=compactlocals(final)
+				final=renameconfig(final)
+				final=foldconfigtable(final)
 				return table.concat(final,"\n")
 			end
 			local function validstructure(s)
@@ -13883,12 +14161,71 @@ Main = (function()
 				if bodytext=="" then return "function("..table.concat(args,", ")..") end" end
 				return "function("..table.concat(args,", ")..")\n"..bodytext.."\n"..ind.."end"
 			end
+			local function validLuauBytecode(bc)
+				if type(bc)~="string" or #bc<2 then return false end
+				local v=string.byte(bc,1)
+				return (v and v>=3 and v<=14) or v==100
+			end
+			local function scriptRunContext(scr)
+				local ok,rc=pcall(function() return scr.RunContext end)
+				return ok and rc or nil
+			end
+			local function serverOnlyScript(scr)
+				if not scr or not scr.IsA or not scr:IsA("Script") then return false end
+				local rc=scriptRunContext(scr)
+				return rc~=Enum.RunContext.Client
+			end
+			local function unavailableSource(scr,details)
+				local rc=scriptRunContext(scr)
+				local rcname=rc and tostring(rc) or "unknown"
+				local name="unknown"
+				pcall(function() name=scr:GetFullName() end)
+				local out={
+					"-- ["..DECOMPILER_VERSION.."] bytecode unavailable",
+					"-- Script: "..tostring(name),
+					"-- Class: "..tostring(scr and scr.ClassName or "unknown"),
+					"-- RunContext: "..rcname,
+					"-- This server-side Script has no client-visible Luau bytecode.",
+					"-- The decompiler can only reconstruct bytecode that the client/executor can actually retrieve."
+				}
+				if details and details~="" then out[#out+1]="-- Acquisition: "..details end
+				return table.concat(out,"\n")
+			end
+			local function acquireBytecode(scr)
+				local notes={}
+				if type(getbc)=="function" then
+					local ok,bc=pcall(getbc,scr)
+					if ok and validLuauBytecode(bc) then return bc,"getscriptbytecode" end
+					if ok then
+						if type(bc)=="string" then notes[#notes+1]="getscriptbytecode returned "..tostring(#bc).." bytes" else notes[#notes+1]="getscriptbytecode returned "..type(bc) end
+					else
+						notes[#notes+1]="getscriptbytecode failed: "..tostring(bc)
+					end
+				end
+				local getcl=env.getscriptclosure
+				local dumpcl=env.dumpclosurebytecode
+				if type(getcl)=="function" and type(dumpcl)=="function" then
+					local okc,cl=pcall(getcl,scr)
+					if okc and type(cl)=="function" then
+						local okd,dbc=pcall(dumpcl,cl)
+						if okd and validLuauBytecode(dbc) then return dbc,"script closure dump" end
+						if okd then notes[#notes+1]="closure dump returned non-Luau data" else notes[#notes+1]="closure dump failed: "..tostring(dbc) end
+					elseif okc then
+						notes[#notes+1]="script closure unavailable"
+					else
+						notes[#notes+1]="script closure failed: "..tostring(cl)
+					end
+				end
+				return nil,table.concat(notes,"; ")
+			end
 			return function(scr)
-				local ok,bc=pcall(getbc,scr)
-				if not ok then error("["..DECOMPILER_VERSION.."] getscriptbytecode: "..tostring(bc),0) end
-				if type(bc)~="string" or #bc==0 then error("["..DECOMPILER_VERSION.."] empty bytecode",0) end
+				local bc,how=acquireBytecode(scr)
+				if not bc then
+					if serverOnlyScript(scr) then return unavailableSource(scr,how) end
+					error("["..DECOMPILER_VERSION.."] bytecode acquisition failed: "..tostring(how),0)
+				end
 				local okMod,mod=pcall(deserialize,bc)
-				if not okMod then error("["..DECOMPILER_VERSION.."] deserialize: "..tostring(mod),0) end
+				if not okMod then error("["..DECOMPILER_VERSION.."] deserialize ("..tostring(how).."): "..tostring(mod),0) end
 				local p=mod.protos[mod.main]
 				if not p then error("["..DECOMPILER_VERSION.."] main proto missing",0) end
 				local okSource,source=pcall(customsource,mod,p,0,{})
@@ -13896,7 +14233,7 @@ Main = (function()
 				return source
 			end
 		end
-		env.decompile = env.getscriptbytecode and makeBytecodeDecompiler(env.getscriptbytecode) or nil
+		env.decompile = (env.getscriptbytecode or (env.getscriptclosure and env.dumpclosurebytecode)) and makeBytecodeDecompiler(env.getscriptbytecode) or nil
 		pcall(function() getgenv().DEX_CUSTOM_DECOMPILER_VERSION=DECOMPILER_VERSION end)
 		env.isViableDecompileScript = function(obj)
 			if obj:IsA("ModuleScript") then
