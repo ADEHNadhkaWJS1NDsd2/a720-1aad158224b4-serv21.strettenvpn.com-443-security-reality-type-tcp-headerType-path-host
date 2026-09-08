@@ -42,10 +42,12 @@ local function dexCacheBust(url)
 end
 local DEX_SOURCE_URL = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2/a720-1aad158224b4-serv21.strettenvpn.com-443-security-reality-type-tcp-headerType-path-host/refs/heads/main/dex.luau"
 GENV.DEX_SOURCE_URL = GENV.DEX_SOURCE_URL or DEX_SOURCE_URL
-GENV.DEX_BUILD_ID = "V17_"..dexCacheToken()
+GENV.DEX_BUILD_ID = "V18_"..dexCacheToken()
 GENV.DEX_PRETTY_MODE = GENV.DEX_PRETTY_MODE or "aggressive"
 GENV.DEX_PRETTY_INLINE_FIELDS = GENV.DEX_PRETTY_INLINE_FIELDS or 5
 GENV.DEX_PRETTY_INLINE_WIDTH = GENV.DEX_PRETTY_INLINE_WIDTH or 140
+GENV.DEX_PRETTY_MAX_INDENT = GENV.DEX_PRETTY_MAX_INDENT or 10
+if GENV.DEX_PRETTY_CANONICAL_INDENT == nil then GENV.DEX_PRETTY_CANONICAL_INDENT = true end
 if GENV.DEX_PRETTY_FLOATS == nil then GENV.DEX_PRETTY_FLOATS = true end
 GENV.DEX_CACHE_BUST = dexCacheBust
 GENV.DEX_HTTPGET = function(url)
@@ -11919,7 +11921,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V17"
+		local DECOMPILER_VERSION = "V18"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -12410,6 +12412,92 @@ Main = (function()
 					out = out and prop(out,s) or (ident(s) and s or ("_G["..q(s).."]"))
 				end
 				return out or "_G"
+			end
+			local function canonicalindent_source(s)
+				if GENV.DEX_PRETTY_CANONICAL_INDENT == false then return s end
+				local maxindent=tonumber(GENV.DEX_PRETTY_MAX_INDENT) or 10
+				if maxindent<1 then maxindent=1 end
+				local out={}
+				local blockdepth=0
+				local tabledepth=0
+				local function trimline(x)
+					return (x:gsub("^%s+",""):gsub("%s+$",""))
+				end
+				local function bracedelta(x)
+					local d=0
+					local q=nil
+					local esc=false
+					local i=1
+					while i<=#x do
+						local c=x:sub(i,i)
+						if q then
+							if esc then
+								esc=false
+							elseif c=="\\" then
+								esc=true
+							elseif c==q then
+								q=nil
+							end
+						else
+							if c=='"' or c=="'" or c=="`" then
+								q=c
+							elseif c=="{" then
+								d+=1
+							elseif c=="}" then
+								d-=1
+							end
+						end
+						i+=1
+					end
+					return d
+				end
+				local function leadingcloses(x)
+					local n=0
+					for i=1,#x do
+						if x:sub(i,i)=="}" then n+=1 else break end
+					end
+					return n
+				end
+				local function ismid(x)
+					return x=="else" or x:match("^elseif%s+.+%s+then[,;]?$")~=nil
+				end
+				local function isclose(x)
+					return x:match("^end[,;]?$")~=nil or x:match("^until%s+.+[,;]?$")~=nil
+				end
+				local function opens(x)
+					if x:match("^if%s+.+%s+then$") then return true end
+					if x:match("^while%s+.+%s+do$") then return true end
+					if x:match("^for%s+.+%s+do$") then return true end
+					if x=="repeat" or x=="do" then return true end
+					if x:match("^local%s+function%s+") or x:match("^function%s+") then return true end
+					if x:find("=%s*function%s*%(") or x:match("^return%s+function%s*%(") then
+						if not x:match("function%s*%b()%s*end%s*[,;]?$") then return true end
+					end
+					return false
+				end
+				for raw in (s.."\n"):gmatch("(.-)\n") do
+					local t=trimline(raw)
+					if t=="" then
+						out[#out+1]=""
+					else
+						local mid=ismid(t)
+						local close=isclose(t)
+						local preblock=(mid or close) and 1 or 0
+						local pretable=leadingcloses(t)
+						local logical=blockdepth-preblock+tabledepth-pretable
+						if logical<0 then logical=0 end
+						local visual=math.min(logical,maxindent)
+						out[#out+1]=string.rep("\t",visual)..t
+						tabledepth=math.max(0,tabledepth+bracedelta(t))
+						if close then
+							blockdepth=math.max(0,blockdepth-1)
+						elseif not mid and opens(t) then
+							blockdepth+=1
+						end
+					end
+				end
+				while #out>0 and out[#out]=="" do out[#out]=nil end
+				return table.concat(out,"\n")
 			end
 			local function cleanupsource(s)
 				local ls={}
@@ -13236,7 +13324,8 @@ Main = (function()
 					final=foldreceiveraliases2(final)
 				end
 				final=compactlocals(final)
-				return table.concat(final,"\n")
+				local text=table.concat(final,"\n")
+				return canonicalindent_source(text)
 			end
 			local function validstructure(s)
 				local stack={}
@@ -14567,6 +14656,7 @@ Main = (function()
 					end
 					bodytext=table.concat(safe,"\n")
 				end
+				if validstructure(bodytext) then bodytext=canonicalindent_source(bodytext) end
 				if depth==0 and not exprMode then return bodytext end
 				if bodytext=="" then return "function("..table.concat(args,", ")..") end" end
 				return "function("..table.concat(args,", ")..")\n"..bodytext.."\n"..ind.."end"
