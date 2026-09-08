@@ -11,11 +11,54 @@ local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Di
 Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Easing="Quad",TextSize=13,CompactPanel=true,KeepWatermarkOpen=true}
 Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=true}
 Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}
-Library.ThemePresets = {RGB
-    Atramenta={Accent=Color3.fromRGB(150,120,150),Background=Color3.fromRGB(8,8,8),Surface=Color3.fromRGB(0,0,0),Control=Color3.fromRGB(12,11,12),Border=Color3.fromRGB(56,52,56),Text=Color3.from(140,130,140),TextBright=Color3.fromRGB(197,197,197),TextDim=Color3.fromRGB(77,72,77),Header=Color3.fromRGB(127,115,127)},
-    Bankroll={Accent=Color3.fromRGB(123,98,145),Background=Color3.fromRGB(6,6,7),Surface=Color3.fromRGB(1,1,2),Control=Color3.fromRGB(15,14,17),Border=Color3.fromRGB(51,47,56),Text=Color3.fromRGB(151,145,156),TextBright=Color3.fromRGB(215,213,217),TextDim=Color3.fromRGB(77,73,82),Header=Color3.fromRGB(132,122,140)},
-    Midnight={Accent=Color3.fromRGB(90,112,170),Background=Color3.fromRGB(6,7,11),Surface=Color3.fromRGB(3,4,7),Control=Color3.fromRGB(12,14,21),Border=Color3.fromRGB(42,47,62),Text=Color3.fromRGB(139,145,160),TextBright=Color3.fromRGB(211,216,228),TextDim=Color3.fromRGB(70,75,88),Header=Color3.fromRGB(116,126,151)},
-    Crimson={Accent=Color3.fromRGB(169,72,87),Background=Color3.fromRGB(9,6,7),Surface=Color3.fromRGB(3,2,2),Control=Color3.fromRGB(18,11,13),Border=Color3.fromRGB(59,40,44),Text=Color3.fromRGB(153,137,140),TextBright=Color3.fromRGB(221,210,212),TextDim=Color3.fromRGB(83,68,71),Header=Color3.fromRGB(147,115,121)}
+Library.ThemePresets = {}
+
+Library.ThemePresets["Atramenta"] = {
+    Accent = Color3.fromRGB(150, 120, 150),
+    Background = Color3.fromRGB(8, 8, 8),
+    Surface = Color3.fromRGB(0, 0, 0),
+    Control = Color3.fromRGB(12, 11, 12),
+    Border = Color3.fromRGB(56, 52, 56),
+    Text = Color3.fromRGB(140, 130, 140),
+    TextBright = Color3.fromRGB(197, 197, 197),
+    TextDim = Color3.fromRGB(77, 72, 77),
+    Header = Color3.fromRGB(127, 115, 127)
+}
+
+Library.ThemePresets["Bankroll"] = {
+    Accent = Color3.fromRGB(123, 98, 145),
+    Background = Color3.fromRGB(6, 6, 7),
+    Surface = Color3.fromRGB(1, 1, 2),
+    Control = Color3.fromRGB(15, 14, 17),
+    Border = Color3.fromRGB(51, 47, 56),
+    Text = Color3.fromRGB(151, 145, 156),
+    TextBright = Color3.fromRGB(215, 213, 217),
+    TextDim = Color3.fromRGB(77, 73, 82),
+    Header = Color3.fromRGB(132, 122, 140)
+}
+
+Library.ThemePresets["Midnight"] = {
+    Accent = Color3.fromRGB(90, 112, 170),
+    Background = Color3.fromRGB(6, 7, 11),
+    Surface = Color3.fromRGB(3, 4, 7),
+    Control = Color3.fromRGB(12, 14, 21),
+    Border = Color3.fromRGB(42, 47, 62),
+    Text = Color3.fromRGB(139, 145, 160),
+    TextBright = Color3.fromRGB(211, 216, 228),
+    TextDim = Color3.fromRGB(70, 75, 88),
+    Header = Color3.fromRGB(116, 126, 151)
+}
+
+Library.ThemePresets["Crimson"] = {
+    Accent = Color3.fromRGB(169, 72, 87),
+    Background = Color3.fromRGB(9, 6, 7),
+    Surface = Color3.fromRGB(3, 2, 2),
+    Control = Color3.fromRGB(18, 11, 13),
+    Border = Color3.fromRGB(59, 40, 44),
+    Text = Color3.fromRGB(153, 137, 140),
+    TextBright = Color3.fromRGB(221, 210, 212),
+    TextDim = Color3.fromRGB(83, 68, 71),
+    Header = Color3.fromRGB(147, 115, 121)
 }
 
 local function Call(Function, ...)
