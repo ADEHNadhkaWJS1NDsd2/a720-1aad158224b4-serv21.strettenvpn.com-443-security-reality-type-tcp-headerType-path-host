@@ -11925,7 +11925,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V19"
+		local DECOMPILER_VERSION = "V20"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -13309,6 +13309,391 @@ Main = (function()
 					end
 					return out
 				end
+
+				local function controlhead3(t)
+					return t:match('^if%s+.+%s+then$') or t:match('^elseif%s+.+%s+then$') or t=='else' or t=='end' or t:match('^while%s+.+%s+do$') or t:match('^for%s+.+%s+do$') or t=='repeat' or t:match('^until%s+') or t=='do' or t:match('^return%f[^%w_]') or t=='return' or t=='break' or t=='continue'
+				end
+				local function purealias3(rhs)
+					rhs=tr(rhs)
+					if simpleatom(rhs) then return true end
+					if rhs:match('^[%a_][%w_]*([%.][%a_][%w_]*)+$') then return true end
+					if rhs:match('^[%a_][%w_]*%[[^%]]+%]$') then return true end
+					if rhs:match('^Enum%.[%w_]+%.[%w_]+$') then return true end
+					return false
+				end
+				local function parseassign3(line)
+					local lead,loc,var,rhs=line:match('^(\t*)(local%s+)(v%d+)%s*=%s*(.+)$')
+					if lead then return lead,true,var,rhs end
+					lead,var,rhs=line:match('^(\t*)(v%d+)%s*=%s*(.+)$')
+					if lead then return lead,false,var,rhs end
+					return nil
+				end
+				local function foldselfchains3(a)
+					for _=1,24 do
+						local changed=false
+						local del={}
+						for i=1,#a-1 do
+							if not del[i] then
+								local lead,islocal,var,rhs=parseassign3(a[i])
+								if lead and dep(a[i+1])==#lead then
+									local t=tr(a[i+1])
+									local field=t:match('^'..var..'%s*=%s*'..var..'%.([%a_][%w_]*)$')
+									local idx=t:match('^'..var..'%s*=%s*'..var..'%[([^%]]+)%]$')
+									local meth,args=t:match('^'..var..'%s*=%s*'..var..':([%a_][%w_]*)%((.*)%)$')
+									local callargs=t:match('^'..var..'%s*=%s*'..var..'%((.*)%)$')
+									local stmtmeth,stmtargs=t:match('^'..var..':([%a_][%w_]*)%((.*)%)$')
+									if field then
+										a[i]=lead..(islocal and 'local ' or '')..var..' = '..tr(rhs)..'.'..field
+										del[i+1]=true changed=true
+									elseif idx then
+										a[i]=lead..(islocal and 'local ' or '')..var..' = '..tr(rhs)..'['..idx..']'
+										del[i+1]=true changed=true
+									elseif meth then
+										a[i]=lead..(islocal and 'local ' or '')..var..' = '..tr(rhs)..':'..meth..'('..args..')'
+										del[i+1]=true changed=true
+									elseif callargs then
+										a[i]=lead..(islocal and 'local ' or '')..var..' = '..tr(rhs)..'('..callargs..')'
+										del[i+1]=true changed=true
+									elseif stmtmeth and purealias3(rhs) then
+										a[i+1]=lead..tr(rhs)..':'..stmtmeth..'('..stmtargs..')'
+										del[i]=true changed=true
+									end
+								end
+							end
+						end
+						if not changed then break end
+						local n={}
+						for i,line in ipairs(a) do if not del[i] then n[#n+1]=line end end
+						a=n
+					end
+					return a
+				end
+				local function foldsingleusetemps3(a)
+					for _=1,24 do
+						local changed=false
+						local del={}
+						for i=1,#a do
+							local lead,islocal,var,rhs=parseassign3(a[i])
+							if lead and purealias3(rhs) then
+								local base=#lead
+								local usei=nil
+								local uses=0
+								local safe=true
+								for j=i+1,#a do
+									local d=dep(a[j])
+									if d<base then break end
+									if d==base then
+										local t=tr(a[j])
+										local _,_,av=parseassign3(a[j])
+										if av==var then break end
+										if controlhead3(t) and countword(t,var)==0 then break end
+										local c=countword(t,var)
+										if c>0 then uses+=c usei=j if uses>1 then break end end
+										if c==0 and t~='' then
+											local _,_,ov,orhs=parseassign3(a[j])
+											if not (ov and orhs and purealias3(orhs)) and not t:match('^local%s+[%w_,%s]+$') then safe=false break end
+										end
+									end
+								end
+								if safe and uses==1 and usei then
+									local t=tr(a[usei])
+									local lhs=t:match('^'..var..'%s*=') or t:match('^local%s+'..var..'%s*=')
+									if not lhs then
+										a[usei]=replaceword(a[usei],var,wrapexpr(rhs))
+										del[i]=true changed=true
+									end
+								end
+							end
+						end
+						if not changed then break end
+						local n={}
+						for i,line in ipairs(a) do if not del[i] then n[#n+1]=line end end
+						a=n
+					end
+					return a
+				end
+				local function foldconditiontemps3(a)
+					local del={}
+					for i=1,#a-1 do
+						local lead,islocal,var,rhs=parseassign3(a[i])
+						if lead then
+							local j=i+1
+							while j<=#a and tr(a[j])=='' do j+=1 end
+							if j<=#a and dep(a[j])==#lead then
+								local t=tr(a[j])
+								local cond=t:match('^if%s+(.+)%s+then$') or t:match('^elseif%s+(.+)%s+then$')
+								if cond and countword(cond,var)==1 then
+									a[j]=replaceword(a[j],var,wrapexpr(rhs))
+									del[i]=true
+								end
+							end
+						end
+					end
+					if next(del) then
+						local n={}
+						for i,line in ipairs(a) do if not del[i] then n[#n+1]=line end end
+						return n
+					end
+					return a
+				end
+				local function builtinref3(rhs)
+					rhs=tr(rhs)
+					if rhs=='require' or rhs=='pcall' or rhs=='warn' or rhs=='print' or rhs=='assert' or rhs=='error' or rhs=='type' or rhs=='typeof' then return true end
+					if rhs:match('^task%.[%a_][%w_]*$') or rhs:match('^table%.[%a_][%w_]*$') or rhs:match('^string%.[%a_][%w_]*$') or rhs:match('^math%.[%a_][%w_]*$') or rhs:match('^bit32%.[%a_][%w_]*$') then return true end
+					if rhs:match('^CFrame%.[%a_][%w_]*$') or rhs:match('^Vector[23]%.[%a_][%w_]*$') or rhs:match('^Color3%.[%a_][%w_]*$') then return true end
+					return false
+				end
+				local function foldbuiltinaliases3(a)
+					for _=1,12 do
+						local changed=false
+						local del={}
+						for i=1,#a do
+							local lead,islocal,var,rhs=parseassign3(a[i])
+							if lead and builtinref3(rhs) then
+								local base=#lead
+								local usei=nil
+								local uses=0
+								for j=i+1,#a do
+									local d=dep(a[j])
+									if d<base then break end
+									local t=tr(a[j])
+									if d==base then
+										local _,_,av=parseassign3(a[j])
+										if av==var then break end
+									end
+									local c=countword(t,var)
+									if c>0 then uses+=c usei=j if uses>1 then break end end
+								end
+								if uses==1 and usei then
+									local t=tr(a[usei])
+									if t:match('^'..var..'%s*%(') then
+										a[usei]=a[usei]:gsub('%f[%w_]'..var..'%f[^%w_]',tr(rhs),1)
+										del[i]=true changed=true
+									end
+								end
+							end
+						end
+						if not changed then break end
+						local n={}
+						for i,line in ipairs(a) do if not del[i] then n[#n+1]=line end end
+						a=n
+					end
+					return a
+				end
+				local function foldfunctionargs3(a)
+					local i=1
+					while i<=#a do
+						local lead,islocal,var,rhs=parseassign3(a[i])
+						local args=rhs and tr(rhs):match('^function%s*(%b())%s*$')
+						if lead and var and args then
+							local base=#lead
+							local j=i+1
+							while j<=#a do
+								if dep(a[j])==base and tr(a[j])=='end' then break end
+								j+=1
+							end
+							if j<=#a then
+								local k=j+1
+								while k<=#a and tr(a[k])=='' do k+=1 end
+								if k<=#a and dep(a[k])==base and countword(a[k],var)==1 then
+									local callee=tr(a[k]):match('^([%a_][%w_%.:]*)%('..var..'%)$')
+									if callee and countword(table.concat(a,'\n',i+1,j-1),var)==0 then
+										a[i]=lead..callee..'(function'..args
+										a[j]=lead..'end)'
+										table.remove(a,k)
+										i=j+1
+										continue
+									end
+								end
+							end
+						end
+						i+=1
+					end
+					return a
+				end
+				local function foldarrayassignments3(a)
+					local out={}
+					local i=1
+					while i<=#a do
+						local lead,islocal,var,rhs=parseassign3(a[i])
+						if lead and var and tr(rhs)=='{}' then
+							local vals={}
+							local j=i+1
+							local want=1
+							while j<=#a and dep(a[j])==#lead do
+								local idx,val=tr(a[j]):match('^'..var..'%[(%d+)%]%s*=%s*(.+)$')
+								if tonumber(idx)~=want or not val then break end
+								vals[#vals+1]=val want+=1 j+=1
+							end
+							if #vals>=2 then
+								local expr='{'..table.concat(vals,', ')..'}'
+								out[#out+1]=lead..(islocal and 'local ' or '')..var..' = '..formatvalue2(expr,lead)
+								i=j
+							else out[#out+1]=a[i] i+=1 end
+						else out[#out+1]=a[i] i+=1 end
+					end
+					return out
+				end
+				local function simplifygenericfor3(a)
+					for i,line in ipairs(a) do
+						local lead,vars,iter=line:match('^(\t*)for%s+(.+)%s+in%s+(.+),%s*nil,%s*nil%s+do%s*$')
+						if lead then a[i]=lead..'for '..vars..' in '..iter..' do' end
+					end
+					return a
+				end
+				local function renameservicevars3(a)
+					if GENV.DEX_PRETTY_SEMANTIC_LOCALS==false then return a end
+					local usedText=table.concat(a,'\n')
+					for i,line in ipairs(a) do
+						local lead,islocal,var,rhs=parseassign3(line)
+						local svc=rhs and tr(rhs):match('^game:GetService%(["\']([%w_]+)["\']%)$')
+						if lead and var and svc then
+							local name=svc=='Workspace' and 'workspace' or svc
+							if ident(name) and (name==svc or name=='workspace') then
+								local base=#lead
+								a[i]=lead..'local '..name..' = '..tr(rhs)
+								local shadow=nil
+								for j=i+1,#a do
+									local d=dep(a[j])
+									if d<base then break end
+									if shadow and d<=shadow then shadow=nil end
+									local t=tr(a[j])
+									if d==base then
+										local _,_,av=parseassign3(a[j])
+										if av==var then break end
+									end
+									if d>base and t:match('^local%s+[^=]*%f[%w_]'..var..'%f[^%w_]') then shadow=d end
+									if not shadow then a[j]=replaceword(a[j],var,name) end
+								end
+							end
+						end
+					end
+					return a
+				end
+
+				local function renametableiter3(a)
+					if GENV.DEX_PRETTY_SEMANTIC_LOCALS==false then return a end
+					local wholeText=table.concat(a,'\n')
+					local usedModules=countword(wholeText,'modules')>0
+					local name=usedModules and 'moduleList' or 'modules'
+					for i,line in ipairs(a) do
+						local lead,islocal,var,rhs=parseassign3(line)
+						if lead and var and rhs and tr(rhs):sub(1,1)=='{' then
+							local expr,ie=collectrhs2(a,i,rhs)
+							if expr then
+								local j=ie+1
+								while j<=#a and tr(a[j])=='' do j+=1 end
+								if j<=#a and dep(a[j])==#lead then
+									local vars,iter=tr(a[j]):match('^for%s+(.+)%s+in%s+(.+)%s+do$')
+									if vars and iter and countword(iter,var)==1 then
+										local k=j+1
+										while k<=#a and not (dep(a[k])==#lead and tr(a[k])=='end') do k+=1 end
+										local body=k<=#a and table.concat(a,'\n',j+1,k-1) or ''
+										if body:find('require',1,true) or expr:find('.Client',1,true) or expr:find('.Shared',1,true) then
+											a[i]=lead..'local '..name..' = '..rhs
+											for q=i+1,math.min(k,#a) do a[q]=replaceword(a[q],var,name) end
+											return a
+										end
+									end
+								end
+							end
+						end
+					end
+					return a
+				end
+				local function foldbuiltinclosures3(a)
+					local i=1
+					while i<=#a do
+						local lead,islocal,var,rhs=parseassign3(a[i])
+						if lead and var and (tr(rhs)=='task.spawn' or tr(rhs)=='task.defer') then
+							local base=#lead
+							local j=i+1
+							while j<=#a and dep(a[j])>base do j+=1 end
+							if j<=#a and dep(a[j])==base and tr(a[j]):match('^'..var..'%s*%(%s*function%s*%(') then
+								local start=j
+								local k=j+1
+								while k<=#a and not (dep(a[k])==base and tr(a[k])=='end)') do k+=1 end
+								if k<=#a then
+									local shadow=false
+									local unsafe=false
+									for q=start+1,k-1 do
+										local tq=tr(a[q])
+										if dep(a[q])==base+1 and tq:match('^local%s+[^=]*%f[%w_]'..var..'%f[^%w_]') then shadow=true end
+										if countword(tq,var)>0 and not shadow then unsafe=true break end
+									end
+									if not unsafe then
+										a[j]=a[j]:gsub('%f[%w_]'..var..'%f[^%w_]',tr(rhs),1)
+										table.remove(a,i)
+										continue
+									end
+								end
+							end
+						end
+						i+=1
+					end
+					return a
+				end
+				local function renamemoduleloops3(a)
+					if GENV.DEX_PRETTY_SEMANTIC_LOCALS==false then return a end
+					for i,line in ipairs(a) do
+						local lead,var1,var2,iter=line:match('^(\t*)for%s+([%a_][%w_]*),%s*([%a_][%w_]*)%s+in%s+(.+)%s+do%s*$')
+						if lead then
+							local base=#lead
+							local j=i+1
+							while j<=#a and not (dep(a[j])==base and tr(a[j])=='end') do j+=1 end
+							if j<=#a then
+								local body=table.concat(a,'\n',i+1,j-1)
+								local n1=countword(body,var1)
+								local moduleish=body:match('require%s*%(%s*'..var2..'%s*%)') or body:match('pcall%s*%(%s*require%s*,%s*'..var2..'%s*%)') or body:match(var2..':GetFullName%s*%(')
+								local new1=n1==0 and '_' or var1
+								local new2=moduleish and 'module' or var2
+								if new2~=var2 then
+									for k=i+1,j-1 do a[k]=replaceword(a[k],var2,new2) end
+								end
+								if new1~=var1 or new2~=var2 then a[i]=lead..'for '..new1..', '..new2..' in '..iter..' do' end
+							end
+						end
+					end
+					return a
+				end
+				local function foldpcallrequire3(a)
+					for i=1,#a-2 do
+						local l0,loc0,v0,r0=parseassign3(a[i])
+						local l1,loc1,v1,r1=parseassign3(a[i+1])
+						if l0 and l1==l0 and tr(r0)=='pcall' and tr(r1)=='require' then
+							local t=tr(a[i+2])
+							local arg=t:match('^'..v0..'%s*,%s*'..v1..'%s*=%s*'..v0..'%s*%(%s*'..v1..'%s*,%s*(.+)%)$')
+							if arg then
+								a[i]=l0..'local success, result = pcall(require, '..arg..')'
+								table.remove(a,i+2) table.remove(a,i+1)
+								local base=#l0
+								for j=i+1,#a do
+									if dep(a[j])<base then break end
+									a[j]=replaceword(a[j],v0,'success')
+									a[j]=replaceword(a[j],v1,'result')
+								end
+								return a
+							end
+						end
+					end
+					return a
+				end
+				local function prunelocaldecls3(a)
+					local text=table.concat(a,'\n')
+					local out={}
+					for i,line in ipairs(a) do
+						local lead,namestr=line:match('^(\t*)local%s+([%a_][%w_]*(%s*,%s*[%a_][%w_]*)+)%s*$')
+						if lead and namestr then
+							local keep={}
+							for n in namestr:gmatch('[%a_][%w_]*') do
+								local c=countword(text,n)-countword(line,n)
+								if c>0 then keep[#keep+1]=n end
+							end
+							if #keep>0 then out[#out+1]=lead..'local '..table.concat(keep,', ') end
+						else out[#out+1]=line end
+					end
+					return out
+				end
 				local function removejunk2(a)
 					local out={}
 					local last=nil
@@ -13428,6 +13813,22 @@ Main = (function()
 				final=compactlocals(final)
 				if GENV.DEX_PRETTY_MODE~="off" then
 					final=joinlocalassign2(final)
+					if GENV.DEX_PRETTY_DATAFLOW~=false then
+						final=foldselfchains3(final)
+						final=foldsingleusetemps3(final)
+						final=foldselfchains3(final)
+						final=foldconditiontemps3(final)
+						final=foldbuiltinaliases3(final)
+						final=foldfunctionargs3(final)
+						final=foldselfchains3(final)
+						final=foldarrayassignments3(final)
+						final=simplifygenericfor3(final)
+						final=renametableiter3(final)
+						final=renameservicevars3(final)
+						final=renamemoduleloops3(final)
+						final=foldbuiltinclosures3(final)
+						final=foldpcallrequire3(final)
+					end
 					final=foldaliases(final)
 					final=foldbuilders(final)
 					final=foldbuilders2(final)
@@ -13442,6 +13843,21 @@ Main = (function()
 					final=foldreceiveraliases2(final)
 					final=foldservicechains2(final)
 					final=foldreceiveraliases2(final)
+					if GENV.DEX_PRETTY_DATAFLOW~=false then
+						final=foldselfchains3(final)
+						final=foldsingleusetemps3(final)
+						final=foldconditiontemps3(final)
+						final=foldbuiltinaliases3(final)
+						final=foldfunctionargs3(final)
+						final=foldarrayassignments3(final)
+						final=simplifygenericfor3(final)
+						final=renametableiter3(final)
+						final=renameservicevars3(final)
+						final=renamemoduleloops3(final)
+						final=foldbuiltinclosures3(final)
+						final=foldpcallrequire3(final)
+						final=prunelocaldecls3(final)
+					end
 				end
 				final=compactlocals(final)
 				local text=table.concat(final,"\n")
@@ -15247,6 +15663,9 @@ Main = (function()
 		env.decompile = (env.getscriptbytecode or (env.getscriptclosure and env.dumpclosurebytecode)) and makeBytecodeDecompiler(env.getscriptbytecode) or nil
 		pcall(function()
 			GENV.DEX_CUSTOM_DECOMPILER_VERSION=DECOMPILER_VERSION
+			if GENV.DEX_PRETTY_DATAFLOW==nil then GENV.DEX_PRETTY_DATAFLOW=true end
+			if GENV.DEX_PRETTY_SEMANTIC_LOCALS==nil then GENV.DEX_PRETTY_SEMANTIC_LOCALS=true end
+			if GENV.DEX_PRETTY_FOLD_CLOSURES==nil then GENV.DEX_PRETTY_FOLD_CLOSURES=true end
 			GENV.DEX_DECOMPILE=env.decompile
 			GENV.DEX_GET_BYTECODE=env.getscriptbytecode
 			GENV.DEX_GET_SCRIPT_CLOSURE=env.getscriptclosure
