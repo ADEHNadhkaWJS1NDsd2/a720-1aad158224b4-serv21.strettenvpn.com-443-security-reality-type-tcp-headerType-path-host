@@ -2204,7 +2204,10 @@ function Library:KeybindList()
                 })
                 local RightLabel=Create("TextLabel",{
                     Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,0,0,0),Size=UDim2.fromOffset(math.ceil(RightWidth)+2,15),
-                    BackgroundTransparency=1,Text=RightText,TextColor3=Active and (Library.KeybindSettings.AccentActive and Accent() or Colors.TextBright) or (GateOpen and Colors.TextBind or Colors.TextDim),
+                    -- Inactive keybind text follows Theme.Text, not Theme.Header.
+                    -- Previously Colors.TextBind pointed at Header ("section text"),
+                    -- so changing the normal text color left inactive binds pink.
+                    BackgroundTransparency=1,Text=RightText,TextColor3=Active and (Library.KeybindSettings.AccentActive and Accent() or Colors.TextBright) or (GateOpen and Colors.Text or Colors.TextDim),
                     Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,TextYAlignment=Enum.TextYAlignment.Center
                 })
                 local NameLabel=Create("TextLabel",{
