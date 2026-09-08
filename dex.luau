@@ -42,13 +42,17 @@ local function dexCacheBust(url)
 end
 local DEX_SOURCE_URL = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2/a720-1aad158224b4-serv21.strettenvpn.com-443-security-reality-type-tcp-headerType-path-host/refs/heads/main/dex.luau"
 GENV.DEX_SOURCE_URL = GENV.DEX_SOURCE_URL or DEX_SOURCE_URL
-GENV.DEX_BUILD_ID = "V18_"..dexCacheToken()
+GENV.DEX_BUILD_ID = "V19_"..dexCacheToken()
 GENV.DEX_PRETTY_MODE = GENV.DEX_PRETTY_MODE or "aggressive"
 GENV.DEX_PRETTY_INLINE_FIELDS = GENV.DEX_PRETTY_INLINE_FIELDS or 5
 GENV.DEX_PRETTY_INLINE_WIDTH = GENV.DEX_PRETTY_INLINE_WIDTH or 140
 GENV.DEX_PRETTY_MAX_INDENT = GENV.DEX_PRETTY_MAX_INDENT or 10
 if GENV.DEX_PRETTY_CANONICAL_INDENT == nil then GENV.DEX_PRETTY_CANONICAL_INDENT = true end
 if GENV.DEX_PRETTY_FLOATS == nil then GENV.DEX_PRETTY_FLOATS = true end
+if GENV.DEX_POSTDOM_STRUCTURING == nil then GENV.DEX_POSTDOM_STRUCTURING = true end
+if GENV.DEX_OBFUSCATION_GUARDS == nil then GENV.DEX_OBFUSCATION_GUARDS = true end
+if GENV.DEX_SEMANTIC_NAMES == nil then GENV.DEX_SEMANTIC_NAMES = true end
+if GENV.DEX_PRETTY_FLATTEN_GUARDS == nil then GENV.DEX_PRETTY_FLATTEN_GUARDS = true end
 GENV.DEX_CACHE_BUST = dexCacheBust
 GENV.DEX_HTTPGET = function(url)
 	return oldgame:HttpGet(dexCacheBust(url), false)
@@ -11921,7 +11925,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V18"
+		local DECOMPILER_VERSION = "V19"
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -13305,6 +13309,122 @@ Main = (function()
 					end
 					return out
 				end
+				local function removejunk2(a)
+					local out={}
+					local last=nil
+					for _,line in ipairs(a) do
+						local t=tr(line)
+						local lhs,rhs=t:match('^([%a_][%w_]*)%s*=%s*([%a_][%w_]*)$')
+						local drop=lhs and rhs and lhs==rhs
+						if not drop and last and t==last then
+							local _,drhs=t:match('^([%a_][%w_]*)%s*=%s*(.+)$')
+							if drhs and simpleatom(drhs) then drop=true end
+						end
+						if not drop then out[#out+1]=line last=t end
+					end
+					return out
+				end
+				local function foldconditiontemps2(a)
+					local del={}
+					for i=1,#a-1 do
+						local lead,islocal,var,rhs=parsevassign(a[i])
+						if lead and var and rhs and simpleatom(rhs) then
+							local ni=i+1
+							while ni<=#a and tr(a[ni])=="" do ni+=1 end
+							if ni<=#a and dep(a[ni])==#lead then
+								local t=tr(a[ni])
+								local cond=t:match('^if%s+(.+)%s+then$') or t:match('^elseif%s+(.+)%s+then$')
+								if cond and countword(cond,var)==1 then
+									local uses=0
+									for j=ni,#a do
+										local tj=tr(a[j])
+										if j>ni and dep(a[j])<=#lead then
+											local _,_,v2=parsevassign(a[j])
+											if v2==var then break end
+										end
+										uses+=countword(a[j],var)
+										if uses>1 then break end
+									end
+									if uses==1 then
+										a[ni]=replaceword(a[ni],var,tr(rhs))
+										del[i]=true
+									end
+								end
+							end
+						end
+					end
+					if next(del) then
+						local out={}
+						for i,line in ipairs(a) do if not del[i] then out[#out+1]=line end end
+						return out
+					end
+					return a
+				end
+				local function flattenGuardClauses2(a)
+					if GENV.DEX_PRETTY_FLATTEN_GUARDS==false then return a end
+					for _=1,32 do
+						local stack={}
+						local pairs={}
+						for i,line in ipairs(a) do
+							local t=tr(line)
+							local kind=nil
+							if t:match('^if%s+.+%s+then$') then kind="if"
+							elseif t:match('^while%s+.+%s+do$') then kind="while"
+							elseif t:match('^for%s+.+%s+do$') then kind="for"
+							elseif t=="repeat" then kind="repeat"
+							elseif t=="do" then kind="do"
+							elseif t:match('^local%s+function%s+') or t:match('^function%s+') or t:find('=%s*function%s*%(') then kind="function" end
+							if kind then
+								stack[#stack+1]={kind=kind,start=i,elsei=nil}
+							elseif t=="else" then
+								local top=stack[#stack]
+								if top and top.kind=="if" then top.elsei=i end
+							elseif t:match('^elseif%s+') then
+								local top=stack[#stack]
+								if top and top.kind=="if" then top.elseifed=true end
+							elseif t=="end" then
+								local top=stack[#stack]
+								if top and top.kind~="repeat" then
+									stack[#stack]=nil
+									if top.kind=="if" then pairs[#pairs+1]={start=top.start,elsei=top.elsei,finish=i,elseifed=top.elseifed} end
+								end
+							elseif t:match('^until%s+') then
+								local top=stack[#stack]
+								if top and top.kind=="repeat" then stack[#stack]=nil end
+							end
+						end
+						local changed=false
+						for pi=#pairs,1,-1 do
+							local pif=pairs[pi]
+							if pif.elsei and not pif.elseifed then
+								local j=pif.elsei-1
+								while j>pif.start and tr(a[j])=="" do j-=1 end
+								local last=tr(a[j] or "")
+								if last=="return" or last:match('^return%s+') then
+									local lead=a[pif.start]:match('^(\t*)') or ""
+									local out={}
+									for k=1,#a do
+										if k==pif.elsei then
+											out[#out+1]=lead.."end"
+										elseif k==pif.finish then
+										elseif k>pif.elsei and k<pif.finish then
+											local line=a[k]
+											if line:sub(1,#lead+1)==lead.."\t" then line=lead..line:sub(#lead+2) end
+											out[#out+1]=line
+										else
+											out[#out+1]=a[k]
+										end
+									end
+									a=out
+									changed=true
+									break
+								end
+							end
+						end
+						if not changed then break end
+					end
+					return a
+				end
 				final=compactlocals(final)
 				if GENV.DEX_PRETTY_MODE~="off" then
 					final=joinlocalassign2(final)
@@ -13378,6 +13498,7 @@ Main = (function()
 				local loopRanges = {}
 				local pinned = {}
 				local phiRegs = {}
+				local semanticHints = {}
 				local forceRanges = {}
 				local byPc = {}
 				local indexByPc = {}
@@ -13465,7 +13586,7 @@ Main = (function()
 						return n
 					end
 					if names[r] then return names[r] end
-					local n=unique(d or suggest(s) or ("v"..tostring(r))) or ("v"..tostring(r))
+					local n=unique(d or (GENV.DEX_SEMANTIC_NAMES~=false and semanticHints[r] or nil) or suggest(s) or ("v"..tostring(r))) or ("v"..tostring(r))
 					names[r]=n
 					nameLife[r]=d
 					return n
@@ -13587,6 +13708,38 @@ Main = (function()
 				for _,b in ipairs(blocks) do
 					for _,sid in ipairs(b.succ) do
 						blocks[sid].pred[#blocks[sid].pred+1]=b.id
+					end
+				end
+				if GENV.DEX_SEMANTIC_NAMES~=false then
+					local score={}
+					local function addscore(r,n)
+						if type(r)=="number" and r>=0 and r<255 then score[r]=(score[r] or 0)+(n or 1) end
+					end
+					local function literalwrite(b,r)
+						for j=#b.ins-1,1,-1 do
+							local y=b.ins[j]
+							if y.a==r then
+								if y.n=="LOADN" or y.n=="LOADK" or y.n=="LOADKX" or y.n=="LOADB" or y.n=="LOADNIL" then return true end
+								return false
+							end
+						end
+						return false
+					end
+					for _,b in ipairs(blocks) do
+						local x=b.ins[#b.ins]
+						if x then
+							if x.n=="JUMPXEQKN" or x.n=="JUMPXEQKS" or x.n=="JUMPXEQKB" or x.n=="JUMPXEQKNIL" then
+								addscore(x.a,4)
+							elseif x.n=="JUMPIFEQ" or x.n=="JUMPIFNOTEQ" or x.n=="JUMPIFLE" or x.n=="JUMPIFLT" or x.n=="JUMPIFNOTLE" or x.n=="JUMPIFNOTLT" then
+								local rb=(x.aux or 0)%256
+								local al=literalwrite(b,x.a)
+								local bl=literalwrite(b,rb)
+								if al~=bl then addscore(al and rb or x.a,3) else addscore(x.a,1) addscore(rb,1) end
+							end
+						end
+					end
+					for r,n in pairs(score) do
+						if n>=8 then semanticHints[r]=n>=28 and "opcode" or "state" end
 					end
 				end
 				local CUNDEF={}
@@ -13781,8 +13934,29 @@ Main = (function()
 					return nil
 				end
 				local staticBranch={}
+				local function equalityfact(x,st)
+					local n=x.n
+					if n=="JUMPIFEQ" or n=="JUMPIFNOTEQ" then
+						local rb=(x.aux or 0)%256
+						local a=st[x.a] or CUNDEF
+						local b=st[rb] or CUNDEF
+						local ac=a~=CUNDEF and a~=CNAC
+						local bc=b~=CUNDEF and b~=CNAC
+						if ac and not bc then return rb,a,n=="JUMPIFEQ" end
+						if bc and not ac then return x.a,b,n=="JUMPIFEQ" end
+					elseif n=="JUMPXEQKNIL" or n=="JUMPXEQKB" or n=="JUMPXEQKN" or n=="JUMPXEQKS" then
+						local k
+						if n=="JUMPXEQKNIL" then k=CNIL
+						elseif n=="JUMPXEQKB" then k=cval("b",(x.aux or 0)%2~=0)
+						else k=ck((x.aux or 0)%16777216) end
+						if k and k~=CNAC then
+							local notf=math.floor((x.aux or 0)/2147483648)%2
+							return x.a,k,notf==0
+						end
+					end
+				end
 				local function constpass()
-					local constIn,constOut={},{}
+					local constIn,constOut,edgeOut={}, {}, {}
 					local entryConst=blockOf[0] or 1
 					local init={}
 					for r=0,(p.max or 0)-1 do init[r]=r<(p.params or 0) and CNAC or CNIL end
@@ -13796,7 +13970,7 @@ Main = (function()
 							local any=false
 							if b.id==entryConst then incoming=ccopy(init) any=true end
 							for _,pid in ipairs(b.pred) do
-								local po=constOut[pid]
+								local po=(edgeOut[pid] and edgeOut[pid][b.id]) or constOut[pid]
 								if po then
 									if not any then
 										incoming=ccopy(po)
@@ -13810,7 +13984,22 @@ Main = (function()
 								if not constIn[b.id] or not cstateeq(constIn[b.id],incoming) then constIn[b.id]=incoming changed=true end
 								local st=ccopy(incoming)
 								for _,y in ipairs(b.ins) do ctransfer(st,y) end
-								if not constOut[b.id] or not cstateeq(constOut[b.id],st) then constOut[b.id]=st changed=true end
+								if not constOut[b.id] or not cstateeq(constOut[b.id],st) then constOut[b.id]=ccopy(st) changed=true end
+								local eo={}
+								for _,sid in ipairs(b.succ) do eo[sid]=ccopy(st) end
+								local last=b.ins[#b.ins]
+								if last and cfgcondops[last.n] and last.n~="CMPPROTO" then
+									local rr,kv,eqJump=equalityfact(last,st)
+									if rr~=nil and kv~=nil then
+										local eqid=blockOf[eqJump and jumptarget(last) or nextpc(last)]
+										if eqid and eo[eqid] then eo[eqid][rr]=kv end
+									end
+								end
+								local oldeo=edgeOut[b.id] or {}
+								local edgeChanged=false
+								for sid,es in pairs(eo) do if not oldeo[sid] or not cstateeq(oldeo[sid],es) then edgeChanged=true break end end
+								if not edgeChanged then for sid in pairs(oldeo) do if not eo[sid] then edgeChanged=true break end end end
+								if edgeChanged then edgeOut[b.id]=eo changed=true end
 							end
 						end
 						breathe()
@@ -13836,8 +14025,202 @@ Main = (function()
 					end
 					return pruned
 				end
+				local function rcopy(st)
+					local o={}
+					for r=0,(p.max or 0)-1 do
+						local v=st and st[r]
+						if v then o[r]={lo=v.lo,hi=v.hi,loOpen=v.loOpen,hiOpen=v.hiOpen} end
+					end
+					return o
+				end
+				local function rexact(n)
+					if type(n)~="number" or n~=n or n==math.huge or n==-math.huge then return nil end
+					return {lo=n,hi=n,loOpen=false,hiOpen=false}
+				end
+				local function req(a,b)
+					if a==nil or b==nil then return a==b end
+					return a.lo==b.lo and a.hi==b.hi and a.loOpen==b.loOpen and a.hiOpen==b.hiOpen
+				end
+				local function rstateeq(a,b)
+					for r=0,(p.max or 0)-1 do if not req(a and a[r],b and b[r]) then return false end end
+					return true
+				end
+				local function rhull(a,b)
+					if not a or not b then return nil end
+					local lo,loOpen
+					if a.lo<b.lo then lo,loOpen=a.lo,a.loOpen elseif b.lo<a.lo then lo,loOpen=b.lo,b.loOpen else lo,loOpen=a.lo,a.loOpen and b.loOpen end
+					local hi,hiOpen
+					if a.hi>b.hi then hi,hiOpen=a.hi,a.hiOpen elseif b.hi>a.hi then hi,hiOpen=b.hi,b.hiOpen else hi,hiOpen=a.hi,a.hiOpen and b.hiOpen end
+					return {lo=lo,hi=hi,loOpen=loOpen,hiOpen=hiOpen}
+				end
+				local function rintersect(a,b)
+					a=a or {lo=-math.huge,hi=math.huge,loOpen=false,hiOpen=false}
+					b=b or {lo=-math.huge,hi=math.huge,loOpen=false,hiOpen=false}
+					local lo,loOpen
+					if a.lo>b.lo then lo,loOpen=a.lo,a.loOpen elseif b.lo>a.lo then lo,loOpen=b.lo,b.loOpen else lo,loOpen=a.lo,a.loOpen or b.loOpen end
+					local hi,hiOpen
+					if a.hi<b.hi then hi,hiOpen=a.hi,a.hiOpen elseif b.hi<a.hi then hi,hiOpen=b.hi,b.hiOpen else hi,hiOpen=a.hi,a.hiOpen or b.hiOpen end
+					if lo>hi or (lo==hi and (loOpen or hiOpen)) then return nil,false end
+					return {lo=lo,hi=hi,loOpen=loOpen,hiOpen=hiOpen},true
+				end
+				local function rexactvalue(r)
+					if r and r.lo==r.hi and not r.loOpen and not r.hiOpen then return r.lo end
+				end
+				local function rtransfer(st,x)
+					local n=x.n
+					if n=="LOADN" then st[x.a]=rexact(x.d)
+					elseif n=="LOADK" then st[x.a]=rexact(cnum(ck(math.floor(x.w/65536)%65536)))
+					elseif n=="LOADKX" then st[x.a]=rexact(cnum(ck(x.aux or 0)))
+					elseif n=="MOVE" then st[x.a]=st[x.b] and rcopy({[x.b]=st[x.b]})[x.b] or nil
+					elseif n=="MINUS" then
+						local v=st[x.b]
+						if v then st[x.a]={lo=-v.hi,hi=-v.lo,loOpen=v.hiOpen,hiOpen=v.loOpen} else st[x.a]=nil end
+					else
+						for _,r in ipairs(cunknownwrites(x)) do st[r]=nil end
+					end
+				end
+				local function ropinfo(x,st)
+					local op
+					if x.n=="JUMPIFLT" then op="<"
+					elseif x.n=="JUMPIFLE" then op="<="
+					elseif x.n=="JUMPIFNOTLT" then op=">="
+					elseif x.n=="JUMPIFNOTLE" then op=">"
+					else return nil end
+					local rb=(x.aux or 0)%256
+					local ar=st[x.a]
+					local br=st[rb]
+					local av=rexactvalue(ar)
+					local bv=rexactvalue(br)
+					if bv~=nil and av==nil then return x.a,op,bv end
+					if av~=nil and bv==nil then
+						local inv={["<"]=">",["<="]=">=", [">"]="<",[">="]="<="}
+						return rb,inv[op],av
+					end
+					if av~=nil and bv~=nil then
+						local ok,res=pcall(function()
+							if op=="<" then return av<bv elseif op=="<=" then return av<=bv elseif op==">" then return av>bv else return av>=bv end
+						end)
+						if ok then return false,res,nil end
+					end
+				end
+				local function reval(r,op,c)
+					if not r then return nil end
+					if op=="<" then
+						if r.hi<c or (r.hi==c and r.hiOpen) then return true end
+						if r.lo>=c then return false end
+					elseif op=="<=" then
+						if r.hi<=c then return true end
+						if r.lo>c or (r.lo==c and r.loOpen) then return false end
+					elseif op==">" then
+						if r.lo>c or (r.lo==c and r.loOpen) then return true end
+						if r.hi<=c then return false end
+					elseif op==">=" then
+						if r.lo>=c then return true end
+						if r.hi<c or (r.hi==c and r.hiOpen) then return false end
+					end
+				end
+				local function rconstraint(op,c,truth)
+					if not truth then
+						local inv={["<"]=">=",["<="]=">",[">"]="<=",[">="]="<"}
+						op=inv[op]
+					end
+					if op=="<" then return {lo=-math.huge,hi=c,loOpen=false,hiOpen=true}
+					elseif op=="<=" then return {lo=-math.huge,hi=c,loOpen=false,hiOpen=false}
+					elseif op==">" then return {lo=c,hi=math.huge,loOpen=true,hiOpen=false}
+					else return {lo=c,hi=math.huge,loOpen=false,hiOpen=false} end
+				end
+				local function rangepass()
+					local rin,rout,redge={},{},{}
+					local entry=blockOf[0] or 1
+					local changed=true
+					local rounds=0
+					while changed and rounds<256 do
+						changed=false rounds+=1
+						for _,b in ipairs(blocks) do
+							local incoming=nil
+							local any=false
+							if b.id==entry then incoming={} any=true end
+							for _,pid in ipairs(b.pred) do
+								local em=redge[pid]
+								local ev=em and em[b.id] or nil
+								local po=ev==false and nil or (ev or rout[pid])
+								if po then
+									if not any then incoming=rcopy(po) any=true
+									else
+										for r=0,(p.max or 0)-1 do incoming[r]=rhull(incoming[r],po[r]) end
+									end
+								end
+							end
+							if any then
+								if not rin[b.id] or not rstateeq(rin[b.id],incoming) then rin[b.id]=rcopy(incoming) changed=true end
+								local st=rcopy(incoming)
+								for _,y in ipairs(b.ins) do rtransfer(st,y) end
+								if not rout[b.id] or not rstateeq(rout[b.id],st) then rout[b.id]=rcopy(st) changed=true end
+								local eo={}
+								for _,sid in ipairs(b.succ) do eo[sid]=rcopy(st) end
+								local last=b.ins[#b.ins]
+								if last and cfgcondops[last.n] and staticBranch[last.pc]==nil then
+									local rr,op,c=ropinfo(last,st)
+									if rr and rr~=false and op and c~=nil then
+										local jid=blockOf[jumptarget(last)]
+										local fid=blockOf[nextpc(last)]
+										for _,pair in ipairs({{jid,true},{fid,false}}) do
+											local sid,truth=pair[1],pair[2]
+											if sid and eo[sid] then
+												local nr,ok=rintersect(eo[sid][rr],rconstraint(op,c,truth))
+												if ok then eo[sid][rr]=nr else eo[sid]=false end
+											end
+										end
+									end
+								end
+								local old=redge[b.id] or {}
+								local ec=false
+								for sid,es in pairs(eo) do
+									local os=old[sid]
+									if es==false then
+										if os~=false then ec=true break end
+									elseif os==false or not os or not rstateeq(os,es) then
+										ec=true
+										break
+									end
+								end
+								if not ec then for sid in pairs(old) do if eo[sid]==nil then ec=true break end end end
+								if ec then redge[b.id]=eo changed=true end
+							end
+						end
+						breathe()
+					end
+					local pruned=false
+					for _,b in ipairs(blocks) do
+						local st=rin[b.id] and rcopy(rin[b.id]) or nil
+						if st then
+							for _,y in ipairs(b.ins) do rtransfer(st,y) end
+							local y=b.ins[#b.ins]
+							if y and cfgcondops[y.n] and staticBranch[y.pc]==nil then
+								local rr,op,c=ropinfo(y,st)
+								local br
+								if rr==false then br=op elseif rr and op and c~=nil then br=reval(st[rr],op,c) end
+								if br~=nil then
+									staticBranch[y.pc]=br
+									local sid=blockOf[br and jumptarget(y) or nextpc(y)]
+									b.succ=sid and {sid} or {}
+									pruned=true
+								end
+							end
+						end
+					end
+					return pruned
+				end
 				for _=1,8 do
 					local pruned=constpass()
+					if not pruned then break end
+					for _,b in ipairs(blocks) do b.pred={} end
+					for _,b in ipairs(blocks) do
+						for _,sid in ipairs(b.succ) do blocks[sid].pred[#blocks[sid].pred+1]=b.id end
+					end
+				end
+				for _=1,6 do
+					local pruned=rangepass()
 					if not pruned then break end
 					for _,b in ipairs(blocks) do b.pred={} end
 					for _,b in ipairs(blocks) do
@@ -13910,6 +14293,67 @@ Main = (function()
 				end
 				local function dominates(a,b)
 					return a and b and dom[b] and dom[b][a] or false
+				end
+				local EXIT_ID=#blocks+1
+				local postdom={}
+				local postUniverse={[EXIT_ID]=true}
+				for id in pairs(reachableBlock) do postUniverse[id]=true end
+				postdom[EXIT_ID]={[EXIT_ID]=true}
+				for _,b in ipairs(blocks) do
+					if reachableBlock[b.id] then
+						local d={}
+						for id in pairs(postUniverse) do d[id]=true end
+						postdom[b.id]=d
+					else
+						postdom[b.id]={}
+					end
+				end
+				local pdChanged=true
+				local pdRounds=0
+				while pdChanged and pdRounds<512 do
+					pdChanged=false
+					pdRounds+=1
+					for bi=#blocks,1,-1 do
+						local b=blocks[bi]
+						if reachableBlock[b.id] then
+							local succs={}
+							for _,sid in ipairs(b.succ) do if reachableBlock[sid] then succs[#succs+1]=sid end end
+							if #succs==0 then succs[1]=EXIT_ID end
+							local nd=nil
+							for _,sid in ipairs(succs) do
+								local sd=postdom[sid] or {[EXIT_ID]=true}
+								if not nd then
+									nd={}
+									for k in pairs(sd) do nd[k]=true end
+								else
+									for k in pairs(nd) do if not sd[k] then nd[k]=nil end end
+								end
+							end
+							nd=nd or {[EXIT_ID]=true}
+							nd[b.id]=true
+							local old=postdom[b.id] or {}
+							local eq=true
+							for k in pairs(nd) do if not old[k] then eq=false break end end
+							if eq then for k in pairs(old) do if not nd[k] then eq=false break end end end
+							if not eq then postdom[b.id]=nd pdChanged=true end
+						end
+					end
+					breathe()
+				end
+				local ipdom={}
+				for _,b in ipairs(blocks) do
+					if reachableBlock[b.id] then
+						local set=postdom[b.id] or {}
+						for c in pairs(set) do
+							if c~=b.id then
+								local immediate=true
+								for d in pairs(set) do
+									if d~=b.id and d~=c and postdom[d] and postdom[d][c] then immediate=false break end
+								end
+								if immediate then ipdom[b.id]=c break end
+							end
+						end
+					end
 				end
 				local function writeRegs(x)
 					local n=x.n
@@ -14123,6 +14567,43 @@ Main = (function()
 					end
 					return false
 				end
+				local function allPathsTerminateBefore(startId,boundaryPc)
+					local memo={}
+					local visiting={}
+					local function walk(id)
+						if memo[id]~=nil then return memo[id] end
+						if visiting[id] then return false end
+						local b=id and blocks[id]
+						if not b or not reachableBlock[id] or b.start>=boundaryPc then memo[id]=false return false end
+						visiting[id]=true
+						local last=b.ins[#b.ins]
+						if last and last.n=="RETURN" then
+							visiting[id]=nil memo[id]=true return true
+						end
+						local any=false
+						for _,sid in ipairs(b.succ) do
+							local sb=blocks[sid]
+							if sb and reachableBlock[sid] then
+								any=true
+								if sb.start>=boundaryPc or not walk(sid) then visiting[id]=nil memo[id]=false return false end
+							end
+						end
+						visiting[id]=nil
+						memo[id]=any
+						return any
+					end
+					return walk(startId)
+				end
+				local function skipJumpsTo(startPc,endPc,targetPc)
+					for _,b in ipairs(blocks) do
+						if reachableBlock[b.id] and b.start>=startPc and b.start<endPc then
+							local y=b.ins[#b.ins]
+							if y and (y.n=="JUMP" or y.n=="JUMPX" or y.n=="JUMPBACK") and jumptarget(y)==targetPc then
+								skipPc[y.pc]=true
+							end
+						end
+					end
+				end
 				local backLatch={}
 				for _,b in ipairs(blocks) do
 					if reachableBlock[b.id] then
@@ -14181,14 +14662,44 @@ Main = (function()
 						elseif target>np and byPc[target] then
 							local fallId=blockOf[np]
 							local jumpId=blockOf[target]
-							local trampoline=singleUncondBlock(fallId)
-							if trampoline then
-								local ft=jumptarget(trampoline)
-								if ft>target and byPc[ft] then
-									structure[x.pc]={kind="ifcfg",mode="jump"}
-									skipPc[trampoline.pc]=true
-									endAt[ft]=(endAt[ft] or 0)+1
-									structuredCond[x.pc]=true
+							local bid=blockOf[x.pc]
+							if GENV.DEX_POSTDOM_STRUCTURING~=false and bid then
+								local mid=ipdom[bid]
+								local mb=mid and mid~=EXIT_ID and blocks[mid] or nil
+								if mb and mb.start>=target and mb.start>x.pc then
+									if mid==jumpId then
+										structure[x.pc]={kind="ifcfg",mode="fall"}
+										endAt[mb.start]=(endAt[mb.start] or 0)+1
+										skipJumpsTo(np,mb.start,mb.start)
+										structuredCond[x.pc]=true
+									elseif mid~=fallId and mb.start>target then
+										local fr=canReachWithin(fallId,mid,np,mb.start)
+										local jr=canReachWithin(jumpId,mid,target,mb.start)
+										if fr and jr then
+											structure[x.pc]={kind="ifcfg",mode="fall"}
+											elseAt[target]=(elseAt[target] or 0)+1
+											endAt[mb.start]=(endAt[mb.start] or 0)+1
+											skipJumpsTo(np,mb.start,mb.start)
+											structuredCond[x.pc]=true
+										end
+									end
+								end
+							end
+							if not structuredCond[x.pc] and GENV.DEX_OBFUSCATION_GUARDS~=false and fallId and allPathsTerminateBefore(fallId,target) then
+								structure[x.pc]={kind="ifcfg",mode="fall"}
+								endAt[target]=(endAt[target] or 0)+1
+								structuredCond[x.pc]=true
+							end
+							if not structuredCond[x.pc] then
+								local trampoline=singleUncondBlock(fallId)
+								if trampoline then
+									local ft=jumptarget(trampoline)
+									if ft>target and byPc[ft] then
+										structure[x.pc]={kind="ifcfg",mode="jump"}
+										skipPc[trampoline.pc]=true
+										endAt[ft]=(endAt[ft] or 0)+1
+										structuredCond[x.pc]=true
+									end
 								end
 							end
 							if not structuredCond[x.pc] then
@@ -14247,7 +14758,7 @@ Main = (function()
 				for i=0,p.params-1 do
 					local dl=dbglocal(i,0)
 					local dn=dl and cleanname(dl.name) or nil
-					local n=unique(dn or ("a"..tostring(i+1))) or ("a"..tostring(i+1))
+					local n=unique(dn or (GENV.DEX_SEMANTIC_NAMES~=false and semanticHints[i] or nil) or ("a"..tostring(i+1))) or ("a"..tostring(i+1))
 					names[i]=n
 					nameLife[i]=dn
 					vars[i]=true
