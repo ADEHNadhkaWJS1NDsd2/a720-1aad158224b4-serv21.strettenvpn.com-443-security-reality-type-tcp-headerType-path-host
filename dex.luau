@@ -22,7 +22,7 @@ local game = workspace.Parent
 
 local _getgenv = type(getgenv) == "function" and getgenv or function() return _G end
 local GENV = _getgenv()
-local DEX_BUILD_VERSION = "V23"
+local DEX_BUILD_VERSION = "V24"
 local function dexCacheToken()
 	local ok,guid = pcall(function()
 		return game:GetService("HttpService"):GenerateGUID(false)
@@ -12418,6 +12418,460 @@ Main = (function()
 				end
 				return out or "_G"
 			end
+			local VM_STEP_ORDERS = {
+				{"const","params","inst","proto"},
+				{"const","proto","params","inst"},
+				{"params","const","inst","proto"},
+				{"params","const","proto","inst"},
+				{"inst","const","params","proto"},
+				{"inst","params","const","proto"},
+				{"proto","const","params","inst"},
+				{"proto","const","inst","params"}
+			}
+			local VM_TYPE_MAPS = {}
+			do
+				local base={"nil","boolean","number","string"}
+				local used={}
+				local cur={}
+				local function gen(n)
+					if n>4 then
+						VM_TYPE_MAPS[#VM_TYPE_MAPS+1]={cur[1],cur[2],cur[3],cur[4]}
+						return
+					end
+					for i=1,4 do
+						if not used[i] then
+							used[i]=true
+							cur[n]=base[i]
+							gen(n+1)
+							used[i]=nil
+						end
+					end
+					gen(1)
+			end
+			local function vmXor(a,b)
+				if bit32 and bit32.bxor then return bit32.bxor(a,b) end
+				local p,res=1,0
+				while a>0 or b>0 do
+					local aa=a%2
+					local bb=b%2
+					if aa~=bb then res+=p end
+					a=(a-aa)/2
+					b=(b-bb)/2
+					p*=2
+				end
+				return res
+			end
+			local function vmLzwDecode(s)
+				if type(s)~="string" or #s<3 or not s:match("^[0-9A-Za-z]+$") then return nil end
+				local pos=1
+				local dict={}
+				for i=0,255 do dict[i]=string.char(i) end
+				local function code()
+					if pos>#s then return nil end
+					local n=tonumber(s:sub(pos,pos),36)
+					if not n or n<1 or n>35 then return nil end
+					pos+=1
+					if pos+n-1>#s then return nil end
+					local v=tonumber(s:sub(pos,pos+n-1),36)
+					if not v then return nil end
+					pos+=n
+					return v
+				end
+				local first=code()
+				if not first or first<0 or first>255 then return nil end
+				local prev=string.char(first)
+				local out={prev}
+				local nextIndex=256
+				local guard=0
+				while pos<=#s do
+					guard+=1
+					if guard>2000000 then return nil end
+					local c=code()
+					if c==nil then return nil end
+					local entry=dict[c]
+					if not entry then
+						if c~=nextIndex then return nil end
+						entry=prev..prev:sub(1,1)
+					end
+					dict[nextIndex]=prev..entry:sub(1,1)
+					nextIndex+=1
+					out[#out+1]=entry
+					prev=entry
+					if #out%4096==0 then cooperate(4096) end
+				end
+				return table.concat(out)
+			end
+			local function vmReader(data,key)
+				return {data=data,pos=1,n=#data,key=key}
+			end
+			local function vmU8(r)
+				if r.pos>r.n then error("vm eof") end
+				local b=string.byte(r.data,r.pos)
+				r.pos+=1
+				return vmXor(b,r.key)
+			end
+			local function vmU16(r)
+				local a=vmU8(r)
+				local b=vmU8(r)
+				return a+b*256
+			end
+			local function vmU32(r)
+				local a=vmU8(r)
+				local b=vmU8(r)
+				local c=vmU8(r)
+				local d=vmU8(r)
+				return a+b*256+c*65536+d*16777216
+			end
+			local function vmDouble(r)
+				local low=vmU32(r)
+				local high=vmU32(r)
+				local mantissa=(high%1048576)*4294967296+low
+				local exponent=math.floor(high/1048576)%2048
+				local sign=high>=2147483648 and -1 or 1
+				if exponent==0 then
+					if mantissa==0 then return sign*0 end
+					return math.ldexp(sign,-1022)*(mantissa/4503599627370496)
+				elseif exponent==2047 then
+					if mantissa==0 then return sign*math.huge end
+					return 0/0
+				end
+				return math.ldexp(sign,exponent-1023)*(1+mantissa/4503599627370496)
+			end
+			local function vmString(r)
+				local n=vmU32(r)
+				if n>5000000 or r.pos+n-1>r.n then error("vm string size") end
+				if n==0 then return "" end
+				local out={}
+				local chunk={}
+				for i=1,n do
+					chunk[#chunk+1]=string.char(vmU8(r))
+					if #chunk>=2048 then
+						out[#out+1]=table.concat(chunk)
+						chunk={}
+						cooperate(2048)
+					end
+				end
+				if #chunk>0 then out[#out+1]=table.concat(chunk) end
+				return table.concat(out)
+			end
+			local function vmConstMarker(i)
+				return {__vm_const=i}
+			end
+			local function vmParseChunk(r,order,typeMap,depth,budget)
+				depth=depth or 0
+				budget=budget or {nodes=0,instructions=0}
+				if depth>96 then error("vm proto depth") end
+				budget.nodes+=1
+				if budget.nodes>200000 then error("vm proto budget") end
+				local chunk={instructions={},protos={},params=0,constants={}}
+				local constants=chunk.constants
+				local function readConstants()
+					local n=vmU32(r)
+					if n>1000000 then error("vm constant count") end
+					for i=1,n do
+						local tag=vmU8(r)
+						local kind=typeMap[tag+1]
+						if not kind then error("vm constant tag") end
+						local value=nil
+						if kind=="boolean" then
+							value=vmU8(r)~=0
+						elseif kind=="number" then
+							value=vmDouble(r)
+						elseif kind=="string" then
+							value=vmString(r)
+						end
+						constants[i]={kind=kind,value=value}
+					end
+				end
+				local function readInstructions()
+					local n=vmU32(r)
+					if n>3000000 then error("vm instruction count") end
+					budget.instructions+=n
+					if budget.instructions>5000000 then error("vm instruction budget") end
+					for i=1,n do
+						local desc=vmU8(r)
+						if desc%2==0 then
+							local typ=math.floor(desc/2)%4
+							local mask=math.floor(desc/8)%8
+							local inst={vmU16(r),vmU16(r),nil,nil}
+							if typ==0 then
+								inst[3]=vmU16(r)
+								inst[4]=vmU16(r)
+							elseif typ==1 then
+								inst[3]=vmU32(r)
+							elseif typ==2 then
+								inst[3]=vmU32(r)-65536
+							else
+								inst[3]=vmU32(r)-65536
+								inst[4]=vmU16(r)
+							end
+							for slot=2,4 do
+								if math.floor(mask/2^(slot-2))%2==1 then
+									inst[slot]=vmConstMarker(inst[slot])
+								end
+							end
+							chunk.instructions[i]=inst
+						end
+						if i%2048==0 then cooperate(2048) end
+					end
+				end
+				local function readProtos()
+					local n=vmU32(r)
+					if n>200000 then error("vm child count") end
+					for i=1,n do
+						chunk.protos[i]=vmParseChunk(r,order,typeMap,depth+1,budget)
+					end
+				end
+				local function readParams()
+					chunk.params=vmU8(r)
+					if chunk.params>250 then error("vm params") end
+				end
+				for _,step in ipairs(order) do
+					if step=="const" then readConstants()
+					elseif step=="inst" then readInstructions()
+					elseif step=="proto" then readProtos()
+					elseif step=="params" then readParams()
+					else error("vm step") end
+				end
+				return chunk,budget
+			end
+			local function vmResolveConstants(chunk)
+				local constants=chunk.constants or {}
+				for _,inst in pairs(chunk.instructions or {}) do
+					if type(inst)=="table" then
+						for slot=2,4 do
+							local v=inst[slot]
+							if type(v)=="table" and v.__vm_const then
+								local c=constants[v.__vm_const]
+								if not c then error("vm bad constant ref") end
+								inst[slot]=c.value
+								inst["constant"..tostring(slot)]=true
+							end
+						end
+					end
+				end
+				for _,child in ipairs(chunk.protos or {}) do vmResolveConstants(child) end
+			end
+			local function vmChunkStats(chunk,stats,depth)
+				stats=stats or {instructions=0,protos=0,opcodes={},maxDepth=0,constants=0}
+				depth=depth or 0
+				stats.protos+=1
+				if depth>stats.maxDepth then stats.maxDepth=depth end
+				stats.constants+=#(chunk.constants or {})
+				for _,inst in pairs(chunk.instructions or {}) do
+					if type(inst)=="table" then
+						stats.instructions+=1
+						local op=tonumber(inst[1])
+						if op then stats.opcodes[op]=(stats.opcodes[op] or 0)+1 end
+					end
+				end
+				for _,child in ipairs(chunk.protos or {}) do vmChunkStats(child,stats,depth+1) end
+				return stats
+			end
+			local function vmPlausible(chunk,consumed,total)
+				if consumed~=total+1 then return false,nil end
+				local stats=vmChunkStats(chunk)
+				if stats.instructions<1 or stats.protos<1 or stats.maxDepth>96 then return false,nil end
+				local unique=0
+				local maxop=0
+				for op in pairs(stats.opcodes) do
+					unique+=1
+					if op>maxop then maxop=op end
+				end
+				if unique<1 or unique>1024 or maxop>4096 then return false,nil end
+				return true,stats
+			end
+			local function vmCollectKeyHints(mod)
+				local freq={}
+				for _,proto in ipairs(mod.protos or {}) do
+					for _,k in ipairs(proto.k or {}) do
+						if (k.t==2 or k.t==9) and type(k.v)=="number" and k.v>=0 and k.v<=255 and k.v%1==0 then
+							freq[k.v]=(freq[k.v] or 0)+1
+						end
+					end
+				end
+				local pairsList={}
+				for value,count in pairs(freq) do pairsList[#pairsList+1]={value,count} end
+				table.sort(pairsList,function(a,b) if a[2]==b[2] then return a[1]<b[1] end return a[2]>b[2] end)
+				local out={}
+				local seen={}
+				for i=1,math.min(#pairsList,48) do
+					local v=pairsList[i][1]
+					out[#out+1]=v
+					seen[v]=true
+				end
+				for v=0,255 do if not seen[v] then out[#out+1]=v end end
+				return out
+			end
+			local function vmBlobCandidates(mod)
+				local raw={}
+				for pi,proto in ipairs(mod.protos or {}) do
+					for ki,k in ipairs(proto.k or {}) do
+						if k.t==3 and type(k.v)=="string" and #k.v>=64 then
+							raw[#raw+1]={data=k.v,proto=pi,constant=ki,compressed=false}
+							if #k.v>=32 and #k.v<=2000000 and k.v:match("^[0-9A-Za-z]+$") then
+								local ok,dec=pcall(vmLzwDecode,k.v)
+								if ok and type(dec)=="string" and #dec>=32 then
+									raw[#raw+1]={data=dec,proto=pi,constant=ki,compressed=true}
+								end
+							end
+						end
+					end
+				end
+				table.sort(raw,function(a,b) return #a.data>#b.data end)
+				while #raw>16 do raw[#raw]=nil end
+				return raw
+			end
+			local function vmTryDecode(mod)
+				local blobs=vmBlobCandidates(mod)
+				if #blobs==0 then return nil,{detected=false,reason="no candidate blob"} end
+				local keys=vmCollectKeyHints(mod)
+				local attempts=0
+				local maxAttempts=tonumber(GENV.DEX_VM_MAX_ATTEMPTS) or 18000
+				for _,candidate in ipairs(blobs) do
+					local data=candidate.data
+					for _,key in ipairs(keys) do
+						for oi,order in ipairs(VM_STEP_ORDERS) do
+							if oi<=2 or attempts<maxAttempts/2 then
+								for mi,typeMap in ipairs(VM_TYPE_MAPS) do
+									attempts+=1
+									if attempts>maxAttempts then break end
+									local r=vmReader(data,key)
+									local ok,chunk,budget=pcall(vmParseChunk,r,order,typeMap,0,{nodes=0,instructions=0})
+									if ok and type(chunk)=="table" then
+										local plausible,stats=vmPlausible(chunk,r.pos,#data)
+										if plausible then
+											local okResolve=pcall(vmResolveConstants,chunk)
+											if okResolve then
+												return chunk,{
+													detected=true,
+													decoded=true,
+													kind=candidate.compressed and "IronBrew/AztupBrew LZW" or "IronBrew/AztupBrew",
+													xorKey=key,
+													blobBytes=#data,
+													blobProto=candidate.proto,
+													blobConstant=candidate.constant,
+													compressed=candidate.compressed,
+													order=table.concat(order,","),
+													typeMap=table.concat(typeMap,","),
+													attempts=attempts,
+													instructions=stats.instructions,
+													protos=stats.protos,
+													constants=stats.constants,
+													maxDepth=stats.maxDepth,
+													opcodes=stats.opcodes
+												}
+											end
+										end
+									end
+									if attempts%512==0 then cooperate(4096) end
+								end
+							end
+							if attempts>maxAttempts then break end
+						end
+						if attempts>maxAttempts then break end
+					end
+					if attempts>maxAttempts then break end
+				end
+				return nil,{detected=true,decoded=false,attempts=attempts,reason="candidate VM blob found but format/key mapping was not proven"}
+			end
+			local function vmValue(v)
+				local t=type(v)
+				if t=="nil" then return "nil"
+				elseif t=="boolean" then return v and "true" or "false"
+				elseif t=="number" then
+					if v~=v then return "(0/0)" end
+					if v==math.huge then return "math.huge" end
+					if v==-math.huge then return "-math.huge" end
+					return tostring(v)
+				elseif t=="string" then return q(v)
+				end
+				return "nil"
+			end
+			local function vmInstructionLiteral(inst,indent)
+				indent=indent or ""
+				if type(inst)~="table" then return indent.."nil" end
+				local parts={"[1] = "..vmValue(inst[1])}
+				for slot=2,4 do
+					if inst[slot]~=nil or inst["constant"..tostring(slot)] then
+						parts[#parts+1]="["..tostring(slot).."] = "..vmValue(inst[slot])
+					end
+				end
+				return indent.."{"..table.concat(parts,", ").."}"
+			end
+			local function vmChunkLiteral(chunk,depth,seen)
+				depth=depth or 0
+				seen=seen or {count=0}
+				seen.count+=1
+				if seen.count>200000 then error("vm emit budget") end
+				local ind=string.rep("\t",depth)
+				local ind1=string.rep("\t",depth+1)
+				local ind2=string.rep("\t",depth+2)
+				local out={"{"}
+				out[#out+1]=ind1.."[1] = {"
+				local maxIndex=0
+				for i in pairs(chunk.instructions or {}) do if type(i)=="number" and i>maxIndex then maxIndex=i end end
+				for i=1,maxIndex do
+					local inst=chunk.instructions[i]
+					if inst then out[#out+1]=ind2.."["..tostring(i).."] = "..vmInstructionLiteral(inst).."," end
+				end
+				out[#out+1]=ind1.."},"
+				out[#out+1]=ind1.."[2] = {"
+				for i,child in ipairs(chunk.protos or {}) do
+					local childText=vmChunkLiteral(child,depth+2,seen)
+					out[#out+1]=ind2.."["..tostring(i).."] = "..childText.."," 
+				end
+				out[#out+1]=ind1.."},"
+				out[#out+1]=ind1.."[3] = "..tostring(chunk.params or 0)..","
+				out[#out+1]=ind1.."[4] = {},"
+				out[#out+1]=ind.."}"
+				return table.concat(out,"\n")
+			end
+			local function vmSortedOpcodes(stats)
+				local list={}
+				for op,count in pairs(stats.opcodes or {}) do list[#list+1]={op,count} end
+				table.sort(list,function(a,b) return a[1]<b[1] end)
+				return list
+			end
+			local function vmEmitIR(chunk,analysis)
+				local out={}
+				out[#out+1]="local VM = "..vmChunkLiteral(chunk,0)
+				out[#out+1]="local VM_INFO = {"
+				out[#out+1]="\tformat = "..q(analysis.kind or "virtual-machine")..","
+				out[#out+1]="\txorKey = "..tostring(analysis.xorKey or 0)..","
+				out[#out+1]="\tinstructions = "..tostring(analysis.instructions or 0)..","
+				out[#out+1]="\tprototypes = "..tostring(analysis.protos or 0)..","
+				out[#out+1]="\tconstants = "..tostring(analysis.constants or 0)..","
+				out[#out+1]="\topcodes = {"
+				for _,pair in ipairs(vmSortedOpcodes(analysis)) do
+					out[#out+1]="\t\t["..tostring(pair[1]).."] = "..tostring(pair[2])..","
+				end
+				out[#out+1]="\t},"
+				out[#out+1]="}"
+				out[#out+1]="return VM, VM_INFO"
+				return table.concat(out,"\n")
+			end
+			local function tryVmDevirtualize(mod,source)
+				if GENV.DEX_VM_DEVIRTUALIZE==false then return source,{detected=false,disabled=true} end
+				if type(source)~="string" or not source:find("string.byte",1,true) or not source:find("setmetatable",1,true) or not source:find("math.ldexp",1,true) then
+					return source,{detected=false,reason="no IronBrew/AztupBrew VM signature"}
+				end
+				local chunk,analysis=vmTryDecode(mod)
+				if not chunk then return source,analysis end
+				analysis.output="virtual-ir"
+				local ok,ir=pcall(vmEmitIR,chunk,analysis)
+				if not ok or type(ir)~="string" or ir=="" then
+					analysis.decoded=false
+					analysis.reason="decoded VM payload but IR emitter failed: "..tostring(ir)
+					return source,analysis
+				end
+				local mode=tostring(GENV.DEX_VM_OUTPUT_MODE or "ir")
+				if mode=="original" then return source,analysis end
+				if mode=="both" then
+					return ir.."\n\nlocal VM_WRAPPER_SOURCE = "..q(source).."\nreturn VM, VM_INFO, VM_WRAPPER_SOURCE",analysis
+				end
+				return ir,analysis
+			end
 			local function canonicalindent_source(s)
 				if GENV.DEX_PRETTY_CANONICAL_INDENT == false then return s end
 				local maxindent=tonumber(GENV.DEX_PRETTY_MAX_INDENT) or 10
@@ -16560,7 +17014,17 @@ Main = (function()
 				if not p then error("["..DECOMPILER_VERSION.."] main proto missing",0) end
 				local okSource,source=pcall(customsource,mod,p,0,{})
 				if not okSource then error("["..DECOMPILER_VERSION.."] reconstruct: "..tostring(source),0) end
-				return source
+				local finalSource=source
+				local vmAnalysis={detected=false}
+				local okVm,vmSource,vmInfo=pcall(tryVmDevirtualize,mod,source)
+				if okVm then
+					if type(vmInfo)=="table" then vmAnalysis=vmInfo end
+					if type(vmSource)=="string" and vmSource~="" then finalSource=vmSource end
+				else
+					vmAnalysis={detected=false,decoded=false,reason=tostring(vmSource)}
+				end
+				GENV.DEX_LAST_VM_ANALYSIS=vmAnalysis
+				return finalSource
 			end
 		end
 		env.decompile = (env.getscriptbytecode or (env.getscriptclosure and env.dumpclosurebytecode)) and makeBytecodeDecompiler(env.getscriptbytecode) or nil
@@ -16572,6 +17036,9 @@ Main = (function()
 			if GENV.DEX_SSA_SAFE_PRETTY==nil then GENV.DEX_SSA_SAFE_PRETTY=true end
 			if GENV.DEX_DEF_SENSITIVE_RECOVERY==nil then GENV.DEX_DEF_SENSITIVE_RECOVERY=true end
 			if GENV.DEX_STRICT_LVALUE_VALIDATION==nil then GENV.DEX_STRICT_LVALUE_VALIDATION=true end
+			if GENV.DEX_VM_DEVIRTUALIZE==nil then GENV.DEX_VM_DEVIRTUALIZE=true end
+			if GENV.DEX_VM_OUTPUT_MODE==nil then GENV.DEX_VM_OUTPUT_MODE="ir" end
+			if GENV.DEX_VM_MAX_ATTEMPTS==nil then GENV.DEX_VM_MAX_ATTEMPTS=18000 end
 			GENV.DEX_DECOMPILE=env.decompile
 			GENV.DEX_GET_BYTECODE=env.getscriptbytecode
 			GENV.DEX_GET_SCRIPT_CLOSURE=env.getscriptclosure
