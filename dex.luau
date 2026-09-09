@@ -22,6 +22,7 @@ local game = workspace.Parent
 
 local _getgenv = type(getgenv) == "function" and getgenv or function() return _G end
 local GENV = _getgenv()
+local DEX_BUILD_VERSION = "V23"
 local function dexCacheToken()
 	local ok,guid = pcall(function()
 		return game:GetService("HttpService"):GenerateGUID(false)
@@ -42,7 +43,7 @@ local function dexCacheBust(url)
 end
 local DEX_SOURCE_URL = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2/a720-1aad158224b4-serv21.strettenvpn.com-443-security-reality-type-tcp-headerType-path-host/refs/heads/main/dex.luau"
 GENV.DEX_SOURCE_URL = GENV.DEX_SOURCE_URL or DEX_SOURCE_URL
-GENV.DEX_BUILD_ID = "V21_"..dexCacheToken()
+GENV.DEX_BUILD_ID = DEX_BUILD_VERSION.."_"..dexCacheToken()
 GENV.DEX_PRETTY_MODE = GENV.DEX_PRETTY_MODE or "aggressive"
 GENV.DEX_PRETTY_INLINE_FIELDS = GENV.DEX_PRETTY_INLINE_FIELDS or 5
 GENV.DEX_PRETTY_INLINE_WIDTH = GENV.DEX_PRETTY_INLINE_WIDTH or 140
@@ -11925,7 +11926,7 @@ Main = (function()
 		
 		env.request = missing("function", request or http_request or (syn and syn.request) or (http and http.request) or (fluxus and fluxus.request))
 
-		local DECOMPILER_VERSION = "V22"
+		local DECOMPILER_VERSION = DEX_BUILD_VERSION
 		local function makeBytecodeDecompiler(getbc)
 			local MAX_PROTO_DEPTH = 160
 			local YIELD_EVERY = 4096
@@ -12797,9 +12798,9 @@ Main = (function()
 					return out
 				end
 				local function parsevassign(line)
-					local lead,var,rhs=line:match('^(\t*)local%s+(v%d+)%s*=%s*(.+)$')
+					local lead,var,rhs=line:match('^(\t*)local%s+([%a_][%w_]*)%s*=%s*(.+)$')
 					if lead then return lead,true,var,rhs end
-					lead,var,rhs=line:match('^(\t*)(v%d+)%s*=%s*(.+)$')
+					lead,var,rhs=line:match('^(\t*)([%a_][%w_]*)%s*=%s*(.+)$')
 					if lead then return lead,false,var,rhs end
 					return nil
 				end
@@ -12900,7 +12901,7 @@ Main = (function()
 					local ci=nil
 					local base=nil
 					for i,line in ipairs(a) do
-						local lead,var=line:match('^(\t*)local%s+(v%d+)%s*=%s*{}%s*$')
+						local lead,var=line:match('^(\t*)local%s+([%a_][%w_]*)%s*=%s*{}%s*$')
 						if lead then
 							for j=#a,i+1,-1 do
 								if dep(a[j])==#lead and tr(a[j])=="return "..var then candidate=var ci=i base=#lead break end
@@ -13145,9 +13146,9 @@ Main = (function()
 					local out={}
 					local i=1
 					while i<=#a do
-						local lead,var=a[i]:match('^(\t*)local%s+(v%d+)%s*$')
+						local lead,var=a[i]:match('^(\t*)local%s+([%a_][%w_]*)%s*$')
 						if lead and i<#a then
-							local l2,v2,rhs=a[i+1]:match('^(\t*)(v%d+)%s*=%s*(.+)$')
+							local l2,v2,rhs=a[i+1]:match('^(\t*)([%a_][%w_]*)%s*=%s*(.+)$')
 							if l2==lead and v2==var then
 								out[#out+1]=lead.."local "..var.." = "..rhs
 								i+=2
@@ -13209,7 +13210,7 @@ Main = (function()
 				local function renameconfig2(a)
 					if table.concat(a,"\n"):match('%f[%w_]config%f[^%w_]') then return a end
 					for i,line in ipairs(a) do
-						local lead,var,rhs=line:match('^(\t*)local%s+(v%d+)%s*=%s*(.+)$')
+						local lead,var,rhs=line:match('^(\t*)local%s+([%a_][%w_]*)%s*=%s*(.+)$')
 						if lead and rhs and tr(rhs):sub(1,1)=="{" then
 							local base=#lead
 							local ri=nil
@@ -13266,7 +13267,7 @@ Main = (function()
 					local out={}
 					local i=1
 					while i<=#a do
-						local lead,var,rhs=a[i]:match('^(\t*)(v%d+)%s*=%s*(.+)$')
+						local lead,var,rhs=a[i]:match('^(\t*)([%a_][%w_]*)%s*=%s*(.+)$')
 						if lead and i<#a and dep(a[i+1])==#lead then
 							local field,val=tr(a[i+1]):match('^'..var..'%.([%a_][%w_]*)%s*=%s*(.+)$')
 							if field and countword(rhs,var)==0 then
@@ -13281,14 +13282,14 @@ Main = (function()
 					local out={}
 					local i=1
 					while i<=#a do
-						local lead,var=a[i]:match('^(\t*)(v%d+)%s*=%s*game%s*$')
+						local lead,var=a[i]:match('^(\t*)([%a_][%w_]*)%s*=%s*game%s*$')
 						if lead and i+2<=#a then
 							local j=i+1
 							local serviceName=nil
-							local argVar,argStr=tr(a[j]):match('^(v%d+)%s*=%s*"([^"]+)"%s*$')
+							local argVar,argStr=tr(a[j]):match('^([%a_][%w_]*)%s*=%s*"([^"]+)"%s*$')
 							if argVar then
 								local call=tr(a[j+1])
-								local av=call:match('^'..var..'%s*=%s*'..var..':GetService%((v%d+)%)$')
+								local av=call:match('^'..var..'%s*=%s*'..var..':GetService%(([%a_][%w_]*)%)$')
 								if av==argVar then serviceName=argStr j+=2 end
 							else
 								local direct=tr(a[j]):match('^'..var..'%s*=%s*'..var..':GetService%("([^"]+)"%)$')
@@ -13324,9 +13325,9 @@ Main = (function()
 					return false
 				end
 				local function parseassign3(line)
-					local lead,loc,var,rhs=line:match('^(\t*)(local%s+)(v%d+)%s*=%s*(.+)$')
+					local lead,loc,var,rhs=line:match('^(\t*)(local%s+)([%a_][%w_]*)%s*=%s*(.+)$')
 					if lead then return lead,true,var,rhs end
-					lead,var,rhs=line:match('^(\t*)(v%d+)%s*=%s*(.+)$')
+					lead,var,rhs=line:match('^(\t*)([%a_][%w_]*)%s*=%s*(.+)$')
 					if lead then return lead,false,var,rhs end
 					return nil
 				end
@@ -13932,13 +13933,13 @@ Main = (function()
 						local l1,loc1,v1,r1=parseassign3(a[i+1])
 						if l0 and l1==l0 and tr(r0)=="ipairs" and v0 and v1 and r1 then
 							local t2=tr(a[i+2])
-							local third=t2:match('^'..v0..'%s*,%s*'..v1..'%s*,%s*(v%d+)%s*=%s*'..v0..'%s*%(%s*'..v1..'%s*%)$')
+							local third=t2:match('^'..v0..'%s*,%s*'..v1..'%s*,%s*([%a_][%w_]*)%s*=%s*'..v0..'%s*%(%s*'..v1..'%s*%)$')
 							if third then
 								local lead,iv1,iv2,iiter=a[i+3]:match('^(\t*)for%s+([%a_][%w_]*),%s*([%a_][%w_]*)%s+in%s+(.+)%s+do%s*$')
 								if lead==l0 and iiter and countword(iiter,v0)==1 and countword(iiter,v1)==1 and countword(iiter,third)==1 then
 									local item=iv2
-									if item:match("^v%d+$") then item="item" end
-									a[i]=l0.."for "..(iv1:match("^v%d+$") and "_" or iv1)..", "..item.." in ipairs("..tr(r1)..") do"
+									if item:match("^v%d+_?%d*$") then item="item" end
+									a[i]=l0.."for "..(iv1:match("^v%d+_?%d*$") and "_" or iv1)..", "..item.." in ipairs("..tr(r1)..") do"
 									table.remove(a,i+3)
 									table.remove(a,i+2)
 									table.remove(a,i+1)
@@ -14013,6 +14014,86 @@ Main = (function()
 					end
 					return true
 				end
+				local function foldpackmove4(a)
+					local out={}
+					local i=1
+					while i<=#a do
+						if i+2<=#a then
+							local lead,dst=a[i]:match("^(%s*)local%s+([%a_][%w_]*)%s*=%s*{}%s*$")
+							if dst then
+								local lead2,tmp,args=a[i+1]:match("^(%s*)local%s+([%a_][%w_]*)%s*=%s*table%.pack%((.*)%)%s*$")
+								if tmp and lead2==lead then
+									local lead3,t1,t2,t3=a[i+2]:match("^(%s*)table%.move%(([%a_][%w_]*),%s*1,%s*([%a_][%w_]*)%.n,%s*1,%s*([%a_][%w_]*)%)%s*$")
+									if lead3==lead and t1==tmp and t2==tmp and t3==dst then
+										out[#out+1]=lead.."local "..dst.." = {"..args.."}"
+										i+=3
+									else out[#out+1]=a[i] i+=1 end
+								else out[#out+1]=a[i] i+=1 end
+							else out[#out+1]=a[i] i+=1 end
+						else out[#out+1]=a[i] i+=1 end
+					end
+					return out
+				end
+				local function elseifclean4(a)
+					local skip={}
+					local repl={}
+					local function lead(line) return line:match("^(%s*)") or "" end
+					for i=1,#a-1 do
+						if not skip[i] and tr(a[i])=="else" then
+							local base=lead(a[i])
+							local child=lead(a[i+1])
+							local cond=tr(a[i+1]):match("^if%s+(.+)%s+then$")
+							if cond and #child>#base then
+								local close=nil
+								for j=i+2,#a do
+									local lj=lead(a[j])
+									if #lj<#child then break end
+									if lj==child and tr(a[j])=="end" then close=j break end
+								end
+								if close then
+									repl[i]=base.."elseif "..cond.." then"
+									skip[i+1]=true
+									skip[close]=true
+									for k=i+2,close-1 do
+										if a[k]:sub(1,#child)==child then a[k]=base..a[k]:sub(#child+1) end
+									end
+								end
+							end
+						end
+					end
+					local out={}
+					for i=1,#a do if not skip[i] then out[#out+1]=repl[i] or a[i] end end
+					return out
+				end
+				local function structuralclean4(a)
+					local out={}
+					local i=1
+					local function lead(line) return line:match("^(%s*)") or "" end
+					while i<=#a do
+						local t=tr(a[i])
+						local cond=t:match("^if%s+(.+)%s+then$")
+						if cond and i+1<=#a and tr(a[i+1])=="else" and lead(a[i+1])==lead(a[i]) then
+							local inv
+							if cond:match("^%(not%s+.+%)$") then inv=cond:match("^%(not%s+(.+)%)$")
+							elseif cond:match("^not%s+.+$") then inv=cond:match("^not%s+(.+)$")
+							else inv="not ("..cond..")" end
+							out[#out+1]=lead(a[i]).."if "..inv.." then"
+							i+=2
+						elseif cond and i+1<=#a and tr(a[i+1])=="end" and lead(a[i+1])==lead(a[i]) then
+							i+=2
+						elseif cond and i+4<=#a and tr(a[i+2])=="else" and tr(a[i+4])=="end" and lead(a[i+2])==lead(a[i]) and lead(a[i+4])==lead(a[i]) then
+							local l1=tr(a[i+1])
+							local l2=tr(a[i+3])
+							if l1==l2 and topassign2(l1) then
+								out[#out+1]=lead(a[i])..l1
+								i+=5
+							else out[#out+1]=a[i] i+=1 end
+						else
+							out[#out+1]=a[i] i+=1
+						end
+					end
+					return out
+				end
 				local function safesimplify4(a)
 					a=joinlocalassign2(a)
 					a=foldservicevars4(a)
@@ -14054,6 +14135,7 @@ Main = (function()
 							foldconditiontemps3,
 							foldbuiltinaliases3,
 							foldfunctionargs3,
+							foldpackmove4,
 							foldarrayassignments3,
 							simplifygenericfor3,
 							renametableiter3,
@@ -14070,6 +14152,8 @@ Main = (function()
 							foldrootconfig2,
 							foldservicechains2,
 							foldservicevars4,
+							elseifclean4,
+							structuralclean4,
 							prunelocaldecls3,
 							compactlocals,
 						}
@@ -14086,6 +14170,7 @@ Main = (function()
 						final=foldconditiontemps3(final)
 						final=foldbuiltinaliases3(final)
 						final=foldfunctionargs3(final)
+						final=foldpackmove4(final)
 						final=foldarrayassignments3(final)
 						final=simplifygenericfor3(final)
 						final=renametableiter3(final)
@@ -14156,9 +14241,23 @@ Main = (function()
 				local ssaDefs
 				local ssaWriteId
 				local ssaReadAt
+				local ssaParam
+				local currentPc = -1
+				local defExpr = {}
+				local defName = {}
+				local defMaterialized = {}
+				local defPure = {}
+				local defMulti = {}
+				local phiIf = {}
+				local renderPhiIf
+				local declaredNames = {}
 				local loopRanges = {}
 				local pinned = {}
 				local phiRegs = {}
+				local phiLinks = {}
+				local phiDefRoot = {}
+				local phiGroupMembers = {}
+				local phiGroupName = {}
 				local semanticHints = {}
 				local forceRanges = {}
 				local byPc = {}
@@ -14182,7 +14281,7 @@ Main = (function()
 					if not s then return nil end
 					if not usedNames[s] then usedNames[s]=1 return s end
 					usedNames[s]+=1
-					local sep=s:match("^v%d+$") and "_" or ""
+					local sep=s:match("^v%d+_?%d*$") and "_" or ""
 					return s..sep..tostring(usedNames[s])
 				end
 				local function dbglocal(r,pc)
@@ -14208,8 +14307,42 @@ Main = (function()
 				local function emitLevel(s,l)
 					lines[#lines+1]=ind..string.rep("\t",l)..s
 				end
-				local function reg(i)
+				local function readdef(r,pc)
+					local rm=ssaReadAt and ssaReadAt[pc or currentPc]
+					if rm then return rm[r] end
+					return ssaParam and ssaParam[r]
+				end
+				local function writedef(r,pc)
+					local wm=ssaWriteId and ssaWriteId[pc]
+					return wm and wm[r]
+				end
+				local function regat(i,pc)
+					local rm=ssaReadAt and ssaReadAt[pc]
+					local id=(rm and rm[i]) or (not rm and ssaParam and ssaParam[i])
+					if id then
+						if defMaterialized[id] and defName[id] then return defName[id] end
+						if defExpr[id] then return defExpr[id] end
+						if phiIf[id] and renderPhiIf then
+							local e=renderPhiIf(id)
+							if e then defExpr[id]=e defPure[id]=true return e end
+						end
+					end
+					if rm then
+						if i<(p.params or 0) and names[i] then return names[i] end
+						return "nil"
+					end
 					return vars[i] and names[i] or expr[i] or multi[i] or names[i] or ("v"..tostring(i))
+				end
+				local function reg(i)
+					return regat(i,currentPc)
+				end
+				local function regpure(i,pc)
+					local id=readdef(i,pc or currentPc)
+					return id and (defMaterialized[id] or defPure[id]) or false
+				end
+				local function multireg(i)
+					local id=readdef(i,currentPc)
+					return (id and defMulti[id]) or multi[i]
 				end
 				local function touch(r,count)
 					local t=r+(count or 1)
@@ -14217,6 +14350,12 @@ Main = (function()
 				end
 				local function clearMulti(r)
 					multi[r]=nil
+				end
+				local function camel(s)
+					if type(s)~="string" or s=="" then return nil end
+					s=s:gsub("[^%w_]","_")
+					if s:match("^%d") then s="value_"..s end
+					return s:sub(1,1):lower()..s:sub(2)
 				end
 				local function suggest(s)
 					if type(s)~="string" then return nil end
@@ -14226,14 +14365,26 @@ Main = (function()
 						return svc
 					end
 					local cls=s:match('^Instance%.new%("([%w_]+)"%)$')
-					if cls and (next(robloxClasses)==nil or robloxClasses[cls]) then return cls:sub(1,1):lower()..cls:sub(2) end
+					if cls and (next(robloxClasses)==nil or robloxClasses[cls]) then return camel(cls) end
 					local et=s:match("^Enum%.([%w_]+)%.[%w_]+$")
-					if et and (next(robloxEnums)==nil or robloxEnums[et]) then return et:sub(1,1):lower()..et:sub(2) end
+					if et and (next(robloxEnums)==nil or robloxEnums[et]) then return camel(et) end
+					local child=s:match(':WaitForChild%("([^"]+)"%)$')
+					if child then return camel(child) end
+					local found=s:match(':FindFirstChild%("([^"]+)"%)$')
+					if found then return camel(found) end
+					if s:match("^TweenInfo%.new%(") then return "tweenInfo" end
+					if s:match(":Create%(") and s:find("Tween",1,true) then return "tween" end
+					if s:match(":Connect%(") then return "connection" end
+					if s:match("%.LocalPlayer$") then return "player" end
+					if s:match("%.PlayerGui$") then return "playerGui" end
+					if s:match("%.Changed$") or s:match("ChangedSignal") then return "signal" end
 					local req=s:match('^require%((.+)%)$')
 					if req then
 						local last=req:match('%.([%a_][%w_]*)$')
-						if last then return last end
+						if last then return camel(last) end
+						return "module"
 					end
+					if s:match("^function%(") then return "callback" end
 				end
 				local function varname(r,pc,s)
 					local d=dbgname(r,pc)
@@ -14254,9 +14405,40 @@ Main = (function()
 						return n
 					end
 					if names[r] then return names[r] end
-					local n=unique(d or (GENV.DEX_SEMANTIC_NAMES~=false and semanticHints[r] or nil) or suggest(s) or ("v"..tostring(r))) or ("v"..tostring(r))
+					local n=unique(d or suggest(s) or (GENV.DEX_SEMANTIC_NAMES~=false and semanticHints[r] or nil) or ("v"..tostring(r))) or ("v"..tostring(r))
 					names[r]=n
 					nameLife[r]=d
+					return n
+				end
+				local debugDefNames={}
+				local function defvarname(r,pc,s,id)
+					if id and defName[id] then return defName[id] end
+					if id and phiDefRoot[id] then
+						local n=phiGroupName[phiDefRoot[id]]
+						if n then
+							defName[id]=n
+							return n
+						end
+					end
+					local l=dbglocal(r,pc)
+					local d=l and cleanname(l.name) or nil
+					local n
+					if d and l then
+						local key=tostring(r)..":"..tostring(l.start)..":"..tostring(l.finish)..":"..d
+						n=debugDefNames[key]
+						if not n then n=unique(d) or d debugDefNames[key]=n end
+					else
+						local base=suggest(s) or (GENV.DEX_SEMANTIC_NAMES~=false and semanticHints[r] or nil)
+						if not base then
+							local sd=id and ssaDefs and ssaDefs[id]
+							if sd and sd.op=="CALL" then base="result"
+							elseif sd and (sd.op=="NEWCLOSURE" or sd.op=="DUPCLOSURE") then base="callback"
+							elseif sd and (sd.op=="NEWTABLE" or sd.op=="DUPTABLE") then base="data"
+							else base="v"..tostring(r) end
+						end
+						n=unique(base) or ("v"..tostring(r))
+					end
+					if id then defName[id]=n end
 					return n
 				end
 				local function emitassign(lhs,s,islocal)
@@ -14269,49 +14451,104 @@ Main = (function()
 						emit((islocal and "local " or "")..lhs.." = "..s)
 					end
 				end
-				local function setexpr(r,s)
+				local function setexpr(r,s,pc,pure)
 					clearMulti(r)
 					touch(r,1)
-					expr[r]=s
-					if vars[r] then
-						emitassign(names[r],s,false)
-						expr[r]=names[r]
+					local id=writedef(r,pc)
+					if id then
+						defExpr[id]=s
+						defPure[id]=not not pure
+						defMulti[id]=nil
 					end
+					expr[r]=s
 				end
 				local function materialize(r,s,pc)
 					clearMulti(r)
 					touch(r,1)
+					local id=writedef(r,pc)
+					if id then
+						local n=defvarname(r,pc,s,id)
+						local islocal=not declaredNames[n]
+						emitassign(n,s,islocal)
+						declaredNames[n]=true
+						defMaterialized[id]=true
+						defExpr[id]=n
+						defMulti[id]=nil
+						expr[r]=n
+						return n
+					end
 					local n=varname(r,pc,s)
 					if vars[r] then emitassign(n,s,false) else vars[r]=true emitassign(n,s,true) end
 					expr[r]=n
 					return n
 				end
-				local function forcedef(r,pc)
-					if forceVar[r] then return true end
-					local wm=ssaWriteId and ssaWriteId[pc]
-					local id=wm and wm[r]
-					return id and forceDef[id] or false
+				local function materializeread(r,pc,s)
+					local id=readdef(r,pc)
+					if not id then
+						local n=varname(r,pc,s)
+						if not declaredNames[n] then emitassign(n,s,true) declaredNames[n]=true end
+						vars[r]=true expr[r]=n
+						return n
+					end
+					if defMaterialized[id] and defName[id] then return defName[id] end
+					local n=defvarname(r,pc,s,id)
+					local islocal=not declaredNames[n]
+					emitassign(n,s,islocal)
+					declaredNames[n]=true
+					defMaterialized[id]=true
+					defExpr[id]=n
+					return n
 				end
-				local function put(r,s,pc,hard)
-					if hard or forcedef(r,pc) or dbgname(r,pc) then return materialize(r,s,pc) end
-					setexpr(r,s)
+				local function forcedef(r,pc)
+					local id=writedef(r,pc)
+					if id then return forceDef[id] or false end
+					return forceVar[r] or false
+				end
+				local function put(r,s,pc,hard,pure)
+					local id=writedef(r,pc)
+					local d=id and ssaDefs and ssaDefs[id]
+					local must=hard or forcedef(r,pc) or dbgname(r,pc)~=nil
+					if d then
+						if d.receiver and d.uses>1 then must=true end
+						if d.cross and not pure then must=true end
+						if d.uses>1 and not pure then must=true end
+						if not pure and d.firstUsePc and barrierBetween(pc,d.firstUsePc) then must=true end
+					end
+					if must then return materialize(r,s,pc) end
+					setexpr(r,s,pc,pure)
 					return s
 				end
 				local function multiassign(regs,rhs,pc)
 					local lhs,fresh={},{}
-					for _,r in ipairs(regs) do
+					local preferred={}
+					if type(rhs)=="string" then
+						if rhs:match("^pcall%(") or rhs:match("^xpcall%(") then preferred[1]="success" preferred[2]="result"
+						elseif rhs:match("^next%(") then preferred[1]="key" preferred[2]="value"
+						elseif rhs:match("^string%.find%(") then preferred[1]="startIndex" preferred[2]="endIndex" end
+					end
+					for idx,r in ipairs(regs) do
 						clearMulti(r)
-						local nm=varname(r,pc,nil)
+						local id=writedef(r,pc)
+						if id and preferred[idx] and not dbgname(r,pc) and not defName[id] then defName[id]=unique(preferred[idx]) or preferred[idx] end
+						local nm=id and defvarname(r,pc,nil,id) or varname(r,pc,nil)
 						lhs[#lhs+1]=nm
-						if not vars[r] then fresh[#fresh+1]=nm end
+						if not declaredNames[nm] then fresh[#fresh+1]=nm end
 					end
 					if #fresh==#regs then
 						emit("local "..table.concat(lhs,", ").." = "..rhs)
+					elseif #fresh>0 then
+						emit("local "..table.concat(fresh,", "))
+						emit(table.concat(lhs,", ").." = "..rhs)
 					else
-						if #fresh>0 then emit("local "..table.concat(fresh,", ")) end
 						emit(table.concat(lhs,", ").." = "..rhs)
 					end
-					for _,r in ipairs(regs) do vars[r]=true expr[r]=names[r] end
+					for _,r in ipairs(regs) do
+						local id=writedef(r,pc)
+						local nm=id and defName[id] or names[r]
+						if nm then declaredNames[nm]=true end
+						if id then defMaterialized[id]=true defExpr[id]=nm end
+						vars[r]=true expr[r]=nm
+					end
 				end
 				local function nextpc(x)
 					return x.pc+x.size
@@ -14320,6 +14557,22 @@ Main = (function()
 					return x.pc+1+(x.n=="JUMPX" and x.e or x.d)
 				end
 				for i,x in ipairs(p.ins) do byPc[x.pc]=x indexByPc[x.pc]=i end
+				local barrierOps={CALL=true,CALLFB=true,SETGLOBAL=true,SETUPVAL=true,SETTABLE=true,SETTABLEKS=true,SETTABLEN=true,SETUDATAKS=true,SETLIST=true,NEWCLASSMEMBER=true,GETTABLE=true,GETTABLEKS=true,GETTABLEN=true,GETUDATAKS=true,CLOSEUPVALS=true}
+				local barrierPrefix={}
+				local barrierCount=0
+				for j,y in ipairs(p.ins) do
+					barrierPrefix[j]=barrierCount
+					if barrierOps[y.n] then barrierCount+=1 end
+				end
+				local function barrierBetween(a,b)
+					if type(a)~="number" or type(b)~="number" or b<=a then return false end
+					local ai=indexByPc[a]
+					local bi=indexByPc[b]
+					if not ai or not bi or bi<=ai+1 then return false end
+					local beforeB=barrierPrefix[bi] or 0
+					local afterA=(barrierPrefix[ai] or 0)+(barrierOps[p.ins[ai].n] and 1 or 0)
+					return beforeB>afterA
+				end
 				local condops={JUMPIF=true,JUMPIFNOT=true,JUMPIFEQ=true,JUMPIFLE=true,JUMPIFLT=true,JUMPIFNOTEQ=true,JUMPIFNOTLE=true,JUMPIFNOTLT=true,JUMPXEQKNIL=true,JUMPXEQKB=true,JUMPXEQKN=true,JUMPXEQKS=true,CMPPROTO=true}
 				local cfgcondops={JUMPIF=true,JUMPIFNOT=true,JUMPIFEQ=true,JUMPIFLE=true,JUMPIFLT=true,JUMPIFNOTEQ=true,JUMPIFNOTLE=true,JUMPIFNOTLT=true,JUMPXEQKNIL=true,JUMPXEQKB=true,JUMPXEQKN=true,JUMPXEQKS=true,CMPPROTO=true}
 				local loopops={FORNPREP=true,FORNLOOP=true,FORGLOOP=true}
@@ -15127,8 +15380,45 @@ Main = (function()
 						for r=x.a,x.a+2 do add(r) end
 					elseif n=="NEWCLASS" and x.b~=255 then add(x.b)
 					elseif n=="NEWCLASSMEMBER" then add(x.a) add(x.c)
+					elseif n=="CAPTURE" and (x.a==0 or x.a==1) then add(x.b)
 					end
 					return out
+				end
+				local ssaBlockUse,ssaBlockDef={},{}
+				for _,b in ipairs(blocks) do
+					local use,def={},{}
+					if reachableBlock[b.id] then
+						for _,y in ipairs(b.ins) do
+							for _,r in ipairs(readRegs(y)) do if not def[r] then use[r]=true end end
+							for _,r in ipairs(writeRegs(y)) do def[r]=true end
+						end
+					end
+					ssaBlockUse[b.id]=use ssaBlockDef[b.id]=def
+				end
+				local ssaLiveIn,ssaLiveOut={},{}
+				for _,b in ipairs(blocks) do ssaLiveIn[b.id]={} ssaLiveOut[b.id]={} end
+				local function ssaSetEq(a,b)
+					for k in pairs(a) do if not b[k] then return false end end
+					for k in pairs(b) do if not a[k] then return false end end
+					return true
+				end
+				local ssaLiveChanged=true
+				local ssaLiveRounds=0
+				while ssaLiveChanged and ssaLiveRounds<512 do
+					ssaLiveChanged=false ssaLiveRounds+=1
+					for bi=#blocks,1,-1 do
+						local b=blocks[bi]
+						if reachableBlock[b.id] then
+							local out={}
+							for _,sid in ipairs(b.succ) do if reachableBlock[sid] then for r in pairs(ssaLiveIn[sid]) do out[r]=true end end end
+							local inn={}
+							for r in pairs(ssaBlockUse[b.id]) do inn[r]=true end
+							for r in pairs(out) do if not ssaBlockDef[b.id][r] then inn[r]=true end end
+							if not ssaSetEq(out,ssaLiveOut[b.id]) then ssaLiveOut[b.id]=out ssaLiveChanged=true end
+							if not ssaSetEq(inn,ssaLiveIn[b.id]) then ssaLiveIn[b.id]=inn ssaLiveChanged=true end
+						end
+					end
+					breathe()
 				end
 				ssaDefs={}
 				ssaWriteId={}
@@ -15141,7 +15431,7 @@ Main = (function()
 					ssaDefs[id]={id=id,reg=reg,pc=pc,op=op,kind=kind or "write",uses=0,blocks={},receiver=false,cross=false,defBlock=db,firstUsePc=nil,lastUsePc=nil}
 					return id
 				end
-				local ssaParam={}
+				ssaParam={}
 				for r=0,(p.params or 0)-1 do ssaParam[r]=newSsaDef(r,-1,"PARAM","param") end
 				for _,y in ipairs(p.ins) do
 					local wm={}
@@ -15174,8 +15464,9 @@ Main = (function()
 					for _,b in ipairs(blocks) do
 						if reachableBlock[b.id] then
 							local incoming={}
+							local needed=ssaLiveIn[b.id] or {}
 							if b.id==ssaEntry then
-								for r,id in pairs(ssaParam) do incoming[r]=id end
+								for r in pairs(needed) do local id=ssaParam[r] if id then incoming[r]=id end end
 							else
 								local first=true
 								local seenAny=false
@@ -15183,13 +15474,10 @@ Main = (function()
 									if reachableBlock[pid] and ssaOut[pid] then
 										seenAny=true
 										if first then
-											incoming=ssaCopy(ssaOut[pid])
+											for r in pairs(needed) do incoming[r]=ssaOut[pid][r] end
 											first=false
 										else
-											local keys={}
-											for r in pairs(incoming) do keys[r]=true end
-											for r in pairs(ssaOut[pid]) do keys[r]=true end
-											for r in pairs(keys) do
+											for r in pairs(needed) do
 												local a=incoming[r]
 												local c=ssaOut[pid][r]
 												if a~=c then incoming[r]=ssaPhi(b.id,r) end
@@ -15239,22 +15527,123 @@ Main = (function()
 						end
 					end
 				end
+				local defConst={}
+				local defConstSet={}
+				for _,y in ipairs(p.ins) do
+					local wm=ssaWriteId[y.pc] or {}
+					local id=wm[y.a]
+					if id then
+						if y.n=="LOADNIL" then defConst[id]="nil" defConstSet[id]=true
+						elseif y.n=="LOADB" then defConst[id]=y.b~=0 and "true" or "false" defConstSet[id]=true
+						elseif y.n=="LOADN" then defConst[id]=tostring(y.d) defConstSet[id]=true
+						elseif y.n=="LOADK" then defConst[id]=kval(p,math.floor(y.w/65536)%65536) defConstSet[id]=true
+						elseif y.n=="LOADKX" then defConst[id]=kval(p,y.aux or 0) defConstSet[id]=true
+						elseif y.n=="MOVE" then
+							local src=ssaReadAt[y.pc] and ssaReadAt[y.pc][y.b]
+							if src and defConstSet[src] then defConst[id]=defConst[src] defConstSet[id]=true end
+						end
+					end
+				end
+				local diamondForMerge={}
+				for _,cb in ipairs(blocks) do
+					if reachableBlock[cb.id] and ipdom[cb.id] and ipdom[cb.id]~=EXIT_ID then
+						local merge=ipdom[cb.id]
+						local last=cb.ins[#cb.ins]
+						if last and condops[last.n] and last.n~="CMPPROTO" then
+							local jid=blockOf[jumptarget(last)]
+							local fid=blockOf[nextpc(last)]
+							local mb=blocks[merge]
+							if mb and #mb.pred==2 then
+								local hasJ,hasF=false,false
+								for _,pid in ipairs(mb.pred) do if pid==jid then hasJ=true elseif pid==fid then hasF=true end end
+								if hasJ and hasF then diamondForMerge[merge]={condPc=last.pc,jumpId=jid,fallId=fid} end
+							end
+						end
+					end
+				end
+				local simplifiedPhi={}
+				local ssaSimplifiedPhi=0
 				local ssaPhiCount=0
 				local ssaReceiverDefs=0
 				for bid,pm in pairs(ssaPhiId) do
 					for r,id in pairs(pm) do
 						ssaPhiCount+=1
-						phiRegs[r]=true
-						local d=ssaDefs[id]
-						if d then d.cross=true end
 						local b=blocks[bid]
+						local sameConst=true
+						local constValue=nil
+						local haveConst=false
 						if b then
 							for _,pid in ipairs(b.pred) do
 								local incoming=ssaOut[pid] and ssaOut[pid][r]
-								if incoming then forceDef[incoming]=true end
+								if not incoming or not defConstSet[incoming] then sameConst=false break end
+								local cv=defConst[incoming]
+								if not haveConst then constValue=cv haveConst=true elseif cv~=constValue then sameConst=false break end
+							end
+						else sameConst=false end
+						local diamond=diamondForMerge[bid]
+						local ifFolded=false
+						if not sameConst and diamond then
+							local jdef=ssaOut[diamond.jumpId] and ssaOut[diamond.jumpId][r]
+							local fdef=ssaOut[diamond.fallId] and ssaOut[diamond.fallId][r]
+							if jdef and fdef and defConstSet[jdef] and defConstSet[fdef] then
+								phiIf[id]={condPc=diamond.condPc,jumpValue=defConst[jdef],fallValue=defConst[fdef]}
+								simplifiedPhi[id]=true
+								ssaSimplifiedPhi+=1
+								ifFolded=true
+							end
+						end
+						if sameConst and haveConst then
+							simplifiedPhi[id]=true
+							ssaSimplifiedPhi+=1
+							defExpr[id]=constValue
+							defPure[id]=true
+							defConst[id]=constValue defConstSet[id]=true
+						elseif ifFolded then
+						else
+							phiRegs[r]=true
+							local d=ssaDefs[id]
+							if d then d.cross=true end
+							if b then
+								for _,pid in ipairs(b.pred) do
+									local incoming=ssaOut[pid] and ssaOut[pid][r]
+									if incoming then
+										forceDef[incoming]=true
+										phiLinks[#phiLinks+1]={id,incoming}
+									end
+								end
 							end
 						end
 					end
+				end
+				local phiParent={}
+				local function phiFind(id)
+					local p0=phiParent[id]
+					if not p0 then phiParent[id]=id return id end
+					while p0~=phiParent[p0] do
+						phiParent[p0]=phiParent[phiParent[p0]]
+						p0=phiParent[p0]
+					end
+					local cur=id
+					while phiParent[cur] and phiParent[cur]~=p0 do
+						local nxt=phiParent[cur]
+						phiParent[cur]=p0
+						cur=nxt
+					end
+					return p0
+				end
+				local function phiUnion(a,b)
+					local ra,rb=phiFind(a),phiFind(b)
+					if ra~=rb then
+						if ra<rb then phiParent[rb]=ra else phiParent[ra]=rb end
+					end
+				end
+				for _,ln in ipairs(phiLinks) do phiUnion(ln[1],ln[2]) end
+				for id in pairs(phiParent) do
+					local root=phiFind(id)
+					phiDefRoot[id]=root
+					local members=phiGroupMembers[root]
+					if not members then members={} phiGroupMembers[root]=members end
+					members[#members+1]=id
 				end
 				for _,d in pairs(ssaDefs) do
 					local bc=0
@@ -15262,9 +15651,10 @@ Main = (function()
 					if bc>1 then d.cross=true end
 					if d.receiver then
 						ssaReceiverDefs+=1
-						forceDef[d.id]=true
+						if d.uses>1 or d.op=="NEWTABLE" or d.op=="DUPTABLE" or d.op=="NEWCLASS" or d.op=="CALL" or d.op=="CALLFB" or d.op=="NEWCLOSURE" or d.op=="DUPCLOSURE" then
+							forceDef[d.id]=true
+						end
 					end
-					if d.cross and d.kind~="param" then forceDef[d.id]=true end
 					if d.uses>1 and (d.op=="CALL" or d.op=="CALLFB" or d.op=="NEWCLOSURE" or d.op=="DUPCLOSURE" or d.op=="NEWTABLE" or d.op=="DUPTABLE" or d.op=="NEWCLASS") then
 						forceDef[d.id]=true
 					end
@@ -15274,9 +15664,11 @@ Main = (function()
 					for _ in pairs(forceDef) do forcedCount+=1 end
 					GENV.DEX_LAST_ANALYSIS={
 						version=DECOMPILER_VERSION,
+						valueIR=true,
 						blocks=#blocks,
 						ssaDefs=ssaNext-1,
 						phi=ssaPhiCount,
+						simplifiedPhi=ssaSimplifiedPhi,
 						stableReceivers=ssaReceiverDefs,
 						forcedDefs=forcedCount,
 						instructions=#p.ins
@@ -15317,13 +15709,6 @@ Main = (function()
 						end
 					end
 					breathe()
-				end
-				local selfRead = {ADD=true,SUB=true,MUL=true,DIV=true,MOD=true,POW=true,AND=true,OR=true,IDIV=true,SUBRK=true,DIVRK=true,ADDK=true,SUBK=true,MULK=true,DIVK=true,MODK=true,POWK=true,ANDK=true,ORK=true,IDIVK=true,NOT=true,MINUS=true,LENGTH=true,GETTABLE=true,GETTABLEKS=true,GETTABLEN=true}
-				for _,x in ipairs(p.ins) do
-					if selfRead[x.n] and (x.a==x.b or x.a==x.c) then
-						local id=ssaWriteId[x.pc] and ssaWriteId[x.pc][x.a]
-						if id and ssaDefs[id] and ssaDefs[id].cross then forceDef[id]=true end
-					end
 				end
 				local boolFold={}
 				for _,x in ipairs(p.ins) do
@@ -15584,16 +15969,6 @@ Main = (function()
 					end
 					breathe()
 				end
-				for _,b in ipairs(blocks) do
-					if reachableBlock[b.id] then
-						for r in pairs(liveOut[b.id] or {}) do
-							local id=ssaOut[b.id] and ssaOut[b.id][r]
-							local d=id and ssaDefs[id]
-							if d and d.cross then forceDef[id]=true end
-						end
-					end
-					breathe()
-				end
 				for i=0,p.params-1 do
 					local dl=dbglocal(i,0)
 					local dn=dl and cleanname(dl.name) or nil
@@ -15602,14 +15977,47 @@ Main = (function()
 					nameLife[i]=dn
 					vars[i]=true
 					expr[i]=n
+					declaredNames[n]=true
+					local id=ssaParam and ssaParam[i]
+					if id then defName[id]=n defExpr[id]=n defMaterialized[id]=true defPure[id]=true end
 				end
-				for r in pairs(phiRegs) do
-					if r>=p.params then
-						local hint
-						if p.locals then for _,l in ipairs(p.locals) do if l.reg==r then hint=cleanname(l.name) break end end end
-						local n=unique(hint or ("v"..tostring(r))) or ("v"..tostring(r))
-						names[r]=n pinned[r]=true vars[r]=true expr[r]=n
+				for root,members in pairs(phiGroupMembers) do
+					local paramReg=nil
+					local regHint=nil
+					local dbgHint=nil
+					for _,id in ipairs(members) do
+						local d=ssaDefs[id]
+						if d then
+							regHint=regHint or d.reg
+							if d.kind=="param" then paramReg=d.reg end
+							if not dbgHint and p.locals then
+								for _,l in ipairs(p.locals) do
+									if l.reg==d.reg then dbgHint=cleanname(l.name) break end
+								end
+							end
+						end
+					end
+					local n
+					if paramReg~=nil and names[paramReg] then
+						n=names[paramReg]
+					else
+						local r=regHint or 0
+						n=unique(dbgHint or (GENV.DEX_SEMANTIC_NAMES~=false and semanticHints[r] or nil) or ("v"..tostring(r))) or ("v"..tostring(r))
 						emit("local "..n)
+						declaredNames[n]=true
+					end
+					phiGroupName[root]=n
+					if n then
+						declaredNames[n]=true
+						for _,id in ipairs(members) do
+							local d=ssaDefs[id]
+							defName[id]=n
+							if d and d.kind=="phi" then
+								defExpr[id]=n
+								defMaterialized[id]=true
+								defPure[id]=true
+							end
+						end
 					end
 				end
 				local bin={ADD="+",SUB="-",MUL="*",DIV="/",MOD="%",POW="^",AND="and",OR="or",IDIV="//"}
@@ -15664,6 +16072,17 @@ Main = (function()
 					end
 					return "true"
 				end
+				renderPhiIf=function(id)
+					local d=phiIf[id]
+					if not d then return nil end
+					local x=byPc[d.condPc]
+					if not x then return nil end
+					local oldpc=currentPc
+					currentPc=x.pc
+					local c=jumpcond(x)
+					currentPc=oldpc
+					return "(if "..c.." then "..d.jumpValue.." else "..d.fallValue..")"
+				end
 				local function loopfor(pc)
 					local best
 					for _,lr in ipairs(loopRanges) do
@@ -15672,7 +16091,11 @@ Main = (function()
 					return best
 				end
 				local function purecall(fn,m)
-					if m or type(fn)~="string" then return false end
+					if m then
+						if m.base=="game" and m.name=="GetService" then return true end
+						return false
+					end
+					if type(fn)~="string" then return false end
 					if fn=="type" or fn=="typeof" or fn=="tostring" or fn=="tonumber" then return true end
 					local safeString={["string.byte"]=true,["string.char"]=true,["string.find"]=true,["string.format"]=true,["string.len"]=true,["string.lower"]=true,["string.match"]=true,["string.pack"]=true,["string.packsize"]=true,["string.rep"]=true,["string.reverse"]=true,["string.sub"]=true,["string.unpack"]=true,["string.upper"]=true}
 					if safeString[fn] or fn:match("^bit32%.") or fn:match("^buffer%.read") then return true end
@@ -15695,6 +16118,7 @@ Main = (function()
 				while i<=#p.ins do
 					breathe()
 					local x=p.ins[i]
+					currentPc=x.pc
 					local n=x.n
 					if not reachablePc[x.pc] then i+=1 continue end
 					if endAt[x.pc] then
@@ -15733,7 +16157,7 @@ Main = (function()
 						else
 							value="("..fallcond(x)..")"
 						end
-						put(bf.reg,value,x.pc,false)
+						put(bf.reg,value,x.pc,false,true)
 						i+=1
 						continue
 					end
@@ -15766,55 +16190,65 @@ Main = (function()
 						end
 						top=math.max(top,p.params or 0)
 					elseif vmNoopOps[n] then
-					elseif n=="LOADNIL" then put(x.a,"nil",x.pc,false)
-					elseif n=="LOADB" then put(x.a,x.b~=0 and "true" or "false",x.pc,false)
-					elseif n=="LOADN" then put(x.a,tostring(x.d),x.pc,false)
-					elseif n=="LOADK" then put(x.a,kval(p,math.floor(x.w/65536)%65536),x.pc,false)
-					elseif n=="LOADKX" then put(x.a,kval(p,x.aux or 0),x.pc,false)
-					elseif n=="MOVE" then put(x.a,reg(x.b),x.pc,false)
+					elseif n=="LOADNIL" then put(x.a,"nil",x.pc,false,true)
+					elseif n=="LOADB" then put(x.a,x.b~=0 and "true" or "false",x.pc,false,true)
+					elseif n=="LOADN" then put(x.a,tostring(x.d),x.pc,false,true)
+					elseif n=="LOADK" then put(x.a,kval(p,math.floor(x.w/65536)%65536),x.pc,false,true)
+					elseif n=="LOADKX" then put(x.a,kval(p,x.aux or 0),x.pc,false,true)
+					elseif n=="MOVE" then put(x.a,reg(x.b),x.pc,false,regpure(x.b))
 					elseif n=="GETGLOBAL" then
 						local s=kstr(p,x.aux or 0)
-						put(x.a,s and (ident(s) and s or ("_G["..q(s).."]")) or "_G",x.pc,false)
+						put(x.a,s and (ident(s) and s or ("_G["..q(s).."]")) or "_G",x.pc,false,s=="game" or s=="workspace")
 					elseif n=="SETGLOBAL" then
 						local s=kstr(p,x.aux or 0)
 						emit((s and (ident(s) and s or ("_G["..q(s).."]")) or "_G").." = "..reg(x.a))
-					elseif n=="GETIMPORT" then put(x.a,importpath(p,x.aux or 0),x.pc,false)
-					elseif n=="GETUPVAL" then put(x.a,upname(x.b),x.pc,false)
+					elseif n=="GETIMPORT" then put(x.a,importpath(p,x.aux or 0),x.pc,false,true)
+					elseif n=="GETUPVAL" then put(x.a,upname(x.b),x.pc,false,false)
 					elseif n=="SETUPVAL" then emit(upname(x.b).." = "..reg(x.a))
-					elseif n=="GETTABLE" then put(x.a,reg(x.b).."["..reg(x.c).."]",x.pc,false)
+					elseif n=="GETTABLE" then put(x.a,reg(x.b).."["..reg(x.c).."]",x.pc,false,false)
 					elseif n=="SETTABLE" then emit(reg(x.b).."["..reg(x.c).."] = "..reg(x.a))
 					elseif n=="GETTABLEKS" or n=="GETUDATAKS" then
 						local ci=n=="GETUDATAKS" and ((x.aux or 0)%65536) or (x.aux or 0)
-						put(x.a,prop(reg(x.b),kstr(p,ci)),x.pc,false)
+						put(x.a,prop(reg(x.b),kstr(p,ci)),x.pc,false,false)
 					elseif n=="SETTABLEKS" or n=="SETUDATAKS" then
 						local ci=n=="SETUDATAKS" and ((x.aux or 0)%65536) or (x.aux or 0)
 						emit(prop(reg(x.b),kstr(p,ci)).." = "..reg(x.a))
-					elseif n=="GETTABLEN" then put(x.a,reg(x.b).."["..tostring(x.c+1).."]",x.pc,false)
+					elseif n=="GETTABLEN" then put(x.a,reg(x.b).."["..tostring(x.c+1).."]",x.pc,false,false)
 					elseif n=="SETTABLEN" then emit(reg(x.b).."["..tostring(x.c+1).."] = "..reg(x.a))
-					elseif bin[n] then put(x.a,"("..reg(x.b).." "..bin[n].." "..reg(x.c)..")",x.pc,false)
-					elseif bink[n] then put(x.a,"("..reg(x.b).." "..bink[n].." "..kval(p,x.c)..")",x.pc,false)
-					elseif n=="SUBRK" then put(x.a,"("..kval(p,x.b).." - "..reg(x.c)..")",x.pc,false)
-					elseif n=="DIVRK" then put(x.a,"("..kval(p,x.b).." / "..reg(x.c)..")",x.pc,false)
-					elseif n=="NOT" then put(x.a,"(not "..reg(x.b)..")",x.pc,false)
-					elseif n=="MINUS" then put(x.a,"(-"..reg(x.b)..")",x.pc,false)
-					elseif n=="LENGTH" then put(x.a,"(#"..reg(x.b)..")",x.pc,false)
+					elseif bin[n] then
+						local logical=n=="AND" or n=="OR"
+						put(x.a,"("..reg(x.b).." "..bin[n].." "..reg(x.c)..")",x.pc,false,logical and regpure(x.b) and regpure(x.c))
+					elseif bink[n] then
+						local logical=n=="ANDK" or n=="ORK"
+						put(x.a,"("..reg(x.b).." "..bink[n].." "..kval(p,x.c)..")",x.pc,false,logical and regpure(x.b))
+					elseif n=="SUBRK" then put(x.a,"("..kval(p,x.b).." - "..reg(x.c)..")",x.pc,false,false)
+					elseif n=="DIVRK" then put(x.a,"("..kval(p,x.b).." / "..reg(x.c)..")",x.pc,false,false)
+					elseif n=="NOT" then put(x.a,"(not "..reg(x.b)..")",x.pc,false,regpure(x.b))
+					elseif n=="MINUS" then put(x.a,"(-"..reg(x.b)..")",x.pc,false,false)
+					elseif n=="LENGTH" then put(x.a,"(#"..reg(x.b)..")",x.pc,false,false)
 					elseif n=="CONCAT" then
 						local a={}
 						for r=x.b,x.c do a[#a+1]=reg(r) end
-						put(x.a,"("..table.concat(a," .. ")..")",x.pc,false)
-					elseif n=="NEWTABLE" then materialize(x.a,"{}",x.pc)
-					elseif n=="DUPTABLE" then materialize(x.a,kval(p,x.d),x.pc)
+						put(x.a,"("..table.concat(a," .. ")..")",x.pc,false,false)
+					elseif n=="NEWTABLE" then put(x.a,"{}",x.pc,false,true)
+					elseif n=="DUPTABLE" then put(x.a,kval(p,x.d),x.pc,false,true)
 					elseif n=="SETLIST" then
 						local start=x.aux or 1
 						if x.c==0 then
 							local vals={}
+							local hasMulti=false
 							for r=x.b,top-1 do
-								if multi[r] then vals[#vals+1]=multi[r] break end
+								local mv=multireg(r)
+								if mv then vals[#vals+1]=mv hasMulti=true break end
 								vals[#vals+1]=reg(r)
 							end
-							local tn=unique("values") or "values"
-							emit("local "..tn.." = table.pack("..table.concat(vals,", ")..")")
-							emit("table.move("..tn..", 1, "..tn..".n, "..tostring(start)..", "..reg(x.a)..")")
+							if hasMulti then
+								local tn=unique("values") or "values"
+								emit("local "..tn.." = table.pack("..table.concat(vals,", ")..")")
+								emit("table.move("..tn..", 1, "..tn..".n, "..tostring(start)..", "..reg(x.a)..")")
+							else
+								for j,v in ipairs(vals) do emit(reg(x.a).."["..tostring(start+j-1).."] = "..v) end
+							end
 						else
 							local count=x.c-1
 							for j=0,count-1 do emit(reg(x.a).."["..tostring(start+j).."] = "..reg(x.b+j)) end
@@ -15833,7 +16267,8 @@ Main = (function()
 						if x.b==0 then
 							for r=x.a+1,top-1 do
 								if not (m and r==x.a+1) then
-									if multi[r] then args[#args+1]=multi[r] break end
+									local mv=multireg(r)
+									if mv then args[#args+1]=mv break end
 									args[#args+1]=reg(r)
 								end
 							end
@@ -15853,12 +16288,22 @@ Main = (function()
 						elseif x.c==0 then
 							expr[x.a]=nil
 							multi[x.a]=call
+							local wid=writedef(x.a,x.pc)
+							if wid then defMulti[wid]=call defExpr[wid]=nil defPure[wid]=false end
 							top=x.a+1
 						elseif x.c==2 then
-							local wid=ssaWriteId[x.pc] and ssaWriteId[x.pc][x.a]
+							local wid=writedef(x.a,x.pc)
 							local wd=wid and ssaDefs[wid]
-							local singleSafe=wd and wd.uses==1 and not wd.cross and not wd.receiver
-							if (purecall(fn,m) or singleSafe) and not forcedef(x.a,x.pc) and not dbgname(x.a,x.pc) then put(x.a,call,x.pc,false) else materialize(x.a,call,x.pc) end
+							local callPure=purecall(fn,m)
+							local firstUse=wd and wd.firstUsePc or nil
+							local singleSafe=wd and wd.uses==1 and not wd.cross and not wd.receiver and (not firstUse or not barrierBetween(x.pc,firstUse))
+							if callPure and wd and wd.uses<=1 and not wd.cross and not forcedef(x.a,x.pc) and not dbgname(x.a,x.pc) then
+								put(x.a,call,x.pc,false,true)
+							elseif singleSafe and not forcedef(x.a,x.pc) and not dbgname(x.a,x.pc) then
+								put(x.a,call,x.pc,false,false)
+							else
+								materialize(x.a,call,x.pc)
+							end
 							top=x.a+1
 						else
 							local regs={}
@@ -15870,9 +16315,11 @@ Main = (function()
 						if x.b==0 then
 							expr[x.a]=nil
 							multi[x.a]="..."
+							local wid=writedef(x.a,x.pc)
+							if wid then defMulti[wid]="..." defExpr[wid]=nil defPure[wid]=true end
 							top=x.a+1
 						elseif x.b==2 then
-							put(x.a,"...",x.pc,false)
+							put(x.a,"...",x.pc,false,true)
 							top=x.a+1
 						else
 							local regs={}
@@ -15895,9 +16342,11 @@ Main = (function()
 								local cx=p.ins[i+1+u]
 								if cx and cx.n=="CAPTURE" then
 									if cx.a==0 or cx.a==1 then
-										if cx.a==1 then forceVar[cx.b]=true end
-										local value=reg(cx.b)
-										if not vars[cx.b] then value=materialize(cx.b,value,x.pc) end
+										local rid=readdef(cx.b,cx.pc)
+										if cx.a==1 and rid then forceDef[rid]=true end
+										local value=regat(cx.b,cx.pc)
+										if rid and not defMaterialized[rid] then value=materializeread(cx.b,cx.pc,value)
+										elseif not rid and not vars[cx.b] then value=materializeread(cx.b,cx.pc,value) end
 										caps[u]=value
 									elseif cx.a==2 then
 										caps[u]=upname(cx.b)
@@ -15911,14 +16360,20 @@ Main = (function()
 							local okChild,resChild=pcall(customsource,mod,cp,depth+1,seen,caps,true)
 							if okChild and type(resChild)=="string" and resChild~="" then childSource=resChild end
 						end
-						materialize(x.a,childSource,x.pc)
+						local cid=writedef(x.a,x.pc)
+						local cd=cid and ssaDefs[cid]
+						if cd and cd.uses==1 and not cd.cross and not cd.receiver and not forcedef(x.a,x.pc) and not dbgname(x.a,x.pc) then
+							put(x.a,childSource,x.pc,false,true)
+						else
+							materialize(x.a,childSource,x.pc)
+						end
 					elseif n=="CLOSEUPVALS" then
-						for r=x.a,(p.max or x.a)-1 do if vars[r] then forceVar[r]=true end end
 					elseif n=="RETURN" then
 						local a={}
 						if x.b==0 then
 							for r=x.a,top-1 do
-								if multi[r] then a[#a+1]=multi[r] break end
+								local mv=multireg(r)
+								if mv then a[#a+1]=mv break end
 								a[#a+1]=reg(r)
 							end
 						else
@@ -15970,7 +16425,7 @@ Main = (function()
 						elseif lr and t>=lr.finish then
 							emit("break")
 						end
-					elseif n=="NEWCLASS" then materialize(x.a,"{}",x.pc)
+					elseif n=="NEWCLASS" then put(x.a,"{}",x.pc,false,true)
 					elseif n=="NEWCLASSMEMBER" then
 						local s=kstr(p,x.aux or 0) or "member"
 						emit(prop(reg(x.a),s).." = "..reg(x.c))
@@ -16010,6 +16465,28 @@ Main = (function()
 					bodytext=table.concat(safe,"\n")
 				end
 				if validstructure(bodytext) then bodytext=canonicalindent_source(bodytext) end
+				local function parsecheck(src)
+					if type(loadstring)~="function" then return true,nil end
+					local ok,fn,err=pcall(loadstring,src)
+					if not ok then return false,fn end
+					return fn~=nil,err
+				end
+				local checksrc
+				if depth==0 and not exprMode then checksrc=bodytext else checksrc="return function("..table.concat(args,", ")..")\n"..bodytext.."\nend" end
+				local parsed,parseerr=parsecheck(checksrc)
+				if not parsed then
+					local rawcheck
+					if depth==0 and not exprMode then rawcheck=rawbody else rawcheck="return function("..table.concat(args,", ")..")\n"..rawbody.."\nend" end
+					local rawok,rawerr=parsecheck(rawcheck)
+					if rawok then
+						bodytext=rawbody
+						parsed=true
+						parseerr=nil
+					else
+						parseerr=tostring(parseerr or rawerr or "parse failed")
+					end
+				end
+				if depth==0 then GENV.DEX_LAST_PARSE_ERROR=parsed and nil or parseerr end
 				if depth==0 and not exprMode then return bodytext end
 				if bodytext=="" then return "function("..table.concat(args,", ")..") end" end
 				return "function("..table.concat(args,", ")..")\n"..bodytext.."\n"..ind.."end"
