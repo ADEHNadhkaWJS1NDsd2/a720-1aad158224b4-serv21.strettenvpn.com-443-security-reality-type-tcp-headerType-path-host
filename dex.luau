@@ -22,7 +22,7 @@ local game = workspace.Parent
 
 local _getgenv = type(getgenv) == "function" and getgenv or function() return _G end
 local GENV = _getgenv()
-local DEX_BUILD_VERSION = "V24"
+local DEX_BUILD_VERSION = "V25"
 local function dexCacheToken()
 	local ok,guid = pcall(function()
 		return game:GetService("HttpService"):GenerateGUID(false)
@@ -12418,27 +12418,38 @@ Main = (function()
 				end
 				return out or "_G"
 			end
-			local VM_STEP_ORDERS = {
-				{"const","params","inst","proto"},
-				{"const","proto","params","inst"},
-				{"params","const","inst","proto"},
-				{"params","const","proto","inst"},
-				{"inst","const","params","proto"},
-				{"inst","params","const","proto"},
-				{"proto","const","params","inst"},
-				{"proto","const","inst","params"}
-			}
+			local VM_STEP_ORDERS = {}
+			do
+				local items={"const","params","inst","proto"}
+				local used={}
+				local cur={}
+				local function gen(n)
+					if n>#items then
+						VM_STEP_ORDERS[#VM_STEP_ORDERS+1]={cur[1],cur[2],cur[3],cur[4]}
+						return
+					end
+					for i=1,#items do
+						if not used[i] then
+							used[i]=true
+							cur[n]=items[i]
+							gen(n+1)
+							used[i]=nil
+						end
+					end
+				end
+				gen(1)
+			end
 			local VM_TYPE_MAPS = {}
 			do
 				local base={"nil","boolean","number","string"}
 				local used={}
 				local cur={}
 				local function gen(n)
-					if n>4 then
+					if n>#base then
 						VM_TYPE_MAPS[#VM_TYPE_MAPS+1]={cur[1],cur[2],cur[3],cur[4]}
 						return
 					end
-					for i=1,4 do
+					for i=1,#base do
 						if not used[i] then
 							used[i]=true
 							cur[n]=base[i]
@@ -12446,7 +12457,8 @@ Main = (function()
 							used[i]=nil
 						end
 					end
-					gen(1)
+				end
+				gen(1)
 			end
 			local function vmXor(a,b)
 				if bit32 and bit32.bxor then return bit32.bxor(a,b) end
@@ -12557,7 +12569,8 @@ Main = (function()
 			local function vmConstMarker(i)
 				return {__vm_const=i}
 			end
-			local function vmParseChunk(r,order,typeMap,depth,budget)
+			local function vmParseChunk(r,order,typeMap,typeOffset,depth,budget)
+				typeOffset=typeOffset or 0
 				depth=depth or 0
 				budget=budget or {nodes=0,instructions=0}
 				if depth>96 then error("vm proto depth") end
@@ -12570,7 +12583,7 @@ Main = (function()
 					if n>1000000 then error("vm constant count") end
 					for i=1,n do
 						local tag=vmU8(r)
-						local kind=typeMap[tag+1]
+						local kind=typeMap[tag-typeOffset+1]
 						if not kind then error("vm constant tag") end
 						local value=nil
 						if kind=="boolean" then
@@ -12619,7 +12632,7 @@ Main = (function()
 					local n=vmU32(r)
 					if n>200000 then error("vm child count") end
 					for i=1,n do
-						chunk.protos[i]=vmParseChunk(r,order,typeMap,depth+1,budget)
+						chunk.protos[i]=vmParseChunk(r,order,typeMap,typeOffset,depth+1,budget)
 					end
 				end
 				local function readParams()
@@ -12727,45 +12740,36 @@ Main = (function()
 				if #blobs==0 then return nil,{detected=false,reason="no candidate blob"} end
 				local keys=vmCollectKeyHints(mod)
 				local attempts=0
-				local maxAttempts=tonumber(GENV.DEX_VM_MAX_ATTEMPTS) or 18000
+				local maxAttempts=tonumber(GENV.DEX_VM_MAX_ATTEMPTS) or 30000
 				for _,candidate in ipairs(blobs) do
 					local data=candidate.data
 					for _,key in ipairs(keys) do
-						for oi,order in ipairs(VM_STEP_ORDERS) do
-							if oi<=2 or attempts<maxAttempts/2 then
-								for mi,typeMap in ipairs(VM_TYPE_MAPS) do
+						for _,order in ipairs(VM_STEP_ORDERS) do
+							for _,typeMap in ipairs(VM_TYPE_MAPS) do
+								for typeOffset=0,1 do
 									attempts+=1
 									if attempts>maxAttempts then break end
 									local r=vmReader(data,key)
-									local ok,chunk,budget=pcall(vmParseChunk,r,order,typeMap,0,{nodes=0,instructions=0})
+									local ok,chunk=pcall(vmParseChunk,r,order,typeMap,typeOffset,0,{nodes=0,instructions=0})
 									if ok and type(chunk)=="table" then
 										local plausible,stats=vmPlausible(chunk,r.pos,#data)
 										if plausible then
 											local okResolve=pcall(vmResolveConstants,chunk)
 											if okResolve then
 												return chunk,{
-													detected=true,
-													decoded=true,
+													detected=true,decoded=true,
 													kind=candidate.compressed and "IronBrew/AztupBrew LZW" or "IronBrew/AztupBrew",
-													xorKey=key,
-													blobBytes=#data,
-													blobProto=candidate.proto,
-													blobConstant=candidate.constant,
-													compressed=candidate.compressed,
-													order=table.concat(order,","),
-													typeMap=table.concat(typeMap,","),
-													attempts=attempts,
-													instructions=stats.instructions,
-													protos=stats.protos,
-													constants=stats.constants,
-													maxDepth=stats.maxDepth,
-													opcodes=stats.opcodes
+													xorKey=key,blobBytes=#data,blobProto=candidate.proto,blobConstant=candidate.constant,
+													compressed=candidate.compressed,order=table.concat(order,","),typeMap=table.concat(typeMap,","),
+													typeOffset=typeOffset,attempts=attempts,instructions=stats.instructions,protos=stats.protos,
+													constants=stats.constants,maxDepth=stats.maxDepth,opcodes=stats.opcodes
 												}
 											end
 										end
 									end
 									if attempts%512==0 then cooperate(4096) end
 								end
+								if attempts>maxAttempts then break end
 							end
 							if attempts>maxAttempts then break end
 						end
@@ -12833,6 +12837,206 @@ Main = (function()
 				table.sort(list,function(a,b) return a[1]<b[1] end)
 				return list
 			end
+			local function vmCopySet(s)
+				local n={}
+				for k,v in pairs(s or {}) do if v then n[k]=true end end
+				return n
+			end
+			local function vmSetCount(s)
+				local n,last=0,nil
+				for k,v in pairs(s or {}) do if v then n+=1 last=k end end
+				return n,last
+			end
+			local function vmSetIntersect(a,b)
+				local n={}
+				for k,v in pairs(a or {}) do if v and b and b[k] then n[k]=true end end
+				return n
+			end
+			local function vmSetSubtract(a,b)
+				local n={}
+				for k,v in pairs(a or {}) do if v and not (b and b[k]) then n[k]=true end end
+				return n
+			end
+			local function vmConditionSet(cond,var,domain)
+				if type(cond)~="string" or type(var)~="string" then return nil end
+				local a,op,b
+				local flip=false
+				local ops={"==","~=","<=",">=","<",">"}
+				for _,candidate in ipairs(ops) do
+					local pa,pb=cond:match("^%s*([%a_][%w_]*)%s*"..candidate.."%s*(-?%d+)%s*$")
+					if pa then a,op,b=pa,candidate,pb break end
+				end
+				if not a then
+					for _,candidate in ipairs(ops) do
+						local nb,na=cond:match("^%s*(-?%d+)%s*"..candidate.."%s*([%a_][%w_]*)%s*$")
+						if na then a,op,b,flip=na,candidate,nb,true break end
+					end
+				end
+				if a~=var then return nil end
+				b=tonumber(b)
+				if not b then return nil end
+				if flip then
+					local f={['<']='>', ['>']='<', ['<=']='>=', ['>=']='<=', ['==']='==', ['~=']='~='}
+					op=f[op] or op
+				end
+				local out={}
+				for k,v in pairs(domain or {}) do
+					if v then
+						local ok=(op=='==' and k==b) or (op=='~=' and k~=b) or (op=='<' and k<b) or (op=='>' and k>b) or (op=='<=' and k<=b) or (op=='>=' and k>=b)
+						if ok then out[k]=true end
+					end
+				end
+				return out
+			end
+			local function vmFindDispatcherVar(source)
+				local score={}
+				for line in (source.."\n"):gmatch("(.-)\n") do
+					local cond=line:match("^%s*if%s+(.+)%s+then%s*$") or line:match("^%s*elseif%s+(.+)%s+then%s*$")
+					if cond then
+						for var in cond:gmatch("([%a_][%w_]*)%s*[<>=~]+%s*-?%d+") do score[var]=(score[var] or 0)+1 end
+						for var in cond:gmatch("-?%d+%s*[<>=~]+%s*([%a_][%w_]*)") do score[var]=(score[var] or 0)+1 end
+					end
+				end
+				local best,bestn=nil,0
+				for var,n in pairs(score) do if n>bestn then best,bestn=var,n end end
+				if bestn<6 then return nil,bestn end
+				return best,bestn
+			end
+			local function vmClassifyHandler(text)
+				if type(text)~="string" or text=="" then return "UNKNOWN",0 end
+				local function has(x) return text:find(x,1,true)~=nil end
+				if has("setmetatable") and has("__index") then return "CLOSURE",0.96 end
+				if text:match("return%s+[%w_]+%[") or text:match("return%s+[%w_]+%s*$") then return "RETURN",0.82 end
+				if text:match("=%s*{}") then return "NEWTABLE",0.76 end
+				if text:match("%[%s*[^%]]+%s*%]%s*=%s*%([^\n]*%+[^\n]*%)") then return "ADD",0.70 end
+				if text:match("%[%s*[^%]]+%s*%]%s*=%s*%([^\n]*%-[^\n]*%)") then return "SUB",0.68 end
+				if text:match("%[%s*[^%]]+%s*%]%s*=%s*%([^\n]*%*[^\n]*%)") then return "MUL",0.68 end
+				if text:match("%[%s*[^%]]+%s*%]%s*=%s*%([^\n]*/[^\n]*%)") then return "DIV",0.68 end
+				if text:match("%[%s*[^%]]+%s*%]%s*=%s*%(%-[^\n]+%)") then return "UNM",0.78 end
+				if text:match("%[[^%]]+%]%[[^%]]+%]%s*=") then return "SETTABLE",0.72 end
+				if text:match("%[[^%]]+%]%s*=%s*[^\n]+%[[^%]]+%]") then return "GETTABLE_OR_MOVE",0.56 end
+				if has("table.pack") or text:match("[%w_]+%([^\n]*%)") then return "CALL",0.60 end
+				if text:match("=%s*nil") then return "LOADNIL",0.58 end
+				return "UNKNOWN",0
+			end
+			local function vmProfileHandlers(source,stats)
+				local opvar,comparisons=vmFindDispatcherVar(source)
+				if not opvar then return {},{dispatcherVar=nil,comparisons=comparisons or 0,classified=0} end
+				local domain={}
+				for op in pairs(stats.opcodes or {}) do domain[op]=true end
+				local current=vmCopySet(domain)
+				local stack={}
+				local handlers={}
+				local function append(line)
+					local n,op=vmSetCount(current)
+					if n==1 and line:find("[",1,true) then
+						local h=handlers[op] or {lines={}}
+						h.lines[#h.lines+1]=line:gsub("^%s+","")
+						handlers[op]=h
+					end
+				end
+				for line in (source.."\n"):gmatch("(.-)\n") do
+					local t=line:gsub("^%s+",""):gsub("%s+$","")
+					local cond=t:match("^if%s+(.+)%s+then$")
+					if cond then
+						local truth=vmConditionSet(cond,opvar,current)
+						local active=truth and vmSetIntersect(current,truth) or vmCopySet(current)
+						stack[#stack+1]={kind="if",parent=vmCopySet(current),taken=truth and vmCopySet(active) or {}}
+						current=active
+					elseif t:match("^elseif%s+.+%s+then$") then
+						local top=stack[#stack]
+						if top and top.kind=="if" then
+							local c=t:match("^elseif%s+(.+)%s+then$")
+							local remain=vmSetSubtract(top.parent,top.taken)
+							local truth=vmConditionSet(c,opvar,remain)
+							current=truth and vmSetIntersect(remain,truth) or vmCopySet(remain)
+							for k in pairs(current) do top.taken[k]=true end
+						end
+					elseif t=="else" then
+						local top=stack[#stack]
+						if top and top.kind=="if" then current=vmSetSubtract(top.parent,top.taken) end
+					elseif t=="end" then
+						local top=stack[#stack]
+						if top then stack[#stack]=nil current=top.parent or current end
+					elseif t:match("^for%s+.+%s+do$") or t:match("^while%s+.+%s+do$") or t=="do" or t:match("function%s*%(") or t:match("^function%s+") or t:match("^local%s+function%s+") then
+						stack[#stack+1]={kind="other",parent=vmCopySet(current)}
+					elseif t=="repeat" then
+						stack[#stack+1]={kind="repeat",parent=vmCopySet(current)}
+					elseif t:match("^until%s+") then
+						local top=stack[#stack]
+						if top and top.kind=="repeat" then stack[#stack]=nil current=top.parent end
+					else
+						append(t)
+					end
+				end
+				local classified=0
+				for _,h in pairs(handlers) do
+					local text=table.concat(h.lines,"\n")
+					h.semantic,h.confidence=vmClassifyHandler(text)
+					h.lines=nil
+					if h.semantic~="UNKNOWN" then classified+=1 end
+				end
+				return handlers,{dispatcherVar=opvar,comparisons=comparisons or 0,classified=classified}
+			end
+			local function vmInstructionLifted(inst,hints)
+				if type(inst)~="table" then return "nil" end
+				local raw=tonumber(inst[1]) or -1
+				local hint=hints and hints[raw]
+				local op=hint and hint.semantic or ("OP_"..tostring(raw))
+				local parts={"op = "..q(op),"raw = "..tostring(raw)}
+				for slot=2,4 do
+					if inst[slot]~=nil or inst["constant"..tostring(slot)] then
+						local key=slot==2 and "A" or slot==3 and "B" or "C"
+						parts[#parts+1]=key.." = "..vmValue(inst[slot])
+					end
+				end
+				return "{"..table.concat(parts,", ").."}"
+			end
+			local function vmLiftedChunkLiteral(chunk,hints,depth,seen)
+				depth=depth or 0
+				seen=seen or {count=0}
+				seen.count+=1
+				if seen.count>200000 then error("vm lifted emit budget") end
+				local ind=string.rep("\t",depth)
+				local ind1=string.rep("\t",depth+1)
+				local ind2=string.rep("\t",depth+2)
+				local out={"{"}
+				out[#out+1]=ind1.."code = {"
+				local maxIndex=0
+				for i in pairs(chunk.instructions or {}) do if type(i)=="number" and i>maxIndex then maxIndex=i end end
+				for i=1,maxIndex do
+					local inst=chunk.instructions[i]
+					if inst then out[#out+1]=ind2.."["..tostring(i).."] = "..vmInstructionLifted(inst,hints).."," end
+				end
+				out[#out+1]=ind1.."},"
+				out[#out+1]=ind1.."protos = {"
+				for i,child in ipairs(chunk.protos or {}) do out[#out+1]=ind2.."["..tostring(i).."] = "..vmLiftedChunkLiteral(child,hints,depth+2,seen).."," end
+				out[#out+1]=ind1.."},"
+				out[#out+1]=ind1.."params = "..tostring(chunk.params or 0)..","
+				out[#out+1]=ind.."}"
+				return table.concat(out,"\n")
+			end
+			local function vmEmitLiftedIR(chunk,analysis,hints,profile)
+				local out={}
+				out[#out+1]="local VM = "..vmLiftedChunkLiteral(chunk,hints,0)
+				out[#out+1]="local VM_INFO = {"
+				out[#out+1]="\tformat = "..q(analysis.kind or "virtual-machine")..","
+				out[#out+1]="\txorKey = "..tostring(analysis.xorKey or 0)..","
+				out[#out+1]="\tinstructions = "..tostring(analysis.instructions or 0)..","
+				out[#out+1]="\tprototypes = "..tostring(analysis.protos or 0)..","
+				out[#out+1]="\tdispatcherVar = "..vmValue(profile and profile.dispatcherVar)..","
+				out[#out+1]="\tclassifiedHandlers = "..tostring(profile and profile.classified or 0)..","
+				out[#out+1]="\thandlers = {"
+				for _,pair in ipairs(vmSortedOpcodes(analysis)) do
+					local op=pair[1]
+					local h=hints and hints[op]
+					if h then out[#out+1]="\t\t["..tostring(op).."] = {semantic = "..q(h.semantic)..", confidence = "..tostring(h.confidence or 0).."}," end
+				end
+				out[#out+1]="\t},"
+				out[#out+1]="}"
+				out[#out+1]="return VM, VM_INFO"
+				return table.concat(out,"\n")
+			end
 			local function vmEmitIR(chunk,analysis)
 				local out={}
 				out[#out+1]="local VM = "..vmChunkLiteral(chunk,0)
@@ -12853,24 +13057,39 @@ Main = (function()
 			end
 			local function tryVmDevirtualize(mod,source)
 				if GENV.DEX_VM_DEVIRTUALIZE==false then return source,{detected=false,disabled=true} end
-				if type(source)~="string" or not source:find("string.byte",1,true) or not source:find("setmetatable",1,true) or not source:find("math.ldexp",1,true) then
-					return source,{detected=false,reason="no IronBrew/AztupBrew VM signature"}
-				end
+				if type(source)~="string" then return source,{detected=false,reason="source is not a string"} end
+				local sig=0
+				if source:find("string.byte",1,true) then sig+=1 end
+				if source:find("setmetatable",1,true) then sig+=1 end
+				if source:find("math.ldexp",1,true) then sig+=1 end
+				if source:find("table.unpack",1,true) or source:find("unpack",1,true) then sig+=1 end
+				if sig<2 then return source,{detected=false,reason="no strong virtual-machine signature",signatureScore=sig} end
 				local chunk,analysis=vmTryDecode(mod)
+				analysis=type(analysis)=="table" and analysis or {detected=true,decoded=false,reason=tostring(analysis)}
+				analysis.signatureScore=sig
 				if not chunk then return source,analysis end
-				analysis.output="virtual-ir"
-				local ok,ir=pcall(vmEmitIR,chunk,analysis)
-				if not ok or type(ir)~="string" or ir=="" then
+				local hints,profile=vmProfileHandlers(source,analysis)
+				analysis.dispatcherVar=profile.dispatcherVar
+				analysis.dispatcherComparisons=profile.comparisons
+				analysis.classifiedHandlers=profile.classified
+				analysis.handlerHints=hints
+				local mode=tostring(GENV.DEX_VM_OUTPUT_MODE or "lifted")
+				if mode=="original" then analysis.output="original" return source,analysis end
+				local ok,out
+				if mode=="ir" then
+					ok,out=pcall(vmEmitIR,chunk,analysis)
+					analysis.output="virtual-ir"
+				else
+					ok,out=pcall(vmEmitLiftedIR,chunk,analysis,hints,profile)
+					analysis.output="lifted-ir"
+				end
+				if not ok or type(out)~="string" or out=="" then
 					analysis.decoded=false
-					analysis.reason="decoded VM payload but IR emitter failed: "..tostring(ir)
+					analysis.reason="decoded VM payload but emitter failed: "..tostring(out)
 					return source,analysis
 				end
-				local mode=tostring(GENV.DEX_VM_OUTPUT_MODE or "ir")
-				if mode=="original" then return source,analysis end
-				if mode=="both" then
-					return ir.."\n\nlocal VM_WRAPPER_SOURCE = "..q(source).."\nreturn VM, VM_INFO, VM_WRAPPER_SOURCE",analysis
-				end
-				return ir,analysis
+				if mode=="both" then return out.."\n\nlocal VM_WRAPPER_SOURCE = "..q(source).."\nreturn VM, VM_INFO, VM_WRAPPER_SOURCE",analysis end
+				return out,analysis
 			end
 			local function canonicalindent_source(s)
 				if GENV.DEX_PRETTY_CANONICAL_INDENT == false then return s end
@@ -14676,46 +14895,48 @@ Main = (function()
 				seen[p]=true
 				local ind = exprMode and "" or string.rep("\t",depth)
 				local lines = {}
+				local ctx = {
+					nameLife = {},
+					method = {},
+					multi = {},
+					usedNames = {},
+					skipPc = {},
+					structure = {},
+					endAt = {},
+					elseAt = {},
+					repeatAt = {},
+					forceVar = {},
+					forceDef = {},
+					defExpr = {},
+					defName = {},
+					defMaterialized = {},
+					defPure = {},
+					defMulti = {},
+					phiIf = {},
+					declaredNames = {},
+					loopRanges = {},
+					pinned = {},
+					phiRegs = {},
+					phiLinks = {},
+					phiDefRoot = {},
+					phiGroupMembers = {},
+					phiGroupName = {},
+					semanticHints = {},
+					forceRanges = {},
+					byPc = {},
+					indexByPc = {},
+				}
 				local level = 1
 				local expr = {}
 				local vars = {}
 				local names = {}
-				local nameLife = {}
-				local method = {}
-				local multi = {}
 				local top = p.params
-				local usedNames = {}
-				local skipPc = {}
-				local structure = {}
-				local endAt = {}
-				local elseAt = {}
-				local repeatAt = {}
-				local forceVar = {}
-				local forceDef = {}
 				local ssaDefs
 				local ssaWriteId
 				local ssaReadAt
 				local ssaParam
 				local currentPc = -1
-				local defExpr = {}
-				local defName = {}
-				local defMaterialized = {}
-				local defPure = {}
-				local defMulti = {}
-				local phiIf = {}
 				local renderPhiIf
-				local declaredNames = {}
-				local loopRanges = {}
-				local pinned = {}
-				local phiRegs = {}
-				local phiLinks = {}
-				local phiDefRoot = {}
-				local phiGroupMembers = {}
-				local phiGroupName = {}
-				local semanticHints = {}
-				local forceRanges = {}
-				local byPc = {}
-				local indexByPc = {}
 				local function breathe()
 					cooperate(1)
 				end
@@ -14727,16 +14948,16 @@ Main = (function()
 				for _,capturedName in pairs(upmap) do
 					if type(capturedName)=="string" then
 						local cn=cleanname(capturedName)
-						if cn then usedNames[cn]=math.max(usedNames[cn] or 0,1) end
+						if cn then ctx.usedNames[cn]=math.max(ctx.usedNames[cn] or 0,1) end
 					end
 				end
 				local function unique(s)
 					s=cleanname(s)
 					if not s then return nil end
-					if not usedNames[s] then usedNames[s]=1 return s end
-					usedNames[s]+=1
+					if not ctx.usedNames[s] then ctx.usedNames[s]=1 return s end
+					ctx.usedNames[s]+=1
 					local sep=s:match("^v%d+_?%d*$") and "_" or ""
-					return s..sep..tostring(usedNames[s])
+					return s..sep..tostring(ctx.usedNames[s])
 				end
 				local function dbglocal(r,pc)
 					if p.locals then
@@ -14774,36 +14995,36 @@ Main = (function()
 					local rm=ssaReadAt and ssaReadAt[pc]
 					local id=(rm and rm[i]) or (not rm and ssaParam and ssaParam[i])
 					if id then
-						if defMaterialized[id] and defName[id] then return defName[id] end
-						if defExpr[id] then return defExpr[id] end
-						if phiIf[id] and renderPhiIf then
+						if ctx.defMaterialized[id] and ctx.defName[id] then return ctx.defName[id] end
+						if ctx.defExpr[id] then return ctx.defExpr[id] end
+						if ctx.phiIf[id] and renderPhiIf then
 							local e=renderPhiIf(id)
-							if e then defExpr[id]=e defPure[id]=true return e end
+							if e then ctx.defExpr[id]=e ctx.defPure[id]=true return e end
 						end
 					end
 					if rm then
 						if i<(p.params or 0) and names[i] then return names[i] end
 						return "nil"
 					end
-					return vars[i] and names[i] or expr[i] or multi[i] or names[i] or ("v"..tostring(i))
+					return vars[i] and names[i] or expr[i] or ctx.multi[i] or names[i] or ("v"..tostring(i))
 				end
 				local function reg(i)
 					return regat(i,currentPc)
 				end
 				local function regpure(i,pc)
 					local id=readdef(i,pc or currentPc)
-					return id and (defMaterialized[id] or defPure[id]) or false
+					return id and (ctx.defMaterialized[id] or ctx.defPure[id]) or false
 				end
 				local function multireg(i)
 					local id=readdef(i,currentPc)
-					return (id and defMulti[id]) or multi[i]
+					return (id and ctx.defMulti[id]) or ctx.multi[i]
 				end
 				local function touch(r,count)
 					local t=r+(count or 1)
 					if t>top then top=t end
 				end
 				local function clearMulti(r)
-					multi[r]=nil
+					ctx.multi[r]=nil
 				end
 				local function camel(s)
 					if type(s)~="string" or s=="" then return nil end
@@ -14842,35 +15063,35 @@ Main = (function()
 				end
 				local function varname(r,pc,s)
 					local d=dbgname(r,pc)
-					if not d and nameLife[r] then
+					if not d and ctx.nameLife[r] then
 						names[r]=nil
-						nameLife[r]=nil
+						ctx.nameLife[r]=nil
 						vars[r]=nil
 						expr[r]=nil
-						multi[r]=nil
+						ctx.multi[r]=nil
 					end
-					if d and nameLife[r]~=d then
+					if d and ctx.nameLife[r]~=d then
 						local n=unique(d) or ("v"..tostring(r))
 						names[r]=n
-						nameLife[r]=d
+						ctx.nameLife[r]=d
 						vars[r]=nil
 						expr[r]=nil
-						multi[r]=nil
+						ctx.multi[r]=nil
 						return n
 					end
 					if names[r] then return names[r] end
-					local n=unique(d or suggest(s) or (GENV.DEX_SEMANTIC_NAMES~=false and semanticHints[r] or nil) or ("v"..tostring(r))) or ("v"..tostring(r))
+					local n=unique(d or suggest(s) or (GENV.DEX_SEMANTIC_NAMES~=false and ctx.semanticHints[r] or nil) or ("v"..tostring(r))) or ("v"..tostring(r))
 					names[r]=n
-					nameLife[r]=d
+					ctx.nameLife[r]=d
 					return n
 				end
 				local debugDefNames={}
 				local function defvarname(r,pc,s,id)
-					if id and defName[id] then return defName[id] end
-					if id and phiDefRoot[id] then
-						local n=phiGroupName[phiDefRoot[id]]
+					if id and ctx.defName[id] then return ctx.defName[id] end
+					if id and ctx.phiDefRoot[id] then
+						local n=ctx.phiGroupName[ctx.phiDefRoot[id]]
 						if n then
-							defName[id]=n
+							ctx.defName[id]=n
 							return n
 						end
 					end
@@ -14882,7 +15103,7 @@ Main = (function()
 						n=debugDefNames[key]
 						if not n then n=unique(d) or d debugDefNames[key]=n end
 					else
-						local base=suggest(s) or (GENV.DEX_SEMANTIC_NAMES~=false and semanticHints[r] or nil)
+						local base=suggest(s) or (GENV.DEX_SEMANTIC_NAMES~=false and ctx.semanticHints[r] or nil)
 						if not base then
 							local sd=id and ssaDefs and ssaDefs[id]
 							if sd and sd.op=="CALL" then base="result"
@@ -14892,7 +15113,7 @@ Main = (function()
 						end
 						n=unique(base) or ("v"..tostring(r))
 					end
-					if id then defName[id]=n end
+					if id then ctx.defName[id]=n end
 					return n
 				end
 				local function emitassign(lhs,s,islocal)
@@ -14910,9 +15131,9 @@ Main = (function()
 					touch(r,1)
 					local id=writedef(r,pc)
 					if id then
-						defExpr[id]=s
-						defPure[id]=not not pure
-						defMulti[id]=nil
+						ctx.defExpr[id]=s
+						ctx.defPure[id]=not not pure
+						ctx.defMulti[id]=nil
 					end
 					expr[r]=s
 				end
@@ -14922,12 +15143,12 @@ Main = (function()
 					local id=writedef(r,pc)
 					if id then
 						local n=defvarname(r,pc,s,id)
-						local islocal=not declaredNames[n]
+						local islocal=not ctx.declaredNames[n]
 						emitassign(n,s,islocal)
-						declaredNames[n]=true
-						defMaterialized[id]=true
-						defExpr[id]=n
-						defMulti[id]=nil
+						ctx.declaredNames[n]=true
+						ctx.defMaterialized[id]=true
+						ctx.defExpr[id]=n
+						ctx.defMulti[id]=nil
 						expr[r]=n
 						return n
 					end
@@ -14940,23 +15161,23 @@ Main = (function()
 					local id=readdef(r,pc)
 					if not id then
 						local n=varname(r,pc,s)
-						if not declaredNames[n] then emitassign(n,s,true) declaredNames[n]=true end
+						if not ctx.declaredNames[n] then emitassign(n,s,true) ctx.declaredNames[n]=true end
 						vars[r]=true expr[r]=n
 						return n
 					end
-					if defMaterialized[id] and defName[id] then return defName[id] end
+					if ctx.defMaterialized[id] and ctx.defName[id] then return ctx.defName[id] end
 					local n=defvarname(r,pc,s,id)
-					local islocal=not declaredNames[n]
+					local islocal=not ctx.declaredNames[n]
 					emitassign(n,s,islocal)
-					declaredNames[n]=true
-					defMaterialized[id]=true
-					defExpr[id]=n
+					ctx.declaredNames[n]=true
+					ctx.defMaterialized[id]=true
+					ctx.defExpr[id]=n
 					return n
 				end
 				local function forcedef(r,pc)
 					local id=writedef(r,pc)
-					if id then return forceDef[id] or false end
-					return forceVar[r] or false
+					if id then return ctx.forceDef[id] or false end
+					return ctx.forceVar[r] or false
 				end
 				local function put(r,s,pc,hard,pure)
 					local id=writedef(r,pc)
@@ -14983,10 +15204,10 @@ Main = (function()
 					for idx,r in ipairs(regs) do
 						clearMulti(r)
 						local id=writedef(r,pc)
-						if id and preferred[idx] and not dbgname(r,pc) and not defName[id] then defName[id]=unique(preferred[idx]) or preferred[idx] end
+						if id and preferred[idx] and not dbgname(r,pc) and not ctx.defName[id] then ctx.defName[id]=unique(preferred[idx]) or preferred[idx] end
 						local nm=id and defvarname(r,pc,nil,id) or varname(r,pc,nil)
 						lhs[#lhs+1]=nm
-						if not declaredNames[nm] then fresh[#fresh+1]=nm end
+						if not ctx.declaredNames[nm] then fresh[#fresh+1]=nm end
 					end
 					if #fresh==#regs then
 						emit("local "..table.concat(lhs,", ").." = "..rhs)
@@ -14998,9 +15219,9 @@ Main = (function()
 					end
 					for _,r in ipairs(regs) do
 						local id=writedef(r,pc)
-						local nm=id and defName[id] or names[r]
-						if nm then declaredNames[nm]=true end
-						if id then defMaterialized[id]=true defExpr[id]=nm end
+						local nm=id and ctx.defName[id] or names[r]
+						if nm then ctx.declaredNames[nm]=true end
+						if id then ctx.defMaterialized[id]=true ctx.defExpr[id]=nm end
 						vars[r]=true expr[r]=nm
 					end
 				end
@@ -15010,7 +15231,7 @@ Main = (function()
 				local function jumptarget(x)
 					return x.pc+1+(x.n=="JUMPX" and x.e or x.d)
 				end
-				for i,x in ipairs(p.ins) do byPc[x.pc]=x indexByPc[x.pc]=i end
+				for i,x in ipairs(p.ins) do ctx.byPc[x.pc]=x ctx.indexByPc[x.pc]=i end
 				local barrierOps={CALL=true,CALLFB=true,SETGLOBAL=true,SETUPVAL=true,SETTABLE=true,SETTABLEKS=true,SETTABLEN=true,SETUDATAKS=true,SETLIST=true,NEWCLASSMEMBER=true,GETTABLE=true,GETTABLEKS=true,GETTABLEN=true,GETUDATAKS=true,CLOSEUPVALS=true}
 				local barrierPrefix={}
 				local barrierCount=0
@@ -15020,8 +15241,8 @@ Main = (function()
 				end
 				local function barrierBetween(a,b)
 					if type(a)~="number" or type(b)~="number" or b<=a then return false end
-					local ai=indexByPc[a]
-					local bi=indexByPc[b]
+					local ai=ctx.indexByPc[a]
+					local bi=ctx.indexByPc[b]
 					if not ai or not bi or bi<=ai+1 then return false end
 					local beforeB=barrierPrefix[bi] or 0
 					local afterA=(barrierPrefix[ai] or 0)+(barrierOps[p.ins[ai].n] and 1 or 0)
@@ -15037,17 +15258,17 @@ Main = (function()
 					local np=nextpc(x)
 					if cfgcondops[x.n] or loopops[x.n] then
 						local t=jumptarget(x)
-						if byPc[t] then leaders[t]=true end
-						if byPc[np] then leaders[np]=true end
+						if ctx.byPc[t] then leaders[t]=true end
+						if ctx.byPc[np] then leaders[np]=true end
 					elseif uncondops[x.n] then
 						local t=jumptarget(x)
-						if byPc[t] then leaders[t]=true end
-						if byPc[np] then leaders[np]=true end
+						if ctx.byPc[t] then leaders[t]=true end
+						if ctx.byPc[np] then leaders[np]=true end
 					elseif x.n=="LOADB" and x.c~=0 then
 						local t=x.pc+1+x.c
-						if byPc[t] then leaders[t]=true end
-						if byPc[np] then leaders[np]=true end
-					elseif terminalops[x.n] and byPc[np] then
+						if ctx.byPc[t] then leaders[t]=true end
+						if ctx.byPc[np] then leaders[np]=true end
+					elseif terminalops[x.n] and ctx.byPc[np] then
 						leaders[np]=true
 					end
 				end
@@ -15147,10 +15368,10 @@ Main = (function()
 					for r,ps in pairs(propScores) do
 						local best,bn=nil,-1
 						for name,n in pairs(ps) do if n>bn then best,bn=name,n end end
-						if best and bn>=3 and not semanticHints[r] then semanticHints[r]=best end
+						if best and bn>=3 and not ctx.semanticHints[r] then ctx.semanticHints[r]=best end
 					end
 					for r,n in pairs(score) do
-						if n>=8 then semanticHints[r]=n>=28 and "opcode" or "state" end
+						if n>=8 then ctx.semanticHints[r]=n>=28 and "opcode" or "state" end
 					end
 				end
 				local CUNDEF={}
@@ -16040,7 +16261,7 @@ Main = (function()
 							local jdef=ssaOut[diamond.jumpId] and ssaOut[diamond.jumpId][r]
 							local fdef=ssaOut[diamond.fallId] and ssaOut[diamond.fallId][r]
 							if jdef and fdef and defConstSet[jdef] and defConstSet[fdef] then
-								phiIf[id]={condPc=diamond.condPc,jumpValue=defConst[jdef],fallValue=defConst[fdef]}
+								ctx.phiIf[id]={condPc=diamond.condPc,jumpValue=defConst[jdef],fallValue=defConst[fdef]}
 								simplifiedPhi[id]=true
 								ssaSimplifiedPhi+=1
 								ifFolded=true
@@ -16049,20 +16270,20 @@ Main = (function()
 						if sameConst and haveConst then
 							simplifiedPhi[id]=true
 							ssaSimplifiedPhi+=1
-							defExpr[id]=constValue
-							defPure[id]=true
+							ctx.defExpr[id]=constValue
+							ctx.defPure[id]=true
 							defConst[id]=constValue defConstSet[id]=true
 						elseif ifFolded then
 						else
-							phiRegs[r]=true
+							ctx.phiRegs[r]=true
 							local d=ssaDefs[id]
 							if d then d.cross=true end
 							if b then
 								for _,pid in ipairs(b.pred) do
 									local incoming=ssaOut[pid] and ssaOut[pid][r]
 									if incoming then
-										forceDef[incoming]=true
-										phiLinks[#phiLinks+1]={id,incoming}
+										ctx.forceDef[incoming]=true
+										ctx.phiLinks[#ctx.phiLinks+1]={id,incoming}
 									end
 								end
 							end
@@ -16091,12 +16312,12 @@ Main = (function()
 						if ra<rb then phiParent[rb]=ra else phiParent[ra]=rb end
 					end
 				end
-				for _,ln in ipairs(phiLinks) do phiUnion(ln[1],ln[2]) end
+				for _,ln in ipairs(ctx.phiLinks) do phiUnion(ln[1],ln[2]) end
 				for id in pairs(phiParent) do
 					local root=phiFind(id)
-					phiDefRoot[id]=root
-					local members=phiGroupMembers[root]
-					if not members then members={} phiGroupMembers[root]=members end
+					ctx.phiDefRoot[id]=root
+					local members=ctx.phiGroupMembers[root]
+					if not members then members={} ctx.phiGroupMembers[root]=members end
 					members[#members+1]=id
 				end
 				for _,d in pairs(ssaDefs) do
@@ -16106,16 +16327,16 @@ Main = (function()
 					if d.receiver then
 						ssaReceiverDefs+=1
 						if d.uses>1 or d.op=="NEWTABLE" or d.op=="DUPTABLE" or d.op=="NEWCLASS" or d.op=="CALL" or d.op=="CALLFB" or d.op=="NEWCLOSURE" or d.op=="DUPCLOSURE" then
-							forceDef[d.id]=true
+							ctx.forceDef[d.id]=true
 						end
 					end
 					if d.uses>1 and (d.op=="CALL" or d.op=="CALLFB" or d.op=="NEWCLOSURE" or d.op=="DUPCLOSURE" or d.op=="NEWTABLE" or d.op=="DUPTABLE" or d.op=="NEWCLASS") then
-						forceDef[d.id]=true
+						ctx.forceDef[d.id]=true
 					end
 				end
 				if depth==0 then
 					local forcedCount=0
-					for _ in pairs(forceDef) do forcedCount+=1 end
+					for _ in pairs(ctx.forceDef) do forcedCount+=1 end
 					GENV.DEX_LAST_ANALYSIS={
 						version=DECOMPILER_VERSION,
 						valueIR=true,
@@ -16168,17 +16389,17 @@ Main = (function()
 				for _,x in ipairs(p.ins) do
 					if condops[x.n] and x.n~="CMPPROTO" and staticBranch[x.pc]==nil then
 						local target=jumptarget(x)
-						local f=byPc[nextpc(x)]
-						local j=byPc[target]
+						local f=ctx.byPc[nextpc(x)]
+						local j=ctx.byPc[target]
 						if f and j and f.n=="LOADB" and j.n=="LOADB" and f.a==j.a and f.c~=0 and f.pc+1+f.c==nextpc(j) then
 							boolFold[x.pc]={reg=f.a,fall=f.b~=0,jump=j.b~=0}
-							skipPc[f.pc]=true
-							skipPc[j.pc]=true
+							ctx.skipPc[f.pc]=true
+							ctx.skipPc[j.pc]=true
 						end
 					end
 				end
 				local function forceRange(a,b)
-					if b>a then forceRanges[#forceRanges+1]={a,b} end
+					if b>a then ctx.forceRanges[#ctx.forceRanges+1]={a,b} end
 				end
 				local loopByPrepPc={}
 				local loopByLatchPc={}
@@ -16190,21 +16411,21 @@ Main = (function()
 							if bx.pc>=exit then break end
 							if bx.n=="FORNLOOP" and bx.a==lx.a and jumptarget(bx)==nextpc(lx) and nextpc(bx)==exit then
 								local lr={kind="forn",start=lx.pc,finish=exit,cont=bx.pc,prep=lx.pc,latch=bx.pc,emitted=false}
-								loopRanges[#loopRanges+1]=lr loopByPrepPc[lx.pc]=lr loopByLatchPc[bx.pc]=lr
+								ctx.loopRanges[#ctx.loopRanges+1]=lr loopByPrepPc[lx.pc]=lr loopByLatchPc[bx.pc]=lr
 								break
 							end
 						end
 					elseif lx.n=="FORGPREP" or lx.n=="FORGPREP_INEXT" or lx.n=="FORGPREP_NEXT" then
-						local bx=byPc[jumptarget(lx)]
+						local bx=ctx.byPc[jumptarget(lx)]
 						if bx and bx.n=="FORGLOOP" and bx.a==lx.a and jumptarget(bx)==nextpc(lx) then
 							local lr={kind="forg",start=lx.pc,finish=nextpc(bx),cont=bx.pc,prep=lx.pc,latch=bx.pc,emitted=false}
-							loopRanges[#loopRanges+1]=lr loopByPrepPc[lx.pc]=lr loopByLatchPc[bx.pc]=lr
+							ctx.loopRanges[#ctx.loopRanges+1]=lr loopByPrepPc[lx.pc]=lr loopByLatchPc[bx.pc]=lr
 						end
 					end
 				end
-				for _,lr in ipairs(loopRanges) do
+				for _,lr in ipairs(ctx.loopRanges) do
 					if lr.kind=="forn" then
-						local px=byPc[lr.prep]
+						local px=ctx.byPc[lr.prep]
 						local vr=px and (px.a+3) or nil
 						local startId=px and blockOf[nextpc(px)] or nil
 						if vr and startId then
@@ -16297,7 +16518,7 @@ Main = (function()
 						if reachableBlock[b.id] and b.start>=startPc and b.start<endPc then
 							local y=b.ins[#b.ins]
 							if y and (y.n=="JUMP" or y.n=="JUMPX" or y.n=="JUMPBACK") and jumptarget(y)==targetPc then
-								skipPc[y.pc]=true
+								ctx.skipPc[y.pc]=true
 							end
 						end
 					end
@@ -16331,11 +16552,11 @@ Main = (function()
 							local eb=exitId and blocks[exitId]
 							if eb and eb.start>b.start then
 								local lr={kind="while",start=hb.start,finish=eb.start,cont=hb.start,latch=latch.pc,emitted=false}
-								structure[hx.pc]={kind="whilecfg",mode=(bodyId==fid and "fall" or "jump"),loop=lr}
+								ctx.structure[hx.pc]={kind="whilecfg",mode=(bodyId==fid and "fall" or "jump"),loop=lr}
 								structuredCond[hx.pc]=true
-								skipPc[latch.pc]=true
-								endAt[eb.start]=(endAt[eb.start] or 0)+1
-								loopRanges[#loopRanges+1]=lr
+								ctx.skipPc[latch.pc]=true
+								ctx.endAt[eb.start]=(ctx.endAt[eb.start] or 0)+1
+								ctx.loopRanges[#ctx.loopRanges+1]=lr
 							end
 						end
 					end
@@ -16346,18 +16567,18 @@ Main = (function()
 						local target=jumptarget(x)
 						local np=nextpc(x)
 						if target==np then
-							skipPc[x.pc]=true
+							ctx.skipPc[x.pc]=true
 						elseif target< x.pc then
 							local hid=blockOf[target]
 							local bid=blockOf[x.pc]
 							if hid and bid and dominates(hid,bid) then
 								local lr={kind="repeat",start=target,finish=nextpc(x),cont=x.pc,latch=x.pc,emitted=false}
-								structure[x.pc]={kind="untilcfg",mode="fall",loop=lr}
-								repeatAt[target]=(repeatAt[target] or 0)+1
+								ctx.structure[x.pc]={kind="untilcfg",mode="fall",loop=lr}
+								ctx.repeatAt[target]=(ctx.repeatAt[target] or 0)+1
 								structuredCond[x.pc]=true
-								loopRanges[#loopRanges+1]=lr
+								ctx.loopRanges[#ctx.loopRanges+1]=lr
 							end
-						elseif target>np and byPc[target] then
+						elseif target>np and ctx.byPc[target] then
 							local fallId=blockOf[np]
 							local jumpId=blockOf[target]
 							local bid=blockOf[x.pc]
@@ -16366,17 +16587,17 @@ Main = (function()
 								local mb=mid and mid~=EXIT_ID and blocks[mid] or nil
 								if mb and mb.start>=target and mb.start>x.pc then
 									if mid==jumpId then
-										structure[x.pc]={kind="ifcfg",mode="fall"}
-										endAt[mb.start]=(endAt[mb.start] or 0)+1
+										ctx.structure[x.pc]={kind="ifcfg",mode="fall"}
+										ctx.endAt[mb.start]=(ctx.endAt[mb.start] or 0)+1
 										skipJumpsTo(np,mb.start,mb.start)
 										structuredCond[x.pc]=true
 									elseif mid~=fallId and mb.start>target then
 										local fr=canReachWithin(fallId,mid,np,mb.start)
 										local jr=canReachWithin(jumpId,mid,target,mb.start)
 										if fr and jr then
-											structure[x.pc]={kind="ifcfg",mode="fall"}
-											elseAt[target]=(elseAt[target] or 0)+1
-											endAt[mb.start]=(endAt[mb.start] or 0)+1
+											ctx.structure[x.pc]={kind="ifcfg",mode="fall"}
+											ctx.elseAt[target]=(ctx.elseAt[target] or 0)+1
+											ctx.endAt[mb.start]=(ctx.endAt[mb.start] or 0)+1
 											skipJumpsTo(np,mb.start,mb.start)
 											structuredCond[x.pc]=true
 										end
@@ -16384,39 +16605,39 @@ Main = (function()
 								end
 							end
 							if not structuredCond[x.pc] and GENV.DEX_OBFUSCATION_GUARDS~=false and fallId and allPathsTerminateBefore(fallId,target) then
-								structure[x.pc]={kind="ifcfg",mode="fall"}
-								endAt[target]=(endAt[target] or 0)+1
+								ctx.structure[x.pc]={kind="ifcfg",mode="fall"}
+								ctx.endAt[target]=(ctx.endAt[target] or 0)+1
 								structuredCond[x.pc]=true
 							end
 							if not structuredCond[x.pc] then
 								local trampoline=singleUncondBlock(fallId)
 								if trampoline then
 									local ft=jumptarget(trampoline)
-									if ft>target and byPc[ft] then
-										structure[x.pc]={kind="ifcfg",mode="jump"}
-										skipPc[trampoline.pc]=true
-										endAt[ft]=(endAt[ft] or 0)+1
+									if ft>target and ctx.byPc[ft] then
+										ctx.structure[x.pc]={kind="ifcfg",mode="jump"}
+										ctx.skipPc[trampoline.pc]=true
+										ctx.endAt[ft]=(ctx.endAt[ft] or 0)+1
 										structuredCond[x.pc]=true
 									end
 								end
 							end
 							if not structuredCond[x.pc] then
-								local ti=indexByPc[target]
+								local ti=ctx.indexByPc[target]
 								local prev=ti and p.ins[ti-1] or nil
 								if prev and (prev.n=="JUMP" or prev.n=="JUMPX" or prev.n=="JUMPBACK") then
 									local ft=jumptarget(prev)
-									if ft>target and byPc[ft] then
-										structure[x.pc]={kind="ifcfg",mode="fall"}
-										elseAt[target]=(elseAt[target] or 0)+1
-										skipPc[prev.pc]=true
-										endAt[ft]=(endAt[ft] or 0)+1
+									if ft>target and ctx.byPc[ft] then
+										ctx.structure[x.pc]={kind="ifcfg",mode="fall"}
+										ctx.elseAt[target]=(ctx.elseAt[target] or 0)+1
+										ctx.skipPc[prev.pc]=true
+										ctx.endAt[ft]=(ctx.endAt[ft] or 0)+1
 										structuredCond[x.pc]=true
 									end
 								end
 							end
 							if not structuredCond[x.pc] then
-								structure[x.pc]={kind="ifcfg",mode="fall"}
-								endAt[target]=(endAt[target] or 0)+1
+								ctx.structure[x.pc]={kind="ifcfg",mode="fall"}
+								ctx.endAt[target]=(ctx.endAt[target] or 0)+1
 								structuredCond[x.pc]=true
 							end
 						end
@@ -16426,16 +16647,16 @@ Main = (function()
 				for i=0,p.params-1 do
 					local dl=dbglocal(i,0)
 					local dn=dl and cleanname(dl.name) or nil
-					local n=unique(dn or (GENV.DEX_SEMANTIC_NAMES~=false and semanticHints[i] or nil) or ("a"..tostring(i+1))) or ("a"..tostring(i+1))
+					local n=unique(dn or (GENV.DEX_SEMANTIC_NAMES~=false and ctx.semanticHints[i] or nil) or ("a"..tostring(i+1))) or ("a"..tostring(i+1))
 					names[i]=n
-					nameLife[i]=dn
+					ctx.nameLife[i]=dn
 					vars[i]=true
 					expr[i]=n
-					declaredNames[n]=true
+					ctx.declaredNames[n]=true
 					local id=ssaParam and ssaParam[i]
-					if id then defName[id]=n defExpr[id]=n defMaterialized[id]=true defPure[id]=true end
+					if id then ctx.defName[id]=n ctx.defExpr[id]=n ctx.defMaterialized[id]=true ctx.defPure[id]=true end
 				end
-				for root,members in pairs(phiGroupMembers) do
+				for root,members in pairs(ctx.phiGroupMembers) do
 					local paramReg=nil
 					local regHint=nil
 					local dbgHint=nil
@@ -16456,20 +16677,20 @@ Main = (function()
 						n=names[paramReg]
 					else
 						local r=regHint or 0
-						n=unique(dbgHint or (GENV.DEX_SEMANTIC_NAMES~=false and semanticHints[r] or nil) or ("v"..tostring(r))) or ("v"..tostring(r))
+						n=unique(dbgHint or (GENV.DEX_SEMANTIC_NAMES~=false and ctx.semanticHints[r] or nil) or ("v"..tostring(r))) or ("v"..tostring(r))
 						emit("local "..n)
-						declaredNames[n]=true
+						ctx.declaredNames[n]=true
 					end
-					phiGroupName[root]=n
+					ctx.phiGroupName[root]=n
 					if n then
-						declaredNames[n]=true
+						ctx.declaredNames[n]=true
 						for _,id in ipairs(members) do
 							local d=ssaDefs[id]
-							defName[id]=n
+							ctx.defName[id]=n
 							if d and d.kind=="phi" then
-								defExpr[id]=n
-								defMaterialized[id]=true
-								defPure[id]=true
+								ctx.defExpr[id]=n
+								ctx.defMaterialized[id]=true
+								ctx.defPure[id]=true
 							end
 						end
 					end
@@ -16527,9 +16748,9 @@ Main = (function()
 					return "true"
 				end
 				renderPhiIf=function(id)
-					local d=phiIf[id]
+					local d=ctx.phiIf[id]
 					if not d then return nil end
-					local x=byPc[d.condPc]
+					local x=ctx.byPc[d.condPc]
 					if not x then return nil end
 					local oldpc=currentPc
 					currentPc=x.pc
@@ -16539,7 +16760,7 @@ Main = (function()
 				end
 				local function loopfor(pc)
 					local best
-					for _,lr in ipairs(loopRanges) do
+					for _,lr in ipairs(ctx.loopRanges) do
 						if lr.emitted and pc>lr.start and pc<lr.finish and (not best or lr.start>=best.start) then best=lr end
 					end
 					return best
@@ -16575,14 +16796,14 @@ Main = (function()
 					currentPc=x.pc
 					local n=x.n
 					if not reachablePc[x.pc] then i+=1 continue end
-					if endAt[x.pc] then
-						for _=1,endAt[x.pc] do level=math.max(1,level-1) emitLevel("end",level) end
+					if ctx.endAt[x.pc] then
+						for _=1,ctx.endAt[x.pc] do level=math.max(1,level-1) emitLevel("end",level) end
 					end
-					if repeatAt[x.pc] then
-						for _=1,repeatAt[x.pc] do emit("repeat") level+=1 end
+					if ctx.repeatAt[x.pc] then
+						for _=1,ctx.repeatAt[x.pc] do emit("repeat") level+=1 end
 					end
-					if elseAt[x.pc] then
-						for _=1,elseAt[x.pc] do level=math.max(1,level-1) emitLevel("else",level) level+=1 end
+					if ctx.elseAt[x.pc] then
+						for _=1,ctx.elseAt[x.pc] do level=math.max(1,level-1) emitLevel("else",level) level+=1 end
 					end
 					local bid=blockOf[x.pc]
 					local bb=bid and blocks[bid]
@@ -16595,11 +16816,11 @@ Main = (function()
 						end
 						if #bb.pred>1 or nonLinearPred then
 							for r in pairs(liveIn[bid] or {}) do
-								if vars[r] then expr[r]=names[r] else expr[r]=nil multi[r]=nil end
+								if vars[r] then expr[r]=names[r] else expr[r]=nil ctx.multi[r]=nil end
 							end
 						end
 					end
-					if skipPc[x.pc] then i+=1 continue end
+					if ctx.skipPc[x.pc] then i+=1 continue end
 					if staticBranch[x.pc]~=nil then i+=1 continue end
 					local bf=boolFold[x.pc]
 					if bf then
@@ -16615,7 +16836,7 @@ Main = (function()
 						i+=1
 						continue
 					end
-					local st=structure[x.pc]
+					local st=ctx.structure[x.pc]
 					if type(st)=="table" and st.kind=="ifcfg" then
 						emit("if "..(st.mode=="jump" and jumpcond(x) or fallcond(x)).." then")
 						level+=1
@@ -16636,11 +16857,11 @@ Main = (function()
 					end
 					if n=="UNKNOWN" then
 						for r=0,(p.max or 0)-1 do
-							local v=expr[r] or multi[r]
+							local v=expr[r] or ctx.multi[r]
 							if v and not vars[r] and type(v)=="string" then materialize(r,v,x.pc) end
 							if vars[r] then expr[r]=names[r] else expr[r]=nil end
-							multi[r]=nil
-							forceVar[r]=true
+							ctx.multi[r]=nil
+							ctx.forceVar[r]=true
 						end
 						top=math.max(top,p.params or 0)
 					elseif vmNoopOps[n] then
@@ -16712,12 +16933,12 @@ Main = (function()
 						clearMulti(x.a)
 						clearMulti(x.a+1)
 						touch(x.a,2)
-						method[x.a]={base=reg(x.b),name=kstr(p,ci) or "method"}
-						expr[x.a]=method[x.a].base..":"..method[x.a].name
-						expr[x.a+1]=method[x.a].base
+						ctx.method[x.a]={base=reg(x.b),name=kstr(p,ci) or "method"}
+						expr[x.a]=ctx.method[x.a].base..":"..method[x.a].name
+						expr[x.a+1]=ctx.method[x.a].base
 					elseif n=="CALL" or n=="CALLFB" then
 						local args={}
-						local m=method[x.a]
+						local m=ctx.method[x.a]
 						if x.b==0 then
 							for r=x.a+1,top-1 do
 								if not (m and r==x.a+1) then
@@ -16733,17 +16954,17 @@ Main = (function()
 						end
 						local fn=m and (m.base..":"..m.name) or reg(x.a)
 						local call=normalizecall(m,args,fn.."("..table.concat(args,", ")..")")
-						method[x.a]=nil
+						ctx.method[x.a]=nil
 						if x.c==1 then
 							emit(call)
 							expr[x.a]=nil
-							multi[x.a]=nil
+							ctx.multi[x.a]=nil
 							top=x.a
 						elseif x.c==0 then
 							expr[x.a]=nil
-							multi[x.a]=call
+							ctx.multi[x.a]=call
 							local wid=writedef(x.a,x.pc)
-							if wid then defMulti[wid]=call defExpr[wid]=nil defPure[wid]=false end
+							if wid then ctx.defMulti[wid]=call ctx.defExpr[wid]=nil ctx.defPure[wid]=false end
 							top=x.a+1
 						elseif x.c==2 then
 							local wid=writedef(x.a,x.pc)
@@ -16768,9 +16989,9 @@ Main = (function()
 					elseif n=="GETVARARGS" then
 						if x.b==0 then
 							expr[x.a]=nil
-							multi[x.a]="..."
+							ctx.multi[x.a]="..."
 							local wid=writedef(x.a,x.pc)
-							if wid then defMulti[wid]="..." defExpr[wid]=nil defPure[wid]=true end
+							if wid then ctx.defMulti[wid]="..." ctx.defExpr[wid]=nil ctx.defPure[wid]=true end
 							top=x.a+1
 						elseif x.b==2 then
 							put(x.a,"...",x.pc,false,true)
@@ -16797,15 +17018,15 @@ Main = (function()
 								if cx and cx.n=="CAPTURE" then
 									if cx.a==0 or cx.a==1 then
 										local rid=readdef(cx.b,cx.pc)
-										if cx.a==1 and rid then forceDef[rid]=true end
+										if cx.a==1 and rid then ctx.forceDef[rid]=true end
 										local value=regat(cx.b,cx.pc)
-										if rid and not defMaterialized[rid] then value=materializeread(cx.b,cx.pc,value)
+										if rid and not ctx.defMaterialized[rid] then value=materializeread(cx.b,cx.pc,value)
 										elseif not rid and not vars[cx.b] then value=materializeread(cx.b,cx.pc,value) end
 										caps[u]=value
 									elseif cx.a==2 then
 										caps[u]=upname(cx.b)
 									end
-									skipPc[cx.pc]=true
+									ctx.skipPc[cx.pc]=true
 								end
 							end
 						end
@@ -16855,7 +17076,7 @@ Main = (function()
 						local lr=loopByPrepPc[x.pc]
 						if lr then
 							local target=x.pc+1+x.d
-							local loop=byPc[target]
+							local loop=ctx.byPc[target]
 							local vc=loop and loop.n=="FORGLOOP" and ((loop.aux or 1)%256) or 1
 							if vc==0 then vc=1 end
 							local vl={}
@@ -16887,7 +17108,7 @@ Main = (function()
 					i+=1
 				end
 				local finalpc=#p.words
-				if endAt[finalpc] then for _=1,endAt[finalpc] do level=math.max(1,level-1) emitLevel("end",level) end end
+				if ctx.endAt[finalpc] then for _=1,ctx.endAt[finalpc] do level=math.max(1,level-1) emitLevel("end",level) end end
 				while level>1 do level-=1 emitLevel("end",level) end
 				seen[p]=nil
 				local args={}
@@ -17037,8 +17258,12 @@ Main = (function()
 			if GENV.DEX_DEF_SENSITIVE_RECOVERY==nil then GENV.DEX_DEF_SENSITIVE_RECOVERY=true end
 			if GENV.DEX_STRICT_LVALUE_VALIDATION==nil then GENV.DEX_STRICT_LVALUE_VALIDATION=true end
 			if GENV.DEX_VM_DEVIRTUALIZE==nil then GENV.DEX_VM_DEVIRTUALIZE=true end
-			if GENV.DEX_VM_OUTPUT_MODE==nil then GENV.DEX_VM_OUTPUT_MODE="ir" end
-			if GENV.DEX_VM_MAX_ATTEMPTS==nil then GENV.DEX_VM_MAX_ATTEMPTS=18000 end
+			if GENV.DEX_VM_DEFAULTS_VERSION~=DECOMPILER_VERSION then
+				if GENV.DEX_VM_OUTPUT_MODE==nil or GENV.DEX_VM_OUTPUT_MODE=="ir" then GENV.DEX_VM_OUTPUT_MODE="lifted" end
+				if GENV.DEX_VM_MAX_ATTEMPTS==nil or GENV.DEX_VM_MAX_ATTEMPTS==18000 then GENV.DEX_VM_MAX_ATTEMPTS=30000 end
+				GENV.DEX_VM_DEFAULTS_VERSION=DECOMPILER_VERSION
+			end
+			GENV.DEX_VM_BACKEND_VERSION=DECOMPILER_VERSION.."-semantic-lifter-1"
 			GENV.DEX_DECOMPILE=env.decompile
 			GENV.DEX_GET_BYTECODE=env.getscriptbytecode
 			GENV.DEX_GET_SCRIPT_CLOSURE=env.getscriptclosure
