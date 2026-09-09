@@ -22,7 +22,7 @@ local game = workspace.Parent
 
 local _getgenv = type(getgenv) == "function" and getgenv or function() return _G end
 local GENV = _getgenv()
-local DEX_BUILD_VERSION = "V27"
+local DEX_BUILD_VERSION = "V28"
 local function dexCacheToken()
 	local ok,guid = pcall(function()
 		return game:GetService("HttpService"):GenerateGUID(false)
@@ -17038,7 +17038,7 @@ Main = (function()
 						clearMulti(x.a+1)
 						touch(x.a,2)
 						ctx.method[x.a]={base=reg(x.b),name=kstr(p,ci) or "method"}
-						expr[x.a]=ctx.method[x.a].base..":"..method[x.a].name
+						expr[x.a]=ctx.method[x.a].base..":"..ctx.method[x.a].name
 						expr[x.a+1]=ctx.method[x.a].base
 					elseif n=="CALL" or n=="CALLFB" then
 						local args={}
