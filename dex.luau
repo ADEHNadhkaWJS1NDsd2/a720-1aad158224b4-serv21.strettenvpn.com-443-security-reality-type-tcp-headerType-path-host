@@ -22,7 +22,7 @@ local game = workspace.Parent
 
 local _getgenv = type(getgenv) == "function" and getgenv or function() return _G end
 local GENV = _getgenv()
-local DEX_BUILD_VERSION = "V25"
+local DEX_BUILD_VERSION = "V26"
 local function dexCacheToken()
 	local ok,guid = pcall(function()
 		return game:GetService("HttpService"):GenerateGUID(false)
@@ -35,15 +35,47 @@ local function dexCacheToken()
 	ms=ms or math.floor((os.clock and os.clock() or tick())*1000000)
 	return tostring(ms).."_"..tostring(math.random(100000000,999999999))
 end
-local function dexCacheBust(url)
+local DEX_SESSION_CACHE_TOKEN = dexCacheToken()
+local DEX_HTTP_CACHE = {}
+local function dexCacheBust(url, fresh)
 	url=tostring(url)
 	url=url:gsub("([?&])_dexcb=[^&]*", "%1"):gsub("%?&", "?"):gsub("&&+", "&"):gsub("[?&]$", "")
 	local sep=url:find("?",1,true) and "&" or "?"
-	return url..sep.."_dexcb="..dexCacheToken()
+	local token = fresh == false and DEX_SESSION_CACHE_TOKEN or dexCacheToken()
+	return url..sep.."_dexcb="..token
+end
+local function dexHttpGet(url, options)
+	options = options or {}
+	local originalUrl = tostring(url)
+	if options.cache ~= false and DEX_HTTP_CACHE[originalUrl] then
+		return DEX_HTTP_CACHE[originalUrl]
+	end
+	local attempts = math.max(1, math.min(tonumber(options.attempts) or 2, 5))
+	local lastError
+	for attempt = 1, attempts do
+		local requestUrl = originalUrl
+		if options.cacheBust ~= false then
+			requestUrl = dexCacheBust(originalUrl, options.fresh == true)
+		end
+		local ok, result = pcall(function()
+			return oldgame:HttpGet(requestUrl, false)
+		end)
+		if ok and type(result) == "string" and result ~= "" then
+			if options.cache ~= false then DEX_HTTP_CACHE[originalUrl] = result end
+			return result
+		end
+		lastError = result or "empty response"
+		if attempt < attempts then
+			local delay = math.min(8, 1.25 * (2 ^ (attempt - 1))) + (math.random() * 0.35)
+			if task and task.wait then task.wait(delay) elseif wait then wait(delay) end
+		end
+	end
+	return nil, lastError
 end
 local DEX_SOURCE_URL = "https://raw.githubusercontent.com/ADEHNadhkaWJS1NDsd2/a720-1aad158224b4-serv21.strettenvpn.com-443-security-reality-type-tcp-headerType-path-host/refs/heads/main/dex.luau"
 GENV.DEX_SOURCE_URL = GENV.DEX_SOURCE_URL or DEX_SOURCE_URL
-GENV.DEX_BUILD_ID = DEX_BUILD_VERSION.."_"..dexCacheToken()
+GENV.DEX_BUILD_ID = DEX_BUILD_VERSION.."_"..DEX_SESSION_CACHE_TOKEN
+GENV.DEX_RUNTIME_ERRORS = {}
 GENV.DEX_PRETTY_MODE = GENV.DEX_PRETTY_MODE or "aggressive"
 GENV.DEX_PRETTY_INLINE_FIELDS = GENV.DEX_PRETTY_INLINE_FIELDS or 5
 GENV.DEX_PRETTY_INLINE_WIDTH = GENV.DEX_PRETTY_INLINE_WIDTH or 140
@@ -54,14 +86,22 @@ if GENV.DEX_POSTDOM_STRUCTURING == nil then GENV.DEX_POSTDOM_STRUCTURING = true 
 if GENV.DEX_OBFUSCATION_GUARDS == nil then GENV.DEX_OBFUSCATION_GUARDS = true end
 if GENV.DEX_SEMANTIC_NAMES == nil then GENV.DEX_SEMANTIC_NAMES = true end
 if GENV.DEX_PRETTY_FLATTEN_GUARDS == nil then GENV.DEX_PRETTY_FLATTEN_GUARDS = true end
-GENV.DEX_CACHE_BUST = dexCacheBust
+if GENV.DEX_SAVEINSTANCE_USE_MARKETPLACE_NAME == nil then GENV.DEX_SAVEINSTANCE_USE_MARKETPLACE_NAME = false end
+GENV.DEX_CACHE_BUST = function(url) return dexCacheBust(url, true) end
+GENV.DEX_HTTPGET_SAFE = dexHttpGet
 GENV.DEX_HTTPGET = function(url)
-	return oldgame:HttpGet(dexCacheBust(url), false)
+	local body, err = dexHttpGet(url, {fresh=true, attempts=3, cache=false})
+	if not body then error("DEX HTTP GET failed: "..tostring(err), 2) end
+	return body
 end
 GENV.DEX_LOAD_LATEST = function(url)
 	url = url or GENV.DEX_SOURCE_URL or DEX_SOURCE_URL
-	local src = oldgame:HttpGet(dexCacheBust(url), false)
-	return loadstring(src)()
+	local src, err = dexHttpGet(url, {fresh=true, attempts=3, cache=false})
+	if not src then error("DEX latest source fetch failed: "..tostring(err), 2) end
+	if type(loadstring) ~= "function" then error("loadstring is unavailable", 2) end
+	local chunk, compileError = loadstring(src)
+	if not chunk then error("DEX latest source compile failed: "..tostring(compileError), 2) end
+	return chunk()
 end
 
 local EmbeddedModules = {
@@ -11360,7 +11400,14 @@ local EmbeddedModules = {
 		local function main()
 			local SaveInstance = {}
 			local window, ListFrame
-			local fileName = "Place_"..game.PlaceId.."_"..service.MarketplaceService:GetProductInfo(game.PlaceId).Name.."_{TIMESTAMP}"
+			local function safeFilePart(value)
+				local text = tostring(value or "")
+				text = text:gsub("[%c/\\:*?\"<>|]+", "_"):gsub("%s+", "_"):gsub("_+", "_")
+				return text:sub(1, 80)
+			end
+			local placeName = safeFilePart(game.Name)
+			if placeName == "" or placeName == "Game" then placeName = "Place" end
+			local fileName = "Place_"..tostring(game.PlaceId).."_"..placeName.."_{TIMESTAMP}"
 			local Saving = false
 
 			local SaveInstanceArgs = {
@@ -11629,17 +11676,37 @@ local EmbeddedModules = {
 
 				FilenameTextBox.TextBox.Text = fileName
 				Button.MouseButton1Click:Connect(function()
-					local fileName = FilenameTextBox.TextBox.Text:gsub("{TIMESTAMP}", os.date("%d-%m-%Y_%H-%M-%S"))
+					if Saving then return end
+					Saving = true
+					local currentFileName = FilenameTextBox.TextBox.Text:gsub("{TIMESTAMP}", os.date("%d-%m-%Y_%H-%M-%S"))
+					window:SetTitle("Save Instance - Preparing")
+					local saveFn = env.saveinstance
+					local loadError
+					if type(saveFn) ~= "function" and type(env.loadsaveinstance) == "function" then
+						saveFn, loadError = env.loadsaveinstance()
+					end
+					if type(saveFn) ~= "function" then
+						window:SetTitle("Save Instance - Unavailable")
+						Main.Error("SaveInstance unavailable: "..tostring(loadError or "executor has no saveinstance and fallback failed"))
+						Saving = false
+						return
+					end
 					window:SetTitle("Save Instance - Saving")
-					local s, result = pcall(env.saveinstance, game, env.parsefile(fileName), SaveInstanceArgs)
-					if s then
+					local okSave, result = pcall(saveFn, game, env.parsefile(currentFileName), SaveInstanceArgs)
+					if okSave then
 						window:SetTitle("Save Instance - Saved")
 					else
 						window:SetTitle("Save Instance - Error")
-						task.spawn(error("Failed to save the game: "..result))
+						Main.Error("Failed to save the game: "..tostring(result))
 					end
-					task.wait(5)
-					window:SetTitle("Save Instance")
+					Saving = false
+					if task and task.delay then
+						task.delay(3, function()
+							if window then window:SetTitle("Save Instance") end
+						end)
+					else
+						window:SetTitle("Save Instance")
+					end
 				end)
 			end
 
@@ -11767,6 +11834,8 @@ Main = (function()
 	Main.ModuleList = {"Explorer", "Properties", "ScriptViewer", "Console", "SaveInstance"}
 	Main.Elevated = false
 	Main.MissingEnv = {}
+	Main.ModuleErrors = {}
+	GENV.DEX_MODULE_ERRORS = Main.ModuleErrors
 	Main.Version = "" 
 	Main.Mouse = plr:GetMouse()
 	Main.AppControls = {}
@@ -11798,12 +11867,11 @@ Main = (function()
 	end
 
 	Main.Error = function(str)
-		if rconsoleprint then
-			rconsoleprint("DEX ERROR: "..tostring(str).."\n")
-			wait(9e9)
-		else
-			error(str)
-		end
+		local message = "DEX ERROR: "..tostring(str)
+		GENV.DEX_RUNTIME_ERRORS[#GENV.DEX_RUNTIME_ERRORS + 1] = message
+		if rconsoleprint then pcall(rconsoleprint, message.."\n") end
+		pcall(function() warn(message) end)
+		return message
 	end
 
 	Main.LoadModule = function(name)
@@ -11839,7 +11907,7 @@ Main = (function()
 		if EmbeddedModules then 
 			control = EmbeddedModules[name]()
 
-			if not control then Main.Error("Missing Embedded Module: "..name) end
+			if not control then error("Missing Embedded Module: "..name, 0) end
 		end
 
 		Main.AppControls[name] = control
@@ -11852,9 +11920,10 @@ Main = (function()
 
 	Main.LoadModules = function()
 		for i,v in pairs(Main.ModuleList) do
-			local s,e = pcall(Main.LoadModule,v)
-			if not s then
-				Main.Error(("FAILED LOADING %s CAUSE %s"):format(v, e))
+			local okLoad, result = pcall(Main.LoadModule, v)
+			if not okLoad then
+				Main.ModuleErrors[v] = tostring(result)
+				Main.Error(("FAILED LOADING %s CAUSE %s"):format(v, result))
 			end
 		end
 
@@ -11874,11 +11943,15 @@ Main = (function()
 			Notebook = Notebook
 		}
 
-		Main.AppControls.Lib.InitAfterMain(appTable)
+		if Main.AppControls.Lib and type(Main.AppControls.Lib.InitAfterMain) == "function" then
+			local okAfter, afterError = pcall(Main.AppControls.Lib.InitAfterMain, appTable)
+			if not okAfter then Main.Error("FAILED InitAfterMain Lib CAUSE "..tostring(afterError)) end
+		end
 		for i,v in pairs(Main.ModuleList) do
 			local control = Main.AppControls[v]
-			if control then
-				control.InitAfterMain(appTable)
+			if control and type(control.InitAfterMain) == "function" then
+				local okAfter, afterError = pcall(control.InitAfterMain, appTable)
+				if not okAfter then Main.Error("FAILED InitAfterMain "..tostring(v).." CAUSE "..tostring(afterError)) end
 			end
 		end
 	end
@@ -11897,13 +11970,43 @@ Main = (function()
 		env.listfiles = missing("function", listfiles)
 		env.loadfile = missing("function", loadfile)
 		env.movefileas = missing("function", movefileas)
-		env.saveinstance = missing("function", saveinstance) or (function()
-			
-			local success, res = pcall(function()
-				return loadstring(oldgame:HttpGet(dexCacheBust("https://raw.githubusercontent.com/luau/SynSaveInstance/main/saveinstance.luau"), false))()
-			end)
-			return success and res or nil
-		end)()
+		env.saveinstance = missing("function", saveinstance)
+		local saveInstanceFallbackAttempted = false
+		local saveInstanceFallbackError
+		env.loadsaveinstance = function()
+			if type(env.saveinstance) == "function" then return env.saveinstance end
+			if saveInstanceFallbackAttempted then return nil, saveInstanceFallbackError end
+			saveInstanceFallbackAttempted = true
+			if type(loadstring) ~= "function" then
+				saveInstanceFallbackError = "loadstring unavailable"
+				return nil, saveInstanceFallbackError
+			end
+			local source, fetchError = dexHttpGet("https://raw.githubusercontent.com/luau/SynSaveInstance/main/saveinstance.luau", {fresh=false, attempts=3, cache=true})
+			if not source then
+				saveInstanceFallbackError = "fallback fetch failed: "..tostring(fetchError)
+				return nil, saveInstanceFallbackError
+			end
+			local chunk, compileError = loadstring(source)
+			if type(chunk) ~= "function" then
+				saveInstanceFallbackError = "fallback compile failed: "..tostring(compileError)
+				return nil, saveInstanceFallbackError
+			end
+			local ok, result = pcall(chunk)
+			if not ok then
+				saveInstanceFallbackError = "fallback init failed: "..tostring(result)
+				return nil, saveInstanceFallbackError
+			end
+			local fn = result
+			if type(result) == "table" then
+				fn = result.saveinstance or result.SaveInstance or result.save
+			end
+			if type(fn) ~= "function" then
+				saveInstanceFallbackError = "fallback returned "..type(result)..", not a save function"
+				return nil, saveInstanceFallbackError
+			end
+			rawset(env, "saveinstance", fn)
+			return fn
+		end
 		env.parsefile = function(name)
 			return tostring(name):gsub("[*\\?:<>|]+", ""):sub(1, 175)
 		end
@@ -17300,7 +17403,7 @@ Main = (function()
 	Main.LoadSettings = function()
 		local s,data = pcall(env.readfile or error,"DexSettings.json")
 		if s and data and data ~= "" then
-			local s,decoded = service.HttpService:JSONDecode(data)
+			local s,decoded = pcall(service.HttpService.JSONDecode, service.HttpService, data)
 			if s and decoded then
 				for i,v in next,decoded do
 
@@ -17336,33 +17439,37 @@ Main = (function()
 	end
 
 	Main.FetchAPI = function()
-		local api,rawAPI
+		local api,rawAPI,lastError
 		if Main.Elevated then
 			if Main.LocalDepsUpToDate() then
 				local localAPI = Lib.ReadFile("dex/rbx_api.dat")
-				if localAPI then 
+				if localAPI then
 					rawAPI = localAPI
-				else
+				elseif Main.DepsVersionData then
 					Main.DepsVersionData[1] = ""
 				end
 			end
-			rawAPI = rawAPI or oldgame:HttpGet("http://setup.roblox.com/"..Main.RobloxVersion.."-API-Dump.json")
+			if not rawAPI and type(Main.RobloxVersion) == "string" and Main.RobloxVersion ~= "" then
+				rawAPI,lastError = dexHttpGet("http://setup.roblox.com/"..Main.RobloxVersion.."-API-Dump.json", {cacheBust=false, attempts=2, cache=true})
+			end
 		else
 			if script:FindFirstChild("API") then
-				rawAPI = require(script.API)
-			else
-				error("NO API EXISTS")
+				local okEmbedded, embedded = pcall(require, script.API)
+				if okEmbedded then rawAPI = embedded else lastError = embedded end
 			end
 		end
-		Main.RawAPI = rawAPI
-		api = jsonDecode(rawAPI)
-
-		
+		if rawAPI then api = jsonDecode(rawAPI) end
 		if not api then
-			rawAPI = oldgame:HttpGet(dexCacheBust("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/rbx_api.dat"), false)
-			Main.RawAPI = rawAPI
-			api = jsonDecode(rawAPI)
+			rawAPI,lastError = dexHttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/rbx_api.dat", {fresh=false, attempts=3, cache=true})
+			if rawAPI then api = jsonDecode(rawAPI) end
 		end
+		if type(api) ~= "table" then
+			Main.Error("API unavailable; continuing with reduced metadata: "..tostring(lastError or "decode failed"))
+			api = {Classes = {}, Enums = {}}
+		end
+		api.Classes = type(api.Classes) == "table" and api.Classes or {}
+		api.Enums = type(api.Enums) == "table" and api.Enums or {}
+		Main.RawAPI = rawAPI or ""
 
 		local classes,enums = {},{}
 		local categoryOrder,seenCategories = {},{}
@@ -17491,28 +17598,39 @@ Main = (function()
 	end
 
 	Main.FetchRMD = function()
-		local rawXML
+		local rawXML,lastError
 		if Main.Elevated then
 			if Main.LocalDepsUpToDate() then
 				local localRMD = Lib.ReadFile("dex/rbx_rmd.dat")
-				if localRMD then 
+				if localRMD then
 					rawXML = localRMD
-				else
+				elseif Main.DepsVersionData then
 					Main.DepsVersionData[1] = ""
 				end
 			end
-			rawXML = rawXML or oldgame:HttpGet(dexCacheBust("https://raw.githubusercontent.com/CloneTrooper1019/Roblox-Client-Tracker/roblox/ReflectionMetadata.xml"), false)
+			if not rawXML then
+				rawXML,lastError = dexHttpGet("https://raw.githubusercontent.com/CloneTrooper1019/Roblox-Client-Tracker/roblox/ReflectionMetadata.xml", {fresh=false, attempts=3, cache=true})
+			end
 		else
 			if script:FindFirstChild("RMD") then
-				rawXML = require(script.RMD)
-			else
-				error("NO RMD EXISTS")
+				local okEmbedded, embedded = pcall(require, script.RMD)
+				if okEmbedded then rawXML = embedded else lastError = embedded end
 			end
 		end
+		if type(rawXML) ~= "string" or rawXML == "" then
+			Main.Error("RMD unavailable; continuing with reduced metadata: "..tostring(lastError or "no data"))
+			return {Classes = {}, Enums = {}, PropertyOrders = {}}
+		end
 		Main.RawRMD = rawXML
-		local parsed = Lib.ParseXML(rawXML)
-		local classList = parsed.children[1].children[1].children
-		local enumList = parsed.children[1].children[2].children
+		local okParsed, parsed = pcall(Lib.ParseXML, rawXML)
+		if not okParsed or type(parsed) ~= "table" or not parsed.children or not parsed.children[1] or not parsed.children[1].children then
+			Main.Error("RMD parse failed; continuing with reduced metadata: "..tostring(parsed))
+			return {Classes = {}, Enums = {}, PropertyOrders = {}}
+		end
+		local rootChildren = parsed.children[1].children
+		local classList = rootChildren[1] and rootChildren[1].children or {}
+		local enumList = rootChildren[2] and rootChildren[2].children or {}
+
 		local propertyOrders = {}
 
 		local classes,enums = {},{}
@@ -17934,43 +18052,43 @@ Main = (function()
 		end)
 
 		
-		Main.CreateApp({Name = "Explorer", IconMap = Main.LargeIcons, Icon = "Explorer", Open = true, Window = Explorer.Window})
+		if Explorer and Explorer.Window then Main.CreateApp({Name = "Explorer", IconMap = Main.LargeIcons, Icon = "Explorer", Open = true, Window = Explorer.Window}) end
 
-		Main.CreateApp({Name = "Properties", IconMap = Main.LargeIcons, Icon = "Properties", Open = true, Window = Properties.Window})
+		if Properties and Properties.Window then Main.CreateApp({Name = "Properties", IconMap = Main.LargeIcons, Icon = "Properties", Open = true, Window = Properties.Window}) end
 
-		Main.CreateApp({Name = "Script Viewer", IconMap = Main.LargeIcons, Icon = "Script_Viewer", Window = ScriptViewer.Window})
+		if ScriptViewer and ScriptViewer.Window then Main.CreateApp({Name = "Script Viewer", IconMap = Main.LargeIcons, Icon = "Script_Viewer", Window = ScriptViewer.Window}) end
 
 		local cptsOnMouseClick = nil
-		Main.CreateApp({Name = "Click part to select", IconMap = Main.LargeIcons, Icon = 6, OnClick = function(callback)
-			if callback then
-				local mouse = Main.Mouse
-				cptsOnMouseClick = mouse.Button1Down:Connect(function()
-					pcall(function()
-						local object = mouse.Target
-						if nodes[object] then
-							selection:Set(nodes[object])
-							Explorer.ViewNode(nodes[object])
-						end
+		if Explorer and type(Explorer.ViewNode) == "function" then
+			Main.CreateApp({Name = "Click part to select", IconMap = Main.LargeIcons, Icon = 6, OnClick = function(callback)
+				if callback then
+					local mouse = Main.Mouse
+					cptsOnMouseClick = mouse.Button1Down:Connect(function()
+						pcall(function()
+							local object = mouse.Target
+							if nodes[object] then
+								selection:Set(nodes[object])
+								Explorer.ViewNode(nodes[object])
+							end
+						end)
 					end)
-				end)
-			else if cptsOnMouseClick ~= nil then cptsOnMouseClick:Disconnect() cptsOnMouseClick = nil end end
-		end})
+				else if cptsOnMouseClick ~= nil then cptsOnMouseClick:Disconnect() cptsOnMouseClick = nil end end
+			end})
+		end
 
-		Main.CreateApp({Name = "Console", IconMap = Main.LargeIcons, Icon = "Output", Window = Console.Window})
+		if Console and Console.Window then Main.CreateApp({Name = "Console", IconMap = Main.LargeIcons, Icon = "Output", Window = Console.Window}) end
 
-		Main.CreateApp({Name = "Save Instance", IconMap = Main.LargeIcons, Icon = "Watcher", Window = SaveInstance.Window})
+		if SaveInstance and SaveInstance.Window then Main.CreateApp({Name = "Save Instance", IconMap = Main.LargeIcons, Icon = "Watcher", Window = SaveInstance.Window}) end
 
 		Lib.ShowGui(gui)
 	end
 
 	Main.SetupFilesystem = function()
 		if not env.writefile or not env.makefolder then return end
-		local writefile, makefolder = env.writefile, env.makefolder
-		makefolder("dex")
-		makefolder("dex/assets")
-		makefolder("dex/saved")
-		makefolder("dex/plugins")
-		makefolder("dex/ModuleCache")
+		local makefolder = env.makefolder
+		for _, folder in ipairs({"dex", "dex/assets", "dex/saved", "dex/plugins", "dex/ModuleCache"}) do
+			pcall(makefolder, folder)
+		end
 	end
 
 	Main.LocalDepsUpToDate = function()
@@ -18052,27 +18170,42 @@ Main = (function()
 					Main.RobloxVersion = Main.DepsVersionData[2]
 				end
 			end
-			Main.RobloxVersion = Main.RobloxVersion or oldgame:HttpGet("http://setup.roblox.com/versionQTStudio")
-
-			
-			if #Main.RobloxVersion < 1 then
-				Main.RobloxVersion = oldgame:HttpGet(dexCacheBust("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/deps_version.dat"), false):gsub("%s+", "")
+			if not Main.RobloxVersion or Main.RobloxVersion == "" then
+				local versionText = dexHttpGet("http://setup.roblox.com/versionQTStudio", {cacheBust=false, attempts=2, cache=true})
+				if type(versionText) == "string" then Main.RobloxVersion = versionText:gsub("%s+", "") end
 			end
+			if not Main.RobloxVersion or Main.RobloxVersion == "" then
+				local backupVersion = dexHttpGet("https://raw.githubusercontent.com/infyiff/backup/refs/heads/main/deps_version.dat", {fresh=false, attempts=2, cache=true})
+				if type(backupVersion) == "string" then Main.RobloxVersion = backupVersion:gsub("%s+", "") end
+			end
+			Main.RobloxVersion = Main.RobloxVersion or ""
 		end
 
 		
 		intro.SetProgress("Fetching API",0.35)
-		API = Main.FetchAPI()
+		local okAPI, apiResult = pcall(Main.FetchAPI)
+		if okAPI and type(apiResult) == "table" then
+			API = apiResult
+		else
+			Main.Error("API initialization failed: "..tostring(apiResult))
+			API = {Classes = {}, Enums = {}, CategoryOrder = {}, GetMember = function() return {} end}
+		end
 		Lib.FastWait()
 		intro.SetProgress("Fetching RMD",0.5)
-		RMD = Main.FetchRMD()
+		local okRMD, rmdResult = pcall(Main.FetchRMD)
+		if okRMD and type(rmdResult) == "table" then
+			RMD = rmdResult
+		else
+			Main.Error("RMD initialization failed: "..tostring(rmdResult))
+			RMD = {Classes = {}, Enums = {}, PropertyOrders = {}}
+		end
 		Lib.FastWait()
 
 		
 		if Main.Elevated and env.writefile and not Main.LocalDepsUpToDate() then
-			env.writefile("dex/deps_version.dat",Main.ClientVersion.."\n"..Main.RobloxVersion)
-			env.writefile("dex/rbx_api.dat",Main.RawAPI)
-			env.writefile("dex/rbx_rmd.dat",Main.RawRMD)
+			if Main.ClientVersion and Main.RobloxVersion then pcall(env.writefile, "dex/deps_version.dat", tostring(Main.ClientVersion).."\n"..tostring(Main.RobloxVersion)) end
+			if type(Main.RawAPI) == "string" and Main.RawAPI ~= "" then pcall(env.writefile, "dex/rbx_api.dat", Main.RawAPI) end
+			if type(Main.RawRMD) == "string" and Main.RawRMD ~= "" then pcall(env.writefile, "dex/rbx_rmd.dat", Main.RawRMD) end
 		end
 
 		
@@ -18083,11 +18216,23 @@ Main = (function()
 
 		
 		intro.SetProgress("Initializing Modules",0.9)
-		Explorer.Init()
-		Properties.Init()
-		ScriptViewer.Init()
-		Console.Init()
-		SaveInstance.Init()
+		local function initModule(name, module)
+			if not module or type(module.Init) ~= "function" then
+				Main.Error("SKIPPED INITIALIZING "..name.." (module unavailable)")
+				return false
+			end
+			local okInit, initError = pcall(module.Init)
+			if not okInit then
+				Main.Error("FAILED INITIALIZING "..name.." CAUSE "..tostring(initError))
+				return false
+			end
+			return true
+		end
+		initModule("Explorer", Explorer)
+		initModule("Properties", Properties)
+		initModule("ScriptViewer", ScriptViewer)
+		initModule("Console", Console)
+		initModule("SaveInstance", SaveInstance)
 		Lib.FastWait()
 
 		
@@ -18100,8 +18245,8 @@ Main = (function()
 		
 		Lib.Window.Init()
 		Main.CreateMainGui()
-		Explorer.Window:Show({Align = "right", Pos = 1, Size = 0.5, Silent = true})
-		Properties.Window:Show({Align = "right", Pos = 2, Size = 0.5, Silent = true})
+		if Explorer and Explorer.Window then Explorer.Window:Show({Align = "right", Pos = 1, Size = 0.5, Silent = true}) end
+		if Properties and Properties.Window then Properties.Window:Show({Align = "right", Pos = 2, Size = 0.5, Silent = true}) end
 		Lib.DeferFunc(function() Lib.Window.ToggleSide("right") end)
 	end
 
