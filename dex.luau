@@ -22,7 +22,7 @@ local game = workspace.Parent
 
 local _getgenv = type(getgenv) == "function" and getgenv or function() return _G end
 local GENV = _getgenv()
-local DEX_BUILD_VERSION = "V26"
+local DEX_BUILD_VERSION = "V27"
 local function dexCacheToken()
 	local ok,guid = pcall(function()
 		return game:GetService("HttpService"):GenerateGUID(false)
@@ -15282,6 +15282,7 @@ Main = (function()
 					if id then return ctx.forceDef[id] or false end
 					return ctx.forceVar[r] or false
 				end
+				local barrierBetween
 				local function put(r,s,pc,hard,pure)
 					local id=writedef(r,pc)
 					local d=id and ssaDefs and ssaDefs[id]
@@ -15342,7 +15343,7 @@ Main = (function()
 					barrierPrefix[j]=barrierCount
 					if barrierOps[y.n] then barrierCount+=1 end
 				end
-				local function barrierBetween(a,b)
+				barrierBetween = function(a,b)
 					if type(a)~="number" or type(b)~="number" or b<=a then return false end
 					local ai=ctx.indexByPc[a]
 					local bi=ctx.indexByPc[b]
