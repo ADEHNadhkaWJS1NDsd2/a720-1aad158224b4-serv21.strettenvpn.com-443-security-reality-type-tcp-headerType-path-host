@@ -731,6 +731,36 @@ local function ResolveControlDescription(Data)
     return Text ~= "" and Text or nil
 end
 
+local ControlLayout = {Gap = 4, HelpWidth = 12, ColorWidth = 18, KeybindWidth = 96}
+
+local function ReserveControlRight(Offset, Width)
+    return math.max(tonumber(Offset) or 0, 0) + math.max(tonumber(Width) or 0, 0) + ControlLayout.Gap
+end
+
+local function UpdateControlLabelInset(Object)
+    if type(Object) ~= "table" then return end
+    local Label = Object.Label
+    if not Label or typeof(Label) ~= "Instance" or not Label:IsA("GuiObject") then return end
+    if Object.LabelBaseSize == nil then Object.LabelBaseSize = Label.Size end
+    if Object.LabelBasePosition == nil then Object.LabelBasePosition = Label.Position end
+    local BaseSize = Object.LabelBaseSize
+    local BasePosition = Object.LabelBasePosition
+    local Right = math.max(tonumber(Object.RightOffset) or 0, 0)
+    if Object.LabelSymmetric == true then
+        Label.Position = UDim2.new(BasePosition.X.Scale, BasePosition.X.Offset + Right, BasePosition.Y.Scale, BasePosition.Y.Offset)
+        Label.Size = UDim2.new(BaseSize.X.Scale, BaseSize.X.Offset - Right * 2, BaseSize.Y.Scale, BaseSize.Y.Offset)
+    else
+        Label.Position = BasePosition
+        Label.Size = UDim2.new(BaseSize.X.Scale, BaseSize.X.Offset - Right, BaseSize.Y.Scale, BaseSize.Y.Offset)
+    end
+end
+
+local function SetControlRightOffset(Object, Offset)
+    if type(Object) ~= "table" then return end
+    Object.RightOffset = math.max(tonumber(Offset) or 0, 0)
+    UpdateControlLabelInset(Object)
+end
+
 local function AttachControlDescription(Window, Row, Data, RightOffset, TopOffset)
     local Description = ResolveControlDescription(Data)
     local Offset = math.max(tonumber(RightOffset) or 0, 0)
@@ -742,8 +772,8 @@ local function AttachControlDescription(Window, Row, Data, RightOffset, TopOffse
     end
     local Icon = Create("TextButton", {
         Parent = Row,
-        Size = UDim2.fromOffset(12, 12),
-        Position = UDim2.new(1, -Offset - 12, 0, Y),
+        Size = UDim2.fromOffset(ControlLayout.HelpWidth, 12),
+        Position = UDim2.new(1, -Offset - ControlLayout.HelpWidth, 0, Y),
         BackgroundColor3 = Colors.Control,
         BackgroundTransparency = 0.12,
         BorderSizePixel = 0,
@@ -766,13 +796,14 @@ local function AttachControlDescription(Window, Row, Data, RightOffset, TopOffse
     Bind(Icon.MouseLeave:Connect(function() RenderHelp(false) Window:ScheduleTooltipClose(Icon, 0.12) end))
     RegisterRenderer(function() RenderHelp(Window.TooltipOwner == Icon and Window.Tooltip and Window.Tooltip.Visible == true) end)
     RenderHelp(false)
-    return Icon, Offset + 16
+    return Icon, ReserveControlRight(Offset, ControlLayout.HelpWidth)
 end
 
 local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFlag)
     Data=Data or {}
-    local HelpIcon, HelpRightOffset = AttachControlDescription(Window, Row, Data, RightOffset, nil)
-    RightOffset = HelpRightOffset
+    RightOffset = math.max(tonumber(RightOffset) or 0, 0)
+    local HelpIcon
+    if not TargetControl then HelpIcon, RightOffset = AttachControlDescription(Window, Row, Data, RightOffset, nil) end
     local Flag=tostring(Data.Flag or Data.Name or ("Keybind"..tostring(#Library.Keybinds+1)))
     local Mode=tostring(Data.Mode or "Toggle") Mode=Mode=="Hold" and "Hold" or Mode=="Always" and "Always" or "Toggle"
     local Initial=TargetControl and TargetControl:Get() or Mode=="Always"
@@ -782,16 +813,19 @@ local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFla
     DisplayName=CleanKeybindDisplayName(DisplayName)
     local BindData={Window=Window,Flag=Flag,TargetFlag=tostring(TargetFlag or Flag),Name=DisplayName,Key=InitialKey,Modifiers=InitialModifiers,Mode=Mode,Callback=Data.Callback,EnabledFlag=Data.EnabledFlag,TargetControl=TargetControl,Value=Initial,Destroyed=false,HelpIcon=HelpIcon}
     Library.Flags[Flag]=Initial
-    local Button=Create("TextButton",{Parent=Row,Size=UDim2.fromOffset(70,16),Position=UDim2.new(1,-(RightOffset or 0)-70,0.5,-8),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=15})
+    local Button=Create("TextButton",{Parent=Row,Size=UDim2.fromOffset(ControlLayout.KeybindWidth,16),Position=UDim2.new(1,-RightOffset-ControlLayout.KeybindWidth,0.5,-8),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=15})
     local Label=Create("TextLabel",{Parent=Button,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextXAlignment=Enum.TextXAlignment.Right,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBind,Text=""})
     BindData.Button=Button
+    BindData.RightOffset=ReserveControlRight(RightOffset,ControlLayout.KeybindWidth)
 
     function BindData.Render()
         local Capture=Library.Capture local Capturing=Capture and Capture.Bind==BindData local Text
         if Capturing and not Capture.Armed then Text="[release keys]" elseif Capturing and Capture.Pending then Text="[release "..BindSystem.DisplayChord(Capture.Pending,Capture.PendingModifiers).."]" elseif Capturing and next(Capture.ModifierCandidates or {}) then local Names={} for _,Key in pairs(Capture.ModifierCandidates) do Names[#Names+1]=BindSystem.DisplayKey(Key) end table.sort(Names) Text="["..table.concat(Names,"+").." + key]" elseif Capturing then Text="[press key]" else Text="["..BindSystem.DisplayChord(BindData.Key,BindData.Modifiers).."]" end
         Label.Text=Text Label.TextColor3=Capturing and Accent() or Colors.TextBind
-        local Width=math.clamp(TextService:GetTextSize(Text,13,Enum.Font.SourceSans,Vector2.new(220,20)).X+4,42,130)
-        Button.Size=UDim2.fromOffset(Width,16) Button.Position=UDim2.new(1,-(RightOffset or 0)-Width,0.5,-8)
+        local TextSize=13
+        while TextSize>10 and TextService:GetTextSize(Text,TextSize,Enum.Font.SourceSans,Vector2.new(300,20)).X>ControlLayout.KeybindWidth-2 do TextSize-=1 end
+        Label.TextSize=TextSize
+        Button.Size=UDim2.fromOffset(ControlLayout.KeybindWidth,16) Button.Position=UDim2.new(1,-RightOffset-ControlLayout.KeybindWidth,0.5,-8)
     end
 
     function BindData:SetMode(NewMode,ApplyState)
@@ -1392,8 +1426,9 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
     local Flag = tostring(Data.Flag or Data.Name or ("Color" .. tostring(#Section.Controls + 1)))
     if typeof(Library.Flags[Flag]) == "Color3" then InitialColor = Library.Flags[Flag] end
     local TallRow = Row.Size.Y.Offset > 20
-    local ButtonPosition = TallRow and UDim2.new(1, -(RightOffset or 0) - 18, 0, 1) or UDim2.new(1, -(RightOffset or 0) - 18, 0.5, -6)
-    local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(18, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Text = "", ZIndex = 20}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
+    RightOffset = math.max(tonumber(RightOffset) or 0, 0)
+    local ButtonPosition = TallRow and UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0, 1) or UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0.5, -6)
+    local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(ControlLayout.ColorWidth, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Text = "", ZIndex = 20}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
     Library.ThemeBindings[Button] = nil
     local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag}
     function Object:Set(Color, Alpha, FromPicker)
@@ -1422,7 +1457,7 @@ local function AttachColorpicker(Section, Object, Row, BaseRightOffset)
         function Object:Colorpicker(ColorData)
             local Offset = tonumber(self.RightOffset) or 0
             local Picker = MakeColorpicker(Section, Row, ColorData, Offset)
-            self.RightOffset = Offset + 22
+            SetControlRightOffset(self, ReserveControlRight(Offset, ControlLayout.ColorWidth))
             return Picker
         end
     end
@@ -1440,6 +1475,7 @@ function SectionMethods:Toggle(Data)
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 10})
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, nil)
     local Object = {Row = Row, Box = Box, Label = Label, Value = Default, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon}
+    UpdateControlLabelInset(Object)
     function Object:Render()
         Box.BackgroundColor3 = Object.Value and Accent() or Colors.CbBg
         Box:FindFirstChildOfClass("UIStroke").Color = Object.Value and Accent() or Colors.CbBorder
@@ -1465,12 +1501,14 @@ function SectionMethods:Toggle(Data)
     function Object:Colorpicker(ColorData)
         local Offset = Object.RightOffset
         local Picker = MakeColorpicker(self.Section, Row, ColorData, Offset)
-        Object.RightOffset = Offset + 22
+        SetControlRightOffset(Object, ReserveControlRight(Offset, ControlLayout.ColorWidth))
         return Picker
     end
     function Object:Keybind(KeyData)
-        Object.RightOffset=Object.RightOffset+70
-        return CreateKeybind(self.Section.Window,Row,KeyData,Object.RightOffset-70,Object,Object.Flag)
+        local Offset = Object.RightOffset
+        local BindData = CreateKeybind(self.Section.Window,Row,KeyData,Offset,Object,Object.Flag)
+        SetControlRightOffset(Object, ReserveControlRight(Offset, ControlLayout.KeybindWidth))
+        return BindData
     end
     Object.Section = self
     RegisterFlag(Flag, Default, function(Value) Object:Set(Value) end)
@@ -1485,9 +1523,11 @@ end
 function SectionMethods:Keybind(Data)
     Data = Data or {}
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, -75, 1, 0), BackgroundTransparency = 1, Text = tostring(Data.Name or "keybind"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+    local NameLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "keybind"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Object = CreateKeybind(self.Window, Row, Data, 0)
-    AttachColorpicker(self, Object, Row, math.max(70, tonumber(Object.RightOffset) or 0))
+    Object.Label = NameLabel
+    UpdateControlLabelInset(Object)
+    AttachColorpicker(self, Object, Row, Object.RightOffset)
     AddControl(self, Object)
     return Object
 end
@@ -1505,19 +1545,20 @@ function SectionMethods:Slider(Data)
     local Step = tonumber(Data.Step) or 1
     local Default = math.clamp(tonumber(Data.Default) or Minimum, Minimum, Maximum)
     if type(Library.Flags[Flag]) == "number" then Default = math.clamp(Library.Flags[Flag], Minimum, Maximum) end
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1})
+    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 27), BackgroundTransparency = 1})
     local NameLabel = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 12), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Minus = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(12, 12), Position = UDim2.fromOffset(0, 13), BackgroundTransparency = 1, Text = "-", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSansBold, TextSize = 14})
-    local Plus = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(12, 12), Position = UDim2.new(1, -12, 0, 13), BackgroundTransparency = 1, Text = "+", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSansBold, TextSize = 14})
-    local Track = Create("Frame", {Parent = Row, Size = UDim2.new(1, -36, 0, 3), Position = UDim2.fromOffset(18, 17), BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0})
+    local Minus = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(12, 12), Position = UDim2.fromOffset(0, 14), BackgroundTransparency = 1, Text = "-", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSansBold, TextSize = 14})
+    local Plus = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(12, 12), Position = UDim2.new(1, -12, 0, 14), BackgroundTransparency = 1, Text = "+", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSansBold, TextSize = 14})
+    local Track = Create("Frame", {Parent = Row, Size = UDim2.new(1, -36, 0, 3), Position = UDim2.fromOffset(18, 18), BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0})
     local Fill = Create("Frame", {Parent = Track, Size = UDim2.new(0, 0, 1, 0), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, AccentDark()), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, AccentDark())})})})
-    local ValueLabel = Create("TextLabel", {Parent = Track, Size = UDim2.fromOffset(56, 12), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 1, Text = "", TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 12, ZIndex = 5}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
+    local ValueLabel = Create("TextLabel", {Parent = Track, Size = UDim2.new(1, 0, 0, 12), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 1, Text = "", TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 5}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, 0)
     local Object = {Row = Row, Value = Default, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, Label = NameLabel}
+    UpdateControlLabelInset(Object)
     function Object:Render()
         local Ratio = Maximum > Minimum and math.clamp((Object.Value - Minimum) / (Maximum - Minimum), 0, 1) or 0
         Fill.Size = UDim2.new(Ratio, 0, 1, 0)
-        ValueLabel.Position = UDim2.new(Ratio, 0, 0.5, 0)
+        ValueLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
         local Decimals = Step < 1 and math.max(0, math.ceil(-math.log10(Step))) or 0
         ValueLabel.Text = string.format("%." .. tostring(math.min(Decimals, 4)) .. "f", Object.Value) .. tostring(Data.Suffix or "")
         local Gradient = Fill:FindFirstChildOfClass("UIGradient")
@@ -1572,6 +1613,7 @@ function SectionMethods:RangeSlider(Data)
     local HighLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromOffset(60, 10), Position = UDim2.new(1, -60, 0, 24), BackgroundTransparency = 1, TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right})
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, 0)
     local Object = {Row = Row, Low = Low, High = High, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, Label = NameLabel}
+    UpdateControlLabelInset(Object)
     function Object:Render()
         local A = Maximum > Minimum and (Object.Low - Minimum) / (Maximum - Minimum) or 0
         local B = Maximum > Minimum and (Object.High - Minimum) / (Maximum - Minimum) or 1
@@ -1635,6 +1677,7 @@ local function MakeDropdown(Section, Data, Multi)
     local Button = Create("TextButton", {Parent = DropFrame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 5})
     local HelpIcon, HelpRightOffset = AttachControlDescription(Section.Window, Row, Data, 0, 0)
     local Object = {Section = Section, Row = Row, Frame = DropFrame, Items = Items, Value = Default, Flag = Flag, Multi = Multi, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, Label = NameLabel}
+    UpdateControlLabelInset(Object)
     function Object:Get() return Multi and CloneValue(Object.Value) or Object.Value end
     function Object:Render()
         if Multi then
@@ -1702,9 +1745,10 @@ function SectionMethods:Label(Data)
     local Label = Create("TextLabel", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "label"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = tostring(Data.Alignment or "Left") == "Center" and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left})
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, nil)
     local Object = {Section = self, Row = Row, Label = Label, RightOffset = HelpRightOffset, HelpIcon = HelpIcon}
+    UpdateControlLabelInset(Object)
     function Object:Set(Value) Label.Text = tostring(Value) end
-    function Object:Colorpicker(ColorData) local Offset = Object.RightOffset local Picker = MakeColorpicker(self.Section, Row, ColorData, Offset) Object.RightOffset = Offset + 22 return Picker end
-    function Object:Keybind(KeyData) Object.RightOffset = Object.RightOffset + 70 return CreateKeybind(self.Section.Window, Row, KeyData, Object.RightOffset - 70) end
+    function Object:Colorpicker(ColorData) local Offset = Object.RightOffset local Picker = MakeColorpicker(self.Section, Row, ColorData, Offset) SetControlRightOffset(Object, ReserveControlRight(Offset, ControlLayout.ColorWidth)) return Picker end
+    function Object:Keybind(KeyData) local Offset = Object.RightOffset local BindData = CreateKeybind(self.Section.Window, Row, KeyData, Offset) SetControlRightOffset(Object, ReserveControlRight(Offset, ControlLayout.KeybindWidth)) return BindData end
     AddControl(self, Object)
     return Object
 end
@@ -1722,8 +1766,9 @@ function SectionMethods:Button(Data, Callback)
     Bind(Button.MouseButton1Click:Connect(function() if type(Data.Callback) == "function" then Call(Data.Callback) end end))
     RegisterRenderer(function() AccentLine.BackgroundColor3 = Accent() end)
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, nil)
-    local Object = {Section = self, Row = Row, Button = Button, Frame = Frame, Label = Label, RightOffset = HelpRightOffset, HelpIcon = HelpIcon}
-    AttachColorpicker(self, Object, Row, 0)
+    local Object = {Section = self, Row = Row, Button = Button, Frame = Frame, Label = Label, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, LabelSymmetric = true}
+    UpdateControlLabelInset(Object)
+    AttachColorpicker(self, Object, Row, Object.RightOffset)
     return AddControl(self, Object)
 end
 
@@ -1738,6 +1783,7 @@ function SectionMethods:Textbox(Data)
     local Box = Create("TextBox", {Parent = Frame, Size = UDim2.new(1, -12, 1, 0), Position = UDim2.fromOffset(6, 0), BackgroundTransparency = 1, Text = Default, PlaceholderText = tostring(Data.Placeholder or "..."), PlaceholderColor3 = Colors.TextDim, TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, 0)
     local Object = {Section = self, Row = Row, Box = Box, Value = Default, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, Label = NameLabel}
+    UpdateControlLabelInset(Object)
     function Object:Set(Value, Silent)
         Object.Value = tostring(Value or "")
         Library.Flags[Flag] = Object.Value
@@ -1791,13 +1837,15 @@ end
 function SectionMethods:Colorpicker(Data)
     Data = Data or {}
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
-    local Label = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, -26, 1, 0), BackgroundTransparency = 1, Text = tostring(Data.Name or "color"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+    local Label = Create("TextLabel", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "color"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Picker = MakeColorpicker(self, Row, Data, 0)
-    local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 22, nil)
+    local ColorRightOffset = ReserveControlRight(0, ControlLayout.ColorWidth)
+    local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, ColorRightOffset, nil)
     Picker.Section = self
     Picker.Label = Label
     Picker.HelpIcon = HelpIcon
     Picker.RightOffset = HelpRightOffset
+    UpdateControlLabelInset(Picker)
     return AddControl(self, Picker)
 end
 
