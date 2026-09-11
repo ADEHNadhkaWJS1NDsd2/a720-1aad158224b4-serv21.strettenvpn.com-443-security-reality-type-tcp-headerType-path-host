@@ -12,6 +12,36 @@ Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Eas
 Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=true}
 Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}
 Library.ThemePresets = {}
+Library.Descriptions = {}
+
+function Library:SetDescription(Key, Description)
+    Key = tostring(Key or "")
+    if Key == "" then return false end
+    if Description == nil or Description == false then
+        self.Descriptions[Key] = nil
+        return true
+    end
+    local Text = tostring(Description):gsub("^%s+", ""):gsub("%s+$", "")
+    self.Descriptions[Key] = Text ~= "" and Text or nil
+    return true
+end
+
+Library.Descriptions["__ConfigName"] = "Name used when creating or saving a configuration. Existing configuration names can be selected from the list before loading, saving, or deleting."
+Library.Descriptions["__AtramentaMenuBind"] = "Keyboard or mouse binding used to open and close the main Atramenta interface. Right-click the bind to change between Hold, Toggle, and Always modes."
+Library.Descriptions["__ThemePresetChoice"] = "Selects a built-in color preset. Choosing a preset here does not apply it until you press Apply Preset."
+Library.Descriptions["__ThemePanelWatermark"] = "Controls whether the watermark is visible while the interface is active."
+Library.Descriptions["__ThemePanelWatermarkScale"] = "Changes the watermark scale without changing the rest of the interface."
+Library.Descriptions["__ThemePanelKeybindList"] = "Controls whether the on-screen keybind list is visible."
+Library.Descriptions["__ThemePanelKeybindScale"] = "Changes the keybind list scale without changing the main interface scale."
+Library.Descriptions["__ThemeBindShowHeader"] = "Shows or hides the header row of the keybind list."
+Library.Descriptions["__ThemeBindShowInactive"] = "When enabled, bindings that are currently inactive can still remain visible in the keybind list."
+Library.Descriptions["__ThemeBindAccentActive"] = "Uses the current accent color to highlight active keybinds."
+Library.Descriptions["__ThemeBindCompactRows"] = "Reduces vertical spacing in the keybind list so more bindings fit on screen."
+Library.Descriptions["__ThemeNotifLifetime"] = "Default time notifications stay on screen when a notification does not provide its own duration."
+Library.Descriptions["__ThemeNotifAnimation"] = "Multiplier for notification entrance and exit animation speed."
+Library.Descriptions["__ThemeNotifMaximum"] = "Maximum number of notifications allowed on screen at the same time."
+Library.Descriptions["__ThemeNotifProgress"] = "Shows a progress indicator for the remaining lifetime of each notification."
+Library.Descriptions["__ThemeNotifScale"] = "Scales notifications independently from the main interface."
 
 Library.ThemePresets["Atramenta"] = {
     Accent = Color3.fromRGB(150, 120, 150),
@@ -683,8 +713,66 @@ local function CleanKeybindDisplayName(Value)
     return Text
 end
 
+local function ResolveControlDescription(Data)
+    if type(Data) ~= "table" then return nil end
+    local Value = Data.Description
+    if Value == nil then Value = Data.Tooltip end
+    if Value == nil then Value = Data.Info end
+    if Value == nil then Value = Data.Help end
+    if Value == nil then Value = Data.Hint end
+    if Value == nil and type(Library.Descriptions) == "table" then
+        local Flag = tostring(Data.Flag or "")
+        local Name = tostring(Data.Name or "")
+        if Flag ~= "" then Value = Library.Descriptions[Flag] end
+        if Value == nil and Name ~= "" then Value = Library.Descriptions[Name] end
+    end
+    if Value == nil or Value == false then return nil end
+    local Text = tostring(Value):gsub("^%s+", ""):gsub("%s+$", "")
+    return Text ~= "" and Text or nil
+end
+
+local function AttachControlDescription(Window, Row, Data, RightOffset, TopOffset)
+    local Description = ResolveControlDescription(Data)
+    local Offset = math.max(tonumber(RightOffset) or 0, 0)
+    if not Description or not Window or not Row then return nil, Offset end
+    local Y = tonumber(TopOffset)
+    if Y == nil then
+        local Height = tonumber(Row.Size.Y.Offset) or 16
+        Y = math.max(0, math.floor((Height - 12) * 0.5))
+    end
+    local Icon = Create("TextButton", {
+        Parent = Row,
+        Size = UDim2.fromOffset(12, 12),
+        Position = UDim2.new(1, -Offset - 12, 0, Y),
+        BackgroundColor3 = Colors.Control,
+        BackgroundTransparency = 0.12,
+        BorderSizePixel = 0,
+        Text = "?",
+        TextColor3 = Colors.TextDim,
+        Font = Enum.Font.SourceSansBold,
+        TextSize = 11,
+        AutoButtonColor = false,
+        Active = true,
+        ZIndex = 40
+    }, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
+    local Title = tostring(Data.DescriptionTitle or Data.Name or "")
+    local function RenderHelp(Hovered)
+        Icon.TextColor3 = Hovered and Colors.TextBright or Colors.TextDim
+        Icon.BackgroundColor3 = Hovered and AccentDark() or Colors.Control
+        local Stroke = Icon:FindFirstChildOfClass("UIStroke")
+        if Stroke then Stroke.Color = Hovered and AccentBorder() or Colors.CbBorder end
+    end
+    Bind(Icon.MouseEnter:Connect(function() RenderHelp(true) Window:ShowTooltip(Icon, Description, Title) end))
+    Bind(Icon.MouseLeave:Connect(function() RenderHelp(false) Window:ScheduleTooltipClose(Icon, 0.12) end))
+    RegisterRenderer(function() RenderHelp(Window.TooltipOwner == Icon and Window.Tooltip and Window.Tooltip.Visible == true) end)
+    RenderHelp(false)
+    return Icon, Offset + 16
+end
+
 local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFlag)
     Data=Data or {}
+    local HelpIcon, HelpRightOffset = AttachControlDescription(Window, Row, Data, RightOffset, nil)
+    RightOffset = HelpRightOffset
     local Flag=tostring(Data.Flag or Data.Name or ("Keybind"..tostring(#Library.Keybinds+1)))
     local Mode=tostring(Data.Mode or "Toggle") Mode=Mode=="Hold" and "Hold" or Mode=="Always" and "Always" or "Toggle"
     local Initial=TargetControl and TargetControl:Get() or Mode=="Always"
@@ -692,7 +780,7 @@ local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFla
     local DisplayName=tostring(Data.Name or "")
     if DisplayName=="" or string.lower(DisplayName)=="keybind" then DisplayName=tostring(TargetFlag or Data.Flag or Flag) end
     DisplayName=CleanKeybindDisplayName(DisplayName)
-    local BindData={Window=Window,Flag=Flag,TargetFlag=tostring(TargetFlag or Flag),Name=DisplayName,Key=InitialKey,Modifiers=InitialModifiers,Mode=Mode,Callback=Data.Callback,EnabledFlag=Data.EnabledFlag,TargetControl=TargetControl,Value=Initial,Destroyed=false}
+    local BindData={Window=Window,Flag=Flag,TargetFlag=tostring(TargetFlag or Flag),Name=DisplayName,Key=InitialKey,Modifiers=InitialModifiers,Mode=Mode,Callback=Data.Callback,EnabledFlag=Data.EnabledFlag,TargetControl=TargetControl,Value=Initial,Destroyed=false,HelpIcon=HelpIcon}
     Library.Flags[Flag]=Initial
     local Button=Create("TextButton",{Parent=Row,Size=UDim2.fromOffset(70,16),Position=UDim2.new(1,-(RightOffset or 0)-70,0.5,-8),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=15})
     local Label=Create("TextLabel",{Parent=Button,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,TextXAlignment=Enum.TextXAlignment.Right,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Colors.TextBind,Text=""})
@@ -841,6 +929,81 @@ local function CreatePopupLayer(Window)
     Window.PickerActive = nil
     Window.PickerDragging = nil
 
+    local Tooltip = Create("Frame", {
+        Parent = Window.ScreenGui,
+        Size = UDim2.fromOffset(260, 70),
+        BackgroundColor3 = Colors.Bg,
+        BorderSizePixel = 0,
+        Visible = false,
+        Active = true,
+        ClipsDescendants = true,
+        ZIndex = 3000
+    }, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
+    local TooltipTitle = Create("TextLabel", {
+        Parent = Tooltip,
+        Position = UDim2.fromOffset(8, 6),
+        Size = UDim2.new(1, -16, 0, 16),
+        BackgroundTransparency = 1,
+        Text = "",
+        TextColor3 = Colors.TextBright,
+        Font = Enum.Font.SourceSansBold,
+        TextSize = 13,
+        TextWrapped = true,
+        TextTruncate = Enum.TextTruncate.None,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        ZIndex = 3002
+    })
+    local TooltipScroll = Create("ScrollingFrame", {
+        Parent = Tooltip,
+        Position = UDim2.fromOffset(6, 24),
+        Size = UDim2.new(1, -12, 1, -30),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        CanvasSize = UDim2.fromOffset(0, 0),
+        ScrollingDirection = Enum.ScrollingDirection.Y,
+        ScrollBarThickness = 0,
+        ScrollBarImageColor3 = Colors.TextBind,
+        Active = true,
+        ZIndex = 3001
+    })
+    local TooltipText = Create("TextLabel", {
+        Parent = TooltipScroll,
+        Position = UDim2.fromOffset(2, 0),
+        Size = UDim2.new(1, -6, 0, 16),
+        BackgroundTransparency = 1,
+        Text = "",
+        TextColor3 = Colors.Text,
+        Font = Enum.Font.SourceSans,
+        TextSize = 13,
+        TextWrapped = true,
+        TextTruncate = Enum.TextTruncate.None,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        ZIndex = 3002
+    })
+    Window.Tooltip = Tooltip
+    Window.TooltipTitle = TooltipTitle
+    Window.TooltipScroll = TooltipScroll
+    Window.TooltipText = TooltipText
+    Window.TooltipOwner = nil
+    Window.TooltipHovered = false
+    Window.TooltipHideSerial = 0
+    Bind(Tooltip.MouseEnter:Connect(function() Window.TooltipHovered = true Window.TooltipHideSerial += 1 end))
+    Bind(Tooltip.MouseLeave:Connect(function()
+        Window.TooltipHovered = false
+        local Owner = Window.TooltipOwner
+        if Owner then Window:ScheduleTooltipClose(Owner, 0.06) end
+    end))
+    RegisterRenderer(function()
+        Tooltip.BackgroundColor3 = Colors.Bg
+        TooltipTitle.TextColor3 = Colors.TextBright
+        TooltipText.TextColor3 = Colors.Text
+        TooltipScroll.ScrollBarImageColor3 = Colors.TextBind
+        local Stroke = Tooltip:FindFirstChildOfClass("UIStroke")
+        if Stroke then Stroke.Color = Colors.SectionBorder end
+    end)
+
     local function ClampPopup(Size, Position)
         local Viewport = Window.ScreenGui.AbsoluteSize
         if Viewport.X <= 0 or Viewport.Y <= 0 then
@@ -891,6 +1054,80 @@ function WindowMethods:ClosePicker()
     self.Picker.Visible = false
     self.PickerActive = nil
     self.PickerDragging = nil
+end
+
+function WindowMethods:CloseTooltip(Owner)
+    if Owner ~= nil and self.TooltipOwner ~= Owner then return end
+    self.TooltipHideSerial = (tonumber(self.TooltipHideSerial) or 0) + 1
+    self.TooltipOwner = nil
+    self.TooltipHovered = false
+    if self.Tooltip then self.Tooltip.Visible = false end
+end
+
+function WindowMethods:ScheduleTooltipClose(Owner, Delay)
+    if not self.Tooltip or self.TooltipOwner ~= Owner then return end
+    self.TooltipHideSerial = (tonumber(self.TooltipHideSerial) or 0) + 1
+    local Serial = self.TooltipHideSerial
+    task.delay(math.max(tonumber(Delay) or 0.10, 0), function()
+        if self.TooltipHideSerial ~= Serial or self.TooltipOwner ~= Owner or self.TooltipHovered == true then return end
+        self:CloseTooltip(Owner)
+    end)
+end
+
+function WindowMethods:ShowTooltip(Owner, Description, Title)
+    if not self.Tooltip or not Owner or not Owner.Parent then return false end
+    local Text = tostring(Description or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if Text == "" then self:CloseTooltip() return false end
+    Title = tostring(Title or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local Camera = workspace.CurrentCamera
+    local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+    local MaxWidth = math.max(170, math.min(420, Viewport.X - 12))
+    local MinWidth = math.min(190, MaxWidth)
+    local RawWidth = TextService:GetTextSize(Text, 13, Enum.Font.SourceSans, Vector2.new(10000, 10000)).X
+    if Title ~= "" then RawWidth = math.max(RawWidth, TextService:GetTextSize(Title, 13, Enum.Font.SourceSansBold, Vector2.new(10000, 10000)).X) end
+    local Width = math.clamp(math.ceil(RawWidth) + 20, MinWidth, MaxWidth)
+    local InnerWidth = math.max(80, Width - 20)
+    local TitleHeight = 0
+    if Title ~= "" then
+        local Bounds = TextService:GetTextSize(Title, 13, Enum.Font.SourceSansBold, Vector2.new(InnerWidth, 10000))
+        TitleHeight = math.max(16, math.ceil(Bounds.Y))
+    end
+    local BodyBounds = TextService:GetTextSize(Text, 13, Enum.Font.SourceSans, Vector2.new(InnerWidth, 10000))
+    local BodyHeight = math.max(16, math.ceil(BodyBounds.Y) + 2)
+    local TopPadding = 6
+    local Gap = TitleHeight > 0 and 4 or 0
+    local BottomPadding = 6
+    local RequiredHeight = TopPadding + TitleHeight + Gap + BodyHeight + BottomPadding
+    local MaxHeight = math.max(64, math.min(520, Viewport.Y - 12))
+    local Height = math.min(RequiredHeight, MaxHeight)
+    local BodyY = TopPadding + TitleHeight + Gap
+    local VisibleBodyHeight = math.max(16, Height - BodyY - BottomPadding)
+    self.TooltipTitle.Text = Title
+    self.TooltipTitle.Visible = Title ~= ""
+    self.TooltipTitle.Position = UDim2.fromOffset(8, TopPadding)
+    self.TooltipTitle.Size = UDim2.new(1, -16, 0, TitleHeight)
+    self.TooltipText.Text = Text
+    self.TooltipText.Size = UDim2.new(1, -6, 0, BodyHeight)
+    self.TooltipScroll.Position = UDim2.fromOffset(6, BodyY)
+    self.TooltipScroll.Size = UDim2.new(1, -12, 0, VisibleBodyHeight)
+    self.TooltipScroll.CanvasPosition = Vector2.zero
+    self.TooltipScroll.CanvasSize = UDim2.fromOffset(0, BodyHeight)
+    self.TooltipScroll.ScrollBarThickness = BodyHeight > VisibleBodyHeight and 2 or 0
+    self.Tooltip.Size = UDim2.fromOffset(Width, Height)
+    local AnchorPosition = GuiPoint(self.ScreenGui, Owner.AbsolutePosition)
+    local AnchorSize = Owner.AbsoluteSize
+    local RightX = AnchorPosition.X + AnchorSize.X + 5
+    local LeftX = AnchorPosition.X - Width - 5
+    local X = RightX + Width <= Viewport.X - 4 and RightX or LeftX
+    local Y = AnchorPosition.Y + AnchorSize.Y * 0.5 - math.min(14, Height * 0.2)
+    X = math.clamp(X, 4, math.max(4, Viewport.X - Width - 4))
+    Y = math.clamp(Y, 4, math.max(4, Viewport.Y - Height - 4))
+    self.Tooltip.Position = UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
+    self.TooltipOwner = Owner
+    self.TooltipHovered = false
+    self.TooltipHideSerial = (tonumber(self.TooltipHideSerial) or 0) + 1
+    self.Tooltip.Visible = true
+    return true
 end
 
 function WindowMethods:OpenDropdown(Owner, Anchor, Items, Selected, Multi, Callback)
@@ -1046,7 +1283,7 @@ function WindowMethods:ApplyVisibility()
     local State=self.Visible==true and self.MenuVisible~=false and Library.InterfaceOpen~=false
     self.Main.Visible=State
     if type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(State) end
-    if not State then self:CloseDropdown() self:ClosePicker() end
+    if not State then self:CloseDropdown() self:ClosePicker() self:CloseTooltip() end
     if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
 end
 
@@ -1201,7 +1438,8 @@ function SectionMethods:Toggle(Data)
     local Box = Create("Frame", {Parent = Row, Size = UDim2.fromOffset(9, 9), Position = UDim2.new(0, 0, 0.5, -4.5), BackgroundColor3 = Colors.CbBg}, {Create("UICorner", {CornerRadius = UDim.new(0, 1)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
     local Label = Create("TextLabel", {Parent = Row, Position = UDim2.fromOffset(15, 0), Size = UDim2.new(1, -15, 1, 0), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 10})
-    local Object = {Row = Row, Box = Box, Label = Label, Value = Default, Flag = Flag, RightOffset = 0}
+    local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, nil)
+    local Object = {Row = Row, Box = Box, Label = Label, Value = Default, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon}
     function Object:Render()
         Box.BackgroundColor3 = Object.Value and Accent() or Colors.CbBg
         Box:FindFirstChildOfClass("UIStroke").Color = Object.Value and Accent() or Colors.CbBorder
@@ -1249,7 +1487,7 @@ function SectionMethods:Keybind(Data)
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
     Create("TextLabel", {Parent = Row, Size = UDim2.new(1, -75, 1, 0), BackgroundTransparency = 1, Text = tostring(Data.Name or "keybind"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Object = CreateKeybind(self.Window, Row, Data, 0)
-    AttachColorpicker(self, Object, Row, 70)
+    AttachColorpicker(self, Object, Row, math.max(70, tonumber(Object.RightOffset) or 0))
     AddControl(self, Object)
     return Object
 end
@@ -1268,13 +1506,14 @@ function SectionMethods:Slider(Data)
     local Default = math.clamp(tonumber(Data.Default) or Minimum, Minimum, Maximum)
     if type(Library.Flags[Flag]) == "number" then Default = math.clamp(Library.Flags[Flag], Minimum, Maximum) end
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 12), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+    local NameLabel = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 12), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Minus = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(12, 12), Position = UDim2.fromOffset(0, 13), BackgroundTransparency = 1, Text = "-", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSansBold, TextSize = 14})
     local Plus = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(12, 12), Position = UDim2.new(1, -12, 0, 13), BackgroundTransparency = 1, Text = "+", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSansBold, TextSize = 14})
     local Track = Create("Frame", {Parent = Row, Size = UDim2.new(1, -36, 0, 3), Position = UDim2.fromOffset(18, 17), BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0})
     local Fill = Create("Frame", {Parent = Track, Size = UDim2.new(0, 0, 1, 0), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, AccentDark()), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, AccentDark())})})})
     local ValueLabel = Create("TextLabel", {Parent = Track, Size = UDim2.fromOffset(56, 12), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 1, Text = "", TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 12, ZIndex = 5}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
-    local Object = {Row = Row, Value = Default, Flag = Flag}
+    local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, 0)
+    local Object = {Row = Row, Value = Default, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, Label = NameLabel}
     function Object:Render()
         local Ratio = Maximum > Minimum and math.clamp((Object.Value - Minimum) / (Maximum - Minimum), 0, 1) or 0
         Fill.Size = UDim2.new(Ratio, 0, 1, 0)
@@ -1326,12 +1565,13 @@ function SectionMethods:RangeSlider(Data)
     if type(Library.Flags[MinFlag]) == "number" then Low = Library.Flags[MinFlag] end
     if type(Library.Flags[MaxFlag]) == "number" then High = Library.Flags[MaxFlag] end
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 12), BackgroundTransparency = 1, Text = tostring(Data.Name or "range"), TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+    local NameLabel = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 12), BackgroundTransparency = 1, Text = tostring(Data.Name or "range"), TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Track = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 4), Position = UDim2.fromOffset(0, 20), BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0})
     local Fill = Create("Frame", {Parent = Track, BackgroundColor3 = Accent(), BorderSizePixel = 0})
     local LowLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromOffset(60, 10), Position = UDim2.fromOffset(0, 24), BackgroundTransparency = 1, TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left})
     local HighLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromOffset(60, 10), Position = UDim2.new(1, -60, 0, 24), BackgroundTransparency = 1, TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right})
-    local Object = {Row = Row, Low = Low, High = High, Flag = Flag}
+    local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, 0)
+    local Object = {Row = Row, Low = Low, High = High, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, Label = NameLabel}
     function Object:Render()
         local A = Maximum > Minimum and (Object.Low - Minimum) / (Maximum - Minimum) or 0
         local B = Maximum > Minimum and (Object.High - Minimum) / (Maximum - Minimum) or 1
@@ -1388,12 +1628,13 @@ local function MakeDropdown(Section, Data, Multi)
         if Library.Flags[Flag] ~= nil then Default = Library.Flags[Flag] end
     end
     local Row = Create("Frame", {Parent = Section.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+    local NameLabel = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local DropFrame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Colors.DropdownBg, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.DropdownBord, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 8))})})})
     local Text = Create("TextLabel", {Parent = DropFrame, Size = UDim2.new(1, -20, 1, 0), Position = UDim2.fromOffset(7, 0), BackgroundTransparency = 1, TextXAlignment = Enum.TextXAlignment.Left, Text = "", TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextTruncate = Enum.TextTruncate.AtEnd})
     local Arrow = Create("TextLabel", {Parent = DropFrame, Size = UDim2.fromOffset(14, 17), Position = UDim2.new(1, -14, 0, 0), BackgroundTransparency = 1, Text = "▼", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 9})
     local Button = Create("TextButton", {Parent = DropFrame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 5})
-    local Object = {Section = Section, Row = Row, Frame = DropFrame, Items = Items, Value = Default, Flag = Flag, Multi = Multi}
+    local HelpIcon, HelpRightOffset = AttachControlDescription(Section.Window, Row, Data, 0, 0)
+    local Object = {Section = Section, Row = Row, Frame = DropFrame, Items = Items, Value = Default, Flag = Flag, Multi = Multi, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, Label = NameLabel}
     function Object:Get() return Multi and CloneValue(Object.Value) or Object.Value end
     function Object:Render()
         if Multi then
@@ -1459,7 +1700,8 @@ function SectionMethods:Label(Data)
     Data = Data or {}
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
     local Label = Create("TextLabel", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "label"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = tostring(Data.Alignment or "Left") == "Center" and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left})
-    local Object = {Section = self, Row = Row, Label = Label, RightOffset = 0}
+    local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, nil)
+    local Object = {Section = self, Row = Row, Label = Label, RightOffset = HelpRightOffset, HelpIcon = HelpIcon}
     function Object:Set(Value) Label.Text = tostring(Value) end
     function Object:Colorpicker(ColorData) local Offset = Object.RightOffset local Picker = MakeColorpicker(self.Section, Row, ColorData, Offset) Object.RightOffset = Offset + 22 return Picker end
     function Object:Keybind(KeyData) Object.RightOffset = Object.RightOffset + 70 return CreateKeybind(self.Section.Window, Row, KeyData, Object.RightOffset - 70) end
@@ -1479,7 +1721,8 @@ function SectionMethods:Button(Data, Callback)
     Bind(Button.MouseLeave:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Enabled = false AccentLine.Visible = false Label.TextColor3 = Colors.Text end))
     Bind(Button.MouseButton1Click:Connect(function() if type(Data.Callback) == "function" then Call(Data.Callback) end end))
     RegisterRenderer(function() AccentLine.BackgroundColor3 = Accent() end)
-    local Object = {Section = self, Row = Row, Button = Button, Frame = Frame, Label = Label, RightOffset = 0}
+    local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, nil)
+    local Object = {Section = self, Row = Row, Button = Button, Frame = Frame, Label = Label, RightOffset = HelpRightOffset, HelpIcon = HelpIcon}
     AttachColorpicker(self, Object, Row, 0)
     return AddControl(self, Object)
 end
@@ -1490,10 +1733,11 @@ function SectionMethods:Textbox(Data)
     local Default = tostring(Data.Default or "")
     if type(Library.Flags[Flag]) == "string" then Default = Library.Flags[Flag] end
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+    local NameLabel = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Frame = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 17), Position = UDim2.fromOffset(0, 16), BackgroundColor3 = Color3.fromRGB(8, 8, 8), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1}), Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Control), ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 8))})})})
     local Box = Create("TextBox", {Parent = Frame, Size = UDim2.new(1, -12, 1, 0), Position = UDim2.fromOffset(6, 0), BackgroundTransparency = 1, Text = Default, PlaceholderText = tostring(Data.Placeholder or "..."), PlaceholderColor3 = Colors.TextDim, TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
-    local Object = {Section = self, Row = Row, Box = Box, Value = Default, Flag = Flag, RightOffset = 0}
+    local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, 0)
+    local Object = {Section = self, Row = Row, Box = Box, Value = Default, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, Label = NameLabel}
     function Object:Set(Value, Silent)
         Object.Value = tostring(Value or "")
         Library.Flags[Flag] = Object.Value
@@ -1515,7 +1759,8 @@ function SectionMethods:Listbox(Data)
     local Height = tonumber(Data.Height) or 110
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, Height), BackgroundTransparency = 1})
     local List = Create("ScrollingFrame", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(8, 8, 8), BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Colors.TextBind}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1}), Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder})})
-    local Object = {Section = self, Row = Row, List = List, Items = {}, Selected = nil, Buttons = {}, RightOffset = 0}
+    local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, 2)
+    local Object = {Section = self, Row = Row, List = List, Items = {}, Selected = nil, Buttons = {}, RightOffset = HelpRightOffset, HelpIcon = HelpIcon}
     function Object:SetItems(Items)
         Object.Items = type(Items) == "table" and CloneValue(Items) or {}
         for _, Button in ipairs(Object.Buttons) do if Button and Button.Parent then Button:Destroy() end end
@@ -1546,8 +1791,13 @@ end
 function SectionMethods:Colorpicker(Data)
     Data = Data or {}
     local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1})
-    Create("TextLabel", {Parent = Row, Size = UDim2.new(1, -26, 1, 0), BackgroundTransparency = 1, Text = tostring(Data.Name or "color"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+    local Label = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, -26, 1, 0), BackgroundTransparency = 1, Text = tostring(Data.Name or "color"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Picker = MakeColorpicker(self, Row, Data, 0)
+    local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 22, nil)
+    Picker.Section = self
+    Picker.Label = Label
+    Picker.HelpIcon = HelpIcon
+    Picker.RightOffset = HelpRightOffset
     return AddControl(self, Picker)
 end
 
@@ -2041,7 +2291,7 @@ function Library:ConfigurationPanel()
     function Object:ApplyVisibility()
         local State=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
         Object.Visible=State Main.Visible=State
-        if not State then Object:CloseDropdown() Object:ClosePicker() end
+        if not State then Object:CloseDropdown() Object:ClosePicker() Object:CloseTooltip() end
         local Controller=Library.PanelController or Library.QuickPanelController
         if Controller and type(Controller.Refresh)=="function" then task.defer(Controller.Refresh) end
     end
@@ -2511,7 +2761,7 @@ function Library:ThemePanel()
         local State=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
         Object.Visible=State
         Main.Visible=State
-        if not State then Object:CloseDropdown() Object:ClosePicker() end
+        if not State then Object:CloseDropdown() Object:ClosePicker() Object:CloseTooltip() end
         if type(Library.SetNotificationPreviewVisible)=="function" then
             local Window=Library.ActiveWindow
             Library:SetNotificationPreviewVisible(State or (Window and Window:IsVisible()) or false)
@@ -3377,6 +3627,7 @@ Library.setvisible = Library.SetVisible
 Library.toggle = Library.Toggle
 Library.getflag = Library.GetFlag
 Library.setflag = Library.SetFlag
+Library.setdescription = Library.SetDescription
 Library.notification = Library.Notification
 Library.setnotificationlayout = Library.SetNotificationLayout
 Library.combatlognotification = Library.CombatLogNotification
