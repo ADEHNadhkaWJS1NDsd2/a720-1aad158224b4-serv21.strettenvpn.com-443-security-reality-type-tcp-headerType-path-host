@@ -311,7 +311,7 @@ local TextSizes = {}
 local CONTROL_TEXT_SIZE = 12
 local CONTROL_ROW_HEIGHT = 22
 local CONTROL_SLOT_HEIGHT = 30
-local TEXT_Y_NUDGE = 1
+local TEXT_Y_NUDGE = 3
 
 local function SetTextSize(Object, Value)
     if not Object then return 13 end
@@ -681,6 +681,255 @@ local function PixelVector(X, Y)
     return NewVector2(Pixel(X), Pixel(Y))
 end
 
+local KeybindList={}
+do
+    local Settings=Library.KeybindSettings
+    local Bold=Drawing.Fonts.SystemBold
+    local Vec2=NewVector2
+    local Draw=NewDrawing
+    local Drop=RemoveDrawing
+    local Fit=SetTextFit
+    local Blend=LerpColor
+    local Hit=PointIn
+    local KeyName=GetKeyName
+    local Ins,Del=Insert,Remove
+    local Each=ipairs
+    local Ceil=math.ceil
+
+    local function Clean(Value)
+        local Text=tostring(Value or ""):gsub("^%s+",""):gsub("%s+$","")
+        Text=Text:gsub("[%s_%-]+[Kk][Ee][Yy][Bb][Ii][Nn][Dd]%s*$",""):gsub("[%s_%-]+[Bb][Ii][Nn][Dd]%s*$","")
+        Text=Text:gsub("^%s+",""):gsub("%s+$","")
+        if Text=="" then return "Keybind" end
+        return Text:gsub("(%a)([%w]*)",function(A,B) return Upper(A)..B end)
+    end
+
+    local function Row(Window)
+        local Theme=Window.Theme
+        return {
+            Active=false,
+            ModeName="Toggle",
+            Position=Vec2(0,0),
+            Size=Vec2(0,0),
+            Background=Draw("Square",{Filled=true,Visible=false,Transparency=1,Color=Theme.ToggleBackground}),
+            Bind=Draw("Text",{Text="",Size=12,Font=Bold,Outline=true,Center=false,Visible=false,Transparency=1,Color=Theme.SecondaryText}),
+            State=Draw("Text",{Text="",Size=12,Font=Bold,Outline=true,Center=false,Visible=false,Transparency=1,Color=Theme.SecondaryText}),
+            Mode=Draw("Text",{Text="",Size=11,Font=Bold,Outline=true,Center=false,Visible=false,Transparency=1,Color=Theme.AccentColor})
+        }
+    end
+
+    local function Kill(RowData)
+        if not RowData then return end
+        Drop(RowData.Background)
+        Drop(RowData.Bind)
+        Drop(RowData.State)
+        Drop(RowData.Mode)
+    end
+
+    function KeybindList.Init(Window)
+        if not Window or Window.KeybindPanel then return Window and Window.KeybindPanel end
+        local Theme=Window.Theme
+        local Panel={
+            Position=Vec2(50,400),
+            Width=220,
+            Height=48,
+            Rows={},
+            Topline={},
+            Dragging=false
+        }
+
+        Panel.Outline=Draw("Square",{Filled=true,Visible=false,Transparency=1,Color=Theme.Outline})
+        Panel.Background=Draw("Square",{Filled=true,Visible=false,Transparency=1,Color=Theme.Background})
+        Panel.HeaderLine=Draw("Square",{Filled=true,Visible=false,Transparency=1,Color=Theme.Outline})
+        Panel.Title=Draw("Text",{Text="HOTKEYS",Size=12,Font=Bold,Outline=true,Center=false,Visible=false,Transparency=1,Color=Theme.PrimaryText})
+
+        for Index=1,20 do
+            Panel.Topline[Index]=Draw("Square",{Filled=true,Visible=false,Transparency=1,Color=Theme.AccentColor})
+        end
+
+        Window.KeybindPanel=Panel
+        return Panel
+    end
+
+    function KeybindList.Layout(Window)
+        local Panel=Window and Window.KeybindPanel
+        if not Panel then return end
+
+        local Theme=Window.Theme
+        local Header=Settings.ShowHeader~=false
+        local RowHeight,RowGap=20,4
+        local RowStart=Header and 36 or 6
+        local Count=#Panel.Rows
+        local Width=220
+        local Height=Header and Max(48,48+Count*24) or Max(16,10+Count*24)
+
+        Panel.Width,Panel.Height=Width,Height
+        Panel.Outline.Position=PixelVector(Panel.Position.X,Panel.Position.Y)
+        Panel.Outline.Size=PixelVector(Width,Height)
+        Panel.Background.Position=PixelVector(Panel.Position.X+1,Panel.Position.Y+1)
+        Panel.Background.Size=PixelVector(Width-2,Height-2)
+
+        local Lines=#Panel.Topline
+        local Part=(Width-2)/Max(Lines,1)
+        local Accent2=Blend(Theme.AccentColor,Theme.PrimaryText,0.35)
+
+        for Index,Segment in Each(Panel.Topline) do
+            local T=Lines>1 and (Index-1)/(Lines-1) or 0
+            local X0=Panel.Position.X+1+(Index-1)*Part
+            local X1=Panel.Position.X+1+Index*Part
+            Segment.Position=PixelVector(X0,Panel.Position.Y+1)
+            Segment.Size=PixelVector(Max(1,Ceil(X1-X0+0.25)),2)
+            Segment.Color=Blend(Theme.AccentColor,Accent2,T)
+        end
+
+        Panel.HeaderLine.Position=PixelVector(Panel.Position.X+8,Panel.Position.Y+30)
+        Panel.HeaderLine.Size=PixelVector(Width-16,1)
+        Panel.Title.Position=PixelVector(Panel.Position.X+8,Panel.Position.Y+6)
+
+        for Index,Data in Each(Panel.Rows) do
+            local X=Pixel(Panel.Position.X+8)
+            local Y=Pixel(Panel.Position.Y+RowStart+(Index-1)*(RowHeight+RowGap))
+            local W=Pixel(Width-16)
+            local StateW,ModeW=30,48
+            local StateX=Pixel(X+W-StateW-6)
+            local ModeX=Pixel(StateX-ModeW-6)
+            local BindW=Max(1,ModeX-X-8)
+
+            Data.Position=PixelVector(X,Y)
+            Data.Size=PixelVector(W,RowHeight)
+            Data.Background.Position=Data.Position
+            Data.Background.Size=Data.Size
+
+            Fit(Data.Bind,Data.Bind.Text,BindW,12,10)
+            Fit(Data.State,Data.State.Text,StateW,12,10)
+            Fit(Data.Mode,Data.Mode.Text,ModeW,11,10)
+
+            Data.Bind.Center=false
+            Data.State.Center=false
+            Data.Mode.Center=false
+            Data.Bind.Position=PixelVector(X+8,Y+3)
+            Data.Mode.Position=PixelVector(ModeX,Y+3)
+            Data.State.Position=PixelVector(StateX,Y+3)
+        end
+    end
+
+    function KeybindList.ApplyTheme(Window,Theme)
+        local Panel=Window and Window.KeybindPanel
+        if not Panel or not Theme then return end
+
+        Panel.Outline.Color=Theme.Outline
+        Panel.Background.Color=Theme.Background
+        Panel.HeaderLine.Color=Theme.Outline
+        Panel.Title.Color=Theme.PrimaryText
+
+        local Lines=#Panel.Topline
+        local Accent2=Blend(Theme.AccentColor,Theme.PrimaryText,0.35)
+        for Index,Segment in Each(Panel.Topline) do
+            local T=Lines>1 and (Index-1)/(Lines-1) or 0
+            Segment.Color=Blend(Theme.AccentColor,Accent2,T)
+        end
+
+        for _,Data in Each(Panel.Rows) do
+            Data.Background.Color=Data.Active and Theme.HoverState or Theme.ToggleBackground
+            Data.Bind.Color=Data.Active and Theme.PrimaryText or Theme.SecondaryText
+            Data.State.Color=Data.Active and Theme.PrimaryText or Theme.SecondaryText
+            Data.Mode.Color=Data.ModeName=="Hold" and Accent2 or Theme.AccentColor
+        end
+    end
+
+    function KeybindList.SetVisible(Window,Visible)
+        local Panel=Window and Window.KeybindPanel
+        if not Panel then return end
+
+        local Header=Settings.ShowHeader~=false
+        Panel.Outline.Visible=Visible
+        Panel.Background.Visible=Visible
+        Panel.HeaderLine.Visible=Visible and Header
+        Panel.Title.Visible=Visible and Header
+
+        for _,Segment in Each(Panel.Topline) do Segment.Visible=Visible and Header end
+        for _,Data in Each(Panel.Rows) do
+            Data.Background.Visible=Visible
+            Data.Bind.Visible=Visible
+            Data.State.Visible=Visible
+            Data.Mode.Visible=Visible
+        end
+    end
+
+    function KeybindList.Refresh(Window)
+        local Panel=KeybindList.Init(Window)
+        if not Panel then return end
+
+        local Wanted={}
+        for Order,Bind in Each(Window.Binds) do
+            if Bind.Key>0 and Bind.Control then
+                local Active=Bind.Mode=="Always" or Bind.Control.Value==true
+                if Settings.ShowInactive~=false or Active then
+                    Ins(Wanted,{Bind=Bind,Active=Active,Order=Order})
+                end
+            end
+        end
+
+        while #Panel.Rows<#Wanted do Ins(Panel.Rows,Row(Window)) end
+        while #Panel.Rows>#Wanted do
+            Kill(Panel.Rows[#Panel.Rows])
+            Del(Panel.Rows,#Panel.Rows)
+        end
+
+        KeybindList.Layout(Window)
+
+        local Theme=Window.Theme
+        local MousePosition=Vec2(Mouse.X,Mouse.Y)
+        local Accent2=Blend(Theme.AccentColor,Theme.PrimaryText,0.35)
+
+        for Index,Entry in Each(Wanted) do
+            local Bind=Entry.Bind
+            local Data=Panel.Rows[Index]
+            local Active=Entry.Active
+            local Mode=Bind.Mode=="Always" and "Always" or Bind.Mode=="Hold" and "Hold" or "Toggle"
+            local Hover=Hit(Data.Position,Data.Size,MousePosition)
+
+            Data.Active=Active
+            Data.Order=Entry.Order
+            Data.ModeName=Mode
+            Data.Bind.Text="["..Upper(KeyName(Bind.Key)).."]  "..Clean(Bind.Control.Name)
+            Data.State.Text=Active and "ON" or "OFF"
+            Data.Mode.Text=Upper(Mode)
+            Data.Background.Color=Active and Theme.HoverState or (Hover and Theme.HoverState or Theme.ToggleBackground)
+            Data.Bind.Color=Active and Theme.PrimaryText or Blend(Theme.SecondaryText,Theme.PrimaryText,Hover and 0.35 or 0)
+            Data.State.Color=Active and Theme.PrimaryText or Theme.SecondaryText
+            Data.Mode.Color=Mode=="Hold" and Accent2 or Theme.AccentColor
+        end
+
+        KeybindList.Layout(Window)
+        KeybindList.SetVisible(Window,Window.ShowKeybinds==true)
+    end
+
+    function KeybindList.HitHeader(Panel,Position)
+        if not Panel or not Position then return false end
+        return Hit(Panel.Position,Vec2(Panel.Width or 220,Settings.ShowHeader~=false and 31 or 12),Position)
+    end
+
+    function KeybindList.Destroy(Window)
+        local Panel=Window and Window.KeybindPanel
+        if not Panel then return end
+
+        Drop(Panel.Outline)
+        Drop(Panel.Background)
+        Drop(Panel.HeaderLine)
+        Drop(Panel.Title)
+
+        for _,Segment in Each(Panel.Topline) do Drop(Segment) end
+        for _,Data in Each(Panel.Rows) do Kill(Data) end
+
+        Window.KeybindPanel=nil
+    end
+end
+
+local EnsureKeybindPanel=KeybindList.Init
+local LayoutKeybindPanel=KeybindList.Layout
+local RefreshKeybindPanel=KeybindList.Refresh
+
 local function TextVerticalPosition(PositionY, Height, FontSize)
     FontSize = Type(FontSize) == "number" and FontSize or CONTROL_TEXT_SIZE
     return Pixel(PositionY + Max(0, (Height - FontSize) * 0.5) + TEXT_Y_NUDGE)
@@ -874,25 +1123,7 @@ local function RefreshStaticColors(Window)
         end
     end
 
-    if Window.KeybindPanel then
-        local Panel = Window.KeybindPanel
-        Panel.Outline.Color = Theme.Outline
-        Panel.Background.Color = Theme.Background
-        Panel.HeaderLine.Color = Theme.Outline
-        Panel.Title.Color = Theme.PrimaryText
-
-        for Index, Segment in ipairs(Panel.Topline or {}) do
-            local T = (#Panel.Topline > 1) and ((Index - 1) / (#Panel.Topline - 1)) or 0
-            Segment.Color = LerpColor(Theme.AccentColor, LerpColor(Theme.AccentColor, Theme.PrimaryText, 0.35), T)
-        end
-
-        for _, Row in ipairs(Panel.Rows) do
-            Row.Background.Color = Row.Active and Theme.HoverState or Theme.ToggleBackground
-            Row.Bind.Color = Row.Active and Theme.PrimaryText or Theme.SecondaryText
-            Row.State.Color = Row.Active and Theme.PrimaryText or Theme.SecondaryText
-            Row.Mode.Color = Row.ModeName == "Hold" and LerpColor(Theme.AccentColor, Theme.PrimaryText, 0.35) or Theme.AccentColor
-        end
-    end
+    KeybindList.ApplyTheme(Window,Theme)
 end
 
 local function RefreshLayout(Window)
@@ -1291,27 +1522,7 @@ local function ApplyVisibility(Window)
         SetTabVisible(Tab, Visible and Tab == Window.ActiveTab)
     end
 
-    if Window.KeybindPanel then
-        local Panel = Window.KeybindPanel
-        local PanelVisible = Window.ShowKeybinds == true
-        local HeaderVisible = Library.KeybindSettings.ShowHeader ~= false
-        Panel.Outline.Visible = PanelVisible
-        Panel.Background.Visible = PanelVisible
-
-        for _, Segment in ipairs(Panel.Topline or {}) do
-            Segment.Visible = PanelVisible and HeaderVisible
-        end
-
-        Panel.HeaderLine.Visible = PanelVisible and HeaderVisible
-        Panel.Title.Visible = PanelVisible and HeaderVisible
-
-        for _, Row in ipairs(Panel.Rows) do
-            Row.Background.Visible = PanelVisible
-            Row.Bind.Visible = PanelVisible
-            Row.State.Visible = PanelVisible
-            Row.Mode.Visible = PanelVisible
-        end
-    end
+    KeybindList.SetVisible(Window,Window.ShowKeybinds==true)
 end
 
 local function SetTab(Window, Tab)
@@ -2821,269 +3032,6 @@ local function UpdatePicker(Window, Point)
     Picker.Control:SetValue(Color)
 end
 
-local function CleanKeybindDisplayName(Value)
-    local Text = tostring(Value or ""):gsub("^%s+", ""):gsub("%s+$", "")
-    Text = Text:gsub("[%s_%-]+[Kk][Ee][Yy][Bb][Ii][Nn][Dd]%s*$", "")
-    Text = Text:gsub("[%s_%-]+[Bb][Ii][Nn][Dd]%s*$", "")
-    Text = Text:gsub("^%s+", ""):gsub("%s+$", "")
-    if Text == "" then Text = "Keybind" end
-    Text = Text:gsub("(%a)([%w]*)", function(First, Rest)
-        return string.upper(First) .. Rest
-    end)
-    return Text
-end
-
-local function EnsureKeybindPanel(Window)
-    if Window.KeybindPanel then return end
-
-    local Theme = Window.Theme
-
-    Window.KeybindPanel = {
-        Position = NewVector2(50, 400),
-        Width = 220,
-        Rows = {},
-        Topline = {},
-        Dragging = false
-    }
-
-    local Panel = Window.KeybindPanel
-
-    Panel.Outline = NewDrawing("Square", {
-        Filled = true,
-        Visible = false,
-        Transparency = 1,
-        Color = Theme.Outline
-    })
-
-    Panel.Background = NewDrawing("Square", {
-        Filled = true,
-        Visible = false,
-        Transparency = 1,
-        Color = Theme.Background
-    })
-
-    for Index = 1, 20 do
-        Panel.Topline[Index] = NewDrawing("Square", {
-            Filled = true,
-            Visible = false,
-            Transparency = 1,
-            Color = Theme.AccentColor
-        })
-    end
-
-    Panel.HeaderLine = NewDrawing("Square", {
-        Filled = true,
-        Visible = false,
-        Transparency = 1,
-        Color = Theme.Outline
-    })
-
-    Panel.Title = NewDrawing("Text", {
-        Text = "HOTKEYS",
-        Size = 12,
-        Font = Drawing.Fonts.SystemBold,
-        Outline = true,
-        Center = false,
-        Visible = false,
-        Transparency = 1,
-        Color = Theme.PrimaryText
-    })
-end
-
-LayoutKeybindPanel = function(Window)
-    local Panel = Window.KeybindPanel
-    if not Panel then return end
-
-    local Theme = Window.Theme
-    local PanelWidth = 220
-    local HeaderVisible = Library.KeybindSettings.ShowHeader ~= false
-    local HeaderHeight = HeaderVisible and 36 or 8
-    local RowHeight = 20
-    local RowGap = 4
-    local RowStart = HeaderVisible and 36 or 6
-    local Count = #Panel.Rows
-    local PanelHeight = HeaderVisible and Max(48, 48 + Count * 24) or Max(16, 10 + Count * 24)
-
-    Panel.Width = PanelWidth
-    Panel.Height = PanelHeight
-
-    Panel.Outline.Position = PixelVector(Panel.Position.X, Panel.Position.Y)
-    Panel.Outline.Size = PixelVector(PanelWidth, PanelHeight)
-    Panel.Background.Position = PixelVector(Panel.Position.X + 1, Panel.Position.Y + 1)
-    Panel.Background.Size = PixelVector(PanelWidth - 2, PanelHeight - 2)
-
-    local TopCount = #Panel.Topline
-    local TopWidth = (PanelWidth - 2) / Max(TopCount, 1)
-    local Accent2 = LerpColor(Theme.AccentColor, Theme.PrimaryText, 0.35)
-
-    for Index, Segment in ipairs(Panel.Topline) do
-        local T = TopCount > 1 and ((Index - 1) / (TopCount - 1)) or 0
-        local X0 = Panel.Position.X + 1 + (Index - 1) * TopWidth
-        local X1 = Panel.Position.X + 1 + Index * TopWidth
-        Segment.Position = PixelVector(X0, Panel.Position.Y + 1)
-        Segment.Size = PixelVector(Max(1, math.ceil(X1 - X0 + 0.25)), 2)
-        Segment.Color = LerpColor(Theme.AccentColor, Accent2, T)
-    end
-
-    Panel.HeaderLine.Position = PixelVector(Panel.Position.X + 8, Panel.Position.Y + 30)
-    Panel.HeaderLine.Size = PixelVector(PanelWidth - 16, 1)
-    Panel.Title.Position = PixelVector(Panel.Position.X + 8, Panel.Position.Y + 6)
-
-    for Index, Row in ipairs(Panel.Rows) do
-        local RowX = Pixel(Panel.Position.X + 8)
-        local RowY = Pixel(Panel.Position.Y + RowStart + (Index - 1) * (RowHeight + RowGap))
-        local RowW = Pixel(PanelWidth - 16)
-        local StateColumnW = 30
-        local ModeColumnW = 48
-        local StateX = Pixel(RowX + RowW - StateColumnW - 6)
-        local ModeX = Pixel(StateX - ModeColumnW - 6)
-        local BindWidth = Max(1, ModeX - RowX - 8)
-
-        Row.Position = PixelVector(RowX, RowY)
-        Row.Size = PixelVector(RowW, RowHeight)
-        Row.Background.Position = Row.Position
-        Row.Background.Size = Row.Size
-
-        SetTextFit(Row.Bind, Row.Bind.Text, BindWidth, 12, 10)
-        SetTextFit(Row.State, Row.State.Text, StateColumnW, 12, 10)
-        SetTextFit(Row.Mode, Row.Mode.Text, ModeColumnW, 11, 10)
-
-        Row.Bind.Center = false
-        Row.State.Center = false
-        Row.Mode.Center = false
-
-        Row.Bind.Position = PixelVector(RowX + 8, RowY + 3)
-        Row.State.Position = PixelVector(StateX, RowY + 3)
-        Row.Mode.Position = PixelVector(ModeX, RowY + 3)
-    end
-end
-
-local function RefreshKeybindPanel(Window)
-    EnsureKeybindPanel(Window)
-
-    local Panel = Window.KeybindPanel
-    local Desired = {}
-
-    for Order, Bind in ipairs(Window.Binds) do
-        if Bind.Key > 0 and Bind.Control then
-            local Active = Bind.Mode == "Always" or Bind.Control.Value == true
-            if Library.KeybindSettings.ShowInactive ~= false or Active then
-                Insert(Desired, {
-                    Bind = Bind,
-                    Active = Active,
-                    Order = Order
-                })
-            end
-        end
-    end
-
-    while #Panel.Rows < #Desired do
-        local Row = {
-            Active = false,
-            ModeName = "Toggle",
-            Position = NewVector2(0, 0),
-            Size = NewVector2(0, 0),
-            Background = NewDrawing("Square", {
-                Filled = true,
-                Visible = false,
-                Transparency = 1,
-                Color = Window.Theme.ToggleBackground
-            }),
-            Bind = NewDrawing("Text", {
-                Text = "",
-                Size = 12,
-                Font = Drawing.Fonts.SystemBold,
-                Outline = true,
-                Center = false,
-                Visible = false,
-                Transparency = 1,
-                Color = Window.Theme.SecondaryText
-            }),
-            State = NewDrawing("Text", {
-                Text = "",
-                Size = 12,
-                Font = Drawing.Fonts.SystemBold,
-                Outline = true,
-                Center = false,
-                Visible = false,
-                Transparency = 1,
-                Color = Window.Theme.SecondaryText
-            }),
-            Mode = NewDrawing("Text", {
-                Text = "",
-                Size = 11,
-                Font = Drawing.Fonts.SystemBold,
-                Outline = true,
-                Center = false,
-                Visible = false,
-                Transparency = 1,
-                Color = Window.Theme.AccentColor
-            })
-        }
-
-        Insert(Panel.Rows, Row)
-    end
-
-    while #Panel.Rows > #Desired do
-        local Row = Panel.Rows[#Panel.Rows]
-        RemoveDrawing(Row.Background)
-        RemoveDrawing(Row.Bind)
-        RemoveDrawing(Row.State)
-        RemoveDrawing(Row.Mode)
-        Remove(Panel.Rows, #Panel.Rows)
-    end
-
-    LayoutKeybindPanel(Window)
-
-    local MousePosition = NewVector2(Mouse.X, Mouse.Y)
-    local Theme = Window.Theme
-    local Accent2 = LerpColor(Theme.AccentColor, Theme.PrimaryText, 0.35)
-
-    for Index, Entry in ipairs(Desired) do
-        local Bind = Entry.Bind
-        local Row = Panel.Rows[Index]
-        local Active = Entry.Active
-        local ModeName = Bind.Mode == "Always" and "Always" or Bind.Mode == "Hold" and "Hold" or "Toggle"
-        local NameText = CleanKeybindDisplayName(Bind.Control.Name)
-        local KeyText = Upper(GetKeyName(Bind.Key))
-        local Hovered = PointIn(Row.Position, Row.Size, MousePosition)
-
-        Row.Active = Active
-        Row.Order = Entry.Order
-        Row.ModeName = ModeName
-        Row.Bind.Text = "[" .. KeyText .. "]  " .. NameText
-        Row.State.Text = Active and "ON" or "OFF"
-        Row.Mode.Text = Upper(ModeName)
-
-        Row.Background.Color = Active and Theme.HoverState or (Hovered and Theme.HoverState or Theme.ToggleBackground)
-        Row.Bind.Color = Active and Theme.PrimaryText or LerpColor(Theme.SecondaryText, Theme.PrimaryText, Hovered and 0.35 or 0)
-        Row.State.Color = Active and Theme.PrimaryText or Theme.SecondaryText
-        Row.Mode.Color = ModeName == "Hold" and Accent2 or Theme.AccentColor
-    end
-
-    LayoutKeybindPanel(Window)
-
-    local Visible = Window.ShowKeybinds == true
-    local HeaderVisible = Library.KeybindSettings.ShowHeader ~= false
-
-    Panel.Outline.Visible = Visible
-    Panel.Background.Visible = Visible
-
-    for _, Segment in ipairs(Panel.Topline) do
-        Segment.Visible = Visible and HeaderVisible
-    end
-
-    Panel.HeaderLine.Visible = Visible and HeaderVisible
-    Panel.Title.Visible = Visible and HeaderVisible
-
-    for _, Row in ipairs(Panel.Rows) do
-        Row.Background.Visible = Visible
-        Row.Bind.Visible = Visible
-        Row.State.Visible = Visible
-        Row.Mode.Visible = Visible
-    end
-end
-
 local function ProcessBind(Bind)
     local Control = Bind.Control
 
@@ -3436,24 +3384,7 @@ function WindowMethods:Unload()
         end
     end
 
-    local Panel = self.KeybindPanel
-    if Panel then
-        Drop(Panel.Outline)
-        Drop(Panel.Background)
-        Drop(Panel.HeaderLine)
-        Drop(Panel.Title)
-
-        for _, Segment in ipairs(Panel.Topline or {}) do
-            Drop(Segment)
-        end
-
-        for _, Row in ipairs(Panel.Rows or {}) do
-            Drop(Row.Background)
-            Drop(Row.Bind)
-            Drop(Row.State)
-            Drop(Row.Mode)
-        end
-    end
+    KeybindList.Destroy(self)
 
     if #Library.Windows == 0 then
         _G.LibraryToken = (_G.LibraryToken or 0) + 1
@@ -3603,7 +3534,7 @@ function WindowMethods:Run()
             if not Used and self.ShowKeybinds and self.KeybindPanel then
                 local Panel = self.KeybindPanel
 
-                if PointIn(Panel.Position, NewVector2(Panel.Width or 220, Library.KeybindSettings.ShowHeader ~= false and 31 or 12), MousePosition) then
+                if KeybindList.HitHeader(Panel,MousePosition) then
                     Panel.Dragging = true
                     Panel.MouseStart = MousePosition
                     Panel.PositionStart = Panel.Position
