@@ -7,7 +7,7 @@ local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
-local Library = {Flags = {}, Setters = {}, Folders = {Root = "Atramenta.rip", Directory = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets", Fonts = "Atramenta.rip/Fonts", Themes = "Atramenta.rip/Themes"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(150, 120, 150), Background = Color3.fromRGB(8, 8, 8), Surface = Color3.fromRGB(0, 0, 0), Control = Color3.fromRGB(12, 11, 12), Border = Color3.fromRGB(56, 52, 56), Text = Color3.fromRGB(140, 130, 140), TextBright = Color3.fromRGB(197, 197, 197), TextDim = Color3.fromRGB(77, 72, 77), Header = Color3.fromRGB(127, 115, 127)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
+local Library = {Flags = {}, Setters = {}, ColorpickerStates = {}, Folders = {Root = "Atramenta.rip", Directory = "Atramenta.rip", Configs = "Atramenta.rip/Configs", Assets = "Atramenta.rip/Assets", Fonts = "Atramenta.rip/Fonts", Themes = "Atramenta.rip/Themes"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(150, 120, 150), Background = Color3.fromRGB(8, 8, 8), Surface = Color3.fromRGB(0, 0, 0), Control = Color3.fromRGB(12, 11, 12), Border = Color3.fromRGB(56, 52, 56), Text = Color3.fromRGB(140, 130, 140), TextBright = Color3.fromRGB(197, 197, 197), TextDim = Color3.fromRGB(77, 72, 77), Header = Color3.fromRGB(127, 115, 127)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
 Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Easing="Quad",TextSize=13,CompactPanel=true,KeepWatermarkOpen=true}
 Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=true}
 Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}
@@ -739,19 +739,29 @@ end
 
 local function UpdateControlLabelInset(Object)
     if type(Object) ~= "table" then return end
-    local Label = Object.Label
-    if not Label or typeof(Label) ~= "Instance" or not Label:IsA("GuiObject") then return end
-    if Object.LabelBaseSize == nil then Object.LabelBaseSize = Label.Size end
-    if Object.LabelBasePosition == nil then Object.LabelBasePosition = Label.Position end
-    local BaseSize = Object.LabelBaseSize
-    local BasePosition = Object.LabelBasePosition
     local Right = math.max(tonumber(Object.RightOffset) or 0, 0)
-    if Object.LabelSymmetric == true then
-        Label.Position = UDim2.new(BasePosition.X.Scale, BasePosition.X.Offset + Right, BasePosition.Y.Scale, BasePosition.Y.Offset)
-        Label.Size = UDim2.new(BaseSize.X.Scale, BaseSize.X.Offset - Right * 2, BaseSize.Y.Scale, BaseSize.Y.Offset)
-    else
-        Label.Position = BasePosition
-        Label.Size = UDim2.new(BaseSize.X.Scale, BaseSize.X.Offset - Right, BaseSize.Y.Scale, BaseSize.Y.Offset)
+    local Label = Object.Label
+    if Label and typeof(Label) == "Instance" and Label:IsA("GuiObject") then
+        if Object.LabelBaseSize == nil then Object.LabelBaseSize = Label.Size end
+        if Object.LabelBasePosition == nil then Object.LabelBasePosition = Label.Position end
+        local BaseSize = Object.LabelBaseSize
+        local BasePosition = Object.LabelBasePosition
+        if Object.LabelSymmetric == true then
+            Label.Position = UDim2.new(BasePosition.X.Scale, BasePosition.X.Offset + Right, BasePosition.Y.Scale, BasePosition.Y.Offset)
+            Label.Size = UDim2.new(BaseSize.X.Scale, BaseSize.X.Offset - Right * 2, BaseSize.Y.Scale, BaseSize.Y.Offset)
+        else
+            Label.Position = BasePosition
+            Label.Size = UDim2.new(BaseSize.X.Scale, BaseSize.X.Offset - Right, BaseSize.Y.Scale, BaseSize.Y.Offset)
+        end
+    end
+    local Hitbox = Object.Hitbox
+    if Hitbox and typeof(Hitbox) == "Instance" and Hitbox:IsA("GuiObject") then
+        if Object.HitboxBaseSize == nil then Object.HitboxBaseSize = Hitbox.Size end
+        if Object.HitboxBasePosition == nil then Object.HitboxBasePosition = Hitbox.Position end
+        local BaseSize = Object.HitboxBaseSize
+        local BasePosition = Object.HitboxBasePosition
+        Hitbox.Position = BasePosition
+        Hitbox.Size = UDim2.new(BaseSize.X.Scale, BaseSize.X.Offset - Right, BaseSize.Y.Scale, BaseSize.Y.Offset)
     end
 end
 
@@ -935,23 +945,40 @@ local function CreatePopupLayer(Window)
     Window.Dropdown = Dropdown
     Window.DropdownScroll = Scroll
 
+    local PickerShield = Create("TextButton", {
+        Parent = Window.ScreenGui,
+        Size = UDim2.fromScale(1, 1),
+        Position = UDim2.fromOffset(0, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = false,
+        Active = true,
+        Modal = true,
+        Visible = false,
+        ZIndex = 1999
+    })
     local Picker = Create("Frame", {
         Parent = Window.ScreenGui,
         Size = UDim2.fromOffset(220, 215),
         BackgroundColor3 = Colors.Bg,
         BorderSizePixel = 0,
+        Active = true,
         Visible = false,
         ZIndex = 2000
     }, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
-    local SV = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(180, 180), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = Color3.new(1, 0, 0), BorderSizePixel = 0, ZIndex = 2001})
+    local PickerBlocker = Create("TextButton", {Parent = Picker, Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Active = true, ZIndex = 2000})
+    local SV = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(180, 180), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = Color3.new(1, 0, 0), BorderSizePixel = 0, Active = true, ZIndex = 2001})
     Create("Frame", {Parent = SV, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2002}, {Create("UIGradient", {Rotation = 0, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})})})
     Create("Frame", {Parent = SV, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 2003}, {Create("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})})})
     local SVCursor = Create("Frame", {Parent = SV, Size = UDim2.fromOffset(6, 6), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(1, 0), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2004}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
-    local Hue = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(14, 180), Position = UDim2.fromOffset(198, 10), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2001}, {Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)), ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)), ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)), ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)), ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))})})})
+    local Hue = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(14, 180), Position = UDim2.fromOffset(198, 10), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, Active = true, ZIndex = 2001}, {Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)), ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)), ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)), ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)), ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))})})})
     local HueCursor = Create("Frame", {Parent = Hue, Size = UDim2.new(1, 4, 0, 2), Position = UDim2.fromOffset(-2, 0), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2002}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
-    local Alpha = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(180, 11), Position = UDim2.fromOffset(10, 196), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2001})
+    local Alpha = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(180, 11), Position = UDim2.fromOffset(10, 196), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, Active = true, ZIndex = 2001})
     local AlphaGradient = Create("UIGradient", {Parent = Alpha, Rotation = 0, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})})
     local AlphaCursor = Create("Frame", {Parent = Alpha, Size = UDim2.new(0, 2, 1, 4), Position = UDim2.new(1, 0, 0, -2), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2002}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
+    Window.PickerShield = PickerShield
+    Window.PickerBlocker = PickerBlocker
     Window.Picker = Picker
     Window.PickerSV = SV
     Window.PickerSVCursor = SVCursor
@@ -1048,19 +1075,20 @@ local function CreatePopupLayer(Window)
     end
     Window.ClampPopup = ClampPopup
 
-    local function UpdatePickerFromPoint(Mode,Point)
+    local function UpdatePickerFromPoint(Mode)
         local Active=Window.PickerActive if not Active then return end
-        local Mouse=Point or MousePoint(Window.ScreenGui) local H,S,V=Color3.toHSV(Active.Color)
+        local Mouse=MousePoint(Window.ScreenGui) local H,S,V=Color3.toHSV(Active.Color)
         if Mode=="SV" then local Pos,Size=Window.PickerSV.AbsolutePosition,Window.PickerSV.AbsoluteSize if Size.X<=0 or Size.Y<=0 then return end S=math.clamp((Mouse.X-Pos.X)/Size.X,0,1) V=1-math.clamp((Mouse.Y-Pos.Y)/Size.Y,0,1)
         elseif Mode=="Hue" then local Pos,Size=Window.PickerHue.AbsolutePosition,Window.PickerHue.AbsoluteSize if Size.Y<=0 then return end H=math.clamp((Mouse.Y-Pos.Y)/Size.Y,0,1)
         elseif Mode=="Alpha" then local Pos,Size=Window.PickerAlpha.AbsolutePosition,Window.PickerAlpha.AbsoluteSize if Size.X<=0 then return end Active.Alpha=math.clamp((Mouse.X-Pos.X)/Size.X,0,1) end
         Active.Color=Color3.fromHSV(H,S,V) Window.PickerSV.BackgroundColor3=Color3.fromHSV(H,1,1) Window.PickerSVCursor.Position=UDim2.new(S,0,1-V,0) Window.PickerHueCursor.Position=UDim2.new(0,-2,H,0) Window.PickerAlphaCursor.Position=UDim2.new(Active.Alpha or 1,0,0,-2) Window.PickerAlphaGradient.Color=ColorSequence.new(Active.Color) Active:Set(Active.Color,Active.Alpha,true)
     end
-    Bind(SV.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="SV" UpdatePickerFromPoint("SV",Input.Position) end end))
-    Bind(Hue.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="Hue" UpdatePickerFromPoint("Hue",Input.Position) end end))
-    Bind(Alpha.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="Alpha" UpdatePickerFromPoint("Alpha",Input.Position) end end))
-    Bind(UserInputService.InputChanged:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseMovement and Window.PickerDragging then UpdatePickerFromPoint(Window.PickerDragging,Input.Position) end end))
+    Bind(SV.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="SV" Window:BlockControlInput(0.2) UpdatePickerFromPoint("SV") end end))
+    Bind(Hue.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="Hue" Window:BlockControlInput(0.2) UpdatePickerFromPoint("Hue") end end))
+    Bind(Alpha.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="Alpha" Window:BlockControlInput(0.2) UpdatePickerFromPoint("Alpha") end end))
+    Bind(UserInputService.InputChanged:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseMovement and Window.PickerDragging then UpdatePickerFromPoint(Window.PickerDragging) end end))
     Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Window.PickerDragging = nil end end))
+    Bind(PickerShield.MouseButton1Click:Connect(function() Window:ClosePicker() end))
 
     Bind(UserInputService.InputBegan:Connect(function(Input)
         if Input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
@@ -1068,10 +1096,7 @@ local function CreatePopupLayer(Window)
             local Mouse, Pos, Size = MousePoint(Window.ScreenGui), GuiPoint(Window.ScreenGui, Window.Dropdown.AbsolutePosition), Window.Dropdown.AbsoluteSize
             if not (Mouse.X >= Pos.X and Mouse.X <= Pos.X + Size.X and Mouse.Y >= Pos.Y and Mouse.Y <= Pos.Y + Size.Y) then Window:CloseDropdown() end
         end
-        if Window.Picker.Visible then
-            local Mouse, Pos, Size = MousePoint(Window.ScreenGui), GuiPoint(Window.ScreenGui, Window.Picker.AbsolutePosition), Window.Picker.AbsoluteSize
-            if not (Mouse.X >= Pos.X and Mouse.X <= Pos.X + Size.X and Mouse.Y >= Pos.Y and Mouse.Y <= Pos.Y + Size.Y) then Window:ClosePicker() end
-        end
+
     end))
 end
 
@@ -1085,9 +1110,22 @@ function WindowMethods:CloseDropdown()
 end
 
 function WindowMethods:ClosePicker()
-    self.Picker.Visible = false
+    if self.Picker then self.Picker.Visible = false end
+    if self.PickerShield then self.PickerShield.Visible = false end
     self.PickerActive = nil
     self.PickerDragging = nil
+    self:BlockControlInput(0.08)
+end
+
+function WindowMethods:BlockControlInput(Duration)
+    local Until = os.clock() + math.max(tonumber(Duration) or 0.12, 0)
+    self.ControlInputBlockedUntil = math.max(tonumber(self.ControlInputBlockedUntil) or 0, Until)
+end
+
+function WindowMethods:IsControlInputBlocked()
+    if self.PickerDragging ~= nil then return true end
+    if self.Picker and self.Picker.Visible then return true end
+    return os.clock() < (tonumber(self.ControlInputBlockedUntil) or 0)
 end
 
 function WindowMethods:CloseTooltip(Owner)
@@ -1216,6 +1254,8 @@ end
 
 function WindowMethods:OpenPicker(Object, Anchor)
     self:CloseDropdown()
+    self:CloseTooltip()
+    self:BlockControlInput(0.20)
     self.PickerActive = Object
     local H, S, V = Color3.toHSV(Object.Color)
     self.PickerSV.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
@@ -1236,6 +1276,7 @@ function WindowMethods:OpenPicker(Object, Anchor)
     local Y = AnchorPos.Y - 10
     local Position = self.ClampPopup(PickerSize, Vector2.new(X, Y))
     self.Picker.Position = UDim2.fromOffset(Position.X, Position.Y)
+    if self.PickerShield then self.PickerShield.Visible = true end
     self.Picker.Visible = true
 end
 
@@ -1425,10 +1466,15 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
     elseif type(Default) == "table" and typeof(Default.Color) == "Color3" then InitialColor = Default.Color InitialAlpha = 1 - math.clamp(tonumber(Default.Transparency) or 0, 0, 1) end
     local Flag = tostring(Data.Flag or Data.Name or ("Color" .. tostring(#Section.Controls + 1)))
     if typeof(Library.Flags[Flag]) == "Color3" then InitialColor = Library.Flags[Flag] end
+    local SavedState = Library.ColorpickerStates[Flag]
+    if type(SavedState) == "table" and typeof(SavedState.Color) == "Color3" then
+        InitialColor = SavedState.Color
+        InitialAlpha = 1 - math.clamp(tonumber(SavedState.Transparency) or 0, 0, 1)
+    end
     local TallRow = Row.Size.Y.Offset > 20
     RightOffset = math.max(tonumber(RightOffset) or 0, 0)
     local ButtonPosition = TallRow and UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0, 1) or UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0.5, -6)
-    local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(ControlLayout.ColorWidth, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Text = "", ZIndex = 20}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
+    local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(ControlLayout.ColorWidth, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Active = true, Text = "", ZIndex = 50}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
     Library.ThemeBindings[Button] = nil
     local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag}
     function Object:Set(Color, Alpha, FromPicker)
@@ -1440,11 +1486,16 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
         Object.Color = Color
         if Alpha ~= nil then Object.Alpha = math.clamp(tonumber(Alpha) or 1, 0, 1) end
         Library.Flags[Flag] = Object.Color
+        Library.ColorpickerStates[Flag] = {Color = Object.Color, Transparency = 1 - Object.Alpha}
         Button.BackgroundColor3 = Object.Color
         if type(Data.Callback) == "function" then Call(Data.Callback, Object.Color, Object.Alpha) end
     end
     function Object:Get() return Object.Color end
+    Library.ColorpickerStates[Flag] = {Color = InitialColor, Transparency = 1 - InitialAlpha}
     RegisterFlag(Flag, InitialColor, function(Value) Object:Set(Value) end)
+    Bind(Button.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 then Section.Window:BlockControlInput(0.25) end
+    end))
     Bind(Button.MouseButton1Click:Connect(function() Section.Window:OpenPicker(Object, Button) end))
     return Object
 end
@@ -1474,7 +1525,7 @@ function SectionMethods:Toggle(Data)
     local Label = Create("TextLabel", {Parent = Row, Position = UDim2.fromOffset(15, 0), Size = UDim2.new(1, -15, 1, 0), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 10})
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, nil)
-    local Object = {Row = Row, Box = Box, Label = Label, Value = Default, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon}
+    local Object = {Row = Row, Box = Box, Label = Label, Hitbox = Button, Value = Default, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon}
     UpdateControlLabelInset(Object)
     function Object:Render()
         Box.BackgroundColor3 = Object.Value and Accent() or Colors.CbBg
@@ -1513,7 +1564,7 @@ function SectionMethods:Toggle(Data)
     Object.Section = self
     RegisterFlag(Flag, Default, function(Value) Object:Set(Value) end)
     RegisterRenderer(function() Object:Render() end)
-    Bind(Button.MouseButton1Click:Connect(function() Object:Set(not Object.Value) end))
+    Bind(Button.MouseButton1Click:Connect(function() if self.Window:IsControlInputBlocked() then return end Object:Set(not Object.Value) end))
     Bind(Button.MouseEnter:Connect(function() Box:FindFirstChildOfClass("UIStroke").Color = Object.Value and Accent() or AccentBorder() Label.TextColor3 = Colors.TextBright end))
     Bind(Button.MouseLeave:Connect(function() Object:Render() Label.TextColor3 = Colors.Text end))
     AddControl(self, Object)
@@ -1580,11 +1631,11 @@ function SectionMethods:Slider(Data)
         local T = math.clamp((Mouse.X - GuiPoint(self.Window.ScreenGui, Track.AbsolutePosition).X) / Width, 0, 1)
         Object:Set(Minimum + (Maximum - Minimum) * T)
     end
-    Bind(Track.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = true FromMouse() end end))
+    Bind(Track.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 and not self.Window:IsControlInputBlocked() then Dragging = true FromMouse() end end))
     Bind(UserInputService.InputChanged:Connect(function(Input) if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then FromMouse() end end))
     Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end))
-    Bind(Minus.MouseButton1Click:Connect(function() Object:Set(Object.Value - Step) end))
-    Bind(Plus.MouseButton1Click:Connect(function() Object:Set(Object.Value + Step) end))
+    Bind(Minus.MouseButton1Click:Connect(function() if not self.Window:IsControlInputBlocked() then Object:Set(Object.Value - Step) end end))
+    Bind(Plus.MouseButton1Click:Connect(function() if not self.Window:IsControlInputBlocked() then Object:Set(Object.Value + Step) end end))
     RegisterFlag(Flag, Default, function(Value) Object:Set(Value) end)
     RegisterRenderer(function() Object:Render() end)
     AttachColorpicker(self, Object, Row, 0)
@@ -1645,7 +1696,7 @@ function SectionMethods:RangeSlider(Data)
         local Value = RoundStep(Minimum + (Maximum - Minimum) * T, Step)
         if math.abs(Value - Object.Low) <= math.abs(Value - Object.High) then Object:Set(Value, Object.High) else Object:Set(Object.Low, Value) end
     end
-    Bind(Track.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = true FromMouse() end end))
+    Bind(Track.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 and not self.Window:IsControlInputBlocked() then Dragging = true FromMouse() end end))
     Bind(UserInputService.InputChanged:Connect(function(Input) if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then FromMouse() end end))
     Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end))
     RegisterFlag(Flag, {Low, High}, function(Value) Object:Set(Value) end)
@@ -1725,6 +1776,7 @@ local function MakeDropdown(Section, Data, Multi)
         else Object:Set(Value) end
     end
     Bind(Button.MouseButton1Click:Connect(function()
+        if Section.Window:IsControlInputBlocked() then return end
         if Section.Window.DropdownOwner == Object and Section.Window.Dropdown.Visible then Section.Window:CloseDropdown() Object:Render() return end
         Section.Window:OpenDropdown(Object, DropFrame, Object.Items, Object.Value, Multi, Choose)
         Object:Render()
@@ -1763,10 +1815,10 @@ function SectionMethods:Button(Data, Callback)
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false})
     Bind(Button.MouseEnter:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Enabled = true AccentLine.Visible = true Label.TextColor3 = Colors.TextBright end))
     Bind(Button.MouseLeave:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Enabled = false AccentLine.Visible = false Label.TextColor3 = Colors.Text end))
-    Bind(Button.MouseButton1Click:Connect(function() if type(Data.Callback) == "function" then Call(Data.Callback) end end))
+    Bind(Button.MouseButton1Click:Connect(function() if not self.Window:IsControlInputBlocked() and type(Data.Callback) == "function" then Call(Data.Callback) end end))
     RegisterRenderer(function() AccentLine.BackgroundColor3 = Accent() end)
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, nil)
-    local Object = {Section = self, Row = Row, Button = Button, Frame = Frame, Label = Label, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, LabelSymmetric = true}
+    local Object = {Section = self, Row = Row, Button = Button, Hitbox = Button, Frame = Frame, Label = Label, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, LabelSymmetric = true}
     UpdateControlLabelInset(Object)
     AttachColorpicker(self, Object, Row, Object.RightOffset)
     return AddControl(self, Object)
@@ -1816,6 +1868,7 @@ function SectionMethods:Listbox(Data)
             local Button = Create("TextButton", {Parent = List, Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = tostring(Item), TextColor3 = Item == Object.Selected and Accent() or Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false, LayoutOrder = Index}, {Create("UIPadding", {PaddingLeft = UDim.new(0, 6)})})
             Object.Buttons[#Object.Buttons + 1] = Button
             Bind(Button.MouseButton1Click:Connect(function()
+                if self.Window:IsControlInputBlocked() then return end
                 Object.Selected = Item
                 for I, Other in ipairs(Object.Buttons) do Other.TextColor3 = Object.Items[I] == Object.Selected and Accent() or Colors.Text end
                 if type(Data.Callback) == "function" then Call(Data.Callback, Item) end
@@ -2020,7 +2073,8 @@ function Library:GetConfig()
     for Name, Value in pairs(self.Flags or {}) do
         local FlagName = tostring(Name)
         if FlagName:sub(1, 2) ~= "__" and not BindFlags[FlagName] and type(self.Setters[FlagName]) == "function" then
-            local Success, Encoded = Call(EncodeValue, Value, {}, 0)
+            local StoredValue = self.ColorpickerStates and self.ColorpickerStates[FlagName] or Value
+            local Success, Encoded = Call(EncodeValue, StoredValue, {}, 0)
             if Success and Encoded ~= nil then Flags[FlagName] = Encoded end
         end
     end
