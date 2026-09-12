@@ -22,7 +22,7 @@ local game = workspace.Parent
 
 local _getgenv = type(getgenv) == "function" and getgenv or function() return _G end
 local GENV = _getgenv()
-local DEX_BUILD_VERSION = "V28"
+local DEX_BUILD_VERSION = "V29"
 local function dexCacheToken()
 	local ok,guid = pcall(function()
 		return game:GetService("HttpService"):GenerateGUID(false)
@@ -14870,12 +14870,91 @@ Main = (function()
 					end
 					return out
 				end
+				local function folditeratortriples5(a)
+					local i=1
+					while i<=#a-1 do
+						local lead,v1,v2,v3,fn,arg=a[i]:match("^(%s*)local%s+([%a_][%w_]*)%s*,%s*([%a_][%w_]*)%s*,%s*([%a_][%w_]*)%s*=%s*([%a_][%w_]*)%((.*)%)%s*$")
+						if not lead then
+							lead,v1,v2,v3,fn,arg=a[i]:match("^(%s*)([%a_][%w_]*)%s*,%s*([%a_][%w_]*)%s*,%s*([%a_][%w_]*)%s*=%s*([%a_][%w_]*)%((.*)%)%s*$")
+						end
+						if lead and (fn=="pairs" or fn=="ipairs") then
+							local j=i+1
+							while j<=#a and tr(a[j])=="" do j+=1 end
+							if j<=#a and dep(a[j])==#lead then
+								local vars,iter=tr(a[j]):match("^for%s+(.+)%s+in%s+(.+)%s+do$")
+								if vars and iter and tr(iter)==v1..", "..v2..", "..v3 then
+									a[j]=lead.."for "..vars.." in "..fn.."("..arg..") do"
+									table.remove(a,i)
+									continue
+								end
+							end
+						end
+						i+=1
+					end
+					return a
+				end
+				local function renamegenericloopvars5(a)
+					if GENV.DEX_PRETTY_SEMANTIC_LOCALS==false then return a end
+					local function fresh(base,whole)
+						if countword(whole,base)==0 then return base end
+						local n=2
+						while countword(whole,base..tostring(n))>0 do n+=1 end
+						return base..tostring(n)
+					end
+					local i=1
+					while i<=#a do
+						local lead,vartext,iter=a[i]:match("^(%s*)for%s+(.+)%s+in%s+(.+)%s+do%s*$")
+						if lead then
+							local vars={}
+							for v in vartext:gmatch("[^,]+") do vars[#vars+1]=tr(v) end
+							local base=#lead
+							local j=i+1
+							while j<=#a and not (dep(a[j])==base and tr(a[j])=="end") do j+=1 end
+							if j<=#a then
+								local body=table.concat(a,"\n",i+1,j-1)
+								local whole=table.concat(a,"\n")
+								for vi,v in ipairs(vars) do
+									if v~="_" then
+										local uses=countword(body,v)
+										local nv=nil
+										if uses==0 then
+											nv="_"
+										elseif v:match("^v%d+_?%d*$") then
+											if body:find(v..".Priority",1,true) or body:find(v..":Stop",1,true) or body:find(v..":Play",1,true) then nv="animation"
+											elseif body:find(v..':IsA("Frame")',1,true) or body:find(v..".Frame",1,true) then nv="frame"
+											elseif iter:find("GetDescendants",1,true) then nv="descendant"
+											elseif iter:find("GetChildren",1,true) then nv="child"
+											elseif iter:find("FindPartsInRegion3",1,true) or (body:find(v..".Parent",1,true) and body:find(v..'.Name == "Torso"',1,true)) then nv="part"
+											elseif body:find(v..":GetFullName",1,true) or body:find("require("..v,1,true) then nv="module"
+											elseif body:find(v..".Name",1,true) or body:find(v..".Parent",1,true) then nv="item"
+											elseif vi==1 then nv="key"
+											else nv="value" end
+										end
+										if nv and nv~=v then
+											if nv~="_" then nv=fresh(nv,whole) end
+											for q=i+1,j-1 do a[q]=replaceword(a[q],v,nv) end
+											vars[vi]=nv
+											body=table.concat(a,"\n",i+1,j-1)
+											whole=table.concat(a,"\n")
+										end
+									end
+								end
+								a[i]=lead.."for "..table.concat(vars,", ").." in "..iter.." do"
+								i=j
+							end
+						end
+						i+=1
+					end
+					return a
+				end
 				local function safesimplify4(a)
 					a=joinlocalassign2(a)
 					a=foldservicevars4(a)
 					a=foldarrayassignments3(a)
 					a=folditerprep4(a)
+					a=folditeratortriples5(a)
 					a=simplifygenericfor3(a)
+					a=renamegenericloopvars5(a)
 					a=renameservicevars3(a)
 					a=renameinstances4(a)
 					a=foldkeymaps4(a)
@@ -14913,7 +14992,9 @@ Main = (function()
 							foldfunctionargs3,
 							foldpackmove4,
 							foldarrayassignments3,
+							folditeratortriples5,
 							simplifygenericfor3,
+							renamegenericloopvars5,
 							renametableiter3,
 							renameservicevars3,
 							renameinstances4,
@@ -14948,7 +15029,9 @@ Main = (function()
 						final=foldfunctionargs3(final)
 						final=foldpackmove4(final)
 						final=foldarrayassignments3(final)
+						final=folditeratortriples5(final)
 						final=simplifygenericfor3(final)
+						final=renamegenericloopvars5(final)
 						final=renametableiter3(final)
 						final=renameservicevars3(final)
 						final=renamemoduleloops3(final)
@@ -15028,6 +15111,7 @@ Main = (function()
 					forceRanges = {},
 					byPc = {},
 					indexByPc = {},
+					unresolvedReadCount = 0,
 				}
 				local level = 1
 				local expr = {}
@@ -15106,7 +15190,12 @@ Main = (function()
 						end
 					end
 					if rm then
+						if names[i] then
+							ctx.unresolvedReadCount=(ctx.unresolvedReadCount or 0)+1
+							return names[i]
+						end
 						if i<(p.params or 0) and names[i] then return names[i] end
+						ctx.unresolvedReadCount=(ctx.unresolvedReadCount or 0)+1
 						return "nil"
 					end
 					return vars[i] and names[i] or expr[i] or ctx.multi[i] or names[i] or ("v"..tostring(i))
@@ -15135,6 +15224,21 @@ Main = (function()
 					if s:match("^%d") then s="value_"..s end
 					return s:sub(1,1):lower()..s:sub(2)
 				end
+				local function closurehint(s)
+					if type(s)~="string" or not s:match("^function%s*%(") then return nil end
+					if s:find("string.char",1,true) and s:find(":byte",1,true) then return "transformString" end
+					if s:find("newproxy",1,true) and s:find("__metatable",1,true) then return "protectTable" end
+					if s:find(":LoadAnimation",1,true) then return "loadAnimation" end
+					if s:find(":Disconnect",1,true) and not s:find(":Connect",1,true) then return "disconnectConnection" end
+					if s:find(":Destroy",1,true) then return "destroyInstance" end
+					if s:find("InputHoldBegin",1,true) or s:find("InputHoldEnd",1,true) then return "inputHandler" end
+					if s:find("EnableButton",1,true) or s:find("ToggleButton",1,true) then return "updateControls" end
+					if s:find("FindFirstChild",1,true) and s:find("return",1,true) then return "findItem" end
+					if s:find("return true",1,true) or s:find("return false",1,true) then return "check" end
+					if s:find("task.wait",1,true) or s:find("Heartbeat:Wait",1,true) or s:find("coroutine",1,true) then return "worker" end
+					if s:find(":Connect",1,true) then return "eventHandler" end
+					return "handler"
+				end
 				local function suggest(s)
 					if type(s)~="string" then return nil end
 					local svc=s:match('^game:GetService%("([%w_]+)"%)$')
@@ -15162,7 +15266,7 @@ Main = (function()
 						if last then return camel(last) end
 						return "module"
 					end
-					if s:match("^function%(") then return "callback" end
+					if s:match("^function%s*%(") then return closurehint(s) end
 				end
 				local function varname(r,pc,s)
 					local d=dbgname(r,pc)
@@ -15210,7 +15314,7 @@ Main = (function()
 						if not base then
 							local sd=id and ssaDefs and ssaDefs[id]
 							if sd and sd.op=="CALL" then base="result"
-							elseif sd and (sd.op=="NEWCLOSURE" or sd.op=="DUPCLOSURE") then base="callback"
+							elseif sd and (sd.op=="NEWCLOSURE" or sd.op=="DUPCLOSURE") then base=closurehint(s) or "handler"
 							elseif sd and (sd.op=="NEWTABLE" or sd.op=="DUPTABLE") then base="data"
 							else base="v"..tostring(r) end
 						end
@@ -16123,6 +16227,50 @@ Main = (function()
 					}
 					return writesA[n] and {x.a} or {}
 				end
+				local topAtPc={}
+				local multiBaseAtPc={}
+				do
+					local t=math.max(0,p.params or 0)
+					local multiBase=nil
+					for _,y in ipairs(p.ins) do
+						topAtPc[y.pc]=t
+						multiBaseAtPc[y.pc]=multiBase
+						local n=y.n
+						if n=="CALL" or n=="CALLFB" then
+							if y.b and y.b>0 then t=math.max(t,y.a+y.b) end
+							if y.c==0 then
+								multiBase=y.a
+								t=math.max(t,y.a+1)
+							elseif y.c==1 then
+								multiBase=nil
+								t=y.a
+							else
+								multiBase=nil
+								t=y.a+y.c-1
+							end
+						elseif n=="GETVARARGS" then
+							if y.b==0 then
+								multiBase=y.a
+								t=math.max(t,y.a+1)
+							else
+								multiBase=nil
+								t=math.max(t,y.a+y.b-1)
+							end
+						elseif n=="RETURN" then
+							multiBase=nil
+						elseif n=="SETLIST" then
+							multiBase=nil
+							t=math.max(t,y.a+1)
+						else
+							for _,r in ipairs(writeRegs(y)) do
+								if r+1>t then t=r+1 end
+								if multiBase and r<=multiBase then multiBase=nil end
+							end
+						end
+						if t<0 then t=0 end
+						if t>(p.max or 255) then t=p.max or 255 end
+					end
+				end
 				local function readRegs(x)
 					local n=x.n
 					local out={}
@@ -16138,10 +16286,18 @@ Main = (function()
 					elseif n=="NAMECALL" or n=="NAMECALLUDATA" then add(x.b)
 					elseif n=="CALL" or n=="CALLFB" then
 						add(x.a)
-						local last=x.b==0 and math.max(x.a,(p.max or x.a+1)-1) or (x.a+x.b-1)
+						local last
+						if x.b==0 then
+							local mb=multiBaseAtPc[x.pc]
+							if mb and mb>=x.a+1 then last=mb else last=math.max(x.a,(topAtPc[x.pc] or p.max or x.a+1)-1) end
+						else last=x.a+x.b-1 end
 						for r=x.a+1,last do add(r) end
 					elseif n=="RETURN" then
-						local last=x.b==0 and math.max(x.a,(p.max or x.a+1)-1) or (x.a+x.b-2)
+						local last
+						if x.b==0 then
+							local mb=multiBaseAtPc[x.pc]
+							if mb and mb>=x.a then last=mb else last=math.max(x.a,(topAtPc[x.pc] or p.max or x.a+1)-1) end
+						else last=x.a+x.b-2 end
 						for r=x.a,last do add(r) end
 					elseif cfgcondops[n] then
 						add(x.a)
@@ -16152,7 +16308,11 @@ Main = (function()
 					elseif n=="CONCAT" then for r=x.b,x.c do add(r) end
 					elseif n=="SETLIST" then
 						add(x.a)
-						local last=x.c==0 and math.max(x.b,(p.max or x.b+1)-1) or (x.b+x.c-2)
+						local last
+						if x.c==0 then
+							local mb=multiBaseAtPc[x.pc]
+							if mb and mb>=x.b then last=mb else last=math.max(x.b,(topAtPc[x.pc] or p.max or x.b+1)-1) end
+						else last=x.b+x.c-2 end
 						for r=x.b,last do add(r) end
 					elseif n=="FORNPREP" or n=="FORNLOOP" then for r=x.a,x.a+3 do add(r) end
 					elseif n=="FORGPREP" or n=="FORGPREP_INEXT" or n=="FORGPREP_NEXT" or n=="FORGLOOP" then
@@ -16450,6 +16610,7 @@ Main = (function()
 						simplifiedPhi=ssaSimplifiedPhi,
 						stableReceivers=ssaReceiverDefs,
 						forcedDefs=forcedCount,
+						unresolvedReads=ctx.unresolvedReadCount or 0,
 						instructions=#p.ins
 					}
 				end
@@ -16799,6 +16960,22 @@ Main = (function()
 						end
 					end
 				end
+				local function bindLoopValue(r,nm,pcs,bodyPc)
+					if not nm then return end
+					ctx.declaredNames[nm]=true
+					expr[r]=nm
+					local function bindid(id)
+						if id then
+							ctx.defName[id]=nm
+							ctx.defExpr[id]=nm
+							ctx.defMaterialized[id]=true
+							ctx.defPure[id]=true
+						end
+					end
+					for _,pc0 in ipairs(pcs or {}) do bindid(writedef(r,pc0)) end
+					local bid=bodyPc and blockOf[bodyPc]
+					if bid and ssaIn[bid] then bindid(ssaIn[bid][r]) end
+				end
 				local bin={ADD="+",SUB="-",MUL="*",DIV="/",MOD="%",POW="^",AND="and",OR="or",IDIV="//"}
 				local bink={ADDK="+",SUBK="-",MULK="*",DIVK="/",MODK="%",POWK="^",ANDK="and",ORK="or",IDIVK="//"}
 				local function jumpcond(x)
@@ -17057,7 +17234,9 @@ Main = (function()
 							end
 						end
 						local fn=m and (m.base..":"..m.name) or reg(x.a)
-						local call=normalizecall(m,args,fn.."("..table.concat(args,", ")..")")
+						local callfn=fn
+						if not m and type(fn)=="string" and fn:match("^function%s*%(") then callfn="("..fn..")" end
+						local call=normalizecall(m,args,callfn.."("..table.concat(args,", ")..")")
 						ctx.method[x.a]=nil
 						if x.c==1 then
 							emit(call)
@@ -17169,6 +17348,7 @@ Main = (function()
 							else
 								vn=varname(vr,x.pc,nil) vars[vr]=true expr[vr]=vn
 							end
+							bindLoopValue(vr,vn,{x.pc,lr.latch},nextpc(x))
 							lr.emitted=true
 							emit("for "..vn.." = "..reg(x.a+2)..", "..reg(x.a)..", "..reg(x.a+1).." do")
 							level+=1
@@ -17187,7 +17367,9 @@ Main = (function()
 							for j=0,vc-1 do
 								local r=x.a+3+j
 								local nm=varname(r,x.pc,nil)
-								vars[r]=true expr[r]=nm vl[#vl+1]=nm
+								vars[r]=true expr[r]=nm
+								bindLoopValue(r,nm,{lr.latch},nextpc(x))
+								vl[#vl+1]=nm
 							end
 							lr.emitted=true
 							emit("for "..table.concat(vl,", ").." in "..reg(x.a)..", "..reg(x.a+1)..", "..reg(x.a+2).." do")
