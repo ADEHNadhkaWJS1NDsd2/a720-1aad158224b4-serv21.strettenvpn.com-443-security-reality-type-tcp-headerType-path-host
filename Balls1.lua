@@ -311,7 +311,7 @@ local TextSizes = {}
 local CONTROL_TEXT_SIZE = 12
 local CONTROL_ROW_HEIGHT = 22
 local CONTROL_SLOT_HEIGHT = 30
-local TEXT_Y_NUDGE = 3
+local TEXT_Y_NUDGE = 5
 
 local function SetTextSize(Object, Value)
     if not Object then return 13 end
