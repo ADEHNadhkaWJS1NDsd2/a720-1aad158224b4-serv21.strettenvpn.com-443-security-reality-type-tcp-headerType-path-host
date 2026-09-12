@@ -312,6 +312,7 @@ local CONTROL_TEXT_SIZE = 12
 local CONTROL_ROW_HEIGHT = 22
 local CONTROL_SLOT_HEIGHT = 30
 local TEXT_Y_NUDGE = 5
+local DROPDOWN_TEXT_Y_NUDGE = 4
 
 local function SetTextSize(Object, Value)
     if not Object then return 13 end
@@ -1405,6 +1406,9 @@ local function RefreshLayout(Window)
                             CONTROL_TEXT_SIZE,
                             CONTROL_TEXT_SIZE
                         )
+
+                        Control.Drawings.Label.Position = Control.Drawings.Label.Position + NewVector2(0, DROPDOWN_TEXT_Y_NUDGE)
+                        Control.Drawings.State.Position = Control.Drawings.State.Position + NewVector2(0, DROPDOWN_TEXT_Y_NUDGE)
 
                     elseif Control.Type == "Colorpicker" then
                         local PickerWidth = 28
