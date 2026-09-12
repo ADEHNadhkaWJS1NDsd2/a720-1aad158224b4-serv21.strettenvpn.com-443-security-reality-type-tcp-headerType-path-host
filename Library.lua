@@ -1868,7 +1868,8 @@ function SectionMethods:Listbox(Data)
             local Button = Create("TextButton", {Parent = List, Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = tostring(Item), TextColor3 = Item == Object.Selected and Accent() or Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false, LayoutOrder = Index}, {Create("UIPadding", {PaddingLeft = UDim.new(0, 6)})})
             Object.Buttons[#Object.Buttons + 1] = Button
             Bind(Button.MouseButton1Click:Connect(function()
-                if self.Window:IsControlInputBlocked() then return end
+                local Window = Object.Section and Object.Section.Window
+                if Window and Window:IsControlInputBlocked() then return end
                 Object.Selected = Item
                 for I, Other in ipairs(Object.Buttons) do Other.TextColor3 = Object.Items[I] == Object.Selected and Accent() or Colors.Text end
                 if type(Data.Callback) == "function" then Call(Data.Callback, Item) end
@@ -2706,15 +2707,15 @@ function Library:PlayerList(Data)
     Create("TextLabel",{Parent=Profile,Position=UDim2.fromOffset(0,69),Size=UDim2.new(1,0,0,15),BackgroundTransparency=1,Text="status",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
     local StatusButton=Create("TextButton",{Parent=Profile,Position=UDim2.fromOffset(0,87),Size=UDim2.new(1,0,0,24),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.30,BorderSizePixel=0,AutoButtonColor=false,Text="Neutral",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=156},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.58}),Create("UIPadding",{PaddingLeft=UDim.new(0,7),PaddingRight=UDim.new(0,7)})})
     local StatusArrow=Create("TextLabel",{Parent=StatusButton,AnchorPoint=Vector2.new(1,0.5),Position=UDim2.new(1,-7,0.5,0),Size=UDim2.fromOffset(11,14),BackgroundTransparency=1,Text="v",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,ZIndex=157})
-    local StatusDrop=Create("Frame",{Parent=Profile,Position=UDim2.fromOffset(0,114),Size=UDim2.new(1,0,0,66),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.04,BorderSizePixel=0,Visible=false,ClipsDescendants=true,ZIndex=170},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.44}),Create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder})})
+    local StatusDrop=Create("Frame",{Parent=Profile,Position=UDim2.fromOffset(0,114),Size=UDim2.new(1,0,0,88),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.04,BorderSizePixel=0,Visible=false,ClipsDescendants=true,ZIndex=170},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.44}),Create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder})})
     local ActionHolder=Create("Frame",{Parent=Profile,Position=UDim2.new(0,0,1,-27),Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,ZIndex=154},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Left,Padding=UDim.new(0,3),SortOrder=Enum.SortOrder.LayoutOrder})})
     local Scale=Create("UIScale",{Parent=Frame,Scale=math.clamp((tonumber(Data.Scale) or 100)/100,0.65,1.5)})
-    local StatusColors={Client=Accent(),Neutral=Colors.TextDim,Whitelist=Color3.fromRGB(87,196,129),Enemy=Color3.fromRGB(224,92,102)}
+    local StatusColors={Client=Accent(),Neutral=Colors.TextDim,Whitelist=Color3.fromRGB(87,196,129),Priority=Color3.fromRGB(232,184,82),Enemy=Color3.fromRGB(224,92,102)}
     local Object={Gui=Gui,Frame=Frame,Header=Header,List=List,Scale=Scale,Rows={},RequestedVisible=Data.Visible==true,MenuVisible=true,Selected=nil,Search="",Data=Data,DropOpen=false}
     local function NormalizeStatus(Status)
         Status=tostring(Status or "Neutral")
         if Status=="None" or Status=="none" or Status=="" then return "Neutral" end
-        if Status=="Whitelist" or Status=="Enemy" or Status=="Neutral" then return Status end
+        if Status=="Whitelist" or Status=="Priority" or Status=="Enemy" or Status=="Neutral" then return Status end
         return "Neutral"
     end
     local function ReadStatus(Player)
@@ -2741,7 +2742,7 @@ function Library:PlayerList(Data)
         Bind(Button.MouseLeave:Connect(function() Button.BackgroundTransparency=1 end))
         Bind(Button.MouseButton1Click:Connect(function() if Object.Selected then SetStatus(Object.Selected,Name,false) end CloseDrop() end))
     end
-    MakeStatusOption("Neutral",1) MakeStatusOption("Whitelist",2) MakeStatusOption("Enemy",3)
+    MakeStatusOption("Neutral",1) MakeStatusOption("Whitelist",2) MakeStatusOption("Priority",3) MakeStatusOption("Enemy",4)
     local function MakeAction(Name,CallbackKey,Order)
         local Button=Create("TextButton",{Parent=ActionHolder,Size=UDim2.new(0.5,-2,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.38,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=10,AutoButtonColor=false,LayoutOrder=Order,ZIndex=155},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.62})})
         Bind(Button.MouseEnter:Connect(function() Button.BackgroundTransparency=0.22 Button.TextColor3=Colors.TextBright end))
@@ -2770,7 +2771,7 @@ function Library:PlayerList(Data)
         local Query=string.lower(Object.Search or "") local Items=Players:GetPlayers()
         table.sort(Items,function(A,B)
             if A==Players.LocalPlayer then return true end if B==Players.LocalPlayer then return false end
-            local Rank={Enemy=1,Whitelist=2,Neutral=3} local SA,SB=ReadStatus(A),ReadStatus(B)
+            local Rank={Enemy=1,Priority=2,Whitelist=3,Neutral=4} local SA,SB=ReadStatus(A),ReadStatus(B)
             if Rank[SA] and Rank[SB] and Rank[SA]~=Rank[SB] then return Rank[SA]<Rank[SB] end
             return A.Name:lower()<B.Name:lower()
         end)
