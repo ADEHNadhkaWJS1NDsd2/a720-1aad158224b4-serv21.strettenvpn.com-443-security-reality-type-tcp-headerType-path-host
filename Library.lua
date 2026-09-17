@@ -1695,24 +1695,27 @@ function SectionMethods:Slider(Data)
     local Step = tonumber(Data.Step) or 1
     local Default = math.clamp(tonumber(Data.Default) or Minimum, Minimum, Maximum)
     if type(Library.Flags[Flag]) == "number" then Default = math.clamp(Library.Flags[Flag], Minimum, Maximum) end
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 27), BackgroundTransparency = 1})
-    local NameLabel = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 12), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Minus = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(12, 12), Position = UDim2.fromOffset(0, 14), BackgroundTransparency = 1, Text = "-", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSansBold, TextSize = 14})
-    local Plus = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(12, 12), Position = UDim2.new(1, -12, 0, 14), BackgroundTransparency = 1, Text = "+", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSansBold, TextSize = 14})
-    local Track = Create("Frame", {Parent = Row, Size = UDim2.new(1, -36, 0, 3), Position = UDim2.fromOffset(18, 18), BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0})
-    local Fill = Create("Frame", {Parent = Track, Size = UDim2.new(0, 0, 1, 0), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, AccentDark()), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, AccentDark())})})})
-    local ValueLabel = Create("TextLabel", {Parent = Track, Size = UDim2.new(1, 0, 0, 12), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 1, Text = "", TextColor3 = Colors.TextBright, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 5}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
+    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 31), BackgroundTransparency = 1})
+    local NameLabel = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, -78, 0, 13), BackgroundTransparency = 1, Text = Name, TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+    local ValueLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromOffset(72, 13), Position = UDim2.new(1, -72, 0, 0), BackgroundTransparency = 1, Text = "", TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right})
+    local Track = Create("Frame", {Parent = Row, Size = UDim2.new(1, -2, 0, 5), Position = UDim2.fromOffset(1, 19), BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1, Transparency = 0.1})})
+    local Fill = Create("Frame", {Parent = Track, Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = Accent(), BorderSizePixel = 0, ClipsDescendants = true}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, AccentDark()), ColorSequenceKeypoint.new(1, Accent())})})})
+    local Knob = Create("TextButton", {Parent = Track, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = Accent(), BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 7}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, 0)
     local Object = {Row = Row, Value = Default, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, Label = NameLabel}
     UpdateControlLabelInset(Object)
     function Object:Render()
         local Ratio = Maximum > Minimum and math.clamp((Object.Value - Minimum) / (Maximum - Minimum), 0, 1) or 0
         Fill.Size = UDim2.new(Ratio, 0, 1, 0)
-        ValueLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
+        Knob.Position = UDim2.new(Ratio, 0, 0.5, 0)
+        Knob.BackgroundColor3 = Accent()
         local Decimals = Step < 1 and math.max(0, math.ceil(-math.log10(Step))) or 0
         ValueLabel.Text = string.format("%." .. tostring(math.min(Decimals, 4)) .. "f", Object.Value) .. tostring(Data.Suffix or "")
         local Gradient = Fill:FindFirstChildOfClass("UIGradient")
-        if Gradient then Gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, AccentDark()), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, AccentDark())}) end
+        if Gradient then Gradient.Color = ColorSequence.new(AccentDark(), Accent()) end
+        Track.BackgroundColor3 = Colors.SliderTrack
+        local Stroke = Track:FindFirstChildOfClass("UIStroke")
+        if Stroke then Stroke.Color = Colors.SectionBorder end
     end
     function Object:Set(Value, Silent)
         Value = math.clamp(RoundStep(tonumber(Value) or Minimum, Step), Minimum, Maximum)
@@ -1730,11 +1733,15 @@ function SectionMethods:Slider(Data)
         local T = math.clamp((Mouse.X - GuiPoint(self.Window.ScreenGui, Track.AbsolutePosition).X) / Width, 0, 1)
         Object:Set(Minimum + (Maximum - Minimum) * T)
     end
-    Bind(Track.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 and not self.Window:IsControlInputBlocked() then Dragging = true FromMouse() end end))
+    local function BeginDrag(Input)
+        if Input.UserInputType ~= Enum.UserInputType.MouseButton1 or self.Window:IsControlInputBlocked() then return end
+        Dragging = true
+        FromMouse()
+    end
+    Bind(Track.InputBegan:Connect(BeginDrag))
+    Bind(Knob.InputBegan:Connect(BeginDrag))
     Bind(UserInputService.InputChanged:Connect(function(Input) if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then FromMouse() end end))
     Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end))
-    Bind(Minus.MouseButton1Click:Connect(function() if not self.Window:IsControlInputBlocked() then Object:Set(Object.Value - Step) end end))
-    Bind(Plus.MouseButton1Click:Connect(function() if not self.Window:IsControlInputBlocked() then Object:Set(Object.Value + Step) end end))
     RegisterFlag(Flag, Default, function(Value) Object:Set(Value) end)
     RegisterRenderer(function() Object:Render() end)
     AttachColorpicker(self, Object, Row, 0)
@@ -1755,21 +1762,32 @@ function SectionMethods:RangeSlider(Data)
     local MaxFlag = tostring(Data.MaxFlag or (Flag .. " Maximum"))
     if type(Library.Flags[MinFlag]) == "number" then Low = Library.Flags[MinFlag] end
     if type(Library.Flags[MaxFlag]) == "number" then High = Library.Flags[MaxFlag] end
-    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1})
-    local NameLabel = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 12), BackgroundTransparency = 1, Text = tostring(Data.Name or "range"), TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
-    local Track = Create("Frame", {Parent = Row, Size = UDim2.new(1, 0, 0, 4), Position = UDim2.fromOffset(0, 20), BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0})
-    local Fill = Create("Frame", {Parent = Track, BackgroundColor3 = Accent(), BorderSizePixel = 0})
-    local LowLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromOffset(60, 10), Position = UDim2.fromOffset(0, 24), BackgroundTransparency = 1, TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left})
-    local HighLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromOffset(60, 10), Position = UDim2.new(1, -60, 0, 24), BackgroundTransparency = 1, TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right})
+    local Row = Create("Frame", {Parent = self.Body, Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1})
+    local NameLabel = Create("TextLabel", {Parent = Row, Size = UDim2.new(1, 0, 0, 13), BackgroundTransparency = 1, Text = tostring(Data.Name or "range"), TextColor3 = Colors.TextDim, Font = Enum.Font.SourceSans, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left})
+    local Track = Create("Frame", {Parent = Row, Size = UDim2.new(1, -2, 0, 5), Position = UDim2.fromOffset(1, 19), BackgroundColor3 = Colors.SliderTrack, BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1, Transparency = 0.1})})
+    local Fill = Create("Frame", {Parent = Track, BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIGradient", {Color = ColorSequence.new(AccentDark(), Accent())})})
+    local LowKnob = Create("TextButton", {Parent = Track, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = Accent(), BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 7}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
+    local HighKnob = Create("TextButton", {Parent = Track, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = Accent(), BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 7}, {Create("UICorner", {CornerRadius = UDim.new(1, 0)}), Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
+    local LowLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromOffset(80, 11), Position = UDim2.fromOffset(0, 27), BackgroundTransparency = 1, TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left})
+    local HighLabel = Create("TextLabel", {Parent = Row, Size = UDim2.fromOffset(80, 11), Position = UDim2.new(1, -80, 0, 27), BackgroundTransparency = 1, TextColor3 = Colors.TextBind, Font = Enum.Font.SourceSans, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right})
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, 0)
     local Object = {Row = Row, Low = Low, High = High, Flag = Flag, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, Label = NameLabel}
     UpdateControlLabelInset(Object)
     function Object:Render()
-        local A = Maximum > Minimum and (Object.Low - Minimum) / (Maximum - Minimum) or 0
-        local B = Maximum > Minimum and (Object.High - Minimum) / (Maximum - Minimum) or 1
+        local A = Maximum > Minimum and math.clamp((Object.Low - Minimum) / (Maximum - Minimum), 0, 1) or 0
+        local B = Maximum > Minimum and math.clamp((Object.High - Minimum) / (Maximum - Minimum), 0, 1) or 1
         Fill.Position = UDim2.new(A, 0, 0, 0)
         Fill.Size = UDim2.new(math.max(0, B - A), 0, 1, 0)
+        LowKnob.Position = UDim2.new(A, 0, 0.5, 0)
+        HighKnob.Position = UDim2.new(B, 0, 0.5, 0)
         Fill.BackgroundColor3 = Accent()
+        LowKnob.BackgroundColor3 = Accent()
+        HighKnob.BackgroundColor3 = Accent()
+        local Gradient = Fill:FindFirstChildOfClass("UIGradient")
+        if Gradient then Gradient.Color = ColorSequence.new(AccentDark(), Accent()) end
+        Track.BackgroundColor3 = Colors.SliderTrack
+        local Stroke = Track:FindFirstChildOfClass("UIStroke")
+        if Stroke then Stroke.Color = Colors.SectionBorder end
         LowLabel.Text = tostring(Object.Low) .. tostring(Data.Suffix or "")
         HighLabel.Text = tostring(Object.High) .. tostring(Data.Suffix or "")
     end
@@ -1786,18 +1804,42 @@ function SectionMethods:RangeSlider(Data)
         if not Silent and type(Data.Callback) == "function" then Call(Data.Callback, A, B) end
     end
     function Object:Get() return {Object.Low, Object.High} end
-    local Dragging
-    local function FromMouse()
+    local Dragging = nil
+    local function MouseValue()
         local Width = Track.AbsoluteSize.X
-        if Width <= 0 then return end
+        if Width <= 0 then return nil end
         local Mouse = MousePoint(self.Window.ScreenGui)
         local T = math.clamp((Mouse.X - GuiPoint(self.Window.ScreenGui, Track.AbsolutePosition).X) / Width, 0, 1)
-        local Value = RoundStep(Minimum + (Maximum - Minimum) * T, Step)
-        if math.abs(Value - Object.Low) <= math.abs(Value - Object.High) then Object:Set(Value, Object.High) else Object:Set(Object.Low, Value) end
+        return math.clamp(RoundStep(Minimum + (Maximum - Minimum) * T, Step), Minimum, Maximum)
     end
-    Bind(Track.InputBegan:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 and not self.Window:IsControlInputBlocked() then Dragging = true FromMouse() end end))
+    local function FromMouse()
+        local Value = MouseValue()
+        if Value == nil then return end
+        if Dragging == "Low" then
+            Object:Set(math.min(Value, Object.High), Object.High)
+        elseif Dragging == "High" then
+            Object:Set(Object.Low, math.max(Value, Object.Low))
+        else
+            Dragging = math.abs(Value - Object.Low) <= math.abs(Value - Object.High) and "Low" or "High"
+            FromMouse()
+        end
+    end
+    local function Begin(Name)
+        return function(Input)
+            if Input.UserInputType ~= Enum.UserInputType.MouseButton1 or self.Window:IsControlInputBlocked() then return end
+            Dragging = Name
+            FromMouse()
+        end
+    end
+    Bind(Track.InputBegan:Connect(function(Input)
+        if Input.UserInputType ~= Enum.UserInputType.MouseButton1 or self.Window:IsControlInputBlocked() then return end
+        Dragging = nil
+        FromMouse()
+    end))
+    Bind(LowKnob.InputBegan:Connect(Begin("Low")))
+    Bind(HighKnob.InputBegan:Connect(Begin("High")))
     Bind(UserInputService.InputChanged:Connect(function(Input) if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then FromMouse() end end))
-    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = false end end))
+    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Dragging = nil end end))
     RegisterFlag(Flag, {Low, High}, function(Value) Object:Set(Value) end)
     RegisterFlag(MinFlag, Low, function(Value) Object:Set(Value, Object.High) end)
     RegisterFlag(MaxFlag, High, function(Value) Object:Set(Object.Low, Value) end)
@@ -3101,18 +3143,17 @@ function Library:Panel(Data)
     local Parent=ParentGui()
     local Gui=Create("ScreenGui",{Name="AtramentaTaskbar",Parent=Parent,ResetOnSpawn=false,DisplayOrder=190,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui
-    local Height=25
-    local Root=Create("Frame",{Parent=Gui,Name="Taskbar",Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,0,0,Height),BackgroundTransparency=1,BorderSizePixel=0,Active=true,ZIndex=190})
-    local Body=Create("Frame",{Parent=Root,Name="Body",Size=UDim2.new(1,0,0,Height-2),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=191},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new(Colors.Control,Colors.Bg)})})
-    local Border=Create("Frame",{Parent=Root,Name="Border",Position=UDim2.fromOffset(0,Height-2),Size=UDim2.new(1,0,0,1),BackgroundColor3=Colors.SectionBorder,BorderSizePixel=0,ZIndex=192})
-    local Outline=Create("Frame",{Parent=Root,Name="Outline",Position=UDim2.fromOffset(0,Height-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Color3.new(),BorderSizePixel=0,ZIndex=192})
-    local PanelOuter=Create("Frame",{Parent=Root,Name="PanelOutline",Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(),BorderSizePixel=0,Visible=false,ZIndex=191})
-    local PanelBorder=Create("Frame",{Parent=PanelOuter,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.SectionBorder,BorderSizePixel=0,ZIndex=192})
-    local PanelBody=Create("Frame",{Parent=PanelBorder,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=193},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new(Colors.Control,Colors.Bg)})})
-    local Row=Create("Frame",{Parent=Body,Name="Row",Position=UDim2.fromOffset(5,0),Size=UDim2.new(1,-5,0,Height-2),BackgroundTransparency=1,ZIndex=194},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,3)})})
-    local Title=Create("TextLabel",{Parent=Row,AutomaticSize=Enum.AutomaticSize.X,Size=UDim2.new(0,0,0,16),BackgroundTransparency=1,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,LayoutOrder=0,ZIndex=195})
-    local Object={Gui=Gui,Root=Root,Body=Body,Border=Border,Outline=Outline,PanelOuter=PanelOuter,PanelBody=PanelBody,Row=Row,Title=Title,Buttons={},Mode=tostring(self.Settings.TaskbarMode or "Bar"),DragHandle=nil}
-    local function WidthFor(Text) return math.max(26,math.ceil(TextService:GetTextSize(tostring(Text),12,Enum.Font.SourceSans,Vector2.new(1000,20)).X)+10) end
+    local Height=24
+    local Root=Create("Frame",{Parent=Gui,Name="Taskbar",Position=UDim2.fromOffset(6,4),Size=UDim2.fromOffset(360,Height),BackgroundTransparency=1,BorderSizePixel=0,Active=true,ZIndex=190})
+    local Shadow=Create("Frame",{Parent=Root,Name="Shadow",Position=UDim2.fromOffset(2,2),Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(),BackgroundTransparency=0.45,BorderSizePixel=0,ZIndex=190})
+    local Outline=Create("Frame",{Parent=Root,Name="Outline",Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(),BorderSizePixel=0,ZIndex=191})
+    local Border=Create("Frame",{Parent=Outline,Name="Border",Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.SectionBorder,BorderSizePixel=0,ZIndex=192})
+    local Body=Create("Frame",{Parent=Border,Name="Body",Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=193},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new(Colors.Control,Colors.Bg)})})
+    local Row=Create("Frame",{Parent=Body,Name="Row",Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,ZIndex=194},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,3)})})
+    local Title=Create("TextLabel",{Parent=Row,AutomaticSize=Enum.AutomaticSize.X,Size=UDim2.new(0,0,0,15),BackgroundTransparency=1,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,LayoutOrder=0,ZIndex=195,Active=true})
+    local Separator=Create("Frame",{Parent=Row,Size=UDim2.fromOffset(1,12),BackgroundColor3=Colors.SectionBorder,BorderSizePixel=0,LayoutOrder=1,ZIndex=195})
+    local Object={Gui=Gui,Root=Root,Body=Body,Border=Border,Outline=Outline,Shadow=Shadow,Row=Row,Title=Title,Separator=Separator,Buttons={},Mode=tostring(self.Settings.TaskbarMode or "Bar"),PositionInitialized=false}
+    local function WidthFor(Text) return math.max(24,math.ceil(TextService:GetTextSize(string.lower(tostring(Text)),11,Enum.Font.SourceSans,Vector2.new(1000,20)).X)+10) end
     local function RequestedMenu() local W=Library.ActiveWindow return W and W:IsRequestedVisible() or false end
     local function RequestedPlayers() local C=Library.PlayerListController return C and C.RequestedVisible==true or false end
     local function RequestedTheme() local C=Library.ThemePanelController return C and C.RequestedVisible==true or false end
@@ -3121,14 +3162,15 @@ function Library:Panel(Data)
     local function RequestedWatermark() local C=Library.WatermarkController return C and C.RequestedVisible==true or false end
     local function Paint(Entry,State)
         Entry.Active=State==true
-        Entry.Label.TextColor3=Entry.Active and Accent() or Colors.TextDim
-        Entry.Frame.BackgroundTransparency=Entry.Hovered and 0.2 or 1
+        Entry.Label.TextColor3=Entry.Active and Accent() or Entry.Hovered and Colors.TextBright or Colors.TextDim
         Entry.Frame.BackgroundColor3=Colors.Control
-        local Stroke=Entry.Frame:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Enabled=Entry.Hovered or Entry.Active Stroke.Color=Entry.Active and AccentBorder() or Colors.SectionBorder end
+        Entry.Frame.BackgroundTransparency=Entry.Active and 0.48 or Entry.Hovered and 0.68 or 1
+        local Stroke=Entry.Frame:FindFirstChildOfClass("UIStroke")
+        if Stroke then Stroke.Enabled=Entry.Active or Entry.Hovered Stroke.Color=Entry.Active and AccentBorder() or Colors.SectionBorder end
     end
     local function Make(Name,Order,StateFn,Callback)
-        local Frame=Create("Frame",{Parent=Row,Size=UDim2.fromOffset(WidthFor(Name),19),BackgroundColor3=Colors.Control,BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=Order,ZIndex=195},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Enabled=false})})
-        local Label=Create("TextLabel",{Parent=Frame,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=Name,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=196})
+        local Frame=Create("Frame",{Parent=Row,Size=UDim2.fromOffset(WidthFor(Name),16),BackgroundColor3=Colors.Control,BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=Order,ZIndex=195},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Enabled=false})})
+        local Label=Create("TextLabel",{Parent=Frame,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=string.lower(Name),TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=196})
         local Hit=Create("TextButton",{Parent=Frame,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=197})
         local Entry={Frame=Frame,Label=Label,Hit=Hit,StateFn=StateFn,Hovered=false,Active=false}
         Bind(Hit.MouseEnter:Connect(function() Entry.Hovered=true Object.Refresh() end))
@@ -3138,44 +3180,41 @@ function Library:Panel(Data)
         return Entry
     end
     function Object.Fit()
-        if Object.Mode~="Compact" then return end
-        local Layout=Row:FindFirstChildOfClass("UIListLayout") local W=Layout and Layout.AbsoluteContentSize.X or 0
-        Root.Size=UDim2.fromOffset(math.max(90,math.ceil(W)+14),Height)
+        local Layout=Row:FindFirstChildOfClass("UIListLayout")
+        local Width=Layout and Layout.AbsoluteContentSize.X or 0
+        Root.Size=UDim2.fromOffset(math.max(150,math.ceil(Width)+16),Height)
     end
-    local Layout=Row:FindFirstChildOfClass("UIListLayout") if Layout then Bind(Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Object.Fit)) end
+    local Layout=Row:FindFirstChildOfClass("UIListLayout")
+    if Layout then Bind(Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Object.Fit)) end
     function Object.Refresh()
-        Title.Text=string.format("atramenta.rip %s",os.date("%d.%m.%y"))
+        Title.Text="atramenta.rip"
         if Object.Buttons.Menu then Paint(Object.Buttons.Menu,RequestedMenu()) end
         if Object.Buttons.Players then Paint(Object.Buttons.Players,RequestedPlayers()) end
         if Object.Buttons.Theme then Paint(Object.Buttons.Theme,RequestedTheme()) end
         if Object.Buttons.Config then Paint(Object.Buttons.Config,RequestedConfiguration()) end
         if Object.Buttons.Binds then Paint(Object.Buttons.Binds,RequestedBinds()) end
         if Object.Buttons.Watermark then Paint(Object.Buttons.Watermark,RequestedWatermark()) end
+        Object.Fit()
     end
-    Make("Menu",1,RequestedMenu,function() local W=Library.ActiveWindow if W then W:SetVisible(not W.Visible) end end)
-    Make("Players",2,RequestedPlayers,function() local C=Library.PlayerListController if C then C:SetVisibility(not C.RequestedVisible) end end)
-    Make("Theme",3,RequestedTheme,function() local C=Library:ThemePanel() C:Toggle() end)
-    Make("Config",4,RequestedConfiguration,function() local C=Library:ConfigurationPanel() C:Toggle() end)
-    Make("Binds",5,RequestedBinds,function() local C=Library.KeybindListController if C then C:SetVisibility(not C.RequestedVisible) end end)
-    Make("Watermark",6,RequestedWatermark,function() local C=Library.WatermarkController if C then C:SetVisibility(not C.RequestedVisible) end end)
+    Make("Menu",10,RequestedMenu,function() local W=Library.ActiveWindow if W then W:SetVisible(not W.Visible) end end)
+    Make("Players",11,RequestedPlayers,function() local C=Library.PlayerListController if C then C:SetVisibility(not C.RequestedVisible) end end)
+    Make("Theme",12,RequestedTheme,function() local C=Library:ThemePanel() C:Toggle() end)
+    Make("Config",13,RequestedConfiguration,function() local C=Library:ConfigurationPanel() C:Toggle() end)
+    Make("Binds",14,RequestedBinds,function() local C=Library.KeybindListController if C then C:SetVisibility(not C.RequestedVisible) end end)
+    Make("Watermark",15,RequestedWatermark,function() local C=Library.WatermarkController if C then C:SetVisibility(not C.RequestedVisible) end end)
+    MakeDraggable(Root,Title,Gui)
+    local function CenterTaskbar()
+        Object.Fit()
+        local Viewport=GetViewportSize(Gui)
+        local Width=Root.AbsoluteSize.X
+        Root.Position=UDim2.fromOffset(math.max(4,math.floor((Viewport.X-Width)*0.5)),6)
+        Object.PositionInitialized=true
+    end
     function Object:SetMode(Mode)
         Mode=tostring(Mode or "Bar") if Mode~="Compact" then Mode="Bar" end
         Object.Mode=Mode Library.Settings.TaskbarMode=Mode
-        local Compact=Mode=="Compact"
-        Body.Visible=not Compact Border.Visible=not Compact Outline.Visible=not Compact PanelOuter.Visible=Compact
-        Row.Parent=Compact and PanelBody or Body
-        Row.Position=UDim2.fromOffset(5,0) Row.Size=UDim2.new(1,-5,1,0)
-        if Compact then
-            if not Object.DragHandle then
-                local Handle=Create("TextButton",{Parent=Root,Name="DragHandle",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=0,Active=true})
-                MakeDraggable(Root,Handle,Gui) Object.DragHandle=Handle
-            end
-            Object.DragHandle.Visible=true Root.Position=UDim2.fromOffset(math.max(4,math.floor(GetViewportSize(Gui).X*0.5-200)),8) Object.Fit()
-        else
-            if Object.DragHandle then Object.DragHandle.Visible=false end
-            Root.Position=UDim2.fromOffset(0,0) Root.Size=UDim2.new(1,0,0,Height)
-        end
         Object.Refresh()
+        if not Object.PositionInitialized then task.defer(function() if Root and Root.Parent and not Object.PositionInitialized then CenterTaskbar() end end) end
     end
     function Object:SetTaskbarVisible(State) Library.Settings.ShowTaskbar=State==true Root.Visible=Library.InterfaceOpen~=false and Library.Settings.ShowTaskbar~=false end
     function Object:SetWindowsVisible(State)
@@ -3194,11 +3233,11 @@ function Library:Panel(Data)
     end
     function Object:ToggleInterface() Object:SetInterfaceVisible(not (Library.InterfaceOpen~=false)) end
     function Object:IsVisible() return Root.Visible==true end
-    BindFrameToViewport(Root,Gui,0)
+    BindFrameToViewport(Root,Gui,4)
     RegisterRenderer(function()
-        SyncThemeColors() Body.BackgroundColor3=Colors.Bg Border.BackgroundColor3=Colors.SectionBorder PanelBorder.BackgroundColor3=Colors.SectionBorder PanelBody.BackgroundColor3=Colors.Bg Title.TextColor3=Colors.TextBright
+        SyncThemeColors()
+        Body.BackgroundColor3=Colors.Bg Border.BackgroundColor3=Colors.SectionBorder Outline.BackgroundColor3=Color3.new() Separator.BackgroundColor3=Colors.SectionBorder Title.TextColor3=Colors.TextBright
         local BG=Body:FindFirstChildOfClass("UIGradient") if BG then BG.Color=ColorSequence.new(Colors.Control,Colors.Bg) end
-        local PG=PanelBody:FindFirstChildOfClass("UIGradient") if PG then PG.Color=ColorSequence.new(Colors.Control,Colors.Bg) end
         Object.Refresh()
     end)
     task.spawn(function() while Root and Root.Parent do Object.Refresh() task.wait(30) end end)
