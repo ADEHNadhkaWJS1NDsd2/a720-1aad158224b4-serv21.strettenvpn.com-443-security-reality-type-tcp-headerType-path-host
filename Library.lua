@@ -1717,6 +1717,12 @@ local function AddControl(Section, Object)
     return Object
 end
 
+local function ThemeMultiply(Color, Factor)
+    if typeof(Color) ~= "Color3" then return Color3.new(1, 1, 1) end
+    Factor = tonumber(Factor) or 1
+    return Color3.new(math.clamp(Color.R * Factor, 0, 1), math.clamp(Color.G * Factor, 0, 1), math.clamp(Color.B * Factor, 0, 1))
+end
+
 local function MakeColorpicker(Section, Row, Data, RightOffset)
     Data = Data or {}
     local Default = Data.Default
