@@ -13,6 +13,38 @@ Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,C
 Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}
 Library.ThemePresets = {}
 Library.Descriptions = {}
+Library.Settings = {
+    MenuTransition="Fade", TweenDuration=0.18, TweenStyle="Quad", PersistWatermark=true,
+    TaskbarMode="Bar", ShowTaskbar=true, ShowWindows=true, ThemeAccentOnly=false,
+    NotificationCorner="TopRight", NotificationDuration=3, NotificationSmoothness=0.22,
+    AccentAnimation="Off", AccentAnimationSpeed=1, WindowBinds={},
+    LuaAutoScroll=true, LuaLineNumbers=true, LuaHighlightLine=true, LuaCaretBlink=true,
+    LuaFontSize=11, LuaIndentSize=4, LuaAutoIndent=true,
+    Font="SourceSans", ButtonHighlight="Hover", ButtonTweenDuration=0.12,
+    PickerGradient=true, PickerGradientShade=0.45,
+    FontSizeOverride=0, FontRowOverride=-1, FontInkOverride=1
+}
+Library.SwatchGradients = {}
+Library.OptimizedPaletteOrder = {"Purple","Abyss","Fatality","Neverlose","Aimware","Youtube","Gamesense","Onetap","Entropy","Interwebz","Dracula","Spotify","Sublime","Vape","Neko","Corn","Minecraft"}
+Library.OptimizedPalettes = {
+    Purple="000000 5d3e98 ffffff afafaf 1e1e1e 0a0a0a 141414 000000 323232",
+    Abyss="0a0a0a 8c87b4 ffffff afafaf 1e1e1e 141414 141414 0a0a0a 2d2d2d",
+    Fatality="0f0f28 f00f50 c8c8ff afafaf 231946 0f0f28 191432 0a0a0a 322850",
+    Neverlose="000005 00b4f0 ffffff afafaf 000f1e 0f0f28 050514 0a0a0a 0a1e28",
+    Aimware="000005 c82828 e8e8e8 afafaf 2b2b2b 191919 191919 0a0a0a 373737",
+    Youtube="000000 ff0000 f1f1f1 aaaaaa 232323 121212 0f0f0f 121212 393939",
+    Gamesense="000000 a7d94d ffffff afafaf 171717 141414 0c0c0c 141414 282828",
+    Onetap="000000 dda85d d6d9e0 afafaf 2c3037 000000 1f2125 000000 4e5158",
+    Entropy="0a0a0a 81bbe9 dcdcdc afafaf 3d3a43 000000 302f37 000000 4c4a52",
+    Interwebz="1a1a1a c9654b fcfcfc a8a8a8 291f38 1a1a1a 1f162b 000000 40364f",
+    Dracula="202126 9a81b3 b4b4b8 88888b 2a2c38 202126 252730 2a2c38 3c384d",
+    Spotify="0a0a0a 1ed760 d0d0d0 949494 181818 000000 121212 000000 292929",
+    Sublime="000000 ff9800 e8ffff d3d3c2 32332d 000000 282923 000000 484944",
+    Vape="0a0a0a 26866a dcdcdc afafaf 1f1f1f 000000 1a1a1a 000000 363636",
+    Neko="000000 d21f6a ffffff afafaf 171717 0a0a0a 131313 000000 2d2d2d",
+    Corn="000000 ff9000 dcdcdc afafaf 252525 000000 191919 000000 333333",
+    Minecraft="000000 27ce40 ffffff d7d7d7 333333 000000 262626 000000 333333"
+}
 
 function Library:SetDescription(Key, Description)
     Key = tostring(Key or "")
@@ -90,6 +122,27 @@ Library.ThemePresets["Crimson"] = {
     TextDim = Color3.fromRGB(83, 68, 71),
     Header = Color3.fromRGB(147, 115, 121)
 }
+
+local function ThemeHex(Value)
+    Value=tostring(Value or ""):gsub("#","")
+    if #Value~=6 then return Color3.new() end
+    return Color3.fromRGB(tonumber(Value:sub(1,2),16) or 0,tonumber(Value:sub(3,4),16) or 0,tonumber(Value:sub(5,6),16) or 0)
+end
+local function ThemeMultiply(Color,Factor)
+    Factor=tonumber(Factor) or 1
+    return Color3.new(math.clamp(Color.R*Factor,0,1),math.clamp(Color.G*Factor,0,1),math.clamp(Color.B*Factor,0,1))
+end
+function Library:ExpandOptimizedPalette(Name)
+    local Packed=self.OptimizedPalettes[tostring(Name or "")]
+    if not Packed then return nil end
+    local Parts=string.split(Packed," ")
+    local Outline,AccentColor,LightText,DarkText,LightContrast,CursorOutline,DarkContrast,TextBorder,Inline=ThemeHex(Parts[1]),ThemeHex(Parts[2]),ThemeHex(Parts[3]),ThemeHex(Parts[4]),ThemeHex(Parts[5]),ThemeHex(Parts[6]),ThemeHex(Parts[7]),ThemeHex(Parts[8]),ThemeHex(Parts[9])
+    return {Accent=AccentColor,Background=DarkContrast,Surface=CursorOutline,Control=LightContrast,Border=Inline,Text=DarkText,TextBright=LightText,TextDim=ThemeMultiply(DarkText,0.72),Header=DarkText,Outline=Outline,TextBorder=TextBorder}
+end
+for _,PaletteName in ipairs(Library.OptimizedPaletteOrder) do
+    local Expanded=Library:ExpandOptimizedPalette(PaletteName)
+    if Expanded then Library.ThemePresets[PaletteName]=Expanded end
+end
 
 local function Call(Function, ...)
     if type(Function) ~= "function" then return false, nil end
@@ -288,6 +341,42 @@ end
 local function AccentBorder()
     local H, S, V = Color3.toHSV(Accent())
     return Color3.fromHSV(H, S, V * 0.82)
+end
+
+function Library:RefreshSwatchGradients()
+    for Index=#self.SwatchGradients,1,-1 do
+        local Fn=self.SwatchGradients[Index]
+        if type(Fn)=="function" then
+            local Ok=Call(Fn)
+            if not Ok then table.remove(self.SwatchGradients,Index) end
+        else
+            table.remove(self.SwatchGradients,Index)
+        end
+    end
+end
+
+function Library:ApplyFontSetting()
+    local FontName=tostring((self.Settings or {}).Font or "SourceSans")
+    local FontValue=Enum.Font[FontName] or Enum.Font.SourceSans
+    local Override=tonumber((self.Settings or {}).FontSizeOverride) or 0
+    for _,Gui in ipairs(self.Guis or {}) do
+        if Gui and Gui.Parent then
+            for _,Object in ipairs(Gui:GetDescendants()) do
+                if Object:IsA("TextLabel") or Object:IsA("TextButton") or Object:IsA("TextBox") then
+                    Object.Font=FontValue
+                    if Override>0 then Object.TextSize=math.clamp(Override,8,24) end
+                end
+            end
+        end
+    end
+end
+
+function Library:SetNotificationCorner(Corner)
+    Corner=tostring(Corner or "TopRight")
+    local Map={TopLeft=Vector2.new(0.06,0.08),TopRight=Vector2.new(0.94,0.08),BottomLeft=Vector2.new(0.06,0.92),BottomRight=Vector2.new(0.94,0.92)}
+    if not Map[Corner] then Corner="TopRight" end
+    self.Settings.NotificationCorner=Corner
+    self:SetNotificationLayout(Map[Corner])
 end
 
 local ThemeFlagMap = {
@@ -1475,8 +1564,16 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
     RightOffset = math.max(tonumber(RightOffset) or 0, 0)
     local ButtonPosition = TallRow and UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0, 1) or UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0.5, -6)
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(ControlLayout.ColorWidth, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Active = true, Text = "", ZIndex = 50}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
+    local SwatchGradient=Create("UIGradient",{Parent=Button,Rotation=90,Enabled=Library.Settings.PickerGradient~=false})
     Library.ThemeBindings[Button] = nil
-    local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag}
+    local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag, Gradient=SwatchGradient}
+    local function RefreshSwatch()
+        if not Button or not Button.Parent then return end
+        local Depth=math.clamp(tonumber(Library.Settings.PickerGradientShade) or 0.45,0.1,1)
+        SwatchGradient.Enabled=Library.Settings.PickerGradient~=false
+        SwatchGradient.Color=ColorSequence.new(Object.Color,ThemeMultiply(Object.Color,Depth))
+    end
+    Library.SwatchGradients[#Library.SwatchGradients+1]=RefreshSwatch
     function Object:Set(Color, Alpha, FromPicker)
         if type(Color) == "table" and typeof(Color.Color) == "Color3" then
             Alpha = 1 - math.clamp(tonumber(Color.Transparency) or 0, 0, 1)
@@ -1488,10 +1585,12 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
         Library.Flags[Flag] = Object.Color
         Library.ColorpickerStates[Flag] = {Color = Object.Color, Transparency = 1 - Object.Alpha}
         Button.BackgroundColor3 = Object.Color
+        RefreshSwatch()
         if type(Data.Callback) == "function" then Call(Data.Callback, Object.Color, Object.Alpha) end
     end
     function Object:Get() return Object.Color end
     Library.ColorpickerStates[Flag] = {Color = InitialColor, Transparency = 1 - InitialAlpha}
+    RefreshSwatch()
     RegisterFlag(Flag, InitialColor, function(Value) Object:Set(Value) end)
     Bind(Button.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then Section.Window:BlockControlInput(0.25) end
@@ -1813,9 +1912,20 @@ function SectionMethods:Button(Data, Callback)
     local AccentLine = Create("Frame", {Parent = Frame, Size = UDim2.new(0, 1, 1, -2), Position = UDim2.fromOffset(1, 1), AnchorPoint = Vector2.zero, BackgroundColor3 = Accent(), Visible = false, BorderSizePixel = 0, ZIndex = 2})
     local Label = Create("TextLabel", {Parent = Frame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = tostring(Data.Name or "button"), TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 13})
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false})
-    Bind(Button.MouseEnter:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Enabled = true AccentLine.Visible = true Label.TextColor3 = Colors.TextBright end))
-    Bind(Button.MouseLeave:Connect(function() Frame:FindFirstChildOfClass("UIStroke").Enabled = false AccentLine.Visible = false Label.TextColor3 = Colors.Text end))
-    Bind(Button.MouseButton1Click:Connect(function() if not self.Window:IsControlInputBlocked() and type(Data.Callback) == "function" then Call(Data.Callback) end end))
+    local Hovered,Pressed=false,false
+    local function PaintButton()
+        local Mode=tostring(Library.Settings.ButtonHighlight or "Hover")
+        local Active=(Mode=="Hover" and Hovered) or (Mode=="Press" and Pressed) or (Mode=="Both" and (Hovered or Pressed))
+        local Stroke=Frame:FindFirstChildOfClass("UIStroke")
+        if Stroke then Stroke.Enabled=Active end
+        AccentLine.Visible=Active
+        Label.TextColor3=Active and Colors.TextBright or Colors.Text
+    end
+    Bind(Button.MouseEnter:Connect(function() Hovered=true PaintButton() end))
+    Bind(Button.MouseLeave:Connect(function() Hovered=false Pressed=false PaintButton() end))
+    Bind(Button.MouseButton1Down:Connect(function() Pressed=true PaintButton() end))
+    Bind(Button.MouseButton1Up:Connect(function() Pressed=false PaintButton() end))
+    Bind(Button.MouseButton1Click:Connect(function() Pressed=false PaintButton() if not self.Window:IsControlInputBlocked() and type(Data.Callback) == "function" then Call(Data.Callback) end end))
     RegisterRenderer(function() AccentLine.BackgroundColor3 = Accent() end)
     local HelpIcon, HelpRightOffset = AttachControlDescription(self.Window, Row, Data, 0, nil)
     local Object = {Section = self, Row = Row, Button = Button, Hitbox = Button, Frame = Frame, Label = Label, RightOffset = HelpRightOffset, HelpIcon = HelpIcon, LabelSymmetric = true}
@@ -2121,6 +2231,7 @@ function Library:GetConfig()
         Interface.ConfigurationVisible = self.ConfigurationPanelController.RequestedVisible == true
     end
     Interface.Theme = CloneValue(self.Theme)
+    Interface.Settings = CloneValue(self.Settings)
     Interface.MenuBind = self.MenuBindData and {Key = self.MenuBindData.Key, Modifiers = CopyModifiers(self.MenuBindData.Modifiers)} or {Key = self.MenuKeybind, Modifiers = EmptyModifiers()}
     Interface.NotificationPoint = typeof(self.NotificationPoint) == "Vector2" and self.NotificationPoint or Vector2.new(0.94, 0.08)
 
@@ -2224,6 +2335,16 @@ function Library:LoadConfig(Source)
             for Key, Value in pairs(Interface.Theme) do if typeof(Value) == "Color3" then self.Theme[Key] = Value end end
             self:RefreshThemeNow()
         elseif typeof(Interface.Accent) == "Color3" then self.Theme.Accent = Interface.Accent end
+        if type(Interface.Settings)=="table" then
+            for Key,Value in pairs(Interface.Settings) do if self.Settings[Key]~=nil then self.Settings[Key]=CloneValue(Value) end end
+            self.NotificationSettings.DefaultDuration=tonumber(self.Settings.NotificationDuration) or self.NotificationSettings.DefaultDuration
+            if type(self.ApplyFontSetting)=="function" then self:ApplyFontSetting() end
+            if type(self.RefreshSwatchGradients)=="function" then self:RefreshSwatchGradients() end
+            if type(self.SetNotificationCorner)=="function" then self:SetNotificationCorner(self.Settings.NotificationCorner) end
+            if type(self.SetTaskbarMode)=="function" then self:SetTaskbarMode(self.Settings.TaskbarMode) end
+            if type(self.SetTaskbarVisible)=="function" then self:SetTaskbarVisible(self.Settings.ShowTaskbar~=false) end
+            if type(self.SetWindowsVisible)=="function" then self:SetWindowsVisible(self.Settings.ShowWindows~=false) end
+        end
         if self.ActiveWindow and self.ActiveWindow.Main then
             if typeof(Interface.MainSize) == "UDim2" then self.ActiveWindow.Main.Size = Interface.MainSize end
             if typeof(Interface.MainPosition) == "UDim2" then self.ActiveWindow.Main.Position = Interface.MainPosition end
@@ -2473,7 +2594,7 @@ function Library:ConfigurationPanel()
         if Library:DeleteConfig(Name) then SetSelected(nil) NameBox:Set("",true) Refresh(false) Notify(Name.." deleted") else Notify("failed to delete "..Name) end
     end})
 
-    Library.MenuBindData=Interface:Keybind({Name="menu",Flag="__AtramentaMenuBind",Default=Enum.KeyCode.F2,Mode="Toggle",Callback=function() end})
+    if not Library.MenuBindData then Library.MenuBindData=Interface:Keybind({Name="menu",Flag="__AtramentaMenuBind",Default=Enum.KeyCode.F2,Mode="Toggle",Callback=function() end}) end
     Interface:Button({Name="unload",Callback=function() Library.Unload() end})
 
     -- Keep interface/theme flags registered so old configs remain compatible.
@@ -2830,45 +2951,20 @@ function Library:ThemePanel()
     local Existing=self.ThemePanelController
     if Existing and Existing.Gui and Existing.Gui.Parent and Existing.Frame and Existing.Frame.Parent then return Existing end
     if Existing and Existing.Gui and Existing.Gui.Parent then Existing.Gui:Destroy() end
-
     local Parent=ParentGui()
     local Gui=Create("ScreenGui",{Name="AtramentaThemePanel",Parent=Parent,ResetOnSpawn=false,DisplayOrder=195,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui
-
     local Width,Height=640,470
-    local Main=Create("Frame",{
-        Parent=Gui,Size=UDim2.fromOffset(Width,Height),
-        Position=UDim2.new(0.5,-math.floor(Width/2),0.5,-math.floor(Height/2)),
-        BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ClipsDescendants=false
-    },{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
-
-    local TitleBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true},{
-        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(28,28,32)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0))})}),
-        Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
-    })
+    local Main=Create("Frame",{Parent=Gui,Size=UDim2.fromOffset(Width,Height),Position=UDim2.new(0.5,-Width/2,0.5,-Height/2),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ClipsDescendants=false},{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
+    local TitleBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new(Color3.fromRGB(28,28,32),Color3.new())}),Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})})
     local TitleLabel=Create("TextLabel",{Parent=TitleBar,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Theme",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,ZIndex=4})
     local Content=Create("Frame",{Parent=Main,Position=UDim2.fromOffset(0,22),Size=UDim2.new(1,0,1,-48),BackgroundTransparency=1,ClipsDescendants=false})
-    local TabBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,26),Position=UDim2.new(0,0,1,-26),BackgroundColor3=Colors.TabBg,BorderSizePixel=0},{
-        Create("UICorner",{CornerRadius=UDim.new(0,4)}),
-        Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})}),
-        Create("Frame",{Size=UDim2.new(1,0,0,6),BackgroundColor3=Colors.TabBg,BorderSizePixel=0,ZIndex=0})
-    })
-
-    local Object=setmetatable({
-        Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,
-        Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,
-        RequestedVisible=false,Visible=false,MenuVisible=true,Destroyed=false
-    },WindowMethods)
-
+    local TabBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,26),Position=UDim2.new(0,0,1,-26),BackgroundColor3=Colors.TabBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})}),Create("Frame",{Size=UDim2.new(1,0,0,6),BackgroundColor3=Colors.TabBg,BorderSizePixel=0,ZIndex=0})})
+    local Object=setmetatable({Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,RequestedVisible=false,Visible=false,MenuVisible=true,Destroyed=false},WindowMethods)
     function Object:ApplyVisibility()
-        local State=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
-        Object.Visible=State
-        Main.Visible=State
+        local State=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false
+        Object.Visible=State Main.Visible=State
         if not State then Object:CloseDropdown() Object:ClosePicker() Object:CloseTooltip() end
-        if type(Library.SetNotificationPreviewVisible)=="function" then
-            local Window=Library.ActiveWindow
-            Library:SetNotificationPreviewVisible(State or (Window and Window:IsVisible()) or false)
-        end
         if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
     end
     function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
@@ -2876,527 +2972,241 @@ function Library:ThemePanel()
     function Object:IsVisible() return Main.Visible==true end
     function Object:IsRequestedVisible() return Object.RequestedVisible==true end
     function Object:Toggle() Object:SetVisibility(not Object.RequestedVisible) end
-    function Object:Destroy()
-        if Object.Destroyed then return end
-        Object.Destroyed=true
-        if Gui and Gui.Parent then Gui:Destroy() end
-        if Library.ThemePanelController==Object then Library.ThemePanelController=nil end
-    end
-
+    function Object:Destroy() if Object.Destroyed then return end Object.Destroyed=true if Gui and Gui.Parent then Gui:Destroy() end if Library.ThemePanelController==Object then Library.ThemePanelController=nil end end
     self.ThemePanelController=Object
-    CreatePopupLayer(Object)
-    MakeDraggable(Main,TitleBar,Gui)
-    MakeResizable(Object,Vector2.new(580,410))
-    BindFrameToViewport(Main,Gui,4)
-
-    local function SetFlagValue(Flag,Value)
-        local Setter=Library.Setters[Flag]
-        if type(Setter)=="function" then Call(Setter,Value) else Library.Flags[Flag]=Value end
-    end
-    local function Notify(Text)
-        Library:Notification({Title="theme",Description=tostring(Text),Duration=1.8})
-    end
-    local function RefreshKeybindPanel()
-        local Controller=Library.KeybindListController
-        if Controller and type(Controller.Refresh)=="function" then Controller:Refresh() end
-    end
-    local function ApplyPanelSize()
-        local Controller=Library.PanelController or Library.QuickPanelController
-        local Root=Controller and Controller.Root
-        if Library.Flags.__ThemePanelWidth==nil and Library.Flags.__ThemeQuickPanelWidth~=nil then Library.Flags.__ThemePanelWidth=Library.Flags.__ThemeQuickPanelWidth end
-        if Library.Flags.__ThemePanelHeight==nil and Library.Flags.__ThemeQuickPanelHeight~=nil then Library.Flags.__ThemePanelHeight=Library.Flags.__ThemeQuickPanelHeight end
-        if not Root or not Root.Parent then return end
-        local W=math.clamp(tonumber(Library.Flags.__ThemePanelWidth) or 330,300,500)
-        local H=math.clamp(tonumber(Library.Flags.__ThemePanelHeight) or 29,24,44)
-        Root.Size=UDim2.fromOffset(W,H)
-    end
-
-    -- COLORS: only the library's native Colorpicker controls.
+    CreatePopupLayer(Object) MakeDraggable(Main,TitleBar,Gui) MakeResizable(Object,Vector2.new(520,360)) BindFrameToViewport(Main,Gui,4)
+    local function Notify(Text) Library:Notification({Title="theme",Description=tostring(Text),Duration=1.8}) end
     local ColorsPage=Object:Page({Name="Colors"})
-    local BaseColors=ColorsPage:Section({Name="base",Side=1})
-    local TextColors=ColorsPage:Section({Name="text",Side=2})
+    local PaletteLeft=ColorsPage:Section({Name="palette",Side=1})
+    local PaletteRight=ColorsPage:Section({Name="more",Side=2})
+    local ThemeKeys={"Accent","Background","Surface","Control","Border","Text","TextBright","TextDim","Header"}
     local ColorControls={}
-    local function ThemeColor(Section,Name,Key,Flag)
-        local Picker=Section:Colorpicker({Name=Name,Flag=Flag,Default=Library.Theme[Key],Callback=function(Value)
-            if typeof(Value)=="Color3" then Library:ChangeTheme(Key,Value) end
-        end})
-        ColorControls[Key]=Picker
-        return Picker
+    for Index,Key in ipairs(ThemeKeys) do
+        local Section=Index<=math.ceil(#ThemeKeys/2) and PaletteLeft or PaletteRight
+        ColorControls[Key]=Section:Colorpicker({Name=Key,Flag="__Theme"..Key,Default=Library.Theme[Key],Callback=function(Value) if typeof(Value)=="Color3" then Library:ChangeTheme(Key,Value) end end})
     end
-    ThemeColor(BaseColors,"accent","Accent","__ThemeAccent")
-    ThemeColor(BaseColors,"background","Background","__ThemeBackground")
-    ThemeColor(BaseColors,"surface","Surface","__ThemeSurface")
-    ThemeColor(BaseColors,"controls","Control","__ThemeControl")
-    ThemeColor(BaseColors,"border","Border","__ThemeBorder")
-    BaseColors:Button({Name="reset colors",Callback=function()
-        Library:ApplyThemePreset(Library.ThemePresets.Atramenta)
-        Notify("colors reset")
-    end})
-    ThemeColor(TextColors,"text","Text","__ThemeText")
-    ThemeColor(TextColors,"bright text","TextBright","__ThemeTextBright")
-    ThemeColor(TextColors,"muted text","TextDim","__ThemeTextDim")
-    ThemeColor(TextColors,"section text","Header","__ThemeHeader")
+    PaletteLeft:Button({Name="reset colors",Callback=function() Library:ApplyThemePreset(Library.ThemePresets.Atramenta) Notify("colors reset") end})
 
-    local function RefreshThemeColorControls()
-        for Key,Picker in pairs(ColorControls) do
-            local Value=Library.Theme[Key]
-            if Picker and typeof(Value)=="Color3" then
-                Picker.Color=Value
-                if Picker.Button and Picker.Button.Parent then Picker.Button.BackgroundColor3=Value end
-                Library.Flags[Picker.Flag]=Value
-            end
-        end
-    end
-    RegisterRenderer(RefreshThemeColorControls)
-
-    -- THEMES: native Dropdown/Textbox/Listbox/Button controls.
     local ThemesPage=Object:Page({Name="Themes"})
-    local Presets=ThemesPage:Section({Name="presets",Side=1})
-    local Custom=ThemesPage:Section({Name="custom themes",Side=2})
+    local ThemeList=ThemesPage:Section({Name="themes",Side=1})
+    local ThemeTools=ThemesPage:Section({Name="options",Side=2})
     local PresetNames={"Atramenta","Bankroll","Midnight","Crimson"}
+    for _,Name in ipairs(Library.OptimizedPaletteOrder) do PresetNames[#PresetNames+1]=Name end
     local SelectedPreset="Atramenta"
-    Presets:Dropdown({Name="preset",Flag="__ThemePresetChoice",Default=SelectedPreset,Items=PresetNames,Callback=function(Value)
-        SelectedPreset=tostring(Value or "Atramenta")
-    end})
-    Presets:Button({Name="apply preset",Callback=function()
+    ThemeList:Dropdown({Name="preset",Flag="__ThemePresetChoice",Default=SelectedPreset,Items=PresetNames,Callback=function(Value) SelectedPreset=tostring(Value or "Atramenta") end})
+    ThemeTools:Toggle({Name="accent only",Flag="__ThemeAccentOnly",Default=Library.Settings.ThemeAccentOnly==true,Callback=function(Value) Library.Settings.ThemeAccentOnly=Value==true end})
+    ThemeTools:Button({Name="apply",Callback=function()
         local Preset=Library.ThemePresets[SelectedPreset]
-        if Preset and Library:ApplyThemePreset(Preset) then RefreshThemeColorControls() Notify(string.lower(SelectedPreset).." loaded") end
+        if not Preset then return end
+        if Library.Settings.ThemeAccentOnly then if typeof(Preset.Accent)=="Color3" then Library:ChangeTheme("Accent",Preset.Accent) end else Library:ApplyThemePreset(Preset) end
+        Notify("theme "..SelectedPreset)
     end})
-    Presets:Button({Name="atramenta default",Callback=function()
-        SelectedPreset="Atramenta"
-        Library:ApplyThemePreset(Library.ThemePresets.Atramenta)
-        RefreshThemeColorControls()
-        Notify("atramenta loaded")
-    end})
-
-    local NameBox=Custom:Textbox({Name="theme name",Flag="__ThemeCustomName",Default="my_theme",Placeholder="theme name"})
-    local ThemeList
-    local function ListCustomThemes()
-        EnsureFolders()
-        if type(listfiles)~="function" then return {} end
-        local Ok,Files=Call(listfiles,Library.Folders.Themes)
-        if not Ok or type(Files)~="table" then return {} end
-        local Result,Seen={},{}
-        for _,Path in ipairs(Files) do
-            local Name=tostring(Path):gsub("\\","/"):match("([^/]+)%.json$")
-            if Name and Name~="" and not Seen[Name] then Seen[Name]=true Result[#Result+1]=Name end
+    ThemeTools:Button({Name="default",Callback=function() Library.Settings.ThemeAccentOnly=false Library:ApplyThemePreset(Library.ThemePresets.Atramenta) Notify("default theme") end})
+    local CustomName=ThemeList:Textbox({Name="theme name",Flag="__ThemeCustomName",Default="my_theme",Placeholder="theme name"})
+    local CustomList=ThemeList:Listbox({Items={},Height=190})
+    local SelectedCustom=nil
+    CustomList=CustomList
+    local function RefreshCustom()
+        local Items={}
+        if type(listfiles)=="function" then
+            EnsureFolders()
+            local Ok,Files=Call(listfiles,Library.Folders.Themes)
+            if Ok and type(Files)=="table" then for _,File in ipairs(Files) do local Name=tostring(File):match("([^/\\]+)%.json$") if Name then Items[#Items+1]=Name end end end
         end
-        table.sort(Result,function(A,B) return string.lower(A)<string.lower(B) end)
-        return Result
+        table.sort(Items,function(A,B) return A:lower()<B:lower() end)
+        CustomList:SetItems(Items)
+        return Items
     end
-    local function RefreshThemeList(SelectName)
-        if not ThemeList then return end
-        local Items=ListCustomThemes()
-        ThemeList:SetItems(Items)
-        if SelectName and table.find(Items,SelectName) then ThemeList:Set(SelectName) end
-    end
-    ThemeList=Custom:Listbox({Height=112,Items={},Callback=function(Value) if Value then NameBox:Set(tostring(Value),true) end end})
-    Custom:Button({Name="refresh",Callback=function() RefreshThemeList() end})
-    Custom:Button({Name="save current",Callback=function()
-        local Name=tostring(NameBox:Get() or "")
-        if Library:SaveCustomTheme(Name) then RefreshThemeList(Name:gsub("%s+","_")) Notify("saved "..Name) else Notify("failed to save theme") end
-    end})
-    Custom:Button({Name="load selected",Callback=function()
-        local Name=ThemeList:Get() or NameBox:Get()
-        if Library:LoadCustomTheme(Name) then RefreshThemeColorControls() Notify("loaded "..tostring(Name)) else Notify("failed to load theme") end
-    end})
-    Custom:Button({Name="delete selected",Callback=function()
-        local Name=ThemeList:Get() or NameBox:Get()
-        if Library:DeleteCustomTheme(Name) then RefreshThemeList() Notify("deleted "..tostring(Name)) else Notify("failed to delete theme") end
-    end})
-    task.defer(RefreshThemeList)
+    local OldCustomCallback=nil
+    ThemeTools:Button({Name="refresh list",Callback=RefreshCustom})
+    ThemeTools:Button({Name="save current",Callback=function() local Name=CustomName:Get() if Library:SaveCustomTheme(Name) then RefreshCustom() Notify("saved "..Name) else Notify("save failed") end end})
+    ThemeTools:Button({Name="load selected",Callback=function() local Name=CustomList:Get() or CustomName:Get() if Library:LoadCustomTheme(Name) then Notify("loaded "..Name) else Notify("load failed") end end})
+    ThemeTools:Button({Name="delete selected",Callback=function() local Name=CustomList:Get() or CustomName:Get() if Library:DeleteCustomTheme(Name) then RefreshCustom() Notify("deleted "..Name) else Notify("delete failed") end end})
+    RefreshCustom()
 
-    -- UI: only settings that are actually connected to live UI objects.
     local UIPage=Object:Page({Name="UI"})
-    local WatermarkSection=UIPage:Section({Name="watermark",Side=1})
-    local PanelSection=UIPage:Section({Name="panel",Side=2})
-    local WatermarkToggle=WatermarkSection:Toggle({Name="enabled",Flag="__ThemePanelWatermark",Default=Library.Flags.__InterfaceWatermark~=false,Callback=function(Value)
-        Library.Flags.__InterfaceWatermark=Value==true
-        local Controller=Library.WatermarkController
-        if Controller and type(Controller.SetVisibility)=="function" then Controller:SetVisibility(Value==true) end
-    end})
-    local WatermarkScale=WatermarkSection:Slider({Name="scale",Flag="__ThemePanelWatermarkScale",Min=60,Max=160,Default=tonumber(Library.Flags.__InterfaceWatermarkScale) or 100,Step=5,Suffix="%",Callback=function(Value)
-        local Number=math.clamp(tonumber(Value) or 100,60,160)
-        Library.Flags.__InterfaceWatermarkScale=Number
-        local Controller=Library.WatermarkController
-        if Controller and type(Controller.SetScale)=="function" then Controller:SetScale(Number) end
-    end})
-    PanelSection:Slider({Name="width",Flag="__ThemePanelWidth",Min=300,Max=500,Default=tonumber(Library.Flags.__ThemePanelWidth) or 330,Step=2,Suffix=" px",Callback=function(Value)
-        Library.Flags.__ThemePanelWidth=Value ApplyPanelSize()
-    end})
-    PanelSection:Slider({Name="height",Flag="__ThemePanelHeight",Min=24,Max=44,Default=tonumber(Library.Flags.__ThemePanelHeight) or 29,Step=1,Suffix=" px",Callback=function(Value)
-        Library.Flags.__ThemePanelHeight=Value ApplyPanelSize()
-    end})
-    PanelSection:Button({Name="reset panel size",Callback=function()
-        local WSetter=Library.Setters.__ThemePanelWidth local HSetter=Library.Setters.__ThemePanelHeight
-        if type(WSetter)=="function" then Call(WSetter,330) else Library.Flags.__ThemePanelWidth=330 end
-        if type(HSetter)=="function" then Call(HSetter,29) else Library.Flags.__ThemePanelHeight=29 end
-        ApplyPanelSize()
-    end})
+    local Transition=UIPage:Section({Name="transitions",Side=1})
+    local Editor=UIPage:Section({Name="lua editor",Side=1})
+    local Font=UIPage:Section({Name="font",Side=2})
+    local Buttons=UIPage:Section({Name="buttons",Side=2})
+    local Swatches=UIPage:Section({Name="swatches",Side=2})
+    local Dock=UIPage:Section({Name="dock",Side=2})
+    Transition:Dropdown({Name="transition",Flag="__ThemeMenuTransition",Items={"Fade","Instant"},Default=Library.Settings.MenuTransition,Callback=function(Value) Library.Settings.MenuTransition=tostring(Value) end})
+    Transition:Slider({Name="duration",Flag="__ThemeTweenDuration",Min=0,Max=1,Step=0.02,Default=Library.Settings.TweenDuration,Suffix=" s",Callback=function(Value) Library.Settings.TweenDuration=Value end})
+    Transition:Dropdown({Name="easing",Flag="__ThemeTweenStyle",Items={"Quad","Quart","Sine","Back","Cubic","Exponential","Linear"},Default=Library.Settings.TweenStyle,Callback=function(Value) Library.Settings.TweenStyle=tostring(Value) end})
+    Editor:Toggle({Name="auto scroll to caret",Flag="__ThemeLuaAutoScroll",Default=Library.Settings.LuaAutoScroll,Callback=function(Value) Library.Settings.LuaAutoScroll=Value==true end})
+    Editor:Toggle({Name="line numbers",Flag="__ThemeLuaLineNumbers",Default=Library.Settings.LuaLineNumbers,Callback=function(Value) Library.Settings.LuaLineNumbers=Value==true end})
+    Editor:Toggle({Name="highlight current line",Flag="__ThemeLuaHighlightLine",Default=Library.Settings.LuaHighlightLine,Callback=function(Value) Library.Settings.LuaHighlightLine=Value==true end})
+    Editor:Toggle({Name="blinking caret",Flag="__ThemeLuaCaretBlink",Default=Library.Settings.LuaCaretBlink,Callback=function(Value) Library.Settings.LuaCaretBlink=Value==true end})
+    Editor:Toggle({Name="auto indent",Flag="__ThemeLuaAutoIndent",Default=Library.Settings.LuaAutoIndent,Callback=function(Value) Library.Settings.LuaAutoIndent=Value==true end})
+    Editor:Dropdown({Name="font size",Flag="__ThemeLuaFontSize",Items={"11","12","14"},Default=tostring(Library.Settings.LuaFontSize),Callback=function(Value) Library.Settings.LuaFontSize=tonumber(Value) or 11 end})
+    Editor:Dropdown({Name="indent size",Flag="__ThemeLuaIndentSize",Items={"2","4","8"},Default=tostring(Library.Settings.LuaIndentSize),Callback=function(Value) Library.Settings.LuaIndentSize=tonumber(Value) or 4 end})
+    Font:Dropdown({Name="ui font",Flag="__ThemeUIFont",Items={"SourceSans","SourceSansSemibold","Gotham","GothamMedium","Code","RobotoMono"},Default=Library.Settings.Font,Callback=function(Value) Library.Settings.Font=tostring(Value) Library:ApplyFontSetting() end})
+    Font:Slider({Name="text size",Flag="__ThemeFontSizeOverride",Min=0,Max=20,Step=1,Default=Library.Settings.FontSizeOverride,Callback=function(Value) Library.Settings.FontSizeOverride=Value Library:ApplyFontSetting() end})
+    Font:Slider({Name="row headroom",Flag="__ThemeFontRowOverride",Min=-1,Max=8,Step=1,Default=Library.Settings.FontRowOverride,Callback=function(Value) Library.Settings.FontRowOverride=Value end})
+    Font:Slider({Name="ink offset",Flag="__ThemeFontInkOverride",Min=-5,Max=1,Step=1,Default=Library.Settings.FontInkOverride,Callback=function(Value) Library.Settings.FontInkOverride=Value end})
+    Font:Button({Name="reset font tuning",Callback=function() Library.Settings.FontSizeOverride=0 Library.Settings.FontRowOverride=-1 Library.Settings.FontInkOverride=1 Library.Settings.Font="SourceSans" Library:ApplyFontSetting() Notify("font tuning reset") end})
+    Buttons:Dropdown({Name="light up on",Flag="__ThemeButtonHighlight",Items={"Hover","Press","Both"},Default=Library.Settings.ButtonHighlight,Callback=function(Value) Library.Settings.ButtonHighlight=tostring(Value) end})
+    Buttons:Slider({Name="button tween",Flag="__ThemeButtonTween",Min=0,Max=0.6,Step=0.02,Default=Library.Settings.ButtonTweenDuration,Suffix=" s",Callback=function(Value) Library.Settings.ButtonTweenDuration=Value end})
+    Swatches:Toggle({Name="gradient swatches",Flag="__ThemePickerGradient",Default=Library.Settings.PickerGradient,Callback=function(Value) Library.Settings.PickerGradient=Value==true Library:RefreshSwatchGradients() end})
+    Swatches:Slider({Name="gradient depth",Flag="__ThemePickerGradientShade",Min=0.1,Max=1,Step=0.05,Default=Library.Settings.PickerGradientShade,Callback=function(Value) Library.Settings.PickerGradientShade=Value Library:RefreshSwatchGradients() end})
+    Dock:Dropdown({Name="taskbar",Flag="__ThemeTaskbarMode",Items={"Bar","Compact"},Default=Library.Settings.TaskbarMode,Callback=function(Value) if type(Library.SetTaskbarMode)=="function" then Library:SetTaskbarMode(Value) else Library.Settings.TaskbarMode=tostring(Value) end end})
+    Dock:Toggle({Name="show dock",Flag="__ThemeShowTaskbar",Default=Library.Settings.ShowTaskbar,Callback=function(Value) if type(Library.SetTaskbarVisible)=="function" then Library:SetTaskbarVisible(Value) else Library.Settings.ShowTaskbar=Value==true end end})
+    Dock:Toggle({Name="show windows",Flag="__ThemeShowWindows",Default=Library.Settings.ShowWindows,Callback=function(Value) if type(Library.SetWindowsVisible)=="function" then Library:SetWindowsVisible(Value) else Library.Settings.ShowWindows=Value==true end end})
+    Dock:Toggle({Name="keep watermark open",Flag="__ThemePersistWatermark",Default=Library.Settings.PersistWatermark,Callback=function(Value) Library.Settings.PersistWatermark=Value==true local W=Library.WatermarkController if W and type(W.SetMenuVisible)=="function" then W:SetMenuVisible(Value==true or Library.Settings.ShowWindows~=false) end end})
+    Dock:Button({Name="close menu",Callback=function() local P=Library.PanelController or Library.QuickPanelController if P then P:SetInterfaceVisible(false) else Library:SetVisible(false) end end})
 
-    -- BINDS: all controls use the same Toggle/Slider widgets as the menu.
     local BindsPage=Object:Page({Name="Binds"})
-    local BindList=BindsPage:Section({Name="keybind list",Side=1})
-    local BindStyle=BindsPage:Section({Name="display",Side=2})
-    local KeybindToggle=BindList:Toggle({Name="enabled",Flag="__ThemePanelKeybindList",Default=Library.Flags.__InterfaceKeybindList==true,Callback=function(Value)
-        Library.Flags.__InterfaceKeybindList=Value==true
-        local Controller=Library.KeybindListController
-        if Controller and type(Controller.SetVisibility)=="function" then Controller:SetVisibility(Value==true) end
-    end})
-    local KeybindScale=BindList:Slider({Name="scale",Flag="__ThemePanelKeybindScale",Min=60,Max=160,Default=tonumber(Library.Flags.__InterfaceKeybindScale) or 100,Step=5,Suffix="%",Callback=function(Value)
-        local Number=math.clamp(tonumber(Value) or 100,60,160)
-        Library.Flags.__InterfaceKeybindScale=Number
-        local Controller=Library.KeybindListController
-        if Controller and type(Controller.SetScale)=="function" then Controller:SetScale(Number) end
-    end})
-    BindList:Toggle({Name="show header",Flag="__ThemeBindShowHeader",Default=Library.KeybindSettings.ShowHeader~=false,Callback=function(Value)
-        Library.KeybindSettings.ShowHeader=Value==true RefreshKeybindPanel()
-    end})
-    BindList:Toggle({Name="show inactive",Flag="__ThemeBindShowInactive",Default=Library.KeybindSettings.ShowInactive~=false,Callback=function(Value)
-        Library.KeybindSettings.ShowInactive=Value==true RefreshKeybindPanel()
-    end})
-    BindStyle:Toggle({Name="accent active",Flag="__ThemeBindAccentActive",Default=Library.KeybindSettings.AccentActive~=false,Callback=function(Value)
-        Library.KeybindSettings.AccentActive=Value==true RefreshKeybindPanel()
-    end})
-    BindStyle:Toggle({Name="compact rows",Flag="__ThemeBindCompactRows",Default=Library.KeybindSettings.CompactRows~=false,Callback=function(Value)
-        Library.KeybindSettings.CompactRows=Value==true RefreshKeybindPanel()
-    end})
-    BindStyle:Label({Name="Hold -> Holded   |   Toggle -> Toggled   |   Always -> Always",Alignment="Left"})
+    local MenuBinds=BindsPage:Section({Name="menu",Side=1})
+    local WindowBinds=BindsPage:Section({Name="windows",Side=2})
+    if not Library.MenuBindData then Library.MenuBindData=MenuBinds:Keybind({Name="toggle ui",Flag="__AtramentaMenuBind",Default=Library.MenuKeybind,Mode="Toggle",Callback=function() end}) else MenuBinds:Label({Name="menu bind is shared with configuration"}) end
+    local function WindowBind(Name,Flag,GetController)
+        WindowBinds:Keybind({Name=Name,Flag=Flag,Default=nil,Mode="Toggle",Callback=function(State)
+            local Controller=GetController()
+            if Controller and type(Controller.SetVisibility)=="function" then Controller:SetVisibility(State==true) end
+        end})
+    end
+    WindowBind("player list","__ThemeBindPlayerList",function() return Library.PlayerListController end)
+    WindowBind("theme","__ThemeBindTheme",function() return Library:ThemePanel() end)
+    WindowBind("configuration","__ThemeBindConfig",function() return Library:ConfigurationPanel() end)
+    WindowBind("watermark","__ThemeBindWatermark",function() return Library.WatermarkController end)
+    WindowBind("keybind list","__ThemeBindKeybinds",function() return Library.KeybindListController end)
 
-    -- NOTIFS: native controls, all callbacks are connected to notification runtime.
     local NotifsPage=Object:Page({Name="Notifs"})
-    local NotificationStyle=NotifsPage:Section({Name="notifications",Side=1})
-    local NotificationLayout=NotifsPage:Section({Name="layout",Side=2})
-    NotificationStyle:Slider({Name="default lifetime",Flag="__ThemeNotifLifetime",Min=1,Max=8,Default=tonumber(Library.NotificationSettings.DefaultDuration) or 3,Step=0.25,Suffix=" s",Callback=function(Value)
-        Library.NotificationSettings.DefaultDuration=Value
-    end})
-    NotificationStyle:Slider({Name="animation speed",Flag="__ThemeNotifAnimation",Min=0.5,Max=2,Default=tonumber(Library.NotificationSettings.AnimationSpeed) or 1,Step=0.1,Suffix="x",Callback=function(Value)
-        Library.NotificationSettings.AnimationSpeed=Value
-    end})
-    NotificationStyle:Slider({Name="maximum visible",Flag="__ThemeNotifMaximum",Min=1,Max=12,Default=tonumber(Library.NotificationSettings.MaximumVisible) or 8,Step=1,Callback=function(Value)
-        Library.NotificationSettings.MaximumVisible=math.floor(Value+0.5) Library.NotificationMaximumVisible=Library.NotificationSettings.MaximumVisible
-    end})
-    NotificationStyle:Toggle({Name="progress bar",Flag="__ThemeNotifProgress",Default=Library.NotificationSettings.Progress~=false,Callback=function(Value)
-        Library.NotificationSettings.Progress=Value==true
-    end})
-    NotificationLayout:Slider({Name="scale",Flag="__ThemeNotifScale",Min=70,Max=140,Default=tonumber(Library.NotificationSettings.Scale) or 100,Step=5,Suffix="%",Callback=function(Value)
-        Library.NotificationSettings.Scale=Value Library:ApplyNotificationLayout()
-    end})
-    NotificationLayout:Button({Name="show example",Callback=function() Library:SetNotificationPreviewVisible(true) end})
-    NotificationLayout:Button({Name="top right",Callback=function() Library:SetNotificationLayout(Vector2.new(0.94,0.08)) end})
-    NotificationLayout:Button({Name="center",Callback=function() Library:SetNotificationLayout(Vector2.new(0.5,0.5)) end})
-    NotificationLayout:Label({Name="drag the example notification to set the exact position for notifications and hit logs",Alignment="Left"})
+    local Notifs=NotifsPage:Section({Name="notifications",Side=1})
+    local Layout=NotifsPage:Section({Name="layout",Side=2})
+    Notifs:Dropdown({Name="corner",Flag="__ThemeNotificationCorner",Items={"TopLeft","TopRight","BottomLeft","BottomRight"},Default=Library.Settings.NotificationCorner,Callback=function(Value) Library:SetNotificationCorner(Value) end})
+    Notifs:Slider({Name="smoothness",Flag="__ThemeNotificationSmoothness",Min=0,Max=1,Step=0.02,Default=Library.Settings.NotificationSmoothness,Suffix=" s",Callback=function(Value) Library.Settings.NotificationSmoothness=Value end})
+    Notifs:Slider({Name="duration",Flag="__ThemeNotificationDuration",Min=1,Max=15,Step=1,Default=Library.Settings.NotificationDuration,Suffix=" s",Callback=function(Value) Library.Settings.NotificationDuration=Value Library.NotificationSettings.DefaultDuration=Value end})
+    Notifs:Button({Name="test notification",Callback=function() Library:Notification({Title="atramenta.rip",Description="test notification",Duration=Library.Settings.NotificationDuration}) end})
+    Layout:Slider({Name="scale",Flag="__ThemeNotifScale",Min=70,Max=140,Default=tonumber(Library.NotificationSettings.Scale) or 100,Step=5,Suffix="%",Callback=function(Value) Library.NotificationSettings.Scale=Value Library:ApplyNotificationLayout() end})
+    Layout:Toggle({Name="progress bar",Flag="__ThemeNotifProgress",Default=Library.NotificationSettings.Progress~=false,Callback=function(Value) Library.NotificationSettings.Progress=Value==true end})
+    Layout:Slider({Name="maximum visible",Flag="__ThemeNotifMaximum",Min=1,Max=12,Default=tonumber(Library.NotificationSettings.MaximumVisible) or 8,Step=1,Callback=function(Value) Library.NotificationSettings.MaximumVisible=Value end})
 
     RegisterRenderer(function()
-        SyncThemeColors()
-        Main.BackgroundColor3=Colors.Bg TitleBar.BackgroundColor3=Colors.TitleBg TabBar.BackgroundColor3=Colors.TabBg TitleLabel.TextColor3=Colors.TextBright
+        SyncThemeColors() Main.BackgroundColor3=Colors.Bg TitleBar.BackgroundColor3=Colors.TitleBg TabBar.BackgroundColor3=Colors.TabBg TitleLabel.TextColor3=Colors.TextBright
         local Stroke=Main:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end
-        for _,Bar in ipairs({TitleBar,TabBar}) do
-            local Line=Bar:FindFirstChild("AccentLine")
-            if Line then
-                local A=Accent() Line.BackgroundColor3=A
-                local Gradient=Line:FindFirstChildOfClass("UIGradient")
-                if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,A),ColorSequenceKeypoint.new(1,Color3.new())}) end
-            end
-        end
-        RefreshThemeColorControls()
-        local WatermarkState=Library.Flags.__InterfaceWatermark~=false
-        if WatermarkToggle and WatermarkToggle:Get()~=WatermarkState then WatermarkToggle:Set(WatermarkState,true) end
-        local WatermarkValue=math.clamp(tonumber(Library.Flags.__InterfaceWatermarkScale) or 100,60,160)
-        if WatermarkScale and WatermarkScale:Get()~=WatermarkValue then WatermarkScale:Set(WatermarkValue,true) end
-        local KeybindState=Library.Flags.__InterfaceKeybindList==true
-        if KeybindToggle and KeybindToggle:Get()~=KeybindState then KeybindToggle:Set(KeybindState,true) end
-        local KeybindValue=math.clamp(tonumber(Library.Flags.__InterfaceKeybindScale) or 100,60,160)
-        if KeybindScale and KeybindScale:Get()~=KeybindValue then KeybindScale:Set(KeybindValue,true) end
+        for _,Bar in ipairs({TitleBar,TabBar}) do local Line=Bar:FindFirstChild("AccentLine") if Line then local A=Accent() Line.BackgroundColor3=A local G=Line:FindFirstChildOfClass("UIGradient") if G then G.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,A),ColorSequenceKeypoint.new(1,Color3.new())}) end end end
+        for Key,Picker in pairs(ColorControls) do if Picker and Picker.Get and Picker.Set and typeof(Library.Theme[Key])=="Color3" and Picker:Get()~=Library.Theme[Key] then Picker:Set(Library.Theme[Key],nil,true) end end
     end)
-
-    ApplyPanelSize()
     Object:ApplyVisibility()
     return Object
 end
 
 function Library:Panel(Data)
-    Data = type(Data) == "table" and Data or {}
-
+    Data=type(Data)=="table" and Data or {}
     if self.PanelController then return self.PanelController end
-    if self.QuickPanelController then self.PanelController = self.QuickPanelController return self.PanelController end
-
-    self.InterfaceOpen = self.InterfaceOpen ~= false
-
-    local Parent = ParentGui()
-    local Gui = Create("ScreenGui", {
-        Name = "AtramentaPanel",
-        Parent = Parent,
-        ResetOnSpawn = false,
-        DisplayOrder = 190,
-        ZIndexBehavior = Enum.ZIndexBehavior.Global,
-        IgnoreGuiInset = false
-    })
-
-    self.Guis[#self.Guis + 1] = Gui
-
-    local Root = Create("Frame", {
-        Parent = Gui,
-        AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, 8),
-        Size = UDim2.fromOffset(336, 30),
-        BackgroundColor3 = Colors.Bg,
-        BorderSizePixel = 0,
-        Visible = self.InterfaceOpen,
-        Active = true,
-        ZIndex = 190
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 2)}),
-        Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1, Transparency = 0.34})
-    })
-
-    local Inner = Create("Frame", {
-        Parent = Root,
-        Position = UDim2.fromOffset(1, 1),
-        Size = UDim2.new(1, -2, 1, -2),
-        BackgroundColor3 = Colors.TitleBg,
-        BorderSizePixel = 0,
-        ZIndex = 191
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 2)}),
-        Create("UIGradient", {
-            Rotation = 90,
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Colors.Control),
-                ColorSequenceKeypoint.new(0.48, Colors.TitleBg),
-                ColorSequenceKeypoint.new(1, Colors.Bg)
-            })
-        })
-    })
-
-    local TopAccent = Create("Frame", {
-        Parent = Inner,
-        Size = UDim2.new(1, 0, 0, 1),
-        BackgroundColor3 = Accent(),
-        BorderSizePixel = 0,
-        ZIndex = 194
-    }, {
-        Create("UIGradient", {
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.new()),
-                ColorSequenceKeypoint.new(0.15, Accent()),
-                ColorSequenceKeypoint.new(0.85, Accent()),
-                ColorSequenceKeypoint.new(1, Color3.new())
-            })
-        })
-    })
-
-    local Holder = Create("Frame", {
-        Parent = Inner,
-        Position = UDim2.fromOffset(4, 3),
-        Size = UDim2.new(1, -8, 1, -6),
-        BackgroundTransparency = 1,
-        ZIndex = 192
-    }, {
-        Create("UIListLayout", {
-            FillDirection = Enum.FillDirection.Horizontal,
-            HorizontalAlignment = Enum.HorizontalAlignment.Center,
-            VerticalAlignment = Enum.VerticalAlignment.Center,
-            Padding = UDim.new(0, 4),
-            SortOrder = Enum.SortOrder.LayoutOrder
-        })
-    })
-
-    local Object = {Gui = Gui, Root = Root, Buttons = {}}
-
-    local function RequestedMenu()
-        local Window = Library.ActiveWindow
-        return Window and Window.Visible == true or false
+    if self.QuickPanelController then self.PanelController=self.QuickPanelController return self.PanelController end
+    self.InterfaceOpen=self.InterfaceOpen~=false
+    local Parent=ParentGui()
+    local Gui=Create("ScreenGui",{Name="AtramentaTaskbar",Parent=Parent,ResetOnSpawn=false,DisplayOrder=190,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
+    self.Guis[#self.Guis+1]=Gui
+    local Height=25
+    local Root=Create("Frame",{Parent=Gui,Name="Taskbar",Position=UDim2.fromOffset(0,0),Size=UDim2.new(1,0,0,Height),BackgroundTransparency=1,BorderSizePixel=0,Active=true,ZIndex=190})
+    local Body=Create("Frame",{Parent=Root,Name="Body",Size=UDim2.new(1,0,0,Height-2),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=191},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new(Colors.Control,Colors.Bg)})})
+    local Border=Create("Frame",{Parent=Root,Name="Border",Position=UDim2.fromOffset(0,Height-2),Size=UDim2.new(1,0,0,1),BackgroundColor3=Colors.SectionBorder,BorderSizePixel=0,ZIndex=192})
+    local Outline=Create("Frame",{Parent=Root,Name="Outline",Position=UDim2.fromOffset(0,Height-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Color3.new(),BorderSizePixel=0,ZIndex=192})
+    local PanelOuter=Create("Frame",{Parent=Root,Name="PanelOutline",Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(),BorderSizePixel=0,Visible=false,ZIndex=191})
+    local PanelBorder=Create("Frame",{Parent=PanelOuter,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.SectionBorder,BorderSizePixel=0,ZIndex=192})
+    local PanelBody=Create("Frame",{Parent=PanelBorder,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=193},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new(Colors.Control,Colors.Bg)})})
+    local Row=Create("Frame",{Parent=Body,Name="Row",Position=UDim2.fromOffset(5,0),Size=UDim2.new(1,-5,0,Height-2),BackgroundTransparency=1,ZIndex=194},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,3)})})
+    local Title=Create("TextLabel",{Parent=Row,AutomaticSize=Enum.AutomaticSize.X,Size=UDim2.new(0,0,0,16),BackgroundTransparency=1,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,LayoutOrder=0,ZIndex=195})
+    local Object={Gui=Gui,Root=Root,Body=Body,Border=Border,Outline=Outline,PanelOuter=PanelOuter,PanelBody=PanelBody,Row=Row,Title=Title,Buttons={},Mode=tostring(self.Settings.TaskbarMode or "Bar"),DragHandle=nil}
+    local function WidthFor(Text) return math.max(26,math.ceil(TextService:GetTextSize(tostring(Text),12,Enum.Font.SourceSans,Vector2.new(1000,20)).X)+10) end
+    local function RequestedMenu() local W=Library.ActiveWindow return W and W:IsRequestedVisible() or false end
+    local function RequestedPlayers() local C=Library.PlayerListController return C and C.RequestedVisible==true or false end
+    local function RequestedTheme() local C=Library.ThemePanelController return C and C.RequestedVisible==true or false end
+    local function RequestedConfiguration() local C=Library.ConfigurationPanelController return C and C.RequestedVisible==true or false end
+    local function RequestedBinds() local C=Library.KeybindListController return C and C.RequestedVisible==true or false end
+    local function RequestedWatermark() local C=Library.WatermarkController return C and C.RequestedVisible==true or false end
+    local function Paint(Entry,State)
+        Entry.Active=State==true
+        Entry.Label.TextColor3=Entry.Active and Accent() or Colors.TextDim
+        Entry.Frame.BackgroundTransparency=Entry.Hovered and 0.2 or 1
+        Entry.Frame.BackgroundColor3=Colors.Control
+        local Stroke=Entry.Frame:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Enabled=Entry.Hovered or Entry.Active Stroke.Color=Entry.Active and AccentBorder() or Colors.SectionBorder end
     end
-
-    local function RequestedPlayers()
-        local Controller = Library.PlayerListController
-        return Controller and Controller.RequestedVisible == true or false
+    local function Make(Name,Order,StateFn,Callback)
+        local Frame=Create("Frame",{Parent=Row,Size=UDim2.fromOffset(WidthFor(Name),19),BackgroundColor3=Colors.Control,BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=Order,ZIndex=195},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Enabled=false})})
+        local Label=Create("TextLabel",{Parent=Frame,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=Name,TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=196})
+        local Hit=Create("TextButton",{Parent=Frame,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=197})
+        local Entry={Frame=Frame,Label=Label,Hit=Hit,StateFn=StateFn,Hovered=false,Active=false}
+        Bind(Hit.MouseEnter:Connect(function() Entry.Hovered=true Object.Refresh() end))
+        Bind(Hit.MouseLeave:Connect(function() Entry.Hovered=false Object.Refresh() end))
+        Bind(Hit.MouseButton1Click:Connect(function() Callback() Object.Refresh() end))
+        Object.Buttons[Name]=Entry
+        return Entry
     end
-
-    local function RequestedTheme()
-        local Controller = Library.ThemePanelController
-        return Controller and Controller.RequestedVisible == true or false
+    function Object.Fit()
+        if Object.Mode~="Compact" then return end
+        local Layout=Row:FindFirstChildOfClass("UIListLayout") local W=Layout and Layout.AbsoluteContentSize.X or 0
+        Root.Size=UDim2.fromOffset(math.max(90,math.ceil(W)+14),Height)
     end
-
-    local function RequestedConfiguration()
-        local Controller = Library.ConfigurationPanelController
-        return Controller and Controller.RequestedVisible == true or false
-    end
-
-    local function Paint(Button, State)
-        local Hovered = Button:GetAttribute("AtramentaHover") == true
-
-        Button.BackgroundColor3 = Colors.Control
-        Button.BackgroundTransparency = State and 0.18 or Hovered and 0.34 or 0.56
-        Button.TextColor3 = State and Colors.TextBright or Hovered and Colors.TextBright or Colors.Text
-
-        local Stroke = Button:FindFirstChildOfClass("UIStroke")
-        if Stroke then
-            Stroke.Color = State and AccentBorder() or Colors.SectionBorder
-            Stroke.Transparency = State and 0.10 or Hovered and 0.34 or 0.56
-        end
-
-        local Indicator = Button:FindFirstChild("Indicator")
-        if Indicator then
-            Indicator.BackgroundColor3 = Accent()
-            Indicator.Visible = State == true
-        end
-    end
-
-    local function Make(Name, Order, Callback)
-        local Button = Create("TextButton", {
-            Parent = Holder,
-            Size = UDim2.new(0.25, -3, 1, 0),
-            BackgroundColor3 = Colors.Control,
-            BackgroundTransparency = 0.56,
-            BorderSizePixel = 0,
-            Text = string.lower(Name),
-            TextColor3 = Colors.Text,
-            Font = Enum.Font.SourceSans,
-            TextSize = 11,
-            AutoButtonColor = false,
-            LayoutOrder = Order,
-            ZIndex = 193
-        }, {
-            Create("UICorner", {CornerRadius = UDim.new(0, 2)}),
-            Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1, Transparency = 0.56}),
-            Create("Frame", {
-                Name = "Indicator",
-                AnchorPoint = Vector2.new(0.5, 1),
-                Position = UDim2.new(0.5, 0, 1, -1),
-                Size = UDim2.new(1, -8, 0, 1),
-                BackgroundColor3 = Accent(),
-                BorderSizePixel = 0,
-                Visible = false,
-                ZIndex = 194
-            })
-        })
-
-        Bind(Button.MouseEnter:Connect(function()
-            Button:SetAttribute("AtramentaHover", true)
-            Object.Refresh()
-        end))
-
-        Bind(Button.MouseLeave:Connect(function()
-            Button:SetAttribute("AtramentaHover", false)
-            Object.Refresh()
-        end))
-
-        Bind(Button.MouseButton1Click:Connect(Callback))
-
-        Object.Buttons[Name] = Button
-        return Button
-    end
-
+    local Layout=Row:FindFirstChildOfClass("UIListLayout") if Layout then Bind(Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(Object.Fit)) end
     function Object.Refresh()
-        if Object.Buttons.Menu then Paint(Object.Buttons.Menu, RequestedMenu()) end
-        if Object.Buttons.PlayerList then Paint(Object.Buttons.PlayerList, RequestedPlayers()) end
-        if Object.Buttons.Theme then Paint(Object.Buttons.Theme, RequestedTheme()) end
-        if Object.Buttons.Configuration then Paint(Object.Buttons.Configuration, RequestedConfiguration()) end
+        Title.Text=string.format("atramenta.rip %s",os.date("%d.%m.%y"))
+        if Object.Buttons.Menu then Paint(Object.Buttons.Menu,RequestedMenu()) end
+        if Object.Buttons.Players then Paint(Object.Buttons.Players,RequestedPlayers()) end
+        if Object.Buttons.Theme then Paint(Object.Buttons.Theme,RequestedTheme()) end
+        if Object.Buttons.Config then Paint(Object.Buttons.Config,RequestedConfiguration()) end
+        if Object.Buttons.Binds then Paint(Object.Buttons.Binds,RequestedBinds()) end
+        if Object.Buttons.Watermark then Paint(Object.Buttons.Watermark,RequestedWatermark()) end
     end
-
-    Make("Menu", 1, function()
-        local Window = Library.ActiveWindow
-        if Window then Window:SetVisible(not Window.Visible) end
+    Make("Menu",1,RequestedMenu,function() local W=Library.ActiveWindow if W then W:SetVisible(not W.Visible) end end)
+    Make("Players",2,RequestedPlayers,function() local C=Library.PlayerListController if C then C:SetVisibility(not C.RequestedVisible) end end)
+    Make("Theme",3,RequestedTheme,function() local C=Library:ThemePanel() C:Toggle() end)
+    Make("Config",4,RequestedConfiguration,function() local C=Library:ConfigurationPanel() C:Toggle() end)
+    Make("Binds",5,RequestedBinds,function() local C=Library.KeybindListController if C then C:SetVisibility(not C.RequestedVisible) end end)
+    Make("Watermark",6,RequestedWatermark,function() local C=Library.WatermarkController if C then C:SetVisibility(not C.RequestedVisible) end end)
+    function Object:SetMode(Mode)
+        Mode=tostring(Mode or "Bar") if Mode~="Compact" then Mode="Bar" end
+        Object.Mode=Mode Library.Settings.TaskbarMode=Mode
+        local Compact=Mode=="Compact"
+        Body.Visible=not Compact Border.Visible=not Compact Outline.Visible=not Compact PanelOuter.Visible=Compact
+        Row.Parent=Compact and PanelBody or Body
+        Row.Position=UDim2.fromOffset(5,0) Row.Size=UDim2.new(1,-5,1,0)
+        if Compact then
+            if not Object.DragHandle then
+                local Handle=Create("TextButton",{Parent=Root,Name="DragHandle",Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=0,Active=true})
+                MakeDraggable(Root,Handle,Gui) Object.DragHandle=Handle
+            end
+            Object.DragHandle.Visible=true Root.Position=UDim2.fromOffset(math.max(4,math.floor(GetViewportSize(Gui).X*0.5-200)),8) Object.Fit()
+        else
+            if Object.DragHandle then Object.DragHandle.Visible=false end
+            Root.Position=UDim2.fromOffset(0,0) Root.Size=UDim2.new(1,0,0,Height)
+        end
         Object.Refresh()
-    end)
-
-    Make("PlayerList", 2, function()
-        local Controller = Library.PlayerListController
-        if Controller then Controller:SetVisibility(not Controller.RequestedVisible) end
+    end
+    function Object:SetTaskbarVisible(State) Library.Settings.ShowTaskbar=State==true Root.Visible=Library.InterfaceOpen~=false and Library.Settings.ShowTaskbar~=false end
+    function Object:SetWindowsVisible(State)
+        Library.Settings.ShowWindows=State==true
+        local Visible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false
+        local Controllers={Library.ActiveWindow,Library.PlayerListController,Library.ThemePanelController,Library.ConfigurationPanelController,Library.KeybindListController}
+        for _,C in ipairs(Controllers) do if C and type(C.SetMenuVisible)=="function" then C:SetMenuVisible(Visible) end end
+        local W=Library.WatermarkController if W and type(W.SetMenuVisible)=="function" then W:SetMenuVisible(Library.Settings.PersistWatermark==true or Visible) end
         Object.Refresh()
-    end)
-
-    Make("Theme", 3, function()
-        local Controller = Library:ThemePanel()
-        Controller:Toggle()
-        Object.Refresh()
-    end)
-
-    Make("Configuration", 4, function()
-        local Controller = Library:ConfigurationPanel()
-        Controller:Toggle()
-        Object.Refresh()
-    end)
-
+    end
     function Object:SetInterfaceVisible(State)
-        State = State == true
-        Library.InterfaceOpen = State
-        Root.Visible = State
-
-        local Window = Library.ActiveWindow
-        if Window and type(Window.SetMenuVisible) == "function" then Window:SetMenuVisible(State) end
-
-        local PlayersPanel = Library.PlayerListController
-        if PlayersPanel and type(PlayersPanel.SetMenuVisible) == "function" then PlayersPanel:SetMenuVisible(State) end
-
-        local ThemePanel = Library.ThemePanelController
-        if ThemePanel and type(ThemePanel.SetMenuVisible) == "function" then ThemePanel:SetMenuVisible(State) end
-
-        local ConfigurationPanel = Library.ConfigurationPanelController
-        if ConfigurationPanel and type(ConfigurationPanel.SetMenuVisible) == "function" then ConfigurationPanel:SetMenuVisible(State) end
-
-        local Watermark = Library.WatermarkController
-        if Watermark and type(Watermark.ApplyVisibility) == "function" then Watermark:ApplyVisibility() end
-
-        local Keybinds = Library.KeybindListController
-        if Keybinds and type(Keybinds.ApplyVisibility) == "function" then Keybinds:ApplyVisibility() end
-
-        if type(Library.SetNotificationPreviewVisible) == "function" then
-            local ThemeVisible = ThemePanel and ThemePanel:IsVisible() or false
-            Library:SetNotificationPreviewVisible(State and ((Window and Window:IsVisible()) or ThemeVisible))
-        end
-
+        Library.InterfaceOpen=State==true
+        Root.Visible=Library.InterfaceOpen and Library.Settings.ShowTaskbar~=false
+        Object:SetWindowsVisible(Library.Settings.ShowWindows~=false)
         Object.Refresh()
     end
-
-    function Object:ToggleInterface()
-        Object:SetInterfaceVisible(not (Library.InterfaceOpen ~= false))
-    end
-
-    function Object:IsVisible()
-        return Library.InterfaceOpen ~= false
-    end
-
-    MakeDraggable(Root, Root, Gui)
-    BindFrameToViewport(Root, Gui, 4)
-
+    function Object:ToggleInterface() Object:SetInterfaceVisible(not (Library.InterfaceOpen~=false)) end
+    function Object:IsVisible() return Root.Visible==true end
+    BindFrameToViewport(Root,Gui,0)
     RegisterRenderer(function()
-        local A = Accent()
-
-        Root.BackgroundColor3 = Colors.Bg
-        Inner.BackgroundColor3 = Colors.TitleBg
-
-        local RootStroke = Root:FindFirstChildOfClass("UIStroke")
-        if RootStroke then RootStroke.Color = Colors.SectionBorder end
-
-        local InnerGradient = Inner:FindFirstChildOfClass("UIGradient")
-        if InnerGradient then
-            InnerGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Colors.Control),
-                ColorSequenceKeypoint.new(0.48, Colors.TitleBg),
-                ColorSequenceKeypoint.new(1, Colors.Bg)
-            })
-        end
-
-        TopAccent.BackgroundColor3 = A
-        local Gradient = TopAccent:FindFirstChildOfClass("UIGradient")
-        if Gradient then
-            Gradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.new()),
-                ColorSequenceKeypoint.new(0.15, A),
-                ColorSequenceKeypoint.new(0.85, A),
-                ColorSequenceKeypoint.new(1, Color3.new())
-            })
-        end
-
+        SyncThemeColors() Body.BackgroundColor3=Colors.Bg Border.BackgroundColor3=Colors.SectionBorder PanelBorder.BackgroundColor3=Colors.SectionBorder PanelBody.BackgroundColor3=Colors.Bg Title.TextColor3=Colors.TextBright
+        local BG=Body:FindFirstChildOfClass("UIGradient") if BG then BG.Color=ColorSequence.new(Colors.Control,Colors.Bg) end
+        local PG=PanelBody:FindFirstChildOfClass("UIGradient") if PG then PG.Color=ColorSequence.new(Colors.Control,Colors.Bg) end
         Object.Refresh()
     end)
-
-    self.PanelController = Object
-    self.QuickPanelController = Object
-    Object.Refresh()
+    task.spawn(function() while Root and Root.Parent do Object.Refresh() task.wait(30) end end)
+    self.PanelController=Object self.QuickPanelController=Object
+    self.SetTaskbarMode=function(_,Mode) Object:SetMode(Mode) return Library end
+    self.SetTaskbarVisible=function(_,State) Object:SetTaskbarVisible(State) return Library end
+    self.SetWindowsVisible=function(_,State) Object:SetWindowsVisible(State) return Library end
+    Object:SetMode(self.Settings.TaskbarMode) Object:SetTaskbarVisible(self.Settings.ShowTaskbar~=false) Object:SetWindowsVisible(self.Settings.ShowWindows~=false)
     return Object
 end
 
@@ -3592,19 +3402,20 @@ function Library:Notification(Data)
     local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.22,BorderSizePixel=0})
     Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
     if Description~="" then Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top}) end
-    local Duration=math.max(tonumber(Data.Duration) or tonumber((self.NotificationSettings or {}).DefaultDuration) or 3,0.35)
+    local Duration=math.max(tonumber(Data.Duration) or tonumber((self.Settings or {}).NotificationDuration) or tonumber((self.NotificationSettings or {}).DefaultDuration) or 3,0.35)
     local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,2,1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4,Visible=(self.NotificationSettings or {}).Progress~=false})
     local Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08) local Direction=Point.X<0.34 and -1 or Point.X>0.66 and 1 or 0
     Group.Position=UDim2.fromOffset(Direction*9,0)
     local AnimSpeed=math.max(tonumber((self.NotificationSettings or {}).AnimationSpeed) or 1,0.1)
-    TweenService:Create(Group,TweenInfo.new(0.14/AnimSpeed,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
+    local Smoothness=math.clamp(tonumber((self.Settings or {}).NotificationSmoothness) or 0.14,0,1)
+    TweenService:Create(Group,TweenInfo.new(math.max(0.01,Smoothness)/AnimSpeed,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
     TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,0,1)}):Play()
     RegisterRenderer(function() if not Panel.Parent then return end local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A end)
     local Alive=true
     local function Close()
         if not Alive then return end Alive=false
-        TweenService:Create(Group,TweenInfo.new(0.12/AnimSpeed,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*8,0),GroupTransparency=1}):Play()
-        task.delay(0.13/AnimSpeed,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
+        TweenService:Create(Group,TweenInfo.new(math.max(0.01,Smoothness)/AnimSpeed,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*8,0),GroupTransparency=1}):Play()
+        task.delay(math.max(0.02,Smoothness+0.01)/AnimSpeed,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
     end
     Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end end))
     task.delay(Duration,Close)
@@ -3694,6 +3505,7 @@ function Library.Unload(...)
     Library.CombatLogScale = nil
     Library.Holder = nil
     table.clear(Library.Renderers)
+    if type(Library.SwatchGradients)=="table" then table.clear(Library.SwatchGradients) end
     if rawget(AtramentaEnvironment, "Library") == Library then AtramentaEnvironment.Library = nil end
 end
 Library.Destroy = Library.Unload
