@@ -1613,13 +1613,23 @@ function Library:Window(Data)
     return Window
 end
 
-function Library:ApplyAuxiliaryWindowVisibility()
-    local BaseVisible=self.InterfaceOpen~=false and self.Settings.ShowWindows~=false
+function Library:IsAuxiliaryWindowAllowed()
+    if self.InterfaceOpen==false or self.Settings.ShowWindows==false then return false end
     local Main=self.ActiveWindow
-    local Visible=BaseVisible and (not Main or (Main.Visible==true and Main.MenuVisible~=false))
+    if not Main then return true end
+    if Main.Main and typeof(Main.Main)=="Instance" then return Main.Main.Visible==true end
+    return Main.Visible==true and Main.MenuVisible~=false
+end
+
+function Library:ApplyAuxiliaryWindowVisibility()
+    local Visible=self:IsAuxiliaryWindowAllowed()
     local Controllers={self.PlayerListController,self.ThemePanelController,self.ConfigurationPanelController,self.KeybindListController}
     for _,Controller in ipairs(Controllers) do
-        if Controller and type(Controller.SetMenuVisible)=="function" then Controller:SetMenuVisible(Visible) end
+        if Controller then
+            Controller.MenuVisible=Visible
+            if type(Controller.ApplyVisibility)=="function" then Controller:ApplyVisibility()
+            elseif type(Controller.SetMenuVisible)=="function" then Controller:SetMenuVisible(Visible) end
+        end
     end
     return Visible
 end
@@ -2749,7 +2759,8 @@ function Library:ConfigurationPanel()
     },WindowMethods)
 
     function Object:ApplyVisibility()
-        local State=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
+        local Allowed=type(Library.IsAuxiliaryWindowAllowed)=="function" and Library:IsAuxiliaryWindowAllowed() or Library.InterfaceOpen~=false
+        local State=Object.RequestedVisible==true and Allowed
         Object.Visible=State Main.Visible=State
         if not State then Object:CloseDropdown() Object:ClosePicker() Object:CloseTooltip() end
         local Controller=Library.PanelController or Library.QuickPanelController
@@ -3156,13 +3167,14 @@ function Library:PlayerList(Data)
         Object.DropOpen=not Object.DropOpen StatusDrop.Visible=Object.DropOpen StatusArrow.Text=Object.DropOpen and "^" or "v"
     end))
     function Object:ApplyVisibility()
-        Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false
+        local Allowed=type(Library.IsAuxiliaryWindowAllowed)=="function" and Library:IsAuxiliaryWindowAllowed() or Library.InterfaceOpen~=false
+        Frame.Visible=Object.RequestedVisible==true and Allowed
         if not Frame.Visible then CloseDrop() end
         if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
     end
     function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
     function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
-    function Object:IsVisible() return Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false end
+    function Object:IsVisible() return Frame.Visible==true end
     function Object:IsRequestedVisible() return Object.RequestedVisible==true end
     function Object:Toggle() Object:SetVisibility(not Object.RequestedVisible) end
     function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.65,1.5) end
@@ -3198,7 +3210,8 @@ function Library:ThemePanel()
     local TabBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,26),Position=UDim2.new(0,0,1,-26),BackgroundColor3=Colors.TabBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})}),Create("Frame",{Size=UDim2.new(1,0,0,6),BackgroundColor3=Colors.TabBg,BorderSizePixel=0,ZIndex=0})})
     local Object=setmetatable({Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,RequestedVisible=false,Visible=false,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Destroyed=false},WindowMethods)
     function Object:ApplyVisibility()
-        local State=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false
+        local Allowed=type(Library.IsAuxiliaryWindowAllowed)=="function" and Library:IsAuxiliaryWindowAllowed() or Library.InterfaceOpen~=false
+        local State=Object.RequestedVisible==true and Allowed
         Object.Visible=State Main.Visible=State
         if not State then Object:CloseDropdown() Object:ClosePicker() Object:CloseTooltip() end
         if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
