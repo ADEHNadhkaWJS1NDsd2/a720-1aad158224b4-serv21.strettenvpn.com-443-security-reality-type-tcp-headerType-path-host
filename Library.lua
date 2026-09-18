@@ -1623,7 +1623,7 @@ end
 
 function Library:ApplyAuxiliaryWindowVisibility()
     local Visible=self:IsAuxiliaryWindowAllowed()
-    local Controllers={self.PlayerListController,self.ThemePanelController,self.ConfigurationPanelController,self.KeybindListController}
+    local Controllers={self.PlayerListController,self.ThemePanelController,self.ConfigurationPanelController}
     for _,Controller in ipairs(Controllers) do
         if Controller then
             Controller.MenuVisible=Visible
@@ -2957,10 +2957,10 @@ function Library:KeybindList()
     local Scale=Create("UIScale",{Parent=Frame,Scale=1})
     MakeDraggable(Frame,Header,Gui)
 
-    local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={},RequestedVisible=true,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true)}
-    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false end
+    local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={},RequestedVisible=true,MenuVisible=true}
+    function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true end
     function Object:SetVisibility(State) Object.RequestedVisible=State==true Library.Flags.__InterfaceKeybindList=Object.RequestedVisible Object:ApplyVisibility() end
-    function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
+    function Object:SetMenuVisible(State) Object.MenuVisible=true Object:ApplyVisibility() end
     function Object:IsRequestedVisible() return Object.RequestedVisible==true end
     function Object:SetScale(Value)
         local Number=math.clamp(tonumber(Value) or 100,60,160)
