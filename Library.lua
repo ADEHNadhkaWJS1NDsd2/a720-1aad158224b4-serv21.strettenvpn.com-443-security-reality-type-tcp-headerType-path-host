@@ -1613,9 +1613,21 @@ function Library:Window(Data)
     return Window
 end
 
+function Library:ApplyAuxiliaryWindowVisibility()
+    local BaseVisible=self.InterfaceOpen~=false and self.Settings.ShowWindows~=false
+    local Main=self.ActiveWindow
+    local Visible=BaseVisible and (not Main or (Main.Visible==true and Main.MenuVisible~=false))
+    local Controllers={self.PlayerListController,self.ThemePanelController,self.ConfigurationPanelController,self.KeybindListController}
+    for _,Controller in ipairs(Controllers) do
+        if Controller and type(Controller.SetMenuVisible)=="function" then Controller:SetMenuVisible(Visible) end
+    end
+    return Visible
+end
+
 function WindowMethods:ApplyVisibility()
     local State=self.Visible==true and self.MenuVisible~=false and Library.InterfaceOpen~=false
     self.Main.Visible=State
+    if Library.ActiveWindow==self and type(Library.ApplyAuxiliaryWindowVisibility)=="function" then Library:ApplyAuxiliaryWindowVisibility() end
     if type(Library.SetNotificationPreviewVisible)=="function" then Library:SetNotificationPreviewVisible(State) end
     if not State then self:CloseDropdown() self:ClosePicker() self:CloseTooltip() end
     if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
@@ -2441,6 +2453,10 @@ function Library:GetConfig()
         Interface.ConfigurationPosition = self.ConfigurationPanelController.Frame.Position
         Interface.ConfigurationVisible = self.ConfigurationPanelController.RequestedVisible == true
     end
+    if self.ThemePanelController and self.ThemePanelController.Frame then
+        Interface.ThemePosition = self.ThemePanelController.Frame.Position
+        Interface.ThemeVisible = self.ThemePanelController.RequestedVisible == true
+    end
     Interface.Theme = CloneValue(self.Theme)
     Interface.Settings = CloneValue(self.Settings)
     Interface.MenuBind = self.MenuBindData and {Key = self.MenuBindData.Key, Modifiers = CopyModifiers(self.MenuBindData.Modifiers)} or {Key = self.MenuKeybind, Modifiers = EmptyModifiers()}
@@ -2581,6 +2597,15 @@ function Library:LoadConfig(Source)
             end
             if type(Interface.ConfigurationVisible) == "boolean" then ConfigurationPanel:SetVisibility(Interface.ConfigurationVisible) end
         end
+        local ThemePanel = self.ThemePanelController
+        if ThemePanel and ThemePanel.Frame then
+            if typeof(Interface.ThemePosition) == "UDim2" then
+                ThemePanel.Frame.Position = Interface.ThemePosition
+                ClampFrameToViewport(ThemePanel.Frame, ThemePanel.Gui, 4)
+            end
+            if type(Interface.ThemeVisible) == "boolean" then ThemePanel:SetVisibility(Interface.ThemeVisible) end
+        end
+        if type(self.ApplyAuxiliaryWindowVisibility)=="function" then self:ApplyAuxiliaryWindowVisibility() end
         if typeof(Interface.NotificationPoint) == "Vector2" then
             self.NotificationPoint = Interface.NotificationPoint
             if type(self.ApplyNotificationLayout) == "function" then self:ApplyNotificationLayout() end
@@ -2720,7 +2745,7 @@ function Library:ConfigurationPanel()
     local Object=setmetatable({
         Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,
         Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,
-        RequestedVisible=false,Visible=false,MenuVisible=true,Destroyed=false
+        RequestedVisible=false,Visible=false,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Destroyed=false
     },WindowMethods)
 
     function Object:ApplyVisibility()
@@ -2921,7 +2946,7 @@ function Library:KeybindList()
     local Scale=Create("UIScale",{Parent=Frame,Scale=1})
     MakeDraggable(Frame,Header,Gui)
 
-    local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={},RequestedVisible=true,MenuVisible=true}
+    local Object={Gui=Gui,Frame=Frame,Holder=Holder,Scale=Scale,Rows={},RequestedVisible=true,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true)}
     function Object:ApplyVisibility() Frame.Visible=Object.RequestedVisible==true and Object.MenuVisible~=false end
     function Object:SetVisibility(State) Object.RequestedVisible=State==true Library.Flags.__InterfaceKeybindList=Object.RequestedVisible Object:ApplyVisibility() end
     function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
@@ -3043,7 +3068,7 @@ function Library:PlayerList(Data)
     local ActionHolder=Create("Frame",{Parent=Profile,Position=UDim2.new(0,0,1,-27),Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,ZIndex=154},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Left,Padding=UDim.new(0,3),SortOrder=Enum.SortOrder.LayoutOrder})})
     local Scale=Create("UIScale",{Parent=Frame,Scale=math.clamp((tonumber(Data.Scale) or 100)/100,0.65,1.5)})
     local StatusColors={Client=Accent(),Neutral=Colors.TextDim,Whitelist=Color3.fromRGB(87,196,129),Priority=Color3.fromRGB(232,184,82),Enemy=Color3.fromRGB(224,92,102)}
-    local Object={Gui=Gui,Frame=Frame,Header=Header,List=List,Scale=Scale,Rows={},RequestedVisible=Data.Visible==true,MenuVisible=true,Selected=nil,Search="",Data=Data,DropOpen=false}
+    local Object={Gui=Gui,Frame=Frame,Header=Header,List=List,Scale=Scale,Rows={},RequestedVisible=Data.Visible==true,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Selected=nil,Search="",Data=Data,DropOpen=false}
     local function NormalizeStatus(Status)
         Status=tostring(Status or "Neutral")
         if Status=="None" or Status=="none" or Status=="" then return "Neutral" end
@@ -3171,7 +3196,7 @@ function Library:ThemePanel()
     local TitleLabel=Create("TextLabel",{Parent=TitleBar,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Themes",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,ZIndex=4})
     local Content=Create("Frame",{Parent=Main,Position=UDim2.fromOffset(0,22),Size=UDim2.new(1,0,1,-48),BackgroundTransparency=1,ClipsDescendants=false})
     local TabBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,26),Position=UDim2.new(0,0,1,-26),BackgroundColor3=Colors.TabBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})}),Create("Frame",{Size=UDim2.new(1,0,0,6),BackgroundColor3=Colors.TabBg,BorderSizePixel=0,ZIndex=0})})
-    local Object=setmetatable({Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,RequestedVisible=false,Visible=false,MenuVisible=true,Destroyed=false},WindowMethods)
+    local Object=setmetatable({Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,RequestedVisible=false,Visible=false,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Destroyed=false},WindowMethods)
     function Object:ApplyVisibility()
         local State=Object.RequestedVisible==true and Object.MenuVisible~=false and Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false
         Object.Visible=State Main.Visible=State
@@ -3384,10 +3409,11 @@ function Library:Panel(Data)
     function Object:SetTaskbarVisible(State) Library.Settings.ShowTaskbar=State==true Root.Visible=Library.InterfaceOpen~=false and Library.Settings.ShowTaskbar~=false end
     function Object:SetWindowsVisible(State)
         Library.Settings.ShowWindows=State==true
-        local Visible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false
-        local Controllers={Library.ActiveWindow,Library.PlayerListController,Library.ThemePanelController,Library.ConfigurationPanelController,Library.KeybindListController}
-        for _,C in ipairs(Controllers) do if C and type(C.SetMenuVisible)=="function" then C:SetMenuVisible(Visible) end end
-        local W=Library.WatermarkController if W and type(W.SetMenuVisible)=="function" then W:SetMenuVisible(Library.Settings.PersistWatermark==true or Visible) end
+        local BaseVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false
+        local Main=Library.ActiveWindow
+        if Main and type(Main.SetMenuVisible)=="function" then Main:SetMenuVisible(BaseVisible) end
+        if type(Library.ApplyAuxiliaryWindowVisibility)=="function" then Library:ApplyAuxiliaryWindowVisibility() end
+        local W=Library.WatermarkController if W and type(W.SetMenuVisible)=="function" then W:SetMenuVisible(Library.Settings.PersistWatermark==true or BaseVisible) end
         Object.Refresh()
     end
     function Object:SetInterfaceVisible(State)
