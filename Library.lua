@@ -1170,20 +1170,30 @@ function Library:WindowsAllowed()
     return Main.Visible==true and Main.MenuVisible~=false
 end
 
+function Library:PlayerWindowsAllowed()
+    return self.Settings.ShowWindows~=false
+end
+
 function Library:SyncWindows()
     local Allowed=self:WindowsAllowed()
-    for _,Controller in ipairs({self.PlayerWindow,self.ThemeWindow,self.ConfigWindow}) do
-        if type(Controller)=="table" then
-            Controller.MenuVisible=Allowed; local Frame=Controller.Frame or Controller.Main; local State=Controller.RequestedVisible==true and Allowed
-            Controller.Visible=State
-            if typeof(Frame)=="Instance" then Frame.Visible=State end
-            if not State then
-                if type(Controller.CloseDropdown)=="function" then Controller:CloseDropdown() end
-                if type(Controller.ClosePicker)=="function" then Controller:ClosePicker() end
-                if type(Controller.CloseTooltip)=="function" then Controller:CloseTooltip() end
-            end
+    local PlayerAllowed=self:PlayerWindowsAllowed()
+    local function Sync(Controller,Gate)
+        if type(Controller)~="table" then return end
+        Controller.MenuVisible=Gate
+        local State=Controller.RequestedVisible==true and Gate
+        Controller.Visible=State
+        local Frame=Controller.Frame or Controller.Main
+        if typeof(Frame)=="Instance" then Frame.Visible=State end
+        if typeof(Controller.Gui)=="Instance" then Controller.Gui.Enabled=State end
+        if not State then
+            if type(Controller.CloseDropdown)=="function" then Controller:CloseDropdown() end
+            if type(Controller.ClosePicker)=="function" then Controller:ClosePicker() end
+            if type(Controller.CloseTooltip)=="function" then Controller:CloseTooltip() end
         end
     end
+    Sync(self.PlayerWindow,PlayerAllowed)
+    Sync(self.ThemeWindow,Allowed)
+    Sync(self.ConfigWindow,Allowed)
     return Allowed
 end
 
@@ -2193,7 +2203,7 @@ function Library:ConfigurationPanel()
 
     function Object:ApplyVisibility()
         local Allowed=Object.MenuVisible~=false and (type(Library.WindowsAllowed)=="function" and Library:WindowsAllowed() or Library.InterfaceOpen~=false)
-        local State=Object.RequestedVisible==true and Allowed; Object.Visible=State Main.Visible=State
+        local State=Object.RequestedVisible==true and Allowed; Object.Visible=State Main.Visible=State Gui.Enabled=State
         if not State then Object:CloseDropdown() Object:ClosePicker() Object:CloseTooltip() end
         local Controller=Library.PanelController or Library.QuickPanelController
         if Controller and type(Controller.Refresh)=="function" then task.defer(Controller.Refresh) end
@@ -2521,7 +2531,7 @@ function Library:PlayerList(Data)
 
     local Scale=Create("UIScale",{Parent=Frame,Scale=math.clamp((tonumber(Data.Scale) or 100)/100,0.65,1.5)})
     local StatusColors={Client=Accent(),Neutral=Colors.TextDim,Friendly=Color3.fromRGB(87,196,129),Priority=Color3.fromRGB(232,184,82),Enemy=Color3.fromRGB(224,92,102)}
-    local Object={Gui=Gui,Frame=Frame,Header=TitleBar,List=List,Scale=Scale,Rows={},RequestedVisible=Data.Visible==true,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Selected=nil,Search="",Data=Data,DropOpen=false}
+    local Object={Gui=Gui,Frame=Frame,Header=TitleBar,List=List,Scale=Scale,Rows={},RequestedVisible=Data.Visible==true,MenuVisible=Library.Settings.ShowWindows~=false,Selected=nil,Search="",Data=Data,DropOpen=false}
 
     local function NormalizeStatus(Status)
         Status=tostring(Status or "Neutral")
@@ -2698,8 +2708,10 @@ function Library:PlayerList(Data)
     end))
 
     function Object:ApplyVisibility()
-        local Allowed=Object.MenuVisible~=false and (type(Library.WindowsAllowed)=="function" and Library:WindowsAllowed() or Library.InterfaceOpen~=false)
+        local Allowed=Object.MenuVisible~=false and (type(Library.PlayerWindowsAllowed)=="function" and Library:PlayerWindowsAllowed() or Library.Settings.ShowWindows~=false)
         Frame.Visible=Object.RequestedVisible==true and Allowed
+        Object.Visible=Frame.Visible
+        Gui.Enabled=Frame.Visible
         if not Frame.Visible then CloseDrop() end
         if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
     end
@@ -2800,7 +2812,7 @@ function Library:ThemePanel()
     local Object=setmetatable({Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,RequestedVisible=false,Visible=false,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Destroyed=false},WindowMethods)
     function Object:ApplyVisibility()
         local Allowed=Object.MenuVisible~=false and (type(Library.WindowsAllowed)=="function" and Library:WindowsAllowed() or Library.InterfaceOpen~=false)
-        local State=Object.RequestedVisible==true and Allowed; Object.Visible=State Main.Visible=State
+        local State=Object.RequestedVisible==true and Allowed; Object.Visible=State Main.Visible=State Gui.Enabled=State
         if not State then Object:CloseDropdown() Object:ClosePicker() Object:CloseTooltip() end
         if (Library.PanelController or Library.QuickPanelController) and type((Library.PanelController or Library.QuickPanelController).Refresh)=="function" then task.defer((Library.PanelController or Library.QuickPanelController).Refresh) end
     end
