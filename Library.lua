@@ -3617,163 +3617,104 @@ function Library:SetCombatLogLayout(Position,Scale)
     local ScaleObject=self.CombatLogScaleObject if ScaleObject and ScaleObject.Parent then ScaleObject.Scale=self.CombatLogScale/100 end
 end
 
-function Library:CombatLogNotification(Data)
+function Library:CreateNoticeCard(Data,Combat)
     if type(Data)=="string" then Data={Description=Data} end Data=Data or {}
-    local Gui=self:EnsureCombatLogGui()
-    self:SetCombatLogLayout(nil,Data.Scale or self.CombatLogScale or 100)
-    self.CombatLogSerial=(self.CombatLogSerial or 0)+1
-    local Title=string.lower(tostring(Data.Title or "log")) local Description=tostring(Data.Description or "")
-    local MaxTextWidth=270
-    local DescBounds=TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,1000))
-    local TitleBounds=TextService:GetTextSize(Title,11,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,16))
-    local Viewport=GetViewportSize(Gui) local MaximumWidth=math.max(150,math.min(310,Viewport.X-28))
-    local Width=math.clamp(math.ceil(math.max(TitleBounds.X+20,math.min(DescBounds.X,MaxTextWidth)+20)),math.min(170,MaximumWidth),MaximumWidth)
-    local DescWidth=Width-18 local Wrapped=TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(DescWidth,1000))
-    local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),13,34) local Height=Description=="" and 22 or 22+DescHeight
-    local Wrapper=Create("Frame",{Parent=self.CombatLogHolder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=self.CombatLogSerial,ZIndex=4501})
-    local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,GroupTransparency=1,ZIndex=4502})
-    local Panel=Create("Frame",{Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=4503},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.12}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
-    local AccentLine=Create("Frame",{Parent=Panel,Size=UDim2.new(0,2,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4505})
-    local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.24,BorderSizePixel=0,ZIndex=4504})
-    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=4505})
-    if Description~="" then Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=4505}) end
-    local Duration=math.max(tonumber(Data.Duration) or 3,0.35)
-    local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,2,1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4506})
-    local _,Point=self:GetCombatLogAlign(self.CombatLogPosition) local Direction=Point.X<0.34 and -1 or Point.X>0.66 and 1 or 0
-    Group.Position=UDim2.fromOffset(Direction*8,0)
-    TweenService:Create(Group,TweenInfo.new(0.12,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
-    TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,0,1)}):Play()
-    RegisterRenderer(function() if not Panel.Parent then return end local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A end)
-    local Alive=true
-    local function Close()
-        if not Alive then return end Alive=false
-        TweenService:Create(Group,TweenInfo.new(0.10,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*7,0),GroupTransparency=1}):Play()
-        task.delay(0.11,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
+    local Gui
+    local Holder
+    if Combat then
+        Gui=self:EnsureCombatLogGui()
+        self:SetCombatLogLayout(nil,Data.Scale or self.CombatLogScale or 100)
+        Holder=self.CombatLogHolder
+        self.CombatLogSerial=(self.CombatLogSerial or 0)+1
+    else
+        Gui=self:EnsureNotificationGui()
+        Holder=self.NotificationHolder
+        self.NotificationSerial=(self.NotificationSerial or 0)+1
     end
-    Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end end))
-    task.delay(Duration,Close)
-    local Count=0 local Oldest local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or 8),1)
-    for _,Child in ipairs(self.CombatLogHolder:GetChildren()) do if Child:IsA("Frame") then Count+=1 if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end end end
-    if Count>Maximum and Oldest and Oldest~=Wrapper then Oldest:Destroy() end
-    return Wrapper
-end
 
-function Library:Notification(Data)
-    if type(Data)=="string" then Data={Description=Data} end Data=Data or {}
-    local Gui=self:EnsureNotificationGui()
-    self.NotificationSerial=(self.NotificationSerial or 0)+1
-
-    local Title=string.lower(tostring(Data.Title or "atramenta.rip"))
+    local Serial=Combat and self.CombatLogSerial or self.NotificationSerial
+    local Title=string.lower(tostring(Data.Title or (Combat and "log" or "atramenta.rip")))
     local Description=tostring(Data.Description or "")
-    local GenericTitles={warn=true,warning=true,success=true,error=true,info=true,notice=true}
-    if GenericTitles[Title] then Title="atramenta.rip" end
-
     local Viewport=GetViewportSize(Gui)
-    local MaximumWidth=math.max(190,math.min(310,Viewport.X-24))
-    local TextWidth=MaximumWidth-28
-    local TitleBounds=TextService:GetTextSize(Title,12,Enum.Font.SourceSans,Vector2.new(TextWidth,20))
-    local RawDescription=Description~="" and TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(258,1000)) or Vector2.new()
-    local Width=math.clamp(math.ceil(math.max(TitleBounds.X+54,math.min(RawDescription.X,258)+28)),190,MaximumWidth)
-    local DescriptionWidth=Width-18
-    local Wrapped=Description~="" and TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(DescriptionWidth,1000)) or Vector2.new()
-    local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),13,38)
-    local Height=Description=="" and 34 or 39+DescHeight
+    local MaximumWidth=math.max(190,math.min(Combat and 310 or 300,Viewport.X-24))
+    local Raw=Description~="" and TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(260,1000)) or Vector2.new()
+    local Width=math.clamp(math.ceil(math.max(190,math.min(Raw.X+34,286))),190,MaximumWidth)
+    local Wrapped=Description~="" and TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(Width-24,1000)) or Vector2.new()
+    local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),13,Combat and 34 or 42)
+    local Height=Description=="" and 30 or 36+DescHeight
 
-    local Wrapper=Create("Frame",{Parent=self.NotificationHolder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=self.NotificationSerial,ClipsDescendants=false})
-    local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromOffset(Width,Height),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,GroupTransparency=1})
-    local Scale=Create("UIScale",{Parent=Group,Scale=0.975})
+    local Wrapper=Create("Frame",{Parent=Holder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=Serial})
+    local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,GroupTransparency=1})
+    local Scale=Create("UIScale",{Parent=Group,Scale=0.97})
     local Panel=Create("Frame",{Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ClipsDescendants=true},{
-        Create("UICorner",{CornerRadius=UDim.new(0,3)}),
-        Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.08})
+        Create("UICorner",{CornerRadius=UDim.new(0,2)}),
+        Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.05})
     })
-    local Gradient=Create("UIGradient",{Parent=Panel,Rotation=90,Color=ColorSequence.new({
-        ColorSequenceKeypoint.new(0,Colors.Control),
-        ColorSequenceKeypoint.new(0.50,Colors.Bg),
-        ColorSequenceKeypoint.new(1,Colors.Bg)
-    })})
-
-    local AccentTop=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5})
-    local Dot=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(9,10),Size=UDim2.fromOffset(5,5),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5},{
+    local AccentBar=Create("Frame",{Parent=Panel,Size=UDim2.new(0,3,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5})
+    local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(3,0),Size=UDim2.new(1,-3,0,21),BackgroundColor3=Colors.Control,BorderSizePixel=0,ZIndex=3})
+    local HeaderLine=Create("Frame",{Parent=Header,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,0,1,0),Size=UDim2.new(1,0,0,1),BackgroundColor3=Colors.SectionBorder,BackgroundTransparency=0.25,BorderSizePixel=0,ZIndex=4})
+    local Dot=Create("Frame",{Parent=Header,Position=UDim2.fromOffset(7,8),Size=UDim2.fromOffset(5,5),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5},{
         Create("UICorner",{CornerRadius=UDim.new(1,0)})
     })
-    local TitleLabel=Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(20,4),Size=UDim2.new(1,-48,0,17),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=5})
-    local CloseButton=Create("TextButton",{Parent=Panel,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-5,0,3),Size=UDim2.fromOffset(17,17),BackgroundTransparency=1,Text="×",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=14,AutoButtonColor=false,ZIndex=7})
-
+    local TitleLabel=Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(18,1),Size=UDim2.new(1,-43,1,-1),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=5})
+    local Close=Create("TextButton",{Parent=Header,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-4,0,1),Size=UDim2.fromOffset(17,18),BackgroundTransparency=1,Text="×",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=14,AutoButtonColor=false,ZIndex=7})
     local DescriptionLabel
     if Description~="" then
-        DescriptionLabel=Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(9,22),Size=UDim2.new(1,-18,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=5})
+        DescriptionLabel=Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(11,25),Size=UDim2.new(1,-19,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=5})
     end
+    local Track=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,10,1,-3),Size=UDim2.new(1,-18,0,1),BackgroundColor3=Colors.SectionBorder,BackgroundTransparency=0.35,BorderSizePixel=0,ZIndex=5})
+    local Progress=Create("Frame",{Parent=Track,Size=UDim2.fromScale(1,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=6})
 
-    local Rail=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,8,1,-4),Size=UDim2.new(1,-16,0,2),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.12,BorderSizePixel=0,ZIndex=4,Visible=(self.NotificationSettings or {}).Progress~=false},{
-        Create("UICorner",{CornerRadius=UDim.new(1,0)})
-    })
-    local Progress=Create("Frame",{Parent=Rail,Size=UDim2.fromScale(1,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5},{
-        Create("UICorner",{CornerRadius=UDim.new(1,0)})
-    })
-
-    local Duration=math.max(tonumber(Data.Duration) or tonumber((self.Settings or {}).NotificationDuration) or tonumber((self.NotificationSettings or {}).DefaultDuration) or 3,0.35)
-    local Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
+    local Duration=math.max(tonumber(Data.Duration) or (Combat and 4.25 or tonumber((self.Settings or {}).NotificationDuration) or 3),0.35)
+    local Point
+    if Combat then
+        local _,P=self:GetCombatLogAlign(self.CombatLogPosition)
+        Point=P
+    else
+        Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
+    end
     local Direction=Point.X<0.34 and -1 or Point.X>0.66 and 1 or 0
-    local AnimSpeed=math.max(tonumber((self.NotificationSettings or {}).AnimationSpeed) or 1,0.1)
-    local Smoothness=math.clamp(tonumber((self.Settings or {}).NotificationSmoothness) or 0.18,0,1)
-    local InTime=math.max(0.07,math.min(0.22,Smoothness))/AnimSpeed
-    local OutTime=math.max(0.06,math.min(0.18,Smoothness*0.82))/AnimSpeed
-
-    Group.Position=UDim2.fromOffset(Direction*14,2)
-    TweenService:Create(Group,TweenInfo.new(InTime,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
-    TweenService:Create(Scale,TweenInfo.new(InTime,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Scale=1}):Play()
-    if Rail.Visible then TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,1,0)}):Play() end
+    Group.Position=UDim2.fromOffset(Direction*18,2)
+    TweenService:Create(Group,TweenInfo.new(0.14,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{GroupTransparency=0,Position=UDim2.fromOffset(0,0)}):Play()
+    TweenService:Create(Scale,TweenInfo.new(0.14,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Scale=1}):Play()
+    TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,1,0)}):Play()
 
     local Hovered=false
-    Bind(CloseButton.MouseEnter:Connect(function()
-        Hovered=true
-        CloseButton.TextColor3=Accent()
-    end))
-    Bind(CloseButton.MouseLeave:Connect(function()
-        Hovered=false
-        CloseButton.TextColor3=Colors.TextDim
-    end))
-
     RegisterRenderer(function()
         if not Panel or not Panel.Parent then return end
         SyncThemeColors()
-        Panel.BackgroundColor3=Colors.Bg
-        local Stroke=Panel:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end
-        Gradient.Color=ColorSequence.new({
-            ColorSequenceKeypoint.new(0,Colors.Control),
-            ColorSequenceKeypoint.new(0.50,Colors.Bg),
-            ColorSequenceKeypoint.new(1,Colors.Bg)
-        })
         local A=Accent()
-        AccentTop.BackgroundColor3=A Dot.BackgroundColor3=A Progress.BackgroundColor3=A
-        Rail.BackgroundColor3=Colors.TitleBg
+        Panel.BackgroundColor3=Colors.Bg
+        Header.BackgroundColor3=Colors.Control
+        HeaderLine.BackgroundColor3=Colors.SectionBorder
+        AccentBar.BackgroundColor3=A
+        Dot.BackgroundColor3=A
+        Progress.BackgroundColor3=A
+        Track.BackgroundColor3=Colors.SectionBorder
         TitleLabel.TextColor3=Colors.TextBright
+        Close.TextColor3=Hovered and A or Colors.TextDim
         if DescriptionLabel then DescriptionLabel.TextColor3=Colors.Text end
-        CloseButton.TextColor3=Hovered and A or Colors.TextDim
+        local Stroke=Panel:FindFirstChildOfClass("UIStroke")
+        if Stroke then Stroke.Color=Colors.SectionBorder end
     end)
 
     local Alive=true
-    local function Close()
+    local function DestroyToast()
         if not Alive then return end
         Alive=false
-        CloseButton.Active=false
-        TweenService:Create(Group,TweenInfo.new(OutTime,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*11,-1),GroupTransparency=1}):Play()
-        TweenService:Create(Scale,TweenInfo.new(OutTime,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Scale=0.985}):Play()
-        task.delay(OutTime,function()
-            if not Wrapper or not Wrapper.Parent then return end
-            local Collapse=TweenService:Create(Wrapper,TweenInfo.new(math.min(0.10,OutTime),Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Size=UDim2.fromOffset(Width,0)})
-            Collapse:Play()
-            task.delay(math.min(0.10,OutTime)+0.01,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
-        end)
+        TweenService:Create(Group,TweenInfo.new(0.11,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{GroupTransparency=1,Position=UDim2.fromOffset(Direction*12,0)}):Play()
+        TweenService:Create(Scale,TweenInfo.new(0.11,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Scale=0.98}):Play()
+        task.delay(0.12,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
     end
-
-    Bind(CloseButton.MouseButton1Click:Connect(Close))
-    Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end end))
-    task.delay(Duration,Close)
+    Bind(Close.MouseEnter:Connect(function() Hovered=true Close.TextColor3=Accent() end))
+    Bind(Close.MouseLeave:Connect(function() Hovered=false Close.TextColor3=Colors.TextDim end))
+    Bind(Close.MouseButton1Click:Connect(DestroyToast))
+    Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then DestroyToast() end end))
+    task.delay(Duration,DestroyToast)
 
     local Count=0 local Oldest
-    local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or tonumber((self.NotificationSettings or {}).MaximumVisible) or tonumber(self.NotificationMaximumVisible) or 8),1)
-    for _,Child in ipairs(self.NotificationHolder:GetChildren()) do
+    local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or (Combat and 8 or tonumber((self.NotificationSettings or {}).MaximumVisible) or 8)),1)
+    for _,Child in ipairs(Holder:GetChildren()) do
         if Child:IsA("Frame") then
             Count+=1
             if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end
@@ -3781,6 +3722,14 @@ function Library:Notification(Data)
     end
     if Count>Maximum and Oldest and Oldest~=Wrapper then Oldest:Destroy() end
     return Wrapper
+end
+
+function Library:CombatLogNotification(Data)
+    return self:CreateNoticeCard(Data,true)
+end
+
+function Library:Notification(Data)
+    return self:CreateNoticeCard(Data,false)
 end
 
 local function PointInside(Object,Point)
