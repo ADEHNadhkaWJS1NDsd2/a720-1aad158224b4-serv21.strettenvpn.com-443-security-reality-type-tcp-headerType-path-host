@@ -3475,7 +3475,7 @@ function Library:ApplyNotificationLayout()
     if not Holder or not Holder.Parent or not Gui or not Gui.Parent then return end
     local Point,Anchor,H,V=self:GetNotificationAlign()
     local Viewport=GetViewportSize(Gui)
-    Holder.Size=UDim2.fromOffset(math.max(140,math.min(320,Viewport.X-24)),math.max(120,math.min(560,Viewport.Y-24)))
+    Holder.Size=UDim2.fromOffset(math.max(170,math.min(336,Viewport.X-24)),math.max(120,math.min(560,Viewport.Y-24)))
     local HolderScale=Holder:FindFirstChildOfClass("UIScale") or Create("UIScale",{Parent=Holder,Scale=1}) HolderScale.Scale=math.clamp(tonumber((self.NotificationSettings or {}).Scale) or 100,70,140)/100
     Holder.AnchorPoint=Anchor Holder.Position=UDim2.fromScale(Point.X,Point.Y)
     local Layout=Holder:FindFirstChildOfClass("UIListLayout")
@@ -3510,12 +3510,33 @@ function Library:EnsureNotificationGui()
     if Gui and Gui.Parent and self.NotificationHolder and self.NotificationHolder.Parent then return Gui end
     Gui=Create("ScreenGui",{Name="AtramentaNotifications",Parent=Parent,ResetOnSpawn=false,DisplayOrder=200,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui self.NotificationGui=Gui
-    self.NotificationHolder=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-10,0,10),Size=UDim2.fromOffset(320,560),BackgroundTransparency=1},{Create("UIListLayout",{Padding=UDim.new(0,4),HorizontalAlignment=Enum.HorizontalAlignment.Right,VerticalAlignment=Enum.VerticalAlignment.Top,SortOrder=Enum.SortOrder.LayoutOrder})})
-    local Preview=Create("Frame",{Name="NotificationExample",Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.94,0.08),Size=UDim2.fromOffset(238,42),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ZIndex=5000},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})})
-    local AccentLine=Create("Frame",{Parent=Preview,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,2,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5002})
-    local Header=Create("Frame",{Parent=Preview,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.22,BorderSizePixel=0,ZIndex=5001})
-    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text="atramenta.rip",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=5002})
-    Create("TextLabel",{Parent=Preview,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,18),BackgroundTransparency=1,Text="example notification - drag me",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=5002})
+    self.NotificationHolder=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-10,0,10),Size=UDim2.fromOffset(336,560),BackgroundTransparency=1},{
+        Create("UIListLayout",{Padding=UDim.new(0,6),HorizontalAlignment=Enum.HorizontalAlignment.Right,VerticalAlignment=Enum.VerticalAlignment.Top,SortOrder=Enum.SortOrder.LayoutOrder})
+    })
+
+    local Preview=Create("Frame",{Name="NotificationExample",Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.94,0.08),Size=UDim2.fromOffset(272,48),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ZIndex=5000},{
+        Create("UICorner",{CornerRadius=UDim.new(0,3)}),
+        Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.08})
+    })
+    local PreviewGradient=Create("UIGradient",{Parent=Preview,Rotation=90,Color=ColorSequence.new({
+        ColorSequenceKeypoint.new(0,Colors.Control),
+        ColorSequenceKeypoint.new(0.52,Colors.Bg),
+        ColorSequenceKeypoint.new(1,Colors.Bg)
+    })})
+    local TopAccent=Create("Frame",{Parent=Preview,Position=UDim2.fromOffset(1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5003})
+    local Dot=Create("Frame",{Parent=Preview,Position=UDim2.fromOffset(9,9),Size=UDim2.fromOffset(5,5),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5003},{
+        Create("UICorner",{CornerRadius=UDim.new(1,0)})
+    })
+    local PreviewTitle=Create("TextLabel",{Parent=Preview,Position=UDim2.fromOffset(20,3),Size=UDim2.new(1,-46,0,17),BackgroundTransparency=1,Text="atramenta.rip",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,ZIndex=5003})
+    local PreviewClose=Create("TextLabel",{Parent=Preview,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-6,0,2),Size=UDim2.fromOffset(15,16),BackgroundTransparency=1,Text="×",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=14,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=5003})
+    local PreviewDescription=Create("TextLabel",{Parent=Preview,Position=UDim2.fromOffset(9,20),Size=UDim2.new(1,-18,0,17),BackgroundTransparency=1,Text="example notification · drag me",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=5003})
+    local PreviewRail=Create("Frame",{Parent=Preview,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,8,1,-4),Size=UDim2.new(1,-16,0,2),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.12,BorderSizePixel=0,ZIndex=5002},{
+        Create("UICorner",{CornerRadius=UDim.new(1,0)})
+    })
+    local PreviewProgress=Create("Frame",{Parent=PreviewRail,Size=UDim2.new(0.62,0,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5003},{
+        Create("UICorner",{CornerRadius=UDim.new(1,0)})
+    })
+
     self.NotificationPreview=Preview
     local Dragging=false local StartMouse local StartPoint
     Bind(Preview.InputBegan:Connect(function(Input)
@@ -3538,7 +3559,21 @@ function Library:EnsureNotificationGui()
     end))
     Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Dragging=false end end))
     Bind(Gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() self:ApplyNotificationLayout() end))
-    RegisterRenderer(function() if Preview and Preview.Parent then AccentLine.BackgroundColor3=Accent() end end)
+    RegisterRenderer(function()
+        if not Preview or not Preview.Parent then return end
+        SyncThemeColors()
+        Preview.BackgroundColor3=Colors.Bg
+        local Stroke=Preview:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end
+        PreviewGradient.Color=ColorSequence.new({
+            ColorSequenceKeypoint.new(0,Colors.Control),
+            ColorSequenceKeypoint.new(0.52,Colors.Bg),
+            ColorSequenceKeypoint.new(1,Colors.Bg)
+        })
+        local A=Accent()
+        TopAccent.BackgroundColor3=A Dot.BackgroundColor3=A PreviewProgress.BackgroundColor3=A
+        PreviewRail.BackgroundColor3=Colors.TitleBg
+        PreviewTitle.TextColor3=Colors.TextBright PreviewDescription.TextColor3=Colors.Text PreviewClose.TextColor3=Colors.TextDim
+    end)
     self:ApplyNotificationLayout()
     return Gui
 end
@@ -3627,43 +3662,123 @@ function Library:Notification(Data)
     if type(Data)=="string" then Data={Description=Data} end Data=Data or {}
     local Gui=self:EnsureNotificationGui()
     self.NotificationSerial=(self.NotificationSerial or 0)+1
-    local Title=string.lower(tostring(Data.Title or "atramenta.rip")) local Description=tostring(Data.Description or "") local GenericTitles={warn=true,warning=true,success=true,error=true,info=true,notice=true} if GenericTitles[Title] then Title="atramenta.rip" end
-    local MaxTextWidth=252
-    local DescBounds=TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,1000))
-    local TitleBounds=TextService:GetTextSize(Title,11,Enum.Font.SourceSans,Vector2.new(MaxTextWidth,16))
-    local Viewport=GetViewportSize(Gui) local MaximumWidth=math.max(140,math.min(292,Viewport.X-24)) local Width=math.clamp(math.ceil(math.max(TitleBounds.X+18,math.min(DescBounds.X,MaxTextWidth)+18)),math.min(160,MaximumWidth),MaximumWidth)
-    local DescWidth=Width-16
-    local Wrapped=TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(DescWidth,1000))
-    local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),13,30)
-    local Height=Description=="" and 22 or 22+DescHeight
-    local Wrapper=Create("Frame",{Parent=self.NotificationHolder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=self.NotificationSerial})
-    local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromScale(1,1),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,GroupTransparency=1})
-    local Panel=Create("Frame",{Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Colors.Bg,BorderSizePixel=0},{
-        Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.Bg)})})
+
+    local Title=string.lower(tostring(Data.Title or "atramenta.rip"))
+    local Description=tostring(Data.Description or "")
+    local GenericTitles={warn=true,warning=true,success=true,error=true,info=true,notice=true}
+    if GenericTitles[Title] then Title="atramenta.rip" end
+
+    local Viewport=GetViewportSize(Gui)
+    local MaximumWidth=math.max(190,math.min(310,Viewport.X-24))
+    local TextWidth=MaximumWidth-28
+    local TitleBounds=TextService:GetTextSize(Title,12,Enum.Font.SourceSans,Vector2.new(TextWidth,20))
+    local RawDescription=Description~="" and TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(258,1000)) or Vector2.new()
+    local Width=math.clamp(math.ceil(math.max(TitleBounds.X+54,math.min(RawDescription.X,258)+28)),190,MaximumWidth)
+    local DescriptionWidth=Width-18
+    local Wrapped=Description~="" and TextService:GetTextSize(Description,11,Enum.Font.SourceSans,Vector2.new(DescriptionWidth,1000)) or Vector2.new()
+    local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),13,38)
+    local Height=Description=="" and 34 or 39+DescHeight
+
+    local Wrapper=Create("Frame",{Parent=self.NotificationHolder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=self.NotificationSerial,ClipsDescendants=false})
+    local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromOffset(Width,Height),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,GroupTransparency=1})
+    local Scale=Create("UIScale",{Parent=Group,Scale=0.975})
+    local Panel=Create("Frame",{Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ClipsDescendants=true},{
+        Create("UICorner",{CornerRadius=UDim.new(0,3)}),
+        Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.08})
     })
-    local AccentLine=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,2,1,0),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3})
-    local Header=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(2,1),Size=UDim2.new(1,-3,0,17),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.22,BorderSizePixel=0})
-    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd})
-    if Description~="" then Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(8,19),Size=UDim2.new(1,-14,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top}) end
+    local Gradient=Create("UIGradient",{Parent=Panel,Rotation=90,Color=ColorSequence.new({
+        ColorSequenceKeypoint.new(0,Colors.Control),
+        ColorSequenceKeypoint.new(0.50,Colors.Bg),
+        ColorSequenceKeypoint.new(1,Colors.Bg)
+    })})
+
+    local AccentTop=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5})
+    local Dot=Create("Frame",{Parent=Panel,Position=UDim2.fromOffset(9,10),Size=UDim2.fromOffset(5,5),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5},{
+        Create("UICorner",{CornerRadius=UDim.new(1,0)})
+    })
+    local TitleLabel=Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(20,4),Size=UDim2.new(1,-48,0,17),BackgroundTransparency=1,Text=Title,TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=5})
+    local CloseButton=Create("TextButton",{Parent=Panel,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-5,0,3),Size=UDim2.fromOffset(17,17),BackgroundTransparency=1,Text="×",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=14,AutoButtonColor=false,ZIndex=7})
+
+    local DescriptionLabel
+    if Description~="" then
+        DescriptionLabel=Create("TextLabel",{Parent=Panel,Position=UDim2.fromOffset(9,22),Size=UDim2.new(1,-18,0,DescHeight),BackgroundTransparency=1,Text=Description,TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=5})
+    end
+
+    local Rail=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,8,1,-4),Size=UDim2.new(1,-16,0,2),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.12,BorderSizePixel=0,ZIndex=4,Visible=(self.NotificationSettings or {}).Progress~=false},{
+        Create("UICorner",{CornerRadius=UDim.new(1,0)})
+    })
+    local Progress=Create("Frame",{Parent=Rail,Size=UDim2.fromScale(1,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5},{
+        Create("UICorner",{CornerRadius=UDim.new(1,0)})
+    })
+
     local Duration=math.max(tonumber(Data.Duration) or tonumber((self.Settings or {}).NotificationDuration) or tonumber((self.NotificationSettings or {}).DefaultDuration) or 3,0.35)
-    local Progress=Create("Frame",{Parent=Panel,AnchorPoint=Vector2.new(0,1),Position=UDim2.new(0,2,1,0),Size=UDim2.new(1,-2,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=4,Visible=(self.NotificationSettings or {}).Progress~=false})
-    local Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08) local Direction=Point.X<0.34 and -1 or Point.X>0.66 and 1 or 0
-    Group.Position=UDim2.fromOffset(Direction*9,0)
+    local Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
+    local Direction=Point.X<0.34 and -1 or Point.X>0.66 and 1 or 0
     local AnimSpeed=math.max(tonumber((self.NotificationSettings or {}).AnimationSpeed) or 1,0.1)
-    local Smoothness=math.clamp(tonumber((self.Settings or {}).NotificationSmoothness) or 0.14,0,1)
-    TweenService:Create(Group,TweenInfo.new(math.max(0.01,Smoothness)/AnimSpeed,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
-    TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,0,1)}):Play()
-    RegisterRenderer(function() if not Panel.Parent then return end local A=Accent() AccentLine.BackgroundColor3=A Progress.BackgroundColor3=A end)
+    local Smoothness=math.clamp(tonumber((self.Settings or {}).NotificationSmoothness) or 0.18,0,1)
+    local InTime=math.max(0.07,math.min(0.22,Smoothness))/AnimSpeed
+    local OutTime=math.max(0.06,math.min(0.18,Smoothness*0.82))/AnimSpeed
+
+    Group.Position=UDim2.fromOffset(Direction*14,2)
+    TweenService:Create(Group,TweenInfo.new(InTime,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Position=UDim2.fromOffset(0,0),GroupTransparency=0}):Play()
+    TweenService:Create(Scale,TweenInfo.new(InTime,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Scale=1}):Play()
+    if Rail.Visible then TweenService:Create(Progress,TweenInfo.new(Duration,Enum.EasingStyle.Linear),{Size=UDim2.new(0,0,1,0)}):Play() end
+
+    local Hovered=false
+    Bind(CloseButton.MouseEnter:Connect(function()
+        Hovered=true
+        CloseButton.TextColor3=Accent()
+    end))
+    Bind(CloseButton.MouseLeave:Connect(function()
+        Hovered=false
+        CloseButton.TextColor3=Colors.TextDim
+    end))
+
+    RegisterRenderer(function()
+        if not Panel or not Panel.Parent then return end
+        SyncThemeColors()
+        Panel.BackgroundColor3=Colors.Bg
+        local Stroke=Panel:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end
+        Gradient.Color=ColorSequence.new({
+            ColorSequenceKeypoint.new(0,Colors.Control),
+            ColorSequenceKeypoint.new(0.50,Colors.Bg),
+            ColorSequenceKeypoint.new(1,Colors.Bg)
+        })
+        local A=Accent()
+        AccentTop.BackgroundColor3=A Dot.BackgroundColor3=A Progress.BackgroundColor3=A
+        Rail.BackgroundColor3=Colors.TitleBg
+        TitleLabel.TextColor3=Colors.TextBright
+        if DescriptionLabel then DescriptionLabel.TextColor3=Colors.Text end
+        CloseButton.TextColor3=Hovered and A or Colors.TextDim
+    end)
+
     local Alive=true
     local function Close()
-        if not Alive then return end Alive=false
-        TweenService:Create(Group,TweenInfo.new(math.max(0.01,Smoothness)/AnimSpeed,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*8,0),GroupTransparency=1}):Play()
-        task.delay(math.max(0.02,Smoothness+0.01)/AnimSpeed,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
+        if not Alive then return end
+        Alive=false
+        CloseButton.Active=false
+        TweenService:Create(Group,TweenInfo.new(OutTime,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Position=UDim2.fromOffset(Direction*11,-1),GroupTransparency=1}):Play()
+        TweenService:Create(Scale,TweenInfo.new(OutTime,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Scale=0.985}):Play()
+        task.delay(OutTime,function()
+            if not Wrapper or not Wrapper.Parent then return end
+            local Collapse=TweenService:Create(Wrapper,TweenInfo.new(math.min(0.10,OutTime),Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Size=UDim2.fromOffset(Width,0)})
+            Collapse:Play()
+            task.delay(math.min(0.10,OutTime)+0.01,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
+        end)
     end
+
+    Bind(CloseButton.MouseButton1Click:Connect(Close))
     Bind(Wrapper.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end end))
     task.delay(Duration,Close)
-    local Count=0 local Oldest local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or tonumber((self.NotificationSettings or {}).MaximumVisible) or tonumber(self.NotificationMaximumVisible) or 8),1)
-    for _,Child in ipairs(self.NotificationHolder:GetChildren()) do if Child:IsA("Frame") then Count+=1 if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end end end
+
+    local Count=0 local Oldest
+    local Maximum=math.max(math.floor(tonumber(Data.MaximumVisible) or tonumber((self.NotificationSettings or {}).MaximumVisible) or tonumber(self.NotificationMaximumVisible) or 8),1)
+    for _,Child in ipairs(self.NotificationHolder:GetChildren()) do
+        if Child:IsA("Frame") then
+            Count+=1
+            if not Oldest or Child.LayoutOrder<Oldest.LayoutOrder then Oldest=Child end
+        end
+    end
     if Count>Maximum and Oldest and Oldest~=Wrapper then Oldest:Destroy() end
     return Wrapper
 end
