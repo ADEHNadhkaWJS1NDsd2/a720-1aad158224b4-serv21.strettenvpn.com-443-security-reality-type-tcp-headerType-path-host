@@ -3169,9 +3169,19 @@ function Library:PushNotice(Data,Combat)
     local DescHeight=Description=="" and 0 or math.clamp(math.ceil(Wrapped.Y),14,Combat and 34 or 44); local BodyHeight=Description=="" and 0 or DescHeight+12
     local Height=22+BodyHeight
 
-    local Wrapper=Create("Frame",{Name="NativeNoticeWrapper",Parent=Holder,Size=UDim2.fromOffset(Width,Height),BackgroundTransparency=1,LayoutOrder=Serial})
-    local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,GroupTransparency=1})
-    local Scale=Create("UIScale",{Parent=Group,Scale=0.985})
+    local Point
+    if Combat then
+        local _,P=self:GetCombatLogAlign(self.CombatLogPosition)
+        Point=P
+    else
+        Point=typeof(self.NotificationPoint)=="Vector2" and self.NotificationPoint or Vector2.new(0.94,0.08)
+    end
+    local SlideX=Point.X<0.34 and -26 or Point.X>0.66 and 26 or 0
+    local SlideY=SlideX==0 and (Point.Y>0.66 and 12 or -12) or 0
+
+    local Wrapper=Create("Frame",{Name="NativeNoticeWrapper",Parent=Holder,Size=UDim2.fromOffset(Width,0),BackgroundTransparency=1,LayoutOrder=Serial,ClipsDescendants=true})
+    local Group=Create("CanvasGroup",{Parent=Wrapper,Size=UDim2.fromOffset(Width,Height),Position=UDim2.fromOffset(SlideX,SlideY),BackgroundTransparency=1,GroupTransparency=1})
+    local Scale=Create("UIScale",{Parent=Group,Scale=0.965})
     local Main=Create("Frame",{Name="Main",Parent=Group,Size=UDim2.fromScale(1,1),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ClipsDescendants=true},{
         Create("UICorner",{CornerRadius=UDim.new(0,4)}), Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})
     })
@@ -3201,15 +3211,24 @@ function Library:PushNotice(Data,Combat)
         end
     end)
 
-    TweenService:Create(Group,TweenInfo.new(0.12,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{GroupTransparency=0}):Play()
-    TweenService:Create(Scale,TweenInfo.new(0.12,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{Scale=1}):Play()
+    local InTime=0.22
+    TweenService:Create(Wrapper,TweenInfo.new(InTime,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{Size=UDim2.fromOffset(Width,Height)}):Play()
+    TweenService:Create(Group,TweenInfo.new(InTime,Enum.EasingStyle.Quart,Enum.EasingDirection.Out),{GroupTransparency=0,Position=UDim2.fromOffset(0,0)}):Play()
+    TweenService:Create(Scale,TweenInfo.new(InTime,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{Scale=1}):Play()
 
     local Alive=true
     local function Close()
         if not Alive then return end
-        Alive=false; TweenService:Create(Group,TweenInfo.new(0.10,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{GroupTransparency=1}):Play()
-        TweenService:Create(Scale,TweenInfo.new(0.10,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Scale=0.985}):Play()
-        task.delay(0.11,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
+        Alive=false
+        local OutTime=0.18
+        TweenService:Create(Group,TweenInfo.new(OutTime,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{GroupTransparency=1,Position=UDim2.fromOffset(SlideX,SlideY)}):Play()
+        TweenService:Create(Scale,TweenInfo.new(OutTime,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{Scale=0.97}):Play()
+        task.delay(0.06,function()
+            if Wrapper and Wrapper.Parent then
+                TweenService:Create(Wrapper,TweenInfo.new(0.16,Enum.EasingStyle.Quart,Enum.EasingDirection.InOut),{Size=UDim2.fromOffset(Width,0)}):Play()
+            end
+        end)
+        task.delay(0.23,function() if Wrapper and Wrapper.Parent then Wrapper:Destroy() end end)
     end
     Bind(Wrapper.InputBegan:Connect(function(Input)
         if Input.UserInputType==Enum.UserInputType.MouseButton2 then Close() end
