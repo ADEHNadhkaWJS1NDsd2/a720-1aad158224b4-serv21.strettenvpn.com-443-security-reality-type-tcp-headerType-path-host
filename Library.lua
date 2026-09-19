@@ -2054,22 +2054,44 @@ end
 local function ConfigPath(Name) return Library.Folders.Configs .. "/" .. NormalizeConfigName(Name) .. ".json" end
 local LegacyFolders = {"caesura.cc/Configs", "caesura.cc/configs", "obels/configs"}
 
+local function ConfigFolders()
+    local Folders,Seen={},{}
+    local function Add(Path)
+        Path=tostring(Path or "")
+        if Path=="" or Seen[Path:lower()] then return end
+        Seen[Path:lower()]=true
+        Folders[#Folders+1]=Path
+    end
+    Add(Library.Folders.Configs)
+    for _,Folder in ipairs(LegacyFolders) do Add(Folder) end
+    return Folders
+end
+
 function Library:ListConfigs()
-    EnsureFolders(); local Seen, Items = {}, {}
-    if type(listfiles) == "function" then
-        for _, Folder in ipairs(LegacyFolders) do
-            if type(isfolder) ~= "function" or isfolder(Folder) then
-                local Success, Files = Call(listfiles, Folder)
-                if Success and type(Files) == "table" then
-                    for _, File in ipairs(Files) do
-                        local Name = tostring(File):match("([^/\\]+)%.json$") or tostring(File):match("([^/\\]+)%.cfg$")
-                        if Name and not Seen[Name:lower()] and Name ~= "Caesura" and Name ~= "CaesuraConfigs" then Seen[Name:lower()] = true; Items[#Items + 1] = Name end
+    EnsureFolders()
+    local Seen,Items={},{}
+    if type(listfiles)=="function" then
+        for _,Folder in ipairs(ConfigFolders()) do
+            if type(isfolder)~="function" or isfolder(Folder) then
+                local Success,Files=Call(listfiles,Folder)
+                if Success and type(Files)=="table" then
+                    for _,File in ipairs(Files) do
+                        local Path=tostring(File)
+                        local Name=Path:match("([^/\\]+)%.json$") or Path:match("([^/\\]+)%.cfg$")
+                        if Name then
+                            Name=NormalizeConfigName(Name)
+                            local Key=Name:lower()
+                            if Name~="" and not Seen[Key] then
+                                Seen[Key]=true
+                                Items[#Items+1]=Name
+                            end
+                        end
                     end
                 end
             end
         end
     end
-    table.sort(Items, function(A, B) return A:lower() < B:lower() end)
+    table.sort(Items,function(A,B) return A:lower()<B:lower() end)
     return Items
 end
 
@@ -2077,7 +2099,7 @@ function Library:ConfigExists(Name)
     Name = NormalizeConfigName(Name)
     if Name == "" then return false end
     if type(isfile) == "function" and isfile(ConfigPath(Name)) then return true end
-    for _, Folder in ipairs(LegacyFolders) do
+    for _, Folder in ipairs(ConfigFolders()) do
         if type(isfile) == "function" and (isfile(Folder .. "/" .. Name .. ".json") or isfile(Folder .. "/" .. Name .. ".cfg")) then return true end
     end
     return false
@@ -2087,9 +2109,15 @@ function Library:SaveConfig(Name)
     Name = NormalizeConfigName(Name)
     if self.MenuBuildComplete == false then self.LastConfigSaveError = "menu build incomplete"; return false end
     if Name == "" or type(writefile) ~= "function" then return false end
-    EnsureFolders(); local Source = self:GetConfig()
-    if type(Source) ~= "string" then return false end
-    return Call(writefile, ConfigPath(Name), Source) == true
+    EnsureFolders(); local Source=self:GetConfig()
+    if type(Source)~="string" then return false end
+    local Success=Call(writefile,ConfigPath(Name),Source)==true
+    if Success and self.ConfigWindow and type(self.ConfigWindow.RefreshConfigs)=="function" then
+        task.defer(function()
+            if self.ConfigWindow and type(self.ConfigWindow.RefreshConfigs)=="function" then self.ConfigWindow.RefreshConfigs(true) end
+        end)
+    end
+    return Success
 end
 
 function Library:LoadConfigFile(Name)
@@ -2100,7 +2128,7 @@ function Library:LoadConfigFile(Name)
         if not Seen[Path] then Seen[Path] = true Paths[#Paths + 1] = Path end
     end
     Push(ConfigPath(Name))
-    for _, Folder in ipairs(LegacyFolders) do
+    for _, Folder in ipairs(ConfigFolders()) do
         Push(Folder .. "/" .. Name .. ".json"); Push(Folder .. "/" .. Name .. ".cfg")
     end
     for _, Path in ipairs(Paths) do
@@ -2121,7 +2149,7 @@ function Library:DeleteConfig(Name)
         if not Seen[Path] then Seen[Path] = true Paths[#Paths + 1] = Path end
     end
     Push(ConfigPath(Name))
-    for _, Folder in ipairs(LegacyFolders) do
+    for _, Folder in ipairs(ConfigFolders()) do
         Push(Folder .. "/" .. Name .. ".json"); Push(Folder .. "/" .. Name .. ".cfg")
     end
     for _, Path in ipairs(Paths) do
@@ -2170,7 +2198,11 @@ function Library:ConfigurationPanel()
         local Controller=Library.PanelController or Library.QuickPanelController
         if Controller and type(Controller.Refresh)=="function" then task.defer(Controller.Refresh) end
     end
-    function Object:SetVisibility(State) Object.RequestedVisible=State==true Object:ApplyVisibility() end
+    function Object:SetVisibility(State)
+        Object.RequestedVisible=State==true
+        Object:ApplyVisibility()
+        if Object.RequestedVisible and type(Object.RefreshConfigs)=="function" then task.defer(function() if Object.RequestedVisible then Object.RefreshConfigs(true) end end) end
+    end
     function Object:SetMenuVisible(State) Object.MenuVisible=State==true Object:ApplyVisibility() end
     function Object:IsVisible() return Main.Visible==true end
     function Object:IsRequestedVisible() return Object.RequestedVisible==true end
