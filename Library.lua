@@ -2403,46 +2403,86 @@ end
 function Library:PlayerList(Data)
     Data=type(Data)=="table" and Data or {}
     if self.PlayerWindow then return self.PlayerWindow end
-    self.PlayerStatuses=type(self.PlayerStatuses)=="table" and self.PlayerStatuses or {}; local Parent=ParentGui()
+    self.PlayerStatuses=type(self.PlayerStatuses)=="table" and self.PlayerStatuses or {}
+
+    local Parent=ParentGui()
     local Gui=Create("ScreenGui",{Name="CaesuraPlayerList",Parent=Parent,ResetOnSpawn=false,DisplayOrder=150,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=false})
     self.Guis[#self.Guis+1]=Gui
-    local Frame=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.72,0.52),Size=UDim2.fromOffset(720,420),BackgroundColor3=Color3.fromRGB(2,2,3),BorderSizePixel=0,Visible=false,Active=true,ZIndex=150},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Color3.fromRGB(0,0,0),Thickness=1})})
-    local Inner=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=151},{Create("UICorner",{CornerRadius=UDim.new(0,1)})})
-    local Header=Create("Frame",{Parent=Inner,Size=UDim2.new(1,0,0,21),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true,ZIndex=152},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Colors.TitleBg)})})})
-    local AccentLine=Create("Frame",{Parent=Header,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=154},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.12,Accent()),ColorSequenceKeypoint.new(0.88,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
-    Create("TextLabel",{Parent=Header,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="playerlist",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=153})
-    local Body=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(6,27),Size=UDim2.new(1,-12,1,-33),BackgroundTransparency=1,ZIndex=152})
-    local Left=Create("Frame",{Parent=Body,Size=UDim2.new(0.60,-3,1,0),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.50,BorderSizePixel=0,ZIndex=152},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.52})})
-    local Right=Create("Frame",{Parent=Body,Position=UDim2.new(0.60,4,0,0),Size=UDim2.new(0.40,-4,1,0),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.50,BorderSizePixel=0,ZIndex=152},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.52})})
-    local LeftHead=Create("Frame",{Parent=Left,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.10,BorderSizePixel=0,ZIndex=153})
-    local Count=Create("TextLabel",{Parent=LeftHead,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="players  0",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    Create("Frame",{Parent=LeftHead,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Colors.SectionBorder,BackgroundTransparency=0.62,BorderSizePixel=0,ZIndex=154})
-    local Search=Create("TextBox",{Parent=Left,Position=UDim2.fromOffset(6,26),Size=UDim2.new(1,-12,0,22),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.22,BorderSizePixel=0,ClearTextOnFocus=false,PlaceholderText="search...",PlaceholderColor3=Colors.TextDim,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=153},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.60}),Create("UIPadding",{PaddingLeft=UDim.new(0,7),PaddingRight=UDim.new(0,7)})})
-    local ListHead=Create("Frame",{Parent=Left,Position=UDim2.fromOffset(6,54),Size=UDim2.new(1,-12,0,18),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.48,BorderSizePixel=0,ZIndex=153})
-    Create("TextLabel",{Parent=ListHead,Position=UDim2.fromOffset(28,0),Size=UDim2.new(1,-116,1,0),BackgroundTransparency=1,Text="name",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    Create("TextLabel",{Parent=ListHead,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-6,0,0),Size=UDim2.fromOffset(82,18),BackgroundTransparency=1,Text="status",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right,ZIndex=154})
-    local List=Create("ScrollingFrame",{Parent=Left,Position=UDim2.fromOffset(6,73),Size=UDim2.new(1,-12,1,-79),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.68,BorderSizePixel=0,CanvasSize=UDim2.new(),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=2,ScrollBarImageColor3=Colors.TextDim,ZIndex=153},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.70}),Create("UIListLayout",{Padding=UDim.new(0,1),SortOrder=Enum.SortOrder.LayoutOrder}),Create("UIPadding",{PaddingTop=UDim.new(0,2),PaddingBottom=UDim.new(0,2),PaddingLeft=UDim.new(0,2),PaddingRight=UDim.new(0,2)})})
-    local RightHead=Create("Frame",{Parent=Right,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.TitleBg,BackgroundTransparency=0.10,BorderSizePixel=0,ZIndex=153})
-    Create("TextLabel",{Parent=RightHead,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-14,1,0),BackgroundTransparency=1,Text="selected",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    Create("Frame",{Parent=RightHead,Position=UDim2.new(0,0,1,-1),Size=UDim2.new(1,0,0,1),BackgroundColor3=Colors.SectionBorder,BackgroundTransparency=0.62,BorderSizePixel=0,ZIndex=154})
-    local Empty=Create("TextLabel",{Parent=Right,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.50),Size=UDim2.new(1,-16,0,20),BackgroundTransparency=1,Text="no player selected",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,ZIndex=153})
-    local Profile=Create("Frame",{Parent=Right,Position=UDim2.fromOffset(7,27),Size=UDim2.new(1,-14,1,-34),BackgroundTransparency=1,Visible=false,ZIndex=153})
-    local Identity=Create("Frame",{Parent=Profile,Size=UDim2.new(1,0,0,58),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.58,BorderSizePixel=0,ZIndex=153},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.66})})
-    local AvatarHolder=Create("Frame",{Parent=Identity,Position=UDim2.fromOffset(6,6),Size=UDim2.fromOffset(46,46),BackgroundColor3=Colors.Control,BorderSizePixel=0,ClipsDescendants=true,ZIndex=154},{Create("UICorner",{CornerRadius=UDim.new(1,0)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.40})})
-    local Avatar=Create("ImageLabel",{Parent=AvatarHolder,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundTransparency=1,Image="",ScaleType=Enum.ScaleType.Crop,ZIndex=155},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-    local User=Create("TextLabel",{Parent=Identity,Position=UDim2.fromOffset(60,8),Size=UDim2.new(1,-66,0,18),BackgroundTransparency=1,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=12,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    local Info=Create("TextLabel",{Parent=Identity,Position=UDim2.fromOffset(60,28),Size=UDim2.new(1,-66,0,16),BackgroundTransparency=1,Text="",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    Create("TextLabel",{Parent=Profile,Position=UDim2.fromOffset(0,69),Size=UDim2.new(1,0,0,13),BackgroundTransparency=1,Text="status",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=154})
-    local StatusFrame=Create("Frame",{Parent=Profile,Position=UDim2.fromOffset(0,85),Size=UDim2.new(1,0,0,17),BackgroundColor3=Colors.DropdownBg,BorderSizePixel=0,ZIndex=156},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.DropdownBord,Thickness=1}),Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(28,28,32)),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})})
-    local StatusText=Create("TextLabel",{Parent=StatusFrame,Size=UDim2.new(1,-20,1,0),Position=UDim2.fromOffset(7,0),BackgroundTransparency=1,Text="Neutral",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=157})
-    local StatusArrow=Create("TextLabel",{Parent=StatusFrame,Size=UDim2.fromOffset(14,17),Position=UDim2.new(1,-14,0,0),BackgroundTransparency=1,Text="▼",TextColor3=Colors.TextBind,Font=Enum.Font.SourceSans,TextSize=9,ZIndex=157})
+
+    local Frame=Create("Frame",{Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.72,0.52),Size=UDim2.fromOffset(680,390),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ZIndex=150},{
+        Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})
+    })
+    local TitleBar=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true,ZIndex=151},{
+        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(28,28,32)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0))})}),
+        Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=153},{
+            Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})
+        })
+    })
+    local Title=Create("TextLabel",{Parent=TitleBar,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.new(1,-16,1,0),BackgroundTransparency=1,Text="playerlist",Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Color3.fromRGB(214,214,218),TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=154})
+    local Body=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(10,32),Size=UDim2.new(1,-20,1,-42),BackgroundTransparency=1,ZIndex=151})
+
+    local function MakeSection(Name,Position,Size)
+        local Container=Create("Frame",{Parent=Body,Position=Position,Size=Size,BackgroundTransparency=1,ZIndex=152})
+        local Outline=Create("Frame",{Parent=Container,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,ZIndex=152},{
+            Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})
+        })
+        local Header=Create("TextLabel",{Parent=Container,AutomaticSize=Enum.AutomaticSize.X,Size=UDim2.new(0,0,0,14),Position=UDim2.fromOffset(4,-7),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.ColHdr,Font=Enum.Font.SourceSans,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,ZIndex=155},{
+            Create("UIPadding",{PaddingLeft=UDim.new(0,4),PaddingRight=UDim.new(0,4)})
+        })
+        local Content=Create("Frame",{Parent=Outline,Position=UDim2.fromOffset(8,11),Size=UDim2.new(1,-16,1,-19),BackgroundTransparency=1,ZIndex=153})
+        return Container,Outline,Header,Content
+    end
+
+    local LeftContainer,LeftOutline,Count,Left=MakeSection("players 0",UDim2.fromScale(0,0),UDim2.new(0.58,-5,1,0))
+    local RightContainer,RightOutline,SelectedHeader,Right=MakeSection("selected",UDim2.new(0.58,5,0,0),UDim2.new(0.42,-5,1,0))
+
+    local SearchFrame=Create("Frame",{Parent=Left,Size=UDim2.new(1,0,0,17),BackgroundColor3=Color3.fromRGB(8,8,8),BorderSizePixel=0,ZIndex=154},{
+        Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.CbBorder,Thickness=1}),
+        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})
+    })
+    local Search=Create("TextBox",{Parent=SearchFrame,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,ClearTextOnFocus=false,PlaceholderText="search...",PlaceholderColor3=Colors.TextDim,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=155})
+
+    local List=Create("ScrollingFrame",{Parent=Left,Position=UDim2.fromOffset(0,23),Size=UDim2.new(1,0,1,-23),BackgroundColor3=Color3.fromRGB(8,8,8),BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=2,ScrollBarImageColor3=Colors.TextBind,ZIndex=154},{
+        Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1}),
+        Create("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,SortOrder=Enum.SortOrder.LayoutOrder})
+    })
+
+    local Empty=Create("TextLabel",{Parent=Right,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.new(1,-12,0,18),BackgroundTransparency=1,Text="no player selected",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=13,ZIndex=154})
+    local Profile=Create("Frame",{Parent=Right,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Visible=false,ZIndex=154})
+
+    local AvatarHolder=Create("Frame",{Parent=Profile,Position=UDim2.fromOffset(0,1),Size=UDim2.fromOffset(42,42),BackgroundColor3=Colors.Control,BorderSizePixel=0,ClipsDescendants=true,ZIndex=155},{
+        Create("UICorner",{CornerRadius=UDim.new(1,0)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})
+    })
+    local Avatar=Create("ImageLabel",{Parent=AvatarHolder,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundTransparency=1,Image="",ScaleType=Enum.ScaleType.Crop,ZIndex=156},{
+        Create("UICorner",{CornerRadius=UDim.new(1,0)})
+    })
+    local User=Create("TextLabel",{Parent=Profile,Position=UDim2.fromOffset(50,2),Size=UDim2.new(1,-50,0,18),BackgroundTransparency=1,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=155})
+    local Info=Create("TextLabel",{Parent=Profile,Position=UDim2.fromOffset(50,21),Size=UDim2.new(1,-50,0,17),BackgroundTransparency=1,Text="",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=155})
+
+    local StatusLabel=Create("TextLabel",{Parent=Profile,Position=UDim2.fromOffset(0,53),Size=UDim2.new(1,0,0,13),BackgroundTransparency=1,Text="status",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=155})
+    local StatusFrame=Create("Frame",{Parent=Profile,Position=UDim2.fromOffset(0,69),Size=UDim2.new(1,0,0,17),BackgroundColor3=Colors.DropdownBg,BorderSizePixel=0,ZIndex=156},{
+        Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.DropdownBord,Thickness=1}),
+        Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(28,28,32)),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})
+    })
+    local StatusText=Create("TextLabel",{Parent=StatusFrame,Position=UDim2.fromOffset(7,0),Size=UDim2.new(1,-21,1,0),BackgroundTransparency=1,Text="Neutral",TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=157})
+    local StatusArrow=Create("TextLabel",{Parent=StatusFrame,Position=UDim2.new(1,-14,0,0),Size=UDim2.fromOffset(14,17),BackgroundTransparency=1,Text="▼",TextColor3=Colors.TextBind,Font=Enum.Font.SourceSans,TextSize=9,ZIndex=157})
     local StatusButton=Create("TextButton",{Parent=StatusFrame,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=158})
-    local StatusPopup=Create("Frame",{Parent=Gui,Size=UDim2.fromOffset(120,76),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,ZIndex=1000},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.DropdownBord,Thickness=1})})
-    local StatusScroll=Create("ScrollingFrame",{Parent=StatusPopup,Size=UDim2.new(1,-2,1,-2),Position=UDim2.fromOffset(1,1),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollingDirection=Enum.ScrollingDirection.Y,ScrollBarThickness=2,ScrollBarImageColor3=Color3.fromRGB(80,80,80),ZIndex=1001},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,SortOrder=Enum.SortOrder.LayoutOrder})})
-    local ActionHolder=Create("Frame",{Parent=Profile,Position=UDim2.new(0,0,1,-27),Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,ZIndex=154},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Left,Padding=UDim.new(0,3),SortOrder=Enum.SortOrder.LayoutOrder})})
+
+    local StatusPopup=Create("Frame",{Parent=Gui,Size=UDim2.fromOffset(140,76),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,ZIndex=1000},{
+        Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.DropdownBord,Thickness=1})
+    })
+    local StatusScroll=Create("ScrollingFrame",{Parent=StatusPopup,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollingDirection=Enum.ScrollingDirection.Y,ScrollBarThickness=2,ScrollBarImageColor3=Colors.TextBind,ZIndex=1001},{
+        Create("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,SortOrder=Enum.SortOrder.LayoutOrder})
+    })
+
+    local ActionHolder=Create("Frame",{Parent=Profile,Position=UDim2.fromOffset(0,99),Size=UDim2.new(1,0,0,18),BackgroundTransparency=1,ZIndex=155},{
+        Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Left,Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder})
+    })
+
     local Scale=Create("UIScale",{Parent=Frame,Scale=math.clamp((tonumber(Data.Scale) or 100)/100,0.65,1.5)})
     local StatusColors={Client=Accent(),Neutral=Colors.TextDim,Friendly=Color3.fromRGB(87,196,129),Priority=Color3.fromRGB(232,184,82),Enemy=Color3.fromRGB(224,92,102)}
-    local Object={Gui=Gui,Frame=Frame,Header=Header,List=List,Scale=Scale,Rows={},RequestedVisible=Data.Visible==true,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Selected=nil,Search="",Data=Data,DropOpen=false}
+    local Object={Gui=Gui,Frame=Frame,Header=TitleBar,List=List,Scale=Scale,Rows={},RequestedVisible=Data.Visible==true,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Selected=nil,Search="",Data=Data,DropOpen=false}
+
     local function NormalizeStatus(Status)
         Status=tostring(Status or "Neutral")
         if Status=="None" or Status=="none" or Status=="" then return "Neutral" end
@@ -2450,21 +2490,29 @@ function Library:PlayerList(Data)
         if Status=="Friendly" or Status=="Priority" or Status=="Enemy" or Status=="Neutral" then return Status end
         return "Neutral"
     end
+
     local function ReadStatus(Player)
         if not Player then return "Neutral" end
         if Player==Players.LocalPlayer then return "Client" end
-        local UserId=tonumber(Player.UserId) or 0 local External
-        if type(Data.GetStatus)=="function" then local Ok,Value=Call(Data.GetStatus,Player) if Ok then External=Value end end
-        local Status=NormalizeStatus(External or Library.PlayerStatuses[UserId]); Library.PlayerStatuses[UserId]=Status
-        return Status
+        local UserId=tonumber(Player.UserId) or 0
+        local Stored=Library.PlayerStatuses[UserId]
+        if Stored==nil and type(Data.GetStatus)=="function" then
+            local Ok,Result=pcall(Data.GetStatus,Player)
+            if Ok then Stored=Result end
+        end
+        Stored=NormalizeStatus(Stored)
+        Library.PlayerStatuses[UserId]=Stored
+        return Stored
     end
-    local RefreshRows local RefreshSelected
+
+    local RefreshRows,RefreshSelected
     local function CloseDrop()
         Object.DropOpen=false
         StatusPopup.Visible=false
         StatusArrow.Text="▼"
         StatusArrow.TextColor3=Colors.TextBind
     end
+
     local function SetStatus(Player,Status,Silent)
         if not Player or Player==Players.LocalPlayer then return "Client" end
         Status=NormalizeStatus(Status)
@@ -2474,82 +2522,127 @@ function Library:PlayerList(Data)
         if RefreshSelected and Object.Selected==Player then RefreshSelected(false) end
         return Status
     end
+
     local function OpenDrop()
         if not Object.Selected or Object.Selected==Players.LocalPlayer then return end
         for _,Child in ipairs(StatusScroll:GetChildren()) do if Child:IsA("TextButton") then Child:Destroy() end end
         local Items={"Neutral","Friendly","Priority","Enemy"}
         local Selected=ReadStatus(Object.Selected)
         for Index,Name in ipairs(Items) do
-            local Button=Create("TextButton",{Parent=StatusScroll,Size=UDim2.new(1,0,0,18),BackgroundTransparency=1,BackgroundColor3=Colors.DropdownBg,Text=Name,TextColor3=Selected==Name and Accent() or Colors.Text,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,AutoButtonColor=false,LayoutOrder=Index,ZIndex=1002},{Create("UIPadding",{PaddingLeft=UDim.new(0,7)})})
+            local Button=Create("TextButton",{Parent=StatusScroll,Size=UDim2.new(1,0,0,18),BackgroundTransparency=1,BackgroundColor3=Colors.DropdownBg,Text=Name,TextColor3=Selected==Name and Accent() or Colors.Text,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,AutoButtonColor=false,LayoutOrder=Index,ZIndex=1002},{
+                Create("UIPadding",{PaddingLeft=UDim.new(0,6)})
+            })
             Bind(Button.MouseEnter:Connect(function() Button.BackgroundTransparency=0.9 Button.BackgroundColor3=Accent() Button.TextColor3=Colors.TextBright end))
             Bind(Button.MouseLeave:Connect(function() Button.BackgroundTransparency=1 Button.TextColor3=ReadStatus(Object.Selected)==Name and Accent() or Colors.Text end))
             Bind(Button.MouseButton1Click:Connect(function() SetStatus(Object.Selected,Name,false) CloseDrop() end))
         end
-        local Width=math.max(StatusFrame.AbsoluteSize.X,120)
-        local Height=76
-        StatusPopup.Size=UDim2.fromOffset(Width,Height)
+        local Width=math.max(StatusFrame.AbsoluteSize.X,140)
+        StatusPopup.Size=UDim2.fromOffset(Width,76)
         StatusScroll.CanvasPosition=Vector2.zero
         local Viewport=Gui.AbsoluteSize
         local Pos=GuiPoint(Gui,StatusFrame.AbsolutePosition)
         local X=math.clamp(Pos.X,4,math.max(4,Viewport.X-Width-4))
         local Below=Pos.Y+StatusFrame.AbsoluteSize.Y+2
-        local Y=Below+Height<=Viewport.Y-4 and Below or math.max(4,Pos.Y-Height-2)
+        local Y=Below+76<=Viewport.Y-4 and Below or math.max(4,Pos.Y-78)
         StatusPopup.Position=UDim2.fromOffset(math.floor(X+0.5),math.floor(Y+0.5))
         Object.DropOpen=true
         StatusPopup.Visible=true
         StatusArrow.Text="▲"
         StatusArrow.TextColor3=Accent()
     end
+
     local function MakeAction(Name,CallbackKey,Order)
-        local Button=Create("TextButton",{Parent=ActionHolder,Size=UDim2.new(0.5,-2,1,0),BackgroundColor3=Colors.Bg,BackgroundTransparency=0.38,BorderSizePixel=0,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=10,AutoButtonColor=false,LayoutOrder=Order,ZIndex=155},{Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1,Transparency=0.62})})
-        Bind(Button.MouseEnter:Connect(function() Button.BackgroundTransparency=0.22 Button.TextColor3=Colors.TextBright end))
-        Bind(Button.MouseLeave:Connect(function() Button.BackgroundTransparency=0.38 Button.TextColor3=Colors.Text end))
-        Bind(Button.MouseButton1Click:Connect(function() local Callback=Data[CallbackKey] if type(Callback)~="function" then return end if CallbackKey=="Unspectate" then task.spawn(Callback) elseif Object.Selected then task.spawn(Callback,Object.Selected) end end))
-        return Button
+        local Root=Create("Frame",{Parent=ActionHolder,Size=UDim2.new(0.5,-2,1,0),BackgroundColor3=Colors.Control,BorderSizePixel=0,LayoutOrder=Order,ZIndex=155},{
+            Create("UICorner",{CornerRadius=UDim.new(0,2)}),
+            Create("UIStroke",{Color=Color3.fromRGB(56,52,56),Thickness=1,Enabled=false}),
+            Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Colors.Control),ColorSequenceKeypoint.new(1,Color3.fromRGB(8,8,8))})})
+        })
+        local Line=Create("Frame",{Parent=Root,Position=UDim2.fromOffset(1,1),Size=UDim2.new(0,1,1,-2),BackgroundColor3=Accent(),BorderSizePixel=0,Visible=false,ZIndex=157})
+        local Label=Create("TextLabel",{Parent=Root,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text=string.lower(Name),TextColor3=Colors.Text,Font=Enum.Font.SourceSans,TextSize=13,ZIndex=156})
+        local Hit=Create("TextButton",{Parent=Root,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=158})
+        local Hover=false
+        local function Paint()
+            local Stroke=Root:FindFirstChildOfClass("UIStroke")
+            if Stroke then Stroke.Enabled=Hover end
+            Line.Visible=Hover
+            Label.TextColor3=Hover and Colors.TextBright or Colors.Text
+        end
+        Bind(Hit.MouseEnter:Connect(function() Hover=true Paint() end))
+        Bind(Hit.MouseLeave:Connect(function() Hover=false Paint() end))
+        Bind(Hit.MouseButton1Click:Connect(function()
+            local Callback=Data[CallbackKey]
+            if type(Callback)~="function" then return end
+            if CallbackKey=="Unspectate" then task.spawn(Callback)
+            elseif Object.Selected then task.spawn(Callback,Object.Selected) end
+        end))
+        return Root,Line,Label
     end
-    MakeAction("spectate","Spectate",1); MakeAction("unspectate","Unspectate",2); RefreshSelected=function(LoadImage)
-        local Player=Object.Selected local Valid=Player and Player.Parent==Players; Empty.Visible=not Valid Profile.Visible=Valid CloseDrop()
+
+    local SpectateRoot,SpectateLine,SpectateLabel=MakeAction("spectate","Spectate",1)
+    local UnspectateRoot,UnspectateLine,UnspectateLabel=MakeAction("unspectate","Unspectate",2)
+
+    RefreshSelected=function(LoadImage)
+        local Player=Object.Selected
+        local Valid=Player and Player.Parent==Players
+        Empty.Visible=not Valid
+        Profile.Visible=Valid
+        CloseDrop()
         if not Valid then Object.Selected=nil Avatar.Image="" User.Text="" Info.Text="" return end
         if LoadImage~=false then Avatar.Image="rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=150&h=150" end
-        User.Text=Player.Name; Info.Text=(Player.DisplayName~=Player.Name and Player.DisplayName.."  /  " or "")..tostring(Player.UserId)
-        local Status=ReadStatus(Player) StatusText.Text=Status StatusText.TextColor3=StatusColors[Status] or Colors.Text
-        StatusButton.Active=Player~=Players.LocalPlayer StatusArrow.Visible=Player~=Players.LocalPlayer
+        User.Text=Player.Name
+        Info.Text=(Player.DisplayName~=Player.Name and Player.DisplayName.."  /  " or "")..tostring(Player.UserId)
+        local Status=ReadStatus(Player)
+        StatusText.Text=Status
+        StatusText.TextColor3=StatusColors[Status] or Colors.Text
+        StatusButton.Active=Player~=Players.LocalPlayer
+        StatusArrow.Visible=Player~=Players.LocalPlayer
     end
+
     local function Select(Player)
-        if Player and Player.Parent~=Players then Player=nil end Object.Selected=Player
-        if RefreshRows then RefreshRows() end if RefreshSelected then RefreshSelected(true) end
+        if Player and Player.Parent~=Players then Player=nil end
+        Object.Selected=Player
+        if RefreshRows then RefreshRows() end
+        if RefreshSelected then RefreshSelected(true) end
     end
+
     RefreshRows=function()
-        for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end table.clear(Object.Rows)
-        local Query=string.lower(Object.Search or "") local Items=Players:GetPlayers()
+        for _,Row in ipairs(Object.Rows) do if Row and Row.Parent then Row:Destroy() end end
+        table.clear(Object.Rows)
+        local Query=string.lower(Object.Search or "")
+        local Items=Players:GetPlayers()
         table.sort(Items,function(A,B)
-            if A==Players.LocalPlayer then return true end if B==Players.LocalPlayer then return false end
-            local Rank={Enemy=1,Priority=2,Friendly=3,Neutral=4} local SA,SB=ReadStatus(A),ReadStatus(B)
+            if A==Players.LocalPlayer then return true end
+            if B==Players.LocalPlayer then return false end
+            local Rank={Enemy=1,Priority=2,Friendly=3,Neutral=4}
+            local SA,SB=ReadStatus(A),ReadStatus(B)
             if Rank[SA] and Rank[SB] and Rank[SA]~=Rank[SB] then return Rank[SA]<Rank[SB] end
             return A.Name:lower()<B.Name:lower()
         end)
+
         local VisibleCount=0
         for _,Player in ipairs(Items) do
             local SearchName=string.lower(Player.Name.." "..Player.DisplayName)
             if Query=="" or string.find(SearchName,Query,1,true) then
-                VisibleCount+=1 local Status=ReadStatus(Player) local Selected=Object.Selected==Player
-                local Row=Create("TextButton",{Parent=List,Size=UDim2.new(1,0,0,24),BackgroundColor3=Colors.Control,BackgroundTransparency=Selected and 0.54 or 1,BorderSizePixel=0,Text="",AutoButtonColor=false,LayoutOrder=VisibleCount,ZIndex=154})
-                Create("Frame",{Parent=Row,Position=UDim2.fromOffset(0,3),Size=UDim2.fromOffset(1,18),BackgroundColor3=Accent(),BackgroundTransparency=Selected and 0 or 1,BorderSizePixel=0,ZIndex=156})
-                local MiniHolder=Create("Frame",{Parent=Row,AnchorPoint=Vector2.new(0,0.5),Position=UDim2.new(0,5,0.5,0),Size=UDim2.fromOffset(16,16),BackgroundColor3=Colors.Control,BorderSizePixel=0,ClipsDescendants=true,ZIndex=155},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-                Create("ImageLabel",{Parent=MiniHolder,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Image="rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=48&h=48",ScaleType=Enum.ScaleType.Crop,ZIndex=156},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-                local NameLabel=Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(27,0),Size=UDim2.new(1,-116,1,0),BackgroundTransparency=1,Text=Player.Name,TextColor3=Selected and Colors.TextBright or Colors.Text,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=155})
-                local StatusLabel=Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-5,0,0),Size=UDim2.fromOffset(82,24),BackgroundTransparency=1,Text=Status,TextColor3=StatusColors[Status] or Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=9,TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=155})
-                Bind(Row.MouseEnter:Connect(function() if Object.Selected~=Player then Row.BackgroundTransparency=0.86 NameLabel.TextColor3=Colors.TextBright end end))
+                VisibleCount+=1
+                local Status=ReadStatus(Player)
+                local Selected=Object.Selected==Player
+                local Row=Create("TextButton",{Parent=List,Size=UDim2.new(1,0,0,20),BackgroundColor3=Colors.DropdownBg,BackgroundTransparency=Selected and 0.88 or 1,BorderSizePixel=0,Text="",AutoButtonColor=false,LayoutOrder=VisibleCount,ZIndex=155})
+                local Mark=Create("Frame",{Parent=Row,Position=UDim2.fromOffset(0,2),Size=UDim2.fromOffset(1,16),BackgroundColor3=Accent(),BackgroundTransparency=Selected and 0 or 1,BorderSizePixel=0,ZIndex=157})
+                local Mini=Create("ImageLabel",{Parent=Row,Position=UDim2.fromOffset(5,2),Size=UDim2.fromOffset(16,16),BackgroundTransparency=1,Image="rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=48&h=48",ScaleType=Enum.ScaleType.Crop,ZIndex=156},{
+                    Create("UICorner",{CornerRadius=UDim.new(1,0)})
+                })
+                local NameLabel=Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(27,0),Size=UDim2.new(1,-108,1,0),BackgroundTransparency=1,Text=Player.Name,TextColor3=Selected and Colors.TextBright or Colors.Text,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=156})
+                local StatusLabel=Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-5,0,0),Size=UDim2.fromOffset(76,20),BackgroundTransparency=1,Text=Status,TextColor3=StatusColors[Status] or Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=156})
+                Bind(Row.MouseEnter:Connect(function() if Object.Selected~=Player then Row.BackgroundTransparency=0.92 NameLabel.TextColor3=Colors.TextBright end end))
                 Bind(Row.MouseLeave:Connect(function() if Object.Selected~=Player then Row.BackgroundTransparency=1 NameLabel.TextColor3=Colors.Text end end))
                 Bind(Row.MouseButton1Click:Connect(function() Select(Player) end))
                 Object.Rows[#Object.Rows+1]=Row
             end
         end
-        Count.Text="players  "..tostring(VisibleCount)
+        Count.Text="players "..tostring(VisibleCount)
     end
-    Bind(StatusButton.MouseButton1Click:Connect(function()
-        if Object.DropOpen then CloseDrop() else OpenDrop() end
-    end))
+
+    Bind(StatusButton.MouseButton1Click:Connect(function() if Object.DropOpen then CloseDrop() else OpenDrop() end end))
     Bind(UserInputService.InputBegan:Connect(function(Input)
         if not Object.DropOpen or Input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
         local Point=Input.Position
@@ -2560,6 +2653,7 @@ function Library:PlayerList(Data)
         end
         if not Inside(StatusPopup) and not Inside(StatusFrame) then CloseDrop() end
     end))
+
     function Object:ApplyVisibility()
         local Allowed=Object.MenuVisible~=false and (type(Library.WindowsAllowed)=="function" and Library:WindowsAllowed() or Library.InterfaceOpen~=false)
         Frame.Visible=Object.RequestedVisible==true and Allowed
@@ -2576,25 +2670,74 @@ function Library:PlayerList(Data)
     function Object:GetStatus(Player) return ReadStatus(Player) end
     function Object:SelectPlayer(Player) Select(Player) end
     function Object:Refresh() RefreshRows() RefreshSelected(false) end
+
     Bind(Search:GetPropertyChangedSignal("Text"):Connect(function() Object.Search=Search.Text RefreshRows() end))
-    Bind(Players.PlayerAdded:Connect(function() task.defer(function() Object:Refresh() end) end))
-    Bind(Players.PlayerRemoving:Connect(function(Player) Library.PlayerStatuses[tonumber(Player.UserId) or 0]=nil if Object.Selected==Player then Object.Selected=nil end task.defer(function() Object:Refresh() end) end))
-    MakeDraggable(Frame,Header,Gui); MakeResizable({Main=Frame,ScreenGui=Gui},Vector2.new(520,300))
+    Bind(Search.Focused:Connect(function() local Stroke=SearchFrame:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Accent() end end))
+    Bind(Search.FocusLost:Connect(function() local Stroke=SearchFrame:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.CbBorder end end))
+    Bind(Players.PlayerAdded:Connect(function() task.defer(Object.Refresh) end))
+    Bind(Players.PlayerRemoving:Connect(function(Player)
+        Library.PlayerStatuses[tonumber(Player.UserId) or 0]=nil
+        if Object.Selected==Player then Object.Selected=nil end
+        task.defer(Object.Refresh)
+    end))
+
+    MakeDraggable(Frame,TitleBar,Gui)
+    MakeResizable({Main=Frame,ScreenGui=Gui},Vector2.new(520,300))
+
     RegisterRenderer(function()
+        SyncThemeColors()
         local A=Accent()
         StatusColors.Client=A
-        AccentLine.BackgroundColor3=A
-        local Gradient=AccentLine:FindFirstChildOfClass("UIGradient")
-        if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.12,A),ColorSequenceKeypoint.new(0.88,A),ColorSequenceKeypoint.new(1,Color3.new())}) end
+        Frame.BackgroundColor3=Colors.Bg
+        TitleBar.BackgroundColor3=Colors.TitleBg
+        local FrameStroke=Frame:FindFirstChildOfClass("UIStroke")
+        if FrameStroke then FrameStroke.Color=Colors.SectionBorder end
+        local AccentLine=TitleBar:FindFirstChild("AccentLine")
+        if AccentLine then
+            AccentLine.BackgroundColor3=A
+            local Gradient=AccentLine:FindFirstChildOfClass("UIGradient")
+            if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.5,A),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))}) end
+        end
+        for _,DataSet in ipairs({{LeftOutline,Count},{RightOutline,SelectedHeader}}) do
+            local Outline,Header=DataSet[1],DataSet[2]
+            local Stroke=Outline:FindFirstChildOfClass("UIStroke")
+            if Stroke then Stroke.Color=Colors.SectionBorder end
+            Header.BackgroundColor3=Colors.Bg
+            Header.TextColor3=Colors.ColHdr
+        end
+        SearchFrame.BackgroundColor3=Color3.fromRGB(8,8,8)
+        local SearchStroke=SearchFrame:FindFirstChildOfClass("UIStroke")
+        if SearchStroke and not Search:IsFocused() then SearchStroke.Color=Colors.CbBorder end
+        Search.PlaceholderColor3=Colors.TextDim
+        Search.TextColor3=Colors.TextBright
+        List.BackgroundColor3=Color3.fromRGB(8,8,8)
+        List.ScrollBarImageColor3=Colors.TextBind
+        local ListStroke=List:FindFirstChildOfClass("UIStroke")
+        if ListStroke then ListStroke.Color=Colors.SectionBorder end
+        AvatarHolder.BackgroundColor3=Colors.Control
+        local AvatarStroke=AvatarHolder:FindFirstChildOfClass("UIStroke")
+        if AvatarStroke then AvatarStroke.Color=Colors.SectionBorder end
+        User.TextColor3=Colors.TextBright
+        Info.TextColor3=Colors.TextDim
+        Empty.TextColor3=Colors.TextDim
+        StatusLabel.TextColor3=Colors.TextDim
         StatusFrame.BackgroundColor3=Colors.DropdownBg
+        local StatusStroke=StatusFrame:FindFirstChildOfClass("UIStroke")
+        if StatusStroke then StatusStroke.Color=Colors.DropdownBord end
         StatusText.TextColor3=Object.Selected and (StatusColors[ReadStatus(Object.Selected)] or Colors.Text) or Colors.Text
         StatusArrow.TextColor3=Object.DropOpen and A or Colors.TextBind
         StatusPopup.BackgroundColor3=Colors.Bg
         local PopupStroke=StatusPopup:FindFirstChildOfClass("UIStroke")
         if PopupStroke then PopupStroke.Color=Colors.DropdownBord end
+        SpectateLine.BackgroundColor3=A
+        UnspectateLine.BackgroundColor3=A
         if Object.Selected then RefreshSelected(false) end
     end)
-    Object:Refresh() self.PlayerWindow=Object Object:ApplyVisibility() return Object
+
+    Object:Refresh()
+    self.PlayerWindow=Object
+    Object:ApplyVisibility()
+    return Object
 end
 
 function Library:ThemePanel()
