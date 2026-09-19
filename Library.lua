@@ -2251,7 +2251,7 @@ function Library:ConfigurationPanel()
         if Library:SaveConfig(Name) then SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." created")
         else Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not created" or "failed to create "..Name) end
     end})
-    Manager:Button({Name="save",Callback=function()
+    Manager:Button({Name="overwrite",Callback=function()
         local Name=CurrentName(true)
         if Name=="" then Notify("select or enter a config") return end
         Library.LastConfigSaveError=nil
