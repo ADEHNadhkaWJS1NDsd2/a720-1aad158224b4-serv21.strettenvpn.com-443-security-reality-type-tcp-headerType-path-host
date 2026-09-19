@@ -2,7 +2,7 @@ local UserInputService = game:GetService("UserInputService"); local TweenService
 local TextService = game:GetService("TextService"); local Players = game:GetService("Players"); local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService"); local CoreGui = game:GetService("CoreGui")
 
-local Library = {Flags = {}, Setters = {}, ColorpickerStates = {}, Folders = {Root = "Caesura", Directory = "Caesura", Configs = "Caesura/Configs", Assets = "Caesura/Assets", Fonts = "Caesura/Fonts", Themes = "Caesura/Themes"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(104, 102, 188), Background = Color3.fromRGB(17, 17, 23), Surface = Color3.fromRGB(20, 20, 28), Control = Color3.fromRGB(27, 27, 38), Border = Color3.fromRGB(50, 49, 72), Text = Color3.fromRGB(174, 174, 188), TextBright = Color3.fromRGB(238, 238, 246), TextDim = Color3.fromRGB(112, 111, 132), Header = Color3.fromRGB(190, 190, 208)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
+local Library = {Flags = {}, Setters = {}, ColorpickerStates = {}, Folders = {Root = "Caesura", Directory = "Caesura", Configs = "Caesura/Configs", Assets = "Caesura/Assets", Fonts = "Caesura/Fonts", Themes = "Caesura/Themes"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(96, 94, 184), Background = Color3.fromRGB(12, 12, 17), Surface = Color3.fromRGB(15, 15, 22), Control = Color3.fromRGB(21, 21, 31), Border = Color3.fromRGB(40, 39, 61), Text = Color3.fromRGB(165, 165, 181), TextBright = Color3.fromRGB(231, 231, 241), TextDim = Color3.fromRGB(96, 96, 119), Header = Color3.fromRGB(178, 178, 201)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
 Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Easing="Quad",TextSize=13,CompactPanel=true,KeepWatermarkOpen=true}
 Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=true}
 Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}; Library.ThemePresets = {}
@@ -57,9 +57,9 @@ Library.ThemePresets["Purple"] = {
 }
 
 Library.ThemePresets["Default"] = {
-    Accent = Color3.fromRGB(104, 102, 188), Background = Color3.fromRGB(17, 17, 23), Surface = Color3.fromRGB(20, 20, 28), Control = Color3.fromRGB(27, 27, 38),
-    Border = Color3.fromRGB(50, 49, 72), Text = Color3.fromRGB(174, 174, 188), TextBright = Color3.fromRGB(238, 238, 246), TextDim = Color3.fromRGB(112, 111, 132),
-    Header = Color3.fromRGB(190, 190, 208)
+    Accent = Color3.fromRGB(96, 94, 184), Background = Color3.fromRGB(12, 12, 17), Surface = Color3.fromRGB(15, 15, 22), Control = Color3.fromRGB(21, 21, 31),
+    Border = Color3.fromRGB(40, 39, 61), Text = Color3.fromRGB(165, 165, 181), TextBright = Color3.fromRGB(231, 231, 241), TextDim = Color3.fromRGB(96, 96, 119),
+    Header = Color3.fromRGB(178, 178, 201)
 }
 
 Library.ThemePresets["Fatality"] = {
@@ -312,6 +312,13 @@ local function SyncThemeColors()
 end
 
 local function Accent() return Library.Theme.Accent or Color3.fromRGB(150, 120, 150) end
+local function AccentLineSequence()
+    return ColorSequence.new({
+        ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),
+        ColorSequenceKeypoint.new(0.5,Color3.new(1,1,1)),
+        ColorSequenceKeypoint.new(1,Color3.new(0,0,0))
+    })
+end
 local function AccentDark()
     local H, S, V = Color3.toHSV(Accent())
     return Color3.fromHSV(H, S, V * 0.32)
@@ -1115,7 +1122,7 @@ function Library:Window(Data)
     }, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
     local TitleBar = Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 22), BackgroundColor3 = Colors.TitleBg, BorderSizePixel = 0}, {
         Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 28, 32)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))})}),
-        Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})})
+        Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = AccentLineSequence()})})
     })
     local TitleLabel = Create("TextLabel", {Name = "Title", Parent = TitleBar, AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(0, 0), BackgroundTransparency = 1,
@@ -1134,7 +1141,7 @@ function Library:Window(Data)
     local Content = Create("Frame", {Parent = Main, Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 1, -48), BackgroundTransparency = 1, ClipsDescendants = false})
     local TabBar = Create("Frame", {Parent = Main, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.new(0, 0, 1, -26), BackgroundColor3 = Colors.TabBg, BorderSizePixel = 0}, {
         Create("UICorner", {CornerRadius = UDim.new(0, 4)}),
-        Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, Accent()), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))})})}),
+        Create("Frame", {Name = "AccentLine", Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Accent(), BorderSizePixel = 0}, {Create("UIGradient", {Color = AccentLineSequence()})}),
         Create("Frame", {Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = Colors.TabBg, BorderSizePixel = 0, ZIndex = 0})
     })
     local Window = setmetatable({Library = self, ScreenGui = ScreenGui, Main = Main, TitleBar = TitleBar, TitleLabel = TitleLabel, UpdateTitleLayout = UpdateTitleLayout, Content = Content, TabBar = TabBar, Pages = {}, PagesOrder = {}, ActivePage = nil, Visible = true, MenuVisible = true, Destroyed = false}, WindowMethods)
@@ -1147,7 +1154,7 @@ function Library:Window(Data)
         for _, Line in ipairs({TitleLine, TabLine}) do
             if Line then
                 Line.BackgroundColor3 = A; local Gradient = Line:FindFirstChildOfClass("UIGradient")
-                if Gradient then Gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)), ColorSequenceKeypoint.new(0.5, A), ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))}) end
+                if Gradient then Gradient.Color = AccentLineSequence() end
             end
         end
     end)
@@ -2145,7 +2152,7 @@ function Library:ConfigurationPanel()
     },{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
     local TitleBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true},{
         Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(28,28,32)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0))})}),
-        Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})
+        Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=AccentLineSequence()})})
     })
     local TitleLabel=Create("TextLabel",{Parent=TitleBar,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Config",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,ZIndex=4})
     local Content=Create("Frame",{Parent=Main,Position=UDim2.fromOffset(0,22),Size=UDim2.new(1,0,1,-22),BackgroundTransparency=1,ClipsDescendants=false})
@@ -2267,7 +2274,7 @@ function Library:ConfigurationPanel()
         local Stroke=Main:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end; local Line=TitleBar:FindFirstChild("AccentLine")
         if Line then
             local A=Accent() Line.BackgroundColor3=A; local Gradient=Line:FindFirstChildOfClass("UIGradient")
-            if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,A),ColorSequenceKeypoint.new(1,Color3.new())}) end
+            if Gradient then Gradient.Color=AccentLineSequence() end
         end
     end)
     return Object
@@ -2415,7 +2422,7 @@ function Library:PlayerList(Data)
     local TitleBar=Create("Frame",{Parent=Frame,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true,ZIndex=151},{
         Create("UIGradient",{Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(28,28,32)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0))})}),
         Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=153},{
-            Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))})})
+            Create("UIGradient",{Color=AccentLineSequence()})
         })
     })
     local Title=Create("TextLabel",{Parent=TitleBar,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.new(1,-16,1,0),BackgroundTransparency=1,Text="playerlist",Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Color3.fromRGB(214,214,218),TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=154})
@@ -2442,9 +2449,10 @@ function Library:PlayerList(Data)
     })
     local Search=Create("TextBox",{Parent=SearchFrame,Position=UDim2.fromOffset(6,0),Size=UDim2.new(1,-12,1,0),BackgroundTransparency=1,ClearTextOnFocus=false,PlaceholderText="search...",PlaceholderColor3=Colors.TextDim,Text="",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=155})
 
-    local List=Create("ScrollingFrame",{Parent=Left,Position=UDim2.fromOffset(0,23),Size=UDim2.new(1,0,1,-23),BackgroundColor3=Color3.fromRGB(8,8,8),BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=2,ScrollBarImageColor3=Colors.TextBind,ZIndex=154},{
+    local List=Create("ScrollingFrame",{Parent=Left,Position=UDim2.fromOffset(0,23),Size=UDim2.new(1,0,1,-23),BackgroundColor3=Color3.fromRGB(8,8,8),BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=1,ScrollBarImageColor3=Colors.SectionBorder,ScrollBarImageTransparency=0.28,VerticalScrollBarInset=Enum.ScrollBarInset.ScrollBar,ZIndex=154},{
         Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1}),
-        Create("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,SortOrder=Enum.SortOrder.LayoutOrder})
+        Create("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,SortOrder=Enum.SortOrder.LayoutOrder}),
+        Create("UIPadding",{PaddingRight=UDim.new(0,6)})
     })
 
     local Empty=Create("TextLabel",{Parent=Right,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.new(1,-12,0,18),BackgroundTransparency=1,Text="no player selected",TextColor3=Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=13,ZIndex=154})
@@ -2587,15 +2595,18 @@ function Library:PlayerList(Data)
         Empty.Visible=not Valid
         Profile.Visible=Valid
         CloseDrop()
-        if not Valid then Object.Selected=nil Avatar.Image="" User.Text="" Info.Text="" return end
+        if not Valid then Object.Selected=nil Avatar.Image="" User.Text="" Info.Text="" ActionHolder.Visible=false return end
         if LoadImage~=false then Avatar.Image="rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=150&h=150" end
         User.Text=Player.Name
         Info.Text=(Player.DisplayName~=Player.Name and Player.DisplayName.."  /  " or "")..tostring(Player.UserId)
         local Status=ReadStatus(Player)
+        local IsClient=Player==Players.LocalPlayer
         StatusText.Text=Status
         StatusText.TextColor3=StatusColors[Status] or Colors.Text
-        StatusButton.Active=Player~=Players.LocalPlayer
-        StatusArrow.Visible=Player~=Players.LocalPlayer
+        StatusButton.Active=not IsClient
+        StatusArrow.Visible=not IsClient
+        ActionHolder.Visible=not IsClient
+        if IsClient then CloseDrop() end
     end
 
     local function Select(Player)
@@ -2631,8 +2642,8 @@ function Library:PlayerList(Data)
                 local Mini=Create("ImageLabel",{Parent=Row,Position=UDim2.fromOffset(5,2),Size=UDim2.fromOffset(16,16),BackgroundTransparency=1,Image="rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=48&h=48",ScaleType=Enum.ScaleType.Crop,ZIndex=156},{
                     Create("UICorner",{CornerRadius=UDim.new(1,0)})
                 })
-                local NameLabel=Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(27,0),Size=UDim2.new(1,-108,1,0),BackgroundTransparency=1,Text=Player.Name,TextColor3=Selected and Colors.TextBright or Colors.Text,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=156})
-                local StatusLabel=Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-5,0,0),Size=UDim2.fromOffset(76,20),BackgroundTransparency=1,Text=Status,TextColor3=StatusColors[Status] or Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=156})
+                local NameLabel=Create("TextLabel",{Parent=Row,Position=UDim2.fromOffset(27,0),Size=UDim2.new(1,-112,1,0),BackgroundTransparency=1,Text=Player.Name,TextColor3=Selected and Colors.TextBright or Colors.Text,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=156})
+                local StatusLabel=Create("TextLabel",{Parent=Row,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-11,0,0),Size=UDim2.fromOffset(68,20),BackgroundTransparency=1,Text=Status,TextColor3=StatusColors[Status] or Colors.TextDim,Font=Enum.Font.SourceSans,TextSize=10,TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=156})
                 Bind(Row.MouseEnter:Connect(function() if Object.Selected~=Player then Row.BackgroundTransparency=0.92 NameLabel.TextColor3=Colors.TextBright end end))
                 Bind(Row.MouseLeave:Connect(function() if Object.Selected~=Player then Row.BackgroundTransparency=1 NameLabel.TextColor3=Colors.Text end end))
                 Bind(Row.MouseButton1Click:Connect(function() Select(Player) end))
@@ -2696,7 +2707,7 @@ function Library:PlayerList(Data)
         if AccentLine then
             AccentLine.BackgroundColor3=A
             local Gradient=AccentLine:FindFirstChildOfClass("UIGradient")
-            if Gradient then Gradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(0,0,0)),ColorSequenceKeypoint.new(0.5,A),ColorSequenceKeypoint.new(1,Color3.new(0,0,0))}) end
+            if Gradient then Gradient.Color=AccentLineSequence() end
         end
         for _,DataSet in ipairs({{LeftOutline,Count},{RightOutline,SelectedHeader}}) do
             local Outline,Header=DataSet[1],DataSet[2]
@@ -2711,7 +2722,8 @@ function Library:PlayerList(Data)
         Search.PlaceholderColor3=Colors.TextDim
         Search.TextColor3=Colors.TextBright
         List.BackgroundColor3=Color3.fromRGB(8,8,8)
-        List.ScrollBarImageColor3=Colors.TextBind
+        List.ScrollBarImageColor3=Colors.SectionBorder
+        List.ScrollBarImageTransparency=0.28
         local ListStroke=List:FindFirstChildOfClass("UIStroke")
         if ListStroke then ListStroke.Color=Colors.SectionBorder end
         AvatarHolder.BackgroundColor3=Colors.Control
@@ -2749,10 +2761,10 @@ function Library:ThemePanel()
     self.Guis[#self.Guis+1]=Gui
     local Width,Height=640,470
     local Main=Create("Frame",{Parent=Gui,Size=UDim2.fromOffset(Width,Height),Position=UDim2.new(0.5,-Width/2,0.5,-Height/2),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ClipsDescendants=false},{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
-    local TitleBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new(Color3.fromRGB(28,28,32),Color3.new())}),Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})})})
+    local TitleBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,22),BackgroundColor3=Colors.TitleBg,BorderSizePixel=0,Active=true},{Create("UIGradient",{Rotation=90,Color=ColorSequence.new(Color3.fromRGB(28,28,32),Color3.new())}),Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=AccentLineSequence()})})})
     local TitleLabel=Create("TextLabel",{Parent=TitleBar,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Themes",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,ZIndex=4})
     local Content=Create("Frame",{Parent=Main,Position=UDim2.fromOffset(0,22),Size=UDim2.new(1,0,1,-48),BackgroundTransparency=1,ClipsDescendants=false})
-    local TabBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,26),Position=UDim2.new(0,0,1,-26),BackgroundColor3=Colors.TabBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,Accent()),ColorSequenceKeypoint.new(1,Color3.new())})})}),Create("Frame",{Size=UDim2.new(1,0,0,6),BackgroundColor3=Colors.TabBg,BorderSizePixel=0,ZIndex=0})})
+    local TabBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,26),Position=UDim2.new(0,0,1,-26),BackgroundColor3=Colors.TabBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=AccentLineSequence()})}),Create("Frame",{Size=UDim2.new(1,0,0,6),BackgroundColor3=Colors.TabBg,BorderSizePixel=0,ZIndex=0})})
     local Object=setmetatable({Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,RequestedVisible=false,Visible=false,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Destroyed=false},WindowMethods)
     function Object:ApplyVisibility()
         local Allowed=Object.MenuVisible~=false and (type(Library.WindowsAllowed)=="function" and Library:WindowsAllowed() or Library.InterfaceOpen~=false)
@@ -2857,7 +2869,7 @@ function Library:ThemePanel()
     RegisterRenderer(function()
         SyncThemeColors() Main.BackgroundColor3=Colors.Bg TitleBar.BackgroundColor3=Colors.TitleBg TabBar.BackgroundColor3=Colors.TabBg TitleLabel.TextColor3=Colors.TextBright
         local Stroke=Main:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Colors.SectionBorder end
-        for _,Bar in ipairs({TitleBar,TabBar}) do local Line=Bar:FindFirstChild("AccentLine") if Line then local A=Accent() Line.BackgroundColor3=A local G=Line:FindFirstChildOfClass("UIGradient") if G then G.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new()),ColorSequenceKeypoint.new(0.5,A),ColorSequenceKeypoint.new(1,Color3.new())}) end end end
+        for _,Bar in ipairs({TitleBar,TabBar}) do local Line=Bar:FindFirstChild("AccentLine") if Line then local A=Accent() Line.BackgroundColor3=A local G=Line:FindFirstChildOfClass("UIGradient") if G then G.Color=AccentLineSequence() end end end
         for Key,Picker in pairs(ColorControls) do if Picker and Picker.Get and Picker.Set and typeof(Library.Theme[Key])=="Color3" and Picker:Get()~=Library.Theme[Key] then Picker:Set(Library.Theme[Key],nil,true) end end
     end)
     Object:ApplyVisibility()
@@ -3015,9 +3027,7 @@ function Library:BuildNoticePreview(Gui)
         })})
     })
     local AccentLine=Create("Frame",{Name="AccentLine",Parent=TitleBar,Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=5002},{
-        Create("UIGradient",{Color=ColorSequence.new({
-            ColorSequenceKeypoint.new(0,Color3.new(0,0,0)), ColorSequenceKeypoint.new(0.5,Accent()), ColorSequenceKeypoint.new(1,Color3.new(0,0,0))
-        })})
+        Create("UIGradient",{Color=AccentLineSequence()})
     })
     local Title=Create("TextLabel",{Name="Title",Parent=TitleBar,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0.5,0),Size=UDim2.new(1,-16,1,0),BackgroundTransparency=1,Text="caesura.cc",Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Color3.fromRGB(214,214,218),TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=5003})
     local Description=Create("TextLabel",{Name="Description",Parent=Preview,Position=UDim2.fromOffset(8,28),Size=UDim2.new(1,-16,0,18),BackgroundTransparency=1,Text="example notification · drag me",Font=Enum.Font.SourceSans,TextSize=11,TextColor3=Colors.Text,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=5002})
@@ -3050,9 +3060,7 @@ function Library:BuildNoticePreview(Gui)
         if Stroke then Stroke.Color=Colors.SectionBorder end
         local A=Accent(); AccentLine.BackgroundColor3=A; local Gradient=AccentLine:FindFirstChildOfClass("UIGradient")
         if Gradient then
-            Gradient.Color=ColorSequence.new({
-                ColorSequenceKeypoint.new(0,Color3.new(0,0,0)), ColorSequenceKeypoint.new(0.5,A), ColorSequenceKeypoint.new(1,Color3.new(0,0,0))
-            })
+            Gradient.Color=AccentLineSequence()
         end
     end)
     return Preview
@@ -3141,9 +3149,7 @@ function Library:PushNotice(Data,Combat)
         })})
     })
     local AccentLine=Create("Frame",{Name="AccentLine",Parent=TitleBar,Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{
-        Create("UIGradient",{Color=ColorSequence.new({
-            ColorSequenceKeypoint.new(0,Color3.new(0,0,0)), ColorSequenceKeypoint.new(0.5,Accent()), ColorSequenceKeypoint.new(1,Color3.new(0,0,0))
-        })})
+        Create("UIGradient",{Color=AccentLineSequence()})
     })
     local TitleLabel=Create("TextLabel",{Name="Title",Parent=TitleBar,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,0.5,0),Size=UDim2.new(1,-16,1,0),BackgroundTransparency=1,Text=Title,Font=Enum.Font.SourceSans,TextSize=13,TextColor3=Color3.fromRGB(214,214,218),TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=4})
     local DescriptionLabel
@@ -3159,9 +3165,7 @@ function Library:PushNotice(Data,Combat)
         if Stroke then Stroke.Color=Colors.SectionBorder end
         local A=Accent(); AccentLine.BackgroundColor3=A; local Gradient=AccentLine:FindFirstChildOfClass("UIGradient")
         if Gradient then
-            Gradient.Color=ColorSequence.new({
-                ColorSequenceKeypoint.new(0,Color3.new(0,0,0)), ColorSequenceKeypoint.new(0.5,A), ColorSequenceKeypoint.new(1,Color3.new(0,0,0))
-            })
+            Gradient.Color=AccentLineSequence()
         end
     end)
 
