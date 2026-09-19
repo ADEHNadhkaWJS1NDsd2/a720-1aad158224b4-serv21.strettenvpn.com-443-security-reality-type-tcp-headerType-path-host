@@ -1163,11 +1163,7 @@ function Library:Window(Data)
 end
 
 function Library:WindowsAllowed()
-    if self.InterfaceOpen==false or self.Settings.ShowWindows==false then return false end
-    local Main=self.ActiveWindow
-    if not Main then return true end
-    if Main.Main and typeof(Main.Main)=="Instance" then return Main.Main.Visible==true and Main.MenuVisible~=false end
-    return Main.Visible==true and Main.MenuVisible~=false
+    return self.InterfaceOpen~=false and self.Settings.ShowWindows~=false
 end
 
 function Library:PlayerWindowsAllowed()
@@ -2198,7 +2194,7 @@ function Library:ConfigurationPanel()
 
     local Object=setmetatable({
         Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel, Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,
-        RequestedVisible=false,Visible=false,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Destroyed=false
+        RequestedVisible=false,Visible=false,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false,Destroyed=false
     },WindowMethods)
 
     function Object:ApplyVisibility()
@@ -2809,7 +2805,7 @@ function Library:ThemePanel()
     local TitleLabel=Create("TextLabel",{Parent=TitleBar,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="Themes",TextColor3=Colors.TextBright,Font=Enum.Font.SourceSans,TextSize=13,TextXAlignment=Enum.TextXAlignment.Center,TextYAlignment=Enum.TextYAlignment.Center,ZIndex=4})
     local Content=Create("Frame",{Parent=Main,Position=UDim2.fromOffset(0,22),Size=UDim2.new(1,0,1,-48),BackgroundTransparency=1,ClipsDescendants=false})
     local TabBar=Create("Frame",{Parent=Main,Size=UDim2.new(1,0,0,26),Position=UDim2.new(0,0,1,-26),BackgroundColor3=Colors.TabBg,BorderSizePixel=0},{Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("Frame",{Name="AccentLine",Size=UDim2.new(1,0,0,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=3},{Create("UIGradient",{Color=AccentLineSequence()})}),Create("Frame",{Size=UDim2.new(1,0,0,6),BackgroundColor3=Colors.TabBg,BorderSizePixel=0,ZIndex=0})})
-    local Object=setmetatable({Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,RequestedVisible=false,Visible=false,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false and (not Library.ActiveWindow or Library.ActiveWindow.Visible==true),Destroyed=false},WindowMethods)
+    local Object=setmetatable({Library=self,Gui=Gui,ScreenGui=Gui,Frame=Main,Main=Main,TitleBar=TitleBar,TitleLabel=TitleLabel,Content=Content,TabBar=TabBar,Pages={},PagesOrder={},ActivePage=nil,RequestedVisible=false,Visible=false,MenuVisible=Library.InterfaceOpen~=false and Library.Settings.ShowWindows~=false,Destroyed=false},WindowMethods)
     function Object:ApplyVisibility()
         local Allowed=Object.MenuVisible~=false and (type(Library.WindowsAllowed)=="function" and Library:WindowsAllowed() or Library.InterfaceOpen~=false)
         local State=Object.RequestedVisible==true and Allowed; Object.Visible=State Main.Visible=State Gui.Enabled=State
