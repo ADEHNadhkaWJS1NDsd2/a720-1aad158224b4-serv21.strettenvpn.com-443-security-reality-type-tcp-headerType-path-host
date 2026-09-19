@@ -2255,8 +2255,8 @@ function Library:ConfigurationPanel()
         local Name=CurrentName(true)
         if Name=="" then Notify("select or enter a config") return end
         Library.LastConfigSaveError=nil
-        if Library:SaveConfig(Name) then SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." saved")
-        else Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not overwritten" or "failed to save "..Name) end
+        if Library:SaveConfig(Name) then SetSelected(Name) Refresh(true) Listbox:Set(Name) Notify(Name.." overwrited")
+        else Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not overwritten" or "failed to overwrite "..Name) end
     end})
     Manager:Button({Name="load",Callback=function()
         local Name=CurrentName(false)
