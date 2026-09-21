@@ -406,14 +406,12 @@ end
 
 local function RenderTheme()
     SyncThemeColors(); ApplyThemeBindings()
-
+    local SliceStarted = os.clock()
     for RendererIndex = #Library.Renderers, 1, -1 do
         local Renderer = Library.Renderers[RendererIndex]
-
-        if type(Renderer) == "function" then
-            Call(Renderer)
-        else
-            table.remove(Library.Renderers, RendererIndex)
+        if type(Renderer) == "function" then Call(Renderer) else table.remove(Library.Renderers, RendererIndex) end
+        if Library.ConfigLoading and (RendererIndex % 24 == 0 or os.clock() - SliceStarted >= 0.004) then
+            task.wait(); SliceStarted = os.clock()
         end
     end
 end
@@ -434,13 +432,14 @@ function Library:RefreshThemeNow()
         end
     end
 
-    task.defer(function()
-        RenderTheme()
-
-        for _, Controller in ipairs(Controllers) do
-            if type(Controller) == "table" and type(Controller.Refresh) == "function" then Call(Controller.Refresh, Controller) end
-        end
-    end)
+    if not self.ConfigLoading then
+        task.defer(function()
+            RenderTheme()
+            for _, Controller in ipairs(Controllers) do
+                if type(Controller) == "table" and type(Controller.Refresh) == "function" then Call(Controller.Refresh, Controller) end
+            end
+        end)
+    end
 
     return true
 end
@@ -682,7 +681,11 @@ end
 local function KeyDisplay(Key,Modifiers) return BindSystem.DisplayChord(Key,Modifiers) end
 local function NormalizeKey(Value) return BindSystem.Normalize(Value) end
 local function InputMatches(Input,Key,Modifiers) return BindSystem.Matches(Input,Key,Modifiers) end
-local function RefreshKeybindList() local Controller=Library.KeybindListController if Controller and type(Controller.Refresh)=="function" then Controller:Refresh() end end
+local function RefreshKeybindList()
+    if Library.ConfigLoading then Library.ConfigKeybindDirty = true; return end
+    local Controller = Library.KeybindListController
+    if Controller and type(Controller.Refresh) == "function" then Controller:Refresh() end
+end
 local function KeybindGateOpen(BindData)
     if not BindData or BindData.EnabledFlag == nil then return true end
     local Flag = tostring(BindData.EnabledFlag)
@@ -871,9 +874,13 @@ local function CreateKeybind(Window,Row,Data,RightOffset,TargetControl,TargetFla
 end
 
 local function UpdateAll()
+    local SliceStarted = os.clock()
     for Index = #Library.Renderers, 1, -1 do
         local Renderer = Library.Renderers[Index]
         if type(Renderer) == "function" then Call(Renderer) else table.remove(Library.Renderers, Index) end
+        if Library.ConfigLoading and (Index % 24 == 0 or os.clock() - SliceStarted >= 0.004) then
+            task.wait(); SliceStarted = os.clock()
+        end
     end
 end
 
@@ -1918,9 +1925,31 @@ function Library:GetConfig()
     return PrettyConfigJson(Payload, 0)
 end
 
+local function ConfigValuesEqual(A, B, Depth)
+    if type(A) ~= type(B) then return false end
+    if type(A) ~= "table" then return A == B end
+    if Depth >= 4 then return false end
+    local Count = 0
+    for Key, Value in pairs(A) do
+        Count += 1
+        if Count > 64 or not ConfigValuesEqual(Value, B[Key], Depth + 1) then return false end
+    end
+    for Key in pairs(B) do if A[Key] == nil then return false end end
+    return true
+end
+
 function Library:LoadConfig(Source)
-    CancelCapture(); local Success, Decoded = Call(HttpService.JSONDecode, HttpService, tostring(Source or "{}"))
-    if not Success or type(Decoded) ~= "table" then return false end
+    if self.ConfigLoading then self.LastConfigLoadError = "config load already in progress"; return false end
+    local Success, Decoded = Call(HttpService.JSONDecode, HttpService, tostring(Source or "{}"))
+    if not Success or type(Decoded) ~= "table" then self.LastConfigLoadError = "invalid config data"; return false end
+    CancelCapture(); self.ConfigLoading = true; self.ConfigKeybindDirty = false; self.LastConfigLoadError = nil
+    local Applied, Failed, Skipped, Processed = 0, 0, 0, 0
+    local LoadOk, LoadResult = xpcall(function()
+        local SliceStarted = os.clock()
+        local function NextSlice()
+            Processed += 1
+            if Processed % 8 == 0 or os.clock() - SliceStarted >= 0.004 then task.wait(); SliceStarted = os.clock() end
+        end
 
     local FlagsSource
     if type(Decoded.Flags) == "table" then FlagsSource = Decoded.Flags
@@ -1940,15 +1969,23 @@ function Library:LoadConfig(Source)
             Names[#Names + 1] = FlagName
         end
     end
-    table.sort(Names); local Applied, Failed = 0, 0
+    table.sort(Names)
+    self.ConfigLoadingProgress = {Processed = 0, Total = #Names}
     local function Apply(Name)
-        local Value, Setter = CloneValue(Flags[Name]), self.Setters[Name]
-        if type(Setter) == "function" then
-            local Ok = Call(Setter, Value)
-            if Ok then Applied += 1 else Failed += 1 end
+        local Value = Flags[Name]
+        if self.Flags[Name] ~= nil and ConfigValuesEqual(self.Flags[Name], Value, 0) then
+            Skipped += 1
         else
-            self.Flags[Name] = Value; Applied += 1
+            local Setter = self.Setters[Name]
+            if type(Setter) == "function" then
+                local Ok = Call(Setter, CloneValue(Value))
+                if Ok then Applied += 1 else Failed += 1 end
+            else
+                self.Flags[Name] = CloneValue(Value); Applied += 1
+            end
         end
+        self.ConfigLoadingProgress.Processed += 1
+        NextSlice()
     end
     for _, Name in ipairs(Names) do if type(Flags[Name]) ~= "boolean" then Apply(Name) end end
     for _, Name in ipairs(Names) do if Flags[Name] == false then Apply(Name) end end
@@ -1987,26 +2024,41 @@ function Library:LoadConfig(Source)
                     if Compact == "MOUSEBUTTON2" then Key = "M2" elseif Compact == "MOUSEBUTTON3" then Key = "M3" end
                 end
             end
-            BindData:Set({Key = Key, Modifiers = Modifiers, Mode = Stored.Mode or Stored.mode}); Applied += 1
+            local Ok = Call(BindData.Set, BindData, {Key = Key, Modifiers = Modifiers, Mode = Stored.Mode or Stored.mode})
+            if Ok then Applied += 1 else Failed += 1 end
+            NextSlice()
         end
     end
 
     local InterfaceSource = Decoded.Interface or Decoded.interface or Decoded.__CaesuraInterface or FlagsSource.__CaesuraInterface
     local Interface = InterfaceSource and DecodeValue(InterfaceSource, 0) or nil
+    local ThemeChanged, SettingsChanged = false, false
     if type(Interface) == "table" then
         if type(Interface.Theme) == "table" then
-            for Key, Value in pairs(Interface.Theme) do if typeof(Value) == "Color3" then self.Theme[Key] = Value end end
-            self:RefreshThemeNow()
-        elseif typeof(Interface.Accent) == "Color3" then self.Theme.Accent = Interface.Accent end
-        if type(Interface.Settings)=="table" then
-            for Key,Value in pairs(Interface.Settings) do if self.Settings[Key]~=nil then self.Settings[Key]=CloneValue(Value) end end
-            self.NotificationSettings.DefaultDuration=tonumber(self.Settings.NotificationDuration) or self.NotificationSettings.DefaultDuration
-            if type(self.ApplyFontSetting)=="function" then self:ApplyFontSetting() end
-            if type(self.RefreshSwatchGradients)=="function" then self:RefreshSwatchGradients() end
-            if type(self.SetNotificationCorner)=="function" then self:SetNotificationCorner(self.Settings.NotificationCorner) end
-            if type(self.SetTaskbarMode)=="function" then self:SetTaskbarMode(self.Settings.TaskbarMode) end
-            if type(self.SetTaskbarVisible)=="function" then self:SetTaskbarVisible(self.Settings.ShowTaskbar~=false) end
-            if type(self.SetWindowsVisible)=="function" then self:SetWindowsVisible(self.Settings.ShowWindows~=false) end
+            for Key, Value in pairs(Interface.Theme) do
+                if typeof(Value) == "Color3" and self.Theme[Key] ~= nil and self.Theme[Key] ~= Value then
+                    self.Theme[Key] = Value; ThemeChanged = true
+                end
+            end
+        elseif typeof(Interface.Accent) == "Color3" and self.Theme.Accent ~= Interface.Accent then
+            self.Theme.Accent = Interface.Accent; ThemeChanged = true
+        end
+        if type(Interface.Settings) == "table" then
+            local OriginalFont, OriginalSize = self.Settings.Font, self.Settings.FontSizeOverride
+            local OriginalCorner, OriginalTaskbar = self.Settings.NotificationCorner, self.Settings.TaskbarMode
+            local OriginalTaskbarVisibility, OriginalWindowVisibility = self.Settings.ShowTaskbar, self.Settings.ShowWindows
+            for Key, Value in pairs(Interface.Settings) do
+                if self.Settings[Key] ~= nil and not ConfigValuesEqual(self.Settings[Key], Value, 0) then
+                    self.Settings[Key] = CloneValue(Value); SettingsChanged = true
+                end
+            end
+            self.NotificationSettings.DefaultDuration = tonumber(self.Settings.NotificationDuration) or self.NotificationSettings.DefaultDuration
+            if (OriginalFont ~= self.Settings.Font or OriginalSize ~= self.Settings.FontSizeOverride) and type(self.ApplyFontSetting) == "function" then self:ApplyFontSetting() end
+            if (ThemeChanged or SettingsChanged) and type(self.RefreshSwatchGradients) == "function" then self:RefreshSwatchGradients() end
+            if OriginalCorner ~= self.Settings.NotificationCorner and type(self.SetNotificationCorner) == "function" then self:SetNotificationCorner(self.Settings.NotificationCorner) end
+            if OriginalTaskbar ~= self.Settings.TaskbarMode and type(self.SetTaskbarMode) == "function" then self:SetTaskbarMode(self.Settings.TaskbarMode) end
+            if OriginalTaskbarVisibility ~= self.Settings.ShowTaskbar and type(self.SetTaskbarVisible) == "function" then self:SetTaskbarVisible(self.Settings.ShowTaskbar ~= false) end
+            if OriginalWindowVisibility ~= self.Settings.ShowWindows and type(self.SetWindowsVisible) == "function" then self:SetWindowsVisible(self.Settings.ShowWindows ~= false) end
         end
         if self.ActiveWindow and self.ActiveWindow.Main then
             if typeof(Interface.MainSize) == "UDim2" then self.ActiveWindow.Main.Size = Interface.MainSize end
@@ -2035,21 +2087,22 @@ function Library:LoadConfig(Source)
             if typeof(Interface.ThemePosition) == "UDim2" then ThemePanel.Frame.Position = Interface.ThemePosition; ClampFrameToViewport(ThemePanel.Frame, ThemePanel.Gui, 4) end
             if type(Interface.ThemeVisible) == "boolean" then ThemePanel:SetVisibility(Interface.ThemeVisible) end
         end
-        if type(self.SyncWindows)=="function" then self:SyncWindows() end
         if typeof(Interface.NotificationPoint) == "Vector2" then
             self.NotificationPoint = Interface.NotificationPoint
             if type(self.ApplyNotificationLayout) == "function" then self:ApplyNotificationLayout() end
         end
         if self.MenuBindData and type(Interface.MenuBind) == "table" then self.MenuBindData:Set(Interface.MenuBind) end
     end
-    if type(self.SyncWindows)=="function" then
-        self:SyncWindows()
-        task.defer(function()
-            if type(self.SyncWindows)=="function" then self:SyncWindows() end
-        end)
-    end
-    UpdateAll(); self.LastConfigLoadResult = {Applied = Applied, Failed = Failed}
-    return Failed == 0 or Applied > 0
+    if type(self.SyncWindows) == "function" then self:SyncWindows() end
+    NextSlice()
+    if ThemeChanged or SettingsChanged then self:RefreshThemeNow() else UpdateAll() end
+    return Failed == 0 or Applied > 0 or Skipped > 0
+    end, function(Error) return tostring(Error) end)
+    self.ConfigLoading = false; self.ConfigLoadingProgress = nil
+    if self.ConfigKeybindDirty then self.ConfigKeybindDirty = false; RefreshKeybindList() end
+    self.LastConfigLoadResult = {Applied = Applied, Failed = Failed, Skipped = Skipped}
+    if not LoadOk then self.LastConfigLoadError = LoadResult; return false end
+    return LoadResult == true
 end
 
 local function NormalizeConfigName(Name)
@@ -2265,9 +2318,13 @@ function Library:ConfigurationPanel()
         else Notify(Library.LastConfigSaveError=="menu build incomplete" and "menu build incomplete - config was not overwritten" or "failed to overwrite "..Name) end
     end})
     Manager:Button({Name="load",Callback=function()
-        local Name=CurrentName(false)
-        if Name=="" then Notify("select a config") return end
-        if Library:LoadConfigFile(Name) then SetSelected(Name) Notify(Name.." loaded") else Notify("failed to load "..Name) end
+        local Name = CurrentName(false)
+        if Name == "" then Notify("select a config") return end
+        if Library.ConfigLoading then Status:Set("config is already loading") return end
+        Status:Set("loading " .. Name)
+        local Loaded = Library:LoadConfigFile(Name)
+        if Loaded then SetSelected(Name); Notify(Name .. " loaded")
+        else Notify("failed to load " .. Name .. (Library.LastConfigLoadError and (": " .. tostring(Library.LastConfigLoadError)) or "")) end
     end})
     Manager:Button({Name="delete",Callback=function()
         local Name=CurrentName(false)
