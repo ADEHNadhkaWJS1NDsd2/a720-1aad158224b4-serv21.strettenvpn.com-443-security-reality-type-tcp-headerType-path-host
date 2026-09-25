@@ -985,8 +985,8 @@ local function CreatePopupLayer(Window)
 
     local function RefreshPickerMode()
         local Active = Window.PickerActive; local Rainbow = Active and Active.Mode == "Rainbow"
-        ModeButton.Text = Rainbow and "Rainbow" or "Static"; ModeButton.TextColor3 = Rainbow and Accent() or Colors.Text; ModeButton.BackgroundColor3 = Rainbow and AccentDark() or Colors.Control
-        local Stroke = ModeButton:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color = Rainbow and AccentBorder() or Colors.CbBorder end
+        ModeButton.Text = Rainbow and "Rainbow" or "Static"; ModeButton.TextColor3 = Colors.Text; ModeButton.BackgroundColor3 = Colors.Control
+        local Stroke = ModeButton:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color = Colors.CbBorder end
     end
     Window.RefreshPickerMode = RefreshPickerMode
     RegisterRenderer(RefreshPickerMode)
@@ -1325,7 +1325,7 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
     local ButtonPosition = TallRow and UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0, 1) or UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0.5, -6)
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(ControlLayout.ColorWidth, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Active = true, Text = "", ZIndex = 50}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
     local SwatchGradient=Create("UIGradient",{Parent=Button,Rotation=90,Enabled=Library.Settings.PickerGradient~=false}); Library.ThemeBindings[Button] = nil
-    local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag, Gradient = SwatchGradient, Mode = InitialMode, RainbowSpeed = 0.18, RainbowOffset = 0, RainbowBaseS = 1, RainbowBaseV = 1}
+    local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag, Gradient = SwatchGradient, Mode = InitialMode, RainbowSpeed = 0.12, RainbowOffset = 0, RainbowBaseS = 1, RainbowBaseV = 1}
     local function RefreshSwatch()
         if not Button or not Button.Parent then return end
         local Depth=math.clamp(tonumber(Library.Settings.PickerGradientShade) or 0.45,0.1,1); SwatchGradient.Enabled=Library.Settings.PickerGradient~=false
@@ -1358,8 +1358,8 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
     end
     function Object:StepRainbow(Time)
         if Object.Mode ~= "Rainbow" or not Button or not Button.Parent then return end
-        local Phase = Time * Object.RainbowSpeed; local H = (Phase + Object.RainbowOffset) % 1
-        local S = math.clamp(Object.RainbowBaseS + math.sin(Time * 2.35) * 0.10, 0.45, 1); local V = math.clamp(Object.RainbowBaseV + math.sin(Time * 1.73 + 1.4) * 0.08, 0.58, 1)
+        local H = (Time * Object.RainbowSpeed + Object.RainbowOffset) % 1
+        local S = Object.RainbowBaseS > 0.05 and Object.RainbowBaseS or 0.6; local V = Object.RainbowBaseV
         Object:Set(Color3.fromHSV(H, S, V), Object.Alpha, "Rainbow")
         local Window = Section.Window
         if Window.PickerActive == Object then
@@ -1950,6 +1950,9 @@ function Library:GetConfig()
     if self.PlayerWindow and self.PlayerWindow.Frame then
         Interface.PlayerListPosition = self.PlayerWindow.Frame.Position; Interface.PlayerListVisible = self.PlayerWindow.RequestedVisible == true
     end
+    if self.TargetIndicatorController and self.TargetIndicatorController.Frame then
+        Interface.TargetIndicatorPosition = self.TargetIndicatorController.FreePosition or self.TargetIndicatorController.Frame.Position
+    end
     local PanelController = self.PanelController or self.QuickPanelController
     if PanelController and PanelController.Root then Interface.PanelPosition = PanelController.Root.Position end
     if self.ConfigWindow and self.ConfigWindow.Frame then
@@ -2119,6 +2122,9 @@ function Library:LoadConfig(Source)
             if typeof(Interface.PlayerListPosition) == "UDim2" then self.PlayerWindow.Frame.Position = Interface.PlayerListPosition end
             if type(Interface.PlayerListVisible) == "boolean" then self.PlayerWindow:SetVisibility(Interface.PlayerListVisible) end
             ClampFrameToViewport(self.PlayerWindow.Frame, self.PlayerWindow.Gui, 4)
+        end
+        if self.TargetIndicatorController and self.TargetIndicatorController.Frame and typeof(Interface.TargetIndicatorPosition) == "UDim2" then
+            self.TargetIndicatorController:SetPosition(Interface.TargetIndicatorPosition)
         end
         local PanelController = self.PanelController or self.QuickPanelController; local SavedPanelPosition = Interface.PanelPosition or Interface.QuickPanelPosition
         if PanelController and PanelController.Root and typeof(SavedPanelPosition) == "UDim2" then
@@ -2898,6 +2904,168 @@ function Library:PlayerList(Data)
     return Object
 end
 
+function Library:TargetIndicator(Data)
+    Data=type(Data)=="table" and Data or {}
+    if self.TargetIndicatorController then return self.TargetIndicatorController end
+    local Parent=ParentGui()
+    local Gui=Create("ScreenGui",{Name="CaesuraTargetIndicator",Parent=Parent,ResetOnSpawn=false,DisplayOrder=152,ZIndexBehavior=Enum.ZIndexBehavior.Global,IgnoreGuiInset=true})
+    self.Guis[#self.Guis+1]=Gui
+    local Frame=Create("Frame",{Parent=Gui,Position=typeof(Data.Position)=="UDim2" and Data.Position or UDim2.new(0.72,0,0.18,0),Size=UDim2.fromOffset(255,89),BackgroundColor3=Colors.Bg,BorderSizePixel=0,Visible=false,Active=true,ZIndex=210},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
+    local Inner=Create("Frame",{Parent=Frame,Position=UDim2.fromOffset(2,2),Size=UDim2.new(1,-4,1,-4),BackgroundColor3=Colors.Control,BorderSizePixel=0,ZIndex=211},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.CbBorder,Thickness=1})})
+    local AvatarHolder=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(4,4),Size=UDim2.fromOffset(79,79),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=212},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
+    local Avatar=Create("ImageLabel",{Parent=AvatarHolder,Position=UDim2.fromOffset(1,1),Size=UDim2.new(1,-2,1,-2),BackgroundTransparency=1,Image="",ScaleType=Enum.ScaleType.Crop,ZIndex=213},{Create("UICorner",{CornerRadius=UDim.new(0,2)})})
+    local Info=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(89,4),Size=UDim2.new(1,-93,0,52),BackgroundTransparency=1,ZIndex=212},{Create("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,1)})})
+    local Fields={{Label="Name",Get=function(Player) return Player and Player.Name or "none" end},{Label="Id",Get=function(Player) return Player and tostring(Player.UserId) or "0" end}}
+    if type(Data.Fields)=="table" then for _,Entry in ipairs(Data.Fields) do Fields[#Fields+1]=Entry end end
+    local Labels={}
+    for Index=1,#Fields do Labels[Index]=Create("TextLabel",{Parent=Info,LayoutOrder=Index,Size=UDim2.new(1,0,0,13),BackgroundTransparency=1,RichText=true,Text="",Font=Enum.Font.SourceSans,TextSize=12,TextColor3=Colors.Text,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=213}) end
+    local HealthLabel=Create("TextLabel",{Parent=Inner,Position=UDim2.fromOffset(89,55),Size=UDim2.fromOffset(70,12),BackgroundTransparency=1,Text="Health",Font=Enum.Font.SourceSans,TextSize=12,TextColor3=Colors.TextDim,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=213})
+    local HealthBack=Create("Frame",{Parent=Inner,Position=UDim2.fromOffset(89,68),Size=UDim2.new(1,-94,0,13),BackgroundColor3=Colors.Bg,BorderSizePixel=0,ZIndex=212},{Create("UICorner",{CornerRadius=UDim.new(0,1)}),Create("UIStroke",{Color=Colors.SectionBorder,Thickness=1})})
+    local HealthFill=Create("Frame",{Parent=HealthBack,Size=UDim2.fromScale(1,1),BackgroundColor3=Accent(),BorderSizePixel=0,ZIndex=213},{Create("UICorner",{CornerRadius=UDim.new(0,1)})})
+    local HealthGradient=Create("UIGradient",{Parent=HealthFill,Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,AccentHover()),ColorSequenceKeypoint.new(1,Accent())})})
+    local HealthText=Create("TextLabel",{Parent=HealthBack,Size=UDim2.fromScale(1,1),BackgroundTransparency=1,Text="0%",Font=Enum.Font.SourceSans,TextSize=12,TextColor3=Colors.TextBright,TextXAlignment=Enum.TextXAlignment.Center,ZIndex=214})
+    local Scale=Create("UIScale",{Parent=Frame,Scale=math.clamp((tonumber(Data.Scale) or 100)/100,0.65,1.5)})
+    local Modes={Free=true,Head=true,Weapon=true,Body=true,Crosshair=true}
+    local Mode=Modes[tostring(Data.Mode)] and tostring(Data.Mode) or "Free"
+    local Object={Gui=Gui,ScreenGui=Gui,Frame=Frame,Main=Frame,Inner=Inner,Avatar=Avatar,Labels=Labels,HealthFill=HealthFill,HealthText=HealthText,Scale=Scale,Fields=Fields,Mode=Mode,RequestedVisible=Data.Visible==true,TargetPlayer=Data.Target,TargetResolver=type(Data.GetTarget)=="function" and Data.GetTarget or nil,AutoHide=Data.AutoHide~=false,FreePosition=Frame.Position,Offset=typeof(Data.Offset)=="Vector2" and Data.Offset or Vector2.zero,CurrentPlayer=nil,LastInfo=0,Visible=false}
+    local Dragging=false
+    local DragStart
+    local FrameStart
+    local function AccentText(Value)
+        local A=Accent()
+        return string.format('<font color="#%02X%02X%02X">%s</font>',math.floor(A.R*255+0.5),math.floor(A.G*255+0.5),math.floor(A.B*255+0.5),tostring(Value or ""))
+    end
+    local function GetTarget()
+        local Player=Object.TargetPlayer
+        if type(Object.TargetResolver)=="function" then local Ok,Result=Call(Object.TargetResolver,Object) if Ok then Player=Result end end
+        return typeof(Player)=="Instance" and Player:IsA("Player") and Player.Parent==Players and Player or nil
+    end
+    local function GetAnchor(Player,ModeName)
+        local Character=Player and Player.Character
+        if not Character then return nil end
+        if ModeName=="Head" then return Character:FindFirstChild("Head") or Character:FindFirstChild("HumanoidRootPart") end
+        if ModeName=="Body" then return Character:FindFirstChild("UpperTorso") or Character:FindFirstChild("Torso") or Character:FindFirstChild("HumanoidRootPart") end
+        if ModeName=="Weapon" then
+            local Tool=Character:FindFirstChildOfClass("Tool")
+            if Tool then
+                local Handle=Tool:FindFirstChild("Handle",true)
+                if Handle and Handle:IsA("BasePart") then return Handle end
+                for _,Item in ipairs(Tool:GetDescendants()) do if Item:IsA("BasePart") then return Item end end
+            end
+            return Character:FindFirstChild("RightHand") or Character:FindFirstChild("Right Arm") or Character:FindFirstChild("UpperTorso") or Character:FindFirstChild("HumanoidRootPart")
+        end
+    end
+    local function UpdateInfo(Player)
+        if Player~=Object.CurrentPlayer then
+            Object.CurrentPlayer=Player
+            Avatar.Image=Player and ("rbxthumb://type=AvatarHeadShot&id="..tostring(Player.UserId).."&w=150&h=150") or ""
+        end
+        for Index,Entry in ipairs(Object.Fields) do
+            local Value="N/A"
+            if type(Entry.Get)=="function" then local Ok,Result=Call(Entry.Get,Player,Player and Player.Character or nil,Object) if Ok and Result~=nil then Value=Result end end
+            Labels[Index].Text=tostring(Entry.Label or Index)..": "..AccentText(Value)
+        end
+        local Character=Player and Player.Character
+        local Humanoid=Character and Character:FindFirstChildOfClass("Humanoid")
+        local Alpha=Humanoid and Humanoid.MaxHealth>0 and math.clamp(Humanoid.Health/Humanoid.MaxHealth,0,1) or 0
+        HealthFill.Size=UDim2.new(Alpha,0,1,0)
+        HealthText.Text=tostring(math.floor(Alpha*100+0.5)).."%"
+    end
+    local function UpdatePosition(Player)
+        if Object.RequestedVisible~=true then Frame.Visible=false Object.Visible=false return end
+        if not Player and Object.AutoHide and Object.Mode~="Free" then Frame.Visible=false Object.Visible=false return end
+        if Object.Mode=="Free" then
+            Frame.AnchorPoint=Vector2.zero
+            Frame.Position=Object.FreePosition
+            Frame.Visible=true Object.Visible=true
+            return
+        end
+        local Camera=workspace.CurrentCamera
+        if not Camera then Frame.Visible=false Object.Visible=false return end
+        local Point
+        local OnScreen=true
+        local Anchor=Vector2.new(0.5,1)
+        local Offset=Object.Offset
+        if Object.Mode=="Crosshair" then
+            local Size=Camera.ViewportSize
+            Point=Vector2.new(Size.X*0.5,Size.Y*0.5)
+            Offset+=Vector2.new(0,-20)
+        else
+            local AnchorPart=GetAnchor(Player,Object.Mode)
+            if not AnchorPart then Frame.Visible=false Object.Visible=false return end
+            local World=AnchorPart.Position
+            if Object.Mode=="Head" then World+=Vector3.new(0,0.75,0); Offset+=Vector2.new(0,-14)
+            elseif Object.Mode=="Weapon" or Object.Mode=="Body" then Anchor=Vector2.new(0,0.5); Offset+=Vector2.new(18,0) end
+            local Screen,Inside=Camera:WorldToViewportPoint(World)
+            OnScreen=Inside and Screen.Z>0
+            Point=Vector2.new(Screen.X,Screen.Y)
+        end
+        if not OnScreen then Frame.Visible=false Object.Visible=false return end
+        Frame.AnchorPoint=Anchor
+        local View=Gui.AbsoluteSize
+        local W=Frame.AbsoluteSize.X*Scale.Scale
+        local H=Frame.AbsoluteSize.Y*Scale.Scale
+        local MinX=4+W*Anchor.X
+        local MaxX=math.max(MinX,View.X-4-W*(1-Anchor.X))
+        local MinY=4+H*Anchor.Y
+        local MaxY=math.max(MinY,View.Y-4-H*(1-Anchor.Y))
+        Frame.Position=UDim2.fromOffset(math.clamp(Point.X+Offset.X,MinX,MaxX),math.clamp(Point.Y+Offset.Y,MinY,MaxY))
+        Frame.Visible=true Object.Visible=true
+    end
+    function Object:SetVisibility(State) Object.RequestedVisible=State==true UpdatePosition(GetTarget()) return Object end
+    function Object:SetVisible(State) return Object:SetVisibility(State) end
+    function Object:Toggle() return Object:SetVisibility(not Object.RequestedVisible) end
+    function Object:SetTarget(Player) Object.TargetPlayer=Player local Target=GetTarget() UpdateInfo(Target) UpdatePosition(Target) return Object end
+    function Object:SetTargetResolver(Function) Object.TargetResolver=type(Function)=="function" and Function or nil local Target=GetTarget() UpdateInfo(Target) UpdatePosition(Target) return Object end
+    function Object:GetTarget() return GetTarget() end
+    function Object:SetMode(Value) Value=tostring(Value or "Free") Object.Mode=Modes[Value] and Value or "Free" if Object.Mode=="Free" then Frame.AnchorPoint=Vector2.zero Frame.Position=Object.FreePosition end UpdatePosition(GetTarget()) return Object end
+    function Object:GetMode() return Object.Mode end
+    function Object:SetScale(Value) Scale.Scale=math.clamp((tonumber(Value) or 100)/100,0.65,1.5) UpdatePosition(GetTarget()) return Object end
+    function Object:SetOffset(Value) Object.Offset=typeof(Value)=="Vector2" and Value or Vector2.zero UpdatePosition(GetTarget()) return Object end
+    function Object:SetAutoHide(Value) Object.AutoHide=Value~=false UpdatePosition(GetTarget()) return Object end
+    function Object:SetPosition(Value) if typeof(Value)=="UDim2" then Object.FreePosition=Value if Object.Mode=="Free" then Frame.AnchorPoint=Vector2.zero Frame.Position=Value end end return Object end
+    function Object:GetPosition() return Object.FreePosition end
+    function Object:Refresh() local Target=GetTarget() UpdateInfo(Target) UpdatePosition(Target) return Object end
+    Bind(Frame.InputBegan:Connect(function(Input)
+        if Object.Mode~="Free" or Input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
+        Dragging=true DragStart=Input.Position FrameStart=Frame.AbsolutePosition
+    end))
+    Bind(UserInputService.InputChanged:Connect(function(Input)
+        if not Dragging or Object.Mode~="Free" or Input.UserInputType~=Enum.UserInputType.MouseMovement then return end
+        local View=Gui.AbsoluteSize local Size=Frame.AbsoluteSize local Delta=Input.Position-DragStart
+        local X=math.clamp(FrameStart.X+Delta.X,4,math.max(4,View.X-Size.X-4))
+        local Y=math.clamp(FrameStart.Y+Delta.Y,4,math.max(4,View.Y-Size.Y-4))
+        Object.FreePosition=UDim2.fromOffset(X,Y) Frame.Position=Object.FreePosition
+    end))
+    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Dragging=false end end))
+    RegisterRenderer(function()
+        SyncThemeColors()
+        Frame.BackgroundColor3=Colors.Bg
+        Inner.BackgroundColor3=Colors.Control
+        AvatarHolder.BackgroundColor3=Colors.Bg
+        HealthBack.BackgroundColor3=Colors.Bg
+        HealthFill.BackgroundColor3=Accent()
+        HealthGradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,AccentHover()),ColorSequenceKeypoint.new(1,Accent())})
+        HealthLabel.TextColor3=Colors.TextDim
+        HealthText.TextColor3=Colors.TextBright
+        local A=Frame:FindFirstChildOfClass("UIStroke") if A then A.Color=Colors.SectionBorder end
+        local B=Inner:FindFirstChildOfClass("UIStroke") if B then B.Color=Colors.CbBorder end
+        local C=AvatarHolder:FindFirstChildOfClass("UIStroke") if C then C.Color=Colors.SectionBorder end
+        local D=HealthBack:FindFirstChildOfClass("UIStroke") if D then D.Color=Colors.SectionBorder end
+        if Object.RequestedVisible then Object:Refresh() end
+    end)
+    Bind(RunService.RenderStepped:Connect(function()
+        if self.TargetIndicatorController~=Object or Object.RequestedVisible~=true then return end
+        local Target=GetTarget()
+        if os.clock()-Object.LastInfo>=0.1 then Object.LastInfo=os.clock() UpdateInfo(Target) end
+        UpdatePosition(Target)
+    end))
+    Bind(Players.PlayerRemoving:Connect(function(Player) if Object.TargetPlayer==Player then Object.TargetPlayer=nil end if Object.CurrentPlayer==Player then Object.CurrentPlayer=nil end end))
+    self.TargetIndicatorController=Object
+    Object:Refresh()
+    return Object
+end
+
 function Library:ThemePanel()
     local Existing=self.ThemeWindow
     if Existing and Existing.Gui and Existing.Gui.Parent and Existing.Frame and Existing.Frame.Parent then return Existing end
@@ -3427,7 +3595,7 @@ function Library.Unload(...)
     table.clear(Library.Keybinds)
     for Index = #Library.Connections, 1, -1 do local Connection = Library.Connections[Index] if Connection then Call(function() Connection:Disconnect() end) end Library.Connections[Index] = nil end
     for Index = #Library.Guis, 1, -1 do local Gui = Library.Guis[Index] if Gui and Gui.Parent then Call(function() Gui:Destroy() end) end Library.Guis[Index] = nil end
-    Library.ActiveWindow = nil; Library.PlayerWindow = nil; Library.PanelController = nil
+    Library.ActiveWindow = nil; Library.PlayerWindow = nil; Library.TargetIndicatorController = nil; Library.PanelController = nil
     Library.QuickPanelController = nil; Library.ThemeWindow = nil; Library.ConfigWindow = nil
     Library.InterfaceOpen = true; Library.KeybindListController = nil; Library.NotificationGui = nil
     Library.NotificationHolder = nil; Library.NotificationPreview = nil; Library.NotificationPoint = nil
@@ -3464,7 +3632,7 @@ Library.window = Library.Window; Library.setvisible = Library.SetVisible; Librar
 Library.getflag = Library.GetFlag; Library.setflag = Library.SetFlag; Library.setdescription = Library.SetDescription
 Library.notification = Library.Notification; Library.setnotificationlayout = Library.SetNotificationLayout; Library.combatlognotification = Library.CombatLogNotification
 Library.setcombatloglayout = Library.SetCombatLogLayout; Library.watermark = Library.Watermark; Library.keybindlist = Library.KeybindList
-Library.playerlist = Library.PlayerList; Library.getconfig = Library.GetConfig; Library.loadconfig = Library.LoadConfig
+Library.playerlist = Library.PlayerList; Library.targetindicator = Library.TargetIndicator; Library.getconfig = Library.GetConfig; Library.loadconfig = Library.LoadConfig
 Library.saveconfig = Library.SaveConfig; Library.configexists = Library.ConfigExists; Library.loadconfigfile = Library.LoadConfigFile
 Library.deleteconfig = Library.DeleteConfig; Library.refreshconfigslist = Library.RefreshConfigsList; Library.destroy = Library.Destroy
 
