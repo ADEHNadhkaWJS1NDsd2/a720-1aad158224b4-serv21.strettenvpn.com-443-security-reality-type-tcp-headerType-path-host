@@ -2,7 +2,7 @@ local UserInputService = game:GetService("UserInputService"); local TweenService
 local TextService = game:GetService("TextService"); local Players = game:GetService("Players"); local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService"); local CoreGui = game:GetService("CoreGui")
 
-local Library = {Flags = {}, Setters = {}, ColorpickerStates = {}, Folders = {Root = "Caesura", Directory = "Caesura", Configs = "Caesura/Configs", Assets = "Caesura/Assets", Fonts = "Caesura/Fonts", Themes = "Caesura/Themes"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(96, 94, 184), Background = Color3.fromRGB(12, 12, 17), Surface = Color3.fromRGB(15, 15, 22), Control = Color3.fromRGB(21, 21, 31), Border = Color3.fromRGB(40, 39, 61), Text = Color3.fromRGB(165, 165, 181), TextBright = Color3.fromRGB(231, 231, 241), TextDim = Color3.fromRGB(96, 96, 119), Header = Color3.fromRGB(178, 178, 201)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
+local Library = {Flags = {}, Setters = {}, ColorpickerStates = {}, RainbowColorpickers = setmetatable({}, {__mode = "k"}), Folders = {Root = "Caesura", Directory = "Caesura", Configs = "Caesura/Configs", Assets = "Caesura/Assets", Fonts = "Caesura/Fonts", Themes = "Caesura/Themes"}, MenuKeybind = Enum.KeyCode.F2, Theme = {Accent = Color3.fromRGB(96, 94, 184), Background = Color3.fromRGB(12, 12, 17), Surface = Color3.fromRGB(15, 15, 22), Control = Color3.fromRGB(21, 21, 31), Border = Color3.fromRGB(40, 39, 61), Text = Color3.fromRGB(165, 165, 181), TextBright = Color3.fromRGB(231, 231, 241), TextDim = Color3.fromRGB(96, 96, 119), Header = Color3.fromRGB(178, 178, 201)}, Connections = {}, Guis = {}, Keybinds = {}, Renderers = {}, ActiveWindow = nil, Capture = nil}
 Library.ThemeEditorSettings = {MenuTransition="Fade",TransitionDuration=0.18,Easing="Quad",TextSize=13,CompactPanel=true,KeepWatermarkOpen=true}
 Library.KeybindSettings = {ShowHeader=true,ShowInactive=true,AccentActive=true,CompactRows=true,LowercaseNames=true}
 Library.NotificationSettings = {MaximumVisible=8,DefaultDuration=3,AnimationSpeed=1,Scale=100,Progress=true}; Library.ThemePresets = {}
@@ -927,7 +927,7 @@ local function CreatePopupLayer(Window)
         Active = true, Modal = true, Visible = false, ZIndex = 1999
     })
     local Picker = Create("Frame", {
-        Parent = Window.ScreenGui, Size = UDim2.fromOffset(220, 215), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Active = true, Visible = false, ZIndex = 2000
+        Parent = Window.ScreenGui, Size = UDim2.fromOffset(220, 239), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Active = true, Visible = false, ZIndex = 2000
     }, {Create("UICorner", {CornerRadius = UDim.new(0, 4)}), Create("UIStroke", {Color = Colors.SectionBorder, Thickness = 1})})
     local PickerBlocker = Create("TextButton", {Parent = Picker, Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Text = "", AutoButtonColor = false, Active = true, ZIndex = 2000})
     local SV = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(180, 180), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = Color3.new(1, 0, 0), BorderSizePixel = 0, Active = true, ZIndex = 2001})
@@ -939,10 +939,11 @@ local function CreatePopupLayer(Window)
     local Alpha = Create("Frame", {Parent = Picker, Size = UDim2.fromOffset(180, 11), Position = UDim2.fromOffset(10, 196), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, Active = true, ZIndex = 2001})
     local AlphaGradient = Create("UIGradient", {Parent = Alpha, Rotation = 0, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})})
     local AlphaCursor = Create("Frame", {Parent = Alpha, Size = UDim2.new(0, 2, 1, 4), Position = UDim2.new(1, 0, 0, -2), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2002}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
+    local ModeButton = Create("TextButton", {Parent = Picker, Size = UDim2.fromOffset(202, 16), Position = UDim2.fromOffset(10, 215), BackgroundColor3 = Colors.Control, BorderSizePixel = 0, Text = "Static", TextColor3 = Colors.Text, Font = Enum.Font.SourceSans, TextSize = 12, AutoButtonColor = false, Active = true, ZIndex = 2002}, {Create("UICorner", {CornerRadius = UDim.new(0, 3)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
     Window.PickerShield = PickerShield; Window.PickerBlocker = PickerBlocker; Window.Picker = Picker
     Window.PickerSV = SV; Window.PickerSVCursor = SVCursor; Window.PickerHue = Hue
     Window.PickerHueCursor = HueCursor; Window.PickerAlpha = Alpha; Window.PickerAlphaGradient = AlphaGradient
-    Window.PickerAlphaCursor = AlphaCursor; Window.PickerActive = nil; Window.PickerDragging = nil
+    Window.PickerAlphaCursor = AlphaCursor; Window.PickerModeButton = ModeButton; Window.PickerActive = nil; Window.PickerDragging = nil
 
     local Tooltip = Create("Frame", {
         Parent = Window.ScreenGui, Size = UDim2.fromOffset(260, 70), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Visible = false, Active = true, ClipsDescendants = true,
@@ -982,6 +983,14 @@ local function CreatePopupLayer(Window)
     end
     Window.ClampPopup = ClampPopup
 
+    local function RefreshPickerMode()
+        local Active = Window.PickerActive; local Rainbow = Active and Active.Mode == "Rainbow"
+        ModeButton.Text = Rainbow and "Rainbow" or "Static"; ModeButton.TextColor3 = Rainbow and Accent() or Colors.Text; ModeButton.BackgroundColor3 = Rainbow and AccentDark() or Colors.Control
+        local Stroke = ModeButton:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color = Rainbow and AccentBorder() or Colors.CbBorder end
+    end
+    Window.RefreshPickerMode = RefreshPickerMode
+    RegisterRenderer(RefreshPickerMode)
+
     local function UpdatePickerFromPoint(Mode)
         local Active=Window.PickerActive if not Active then return end; local Mouse=MousePoint(Window.ScreenGui) local H,S,V=Color3.toHSV(Active.Color)
         if Mode=="SV" then local Pos,Size=Window.PickerSV.AbsolutePosition,Window.PickerSV.AbsoluteSize if Size.X<=0 or Size.Y<=0 then return end S=math.clamp((Mouse.X-Pos.X)/Size.X,0,1) V=1-math.clamp((Mouse.Y-Pos.Y)/Size.Y,0,1)
@@ -992,6 +1001,10 @@ local function CreatePopupLayer(Window)
     Bind(SV.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="SV" Window:BlockControlInput(0.2) UpdatePickerFromPoint("SV") end end))
     Bind(Hue.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="Hue" Window:BlockControlInput(0.2) UpdatePickerFromPoint("Hue") end end))
     Bind(Alpha.InputBegan:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Window.PickerDragging="Alpha" Window:BlockControlInput(0.2) UpdatePickerFromPoint("Alpha") end end))
+    Bind(ModeButton.MouseButton1Click:Connect(function()
+        local Active = Window.PickerActive if not Active or type(Active.SetMode) ~= "function" then return end
+        Window:BlockControlInput(0.12); Active:SetMode(Active.Mode == "Rainbow" and "Static" or "Rainbow"); RefreshPickerMode()
+    end))
     Bind(UserInputService.InputChanged:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseMovement and Window.PickerDragging then UpdatePickerFromPoint(Window.PickerDragging) end end))
     Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Window.PickerDragging = nil end end))
     Bind(PickerShield.MouseButton1Click:Connect(function() Window:ClosePicker() end))
@@ -1106,7 +1119,8 @@ function WindowMethods:OpenPicker(Object, Anchor)
     self.PickerActive = Object; local H, S, V = Color3.toHSV(Object.Color); self.PickerSV.BackgroundColor3 = Color3.fromHSV(H, 1, 1)
     self.PickerSVCursor.Position = UDim2.new(S, 0, 1 - V, 0); self.PickerHueCursor.Position = UDim2.new(0, -2, H, 0)
     self.PickerAlphaCursor.Position = UDim2.new(Object.Alpha or 1, 0, 0, -2); self.PickerAlphaGradient.Color = ColorSequence.new(Object.Color)
-    local AnchorPos = GuiPoint(self.ScreenGui, Anchor.AbsolutePosition); local PickerSize = Vector2.new(220, 215); local Viewport = self.ScreenGui.AbsoluteSize
+    if type(self.RefreshPickerMode) == "function" then self.RefreshPickerMode() end
+    local AnchorPos = GuiPoint(self.ScreenGui, Anchor.AbsolutePosition); local PickerSize = Vector2.new(220, 239); local Viewport = self.ScreenGui.AbsoluteSize
     if Viewport.X <= 0 or Viewport.Y <= 0 then local Camera = workspace.CurrentCamera; Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080) end
     local RightX = AnchorPos.X + Anchor.AbsoluteSize.X + 6; local LeftX = AnchorPos.X - PickerSize.X - 6; local X = RightX + PickerSize.X <= Viewport.X - 4 and RightX or LeftX
     local Y = AnchorPos.Y - 10; local Position = self.ClampPopup(PickerSize, Vector2.new(X, Y)); self.Picker.Position = UDim2.fromOffset(Position.X, Position.Y)
@@ -1297,38 +1311,71 @@ local function ThemeMultiply(Color, Factor)
 end
 
 local function MakeColorpicker(Section, Row, Data, RightOffset)
-    Data = Data or {}; local Default = Data.Default; local InitialColor, InitialAlpha = Color3.new(1, 1, 1), 1
+    Data = Data or {}; local Default = Data.Default; local InitialColor, InitialAlpha, InitialMode = Color3.new(1, 1, 1), 1, "Static"
     if typeof(Default) == "Color3" then InitialColor = Default
-    elseif type(Default) == "table" and typeof(Default.Color) == "Color3" then InitialColor = Default.Color InitialAlpha = 1 - math.clamp(tonumber(Default.Transparency) or 0, 0, 1) end
+    elseif type(Default) == "table" and typeof(Default.Color) == "Color3" then InitialColor = Default.Color InitialAlpha = 1 - math.clamp(tonumber(Default.Transparency) or 0, 0, 1) if tostring(Default.Mode or "") == "Rainbow" then InitialMode = "Rainbow" end end
+    if Data.Rainbow == true or tostring(Data.Mode or "") == "Rainbow" then InitialMode = "Rainbow" end
     local Flag = tostring(Data.Flag or Data.Name or ("Color" .. tostring(#Section.Controls + 1)))
     if typeof(Library.Flags[Flag]) == "Color3" then InitialColor = Library.Flags[Flag] end
     local SavedState = Library.ColorpickerStates[Flag]
     if type(SavedState) == "table" and typeof(SavedState.Color) == "Color3" then
-        InitialColor = SavedState.Color; InitialAlpha = 1 - math.clamp(tonumber(SavedState.Transparency) or 0, 0, 1)
+        InitialColor = SavedState.Color; InitialAlpha = 1 - math.clamp(tonumber(SavedState.Transparency) or 0, 0, 1); InitialMode = tostring(SavedState.Mode or InitialMode) == "Rainbow" and "Rainbow" or "Static"
     end
     local TallRow = Row.Size.Y.Offset > 20; RightOffset = math.max(tonumber(RightOffset) or 0, 0)
     local ButtonPosition = TallRow and UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0, 1) or UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0.5, -6)
     local Button = Create("TextButton", {Parent = Row, Size = UDim2.fromOffset(ControlLayout.ColorWidth, 12), Position = ButtonPosition, BackgroundColor3 = InitialColor, AutoButtonColor = false, Active = true, Text = "", ZIndex = 50}, {Create("UICorner", {CornerRadius = UDim.new(0, 2)}), Create("UIStroke", {Color = Colors.CbBorder, Thickness = 1})})
     local SwatchGradient=Create("UIGradient",{Parent=Button,Rotation=90,Enabled=Library.Settings.PickerGradient~=false}); Library.ThemeBindings[Button] = nil
-    local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag, Gradient=SwatchGradient}
+    local Object = {Row = Row, Button = Button, Color = InitialColor, Alpha = InitialAlpha, Flag = Flag, Gradient = SwatchGradient, Mode = InitialMode, RainbowSpeed = 0.18, RainbowOffset = 0, RainbowBaseS = 1, RainbowBaseV = 1}
     local function RefreshSwatch()
         if not Button or not Button.Parent then return end
         local Depth=math.clamp(tonumber(Library.Settings.PickerGradientShade) or 0.45,0.1,1); SwatchGradient.Enabled=Library.Settings.PickerGradient~=false
         SwatchGradient.Color=ColorSequence.new(Object.Color,ThemeMultiply(Object.Color,Depth))
     end
+    local function StoreState()
+        Library.Flags[Flag] = Object.Color; Library.ColorpickerStates[Flag] = {Color = Object.Color, Transparency = 1 - Object.Alpha, Mode = Object.Mode}; Button.BackgroundColor3 = Object.Color
+    end
+    local function ResetRainbowAnchor()
+        local H, S, V = Color3.toHSV(Object.Color); Object.RainbowBaseS = S; Object.RainbowBaseV = V; Object.RainbowOffset = (H - os.clock() * Object.RainbowSpeed) % 1
+    end
     Library.SwatchGradients[#Library.SwatchGradients+1]=RefreshSwatch
-    function Object:Set(Color, Alpha, FromPicker)
-        if type(Color) == "table" and typeof(Color.Color) == "Color3" then Alpha = 1 - math.clamp(tonumber(Color.Transparency) or 0, 0, 1); Color = Color.Color end
+    function Object:SetMode(Mode)
+        Mode = tostring(Mode or "Static") == "Rainbow" and "Rainbow" or "Static"
+        if Object.Mode == Mode then StoreState() if Section.Window.PickerActive == Object and type(Section.Window.RefreshPickerMode) == "function" then Section.Window.RefreshPickerMode() end return end
+        Object.Mode = Mode; if Mode == "Rainbow" then ResetRainbowAnchor() end; StoreState()
+        if Section.Window.PickerActive == Object and type(Section.Window.RefreshPickerMode) == "function" then Section.Window.RefreshPickerMode() end
+    end
+    function Object:Set(Color, Alpha, Source)
+        local RequestedMode
+        if type(Color) == "table" and typeof(Color.Color) == "Color3" then RequestedMode = Color.Mode; Alpha = 1 - math.clamp(tonumber(Color.Transparency) or 0, 0, 1); Color = Color.Color end
         if typeof(Color) ~= "Color3" then return end
         Object.Color = Color
         if Alpha ~= nil then Object.Alpha = math.clamp(tonumber(Alpha) or 1, 0, 1) end
-        Library.Flags[Flag] = Object.Color; Library.ColorpickerStates[Flag] = {Color = Object.Color, Transparency = 1 - Object.Alpha}; Button.BackgroundColor3 = Object.Color
-        RefreshSwatch()
+        if RequestedMode ~= nil then Object.Mode = tostring(RequestedMode) == "Rainbow" and "Rainbow" or "Static" end
+        if Object.Mode == "Rainbow" and Source ~= "Rainbow" then ResetRainbowAnchor() end
+        StoreState(); RefreshSwatch()
         if type(Data.Callback) == "function" then Call(Data.Callback, Object.Color, Object.Alpha) end
+        if Section.Window.PickerActive == Object and type(Section.Window.RefreshPickerMode) == "function" then Section.Window.RefreshPickerMode() end
+    end
+    function Object:StepRainbow(Time)
+        if Object.Mode ~= "Rainbow" or not Button or not Button.Parent then return end
+        local Phase = Time * Object.RainbowSpeed; local H = (Phase + Object.RainbowOffset) % 1
+        local S = math.clamp(Object.RainbowBaseS + math.sin(Time * 2.35) * 0.10, 0.45, 1); local V = math.clamp(Object.RainbowBaseV + math.sin(Time * 1.73 + 1.4) * 0.08, 0.58, 1)
+        Object:Set(Color3.fromHSV(H, S, V), Object.Alpha, "Rainbow")
+        local Window = Section.Window
+        if Window.PickerActive == Object then
+            Window.PickerSV.BackgroundColor3 = Color3.fromHSV(H, 1, 1); Window.PickerSVCursor.Position = UDim2.new(S, 0, 1 - V, 0); Window.PickerHueCursor.Position = UDim2.new(0, -2, H, 0)
+            Window.PickerAlphaCursor.Position = UDim2.new(Object.Alpha or 1, 0, 0, -2); Window.PickerAlphaGradient.Color = ColorSequence.new(Object.Color)
+        end
     end
     function Object:Get() return Object.Color end
-    Library.ColorpickerStates[Flag] = {Color = InitialColor, Transparency = 1 - InitialAlpha}; RefreshSwatch()
+    ResetRainbowAnchor(); StoreState(); RefreshSwatch(); Library.RainbowColorpickers[Object] = true
     RegisterFlag(Flag, InitialColor, function(Value) Object:Set(Value) end)
+    if not Library.RainbowConnection then
+        Library.RainbowConnection = Bind(RunService.RenderStepped:Connect(function()
+            local Time = os.clock()
+            for Picker in pairs(Library.RainbowColorpickers) do if Picker and Picker.Mode == "Rainbow" and type(Picker.StepRainbow) == "function" then Picker:StepRainbow(Time) end end
+        end))
+    end
     Bind(Button.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then Section.Window:BlockControlInput(0.25) end
     end))
@@ -1781,7 +1828,9 @@ local function DecodeValue(Value, Depth)
             local Clean = ColorValue:gsub("#", "")
             if #Clean >= 6 then local Success, Parsed = Call(Color3.fromHex, Clean:sub(1, 6)) if Success then ColorValue = Parsed end end
         end
-        return {Color = ColorValue, Transparency = math.clamp(tonumber(Value.Transparency) or 0, 0, 1)}
+        local Result = {Color = ColorValue, Transparency = math.clamp(tonumber(Value.Transparency) or 0, 0, 1)}
+        if Value.Mode ~= nil then Result.Mode = tostring(Value.Mode) == "Rainbow" and "Rainbow" or "Static" end
+        return Result
     end
     local Result = {}
     for Key, Item in pairs(Value) do Result[Key] = DecodeValue(Item, Depth + 1) end
