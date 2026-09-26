@@ -911,6 +911,27 @@ local function SelectSubPage(Page, SubPage)
     end
 end
 
+local RainbowRates = {1, 2, 3, 4, 5, 10, 100}
+
+local function NormalizeRainbowRate(Value)
+    local Number = tonumber(Value) or 1
+    local Best, Distance = RainbowRates[1], math.huge
+    for Index = 1, #RainbowRates do
+        local Rate = RainbowRates[Index]
+        local Delta = math.abs(Number - Rate)
+        if Delta < Distance then Best, Distance = Rate, Delta end
+    end
+    return Best
+end
+
+local function NextRainbowRate(Value)
+    local Current = NormalizeRainbowRate(Value)
+    for Index = 1, #RainbowRates do
+        if RainbowRates[Index] == Current then return RainbowRates[Index % #RainbowRates + 1] end
+    end
+    return 1
+end
+
 local function CreatePopupLayer(Window)
     local Dropdown = Create("Frame", {
         Parent = Window.ScreenGui, Size = UDim2.fromOffset(120, 100), BackgroundColor3 = Colors.Bg, BorderSizePixel = 0, Visible = false, ZIndex = 1000
@@ -985,7 +1006,7 @@ local function CreatePopupLayer(Window)
     Window.ClampPopup = ClampPopup
 
     local function RefreshPickerMode()
-        local Active = Window.PickerActive; local Rainbow = Active and Active.Mode == "Rainbow"; local Speed = Active and math.clamp(math.floor((tonumber(Active.RainbowRate) or 1) + 0.5), 1, 5) or 1
+        local Active = Window.PickerActive; local Rainbow = Active and Active.Mode == "Rainbow"; local Speed = Active and NormalizeRainbowRate(Active.RainbowRate) or 1
         ModeButton.Text = Rainbow and "Rainbow" or "Static"; ModeButton.TextColor3 = Colors.Text; ModeButton.BackgroundColor3 = Colors.Control
         SpeedButton.Text = tostring(Speed) .. "x"; SpeedButton.TextColor3 = Colors.Text; SpeedButton.BackgroundColor3 = Colors.Control
         local Stroke = ModeButton:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color = Colors.CbBorder end
@@ -1010,7 +1031,7 @@ local function CreatePopupLayer(Window)
     end))
     Bind(SpeedButton.MouseButton1Click:Connect(function()
         local Active = Window.PickerActive if not Active or type(Active.SetSpeed) ~= "function" then return end
-        Window:BlockControlInput(0.12); Active:SetSpeed((math.clamp(math.floor((tonumber(Active.RainbowRate) or 1) + 0.5), 1, 5) % 5) + 1); RefreshPickerMode()
+        Window:BlockControlInput(0.12); Active:SetSpeed(NextRainbowRate(Active.RainbowRate)); RefreshPickerMode()
     end))
     Bind(UserInputService.InputChanged:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseMovement and Window.PickerDragging then UpdatePickerFromPoint(Window.PickerDragging) end end))
     Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType == Enum.UserInputType.MouseButton1 then Window.PickerDragging = nil end end))
@@ -1320,14 +1341,14 @@ end
 local function MakeColorpicker(Section, Row, Data, RightOffset)
     Data = Data or {}; local Default = Data.Default; local InitialColor, InitialAlpha, InitialMode, InitialSpeed = Color3.new(1, 1, 1), 1, "Static", 1
     if typeof(Default) == "Color3" then InitialColor = Default
-    elseif type(Default) == "table" and typeof(Default.Color) == "Color3" then InitialColor = Default.Color InitialAlpha = 1 - math.clamp(tonumber(Default.Transparency) or 0, 0, 1) if tostring(Default.Mode or "") == "Rainbow" then InitialMode = "Rainbow" end InitialSpeed = math.clamp(math.floor((tonumber(Default.Speed) or 1) + 0.5), 1, 5) end
+    elseif type(Default) == "table" and typeof(Default.Color) == "Color3" then InitialColor = Default.Color InitialAlpha = 1 - math.clamp(tonumber(Default.Transparency) or 0, 0, 1) if tostring(Default.Mode or "") == "Rainbow" then InitialMode = "Rainbow" end InitialSpeed = NormalizeRainbowRate(Default.Speed) end
     if Data.Rainbow == true or tostring(Data.Mode or "") == "Rainbow" then InitialMode = "Rainbow" end
-    InitialSpeed = math.clamp(math.floor((tonumber(Data.Speed) or InitialSpeed) + 0.5), 1, 5)
+    InitialSpeed = NormalizeRainbowRate(Data.Speed or InitialSpeed)
     local Flag = tostring(Data.Flag or Data.Name or ("Color" .. tostring(#Section.Controls + 1)))
     if typeof(Library.Flags[Flag]) == "Color3" then InitialColor = Library.Flags[Flag] end
     local SavedState = Library.ColorpickerStates[Flag]
     if type(SavedState) == "table" and typeof(SavedState.Color) == "Color3" then
-        InitialColor = SavedState.Color; InitialAlpha = 1 - math.clamp(tonumber(SavedState.Transparency) or 0, 0, 1); InitialMode = tostring(SavedState.Mode or InitialMode) == "Rainbow" and "Rainbow" or "Static"; InitialSpeed = math.clamp(math.floor((tonumber(SavedState.Speed) or InitialSpeed) + 0.5), 1, 5)
+        InitialColor = SavedState.Color; InitialAlpha = 1 - math.clamp(tonumber(SavedState.Transparency) or 0, 0, 1); InitialMode = tostring(SavedState.Mode or InitialMode) == "Rainbow" and "Rainbow" or "Static"; InitialSpeed = NormalizeRainbowRate(SavedState.Speed or InitialSpeed)
     end
     local TallRow = Row.Size.Y.Offset > 20; RightOffset = math.max(tonumber(RightOffset) or 0, 0)
     local ButtonPosition = TallRow and UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0, 1) or UDim2.new(1, -RightOffset - ControlLayout.ColorWidth, 0.5, -6)
@@ -1353,7 +1374,7 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
         if Section.Window.PickerActive == Object and type(Section.Window.RefreshPickerMode) == "function" then Section.Window.RefreshPickerMode() end
     end
     function Object:SetSpeed(Speed)
-        Speed = math.clamp(math.floor((tonumber(Speed) or 1) + 0.5), 1, 5)
+        Speed = NormalizeRainbowRate(Speed)
         if Object.RainbowRate == Speed then StoreState() if Section.Window.PickerActive == Object and type(Section.Window.RefreshPickerMode) == "function" then Section.Window.RefreshPickerMode() end return end
         Object.RainbowRate = Speed; ResetRainbowAnchor(); StoreState()
         if Section.Window.PickerActive == Object and type(Section.Window.RefreshPickerMode) == "function" then Section.Window.RefreshPickerMode() end
@@ -1365,7 +1386,7 @@ local function MakeColorpicker(Section, Row, Data, RightOffset)
         Object.Color = Color
         if Alpha ~= nil then Object.Alpha = math.clamp(tonumber(Alpha) or 1, 0, 1) end
         if RequestedMode ~= nil then Object.Mode = tostring(RequestedMode) == "Rainbow" and "Rainbow" or "Static" end
-        if RequestedSpeed ~= nil then Object.RainbowRate = math.clamp(math.floor((tonumber(RequestedSpeed) or 1) + 0.5), 1, 5) end
+        if RequestedSpeed ~= nil then Object.RainbowRate = NormalizeRainbowRate(RequestedSpeed) end
         if Object.Mode == "Rainbow" and Source ~= "Rainbow" then ResetRainbowAnchor() end
         StoreState(); RefreshSwatch()
         if type(Data.Callback) == "function" then Call(Data.Callback, Object.Color, Object.Alpha) end
