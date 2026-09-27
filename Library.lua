@@ -905,7 +905,6 @@ local function SelectSubPage(Page, SubPage)
         local Selected = Item == SubPage
         Item.Frame.Visible = Selected
         Item.Button.TextColor3 = Selected and Accent() or Colors.TextDim
-        if Item.Indicator then Item.Indicator.Visible = Selected; Item.Indicator.BackgroundColor3 = Accent() end
     end
 end
 
@@ -916,7 +915,6 @@ local function SelectPage(Window, Page)
         local Selected = Item == Page
         Item.Panel.Visible = Selected
         Item.Button.TextColor3 = Selected and Colors.TextBright or Colors.TextDim
-        if Item.Indicator then Item.Indicator.Visible = Selected; Item.Indicator.BackgroundColor3 = Accent() end
     end
     local ActiveSubPage = Page.ActiveSubPage or Page.SubPagesOrder[1]
     if ActiveSubPage then SelectSubPage(Page, ActiveSubPage) end
@@ -1281,13 +1279,12 @@ function WindowMethods:Page(Data)
     Data = Data or {}; local Name = tostring(Data.Name or ("page" .. tostring(#self.PagesOrder + 1)))
     if self.Pages[Name] then return self.Pages[Name] end
     local Button = Create("TextButton", {Parent = self.TabBar, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, ZIndex = 2})
-    local Indicator = Create("Frame", {Name = "ActiveIndicator", Parent = Button, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0), Size = UDim2.new(1, -18, 0, 2), BackgroundColor3 = Accent(), BorderSizePixel = 0, Visible = false, ZIndex = 4})
     local Divider = Create("Frame", {Parent = Button, Size = UDim2.fromOffset(1, 14), Position = UDim2.new(1, -1, 0.5, -7), BackgroundColor3 = Colors.Divider, BorderSizePixel = 0, ZIndex = 3})
     local Panel = Create("Frame", {Parent = self.Content, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
     local SubBar = Create("Frame", {Parent = Panel, Size = UDim2.new(1, -20, 0, 22), Position = UDim2.fromOffset(10, 4), BackgroundTransparency = 1, Visible = false})
     local SubLayout = Create("UIListLayout", {Parent = SubBar, FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 18)})
     local Holder = Create("Frame", {Parent = Panel, Size = UDim2.new(1, 0, 1, -32), Position = UDim2.fromOffset(0, 32), BackgroundTransparency = 1, ClipsDescendants = true})
-    local Page = setmetatable({Window = self, Name = Name, Button = Button, Indicator = Indicator, Divider = Divider, Panel = Panel, SubBar = SubBar, SubLayout = SubLayout, Holder = Holder, SubPages = {}, SubPagesOrder = {}, ActiveSubPage = nil, DefaultSubPage = nil}, PageMethods)
+    local Page = setmetatable({Window = self, Name = Name, Button = Button, Divider = Divider, Panel = Panel, SubBar = SubBar, SubLayout = SubLayout, Holder = Holder, SubPages = {}, SubPagesOrder = {}, ActiveSubPage = nil, DefaultSubPage = nil}, PageMethods)
     self.Pages[Name] = Page
     self.PagesOrder[#self.PagesOrder + 1] = Page
     ReflowTabs(self); Bind(Button.MouseButton1Click:Connect(function() SelectPage(self, Page) end))
@@ -1300,11 +1297,10 @@ function PageMethods:SubPage(Data)
     if self.SubPages[Name] then return self.SubPages[Name] end
     self.SubBar.Visible = true
     local Button = Create("TextButton", {Parent = self.SubBar, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, LayoutOrder = #self.SubPagesOrder + 1})
-    local Indicator = Create("Frame", {Name = "ActiveIndicator", Parent = Button, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Accent(), BorderSizePixel = 0, Visible = false, ZIndex = 3})
     local Frame = Create("Frame", {Parent = self.Holder, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
     local Left = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.fromOffset(10, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(56, 52, 56), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
     local Right = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.new(0.5, 5, 0, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(56, 52, 56), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
-    local SubPage = setmetatable({Page = self, Name = Name, Button = Button, Indicator = Indicator, Frame = Frame, Left = Left, Right = Right, Sections = {}, Order = 0}, SubPageMethods)
+    local SubPage = setmetatable({Page = self, Name = Name, Button = Button, Frame = Frame, Left = Left, Right = Right, Sections = {}, Order = 0}, SubPageMethods)
     self.SubPages[Name] = SubPage
     self.SubPagesOrder[#self.SubPagesOrder + 1] = SubPage
     Bind(Button.MouseButton1Click:Connect(function() SelectSubPage(self, SubPage) end))
@@ -3591,7 +3587,7 @@ local function PointInside(Object,Point)
     return Point.X>=P.X and Point.X<=P.X+S.X and Point.Y>=P.Y and Point.Y<=P.Y+S.Y
 end
 
-local CursorState={Active=false,Gui=nil,Root=nil,Diamond=nil,Center=nil,Horizontal=nil,Vertical=nil,OldMouseIconEnabled=nil,OldMouseBehavior=nil,OldMouseIcon=nil}
+local CursorState={Active=false,Gui=nil,Root=nil,Shadow=nil,Outline=nil,Arrow=nil,OldMouseIconEnabled=nil,OldMouseBehavior=nil,OldMouseIcon=nil}
 local InputSinkAction="__CaesuraMenuInputSink"
 
 local function IsLibraryGuiObject(Object)
@@ -3616,23 +3612,21 @@ function Library:IsUIInputActive()
     return false
 end
 
+local CursorTexture="rbxasset://textures/Cursors/KeyboardMouse/ArrowFarCursor.png"
+
 local function EnsureCustomCursor()
     if CursorState.Gui and CursorState.Gui.Parent then return CursorState.Gui end
     local Gui=Create("ScreenGui",{Name="CaesuraCursor",Parent=ParentGui(),ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=2147483646,ZIndexBehavior=Enum.ZIndexBehavior.Global,Enabled=false})
     Library.Guis[#Library.Guis+1]=Gui
-    local Root=Create("Frame",{Name="Cursor",Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Size=UDim2.fromOffset(24,24),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,BorderSizePixel=0,Active=false,ZIndex=10000})
-    local Shadow=Create("Frame",{Name="Mask",Parent=Root,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(17,17),Rotation=45,BackgroundColor3=Colors.Bg,BackgroundTransparency=0.02,BorderSizePixel=0,ZIndex=10001},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.new(0,0,0),Transparency=0.15,Thickness=1.5})})
-    local Diamond=Create("Frame",{Name="Diamond",Parent=Root,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(10,10),Rotation=45,BackgroundColor3=Colors.Control,BackgroundTransparency=0.06,BorderSizePixel=0,ZIndex=10002},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Accent(),Thickness=1.5})})
-    local Horizontal=Create("Frame",{Name="Horizontal",Parent=Root,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(18,1),BackgroundColor3=Accent(),BackgroundTransparency=0.22,BorderSizePixel=0,ZIndex=10003})
-    local Vertical=Create("Frame",{Name="Vertical",Parent=Root,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(1,18),BackgroundColor3=Accent(),BackgroundTransparency=0.22,BorderSizePixel=0,ZIndex=10003})
-    local Center=Create("Frame",{Name="Center",Parent=Root,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(3,3),BackgroundColor3=Colors.TextBright,BorderSizePixel=0,ZIndex=10004},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-    CursorState.Gui,CursorState.Root,CursorState.Diamond,CursorState.Center,CursorState.Horizontal,CursorState.Vertical=Gui,Root,Diamond,Center,Horizontal,Vertical
+    local Root=Create("Frame",{Name="Cursor",Parent=Gui,AnchorPoint=Vector2.zero,Size=UDim2.fromOffset(30,30),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,BorderSizePixel=0,Active=false,ZIndex=10000})
+    local Shadow=Create("ImageLabel",{Name="Shadow",Parent=Root,Position=UDim2.fromOffset(2,2),Size=UDim2.fromOffset(25,25),BackgroundTransparency=1,BorderSizePixel=0,Image=CursorTexture,ImageColor3=Color3.new(0,0,0),ImageTransparency=0.12,ScaleType=Enum.ScaleType.Fit,ZIndex=10001})
+    local Outline=Create("ImageLabel",{Name="Outline",Parent=Root,Position=UDim2.fromOffset(0,0),Size=UDim2.fromOffset(24,24),BackgroundTransparency=1,BorderSizePixel=0,Image=CursorTexture,ImageColor3=Accent(),ImageTransparency=0.02,ScaleType=Enum.ScaleType.Fit,ZIndex=10002})
+    local Arrow=Create("ImageLabel",{Name="Arrow",Parent=Root,Position=UDim2.fromOffset(1,1),Size=UDim2.fromOffset(21,21),BackgroundTransparency=1,BorderSizePixel=0,Image=CursorTexture,ImageColor3=Colors.Control,ImageTransparency=0,ScaleType=Enum.ScaleType.Fit,ZIndex=10003})
+    CursorState.Gui,CursorState.Root,CursorState.Shadow,CursorState.Outline,CursorState.Arrow=Gui,Root,Shadow,Outline,Arrow
     RegisterRenderer(function()
         if not Root or not Root.Parent then return end
-        Shadow.BackgroundColor3=Colors.Bg
-        Diamond.BackgroundColor3=Colors.Control
-        local Stroke=Diamond:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Accent() end
-        Horizontal.BackgroundColor3=Accent(); Vertical.BackgroundColor3=Accent(); Center.BackgroundColor3=Colors.TextBright
+        Outline.ImageColor3=Accent()
+        Arrow.ImageColor3=Colors.Control
     end)
     return Gui
 end
@@ -3677,10 +3671,8 @@ Bind(RunService.RenderStepped:Connect(function()
     CursorState.Root.Position=UDim2.fromOffset(Position.X,Position.Y)
     local Down=false
     pcall(function() Down=UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) end)
-    local Size=Down and 8 or 10
-    CursorState.Diamond.Size=UDim2.fromOffset(Size,Size)
-    CursorState.Horizontal.Size=UDim2.fromOffset(Down and 15 or 18,1)
-    CursorState.Vertical.Size=UDim2.fromOffset(1,Down and 15 or 18)
+    if CursorState.Outline then CursorState.Outline.ImageTransparency=Down and 0.12 or 0.02 end
+    if CursorState.Arrow then CursorState.Arrow.Position=Down and UDim2.fromOffset(2,2) or UDim2.fromOffset(1,1) end
 end))
 
 pcall(function() ContextActionService:UnbindAction(InputSinkAction) end)
