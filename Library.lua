@@ -1,4 +1,5 @@
 local UserInputService = game:GetService("UserInputService"); local TweenService = game:GetService("TweenService"); local RunService = game:GetService("RunService")
+local ContextActionService = game:GetService("ContextActionService")
 local TextService = game:GetService("TextService"); local Players = game:GetService("Players"); local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService"); local CoreGui = game:GetService("CoreGui")
 
@@ -575,8 +576,8 @@ local function MakeDraggable(Frame,Handle,ScreenGui)
     ScreenGui=ScreenGui or Frame:FindFirstAncestorOfClass("ScreenGui")
     Bind(Handle.InputBegan:Connect(function(Input)
         if Input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
-        Dragging=true StartMouse=Input.Position StartAbsolute=Frame.AbsolutePosition
-        Bind(Input.Changed:Connect(function() if Input.UserInputState==Enum.UserInputState.End then Dragging=false end end))
+        Dragging=true Library.InteractionActive=true StartMouse=Input.Position StartAbsolute=Frame.AbsolutePosition
+        Bind(Input.Changed:Connect(function() if Input.UserInputState==Enum.UserInputState.End then Dragging=false Library.InteractionActive=false end end))
     end))
     Bind(Handle.InputChanged:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseMovement then DragInput=Input end end))
     Bind(UserInputService.InputChanged:Connect(function(Input)
@@ -597,7 +598,7 @@ local function MakeResizable(Window,MinimumSize)
         local Handle=Create("TextButton",{Name="Resize"..Name,Parent=Frame,AnchorPoint=Vector2.new(XScale,YScale),Position=UDim2.fromScale(XScale,YScale),Size=UDim2.fromOffset(18,18),BackgroundTransparency=1,Text="",AutoButtonColor=false,ZIndex=5000})
         Bind(Handle.InputBegan:Connect(function(Input)
             if Input.UserInputType~=Enum.UserInputType.MouseButton1 then return end
-            Active={X=XDirection,Y=YDirection} StartMouse=Input.Position StartSize=Frame.AbsoluteSize StartPosition=Frame.AbsolutePosition
+            Active={X=XDirection,Y=YDirection} Library.InteractionActive=true StartMouse=Input.Position StartSize=Frame.AbsoluteSize StartPosition=Frame.AbsolutePosition
         end))
     end
     Bind(UserInputService.InputChanged:Connect(function(Input)
@@ -611,7 +612,7 @@ local function MakeResizable(Window,MinimumSize)
         X=math.clamp(X,4,math.max(4,Viewport.X-Width-4)) Y=math.clamp(Y,4,math.max(4,Viewport.Y-Height-4))
         Frame.AnchorPoint=Vector2.zero Frame.Position=UDim2.fromOffset(X,Y) Frame.Size=UDim2.fromOffset(Width,Height)
     end))
-    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Active=nil end end))
+    Bind(UserInputService.InputEnded:Connect(function(Input) if Input.UserInputType==Enum.UserInputType.MouseButton1 then Active=nil Library.InteractionActive=false end end))
     BindFrameToViewport(Frame,Window.ScreenGui,4)
 end
 
@@ -897,18 +898,28 @@ local function ReflowTabs(Window)
     end
 end
 
-local function SelectPage(Window, Page)
-    Window.ActivePage = Page
-    for _, Item in ipairs(Window.PagesOrder) do
-        local Selected = Item == Page; Item.Panel.Visible = Selected; Item.Button.TextColor3 = Selected and Colors.TextBright or Colors.TextDim
+local function SelectSubPage(Page, SubPage)
+    if not Page or not SubPage then return end
+    Page.ActiveSubPage = SubPage
+    for _, Item in ipairs(Page.SubPagesOrder) do
+        local Selected = Item == SubPage
+        Item.Frame.Visible = Selected
+        Item.Button.TextColor3 = Selected and Accent() or Colors.TextDim
+        if Item.Indicator then Item.Indicator.Visible = Selected; Item.Indicator.BackgroundColor3 = Accent() end
     end
 end
 
-local function SelectSubPage(Page, SubPage)
-    Page.ActiveSubPage = SubPage
-    for _, Item in ipairs(Page.SubPagesOrder) do
-        local Selected = Item == SubPage; Item.Frame.Visible = Selected; Item.Button.TextColor3 = Selected and Accent() or Colors.TextDim
+local function SelectPage(Window, Page)
+    if not Window or not Page then return end
+    Window.ActivePage = Page
+    for _, Item in ipairs(Window.PagesOrder) do
+        local Selected = Item == Page
+        Item.Panel.Visible = Selected
+        Item.Button.TextColor3 = Selected and Colors.TextBright or Colors.TextDim
+        if Item.Indicator then Item.Indicator.Visible = Selected; Item.Indicator.BackgroundColor3 = Accent() end
     end
+    local ActiveSubPage = Page.ActiveSubPage or Page.SubPagesOrder[1]
+    if ActiveSubPage then SelectSubPage(Page, ActiveSubPage) end
 end
 
 local RainbowRates = {1, 2, 3, 4, 5, 10, 100}
@@ -1206,6 +1217,7 @@ function Library:Window(Data)
                 if Gradient then Gradient.Color = AccentLineSequence() end
             end
         end
+        if Window.ActivePage then SelectPage(Window, Window.ActivePage) end
     end)
     task.defer(function() if self.ActiveWindow==Window and Window:IsVisible() and type(self.SetNoticePreview)=="function" then self:SetNoticePreview(true) end end)
     return Window
@@ -1269,12 +1281,13 @@ function WindowMethods:Page(Data)
     Data = Data or {}; local Name = tostring(Data.Name or ("page" .. tostring(#self.PagesOrder + 1)))
     if self.Pages[Name] then return self.Pages[Name] end
     local Button = Create("TextButton", {Parent = self.TabBar, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, ZIndex = 2})
+    local Indicator = Create("Frame", {Name = "ActiveIndicator", Parent = Button, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0), Size = UDim2.new(1, -18, 0, 2), BackgroundColor3 = Accent(), BorderSizePixel = 0, Visible = false, ZIndex = 4})
     local Divider = Create("Frame", {Parent = Button, Size = UDim2.fromOffset(1, 14), Position = UDim2.new(1, -1, 0.5, -7), BackgroundColor3 = Colors.Divider, BorderSizePixel = 0, ZIndex = 3})
     local Panel = Create("Frame", {Parent = self.Content, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
     local SubBar = Create("Frame", {Parent = Panel, Size = UDim2.new(1, -20, 0, 22), Position = UDim2.fromOffset(10, 4), BackgroundTransparency = 1, Visible = false})
     local SubLayout = Create("UIListLayout", {Parent = SubBar, FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 18)})
     local Holder = Create("Frame", {Parent = Panel, Size = UDim2.new(1, 0, 1, -32), Position = UDim2.fromOffset(0, 32), BackgroundTransparency = 1, ClipsDescendants = true})
-    local Page = setmetatable({Window = self, Name = Name, Button = Button, Divider = Divider, Panel = Panel, SubBar = SubBar, SubLayout = SubLayout, Holder = Holder, SubPages = {}, SubPagesOrder = {}, ActiveSubPage = nil, DefaultSubPage = nil}, PageMethods)
+    local Page = setmetatable({Window = self, Name = Name, Button = Button, Indicator = Indicator, Divider = Divider, Panel = Panel, SubBar = SubBar, SubLayout = SubLayout, Holder = Holder, SubPages = {}, SubPagesOrder = {}, ActiveSubPage = nil, DefaultSubPage = nil}, PageMethods)
     self.Pages[Name] = Page
     self.PagesOrder[#self.PagesOrder + 1] = Page
     ReflowTabs(self); Bind(Button.MouseButton1Click:Connect(function() SelectPage(self, Page) end))
@@ -1287,10 +1300,11 @@ function PageMethods:SubPage(Data)
     if self.SubPages[Name] then return self.SubPages[Name] end
     self.SubBar.Visible = true
     local Button = Create("TextButton", {Parent = self.SubBar, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), BackgroundTransparency = 1, Text = string.lower(Name), Font = Enum.Font.SourceSans, TextSize = 13, TextColor3 = Colors.TextDim, AutoButtonColor = false, LayoutOrder = #self.SubPagesOrder + 1})
+    local Indicator = Create("Frame", {Name = "ActiveIndicator", Parent = Button, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Accent(), BorderSizePixel = 0, Visible = false, ZIndex = 3})
     local Frame = Create("Frame", {Parent = self.Holder, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false})
     local Left = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.fromOffset(10, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(56, 52, 56), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
     local Right = Create("ScrollingFrame", {Parent = Frame, Position = UDim2.new(0.5, 5, 0, 8), Size = UDim2.new(0.5, -15, 1, -12), BackgroundTransparency = 1, BorderSizePixel = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(56, 52, 56), ScrollingDirection = Enum.ScrollingDirection.Y}, {Create("UIListLayout", {FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10)}), Create("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6)})})
-    local SubPage = setmetatable({Page = self, Name = Name, Button = Button, Frame = Frame, Left = Left, Right = Right, Sections = {}, Order = 0}, SubPageMethods)
+    local SubPage = setmetatable({Page = self, Name = Name, Button = Button, Indicator = Indicator, Frame = Frame, Left = Left, Right = Right, Sections = {}, Order = 0}, SubPageMethods)
     self.SubPages[Name] = SubPage
     self.SubPagesOrder[#self.SubPagesOrder + 1] = SubPage
     Bind(Button.MouseButton1Click:Connect(function() SelectSubPage(self, SubPage) end))
@@ -3577,6 +3591,118 @@ local function PointInside(Object,Point)
     return Point.X>=P.X and Point.X<=P.X+S.X and Point.Y>=P.Y and Point.Y<=P.Y+S.Y
 end
 
+local CursorState={Active=false,Gui=nil,Root=nil,Diamond=nil,Center=nil,Horizontal=nil,Vertical=nil,OldMouseIconEnabled=nil,OldMouseBehavior=nil,OldMouseIcon=nil}
+local InputSinkAction="__CaesuraMenuInputSink"
+
+local function IsLibraryGuiObject(Object)
+    if typeof(Object)~="Instance" then return false end
+    for _,Gui in ipairs(Library.Guis or {}) do
+        if Gui and Gui.Parent and Object:IsDescendantOf(Gui) then return true end
+    end
+    return false
+end
+
+function Library:IsUIInputActive()
+    if self.Capture then return true end
+    if self.InteractionActive==true then return true end
+    local Main=self.ActiveWindow
+    if Main and type(Main.IsVisible)=="function" and Main:IsVisible() then return true end
+    for _,Controller in ipairs({self.PlayerWindow,self.ThemeWindow,self.ConfigWindow}) do
+        if type(Controller)=="table" then
+            local Frame=Controller.Frame or Controller.Main
+            if typeof(Frame)=="Instance" and Frame.Visible==true then return true end
+        end
+    end
+    return false
+end
+
+local function EnsureCustomCursor()
+    if CursorState.Gui and CursorState.Gui.Parent then return CursorState.Gui end
+    local Gui=Create("ScreenGui",{Name="CaesuraCursor",Parent=ParentGui(),ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=2147483646,ZIndexBehavior=Enum.ZIndexBehavior.Global,Enabled=false})
+    Library.Guis[#Library.Guis+1]=Gui
+    local Root=Create("Frame",{Name="Cursor",Parent=Gui,AnchorPoint=Vector2.new(0.5,0.5),Size=UDim2.fromOffset(24,24),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,BorderSizePixel=0,Active=false,ZIndex=10000})
+    local Shadow=Create("Frame",{Name="Mask",Parent=Root,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(17,17),Rotation=45,BackgroundColor3=Colors.Bg,BackgroundTransparency=0.02,BorderSizePixel=0,ZIndex=10001},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=Color3.new(0,0,0),Transparency=0.15,Thickness=1.5})})
+    local Diamond=Create("Frame",{Name="Diamond",Parent=Root,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(10,10),Rotation=45,BackgroundColor3=Colors.Control,BackgroundTransparency=0.06,BorderSizePixel=0,ZIndex=10002},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=Accent(),Thickness=1.5})})
+    local Horizontal=Create("Frame",{Name="Horizontal",Parent=Root,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(18,1),BackgroundColor3=Accent(),BackgroundTransparency=0.22,BorderSizePixel=0,ZIndex=10003})
+    local Vertical=Create("Frame",{Name="Vertical",Parent=Root,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(1,18),BackgroundColor3=Accent(),BackgroundTransparency=0.22,BorderSizePixel=0,ZIndex=10003})
+    local Center=Create("Frame",{Name="Center",Parent=Root,AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(3,3),BackgroundColor3=Colors.TextBright,BorderSizePixel=0,ZIndex=10004},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
+    CursorState.Gui,CursorState.Root,CursorState.Diamond,CursorState.Center,CursorState.Horizontal,CursorState.Vertical=Gui,Root,Diamond,Center,Horizontal,Vertical
+    RegisterRenderer(function()
+        if not Root or not Root.Parent then return end
+        Shadow.BackgroundColor3=Colors.Bg
+        Diamond.BackgroundColor3=Colors.Control
+        local Stroke=Diamond:FindFirstChildOfClass("UIStroke") if Stroke then Stroke.Color=Accent() end
+        Horizontal.BackgroundColor3=Accent(); Vertical.BackgroundColor3=Accent(); Center.BackgroundColor3=Colors.TextBright
+    end)
+    return Gui
+end
+
+local function SetCustomCursorActive(State)
+    State=State==true
+    EnsureCustomCursor()
+    if State==CursorState.Active then
+        if State then
+            pcall(function() UserInputService.MouseIconEnabled=false end)
+            pcall(function() UserInputService.MouseBehavior=Enum.MouseBehavior.Default end)
+            local Mouse=Players.LocalPlayer and Players.LocalPlayer:GetMouse() or nil
+            if Mouse then pcall(function() Mouse.Icon="" end) end
+        end
+        return
+    end
+    CursorState.Active=State
+    local Mouse=Players.LocalPlayer and Players.LocalPlayer:GetMouse() or nil
+    if State then
+        local Ok,Value=pcall(function() return UserInputService.MouseIconEnabled end) if Ok then CursorState.OldMouseIconEnabled=Value end
+        local OkBehavior,Behavior=pcall(function() return UserInputService.MouseBehavior end) if OkBehavior then CursorState.OldMouseBehavior=Behavior end
+        if Mouse then local OkIcon,Icon=pcall(function() return Mouse.Icon end) if OkIcon then CursorState.OldMouseIcon=Icon end end
+        if CursorState.Gui then CursorState.Gui.Enabled=true end
+        pcall(function() UserInputService.MouseIconEnabled=false end)
+        pcall(function() UserInputService.MouseBehavior=Enum.MouseBehavior.Default end)
+        if Mouse then pcall(function() Mouse.Icon="" end) end
+    else
+        if CursorState.Gui then CursorState.Gui.Enabled=false end
+        if CursorState.OldMouseIconEnabled~=nil then pcall(function() UserInputService.MouseIconEnabled=CursorState.OldMouseIconEnabled end) end
+        if CursorState.OldMouseBehavior~=nil then pcall(function() UserInputService.MouseBehavior=CursorState.OldMouseBehavior end) end
+        if Mouse and CursorState.OldMouseIcon~=nil then pcall(function() Mouse.Icon=CursorState.OldMouseIcon end) end
+        CursorState.OldMouseIconEnabled,CursorState.OldMouseBehavior,CursorState.OldMouseIcon=nil,nil,nil
+    end
+end
+
+EnsureCustomCursor()
+Bind(RunService.RenderStepped:Connect(function()
+    local Active=Library:IsUIInputActive()
+    SetCustomCursorActive(Active)
+    if not Active or not CursorState.Root then return end
+    local Position=UserInputService:GetMouseLocation()
+    CursorState.Root.Position=UDim2.fromOffset(Position.X,Position.Y)
+    local Down=false
+    pcall(function() Down=UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) end)
+    local Size=Down and 8 or 10
+    CursorState.Diamond.Size=UDim2.fromOffset(Size,Size)
+    CursorState.Horizontal.Size=UDim2.fromOffset(Down and 15 or 18,1)
+    CursorState.Vertical.Size=UDim2.fromOffset(1,Down and 15 or 18)
+end))
+
+pcall(function() ContextActionService:UnbindAction(InputSinkAction) end)
+ContextActionService:BindActionAtPriority(InputSinkAction,function(_,State,Input)
+    if not Library:IsUIInputActive() then return Enum.ContextActionResult.Pass end
+    if State==Enum.UserInputState.Begin then
+        local MenuBind=Library.MenuBindData
+        local Matches=MenuBind and InputMatches(Input,MenuBind.Key,MenuBind.Modifiers) or not MenuBind and InputMatches(Input,Library.MenuKeybind)
+        if Matches then
+            local PanelController=Library.PanelController or Library.QuickPanelController
+            if PanelController and type(PanelController.ToggleInterface)=="function" then PanelController:ToggleInterface() elseif Library.ActiveWindow then Library.ActiveWindow:Toggle() end
+            return Enum.ContextActionResult.Sink
+        end
+    end
+    if Input.UserInputType==Enum.UserInputType.Keyboard then
+        local Focused=nil
+        pcall(function() Focused=UserInputService:GetFocusedTextBox() end)
+        if Focused and IsLibraryGuiObject(Focused) then return Enum.ContextActionResult.Pass end
+    end
+    return Enum.ContextActionResult.Sink
+end,false,10000,Enum.UserInputType.Keyboard,Enum.UserInputType.MouseButton1,Enum.UserInputType.MouseButton2,Enum.UserInputType.MouseButton3,Enum.UserInputType.MouseMovement,Enum.UserInputType.MouseWheel)
+
 Bind(UserInputService.InputBegan:Connect(function(Input,Processed)
     local Capture=Library.Capture
     if Capture then
@@ -3628,6 +3754,9 @@ Bind(UserInputService.InputEnded:Connect(function(Input)
 end))
 
 function Library.Unload(...)
+    pcall(function() ContextActionService:UnbindAction(InputSinkAction) end)
+    SetCustomCursorActive(false)
+    Library.InteractionActive=false
     for _, BindData in ipairs(Library.Keybinds) do BindData.Destroyed = true end
     table.clear(Library.Keybinds)
     for Index = #Library.Connections, 1, -1 do local Connection = Library.Connections[Index] if Connection then Call(function() Connection:Disconnect() end) end Library.Connections[Index] = nil end
