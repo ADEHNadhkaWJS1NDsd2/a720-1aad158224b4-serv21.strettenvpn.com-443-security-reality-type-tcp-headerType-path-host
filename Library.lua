@@ -1,5 +1,4 @@
 local UserInputService = game:GetService("UserInputService"); local TweenService = game:GetService("TweenService"); local RunService = game:GetService("RunService")
-local ContextActionService = game:GetService("ContextActionService")
 local TextService = game:GetService("TextService"); local Players = game:GetService("Players"); local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService"); local CoreGui = game:GetService("CoreGui")
 
@@ -3587,114 +3586,6 @@ local function PointInside(Object,Point)
     return Point.X>=P.X and Point.X<=P.X+S.X and Point.Y>=P.Y and Point.Y<=P.Y+S.Y
 end
 
-local CursorState={Active=false,Gui=nil,Root=nil,Shadow=nil,Outline=nil,Arrow=nil,OldMouseIconEnabled=nil,OldMouseBehavior=nil,OldMouseIcon=nil}
-local InputSinkAction="__CaesuraMenuInputSink"
-
-local function IsLibraryGuiObject(Object)
-    if typeof(Object)~="Instance" then return false end
-    for _,Gui in ipairs(Library.Guis or {}) do
-        if Gui and Gui.Parent and Object:IsDescendantOf(Gui) then return true end
-    end
-    return false
-end
-
-function Library:IsUIInputActive()
-    if self.Capture then return true end
-    if self.InteractionActive==true then return true end
-    local Main=self.ActiveWindow
-    if Main and type(Main.IsVisible)=="function" and Main:IsVisible() then return true end
-    for _,Controller in ipairs({self.PlayerWindow,self.ThemeWindow,self.ConfigWindow}) do
-        if type(Controller)=="table" then
-            local Frame=Controller.Frame or Controller.Main
-            if typeof(Frame)=="Instance" and Frame.Visible==true then return true end
-        end
-    end
-    return false
-end
-
-local CursorTexture="rbxasset://textures/Cursors/KeyboardMouse/ArrowFarCursor.png"
-
-local function EnsureCustomCursor()
-    if CursorState.Gui and CursorState.Gui.Parent then return CursorState.Gui end
-    local Gui=Create("ScreenGui",{Name="CaesuraCursor",Parent=ParentGui(),ResetOnSpawn=false,IgnoreGuiInset=true,DisplayOrder=2147483646,ZIndexBehavior=Enum.ZIndexBehavior.Global,Enabled=false})
-    Library.Guis[#Library.Guis+1]=Gui
-    local Root=Create("Frame",{Name="Cursor",Parent=Gui,AnchorPoint=Vector2.zero,Size=UDim2.fromOffset(30,30),Position=UDim2.fromOffset(0,0),BackgroundTransparency=1,BorderSizePixel=0,Active=false,ZIndex=10000})
-    local Shadow=Create("ImageLabel",{Name="Shadow",Parent=Root,Position=UDim2.fromOffset(2,2),Size=UDim2.fromOffset(25,25),BackgroundTransparency=1,BorderSizePixel=0,Image=CursorTexture,ImageColor3=Color3.new(0,0,0),ImageTransparency=0.12,ScaleType=Enum.ScaleType.Fit,ZIndex=10001})
-    local Outline=Create("ImageLabel",{Name="Outline",Parent=Root,Position=UDim2.fromOffset(0,0),Size=UDim2.fromOffset(24,24),BackgroundTransparency=1,BorderSizePixel=0,Image=CursorTexture,ImageColor3=Accent(),ImageTransparency=0.02,ScaleType=Enum.ScaleType.Fit,ZIndex=10002})
-    local Arrow=Create("ImageLabel",{Name="Arrow",Parent=Root,Position=UDim2.fromOffset(1,1),Size=UDim2.fromOffset(21,21),BackgroundTransparency=1,BorderSizePixel=0,Image=CursorTexture,ImageColor3=Colors.Control,ImageTransparency=0,ScaleType=Enum.ScaleType.Fit,ZIndex=10003})
-    CursorState.Gui,CursorState.Root,CursorState.Shadow,CursorState.Outline,CursorState.Arrow=Gui,Root,Shadow,Outline,Arrow
-    RegisterRenderer(function()
-        if not Root or not Root.Parent then return end
-        Outline.ImageColor3=Accent()
-        Arrow.ImageColor3=Colors.Control
-    end)
-    return Gui
-end
-
-local function SetCustomCursorActive(State)
-    State=State==true
-    EnsureCustomCursor()
-    if State==CursorState.Active then
-        if State then
-            pcall(function() UserInputService.MouseIconEnabled=false end)
-            pcall(function() UserInputService.MouseBehavior=Enum.MouseBehavior.Default end)
-            local Mouse=Players.LocalPlayer and Players.LocalPlayer:GetMouse() or nil
-            if Mouse then pcall(function() Mouse.Icon="" end) end
-        end
-        return
-    end
-    CursorState.Active=State
-    local Mouse=Players.LocalPlayer and Players.LocalPlayer:GetMouse() or nil
-    if State then
-        local Ok,Value=pcall(function() return UserInputService.MouseIconEnabled end) if Ok then CursorState.OldMouseIconEnabled=Value end
-        local OkBehavior,Behavior=pcall(function() return UserInputService.MouseBehavior end) if OkBehavior then CursorState.OldMouseBehavior=Behavior end
-        if Mouse then local OkIcon,Icon=pcall(function() return Mouse.Icon end) if OkIcon then CursorState.OldMouseIcon=Icon end end
-        if CursorState.Gui then CursorState.Gui.Enabled=true end
-        pcall(function() UserInputService.MouseIconEnabled=false end)
-        pcall(function() UserInputService.MouseBehavior=Enum.MouseBehavior.Default end)
-        if Mouse then pcall(function() Mouse.Icon="" end) end
-    else
-        if CursorState.Gui then CursorState.Gui.Enabled=false end
-        if CursorState.OldMouseIconEnabled~=nil then pcall(function() UserInputService.MouseIconEnabled=CursorState.OldMouseIconEnabled end) end
-        if CursorState.OldMouseBehavior~=nil then pcall(function() UserInputService.MouseBehavior=CursorState.OldMouseBehavior end) end
-        if Mouse and CursorState.OldMouseIcon~=nil then pcall(function() Mouse.Icon=CursorState.OldMouseIcon end) end
-        CursorState.OldMouseIconEnabled,CursorState.OldMouseBehavior,CursorState.OldMouseIcon=nil,nil,nil
-    end
-end
-
-EnsureCustomCursor()
-Bind(RunService.RenderStepped:Connect(function()
-    local Active=Library:IsUIInputActive()
-    SetCustomCursorActive(Active)
-    if not Active or not CursorState.Root then return end
-    local Position=UserInputService:GetMouseLocation()
-    CursorState.Root.Position=UDim2.fromOffset(Position.X,Position.Y)
-    local Down=false
-    pcall(function() Down=UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) end)
-    if CursorState.Outline then CursorState.Outline.ImageTransparency=Down and 0.12 or 0.02 end
-    if CursorState.Arrow then CursorState.Arrow.Position=Down and UDim2.fromOffset(2,2) or UDim2.fromOffset(1,1) end
-end))
-
-pcall(function() ContextActionService:UnbindAction(InputSinkAction) end)
-ContextActionService:BindActionAtPriority(InputSinkAction,function(_,State,Input)
-    if not Library:IsUIInputActive() then return Enum.ContextActionResult.Pass end
-    if State==Enum.UserInputState.Begin then
-        local MenuBind=Library.MenuBindData
-        local Matches=MenuBind and InputMatches(Input,MenuBind.Key,MenuBind.Modifiers) or not MenuBind and InputMatches(Input,Library.MenuKeybind)
-        if Matches then
-            local PanelController=Library.PanelController or Library.QuickPanelController
-            if PanelController and type(PanelController.ToggleInterface)=="function" then PanelController:ToggleInterface() elseif Library.ActiveWindow then Library.ActiveWindow:Toggle() end
-            return Enum.ContextActionResult.Sink
-        end
-    end
-    if Input.UserInputType==Enum.UserInputType.Keyboard then
-        local Focused=nil
-        pcall(function() Focused=UserInputService:GetFocusedTextBox() end)
-        if Focused and IsLibraryGuiObject(Focused) then return Enum.ContextActionResult.Pass end
-    end
-    return Enum.ContextActionResult.Sink
-end,false,10000,Enum.UserInputType.Keyboard,Enum.UserInputType.MouseButton1,Enum.UserInputType.MouseButton2,Enum.UserInputType.MouseButton3,Enum.UserInputType.MouseMovement,Enum.UserInputType.MouseWheel)
-
 Bind(UserInputService.InputBegan:Connect(function(Input,Processed)
     local Capture=Library.Capture
     if Capture then
@@ -3746,8 +3637,6 @@ Bind(UserInputService.InputEnded:Connect(function(Input)
 end))
 
 function Library.Unload(...)
-    pcall(function() ContextActionService:UnbindAction(InputSinkAction) end)
-    SetCustomCursorActive(false)
     Library.InteractionActive=false
     for _, BindData in ipairs(Library.Keybinds) do BindData.Destroyed = true end
     table.clear(Library.Keybinds)
