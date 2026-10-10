@@ -1,4 +1,3 @@
-
 do
 	if getgenv().Library and getgenv().Library.Exit then
 		getgenv().Library:Exit()
@@ -945,7 +944,8 @@ do
 		Library.PopupPosition = function(Self, Anchor, Popup, Gap)
 			Anchor = typeof(Anchor) == "Instance" and Anchor or Anchor.Instance
 			Popup = typeof(Popup) == "Instance" and Popup or Popup.Instance
-			local Viewport = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(1920, 1080)
+			local Camera = workspace.CurrentCamera
+			local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
 			local ScaleObject = Popup:FindFirstChildOfClass("UIScale")
 			local Scale = ScaleObject and ScaleObject.Scale or 1
 			local Width = Popup.Size.X.Offset > 0 and Popup.Size.X.Offset * Scale or Popup.AbsoluteSize.X
@@ -955,14 +955,29 @@ do
 			local Origin = Anchor.AbsolutePosition
 			local Bottom = Origin.Y + Anchor.AbsoluteSize.Y + Space
 			local Top = Origin.Y - Height - Space
+			local AvailableBelow = Viewport.Y - Margin - Bottom
+			local AvailableAbove = Origin.Y - Space - Margin
 			local Y = Bottom
-			if Bottom + Height > Viewport.Y - Margin and Top >= Margin then
+			if Height > AvailableBelow and AvailableAbove > AvailableBelow then
 				Y = Top
-			elseif Bottom + Height > Viewport.Y - Margin then
-				Y = Viewport.Y - Height - Margin
 			end
 			local X = math.clamp(Origin.X, Margin, math.max(Margin, Viewport.X - Width - Margin))
-			return UDim2.fromOffset(math.floor(X + 0.5), math.floor(math.clamp(Y, Margin, math.max(Margin, Viewport.Y - Height - Margin)) + 0.5))
+			Y = math.clamp(Y, Margin, math.max(Margin, Viewport.Y - Height - Margin))
+			return UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
+		end
+
+		Library.CloseOtherPopups = function(Self, Current)
+			local ToClose = {}
+			for Popup in Library.OpenFrames do
+				if Popup ~= Current then
+					table.insert(ToClose, Popup)
+				end
+			end
+			for _, Popup in ToClose do
+				if Popup.IsOpen and Popup.SetOpen then
+					Popup:SetOpen(false)
+				end
+			end
 		end
 
 		Library.PopupLayers = setmetatable({}, {__mode = "k"})
@@ -998,19 +1013,61 @@ do
 			UIScale.Scale = Scale
 		end
 
+		Library.IsAnchorVisible = function(Self, Anchor)
+			local Target = typeof(Anchor) == "Instance" and Anchor or (Anchor and Anchor.Instance)
+			if not Target or not Target:IsA("GuiObject") or not Target.Parent then
+				return false
+			end
+
+			local Viewport = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(1920, 1080)
+			local Min = Target.AbsolutePosition
+			local Max = Min + Target.AbsoluteSize
+			Min = Vector2.new(math.max(0, Min.X), math.max(0, Min.Y))
+			Max = Vector2.new(math.min(Viewport.X, Max.X), math.min(Viewport.Y, Max.Y))
+			if Min.X >= Max.X or Min.Y >= Max.Y then
+				return false
+			end
+
+			local Current = Target
+			while Current and Current:IsA("GuiObject") do
+				if not Current.Visible then
+					return false
+				end
+				if Current.ClipsDescendants or Current:IsA("ScrollingFrame") then
+					local Position = Current.AbsolutePosition
+					local Edge = Position + Current.AbsoluteSize
+					Min = Vector2.new(math.max(Min.X, Position.X), math.max(Min.Y, Position.Y))
+					Max = Vector2.new(math.min(Max.X, Edge.X), math.min(Max.Y, Edge.Y))
+					if Min.X >= Max.X or Min.Y >= Max.Y then
+						return false
+					end
+				end
+				Current = Current.Parent
+			end
+			return Current ~= nil and Current:IsA("LayerCollector") and Current.Enabled
+		end
+
 		Library:Connect(RunService.RenderStepped, function()
 			for _, Popup in Library.OpenFrames do
 				if Popup.IsOpen and Popup.Items then
 					local Items = Popup.Items
 					if Popup.Place and Items["OptionHolder"] and Items["OptionHolder"].Instance.Parent == Library.Holder.Instance then
-						Popup:Place(0)
+						if Library:IsAnchorVisible(Items["RealDropdown"]) then
+							Popup:Place(0)
+						else
+							Popup:SetOpen(false)
+						end
 					else
 						local Anchor = Items["ColorpickerButton"] or Items["KeyButton"]
 						local Holder = Items["ColorpickerWindow"] or Items["KeybindWindow"]
 						if Anchor and Holder and Holder.Instance.Parent == Library.Holder.Instance then
-							local Target = Library:PopupPosition(Anchor, Holder, 6)
-							if Holder.Instance.Position ~= Target then
-								Holder.Instance.Position = Target
+							if Library:IsAnchorVisible(Anchor) then
+								local Target = Library:PopupPosition(Anchor, Holder, 6)
+								if Holder.Instance.Position ~= Target then
+									Holder.Instance.Position = Target
+								end
+							else
+								Popup:SetOpen(false)
 							end
 						end
 					end
@@ -1537,17 +1594,7 @@ do
 		Library.TooltipWatchers = { }
 
 		local function TooltipRendered(Target)
-			local Current = Target
-
-			while Current and Current:IsA("GuiObject") do
-				if not Current.Visible then
-					return false
-				end
-
-				Current = Current.Parent
-			end
-
-			return Current ~= nil and Current:IsA("LayerCollector") and Current.Enabled
+			return Library:IsAnchorVisible(Target)
 		end
 
 		Library.WatchTooltip = function(Self, Object, Enter, Leave, Step)
@@ -1572,6 +1619,9 @@ do
 								Entry.State = false
 
 								Library:SafeCall(Entry.Leave)
+							end
+							if Entry.Cleanup then
+							Library:SafeCall(Entry.Cleanup)
 							end
 
 							continue
@@ -1725,19 +1775,27 @@ do
 			local function Position()
 				local Box = Object.Instance.AbsolutePosition
 				local Extent = Object.Instance.AbsoluteSize
-
-				local X = Box.X + Extent.X + 8
-				local Y = Box.Y + Extent.Y / 2
-
 				local Viewport = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(1920, 1080)
 				local Size = Items["Tooltip"].Instance.AbsoluteSize
+				local Right = Box.X + Extent.X + 8
+				local Left = Box.X - Size.X - 8
+				local X
+				local Y = Box.Y + (Extent.Y - Size.Y) * 0.5
 
-				if X + Size.X > Viewport.X - 6 then
-					X = Box.X - Size.X - 8
+				if Right + Size.X <= Viewport.X - 6 then
+					X = Right
+				elseif Left >= 6 then
+					X = Left
+				else
+					X = Box.X + (Extent.X - Size.X) * 0.5
+					Y = Box.Y + Extent.Y + 8
+					if Y + Size.Y > Viewport.Y - 6 then
+						Y = Box.Y - Size.Y - 8
+					end
 				end
 
 				X = math.clamp(X, 6, math.max(6, Viewport.X - Size.X - 6))
-				Y = math.clamp(Y - Size.Y / 2, 6, math.max(6, Viewport.Y - Size.Y - 6))
+				Y = math.clamp(Y, 6, math.max(6, Viewport.Y - Size.Y - 6))
 				Items["Tooltip"].Instance.Position = UDim2.fromOffset(math.floor(X + 0.5), math.floor(Y + 0.5))
 			end
 
@@ -1769,7 +1827,7 @@ do
 
 			Paint()
 
-			Library:WatchTooltip(Object, function()
+			local Watcher = Library:WatchTooltip(Object, function()
 				Resize()
 				Position()
 
@@ -1795,6 +1853,12 @@ do
 
 				Paint()
 			end)
+
+			Watcher.Cleanup = function()
+				if Items["Tooltip"].Instance then
+					Items["Tooltip"].Instance:Destroy()
+				end
+			end
 
 			return Items["Tooltip"]
 		end
@@ -3910,6 +3974,10 @@ do
 					BorderOffset = UDim.new(0, 1)
 				}):AddToTheme({Color = 'Outline 3'})
 
+				Items["PaletteDragger"].Instance.ZIndex = 5
+				Items["HueDragger"].Instance.ZIndex = 5
+				Items["AlphaDragger"].Instance.ZIndex = 5
+				Items["ColorpickerWindow"].Instance.ClipsDescendants = false
 				Colorpicker.Items = Items
 			end
 
@@ -3987,48 +4055,28 @@ do
 				end
 			end
 
-			local Debounce = false
 			local ColorpickerWindow = Items["ColorpickerWindow"].Instance
 			local ColorpickerButton = Items["ColorpickerButton"].Instance
-			local IsSettings = Data.Section and Data.Section.IsSettings
 
 			function Colorpicker:SetOpen(Bool)
-				if Debounce then
+				Bool = Bool and true or false
+				if Colorpicker.IsOpen == Bool then
 					return
 				end
-
-				Colorpicker.IsOpen = Bool
-				Debounce = true
-
-				if Colorpicker.IsOpen then
+				if Bool then
+					Library:CloseOtherPopups(Colorpicker)
 					ColorpickerWindow.Parent = Library.Holder.Instance
 					Library:FitPopup(ColorpickerWindow, 228, 256)
 					Library:SetPopupLayers(ColorpickerWindow, 125)
+					ColorpickerWindow.Position = Library:PopupPosition(ColorpickerButton, ColorpickerWindow, 6)
 					ColorpickerWindow.Visible = true
-					local Target = Library:PopupPosition(ColorpickerButton, ColorpickerWindow, 6)
-					ColorpickerWindow.Position = Target
-					Items["ColorpickerWindow"]:FadeDescendants(true, function()
-						Debounce = false
-					end)
-
-					for Index, Value in Library.OpenFrames do
-						if Value ~= IsSettings then
-							Value:SetOpen(false)
-						end
-					end
-
 					Library.OpenFrames[Colorpicker] = Colorpicker
 				else
-					Items["ColorpickerWindow"]:FadeDescendants(false, function()
-						ColorpickerWindow.Parent = Library.UnusedHolder.Instance
-						Debounce = false
-					end)
-
-					if Library.OpenFrames[Colorpicker] then
-						Library.OpenFrames[Colorpicker] = nil
-					end
+					ColorpickerWindow.Visible = false
+					ColorpickerWindow.Parent = Library.UnusedHolder.Instance
+					Library.OpenFrames[Colorpicker] = nil
 				end
-
+				Colorpicker.IsOpen = Bool
 			end
 
 			local SlidingPalette = false
@@ -4376,62 +4424,53 @@ do
 				Items["KeyButton"]:Tween({TextColor3 = Library.Theme[Key]})
 			end
 
-			local Debounce = false
 			local KeybindWindow = Items["KeybindWindow"].Instance
 			local KeyButton = Items["KeyButton"].Instance
-			local IsSettings = Data.Section and Data.Section.IsSettings
+
+			local function FitKeybindPopup()
+				local Height = 12
+				local Count = 0
+				for _, Child in KeybindWindow:GetChildren() do
+					if Child:IsA("GuiObject") and Child.Visible then
+						Count += 1
+						Height += Child.Size.Y.Offset > 0 and Child.Size.Y.Offset or Child.AbsoluteSize.Y
+					end
+				end
+				Height = math.max(50, math.ceil(Height + math.max(0, Count - 1) * 4))
+				local Desired = UDim2.fromOffset(200, Height)
+				if KeybindWindow.Size ~= Desired then
+					KeybindWindow.Size = Desired
+				end
+				KeybindWindow.AutomaticSize = Enum.AutomaticSize.None
+				if Keybind.IsOpen then
+					Library:FitPopup(KeybindWindow, 200, Height)
+					KeybindWindow.Position = Library:PopupPosition(KeyButton, KeybindWindow, 6)
+				end
+			end
 
 			function Keybind:SetOpen(Bool)
-				if Debounce then
+				Bool = Bool and true or false
+				if Keybind.IsOpen == Bool then
 					return
 				end
-
-				Keybind.IsOpen = Bool
-				Debounce = true
-
-				if Keybind.IsOpen then
+				if Bool then
+					Library:CloseOtherPopups(Keybind)
 					KeybindWindow.Parent = Library.Holder.Instance
-					local Content = KeybindWindow:FindFirstChildOfClass("UIListLayout")
-					local ContentHeight = Content and Content.AbsoluteContentSize.Y or 0
-					if ContentHeight <= 0 then
-						local Count = 0
-						for _, Child in KeybindWindow:GetChildren() do
-							if Child:IsA("GuiObject") and Child.Visible then
-								ContentHeight += Child.Size.Y.Offset
-								Count += 1
-							end
-						end
-						ContentHeight += math.max(0, Count - 1) * 4
-					end
-					local Height = math.max(50, ContentHeight + 12)
-					KeybindWindow.AutomaticSize = Enum.AutomaticSize.None
-					KeybindWindow.Size = UDim2.fromOffset(200, Height)
-					Library:FitPopup(KeybindWindow, 200, Height)
+					FitKeybindPopup()
+					Library:FitPopup(KeybindWindow, 200, KeybindWindow.Size.Y.Offset)
 					Library:SetPopupLayers(KeybindWindow, 135)
-					KeybindWindow.Visible = true
 					KeybindWindow.Position = Library:PopupPosition(KeyButton, KeybindWindow, 6)
-					Items["KeybindWindow"]:FadeDescendants(true, function()
-						Debounce = false
-					end)
-
-					for Index, Value in Library.OpenFrames do
-						if Value ~= IsSettings then
-							Value:SetOpen(false)
-						end
-					end
-
+					KeybindWindow.Visible = true
 					Library.OpenFrames[Keybind] = Keybind
 				else
-					Items["KeybindWindow"]:FadeDescendants(false, function()
-						Items["KeybindWindow"].Instance.Parent = Library.UnusedHolder.Instance
-						Debounce = false
-					end)
-
-					if Library.OpenFrames[Keybind] then
-						Library.OpenFrames[Keybind] = nil
+					if Keybind.ModeDropdown and Keybind.ModeDropdown.IsOpen then
+						Keybind.ModeDropdown:SetOpen(false)
 					end
+					KeybindWindow.Visible = false
+					KeybindWindow.Parent = Library.UnusedHolder.Instance
+					Library.OpenFrames[Keybind] = nil
 				end
-
+				Keybind.IsOpen = Bool
 			end
 
 			local KeybindObject
@@ -4484,6 +4523,8 @@ do
 				end
 			})
 
+			Keybind.ModeDropdown = ModeDropdown
+
 			local ShowInKeybindsList = Library:Toggle({
 				Name = "show in keybinds list",
 				Flag = Data.Flag .. "ShowInKeybindsList",
@@ -4505,6 +4546,12 @@ do
 					Default = true,
 				})
 			end
+
+			local KeybindContentLayout = KeybindWindow:FindFirstChildOfClass("UIListLayout")
+			if KeybindContentLayout then
+				Library:Connect(KeybindContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"), FitKeybindPopup)
+			end
+			task.defer(FitKeybindPopup)
 
 			function Keybind:Press(Bool)
 				if Keybind.Mode == "Toggle" then
@@ -6473,18 +6520,29 @@ do
 			local function FitToggleLabel()
 				local Layout = Items["SubElements"].Instance:FindFirstChildOfClass("UIListLayout")
 				local RightWidth = Layout and Layout.AbsoluteContentSize.X or 0
-				local Available = math.max(0, Items["Toggle"].Instance.AbsoluteSize.X - RightWidth - 28 - (Toggle.Tooltip and 24 or 0))
+				local Right = Items["SubElements"].Instance
+				local Row = Items["Toggle"].Instance
+				local ExtraGap = RightWidth > 0 and 8 or 0
+				local Available = math.max(0, Row.AbsoluteSize.X - RightWidth - 28 - ExtraGap - (Toggle.Tooltip and 24 or 0))
+
+				Right.AutomaticSize = Enum.AutomaticSize.None
+				Right.AnchorPoint = Vector2.new(1, 0.5)
+				Right.Position = UDim2.new(1, -1, 0.5, 0)
+				Right.Size = UDim2.fromOffset(math.max(0, math.floor(RightWidth + 0.5)), math.max(Row.AbsoluteSize.Y, 16))
+
+				Items["Text"].Instance.AutomaticSize = Enum.AutomaticSize.None
+				Items["Text"].Instance.TextTruncate = Enum.TextTruncate.AtEnd
+				Items["Text"].Instance.TextXAlignment = Enum.TextXAlignment.Left
+				Items["Text"].Instance.Position = UDim2.new(0, 20, 0, 0)
 				Items["Text"].Instance.Size = UDim2.fromOffset(Available, 16)
 			end
 
-			Items["Text"].Instance.AutomaticSize = Enum.AutomaticSize.None
-			Items["Text"].Instance.TextTruncate = Enum.TextTruncate.AtEnd
 			Library:Connect(Items["Toggle"].Instance:GetPropertyChangedSignal("AbsoluteSize"), FitToggleLabel)
 			local RightLayout = Items["SubElements"].Instance:FindFirstChildOfClass("UIListLayout")
 			if RightLayout then
 				Library:Connect(RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"), FitToggleLabel)
 			end
-			FitToggleLabel()
+			task.defer(FitToggleLabel)
 
 			if Toggle.Tooltip then
 				Library:TooltipMark(Items["Toggle"], Items["Text"], Toggle.Tooltip, Toggle.Name, 20)
@@ -7311,14 +7369,36 @@ do
 			end
 
 			local function FitSliderLabel()
-				local Available = math.max(0, Items["Slider"].Instance.AbsoluteSize.X - Items["Value"].Instance.AbsoluteSize.X - 9)
+				local Row = Items["Slider"].Instance
+				local ValueBox = Items["Value"].Instance
+				local RowWidth = math.max(Row.AbsoluteSize.X, 80)
+				local DesiredValueWidth = math.max(46, math.ceil(ValueBox.TextBounds.X + 8))
+				local MaxValueWidth = math.max(46, math.floor(RowWidth * 0.45))
+				local ValueWidth = math.min(DesiredValueWidth, MaxValueWidth)
+				local Available = math.max(0, RowWidth - ValueWidth - 10)
+
+				Row.Size = UDim2.new(1, 0, 0, 34)
+				Items["SliderShadow"].Instance.Position = UDim2.new(0, 1, 0, 23)
+				Items["SliderShadow"].Instance.Size = UDim2.new(1, 0, 0, 10)
+				Items["RealSlider"].Instance.Position = UDim2.new(0, 0, 0, 22)
+				Items["RealSlider"].Instance.Size = UDim2.new(1, 0, 0, 10)
+
+				ValueBox.AutomaticSize = Enum.AutomaticSize.None
+				ValueBox.TextTruncate = Enum.TextTruncate.AtEnd
+				ValueBox.TextXAlignment = Enum.TextXAlignment.Right
+				ValueBox.Position = UDim2.new(1, -2, 0, 0)
+				ValueBox.Size = UDim2.fromOffset(ValueWidth, 16)
+
+				Items["Text"].Instance.AutomaticSize = Enum.AutomaticSize.None
+				Items["Text"].Instance.TextTruncate = Enum.TextTruncate.AtEnd
+				Items["Text"].Instance.TextXAlignment = Enum.TextXAlignment.Left
+				Items["Text"].Instance.Position = UDim2.new(0, 1, 0, 0)
 				Items["Text"].Instance.Size = UDim2.fromOffset(Available, 16)
 			end
-			Items["Text"].Instance.AutomaticSize = Enum.AutomaticSize.None
-			Items["Text"].Instance.TextTruncate = Enum.TextTruncate.AtEnd
+
 			Library:Connect(Items["Slider"].Instance:GetPropertyChangedSignal("AbsoluteSize"), FitSliderLabel)
-			Library:Connect(Items["Value"].Instance:GetPropertyChangedSignal("AbsoluteSize"), FitSliderLabel)
-			FitSliderLabel()
+			Library:Connect(Items["Value"].Instance:GetPropertyChangedSignal("TextBounds"), FitSliderLabel)
+			task.defer(FitSliderLabel)
 
 			local SeamWidth = 16
 
@@ -7389,6 +7469,7 @@ do
 					}, Info)
 
 					Items["Value"].Instance.Text = string.format("%s - %s", tostring(Low), tostring(High)) .. Slider.Suffix
+					FitSliderLabel()
 
 					Flags[Slider.Flag] = {Low = Low, High = High}
 					Library:SafeCall(Slider.Callback, Low, High)
@@ -7430,6 +7511,7 @@ do
 				end
 
 				Items["Value"].Instance.Text = ValueText .. Slider.Suffix
+				FitSliderLabel()
 
 				Flags[Slider.Flag] = Slider.Value
 				Library:SafeCall(Slider.Callback, Slider.Value)
@@ -7448,6 +7530,7 @@ do
 
 			function Slider:SetText(Text)
 				Items["Text"].Instance.Text = tostring(Text)
+				FitSliderLabel()
 			end
 
 			local InputChanged
@@ -7815,34 +7898,59 @@ do
 					Items["RealDropdown"]:Tween({BackgroundColor3 = Library.Theme["Element"]})
 				end)
 
+				Items["Text"].Instance.AutomaticSize = Enum.AutomaticSize.None
+				Items["Text"].Instance.TextTruncate = Enum.TextTruncate.AtEnd
+				Items["Text"].Instance.TextXAlignment = Enum.TextXAlignment.Left
+
+				local function UpdateDropdownLayout()
+					Items["Dropdown"].Instance.Size = UDim2.new(1, 0, 0, 42)
+					Items["Text"].Instance.Position = UDim2.new(0, 1, 0, -1)
+					Items["Text"].Instance.Size = UDim2.new(1, -2, 0, 18)
+					Items["RealDropdown"].Instance.Position = UDim2.new(0, 2, 1, -2)
+					Items["RealDropdown"].Instance.Size = UDim2.new(1, -4, 0, 20)
+					Items["Value"].Instance.Size = UDim2.new(1, -24, 0, 16)
+					Items["Arrow"].Instance.Position = UDim2.new(1, -7, 0.5, 0)
+				end
+
+				Library:Connect(Items["Dropdown"].Instance:GetPropertyChangedSignal("AbsoluteSize"), UpdateDropdownLayout)
+				task.defer(UpdateDropdownLayout)
+
 				Dropdown.Items = Items
+				Dropdown.UpdateLayout = UpdateDropdownLayout
 			end
 
 			function Dropdown:Place(Offset, UseTween)
 				local Box = Items["RealDropdown"].Instance
 				local Holder = Items["OptionHolder"].Instance
-				local Search = Items["SearchBackground"]
+				local Scroll = Items["OptionScroll"].Instance
+				local Search = Items["SearchBackground"].Instance
 				local Viewport = (workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize) or Vector2.new(1920, 1080)
-				local Width = Box.AbsoluteSize.X
-				local X = math.clamp(Box.AbsolutePosition.X, 4, math.max(Viewport.X - Width - 4, 4))
-				local SearchVisible = Search.Instance.Visible
-				local SearchHeight = SearchVisible and 24 or 0
-				local PopupHeight = Holder.Size.Y.Offset
-				local Required = SearchHeight + PopupHeight + 4
-				local Top = Box.AbsolutePosition.Y + Box.AbsoluteSize.Y + 2 + (Offset or 0)
-				if Top + Required > Viewport.Y - 4 then
-					Top = Box.AbsolutePosition.Y - Required - 2 + (Offset or 0)
-				end
-				Top = math.clamp(Top, 4, math.max(Viewport.Y - Required - 4, 4))
-				Search.Instance.Size = UDim2.fromOffset(Width, 20)
+				local Width = math.max(32, math.min(Viewport.X - 8, Box.AbsoluteSize.X))
+				local X = math.clamp(Box.AbsolutePosition.X, 4, math.max(4, Viewport.X - Width - 4))
+				local SearchHeight = Search.Visible and 24 or 0
+				local Needed = math.min(156, math.max(16, Scroll.AbsoluteCanvasSize.Y))
+				local Below = Box.AbsolutePosition.Y + Box.AbsoluteSize.Y + 4 + (Offset or 0)
+				local SpaceBelow = math.max(0, Viewport.Y - Below - SearchHeight - 13)
+				local SpaceAbove = math.max(0, Box.AbsolutePosition.Y - SearchHeight - 13)
+				local OpenAbove = SpaceBelow < Needed and SpaceAbove > SpaceBelow
+				local Available = math.max(16, OpenAbove and SpaceAbove or SpaceBelow)
+				local Height = math.min(Needed, Available)
+				local FullHeight = SearchHeight + Height + 9
+				local Top = OpenAbove and (Box.AbsolutePosition.Y - FullHeight - 2) or Below
+				Top = math.clamp(Top, 4, math.max(4, Viewport.Y - FullHeight - 4))
+
+				Scroll.Size = UDim2.new(1, 0, 0, Height)
+				Holder.Size = UDim2.fromOffset(Width, Height + 9)
+				Search.Size = UDim2.fromOffset(Width, 20)
+
 				local SearchPosition = UDim2.fromOffset(math.floor(X + 0.5), math.floor(Top + 2))
 				local HolderPosition = UDim2.fromOffset(math.floor(X + 0.5), math.floor(Top + SearchHeight + 2))
 				if UseTween then
-					Search:Tween({Position = SearchPosition})
+					Items["SearchBackground"]:Tween({Position = SearchPosition})
 					Items["OptionHolder"]:Tween({Position = HolderPosition})
 				else
-					if Search.Instance.Position ~= SearchPosition then
-						Search.Instance.Position = SearchPosition
+					if Search.Position ~= SearchPosition then
+						Search.Position = SearchPosition
 					end
 					if Holder.Position ~= HolderPosition then
 						Holder.Position = HolderPosition
@@ -7985,12 +8093,12 @@ do
 				}
 
 				OptionButton:OnHover(function()
-					OptionNudge:Tween({PaddingLeft = UDim.new(0, 5)}, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+					OptionNudge.Instance.PaddingLeft = UDim.new(0, 0)
 
 					if OptionData.IsSelected then return end
 					OptionButton:Tween({TextColor3 = Library.Theme.Text})
 				end, function()
-					OptionNudge:Tween({PaddingLeft = UDim.new(0, 0)}, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+					OptionNudge.Instance.PaddingLeft = UDim.new(0, 0)
 
 					if OptionData.IsSelected then return end
 					OptionButton:Tween({TextColor3 = Library.Theme["Inactive Text"]})
@@ -8097,69 +8205,47 @@ do
 
 			function Dropdown:SetText(Text)
 				Items["Text"].Instance.Text = tostring(Text)
+				if Dropdown.UpdateLayout then
+					Dropdown.UpdateLayout()
+				end
 			end
 
 			function Dropdown:SetVisibility(Bool)
 				Items["Dropdown"].Instance.Visible = Bool
 			end
 
-			local Debounce = false
 			local OptionHolder = Items["OptionHolder"].Instance
-			local RealDropdown = Items["RealDropdown"].Instance
-
-			local IsSettings = Dropdown.Section and Dropdown.Section.IsSettings
 
 			function Dropdown:SetOpen(Bool)
-				if Debounce then
+				Bool = Bool and true or false
+				if Dropdown.IsOpen == Bool then
 					return
 				end
-
-				Dropdown.IsOpen = Bool
-
-				Debounce = true
-
-				if Dropdown.IsOpen then
+				if Bool then
+					if not Params.Parent then
+						Library:CloseOtherPopups(Dropdown)
+					end
+					Dropdown.IsOpen = true
 					OptionHolder.Parent = Library.Holder.Instance
+					OptionHolder.Visible = true
 					Items["SearchBackground"].Instance.Visible = Dropdown.ShowSearch and true or false
-					ResizeOptions()
 					Library:SetPopupLayers(OptionHolder, Params.Parent and 210 or 115)
 					local SearchBase = Params.Parent and 230 or 135
 					Items["SearchBackground"].Instance.ZIndex = SearchBase
 					Items["SearchBox"].Instance.ZIndex = SearchBase + 1
+					ResizeOptions()
 					Dropdown:Place(0)
-
-					Items["OptionHolder"]:FadeDescendants(true, function()
-						Debounce = false
-					end)
-
 					Items["Arrow"]:Tween({Rotation = 180})
-
-					for Index, Value in Library.OpenFrames do
-						if Value ~= IsSettings and not Params.Parent then
-							Value:SetOpen(false)
-						end
-					end
-
 					Library.OpenFrames[Dropdown] = Dropdown
 				else
-					if Items["SearchBackground"] and Items["SearchBackground"].Instance.Visible then
-						Dropdown:SetSearchOpen(false)
-					end
-
+					Dropdown.IsOpen = false
 					Items["SearchBackground"].Instance.Visible = false
-
-					Items["OptionHolder"]:FadeDescendants(false, function()
-						OptionHolder.Parent = Library.UnusedHolder.Instance
-						Debounce = false
-					end)
-
+					Items["SearchBox"].Instance:ReleaseFocus()
+					OptionHolder.Visible = false
+					OptionHolder.Parent = Library.UnusedHolder.Instance
 					Items["Arrow"]:Tween({Rotation = 0})
-
-					if Library.OpenFrames[Dropdown] then
-						Library.OpenFrames[Dropdown] = nil
-					end
+					Library.OpenFrames[Dropdown] = nil
 				end
-
 			end
 
 			Items["RealDropdown"]:Connect("MouseButton1Down", function()
