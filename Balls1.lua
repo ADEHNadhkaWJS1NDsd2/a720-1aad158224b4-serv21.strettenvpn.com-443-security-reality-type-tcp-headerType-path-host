@@ -1,19 +1,4 @@
---[[
-	Tallin UI Library
-	Instance-based UI library for Roblox script executors.
 
-	Design reference: Figma "Untitled" frame 1018:2
-	API shape follows the conventions used across i77lhm/Libraries (MIT).
-
-	Usage:
-		local Library, Notifications, Themes = loadstring(game:HttpGet("<raw url>"))()
-		local Window = Library:Window({ Name = "tallin" })
-		local Tab = Window:Tab({ Name = "Combat" })
-		local Section = Tab:Section({ Name = "Aimbot", Side = "Left" })
-		Section:Toggle({ Name = "Enabled", Flag = "aim_enabled", Callback = print })
-]]
-
---// Services /////////////////////////////////////////////////////////////////
 
 local cloneref = cloneref or function(object)
 	return object
