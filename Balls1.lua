@@ -1208,10 +1208,15 @@ pcall(function()
     Profile_User_Id = tonumber(Local_Player.UserId) or 0
 end)
 
-local function Profile_Short_Name(Text_Val, Max_Length)
-    Text_Val = tostring(Text_Val or "Player")
-    if #Text_Val > Max_Length then return string.sub(Text_Val, 1, Max_Length - 2) .. ".." end
-    return Text_Val
+local function Profile_Scrolling_Name(Text_Val, Max_Length)
+    local Value = tostring(Text_Val or "Player")
+    if #Value <= Max_Length then return Value end
+    local Max_Shift = #Value - Max_Length
+    local Period = Max_Shift + 10
+    local Position = math.floor(Fast_Tick() * 2.3) % Period
+    if Position < 4 then return Value:sub(1, Max_Length - 2) .. ".." end
+    local Offset = math.min(Max_Shift, Position - 4)
+    return Value:sub(Offset + 1, Offset + Max_Length)
 end
 
 local Profile_Drawings = {
@@ -1221,10 +1226,10 @@ local Profile_Drawings = {
     AvatarBorder = Make_Rounded_Box(Library_Data.Palette.Accent, 1),
     AvatarBase = Make_Rounded_Box(Library_Data.Palette.Sidebar, 1),
     AvatarFallback = Create_Drawing("Text", {Text = string.upper(string.sub(Profile_Name, 1, 1)), Color = Library_Data.Palette.Text, Size = 18, Font = 2, Center = true, Visible = false}),
-    Username = Create_Drawing("Text", {Text = "", Color = Library_Data.Palette.Text, Size = 12, Font = 2, Visible = false}),
-    Caption = Create_Drawing("Text", {Text = "ACCOUNT", Color = Library_Data.Palette.SubText, Size = 10, Font = 2, Visible = false}),
-    Chevron = Create_Drawing("Text", {Text = ">", Color = Library_Data.Palette.SubText, Size = 12, Font = 2, Visible = false}),
-    PopupBorder = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
+    Username = Create_Drawing("Text", {Text = "", Color = Library_Data.Palette.Text, Size = 11, Font = 2, Visible = false}),
+    Caption = Create_Drawing("Text", {Text = "", Color = Library_Data.Palette.SubText, Size = 10, Font = 2, Visible = false}),
+    Chevron = Create_Drawing("Text", {Text = "", Color = Library_Data.Palette.SubText, Size = 12, Font = 2, Visible = false}),
+    PopupBorder = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
     PopupBackground = Make_Rounded_Box(Library_Data.Palette.Section, 1),
     PopupAvatarBorder = Make_Rounded_Box(Library_Data.Palette.Accent, 1),
     PopupAvatarBase = Make_Rounded_Box(Library_Data.Palette.Sidebar, 1),
@@ -1232,30 +1237,47 @@ local Profile_Drawings = {
     PopupName = Create_Drawing("Text", {Text = "", Color = Library_Data.Palette.Text, Size = 13, Font = 2, Visible = false}),
     PopupUsername = Create_Drawing("Text", {Text = "", Color = Library_Data.Palette.SubText, Size = 11, Font = 2, Visible = false}),
     PopupID = Create_Drawing("Text", {Text = "", Color = Library_Data.Palette.SubText, Size = 11, Font = 2, Visible = false}),
+    HeaderRule = Create_Drawing("Square", {Filled = true, Color = Library_Data.Palette.Outline, Visible = false}),
     CopyBorder = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
     CopyBackground = Make_Rounded_Box(Library_Data.Palette.Element, 1),
-    CopyText = Create_Drawing("Text", {Text = "Copy username", Color = Library_Data.Palette.Text, Size = 12, Font = 2, Center = true, Visible = false})
+    CopyText = Create_Drawing("Text", {Text = "Copy username", Color = Library_Data.Palette.Text, Size = 11, Font = 2, Center = true, Visible = false}),
+    CopyIdBorder = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
+    CopyIdBackground = Make_Rounded_Box(Library_Data.Palette.Element, 1),
+    CopyIdText = Create_Drawing("Text", {Text = "Copy ID", Color = Library_Data.Palette.Text, Size = 11, Font = 2, Center = true, Visible = false})
 }
 
 local Profile_Image, Profile_Popup_Image
 local Profile_Image_Ok, Profile_Image_Result = pcall(Create_Drawing, "Image", {Visible = false, Size = Vector2.new(32, 32), Rounding = 5})
 if Profile_Image_Ok then Profile_Image = Profile_Image_Result end
-local Profile_Popup_Ok, Profile_Popup_Result = pcall(Create_Drawing, "Image", {Visible = false, Size = Vector2.new(41, 41), Rounding = 6})
+local Profile_Popup_Ok, Profile_Popup_Result = pcall(Create_Drawing, "Image", {Visible = false, Size = Vector2.new(44, 44), Rounding = 6})
 if Profile_Popup_Ok then Profile_Popup_Image = Profile_Popup_Result end
 local Profile_Has_Avatar = false
-local Profile_Layout = {CardPos = Vector2.new(0, 0), CardSize = Vector2.new(134, 54), PopupPos = Vector2.new(0, 0), PopupSize = Vector2.new(238, 131), CopyPos = Vector2.new(0, 0), CopySize = Vector2.new(216, 27)}
+local Profile_Layout = {
+    CardPos = Vector2.new(0, 0), CardSize = Vector2.new(134, 58),
+    PopupPos = Vector2.new(0, 0), PopupSize = Vector2.new(312, 146),
+    CopyPos = Vector2.new(0, 0), CopySize = Vector2.new(142, 30),
+    CopyIdPos = Vector2.new(0, 0), CopyIdSize = Vector2.new(142, 30)
+}
 
-for _, Profile_Draw in pairs(Profile_Drawings) do
-    Set_Drawing_Layer(Profile_Draw, 46)
+for _, Profile_Draw in pairs(Profile_Drawings) do Set_Drawing_Layer(Profile_Draw, 45) end
+for _, K in ipairs({"Border", "Background", "AvatarBorder", "AvatarBase"}) do
+    Set_Drawing_Layer(Profile_Drawings[K], 45)
 end
-if Profile_Image then Set_Drawing_Layer(Profile_Image, 47) end
-if Profile_Popup_Image then Set_Drawing_Layer(Profile_Popup_Image, 53) end
-for _, Popup_Key in ipairs({"PopupBorder", "PopupBackground", "PopupAvatarBorder", "PopupAvatarBase", "PopupFallback", "PopupName", "PopupUsername", "PopupID", "CopyBorder", "CopyBackground", "CopyText"}) do
-    Set_Drawing_Layer(Profile_Drawings[Popup_Key], 51)
+for _, K in ipairs({"AvatarFallback", "Username", "Caption", "Chevron"}) do
+    Set_Drawing_Layer(Profile_Drawings[K], 47)
 end
+if Profile_Image then Set_Drawing_Layer(Profile_Image, 48) end
+for _, K in ipairs({"PopupBorder", "PopupBackground", "PopupAvatarBorder", "PopupAvatarBase", "CopyBorder", "CopyBackground", "CopyIdBorder", "CopyIdBackground"}) do
+    Set_Drawing_Layer(Profile_Drawings[K], 55)
+end
+Set_Drawing_Layer(Profile_Drawings.HeaderRule, 57)
+for _, K in ipairs({"PopupFallback", "PopupName", "PopupUsername", "PopupID", "CopyText", "CopyIdText"}) do
+    Set_Drawing_Layer(Profile_Drawings[K], 59)
+end
+if Profile_Popup_Image then Set_Drawing_Layer(Profile_Popup_Image, 60) end
 
 local function Hide_Profile_Drawings()
-    for _, Item_Obj in pairs(Profile_Drawings) do Set_Visible(Item_Obj, false) end
+    for _, Obj in pairs(Profile_Drawings) do Set_Visible(Obj, false) end
     if Profile_Image then Profile_Image.Visible = false end
     if Profile_Popup_Image then Profile_Popup_Image.Visible = false end
 end
@@ -1311,38 +1333,36 @@ local function Fetch_Profile_Avatar()
 end
 
 local function Draw_Profile_Card(Pos_X, Pos_Y, Width, Height)
-    local Card_X, Card_Y = Pos_X + 8, Pos_Y + Height - 65
-    local Card_W, Card_H = 134, 53
+    local Card_X, Card_Y, Card_W, Card_H = Pos_X + 8, Pos_Y + Height - 70, 134, 58
     local Card_Pos = Vector_2_Round(Card_X, Card_Y)
     local Card_Size = Vector_2_Round(Card_W, Card_H)
     Profile_Layout.CardPos, Profile_Layout.CardSize = Card_Pos, Card_Size
     local Hovered = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Card_Pos, Card_Size)
     local Selected = Library_Data.State.ProfileOpen
     Profile_Drawings.Divider.Visible = true
-    Profile_Drawings.Divider.Position = Vector_2_Round(Pos_X + 10, Card_Y - 11)
+    Profile_Drawings.Divider.Position = Vector_2_Round(Pos_X + 10, Card_Y - 10)
     Profile_Drawings.Divider.Size = Vector_2_Round(130, 1)
     Profile_Drawings.Divider.Color = Library_Data.Palette.Outline
-    Update_Rounded_Box(Profile_Drawings.Border, Card_Pos, Card_Size, 7, Selected and Library_Data.Palette.Accent or (Hovered and Library_Data.Palette.OutlineLight or Library_Data.Palette.Outline), 1, true)
-    Update_Rounded_Box(Profile_Drawings.Background, Vector_2_Round(Card_X + 1, Card_Y + 1), Vector_2_Round(Card_W - 2, Card_H - 2), 6, (Hovered or Selected) and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
-    Update_Rounded_Box(Profile_Drawings.AvatarBorder, Vector_2_Round(Card_X + 9, Card_Y + 9), Vector_2_Round(36, 36), 6, Library_Data.Palette.Accent, 0.77, true)
-    Update_Rounded_Box(Profile_Drawings.AvatarBase, Vector_2_Round(Card_X + 10, Card_Y + 10), Vector_2_Round(34, 34), 5, Library_Data.Palette.Sidebar, 1, true)
-    Update_Profile_Image(Profile_Image, Card_X + 11, Card_Y + 11, 32, 5, true)
+    Update_Rounded_Box(Profile_Drawings.Border, Card_Pos, Card_Size, 7, (Selected or Hovered) and Library_Data.Palette.OutlineLight or Library_Data.Palette.Outline, 1, true)
+    Update_Rounded_Box(Profile_Drawings.Background, Vector_2_Round(Card_X + 1, Card_Y + 1), Vector_2_Round(Card_W - 2, Card_H - 2), 6, Selected and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
+    Update_Rounded_Box(Profile_Drawings.AvatarBorder, Vector_2_Round(Card_X + 8, Card_Y + 11), Vector_2_Round(36, 36), 6, Library_Data.Palette.OutlineLight, 1, true)
+    Update_Rounded_Box(Profile_Drawings.AvatarBase, Vector_2_Round(Card_X + 9, Card_Y + 12), Vector_2_Round(34, 34), 5, Library_Data.Palette.Sidebar, 1, true)
+    Update_Profile_Image(Profile_Image, Card_X + 10, Card_Y + 13, 32, 5, true)
     Profile_Drawings.AvatarFallback.Visible = not Profile_Has_Avatar
     Profile_Drawings.AvatarFallback.Color = Library_Data.Palette.Text
-    Position_Text(Profile_Drawings.AvatarFallback, Card_X + 27, Card_Y + 16, "ProfileName")
-    Profile_Drawings.Username.Text = Profile_Short_Name(Profile_Name, 10)
+    Position_Text(Profile_Drawings.AvatarFallback, Card_X + 26, Card_Y + 17, "ProfileName")
+    Profile_Drawings.Username.Text = Profile_Scrolling_Name(Profile_Display_Name, 11)
     Profile_Drawings.Username.Visible = true
     Profile_Drawings.Username.Color = Library_Data.Palette.Text
-    Position_Text(Profile_Drawings.Username, Card_X + 51, Card_Y + 10, "ProfileName")
+    Position_Text(Profile_Drawings.Username, Card_X + 51, Card_Y + 13, "ProfileName")
+    Profile_Drawings.Caption.Text = Profile_Scrolling_Name("@" .. Profile_Name, 11)
     Profile_Drawings.Caption.Visible = true
     Profile_Drawings.Caption.Color = Library_Data.Palette.SubText
-    Position_Text(Profile_Drawings.Caption, Card_X + 51, Card_Y + 28, "ProfileCaption")
-    Profile_Drawings.Chevron.Visible = true
-    Profile_Drawings.Chevron.Color = Selected and Library_Data.Palette.Accent or Library_Data.Palette.SubText
-    Position_Text(Profile_Drawings.Chevron, Card_X + Card_W - 12, Card_Y + 18, "ProfileName")
+    Position_Text(Profile_Drawings.Caption, Card_X + 51, Card_Y + 31, "ProfileCaption")
+    Profile_Drawings.Chevron.Visible = false
 
     if not Selected then
-        for _, Popup_Key in ipairs({"PopupBorder", "PopupBackground", "PopupAvatarBorder", "PopupAvatarBase", "PopupFallback", "PopupName", "PopupUsername", "PopupID", "CopyBorder", "CopyBackground", "CopyText"}) do
+        for _, Popup_Key in ipairs({"PopupBorder", "PopupBackground", "PopupAvatarBorder", "PopupAvatarBase", "PopupFallback", "PopupName", "PopupUsername", "PopupID", "HeaderRule", "CopyBorder", "CopyBackground", "CopyText", "CopyIdBorder", "CopyIdBackground", "CopyIdText"}) do
             Set_Visible(Profile_Drawings[Popup_Key], false)
         end
         if Profile_Popup_Image then Profile_Popup_Image.Visible = false end
@@ -1351,41 +1371,58 @@ local function Draw_Profile_Card(Pos_X, Pos_Y, Width, Height)
 
     local Camera_Obj = Workspace_Service.CurrentCamera
     local Viewport = Camera_Obj and Camera_Obj.ViewportSize or Vector2.new(1920, 1080)
-    local Popup_W, Popup_H = 238, 131
-    local Popup_X = Math_Clamp(Pos_X + 155, 0, Fast_Max(0, Viewport.X - Popup_W))
-    local Popup_Y = Math_Clamp(Card_Y - Popup_H + Card_H, 0, Fast_Max(0, Viewport.Y - Popup_H))
+    local Popup_W, Popup_H = 312, 149
+    local Popup_X = Math_Clamp(Pos_X + 156, 0, Fast_Max(0, Viewport.X - Popup_W - 4))
+    local Popup_Y = Math_Clamp(Card_Y + Card_H - Popup_H, 4, Fast_Max(4, Viewport.Y - Popup_H - 4))
     Profile_Layout.PopupPos = Vector_2_Round(Popup_X, Popup_Y)
     Profile_Layout.PopupSize = Vector_2_Round(Popup_W, Popup_H)
     Update_Rounded_Box(Profile_Drawings.PopupBorder, Profile_Layout.PopupPos, Profile_Layout.PopupSize, 8, Library_Data.Palette.OutlineLight, 1, true)
     Update_Rounded_Box(Profile_Drawings.PopupBackground, Vector_2_Round(Popup_X + 1, Popup_Y + 1), Vector_2_Round(Popup_W - 2, Popup_H - 2), 7, Library_Data.Palette.Section, 1, true)
-    Update_Rounded_Box(Profile_Drawings.PopupAvatarBorder, Vector_2_Round(Popup_X + 11, Popup_Y + 12), Vector_2_Round(44, 44), 7, Library_Data.Palette.Accent, 0.9, true)
-    Update_Rounded_Box(Profile_Drawings.PopupAvatarBase, Vector_2_Round(Popup_X + 12, Popup_Y + 13), Vector_2_Round(42, 42), 6, Library_Data.Palette.Sidebar, 1, true)
-    Update_Profile_Image(Profile_Popup_Image, Popup_X + 13, Popup_Y + 14, 40, 6, true)
+    Update_Rounded_Box(Profile_Drawings.PopupAvatarBorder, Vector_2_Round(Popup_X + 13, Popup_Y + 12), Vector_2_Round(46, 46), 7, Library_Data.Palette.OutlineLight, 1, true)
+    Update_Rounded_Box(Profile_Drawings.PopupAvatarBase, Vector_2_Round(Popup_X + 14, Popup_Y + 13), Vector_2_Round(44, 44), 6, Library_Data.Palette.Sidebar, 1, true)
+    Update_Profile_Image(Profile_Popup_Image, Popup_X + 15, Popup_Y + 14, 42, 6, true)
     Profile_Drawings.PopupFallback.Visible = not Profile_Has_Avatar
     Profile_Drawings.PopupFallback.Color = Library_Data.Palette.Text
-    Position_Text(Profile_Drawings.PopupFallback, Popup_X + 33, Popup_Y + 23, "ProfilePopup")
-    Profile_Drawings.PopupName.Text = Profile_Short_Name(Profile_Display_Name, 21)
+    Position_Text(Profile_Drawings.PopupFallback, Popup_X + 36, Popup_Y + 22, "ProfilePopup")
+    Profile_Drawings.PopupName.Text = Profile_Display_Name
     Profile_Drawings.PopupName.Visible = true
     Profile_Drawings.PopupName.Color = Library_Data.Palette.Text
-    Position_Text(Profile_Drawings.PopupName, Popup_X + 64, Popup_Y + 10, "ProfilePopup")
-    Profile_Drawings.PopupUsername.Text = "@" .. Profile_Short_Name(Profile_Name, 23)
+    Position_Text(Profile_Drawings.PopupName, Popup_X + 72, Popup_Y + 13, "ProfilePopup")
+    Profile_Drawings.PopupUsername.Text = "@" .. Profile_Name
     Profile_Drawings.PopupUsername.Visible = true
     Profile_Drawings.PopupUsername.Color = Library_Data.Palette.SubText
-    Position_Text(Profile_Drawings.PopupUsername, Popup_X + 64, Popup_Y + 29, "ProfilePopup")
-    Profile_Drawings.PopupID.Text = "User ID: " .. tostring(Profile_User_Id)
+    Position_Text(Profile_Drawings.PopupUsername, Popup_X + 72, Popup_Y + 33, "ProfilePopup")
+    Profile_Drawings.HeaderRule.Visible = true
+    Profile_Drawings.HeaderRule.Position = Vector_2_Round(Popup_X + 12, Popup_Y + 67)
+    Profile_Drawings.HeaderRule.Size = Vector_2_Round(Popup_W - 24, 1)
+    Profile_Drawings.HeaderRule.Color = Library_Data.Palette.Outline
+    Profile_Drawings.PopupID.Text = "User ID  " .. tostring(Profile_User_Id)
     Profile_Drawings.PopupID.Visible = true
     Profile_Drawings.PopupID.Color = Library_Data.Palette.SubText
-    Position_Text(Profile_Drawings.PopupID, Popup_X + 12, Popup_Y + 68, "ProfilePopup")
-    local Copy_Pos = Vector_2_Round(Popup_X + 11, Popup_Y + 94)
-    local Copy_Size = Vector_2_Round(Popup_W - 22, 27)
-    Profile_Layout.CopyPos, Profile_Layout.CopySize = Copy_Pos, Copy_Size
-    local Copy_Hover = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Copy_Pos, Copy_Size)
-    Update_Rounded_Box(Profile_Drawings.CopyBorder, Copy_Pos, Copy_Size, 5, Library_Data.Palette.OutlineLight, 1, true)
-    Update_Rounded_Box(Profile_Drawings.CopyBackground, Vector_2_Round(Copy_Pos.X + 1, Copy_Pos.Y + 1), Vector_2_Round(Copy_Size.X - 2, Copy_Size.Y - 2), 4, Copy_Hover and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
+    Position_Text(Profile_Drawings.PopupID, Popup_X + 14, Popup_Y + 78, "ProfilePopup")
+
+    local Button_Y, Button_W, Button_H = Popup_Y + 108, 138, 29
+    local Copy_Pos = Vector_2_Round(Popup_X + 12, Button_Y)
+    local Copy_Id_Pos = Vector_2_Round(Popup_X + 161, Button_Y)
+    local Button_Size = Vector_2_Round(Button_W, Button_H)
+    Profile_Layout.CopyPos, Profile_Layout.CopySize = Copy_Pos, Button_Size
+    Profile_Layout.CopyIdPos, Profile_Layout.CopyIdSize = Copy_Id_Pos, Button_Size
+    local Hover_Copy = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Copy_Pos, Button_Size)
+    local Hover_Id = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Copy_Id_Pos, Button_Size)
+    Update_Rounded_Box(Profile_Drawings.CopyBorder, Copy_Pos, Button_Size, 5, Library_Data.Palette.OutlineLight, 1, true)
+    Update_Rounded_Box(Profile_Drawings.CopyBackground, Vector_2_Round(Copy_Pos.X + 1, Copy_Pos.Y + 1), Vector_2_Round(Button_W - 2, Button_H - 2), 4, Hover_Copy and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
+    Update_Rounded_Box(Profile_Drawings.CopyIdBorder, Copy_Id_Pos, Button_Size, 5, Library_Data.Palette.OutlineLight, 1, true)
+    Update_Rounded_Box(Profile_Drawings.CopyIdBackground, Vector_2_Round(Copy_Id_Pos.X + 1, Copy_Id_Pos.Y + 1), Vector_2_Round(Button_W - 2, Button_H - 2), 4, Hover_Id and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
     Profile_Drawings.CopyText.Text = Fast_Tick() < Library_Data.State.ProfileCopiedUntil and "Copied" or "Copy username"
     Profile_Drawings.CopyText.Visible = true
     Profile_Drawings.CopyText.Color = Library_Data.Palette.Text
-    Position_Text_Centered(Profile_Drawings.CopyText, Copy_Pos, Copy_Size, "ProfileAction")
+    Position_Text(Profile_Drawings.CopyText, Copy_Pos.X + 15, Copy_Pos.Y + 7, "ProfileAction")
+    Profile_Drawings.CopyIdText.Text = Fast_Tick() < (Library_Data.State.ProfileIdCopiedUntil or 0) and "Copied" or "Copy User ID"
+    Profile_Drawings.CopyIdText.Visible = true
+    Profile_Drawings.CopyIdText.Color = Library_Data.Palette.Text
+    Position_Text(Profile_Drawings.CopyIdText, Copy_Id_Pos.X + 21, Copy_Id_Pos.Y + 7, "ProfileAction")
+    Profile_Drawings.CopyText.Center = false
+    Profile_Drawings.CopyIdText.Center = false
 end
 
 function Library_Data:CreateTab(Tab_Name, Tab_Icon)
@@ -2541,8 +2578,8 @@ Connect_Session(Run_Service.RenderStepped, function()
 
     local Profile_Click_Used = false
     if Library_Data.Input.Mouse1Clicked then
-        local Profile_Card_Pos = Vector_2_Round(Pos_X + 8, Pos_Y + Size_Y - 65)
-        local Profile_Card_Size = Vector_2_Round(134, 53)
+        local Profile_Card_Pos = Vector_2_Round(Pos_X + 8, Pos_Y + Size_Y - 70)
+        local Profile_Card_Size = Vector_2_Round(134, 58)
         if Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Profile_Card_Pos, Profile_Card_Size) then
             local Will_Open = not Library_Data.State.ProfileOpen
             Close_Transient_Ui()
@@ -2552,6 +2589,9 @@ Connect_Session(Run_Service.RenderStepped, function()
             if Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Profile_Layout.CopyPos, Profile_Layout.CopySize) then
                 local Copied = pcall(function() setclipboard(Profile_Name) end)
                 if Copied then Library_Data.State.ProfileCopiedUntil = Fast_Tick() + 1.5 end
+            elseif Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Profile_Layout.CopyIdPos, Profile_Layout.CopyIdSize) then
+                local Copied = pcall(function() setclipboard(tostring(Profile_User_Id)) end)
+                if Copied then Library_Data.State.ProfileIdCopiedUntil = Fast_Tick() + 1.5 end
             end
             Profile_Click_Used = true
         elseif Library_Data.State.ProfileOpen then
@@ -2961,7 +3001,7 @@ end
 
 local NightfallLibrary = {
     Name = "Nightfall",
-    Version = "1.0.6",
+    Version = "1.0.7",
     Config = Config,
     Flags = Config,
     State = Library_Data,
