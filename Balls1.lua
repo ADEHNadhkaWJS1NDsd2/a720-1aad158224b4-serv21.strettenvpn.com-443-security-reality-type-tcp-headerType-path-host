@@ -96,7 +96,6 @@ local Config = {
     SpamRate = 100,
     TriggerDelay = 0,
     HideKeybind = "F2",
-    RenderBallStats = false,
     ShowHotkeyList = true,
     ParryBindMode = "Toggle",
     SpamBindMode = "Toggle",
@@ -770,7 +769,6 @@ local Library_Data = {
     TargetPosition = Vector2.new(200, 200),
     Size = Vector2.new(720, 480),
     HotkeysPosition = Vector2.new(936, 240),
-    StatsPosition = Vector2.new(936, 420),
     Visible = true,
     BindPressed = false,
     Tabs = {},
@@ -801,7 +799,6 @@ local Library_Data = {
         ActiveTextbox = nil, ActiveKeybind = nil, ActiveColorPicker = nil, ActiveColorDrag = nil,
         Dragging = false, DragStart = Vector2.new(0, 0), WindowStart = Vector2.new(0, 0),
         HotkeysDragging = false, HotkeysDragStart = Vector2.new(0, 0), HotkeysWindowStart = Vector2.new(0, 0),
-        StatsDragging = false, StatsDragStart = Vector2.new(0, 0), StatsWindowStart = Vector2.new(0, 0),
         HotkeysContext = {Open = false, Position = Vector2.new(0, 0), Entry = nil},
         KeybindContext = {Open = false, Position = Vector2.new(0, 0), Entry = nil},
         BackspaceHeld = false, BackspaceNextRepeat = 0,
@@ -1007,8 +1004,7 @@ local function Save_Layout()
         WindowY = Library_Data.TargetPosition.Y,
         HotkeysX = Library_Data.HotkeysPosition.X,
         HotkeysY = Library_Data.HotkeysPosition.Y,
-        StatsX = Library_Data.StatsPosition.X,
-        StatsY = Library_Data.StatsPosition.Y
+        ExtraWindows = {}
     }
     local Ok_State, Layout_Encoded = pcall(function() return Http_Service:JSONEncode(Layout_Val) end)
     if not Ok_State then return false end
@@ -1027,9 +1023,6 @@ local function Load_Layout()
     if type(Layout_Val.HotkeysX) == "number" and type(Layout_Val.HotkeysY) == "number" then
         Library_Data.HotkeysPosition = Clamp_Window_Position(Vector2.new(Layout_Val.HotkeysX, Layout_Val.HotkeysY), Vector2.new(220, 120))
     end
-    if type(Layout_Val.StatsX) == "number" and type(Layout_Val.StatsY) == "number" then
-        Library_Data.StatsPosition = Clamp_Window_Position(Vector2.new(Layout_Val.StatsX, Layout_Val.StatsY), Vector2.new(276, 166))
-    end
     return true
 end
 
@@ -1038,7 +1031,7 @@ local function Save_Current_Config()
     local Data_Val = {}
     for Key_Val, Value_In in pairs(Config) do
         local T_Val = type(Value_In)
-        if Key_Val ~= "SelectedConfig" and (T_Val == "boolean" or T_Val == "number" or T_Val == "string") then
+        if Key_Val ~= "SelectedConfig" and Key_Val ~= "RenderBallStats" and (T_Val == "boolean" or T_Val == "number" or T_Val == "string") then
             Data_Val[Key_Val] = Value_In
         end
     end
@@ -1092,7 +1085,7 @@ local function Load_Named_Config(Name_Val)
     local Ok_State, Decoded_Val = pcall(function() return Http_Service:JSONDecode(readfile(Path_Val)) end)
     if not Ok_State or type(Decoded_Val) ~= "table" then Config.ConfigName = Old_Name Is_Config_Loading = false return false end
     for Key_Val, Value_In in pairs(Decoded_Val) do
-        if Key_Val ~= "UiAccentColor" and Key_Val ~= "UiAccent2Color" and Key_Val ~= "SelectedConfig" and Key_Val ~= "ConfigName" and Key_Val ~= "AutoSaveConfig" and Key_Val ~= "AutoLoadConfig" and Config[Key_Val] ~= nil and type(Config[Key_Val]) == type(Value_In) then
+        if Key_Val ~= "UiAccentColor" and Key_Val ~= "UiAccent2Color" and Key_Val ~= "SelectedConfig" and Key_Val ~= "ConfigName" and Key_Val ~= "AutoSaveConfig" and Key_Val ~= "AutoLoadConfig" and Key_Val ~= "RenderBallStats" and Config[Key_Val] ~= nil and type(Config[Key_Val]) == type(Value_In) then
             Config[Key_Val] = Value_In
         end
     end
@@ -1131,6 +1124,7 @@ else
     Load_Layout()
 end
 Config_Loaded = true
+Config.RenderBallStats = nil
 
 Register_Keybind("ParryKeybind", Config.ParryKeybind, Config.ParryBindMode)
 Register_Keybind("SpamKeybind", Config.SpamKeybind, Config.SpamBindMode)
@@ -1148,27 +1142,128 @@ local Window_Drawings = {
     PatternFront = Make_Stripe_Pattern(28, 7),
     SidebarLine = Create_Drawing("Square", {Color = Library_Data.Palette.Outline, Filled = true, Visible = false}),
     TopBorder = Create_Drawing("Square", {Color = Library_Data.Palette.Outline, Filled = true, Visible = false}),
-    Title = Create_Drawing("Text", {Text = "Nightfall | Recode", Color = Library_Data.Palette.Text, Size = 13, Font = 2, Outline = true, Visible = false})
+    Title = Create_Drawing("Text", {Text = "Nightfall | Recode", Color = Library_Data.Palette.Text, Size = 13, Font = 2, Outline = true, Visible = false}),
+    GearOutline = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
+    GearBackground = Make_Rounded_Box(Library_Data.Palette.Element, 1),
+    GearCenter = Create_Drawing("Circle", {Filled = false, Thickness = 2, Radius = 5, NumSides = 24, Color = Library_Data.Palette.Text, Visible = false}),
+    GearDot = Create_Drawing("Circle", {Filled = true, Radius = 1.5, NumSides = 12, Color = Library_Data.Palette.Text, Visible = false}),
+    GearTeeth = {}
 }
+for I = 1, 8 do
+    Window_Drawings.GearTeeth[I] = Create_Drawing("Line", {Thickness = 2, Color = Library_Data.Palette.Text, Visible = false})
+end
+local Settings_Tab = nil
+local Previous_Main_Tab = nil
+local Floating_Windows = {}
+local function Is_Over_Floating_Window(MousePos)
+    for _, Panel in ipairs(Floating_Windows) do
+        if Panel.VisibleState and Is_Mouse_In_Bounds(MousePos, Panel.Position, Panel.Size) then return Panel end
+    end
+    return nil
+end
+local function Hide_Floating_Window(Panel)
+    Set_Visible(Panel.Outline, false)
+    Set_Visible(Panel.Background, false)
+    Hide_Gradient_Line(Panel.Topline)
+    Panel.Title.Visible = false
+    Panel.Rule.Visible = false
+    for _, Item in ipairs(Panel.Items) do
+        if Item.Background then Set_Visible(Item.Background, false) end
+        if Item.Outline then Set_Visible(Item.Outline, false) end
+        if Item.Label then Item.Label.Visible = false end
+        if Item.ValueText then Item.ValueText.Visible = false end
+    end
+end
+local function Render_Floating_Windows()
+    for _, Panel in ipairs(Floating_Windows) do
+        if not Panel.VisibleState then
+            Hide_Floating_Window(Panel)
+        else
+            if Library_Data.Input.Mouse1Released then Panel.Dragging = false end
+            if Panel.Dragging and Library_Data.Input.Mouse1Down then
+                Panel.Position = Clamp_Window_Position(Panel.StartPosition + (Library_Data.Input.MousePos - Panel.StartMouse), Panel.Size)
+            end
+            Panel.Position = Clamp_Window_Position(Panel.Position, Panel.Size)
+            local P, S = Panel.Position, Panel.Size
+            Update_Rounded_Box(Panel.Outline, P, S, 7, Library_Data.Palette.OutlineLight, 1, true)
+            Update_Rounded_Box(Panel.Background, P + Vector2.new(1, 1), S - Vector2.new(2, 2), 7, Library_Data.Palette.Background, 1, true)
+            Update_Gradient_Line(Panel.Topline, P + Vector2.new(2, 2), Vector2.new(S.X - 4, 2), Library_Data.Palette.Accent, Library_Data.Palette.Accent2, true)
+            Panel.Title.Text = Panel.Name
+            Panel.Title.Color = Library_Data.Palette.Text
+            Panel.Title.Visible = true
+            Position_Text(Panel.Title, P.X + 13, P.Y + 12)
+            Panel.Rule.Visible = true
+            Panel.Rule.Color = Library_Data.Palette.Outline
+            Panel.Rule.Position = Vector_2_Round(P.X + 10, P.Y + 37)
+            Panel.Rule.Size = Vector_2_Round(S.X - 20, 1)
+            for Index, Item in ipairs(Panel.Items) do
+                local Y = P.Y + 46 + (Index - 1) * 34
+                local ItemPos = Vector_2_Round(P.X + 11, Y)
+                local ItemSize = Vector_2_Round(S.X - 22, 29)
+                local Hover = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, ItemPos, ItemSize)
+                Update_Rounded_Box(Item.Outline, ItemPos, ItemSize, 5, Hover and Library_Data.Palette.OutlineLight or Library_Data.Palette.Outline, 1, true)
+                Update_Rounded_Box(Item.Background, ItemPos + Vector2.new(1, 1), ItemSize - Vector2.new(2, 2), 5, Hover and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
+                Item.HitPos, Item.HitSize = ItemPos, ItemSize
+                Item.Label.Text = Item.Name
+                Item.Label.Color = Item.Kind == "Button" and Library_Data.Palette.Text or Library_Data.Palette.SubText
+                Item.Label.Visible = true
+                if Item.Kind == "Button" then
+                    Item.Label.Center = true
+                    Position_Text_Centered(Item.Label, ItemPos, ItemSize)
+                else
+                    Item.Label.Center = false
+                    Position_Text(Item.Label, ItemPos.X + 9, ItemPos.Y + 8)
+                end
+                if Item.ValueText then
+                    local Value = Item.Getter and Item.Getter()
+                    if Value == nil then Value = Item.Value end
+                    if Item.Kind == "Toggle" then Value = Value and "ON" or "OFF" end
+                    Item.ValueText.Text = tostring(Value == nil and "" or Value)
+                    Item.ValueText.Color = Item.Kind == "Toggle" and (Value == "ON" and Library_Data.Palette.Accent or Library_Data.Palette.SubText) or Library_Data.Palette.Text
+                    Item.ValueText.Visible = true
+                    Item.ValueText.Center = false
+                    Position_Text(Item.ValueText, ItemPos.X + ItemSize.X - math.min(130, #Item.ValueText.Text * 6 + 5) - 7, ItemPos.Y + 8)
+                end
+            end
+        end
+    end
+end
+local function Handle_Floating_Inputs()
+    Library_Data.State.OverlayHit = false
+    if not Library_Data.Input.Mouse1Clicked then return end
+    local Panel = Is_Over_Floating_Window(Library_Data.Input.MousePos)
+    if not Panel then return end
+    Library_Data.State.OverlayHit = true
+    for _, Item in ipairs(Panel.Items) do
+        if Item.HitPos and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Item.HitPos, Item.HitSize) then
+            if Item.Kind == "Button" and Item.Callback then pcall(Item.Callback) end
+            if Item.Kind == "Toggle" then
+                local Value = Item.Getter and Item.Getter()
+                if Value == nil then Value = Item.Value end
+                Item.Value = not Value
+                if Item.Callback then pcall(Item.Callback, Item.Value) end
+            end
+            Library_Data.Input.Mouse1Clicked = false
+            return
+        end
+    end
+    if Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Panel.Position, Vector2.new(Panel.Size.X, 38)) then
+        Panel.Dragging = true
+        Panel.StartMouse = Library_Data.Input.MousePos
+        Panel.StartPosition = Panel.Position
+        Library_Data.Input.Mouse1Clicked = false
+    end
+end
 
-local Stats_Drawings = {
-    Outline = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
-    Background = Make_Rounded_Box(Library_Data.Palette.Background, 1),
-    Topline = Make_Gradient_Line(20),
-    HeaderLine = Create_Drawing("Square", {Color = Library_Data.Palette.Outline, Filled = true, Visible = false}),
-    Row1 = Make_Rounded_Box(Library_Data.Palette.Element, 1),
-    Row2 = Make_Rounded_Box(Library_Data.Palette.Element, 1),
-    Row3 = Make_Rounded_Box(Library_Data.Palette.Element, 1),
-    Title = Create_Drawing("Text", {Text = "BALL STATS", Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
-    Speed = Create_Drawing("Text", {Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
-    Distance = Create_Drawing("Text", {Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
-    Dot = Create_Drawing("Text", {Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false})
-}
 
 local Tab_Style = {X = 9, Y = 47, W = 132, H = 34, Gap = 5}
 
 local function Get_Tab_Bounds(X_Val, Y_Val, Index_Val)
-    return Vector_2_Round(X_Val + Tab_Style.X, Y_Val + Tab_Style.Y + (Index_Val - 1) * (Tab_Style.H + Tab_Style.Gap)), Vector_2_Round(Tab_Style.W, Tab_Style.H)
+    local Shown = 0
+    for I = 1, Index_Val do
+        if Library_Data.Tabs[I] and not Library_Data.Tabs[I].Hidden then Shown = Shown + 1 end
+    end
+    return Vector_2_Round(X_Val + Tab_Style.X, Y_Val + Tab_Style.Y + Fast_Max(0, Shown - 1) * (Tab_Style.H + Tab_Style.Gap)), Vector_2_Round(Tab_Style.W, Tab_Style.H)
 end
 
 local Keybinds_Drawings = {
@@ -1240,10 +1335,12 @@ local Profile_Drawings = {
     HeaderRule = Create_Drawing("Square", {Filled = true, Color = Library_Data.Palette.Outline, Visible = false}),
     CopyBorder = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
     CopyBackground = Make_Rounded_Box(Library_Data.Palette.Element, 1),
+    CopyAccent = Create_Drawing("Square", {Filled = true, Color = Library_Data.Palette.Accent, Visible = false}),
     CopyText = Create_Drawing("Text", {Text = "Copy username", Color = Library_Data.Palette.Text, Size = 11, Font = 2, Center = true, Visible = false}),
     CopyIdBorder = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
     CopyIdBackground = Make_Rounded_Box(Library_Data.Palette.Element, 1),
-    CopyIdText = Create_Drawing("Text", {Text = "Copy ID", Color = Library_Data.Palette.Text, Size = 11, Font = 2, Center = true, Visible = false})
+    CopyIdAccent = Create_Drawing("Square", {Filled = true, Color = Library_Data.Palette.Accent, Visible = false}),
+    CopyIdText = Create_Drawing("Text", {Text = "Copy User ID", Color = Library_Data.Palette.Text, Size = 11, Font = 2, Center = true, Visible = false})
 }
 
 local Profile_Image, Profile_Popup_Image
@@ -1267,14 +1364,27 @@ for _, K in ipairs({"AvatarFallback", "Username", "Caption", "Chevron"}) do
     Set_Drawing_Layer(Profile_Drawings[K], 47)
 end
 if Profile_Image then Set_Drawing_Layer(Profile_Image, 48) end
-for _, K in ipairs({"PopupBorder", "PopupBackground", "PopupAvatarBorder", "PopupAvatarBase", "CopyBorder", "CopyBackground", "CopyIdBorder", "CopyIdBackground"}) do
-    Set_Drawing_Layer(Profile_Drawings[K], 55)
+Set_Drawing_Layer(Profile_Drawings.PopupBorder, 70)
+Set_Drawing_Layer(Profile_Drawings.PopupBackground, 71)
+Set_Drawing_Layer(Profile_Drawings.PopupAvatarBorder, 72)
+Set_Drawing_Layer(Profile_Drawings.PopupAvatarBase, 73)
+Set_Drawing_Layer(Profile_Drawings.HeaderRule, 74)
+for _, K in ipairs({"CopyBorder", "CopyIdBorder"}) do
+    Set_Drawing_Layer(Profile_Drawings[K], 75)
 end
-Set_Drawing_Layer(Profile_Drawings.HeaderRule, 57)
-for _, K in ipairs({"PopupFallback", "PopupName", "PopupUsername", "PopupID", "CopyText", "CopyIdText"}) do
-    Set_Drawing_Layer(Profile_Drawings[K], 59)
+for _, K in ipairs({"CopyBackground", "CopyIdBackground"}) do
+    Set_Drawing_Layer(Profile_Drawings[K], 76)
 end
-if Profile_Popup_Image then Set_Drawing_Layer(Profile_Popup_Image, 60) end
+for _, K in ipairs({"CopyAccent", "CopyIdAccent"}) do
+    Set_Drawing_Layer(Profile_Drawings[K], 77)
+end
+for _, K in ipairs({"PopupFallback", "PopupName", "PopupUsername", "PopupID"}) do
+    Set_Drawing_Layer(Profile_Drawings[K], 80)
+end
+if Profile_Popup_Image then Set_Drawing_Layer(Profile_Popup_Image, 81) end
+for _, K in ipairs({"CopyText", "CopyIdText"}) do
+    Set_Drawing_Layer(Profile_Drawings[K], 82)
+end
 
 local function Hide_Profile_Drawings()
     for _, Obj in pairs(Profile_Drawings) do Set_Visible(Obj, false) end
@@ -1362,7 +1472,7 @@ local function Draw_Profile_Card(Pos_X, Pos_Y, Width, Height)
     Profile_Drawings.Chevron.Visible = false
 
     if not Selected then
-        for _, Popup_Key in ipairs({"PopupBorder", "PopupBackground", "PopupAvatarBorder", "PopupAvatarBase", "PopupFallback", "PopupName", "PopupUsername", "PopupID", "HeaderRule", "CopyBorder", "CopyBackground", "CopyText", "CopyIdBorder", "CopyIdBackground", "CopyIdText"}) do
+        for _, Popup_Key in ipairs({"PopupBorder", "PopupBackground", "PopupAvatarBorder", "PopupAvatarBase", "PopupFallback", "PopupName", "PopupUsername", "PopupID", "HeaderRule", "CopyBorder", "CopyBackground", "CopyAccent", "CopyText", "CopyIdBorder", "CopyIdBackground", "CopyIdAccent", "CopyIdText"}) do
             Set_Visible(Profile_Drawings[Popup_Key], false)
         end
         if Profile_Popup_Image then Profile_Popup_Image.Visible = false end
@@ -1401,7 +1511,7 @@ local function Draw_Profile_Card(Pos_X, Pos_Y, Width, Height)
     Profile_Drawings.PopupID.Color = Library_Data.Palette.SubText
     Position_Text(Profile_Drawings.PopupID, Popup_X + 14, Popup_Y + 78, "ProfilePopup")
 
-    local Button_Y, Button_W, Button_H = Popup_Y + 108, 138, 29
+    local Button_Y, Button_W, Button_H = Popup_Y + 105, 138, 32
     local Copy_Pos = Vector_2_Round(Popup_X + 12, Button_Y)
     local Copy_Id_Pos = Vector_2_Round(Popup_X + 161, Button_Y)
     local Button_Size = Vector_2_Round(Button_W, Button_H)
@@ -1409,20 +1519,32 @@ local function Draw_Profile_Card(Pos_X, Pos_Y, Width, Height)
     Profile_Layout.CopyIdPos, Profile_Layout.CopyIdSize = Copy_Id_Pos, Button_Size
     local Hover_Copy = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Copy_Pos, Button_Size)
     local Hover_Id = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Copy_Id_Pos, Button_Size)
-    Update_Rounded_Box(Profile_Drawings.CopyBorder, Copy_Pos, Button_Size, 5, Library_Data.Palette.OutlineLight, 1, true)
-    Update_Rounded_Box(Profile_Drawings.CopyBackground, Vector_2_Round(Copy_Pos.X + 1, Copy_Pos.Y + 1), Vector_2_Round(Button_W - 2, Button_H - 2), 4, Hover_Copy and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
-    Update_Rounded_Box(Profile_Drawings.CopyIdBorder, Copy_Id_Pos, Button_Size, 5, Library_Data.Palette.OutlineLight, 1, true)
-    Update_Rounded_Box(Profile_Drawings.CopyIdBackground, Vector_2_Round(Copy_Id_Pos.X + 1, Copy_Id_Pos.Y + 1), Vector_2_Round(Button_W - 2, Button_H - 2), 4, Hover_Id and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
+    local Button_Fill = Color_Lerp(Library_Data.Palette.Element, Library_Data.Palette.Text, 0.09)
+    local Button_Hover = Color_Lerp(Library_Data.Palette.Hover, Library_Data.Palette.Accent, 0.16)
+    local Button_Outline = Color_Lerp(Library_Data.Palette.OutlineLight, Library_Data.Palette.Text, 0.10)
+    local Button_Hover_Outline = Color_Lerp(Library_Data.Palette.OutlineLight, Library_Data.Palette.Accent, 0.42)
+    Update_Rounded_Box(Profile_Drawings.CopyBorder, Copy_Pos, Button_Size, 6, Hover_Copy and Button_Hover_Outline or Button_Outline, 1, true)
+    Update_Rounded_Box(Profile_Drawings.CopyBackground, Vector_2_Round(Copy_Pos.X + 1, Copy_Pos.Y + 1), Vector_2_Round(Button_W - 2, Button_H - 2), 5, Hover_Copy and Button_Hover or Button_Fill, 1, true)
+    Update_Rounded_Box(Profile_Drawings.CopyIdBorder, Copy_Id_Pos, Button_Size, 6, Hover_Id and Button_Hover_Outline or Button_Outline, 1, true)
+    Update_Rounded_Box(Profile_Drawings.CopyIdBackground, Vector_2_Round(Copy_Id_Pos.X + 1, Copy_Id_Pos.Y + 1), Vector_2_Round(Button_W - 2, Button_H - 2), 5, Hover_Id and Button_Hover or Button_Fill, 1, true)
+    Profile_Drawings.CopyAccent.Visible = true
+    Profile_Drawings.CopyAccent.Position = Vector_2_Round(Copy_Pos.X + 9, Copy_Pos.Y + 11)
+    Profile_Drawings.CopyAccent.Size = Vector_2_Round(2, 10)
+    Profile_Drawings.CopyAccent.Color = Library_Data.Palette.Accent
+    Profile_Drawings.CopyIdAccent.Visible = true
+    Profile_Drawings.CopyIdAccent.Position = Vector_2_Round(Copy_Id_Pos.X + 9, Copy_Id_Pos.Y + 11)
+    Profile_Drawings.CopyIdAccent.Size = Vector_2_Round(2, 10)
+    Profile_Drawings.CopyIdAccent.Color = Library_Data.Palette.Accent
     Profile_Drawings.CopyText.Text = Fast_Tick() < Library_Data.State.ProfileCopiedUntil and "Copied" or "Copy username"
     Profile_Drawings.CopyText.Visible = true
     Profile_Drawings.CopyText.Color = Library_Data.Palette.Text
-    Position_Text(Profile_Drawings.CopyText, Copy_Pos.X + 15, Copy_Pos.Y + 7, "ProfileAction")
+    Profile_Drawings.CopyText.Center = false
+    Position_Text(Profile_Drawings.CopyText, Copy_Pos.X + 18, Copy_Pos.Y + 9, "ProfileAction")
     Profile_Drawings.CopyIdText.Text = Fast_Tick() < (Library_Data.State.ProfileIdCopiedUntil or 0) and "Copied" or "Copy User ID"
     Profile_Drawings.CopyIdText.Visible = true
     Profile_Drawings.CopyIdText.Color = Library_Data.Palette.Text
-    Position_Text(Profile_Drawings.CopyIdText, Copy_Id_Pos.X + 21, Copy_Id_Pos.Y + 7, "ProfileAction")
-    Profile_Drawings.CopyText.Center = false
     Profile_Drawings.CopyIdText.Center = false
+    Position_Text(Profile_Drawings.CopyIdText, Copy_Id_Pos.X + 20, Copy_Id_Pos.Y + 9, "ProfileAction")
 end
 
 function Library_Data:CreateTab(Tab_Name, Tab_Icon)
@@ -1648,6 +1770,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 IsOpen = false, Hue = H_Val, Sat = S_Val, Val = V_Val,
                 Alpha = Math_Clamp(Config[Flag_Val].Alpha or 1, 0, 1),
                 HexEditing = false, HexBuffer = "",
+                SavedColors = {}, SavedBounds = {}, SavedCells = {},
                 GridCols = 22, GridRows = 12, HueSteps = 30, AlphaSteps = 30,
                 Label = Create_Drawing("Text", {Text = Name_Val, Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 Stroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
@@ -1676,6 +1799,10 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 CursorInner = Create_Drawing("Circle", {Filled = false, Thickness = 1, NumSides = 28, Radius = 4, Visible = false}),
                 HueCursor = Create_Drawing("Square", {Filled = true, Visible = false}),
                 AlphaCursor = Create_Drawing("Square", {Filled = true, Visible = false}),
+                SavedLabel = Create_Drawing("Text", {Text = "SAVED COLORS", Color = Library_Data.Palette.SubText, Size = 10, Font = 2, Visible = false}),
+                SaveButtonBorder = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
+                SaveButton = Make_Rounded_Box(Library_Data.Palette.Element, 1),
+                SaveButtonText = Create_Drawing("Text", {Text = "+", Color = Library_Data.Palette.Text, Size = 15, Font = 2, Center = true, Visible = false}),
                 ButtonPos = Vector2.new(), ButtonSize = Vector2.new(),
                 PopupPos = Vector2.new(), PopupSize = Vector2.new(),
                 SVPos = Vector2.new(), SVSize = Vector2.new(),
@@ -1683,13 +1810,23 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 AlphaPos = Vector2.new(), AlphaSize = Vector2.new(),
                 HexPos = Vector2.new(), HexSize = Vector2.new()
             }
-            local Rounded_Parts = {"PopupShadow", "PopupStroke", "PopupBackground", "PopupSwatchStroke", "PopupSwatch", "HexStroke", "HexBackground", "SVStroke", "HueStroke", "AlphaStroke"}
-            local Text_Parts = {"PopupTitle", "PopupHint", "PopupHex", "PopupRule"}
+            for Index = 1, 6 do
+                Color_Picker.SavedCells[Index] = {
+                    Outline = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
+                    Background = Make_Rounded_Box(Library_Data.Palette.Element, 1)
+                }
+            end
+            local Rounded_Parts = {"PopupShadow", "PopupStroke", "PopupBackground", "PopupSwatchStroke", "PopupSwatch", "HexStroke", "HexBackground", "SVStroke", "HueStroke", "AlphaStroke", "SaveButtonBorder", "SaveButton"}
+            local Text_Parts = {"PopupTitle", "PopupHint", "PopupHex", "PopupRule", "SavedLabel", "SaveButtonText"}
             for _, Part_Name in ipairs(Rounded_Parts) do Set_Drawing_Layer(Color_Picker[Part_Name], 45) end
             for _, Part_Name in ipairs(Text_Parts) do Set_Drawing_Layer(Color_Picker[Part_Name], 48) end
             for _, Item_Draw in ipairs(Color_Picker.SVGrid) do Set_Drawing_Layer(Item_Draw, 46) end
             for _, Item_Draw in ipairs(Color_Picker.HueGrid) do Set_Drawing_Layer(Item_Draw, 46) end
             for _, Item_Draw in ipairs(Color_Picker.AlphaGrid) do Set_Drawing_Layer(Item_Draw, 46) end
+            for _, SavedCell in ipairs(Color_Picker.SavedCells) do
+                Set_Drawing_Layer(SavedCell.Outline, 47)
+                Set_Drawing_Layer(SavedCell.Background, 48)
+            end
             for _, Part_Name in ipairs({"CursorOuter", "CursorInner", "HueCursor", "AlphaCursor"}) do
                 Set_Drawing_Layer(Color_Picker[Part_Name], 47)
             end
@@ -1717,6 +1854,14 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
             end
             function Color_Picker:HidePopup()
                 if not self._PopupDrawn then return end
+                for _, SavedCell in ipairs(self.SavedCells) do
+                    Set_Visible(SavedCell.Outline, false)
+                    Set_Visible(SavedCell.Background, false)
+                end
+                Set_Visible(self.SaveButtonBorder, false)
+                Set_Visible(self.SaveButton, false)
+                self.SaveButtonText.Visible = false
+                self.SavedLabel.Visible = false
                 self._PopupDrawn = false
                 self._SVGridHue = nil
                 self._SVGridPos = nil
@@ -1727,7 +1872,11 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                     Update_Rounded_Box(Obj, Vector2.new(), Vector2.new(), 0, Library_Data.Palette.Background, 1, false)
                 end
                 for _, Part_Name in ipairs(Text_Parts) do self[Part_Name].Visible = false end
-                for _, Part_Name in ipairs({"CursorOuter", "CursorInner", "HueCursor", "AlphaCursor"}) do self[Part_Name].Visible = false end
+                for _, SavedCell in ipairs(Color_Picker.SavedCells) do
+                Set_Drawing_Layer(SavedCell.Outline, 47)
+                Set_Drawing_Layer(SavedCell.Background, 48)
+            end
+            for _, Part_Name in ipairs({"CursorOuter", "CursorInner", "HueCursor", "AlphaCursor"}) do self[Part_Name].Visible = false end
                 Hide_Grid_Squares(self.SVGrid)
                 Hide_Grid_Squares(self.HueGrid)
                 Hide_Grid_Squares(self.AlphaGrid)
@@ -1750,7 +1899,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 self.PreviewText.Visible = true
                 Position_Text(self.PreviewText, self.ButtonPos.X + 25, self.ButtonPos.Y + 7, "ColorPickerValue")
                 if not self.IsOpen then self:HidePopup() return end
-                local Width, Height = 264, 251
+                local Width, Height = 264, 310
                 local Popup_X = self.ButtonPos.X + self.ButtonSize.X - Width
                 local Popup_Y = self.ButtonPos.Y + self.ButtonSize.Y + 7
                 local Camera_Val = Workspace_Service.CurrentCamera
@@ -1834,6 +1983,24 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 Position_Text(self.PopupHex, self.HexPos.X + 9, self.HexPos.Y + 6)
                 Update_Rounded_Box(self.PopupSwatchStroke, Vector2.new(PX + 193, PY + 219), Vector2.new(59, 24), 4, Library_Data.Palette.Outline, 1, true)
                 Update_Rounded_Box(self.PopupSwatch, Vector2.new(PX + 194, PY + 220), Vector2.new(57, 22), 4, Current_Color, Math_Clamp(self.Alpha, 0.12, 1), true)
+                self.SavedLabel.Visible = true
+                Position_Text(self.SavedLabel, PX + 13, PY + 256)
+                local SavePos = Vector2.new(PX + 228, PY + 250)
+                local SaveSize = Vector2.new(24, 24)
+                local SaveHover = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, SavePos, SaveSize)
+                Update_Rounded_Box(self.SaveButtonBorder, SavePos, SaveSize, 4, SaveHover and Library_Data.Palette.Accent or Library_Data.Palette.OutlineLight, 1, true)
+                Update_Rounded_Box(self.SaveButton, SavePos + Vector2.new(1, 1), SaveSize - Vector2.new(2, 2), 3, SaveHover and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
+                self.SaveButtonText.Visible = true
+                Position_Text_Centered(self.SaveButtonText, SavePos, SaveSize)
+                self.SavePos, self.SaveSize = SavePos, SaveSize
+                for I, SavedCell in ipairs(self.SavedCells) do
+                    local CellPos = Vector2.new(PX + 12 + (I - 1) * 39, PY + 278)
+                    local CellSize = Vector2.new(33, 23)
+                    local Saved = self.SavedColors[I]
+                    Update_Rounded_Box(SavedCell.Outline, CellPos, CellSize, 4, Library_Data.Palette.OutlineLight, 1, true)
+                    Update_Rounded_Box(SavedCell.Background, CellPos + Vector2.new(1, 1), CellSize - Vector2.new(2, 2), 3, Saved and Saved.Color or Library_Data.Palette.Element, 1, true)
+                    self.SavedBounds[I] = {Pos = CellPos, Size = CellSize}
+                end
             end
             table.insert(self.Items, Color_Picker)
             return Color_Picker
@@ -1875,6 +2042,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 Type = "Button", Height = 34, Callback = Callback_Func,
                 Stroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
                 Background = Make_Rounded_Box(Library_Data.Palette.Element, 1),
+                Accent = Create_Drawing("Square", {Filled = true, Color = Library_Data.Palette.Accent, Visible = false}),
                 Label = Create_Drawing("Text", {Text = Name_Val, Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 ButtonPos = Vector2.new(), ButtonSize = Vector2.new()
             }
@@ -1882,8 +2050,12 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 self.ButtonPos = Vector_2_Round(X_Val + 2, Y_Val + 4)
                 self.ButtonSize = Vector_2_Round(W_Val - 4, 24)
                 local Hovered_Val = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, self.ButtonPos, self.ButtonSize)
-                Update_Rounded_Box(self.Stroke, self.ButtonPos, self.ButtonSize, 4, Hovered_Val and Library_Data.Palette.Accent or Library_Data.Palette.Outline, 1, true)
-                Update_Rounded_Box(self.Background, Vector_2_Round(self.ButtonPos.X + 1, self.ButtonPos.Y + 1), Vector_2_Round(self.ButtonSize.X - 2, self.ButtonSize.Y - 2), 4, Hovered_Val and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
+                Update_Rounded_Box(self.Stroke, self.ButtonPos, self.ButtonSize, 5, Hovered_Val and Library_Data.Palette.Accent or Library_Data.Palette.OutlineLight, 1, true)
+                Update_Rounded_Box(self.Background, Vector_2_Round(self.ButtonPos.X + 1, self.ButtonPos.Y + 1), Vector_2_Round(self.ButtonSize.X - 2, self.ButtonSize.Y - 2), 4, Hovered_Val and Library_Data.Palette.Hover or Color_Lerp(Library_Data.Palette.Element, Library_Data.Palette.Hover, 0.34), 1, true)
+                self.Accent.Visible = true
+                self.Accent.Position = Vector_2_Round(self.ButtonPos.X + 9, self.ButtonPos.Y + 7)
+                self.Accent.Size = Vector2.new(2, 10)
+                self.Accent.Color = Library_Data.Palette.Accent
                 self.Label.Visible = true
                 self.Label.Color = Library_Data.Palette.Text
                 Position_Text_Centered(self.Label, self.ButtonPos, self.ButtonSize, "ButtonLabel")
@@ -1961,20 +2133,6 @@ local function Close_Transient_Ui()
     Library_Data.State.ProfileOpen = false
 end
 
-local function Hide_Stats_Drawings()
-    Update_Rounded_Box(Stats_Drawings.Outline, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-    Update_Rounded_Box(Stats_Drawings.Background, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-    Update_Gradient_Line(Stats_Drawings.Topline, Vector_2_Round(0, 0), Vector_2_Round(0, 0), Color3.new(0, 0, 0), Color3.new(0, 0, 0), false)
-    Stats_Drawings.HeaderLine.Visible = false
-    Update_Rounded_Box(Stats_Drawings.Row1, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-    Update_Rounded_Box(Stats_Drawings.Row2, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-    Update_Rounded_Box(Stats_Drawings.Row3, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-    Stats_Drawings.Title.Visible = false
-    Stats_Drawings.Speed.Visible = false
-    Stats_Drawings.Distance.Visible = false
-    Stats_Drawings.Dot.Visible = false
-end
-
 local function Hide_Hotkeys_Drawings()
     Update_Rounded_Box(Keybinds_Drawings.Outline, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
     Update_Rounded_Box(Keybinds_Drawings.Background, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
@@ -2041,6 +2199,7 @@ local function Hide_Item(Item_Obj)
         if Item_Obj.Background then Update_Rounded_Box(Item_Obj.Background, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
     elseif Item_Obj.Type == "Button" then
         Safe_Hide_Drawing(Item_Obj.Label)
+        Safe_Hide_Drawing(Item_Obj.Accent)
         if Item_Obj.Stroke then Update_Rounded_Box(Item_Obj.Stroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
         if Item_Obj.Background then Update_Rounded_Box(Item_Obj.Background, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
     end
@@ -2104,6 +2263,11 @@ Hide_Window_Drawings = function()
     Window_Drawings.SidebarLine.Visible = false
     Window_Drawings.TopBorder.Visible = false
     Window_Drawings.Title.Visible = false
+    Set_Visible(Window_Drawings.GearOutline, false)
+    Set_Visible(Window_Drawings.GearBackground, false)
+    Window_Drawings.GearCenter.Visible = false
+    Window_Drawings.GearDot.Visible = false
+    for _, Tooth in ipairs(Window_Drawings.GearTeeth) do Tooth.Visible = false end
     Hide_Profile_Drawings()
     for _, Obj_Val in pairs(Overlay_Menu_Drawings) do Set_Visible(Obj_Val, false) end
     for _, Tab_Obj in ipairs(Library_Data.Tabs) do
@@ -2245,7 +2409,6 @@ Connect_Session(Run_Service.RenderStepped, function()
     if isrbxactive and not isrbxactive() then
         Library_Data.State.Dragging = false
         Library_Data.State.HotkeysDragging = false
-        Library_Data.State.StatsDragging = false
         Library_Data.State.ActiveSlider = nil
         Library_Data.State.ActiveColorDrag = nil
         Library_Data.Input.Mouse1Prev = false
@@ -2347,16 +2510,7 @@ Connect_Session(Run_Service.RenderStepped, function()
     end
 
     local Hotkeys_Size = Vector2.new(220, 120)
-    local Stats_Size = Vector_2_Round(276, 166)
     local Should_Show_Hotkeys = Config.ShowHotkeyList
-    local Show_Stats = Config.RenderBallStats
-    
-    local Player_Character = Local_Player.Character
-    local Is_Dead = false
-    if Workspace_Service:FindFirstChild("Dead") and Player_Character and Player_Character.Parent == Workspace_Service.Dead then Is_Dead = true end
-    if Player_Character and Player_Character:FindFirstChild("SingularityCape") then Is_Dead = true end
-    if Player_Character and Player_Character.PrimaryPart and Player_Character.PrimaryPart:FindFirstChild("SingularityCape") then Is_Dead = true end
-    if Is_Dead then Show_Stats = false end
 
     if Should_Show_Hotkeys then
         Library_Data.HotkeysPosition = Clamp_Window_Position(Library_Data.HotkeysPosition, Hotkeys_Size)
@@ -2448,65 +2602,7 @@ Connect_Session(Run_Service.RenderStepped, function()
         Library_Data.State.HotkeysContext.Entry = nil
     end
 
-    Library_Data.StatsPosition = Clamp_Window_Position(Library_Data.StatsPosition, Stats_Size)
-    local Stats_Pos = Vector_2_Round(Library_Data.StatsPosition.X, Library_Data.StatsPosition.Y)
-
-    if Show_Stats then
-        if Library_Data.Input.Mouse1Clicked and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Library_Data.StatsPosition, Vector2.new(Stats_Size.X, 36)) then
-            Library_Data.State.StatsDragging = true
-            Library_Data.State.StatsDragStart = Library_Data.Input.MousePos
-            Library_Data.State.StatsWindowStart = Library_Data.StatsPosition
-            Close_Transient_Ui()
-        end
-        if Library_Data.Input.Mouse1Released and Library_Data.State.StatsDragging then
-            Library_Data.State.StatsDragging = false
-            Save_Layout()
-        end
-        if Library_Data.State.StatsDragging then
-            Library_Data.StatsPosition = Clamp_Window_Position(Library_Data.State.StatsWindowStart + (Library_Data.Input.MousePos - Library_Data.State.StatsDragStart), Stats_Size)
-            Stats_Pos = Vector_2_Round(Library_Data.StatsPosition.X, Library_Data.StatsPosition.Y)
-        end
-        
-        Update_Rounded_Box(Stats_Drawings.Outline, Stats_Pos, Stats_Size, 8, Library_Data.Palette.Outline, 1, true)
-        Update_Rounded_Box(Stats_Drawings.Background, Vector_2_Round(Stats_Pos.X + 1, Stats_Pos.Y + 1), Vector_2_Round(Stats_Size.X - 2, Stats_Size.Y - 2), 8, Library_Data.Palette.Background, 1, true)
-        Update_Gradient_Line(Stats_Drawings.Topline, Vector_2_Round(Stats_Pos.X + 1, Stats_Pos.Y + 1), Vector_2_Round(Stats_Size.X - 2, 2), Library_Data.Palette.Accent, Library_Data.Palette.Accent2, true)
-        Stats_Drawings.HeaderLine.Visible = true
-        Stats_Drawings.Title.Visible = true
-        Stats_Drawings.Speed.Visible = true
-        Stats_Drawings.Distance.Visible = true
-        Stats_Drawings.Dot.Visible = true
-        
-        Stats_Drawings.HeaderLine.Position = Vector_2_Round(Stats_Pos.X + 12, Stats_Pos.Y + 40)
-        Stats_Drawings.HeaderLine.Size = Vector_2_Round(Stats_Size.X - 24, 1)
-        Stats_Drawings.HeaderLine.Color = Library_Data.Palette.Outline
-        local Row_X = Stats_Pos.X + 12
-        local Row_W = Stats_Size.X - 24
-        local Row_H = 30
-        local Row_1_Y = Stats_Pos.Y + 50
-        local Row_2_Y = Row_1_Y + 36
-        local Row_3_Y = Row_2_Y + 36
-        Update_Rounded_Box(Stats_Drawings.Row1, Vector_2_Round(Row_X, Row_1_Y), Vector_2_Round(Row_W, Row_H), 6, Library_Data.Palette.Element, 1, true)
-        Update_Rounded_Box(Stats_Drawings.Row2, Vector_2_Round(Row_X, Row_2_Y), Vector_2_Round(Row_W, Row_H), 6, Library_Data.Palette.Element, 1, true)
-        Update_Rounded_Box(Stats_Drawings.Row3, Vector_2_Round(Row_X, Row_3_Y), Vector_2_Round(Row_W, Row_H), 6, Library_Data.Palette.Element, 1, true)
-        local Speed_Value = Fast_Max(0, Fast_Floor(tonumber(Runtime_State.Target_Speed) or 0))
-        local Distance_Value = Fast_Max(0, Fast_Floor(tonumber(Runtime_State.Target_Distance) or 0))
-        local Dot_Value = tonumber(Runtime_State.Target_Dot) or 0
-        Position_Text(Stats_Drawings.Title, Stats_Pos.X + 12, Stats_Pos.Y + 8, "StatsTitle")
-        Stats_Drawings.Title.Text = "BALL STATS"
-        Position_Text(Stats_Drawings.Speed, Stats_Pos.X + 20, Row_1_Y + 8, "StatsRow")
-        Stats_Drawings.Speed.Text = "Ball Speed : " .. tostring(Speed_Value)
-        Stats_Drawings.Speed.Color = Library_Data.Palette.Text
-        Position_Text(Stats_Drawings.Distance, Stats_Pos.X + 20, Row_2_Y + 8, "StatsRow")
-        Stats_Drawings.Distance.Text = "Ball Dist  : " .. tostring(Distance_Value)
-        Stats_Drawings.Distance.Color = Library_Data.Palette.Text
-        Position_Text(Stats_Drawings.Dot, Stats_Pos.X + 20, Row_3_Y + 8, "StatsRow")
-        Stats_Drawings.Dot.Text = "Ball Dot   : " .. string.format("%.2f", Dot_Value)
-        Stats_Drawings.Dot.Color = Library_Data.Palette.Text
-    else
-        Library_Data.State.StatsDragging = false
-        Hide_Stats_Drawings()
-    end
-
+    Render_Floating_Windows()
     if not Library_Data.Visible then
         if Library_Data.wasVisible ~= false then
             Close_Transient_Ui()
@@ -2521,7 +2617,6 @@ Connect_Session(Run_Service.RenderStepped, function()
     Frame_Counter = (Frame_Counter or 0) + 1
     local Is_Interacting = Library_Data.State.Dragging or 
                            Library_Data.State.HotkeysDragging or 
-                           Library_Data.State.StatsDragging or 
                            Library_Data.State.ActiveSlider or 
                            Library_Data.State.ActiveColorDrag or 
                            Library_Data.State.ActiveColorPicker or 
@@ -2536,9 +2631,28 @@ Connect_Session(Run_Service.RenderStepped, function()
     if not Library_Data.State.Dragging then
         Library_Data.Position = Clamp_Window_Position(Library_Data.Position, Library_Data.Size)
     end
+    Handle_Floating_Inputs()
     local OverHotkeys = Config.ShowHotkeyList and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Library_Data.HotkeysPosition, Vector2.new(Hotkeys_Size.X, 28))
-    local OverStats = Show_Stats and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Library_Data.StatsPosition, Vector2.new(Stats_Size.X, 36))
-    if Library_Data.Input.Mouse1Clicked and not Library_Data.State.ActiveColorPicker and not OverHotkeys and not OverStats and not Library_Data.State.HotkeysDragging and not Library_Data.State.StatsDragging and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Library_Data.Position, Vector2.new(Size_X, 36)) then
+    local GearPos = Vector_2_Round(Library_Data.Position.X + Size_X - 39, Library_Data.Position.Y + 6)
+    local GearSize = Vector2.new(29, 25)
+    if Library_Data.Input.Mouse1Clicked and not Library_Data.State.OverlayHit and not Is_Over_Floating_Window(Library_Data.Input.MousePos) and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, GearPos, GearSize) then
+        Close_Transient_Ui()
+        if Settings_Tab and Library_Data.CurrentTab == Settings_Tab then
+            local Restore = Previous_Main_Tab
+            if not Restore then
+                for _, Tab in ipairs(Library_Data.Tabs) do
+                    if not Tab.Hidden then Restore = Tab break end
+                end
+            end
+            Library_Data.CurrentTab = Restore
+        elseif Settings_Tab then
+            Previous_Main_Tab = Library_Data.CurrentTab
+            Library_Data.CurrentTab = Settings_Tab
+        end
+        for _, T_Obj in ipairs(Library_Data.Tabs) do Hide_Tab_Content(T_Obj) end
+        Library_Data.Input.Mouse1Clicked = false
+    end
+    if Library_Data.Input.Mouse1Clicked and not Library_Data.State.ActiveColorPicker and not OverHotkeys and not Library_Data.State.OverlayHit and not Library_Data.State.HotkeysDragging and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Library_Data.Position, Vector2.new(Size_X, 36)) then
         Close_Transient_Ui()
         Library_Data.State.Dragging = true
         Library_Data.State.DragStart = Library_Data.Input.MousePos
@@ -2575,9 +2689,29 @@ Connect_Session(Run_Service.RenderStepped, function()
     Window_Drawings.SidebarLine.Color = Library_Data.Palette.Outline
     Window_Drawings.Title.Visible = true
     Position_Text(Window_Drawings.Title, Pos_X + 15, Pos_Y + 11, "WindowTitle")
+    local Gear_Pos = Vector_2_Round(Pos_X + Size_X - 39, Pos_Y + 6)
+    local Gear_Hover = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Gear_Pos, Vector2.new(29, 25))
+    local Gear_Selected = Settings_Tab and Library_Data.CurrentTab == Settings_Tab
+    Update_Rounded_Box(Window_Drawings.GearOutline, Gear_Pos, Vector2.new(29, 25), 5, Gear_Selected and Library_Data.Palette.Accent or (Gear_Hover and Library_Data.Palette.OutlineLight or Library_Data.Palette.Outline), 1, true)
+    Update_Rounded_Box(Window_Drawings.GearBackground, Gear_Pos + Vector2.new(1, 1), Vector2.new(27, 23), 4, Gear_Selected and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
+    local GX, GY = Gear_Pos.X + 14, Gear_Pos.Y + 12
+    local Gear_Color = Gear_Selected and Library_Data.Palette.Accent or Library_Data.Palette.Text
+    Window_Drawings.GearCenter.Visible = true
+    Window_Drawings.GearCenter.Position = Vector_2_Round(GX, GY)
+    Window_Drawings.GearCenter.Color = Gear_Color
+    Window_Drawings.GearDot.Visible = true
+    Window_Drawings.GearDot.Position = Vector_2_Round(GX, GY)
+    Window_Drawings.GearDot.Color = Gear_Color
+    for I, Tooth in ipairs(Window_Drawings.GearTeeth) do
+        local A = (I - 1) * math.pi / 4
+        Tooth.From = Vector_2_Round(GX + math.cos(A) * 6, GY + math.sin(A) * 6)
+        Tooth.To = Vector_2_Round(GX + math.cos(A) * 9, GY + math.sin(A) * 9)
+        Tooth.Color = Gear_Color
+        Tooth.Visible = true
+    end
 
     local Profile_Click_Used = false
-    if Library_Data.Input.Mouse1Clicked then
+    if Library_Data.Input.Mouse1Clicked and not Library_Data.State.OverlayHit then
         local Profile_Card_Pos = Vector_2_Round(Pos_X + 8, Pos_Y + Size_Y - 70)
         local Profile_Card_Size = Vector_2_Round(134, 58)
         if Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Profile_Card_Pos, Profile_Card_Size) then
@@ -2600,10 +2734,10 @@ Connect_Session(Run_Service.RenderStepped, function()
     end
     if Profile_Click_Used then Library_Data.Input.Mouse1Clicked = false end
 
-    if Library_Data.Input.Mouse1Clicked and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Vector2.new(Pos_X, Pos_Y + 37), Vector2.new(150, Size_Y - 37)) then
+    if Library_Data.Input.Mouse1Clicked and not Library_Data.State.OverlayHit and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Vector2.new(Pos_X, Pos_Y + 37), Vector2.new(150, Size_Y - 37)) then
         for Tab_Index, Tab_Obj in ipairs(Library_Data.Tabs) do
             local Tab_Pos, Tab_Size = Get_Tab_Bounds(Pos_X, Pos_Y, Tab_Index)
-            if Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Tab_Pos, Tab_Size) then
+            if not Tab_Obj.Hidden and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Tab_Pos, Tab_Size) then
                 if Library_Data.CurrentTab ~= Tab_Obj then
                     Library_Data.CurrentTab = Tab_Obj
                     Close_Transient_Ui()
@@ -2667,7 +2801,7 @@ Connect_Session(Run_Service.RenderStepped, function()
     end
     
     if Library_Data.CurrentTab then
-        local Block_Input = Library_Data.State.Dragging or Library_Data.State.StatsDragging or Library_Data.State.KeybindContext.Open
+        local Block_Input = Library_Data.State.Dragging or Library_Data.State.KeybindContext.Open
         if Library_Data.State.ActiveDropdown then
             local Dropdown_Obj = Library_Data.State.ActiveDropdown
             if Library_Data.Input.Mouse1Clicked then
@@ -2755,6 +2889,21 @@ Connect_Session(Run_Service.RenderStepped, function()
                         Library_Data.State.ActiveColorDrag = "Hue"
                     elseif Is_Mouse_In_Bounds(MP, Picker_Obj.AlphaPos, Picker_Obj.AlphaSize) then
                         Library_Data.State.ActiveColorDrag = "Alpha"
+                    elseif Picker_Obj.SavePos and Is_Mouse_In_Bounds(MP, Picker_Obj.SavePos, Picker_Obj.SaveSize) then
+                        table.insert(Picker_Obj.SavedColors, 1, {Color = Config[Picker_Obj.Flag].Color, Alpha = Picker_Obj.Alpha})
+                        while #Picker_Obj.SavedColors > 6 do table.remove(Picker_Obj.SavedColors) end
+                    elseif (function()
+                        for I, Bounds in ipairs(Picker_Obj.SavedBounds or {}) do
+                            if Is_Mouse_In_Bounds(MP, Bounds.Pos, Bounds.Size) and Picker_Obj.SavedColors[I] then
+                                local Saved = Picker_Obj.SavedColors[I]
+                                Picker_Obj.Hue, Picker_Obj.Sat, Picker_Obj.Val = Color3_To_Hsv(Saved.Color)
+                                Picker_Obj.Alpha = Saved.Alpha
+                                Picker_Obj:SyncColor()
+                                return true
+                            end
+                        end
+                        return false
+                    end)() then
                     elseif Is_Mouse_In_Bounds(MP, Picker_Obj.HexPos, Picker_Obj.HexSize) then
                         Picker_Obj.HexEditing = true
                         Picker_Obj.HexBuffer = Color3_To_Hex(Config[Picker_Obj.Flag].Color):sub(2)
@@ -2908,20 +3057,25 @@ Connect_Session(Run_Service.RenderStepped, function()
     for Tab_Index, Tab_Obj in ipairs(Library_Data.Tabs) do
         local Is_Current = Tab_Obj == Library_Data.CurrentTab
         local Tab_Pos, Tab_Size = Get_Tab_Bounds(Pos_X, Pos_Y, Tab_Index)
-        local Is_Hovered = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Tab_Pos, Tab_Size)
+        local Is_Hovered = not Tab_Obj.Hidden and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Tab_Pos, Tab_Size)
+        if Tab_Obj.Hidden then
+            for _, Draw_Obj in ipairs({Tab_Obj.Border, Tab_Obj.Background, Tab_Obj.RailGlow, Tab_Obj.Indicator, Tab_Obj.Detail}) do Set_Visible(Draw_Obj, false) end
+            Tab_Obj.Label.Visible = false
+            Tab_Obj.IconDraw.Visible = false
+        end
         local Alpha_Target = Is_Current and 1 or (Is_Hovered and 0.38 or 0)
         Tab_Obj.BgAlpha = Math_Lerp(Tab_Obj.BgAlpha, Alpha_Target, 0.20)
         local Card_Color = Color_Lerp(Library_Data.Palette.Sidebar, Library_Data.Palette.Hover, Tab_Obj.BgAlpha * 0.57)
         local Border_Color = Library_Data.Palette.Outline
-        Update_Rounded_Box(Tab_Obj.Border, Tab_Pos, Tab_Size, 6, Border_Color, Is_Current and 0.44 or (Is_Hovered and 0.22 or 0), Is_Current or Is_Hovered)
-        Update_Rounded_Box(Tab_Obj.Background, Vector_2_Round(Tab_Pos.X + 1, Tab_Pos.Y + 1), Vector_2_Round(Tab_Size.X - 2, Tab_Size.Y - 2), 5, Card_Color, 1, true)
+        Update_Rounded_Box(Tab_Obj.Border, Tab_Pos, Tab_Size, 6, Border_Color, Is_Current and 0.44 or (Is_Hovered and 0.22 or 0), not Tab_Obj.Hidden and (Is_Current or Is_Hovered))
+        Update_Rounded_Box(Tab_Obj.Background, Vector_2_Round(Tab_Pos.X + 1, Tab_Pos.Y + 1), Vector_2_Round(Tab_Size.X - 2, Tab_Size.Y - 2), 5, Card_Color, 1, not Tab_Obj.Hidden)
         Update_Rounded_Box(Tab_Obj.RailGlow, Tab_Pos, Vector_2_Round(0, 0), 0, Library_Data.Palette.Accent, 0, false)
-        Update_Rounded_Box(Tab_Obj.Indicator, Vector_2_Round(Tab_Pos.X + 3, Tab_Pos.Y + 9), Vector_2_Round(2, Tab_Size.Y - 18), 1, Library_Data.Palette.Accent, 1, Is_Current)
+        Update_Rounded_Box(Tab_Obj.Indicator, Vector_2_Round(Tab_Pos.X + 3, Tab_Pos.Y + 9), Vector_2_Round(2, Tab_Size.Y - 18), 1, Library_Data.Palette.Accent, 1, Is_Current and not Tab_Obj.Hidden)
         Update_Rounded_Box(Tab_Obj.Detail, Tab_Pos, Vector_2_Round(0, 0), 0, Library_Data.Palette.Accent2, 0, false)
         Tab_Obj.CurrentColor = Color_Lerp(Tab_Obj.CurrentColor, Is_Current and Library_Data.Palette.Text or (Is_Hovered and Color_Lerp(Library_Data.Palette.SubText, Library_Data.Palette.Text, 0.65) or Library_Data.Palette.SubText), 0.23)
         Tab_Obj.IconDraw.Visible = false
-        Tab_Obj.Label.Visible = true
-        Position_Text(Tab_Obj.Label, Tab_Pos.X + 15, Tab_Pos.Y + 10, "SidebarTab")
+        Tab_Obj.Label.Visible = not Tab_Obj.Hidden
+        if not Tab_Obj.Hidden then Position_Text(Tab_Obj.Label, Tab_Pos.X + 15, Tab_Pos.Y + 10, "SidebarTab") end
         Tab_Obj.Label.Color = Tab_Obj.CurrentColor
         if not Is_Current then
             Hide_Tab_Content(Tab_Obj)
@@ -2961,6 +3115,7 @@ Connect_Session(Run_Service.RenderStepped, function()
                     if Item_Obj.Stroke then Set_Visible(Item_Obj.Stroke, false) end
                     if Item_Obj.Background then Set_Visible(Item_Obj.Background, false) end
                     if Item_Obj.Knob then Set_Visible(Item_Obj.Knob, false) end
+                    if Item_Obj.Accent then Item_Obj.Accent.Visible = false end
                     if Item_Obj.ListStroke then Set_Visible(Item_Obj.ListStroke, false) end
                     if Item_Obj.ListBackground then Set_Visible(Item_Obj.ListBackground, false) end
                     if Item_Obj.ButtonStroke then Set_Visible(Item_Obj.ButtonStroke, false) end
@@ -2971,6 +3126,13 @@ Connect_Session(Run_Service.RenderStepped, function()
                     if Item_Obj.PreviewStroke then Set_Visible(Item_Obj.PreviewStroke, false) end
                     if Item_Obj.Preview then Set_Visible(Item_Obj.Preview, false) end
                     if Item_Obj.PopupStroke then Set_Visible(Item_Obj.PopupStroke, false) end
+                    if Item_Obj.SavedCells then
+                        for _, Cell in ipairs(Item_Obj.SavedCells) do Set_Visible(Cell.Outline, false) Set_Visible(Cell.Background, false) end
+                    end
+                    if Item_Obj.SaveButton then Set_Visible(Item_Obj.SaveButton, false) end
+                    if Item_Obj.SaveButtonBorder then Set_Visible(Item_Obj.SaveButtonBorder, false) end
+                    if Item_Obj.SaveButtonText then Item_Obj.SaveButtonText.Visible = false end
+                    if Item_Obj.SavedLabel then Item_Obj.SavedLabel.Visible = false end
                     if Item_Obj.PopupBackground then Set_Visible(Item_Obj.PopupBackground, false) end
                     if Item_Obj.PopupSwatchStroke then Set_Visible(Item_Obj.PopupSwatchStroke, false) end
                     if Item_Obj.PopupSwatch then Set_Visible(Item_Obj.PopupSwatch, false) end
@@ -3001,7 +3163,7 @@ end
 
 local NightfallLibrary = {
     Name = "Nightfall",
-    Version = "1.0.7",
+    Version = "1.0.9",
     Config = Config,
     Flags = Config,
     State = Library_Data,
@@ -3147,6 +3309,7 @@ function NightfallLibrary:Window(Options)
         if type(Tab_Options) == "string" then Tab_Options = {Name = Tab_Options} end
         Tab_Options = Tab_Options or {}
         local Tab_Obj = Library_Data:CreateTab(Tab_Options.Name or "Tab", Tab_Options.Icon)
+        Tab_Obj.Hidden = Tab_Options.Hidden == true
         function Tab_Obj:Section(Section_Options)
             if type(Section_Options) == "string" then Section_Options = {Name = Section_Options} end
             Section_Options = Section_Options or {}
@@ -3156,6 +3319,106 @@ function NightfallLibrary:Window(Options)
     end
     return Window_Obj
 end
+
+function NightfallLibrary:CreatePanel(Options)
+    Options = Options or {}
+    local Width = Math_Clamp(tonumber(Options.Width) or (Options.Size and Options.Size.X) or 255, 180, 560)
+    local Height = Math_Clamp(tonumber(Options.Height) or (Options.Size and Options.Size.Y) or 170, 80, 700)
+    local Panel = {
+        Name = tostring(Options.Name or Options.Title or "Window"),
+        Size = Vector2.new(Width, Height),
+        Position = Clamp_Window_Position(Options.Position or Vector2.new(400, 300), Vector2.new(Width, Height)),
+        VisibleState = Options.Visible ~= false,
+        Dragging = false,
+        Items = {}, Drawings = {},
+        Outline = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
+        Background = Make_Rounded_Box(Library_Data.Palette.Background, 1),
+        Topline = Make_Gradient_Line(20),
+        Title = Create_Drawing("Text", {Size = 12, Font = 2, Outline = true, Visible = false}),
+        Rule = Create_Drawing("Square", {Filled = true, Visible = false})
+    }
+    Panel.Drawings = {Panel.Outline.Main, Panel.Background.Main, Panel.Title, Panel.Rule}
+    for _, D in ipairs({Panel.Outline, Panel.Background}) do Set_Drawing_Layer(D, 60) end
+    for _, Line in ipairs(Panel.Topline) do Set_Drawing_Layer(Line, 62) end
+    Set_Drawing_Layer(Panel.Title, 64)
+    Set_Drawing_Layer(Panel.Rule, 63)
+    function Panel:Visible(Value)
+        if Value == nil then return self.VisibleState end
+        self.VisibleState = not not Value
+        if not self.VisibleState then self.Dragging = false Hide_Floating_Window(self) end
+        return self
+    end
+    function Panel:SetTitle(Value) self.Name = tostring(Value) return self end
+    function Panel:SetPosition(X, Y)
+        if typeof(X) == "Vector2" then Y, X = X.Y, X.X end
+        self.Position = Clamp_Window_Position(Vector2.new(tonumber(X) or 0, tonumber(Y) or 0), self.Size)
+        return self
+    end
+    local function AddItem(Kind, Settings)
+        if type(Settings) == "string" then Settings = {Name = Settings} end
+        Settings = Settings or {}
+        local Item = {
+            Kind = Kind, Name = tostring(Settings.Name or "Item"), Value = Settings.Value,
+            Getter = Settings.Getter, Callback = Settings.Callback,
+            Outline = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
+            Background = Make_Rounded_Box(Library_Data.Palette.Element, 1),
+            Label = Create_Drawing("Text", {Size = 12, Font = 2, Visible = false}),
+            ValueText = Kind == "Button" and nil or Create_Drawing("Text", {Size = 12, Font = 2, Visible = false})
+        }
+        Set_Drawing_Layer(Item.Outline, 62)
+        Set_Drawing_Layer(Item.Background, 63)
+        Set_Drawing_Layer(Item.Label, 65)
+        if Item.ValueText then Set_Drawing_Layer(Item.ValueText, 65) end
+        function Item:Set(Value) self.Value = Value return self end
+        function Item:SetText(Text) self.Name = tostring(Text) return self end
+        table.insert(Panel.Items, Item)
+        Panel.Size = Vector2.new(Panel.Size.X, Fast_Max(Height, 54 + #Panel.Items * 34))
+        return Item
+    end
+    function Panel:Label(Settings) return AddItem("Label", Settings) end
+    function Panel:Button(Settings) return AddItem("Button", Settings) end
+    function Panel:Toggle(Settings) return AddItem("Toggle", Settings) end
+    function Panel:Destroy()
+        self:Visible(false)
+        for I = #Floating_Windows, 1, -1 do if Floating_Windows[I] == self then table.remove(Floating_Windows, I) end end
+        for _, D in ipairs({self.Outline, self.Background}) do
+            if D.Single then pcall(function() D.Single:Remove() end)
+            else for _, Part in pairs(D) do pcall(function() Part:Remove() end) end end
+        end
+        for _, Line in ipairs(self.Topline) do pcall(function() Line:Remove() end) end
+        pcall(function() self.Title:Remove() end)
+        pcall(function() self.Rule:Remove() end)
+        for _, Item in ipairs(self.Items) do
+            for _, Object in ipairs({Item.Outline, Item.Background}) do
+                for _, Part in pairs(Object) do if Part.Remove then pcall(function() Part:Remove() end) end end
+            end
+            if Item.Label then pcall(function() Item.Label:Remove() end) end
+            if Item.ValueText then pcall(function() Item.ValueText:Remove() end) end
+        end
+    end
+    table.insert(Floating_Windows, Panel)
+    return Panel
+end
+NightfallLibrary.CreateFloatingWindow = NightfallLibrary.CreatePanel
+NightfallLibrary.CreateOverlay = NightfallLibrary.CreatePanel
+
+local SettingWindow = NightfallLibrary:Window({})
+Settings_Tab = SettingWindow:Tab({Name = "Library Settings", Hidden = true})
+local Appearance = Settings_Tab:Section({Name = "Appearance", Side = "Left"})
+Appearance:Keybind({Name = "Menu Bind", Flag = "HideKeybind", Default = "F2"})
+Appearance:Toggle({Name = "Hotkey List", Flag = "ShowHotkeyList", Default = true})
+Appearance:Dropdown({Name = "Theme", Flag = "ThemePreset", Options = {"Nightfall", "Bloodmoon", "Ocean", "Mint"}, Default = "Nightfall"})
+Appearance:Colorpicker({Name = "Accent Color", Flag = "LibraryAccent", Default = Library_Data.Palette.Accent, Callback = function(Value)
+    if Value and Value.Color then Library_Data.Palette.Accent = Value.Color end
+end})
+local Files = Settings_Tab:Section({Name = "Configuration", Side = "Right"})
+Files:Textbox({Name = "Config Name", Flag = "ConfigName", Default = "default"})
+Files:Toggle({Name = "Auto Save", Flag = "AutoSaveConfig", Default = false})
+Files:Toggle({Name = "Auto Load", Flag = "AutoLoadConfig", Default = false})
+Files:Button({Name = "Save Config", Callback = function() Save_Current_Config() end})
+Files:Button({Name = "Load Config", Callback = function() Load_Named_Config(Config.ConfigName) end})
+Files:Button({Name = "Save Window Layout", Callback = function() Save_Layout() end})
+Library_Data.CurrentTab = nil
 
 function NightfallLibrary:Unload()
     Session.Active = false
