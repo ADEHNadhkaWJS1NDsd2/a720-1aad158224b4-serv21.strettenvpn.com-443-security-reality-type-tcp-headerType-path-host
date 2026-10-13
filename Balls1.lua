@@ -693,6 +693,51 @@ local function Hide_Gradient_Line(Items_Array)
     for _, It_Obj in ipairs(Items_Array) do It_Obj.Visible = false end
 end
 
+local function Make_Rounded_Gradient_Caps()
+    local Caps = {Left = {}, Right = {}}
+    for I_Idx = 1, 5 do
+        Caps.Left[I_Idx] = Create_Drawing("Square", {Filled = true, Visible = false})
+        Caps.Right[I_Idx] = Create_Drawing("Square", {Filled = true, Visible = false})
+    end
+    return Caps
+end
+
+local function Update_Rounded_Gradient(Items_Array, Caps, Pos_Val, Size_Val, C1_Val, C2_Val, Visible_State)
+    local W_Val = Math_Round(Size_Val.X)
+    local H_Val = Math_Round(Size_Val.Y)
+    if not Visible_State or W_Val < 18 or H_Val < 3 then
+        Hide_Gradient_Line(Items_Array)
+        for _, Cap_Val in ipairs(Caps.Left) do Cap_Val.Visible = false end
+        for _, Cap_Val in ipairs(Caps.Right) do Cap_Val.Visible = false end
+        return
+    end
+    local X_Val = Math_Round(Pos_Val.X)
+    local Y_Val = Math_Round(Pos_Val.Y)
+    Update_Gradient_Line(Items_Array, Vector_2_Round(X_Val + 7, Y_Val + 2), Vector_2_Round(W_Val - 14, 2), C1_Val, C2_Val, true)
+    local Curve_Y = {3, 2, 1, 0, 0}
+    for I_Idx = 1, 5 do
+        local L_X = X_Val + I_Idx + 1
+        local R_X = X_Val + W_Val - I_Idx - 2
+        local L_Cap = Caps.Left[I_Idx]
+        local R_Cap = Caps.Right[I_Idx]
+        local Cap_Y = Y_Val + 2 + Curve_Y[I_Idx]
+        L_Cap.Position = Vector_2_Round(L_X, Cap_Y)
+        R_Cap.Position = Vector_2_Round(R_X, Cap_Y)
+        L_Cap.Size = Vector_2_Round(1, 2)
+        R_Cap.Size = Vector_2_Round(1, 2)
+        L_Cap.Color = Color_Lerp(C1_Val, C2_Val, (L_X - X_Val + 0.5) / W_Val)
+        R_Cap.Color = Color_Lerp(C1_Val, C2_Val, (R_X - X_Val + 0.5) / W_Val)
+        L_Cap.Visible = true
+        R_Cap.Visible = true
+    end
+end
+
+local function Hide_Rounded_Gradient(Items_Array, Caps)
+    Hide_Gradient_Line(Items_Array)
+    for _, Cap_Val in ipairs(Caps.Left) do Cap_Val.Visible = false end
+    for _, Cap_Val in ipairs(Caps.Right) do Cap_Val.Visible = false end
+end
+
 local function Make_Stripe_Pattern(Count_Val, Thickness_Val)
     local Items_Array = {}
     for I_Idx = 1, Count_Val do
@@ -1127,6 +1172,7 @@ local Keybinds_Drawings = {
     Outline = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
     Background = Make_Rounded_Box(Library_Data.Palette.Background, 1),
     Topline = Make_Gradient_Line(20),
+    ToplineCaps = Make_Rounded_Gradient_Caps(),
     HeaderLine = Create_Drawing("Square", {Color = Library_Data.Palette.Outline, Filled = true, Visible = false}),
     TitleIcon = Create_Keybind_Image_Icon(18),
     Title = Create_Drawing("Text", {Text = "HOTKEYS", Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
@@ -1621,7 +1667,7 @@ end
 local function Hide_Hotkeys_Drawings()
     Update_Rounded_Box(Keybinds_Drawings.Outline, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
     Update_Rounded_Box(Keybinds_Drawings.Background, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-    Hide_Gradient_Line(Keybinds_Drawings.Topline)
+    Hide_Rounded_Gradient(Keybinds_Drawings.Topline, Keybinds_Drawings.ToplineCaps)
     Keybinds_Drawings.HeaderLine.Visible = false
     Update_Keybind_Image_Icon(Keybinds_Drawings.TitleIcon, Vector_2_Round(0, 0), Library_Data.Palette.Accent, false)
     Keybinds_Drawings.Title.Visible = false
@@ -1987,7 +2033,7 @@ Connect_Session(Run_Service.RenderStepped, function()
         Library_Data.HotkeysPosition = Binds_Pos
         Update_Rounded_Box(Keybinds_Drawings.Outline, Binds_Pos, Binds_Size, 8, Library_Data.Palette.Outline, 1, true)
         Update_Rounded_Box(Keybinds_Drawings.Background, Vector_2_Round(Binds_Pos.X + 1, Binds_Pos.Y + 1), Vector_2_Round(Binds_Size.X - 2, Binds_Size.Y - 2), 8, Library_Data.Palette.Background, 1, true)
-        Update_Gradient_Line(Keybinds_Drawings.Topline, Vector_2_Round(Binds_Pos.X + 3, Binds_Pos.Y + 2), Vector_2_Round(Binds_Size.X - 6, 2), Library_Data.Palette.Accent, Library_Data.Palette.Accent2, true)
+        Update_Rounded_Gradient(Keybinds_Drawings.Topline, Keybinds_Drawings.ToplineCaps, Binds_Pos, Binds_Size, Library_Data.Palette.Accent, Library_Data.Palette.Accent2, true)
         Keybinds_Drawings.HeaderLine.Visible = true
         Keybinds_Drawings.HeaderLine.Position = Vector_2_Round(Binds_Pos.X + 8, Binds_Pos.Y + 30)
         Keybinds_Drawings.HeaderLine.Size = Vector_2_Round(Binds_Size.X - 16, 1)
