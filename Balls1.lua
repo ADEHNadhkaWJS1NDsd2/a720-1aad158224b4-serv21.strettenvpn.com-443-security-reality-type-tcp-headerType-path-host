@@ -1117,7 +1117,7 @@ local Stats_Drawings = {
     Dot = Create_Drawing("Text", {Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false})
 }
 
-local Tab_Style = {X = 7, Y = 46, W = 136, H = 35, Gap = 6}
+local Tab_Style = {X = 9, Y = 47, W = 132, H = 34, Gap = 5}
 
 local function Get_Tab_Bounds(X_Val, Y_Val, Index_Val)
     return Vector_2_Round(X_Val + Tab_Style.X, Y_Val + Tab_Style.Y + (Index_Val - 1) * (Tab_Style.H + Tab_Style.Gap)), Vector_2_Round(Tab_Style.W, Tab_Style.H)
@@ -1987,7 +1987,7 @@ Connect_Session(Run_Service.RenderStepped, function()
         Library_Data.HotkeysPosition = Binds_Pos
         Update_Rounded_Box(Keybinds_Drawings.Outline, Binds_Pos, Binds_Size, 8, Library_Data.Palette.Outline, 1, true)
         Update_Rounded_Box(Keybinds_Drawings.Background, Vector_2_Round(Binds_Pos.X + 1, Binds_Pos.Y + 1), Vector_2_Round(Binds_Size.X - 2, Binds_Size.Y - 2), 8, Library_Data.Palette.Background, 1, true)
-        Update_Gradient_Line(Keybinds_Drawings.Topline, Vector_2_Round(Binds_Pos.X + 9, Binds_Pos.Y + 2), Vector_2_Round(Binds_Size.X - 18, 2), Library_Data.Palette.Accent, Library_Data.Palette.Accent2, true)
+        Update_Gradient_Line(Keybinds_Drawings.Topline, Vector_2_Round(Binds_Pos.X + 3, Binds_Pos.Y + 2), Vector_2_Round(Binds_Size.X - 6, 2), Library_Data.Palette.Accent, Library_Data.Palette.Accent2, true)
         Keybinds_Drawings.HeaderLine.Visible = true
         Keybinds_Drawings.HeaderLine.Position = Vector_2_Round(Binds_Pos.X + 8, Binds_Pos.Y + 30)
         Keybinds_Drawings.HeaderLine.Size = Vector_2_Round(Binds_Size.X - 16, 1)
@@ -2462,20 +2462,19 @@ Connect_Session(Run_Service.RenderStepped, function()
         local Is_Current = Tab_Obj == Library_Data.CurrentTab
         local Tab_Pos, Tab_Size = Get_Tab_Bounds(Pos_X, Pos_Y, Tab_Index)
         local Is_Hovered = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Tab_Pos, Tab_Size)
-        local Alpha_Target = Is_Current and 1 or (Is_Hovered and 0.55 or 0.12)
-        Tab_Obj.BgAlpha = Math_Lerp(Tab_Obj.BgAlpha, Alpha_Target, 0.22)
-        local Card_Color = Color_Lerp(Library_Data.Palette.Sidebar, Library_Data.Palette.Hover, Tab_Obj.BgAlpha)
-        if Is_Current then Card_Color = Color_Lerp(Card_Color, Library_Data.Palette.Accent, 0.065) end
-        local Border_Color = Color_Lerp(Library_Data.Palette.Outline, Library_Data.Palette.Accent, Is_Current and 0.27 or (Is_Hovered and 0.10 or 0))
-        Update_Rounded_Box(Tab_Obj.Border, Tab_Pos, Tab_Size, 7, Border_Color, Is_Current and 0.82 or (Is_Hovered and 0.45 or 0.22), true)
-        Update_Rounded_Box(Tab_Obj.Background, Vector_2_Round(Tab_Pos.X + 1, Tab_Pos.Y + 1), Vector_2_Round(Tab_Size.X - 2, Tab_Size.Y - 2), 6, Card_Color, 1, true)
-        Update_Rounded_Box(Tab_Obj.RailGlow, Vector_2_Round(Tab_Pos.X + 4, Tab_Pos.Y + 6), Vector_2_Round(7, Tab_Size.Y - 12), 3, Library_Data.Palette.Accent, Is_Current and 0.14 or 0, Is_Current)
-        Update_Rounded_Box(Tab_Obj.Indicator, Vector_2_Round(Tab_Pos.X + 6, Tab_Pos.Y + 9), Vector_2_Round(3, Tab_Size.Y - 18), 2, Library_Data.Palette.Accent, 1, Is_Current)
-        Update_Rounded_Box(Tab_Obj.Detail, Vector_2_Round(Tab_Pos.X + Tab_Size.X - 14, Tab_Pos.Y + Math_Round(Tab_Size.Y / 2) - 2), Vector_2_Round(4, 4), 2, Is_Current and Library_Data.Palette.Accent2 or Library_Data.Palette.SubText, Is_Current and 0.90 or (Is_Hovered and 0.45 or 0.17), true)
+        local Alpha_Target = Is_Current and 1 or (Is_Hovered and 0.38 or 0)
+        Tab_Obj.BgAlpha = Math_Lerp(Tab_Obj.BgAlpha, Alpha_Target, 0.20)
+        local Card_Color = Color_Lerp(Library_Data.Palette.Sidebar, Library_Data.Palette.Hover, Tab_Obj.BgAlpha * 0.57)
+        local Border_Color = Library_Data.Palette.Outline
+        Update_Rounded_Box(Tab_Obj.Border, Tab_Pos, Tab_Size, 6, Border_Color, Is_Current and 0.44 or (Is_Hovered and 0.22 or 0), Is_Current or Is_Hovered)
+        Update_Rounded_Box(Tab_Obj.Background, Vector_2_Round(Tab_Pos.X + 1, Tab_Pos.Y + 1), Vector_2_Round(Tab_Size.X - 2, Tab_Size.Y - 2), 5, Card_Color, 1, true)
+        Update_Rounded_Box(Tab_Obj.RailGlow, Tab_Pos, Vector_2_Round(0, 0), 0, Library_Data.Palette.Accent, 0, false)
+        Update_Rounded_Box(Tab_Obj.Indicator, Vector_2_Round(Tab_Pos.X + 3, Tab_Pos.Y + 9), Vector_2_Round(2, Tab_Size.Y - 18), 1, Library_Data.Palette.Accent, 1, Is_Current)
+        Update_Rounded_Box(Tab_Obj.Detail, Tab_Pos, Vector_2_Round(0, 0), 0, Library_Data.Palette.Accent2, 0, false)
         Tab_Obj.CurrentColor = Color_Lerp(Tab_Obj.CurrentColor, Is_Current and Library_Data.Palette.Text or (Is_Hovered and Color_Lerp(Library_Data.Palette.SubText, Library_Data.Palette.Text, 0.65) or Library_Data.Palette.SubText), 0.23)
         Tab_Obj.IconDraw.Visible = false
         Tab_Obj.Label.Visible = true
-        Position_Text(Tab_Obj.Label, Tab_Pos.X + 19, Tab_Pos.Y + 10, "SidebarTab")
+        Position_Text(Tab_Obj.Label, Tab_Pos.X + 15, Tab_Pos.Y + 10, "SidebarTab")
         Tab_Obj.Label.Color = Tab_Obj.CurrentColor
         if not Is_Current then
             Hide_Tab_Content(Tab_Obj)
