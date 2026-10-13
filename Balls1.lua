@@ -2,7 +2,6 @@ local Http_Service = game:GetService("HttpService")
 local Run_Service = game:GetService("RunService")
 local Players_Service = game:GetService("Players")
 local Workspace_Service = game:GetService("Workspace")
-local Stats_Service = game:GetService("Stats")
 local User_Input_Service = game:GetService("UserInputService")
 local Local_Player = Players_Service.LocalPlayer or Players_Service.PlayerAdded:Wait()
 local Local_Mouse = Local_Player:GetMouse()
@@ -258,8 +257,6 @@ end
 
 local function Color3_To_Hsv(Color_Val)
     if not Color_Val then return 0, 0, 1 end
-    local Ok_State, H_Val, S_Val, V_Val = pcall(function() return Color_Val:ToHSV() end)
-    if Ok_State then return H_Val, S_Val, V_Val end
     local R_Val, G_Val, B_Val = Color_Val.R, Color_Val.G, Color_Val.B
     local Max_C = Fast_Max(R_Val, G_Val, B_Val)
     local Min_C = math.min(R_Val, G_Val, B_Val)
@@ -790,6 +787,7 @@ local Library_Data = {
     Input = {
         MousePos = Vector2.new(0, 0),
         Mouse1Down = false, Mouse1Prev = false, Mouse1Clicked = false, Mouse1Released = false,
+        Mouse1EventDown = false, Mouse1ClickQueued = false, Mouse1ReleaseQueued = false,
         Mouse2Down = false, Mouse2Prev = false, Mouse2Clicked = false,
         Mouse4Down = false, Mouse4Prev = false, Mouse4Clicked = false, Mouse4Released = false,
         Mouse5Down = false, Mouse5Prev = false, Mouse5Clicked = false, Mouse5Released = false,
@@ -1409,8 +1407,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
         end
         function Section_Obj:CreateColorPicker(Name_Val, Flag_Val, Default_Color, Default_Alpha, Callback_Func)
             local Initial_Color = Default_Color or Library_Data.Palette.Accent
-            local Initial_Alpha = Default_Alpha
-            if Initial_Alpha == nil then Initial_Alpha = 1 end
+            local Initial_Alpha = Default_Alpha == nil and 1 or Default_Alpha
             if type(Config[Flag_Val]) ~= "table" or not Config[Flag_Val].Color then
                 Config[Flag_Val] = {Color = Initial_Color, Alpha = Math_Clamp(Initial_Alpha, 0, 1)}
             end
@@ -1419,38 +1416,51 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 Type = "ColorPicker", Height = 36, Flag = Flag_Val, Callback = Callback_Func,
                 IsOpen = false, Hue = H_Val, Sat = S_Val, Val = V_Val,
                 Alpha = Math_Clamp(Config[Flag_Val].Alpha or 1, 0, 1),
-                GridCols = 16, GridRows = 10, HueSteps = 16,
+                HexEditing = false, HexBuffer = "",
+                GridCols = 22, GridRows = 12, HueSteps = 30, AlphaSteps = 30,
                 Label = Create_Drawing("Text", {Text = Name_Val, Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 Stroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
                 Background = Make_Rounded_Box(Library_Data.Palette.Element, 1),
                 PreviewStroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
                 Preview = Make_Rounded_Box(Config[Flag_Val].Color, 1),
                 PreviewText = Create_Drawing("Text", {Color = Library_Data.Palette.SubText, Size = 11, Font = 2, Outline = true, Visible = false}),
-                PopupStroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
+                PopupShadow = Make_Rounded_Box(Color3.new(0, 0, 0), 0.36),
+                PopupStroke = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
                 PopupBackground = Make_Rounded_Box(Library_Data.Palette.Background, 1),
-                PopupSwatchStroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
+                PopupTitle = Create_Drawing("Text", {Text = "COLOR PICKER", Color = Library_Data.Palette.Text, Size = 12, Outline = true, Visible = false}),
+                PopupHint = Create_Drawing("Text", {Text = "HSV  /  ALPHA", Color = Library_Data.Palette.SubText, Size = 10, Visible = false}),
+                PopupRule = Create_Drawing("Square", {Filled = true, Visible = false}),
+                PopupSwatchStroke = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
                 PopupSwatch = Make_Rounded_Box(Config[Flag_Val].Color, 1),
-                PopupHex = Create_Drawing("Text", {Color = Library_Data.Palette.Text, Size = 11, Font = 2, Outline = true, Visible = false}),
-                SVStroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
+                PopupHex = Create_Drawing("Text", {Color = Library_Data.Palette.Text, Size = 11, Outline = true, Visible = false}),
+                HexStroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
+                HexBackground = Make_Rounded_Box(Library_Data.Palette.Element, 1),
+                SVStroke = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
                 HueStroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
-                SVGrid = Create_Grid_Squares(16 * 10), HueGrid = Create_Grid_Squares(16),
-                CursorOuter = Create_Drawing("Circle", {Filled = false, Thickness = 2, Transparency = 1, NumSides = 24, Radius = 6, Visible = false}),
-                CursorInner = Create_Drawing("Circle", {Filled = false, Thickness = 1, Transparency = 1, NumSides = 24, Radius = 4, Visible = false}),
-                HueLine = Create_Drawing("Line", {Thickness = 2, Transparency = 1, Visible = false}),
-                HueCapTop = Create_Drawing("Circle", {Filled = true, Transparency = 1, NumSides = 20, Radius = 3, Visible = false}),
-                HueCapBottom = Create_Drawing("Circle", {Filled = true, Transparency = 1, NumSides = 20, Radius = 3, Visible = false}),
+                AlphaStroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
+                SVGrid = Create_Grid_Squares(22 * 12),
+                HueGrid = Create_Grid_Squares(30),
+                AlphaGrid = Create_Grid_Squares(30),
+                CursorOuter = Create_Drawing("Circle", {Filled = false, Thickness = 2, NumSides = 28, Radius = 6, Visible = false}),
+                CursorInner = Create_Drawing("Circle", {Filled = false, Thickness = 1, NumSides = 28, Radius = 4, Visible = false}),
+                HueCursor = Create_Drawing("Square", {Filled = true, Visible = false}),
+                AlphaCursor = Create_Drawing("Square", {Filled = true, Visible = false}),
                 ButtonPos = Vector2.new(), ButtonSize = Vector2.new(),
                 PopupPos = Vector2.new(), PopupSize = Vector2.new(),
                 SVPos = Vector2.new(), SVSize = Vector2.new(),
-                HuePos = Vector2.new(), HueSize = Vector2.new()
+                HuePos = Vector2.new(), HueSize = Vector2.new(),
+                AlphaPos = Vector2.new(), AlphaSize = Vector2.new(),
+                HexPos = Vector2.new(), HexSize = Vector2.new()
             }
-            for _, Popup_Name in ipairs({"PopupStroke", "PopupBackground", "PopupSwatchStroke", "PopupSwatch", "SVStroke", "HueStroke"}) do
-                Set_Drawing_Layer(Color_Picker[Popup_Name], 15)
-            end
-            for _, Square_Obj in ipairs(Color_Picker.SVGrid) do Set_Drawing_Layer(Square_Obj, 16) end
-            for _, Square_Obj in ipairs(Color_Picker.HueGrid) do Set_Drawing_Layer(Square_Obj, 16) end
-            for _, Cursor_Name in ipairs({"CursorOuter", "CursorInner", "HueLine", "HueCapTop", "HueCapBottom", "PopupHex"}) do
-                Set_Drawing_Layer(Color_Picker[Cursor_Name], 17)
+            local Rounded_Parts = {"PopupShadow", "PopupStroke", "PopupBackground", "PopupSwatchStroke", "PopupSwatch", "HexStroke", "HexBackground", "SVStroke", "HueStroke", "AlphaStroke"}
+            local Text_Parts = {"PopupTitle", "PopupHint", "PopupHex", "PopupRule"}
+            for _, Part_Name in ipairs(Rounded_Parts) do Set_Drawing_Layer(Color_Picker[Part_Name], 45) end
+            for _, Part_Name in ipairs(Text_Parts) do Set_Drawing_Layer(Color_Picker[Part_Name], 48) end
+            for _, Item_Draw in ipairs(Color_Picker.SVGrid) do Set_Drawing_Layer(Item_Draw, 46) end
+            for _, Item_Draw in ipairs(Color_Picker.HueGrid) do Set_Drawing_Layer(Item_Draw, 46) end
+            for _, Item_Draw in ipairs(Color_Picker.AlphaGrid) do Set_Drawing_Layer(Item_Draw, 46) end
+            for _, Part_Name in ipairs({"CursorOuter", "CursorInner", "HueCursor", "AlphaCursor"}) do
+                Set_Drawing_Layer(Color_Picker[Part_Name], 47)
             end
             function Color_Picker:SyncColor()
                 local State_Val = Config[self.Flag]
@@ -1460,70 +1470,139 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 if self.Callback then self.Callback(State_Val) end
                 Queue_Save_Config()
             end
+            function Color_Picker:CommitHex()
+                local Cleaned = tostring(self.HexBuffer or ""):gsub("#", "")
+                if #Cleaned == 6 and Cleaned:match("^%x%x%x%x%x%x$") then
+                    local R = tonumber(Cleaned:sub(1, 2), 16)
+                    local G = tonumber(Cleaned:sub(3, 4), 16)
+                    local B = tonumber(Cleaned:sub(5, 6), 16)
+                    if R and G and B then
+                        self.Hue, self.Sat, self.Val = Color3_To_Hsv(Color3.fromRGB(R, G, B))
+                        self:SyncColor()
+                    end
+                end
+                self.HexEditing = false
+                self.HexBuffer = ""
+            end
+            function Color_Picker:HidePopup()
+                if not self._PopupDrawn then return end
+                self._PopupDrawn = false
+                self._SVGridHue = nil
+                self._SVGridPos = nil
+                self._HueGridPos = nil
+                self._AlphaGridPos = nil
+                for _, Part_Name in ipairs(Rounded_Parts) do
+                    local Obj = self[Part_Name]
+                    Update_Rounded_Box(Obj, Vector2.new(), Vector2.new(), 0, Library_Data.Palette.Background, 1, false)
+                end
+                for _, Part_Name in ipairs(Text_Parts) do self[Part_Name].Visible = false end
+                for _, Part_Name in ipairs({"CursorOuter", "CursorInner", "HueCursor", "AlphaCursor"}) do self[Part_Name].Visible = false end
+                Hide_Grid_Squares(self.SVGrid)
+                Hide_Grid_Squares(self.HueGrid)
+                Hide_Grid_Squares(self.AlphaGrid)
+            end
             function Color_Picker:Update(X_Val, Y_Val, W_Val)
                 local State_Val = Config[self.Flag]
                 local Current_Color = State_Val and State_Val.Color or Hsv_To_Color3(self.Hue, self.Sat, self.Val)
                 local Current_Hex = Color3_To_Hex(Current_Color)
+                self.Height = 36
                 self.Label.Visible = true
                 Position_Text(self.Label, X_Val + 2, Y_Val + 4, "ColorPickerLabel")
-                self.ButtonPos = Vector_2_Round(X_Val + W_Val - 84, Y_Val + 4)
-                self.ButtonSize = Vector_2_Round(80, 24)
-                Update_Rounded_Box(self.Stroke, self.ButtonPos, self.ButtonSize, 4, self.IsOpen and Library_Data.Palette.Accent or Library_Data.Palette.Outline, 1, true)
-                Update_Rounded_Box(self.Background, Vector_2_Round(self.ButtonPos.X + 1, self.ButtonPos.Y + 1), Vector_2_Round(self.ButtonSize.X - 2, self.ButtonSize.Y - 2), 4, Library_Data.Palette.Element, 1, true)
-                Update_Rounded_Box(self.PreviewStroke, Vector_2_Round(self.ButtonPos.X + 5, self.ButtonPos.Y + 5), Vector_2_Round(14, 14), 3, Library_Data.Palette.OutlineLight, 1, true)
-                Update_Rounded_Box(self.Preview, Vector_2_Round(self.ButtonPos.X + 6, self.ButtonPos.Y + 6), Vector_2_Round(12, 12), 2, Current_Color, Fast_Max(State_Val and State_Val.Alpha or 1, 0.15), true)
-                self.PreviewText.Visible = true
+                self.ButtonPos = Vector_2_Round(X_Val + W_Val - 91, Y_Val + 4)
+                self.ButtonSize = Vector2.new(87, 24)
+                Update_Rounded_Box(self.Stroke, self.ButtonPos, self.ButtonSize, 5, self.IsOpen and Library_Data.Palette.Accent or Library_Data.Palette.Outline, 1, true)
+                Update_Rounded_Box(self.Background, self.ButtonPos + Vector2.new(1, 1), self.ButtonSize - Vector2.new(2, 2), 4, Library_Data.Palette.Element, 1, true)
+                Update_Rounded_Box(self.PreviewStroke, self.ButtonPos + Vector2.new(5, 5), Vector2.new(16, 14), 3, Library_Data.Palette.OutlineLight, 1, true)
+                Update_Rounded_Box(self.Preview, self.ButtonPos + Vector2.new(6, 6), Vector2.new(14, 12), 2, Current_Color, 1, true)
                 self.PreviewText.Text = Current_Hex
-                self.PreviewText.Color = self.IsOpen and Library_Data.Palette.Text or Library_Data.Palette.SubText
-                Position_Text(self.PreviewText, self.ButtonPos.X + 24, self.ButtonPos.Y + 7, "ColorPickerValue")
-                if self.IsOpen then
-                    local Popup_W = 246
-                    local Popup_H = 160
-                    self.PopupPos = Vector_2_Round(X_Val + W_Val - Popup_W - 4, Y_Val + 32)
-                    self.PopupSize = Vector_2_Round(Popup_W, Popup_H)
-                    self.Height = 196
-                    Update_Rounded_Box(self.PopupStroke, self.PopupPos, self.PopupSize, 5, Library_Data.Palette.Outline, 1, true)
-                    Update_Rounded_Box(self.PopupBackground, Vector_2_Round(self.PopupPos.X + 1, self.PopupPos.Y + 1), Vector_2_Round(self.PopupSize.X - 2, self.PopupSize.Y - 2), 5, Library_Data.Palette.Background, 1, true)
-                    self.SVPos = Vector_2_Round(self.PopupPos.X + 10, self.PopupPos.Y + 10)
-                    self.SVSize = Vector_2_Round(226, 104)
-                    self.HuePos = Vector_2_Round(self.PopupPos.X + 10, self.PopupPos.Y + 124)
-                    self.HueSize = Vector_2_Round(226, 16)
-                    Update_Rounded_Box(self.SVStroke, Vector_2_Round(self.SVPos.X - 1, self.SVPos.Y - 1), Vector_2_Round(self.SVSize.X + 2, self.SVSize.Y + 2), 3, Library_Data.Palette.Outline, 1, true)
-                    Update_Rounded_Box(self.HueStroke, Vector_2_Round(self.HuePos.X - 1, self.HuePos.Y - 1), Vector_2_Round(self.HueSize.X + 2, self.HueSize.Y + 2), 3, Library_Data.Palette.Outline, 1, true)
-                    Update_Grid_Squares(self.SVGrid, self.GridCols, self.GridRows, self.SVPos.X, self.SVPos.Y, self.SVSize.X, self.SVSize.Y, function(Col_Val, Row_Val, Cols_Val, Rows_Val)
-                        local Sat_Val = (Col_Val - 1) / Fast_Max(Cols_Val - 1, 1)
-                        local Val_Val = 1 - ((Row_Val - 1) / Fast_Max(Rows_Val - 1, 1))
-                        return Hsv_To_Color3(self.Hue, Sat_Val, Val_Val)
+                self.PreviewText.Color = Library_Data.Palette.SubText
+                self.PreviewText.Visible = true
+                Position_Text(self.PreviewText, self.ButtonPos.X + 25, self.ButtonPos.Y + 7, "ColorPickerValue")
+                if not self.IsOpen then self:HidePopup() return end
+                local Width, Height = 264, 251
+                local Popup_X = self.ButtonPos.X + self.ButtonSize.X - Width
+                local Popup_Y = self.ButtonPos.Y + self.ButtonSize.Y + 7
+                local Camera_Val = Workspace_Service.CurrentCamera
+                local View = Camera_Val and Camera_Val.ViewportSize or Vector2.new(1920, 1080)
+                if Popup_X + Width > View.X - 6 then Popup_X = View.X - Width - 6 end
+                if Popup_X < 6 then Popup_X = 6 end
+                if Popup_Y + Height > View.Y - 6 then Popup_Y = self.ButtonPos.Y - Height - 7 end
+                Popup_Y = Math_Clamp(Popup_Y, 6, Fast_Max(6, View.Y - Height - 6))
+                self.PopupPos = Vector_2_Round(Popup_X, Popup_Y)
+                self.PopupSize = Vector2.new(Width, Height)
+                self._PopupDrawn = true
+                local PX, PY = self.PopupPos.X, self.PopupPos.Y
+                Update_Rounded_Box(self.PopupShadow, Vector2.new(PX - 3, PY - 3), Vector2.new(Width + 6, Height + 6), 8, Color3.new(0, 0, 0), 0.38, true)
+                Update_Rounded_Box(self.PopupStroke, self.PopupPos, self.PopupSize, 7, Library_Data.Palette.OutlineLight, 1, true)
+                Update_Rounded_Box(self.PopupBackground, self.PopupPos + Vector2.new(1, 1), self.PopupSize - Vector2.new(2, 2), 7, Library_Data.Palette.Background, 1, true)
+                self.PopupTitle.Visible = true
+                Position_Text(self.PopupTitle, PX + 13, PY + 12)
+                self.PopupHint.Visible = true
+                Position_Text(self.PopupHint, PX + 173, PY + 14)
+                self.PopupRule.Visible = true
+                self.PopupRule.Color = Library_Data.Palette.Outline
+                self.PopupRule.Position = Vector2.new(PX + 10, PY + 33)
+                self.PopupRule.Size = Vector2.new(Width - 20, 1)
+                self.SVPos = Vector2.new(PX + 12, PY + 44)
+                self.SVSize = Vector2.new(240, 116)
+                Update_Rounded_Box(self.SVStroke, self.SVPos - Vector2.new(1, 1), self.SVSize + Vector2.new(2, 2), 3, Library_Data.Palette.OutlineLight, 1, true)
+                if self._SVGridHue ~= self.Hue or self._SVGridPos ~= tostring(PX) .. ":" .. tostring(PY) then
+                    Update_Grid_Squares(self.SVGrid, self.GridCols, self.GridRows, self.SVPos.X, self.SVPos.Y, self.SVSize.X, self.SVSize.Y, function(Col, Row, Cols, Rows)
+                        local S = (Col - 0.5) / Cols
+                        local V = 1 - (Row - 0.5) / Rows
+                        return Hsv_To_Color3(self.Hue, S, V)
                     end, true)
-                    Update_Grid_Squares(self.HueGrid, self.HueSteps, 1, self.HuePos.X, self.HuePos.Y, self.HueSize.X, self.HueSize.Y, function(Col_Val, _, Cols_Val)
-                        local Hh_Val = (Col_Val - 1) / Fast_Max(Cols_Val - 1, 1)
-                        return Hsv_To_Color3(Hh_Val, 1, 1)
-                    end, true)
-                    local Cursor_X = self.SVPos.X + (self.Sat * self.SVSize.X)
-                    local Cursor_Y = self.SVPos.Y + ((1 - self.Val) * self.SVSize.Y)
-                    self.CursorOuter.Visible = true self.CursorOuter.Color = Color3.new(0, 0, 0) self.CursorOuter.Position = Vector_2_Round(Cursor_X, Cursor_Y) self.CursorOuter.Radius = 6
-                    self.CursorInner.Visible = true self.CursorInner.Color = Color3.new(1, 1, 1) self.CursorInner.Position = Vector_2_Round(Cursor_X, Cursor_Y) self.CursorInner.Radius = 4
-                    local Hue_X = self.HuePos.X + (self.Hue * self.HueSize.X)
-                    self.HueLine.Visible = true self.HueLine.Color = Library_Data.Palette.Text
-                    self.HueLine.From = Vector_2_Round(Hue_X, self.HuePos.Y - 3) self.HueLine.To = Vector_2_Round(Hue_X, self.HuePos.Y + self.HueSize.Y + 3)
-                    self.HueCapTop.Visible = true self.HueCapTop.Color = Library_Data.Palette.Text self.HueCapTop.Position = Vector_2_Round(Hue_X, self.HuePos.Y - 3) self.HueCapTop.Radius = 3
-                    self.HueCapBottom.Visible = true self.HueCapBottom.Color = Library_Data.Palette.Text self.HueCapBottom.Position = Vector_2_Round(Hue_X, self.HuePos.Y + self.HueSize.Y + 3) self.HueCapBottom.Radius = 3
-                    Update_Rounded_Box(self.PopupSwatchStroke, Vector_2_Round(self.PopupPos.X + 10, self.PopupPos.Y + 146), Vector_2_Round(22, 8), 2, Library_Data.Palette.OutlineLight, 1, true)
-                    Update_Rounded_Box(self.PopupSwatch, Vector_2_Round(self.PopupPos.X + 11, self.PopupPos.Y + 147), Vector_2_Round(20, 6), 2, Current_Color, Fast_Max(State_Val and State_Val.Alpha or 1, 0.15), true)
-                    self.PopupHex.Visible = true self.PopupHex.Text = Current_Hex Position_Text(self.PopupHex, self.PopupPos.X + 38, self.PopupPos.Y + 144, "ColorPickerPopupHex")
-                else
-                    self.Height = 36
-                    Update_Rounded_Box(self.PopupStroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-                    Update_Rounded_Box(self.PopupBackground, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-                    Update_Rounded_Box(self.PopupSwatchStroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-                    Update_Rounded_Box(self.PopupSwatch, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-                    Update_Rounded_Box(self.SVStroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-                    Update_Rounded_Box(self.HueStroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-                    Hide_Grid_Squares(self.SVGrid or {}) Hide_Grid_Squares(self.HueGrid or {})
-                    self.CursorOuter.Visible = false self.CursorInner.Visible = false
-                    self.HueLine.Visible = false self.HueCapTop.Visible = false self.HueCapBottom.Visible = false
-                    self.PopupHex.Visible = false
+                    self._SVGridHue = self.Hue
+                    self._SVGridPos = tostring(PX) .. ":" .. tostring(PY)
                 end
+                self.HuePos = Vector2.new(PX + 12, PY + 173)
+                self.HueSize = Vector2.new(240, 12)
+                Update_Rounded_Box(self.HueStroke, self.HuePos - Vector2.new(1, 1), self.HueSize + Vector2.new(2, 2), 3, Library_Data.Palette.Outline, 1, true)
+                if self._HueGridPos ~= tostring(PX) .. ":" .. tostring(PY) then
+                    Update_Grid_Squares(self.HueGrid, self.HueSteps, 1, self.HuePos.X, self.HuePos.Y, self.HueSize.X, self.HueSize.Y, function(Col, _, Cols)
+                        return Hsv_To_Color3((Col - 0.5) / Cols, 1, 1)
+                    end, true)
+                    self._HueGridPos = tostring(PX) .. ":" .. tostring(PY)
+                end
+                self.AlphaPos = Vector2.new(PX + 12, PY + 195)
+                self.AlphaSize = Vector2.new(240, 12)
+                Update_Rounded_Box(self.AlphaStroke, self.AlphaPos - Vector2.new(1, 1), self.AlphaSize + Vector2.new(2, 2), 3, Library_Data.Palette.Outline, 1, true)
+                if self._AlphaGridPos ~= tostring(PX) .. ":" .. tostring(PY) or self._AlphaGridHex ~= Current_Hex then
+                    Update_Grid_Squares(self.AlphaGrid, self.AlphaSteps, 1, self.AlphaPos.X, self.AlphaPos.Y, self.AlphaSize.X, self.AlphaSize.Y, function(Col, _, Cols)
+                        local A = (Col - 0.5) / Cols
+                        return Color_Lerp(Library_Data.Palette.Element, Current_Color, A)
+                    end, true)
+                    self._AlphaGridPos = tostring(PX) .. ":" .. tostring(PY)
+                    self._AlphaGridHex = Current_Hex
+                end
+                self.CursorOuter.Visible = true
+                self.CursorOuter.Color = Color3.new(0, 0, 0)
+                self.CursorOuter.Position = Vector_2_Round(self.SVPos.X + self.Sat * self.SVSize.X, self.SVPos.Y + (1 - self.Val) * self.SVSize.Y)
+                self.CursorOuter.Radius = 6
+                self.CursorInner.Visible = true
+                self.CursorInner.Color = Color3.new(1, 1, 1)
+                self.CursorInner.Position = self.CursorOuter.Position
+                self.CursorInner.Radius = 4
+                local HX = Math_Clamp(self.Hue, 0, 1) * (self.HueSize.X - 2)
+                local AX = Math_Clamp(self.Alpha, 0, 1) * (self.AlphaSize.X - 2)
+                self.HueCursor.Visible = true
+                self.HueCursor.Position = Vector_2_Round(self.HuePos.X + HX, self.HuePos.Y - 3)
+                self.HueCursor.Size = Vector2.new(3, 18)
+                self.HueCursor.Color = Library_Data.Palette.Text
+                self.AlphaCursor.Visible = true
+                self.AlphaCursor.Position = Vector_2_Round(self.AlphaPos.X + AX, self.AlphaPos.Y - 3)
+                self.AlphaCursor.Size = Vector2.new(3, 18)
+                self.AlphaCursor.Color = Library_Data.Palette.Text
+                self.HexPos = Vector2.new(PX + 12, PY + 219)
+                self.HexSize = Vector2.new(171, 24)
+                Update_Rounded_Box(self.HexStroke, self.HexPos, self.HexSize, 4, self.HexEditing and Library_Data.Palette.Accent or Library_Data.Palette.Outline, 1, true)
+                Update_Rounded_Box(self.HexBackground, self.HexPos + Vector2.new(1, 1), self.HexSize - Vector2.new(2, 2), 4, Library_Data.Palette.Element, 1, true)
+                self.PopupHex.Visible = true
+                self.PopupHex.Text = self.HexEditing and ("#" .. tostring(self.HexBuffer) .. "_") or Current_Hex
+                self.PopupHex.Color = self.HexEditing and Library_Data.Palette.Text or Library_Data.Palette.SubText
+                Position_Text(self.PopupHex, self.HexPos.X + 9, self.HexPos.Y + 6)
+                Update_Rounded_Box(self.PopupSwatchStroke, Vector2.new(PX + 193, PY + 219), Vector2.new(59, 24), 4, Library_Data.Palette.Outline, 1, true)
+                Update_Rounded_Box(self.PopupSwatch, Vector2.new(PX + 194, PY + 220), Vector2.new(57, 22), 4, Current_Color, Math_Clamp(self.Alpha, 0.12, 1), true)
             end
             table.insert(self.Items, Color_Picker)
             return Color_Picker
@@ -1633,7 +1712,7 @@ for _, Overlay_Obj in pairs(Overlay_Menu_Drawings) do Set_Drawing_Layer(Overlay_
 
 local function Close_Transient_Ui()
     if Library_Data.State.ActiveDropdown then Library_Data.State.ActiveDropdown.IsOpen = false end
-    if Library_Data.State.ActiveColorPicker then Library_Data.State.ActiveColorPicker.IsOpen = false end
+    if Library_Data.State.ActiveColorPicker then Library_Data.State.ActiveColorPicker.IsOpen = false Library_Data.State.ActiveColorPicker.HexEditing = false end
     Library_Data.State.ActiveDropdown = nil
     Library_Data.State.ActiveSlider = nil
     if Library_Data.State.ActiveSliderInput then Commit_Slider_Input(Library_Data.State.ActiveSliderInput) end
@@ -1711,20 +1790,14 @@ local function Hide_Item(Item_Obj)
         if Item_Obj.ListBackground then Update_Rounded_Box(Item_Obj.ListBackground, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
         for _, Draw_Obj in ipairs(Item_Obj.OptionDrawings or {}) do Safe_Hide_Drawing(Draw_Obj) end
     elseif Item_Obj.Type == "ColorPicker" then
-        Safe_Hide_Drawing(Item_Obj.Label) Safe_Hide_Drawing(Item_Obj.PreviewText) Safe_Hide_Drawing(Item_Obj.PopupHex)
-        if Item_Obj.Stroke then Update_Rounded_Box(Item_Obj.Stroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if Item_Obj.Background then Update_Rounded_Box(Item_Obj.Background, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if Item_Obj.PreviewStroke then Update_Rounded_Box(Item_Obj.PreviewStroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if Item_Obj.Preview then Update_Rounded_Box(Item_Obj.Preview, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if Item_Obj.PopupStroke then Update_Rounded_Box(Item_Obj.PopupStroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if Item_Obj.PopupBackground then Update_Rounded_Box(Item_Obj.PopupBackground, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if Item_Obj.PopupSwatchStroke then Update_Rounded_Box(Item_Obj.PopupSwatchStroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if Item_Obj.PopupSwatch then Update_Rounded_Box(Item_Obj.PopupSwatch, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if Item_Obj.SVStroke then Update_Rounded_Box(Item_Obj.SVStroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if Item_Obj.HueStroke then Update_Rounded_Box(Item_Obj.HueStroke, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        Hide_Grid_Squares(Item_Obj.SVGrid or {}) Hide_Grid_Squares(Item_Obj.HueGrid or {})
-        Safe_Hide_Drawing(Item_Obj.CursorOuter) Safe_Hide_Drawing(Item_Obj.CursorInner)
-        Safe_Hide_Drawing(Item_Obj.HueLine) Safe_Hide_Drawing(Item_Obj.HueCapTop) Safe_Hide_Drawing(Item_Obj.HueCapBottom)
+        Item_Obj.IsOpen = false
+        Item_Obj.HexEditing = false
+        if Item_Obj.HidePopup then Item_Obj:HidePopup() end
+        Safe_Hide_Drawing(Item_Obj.Label)
+        Safe_Hide_Drawing(Item_Obj.PreviewText)
+        for _, Name in ipairs({"Stroke", "Background", "PreviewStroke", "Preview"}) do
+            if Item_Obj[Name] then Update_Rounded_Box(Item_Obj[Name], Vector2.new(), Vector2.new(), 0, Library_Data.Palette.Background, 1, false) end
+        end
     elseif Item_Obj.Type == "Keybind" then
         if Item_Obj.Icon then Update_Keybind_Image_Icon(Item_Obj.Icon, Vector_2_Round(0, 0), Library_Data.Palette.Accent, false) end
         Safe_Hide_Drawing(Item_Obj.Label) Safe_Hide_Drawing(Item_Obj.ValueLabel)
@@ -1851,9 +1924,37 @@ local function Get_Typed_Character(Key_Code)
 end
 
 Connect_Session(User_Input_Service.InputBegan, function(Input_Object, Game_Processed)
-    local Key_Code = Input_Object.KeyCode
+    local Key_Code = Input_Object and Input_Object.KeyCode
     if not Key_Code then return end
+    if Enum.KeyCode.MouseButton1 and Key_Code == Enum.KeyCode.MouseButton1 then
+        Library_Data.Input.Mouse1EventDown = true
+        Library_Data.Input.Mouse1ClickQueued = true
+        return
+    end
     Keys_Down[Key_Code] = true
+    local EditingPicker = Library_Data.State.ActiveColorPicker
+    if EditingPicker and EditingPicker.IsOpen and EditingPicker.HexEditing then
+        if Key_Code == Enum.KeyCode.Return or Key_Code == Enum.KeyCode.KeypadEnter then
+            EditingPicker:CommitHex()
+        elseif Key_Code == Enum.KeyCode.Escape then
+            EditingPicker.HexEditing = false
+            EditingPicker.HexBuffer = ""
+        elseif Key_Code == Enum.KeyCode.Backspace then
+            EditingPicker.HexBuffer = tostring(EditingPicker.HexBuffer or ""):sub(1, -2)
+        else
+            local Char = tostring(Key_Code.Name or "")
+            if #Char == 1 and Char:match("^[a-fA-F]$") then
+                if #EditingPicker.HexBuffer < 6 then EditingPicker.HexBuffer = EditingPicker.HexBuffer .. Char:upper() end
+            elseif #Char == 1 and Char:match("^%d$") then
+                if #EditingPicker.HexBuffer < 6 then EditingPicker.HexBuffer = EditingPicker.HexBuffer .. Char end
+            else
+                local D = {Zero = "0", One = "1", Two = "2", Three = "3", Four = "4", Five = "5", Six = "6", Seven = "7", Eight = "8", Nine = "9", KeypadZero = "0", KeypadOne = "1", KeypadTwo = "2", KeypadThree = "3", KeypadFour = "4", KeypadFive = "5", KeypadSix = "6", KeypadSeven = "7", KeypadEight = "8", KeypadNine = "9"}
+                local Ch = D[Char]
+                if Ch and #EditingPicker.HexBuffer < 6 then EditingPicker.HexBuffer = EditingPicker.HexBuffer .. Ch end
+            end
+        end
+        return
+    end
     if Game_Processed or not Library_Data.Visible then return end
     local Active_Slider = Library_Data.State.ActiveSliderInput
     local Active_Box = Library_Data.State.ActiveTextbox
@@ -1891,7 +1992,12 @@ Connect_Session(User_Input_Service.InputBegan, function(Input_Object, Game_Proce
 end)
 
 Connect_Session(User_Input_Service.InputEnded, function(Input_Object)
-    if Input_Object and Input_Object.KeyCode then Keys_Down[Input_Object.KeyCode] = false end
+    local Key_Code = Input_Object and Input_Object.KeyCode
+    if Enum.KeyCode.MouseButton1 and Key_Code == Enum.KeyCode.MouseButton1 then
+        Library_Data.Input.Mouse1EventDown = false
+        Library_Data.Input.Mouse1ReleaseQueued = true
+    end
+    if Key_Code then Keys_Down[Key_Code] = false end
 end)
 
 local Frame_Counter = 0
@@ -1910,6 +2016,9 @@ Connect_Session(Run_Service.RenderStepped, function()
         Library_Data.State.ActiveSlider = nil
         Library_Data.State.ActiveColorDrag = nil
         Library_Data.Input.Mouse1Prev = false
+        Library_Data.Input.Mouse1EventDown = false
+        Library_Data.Input.Mouse1ClickQueued = false
+        Library_Data.Input.Mouse1ReleaseQueued = false
         Library_Data.Input.Mouse2Prev = false
         Update_Keybinds()
         return
@@ -1917,11 +2026,14 @@ Connect_Session(Run_Service.RenderStepped, function()
 
     local Mouse_Pos = Vector2.new(Local_Mouse.X, Local_Mouse.Y)
     Library_Data.Input.MousePos = Mouse_Pos
-    local Mouse1_Down = ismouse1pressed and ismouse1pressed() or false
+    local PolledMouse1 = ismouse1pressed and ismouse1pressed() or false
+    local Mouse1_Down = (PolledMouse1 or Library_Data.Input.Mouse1EventDown) and not Library_Data.Input.Mouse1ReleaseQueued
     Library_Data.Input.Mouse1Down = Mouse1_Down
-    Library_Data.Input.Mouse1Clicked = Mouse1_Down and not Library_Data.Input.Mouse1Prev
-    Library_Data.Input.Mouse1Released = not Mouse1_Down and Library_Data.Input.Mouse1Prev
+    Library_Data.Input.Mouse1Clicked = (Mouse1_Down and not Library_Data.Input.Mouse1Prev) or Library_Data.Input.Mouse1ClickQueued
+    Library_Data.Input.Mouse1Released = (not Mouse1_Down and Library_Data.Input.Mouse1Prev) or Library_Data.Input.Mouse1ReleaseQueued
     Library_Data.Input.Mouse1Prev = Mouse1_Down
+    Library_Data.Input.Mouse1ClickQueued = false
+    Library_Data.Input.Mouse1ReleaseQueued = false
 
     Library_Data.Input.Mouse2Down = ismouse2pressed and ismouse2pressed() or false
     Library_Data.Input.Mouse2Clicked = Library_Data.Input.Mouse2Down and not Library_Data.Input.Mouse2Prev
@@ -2179,6 +2291,7 @@ Connect_Session(Run_Service.RenderStepped, function()
                            Library_Data.State.StatsDragging or 
                            Library_Data.State.ActiveSlider or 
                            Library_Data.State.ActiveColorDrag or 
+                           Library_Data.State.ActiveColorPicker or 
                            Library_Data.State.ActiveDropdown or 
                            Library_Data.State.ActiveKeybind or 
                            Library_Data.State.ActiveTextbox
@@ -2190,11 +2303,13 @@ Connect_Session(Run_Service.RenderStepped, function()
     if not Library_Data.State.Dragging then
         Library_Data.Position = Clamp_Window_Position(Library_Data.Position, Library_Data.Size)
     end
-    if Library_Data.Input.Mouse1Clicked and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Library_Data.Position, Vector2.new(Size_X, 36)) then
+    local OverHotkeys = Config.ShowHotkeyList and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Library_Data.HotkeysPosition, Vector2.new(Hotkeys_Size.X, 28))
+    local OverStats = Show_Stats and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Library_Data.StatsPosition, Vector2.new(Stats_Size.X, 36))
+    if Library_Data.Input.Mouse1Clicked and not Library_Data.State.ActiveColorPicker and not OverHotkeys and not OverStats and not Library_Data.State.HotkeysDragging and not Library_Data.State.StatsDragging and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Library_Data.Position, Vector2.new(Size_X, 36)) then
+        Close_Transient_Ui()
         Library_Data.State.Dragging = true
         Library_Data.State.DragStart = Library_Data.Input.MousePos
         Library_Data.State.WindowStart = Library_Data.TargetPosition
-        Close_Transient_Ui()
     end
     if Library_Data.Input.Mouse1Released then
         if Library_Data.State.Dragging then Save_Layout() end
@@ -2365,13 +2480,41 @@ Connect_Session(Run_Service.RenderStepped, function()
         end
         if Library_Data.State.ActiveColorPicker then
             local Picker_Obj = Library_Data.State.ActiveColorPicker
-            if Library_Data.Input.Mouse1Clicked and not Library_Data.State.ActiveColorDrag then
-                local Inside_Button = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Picker_Obj.ButtonPos, Picker_Obj.ButtonSize)
-                local Inside_Popup = Picker_Obj.IsOpen and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Picker_Obj.PopupPos, Picker_Obj.PopupSize)
-                if not Inside_Button and not Inside_Popup then
+            if Library_Data.Input.Mouse1Clicked then
+                local MP = Library_Data.Input.MousePos
+                local Inside_Button = Is_Mouse_In_Bounds(MP, Picker_Obj.ButtonPos, Picker_Obj.ButtonSize)
+                local Inside_Popup = Picker_Obj.IsOpen and Is_Mouse_In_Bounds(MP, Picker_Obj.PopupPos, Picker_Obj.PopupSize)
+                if Inside_Button then
                     Picker_Obj.IsOpen = false
+                    Picker_Obj.HexEditing = false
+                    Picker_Obj:HidePopup()
                     Library_Data.State.ActiveColorPicker = nil
+                    Library_Data.State.ActiveColorDrag = nil
+                    Block_Input = true
+                elseif Inside_Popup then
+                    if Is_Mouse_In_Bounds(MP, Picker_Obj.SVPos, Picker_Obj.SVSize) then
+                        Library_Data.State.ActiveColorDrag = "SV"
+                    elseif Is_Mouse_In_Bounds(MP, Picker_Obj.HuePos, Picker_Obj.HueSize) then
+                        Library_Data.State.ActiveColorDrag = "Hue"
+                    elseif Is_Mouse_In_Bounds(MP, Picker_Obj.AlphaPos, Picker_Obj.AlphaSize) then
+                        Library_Data.State.ActiveColorDrag = "Alpha"
+                    elseif Is_Mouse_In_Bounds(MP, Picker_Obj.HexPos, Picker_Obj.HexSize) then
+                        Picker_Obj.HexEditing = true
+                        Picker_Obj.HexBuffer = Color3_To_Hex(Config[Picker_Obj.Flag].Color):sub(2)
+                    elseif Picker_Obj.HexEditing then
+                        Picker_Obj:CommitHex()
+                    end
+                    Block_Input = true
+                else
+                    if Picker_Obj.HexEditing then Picker_Obj:CommitHex() end
+                    Picker_Obj.IsOpen = false
+                    Picker_Obj:HidePopup()
+                    Library_Data.State.ActiveColorPicker = nil
+                    Library_Data.State.ActiveColorDrag = nil
                 end
+            end
+            if Picker_Obj.IsOpen and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Picker_Obj.PopupPos, Picker_Obj.PopupSize) then
+                Block_Input = true
             end
         end
         if Library_Data.State.ActiveSliderInput and Library_Data.Input.Mouse1Clicked then
@@ -2419,21 +2562,19 @@ Connect_Session(Run_Service.RenderStepped, function()
                         end
                     elseif Item_Obj.Type == "ColorPicker" then
                         if Library_Data.Input.Mouse1Clicked and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Item_Obj.ButtonPos, Item_Obj.ButtonSize) then
-                            if Library_Data.State.ActiveColorPicker and Library_Data.State.ActiveColorPicker ~= Item_Obj then Library_Data.State.ActiveColorPicker.IsOpen = false end
+                            if Library_Data.State.ActiveColorPicker and Library_Data.State.ActiveColorPicker ~= Item_Obj then
+                                Library_Data.State.ActiveColorPicker.IsOpen = false
+                                Library_Data.State.ActiveColorPicker.HexEditing = false
+                            end
                             if Library_Data.State.ActiveSliderInput then Commit_Slider_Input(Library_Data.State.ActiveSliderInput) Library_Data.State.ActiveSliderInput = nil end
-                            Item_Obj.IsOpen = not Item_Obj.IsOpen
-                            Library_Data.State.ActiveColorPicker = Item_Obj.IsOpen and Item_Obj or nil
+                            Item_Obj.IsOpen = true
+                            Item_Obj.HexEditing = false
+                            Library_Data.State.ActiveColorPicker = Item_Obj
+                            Library_Data.State.ActiveColorDrag = nil
                             Library_Data.State.ActiveKeybind = nil
                             Library_Data.State.ActiveTextbox = nil
                             Library_Data.State.ActiveDropdown = nil
-                        elseif Item_Obj.IsOpen and Library_Data.Input.Mouse1Clicked then
-                            if Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Item_Obj.SVPos, Item_Obj.SVSize) then
-                                Library_Data.State.ActiveColorPicker = Item_Obj
-                                Library_Data.State.ActiveColorDrag = "SV"
-                            elseif Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Item_Obj.HuePos, Item_Obj.HueSize) then
-                                Library_Data.State.ActiveColorPicker = Item_Obj
-                                Library_Data.State.ActiveColorDrag = "Hue"
-                            end
+                            Block_Input = true
                         end
                     elseif Item_Obj.Type == "Keybind" then
                         if Library_Data.Input.Mouse1Clicked and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Item_Obj.ButtonPos, Item_Obj.ButtonSize) then
@@ -2487,6 +2628,9 @@ Connect_Session(Run_Service.RenderStepped, function()
             Picker_Obj:SyncColor()
         elseif Library_Data.State.ActiveColorDrag == "Hue" and Picker_Obj.HuePos and Picker_Obj.HueSize then
             Picker_Obj.Hue = Math_Clamp((Library_Data.Input.MousePos.X - Picker_Obj.HuePos.X) / Picker_Obj.HueSize.X, 0, 1)
+            Picker_Obj:SyncColor()
+        elseif Library_Data.State.ActiveColorDrag == "Alpha" and Picker_Obj.AlphaPos and Picker_Obj.AlphaSize then
+            Picker_Obj.Alpha = Math_Clamp((Library_Data.Input.MousePos.X - Picker_Obj.AlphaPos.X) / Picker_Obj.AlphaSize.X, 0, 1)
             Picker_Obj:SyncColor()
         end
     end
@@ -2672,6 +2816,9 @@ local function Wrap_Control(Control_Obj, Flag, Callback)
         elseif self.Type == "Keybind" then
             Value = Normalize_Keybind_Value(Value)
             Register_Keybind(Flag, Value, Get_Bind_Mode(Flag))
+        elseif self.Type == "ColorPicker" and type(Value) == "table" and Value.Color then
+            self.Hue, self.Sat, self.Val = Color3_To_Hsv(Value.Color)
+            self.Alpha = Math_Clamp(Value.Alpha or 1, 0, 1)
         end
         Config[Flag] = Value
         if not Silent then
