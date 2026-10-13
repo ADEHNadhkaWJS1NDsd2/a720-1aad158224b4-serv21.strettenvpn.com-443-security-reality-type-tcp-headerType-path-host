@@ -1125,6 +1125,8 @@ else
 end
 Config_Loaded = true
 Config.RenderBallStats = nil
+if Config.ShowWatermark == nil then Config.ShowWatermark = false end
+if Config.ShowNotifications == nil then Config.ShowNotifications = true end
 
 Register_Keybind("ParryKeybind", Config.ParryKeybind, Config.ParryBindMode)
 Register_Keybind("SpamKeybind", Config.SpamKeybind, Config.SpamBindMode)
@@ -1147,122 +1149,25 @@ local Window_Drawings = {
     GearBackground = Make_Rounded_Box(Library_Data.Palette.Element, 1),
     GearCenter = Create_Drawing("Circle", {Filled = false, Thickness = 2, Radius = 5, NumSides = 24, Color = Library_Data.Palette.Text, Visible = false}),
     GearDot = Create_Drawing("Circle", {Filled = true, Radius = 1.5, NumSides = 12, Color = Library_Data.Palette.Text, Visible = false}),
-    GearTeeth = {}
+    GearTeeth = {},
+    GearImage = nil
 }
 for I = 1, 8 do
     Window_Drawings.GearTeeth[I] = Create_Drawing("Line", {Thickness = 2, Color = Library_Data.Palette.Text, Visible = false})
 end
+local Gear_Icon_Base64 = "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABCklEQVR42u1Yyw6EMAi0xJuX/v9X9uLZPZlsjKsFphSyzM0YKcNQHi5LIpFIJBQoSGOt7cfT+1q3giZA0RWYTuBNtSEEpIdevzufW9sPqc2iceCa0z1O1LoV5F0hrfzcyGlTRqwA+uAepcJWIXgKWUaf2ytohFG3nZijxB3pEZ16tUyB8x0yJdmMnw7nRFCrpqgKoZxH3qvVU+2fNsxJo4lQIcQ4/ZQJuQ/M7s7hFSgWtZpr32wf8DDMFWRVQHXiaQr0ppzbWUg7jUpUGEbA6j5QZOdZBLwOdoSOSK+tnsXHvApJdgJtYCB94NuJ3r9zdzYlZFTsfx1q+ZudLFPmb8dpt9tUIpFIxMcH8Rigah7ey0AAAAAASUVORK5CYII="
+if type(base64decode) == "function" then
+    local Ok, Image = pcall(function()
+        local Obj = Create_Drawing("Image", {Visible = false, Size = Vector2.new(17, 17), ZIndex = 12})
+        Obj.Data = base64decode(Gear_Icon_Base64)
+        return Obj
+    end)
+    if Ok then Window_Drawings.GearImage = Image end
+end
+local Render_Decorations = function() end
 local Settings_Tab = nil
 local Previous_Main_Tab = nil
-local Floating_Windows = {}
-local function Is_Over_Floating_Window(MousePos)
-    for _, Panel in ipairs(Floating_Windows) do
-        if Panel.VisibleState and Is_Mouse_In_Bounds(MousePos, Panel.Position, Panel.Size) then return Panel end
-    end
-    return nil
-end
-local function Hide_Floating_Window(Panel)
-    Set_Visible(Panel.Outline, false)
-    Set_Visible(Panel.Background, false)
-    Hide_Gradient_Line(Panel.Topline)
-    Panel.Title.Visible = false
-    Panel.Rule.Visible = false
-    for _, Item in ipairs(Panel.Items) do
-        if Item.Background then Set_Visible(Item.Background, false) end
-        if Item.Fill then Set_Visible(Item.Fill, false) end
-        if Item.Outline then Set_Visible(Item.Outline, false) end
-        if Item.Label then Item.Label.Visible = false end
-        if Item.ValueText then Item.ValueText.Visible = false end
-    end
-end
-local function Render_Floating_Windows()
-    for _, Panel in ipairs(Floating_Windows) do
-        if not Panel.VisibleState then
-            Hide_Floating_Window(Panel)
-        else
-            if Library_Data.Input.Mouse1Released then Panel.Dragging = false end
-            if Panel.Dragging and Library_Data.Input.Mouse1Down then
-                Panel.Position = Clamp_Window_Position(Panel.StartPosition + (Library_Data.Input.MousePos - Panel.StartMouse), Panel.Size)
-            end
-            Panel.Position = Clamp_Window_Position(Panel.Position, Panel.Size)
-            local P, S = Panel.Position, Panel.Size
-            Update_Rounded_Box(Panel.Outline, P, S, 7, Library_Data.Palette.OutlineLight, 1, true)
-            Update_Rounded_Box(Panel.Background, P + Vector2.new(1, 1), S - Vector2.new(2, 2), 7, Library_Data.Palette.Background, 1, true)
-            Update_Gradient_Line(Panel.Topline, P + Vector2.new(2, 2), Vector2.new(S.X - 4, 2), Library_Data.Palette.Accent, Library_Data.Palette.Accent2, true)
-            Panel.Title.Text = Panel.Name
-            Panel.Title.Color = Library_Data.Palette.Text
-            Panel.Title.Visible = true
-            Position_Text(Panel.Title, P.X + 13, P.Y + 12)
-            Panel.Rule.Visible = true
-            Panel.Rule.Color = Library_Data.Palette.Outline
-            Panel.Rule.Position = Vector_2_Round(P.X + 10, P.Y + 37)
-            Panel.Rule.Size = Vector_2_Round(S.X - 20, 1)
-            for Index, Item in ipairs(Panel.Items) do
-                local Y = P.Y + 46 + (Index - 1) * 34
-                local ItemPos = Vector_2_Round(P.X + 11, Y)
-                local ItemSize = Vector_2_Round(S.X - 22, 29)
-                local Hover = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, ItemPos, ItemSize)
-                Update_Rounded_Box(Item.Outline, ItemPos, ItemSize, 5, Hover and Library_Data.Palette.OutlineLight or Library_Data.Palette.Outline, 1, true)
-                Update_Rounded_Box(Item.Background, ItemPos + Vector2.new(1, 1), ItemSize - Vector2.new(2, 2), 5, Hover and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
-                Item.HitPos, Item.HitSize = ItemPos, ItemSize
-                Item.Label.Text = Item.Name
-                Item.Label.Color = Item.Kind == "Button" and Library_Data.Palette.Text or Library_Data.Palette.SubText
-                Item.Label.Visible = true
-                if Item.Kind == "Button" then
-                    Item.HoverMix = Math_Lerp(Item.HoverMix or 0, Hover and 1 or 0, 0.22)
-                    local Width = math.max(0, (ItemSize.X - 2) * Item.HoverMix)
-                    Update_Rounded_Box(Item.Fill, Vector_2_Round(ItemPos.X + (ItemSize.X - Width) * 0.5, ItemPos.Y + 1), Vector_2_Round(Width, ItemSize.Y - 2), 4, Color_Lerp(Library_Data.Palette.Accent, Library_Data.Palette.Accent2, 0.22), 1, Width > 2)
-                    Item.Label.Color = Color_Lerp(Library_Data.Palette.Text, Color3.fromRGB(10, 11, 15), Math_Clamp((Item.HoverMix - 0.68) / 0.32, 0, 1))
-                    Item.Label.Center = true
-                    Position_Text_Centered(Item.Label, ItemPos, ItemSize)
-                else
-                    Item.Label.Center = false
-                    Position_Text(Item.Label, ItemPos.X + 9, ItemPos.Y + 8)
-                end
-                if Item.ValueText then
-                    local Value = Item.Getter and Item.Getter()
-                    if Value == nil then Value = Item.Value end
-                    if Item.Kind == "Toggle" then Value = Value and "ON" or "OFF" end
-                    Item.ValueText.Text = tostring(Value == nil and "" or Value)
-                    Item.ValueText.Color = Item.Kind == "Toggle" and (Value == "ON" and Library_Data.Palette.Accent or Library_Data.Palette.SubText) or Library_Data.Palette.Text
-                    Item.ValueText.Visible = true
-                    Item.ValueText.Center = false
-                    Position_Text(Item.ValueText, ItemPos.X + ItemSize.X - math.min(130, #Item.ValueText.Text * 6 + 5) - 7, ItemPos.Y + 8)
-                end
-            end
-        end
-    end
-end
-local function Handle_Floating_Inputs()
-    Library_Data.State.OverlayHit = false
-    if not Library_Data.Input.Mouse1Clicked then return end
-    local Panel = Is_Over_Floating_Window(Library_Data.Input.MousePos)
-    if not Panel then return end
-    Library_Data.State.OverlayHit = true
-    for _, Item in ipairs(Panel.Items) do
-        if Item.HitPos and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Item.HitPos, Item.HitSize) then
-            if Item.Kind == "Button" and Item.Callback then pcall(Item.Callback) end
-            if Item.Kind == "Toggle" then
-                local Value = Item.Getter and Item.Getter()
-                if Value == nil then Value = Item.Value end
-                Item.Value = not Value
-                if Item.Callback then pcall(Item.Callback, Item.Value) end
-            end
-            Library_Data.Input.Mouse1Clicked = false
-            return
-        end
-    end
-    if Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Panel.Position, Vector2.new(Panel.Size.X, 38)) then
-        Panel.Dragging = true
-        Panel.StartMouse = Library_Data.Input.MousePos
-        Panel.StartPosition = Panel.Position
-        Library_Data.Input.Mouse1Clicked = false
-    end
-end
-
-
 local Tab_Style = {X = 9, Y = 47, W = 132, H = 34, Gap = 5}
-
 local function Get_Tab_Bounds(X_Val, Y_Val, Index_Val)
     local Shown = 0
     for I = 1, Index_Val do
@@ -1954,7 +1859,7 @@ end
                 self.PreviewText.Visible = true
                 Position_Text(self.PreviewText, self.ButtonPos.X + 25, self.ButtonPos.Y + 7, "ColorPickerValue")
                 if not self.IsOpen then self:HidePopup() return end
-                local Width, Height = 264, 315
+                local Width, Height = 276, 315
                 local Popup_X = self.ButtonPos.X + self.ButtonSize.X - Width
                 local Popup_Y = self.ButtonPos.Y + self.ButtonSize.Y + 7
                 local Camera_Val = Workspace_Service.CurrentCamera
@@ -1973,13 +1878,14 @@ end
                 self.PopupTitle.Visible = true
                 Position_Text(self.PopupTitle, PX + 13, PY + 12)
                 self.PopupHint.Visible = true
-                Position_Text(self.PopupHint, PX + 173, PY + 14)
+                self.PopupHint.Text = "HSV / ALPHA"
+                Position_Text(self.PopupHint, PX + 180, PY + 14)
                 self.PopupRule.Visible = true
                 self.PopupRule.Color = Library_Data.Palette.Outline
                 self.PopupRule.Position = Vector2.new(PX + 10, PY + 33)
                 self.PopupRule.Size = Vector2.new(Width - 20, 1)
                 self.SVPos = Vector2.new(PX + 12, PY + 44)
-                self.SVSize = Vector2.new(240, 116)
+                self.SVSize = Vector2.new(252, 120)
                 Update_Rounded_Box(self.SVStroke, self.SVPos - Vector2.new(1, 1), self.SVSize + Vector2.new(2, 2), 4, Library_Data.Palette.OutlineLight, 1, true)
                 Update_Rounded_Box(self.SVBackground, self.SVPos, self.SVSize, 2, Hsv_To_Color3(self.Hue, 1, 1), 1, true)
                 Place_Picker_Image(self.SVOverlay, self.SVPos, self.SVSize, true)
@@ -1993,8 +1899,8 @@ end
                         self._SVGridPos = tostring(PX) .. ":" .. tostring(PY)
                     end
                 end
-                self.HuePos = Vector2.new(PX + 12, PY + 173)
-                self.HueSize = Vector2.new(240, 12)
+                self.HuePos = Vector2.new(PX + 12, PY + 178)
+                self.HueSize = Vector2.new(252, 10)
                 Update_Rounded_Box(self.HueStroke, self.HuePos - Vector2.new(1, 1), self.HueSize + Vector2.new(2, 2), 3, Library_Data.Palette.Outline, 1, true)
                 Update_Rounded_Box(self.HueBackground, self.HuePos, self.HueSize, 2, Library_Data.Palette.Element, 1, true)
                 Place_Picker_Image(self.HueOverlay, self.HuePos, self.HueSize, true)
@@ -2007,8 +1913,8 @@ end
                         self._HueGridPos = tostring(PX) .. ":" .. tostring(PY)
                     end
                 end
-                self.AlphaPos = Vector2.new(PX + 12, PY + 195)
-                self.AlphaSize = Vector2.new(240, 12)
+                self.AlphaPos = Vector2.new(PX + 12, PY + 200)
+                self.AlphaSize = Vector2.new(252, 10)
                 Update_Rounded_Box(self.AlphaStroke, self.AlphaPos - Vector2.new(1, 1), self.AlphaSize + Vector2.new(2, 2), 3, Library_Data.Palette.Outline, 1, true)
                 Update_Rounded_Box(self.AlphaBackground, self.AlphaPos, self.AlphaSize, 2, Library_Data.Palette.Element, 1, true)
                 Place_Picker_Image(self.AlphaChecker, self.AlphaPos, self.AlphaSize, true)
@@ -2041,19 +1947,19 @@ end
                 self.AlphaCursor.Position = Vector_2_Round(self.AlphaPos.X + AX - 2, self.AlphaPos.Y - 3)
                 self.AlphaCursor.Size = Vector2.new(5, 18)
                 self.AlphaCursor.Color = Library_Data.Palette.Text
-                self.HexPos = Vector2.new(PX + 12, PY + 219)
-                self.HexSize = Vector2.new(171, 24)
-                Update_Rounded_Box(self.HexStroke, self.HexPos, self.HexSize, 4, self.HexEditing and Library_Data.Palette.Accent or Library_Data.Palette.Outline, 1, true)
+                self.HexPos = Vector2.new(PX + 12, PY + 225)
+                self.HexSize = Vector2.new(181, 24)
+                Update_Rounded_Box(self.HexStroke, self.HexPos, self.HexSize, 4, self.HexEditing and Library_Data.Palette.OutlineLight or Library_Data.Palette.Outline, 1, true)
                 Update_Rounded_Box(self.HexBackground, self.HexPos + Vector2.new(1, 1), self.HexSize - Vector2.new(2, 2), 4, Library_Data.Palette.Element, 1, true)
                 self.PopupHex.Visible = true
-                self.PopupHex.Text = self.HexEditing and ("#" .. tostring(self.HexBuffer) .. "_") or Current_Hex
+                self.PopupHex.Text = self.HexEditing and ("#" .. tostring(self.HexBuffer) .. ((Fast_Tick() % 1 < 0.52) and "|" or "")) or Current_Hex
                 self.PopupHex.Color = self.HexEditing and Library_Data.Palette.Text or Library_Data.Palette.SubText
                 Position_Text(self.PopupHex, self.HexPos.X + 9, self.HexPos.Y + 6)
-                Update_Rounded_Box(self.PopupSwatchStroke, Vector2.new(PX + 193, PY + 219), Vector2.new(59, 24), 4, Library_Data.Palette.Outline, 1, true)
-                Update_Rounded_Box(self.PopupSwatch, Vector2.new(PX + 194, PY + 220), Vector2.new(57, 22), 4, Current_Color, Math_Clamp(self.Alpha, 0.12, 1), true)
+                Update_Rounded_Box(self.PopupSwatchStroke, Vector2.new(PX + 204, PY + 225), Vector2.new(60, 24), 4, Library_Data.Palette.Outline, 1, true)
+                Update_Rounded_Box(self.PopupSwatch, Vector2.new(PX + 205, PY + 226), Vector2.new(58, 22), 4, Current_Color, Math_Clamp(self.Alpha, 0.12, 1), true)
                 self.SavedLabel.Visible = true
-                Position_Text(self.SavedLabel, PX + 13, PY + 256)
-                local SavePos = Vector2.new(PX + 228, PY + 250)
+                Position_Text(self.SavedLabel, PX + 13, PY + 264)
+                local SavePos = Vector2.new(PX + 240, PY + 258)
                 local SaveSize = Vector2.new(24, 24)
                 local SaveHover = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, SavePos, SaveSize)
                 Update_Rounded_Box(self.SaveButtonBorder, SavePos, SaveSize, 4, SaveHover and Library_Data.Palette.Accent or Library_Data.Palette.OutlineLight, 1, true)
@@ -2062,7 +1968,7 @@ end
                 Position_Text_Centered(self.SaveButtonText, SavePos, SaveSize)
                 self.SavePos, self.SaveSize = SavePos, SaveSize
                 for I, SavedCell in ipairs(self.SavedCells) do
-                    local CellPos = Vector2.new(PX + 12 + (I - 1) * 39, PY + 278)
+                    local CellPos = Vector2.new(PX + 12 + (I - 1) * 42, PY + 285)
                     local CellSize = Vector2.new(33, 23)
                     local Saved = self.SavedColors[I]
                     Update_Rounded_Box(SavedCell.Outline, CellPos, CellSize, 4, Library_Data.Palette.OutlineLight, 1, true)
@@ -2123,14 +2029,10 @@ end
                 Update_Rounded_Box(self.Stroke, self.ButtonPos, self.ButtonSize, 5, Hovered_Val and Color_Lerp(Library_Data.Palette.OutlineLight, Library_Data.Palette.Accent, 0.36) or Library_Data.Palette.Outline, 1, true)
                 Update_Rounded_Box(self.Background, Vector_2_Round(self.ButtonPos.X + 1, self.ButtonPos.Y + 1), Vector_2_Round(self.ButtonSize.X - 2, self.ButtonSize.Y - 2), 4, Hovered_Val and Color_Lerp(Library_Data.Palette.Element, Library_Data.Palette.Hover, 0.80) or Color_Lerp(Library_Data.Palette.Element, Library_Data.Palette.Background, 0.12), 1, true)
                 self.Accent.Visible = false
-                self.HoverMix = Math_Lerp(self.HoverMix, Hovered_Val and 1 or 0, 0.22)
-                if self.HoverMix < 0.01 then self.HoverMix = 0 end
-                local FillWidth = (self.ButtonSize.X - 2) * self.HoverMix
-                local FillPos = Vector_2_Round(self.ButtonPos.X + (self.ButtonSize.X - FillWidth) * 0.5, self.ButtonPos.Y + 1)
-                Update_Rounded_Box(self.Fill, FillPos, Vector_2_Round(FillWidth, self.ButtonSize.Y - 2), 4, Color_Lerp(Library_Data.Palette.Accent, Library_Data.Palette.Accent2, 0.25), 1, FillWidth > 2)
-                Set_Drawing_Layer(self.Fill, 6)
+                self.HoverMix = Math_Lerp(self.HoverMix, Hovered_Val and 1 or 0, 0.23)
+                Set_Visible(self.Fill, false)
                 self.Label.Visible = true
-                self.Label.Color = Color_Lerp(Library_Data.Palette.Text, Color3.fromRGB(10, 11, 15), Math_Clamp((self.HoverMix - 0.68) / 0.32, 0, 1))
+                self.Label.Color = Hovered_Val and Library_Data.Palette.Text or Color_Lerp(Library_Data.Palette.SubText, Library_Data.Palette.Text, 0.70)
                 Set_Drawing_Layer(self.Label, 7)
                 Position_Text_Centered(self.Label, self.ButtonPos, self.ButtonSize, "ButtonLabel")
             end
@@ -2140,7 +2042,7 @@ end
         function Section_Obj:CreateTextbox(Name_Val, Flag_Val, Default_Val)
             Config[Flag_Val] = Config[Flag_Val] ~= nil and Config[Flag_Val] or (Default_Val or "")
             local Textbox_Obj = {
-                Type = "Textbox", Height = 36, Flag = Flag_Val,
+                Type = "Textbox", Height = 36, Flag = Flag_Val, InputBuffer = tostring(Config[Flag_Val] or ""), Cursor = 0, SelectionAll = false,
                 Label = Create_Drawing("Text", {Text = Name_Val, Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 Stroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
                 Background = Make_Rounded_Box(Library_Data.Palette.Element, 1),
@@ -2156,9 +2058,19 @@ end
                 local Is_Active = Library_Data.State.ActiveTextbox == self
                 Update_Rounded_Box(self.Stroke, self.BoxPos, self.BoxSize, 4, Is_Active and Library_Data.Palette.Accent or Library_Data.Palette.Outline, 1, true)
                 Update_Rounded_Box(self.Background, Vector_2_Round(self.BoxPos.X + 1, self.BoxPos.Y + 1), Vector_2_Round(Box_Width - 2, 22), 4, Library_Data.Palette.Element, 1, true)
-                local Display_Str = tostring(Config[self.Flag] or "")
-                if #Display_Str > 15 then Display_Str = string.sub(Display_Str, -15) end
-                if Is_Active and Fast_Tick() % 1 < 0.5 then Display_Str = Display_Str .. "_" end
+                local Display_Str = Is_Active and tostring(self.InputBuffer or "") or tostring(Config[self.Flag] or "")
+                local Max_Visible = 15
+                if Is_Active then
+                    local Cursor = Math_Clamp(self.Cursor or #Display_Str, 0, #Display_Str)
+                    local Scroll = math.max(0, Cursor - Max_Visible + 1)
+                    Display_Str = Display_Str:sub(Scroll + 1, Scroll + Max_Visible)
+                    if Fast_Tick() % 1 < 0.55 then
+                        local Relative = math.min(Cursor - Scroll, #Display_Str)
+                        Display_Str = Display_Str:sub(1, Relative) .. "|" .. Display_Str:sub(Relative + 1)
+                    end
+                elseif #Display_Str > Max_Visible then
+                    Display_Str = Display_Str:sub(1, Max_Visible - 2) .. ".."
+                end
                 self.ValueLabel.Visible = true
                 self.ValueLabel.Text = Display_Str
                 self.ValueLabel.Color = Is_Active and Library_Data.Palette.Text or Library_Data.Palette.SubText
@@ -2293,37 +2205,7 @@ local function Hide_Tab_Content(Tab_Obj)
 end
 
 local Hide_Window_Drawings
-local function Apply_Held_Backspace()
-    local Target_Slider = Library_Data.State.ActiveSliderInput
-    local Target_Textbox = Library_Data.State.ActiveTextbox
-    if not Target_Slider and not Target_Textbox then
-        Library_Data.State.BackspaceHeld = false
-        Library_Data.State.BackspaceNextRepeat = 0
-        return
-    end
-    local Is_Backspace_Down = Keys_Down[Enum.KeyCode.Backspace] or false
-    if not Is_Backspace_Down then
-        Library_Data.State.BackspaceHeld = false
-        Library_Data.State.BackspaceNextRepeat = 0
-        return
-    end
-    local Now_Val = Fast_Tick()
-    if not Library_Data.State.BackspaceHeld then
-        Library_Data.State.BackspaceHeld = true
-        Library_Data.State.BackspaceNextRepeat = Now_Val + 0.42
-        return
-    end
-    if Now_Val < (Library_Data.State.BackspaceNextRepeat or 0) then return end
-    Library_Data.State.BackspaceNextRepeat = Now_Val + 0.035
-    if Target_Slider then
-        local Current_Text = tostring(Target_Slider.InputBuffer or "")
-        Target_Slider.InputBuffer = string.sub(Current_Text, 1, -2)
-    elseif Target_Textbox then
-        local Current_Text = tostring(Config[Target_Textbox.Flag] or "")
-        Config[Target_Textbox.Flag] = string.sub(Current_Text, 1, -2)
-        if Target_Textbox.Flag ~= "ConfigName" then Queue_Save_Config() end
-    end
-end
+local function Apply_Held_Backspace() end
 
 Hide_Window_Drawings = function()
     Update_Rounded_Box(Window_Drawings.Shadow, Vector_2_Round(0, 0), Vector_2_Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
@@ -2342,6 +2224,7 @@ Hide_Window_Drawings = function()
     Window_Drawings.GearCenter.Visible = false
     Window_Drawings.GearDot.Visible = false
     for _, Tooth in ipairs(Window_Drawings.GearTeeth) do Tooth.Visible = false end
+    if Window_Drawings.GearImage then Window_Drawings.GearImage.Visible = false end
     Hide_Profile_Drawings()
     for _, Obj_Val in pairs(Overlay_Menu_Drawings) do Set_Visible(Obj_Val, false) end
     for _, Tab_Obj in ipairs(Library_Data.Tabs) do
@@ -2394,6 +2277,45 @@ local function Get_Typed_Character(Key_Code)
     return nil
 end
 
+local function Commit_Textbox(Box, Cancel)
+    if not Box then return end
+    if not Cancel then
+        local New_Text = tostring(Box.InputBuffer or ""):sub(1, 128)
+        if Config[Box.Flag] ~= New_Text then
+            Config[Box.Flag] = New_Text
+            if Box.OnChanged then pcall(Box.OnChanged, New_Text) end
+            if Box.Flag == "ConfigName" then Save_Global_Settings() else Queue_Save_Config() end
+        end
+    end
+    Box.InputBuffer = tostring(Config[Box.Flag] or "")
+    Box.Cursor = #Box.InputBuffer
+    Box.SelectionAll = false
+    if Library_Data.State.ActiveTextbox == Box then Library_Data.State.ActiveTextbox = nil end
+end
+
+local function Edit_Text(Buffer, Cursor, SelectionAll, Key, Character)
+    Buffer = tostring(Buffer or "")
+    Cursor = Math_Clamp(tonumber(Cursor) or #Buffer, 0, #Buffer)
+    if Key == "Left" then return Buffer, Math_Clamp(Cursor - 1, 0, #Buffer), false end
+    if Key == "Right" then return Buffer, Math_Clamp(Cursor + 1, 0, #Buffer), false end
+    if Key == "Home" then return Buffer, 0, false end
+    if Key == "End" then return Buffer, #Buffer, false end
+    if Key == "Backspace" or Key == "Delete" then
+        if SelectionAll then return "", 0, false end
+        if Key == "Backspace" and Cursor > 0 then
+            return Buffer:sub(1, Cursor - 1) .. Buffer:sub(Cursor + 1), Cursor - 1, false
+        elseif Key == "Delete" and Cursor < #Buffer then
+            return Buffer:sub(1, Cursor) .. Buffer:sub(Cursor + 2), Cursor, false
+        end
+    elseif Character and #Character > 0 then
+        if SelectionAll then Buffer = "" Cursor = 0 end
+        if #Buffer + #Character <= 128 then
+            return Buffer:sub(1, Cursor) .. Character .. Buffer:sub(Cursor + 1), Cursor + #Character, false
+        end
+    end
+    return Buffer, Cursor, false
+end
+
 Connect_Session(User_Input_Service.InputBegan, function(Input_Object, Game_Processed)
     local Key_Code = Input_Object and Input_Object.KeyCode
     if not Key_Code then return end
@@ -2404,60 +2326,63 @@ Connect_Session(User_Input_Service.InputBegan, function(Input_Object, Game_Proce
     end
     Keys_Down[Key_Code] = true
     local EditingPicker = Library_Data.State.ActiveColorPicker
-    if EditingPicker and EditingPicker.IsOpen and EditingPicker.HexEditing then
-        if Key_Code == Enum.KeyCode.Return or Key_Code == Enum.KeyCode.KeypadEnter then
-            EditingPicker:CommitHex()
-        elseif Key_Code == Enum.KeyCode.Escape then
-            EditingPicker.HexEditing = false
-            EditingPicker.HexBuffer = ""
-        elseif Key_Code == Enum.KeyCode.Backspace then
-            EditingPicker.HexBuffer = tostring(EditingPicker.HexBuffer or ""):sub(1, -2)
-        else
-            local Char = tostring(Key_Code.Name or "")
-            if #Char == 1 and Char:match("^[a-fA-F]$") then
-                if #EditingPicker.HexBuffer < 6 then EditingPicker.HexBuffer = EditingPicker.HexBuffer .. Char:upper() end
-            elseif #Char == 1 and Char:match("^%d$") then
-                if #EditingPicker.HexBuffer < 6 then EditingPicker.HexBuffer = EditingPicker.HexBuffer .. Char end
-            else
-                local D = {Zero = "0", One = "1", Two = "2", Three = "3", Four = "4", Five = "5", Six = "6", Seven = "7", Eight = "8", Nine = "9", KeypadZero = "0", KeypadOne = "1", KeypadTwo = "2", KeypadThree = "3", KeypadFour = "4", KeypadFive = "5", KeypadSix = "6", KeypadSeven = "7", KeypadEight = "8", KeypadNine = "9"}
-                local Ch = D[Char]
-                if Ch and #EditingPicker.HexBuffer < 6 then EditingPicker.HexBuffer = EditingPicker.HexBuffer .. Ch end
-            end
-        end
-        return
-    end
-    if Game_Processed or not Library_Data.Visible then return end
     local Active_Slider = Library_Data.State.ActiveSliderInput
     local Active_Box = Library_Data.State.ActiveTextbox
-    if Active_Slider or Active_Box then
-        local Current_Text = Active_Slider and tostring(Active_Slider.InputBuffer or "") or tostring(Config[Active_Box.Flag] or "")
-        if Key_Code == Enum.KeyCode.Backspace then
-            Current_Text = string.sub(Current_Text, 1, -2)
-        elseif Key_Code == Enum.KeyCode.Return or Key_Code == Enum.KeyCode.KeypadEnter or Key_Code == Enum.KeyCode.Escape then
-            if Active_Slider then
-                Commit_Slider_Input(Active_Slider)
-                Library_Data.State.ActiveSliderInput = nil
-            else
-                Library_Data.State.ActiveTextbox = nil
-                if Active_Box.Flag == "ConfigName" then Save_Global_Settings() end
-            end
-            Library_Data.State.BackspaceHeld = false
+    local EditingHex = EditingPicker and EditingPicker.IsOpen and EditingPicker.HexEditing
+    if EditingHex or Active_Slider or Active_Box then
+        local Key_Name = tostring(Key_Code.Name or "")
+        local Ctrl = Keys_Down[Enum.KeyCode.LeftControl] or Keys_Down[Enum.KeyCode.RightControl]
+        if Key_Code == Enum.KeyCode.Return or Key_Code == Enum.KeyCode.KeypadEnter then
+            if EditingHex then EditingPicker:CommitHex()
+            elseif Active_Slider then Commit_Slider_Input(Active_Slider) Library_Data.State.ActiveSliderInput = nil
+            else Commit_Textbox(Active_Box, false) end
             return
-        else
-            local Character_Val = Get_Typed_Character(Key_Code)
-            if not Character_Val then return end
-            if Active_Slider and not Character_Val:match("[%d%.%-]") then return end
-            if #Current_Text >= 48 then return end
-            Current_Text = Current_Text .. Character_Val
+        elseif Key_Code == Enum.KeyCode.Escape then
+            if EditingHex then EditingPicker.HexEditing = false EditingPicker.HexBuffer = ""
+            elseif Active_Slider then Library_Data.State.ActiveSliderInput = nil
+            else Commit_Textbox(Active_Box, true) end
+            return
+        end
+        if Game_Processed or not Library_Data.Visible then return end
+        if Ctrl and Key_Name == "A" then
+            if Active_Box then Active_Box.SelectionAll = true
+            elseif EditingHex then EditingPicker.HexSelectionAll = true end
+            return
+        end
+        if Ctrl and Key_Name == "C" and type(setclipboard) == "function" then
+            if Active_Box then pcall(setclipboard, tostring(Active_Box.InputBuffer or "")) end
+            if EditingHex then pcall(setclipboard, tostring(EditingPicker.HexBuffer or "")) end
+            return
+        end
+        if Ctrl and Key_Name == "V" then return end
+        if Ctrl then return end
+        local Character_Val = Get_Typed_Character(Key_Code)
+        if EditingHex then
+            local Buffer = tostring(EditingPicker.HexBuffer or "")
+            local Ch = Character_Val and Character_Val:upper() or nil
+            if Ch and not Ch:match("^[0-9A-F]$") then Ch = nil end
+            if Key_Name == "Backspace" or Key_Name == "Delete" then
+                EditingPicker.HexBuffer = EditingPicker.HexSelectionAll and "" or Buffer:sub(1, -2)
+                EditingPicker.HexSelectionAll = false
+            elseif Ch and (#Buffer < 6 or EditingPicker.HexSelectionAll) then
+                EditingPicker.HexBuffer = (EditingPicker.HexSelectionAll and "" or Buffer) .. Ch
+                EditingPicker.HexSelectionAll = false
+            end
+            return
         end
         if Active_Slider then
-            Active_Slider.InputBuffer = Current_Text
-        else
-            Config[Active_Box.Flag] = Current_Text
-            if Active_Box.Flag ~= "ConfigName" then Queue_Save_Config() end
+            local Buffer = tostring(Active_Slider.InputBuffer or "")
+            if Key_Name == "Backspace" then Buffer = Buffer:sub(1, -2)
+            elseif Character_Val and Character_Val:match("^[0-9%.%-]$") and #Buffer < 24 then Buffer = Buffer .. Character_Val end
+            Active_Slider.InputBuffer = Buffer
+            return
         end
-        return
+        if Active_Box then
+            Active_Box.InputBuffer, Active_Box.Cursor, Active_Box.SelectionAll = Edit_Text(Active_Box.InputBuffer, Active_Box.Cursor, Active_Box.SelectionAll, Key_Name, Character_Val)
+            return
+        end
     end
+    if Game_Processed or not Library_Data.Visible then return end
     if Library_Data.State.ActiveKeybind then return end
     if Key_Code == Enum.KeyCode.Escape then Close_Transient_Ui() end
 end)
@@ -2504,6 +2429,12 @@ Connect_Session(Run_Service.RenderStepped, function()
     Library_Data.Input.Mouse1Prev = Mouse1_Down
     Library_Data.Input.Mouse1ClickQueued = false
     Library_Data.Input.Mouse1ReleaseQueued = false
+    if Library_Data.Input.Mouse1Clicked and Library_Data.State.ActiveTextbox then
+        local Box = Library_Data.State.ActiveTextbox
+        if not Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Box.BoxPos, Box.BoxSize) then
+            Commit_Textbox(Box, false)
+        end
+    end
 
     Library_Data.Input.Mouse2Down = ismouse2pressed and ismouse2pressed() or false
     Library_Data.Input.Mouse2Clicked = Library_Data.Input.Mouse2Down and not Library_Data.Input.Mouse2Prev
@@ -2676,7 +2607,7 @@ Connect_Session(Run_Service.RenderStepped, function()
         Library_Data.State.HotkeysContext.Entry = nil
     end
 
-    Render_Floating_Windows()
+    Render_Decorations()
     if not Library_Data.Visible then
         if Library_Data.wasVisible ~= false then
             Close_Transient_Ui()
@@ -2705,11 +2636,10 @@ Connect_Session(Run_Service.RenderStepped, function()
     if not Library_Data.State.Dragging then
         Library_Data.Position = Clamp_Window_Position(Library_Data.Position, Library_Data.Size)
     end
-    Handle_Floating_Inputs()
     local OverHotkeys = Config.ShowHotkeyList and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Library_Data.HotkeysPosition, Vector2.new(Hotkeys_Size.X, 28))
-    local GearPos = Vector_2_Round(Library_Data.Position.X + Size_X - 39, Library_Data.Position.Y + 6)
-    local GearSize = Vector2.new(29, 25)
-    if Library_Data.Input.Mouse1Clicked and not Library_Data.State.OverlayHit and not Is_Over_Floating_Window(Library_Data.Input.MousePos) and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, GearPos, GearSize) then
+    local GearPos = Vector_2_Round(Library_Data.Position.X + Size_X - 42, Library_Data.Position.Y + 7)
+    local GearSize = Vector2.new(30, 26)
+    if Library_Data.Input.Mouse1Clicked and not Library_Data.State.OverlayHit and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, GearPos, GearSize) then
         Close_Transient_Ui()
         if Settings_Tab and Library_Data.CurrentTab == Settings_Tab then
             local Restore = Previous_Main_Tab
@@ -2763,25 +2693,38 @@ Connect_Session(Run_Service.RenderStepped, function()
     Window_Drawings.SidebarLine.Color = Library_Data.Palette.Outline
     Window_Drawings.Title.Visible = true
     Position_Text(Window_Drawings.Title, Pos_X + 15, Pos_Y + 11, "WindowTitle")
-    local Gear_Pos = Vector_2_Round(Pos_X + Size_X - 39, Pos_Y + 6)
-    local Gear_Hover = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Gear_Pos, Vector2.new(29, 25))
+    local Gear_Pos = Vector_2_Round(Pos_X + Size_X - 42, Pos_Y + 7)
+    local Gear_Size = Vector2.new(30, 26)
+    local Gear_Hover = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Gear_Pos, Gear_Size)
     local Gear_Selected = Settings_Tab and Library_Data.CurrentTab == Settings_Tab
-    Update_Rounded_Box(Window_Drawings.GearOutline, Gear_Pos, Vector2.new(29, 25), 5, Gear_Selected and Library_Data.Palette.Accent or (Gear_Hover and Library_Data.Palette.OutlineLight or Library_Data.Palette.Outline), 1, true)
-    Update_Rounded_Box(Window_Drawings.GearBackground, Gear_Pos + Vector2.new(1, 1), Vector2.new(27, 23), 4, Gear_Selected and Library_Data.Palette.Hover or Library_Data.Palette.Element, 1, true)
-    local GX, GY = Gear_Pos.X + 14, Gear_Pos.Y + 12
+    Update_Rounded_Box(Window_Drawings.GearOutline, Gear_Pos, Gear_Size, 6, Gear_Selected and Library_Data.Palette.Accent or (Gear_Hover and Library_Data.Palette.OutlineLight or Library_Data.Palette.Outline), 1, true)
+    Update_Rounded_Box(Window_Drawings.GearBackground, Gear_Pos + Vector2.new(1, 1), Gear_Size - Vector2.new(2, 2), 5, Gear_Selected and Color_Lerp(Library_Data.Palette.Hover, Library_Data.Palette.Accent, 0.12) or (Gear_Hover and Library_Data.Palette.Hover or Library_Data.Palette.Element), 1, true)
+    local GX, GY = Gear_Pos.X + 15, Gear_Pos.Y + 13
     local Gear_Color = Gear_Selected and Library_Data.Palette.Accent or Library_Data.Palette.Text
-    Window_Drawings.GearCenter.Visible = true
-    Window_Drawings.GearCenter.Position = Vector_2_Round(GX, GY)
-    Window_Drawings.GearCenter.Color = Gear_Color
-    Window_Drawings.GearDot.Visible = true
-    Window_Drawings.GearDot.Position = Vector_2_Round(GX, GY)
-    Window_Drawings.GearDot.Color = Gear_Color
-    for I, Tooth in ipairs(Window_Drawings.GearTeeth) do
-        local A = (I - 1) * math.pi / 4
-        Tooth.From = Vector_2_Round(GX + math.cos(A) * 6, GY + math.sin(A) * 6)
-        Tooth.To = Vector_2_Round(GX + math.cos(A) * 9, GY + math.sin(A) * 9)
-        Tooth.Color = Gear_Color
-        Tooth.Visible = true
+    if Window_Drawings.GearImage then
+        local Img = Window_Drawings.GearImage
+        Img.Visible = true
+        Img.Position = Vector_2_Round(GX - 9, GY - 9)
+        Img.Size = Vector2.new(18, 18)
+        Img.Color = Gear_Color
+        Img.Transparency = 1
+        Window_Drawings.GearCenter.Visible = false
+        Window_Drawings.GearDot.Visible = false
+        for _, Tooth in ipairs(Window_Drawings.GearTeeth) do Tooth.Visible = false end
+    else
+        Window_Drawings.GearCenter.Visible = true
+        Window_Drawings.GearCenter.Position = Vector_2_Round(GX, GY)
+        Window_Drawings.GearCenter.Color = Gear_Color
+        Window_Drawings.GearDot.Visible = true
+        Window_Drawings.GearDot.Position = Vector_2_Round(GX, GY)
+        Window_Drawings.GearDot.Color = Gear_Color
+        for I, Tooth in ipairs(Window_Drawings.GearTeeth) do
+            local A = (I - 1) * math.pi / 4
+            Tooth.From = Vector_2_Round(GX + math.cos(A) * 7, GY + math.sin(A) * 7)
+            Tooth.To = Vector_2_Round(GX + math.cos(A) * 9, GY + math.sin(A) * 9)
+            Tooth.Color = Gear_Color
+            Tooth.Visible = true
+        end
     end
 
     local Profile_Click_Used = false
@@ -3084,13 +3027,17 @@ Connect_Session(Run_Service.RenderStepped, function()
                     elseif Item_Obj.Type == "Textbox" then
                         if Library_Data.Input.Mouse1Clicked then
                             if Is_Mouse_In_Bounds(Library_Data.Input.MousePos, Item_Obj.BoxPos, Item_Obj.BoxSize) then
-                                Library_Data.State.ActiveTextbox = Item_Obj
+                                if Library_Data.State.ActiveTextbox and Library_Data.State.ActiveTextbox ~= Item_Obj then Commit_Textbox(Library_Data.State.ActiveTextbox, false) end
+                            Library_Data.State.ActiveTextbox = Item_Obj
+                                Item_Obj.InputBuffer = tostring(Config[Item_Obj.Flag] or "")
+                                Item_Obj.Cursor = #Item_Obj.InputBuffer
+                                Item_Obj.SelectionAll = false
                                 Library_Data.State.ActiveKeybind = nil
                                 if Library_Data.State.ActiveSliderInput then Commit_Slider_Input(Library_Data.State.ActiveSliderInput) Library_Data.State.ActiveSliderInput = nil end
                                 if Library_Data.State.ActiveColorPicker then Library_Data.State.ActiveColorPicker.IsOpen = false Library_Data.State.ActiveColorPicker = nil end
                                 Library_Data.State.KeybindContext.Open = false Library_Data.State.KeybindContext.Entry = nil
                             elseif Library_Data.State.ActiveTextbox == Item_Obj then
-                                Library_Data.State.ActiveTextbox = nil
+                                Commit_Textbox(Item_Obj, false)
                             end
                         end
                     end
@@ -3243,7 +3190,7 @@ end
 
 local NightfallLibrary = {
     Name = "Nightfall",
-    Version = "1.0.10",
+    Version = "1.0.11",
     Config = Config,
     Flags = Config,
     State = Library_Data,
@@ -3263,6 +3210,165 @@ local NightfallLibrary = {
     SetBindMode = Set_Bind_Mode,
     GetBindMode = Get_Bind_Mode
 }
+
+local Ui_Notifications = {}
+local Watermark_Settings = {Segments = {"Nightfall", "Matcha"}, Position = Vector2.new(18, 18), Visible = Config.ShowWatermark == true}
+local Watermark_Draw = {
+    Border = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
+    Background = Make_Rounded_Box(Library_Data.Palette.Background, 1),
+    Accent = Make_Rounded_Box(Library_Data.Palette.Accent, 1),
+    Text = Create_Drawing("Text", {Text = "", Size = 12, Font = 2, Visible = false})
+}
+Set_Drawing_Layer(Watermark_Draw.Border, 140)
+Set_Drawing_Layer(Watermark_Draw.Background, 141)
+Set_Drawing_Layer(Watermark_Draw.Accent, 142)
+Set_Drawing_Layer(Watermark_Draw.Text, 143)
+local Watermark_Drag = {Active = false, StartMouse = Vector2.new(0, 0), StartPosition = Vector2.new(0, 0)}
+
+local function Hide_Notification(Entry)
+    Set_Visible(Entry.Border, false)
+    Set_Visible(Entry.Background, false)
+    Set_Visible(Entry.Progress, false)
+    Entry.Title.Visible = false
+    Entry.Description.Visible = false
+end
+
+local function Delete_Notification(Entry)
+    Hide_Notification(Entry)
+    for _, Shape in ipairs({Entry.Border, Entry.Background, Entry.Progress}) do
+        for _, Part in pairs(Shape) do
+            if Part then pcall(function() Part:Remove() end) end
+        end
+    end
+    pcall(function() Entry.Title:Remove() end)
+    pcall(function() Entry.Description:Remove() end)
+end
+
+function NightfallLibrary:Notification(Options)
+    if Config.ShowNotifications == false then return nil end
+    if type(Options) == "string" then Options = {Title = "Nightfall", Description = Options} end
+    Options = Options or {}
+    if #Ui_Notifications >= 5 then
+        Delete_Notification(table.remove(Ui_Notifications, 1))
+    end
+    local Entry = {
+        TitleText = tostring(Options.Title or "Nightfall"):sub(1, 42),
+        MessageText = tostring(Options.Description or Options.Message or ""):sub(1, 64),
+        Time = Fast_Tick(), Duration = Math_Clamp(tonumber(Options.Duration) or 4, 0.5, 20),
+        Border = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
+        Background = Make_Rounded_Box(Library_Data.Palette.Section, 1),
+        Progress = Make_Rounded_Box(Library_Data.Palette.Accent, 1),
+        Title = Create_Drawing("Text", {Size = 13, Font = 2, Outline = true, Visible = false}),
+        Description = Create_Drawing("Text", {Size = 12, Font = 2, Visible = false})
+    }
+    for _, Shape in ipairs({Entry.Border, Entry.Background}) do Set_Drawing_Layer(Shape, 151) end
+    Set_Drawing_Layer(Entry.Progress, 152)
+    Set_Drawing_Layer(Entry.Title, 154)
+    Set_Drawing_Layer(Entry.Description, 154)
+    table.insert(Ui_Notifications, Entry)
+    return Entry
+end
+NightfallLibrary.Notify = NightfallLibrary.Notification
+
+function NightfallLibrary:Watermark(Options)
+    if Options == false then
+        Watermark_Settings.Visible = false
+        Config.ShowWatermark = false
+        return self
+    end
+    if Options == nil then Options = Watermark_Settings.Segments end
+    if type(Options) == "string" then Options = {Options} end
+    if type(Options) == "table" then
+        if Options.Position and typeof(Options.Position) == "Vector2" then Watermark_Settings.Position = Options.Position end
+        local Data = Options.Segments or Options
+        if #Data > 0 then
+            Watermark_Settings.Segments = {}
+            for I = 1, math.min(5, #Data) do
+                table.insert(Watermark_Settings.Segments, tostring(Data[I]):sub(1, 28))
+            end
+        end
+    end
+    Watermark_Settings.Visible = true
+    Config.ShowWatermark = true
+    return self
+end
+
+local function Update_Notifications()
+    local Now = Fast_Tick()
+    local Camera = Workspace_Service.CurrentCamera
+    local View = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+    for I = #Ui_Notifications, 1, -1 do
+        if Now - Ui_Notifications[I].Time > Ui_Notifications[I].Duration + 0.3 then
+            Delete_Notification(Ui_Notifications[I])
+            table.remove(Ui_Notifications, I)
+        end
+    end
+    local Width, Height, Gap = 258, 63, 9
+    for I, Entry in ipairs(Ui_Notifications) do
+        local Elapsed = Now - Entry.Time
+        local Remaining = Math_Clamp(1 - Elapsed / Entry.Duration, 0, 1)
+        local Enter = Math_Clamp(Elapsed / 0.20, 0, 1)
+        local Exit = Math_Clamp((Entry.Duration + 0.3 - Elapsed) / 0.30, 0, 1)
+        local Alpha = math.min(Enter, Exit)
+        local X = math.floor(View.X - Width - 16 + (1 - Alpha) * (Width + 20))
+        local Y = 18 + (I - 1) * (Height + Gap)
+        Update_Rounded_Box(Entry.Border, Vector2.new(X, Y), Vector2.new(Width, Height), 7, Library_Data.Palette.OutlineLight, Alpha, true)
+        Update_Rounded_Box(Entry.Background, Vector2.new(X + 1, Y + 1), Vector2.new(Width - 2, Height - 2), 6, Library_Data.Palette.Section, Alpha, true)
+        Update_Rounded_Box(Entry.Progress, Vector2.new(X + 8, Y + Height - 6), Vector2.new(math.max(0, (Width - 16) * Remaining), 2), 1, Library_Data.Palette.Accent, Alpha, Remaining > 0.005)
+        Entry.Title.Text = Entry.TitleText
+        Entry.Title.Color = Library_Data.Palette.Text
+        Entry.Title.Visible = true
+        Position_Text(Entry.Title, X + 13, Y + 10)
+        Entry.Title.Transparency = Alpha
+        Entry.Description.Text = Entry.MessageText
+        Entry.Description.Color = Library_Data.Palette.SubText
+        Entry.Description.Visible = Entry.MessageText ~= ""
+        Position_Text(Entry.Description, X + 13, Y + 31)
+        Entry.Description.Transparency = Alpha
+    end
+end
+
+local function Update_Watermark()
+    if not Config.ShowWatermark or not Watermark_Settings.Visible then
+        Set_Visible(Watermark_Draw.Border, false)
+        Set_Visible(Watermark_Draw.Background, false)
+        Set_Visible(Watermark_Draw.Accent, false)
+        Watermark_Draw.Text.Visible = false
+        Watermark_Drag.Active = false
+        return
+    end
+    local Camera = Workspace_Service.CurrentCamera
+    local View = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+    local Segments = Watermark_Settings.Segments
+    local Caption = table.concat(Segments, "   |   ")
+    local Width = Math_Clamp(40 + #Caption * 6.2, 120, math.max(120, View.X - 12))
+    local Size = Vector2.new(Width, 32)
+    Watermark_Settings.Position = Clamp_Window_Position(Watermark_Settings.Position, Size)
+    local P = Watermark_Settings.Position
+    if Library_Data.Input.Mouse1Clicked and Is_Mouse_In_Bounds(Library_Data.Input.MousePos, P, Size) then
+        Watermark_Drag.Active = true
+        Watermark_Drag.StartMouse = Library_Data.Input.MousePos
+        Watermark_Drag.StartPosition = P
+        Library_Data.Input.Mouse1Clicked = false
+    end
+    if Library_Data.Input.Mouse1Released or not Library_Data.Input.Mouse1Down then Watermark_Drag.Active = false end
+    if Watermark_Drag.Active then
+        P = Clamp_Window_Position(Watermark_Drag.StartPosition + (Library_Data.Input.MousePos - Watermark_Drag.StartMouse), Size)
+        Watermark_Settings.Position = P
+    end
+    Update_Rounded_Box(Watermark_Draw.Border, P, Size, 7, Library_Data.Palette.OutlineLight, 1, true)
+    Update_Rounded_Box(Watermark_Draw.Background, P + Vector2.new(1, 1), Size - Vector2.new(2, 2), 6, Library_Data.Palette.Background, 1, true)
+    Update_Rounded_Box(Watermark_Draw.Accent, P + Vector2.new(6, 7), Vector2.new(3, 18), 2, Library_Data.Palette.Accent, 1, true)
+    Watermark_Draw.Text.Visible = true
+    Watermark_Draw.Text.Text = Caption
+    Watermark_Draw.Text.Color = Library_Data.Palette.Text
+    Position_Text(Watermark_Draw.Text, P.X + 18, P.Y + 9)
+end
+
+Render_Decorations = function()
+    Update_Notifications()
+    Update_Watermark()
+end
 
 function NightfallLibrary:Size(Width, Height)
     if type(Width) == "table" or typeof(Width) == "Vector2" then
@@ -3400,98 +3506,13 @@ function NightfallLibrary:Window(Options)
     return Window_Obj
 end
 
-function NightfallLibrary:CreatePanel(Options)
-    Options = Options or {}
-    local Width = Math_Clamp(tonumber(Options.Width) or (Options.Size and Options.Size.X) or 255, 180, 560)
-    local Height = Math_Clamp(tonumber(Options.Height) or (Options.Size and Options.Size.Y) or 170, 80, 700)
-    local Panel = {
-        Name = tostring(Options.Name or Options.Title or "Window"),
-        Size = Vector2.new(Width, Height),
-        Position = Clamp_Window_Position(Options.Position or Vector2.new(400, 300), Vector2.new(Width, Height)),
-        VisibleState = Options.Visible ~= false,
-        Dragging = false,
-        Items = {}, Drawings = {},
-        Outline = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
-        Background = Make_Rounded_Box(Library_Data.Palette.Background, 1),
-        Topline = Make_Gradient_Line(20),
-        Title = Create_Drawing("Text", {Size = 12, Font = 2, Outline = true, Visible = false}),
-        Rule = Create_Drawing("Square", {Filled = true, Visible = false})
-    }
-    Panel.Drawings = {Panel.Outline.Main, Panel.Background.Main, Panel.Title, Panel.Rule}
-    for _, D in ipairs({Panel.Outline, Panel.Background}) do Set_Drawing_Layer(D, 60) end
-    for _, Line in ipairs(Panel.Topline) do Set_Drawing_Layer(Line, 62) end
-    Set_Drawing_Layer(Panel.Title, 64)
-    Set_Drawing_Layer(Panel.Rule, 63)
-    function Panel:Visible(Value)
-        if Value == nil then return self.VisibleState end
-        self.VisibleState = not not Value
-        if not self.VisibleState then self.Dragging = false Hide_Floating_Window(self) end
-        return self
-    end
-    function Panel:SetTitle(Value) self.Name = tostring(Value) return self end
-    function Panel:SetPosition(X, Y)
-        if typeof(X) == "Vector2" then Y, X = X.Y, X.X end
-        self.Position = Clamp_Window_Position(Vector2.new(tonumber(X) or 0, tonumber(Y) or 0), self.Size)
-        return self
-    end
-    local function AddItem(Kind, Settings)
-        if type(Settings) == "string" then Settings = {Name = Settings} end
-        Settings = Settings or {}
-        local Item = {
-            Kind = Kind, Name = tostring(Settings.Name or "Item"), Value = Settings.Value,
-            Getter = Settings.Getter, Callback = Settings.Callback,
-            Outline = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
-            Background = Make_Rounded_Box(Library_Data.Palette.Element, 1),
-            Label = Create_Drawing("Text", {Size = 12, Font = 2, Visible = false}),
-            ValueText = Kind == "Button" and nil or Create_Drawing("Text", {Size = 12, Font = 2, Visible = false})
-        }
-        if Kind == "Button" then
-            Item.Fill = Make_Rounded_Box(Library_Data.Palette.Accent, 1)
-            Item.HoverMix = 0
-            Set_Drawing_Layer(Item.Fill, 64)
-        end
-        Set_Drawing_Layer(Item.Outline, 62)
-        Set_Drawing_Layer(Item.Background, 63)
-        Set_Drawing_Layer(Item.Label, 65)
-        if Item.ValueText then Set_Drawing_Layer(Item.ValueText, 65) end
-        function Item:Set(Value) self.Value = Value return self end
-        function Item:SetText(Text) self.Name = tostring(Text) return self end
-        table.insert(Panel.Items, Item)
-        Panel.Size = Vector2.new(Panel.Size.X, Fast_Max(Height, 54 + #Panel.Items * 34))
-        return Item
-    end
-    function Panel:Label(Settings) return AddItem("Label", Settings) end
-    function Panel:Button(Settings) return AddItem("Button", Settings) end
-    function Panel:Toggle(Settings) return AddItem("Toggle", Settings) end
-    function Panel:Destroy()
-        self:Visible(false)
-        for I = #Floating_Windows, 1, -1 do if Floating_Windows[I] == self then table.remove(Floating_Windows, I) end end
-        for _, D in ipairs({self.Outline, self.Background}) do
-            if D.Single then pcall(function() D.Single:Remove() end)
-            else for _, Part in pairs(D) do pcall(function() Part:Remove() end) end end
-        end
-        for _, Line in ipairs(self.Topline) do pcall(function() Line:Remove() end) end
-        pcall(function() self.Title:Remove() end)
-        pcall(function() self.Rule:Remove() end)
-        for _, Item in ipairs(self.Items) do
-            for _, Object in ipairs({Item.Outline, Item.Background, Item.Fill}) do
-                for _, Part in pairs(Object) do if Part.Remove then pcall(function() Part:Remove() end) end end
-            end
-            if Item.Label then pcall(function() Item.Label:Remove() end) end
-            if Item.ValueText then pcall(function() Item.ValueText:Remove() end) end
-        end
-    end
-    table.insert(Floating_Windows, Panel)
-    return Panel
-end
-NightfallLibrary.CreateFloatingWindow = NightfallLibrary.CreatePanel
-NightfallLibrary.CreateOverlay = NightfallLibrary.CreatePanel
-
 local SettingWindow = NightfallLibrary:Window({})
 Settings_Tab = SettingWindow:Tab({Name = "Library Settings", Hidden = true})
 local Appearance = Settings_Tab:Section({Name = "Appearance", Side = "Left"})
 Appearance:Keybind({Name = "Menu Bind", Flag = "HideKeybind", Default = "F2"})
 Appearance:Toggle({Name = "Hotkey List", Flag = "ShowHotkeyList", Default = true})
+Appearance:Toggle({Name = "Watermark", Flag = "ShowWatermark", Default = false, Callback = function(Value) Watermark_Settings.Visible = Value end})
+Appearance:Toggle({Name = "Notifications", Flag = "ShowNotifications", Default = true})
 Appearance:Dropdown({Name = "Theme", Flag = "ThemePreset", Options = {"Nightfall", "Bloodmoon", "Ocean", "Mint"}, Default = "Nightfall"})
 Appearance:Colorpicker({Name = "Accent Color", Flag = "LibraryAccent", Default = Library_Data.Palette.Accent, Callback = function(Value)
     if Value and Value.Color then Library_Data.Palette.Accent = Value.Color end
@@ -3508,6 +3529,8 @@ Library_Data.CurrentTab = nil
 function NightfallLibrary:Unload()
     Session.Active = false
     _G.NightfallActive = false
+    for _, Entry in ipairs(Ui_Notifications) do Delete_Notification(Entry) end
+    Ui_Notifications = {}
     for _, Connection_Obj in ipairs(Session.Connections) do
         pcall(function() Connection_Obj:Disconnect() end)
     end
