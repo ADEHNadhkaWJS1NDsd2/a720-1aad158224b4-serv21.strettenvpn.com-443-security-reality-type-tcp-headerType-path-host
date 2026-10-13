@@ -1169,6 +1169,7 @@ local function Hide_Floating_Window(Panel)
     Panel.Rule.Visible = false
     for _, Item in ipairs(Panel.Items) do
         if Item.Background then Set_Visible(Item.Background, false) end
+        if Item.Fill then Set_Visible(Item.Fill, false) end
         if Item.Outline then Set_Visible(Item.Outline, false) end
         if Item.Label then Item.Label.Visible = false end
         if Item.ValueText then Item.ValueText.Visible = false end
@@ -1208,6 +1209,10 @@ local function Render_Floating_Windows()
                 Item.Label.Color = Item.Kind == "Button" and Library_Data.Palette.Text or Library_Data.Palette.SubText
                 Item.Label.Visible = true
                 if Item.Kind == "Button" then
+                    Item.HoverMix = Math_Lerp(Item.HoverMix or 0, Hover and 1 or 0, 0.22)
+                    local Width = math.max(0, (ItemSize.X - 2) * Item.HoverMix)
+                    Update_Rounded_Box(Item.Fill, Vector_2_Round(ItemPos.X + (ItemSize.X - Width) * 0.5, ItemPos.Y + 1), Vector_2_Round(Width, ItemSize.Y - 2), 4, Color_Lerp(Library_Data.Palette.Accent, Library_Data.Palette.Accent2, 0.22), 1, Width > 2)
+                    Item.Label.Color = Color_Lerp(Library_Data.Palette.Text, Color3.fromRGB(10, 11, 15), Math_Clamp((Item.HoverMix - 0.68) / 0.32, 0, 1))
                     Item.Label.Center = true
                     Position_Text_Centered(Item.Label, ItemPos, ItemSize)
                 else
@@ -1527,24 +1532,24 @@ local function Draw_Profile_Card(Pos_X, Pos_Y, Width, Height)
     Update_Rounded_Box(Profile_Drawings.CopyBackground, Vector_2_Round(Copy_Pos.X + 1, Copy_Pos.Y + 1), Vector_2_Round(Button_W - 2, Button_H - 2), 5, Hover_Copy and Button_Hover or Button_Fill, 1, true)
     Update_Rounded_Box(Profile_Drawings.CopyIdBorder, Copy_Id_Pos, Button_Size, 6, Hover_Id and Button_Hover_Outline or Button_Outline, 1, true)
     Update_Rounded_Box(Profile_Drawings.CopyIdBackground, Vector_2_Round(Copy_Id_Pos.X + 1, Copy_Id_Pos.Y + 1), Vector_2_Round(Button_W - 2, Button_H - 2), 5, Hover_Id and Button_Hover or Button_Fill, 1, true)
-    Profile_Drawings.CopyAccent.Visible = true
+    Profile_Drawings.CopyAccent.Visible = false
     Profile_Drawings.CopyAccent.Position = Vector_2_Round(Copy_Pos.X + 9, Copy_Pos.Y + 11)
     Profile_Drawings.CopyAccent.Size = Vector_2_Round(2, 10)
     Profile_Drawings.CopyAccent.Color = Library_Data.Palette.Accent
-    Profile_Drawings.CopyIdAccent.Visible = true
+    Profile_Drawings.CopyIdAccent.Visible = false
     Profile_Drawings.CopyIdAccent.Position = Vector_2_Round(Copy_Id_Pos.X + 9, Copy_Id_Pos.Y + 11)
     Profile_Drawings.CopyIdAccent.Size = Vector_2_Round(2, 10)
     Profile_Drawings.CopyIdAccent.Color = Library_Data.Palette.Accent
     Profile_Drawings.CopyText.Text = Fast_Tick() < Library_Data.State.ProfileCopiedUntil and "Copied" or "Copy username"
     Profile_Drawings.CopyText.Visible = true
     Profile_Drawings.CopyText.Color = Library_Data.Palette.Text
-    Profile_Drawings.CopyText.Center = false
-    Position_Text(Profile_Drawings.CopyText, Copy_Pos.X + 18, Copy_Pos.Y + 9, "ProfileAction")
+    Profile_Drawings.CopyText.Center = true
+    Position_Text_Centered(Profile_Drawings.CopyText, Copy_Pos, Button_Size, "ProfileAction")
     Profile_Drawings.CopyIdText.Text = Fast_Tick() < (Library_Data.State.ProfileIdCopiedUntil or 0) and "Copied" or "Copy User ID"
     Profile_Drawings.CopyIdText.Visible = true
     Profile_Drawings.CopyIdText.Color = Library_Data.Palette.Text
-    Profile_Drawings.CopyIdText.Center = false
-    Position_Text(Profile_Drawings.CopyIdText, Copy_Id_Pos.X + 20, Copy_Id_Pos.Y + 9, "ProfileAction")
+    Profile_Drawings.CopyIdText.Center = true
+    Position_Text_Centered(Profile_Drawings.CopyIdText, Copy_Id_Pos, Button_Size, "ProfileAction")
 end
 
 function Library_Data:CreateTab(Tab_Name, Tab_Icon)
@@ -1758,6 +1763,43 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
             table.insert(self.Items, Dropdown_Obj)
             return Dropdown_Obj
         end
+local Picker_Image_Data = {
+    SV = "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",
+    Hue = "iVBORw0KGgoAAAANSUhEUgAAAQAAAAABCAYAAAAxWXB3AAAALElEQVR42u3QwQkAIAwEsEjB/ecVSl3Cz4GPLJA1jE2CLo4MfupzIaNKS0m9MSSDAPe+1dgAAAAASUVORK5CYII=",
+    Alpha = "iVBORw0KGgoAAAANSUhEUgAAAQAAAAABCAYAAAAxWXB3AAAAGElEQVR42mP8//8/AwMDA+MoHsWjeORhAPTLA/4vSTB6AAAAAElFTkSuQmCC",
+    Check = "iVBORw0KGgoAAAANSUhEUgAAAPAAAAAMCAYAAABcBTDwAAAAU0lEQVR42u3YQQ0AIQxFwe5mNVRE/auqCTBQAZCdOZJ/fYHwVNWKQWZOx9HdYW9vf8b+DeBaAgYBAwIGBAx/8fnNs7e/d+8GBk9oQMCAgEHAwPE2wJx22Uh9lVMAAAAASUVORK5CYII=",
+}
+local Picker_Images_Cache = {}
+local function Get_Picker_Image_Data(Name)
+    if Picker_Images_Cache[Name] then return Picker_Images_Cache[Name] end
+    if type(base64decode) ~= "function" then return nil end
+    local Success, Data = pcall(base64decode, Picker_Image_Data[Name])
+    if not Success or type(Data) ~= "string" or #Data < 40 then return nil end
+    Picker_Images_Cache[Name] = Data
+    return Data
+end
+local function Make_Picker_Image(Name)
+    local Data = Get_Picker_Image_Data(Name)
+    if not Data then return nil end
+    local Success, Obj = pcall(function()
+        local Image = Create_Drawing("Image", {Visible = false, ZIndex = 46, Color = Color3.new(1, 1, 1), Transparency = 1, Rounding = Name == "SV" and 3 or 4})
+        Image.Data = Data
+        return Image
+    end)
+    if Success then return Obj end
+    return nil
+end
+local function Place_Picker_Image(Image, Position, Size, Visible, Tint)
+    if not Image then return end
+    Image.Visible = Visible and true or false
+    if Image.Visible then
+        Image.Position = Vector_2_Round(Position.X, Position.Y)
+        Image.Size = Vector_2_Round(Size.X, Size.Y)
+        if Tint then Image.Color = Tint end
+        Image.Transparency = 1
+    end
+end
+
         function Section_Obj:CreateColorPicker(Name_Val, Flag_Val, Default_Color, Default_Alpha, Callback_Func)
             local Initial_Color = Default_Color or Library_Data.Palette.Accent
             local Initial_Alpha = Default_Alpha == nil and 1 or Default_Alpha
@@ -1771,7 +1813,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 Alpha = Math_Clamp(Config[Flag_Val].Alpha or 1, 0, 1),
                 HexEditing = false, HexBuffer = "",
                 SavedColors = {}, SavedBounds = {}, SavedCells = {},
-                GridCols = 22, GridRows = 12, HueSteps = 30, AlphaSteps = 30,
+                GridCols = 80, GridRows = 36, HueSteps = 100, AlphaSteps = 64,
                 Label = Create_Drawing("Text", {Text = Name_Val, Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 Stroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
                 Background = Make_Rounded_Box(Library_Data.Palette.Element, 1),
@@ -1781,8 +1823,8 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 PopupShadow = Make_Rounded_Box(Color3.new(0, 0, 0), 0.36),
                 PopupStroke = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
                 PopupBackground = Make_Rounded_Box(Library_Data.Palette.Background, 1),
-                PopupTitle = Create_Drawing("Text", {Text = "COLOR PICKER", Color = Library_Data.Palette.Text, Size = 12, Outline = true, Visible = false}),
-                PopupHint = Create_Drawing("Text", {Text = "HSV  /  ALPHA", Color = Library_Data.Palette.SubText, Size = 10, Visible = false}),
+                PopupTitle = Create_Drawing("Text", {Text = "Color", Color = Library_Data.Palette.Text, Font = 2, Size = 13, Outline = true, Visible = false}),
+                PopupHint = Create_Drawing("Text", {Text = "HSVA", Color = Library_Data.Palette.SubText, Font = 2, Size = 11, Visible = false}),
                 PopupRule = Create_Drawing("Square", {Filled = true, Visible = false}),
                 PopupSwatchStroke = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
                 PopupSwatch = Make_Rounded_Box(Config[Flag_Val].Color, 1),
@@ -1792,14 +1834,19 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 SVStroke = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
                 HueStroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
                 AlphaStroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
-                SVGrid = Create_Grid_Squares(22 * 12),
-                HueGrid = Create_Grid_Squares(30),
-                AlphaGrid = Create_Grid_Squares(30),
+                SVGrid = {}, HueGrid = {}, AlphaGrid = {},
+                SVBackground = Make_Rounded_Box(Color3.fromRGB(255, 0, 0), 1),
+                SVOverlay = Make_Picker_Image("SV"),
+                HueOverlay = Make_Picker_Image("Hue"),
+                AlphaChecker = Make_Picker_Image("Check"),
+                AlphaOverlay = Make_Picker_Image("Alpha"),
+                HueBackground = Make_Rounded_Box(Library_Data.Palette.Element, 1),
+                AlphaBackground = Make_Rounded_Box(Library_Data.Palette.Element, 1),
                 CursorOuter = Create_Drawing("Circle", {Filled = false, Thickness = 2, NumSides = 28, Radius = 6, Visible = false}),
                 CursorInner = Create_Drawing("Circle", {Filled = false, Thickness = 1, NumSides = 28, Radius = 4, Visible = false}),
                 HueCursor = Create_Drawing("Square", {Filled = true, Visible = false}),
                 AlphaCursor = Create_Drawing("Square", {Filled = true, Visible = false}),
-                SavedLabel = Create_Drawing("Text", {Text = "SAVED COLORS", Color = Library_Data.Palette.SubText, Size = 10, Font = 2, Visible = false}),
+                SavedLabel = Create_Drawing("Text", {Text = "Recent colors", Color = Library_Data.Palette.SubText, Size = 11, Font = 2, Visible = false}),
                 SaveButtonBorder = Make_Rounded_Box(Library_Data.Palette.OutlineLight, 1),
                 SaveButton = Make_Rounded_Box(Library_Data.Palette.Element, 1),
                 SaveButtonText = Create_Drawing("Text", {Text = "+", Color = Library_Data.Palette.Text, Size = 15, Font = 2, Center = true, Visible = false}),
@@ -1818,8 +1865,16 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
             end
             local Rounded_Parts = {"PopupShadow", "PopupStroke", "PopupBackground", "PopupSwatchStroke", "PopupSwatch", "HexStroke", "HexBackground", "SVStroke", "HueStroke", "AlphaStroke", "SaveButtonBorder", "SaveButton"}
             local Text_Parts = {"PopupTitle", "PopupHint", "PopupHex", "PopupRule", "SavedLabel", "SaveButtonText"}
-            for _, Part_Name in ipairs(Rounded_Parts) do Set_Drawing_Layer(Color_Picker[Part_Name], 45) end
+            for _, Part_Name in ipairs(Rounded_Parts) do Set_Drawing_Layer(Color_Picker[Part_Name], 46) end
+            Set_Drawing_Layer(Color_Picker.PopupShadow, 42)
+            Set_Drawing_Layer(Color_Picker.PopupStroke, 43)
+            Set_Drawing_Layer(Color_Picker.PopupBackground, 44)
+            Set_Drawing_Layer(Color_Picker.SVStroke, 45)
+            Set_Drawing_Layer(Color_Picker.HueStroke, 45)
+            Set_Drawing_Layer(Color_Picker.AlphaStroke, 45)
             for _, Part_Name in ipairs(Text_Parts) do Set_Drawing_Layer(Color_Picker[Part_Name], 48) end
+            for _, Part_Name in ipairs({"SVBackground", "HueBackground", "AlphaBackground"}) do Set_Drawing_Layer(Color_Picker[Part_Name], 46) end
+            for _, Part_Name in ipairs({"SVOverlay", "HueOverlay", "AlphaChecker", "AlphaOverlay"}) do Set_Drawing_Layer(Color_Picker[Part_Name], 47) end
             for _, Item_Draw in ipairs(Color_Picker.SVGrid) do Set_Drawing_Layer(Item_Draw, 46) end
             for _, Item_Draw in ipairs(Color_Picker.HueGrid) do Set_Drawing_Layer(Item_Draw, 46) end
             for _, Item_Draw in ipairs(Color_Picker.AlphaGrid) do Set_Drawing_Layer(Item_Draw, 46) end
@@ -1828,7 +1883,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 Set_Drawing_Layer(SavedCell.Background, 48)
             end
             for _, Part_Name in ipairs({"CursorOuter", "CursorInner", "HueCursor", "AlphaCursor"}) do
-                Set_Drawing_Layer(Color_Picker[Part_Name], 47)
+                Set_Drawing_Layer(Color_Picker[Part_Name], 50)
             end
             function Color_Picker:SyncColor()
                 local State_Val = Config[self.Flag]
@@ -1872,14 +1927,14 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                     Update_Rounded_Box(Obj, Vector2.new(), Vector2.new(), 0, Library_Data.Palette.Background, 1, false)
                 end
                 for _, Part_Name in ipairs(Text_Parts) do self[Part_Name].Visible = false end
-                for _, SavedCell in ipairs(Color_Picker.SavedCells) do
-                Set_Drawing_Layer(SavedCell.Outline, 47)
-                Set_Drawing_Layer(SavedCell.Background, 48)
-            end
             for _, Part_Name in ipairs({"CursorOuter", "CursorInner", "HueCursor", "AlphaCursor"}) do self[Part_Name].Visible = false end
                 Hide_Grid_Squares(self.SVGrid)
                 Hide_Grid_Squares(self.HueGrid)
                 Hide_Grid_Squares(self.AlphaGrid)
+                for _, Part_Name in ipairs({"SVOverlay", "HueOverlay", "AlphaChecker", "AlphaOverlay"}) do
+                    if self[Part_Name] then self[Part_Name].Visible = false end
+                end
+                for _, Part_Name in ipairs({"SVBackground", "HueBackground", "AlphaBackground"}) do Set_Visible(self[Part_Name], false) end
             end
             function Color_Picker:Update(X_Val, Y_Val, W_Val)
                 local State_Val = Config[self.Flag]
@@ -1892,14 +1947,14 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 self.ButtonSize = Vector2.new(87, 24)
                 Update_Rounded_Box(self.Stroke, self.ButtonPos, self.ButtonSize, 5, self.IsOpen and Library_Data.Palette.Accent or Library_Data.Palette.Outline, 1, true)
                 Update_Rounded_Box(self.Background, self.ButtonPos + Vector2.new(1, 1), self.ButtonSize - Vector2.new(2, 2), 4, Library_Data.Palette.Element, 1, true)
-                Update_Rounded_Box(self.PreviewStroke, self.ButtonPos + Vector2.new(5, 5), Vector2.new(16, 14), 3, Library_Data.Palette.OutlineLight, 1, true)
-                Update_Rounded_Box(self.Preview, self.ButtonPos + Vector2.new(6, 6), Vector2.new(14, 12), 2, Current_Color, 1, true)
+                Update_Rounded_Box(self.PreviewStroke, self.ButtonPos + Vector2.new(5, 5), Vector2.new(16, 14), 7, Library_Data.Palette.OutlineLight, 1, true)
+                Update_Rounded_Box(self.Preview, self.ButtonPos + Vector2.new(6, 6), Vector2.new(14, 12), 6, Current_Color, 1, true)
                 self.PreviewText.Text = Current_Hex
                 self.PreviewText.Color = Library_Data.Palette.SubText
                 self.PreviewText.Visible = true
                 Position_Text(self.PreviewText, self.ButtonPos.X + 25, self.ButtonPos.Y + 7, "ColorPickerValue")
                 if not self.IsOpen then self:HidePopup() return end
-                local Width, Height = 264, 310
+                local Width, Height = 264, 315
                 local Popup_X = self.ButtonPos.X + self.ButtonSize.X - Width
                 local Popup_Y = self.ButtonPos.Y + self.ButtonSize.Y + 7
                 local Camera_Val = Workspace_Service.CurrentCamera
@@ -1912,9 +1967,9 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 self.PopupSize = Vector2.new(Width, Height)
                 self._PopupDrawn = true
                 local PX, PY = self.PopupPos.X, self.PopupPos.Y
-                Update_Rounded_Box(self.PopupShadow, Vector2.new(PX - 3, PY - 3), Vector2.new(Width + 6, Height + 6), 8, Color3.new(0, 0, 0), 0.38, true)
-                Update_Rounded_Box(self.PopupStroke, self.PopupPos, self.PopupSize, 7, Library_Data.Palette.OutlineLight, 1, true)
-                Update_Rounded_Box(self.PopupBackground, self.PopupPos + Vector2.new(1, 1), self.PopupSize - Vector2.new(2, 2), 7, Library_Data.Palette.Background, 1, true)
+                Update_Rounded_Box(self.PopupShadow, Vector2.new(PX - 3, PY - 3), Vector2.new(Width + 6, Height + 6), 8, Color3.new(0, 0, 0), 0.26, true)
+                Update_Rounded_Box(self.PopupStroke, self.PopupPos, self.PopupSize, 8, Library_Data.Palette.OutlineLight, 1, true)
+                Update_Rounded_Box(self.PopupBackground, self.PopupPos + Vector2.new(1, 1), self.PopupSize - Vector2.new(2, 2), 8, Color_Lerp(Library_Data.Palette.Background, Library_Data.Palette.Element, 0.28), 1, true)
                 self.PopupTitle.Visible = true
                 Position_Text(self.PopupTitle, PX + 13, PY + 12)
                 self.PopupHint.Visible = true
@@ -1925,35 +1980,48 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 self.PopupRule.Size = Vector2.new(Width - 20, 1)
                 self.SVPos = Vector2.new(PX + 12, PY + 44)
                 self.SVSize = Vector2.new(240, 116)
-                Update_Rounded_Box(self.SVStroke, self.SVPos - Vector2.new(1, 1), self.SVSize + Vector2.new(2, 2), 3, Library_Data.Palette.OutlineLight, 1, true)
-                if self._SVGridHue ~= self.Hue or self._SVGridPos ~= tostring(PX) .. ":" .. tostring(PY) then
-                    Update_Grid_Squares(self.SVGrid, self.GridCols, self.GridRows, self.SVPos.X, self.SVPos.Y, self.SVSize.X, self.SVSize.Y, function(Col, Row, Cols, Rows)
-                        local S = (Col - 0.5) / Cols
-                        local V = 1 - (Row - 0.5) / Rows
-                        return Hsv_To_Color3(self.Hue, S, V)
-                    end, true)
-                    self._SVGridHue = self.Hue
-                    self._SVGridPos = tostring(PX) .. ":" .. tostring(PY)
+                Update_Rounded_Box(self.SVStroke, self.SVPos - Vector2.new(1, 1), self.SVSize + Vector2.new(2, 2), 4, Library_Data.Palette.OutlineLight, 1, true)
+                Update_Rounded_Box(self.SVBackground, self.SVPos, self.SVSize, 2, Hsv_To_Color3(self.Hue, 1, 1), 1, true)
+                Place_Picker_Image(self.SVOverlay, self.SVPos, self.SVSize, true)
+                if not self.SVOverlay then
+                    if #self.SVGrid == 0 then self.SVGrid = Create_Grid_Squares(self.GridCols * self.GridRows) end
+                    if self._SVGridHue ~= self.Hue or self._SVGridPos ~= tostring(PX) .. ":" .. tostring(PY) then
+                        Update_Grid_Squares(self.SVGrid, self.GridCols, self.GridRows, self.SVPos.X, self.SVPos.Y, self.SVSize.X, self.SVSize.Y, function(Col, Row, Cols, Rows)
+                            return Hsv_To_Color3(self.Hue, (Col - 0.5) / Cols, 1 - (Row - 0.5) / Rows)
+                        end, true)
+                        self._SVGridHue = self.Hue
+                        self._SVGridPos = tostring(PX) .. ":" .. tostring(PY)
+                    end
                 end
                 self.HuePos = Vector2.new(PX + 12, PY + 173)
                 self.HueSize = Vector2.new(240, 12)
                 Update_Rounded_Box(self.HueStroke, self.HuePos - Vector2.new(1, 1), self.HueSize + Vector2.new(2, 2), 3, Library_Data.Palette.Outline, 1, true)
-                if self._HueGridPos ~= tostring(PX) .. ":" .. tostring(PY) then
-                    Update_Grid_Squares(self.HueGrid, self.HueSteps, 1, self.HuePos.X, self.HuePos.Y, self.HueSize.X, self.HueSize.Y, function(Col, _, Cols)
-                        return Hsv_To_Color3((Col - 0.5) / Cols, 1, 1)
-                    end, true)
-                    self._HueGridPos = tostring(PX) .. ":" .. tostring(PY)
+                Update_Rounded_Box(self.HueBackground, self.HuePos, self.HueSize, 2, Library_Data.Palette.Element, 1, true)
+                Place_Picker_Image(self.HueOverlay, self.HuePos, self.HueSize, true)
+                if not self.HueOverlay then
+                    if #self.HueGrid == 0 then self.HueGrid = Create_Grid_Squares(self.HueSteps) end
+                    if self._HueGridPos ~= tostring(PX) .. ":" .. tostring(PY) then
+                        Update_Grid_Squares(self.HueGrid, self.HueSteps, 1, self.HuePos.X, self.HuePos.Y, self.HueSize.X, self.HueSize.Y, function(Col, _, Cols)
+                            return Hsv_To_Color3((Col - 0.5) / Cols, 1, 1)
+                        end, true)
+                        self._HueGridPos = tostring(PX) .. ":" .. tostring(PY)
+                    end
                 end
                 self.AlphaPos = Vector2.new(PX + 12, PY + 195)
                 self.AlphaSize = Vector2.new(240, 12)
                 Update_Rounded_Box(self.AlphaStroke, self.AlphaPos - Vector2.new(1, 1), self.AlphaSize + Vector2.new(2, 2), 3, Library_Data.Palette.Outline, 1, true)
-                if self._AlphaGridPos ~= tostring(PX) .. ":" .. tostring(PY) or self._AlphaGridHex ~= Current_Hex then
-                    Update_Grid_Squares(self.AlphaGrid, self.AlphaSteps, 1, self.AlphaPos.X, self.AlphaPos.Y, self.AlphaSize.X, self.AlphaSize.Y, function(Col, _, Cols)
-                        local A = (Col - 0.5) / Cols
-                        return Color_Lerp(Library_Data.Palette.Element, Current_Color, A)
-                    end, true)
-                    self._AlphaGridPos = tostring(PX) .. ":" .. tostring(PY)
-                    self._AlphaGridHex = Current_Hex
+                Update_Rounded_Box(self.AlphaBackground, self.AlphaPos, self.AlphaSize, 2, Library_Data.Palette.Element, 1, true)
+                Place_Picker_Image(self.AlphaChecker, self.AlphaPos, self.AlphaSize, true)
+                Place_Picker_Image(self.AlphaOverlay, self.AlphaPos, self.AlphaSize, true, Current_Color)
+                if not self.AlphaOverlay then
+                    if #self.AlphaGrid == 0 then self.AlphaGrid = Create_Grid_Squares(self.AlphaSteps) end
+                    if self._AlphaGridPos ~= tostring(PX) .. ":" .. tostring(PY) or self._AlphaGridHex ~= Current_Hex then
+                        Update_Grid_Squares(self.AlphaGrid, self.AlphaSteps, 1, self.AlphaPos.X, self.AlphaPos.Y, self.AlphaSize.X, self.AlphaSize.Y, function(Col, _, Cols)
+                            return Color_Lerp(Library_Data.Palette.Element, Current_Color, (Col - 0.5) / Cols)
+                        end, true)
+                        self._AlphaGridPos = tostring(PX) .. ":" .. tostring(PY)
+                        self._AlphaGridHex = Current_Hex
+                    end
                 end
                 self.CursorOuter.Visible = true
                 self.CursorOuter.Color = Color3.new(0, 0, 0)
@@ -1966,12 +2034,12 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 local HX = Math_Clamp(self.Hue, 0, 1) * (self.HueSize.X - 2)
                 local AX = Math_Clamp(self.Alpha, 0, 1) * (self.AlphaSize.X - 2)
                 self.HueCursor.Visible = true
-                self.HueCursor.Position = Vector_2_Round(self.HuePos.X + HX, self.HuePos.Y - 3)
-                self.HueCursor.Size = Vector2.new(3, 18)
+                self.HueCursor.Position = Vector_2_Round(self.HuePos.X + HX - 2, self.HuePos.Y - 3)
+                self.HueCursor.Size = Vector2.new(5, 18)
                 self.HueCursor.Color = Library_Data.Palette.Text
                 self.AlphaCursor.Visible = true
-                self.AlphaCursor.Position = Vector_2_Round(self.AlphaPos.X + AX, self.AlphaPos.Y - 3)
-                self.AlphaCursor.Size = Vector2.new(3, 18)
+                self.AlphaCursor.Position = Vector_2_Round(self.AlphaPos.X + AX - 2, self.AlphaPos.Y - 3)
+                self.AlphaCursor.Size = Vector2.new(5, 18)
                 self.AlphaCursor.Color = Library_Data.Palette.Text
                 self.HexPos = Vector2.new(PX + 12, PY + 219)
                 self.HexSize = Vector2.new(171, 24)
@@ -1998,7 +2066,7 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                     local CellSize = Vector2.new(33, 23)
                     local Saved = self.SavedColors[I]
                     Update_Rounded_Box(SavedCell.Outline, CellPos, CellSize, 4, Library_Data.Palette.OutlineLight, 1, true)
-                    Update_Rounded_Box(SavedCell.Background, CellPos + Vector2.new(1, 1), CellSize - Vector2.new(2, 2), 3, Saved and Saved.Color or Library_Data.Palette.Element, 1, true)
+                    Update_Rounded_Box(SavedCell.Background, CellPos + Vector2.new(1, 1), CellSize - Vector2.new(2, 2), 3, Saved and Saved.Color or Color_Lerp(Library_Data.Palette.Element, Library_Data.Palette.Hover, 0.2), 1, true)
                     self.SavedBounds[I] = {Pos = CellPos, Size = CellSize}
                 end
             end
@@ -2042,6 +2110,8 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 Type = "Button", Height = 34, Callback = Callback_Func,
                 Stroke = Make_Rounded_Box(Library_Data.Palette.Outline, 1),
                 Background = Make_Rounded_Box(Library_Data.Palette.Element, 1),
+                Fill = Make_Rounded_Box(Library_Data.Palette.Accent, 1),
+                HoverMix = 0,
                 Accent = Create_Drawing("Square", {Filled = true, Color = Library_Data.Palette.Accent, Visible = false}),
                 Label = Create_Drawing("Text", {Text = Name_Val, Color = Library_Data.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 ButtonPos = Vector2.new(), ButtonSize = Vector2.new()
@@ -2050,14 +2120,18 @@ function Library_Data:CreateTab(Tab_Name, Tab_Icon)
                 self.ButtonPos = Vector_2_Round(X_Val + 2, Y_Val + 4)
                 self.ButtonSize = Vector_2_Round(W_Val - 4, 24)
                 local Hovered_Val = Is_Mouse_In_Bounds(Library_Data.Input.MousePos, self.ButtonPos, self.ButtonSize)
-                Update_Rounded_Box(self.Stroke, self.ButtonPos, self.ButtonSize, 5, Hovered_Val and Library_Data.Palette.Accent or Library_Data.Palette.OutlineLight, 1, true)
-                Update_Rounded_Box(self.Background, Vector_2_Round(self.ButtonPos.X + 1, self.ButtonPos.Y + 1), Vector_2_Round(self.ButtonSize.X - 2, self.ButtonSize.Y - 2), 4, Hovered_Val and Library_Data.Palette.Hover or Color_Lerp(Library_Data.Palette.Element, Library_Data.Palette.Hover, 0.34), 1, true)
-                self.Accent.Visible = true
-                self.Accent.Position = Vector_2_Round(self.ButtonPos.X + 9, self.ButtonPos.Y + 7)
-                self.Accent.Size = Vector2.new(2, 10)
-                self.Accent.Color = Library_Data.Palette.Accent
+                Update_Rounded_Box(self.Stroke, self.ButtonPos, self.ButtonSize, 5, Hovered_Val and Color_Lerp(Library_Data.Palette.OutlineLight, Library_Data.Palette.Accent, 0.36) or Library_Data.Palette.Outline, 1, true)
+                Update_Rounded_Box(self.Background, Vector_2_Round(self.ButtonPos.X + 1, self.ButtonPos.Y + 1), Vector_2_Round(self.ButtonSize.X - 2, self.ButtonSize.Y - 2), 4, Hovered_Val and Color_Lerp(Library_Data.Palette.Element, Library_Data.Palette.Hover, 0.80) or Color_Lerp(Library_Data.Palette.Element, Library_Data.Palette.Background, 0.12), 1, true)
+                self.Accent.Visible = false
+                self.HoverMix = Math_Lerp(self.HoverMix, Hovered_Val and 1 or 0, 0.22)
+                if self.HoverMix < 0.01 then self.HoverMix = 0 end
+                local FillWidth = (self.ButtonSize.X - 2) * self.HoverMix
+                local FillPos = Vector_2_Round(self.ButtonPos.X + (self.ButtonSize.X - FillWidth) * 0.5, self.ButtonPos.Y + 1)
+                Update_Rounded_Box(self.Fill, FillPos, Vector_2_Round(FillWidth, self.ButtonSize.Y - 2), 4, Color_Lerp(Library_Data.Palette.Accent, Library_Data.Palette.Accent2, 0.25), 1, FillWidth > 2)
+                Set_Drawing_Layer(self.Fill, 6)
                 self.Label.Visible = true
-                self.Label.Color = Library_Data.Palette.Text
+                self.Label.Color = Color_Lerp(Library_Data.Palette.Text, Color3.fromRGB(10, 11, 15), Math_Clamp((self.HoverMix - 0.68) / 0.32, 0, 1))
+                Set_Drawing_Layer(self.Label, 7)
                 Position_Text_Centered(self.Label, self.ButtonPos, self.ButtonSize, "ButtonLabel")
             end
             table.insert(self.Items, Button_Obj)
@@ -3139,6 +3213,12 @@ Connect_Session(Run_Service.RenderStepped, function()
                     if Item_Obj.SVStroke then Set_Visible(Item_Obj.SVStroke, false) end
                     if Item_Obj.HueStroke then Set_Visible(Item_Obj.HueStroke, false) end
                     if Item_Obj.SVGrid then Hide_Grid_Squares(Item_Obj.SVGrid) end
+                    for _, PickerImage in ipairs({"SVOverlay", "HueOverlay", "AlphaChecker", "AlphaOverlay"}) do
+                        if Item_Obj[PickerImage] then Item_Obj[PickerImage].Visible = false end
+                    end
+                    for _, PickerBox in ipairs({"SVBackground", "HueBackground", "AlphaBackground"}) do
+                        if Item_Obj[PickerBox] then Set_Visible(Item_Obj[PickerBox], false) end
+                    end
                     if Item_Obj.HueGrid then Hide_Grid_Squares(Item_Obj.HueGrid) end
                     if Item_Obj.CursorOuter then Item_Obj.CursorOuter.Visible = false end
                     if Item_Obj.CursorInner then Item_Obj.CursorInner.Visible = false end
@@ -3163,7 +3243,7 @@ end
 
 local NightfallLibrary = {
     Name = "Nightfall",
-    Version = "1.0.9",
+    Version = "1.0.10",
     Config = Config,
     Flags = Config,
     State = Library_Data,
@@ -3365,6 +3445,11 @@ function NightfallLibrary:CreatePanel(Options)
             Label = Create_Drawing("Text", {Size = 12, Font = 2, Visible = false}),
             ValueText = Kind == "Button" and nil or Create_Drawing("Text", {Size = 12, Font = 2, Visible = false})
         }
+        if Kind == "Button" then
+            Item.Fill = Make_Rounded_Box(Library_Data.Palette.Accent, 1)
+            Item.HoverMix = 0
+            Set_Drawing_Layer(Item.Fill, 64)
+        end
         Set_Drawing_Layer(Item.Outline, 62)
         Set_Drawing_Layer(Item.Background, 63)
         Set_Drawing_Layer(Item.Label, 65)
@@ -3389,7 +3474,7 @@ function NightfallLibrary:CreatePanel(Options)
         pcall(function() self.Title:Remove() end)
         pcall(function() self.Rule:Remove() end)
         for _, Item in ipairs(self.Items) do
-            for _, Object in ipairs({Item.Outline, Item.Background}) do
+            for _, Object in ipairs({Item.Outline, Item.Background, Item.Fill}) do
                 for _, Part in pairs(Object) do if Part.Remove then pcall(function() Part:Remove() end) end end
             end
             if Item.Label then pcall(function() Item.Label:Remove() end) end
