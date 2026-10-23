@@ -1792,8 +1792,8 @@ end
                 AlphaBackground = MakeRoundedBox(LibraryData.Palette.Element, 1),
                 CursorOuter = CreateDrawing("Circle", {Filled = false, Thickness = 2, NumSides = 28, Radius = 6, Visible = false}),
                 CursorInner = CreateDrawing("Circle", {Filled = false, Thickness = 1, NumSides = 28, Radius = 4, Visible = false}),
-                HueCursor = CreateDrawing("Square", {Filled = true, Visible = false}),
-                AlphaCursor = CreateDrawing("Square", {Filled = true, Visible = false}),
+                HueCursor = CreateDrawing("Circle", {Filled = true, NumSides = 26, Radius = 5, Visible = false}),
+                AlphaCursor = CreateDrawing("Circle", {Filled = true, NumSides = 26, Radius = 5, Visible = false}),
                 SavedLabel = CreateDrawing("Text", {Text = "Recent colors", Color = LibraryData.Palette.SubText, Size = 11, Font = 2, Visible = false}),
                 SaveButtonBorder = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
                 SaveButton = MakeRoundedBox(LibraryData.Palette.Element, 1),
@@ -1915,7 +1915,7 @@ end
                 self.PreviewText.Visible = true
                 PositionText(self.PreviewText, self.ButtonPos.X + 25, self.ButtonPos.Y + 7, "ColorPickerValue")
                 if not self.IsOpen then self:HidePopup() return end
-                local Width, Height = 276, 315
+                local Width, Height = 276, 222
                 local PopupX = self.ButtonPos.X + self.ButtonSize.X - Width
                 local PopupY = self.ButtonPos.Y + self.ButtonSize.Y + 7
                 local CameraVal = WorkspaceService.CurrentCamera
@@ -1994,45 +1994,29 @@ end
                 local HX = MathClamp(self.Hue, 0, 1) * (self.HueSize.X - 2)
                 local AX = MathClamp(self.Alpha, 0, 1) * (self.AlphaSize.X - 2)
                 self.HueCursor.Visible = true
-                self.HueCursor.Position = Vector2Round(self.HuePos.X + HX - 2, self.HuePos.Y - 3)
-                self.HueCursor.Size = Vector2.new(5, 18)
+                self.HueCursor.Position = Vector2Round(self.HuePos.X + HX, self.HuePos.Y + self.HueSize.Y / 2)
+                self.HueCursor.Radius = 5
                 self.HueCursor.Color = LibraryData.Palette.Text
                 self.AlphaCursor.Visible = true
-                self.AlphaCursor.Position = Vector2Round(self.AlphaPos.X + AX - 2, self.AlphaPos.Y - 3)
-                self.AlphaCursor.Size = Vector2.new(5, 18)
+                self.AlphaCursor.Position = Vector2Round(self.AlphaPos.X + AX, self.AlphaPos.Y + self.AlphaSize.Y / 2)
+                self.AlphaCursor.Radius = 5
                 self.AlphaCursor.Color = LibraryData.Palette.Text
-                self.HexPos = Vector2.new(PX + 12, PY + 225)
-                self.HexSize = Vector2.new(181, 24)
-                UpdateRoundedBox(self.HexStroke, self.HexPos, self.HexSize, 4, self.HexEditing and LibraryData.Palette.OutlineLight or LibraryData.Palette.Outline, 1, true)
-                UpdateRoundedBox(self.HexBackground, self.HexPos + Vector2.new(1, 1), self.HexSize - Vector2.new(2, 2), 4, LibraryData.Palette.Element, 1, true)
-                self.PopupHex.Visible = true
-                local ShownHex = self.HexEditing and tostring(self.HexBuffer) or CurrentHex:sub(2)
-                if self.HexEditing and FastTick() % 1 < 0.52 then
-                    local Cursor = MathClamp(self.HexCursor or #ShownHex, 0, #ShownHex)
-                    ShownHex = ShownHex:sub(1, Cursor) .. "|" .. ShownHex:sub(Cursor + 1)
-                end
-                self.PopupHex.Text = "#" .. ShownHex
-                self.PopupHex.Color = self.HexEditing and LibraryData.Palette.Text or LibraryData.Palette.SubText
-                PositionText(self.PopupHex, self.HexPos.X + 9, self.HexPos.Y + 6)
-                UpdateRoundedBox(self.PopupSwatchStroke, Vector2.new(PX + 204, PY + 225), Vector2.new(60, 24), 4, LibraryData.Palette.Outline, 1, true)
-                UpdateRoundedBox(self.PopupSwatch, Vector2.new(PX + 205, PY + 226), Vector2.new(58, 22), 4, CurrentColor, MathClamp(self.Alpha, 0.12, 1), true)
-                self.SavedLabel.Visible = true
-                PositionText(self.SavedLabel, PX + 13, PY + 264)
-                local SavePos = Vector2.new(PX + Width - 36, PY + 256)
-                local SaveSize = Vector2.new(26, 26)
-                local SaveHover = IsMouseInBounds(LibraryData.Input.MousePos, SavePos, SaveSize)
-                UpdateRoundedBox(self.SaveButtonBorder, SavePos, SaveSize, 4, SaveHover and LibraryData.Palette.Accent or LibraryData.Palette.OutlineLight, 1, true)
-                UpdateRoundedBox(self.SaveButton, SavePos + Vector2.new(1, 1), SaveSize - Vector2.new(2, 2), 3, SaveHover and LibraryData.Palette.Hover or LibraryData.Palette.Element, 1, true)
-                self.SaveButtonText.Visible = true
-                PositionTextCentered(self.SaveButtonText, SavePos, SaveSize, "ColorPickerValue")
-                self.SavePos, self.SaveSize = SavePos, SaveSize
+                self.HexPos = Vector2.new()
+                self.HexSize = Vector2.new()
+                self.SavePos, self.SaveSize = nil, nil
+                self.PopupHex.Visible = false
+                self.SavedLabel.Visible = false
+                UpdateRoundedBox(self.HexStroke, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Outline, 1, false)
+                UpdateRoundedBox(self.HexBackground, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Element, 1, false)
+                UpdateRoundedBox(self.PopupSwatchStroke, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Outline, 1, false)
+                UpdateRoundedBox(self.PopupSwatch, Vector2.new(), Vector2.new(), 0, CurrentColor, 1, false)
+                UpdateRoundedBox(self.SaveButtonBorder, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.OutlineLight, 1, false)
+                UpdateRoundedBox(self.SaveButton, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Element, 1, false)
+                self.SaveButtonText.Visible = false
                 for I, SavedCell in ipairs(self.SavedCells) do
-                    local CellPos = Vector2.new(PX + 12 + (I - 1) * 42, PY + 285)
-                    local CellSize = Vector2.new(33, 23)
-                    local Saved = self.SavedColors[I]
-                    UpdateRoundedBox(SavedCell.Outline, CellPos, CellSize, 4, LibraryData.Palette.OutlineLight, 1, true)
-                    UpdateRoundedBox(SavedCell.Background, CellPos + Vector2.new(1, 1), CellSize - Vector2.new(2, 2), 3, Saved and Saved.Color or ColorLerp(LibraryData.Palette.Element, LibraryData.Palette.Hover, 0.2), 1, true)
-                    self.SavedBounds[I] = {Pos = CellPos, Size = CellSize}
+                    self.SavedBounds[I] = nil
+                    UpdateRoundedBox(SavedCell.Outline, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.OutlineLight, 1, false)
+                    UpdateRoundedBox(SavedCell.Background, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Element, 1, false)
                 end
             end
             table.insert(self.Items, ColorPicker)
@@ -3045,35 +3029,10 @@ ConnectSession(RunService.RenderStepped, function()
                         LibraryData.State.ActiveColorDrag = "Hue"
                     elseif IsMouseInBounds(MP, PickerObj.AlphaPos, PickerObj.AlphaSize) then
                         LibraryData.State.ActiveColorDrag = "Alpha"
-                    elseif PickerObj.SavePos and IsMouseInBounds(MP, PickerObj.SavePos, PickerObj.SaveSize) then
-                        table.insert(PickerObj.SavedColors, 1, {Color = Config[PickerObj.Flag].Color, Alpha = PickerObj.Alpha})
-                        while #PickerObj.SavedColors > 6 do table.remove(PickerObj.SavedColors) end
-                    elseif (function()
-                        for I, Bounds in ipairs(PickerObj.SavedBounds or {}) do
-                            if IsMouseInBounds(MP, Bounds.Pos, Bounds.Size) and PickerObj.SavedColors[I] then
-                                local Saved = PickerObj.SavedColors[I]
-                                PickerObj.Hue, PickerObj.Sat, PickerObj.Val = Color3ToHsv(Saved.Color)
-                                PickerObj.Alpha = Saved.Alpha
-                                PickerObj:SyncColor()
-                                return true
-                            end
-                        end
-                        return false
-                    end)() then
-                    elseif IsMouseInBounds(MP, PickerObj.HexPos, PickerObj.HexSize) then
-                        PickerObj.HexEditing = true
-                        if type(PickerObj.HexBuffer) ~= "string" or PickerObj.HexBuffer == "" then
-                            PickerObj.HexBuffer = Color3ToHex(Config[PickerObj.Flag].Color):sub(2)
-                        end
-                        PickerObj.HexBuffer = tostring(PickerObj.HexBuffer):upper():gsub("#", ""):gsub("[^0-9A-F]", ""):sub(1, 6)
-                        PickerObj.HexCursor = #PickerObj.HexBuffer
-                        PickerObj.HexSelectionAll = true
-                    elseif PickerObj.HexEditing then
-                        PickerObj:CommitHex()
                     end
                     BlockInput = true
                 else
-                    if PickerObj.HexEditing then PickerObj:CommitHex() end
+                    PickerObj.HexEditing = false
                     PickerObj.IsOpen = false
                     PickerObj:HidePopup()
                     LibraryData.State.ActiveColorPicker = nil
@@ -3333,7 +3292,7 @@ end
 
 local NightfallLibrary = {
     Name = "Nightfall",
-    Version = "1.0.15",
+    Version = "1.0.16",
     Config = Config,
     Flags = Config,
     State = LibraryData,
