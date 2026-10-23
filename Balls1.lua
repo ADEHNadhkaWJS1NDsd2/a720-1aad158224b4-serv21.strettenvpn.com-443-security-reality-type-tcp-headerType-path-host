@@ -1842,7 +1842,14 @@ end
                 QueueSaveConfig()
             end
             function ColorPicker:CommitHex()
-                local Cleaned = tostring(self.HexBuffer or ""):gsub("#", "")
+                local Cleaned = tostring(self.HexBuffer or ""):upper():gsub("#", ""):gsub("[^0-9A-F]", "")
+                if #Cleaned == 0 then
+                    self.HexEditing = false
+                    self.HexBuffer = ""
+                    self.HexCursor = 0
+                    self.HexSelectionAll = false
+                    return
+                end
                 if #Cleaned == 6 and Cleaned:match("^%x%x%x%x%x%x$") then
                     local R = tonumber(Cleaned:sub(1, 2), 16)
                     local G = tonumber(Cleaned:sub(3, 4), 16)
@@ -1850,11 +1857,15 @@ end
                     if R and G and B then
                         self.Hue, self.Sat, self.Val = Color3ToHsv(Color3.fromRGB(R, G, B))
                         self:SyncColor()
+                        self.HexEditing = false
+                        self.HexBuffer = ""
+                        self.HexCursor = 0
+                        self.HexSelectionAll = false
+                        return
                     end
                 end
-                self.HexEditing = false
-                self.HexBuffer = ""
-                self.HexCursor = 0
+                self.HexBuffer = Cleaned:sub(1, 6)
+                self.HexCursor = #self.HexBuffer
                 self.HexSelectionAll = false
             end
             function ColorPicker:HidePopup()
@@ -2013,7 +2024,7 @@ end
                 UpdateRoundedBox(self.SaveButtonBorder, SavePos, SaveSize, 4, SaveHover and LibraryData.Palette.Accent or LibraryData.Palette.OutlineLight, 1, true)
                 UpdateRoundedBox(self.SaveButton, SavePos + Vector2.new(1, 1), SaveSize - Vector2.new(2, 2), 3, SaveHover and LibraryData.Palette.Hover or LibraryData.Palette.Element, 1, true)
                 self.SaveButtonText.Visible = true
-                PositionText(self.SaveButtonText, SavePos.X + SaveSize.X / 2, SavePos.Y + 5)
+                PositionTextCentered(self.SaveButtonText, SavePos, SaveSize, "ColorPickerValue")
                 self.SavePos, self.SaveSize = SavePos, SaveSize
                 for I, SavedCell in ipairs(self.SavedCells) do
                     local CellPos = Vector2.new(PX + 12 + (I - 1) * 42, PY + 285)
@@ -2317,7 +2328,7 @@ local TextKeyDigits = {
 }
 
 local function GetTypedCharacter(KeyCode)
-    local KeyName = tostring(KeyCode.Name or "")
+    local KeyName = NormalizeEditKeyName(tostring(KeyCode.Name or ""))
     local KeyValue = KeyCode.Value or 0
     local ShiftState = KeysDown[Enum.KeyCode.LeftShift] or KeysDown[Enum.KeyCode.RightShift]
     if KeyValue >= 65 and KeyValue <= 90 then
@@ -2332,6 +2343,14 @@ local function GetTypedCharacter(KeyCode)
     if KeyValue >= 96 and KeyValue <= 105 then return tostring(KeyValue - 96) end
     if KeyName == "Space" then return " " end
     return nil
+end
+
+local function NormalizeEditKeyName(KeyName)
+    KeyName = tostring(KeyName or "")
+    if KeyName == "Back" or KeyName == "BackSpace" then return "Backspace" end
+    if KeyName == "Del" then return "Delete" end
+    if KeyName == "Enter" then return "Return" end
+    return KeyName
 end
 
 local function CommitTextbox(Box, Cancel)
@@ -3043,7 +3062,10 @@ ConnectSession(RunService.RenderStepped, function()
                     end)() then
                     elseif IsMouseInBounds(MP, PickerObj.HexPos, PickerObj.HexSize) then
                         PickerObj.HexEditing = true
-                        PickerObj.HexBuffer = Color3ToHex(Config[PickerObj.Flag].Color):sub(2)
+                        if type(PickerObj.HexBuffer) ~= "string" or PickerObj.HexBuffer == "" then
+                            PickerObj.HexBuffer = Color3ToHex(Config[PickerObj.Flag].Color):sub(2)
+                        end
+                        PickerObj.HexBuffer = tostring(PickerObj.HexBuffer):upper():gsub("#", ""):gsub("[^0-9A-F]", ""):sub(1, 6)
                         PickerObj.HexCursor = #PickerObj.HexBuffer
                         PickerObj.HexSelectionAll = true
                     elseif PickerObj.HexEditing then
@@ -3311,7 +3333,7 @@ end
 
 local NightfallLibrary = {
     Name = "Nightfall",
-    Version = "1.0.13",
+    Version = "1.0.15",
     Config = Config,
     Flags = Config,
     State = LibraryData,
@@ -3401,15 +3423,59 @@ WatermarkSettings = {Segments = {"Nightfall", "Matcha"}, Position = PendingWater
 local WatermarkDraw = {
     Border = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
     Background = MakeRoundedBox(LibraryData.Palette.Background, 1),
-    Accent = MakeRoundedBox(LibraryData.Palette.Accent, 1),
-    Dot = CreateDrawing("Circle", {Filled = true, Radius = 3, NumSides = 20, Visible = false}),
-    Text = CreateDrawing("Text", {Text = "", Size = 12, Font = 2, Visible = false})
+    Labels = {},
+    Dividers = {}
 }
 SetDrawingLayer(WatermarkDraw.Border, 140)
 SetDrawingLayer(WatermarkDraw.Background, 141)
-SetDrawingLayer(WatermarkDraw.Accent, 142)
-SetDrawingLayer(WatermarkDraw.Text, 143)
-SetDrawingLayer(WatermarkDraw.Dot, 144)
+for Index = 1, 5 do
+    local Label = CreateDrawing("Text", {
+        Text = "", FontSize = 12, Font = Drawing.Fonts and Drawing.Fonts.System or 2,
+        Color = LibraryData.Palette.Text, Outline = false, Visible = false
+    })
+    SetDrawingLayer(Label, 143)
+    WatermarkDraw.Labels[Index] = Label
+end
+for Index = 1, 4 do
+    local Divider = CreateDrawing("Square", {Filled = true, Transparency = 1, Visible = false})
+    SetDrawingLayer(Divider, 142)
+    WatermarkDraw.Dividers[Index] = Divider
+end
+
+local function MeasureWatermarkText(Value)
+    local Width = 0
+    for Index = 1, #Value do
+        local Character = Value:sub(Index, Index)
+        if Character == " " then
+            Width = Width + 3.4
+        elseif Character:find("[ilI1|!%.,:;']") then
+            Width = Width + 3.5
+        elseif Character:find("[MW@#%%]") then
+            Width = Width + 9
+        elseif Character:find("[A-Z0-9]") then
+            Width = Width + 7
+        else
+            Width = Width + 6.1
+        end
+    end
+    return math.floor(Width + 0.5)
+end
+
+local function ParseWatermarkSegments()
+    local Caption = tostring(Config.WatermarkText or "")
+    if Caption == "" then Caption = table.concat(WatermarkSettings.Segments, " | ") end
+    local Segments = {}
+    for Part in Caption:gmatch("[^|/]+") do
+        local Clean = Part:match("^%s*(.-)%s*$")
+        if Clean ~= "" then
+            table.insert(Segments, Clean:sub(1, 32))
+            if #Segments == 5 then break end
+        end
+    end
+    if #Segments == 0 then Segments[1] = "Nightfall" end
+    return Segments
+end
+
 local WatermarkDrag = {Active = false, StartMouse = Vector2.new(0, 0), StartPosition = Vector2.new(0, 0)}
 
 local function HideNotification(Entry)
@@ -3474,7 +3540,7 @@ function NightfallLibrary:Watermark(Options)
             for Index = 1, math.min(5, #Data) do
                 table.insert(WatermarkSettings.Segments, tostring(Data[Index]):sub(1, 28))
             end
-            Config.WatermarkText = table.concat(WatermarkSettings.Segments, " / ")
+            Config.WatermarkText = table.concat(WatermarkSettings.Segments, " | ")
         elseif type(Options.Text) == "string" then
             Config.WatermarkText = Options.Text
         end
@@ -3527,28 +3593,55 @@ local function UpdateNotifications()
 end
 
 local function UpdateWatermark()
-    if not Config.ShowWatermark or not WatermarkSettings.Visible then
+    local Enabled = Config.ShowWatermark and WatermarkSettings.Visible
+    if not Enabled then
         SetVisible(WatermarkDraw.Border, false)
         SetVisible(WatermarkDraw.Background, false)
-        SetVisible(WatermarkDraw.Accent, false)
-        WatermarkDraw.Dot.Visible = false
-        WatermarkDraw.Text.Visible = false
+        for _, Label in ipairs(WatermarkDraw.Labels) do Label.Visible = false end
+        for _, Divider in ipairs(WatermarkDraw.Dividers) do Divider.Visible = false end
         WatermarkDrag.Active = false
         return
     end
+
     local Camera = WorkspaceService.CurrentCamera
-    local View = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
-    local Segments = WatermarkSettings.Segments
-    local Caption = Config.WatermarkText ~= "" and tostring(Config.WatermarkText) or table.concat(Segments, "  /  ")
-    Caption = Caption:sub(1, 80)
-    local Width = MathClamp(33 + #Caption * 6.3, 124, math.max(124, View.X - 12))
-    local Size = Vector2.new(Width, Config.WatermarkCompact and 27 or 34)
+    local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+    local Segments = ParseWatermarkSegments()
+    local Height = Config.WatermarkCompact and 29 or 35
+    local InnerPadding = 13
+    local DividerGap = 12
+    local MaxWidth = math.max(100, Viewport.X - 20)
+    local Width = InnerPadding * 2
+    local SegmentWidths = {}
+
+    for Index, Text in ipairs(Segments) do
+        SegmentWidths[Index] = MeasureWatermarkText(Text)
+        Width = Width + SegmentWidths[Index]
+        if Index > 1 then Width = Width + DividerGap * 2 + 1 end
+    end
+
+    while Width > MaxWidth do
+        local Changed = false
+        for Index = #Segments, 1, -1 do
+            if #Segments[Index] > 4 then
+                local Previous = SegmentWidths[Index]
+                Segments[Index] = Segments[Index]:sub(1, -2)
+                SegmentWidths[Index] = MeasureWatermarkText(Segments[Index])
+                Width = Width - (Previous - SegmentWidths[Index])
+                Changed = true
+                if Width <= MaxWidth then break end
+            end
+        end
+        if not Changed then break end
+    end
+
+    local Size = Vector2.new(math.min(Width, MaxWidth), Height)
     WatermarkSettings.Position = ClampWindowPosition(WatermarkSettings.Position, Size)
-    local P = WatermarkSettings.Position
-    if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, P, Size) then
+    local Position = WatermarkSettings.Position
+
+    if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, Position, Size) then
         WatermarkDrag.Active = true
         WatermarkDrag.StartMouse = LibraryData.Input.MousePos
-        WatermarkDrag.StartPosition = P
+        WatermarkDrag.StartPosition = Position
         LibraryData.Input.Mouse1Clicked = false
     end
     if LibraryData.Input.Mouse1Released or not LibraryData.Input.Mouse1Down then
@@ -3556,19 +3649,37 @@ local function UpdateWatermark()
         WatermarkDrag.Active = false
     end
     if WatermarkDrag.Active then
-        P = ClampWindowPosition(WatermarkDrag.StartPosition + (LibraryData.Input.MousePos - WatermarkDrag.StartMouse), Size)
-        WatermarkSettings.Position = P
+        Position = ClampWindowPosition(WatermarkDrag.StartPosition + (LibraryData.Input.MousePos - WatermarkDrag.StartMouse), Size)
+        WatermarkSettings.Position = Position
     end
-    UpdateRoundedBox(WatermarkDraw.Border, P, Size, 7, LibraryData.Palette.OutlineLight, 1, true)
-    UpdateRoundedBox(WatermarkDraw.Background, P + Vector2.new(1, 1), Size - Vector2.new(2, 2), 6, LibraryData.Palette.Background, 1, true)
-    SetVisible(WatermarkDraw.Accent, false)
-    WatermarkDraw.Dot.Visible = true
-    WatermarkDraw.Dot.Position = Vector2Round(P.X + 12, P.Y + Size.Y / 2)
-    WatermarkDraw.Dot.Color = LibraryData.Palette.Accent
-    WatermarkDraw.Text.Visible = true
-    WatermarkDraw.Text.Text = Caption
-    WatermarkDraw.Text.Color = LibraryData.Palette.Text
-    PositionText(WatermarkDraw.Text, P.X + 23, P.Y + (Size.Y - 12) / 2 - 1)
+
+    UpdateRoundedBox(WatermarkDraw.Border, Position, Size, 6, LibraryData.Palette.OutlineLight, 1, true)
+    UpdateRoundedBox(WatermarkDraw.Background, Position + Vector2.new(1, 1), Size - Vector2.new(2, 2), 5, LibraryData.Palette.Background, 1, true)
+
+    local Cursor = Position.X + InnerPadding
+    for Index, Label in ipairs(WatermarkDraw.Labels) do
+        local Text = Segments[Index]
+        Label.Visible = Text ~= nil
+        if Text then
+            Label.Text = Text
+            Label.Color = Index == 1 and LibraryData.Palette.Text or LibraryData.Palette.SubText
+            Label.Transparency = 1
+            PositionText(Label, Cursor, Position.Y + (Height - 12) / 2 - 1)
+            Cursor = Cursor + SegmentWidths[Index]
+            if Index < #Segments then
+                local Divider = WatermarkDraw.Dividers[Index]
+                Divider.Position = Vector2Round(Cursor + DividerGap, Position.Y + (Height - 12) / 2)
+                Divider.Size = Vector2.new(1, 12)
+                Divider.Color = LibraryData.Palette.OutlineLight
+                Divider.Transparency = 1
+                Divider.Visible = true
+                Cursor = Cursor + DividerGap * 2 + 1
+            end
+        end
+    end
+    for Index = #Segments, #WatermarkDraw.Dividers do
+        WatermarkDraw.Dividers[Index].Visible = false
+    end
 end
 
 RenderDecorations = function()
