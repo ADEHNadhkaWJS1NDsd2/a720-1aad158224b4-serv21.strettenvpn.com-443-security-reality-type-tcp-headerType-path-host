@@ -86,9 +86,7 @@ local Config = {
     ShowWatermark = false,
     ShowNotifications = true,
     NotificationDuration = 4,
-    NotificationPosition = "Top Right",
-    WatermarkText = "Nightfall | Matcha",
-    WatermarkCompact = true
+    WatermarkText = "Nightfall | Matcha"
 }
 
 local function NormalizeKeybindValue(InputValue)
@@ -107,6 +105,7 @@ end
 
 local KeybindTargets = {}
 local KeybindOrder = {}
+local QueueSaveConfig
 local KeybindSystem = {Binds = {}, LastPressed = {}}
 
 local function GetModeFlagFromBindFlag(BindFlag)
@@ -140,6 +139,7 @@ local function SetBindMode(BindFlag, Mode)
         Binding.Mode = NormalizedMode
         KeybindSystem.LastPressed[BindFlag] = iskeypressed(Binding.Code) or false
     end
+    if QueueSaveConfig then QueueSaveConfig(ModeFlag) end
 end
 
 local function RegisterKeybind(Flag, Key, Mode)
@@ -161,7 +161,7 @@ local function BindKeybind(BindFlag, ToggleFlag, ModeFlag, Label)
 end
 
 local function UpdateKeybinds()
-    if not isrbxactive() then
+    if type(isrbxactive) == "function" and not isrbxactive() then
         for Flag, Binding in pairs(KeybindSystem.Binds) do
             if Binding.Mode == "Hold" then SetBindTargetState(Flag, false) end
             KeybindSystem.LastPressed[Flag] = false
@@ -176,7 +176,10 @@ local function UpdateKeybinds()
                 SetBindTargetState(Flag, true)
             else
                 local ToggleFlag = GetToggleFlagFromBindFlag(Flag)
-                if ToggleFlag then Config[ToggleFlag] = not Config[ToggleFlag] end
+                if ToggleFlag then
+                    Config[ToggleFlag] = not Config[ToggleFlag]
+                    if QueueSaveConfig then QueueSaveConfig(ToggleFlag) end
+                end
             end
         elseif not Pressed and PreviouslyPressed and Binding.Mode == "Hold" then
             SetBindTargetState(Flag, false)
@@ -197,8 +200,8 @@ local function Vector2Round(XCoordinate, YCoordinate)
     return Vector2.new(Round(XCoordinate), Round(YCoordinate))
 end
 
-local function Lerp(StartValue, Blue, Amount)
-    return StartValue + (Blue - StartValue) * Amount
+local function Lerp(StartValue, EndValue, Amount)
+    return StartValue + (EndValue - StartValue) * Amount
 end
 
 local function ColorLerp(StartColor, EndColor, Amount)
@@ -320,7 +323,6 @@ local function ClampSliderValue(InputValue, Minimum, Maximum, StepSize)
     return Clamp(SnappedValue, Minimum, Maximum)
 end
 
-local QueueSaveConfig
 local FireChange
 
 local function CommitSliderInput(Slider)
@@ -333,7 +335,7 @@ local function CommitSliderInput(Slider)
     local FinalValue = ClampSliderValue(ParsedValue, Slider.Min, Slider.Max, Slider.Step)
     if Config[Slider.Flag] ~= FinalValue then
         Config[Slider.Flag] = FinalValue
-        if QueueSaveConfig then QueueSaveConfig() end
+        if QueueSaveConfig then QueueSaveConfig(Slider.Flag) end
     end
     Slider.InputBuffer = FormatSliderValue(FinalValue, Slider.Step)
     if FireChange then FireChange(Slider) end
@@ -364,7 +366,6 @@ local TextOffsets = {
     DropdownOption = {X = 0, Y = 0},
     ColorPickerLabel = {X = 0, Y = 0},
     ColorPickerValue = {X = 0, Y = 0},
-    ColorPickerPopupHex = {X = 0, Y = 0},
     KeybindLabel = {X = 0, Y = 0},
     KeybindValue = {X = 0, Y = 0},
     ButtonLabel = {X = 0, Y = 0},
@@ -837,190 +838,284 @@ local SettingsQueueTick = 0
 local IsConfigLoading = false
 local ConfigLoaded = false
 local ConfigDirectory = "NightfallConfigs"
-local PendingWatermarkPosition = nil
-local WatermarkSettings
+local ConfigNamespace = "Default"
 local GlobalSettingsPath = ConfigDirectory .. "/Settings.json"
-
-local function EnsureConfigDirectory()
-    if makefolder and isfolder and not isfolder(ConfigDirectory) then
-        return pcall(makefolder, ConfigDirectory)
-    end
-    return true
-end
+local PendingWatermarkPosition
+local NotificationPosition
+local WatermarkSettings
+local SettingsLoaded = false
+local HasSavedPositions = false
+local PendingAccentColor
+local PendingSecondaryAccentColor
 
 local PersistentSettings = {
     "SelectedConfig", "ConfigName", "AutoSaveConfig", "AutoLoadConfig", "ThemePreset",
     "HideKeybind", "ShowHotkeyList", "ShowWatermark", "ShowNotifications",
-    "NotificationDuration", "NotificationPosition", "WatermarkText", "WatermarkCompact"
+    "NotificationDuration", "WatermarkText"
 }
 
+local UiSettingsKeys = {}
+for _, Key in ipairs(PersistentSettings) do UiSettingsKeys[Key] = true end
+UiSettingsKeys.UiAccentColor = true
+UiSettingsKeys.UiAccent2Color = true
+UiSettingsKeys.LibraryAccent = true
+
+local function NormalizeConfigName(Name)
+    local CleanName = tostring(Name or "default"):gsub("[^%w%-_]", "_"):sub(1, 48)
+    if CleanName == "" or CleanName == "Settings" then return "default" end
+    return CleanName
+end
+
+local function GetConfigBaseName()
+    return NormalizeConfigName(Config.ConfigName)
+end
+
+local function GetConfigPath(Name)
+    return ConfigDirectory .. "/" .. ConfigNamespace .. "_" .. NormalizeConfigName(Name or GetConfigBaseName()) .. ".json"
+end
+
+local function GetLegacyConfigPath(Name)
+    return ConfigDirectory .. "/" .. NormalizeConfigName(Name or GetConfigBaseName()) .. ".json"
+end
+
+local function GetLegacyLayoutPath(Name)
+    return ConfigDirectory .. "/" .. NormalizeConfigName(Name or GetConfigBaseName()) .. "_layout.json"
+end
+
+local function EnsureConfigDirectory()
+    if type(makefolder) ~= "function" then return false end
+    if type(isfolder) == "function" then
+        local Success, Exists = pcall(isfolder, ConfigDirectory)
+        if Success and Exists then return true end
+    end
+    return pcall(makefolder, ConfigDirectory)
+end
+
 local function ReadJsonFile(Path)
-    if not (isfile and readfile) or not isfile(Path) then return nil end
+    if type(readfile) ~= "function" then return nil end
+    if type(isfile) == "function" then
+        local Exists, Found = pcall(isfile, Path)
+        if not Exists or not Found then return nil end
+    end
     local Success, Result = pcall(function() return HttpService:JSONDecode(readfile(Path)) end)
     return Success and type(Result) == "table" and Result or nil
 end
 
 local function WriteJsonFile(Path, Data)
-    if not writefile or not EnsureConfigDirectory() then return false end
-    local Success, Payload = pcall(function() return HttpService:JSONEncode(Data) end)
-    if not Success or type(Payload) ~= "string" or #Payload == 0 then return false end
-    if isfile and readfile and isfile(Path) then
-        local ReadSuccess, OldContent = pcall(readfile, Path)
-        if ReadSuccess and type(OldContent) == "string" and #OldContent > 0 then
-            pcall(writefile, Path:gsub("%.json$", ".backup.json"), OldContent)
+    if type(writefile) ~= "function" or not EnsureConfigDirectory() then return false end
+    local Valid, Payload = pcall(function() return HttpService:JSONEncode(Data) end)
+    if not Valid or type(Payload) ~= "string" or #Payload == 0 then return false end
+    local PreviousData = ReadJsonFile(Path)
+    if PreviousData and type(readfile) == "function" then
+        local Success, PreviousPayload = pcall(readfile, Path)
+        if Success and type(PreviousPayload) == "string" then
+            pcall(writefile, Path:gsub("%.json$", ".backup.json"), PreviousPayload)
         end
     end
-    return pcall(writefile, Path, Payload)
+    local Saved = pcall(writefile, Path, Payload)
+    if not Saved then return false end
+    if type(readfile) ~= "function" then return true end
+    local Verified = ReadJsonFile(Path)
+    if Verified then return true end
+    if PreviousData then
+        local BackupPath = Path:gsub("%.json$", ".backup.json")
+        local Success, BackupPayload = pcall(readfile, BackupPath)
+        if Success then pcall(writefile, Path, BackupPayload) end
+    end
+    return false
+end
+
+local function PositionToTable(Position)
+    if not Position then return nil end
+    return {X = Position.X, Y = Position.Y}
+end
+
+local function ReadPosition(Data)
+    if type(Data) ~= "table" or type(Data.X) ~= "number" or type(Data.Y) ~= "number" then return nil end
+    if Data.X ~= Data.X or Data.Y ~= Data.Y then return nil end
+    if math.abs(Data.X) > 100000 or math.abs(Data.Y) > 100000 then return nil end
+    return Vector2.new(Data.X, Data.Y)
 end
 
 local function SaveGlobalSettings()
-    local Data = {Version = 2}
-    for _, Key in ipairs(PersistentSettings) do
-        Data[Key] = Config[Key]
-    end
+    local Settings = {}
+    for _, Key in ipairs(PersistentSettings) do Settings[Key] = Config[Key] end
+    local Position = WatermarkSettings and WatermarkSettings.Position or PendingWatermarkPosition
+    local Data = {
+        Version = 3,
+        Settings = Settings,
+        Positions = {
+            Window = PositionToTable(LibraryData.TargetPosition),
+            Hotkeys = PositionToTable(LibraryData.HotkeysPosition),
+            Watermark = PositionToTable(Position),
+            Notifications = PositionToTable(NotificationPosition)
+        },
+        Palette = {
+            Accent = Color3ToHex(LibraryData.Palette.Accent),
+            Accent2 = Color3ToHex(LibraryData.Palette.Accent2)
+        }
+    }
     local Saved = WriteJsonFile(GlobalSettingsPath, Data)
     if Saved then SettingsDirty = false end
     return Saved
 end
 
 local function LoadGlobalSettings()
-    local Data = ReadJsonFile(GlobalSettingsPath)
-    if not Data then Data = ReadJsonFile("Nightfall_Settings.json") end
+    local Data = ReadJsonFile(GlobalSettingsPath) or ReadJsonFile(GlobalSettingsPath:gsub("%.json$", ".backup.json")) or ReadJsonFile("Nightfall_Settings.json")
     if not Data then return false end
+    local Settings = type(Data.Settings) == "table" and Data.Settings or Data
     for _, Key in ipairs(PersistentSettings) do
-        if Config[Key] ~= nil and type(Data[Key]) == type(Config[Key]) then
-            Config[Key] = Data[Key]
+        if Config[Key] ~= nil and type(Settings[Key]) == type(Config[Key]) then
+            Config[Key] = Settings[Key]
         end
     end
-    Config.NotificationDuration = Clamp(Config.NotificationDuration, 1, 15)
+    Config.ConfigName = NormalizeConfigName(Config.ConfigName)
+    Config.SelectedConfig = NormalizeConfigName(Config.SelectedConfig)
+    Config.NotificationDuration = Clamp(tonumber(Config.NotificationDuration) or 4, 1, 15)
+    local Positions = type(Data.Positions) == "table" and Data.Positions or {}
+    local Window = ReadPosition(Positions.Window)
+    local Hotkeys = ReadPosition(Positions.Hotkeys)
+    local Watermark = ReadPosition(Positions.Watermark)
+    local Notifications = ReadPosition(Positions.Notifications)
+    if Window then
+        LibraryData.TargetPosition = ClampWindowPosition(Window, LibraryData.Size)
+        LibraryData.Position = LibraryData.TargetPosition
+    end
+    if Hotkeys then LibraryData.HotkeysPosition = ClampWindowPosition(Hotkeys, Vector2.new(220, 120)) end
+    if Watermark then
+        PendingWatermarkPosition = Watermark
+        if WatermarkSettings then WatermarkSettings.Position = Watermark end
+    end
+    if Notifications then NotificationPosition = Notifications end
+    HasSavedPositions = Window ~= nil or Hotkeys ~= nil or Watermark ~= nil or Notifications ~= nil
+    local Palette = type(Data.Palette) == "table" and Data.Palette or {}
+    PendingAccentColor = Palette.Accent
+    PendingSecondaryAccentColor = Palette.Accent2
     return true
 end
 
-local function GetConfigBaseName()
-    local DisplayName = tostring(Config.ConfigName or "default")
-    DisplayName = DisplayName:gsub("[^%w%-_]", "_"):sub(1, 48)
-    if DisplayName == "" then DisplayName = "default" end
-    return DisplayName
-end
-
-local function GetConfigPath()
-    return "NightfallConfigs/" .. GetConfigBaseName() .. ".json"
-end
-
-local function GetLayoutPath()
-    return "NightfallConfigs/" .. GetConfigBaseName() .. "_layout.json"
-end
-
 local function GetAvailableConfigs()
-    local NamesArray = {}
-    local SeenTable = {}
-    if listfiles and isfolder and isfolder(ConfigDirectory) then
-        local OkState, FilesArray = pcall(listfiles, ConfigDirectory)
-        if OkState and type(FilesArray) == "table" then
-            for _, FilePath in ipairs(FilesArray) do
-                local FileName = tostring(FilePath):gsub("\\", "/"):match("([^/]+)$")
-                local DisplayName = FileName and FileName:match("^(.-)%.json$")
-                if DisplayName and DisplayName ~= "Settings" and not DisplayName:match("_layout$") and not DisplayName:match("%.backup$") then
-                    if not SeenTable[DisplayName] then
-                        SeenTable[DisplayName] = true
-                        table.insert(NamesArray, DisplayName)
+    local Names = {}
+    local Seen = {}
+    if type(listfiles) == "function" then
+        local Success, Paths = pcall(listfiles, ConfigDirectory)
+        if Success and type(Paths) == "table" then
+            for _, Path in ipairs(Paths) do
+                local FileName = tostring(Path):gsub("\\", "/"):match("([^/]+)$")
+                local Name = FileName and FileName:match("^(.-)%.json$")
+                if Name and Name ~= "Settings" and not Name:match("_layout$") and not Name:match("%.backup$") then
+                    local Prefix = ConfigNamespace .. "_"
+                    local ProfileName = Name:sub(1, #Prefix) == Prefix and Name:sub(#Prefix + 1) or nil
+                    if not ProfileName then
+                        local LegacyData = ReadJsonFile(Path)
+                        if LegacyData and (type(LegacyData.Version) ~= "number" or LegacyData.Version < 3) then
+                            ProfileName = Name
+                        end
+                    end
+                    if ProfileName and ProfileName ~= "" and not Seen[ProfileName] then
+                        Seen[ProfileName] = true
+                        Names[#Names + 1] = ProfileName
                     end
                 end
             end
         end
     end
-    if #NamesArray == 0 then table.insert(NamesArray, "default") end
-    table.sort(NamesArray, function(StartValue, Blue) return tostring(StartValue):lower() < tostring(Blue):lower() end)
-    return NamesArray
+    if #Names == 0 then Names[1] = "default" end
+    table.sort(Names, function(First, Second) return First:lower() < Second:lower() end)
+    return Names
 end
 
-local function ApplyPalette(PaletteTable)
-    if type(PaletteTable) ~= "table" then return end
-    for _, KeyValue in ipairs(PaletteKeys) do
-        if PaletteTable[KeyValue] then LibraryData.Palette[KeyValue] = PaletteTable[KeyValue] end
+local function ApplyPalette(Palette)
+    if type(Palette) ~= "table" then return end
+    for _, Key in ipairs(PaletteKeys) do
+        if Palette[Key] then LibraryData.Palette[Key] = Palette[Key] end
     end
 end
 
 local function SyncThemeEditorState()
     if not LibraryData or not LibraryData.Tabs then return end
     for _, Tab in ipairs(LibraryData.Tabs) do
-        if Tab and Tab.Sections then
-            for _, Section in ipairs(Tab.Sections) do
-                if Section and Section.Items then
-                    for _, Item in ipairs(Section.Items) do
-                        if Item and Item.Type == "ColorPicker" and Item.Flag and type(Config[Item.Flag]) == "table" and Config[Item.Flag].Color then
-                            local HueValue, Saturation, Brightness = Color3ToHsv(Config[Item.Flag].Color)
-                            Item.Hue = HueValue
-                            Item.Sat = Saturation
-                            Item.Val = Brightness
-                            Item.Alpha = Clamp(Config[Item.Flag].Alpha or 1, 0, 1)
-                        end
-                    end
+        for _, Section in ipairs(Tab.Sections or {}) do
+            for _, Item in ipairs(Section.Items or {}) do
+                if Item.Type == "ColorPicker" and Item.Flag and type(Config[Item.Flag]) == "table" and Config[Item.Flag].Color then
+                    Item.Hue, Item.Sat, Item.Val = Color3ToHsv(Config[Item.Flag].Color)
+                    Item.Alpha = Clamp(Config[Item.Flag].Alpha or 1, 0, 1)
                 end
             end
         end
     end
 end
 
-QueueSaveConfig = function()
-    if IsConfigLoading then return end
-    SettingsDirty = true
-    SettingsQueueTick = GetTime()
-    if Config.AutoSaveConfig then
+QueueSaveConfig = function(Flag)
+    if IsConfigLoading or not ConfigLoaded then return end
+    local Now = GetTime()
+    if Flag == nil or UiSettingsKeys[Flag] then
+        SettingsDirty = true
+        SettingsQueueTick = Now
+    end
+    if Config.AutoSaveConfig and (Flag == nil or not UiSettingsKeys[Flag]) then
         ConfigDirty = true
-        SaveQueueTick = GetTime()
+        SaveQueueTick = Now
     end
 end
 
-local function ApplyThemePreset(ThemeName, KeepAccent)
-    local Preset = ThemePresets[ThemeName]
-    if not Preset then Preset = ThemePresets.Nightfall ThemeName = "Nightfall" end
-    local PreviousAccent = LibraryData.Palette.Accent
-    local PreviousAccentSecondary = LibraryData.Palette.Accent2
-    local AccentAlpha = type(Config.UiAccentColor) == "table" and Clamp(Config.UiAccentColor.Alpha or 1, 0, 1) or 1
-    local Accent2Alpha = type(Config.UiAccent2Color) == "table" and Clamp(Config.UiAccent2Color.Alpha or 1, 0, 1) or 1
+local function ApplyThemePreset(Name, KeepAccent)
+    local Preset = ThemePresets[Name]
+    if not Preset then Preset, Name = ThemePresets.Nightfall, "Nightfall" end
+    local Accent = LibraryData.Palette.Accent
+    local SecondaryAccent = LibraryData.Palette.Accent2
     ApplyPalette(Preset)
-    if KeepAccent then LibraryData.Palette.Accent = PreviousAccent LibraryData.Palette.Accent2 = PreviousAccentSecondary end
-    Config.ThemePreset = ThemeName
-    Config.UiAccentColor = {Color = LibraryData.Palette.Accent, Alpha = AccentAlpha}
-    Config.UiAccent2Color = {Color = LibraryData.Palette.Accent2, Alpha = Accent2Alpha}
+    if KeepAccent then
+        LibraryData.Palette.Accent = Accent
+        LibraryData.Palette.Accent2 = SecondaryAccent
+    end
+    Config.ThemePreset = Name
+    Config.UiAccentColor = {Color = LibraryData.Palette.Accent, Alpha = 1}
+    Config.UiAccent2Color = {Color = LibraryData.Palette.Accent2, Alpha = 1}
     SyncThemeEditorState()
-    QueueSaveConfig()
+    QueueSaveConfig("ThemePreset")
+end
+
+local function RestoreAccentColors()
+    for _, Key in ipairs({"Accent", "Accent2"}) do
+        local Value = Key == "Accent" and PendingAccentColor or PendingSecondaryAccentColor
+        if type(Value) == "string" then
+            local Hex = Value:match("^#?(%x%x%x%x%x%x)$")
+            if Hex then
+                LibraryData.Palette[Key] = Color3.fromRGB(tonumber(Hex:sub(1, 2), 16), tonumber(Hex:sub(3, 4), 16), tonumber(Hex:sub(5, 6), 16))
+            end
+        end
+    end
+    Config.UiAccentColor = {Color = LibraryData.Palette.Accent, Alpha = 1}
+    Config.UiAccent2Color = {Color = LibraryData.Palette.Accent2, Alpha = 1}
 end
 
 local function SaveLayout()
-    local Position = WatermarkSettings and WatermarkSettings.Position or PendingWatermarkPosition
-    local Layout = {
-        Version = 2,
-        Window = {X = LibraryData.TargetPosition.X, Y = LibraryData.TargetPosition.Y},
-        Hotkeys = {X = LibraryData.HotkeysPosition.X, Y = LibraryData.HotkeysPosition.Y},
-        Watermark = Position and {X = Position.X, Y = Position.Y} or nil
-    }
-    return WriteJsonFile(GetLayoutPath(), Layout)
+    return SaveGlobalSettings()
 end
 
 local function LoadLayout()
-    local Layout = ReadJsonFile(GetLayoutPath())
+    if HasSavedPositions then return true end
+    local Layout = ReadJsonFile(GetLegacyLayoutPath(Config.SelectedConfig))
     if not Layout then return false end
-    local Window = Layout.Window or {X = Layout.WindowX, Y = Layout.WindowY}
-    local Hotkeys = Layout.Hotkeys or {X = Layout.HotkeysX, Y = Layout.HotkeysY}
-    if type(Window.X) == "number" and type(Window.Y) == "number" then
-        LibraryData.TargetPosition = ClampWindowPosition(Vector2.new(Window.X, Window.Y), LibraryData.Size)
+    local Window = ReadPosition(Layout.Window or {X = Layout.WindowX, Y = Layout.WindowY})
+    local Hotkeys = ReadPosition(Layout.Hotkeys or {X = Layout.HotkeysX, Y = Layout.HotkeysY})
+    local Watermark = ReadPosition(Layout.Watermark)
+    if Window then
+        LibraryData.TargetPosition = ClampWindowPosition(Window, LibraryData.Size)
         LibraryData.Position = LibraryData.TargetPosition
     end
-    if type(Hotkeys.X) == "number" and type(Hotkeys.Y) == "number" then
-        LibraryData.HotkeysPosition = ClampWindowPosition(Vector2.new(Hotkeys.X, Hotkeys.Y), Vector2.new(220, 120))
-    end
-    if type(Layout.Watermark) == "table" and type(Layout.Watermark.X) == "number" and type(Layout.Watermark.Y) == "number" then
-        PendingWatermarkPosition = Vector2.new(Layout.Watermark.X, Layout.Watermark.Y)
-        if WatermarkSettings then WatermarkSettings.Position = PendingWatermarkPosition end
-    end
-    return true
+    if Hotkeys then LibraryData.HotkeysPosition = ClampWindowPosition(Hotkeys, Vector2.new(220, 120)) end
+    if Watermark then PendingWatermarkPosition = Watermark end
+    HasSavedPositions = Window ~= nil or Hotkeys ~= nil or Watermark ~= nil
+    return HasSavedPositions
 end
 
 local function SerializeConfigValue(Value)
-    if type(Value) == "boolean" or type(Value) == "number" or type(Value) == "string" then
-        return Value
+    if type(Value) == "boolean" or type(Value) == "string" then return Value end
+    if type(Value) == "number" then
+        if Value == Value and math.abs(Value) < 1000000000000 then return Value end
+        return nil
     end
     if type(Value) == "table" and Value.Color and typeof(Value.Color) == "Color3" then
         return {Hex = Color3ToHex(Value.Color), Alpha = Clamp(tonumber(Value.Alpha) or 1, 0, 1)}
@@ -1032,71 +1127,66 @@ local function DeserializeConfigColor(Value)
     if type(Value) ~= "table" or type(Value.Hex) ~= "string" then return nil end
     local Hex = Value.Hex:match("^#?(%x%x%x%x%x%x)$")
     if not Hex then return nil end
-    return {Color = Color3.fromRGB(tonumber(Hex:sub(1, 2), 16), tonumber(Hex:sub(3, 4), 16), tonumber(Hex:sub(5, 6), 16)), Alpha = Clamp(tonumber(Value.Alpha) or 1, 0, 1)}
+    return {
+        Color = Color3.fromRGB(tonumber(Hex:sub(1, 2), 16), tonumber(Hex:sub(3, 4), 16), tonumber(Hex:sub(5, 6), 16)),
+        Alpha = Clamp(tonumber(Value.Alpha) or 1, 0, 1)
+    }
 end
 
 local function SaveCurrentConfig()
     local Flags = {}
-    local Excluded = {ConfigName = true, SelectedConfig = true, AutoSaveConfig = true, AutoLoadConfig = true}
     for Key, Value in pairs(Config) do
-        if not Excluded[Key] then
+        if type(Key) == "string" and not UiSettingsKeys[Key] then
             local Encoded = SerializeConfigValue(Value)
             if Encoded ~= nil then Flags[Key] = Encoded end
         end
     end
     local Name = GetConfigBaseName()
-    local Data = {
-        Version = 2,
-        Name = Name,
-        Flags = Flags,
-        Palette = {
-            Accent = Color3ToHex(LibraryData.Palette.Accent),
-            Accent2 = Color3ToHex(LibraryData.Palette.Accent2)
-        }
-    }
-    if not WriteJsonFile(GetConfigPath(), Data) then return false end
+    local Saved = WriteJsonFile(GetConfigPath(Name), {Version = 3, Name = Name, Flags = Flags})
+    if not Saved then return false end
     Config.ConfigName = Name
     Config.SelectedConfig = Name
-    SaveLayout()
-    SaveGlobalSettings()
     ConfigDirty = false
+    SaveGlobalSettings()
     return true
 end
 
 local function DeleteNamedConfig(Name)
-    local SafeName = tostring(Name or ""):gsub("[^%w%-_]", "_"):sub(1, 48)
-    if SafeName == "" or SafeName == "Settings" then return false end
-    if not delfile then return false end
-    local Base = ConfigDirectory .. "/" .. SafeName
-    local Deleted = false
-    for _, Suffix in ipairs({".json", "_layout.json", ".backup.json", "_layout.backup.json"}) do
-        local Path = Base .. Suffix
-        if isfile and isfile(Path) then
-            local Success = pcall(delfile, Path)
-            if Suffix == ".json" and Success then Deleted = true end
-        end
+    if Name == "Settings" or type(delfile) ~= "function" then return false end
+    local SafeName = NormalizeConfigName(Name)
+    local Path = GetConfigPath(SafeName)
+    local Exists = ReadJsonFile(Path) ~= nil
+    if not Exists then return false end
+    local Deleted = pcall(delfile, Path)
+    if not Deleted then return false end
+    local BackupPath = Path:gsub("%.json$", ".backup.json")
+    if type(isfile) == "function" then
+        local Success, BackupExists = pcall(isfile, BackupPath)
+        if Success and BackupExists then pcall(delfile, BackupPath) end
     end
     if Config.SelectedConfig == SafeName then Config.SelectedConfig = "default" end
     if Config.ConfigName == SafeName then Config.ConfigName = "default" end
     SaveGlobalSettings()
-    return Deleted
+    return true
 end
 
 local function LoadNamedConfig(Name)
-    local SelectedName = tostring(Name or Config.SelectedConfig or "default"):gsub("[^%w%-_]", "_"):sub(1, 48)
-    if SelectedName == "" then SelectedName = "default" end
-    local ConfigPath = ConfigDirectory .. "/" .. SelectedName .. ".json"
-    local Data = ReadJsonFile(ConfigPath)
-    if not Data then Data = ReadJsonFile(ConfigPath:gsub("%.json$", ".backup.json")) end
+    local SelectedName = NormalizeConfigName(Name or Config.SelectedConfig)
+    local Path = GetConfigPath(SelectedName)
+    local Data = ReadJsonFile(Path) or ReadJsonFile(Path:gsub("%.json$", ".backup.json"))
+    if not Data then
+        local LegacyPath = GetLegacyConfigPath(SelectedName)
+        Data = ReadJsonFile(LegacyPath) or ReadJsonFile(LegacyPath:gsub("%.json$", ".backup.json"))
+    end
     if not Data then return false end
     local Flags = type(Data.Flags) == "table" and Data.Flags or Data
     IsConfigLoading = true
     for Key, Value in pairs(Flags) do
-        if Key ~= "ConfigName" and Key ~= "SelectedConfig" and Key ~= "AutoLoadConfig" and Key ~= "AutoSaveConfig"  then
+        if type(Key) == "string" and not UiSettingsKeys[Key] and Config[Key] ~= nil then
             if type(Config[Key]) == "table" then
-                local ColorValue = DeserializeConfigColor(Value)
-                if ColorValue then Config[Key] = ColorValue end
-            elseif Config[Key] ~= nil and type(Value) == type(Config[Key]) then
+                local Color = DeserializeConfigColor(Value)
+                if Color then Config[Key] = Color end
+            elseif type(Value) == type(Config[Key]) then
                 Config[Key] = Value
             end
         end
@@ -1105,39 +1195,20 @@ local function LoadNamedConfig(Name)
         RegisterKeybind(BindFlag, Config[BindFlag], GetBindMode(BindFlag))
     end
     RegisterKeybind("HideKeybind", Config.HideKeybind, "Toggle")
-    ApplyThemePreset(Config.ThemePreset or "Nightfall", false)
-    local Colors = type(Data.Palette) == "table" and Data.Palette or {}
-    for PaletteKey, FlagKey in pairs({Accent = "UiAccentColor", Accent2 = "UiAccent2Color"}) do
-        local Saved = Colors[PaletteKey]
-        if not Saved and type(Flags[FlagKey]) == "table" then Saved = Flags[FlagKey].Hex end
-        local Parsed = DeserializeConfigColor({Hex = Saved})
-        if Parsed then LibraryData.Palette[PaletteKey] = Parsed.Color end
-    end
-    Config.UiAccentColor = {Color = LibraryData.Palette.Accent, Alpha = 1}
-    Config.UiAccent2Color = {Color = LibraryData.Palette.Accent2, Alpha = 1}
     SyncThemeEditorState()
     Config.ConfigName = SelectedName
     Config.SelectedConfig = SelectedName
-    LoadLayout()
-    SaveGlobalSettings()
     IsConfigLoading = false
     ConfigDirty = false
+    SaveGlobalSettings()
     return true
 end
 
-local SettingsLoaded = LoadGlobalSettings()
+SettingsLoaded = LoadGlobalSettings()
 ApplyThemePreset(Config.ThemePreset or "Nightfall", false)
-if Config.AutoLoadConfig then
-    LoadNamedConfig(Config.SelectedConfig or Config.ConfigName)
-else
-    Config.ConfigName = tostring(Config.SelectedConfig or Config.ConfigName or "default")
-    LoadLayout()
-end
+RestoreAccentColors()
+LoadLayout()
 ConfigLoaded = true
-if Config.ShowWatermark == nil then Config.ShowWatermark = false end
-if Config.ShowNotifications == nil then Config.ShowNotifications = true end
-Config.NotificationDuration = Clamp(tonumber(Config.NotificationDuration) or 4, 1, 15)
-
 RegisterKeybind("HideKeybind", Config.HideKeybind, "Toggle")
 
 local WindowDrawings = {
@@ -1731,8 +1802,6 @@ end
                 Type = "ColorPicker", Height = 36, Flag = FlagKey, Callback = Callback,
                 IsOpen = false, Hue = HueValue, Saturation = Saturation, Brightness = Brightness,
                 Alpha = Clamp(Config[FlagKey].Alpha or 1, 0, 1),
-                HexEditing = false, HexBuffer = "", HexCursor = 0, HexSelectionAll = false,
-                SavedColors = {}, SavedBounds = {}, SavedCells = {},
                 GridCols = 80, GridRows = 36, HueSteps = 100, AlphaSteps = 64,
                 Label = CreateDrawing("Text", {Text = DisplayName, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 Stroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
@@ -1746,11 +1815,6 @@ end
                 PopupTitle = CreateDrawing("Text", {Text = "Color", Color = LibraryData.Palette.Text, Font = 2, Size = 13, Outline = true, Visible = false}),
                 PopupHint = CreateDrawing("Text", {Text = "", Color = LibraryData.Palette.SubText, Font = 2, Size = 11, Visible = false}),
                 PopupRule = CreateDrawing("Square", {Filled = true, Visible = false}),
-                PopupSwatchStroke = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
-                PopupSwatch = MakeRoundedBox(Config[FlagKey].Color, 1),
-                PopupHex = CreateDrawing("Text", {Color = LibraryData.Palette.Text, Size = 11, Outline = true, Visible = false}),
-                HexStroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
-                HexBackground = MakeRoundedBox(LibraryData.Palette.Element, 1),
                 SVStroke = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
                 HueStroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
                 AlphaStroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
@@ -1766,25 +1830,14 @@ end
                 CursorInner = CreateDrawing("Circle", {Filled = false, Thickness = 1, NumSides = 28, Radius = 4, Visible = false}),
                 HueCursor = CreateDrawing("Circle", {Filled = true, NumSides = 26, Radius = 5, Visible = false}),
                 AlphaCursor = CreateDrawing("Circle", {Filled = true, NumSides = 26, Radius = 5, Visible = false}),
-                SavedLabel = CreateDrawing("Text", {Text = "Recent colors", Color = LibraryData.Palette.SubText, Size = 11, Font = 2, Visible = false}),
-                SaveButtonBorder = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
-                SaveButton = MakeRoundedBox(LibraryData.Palette.Element, 1),
-                SaveButtonText = CreateDrawing("Text", {Text = "+", Color = LibraryData.Palette.Text, Size = 15, Font = 2, Center = true, Visible = false}),
                 ButtonPos = Vector2.new(), ButtonSize = Vector2.new(),
                 PopupPos = Vector2.new(), PopupSize = Vector2.new(),
                 SVPos = Vector2.new(), SVSize = Vector2.new(),
                 HuePos = Vector2.new(), HueSize = Vector2.new(),
-                AlphaPos = Vector2.new(), AlphaSize = Vector2.new(),
-                HexPos = Vector2.new(), HexSize = Vector2.new()
+                AlphaPos = Vector2.new(), AlphaSize = Vector2.new()
             }
-            for Index = 1, 6 do
-                ColorPicker.SavedCells[Index] = {
-                    Outline = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
-                    Background = MakeRoundedBox(LibraryData.Palette.Element, 1)
-                }
-            end
-            local RoundedParts = {"PopupShadow", "PopupStroke", "PopupBackground", "PopupSwatchStroke", "PopupSwatch", "HexStroke", "HexBackground", "SVStroke", "HueStroke", "AlphaStroke", "SaveButtonBorder", "SaveButton"}
-            local TextParts = {"PopupTitle", "PopupHint", "PopupHex", "PopupRule", "SavedLabel", "SaveButtonText"}
+            local RoundedParts = {"PopupShadow", "PopupStroke", "PopupBackground", "SVStroke", "HueStroke", "AlphaStroke"}
+            local TextParts = {"PopupTitle", "PopupHint", "PopupRule"}
             for _, PartName in ipairs(RoundedParts) do SetDrawingLayer(ColorPicker[PartName], 46) end
             SetDrawingLayer(ColorPicker.PopupShadow, 42)
             SetDrawingLayer(ColorPicker.PopupStroke, 43)
@@ -1798,10 +1851,6 @@ end
             for _, ItemDraw in ipairs(ColorPicker.SVGrid) do SetDrawingLayer(ItemDraw, 46) end
             for _, ItemDraw in ipairs(ColorPicker.HueGrid) do SetDrawingLayer(ItemDraw, 46) end
             for _, ItemDraw in ipairs(ColorPicker.AlphaGrid) do SetDrawingLayer(ItemDraw, 46) end
-            for _, SavedCell in ipairs(ColorPicker.SavedCells) do
-                SetDrawingLayer(SavedCell.Outline, 47)
-                SetDrawingLayer(SavedCell.Background, 48)
-            end
             for _, PartName in ipairs({"CursorOuter", "CursorInner", "HueCursor", "AlphaCursor"}) do
                 SetDrawingLayer(ColorPicker[PartName], 50)
             end
@@ -1811,45 +1860,10 @@ end
                 CurrentState.Color = HsvToColor3(self.Hue, self.Saturation, self.Brightness)
                 CurrentState.Alpha = Clamp(self.Alpha, 0, 1)
                 if self.Callback then self.Callback(CurrentState) end
-                QueueSaveConfig()
-            end
-            function ColorPicker:CommitHex()
-                local Cleaned = tostring(self.HexBuffer or ""):upper():gsub("#", ""):gsub("[^0-9A-F]", "")
-                if #Cleaned == 0 then
-                    self.HexEditing = false
-                    self.HexBuffer = ""
-                    self.HexCursor = 0
-                    self.HexSelectionAll = false
-                    return
-                end
-                if #Cleaned == 6 and Cleaned:match("^%x%x%x%x%x%x$") then
-                    local R = tonumber(Cleaned:sub(1, 2), 16)
-                    local G = tonumber(Cleaned:sub(3, 4), 16)
-                    local B = tonumber(Cleaned:sub(5, 6), 16)
-                    if R and G and B then
-                        self.Hue, self.Saturation, self.Brightness = Color3ToHsv(Color3.fromRGB(R, G, B))
-                        self:SyncColor()
-                        self.HexEditing = false
-                        self.HexBuffer = ""
-                        self.HexCursor = 0
-                        self.HexSelectionAll = false
-                        return
-                    end
-                end
-                self.HexBuffer = Cleaned:sub(1, 6)
-                self.HexCursor = #self.HexBuffer
-                self.HexSelectionAll = false
+                QueueSaveConfig(self.Flag)
             end
             function ColorPicker:HidePopup()
                 if not self.PopupDrawn then return end
-                for _, SavedCell in ipairs(self.SavedCells) do
-                    SetVisible(SavedCell.Outline, false)
-                    SetVisible(SavedCell.Background, false)
-                end
-                SetVisible(self.SaveButtonBorder, false)
-                SetVisible(self.SaveButton, false)
-                self.SaveButtonText.Visible = false
-                self.SavedLabel.Visible = false
                 self.PopupDrawn = false
                 self.SVGridHue = nil
                 self.SVGridPos = nil
@@ -1973,23 +1987,6 @@ end
                 self.AlphaCursor.Position = Vector2Round(self.AlphaPos.X + AX, self.AlphaPos.Y + self.AlphaSize.Y / 2)
                 self.AlphaCursor.Radius = 5
                 self.AlphaCursor.Color = LibraryData.Palette.Text
-                self.HexPos = Vector2.new()
-                self.HexSize = Vector2.new()
-                self.SavePos, self.SaveSize = nil, nil
-                self.PopupHex.Visible = false
-                self.SavedLabel.Visible = false
-                UpdateRoundedBox(self.HexStroke, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Outline, 1, false)
-                UpdateRoundedBox(self.HexBackground, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Element, 1, false)
-                UpdateRoundedBox(self.PopupSwatchStroke, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Outline, 1, false)
-                UpdateRoundedBox(self.PopupSwatch, Vector2.new(), Vector2.new(), 0, CurrentColor, 1, false)
-                UpdateRoundedBox(self.SaveButtonBorder, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.OutlineLight, 1, false)
-                UpdateRoundedBox(self.SaveButton, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Element, 1, false)
-                self.SaveButtonText.Visible = false
-                for I, SavedCell in ipairs(self.SavedCells) do
-                    self.SavedBounds[I] = nil
-                    UpdateRoundedBox(SavedCell.Outline, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.OutlineLight, 1, false)
-                    UpdateRoundedBox(SavedCell.Background, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Element, 1, false)
-                end
             end
             table.insert(self.Items, ColorPicker)
             return ColorPicker
@@ -2125,7 +2122,7 @@ SetDrawingLayer(OverlayMenuDrawings.Option2Text, 114)
 
 local function CloseTransientUi()
     if LibraryData.State.ActiveDropdown then LibraryData.State.ActiveDropdown.IsOpen = false end
-    if LibraryData.State.ActiveColorPicker then LibraryData.State.ActiveColorPicker.IsOpen = false LibraryData.State.ActiveColorPicker.HexEditing = false end
+    if LibraryData.State.ActiveColorPicker then LibraryData.State.ActiveColorPicker.IsOpen = false end
     LibraryData.State.ActiveDropdown = nil
     LibraryData.State.ActiveSlider = nil
     if LibraryData.State.ActiveSliderInput then CommitSliderInput(LibraryData.State.ActiveSliderInput) end
@@ -2192,8 +2189,7 @@ local function HideItem(Item)
         for _, DrawItem in ipairs(Item.OptionDrawings or {}) do SafeHideDrawing(DrawItem) end
     elseif Item.Type == "ColorPicker" then
         Item.IsOpen = false
-        Item.HexEditing = false
-        if Item.HidePopup then Item:HidePopup() end
+                if Item.HidePopup then Item:HidePopup() end
         SafeHideDrawing(Item.Label)
         SafeHideDrawing(Item.PreviewText)
         for _, Name in ipairs({"Stroke", "Background", "PreviewStroke", "Preview"}) do
@@ -2284,6 +2280,14 @@ local TextKeyDigits = {
     KeypadMinus = "-", Minus = "-", Period = ".", Underscore = "_"
 }
 
+local function NormalizeEditKeyName(KeyName)
+    KeyName = tostring(KeyName or "")
+    if KeyName == "Back" or KeyName == "BackSpace" then return "Backspace" end
+    if KeyName == "Del" then return "Delete" end
+    if KeyName == "Enter" then return "Return" end
+    return KeyName
+end
+
 local function GetTypedCharacter(KeyCode)
     local KeyName = NormalizeEditKeyName(tostring(KeyCode.Name or ""))
     local KeyValue = KeyCode.Value or 0
@@ -2302,14 +2306,6 @@ local function GetTypedCharacter(KeyCode)
     return nil
 end
 
-local function NormalizeEditKeyName(KeyName)
-    KeyName = tostring(KeyName or "")
-    if KeyName == "Back" or KeyName == "BackSpace" then return "Backspace" end
-    if KeyName == "Del" then return "Delete" end
-    if KeyName == "Enter" then return "Return" end
-    return KeyName
-end
-
 local function CommitTextbox(Box, Cancel)
     if not Box then return end
     if not Cancel then
@@ -2317,7 +2313,7 @@ local function CommitTextbox(Box, Cancel)
         if Config[Box.Flag] ~= NewText then
             Config[Box.Flag] = NewText
             if Box.OnChanged then pcall(Box.OnChanged, NewText) end
-            if Box.Flag == "ConfigName" or Box.Flag == "WatermarkText" then SaveGlobalSettings() else QueueSaveConfig() end
+            if UiSettingsKeys[Box.Flag] then SaveGlobalSettings() else QueueSaveConfig(Box.Flag) end
         end
     end
     Box.InputBuffer = tostring(Config[Box.Flag] or "")
@@ -2358,53 +2354,44 @@ ConnectSession(UserInputService.InputBegan, function(InputObject, GameProcessed)
         return
     end
     KeysDown[KeyCode] = true
-    local EditingPicker = LibraryData.State.ActiveColorPicker
     local ActiveSlider = LibraryData.State.ActiveSliderInput
     local ActiveBox = LibraryData.State.ActiveTextbox
-    local EditingHex = EditingPicker and EditingPicker.IsOpen and EditingPicker.HexEditing
-    if EditingHex or ActiveSlider or ActiveBox then
-        local KeyName = tostring(KeyCode.Name or "")
+    if ActiveSlider or ActiveBox then
+        local KeyName = NormalizeEditKeyName(tostring(KeyCode.Name or ""))
         local Ctrl = KeysDown[Enum.KeyCode.LeftControl] or KeysDown[Enum.KeyCode.RightControl]
         if KeyCode == Enum.KeyCode.Return or KeyCode == Enum.KeyCode.KeypadEnter then
-            if EditingHex then EditingPicker:CommitHex()
-            elseif ActiveSlider then CommitSliderInput(ActiveSlider) LibraryData.State.ActiveSliderInput = nil
-            else CommitTextbox(ActiveBox, false) end
+            if ActiveSlider then
+                CommitSliderInput(ActiveSlider)
+                LibraryData.State.ActiveSliderInput = nil
+            else
+                CommitTextbox(ActiveBox, false)
+            end
             return
         elseif KeyCode == Enum.KeyCode.Escape then
-            if EditingHex then EditingPicker.HexEditing = false EditingPicker.HexBuffer = ""
-            elseif ActiveSlider then LibraryData.State.ActiveSliderInput = nil
+            if ActiveSlider then LibraryData.State.ActiveSliderInput = nil
             else CommitTextbox(ActiveBox, true) end
             return
         end
         if not LibraryData.Visible then return end
         if Ctrl and KeyName == "A" then
-            if ActiveBox then ActiveBox.SelectionAll = true
-            elseif EditingHex then EditingPicker.HexSelectionAll = true EditingPicker.HexCursor = #tostring(EditingPicker.HexBuffer or "") end
+            if ActiveBox then ActiveBox.SelectionAll = true end
             return
         end
         if Ctrl and KeyName == "C" and type(setclipboard) == "function" then
             if ActiveBox then pcall(setclipboard, tostring(ActiveBox.InputBuffer or "")) end
-            if EditingHex then pcall(setclipboard, tostring(EditingPicker.HexBuffer or "")) end
             return
         end
         if Ctrl and KeyName == "V" then
-            local ClipboardReader = type(getclipboard) == "function" and getclipboard or nil
-            if ClipboardReader then
-                local Success, TextValue = pcall(ClipboardReader)
+            if type(getclipboard) == "function" then
+                local Success, TextValue = pcall(getclipboard)
                 if Success and type(TextValue) == "string" then
-                    if EditingHex then
-                        local CleanHex = TextValue:upper():gsub("#", ""):gsub("[^0-9A-F]", ""):sub(1, 6)
-                        if #CleanHex > 0 then
-                            EditingPicker.HexBuffer = CleanHex
-                            EditingPicker.HexCursor = #CleanHex
-                            EditingPicker.HexSelectionAll = false
-                        end
-                    elseif ActiveBox then
-                        local Current = ActiveBox.InputBuffer or ""
+                    if ActiveBox then
+                        local Current = tostring(ActiveBox.InputBuffer or "")
                         local Cursor = ActiveBox.Cursor or #Current
                         if ActiveBox.SelectionAll then Current, Cursor = "", 0 end
-                        ActiveBox.InputBuffer = Current:sub(1, Cursor) .. TextValue:sub(1, math.max(0, 128 - #Current)) .. Current:sub(Cursor + 1)
-                        ActiveBox.Cursor = math.min(128, Cursor + #TextValue)
+                        local Inserted = TextValue:sub(1, math.max(0, 128 - #Current))
+                        ActiveBox.InputBuffer = Current:sub(1, Cursor) .. Inserted .. Current:sub(Cursor + 1)
+                        ActiveBox.Cursor = Cursor + #Inserted
                         ActiveBox.SelectionAll = false
                     elseif ActiveSlider then
                         ActiveSlider.InputBuffer = TextValue:gsub("[^%d%.%-]", ""):sub(1, 24)
@@ -2415,42 +2402,6 @@ ConnectSession(UserInputService.InputBegan, function(InputObject, GameProcessed)
         end
         if Ctrl then return end
         local Character = GetTypedCharacter(KeyCode)
-        if EditingHex then
-            local Buffer = tostring(EditingPicker.HexBuffer or "")
-            local Cursor = Clamp(EditingPicker.HexCursor or #Buffer, 0, #Buffer)
-            local SelectAll = EditingPicker.HexSelectionAll == true
-            if KeyName == "Left" then
-                Cursor = Clamp(Cursor - 1, 0, #Buffer)
-            elseif KeyName == "Right" then
-                Cursor = Clamp(Cursor + 1, 0, #Buffer)
-            elseif KeyName == "Home" then
-                Cursor = 0
-            elseif KeyName == "End" then
-                Cursor = #Buffer
-            elseif KeyName == "Backspace" or KeyName == "Delete" then
-                if SelectAll then
-                    Buffer, Cursor = "", 0
-                elseif KeyName == "Backspace" and Cursor > 0 then
-                    Buffer = Buffer:sub(1, Cursor - 1) .. Buffer:sub(Cursor + 1)
-                    Cursor = Cursor - 1
-                elseif KeyName == "Delete" and Cursor < #Buffer then
-                    Buffer = Buffer:sub(1, Cursor) .. Buffer:sub(Cursor + 2)
-                end
-            else
-                local Character = Character and Character:upper() or nil
-                if Character and Character:match("^[0-9A-F]$") then
-                    if SelectAll then Buffer, Cursor = "", 0 end
-                    if #Buffer < 6 then
-                        Buffer = Buffer:sub(1, Cursor) .. Character .. Buffer:sub(Cursor + 1)
-                        Cursor = Cursor + 1
-                    end
-                end
-            end
-            EditingPicker.HexBuffer = Buffer
-            EditingPicker.HexCursor = Cursor
-            EditingPicker.HexSelectionAll = false
-            return
-        end
         if ActiveSlider then
             local Buffer = tostring(ActiveSlider.InputBuffer or "")
             if KeyName == "Backspace" then Buffer = Buffer:sub(1, -2)
@@ -2589,7 +2540,7 @@ ConnectSession(RunService.RenderStepped, function()
                 Config[FlagName] = DisplayName
                 RegisterKeybind(FlagName, DisplayName, GetBindMode(FlagName))
                 if FlagName == "HideKeybind" then LibraryData.SuppressHideUntilRelease = true end
-                QueueSaveConfig()
+                QueueSaveConfig(FlagName)
                 LibraryData.State.ActiveKeybind = nil
             end
             LibraryData.CaptureLast = nil
@@ -2847,12 +2798,10 @@ ConnectSession(RunService.RenderStepped, function()
         if LibraryData.Input.Mouse1Clicked then
             if IsMouseInBounds(LibraryData.Input.MousePos, HoldPos, OptionSize) then
                 SetBindMode(LibraryData.State.KeybindContext.Entry.BindFlag, "Hold")
-                QueueSaveConfig()
                 LibraryData.State.KeybindContext.Open = false
                 LibraryData.State.KeybindContext.Entry = nil
             elseif IsMouseInBounds(LibraryData.Input.MousePos, TogglePos, OptionSize) then
                 SetBindMode(LibraryData.State.KeybindContext.Entry.BindFlag, "Toggle")
-                QueueSaveConfig()
                 LibraryData.State.KeybindContext.Open = false
                 LibraryData.State.KeybindContext.Entry = nil
             elseif not IsMouseInBounds(LibraryData.Input.MousePos, MenuPos, MenuSize) then
@@ -2940,7 +2889,7 @@ ConnectSession(RunService.RenderStepped, function()
                             Config.ConfigName = Config.SelectedConfig
                             LoadNamedConfig(Config.SelectedConfig)
                         else
-                            QueueSaveConfig()
+                            QueueSaveConfig(Dropdown.Flag)
                         end
                         Dropdown.IsOpen = false
                         LibraryData.State.ActiveDropdown = nil
@@ -2972,8 +2921,7 @@ ConnectSession(RunService.RenderStepped, function()
                 local InsidePopup = Picker.IsOpen and IsMouseInBounds(MP, Picker.PopupPos, Picker.PopupSize)
                 if InsideButton then
                     Picker.IsOpen = false
-                    Picker.HexEditing = false
-                    Picker:HidePopup()
+                                        Picker:HidePopup()
                     LibraryData.State.ActiveColorPicker = nil
                     LibraryData.State.ActiveColorDrag = nil
                     BlockInput = true
@@ -2987,8 +2935,7 @@ ConnectSession(RunService.RenderStepped, function()
                     end
                     BlockInput = true
                 else
-                    Picker.HexEditing = false
-                    Picker.IsOpen = false
+                                        Picker.IsOpen = false
                     Picker:HidePopup()
                     LibraryData.State.ActiveColorPicker = nil
                     LibraryData.State.ActiveColorDrag = nil
@@ -3014,11 +2961,11 @@ ConnectSession(RunService.RenderStepped, function()
                             if LibraryData.State.ActiveSliderInput then CommitSliderInput(LibraryData.State.ActiveSliderInput) LibraryData.State.ActiveSliderInput = nil end
                             Config[Item.Flag] = not Config[Item.Flag]
                             if FireChange then FireChange(Item) end
-                            if Item.Flag == "AutoSaveConfig" or Item.Flag == "AutoLoadConfig" or Item.Flag == "ShowWatermark" or Item.Flag == "ShowNotifications" or Item.Flag == "WatermarkCompact" then
+                            if Item.Flag == "AutoSaveConfig" or Item.Flag == "AutoLoadConfig" or Item.Flag == "ShowWatermark" or Item.Flag == "ShowNotifications" then
                                 SaveGlobalSettings()
                                 if Config.AutoSaveConfig then SaveCurrentConfig() end
                             else
-                                QueueSaveConfig()
+                                QueueSaveConfig(Item.Flag)
                             end
                         end
                     elseif Item.Type == "Slider" then
@@ -3045,12 +2992,11 @@ ConnectSession(RunService.RenderStepped, function()
                         if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, Item.ButtonPos, Item.ButtonSize) then
                             if LibraryData.State.ActiveColorPicker and LibraryData.State.ActiveColorPicker ~= Item then
                                 LibraryData.State.ActiveColorPicker.IsOpen = false
-                                LibraryData.State.ActiveColorPicker.HexEditing = false
+                               
                             end
                             if LibraryData.State.ActiveSliderInput then CommitSliderInput(LibraryData.State.ActiveSliderInput) LibraryData.State.ActiveSliderInput = nil end
                             Item.IsOpen = true
-                            Item.HexEditing = false
-                            LibraryData.State.ActiveColorPicker = Item
+                                                        LibraryData.State.ActiveColorPicker = Item
                             LibraryData.State.ActiveColorDrag = nil
                             LibraryData.State.ActiveKeybind = nil
                             LibraryData.State.ActiveTextbox = nil
@@ -3127,7 +3073,7 @@ ConnectSession(RunService.RenderStepped, function()
             local Width = Max(Slider.BarSize.X, 1)
             local Progress = Clamp((LibraryData.Input.MousePos.X - LeftEdge) / Width, 0, 1)
             Config[Slider.Flag] = ClampSliderValue(Slider.Min + (Progress * (Slider.Max - Slider.Min)), Slider.Min, Slider.Max, Slider.Step)
-            QueueSaveConfig()
+            QueueSaveConfig(Slider.Flag)
         else
             LibraryData.State.ActiveSlider = nil
         end
@@ -3205,16 +3151,7 @@ ConnectSession(RunService.RenderStepped, function()
                     if Item.PreviewStroke then SetVisible(Item.PreviewStroke, false) end
                     if Item.Preview then SetVisible(Item.Preview, false) end
                     if Item.PopupStroke then SetVisible(Item.PopupStroke, false) end
-                    if Item.SavedCells then
-                        for _, Cell in ipairs(Item.SavedCells) do SetVisible(Cell.Outline, false) SetVisible(Cell.Background, false) end
-                    end
-                    if Item.SaveButton then SetVisible(Item.SaveButton, false) end
-                    if Item.SaveButtonBorder then SetVisible(Item.SaveButtonBorder, false) end
-                    if Item.SaveButtonText then Item.SaveButtonText.Visible = false end
-                    if Item.SavedLabel then Item.SavedLabel.Visible = false end
                     if Item.PopupBackground then SetVisible(Item.PopupBackground, false) end
-                    if Item.PopupSwatchStroke then SetVisible(Item.PopupSwatchStroke, false) end
-                    if Item.PopupSwatch then SetVisible(Item.PopupSwatch, false) end
                     if Item.SVStroke then SetVisible(Item.SVStroke, false) end
                     if Item.HueStroke then SetVisible(Item.HueStroke, false) end
                     if Item.SVGrid then HideGridSquares(Item.SVGrid) end
@@ -3230,7 +3167,6 @@ ConnectSession(RunService.RenderStepped, function()
                     if Item.HueLine then Item.HueLine.Visible = false end
                     if Item.HueCapTop then Item.HueCapTop.Visible = false end
                     if Item.HueCapBottom then Item.HueCapBottom.Visible = false end
-                    if Item.PopupHex then Item.PopupHex.Visible = false end
                 end
             end
         end
@@ -3245,9 +3181,10 @@ FireChange = function(Item)
     end
 end
 
+local GetNotificationPosition
 local NightfallLibrary = {
     Name = "Nightfall",
-    Version = "1.0.18",
+    Version = "1.0.21",
     Config = Config,
     Flags = Config,
     State = LibraryData,
@@ -3306,8 +3243,11 @@ function NightfallLibrary:BindKeybind(BindFlag, ToggleFlag, ModeFlag, Label)
     return self
 end
 
-function NightfallLibrary:BindConfig(ExternalConfig)
+function NightfallLibrary:BindConfig(ExternalConfig, Namespace)
     if type(ExternalConfig) ~= "table" then return self end
+    if type(Namespace) == "string" and Namespace ~= "" then
+        ConfigNamespace = NormalizeConfigName(Namespace)
+    end
     local PreviousConfig = Config
     for _, Key in ipairs(PersistentSettings) do
         if PreviousConfig[Key] ~= nil and (SettingsLoaded or ExternalConfig[Key] == nil) then
@@ -3334,6 +3274,17 @@ function NightfallLibrary:GetBindMode(Flag)
     return GetBindMode(Flag)
 end
 
+function NightfallLibrary:GetNotificationPosition()
+    return GetNotificationPosition()
+end
+
+function NightfallLibrary:SetNotificationPosition(Position)
+    if typeof(Position) ~= "Vector2" then return false end
+    NotificationPosition = Position
+    GetNotificationPosition()
+    return SaveGlobalSettings()
+end
+
 function NightfallLibrary:SaveSettings()
     return SaveGlobalSettings()
 end
@@ -3358,6 +3309,62 @@ NightfallLibrary.Modules = {
 }
 
 local UiNotifications = {}
+local NotificationWidth = 258
+local NotificationHeight = 63
+local NotificationGap = 9
+local NotificationPreview = {Enabled = true, Dragging = false, StartMouse = Vector2.new(), StartPosition = Vector2.new()}
+
+GetNotificationPosition = function()
+    local Camera = WorkspaceService.CurrentCamera
+    local View = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+    if not NotificationPosition then NotificationPosition = Vector2.new(View.X - NotificationWidth - 16, 18) end
+    NotificationPosition = Vector2.new(
+        Clamp(NotificationPosition.X, 6, math.max(6, View.X - NotificationWidth - 6)),
+        Clamp(NotificationPosition.Y, 6, math.max(6, View.Y - NotificationHeight - 6))
+    )
+    return NotificationPosition, View
+end
+
+local function CreateNotificationDrawing()
+    local Entry = {
+        Border = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
+        Background = MakeRoundedBox(LibraryData.Palette.Section, 1),
+        Progress = MakeRoundedBox(LibraryData.Palette.Accent, 1),
+        Title = CreateDrawing("Text", {Size = 13, Font = 2, Outline = true, Visible = false}),
+        Description = CreateDrawing("Text", {Size = 12, Font = 2, Visible = false})
+    }
+    SetDrawingLayer(Entry.Border, 151)
+    SetDrawingLayer(Entry.Background, 152)
+    SetDrawingLayer(Entry.Progress, 153)
+    SetDrawingLayer(Entry.Title, 154)
+    SetDrawingLayer(Entry.Description, 154)
+    return Entry
+end
+
+local function DrawNotification(Entry, Position, Alpha, Progress)
+    UpdateRoundedBox(Entry.Border, Position, Vector2.new(NotificationWidth, NotificationHeight), 7, LibraryData.Palette.OutlineLight, Alpha, true)
+    UpdateRoundedBox(Entry.Background, Position + Vector2.new(1, 1), Vector2.new(NotificationWidth - 2, NotificationHeight - 2), 6, LibraryData.Palette.Section, Alpha, true)
+    UpdateRoundedBox(Entry.Progress, Position + Vector2.new(8, NotificationHeight - 6), Vector2.new(math.max(0, (NotificationWidth - 16) * Progress), 2), 1, LibraryData.Palette.Accent, Alpha, Progress > 0.005)
+    Entry.Title.Text = Entry.TitleText
+    Entry.Title.Color = LibraryData.Palette.Text
+    Entry.Title.Transparency = Alpha
+    Entry.Title.Visible = true
+    PositionText(Entry.Title, Position.X + 13, Position.Y + 10)
+    Entry.Description.Text = Entry.MessageText
+    Entry.Description.Color = LibraryData.Palette.SubText
+    Entry.Description.Transparency = Alpha
+    Entry.Description.Visible = Entry.MessageText ~= ""
+    PositionText(Entry.Description, Position.X + 13, Position.Y + 31)
+end
+
+NotificationPreview = CreateNotificationDrawing()
+NotificationPreview.TitleText = "Example Notification"
+NotificationPreview.MessageText = "Drag this preview to move notifications"
+NotificationPreview.Enabled = true
+NotificationPreview.Dragging = false
+NotificationPreview.StartMouse = Vector2.new()
+NotificationPreview.StartPosition = Vector2.new()
+
 WatermarkSettings = {Segments = {"Nightfall", "Matcha"}, Position = PendingWatermarkPosition or Vector2.new(18, 18), Visible = Config.ShowWatermark == true}
 local WatermarkDraw = {
     Border = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
@@ -3447,16 +3454,9 @@ function NightfallLibrary:Notification(Options)
         TitleText = tostring(Options.Title or "Nightfall"):sub(1, 42),
         MessageText = tostring(Options.Description or Options.Message or ""):sub(1, 64),
         Time = GetTime(), Duration = Clamp(tonumber(Options.Duration) or Config.NotificationDuration or 4, 0.5, 20),
-        Border = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
-        Background = MakeRoundedBox(LibraryData.Palette.Section, 1),
-        Progress = MakeRoundedBox(LibraryData.Palette.Accent, 1),
-        Title = CreateDrawing("Text", {Size = 13, Font = 2, Outline = true, Visible = false}),
-        Description = CreateDrawing("Text", {Size = 12, Font = 2, Visible = false})
     }
-    for _, Shape in ipairs({Entry.Border, Entry.Background}) do SetDrawingLayer(Shape, 151) end
-    SetDrawingLayer(Entry.Progress, 152)
-    SetDrawingLayer(Entry.Title, 154)
-    SetDrawingLayer(Entry.Description, 154)
+    local DrawingEntry = CreateNotificationDrawing()
+    for Key, Value in pairs(DrawingEntry) do Entry[Key] = Value end
     table.insert(UiNotifications, Entry)
     return Entry
 end
@@ -3492,43 +3492,62 @@ function NightfallLibrary:Watermark(Options)
 end
 
 local function UpdateNotifications()
+    local Now = GetTime()
+    for Index = #UiNotifications, 1, -1 do
+        local Entry = UiNotifications[Index]
+        if Now - Entry.Time >= Entry.Duration + 0.3 then
+            DeleteNotification(Entry)
+            table.remove(UiNotifications, Index)
+        end
+    end
     if Config.ShowNotifications == false then
         for _, Entry in ipairs(UiNotifications) do HideNotification(Entry) end
         return
     end
-    local Now = GetTime()
-    local Camera = WorkspaceService.CurrentCamera
-    local View = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
-    for I = #UiNotifications, 1, -1 do
-        if Now - UiNotifications[I].Time > UiNotifications[I].Duration + 0.3 then
-            DeleteNotification(UiNotifications[I])
-            table.remove(UiNotifications, I)
-        end
-    end
-    local Width, Height, Gap = 258, 63, 9
-    for I, Entry in ipairs(UiNotifications) do
+    local Anchor, Viewport = GetNotificationPosition()
+    local StackHeight = #UiNotifications * (NotificationHeight + NotificationGap) - NotificationGap
+    local Direction = Anchor.Y + StackHeight > Viewport.Y - 6 and -1 or 1
+    for Index, Entry in ipairs(UiNotifications) do
         local Elapsed = Now - Entry.Time
         local Remaining = Clamp(1 - Elapsed / Entry.Duration, 0, 1)
-        local Enter = Clamp(Elapsed / 0.20, 0, 1)
-        local Exit = Clamp((Entry.Duration + 0.3 - Elapsed) / 0.30, 0, 1)
+        local Enter = Clamp(Elapsed / 0.2, 0, 1)
+        local Exit = Clamp((Entry.Duration + 0.3 - Elapsed) / 0.3, 0, 1)
         local Alpha = math.min(Enter, Exit)
-        local OnLeft = Config.NotificationPosition == "Top Left"
-        local X = OnLeft and math.floor(16 - (1 - Alpha) * (Width + 20)) or math.floor(View.X - Width - 16 + (1 - Alpha) * (Width + 20))
-        local Y = 18 + (I - 1) * (Height + Gap)
-        UpdateRoundedBox(Entry.Border, Vector2.new(X, Y), Vector2.new(Width, Height), 7, LibraryData.Palette.OutlineLight, Alpha, true)
-        UpdateRoundedBox(Entry.Background, Vector2.new(X + 1, Y + 1), Vector2.new(Width - 2, Height - 2), 6, LibraryData.Palette.Section, Alpha, true)
-        UpdateRoundedBox(Entry.Progress, Vector2.new(X + 8, Y + Height - 6), Vector2.new(math.max(0, (Width - 16) * Remaining), 2), 1, LibraryData.Palette.Accent, Alpha, Remaining > 0.005)
-        Entry.Title.Text = Entry.TitleText
-        Entry.Title.Color = LibraryData.Palette.Text
-        Entry.Title.Visible = true
-        PositionText(Entry.Title, X + 13, Y + 10)
-        Entry.Title.Transparency = Alpha
-        Entry.Description.Text = Entry.MessageText
-        Entry.Description.Color = LibraryData.Palette.SubText
-        Entry.Description.Visible = Entry.MessageText ~= ""
-        PositionText(Entry.Description, X + 13, Y + 31)
-        Entry.Description.Transparency = Alpha
+        local YCoordinate = Clamp(Anchor.Y + (Index - 1) * (NotificationHeight + NotificationGap) * Direction, 6, math.max(6, Viewport.Y - NotificationHeight - 6))
+        DrawNotification(Entry, Vector2.new(Anchor.X, YCoordinate), Alpha, Remaining)
     end
+end
+
+local function UpdateNotificationPreview()
+    local Visible = NotificationPreview.Enabled and LibraryData.Visible and SettingsTab and LibraryData.CurrentTab == SettingsTab and #UiNotifications == 0
+    if not Visible then
+        HideNotification(NotificationPreview)
+        NotificationPreview.Dragging = false
+        return
+    end
+    local Position = GetNotificationPosition()
+    if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, Position, Vector2.new(NotificationWidth, NotificationHeight)) then
+        NotificationPreview.Dragging = true
+        NotificationPreview.StartMouse = LibraryData.Input.MousePos
+        NotificationPreview.StartPosition = Position
+        LibraryData.Input.Mouse1Clicked = false
+    end
+    if NotificationPreview.Dragging then
+        if LibraryData.Input.Mouse1Released or not LibraryData.Input.Mouse1Down then
+            NotificationPreview.Dragging = false
+            SaveGlobalSettings()
+        else
+            local Camera = WorkspaceService.CurrentCamera
+            local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+            local MouseOffset = LibraryData.Input.MousePos - NotificationPreview.StartMouse
+            local Proposed = NotificationPreview.StartPosition + MouseOffset
+            NotificationPosition = Vector2.new(
+                Clamp(Proposed.X, 6, math.max(6, Viewport.X - NotificationWidth - 6)),
+                Clamp(Proposed.Y, 6, math.max(6, Viewport.Y - NotificationHeight - 6))
+            )
+        end
+    end
+    DrawNotification(NotificationPreview, GetNotificationPosition(), 1, 1)
 end
 
 local function UpdateWatermark()
@@ -3545,7 +3564,7 @@ local function UpdateWatermark()
     local Camera = WorkspaceService.CurrentCamera
     local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
     local Segments = ParseWatermarkSegments()
-    local Height = Config.WatermarkCompact and 29 or 35
+    local Height = 29
     local InnerPadding = 13
     local DividerGap = 12
     local MaxWidth = math.max(100, Viewport.X - 20)
@@ -3624,6 +3643,7 @@ end
 RenderDecorations = function()
     UpdateNotifications()
     UpdateWatermark()
+    UpdateNotificationPreview()
 end
 
 function NightfallLibrary:Size(Width, Height)
@@ -3660,8 +3680,8 @@ function NightfallLibrary:Set(Flag, Value)
     if Flag == "HideKeybind" or KeybindTargets[Flag] then
         RegisterKeybind(Flag, Value, GetBindMode(Flag))
     end
-    QueueSaveConfig()
-    SaveGlobalSettings()
+    QueueSaveConfig(Flag)
+    if UiSettingsKeys[Flag] then SaveGlobalSettings() end
     return self
 end
 
@@ -3689,7 +3709,7 @@ local function WrapControl(Control, Flag, Callback)
         Config[Flag] = Value
         if not Silent then
             FireChange(self)
-            QueueSaveConfig()
+            QueueSaveConfig(Flag)
         end
         return self
     end
@@ -3782,10 +3802,11 @@ Appearance:Toggle({Name = "Watermark", Flag = "ShowWatermark", Default = false, 
     SaveGlobalSettings()
 end})
 Appearance:Textbox({Name = "Watermark Text", Flag = "WatermarkText", Default = "Nightfall | Matcha"})
-Appearance:Toggle({Name = "Compact Watermark", Flag = "WatermarkCompact", Default = true})
 Appearance:Toggle({Name = "Notifications", Flag = "ShowNotifications", Default = true})
 Appearance:Slider({Name = "Notification Time", Flag = "NotificationDuration", Min = 1, Max = 15, Default = 4, Step = 1})
-Appearance:Dropdown({Name = "Notification Position", Flag = "NotificationPosition", Options = {"Top Right", "Top Left"}, Default = "Top Right"})
+Appearance:Button({Name = "Example Notification", Callback = function()
+    NotificationPreview.Enabled = not NotificationPreview.Enabled
+end})
 Appearance:Dropdown({Name = "Theme", Flag = "ThemePreset", Options = {"Nightfall", "Bloodmoon", "Ocean", "Mint"}, Default = "Nightfall", Callback = function(Value)
     ApplyThemePreset(Value, false)
 end})
@@ -3793,7 +3814,7 @@ Appearance:Colorpicker({Name = "Accent Color", Flag = "LibraryAccent", Default =
     if Value and Value.Color then
         LibraryData.Palette.Accent = Value.Color
         Config.UiAccentColor = {Color = Value.Color, Alpha = Value.Alpha or 1}
-        QueueSaveConfig()
+        QueueSaveConfig("UiAccentColor")
     end
 end})
 local Files = SettingsTab:Section({Name = "Configuration", Side = "Right"})
