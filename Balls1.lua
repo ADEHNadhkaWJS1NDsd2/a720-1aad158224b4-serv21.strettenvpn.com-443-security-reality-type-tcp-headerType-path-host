@@ -5,41 +5,32 @@ local WorkspaceService = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = PlayersService.LocalPlayer or PlayersService.PlayerAdded:Wait()
 local LocalMouse = LocalPlayer:GetMouse()
-local FastFloor = math.floor
-local FastMax = math.max
-local FastClamp = math.clamp
-local FastClock = os.clock
-local FastTick = tick
+local Floor = math.floor
+local Max = math.max
+local GetTime = tick
 local KeysDown = {}
 
 if _G.NightfallSession then
     _G.NightfallSession.Active = false
-    for _, ConnectionObj in ipairs(_G.NightfallSession.Connections or {}) do
-        pcall(function() ConnectionObj:Disconnect() end)
+    for _, Connection in ipairs(_G.NightfallSession.Connections or {}) do
+        pcall(function() Connection:Disconnect() end)
     end
 end
-_G.MoonshadeActive = false
 if _G.NightfallDrawings then
-    for _, DrawingObj in ipairs(_G.NightfallDrawings) do
-        pcall(function() DrawingObj:Remove() end)
+    for _, DrawingItem in ipairs(_G.NightfallDrawings) do
+        pcall(function() DrawingItem:Remove() end)
     end
-end
-if _G.MoonshadeDrawings then
-    for _, DrawingObj in pairs(_G.MoonshadeDrawings) do
-        pcall(function() DrawingObj:Remove() end)
-    end
-    _G.MoonshadeDrawings = nil
 end
 local Session = {Active = true, Connections = {}}
 _G.NightfallSession = Session
 _G.NightfallDrawings = {}
 _G.NightfallActive = true
-local function ConnectSession(EventObj, CallbackFunc)
-    local ConnectionObj = EventObj:Connect(function(...)
-        if Session.Active then CallbackFunc(...) end
+local function ConnectSession(Event, Callback)
+    local Connection = Event:Connect(function(...)
+        if Session.Active then Callback(...) end
     end)
-    table.insert(Session.Connections, ConnectionObj)
-    return ConnectionObj
+    table.insert(Session.Connections, Connection)
+    return Connection
 end
 
 local KeyCodes = {
@@ -80,33 +71,16 @@ local KeyCodes = {
 }
 
 local NameToCode = {}
-for CodeVal, NameVal in pairs(KeyCodes) do
-    NameToCode[NameVal] = CodeVal
+for KeyCodeNumber, DisplayName in pairs(KeyCodes) do
+    NameToCode[DisplayName] = KeyCodeNumber
 end
 
 local Config = {
-    AutoParry = false,
-    TrainingBallsSupport = false,
-    AutoSpam = false,
-    TriggerBot = false,
-    ParryKeybind = "None",
-    SpamKeybind = "None",
-    TriggerKeybind = "None",
-    ParryMethod = "Click",
-    SpamRate = 100,
-    TriggerDelay = 0,
     HideKeybind = "F2",
     ShowHotkeyList = true,
-    ParryBindMode = "Toggle",
-    SpamBindMode = "Toggle",
-    TriggerBindMode = "Toggle",
     ThemePreset = "Nightfall",
     ConfigName = "default",
     SelectedConfig = "default",
-    ParryRange = 10,
-    DontClickOnSpawn = false,
-    InfinityDetection = false,
-    SlashesOfFuryDetection = false,
     AutoSaveConfig = false,
     AutoLoadConfig = false,
     ShowWatermark = false,
@@ -114,51 +88,40 @@ local Config = {
     NotificationDuration = 4,
     NotificationPosition = "Top Right",
     WatermarkText = "Nightfall | Matcha",
-    WatermarkCompact = true,
+    WatermarkCompact = true
 }
 
-local function NormalizeKeybindValue(ValueIn)
-    if type(ValueIn) == "number" then
-        return KeyCodes[ValueIn] or tostring(ValueIn)
+local function NormalizeKeybindValue(InputValue)
+    if type(InputValue) == "number" then
+        return KeyCodes[InputValue] or tostring(InputValue)
     end
-    if ValueIn == nil or ValueIn == "" then return "None" end
-    return tostring(ValueIn)
+    if InputValue == nil or InputValue == "" then return "None" end
+    return tostring(InputValue)
 end
 
-local function NormalizeBindMode(ModeIn)
-    ModeIn = tostring(ModeIn or "Toggle")
-    if string.lower(ModeIn) == "hold" then return "Hold" end
+local function NormalizeBindMode(SelectedMode)
+    SelectedMode = tostring(SelectedMode or "Toggle")
+    if string.lower(SelectedMode) == "hold" then return "Hold" end
     return "Toggle"
 end
 
+local KeybindTargets = {}
+local KeybindOrder = {}
+local KeybindSystem = {Binds = {}, LastPressed = {}}
+
 local function GetModeFlagFromBindFlag(BindFlag)
-    if BindFlag == "ParryKeybind" then return "ParryBindMode"
-    elseif BindFlag == "SpamKeybind" then return "SpamBindMode"
-    elseif BindFlag == "TriggerKeybind" then return "TriggerBindMode"
-    end
+    local Target = KeybindTargets[BindFlag]
+    return Target and Target.ModeFlag or nil
 end
 
 local function GetToggleFlagFromBindFlag(BindFlag)
-    if BindFlag == "ParryKeybind" then return "AutoParry"
-    elseif BindFlag == "SpamKeybind" then return "AutoSpam"
-    elseif BindFlag == "TriggerKeybind" then return "TriggerBot"
-    end
+    local Target = KeybindTargets[BindFlag]
+    return Target and Target.ToggleFlag or nil
 end
 
-local KeybindSystem
-local SetBindTargetState
-
-local function SetBindMode(BindFlag, ModeIn)
-    local ModeFlag = GetModeFlagFromBindFlag(BindFlag)
-    if ModeFlag then
-        Config[ModeFlag] = NormalizeBindMode(ModeIn)
-        local CurrentBind = KeybindSystem and KeybindSystem.Binds[BindFlag]
-        if CurrentBind then
-            if CurrentBind.Mode == "Hold" then SetBindTargetState(BindFlag, false) end
-            CurrentBind.Mode = Config[ModeFlag]
-            KeybindSystem.LastPressed[BindFlag] = iskeypressed(CurrentBind.Code) or false
-        end
-    end
+local function SetBindTargetState(BindFlag, Enabled)
+    local ToggleFlag = GetToggleFlagFromBindFlag(BindFlag)
+    if ToggleFlag then Config[ToggleFlag] = Enabled == true end
 end
 
 local function GetBindMode(BindFlag)
@@ -166,220 +129,226 @@ local function GetBindMode(BindFlag)
     return NormalizeBindMode(ModeFlag and Config[ModeFlag] or "Toggle")
 end
 
-SetBindTargetState = function(BindFlag, StateIn)
-    local ToggleFlag = GetToggleFlagFromBindFlag(BindFlag)
-    if ToggleFlag then Config[ToggleFlag] = StateIn and true or false end
+local function SetBindMode(BindFlag, Mode)
+    local ModeFlag = GetModeFlagFromBindFlag(BindFlag)
+    if not ModeFlag then return end
+    local NormalizedMode = NormalizeBindMode(Mode)
+    Config[ModeFlag] = NormalizedMode
+    local Binding = KeybindSystem.Binds[BindFlag]
+    if Binding then
+        if Binding.Mode == "Hold" then SetBindTargetState(BindFlag, false) end
+        Binding.Mode = NormalizedMode
+        KeybindSystem.LastPressed[BindFlag] = iskeypressed(Binding.Code) or false
+    end
 end
 
-KeybindSystem = {
-    Binds = {},
-    LastPressed = {}
-}
+local function RegisterKeybind(Flag, Key, Mode)
+    local Code = NameToCode[NormalizeKeybindValue(Key)]
+    KeybindSystem.Binds[Flag] = Code and {Code = Code, Mode = NormalizeBindMode(Mode or GetBindMode(Flag))} or nil
+    KeybindSystem.LastPressed[Flag] = Code and iskeypressed(Code) or false
+end
 
-local function RegisterKeybind(FlagName, KeyName, ModeIn)
-    local CodeVal = NameToCode[NormalizeKeybindValue(KeyName)]
-    KeybindSystem.Binds[FlagName] = CodeVal and {
-        Code = CodeVal,
-        Mode = NormalizeBindMode(ModeIn or "Toggle")
-    } or nil
-    KeybindSystem.LastPressed[FlagName] = CodeVal and iskeypressed(CodeVal) or false
+local function BindKeybind(BindFlag, ToggleFlag, ModeFlag, Label)
+    if type(BindFlag) ~= "string" or BindFlag == "" then return end
+    if type(ToggleFlag) ~= "string" or ToggleFlag == "" then return end
+    if type(ModeFlag) ~= "string" or ModeFlag == "" then return end
+    if not KeybindTargets[BindFlag] then
+        table.insert(KeybindOrder, BindFlag)
+    end
+    KeybindTargets[BindFlag] = {BindFlag = BindFlag, ToggleFlag = ToggleFlag, ModeFlag = ModeFlag, Label = tostring(Label or ToggleFlag)}
+    Config[ModeFlag] = NormalizeBindMode(Config[ModeFlag])
+    RegisterKeybind(BindFlag, Config[BindFlag] or "None", Config[ModeFlag])
 end
 
 local function UpdateKeybinds()
     if not isrbxactive() then
-        for FlagName, DataVal in pairs(KeybindSystem.Binds) do
-            if DataVal.Mode == "Hold" then SetBindTargetState(FlagName, false) end
-            KeybindSystem.LastPressed[FlagName] = false
+        for Flag, Binding in pairs(KeybindSystem.Binds) do
+            if Binding.Mode == "Hold" then SetBindTargetState(Flag, false) end
+            KeybindSystem.LastPressed[Flag] = false
         end
         return
     end
-    for FlagName, DataVal in pairs(KeybindSystem.Binds) do
-        local IsPressed = iskeypressed(DataVal.Code) or false
-        local WasPressed = KeybindSystem.LastPressed[FlagName] or false
-        if IsPressed and not WasPressed then
-            if DataVal.Mode == "Hold" then
-                SetBindTargetState(FlagName, true)
+    for Flag, Binding in pairs(KeybindSystem.Binds) do
+        local Pressed = iskeypressed(Binding.Code) or false
+        local PreviouslyPressed = KeybindSystem.LastPressed[Flag] or false
+        if Pressed and not PreviouslyPressed then
+            if Binding.Mode == "Hold" then
+                SetBindTargetState(Flag, true)
             else
-                local ToggleFlag = GetToggleFlagFromBindFlag(FlagName)
+                local ToggleFlag = GetToggleFlagFromBindFlag(Flag)
                 if ToggleFlag then Config[ToggleFlag] = not Config[ToggleFlag] end
             end
-        elseif not IsPressed and WasPressed and DataVal.Mode == "Hold" then
-            SetBindTargetState(FlagName, false)
+        elseif not Pressed and PreviouslyPressed and Binding.Mode == "Hold" then
+            SetBindTargetState(Flag, false)
         end
-        KeybindSystem.LastPressed[FlagName] = IsPressed
+        KeybindSystem.LastPressed[Flag] = Pressed
     end
 end
 
-local RuntimeState = {
-    TargetSpeed = 0,
-    TargetDistance = 0,
-    TargetDot = 0
-}
-
-local function MathClamp(ValIn, MinVal, MaxVal)
-    return FastMax(MinVal, math.min(MaxVal, ValIn))
+local function Clamp(Number, Minimum, Maximum)
+    return Max(Minimum, math.min(Maximum, Number))
 end
 
-local function MathRound(NumVal)
-    return FastFloor(NumVal + 0.5)
+local function Round(Number)
+    return Floor(Number + 0.5)
 end
 
-local function Vector2Round(XVal, YVal)
-    return Vector2.new(MathRound(XVal), MathRound(YVal))
+local function Vector2Round(XCoordinate, YCoordinate)
+    return Vector2.new(Round(XCoordinate), Round(YCoordinate))
 end
 
-local function MathLerp(AVal, BVal, TVal)
-    return AVal + (BVal - AVal) * TVal
+local function Lerp(StartValue, Blue, Amount)
+    return StartValue + (Blue - StartValue) * Amount
 end
 
-local function ColorLerp(C1Val, C2Val, TVal)
-    if not C1Val or not C2Val then return Color3.new(1, 1, 1) end
-    return Color3.new(MathLerp(C1Val.R, C2Val.R, TVal), MathLerp(C1Val.G, C2Val.G, TVal), MathLerp(C1Val.B, C2Val.B, TVal))
+local function ColorLerp(StartColor, EndColor, Amount)
+    if not StartColor or not EndColor then return Color3.new(1, 1, 1) end
+    return Color3.new(Lerp(StartColor.R, EndColor.R, Amount), Lerp(StartColor.G, EndColor.G, Amount), Lerp(StartColor.B, EndColor.B, Amount))
 end
 
-local function SnapValue(ValIn, StepVal)
-    return StepVal and FastFloor((ValIn / StepVal) + 0.5) * StepVal or ValIn
+local function SnapValue(Number, StepSize)
+    return StepSize and Floor((Number / StepSize) + 0.5) * StepSize or Number
 end
 
-local function HsvToColor3(HVal, SVal, VVal)
-    HVal = ((HVal or 0) % 1 + 1) % 1
-    SVal = MathClamp(SVal or 0, 0, 1)
-    VVal = MathClamp(VVal or 0, 0, 1)
-    local CVal = VVal * SVal
-    local HpVal = HVal * 6
-    local XVal = CVal * (1 - math.abs((HpVal % 2) - 1))
-    local R1Val, G1Val, B1Val = 0, 0, 0
-    if HpVal >= 0 and HpVal < 1 then R1Val, G1Val, B1Val = CVal, XVal, 0
-    elseif HpVal >= 1 and HpVal < 2 then R1Val, G1Val, B1Val = XVal, CVal, 0
-    elseif HpVal >= 2 and HpVal < 3 then R1Val, G1Val, B1Val = 0, CVal, XVal
-    elseif HpVal >= 3 and HpVal < 4 then R1Val, G1Val, B1Val = 0, XVal, CVal
-    elseif HpVal >= 4 and HpVal < 5 then R1Val, G1Val, B1Val = XVal, 0, CVal
-    else R1Val, G1Val, B1Val = CVal, 0, XVal
+local function HsvToColor3(Hue, Saturation, Brightness)
+    Hue = ((Hue or 0) % 1 + 1) % 1
+    Saturation = Clamp(Saturation or 0, 0, 1)
+    Brightness = Clamp(Brightness or 0, 0, 1)
+    local Chroma = Brightness * Saturation
+    local HueSector = Hue * 6
+    local XCoordinate = Chroma * (1 - math.abs((HueSector % 2) - 1))
+    local RedChannel, GreenChannel, BlueChannel = 0, 0, 0
+    if HueSector >= 0 and HueSector < 1 then RedChannel, GreenChannel, BlueChannel = Chroma, XCoordinate, 0
+    elseif HueSector >= 1 and HueSector < 2 then RedChannel, GreenChannel, BlueChannel = XCoordinate, Chroma, 0
+    elseif HueSector >= 2 and HueSector < 3 then RedChannel, GreenChannel, BlueChannel = 0, Chroma, XCoordinate
+    elseif HueSector >= 3 and HueSector < 4 then RedChannel, GreenChannel, BlueChannel = 0, XCoordinate, Chroma
+    elseif HueSector >= 4 and HueSector < 5 then RedChannel, GreenChannel, BlueChannel = XCoordinate, 0, Chroma
+    else RedChannel, GreenChannel, BlueChannel = Chroma, 0, XCoordinate
     end
-    local MVal = VVal - CVal
-    return Color3.new(R1Val + MVal, G1Val + MVal, B1Val + MVal)
+    local BrightnessOffset = Brightness - Chroma
+    return Color3.new(RedChannel + BrightnessOffset, GreenChannel + BrightnessOffset, BlueChannel + BrightnessOffset)
 end
 
-local function Color3ToHsv(ColorVal)
-    if not ColorVal then return 0, 0, 1 end
-    local RVal, GVal, BVal = ColorVal.R, ColorVal.G, ColorVal.B
-    local MaxC = FastMax(RVal, GVal, BVal)
-    local MinC = math.min(RVal, GVal, BVal)
-    local DeltaC = MaxC - MinC
-    local H2Val = 0
-    if DeltaC > 0 then
-        if MaxC == RVal then H2Val = ((GVal - BVal) / DeltaC) % 6
-        elseif MaxC == GVal then H2Val = ((BVal - RVal) / DeltaC) + 2
-        else H2Val = ((RVal - GVal) / DeltaC) + 4
+local function Color3ToHsv(ColorValue)
+    if not ColorValue then return 0, 0, 1 end
+    local Red, Green, Blue = ColorValue.R, ColorValue.G, ColorValue.B
+    local MaximumChannel = Max(Red, Green, Blue)
+    local MinimumChannel = math.min(Red, Green, Blue)
+    local ChannelDifference = MaximumChannel - MinimumChannel
+    local HueResult = 0
+    if ChannelDifference > 0 then
+        if MaximumChannel == Red then HueResult = ((Green - Blue) / ChannelDifference) % 6
+        elseif MaximumChannel == Green then HueResult = ((Blue - Red) / ChannelDifference) + 2
+        else HueResult = ((Red - Green) / ChannelDifference) + 4
         end
-        H2Val = H2Val / 6
+        HueResult = HueResult / 6
     end
-    local S2Val = MaxC == 0 and 0 or (DeltaC / MaxC)
-    return H2Val, S2Val, MaxC
+    local SaturationResult = MaximumChannel == 0 and 0 or (ChannelDifference / MaximumChannel)
+    return HueResult, SaturationResult, MaximumChannel
 end
 
-local function Color3ToHex(ColorVal)
-    if not ColorVal then return "#FFFFFF" end
-    return string.format("#%02X%02X%02X", MathClamp(MathRound(ColorVal.R * 255), 0, 255), MathClamp(MathRound(ColorVal.G * 255), 0, 255), MathClamp(MathRound(ColorVal.B * 255), 0, 255))
+local function Color3ToHex(ColorValue)
+    if not ColorValue then return "#FFFFFF" end
+    return string.format("#%02X%02X%02X", Clamp(Round(ColorValue.R * 255), 0, 255), Clamp(Round(ColorValue.G * 255), 0, 255), Clamp(Round(ColorValue.B * 255), 0, 255))
 end
 
 local CreateDrawing
-local function CreateGridSquares(CountVal)
+local function CreateGridSquares(Count)
     local GridArray = {}
-    for IIdx = 1, CountVal do
-        GridArray[IIdx] = CreateDrawing("Square", {Filled = true, Transparency = 1, Visible = false})
+    for ItemIndex = 1, Count do
+        GridArray[ItemIndex] = CreateDrawing("Square", {Filled = true, Transparency = 1, Visible = false})
     end
     return GridArray
 end
 
-local function UpdateGridSquares(GridArray, ColsVal, RowsVal, XVal, YVal, WVal, HVal, ColorFunc, VisibleState)
-    if not VisibleState or WVal <= 0 or HVal <= 0 then
-        for _, SqVal in ipairs(GridArray) do SqVal.Visible = false end
+local function UpdateGridSquares(GridArray, Columns, Rows, XCoordinate, YCoordinate, Width, Height, GetCellColor, IsVisible)
+    if not IsVisible or Width <= 0 or Height <= 0 then
+        for _, Cell in ipairs(GridArray) do Cell.Visible = false end
         return
     end
-    local CellW = WVal / ColsVal
-    local CellH = HVal / RowsVal
-    local IdxVal = 1
-    for RowIdx = 1, RowsVal do
-        for ColIdx = 1, ColsVal do
-            local SqVal = GridArray[IdxVal]
-            IdxVal = IdxVal + 1
-            local X0Val = XVal + ((ColIdx - 1) * CellW)
-            local Y0Val = YVal + ((RowIdx - 1) * CellH)
-            local X1Val = XVal + (ColIdx * CellW)
-            local Y1Val = YVal + (RowIdx * CellH)
-            SqVal.Visible = true
-            SqVal.Position = Vector2Round(X0Val, Y0Val)
-            SqVal.Size = Vector2Round(FastMax(1, MathRound(X1Val - X0Val)), FastMax(1, MathRound(Y1Val - Y0Val)))
-            SqVal.Color = ColorFunc(ColIdx, RowIdx, ColsVal, RowsVal)
-            SqVal.Transparency = 1
+    local CellW = Width / Columns
+    local CellH = Height / Rows
+    local CellIndex = 1
+    for RowIndex = 1, Rows do
+        for ColumnIndex = 1, Columns do
+            local Cell = GridArray[CellIndex]
+            CellIndex = CellIndex + 1
+            local CellLeft = XCoordinate + ((ColumnIndex - 1) * CellW)
+            local CellTop = YCoordinate + ((RowIndex - 1) * CellH)
+            local CellRight = XCoordinate + (ColumnIndex * CellW)
+            local CellBottom = YCoordinate + (RowIndex * CellH)
+            Cell.Visible = true
+            Cell.Position = Vector2Round(CellLeft, CellTop)
+            Cell.Size = Vector2Round(Max(1, Round(CellRight - CellLeft)), Max(1, Round(CellBottom - CellTop)))
+            Cell.Color = GetCellColor(ColumnIndex, RowIndex, Columns, Rows)
+            Cell.Transparency = 1
         end
     end
 end
 
 local function HideGridSquares(GridArray)
-    for _, SqVal in ipairs(GridArray) do SqVal.Visible = false end
+    for _, Cell in ipairs(GridArray) do Cell.Visible = false end
 end
 
-local function GetStepDecimals(StepVal)
-    if type(StepVal) ~= "number" then return 0 end
-    local SVal = string.format("%.10f", StepVal):gsub("0+$", "")
-    local DotIdx = SVal:find("%.")
-    return DotIdx and (#SVal - DotIdx) or 0
+local function GetStepDecimals(StepSize)
+    if type(StepSize) ~= "number" then return 0 end
+    local Saturation = string.format("%.10f", StepSize):gsub("0+$", "")
+    local DecimalIndex = Saturation:find("%.")
+    return DecimalIndex and (#Saturation - DecimalIndex) or 0
 end
 
-local function FormatSliderValue(ValueIn, StepVal)
-    if type(ValueIn) ~= "number" then return tostring(ValueIn) end
-    local DecimalsVal = GetStepDecimals(StepVal)
-    if DecimalsVal <= 0 then return tostring(FastFloor(ValueIn + 0.5)) end
-    local FormattedVal = string.format("%." .. DecimalsVal .. "f", ValueIn)
-    FormattedVal = FormattedVal:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
-    return FormattedVal
+local function FormatSliderValue(InputValue, StepSize)
+    if type(InputValue) ~= "number" then return tostring(InputValue) end
+    local DecimalPlaces = GetStepDecimals(StepSize)
+    if DecimalPlaces <= 0 then return tostring(Floor(InputValue + 0.5)) end
+    local FormattedText = string.format("%." .. DecimalPlaces .. "f", InputValue)
+    FormattedText = FormattedText:gsub("(%..-)0+$", "%1"):gsub("%.$", "")
+    return FormattedText
 end
 
 local function ParseSliderInput(TextValue)
-    local CleanedVal = tostring(TextValue or ""):gsub(",", "."):gsub("[^%d%.%-]", "")
-    if CleanedVal == "" or CleanedVal == "-" or CleanedVal == "." or CleanedVal == "-." then return nil end
-    local NumberVal = tonumber(CleanedVal)
-    if NumberVal == nil then return nil end
-    return NumberVal
+    local CleanedText = tostring(TextValue or ""):gsub(",", "."):gsub("[^%d%.%-]", "")
+    if CleanedText == "" or CleanedText == "-" or CleanedText == "." or CleanedText == "-." then return nil end
+    local ParsedNumber = tonumber(CleanedText)
+    if ParsedNumber == nil then return nil end
+    return ParsedNumber
 end
 
-local function ClampSliderValue(ValueIn, MinVal, MaxVal, StepVal)
-    local ClampedVal = MathClamp(ValueIn, MinVal, MaxVal)
-    local SnappedVal = SnapValue(ClampedVal, StepVal)
-    return MathClamp(SnappedVal, MinVal, MaxVal)
+local function ClampSliderValue(InputValue, Minimum, Maximum, StepSize)
+    local ClampedValue = Clamp(InputValue, Minimum, Maximum)
+    local SnappedValue = SnapValue(ClampedValue, StepSize)
+    return Clamp(SnappedValue, Minimum, Maximum)
 end
 
 local QueueSaveConfig
 local FireChange
 
-local function CommitSliderInput(SliderObj)
-    if not SliderObj then return end
-    local ParsedVal = ParseSliderInput(SliderObj.InputBuffer)
-    if ParsedVal == nil then
-        SliderObj.InputBuffer = FormatSliderValue(Config[SliderObj.Flag], SliderObj.Step)
+local function CommitSliderInput(Slider)
+    if not Slider then return end
+    local ParsedValue = ParseSliderInput(Slider.InputBuffer)
+    if ParsedValue == nil then
+        Slider.InputBuffer = FormatSliderValue(Config[Slider.Flag], Slider.Step)
         return
     end
-    local FinalValue = ClampSliderValue(ParsedVal, SliderObj.Min, SliderObj.Max, SliderObj.Step)
-    if Config[SliderObj.Flag] ~= FinalValue then
-        Config[SliderObj.Flag] = FinalValue
+    local FinalValue = ClampSliderValue(ParsedValue, Slider.Min, Slider.Max, Slider.Step)
+    if Config[Slider.Flag] ~= FinalValue then
+        Config[Slider.Flag] = FinalValue
         if QueueSaveConfig then QueueSaveConfig() end
     end
-    SliderObj.InputBuffer = FormatSliderValue(FinalValue, SliderObj.Step)
-    if FireChange then FireChange(SliderObj) end
+    Slider.InputBuffer = FormatSliderValue(FinalValue, Slider.Step)
+    if FireChange then FireChange(Slider) end
 end
 
-local function GetContextMenuPosition(ItemObj)
-    local CameraObj = WorkspaceService.CurrentCamera
-    local ViewportVal = CameraObj and CameraObj.ViewportSize or Vector2.new(1920, 1080)
+local function GetContextMenuPosition(Item)
+    local Camera = WorkspaceService.CurrentCamera
+    local ViewportSize = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
     local MenuW, MenuH = 128, 66
-    if not ItemObj or not ItemObj.ButtonPos or not ItemObj.ButtonSize then return Vector2Round(0, 0) end
-    local ContextX = ItemObj.ButtonPos.X
-    local ContextY = ItemObj.ButtonPos.Y + ItemObj.ButtonSize.Y + 6
-    if ContextX + MenuW > ViewportVal.X then ContextX = ItemObj.ButtonPos.X + ItemObj.ButtonSize.X - MenuW end
-    if ContextY + MenuH > ViewportVal.Y then ContextY = ItemObj.ButtonPos.Y - MenuH - 6 end
-    return Vector2Round(MathClamp(ContextX, 0, ViewportVal.X - MenuW), MathClamp(ContextY, 0, ViewportVal.Y - MenuH))
+    if not Item or not Item.ButtonPos or not Item.ButtonSize then return Vector2Round(0, 0) end
+    local ContextX = Item.ButtonPos.X
+    local ContextY = Item.ButtonPos.Y + Item.ButtonSize.Y + 6
+    if ContextX + MenuW > ViewportSize.X then ContextX = Item.ButtonPos.X + Item.ButtonSize.X - MenuW end
+    if ContextY + MenuH > ViewportSize.Y then ContextY = Item.ButtonPos.Y - MenuH - 6 end
+    return Vector2Round(Clamp(ContextX, 0, ViewportSize.X - MenuW), Clamp(ContextY, 0, ViewportSize.Y - MenuH))
 end
 
 local TextOffsets = {
@@ -414,325 +383,324 @@ local TextOffsets = {
 
 _G.NightfallTextOffsets = TextOffsets
 
-local function PositionText(TextObj, XVal, YVal, StyleName)
-    local OffsetVal = TextOffsets[StyleName]
-    if OffsetVal then
-        XVal = XVal + OffsetVal.X
-        YVal = YVal + OffsetVal.Y
+local function PositionText(TextDrawing, XCoordinate, YCoordinate, StyleName)
+    local Offset = TextOffsets[StyleName]
+    if Offset then
+        XCoordinate = XCoordinate + Offset.X
+        YCoordinate = YCoordinate + Offset.Y
     end
-    TextObj.Position = Vector2Round(XVal, YVal)
+    TextDrawing.Position = Vector2Round(XCoordinate, YCoordinate)
 end
 
-local function PositionTextCentered(TextObj, RectPos, RectSize, StyleName)
-    TextObj.Center = true
-    PositionText(TextObj, RectPos.X + RectSize.X / 2, RectPos.Y + RectSize.Y / 2, StyleName)
+local function PositionTextCentered(TextDrawing, RectPos, RectSize, StyleName)
+    TextDrawing.Center = true
+    PositionText(TextDrawing, RectPos.X + RectSize.X / 2, RectPos.Y + RectSize.Y / 2, StyleName)
 end
 
-local function IsMouseInBounds(PosIn, BoundsPos, BoundsSize)
-    return PosIn.X >= BoundsPos.X and PosIn.X <= BoundsPos.X + BoundsSize.X and PosIn.Y >= BoundsPos.Y and PosIn.Y <= BoundsPos.Y + BoundsSize.Y
+local function IsMouseInBounds(MousePosition, BoundsPos, BoundsSize)
+    return MousePosition.X >= BoundsPos.X and MousePosition.X <= BoundsPos.X + BoundsSize.X and MousePosition.Y >= BoundsPos.Y and MousePosition.Y <= BoundsPos.Y + BoundsSize.Y
 end
 
 CreateDrawing = function(ClassName, PropertiesTable)
-    local DrawingObj = Drawing.new(ClassName)
+    local DrawingItem = Drawing.new(ClassName)
     for PropName, PropValue in pairs(PropertiesTable) do
         if ClassName == "Text" and PropName == "Size" then
             PropName = "FontSize"
         elseif ClassName == "Text" and PropName == "Font" and type(PropValue) == "number" then
             PropValue = Drawing.Fonts and Drawing.Fonts.SystemBold or PropValue
         end
-        pcall(function() DrawingObj[PropName] = PropValue end)
+        pcall(function() DrawingItem[PropName] = PropValue end)
     end
-    table.insert(_G.NightfallDrawings, DrawingObj)
-    return DrawingObj
+    table.insert(_G.NightfallDrawings, DrawingItem)
+    return DrawingItem
 end
 
-local function CreateKeybindImageIcon(SizeVal)
-    SizeVal = SizeVal or 18
-    local function SquareFunc() return CreateDrawing("Square", {Filled = true, Color = Color3.new(1, 1, 1), Transparency = 1, Visible = false}) end
-    local function CircleFunc() return CreateDrawing("Circle", {Filled = true, Color = Color3.new(1, 1, 1), Transparency = 1, NumSides = 18, Radius = 1, Visible = false}) end
+local function CreateKeybindImageIcon(Size)
+    Size = Size or 18
+    local function CreateSquare() return CreateDrawing("Square", {Filled = true, Color = Color3.new(1, 1, 1), Transparency = 1, Visible = false}) end
+    local function CreateCircle() return CreateDrawing("Circle", {Filled = true, Color = Color3.new(1, 1, 1), Transparency = 1, NumSides = 18, Radius = 1, Visible = false}) end
     return {
         IsImage = false,
-        Size = SizeVal,
+        Size = Size,
         Parts = {
-            Main = SquareFunc(), Top = SquareFunc(), Bottom = SquareFunc(),
-            Left = SquareFunc(), Right = SquareFunc(),
-            TL = CircleFunc(), TR = CircleFunc(), BL = CircleFunc(), BR = CircleFunc(),
-            Inner = SquareFunc(), Dot1 = CircleFunc(), Dot2 = CircleFunc(), Dot3 = CircleFunc(),
-            Keys = {SquareFunc(), SquareFunc(), SquareFunc(), SquareFunc(), SquareFunc(), SquareFunc()}
+            Main = CreateSquare(), Top = CreateSquare(), Bottom = CreateSquare(),
+            Left = CreateSquare(), Right = CreateSquare(),
+            TL = CreateCircle(), TR = CreateCircle(), BL = CreateCircle(), BR = CreateCircle(),
+            Inner = CreateSquare(), Dot1 = CreateCircle(), Dot2 = CreateCircle(), Dot3 = CreateCircle(),
+            Keys = {CreateSquare(), CreateSquare(), CreateSquare(), CreateSquare(), CreateSquare(), CreateSquare()}
         }
     }
 end
 
-local function UpdateKeybindImageIcon(IconObj, PositionVal, ColorVal, VisibleState)
-    if not IconObj then return end
-    if IconObj.IsImage and IconObj.Image then
-        local ImageObj = IconObj.Image
-        ImageObj.Visible = VisibleState
-        pcall(function() ImageObj.Position = PositionVal end)
-        pcall(function() ImageObj.Size = Vector2Round(IconObj.Size, IconObj.Size) end)
-        pcall(function() ImageObj.Color = ColorVal end)
-        pcall(function() ImageObj.Transparency = VisibleState and 1 or 0 end)
+local function UpdateKeybindImageIcon(Icon, Position, ColorValue, IsVisible)
+    if not Icon then return end
+    if Icon.IsImage and Icon.Image then
+        local ImageDrawing = Icon.Image
+        ImageDrawing.Visible = IsVisible
+        pcall(function() ImageDrawing.Position = Position end)
+        pcall(function() ImageDrawing.Size = Vector2Round(Icon.Size, Icon.Size) end)
+        pcall(function() ImageDrawing.Color = ColorValue end)
+        pcall(function() ImageDrawing.Transparency = IsVisible and 1 or 0 end)
         return
     end
-    if not IconObj.Parts then
-        if IconObj.Fallback then
-            IconObj.Fallback.Visible = VisibleState
-            if VisibleState then
-                IconObj.Fallback.Position = PositionVal
-                IconObj.Fallback.Color = ColorVal
+    if not Icon.Parts then
+        if Icon.Fallback then
+            Icon.Fallback.Visible = IsVisible
+            if IsVisible then
+                Icon.Fallback.Position = Position
+                Icon.Fallback.Color = ColorValue
             end
         end
         return
     end
-    local SizeVal = IconObj.Size or 18
-    local WidthVal = FastMax(12, FastFloor(SizeVal * 0.9 + 0.5))
-    local HeightVal = FastMax(10, FastFloor(SizeVal * 0.72 + 0.5))
-    local RadiusVal = FastMax(2, FastFloor(SizeVal * 0.15 + 0.5))
-    local StrokeVal = FastMax(1, FastFloor(SizeVal * 0.07 + 0.5))
-    local XVal = FastFloor(PositionVal.X + 0.5)
-    local YVal = FastFloor(PositionVal.Y + 0.5)
-    local WVal, HVal = WidthVal, HeightVal
-    local PartsObj = IconObj.Parts
-    local OutlineArray = {PartsObj.Main, PartsObj.Top, PartsObj.Bottom, PartsObj.Left, PartsObj.Right, PartsObj.TL, PartsObj.TR, PartsObj.BL, PartsObj.BR}
-    for _, ObjItem in ipairs(OutlineArray) do
-        ObjItem.Visible = VisibleState
-        if VisibleState then ObjItem.Color = ColorVal ObjItem.Transparency = 1 end
+    local Size = Icon.Size or 18
+    local Width = Max(12, Floor(Size * 0.9 + 0.5))
+    local Height = Max(10, Floor(Size * 0.72 + 0.5))
+    local Radius = Max(2, Floor(Size * 0.15 + 0.5))
+    local StrokeWidth = Max(1, Floor(Size * 0.07 + 0.5))
+    local XCoordinate = Floor(Position.X + 0.5)
+    local YCoordinate = Floor(Position.Y + 0.5)
+    local Parts = Icon.Parts
+    local OutlineArray = {Parts.Main, Parts.Top, Parts.Bottom, Parts.Left, Parts.Right, Parts.TL, Parts.TR, Parts.BL, Parts.BR}
+    for _, DrawingPart in ipairs(OutlineArray) do
+        DrawingPart.Visible = IsVisible
+        if IsVisible then DrawingPart.Color = ColorValue DrawingPart.Transparency = 1 end
     end
-    if VisibleState then
-        PartsObj.Main.Position = Vector2Round(XVal + RadiusVal, YVal + RadiusVal)
-        PartsObj.Main.Size = Vector2Round(FastMax(WVal - RadiusVal * 2, 0), FastMax(HVal - RadiusVal * 2, 0))
-        PartsObj.Top.Position = Vector2Round(XVal + RadiusVal, YVal)
-        PartsObj.Top.Size = Vector2Round(FastMax(WVal - RadiusVal * 2, 0), RadiusVal)
-        PartsObj.Bottom.Position = Vector2Round(XVal + RadiusVal, YVal + HVal - RadiusVal)
-        PartsObj.Bottom.Size = Vector2Round(FastMax(WVal - RadiusVal * 2, 0), RadiusVal)
-        PartsObj.Left.Position = Vector2Round(XVal, YVal + RadiusVal)
-        PartsObj.Left.Size = Vector2Round(RadiusVal, FastMax(HVal - RadiusVal * 2, 0))
-        PartsObj.Right.Position = Vector2Round(XVal + WVal - RadiusVal, YVal + RadiusVal)
-        PartsObj.Right.Size = Vector2Round(RadiusVal, FastMax(HVal - RadiusVal * 2, 0))
-        PartsObj.TL.Position = Vector2Round(XVal + RadiusVal, YVal + RadiusVal)
-        PartsObj.TR.Position = Vector2Round(XVal + WVal - RadiusVal, YVal + RadiusVal)
-        PartsObj.BL.Position = Vector2Round(XVal + RadiusVal, YVal + HVal - RadiusVal)
-        PartsObj.BR.Position = Vector2Round(XVal + WVal - RadiusVal, YVal + HVal - RadiusVal)
-        PartsObj.TL.Radius = RadiusVal
-        PartsObj.TR.Radius = RadiusVal
-        PartsObj.BL.Radius = RadiusVal
-        PartsObj.BR.Radius = RadiusVal
+    if IsVisible then
+        Parts.Main.Position = Vector2Round(XCoordinate + Radius, YCoordinate + Radius)
+        Parts.Main.Size = Vector2Round(Max(Width - Radius * 2, 0), Max(Height - Radius * 2, 0))
+        Parts.Top.Position = Vector2Round(XCoordinate + Radius, YCoordinate)
+        Parts.Top.Size = Vector2Round(Max(Width - Radius * 2, 0), Radius)
+        Parts.Bottom.Position = Vector2Round(XCoordinate + Radius, YCoordinate + Height - Radius)
+        Parts.Bottom.Size = Vector2Round(Max(Width - Radius * 2, 0), Radius)
+        Parts.Left.Position = Vector2Round(XCoordinate, YCoordinate + Radius)
+        Parts.Left.Size = Vector2Round(Radius, Max(Height - Radius * 2, 0))
+        Parts.Right.Position = Vector2Round(XCoordinate + Width - Radius, YCoordinate + Radius)
+        Parts.Right.Size = Vector2Round(Radius, Max(Height - Radius * 2, 0))
+        Parts.TL.Position = Vector2Round(XCoordinate + Radius, YCoordinate + Radius)
+        Parts.TR.Position = Vector2Round(XCoordinate + Width - Radius, YCoordinate + Radius)
+        Parts.BL.Position = Vector2Round(XCoordinate + Radius, YCoordinate + Height - Radius)
+        Parts.BR.Position = Vector2Round(XCoordinate + Width - Radius, YCoordinate + Height - Radius)
+        Parts.TL.Radius = Radius
+        Parts.TR.Radius = Radius
+        Parts.BL.Radius = Radius
+        Parts.BR.Radius = Radius
     end
-    local InnerPad = StrokeVal + 1
-    PartsObj.Inner.Visible = VisibleState
-    if VisibleState then
-        PartsObj.Inner.Position = Vector2Round(XVal + InnerPad, YVal + InnerPad)
-        PartsObj.Inner.Size = Vector2Round(FastMax(WVal - InnerPad * 2, 1), FastMax(HVal - InnerPad * 2, 1))
-        PartsObj.Inner.Color = Color3.fromRGB(16, 20, 30)
-        PartsObj.Inner.Transparency = 1
+    local InnerPad = StrokeWidth + 1
+    Parts.Inner.Visible = IsVisible
+    if IsVisible then
+        Parts.Inner.Position = Vector2Round(XCoordinate + InnerPad, YCoordinate + InnerPad)
+        Parts.Inner.Size = Vector2Round(Max(Width - InnerPad * 2, 1), Max(Height - InnerPad * 2, 1))
+        Parts.Inner.Color = Color3.fromRGB(16, 20, 30)
+        Parts.Inner.Transparency = 1
     end
-    local DotRadius = FastMax(1, FastFloor(SizeVal * 0.05 + 0.5))
-    local DotGap = FastMax(3, FastFloor(SizeVal * 0.13 + 0.5))
-    local DotStartX = XVal + InnerPad + DotRadius + 1
-    local DotY = YVal + InnerPad + DotRadius + 1
-    local DotsArray = {PartsObj.Dot1, PartsObj.Dot2, PartsObj.Dot3}
-    for IIdx, DotObj in ipairs(DotsArray) do
-        DotObj.Visible = VisibleState
-        if VisibleState then
-            DotObj.Position = Vector2Round(DotStartX + (IIdx - 1) * DotGap, DotY)
-            DotObj.Radius = DotRadius
-            DotObj.Color = ColorVal
-            DotObj.Transparency = 1
+    local DotRadius = Max(1, Floor(Size * 0.05 + 0.5))
+    local DotGap = Max(3, Floor(Size * 0.13 + 0.5))
+    local DotStartX = XCoordinate + InnerPad + DotRadius + 1
+    local DotY = YCoordinate + InnerPad + DotRadius + 1
+    local DotsArray = {Parts.Dot1, Parts.Dot2, Parts.Dot3}
+    for ItemIndex, Dot in ipairs(DotsArray) do
+        Dot.Visible = IsVisible
+        if IsVisible then
+            Dot.Position = Vector2Round(DotStartX + (ItemIndex - 1) * DotGap, DotY)
+            Dot.Radius = DotRadius
+            Dot.Color = ColorValue
+            Dot.Transparency = 1
         end
     end
-    local KeyPadX = FastMax(3, FastFloor(SizeVal * 0.14 + 0.5))
-    local KeyPadY = FastMax(5, FastFloor(SizeVal * 0.24 + 0.5))
-    local KeyGap = FastMax(1, FastFloor(SizeVal * 0.06 + 0.5))
-    local AvailableW = FastMax(WVal - KeyPadX * 2, 6)
-    local AvailableH = FastMax(HVal - KeyPadY - InnerPad - 1, 4)
-    local KeySize = FastMax(2, FastFloor(math.min((AvailableW - KeyGap * 2) / 3, (AvailableH - KeyGap) / 2) + 0.5))
+    local KeyPadX = Max(3, Floor(Size * 0.14 + 0.5))
+    local KeyPadY = Max(5, Floor(Size * 0.24 + 0.5))
+    local KeyGap = Max(1, Floor(Size * 0.06 + 0.5))
+    local AvailableW = Max(Width - KeyPadX * 2, 6)
+    local AvailableH = Max(Height - KeyPadY - InnerPad - 1, 4)
+    local KeySize = Max(2, Floor(math.min((AvailableW - KeyGap * 2) / 3, (AvailableH - KeyGap) / 2) + 0.5))
     local TotalKeysWidth = KeySize * 3 + KeyGap * 2
     local TotalKeysHeight = KeySize * 2 + KeyGap
-    local KeysStartX = XVal + FastFloor((WVal - TotalKeysWidth) / 2 + 0.5)
-    local KeysStartY = YVal + HVal - InnerPad - TotalKeysHeight - 1
-    for IIdx, KeyObj in ipairs(PartsObj.Keys) do
-        KeyObj.Visible = VisibleState
-        if VisibleState then
-            local RowVal = FastFloor((IIdx - 1) / 3)
-            local ColVal = (IIdx - 1) % 3
-            KeyObj.Position = Vector2Round(KeysStartX + ColVal * (KeySize + KeyGap), KeysStartY + RowVal * (KeySize + KeyGap))
-            KeyObj.Size = Vector2Round(KeySize, KeySize)
-            KeyObj.Color = ColorVal
-            KeyObj.Transparency = 1
+    local KeysStartX = XCoordinate + Floor((Width - TotalKeysWidth) / 2 + 0.5)
+    local KeysStartY = YCoordinate + Height - InnerPad - TotalKeysHeight - 1
+    for ItemIndex, Key in ipairs(Parts.Keys) do
+        Key.Visible = IsVisible
+        if IsVisible then
+            local Row = Floor((ItemIndex - 1) / 3)
+            local Column = (ItemIndex - 1) % 3
+            Key.Position = Vector2Round(KeysStartX + Column * (KeySize + KeyGap), KeysStartY + Row * (KeySize + KeyGap))
+            Key.Size = Vector2Round(KeySize, KeySize)
+            Key.Color = ColorValue
+            Key.Transparency = 1
         end
     end
 end
 
-local function SetVisible(ItemObj, VisibleState)
-    if not ItemObj then return end
-    if ItemObj.Single then
-        ItemObj.Single.Visible = VisibleState
-    elseif ItemObj.Main then
-        ItemObj.Main.Visible = VisibleState
-        ItemObj.Top.Visible = VisibleState
-        ItemObj.Bottom.Visible = VisibleState
-        ItemObj.Left.Visible = VisibleState
-        ItemObj.Right.Visible = VisibleState
-        ItemObj.TL.Visible = VisibleState
-        ItemObj.TR.Visible = VisibleState
-        ItemObj.BL.Visible = VisibleState
-        ItemObj.BR.Visible = VisibleState
-    elseif ItemObj.IsImage or ItemObj.Fallback or ItemObj.Image then
-        UpdateKeybindImageIcon(ItemObj, Vector2Round(-1000, -1000), Color3.new(1, 1, 1), VisibleState)
+local function SetVisible(Item, IsVisible)
+    if not Item then return end
+    if Item.Single then
+        Item.Single.Visible = IsVisible
+    elseif Item.Main then
+        Item.Main.Visible = IsVisible
+        Item.Top.Visible = IsVisible
+        Item.Bottom.Visible = IsVisible
+        Item.Left.Visible = IsVisible
+        Item.Right.Visible = IsVisible
+        Item.TL.Visible = IsVisible
+        Item.TR.Visible = IsVisible
+        Item.BL.Visible = IsVisible
+        Item.BR.Visible = IsVisible
+    elseif Item.IsImage or Item.Fallback or Item.Image then
+        UpdateKeybindImageIcon(Item, Vector2Round(-1000, -1000), Color3.new(1, 1, 1), IsVisible)
     else
-        ItemObj.Visible = VisibleState
+        Item.Visible = IsVisible
     end
 end
 
-local function SetRoundedColor(BoxObj, ColorVal, TransparencyVal)
-    if BoxObj.Single then
-        BoxObj.Single.Color = ColorVal
-        BoxObj.Single.Transparency = TransparencyVal or 1
+local function SetRoundedColor(Box, ColorValue, Transparency)
+    if Box.Single then
+        Box.Single.Color = ColorValue
+        Box.Single.Transparency = Transparency or 1
         return
     end
-    local ListArray = {BoxObj.Main, BoxObj.Top, BoxObj.Bottom, BoxObj.Left, BoxObj.Right, BoxObj.TL, BoxObj.TR, BoxObj.BL, BoxObj.BR}
-    for _, ObjItem in ipairs(ListArray) do
-        ObjItem.Color = ColorVal
-        ObjItem.Transparency = TransparencyVal or 1
+    local ListArray = {Box.Main, Box.Top, Box.Bottom, Box.Left, Box.Right, Box.TL, Box.TR, Box.BL, Box.BR}
+    for _, DrawingPart in ipairs(ListArray) do
+        DrawingPart.Color = ColorValue
+        DrawingPart.Transparency = Transparency or 1
     end
 end
 
-local function SetDrawingLayer(ItemObj, LayerVal)
-    if not ItemObj then return end
-    if ItemObj.Single then
-        pcall(function() ItemObj.Single.ZIndex = LayerVal end)
-    elseif ItemObj.Main then
-        for _, DrawObj in pairs(ItemObj) do
-            pcall(function() DrawObj.ZIndex = LayerVal end)
+local function SetDrawingLayer(Item, Layer)
+    if not Item then return end
+    if Item.Single then
+        pcall(function() Item.Single.ZIndex = Layer end)
+    elseif Item.Main then
+        for _, DrawItem in pairs(Item) do
+            pcall(function() DrawItem.ZIndex = Layer end)
         end
     else
-        pcall(function() ItemObj.ZIndex = LayerVal end)
+        pcall(function() Item.ZIndex = Layer end)
     end
 end
 
 local RoundedCornerSupported = nil
-local function MakeRoundedBox(ColorVal, TransparencyVal)
+local function MakeRoundedBox(ColorValue, Transparency)
     if RoundedCornerSupported ~= false then
-        local SquareObj = CreateDrawing("Square", {Filled = true, Color = ColorVal, Transparency = TransparencyVal or 1, Visible = false})
-        local Supported = pcall(function() SquareObj.Corner = 4 end)
+        local Square = CreateDrawing("Square", {Filled = true, Color = ColorValue, Transparency = Transparency or 1, Visible = false})
+        local Supported = pcall(function() Square.Corner = 4 end)
         RoundedCornerSupported = Supported
-        if Supported then return {Single = SquareObj} end
-        pcall(function() SquareObj:Remove() end)
+        if Supported then return {Single = Square} end
+        pcall(function() Square:Remove() end)
     end
     return {
-        Main = CreateDrawing("Square", {Filled = true, Color = ColorVal, Transparency = TransparencyVal or 1, Visible = false}),
-        Top = CreateDrawing("Square", {Filled = true, Color = ColorVal, Transparency = TransparencyVal or 1, Visible = false}),
-        Bottom = CreateDrawing("Square", {Filled = true, Color = ColorVal, Transparency = TransparencyVal or 1, Visible = false}),
-        Left = CreateDrawing("Square", {Filled = true, Color = ColorVal, Transparency = TransparencyVal or 1, Visible = false}),
-        Right = CreateDrawing("Square", {Filled = true, Color = ColorVal, Transparency = TransparencyVal or 1, Visible = false}),
-        TL = CreateDrawing("Circle", {Filled = true, Color = ColorVal, Transparency = TransparencyVal or 1, NumSides = 18, Radius = 4, Visible = false}),
-        TR = CreateDrawing("Circle", {Filled = true, Color = ColorVal, Transparency = TransparencyVal or 1, NumSides = 18, Radius = 4, Visible = false}),
-        BL = CreateDrawing("Circle", {Filled = true, Color = ColorVal, Transparency = TransparencyVal or 1, NumSides = 18, Radius = 4, Visible = false}),
-        BR = CreateDrawing("Circle", {Filled = true, Color = ColorVal, Transparency = TransparencyVal or 1, NumSides = 18, Radius = 4, Visible = false})
+        Main = CreateDrawing("Square", {Filled = true, Color = ColorValue, Transparency = Transparency or 1, Visible = false}),
+        Top = CreateDrawing("Square", {Filled = true, Color = ColorValue, Transparency = Transparency or 1, Visible = false}),
+        Bottom = CreateDrawing("Square", {Filled = true, Color = ColorValue, Transparency = Transparency or 1, Visible = false}),
+        Left = CreateDrawing("Square", {Filled = true, Color = ColorValue, Transparency = Transparency or 1, Visible = false}),
+        Right = CreateDrawing("Square", {Filled = true, Color = ColorValue, Transparency = Transparency or 1, Visible = false}),
+        TL = CreateDrawing("Circle", {Filled = true, Color = ColorValue, Transparency = Transparency or 1, NumSides = 18, Radius = 4, Visible = false}),
+        TR = CreateDrawing("Circle", {Filled = true, Color = ColorValue, Transparency = Transparency or 1, NumSides = 18, Radius = 4, Visible = false}),
+        BL = CreateDrawing("Circle", {Filled = true, Color = ColorValue, Transparency = Transparency or 1, NumSides = 18, Radius = 4, Visible = false}),
+        BR = CreateDrawing("Circle", {Filled = true, Color = ColorValue, Transparency = Transparency or 1, NumSides = 18, Radius = 4, Visible = false})
     }
 end
 
-local function UpdateRoundedBox(BoxObj, PosVal, SizeVal, RadiusVal, ColorVal, TransparencyVal, VisibleState)
-    RadiusVal = MathClamp(RadiusVal or 4, 0, FastFloor(math.min(SizeVal.X, SizeVal.Y) / 2))
-    if BoxObj.Single then
-        local SquareObj = BoxObj.Single
-        SquareObj.Position = PosVal
-        SquareObj.Size = Vector2Round(FastMax(0, SizeVal.X), FastMax(0, SizeVal.Y))
-        SquareObj.Corner = RadiusVal
-        SquareObj.Color = ColorVal
-        SquareObj.Transparency = TransparencyVal or 1
-        SquareObj.Visible = VisibleState and SizeVal.X > 0 and SizeVal.Y > 0
+local function UpdateRoundedBox(Box, Position, Size, Radius, ColorValue, Transparency, IsVisible)
+    Radius = Clamp(Radius or 4, 0, Floor(math.min(Size.X, Size.Y) / 2))
+    if Box.Single then
+        local Square = Box.Single
+        Square.Position = Position
+        Square.Size = Vector2Round(Max(0, Size.X), Max(0, Size.Y))
+        Square.Corner = Radius
+        Square.Color = ColorValue
+        Square.Transparency = Transparency or 1
+        Square.Visible = IsVisible and Size.X > 0 and Size.Y > 0
         return
     end
-    local XVal, YVal = PosVal.X, PosVal.Y
-    local WVal, HVal = SizeVal.X, SizeVal.Y
-    SetRoundedColor(BoxObj, ColorVal, TransparencyVal or 1)
-    SetVisible(BoxObj, VisibleState)
-    BoxObj.Main.Position = Vector2Round(XVal + RadiusVal, YVal + RadiusVal)
-    BoxObj.Main.Size = Vector2Round(FastMax(WVal - RadiusVal * 2, 0), FastMax(HVal - RadiusVal * 2, 0))
-    BoxObj.Top.Position = Vector2Round(XVal + RadiusVal, YVal)
-    BoxObj.Top.Size = Vector2Round(FastMax(WVal - RadiusVal * 2, 0), RadiusVal)
-    BoxObj.Bottom.Position = Vector2Round(XVal + RadiusVal, YVal + HVal - RadiusVal)
-    BoxObj.Bottom.Size = Vector2Round(FastMax(WVal - RadiusVal * 2, 0), RadiusVal)
-    BoxObj.Left.Position = Vector2Round(XVal, YVal + RadiusVal)
-    BoxObj.Left.Size = Vector2Round(RadiusVal, FastMax(HVal - RadiusVal * 2, 0))
-    BoxObj.Right.Position = Vector2Round(XVal + WVal - RadiusVal, YVal + RadiusVal)
-    BoxObj.Right.Size = Vector2Round(RadiusVal, FastMax(HVal - RadiusVal * 2, 0))
-    BoxObj.TL.Position = Vector2Round(XVal + RadiusVal, YVal + RadiusVal)
-    BoxObj.TR.Position = Vector2Round(XVal + WVal - RadiusVal, YVal + RadiusVal)
-    BoxObj.BL.Position = Vector2Round(XVal + RadiusVal, YVal + HVal - RadiusVal)
-    BoxObj.BR.Position = Vector2Round(XVal + WVal - RadiusVal, YVal + HVal - RadiusVal)
-    BoxObj.TL.Radius = RadiusVal
-    BoxObj.TR.Radius = RadiusVal
-    BoxObj.BL.Radius = RadiusVal
-    BoxObj.BR.Radius = RadiusVal
+    local XCoordinate, YCoordinate = Position.X, Position.Y
+    local Width, Height = Size.X, Size.Y
+    SetRoundedColor(Box, ColorValue, Transparency or 1)
+    SetVisible(Box, IsVisible)
+    Box.Main.Position = Vector2Round(XCoordinate + Radius, YCoordinate + Radius)
+    Box.Main.Size = Vector2Round(Max(Width - Radius * 2, 0), Max(Height - Radius * 2, 0))
+    Box.Top.Position = Vector2Round(XCoordinate + Radius, YCoordinate)
+    Box.Top.Size = Vector2Round(Max(Width - Radius * 2, 0), Radius)
+    Box.Bottom.Position = Vector2Round(XCoordinate + Radius, YCoordinate + Height - Radius)
+    Box.Bottom.Size = Vector2Round(Max(Width - Radius * 2, 0), Radius)
+    Box.Left.Position = Vector2Round(XCoordinate, YCoordinate + Radius)
+    Box.Left.Size = Vector2Round(Radius, Max(Height - Radius * 2, 0))
+    Box.Right.Position = Vector2Round(XCoordinate + Width - Radius, YCoordinate + Radius)
+    Box.Right.Size = Vector2Round(Radius, Max(Height - Radius * 2, 0))
+    Box.TL.Position = Vector2Round(XCoordinate + Radius, YCoordinate + Radius)
+    Box.TR.Position = Vector2Round(XCoordinate + Width - Radius, YCoordinate + Radius)
+    Box.BL.Position = Vector2Round(XCoordinate + Radius, YCoordinate + Height - Radius)
+    Box.BR.Position = Vector2Round(XCoordinate + Width - Radius, YCoordinate + Height - Radius)
+    Box.TL.Radius = Radius
+    Box.TR.Radius = Radius
+    Box.BL.Radius = Radius
+    Box.BR.Radius = Radius
 end
 
-local function MakeGradientLine(CountVal)
+local function MakeGradientLine(Count)
     local ItemsArray = {}
-    for IIdx = 1, CountVal do
-        ItemsArray[IIdx] = CreateDrawing("Square", {Filled = true, Visible = false})
+    for ItemIndex = 1, Count do
+        ItemsArray[ItemIndex] = CreateDrawing("Square", {Filled = true, Visible = false})
     end
     return ItemsArray
 end
 
-local function UpdateGradientLine(ItemsArray, PosVal, SizeVal, C1Val, C2Val, VisibleState)
-    local CountVal = #ItemsArray
-    local WidthVal = FastMax(0, MathRound(SizeVal.X))
-    local HeightVal = FastMax(0, MathRound(SizeVal.Y))
-    local StartX = MathRound(PosVal.X)
-    local StartY = MathRound(PosVal.Y)
-    for IIdx = 1, CountVal do
-        local X0Val = StartX + MathRound((IIdx - 1) * WidthVal / CountVal)
-        local X1Val = StartX + MathRound(IIdx * WidthVal / CountVal)
-        local ItObj = ItemsArray[IIdx]
-        ItObj.Visible = VisibleState and X1Val > X0Val and HeightVal > 0
-        if ItObj.Visible then
-            ItObj.Color = ColorLerp(C1Val, C2Val, (IIdx - 0.5) / CountVal)
-            ItObj.Position = Vector2Round(X0Val, StartY)
-            ItObj.Size = Vector2Round(X1Val - X0Val, HeightVal)
+local function UpdateGradientLine(ItemsArray, Position, Size, StartColor, EndColor, IsVisible)
+    local Count = #ItemsArray
+    local Width = Max(0, Round(Size.X))
+    local Height = Max(0, Round(Size.Y))
+    local StartX = Round(Position.X)
+    local StartY = Round(Position.Y)
+    for ItemIndex = 1, Count do
+        local CellLeft = StartX + Round((ItemIndex - 1) * Width / Count)
+        local CellRight = StartX + Round(ItemIndex * Width / Count)
+        local Segment = ItemsArray[ItemIndex]
+        Segment.Visible = IsVisible and CellRight > CellLeft and Height > 0
+        if Segment.Visible then
+            Segment.Color = ColorLerp(StartColor, EndColor, (ItemIndex - 0.5) / Count)
+            Segment.Position = Vector2Round(CellLeft, StartY)
+            Segment.Size = Vector2Round(CellRight - CellLeft, Height)
         end
     end
 end
 
 local function HideGradientLine(ItemsArray)
-    for _, ItObj in ipairs(ItemsArray) do ItObj.Visible = false end
+    for _, Segment in ipairs(ItemsArray) do Segment.Visible = false end
 end
 
 local function MakeRoundedGradientCaps()
     local Caps = {Left = {}, Right = {}}
-    for IIdx = 1, 5 do
-        Caps.Left[IIdx] = CreateDrawing("Square", {Filled = true, Visible = false})
-        Caps.Right[IIdx] = CreateDrawing("Square", {Filled = true, Visible = false})
+    for ItemIndex = 1, 5 do
+        Caps.Left[ItemIndex] = CreateDrawing("Square", {Filled = true, Visible = false})
+        Caps.Right[ItemIndex] = CreateDrawing("Square", {Filled = true, Visible = false})
     end
     return Caps
 end
 
-local function UpdateRoundedGradient(ItemsArray, Caps, PosVal, SizeVal, C1Val, C2Val, VisibleState)
-    local WVal = MathRound(SizeVal.X)
-    local HVal = MathRound(SizeVal.Y)
-    if not VisibleState or WVal < 18 or HVal < 3 then
+local function UpdateRoundedGradient(ItemsArray, Caps, Position, Size, StartColor, EndColor, IsVisible)
+    local Width = Round(Size.X)
+    local Height = Round(Size.Y)
+    if not IsVisible or Width < 18 or Height < 3 then
         HideGradientLine(ItemsArray)
-        for _, CapVal in ipairs(Caps.Left) do CapVal.Visible = false end
-        for _, CapVal in ipairs(Caps.Right) do CapVal.Visible = false end
+        for _, Cap in ipairs(Caps.Left) do Cap.Visible = false end
+        for _, Cap in ipairs(Caps.Right) do Cap.Visible = false end
         return
     end
-    local XVal = MathRound(PosVal.X)
-    local YVal = MathRound(PosVal.Y)
-    UpdateGradientLine(ItemsArray, Vector2Round(XVal + 7, YVal + 2), Vector2Round(WVal - 14, 2), C1Val, C2Val, true)
+    local XCoordinate = Round(Position.X)
+    local YCoordinate = Round(Position.Y)
+    UpdateGradientLine(ItemsArray, Vector2Round(XCoordinate + 7, YCoordinate + 2), Vector2Round(Width - 14, 2), StartColor, EndColor, true)
     local CurveY = {3, 2, 1, 0, 0}
-    for IIdx = 1, 5 do
-        local LX = XVal + IIdx + 1
-        local RX = XVal + WVal - IIdx - 2
-        local LCap = Caps.Left[IIdx]
-        local RCap = Caps.Right[IIdx]
-        local CapY = YVal + 2 + CurveY[IIdx]
+    for ItemIndex = 1, 5 do
+        local LX = XCoordinate + ItemIndex + 1
+        local RX = XCoordinate + Width - ItemIndex - 2
+        local LCap = Caps.Left[ItemIndex]
+        local RCap = Caps.Right[ItemIndex]
+        local CapY = YCoordinate + 2 + CurveY[ItemIndex]
         LCap.Position = Vector2Round(LX, CapY)
         RCap.Position = Vector2Round(RX, CapY)
         LCap.Size = Vector2Round(1, 2)
         RCap.Size = Vector2Round(1, 2)
-        LCap.Color = ColorLerp(C1Val, C2Val, (LX - XVal + 0.5) / WVal)
-        RCap.Color = ColorLerp(C1Val, C2Val, (RX - XVal + 0.5) / WVal)
+        LCap.Color = ColorLerp(StartColor, EndColor, (LX - XCoordinate + 0.5) / Width)
+        RCap.Color = ColorLerp(StartColor, EndColor, (RX - XCoordinate + 0.5) / Width)
         LCap.Visible = true
         RCap.Visible = true
     end
@@ -740,34 +708,34 @@ end
 
 local function HideRoundedGradient(ItemsArray, Caps)
     HideGradientLine(ItemsArray)
-    for _, CapVal in ipairs(Caps.Left) do CapVal.Visible = false end
-    for _, CapVal in ipairs(Caps.Right) do CapVal.Visible = false end
+    for _, Cap in ipairs(Caps.Left) do Cap.Visible = false end
+    for _, Cap in ipairs(Caps.Right) do Cap.Visible = false end
 end
 
-local function MakeStripePattern(CountVal, ThicknessVal)
+local function MakeStripePattern(Count, Thickness)
     local ItemsArray = {}
-    for IIdx = 1, CountVal do
-        ItemsArray[IIdx] = CreateDrawing("Line", {Thickness = ThicknessVal or 10, Transparency = 0.08, Visible = false})
+    for ItemIndex = 1, Count do
+        ItemsArray[ItemIndex] = CreateDrawing("Line", {Thickness = Thickness or 10, Transparency = 0.08, Visible = false})
     end
     return ItemsArray
 end
 
-local function UpdateStripePattern(ItemsArray, RectX, RectY, RectW, RectH, SlantVal, SpacingVal, ColorVal, VisibleState)
-    for _, LineObj in ipairs(ItemsArray) do 
-        LineObj.Visible = false 
+local function UpdateStripePattern(ItemsArray, RectX, RectY, RectW, RectH, Slope, Spacing, ColorValue, IsVisible)
+    for _, Line in ipairs(ItemsArray) do 
+        Line.Visible = false 
     end
 end
 
 local function HideStripePattern(ItemsArray)
-    for _, LineObj in ipairs(ItemsArray) do LineObj.Visible = false end
+    for _, Line in ipairs(ItemsArray) do Line.Visible = false end
 end
 
-local function ClampWindowPosition(PositionVal, SizeVal)
-    local CameraObj = WorkspaceService.CurrentCamera
-    local ViewportVal = CameraObj and CameraObj.ViewportSize or Vector2.new(1920, 1080)
-    local XVal = MathClamp(PositionVal.X, 0, FastMax(0, ViewportVal.X - SizeVal.X))
-    local YVal = MathClamp(PositionVal.Y, 0, FastMax(0, ViewportVal.Y - SizeVal.Y))
-    return Vector2Round(XVal, YVal)
+local function ClampWindowPosition(Position, Size)
+    local Camera = WorkspaceService.CurrentCamera
+    local ViewportSize = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
+    local XCoordinate = Clamp(Position.X, 0, Max(0, ViewportSize.X - Size.X))
+    local YCoordinate = Clamp(Position.Y, 0, Max(0, ViewportSize.Y - Size.Y))
+    return Vector2Round(XCoordinate, YCoordinate)
 end
 
 local LibraryData = {
@@ -924,15 +892,15 @@ local function LoadGlobalSettings()
             Config[Key] = Data[Key]
         end
     end
-    Config.NotificationDuration = MathClamp(Config.NotificationDuration, 1, 15)
+    Config.NotificationDuration = Clamp(Config.NotificationDuration, 1, 15)
     return true
 end
 
 local function GetConfigBaseName()
-    local NameVal = tostring(Config.ConfigName or "default")
-    NameVal = NameVal:gsub("[^%w%-_]", "_"):sub(1, 48)
-    if NameVal == "" then NameVal = "default" end
-    return NameVal
+    local DisplayName = tostring(Config.ConfigName or "default")
+    DisplayName = DisplayName:gsub("[^%w%-_]", "_"):sub(1, 48)
+    if DisplayName == "" then DisplayName = "default" end
+    return DisplayName
 end
 
 local function GetConfigPath()
@@ -951,41 +919,41 @@ local function GetAvailableConfigs()
         if OkState and type(FilesArray) == "table" then
             for _, FilePath in ipairs(FilesArray) do
                 local FileName = tostring(FilePath):gsub("\\", "/"):match("([^/]+)$")
-                local NameVal = FileName and FileName:match("^(.-)%.json$")
-                if NameVal and NameVal ~= "Settings" and not NameVal:match("_layout$") and not NameVal:match("%.backup$") then
-                    if not SeenTable[NameVal] then
-                        SeenTable[NameVal] = true
-                        table.insert(NamesArray, NameVal)
+                local DisplayName = FileName and FileName:match("^(.-)%.json$")
+                if DisplayName and DisplayName ~= "Settings" and not DisplayName:match("_layout$") and not DisplayName:match("%.backup$") then
+                    if not SeenTable[DisplayName] then
+                        SeenTable[DisplayName] = true
+                        table.insert(NamesArray, DisplayName)
                     end
                 end
             end
         end
     end
     if #NamesArray == 0 then table.insert(NamesArray, "default") end
-    table.sort(NamesArray, function(AVal, BVal) return tostring(AVal):lower() < tostring(BVal):lower() end)
+    table.sort(NamesArray, function(StartValue, Blue) return tostring(StartValue):lower() < tostring(Blue):lower() end)
     return NamesArray
 end
 
 local function ApplyPalette(PaletteTable)
     if type(PaletteTable) ~= "table" then return end
-    for _, KeyVal in ipairs(PaletteKeys) do
-        if PaletteTable[KeyVal] then LibraryData.Palette[KeyVal] = PaletteTable[KeyVal] end
+    for _, KeyValue in ipairs(PaletteKeys) do
+        if PaletteTable[KeyValue] then LibraryData.Palette[KeyValue] = PaletteTable[KeyValue] end
     end
 end
 
 local function SyncThemeEditorState()
     if not LibraryData or not LibraryData.Tabs then return end
-    for _, TabObj in ipairs(LibraryData.Tabs) do
-        if TabObj and TabObj.Sections then
-            for _, SectionObj in ipairs(TabObj.Sections) do
-                if SectionObj and SectionObj.Items then
-                    for _, ItemObj in ipairs(SectionObj.Items) do
-                        if ItemObj and ItemObj.Type == "ColorPicker" and ItemObj.Flag and type(Config[ItemObj.Flag]) == "table" and Config[ItemObj.Flag].Color then
-                            local HVal, SVal, VVal = Color3ToHsv(Config[ItemObj.Flag].Color)
-                            ItemObj.Hue = HVal
-                            ItemObj.Sat = SVal
-                            ItemObj.Val = VVal
-                            ItemObj.Alpha = MathClamp(Config[ItemObj.Flag].Alpha or 1, 0, 1)
+    for _, Tab in ipairs(LibraryData.Tabs) do
+        if Tab and Tab.Sections then
+            for _, Section in ipairs(Tab.Sections) do
+                if Section and Section.Items then
+                    for _, Item in ipairs(Section.Items) do
+                        if Item and Item.Type == "ColorPicker" and Item.Flag and type(Config[Item.Flag]) == "table" and Config[Item.Flag].Color then
+                            local HueValue, Saturation, Brightness = Color3ToHsv(Config[Item.Flag].Color)
+                            Item.Hue = HueValue
+                            Item.Sat = Saturation
+                            Item.Val = Brightness
+                            Item.Alpha = Clamp(Config[Item.Flag].Alpha or 1, 0, 1)
                         end
                     end
                 end
@@ -997,22 +965,22 @@ end
 QueueSaveConfig = function()
     if IsConfigLoading then return end
     SettingsDirty = true
-    SettingsQueueTick = FastTick()
+    SettingsQueueTick = GetTime()
     if Config.AutoSaveConfig then
         ConfigDirty = true
-        SaveQueueTick = FastTick()
+        SaveQueueTick = GetTime()
     end
 end
 
 local function ApplyThemePreset(ThemeName, KeepAccent)
-    local PresetVal = ThemePresets[ThemeName]
-    if not PresetVal then PresetVal = ThemePresets.Nightfall ThemeName = "Nightfall" end
-    local AccentVal = LibraryData.Palette.Accent
-    local Accent2Val = LibraryData.Palette.Accent2
-    local AccentAlpha = type(Config.UiAccentColor) == "table" and MathClamp(Config.UiAccentColor.Alpha or 1, 0, 1) or 1
-    local Accent2Alpha = type(Config.UiAccent2Color) == "table" and MathClamp(Config.UiAccent2Color.Alpha or 1, 0, 1) or 1
-    ApplyPalette(PresetVal)
-    if KeepAccent then LibraryData.Palette.Accent = AccentVal LibraryData.Palette.Accent2 = Accent2Val end
+    local Preset = ThemePresets[ThemeName]
+    if not Preset then Preset = ThemePresets.Nightfall ThemeName = "Nightfall" end
+    local PreviousAccent = LibraryData.Palette.Accent
+    local PreviousAccentSecondary = LibraryData.Palette.Accent2
+    local AccentAlpha = type(Config.UiAccentColor) == "table" and Clamp(Config.UiAccentColor.Alpha or 1, 0, 1) or 1
+    local Accent2Alpha = type(Config.UiAccent2Color) == "table" and Clamp(Config.UiAccent2Color.Alpha or 1, 0, 1) or 1
+    ApplyPalette(Preset)
+    if KeepAccent then LibraryData.Palette.Accent = PreviousAccent LibraryData.Palette.Accent2 = PreviousAccentSecondary end
     Config.ThemePreset = ThemeName
     Config.UiAccentColor = {Color = LibraryData.Palette.Accent, Alpha = AccentAlpha}
     Config.UiAccent2Color = {Color = LibraryData.Palette.Accent2, Alpha = Accent2Alpha}
@@ -1055,7 +1023,7 @@ local function SerializeConfigValue(Value)
         return Value
     end
     if type(Value) == "table" and Value.Color and typeof(Value.Color) == "Color3" then
-        return {Hex = Color3ToHex(Value.Color), Alpha = MathClamp(tonumber(Value.Alpha) or 1, 0, 1)}
+        return {Hex = Color3ToHex(Value.Color), Alpha = Clamp(tonumber(Value.Alpha) or 1, 0, 1)}
     end
     return nil
 end
@@ -1064,12 +1032,12 @@ local function DeserializeConfigColor(Value)
     if type(Value) ~= "table" or type(Value.Hex) ~= "string" then return nil end
     local Hex = Value.Hex:match("^#?(%x%x%x%x%x%x)$")
     if not Hex then return nil end
-    return {Color = Color3.fromRGB(tonumber(Hex:sub(1, 2), 16), tonumber(Hex:sub(3, 4), 16), tonumber(Hex:sub(5, 6), 16)), Alpha = MathClamp(tonumber(Value.Alpha) or 1, 0, 1)}
+    return {Color = Color3.fromRGB(tonumber(Hex:sub(1, 2), 16), tonumber(Hex:sub(3, 4), 16), tonumber(Hex:sub(5, 6), 16)), Alpha = Clamp(tonumber(Value.Alpha) or 1, 0, 1)}
 end
 
 local function SaveCurrentConfig()
     local Flags = {}
-    local Excluded = {ConfigName = true, SelectedConfig = true, AutoSaveConfig = true, AutoLoadConfig = true, RenderBallStats = true}
+    local Excluded = {ConfigName = true, SelectedConfig = true, AutoSaveConfig = true, AutoLoadConfig = true}
     for Key, Value in pairs(Config) do
         if not Excluded[Key] then
             local Encoded = SerializeConfigValue(Value)
@@ -1124,7 +1092,7 @@ local function LoadNamedConfig(Name)
     local Flags = type(Data.Flags) == "table" and Data.Flags or Data
     IsConfigLoading = true
     for Key, Value in pairs(Flags) do
-        if Key ~= "ConfigName" and Key ~= "SelectedConfig" and Key ~= "AutoLoadConfig" and Key ~= "AutoSaveConfig" and Key ~= "RenderBallStats" then
+        if Key ~= "ConfigName" and Key ~= "SelectedConfig" and Key ~= "AutoLoadConfig" and Key ~= "AutoSaveConfig"  then
             if type(Config[Key]) == "table" then
                 local ColorValue = DeserializeConfigColor(Value)
                 if ColorValue then Config[Key] = ColorValue end
@@ -1133,10 +1101,10 @@ local function LoadNamedConfig(Name)
             end
         end
     end
-    for _, Key in ipairs({"Parry", "Spam", "Trigger"}) do
-        Config[Key .. "BindMode"] = NormalizeBindMode(Config[Key .. "BindMode"])
-        RegisterKeybind(Key .. "Keybind", Config[Key .. "Keybind"], Config[Key .. "BindMode"])
+    for _, BindFlag in ipairs(KeybindOrder) do
+        RegisterKeybind(BindFlag, Config[BindFlag], GetBindMode(BindFlag))
     end
+    RegisterKeybind("HideKeybind", Config.HideKeybind, "Toggle")
     ApplyThemePreset(Config.ThemePreset or "Nightfall", false)
     local Colors = type(Data.Palette) == "table" and Data.Palette or {}
     for PaletteKey, FlagKey in pairs({Accent = "UiAccentColor", Accent2 = "UiAccent2Color"}) do
@@ -1157,7 +1125,7 @@ local function LoadNamedConfig(Name)
     return true
 end
 
-LoadGlobalSettings()
+local SettingsLoaded = LoadGlobalSettings()
 ApplyThemePreset(Config.ThemePreset or "Nightfall", false)
 if Config.AutoLoadConfig then
     LoadNamedConfig(Config.SelectedConfig or Config.ConfigName)
@@ -1166,14 +1134,10 @@ else
     LoadLayout()
 end
 ConfigLoaded = true
-Config.RenderBallStats = nil
 if Config.ShowWatermark == nil then Config.ShowWatermark = false end
 if Config.ShowNotifications == nil then Config.ShowNotifications = true end
-Config.NotificationDuration = MathClamp(tonumber(Config.NotificationDuration) or 4, 1, 15)
+Config.NotificationDuration = Clamp(tonumber(Config.NotificationDuration) or 4, 1, 15)
 
-RegisterKeybind("ParryKeybind", Config.ParryKeybind, Config.ParryBindMode)
-RegisterKeybind("SpamKeybind", Config.SpamKeybind, Config.SpamBindMode)
-RegisterKeybind("TriggerKeybind", Config.TriggerKeybind, Config.TriggerBindMode)
 RegisterKeybind("HideKeybind", Config.HideKeybind, "Toggle")
 
 local WindowDrawings = {
@@ -1201,22 +1165,22 @@ end
 local GearIconBase64 = "iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAABCklEQVR42u1Yyw6EMAi0xJuX/v9X9uLZPZlsjKsFphSyzM0YKcNQHi5LIpFIJBQoSGOt7cfT+1q3giZA0RWYTuBNtSEEpIdevzufW9sPqc2iceCa0z1O1LoV5F0hrfzcyGlTRqwA+uAepcJWIXgKWUaf2ytohFG3nZijxB3pEZ16tUyB8x0yJdmMnw7nRFCrpqgKoZxH3qvVU+2fNsxJo4lQIcQ4/ZQJuQ/M7s7hFSgWtZpr32wf8DDMFWRVQHXiaQr0ppzbWUg7jUpUGEbA6j5QZOdZBLwOdoSOSK+tnsXHvApJdgJtYCB94NuJ3r9zdzYlZFTsfx1q+ZudLFPmb8dpt9tUIpFIxMcH8Rigah7ey0AAAAAASUVORK5CYII="
 if type(base64decode) == "function" then
     local Ok, Image = pcall(function()
-        local Obj = CreateDrawing("Image", {Visible = false, Size = Vector2.new(17, 17), ZIndex = 12})
-        Obj.Data = base64decode(GearIconBase64)
-        return Obj
+        local DrawingElement = CreateDrawing("Image", {Visible = false, Size = Vector2.new(17, 17), ZIndex = 12})
+        DrawingElement.Data = base64decode(GearIconBase64)
+        return DrawingElement
     end)
     if Ok then WindowDrawings.GearImage = Image end
 end
 local RenderDecorations = function() end
 local SettingsTab = nil
 local PreviousMainTab = nil
-local TabStyle = {X = 9, Y = 47, W = 132, H = 34, Gap = 5}
-local function GetTabBounds(XVal, YVal, IndexVal)
+local TabStyle = {X = 9, Y = 47, Width = 132, Height = 34, Gap = 5}
+local function GetTabBounds(XCoordinate, YCoordinate, SelectedIndex)
     local Shown = 0
-    for I = 1, IndexVal do
+    for I = 1, SelectedIndex do
         if LibraryData.Tabs[I] and not LibraryData.Tabs[I].Hidden then Shown = Shown + 1 end
     end
-    return Vector2Round(XVal + TabStyle.X, YVal + TabStyle.Y + FastMax(0, Shown - 1) * (TabStyle.H + TabStyle.Gap)), Vector2Round(TabStyle.W, TabStyle.H)
+    return Vector2Round(XCoordinate + TabStyle.X, YCoordinate + TabStyle.Y + Max(0, Shown - 1) * (TabStyle.Height + TabStyle.Gap)), Vector2Round(TabStyle.Width, TabStyle.Height)
 end
 
 local KeybindsDrawings = {
@@ -1228,17 +1192,6 @@ local KeybindsDrawings = {
     TitleIcon = CreateKeybindImageIcon(18),
     Title = CreateDrawing("Text", {Text = "HOTKEYS", Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
     Subtitle = CreateDrawing("Text", {Text = "", Color = LibraryData.Palette.SubText, Size = 12, Font = 2, Outline = true, Visible = false}),
-    Row1 = MakeRoundedBox(LibraryData.Palette.Element, 1), Row2 = MakeRoundedBox(LibraryData.Palette.Element, 1),
-    Row3 = MakeRoundedBox(LibraryData.Palette.Element, 1),
-    Bind1 = CreateDrawing("Text", {Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
-    Bind2 = CreateDrawing("Text", {Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
-    Bind3 = CreateDrawing("Text", {Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
-    State1 = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 12, Font = 2, Outline = true, Visible = false}),
-    State2 = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 12, Font = 2, Outline = true, Visible = false}),
-    State3 = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 12, Font = 2, Outline = true, Visible = false}),
-    Mode1 = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 11, Font = 2, Outline = true, Visible = false}),
-    Mode2 = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 11, Font = 2, Outline = true, Visible = false}),
-    Mode3 = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 11, Font = 2, Outline = true, Visible = false}),
     MenuOutline = MakeRoundedBox(LibraryData.Palette.Outline, 1),
     MenuBackground = MakeRoundedBox(LibraryData.Palette.Background, 1),
     MenuOption1 = MakeRoundedBox(LibraryData.Palette.Element, 1),
@@ -1246,6 +1199,25 @@ local KeybindsDrawings = {
     MenuOption1Text = CreateDrawing("Text", {Text = "Hold", Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
     MenuOption2Text = CreateDrawing("Text", {Text = "Toggle", Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false})
 }
+
+local HotkeyRowsDrawings = {}
+
+local function GetHotkeyRow(Index)
+    local Row = HotkeyRowsDrawings[Index]
+    if Row then return Row end
+    Row = {
+        Background = MakeRoundedBox(LibraryData.Palette.Element, 1),
+        Label = CreateDrawing("Text", {Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
+        State = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 12, Font = 2, Outline = true, Visible = false}),
+        Mode = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 11, Font = 2, Outline = true, Visible = false})
+    }
+    SetDrawingLayer(Row.Background, 20)
+    SetDrawingLayer(Row.Label, 22)
+    SetDrawingLayer(Row.State, 22)
+    SetDrawingLayer(Row.Mode, 22)
+    HotkeyRowsDrawings[Index] = Row
+    return Row
+end
 
 local ProfileName = "Player"
 local ProfileDisplayName = "Player"
@@ -1256,12 +1228,12 @@ pcall(function()
     ProfileUserId = tonumber(LocalPlayer.UserId) or 0
 end)
 
-local function ProfileScrollingName(TextVal, MaxLength)
-    local Value = tostring(TextVal or "Player")
+local function ProfileScrollingName(TextValue, MaxLength)
+    local Value = tostring(TextValue or "Player")
     if #Value <= MaxLength then return Value end
     local MaxShift = #Value - MaxLength
     local Period = MaxShift + 10
-    local Position = math.floor(FastTick() * 2.3) % Period
+    local Position = math.floor(GetTime() * 2.3) % Period
     if Position < 4 then return Value:sub(1, MaxLength - 2) .. ".." end
     local Offset = math.min(MaxShift, Position - 4)
     return Value:sub(Offset + 1, Offset + MaxLength)
@@ -1340,18 +1312,18 @@ for _, K in ipairs({"CopyText", "CopyIdText"}) do
 end
 
 local function HideProfileDrawings()
-    for _, Obj in pairs(ProfileDrawings) do SetVisible(Obj, false) end
+    for _, DrawingElement in pairs(ProfileDrawings) do SetVisible(DrawingElement, false) end
     if ProfileImage then ProfileImage.Visible = false end
     if ProfilePopupImage then ProfilePopupImage.Visible = false end
 end
 
-local function UpdateProfileImage(ImageObj, XVal, YVal, SizeVal, RadiusVal, IsVisible)
-    if not ImageObj then return end
-    ImageObj.Visible = IsVisible and ProfileHasAvatar
-    if ImageObj.Visible then
-        ImageObj.Position = Vector2Round(XVal, YVal)
-        ImageObj.Size = Vector2Round(SizeVal, SizeVal)
-        ImageObj.Rounding = RadiusVal
+local function UpdateProfileImage(ImageDrawing, XCoordinate, YCoordinate, Size, Radius, IsVisible)
+    if not ImageDrawing then return end
+    ImageDrawing.Visible = IsVisible and ProfileHasAvatar
+    if ImageDrawing.Visible then
+        ImageDrawing.Position = Vector2Round(XCoordinate, YCoordinate)
+        ImageDrawing.Size = Vector2Round(Size, Size)
+        ImageDrawing.Rounding = Radius
     end
 end
 
@@ -1432,11 +1404,11 @@ local function DrawProfileCard(PosX, PosY, Width, Height)
         return
     end
 
-    local CameraObj = WorkspaceService.CurrentCamera
-    local Viewport = CameraObj and CameraObj.ViewportSize or Vector2.new(1920, 1080)
+    local Camera = WorkspaceService.CurrentCamera
+    local Viewport = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
     local PopupW, PopupH = 312, 149
-    local PopupX = MathClamp(PosX + 156, 0, FastMax(0, Viewport.X - PopupW - 4))
-    local PopupY = MathClamp(CardY + CardH - PopupH, 4, FastMax(4, Viewport.Y - PopupH - 4))
+    local PopupX = Clamp(PosX + 156, 0, Max(0, Viewport.X - PopupW - 4))
+    local PopupY = Clamp(CardY + CardH - PopupH, 4, Max(4, Viewport.Y - PopupH - 4))
     ProfileLayout.PopupPos = Vector2Round(PopupX, PopupY)
     ProfileLayout.PopupSize = Vector2Round(PopupW, PopupH)
     UpdateRoundedBox(ProfileDrawings.PopupBorder, ProfileLayout.PopupPos, ProfileLayout.PopupSize, 8, LibraryData.Palette.OutlineLight, 1, true)
@@ -1488,12 +1460,12 @@ local function DrawProfileCard(PosX, PosY, Width, Height)
     ProfileDrawings.CopyIdAccent.Position = Vector2Round(CopyIdPos.X + 9, CopyIdPos.Y + 11)
     ProfileDrawings.CopyIdAccent.Size = Vector2Round(2, 10)
     ProfileDrawings.CopyIdAccent.Color = LibraryData.Palette.Accent
-    ProfileDrawings.CopyText.Text = FastTick() < LibraryData.State.ProfileCopiedUntil and "Copied" or "Copy username"
+    ProfileDrawings.CopyText.Text = GetTime() < LibraryData.State.ProfileCopiedUntil and "Copied" or "Copy username"
     ProfileDrawings.CopyText.Visible = true
     ProfileDrawings.CopyText.Color = LibraryData.Palette.Text
     ProfileDrawings.CopyText.Center = true
     PositionTextCentered(ProfileDrawings.CopyText, CopyPos, ButtonSize, "ProfileAction")
-    ProfileDrawings.CopyIdText.Text = FastTick() < (LibraryData.State.ProfileIdCopiedUntil or 0) and "Copied" or "Copy User ID"
+    ProfileDrawings.CopyIdText.Text = GetTime() < (LibraryData.State.ProfileIdCopiedUntil or 0) and "Copied" or "Copy User ID"
     ProfileDrawings.CopyIdText.Visible = true
     ProfileDrawings.CopyIdText.Color = LibraryData.Palette.Text
     ProfileDrawings.CopyIdText.Center = true
@@ -1501,7 +1473,7 @@ local function DrawProfileCard(PosX, PosY, Width, Height)
 end
 
 function LibraryData:CreateTab(TabName, TabIcon)
-    local TabObj = {
+    local Tab = {
         Name = TabName, Icon = "", Sections = {},
         Border = MakeRoundedBox(self.Palette.Outline, 1),
         Background = MakeRoundedBox(self.Palette.Hover, 1),
@@ -1512,8 +1484,8 @@ function LibraryData:CreateTab(TabName, TabIcon)
         IconDraw = CreateDrawing("Text", {Text = "", Size = 12, Font = 2, Outline = true, Visible = false}),
         CurrentColor = self.Palette.SubText, CurrentIconColor = self.Palette.SubText, BgAlpha = 0
     }
-    function TabObj:CreateSection(SectionName, SectionSide)
-        local SectionObj = {
+    function Tab:CreateSection(SectionName, SectionSide)
+        local Section = {
             Name = SectionName, Side = SectionSide, Items = {},
             Outline = MakeRoundedBox(LibraryData.Palette.Outline, 1),
             Background = MakeRoundedBox(LibraryData.Palette.Section, 1),
@@ -1521,52 +1493,52 @@ function LibraryData:CreateTab(TabName, TabIcon)
             Title = CreateDrawing("Text", {Text = SectionName, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
             Line = CreateDrawing("Square", {Color = LibraryData.Palette.Outline, Filled = true, Visible = false})
         }
-        function SectionObj:UpdateContainer(XVal, YVal, WVal, HVal)
-            UpdateRoundedBox(self.Outline, Vector2Round(XVal, YVal), Vector2Round(WVal, HVal), 6, LibraryData.Palette.Outline, 1, true)
-            UpdateRoundedBox(self.Background, Vector2Round(XVal + 1, YVal + 1), Vector2Round(WVal - 2, HVal - 2), 6, LibraryData.Palette.Section, 1, true)
+        function Section:UpdateContainer(XCoordinate, YCoordinate, Width, Height)
+            UpdateRoundedBox(self.Outline, Vector2Round(XCoordinate, YCoordinate), Vector2Round(Width, Height), 6, LibraryData.Palette.Outline, 1, true)
+            UpdateRoundedBox(self.Background, Vector2Round(XCoordinate + 1, YCoordinate + 1), Vector2Round(Width - 2, Height - 2), 6, LibraryData.Palette.Section, 1, true)
             UpdateStripePattern(self.PatternBack, 0, 0, 0, 0, 0, 0, LibraryData.Palette.Background, false)
             UpdateStripePattern(self.PatternFront, 0, 0, 0, 0, 0, 0, LibraryData.Palette.Background, false)
             self.Title.Visible = true
-            PositionText(self.Title, XVal + 10, YVal + 6, "SectionTitle")
+            PositionText(self.Title, XCoordinate + 10, YCoordinate + 6, "SectionTitle")
             self.Line.Visible = true
-            self.Line.Position = Vector2Round(XVal + 10, YVal + 25)
-            self.Line.Size = Vector2Round(WVal - 20, 1)
+            self.Line.Position = Vector2Round(XCoordinate + 10, YCoordinate + 25)
+            self.Line.Size = Vector2Round(Width - 20, 1)
             self.Line.Color = LibraryData.Palette.Outline
         end
-        function SectionObj:CreateToggle(NameVal, FlagVal, DefaultVal)
-            Config[FlagVal] = Config[FlagVal] ~= nil and Config[FlagVal] or (DefaultVal or false)
-            local ToggleObj = {
-                Type = "Toggle", Height = 24, Flag = FlagVal,
+        function Section:CreateToggle(DisplayName, FlagKey, DefaultValue)
+            Config[FlagKey] = Config[FlagKey] ~= nil and Config[FlagKey] or (DefaultValue or false)
+            local Toggle = {
+                Type = "Toggle", Height = 24, Flag = FlagKey,
                 BoxStroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
                 Box = MakeRoundedBox(LibraryData.Palette.Element, 1),
                 Fill = MakeRoundedBox(LibraryData.Palette.Accent, 1),
-                Label = CreateDrawing("Text", {Text = NameVal, Size = 12, Font = 2, Outline = true, Visible = false}),
+                Label = CreateDrawing("Text", {Text = DisplayName, Size = 12, Font = 2, Outline = true, Visible = false}),
                 CurrentColor = LibraryData.Palette.SubText,
-                Alpha = Config[FlagVal] and 1 or 0,
+                Alpha = Config[FlagKey] and 1 or 0,
                 HitboxPos = Vector2.new(), HitboxSize = Vector2.new()
             }
-            function ToggleObj:Update(XVal, YVal, WVal)
-                self.HitboxPos = Vector2Round(XVal, YVal)
-                self.HitboxSize = Vector2Round(WVal, 20)
-                UpdateRoundedBox(self.BoxStroke, Vector2Round(XVal + 2, YVal + 3), Vector2Round(16, 16), 4, ColorLerp(LibraryData.Palette.Outline, LibraryData.Palette.Accent, self.Alpha), 1, true)
-                UpdateRoundedBox(self.Box, Vector2Round(XVal + 3, YVal + 4), Vector2Round(14, 14), 4, LibraryData.Palette.Element, 1, true)
+            function Toggle:Update(XCoordinate, YCoordinate, Width)
+                self.HitboxPos = Vector2Round(XCoordinate, YCoordinate)
+                self.HitboxSize = Vector2Round(Width, 20)
+                UpdateRoundedBox(self.BoxStroke, Vector2Round(XCoordinate + 2, YCoordinate + 3), Vector2Round(16, 16), 4, ColorLerp(LibraryData.Palette.Outline, LibraryData.Palette.Accent, self.Alpha), 1, true)
+                UpdateRoundedBox(self.Box, Vector2Round(XCoordinate + 3, YCoordinate + 4), Vector2Round(14, 14), 4, LibraryData.Palette.Element, 1, true)
                 self.Label.Visible = true
-                PositionText(self.Label, XVal + 26, YVal + 4, "ToggleLabel")
-                local HoveredVal = IsMouseInBounds(LibraryData.Input.MousePos, self.HitboxPos, self.HitboxSize)
-                self.CurrentColor = ColorLerp(self.CurrentColor, Config[self.Flag] and LibraryData.Palette.Text or (HoveredVal and LibraryData.Palette.Text or LibraryData.Palette.SubText), 0.15)
+                PositionText(self.Label, XCoordinate + 26, YCoordinate + 4, "ToggleLabel")
+                local Hovered = IsMouseInBounds(LibraryData.Input.MousePos, self.HitboxPos, self.HitboxSize)
+                self.CurrentColor = ColorLerp(self.CurrentColor, Config[self.Flag] and LibraryData.Palette.Text or (Hovered and LibraryData.Palette.Text or LibraryData.Palette.SubText), 0.15)
                 self.Label.Color = self.CurrentColor
-                self.Alpha = MathLerp(self.Alpha, Config[self.Flag] and 1 or 0, 0.2)
-                UpdateRoundedBox(self.Fill, Vector2Round(XVal + 5, YVal + 6), Vector2Round(10, 10), 3, LibraryData.Palette.Accent, self.Alpha, self.Alpha > 0.02)
+                self.Alpha = Lerp(self.Alpha, Config[self.Flag] and 1 or 0, 0.2)
+                UpdateRoundedBox(self.Fill, Vector2Round(XCoordinate + 5, YCoordinate + 6), Vector2Round(10, 10), 3, LibraryData.Palette.Accent, self.Alpha, self.Alpha > 0.02)
             end
-            table.insert(self.Items, ToggleObj)
-            return ToggleObj
+            table.insert(self.Items, Toggle)
+            return Toggle
         end
-        function SectionObj:CreateSlider(NameVal, FlagVal, MinVal, MaxVal, DefaultVal, StepVal)
-            Config[FlagVal] = Config[FlagVal] ~= nil and Config[FlagVal] or ClampSliderValue(DefaultVal or MinVal, MinVal, MaxVal, StepVal)
-            local SliderObj = {
-                Type = "Slider", Height = 44, Min = MinVal, Max = MaxVal, Step = StepVal, Flag = FlagVal,
-                InputBuffer = FormatSliderValue(Config[FlagVal], StepVal),
-                Label = CreateDrawing("Text", {Text = NameVal, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
+        function Section:CreateSlider(DisplayName, FlagKey, Minimum, Maximum, DefaultValue, StepSize)
+            Config[FlagKey] = Config[FlagKey] ~= nil and Config[FlagKey] or ClampSliderValue(DefaultValue or Minimum, Minimum, Maximum, StepSize)
+            local Slider = {
+                Type = "Slider", Height = 44, Min = Minimum, Max = Maximum, Step = StepSize, Flag = FlagKey,
+                InputBuffer = FormatSliderValue(Config[FlagKey], StepSize),
+                Label = CreateDrawing("Text", {Text = DisplayName, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 ValueLabel = CreateDrawing("Text", {Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 Stroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
                 Background = MakeRoundedBox(LibraryData.Palette.Element, 1),
@@ -1574,39 +1546,39 @@ function LibraryData:CreateTab(TabName, TabIcon)
                 Knob = MakeRoundedBox(LibraryData.Palette.Text, 1),
                 ValuePos = Vector2.new(), ValueSize = Vector2.new(), BarPos = Vector2.new(), BarSize = Vector2.new()
             }
-            function SliderObj:Update(XVal, YVal, WVal)
+            function Slider:Update(XCoordinate, YCoordinate, Width)
                 local IsEditing = LibraryData.State.ActiveSliderInput == self
                 self.Label.Visible = true
-                PositionText(self.Label, XVal + 2, YVal, "SliderLabel")
-                local DisplayText = IsEditing and (((FastTick() % 1) < 0.5) and (self.InputBuffer .. "_") or self.InputBuffer) or FormatSliderValue(Config[self.Flag], self.Step)
+                PositionText(self.Label, XCoordinate + 2, YCoordinate, "SliderLabel")
+                local DisplayText = IsEditing and (((GetTime() % 1) < 0.5) and (self.InputBuffer .. "_") or self.InputBuffer) or FormatSliderValue(Config[self.Flag], self.Step)
                 self.ValueLabel.Visible = true
                 self.ValueLabel.Text = DisplayText
                 self.ValueLabel.Color = IsEditing and LibraryData.Palette.Accent or LibraryData.Palette.SubText
-                self.ValueSize = Vector2Round(FastMax(34, math.min(70, #DisplayText * 7 + 10)), 18)
-                self.ValuePos = Vector2Round(XVal + WVal - self.ValueSize.X - 2, YVal)
+                self.ValueSize = Vector2Round(Max(34, math.min(70, #DisplayText * 7 + 10)), 18)
+                self.ValuePos = Vector2Round(XCoordinate + Width - self.ValueSize.X - 2, YCoordinate)
                 PositionTextCentered(self.ValueLabel, self.ValuePos, self.ValueSize, "SliderValue")
                 if not IsEditing then self.InputBuffer = FormatSliderValue(Config[self.Flag], self.Step) end
-                local BarY = YVal + 26
-                local BarWidth = FastMax(WVal - 4, 30)
-                self.BarPos = Vector2Round(XVal + 2, BarY)
+                local BarY = YCoordinate + 26
+                local BarWidth = Max(Width - 4, 30)
+                self.BarPos = Vector2Round(XCoordinate + 2, BarY)
                 self.BarSize = Vector2Round(BarWidth, 6)
                 UpdateRoundedBox(self.Stroke, self.BarPos, self.BarSize, 3, LibraryData.Palette.Outline, 1, true)
-                UpdateRoundedBox(self.Background, Vector2Round(XVal + 3, BarY + 1), Vector2Round(BarWidth - 2, 4), 3, LibraryData.Palette.Element, 1, true)
-                local RangeVal = FastMax(self.Max - self.Min, 0.0001)
-                local PctVal = MathClamp((Config[self.Flag] - self.Min) / RangeVal, 0, 1)
-                local FillW = FastMax((BarWidth - 2) * PctVal, 0)
-                UpdateRoundedBox(self.Fill, Vector2Round(XVal + 3, BarY + 1), Vector2Round(FillW, 4), 3, LibraryData.Palette.Accent, 1, FillW > 0)
-                UpdateRoundedBox(self.Knob, Vector2Round(XVal + 3 + FillW - 4, BarY - 1), Vector2Round(8, 8), 4, LibraryData.Palette.Text, 1, true)
+                UpdateRoundedBox(self.Background, Vector2Round(XCoordinate + 3, BarY + 1), Vector2Round(BarWidth - 2, 4), 3, LibraryData.Palette.Element, 1, true)
+                local Range = Max(self.Max - self.Min, 0.0001)
+                local Progress = Clamp((Config[self.Flag] - self.Min) / Range, 0, 1)
+                local FillW = Max((BarWidth - 2) * Progress, 0)
+                UpdateRoundedBox(self.Fill, Vector2Round(XCoordinate + 3, BarY + 1), Vector2Round(FillW, 4), 3, LibraryData.Palette.Accent, 1, FillW > 0)
+                UpdateRoundedBox(self.Knob, Vector2Round(XCoordinate + 3 + FillW - 4, BarY - 1), Vector2Round(8, 8), 4, LibraryData.Palette.Text, 1, true)
             end
-            table.insert(self.Items, SliderObj)
-            return SliderObj
+            table.insert(self.Items, Slider)
+            return Slider
         end
-        function SectionObj:CreateDropdown(NameVal, FlagVal, OptionsArray, DefaultVal)
-            Config[FlagVal] = Config[FlagVal] ~= nil and Config[FlagVal] or (DefaultVal or OptionsArray[1])
-            local DropdownObj = {
-                Type = "Dropdown", Height = 46, Options = OptionsArray or {}, Flag = FlagVal,
+        function Section:CreateDropdown(DisplayName, FlagKey, OptionsArray, DefaultValue)
+            Config[FlagKey] = Config[FlagKey] ~= nil and Config[FlagKey] or (DefaultValue or OptionsArray[1])
+            local Dropdown = {
+                Type = "Dropdown", Height = 46, Options = OptionsArray or {}, Flag = FlagKey,
                 IsOpen = false, ListHeight = 0, TargetListHeight = 0, OpenAlpha = 0, HoveredIndex = nil,
-                Label = CreateDrawing("Text", {Text = NameVal, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
+                Label = CreateDrawing("Text", {Text = DisplayName, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 Stroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
                 Background = MakeRoundedBox(LibraryData.Palette.Element, 1),
                 ValueLabel = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 12, Font = 2, Outline = true, Visible = false}),
@@ -1616,45 +1588,45 @@ function LibraryData:CreateTab(TabName, TabIcon)
                 OptionDrawings = {}, OptionBounds = {},
                 ButtonPos = Vector2.new(), ButtonSize = Vector2.new(), ListPos = Vector2.new(), ListSize = Vector2.new()
             }
-            SetDrawingLayer(DropdownObj.ListStroke, 12)
-            SetDrawingLayer(DropdownObj.ListBackground, 13)
-            function DropdownObj:SetOptions(NewOptions, PreserveValue)
+            SetDrawingLayer(Dropdown.ListStroke, 12)
+            SetDrawingLayer(Dropdown.ListBackground, 13)
+            function Dropdown:SetOptions(NewOptions, PreserveValue)
                 self.Options = NewOptions or {}
                 if not PreserveValue then
                     if #self.Options > 0 then Config[self.Flag] = self.Options[1] else Config[self.Flag] = nil end
                 else
-                    local FoundVal = false
-                    for _, OptionVal in ipairs(self.Options) do
-                        if tostring(OptionVal) == tostring(Config[self.Flag]) then FoundVal = true break end
+                    local FoundValue = false
+                    for _, Option in ipairs(self.Options) do
+                        if tostring(Option) == tostring(Config[self.Flag]) then FoundValue = true break end
                     end
-                    if not FoundVal then
+                    if not FoundValue then
                         if #self.Options > 0 then Config[self.Flag] = self.Options[1] else Config[self.Flag] = nil end
                     end
                 end
                 self.OptionBounds = {}
                 self.HoveredIndex = nil
             end
-            function DropdownObj:GetVisibleOptionBounds()
+            function Dropdown:GetVisibleOptionBounds()
                 local ResultArray = {}
-                for IndexVal, BoundsVal in ipairs(self.OptionBounds) do
-                    if BoundsVal and BoundsVal.Visible then ResultArray[IndexVal] = BoundsVal end
+                for SelectedIndex, Bounds in ipairs(self.OptionBounds) do
+                    if Bounds and Bounds.Visible then ResultArray[SelectedIndex] = Bounds end
                 end
                 return ResultArray
             end
-            function DropdownObj:Update(XVal, YVal, WVal)
+            function Dropdown:Update(XCoordinate, YCoordinate, Width)
                 self.Label.Visible = true
-                PositionText(self.Label, XVal + 2, YVal, "DropdownLabel")
-                local BarY = YVal + 20
-                self.ButtonPos = Vector2Round(XVal + 2, BarY)
-                self.ButtonSize = Vector2Round(WVal - 4, 24)
+                PositionText(self.Label, XCoordinate + 2, YCoordinate, "DropdownLabel")
+                local BarY = YCoordinate + 20
+                self.ButtonPos = Vector2Round(XCoordinate + 2, BarY)
+                self.ButtonSize = Vector2Round(Width - 4, 24)
                 local ButtonOutlineColor = self.IsOpen and LibraryData.Palette.Accent or LibraryData.Palette.Outline
                 local ButtonTextColor = self.IsOpen and LibraryData.Palette.Text or LibraryData.Palette.SubText
                 UpdateRoundedBox(self.Stroke, self.ButtonPos, self.ButtonSize, 4, ButtonOutlineColor, 1, true)
                 UpdateRoundedBox(self.Background, Vector2Round(self.ButtonPos.X + 1, self.ButtonPos.Y + 1), Vector2Round(self.ButtonSize.X - 2, self.ButtonSize.Y - 2), 4, LibraryData.Palette.Element, 1, true)
                 local CurrentValue = Config[self.Flag]
                 local SelectedIndex = nil
-                for IdxVal, OptionVal in ipairs(self.Options) do
-                    if tostring(OptionVal) == tostring(CurrentValue) then SelectedIndex = IdxVal CurrentValue = OptionVal break end
+                for CellIndex, Option in ipairs(self.Options) do
+                    if tostring(Option) == tostring(CurrentValue) then SelectedIndex = CellIndex CurrentValue = Option break end
                 end
                 if SelectedIndex == nil and #self.Options > 0 then CurrentValue = self.Options[1] Config[self.Flag] = CurrentValue SelectedIndex = 1 end
                 self.ValueLabel.Visible = true
@@ -1670,46 +1642,46 @@ function LibraryData:CreateTab(TabName, TabIcon)
                     self.ListHeight = 0
                     self.OpenAlpha = 0
                 end
-                self.ListHeight = MathLerp(self.ListHeight, self.TargetListHeight, 0.3)
+                self.ListHeight = Lerp(self.ListHeight, self.TargetListHeight, 0.3)
                 if math.abs(self.ListHeight - self.TargetListHeight) < 0.5 then self.ListHeight = self.TargetListHeight end
-                self.OpenAlpha = MathLerp(self.OpenAlpha, self.IsOpen and 1 or 0, 0.3)
+                self.OpenAlpha = Lerp(self.OpenAlpha, self.IsOpen and 1 or 0, 0.3)
                 if math.abs(self.OpenAlpha - (self.IsOpen and 1 or 0)) < 0.02 then self.OpenAlpha = self.IsOpen and 1 or 0 end
-                local DrawListHeight = FastMax(0, MathRound(self.ListHeight))
+                local DrawListHeight = Max(0, Round(self.ListHeight))
                 local ListVisible = DrawListHeight > 1 and self.OpenAlpha > 0.02
                 self.ListPos = Vector2Round(self.ButtonPos.X, self.ButtonPos.Y + self.ButtonSize.Y + 2)
                 self.ListSize = Vector2Round(self.ButtonSize.X, DrawListHeight)
                 UpdateRoundedBox(self.ListStroke, self.ListPos, self.ListSize, 4, LibraryData.Palette.Outline, self.OpenAlpha, ListVisible)
-                UpdateRoundedBox(self.ListBackground, Vector2Round(self.ListPos.X + 1, self.ListPos.Y + 1), Vector2Round(FastMax(self.ListSize.X - 2, 0), FastMax(self.ListSize.Y - 2, 0)), 4, LibraryData.Palette.Element, self.OpenAlpha, ListVisible)
+                UpdateRoundedBox(self.ListBackground, Vector2Round(self.ListPos.X + 1, self.ListPos.Y + 1), Vector2Round(Max(self.ListSize.X - 2, 0), Max(self.ListSize.Y - 2, 0)), 4, LibraryData.Palette.Element, self.OpenAlpha, ListVisible)
                 self.OptionBounds = {}
                 self.HoveredIndex = nil
-                for IIdx, OptionStr in ipairs(self.Options) do
-                    if not self.OptionDrawings[IIdx] then
-                        self.OptionDrawings[IIdx] = CreateDrawing("Text", {Text = tostring(OptionStr), Size = 12, Font = 2, Outline = true, Visible = false, ZIndex = 14})
+                for ItemIndex, OptionStr in ipairs(self.Options) do
+                    if not self.OptionDrawings[ItemIndex] then
+                        self.OptionDrawings[ItemIndex] = CreateDrawing("Text", {Text = tostring(OptionStr), Size = 12, Font = 2, Outline = true, Visible = false, ZIndex = 14})
                     end
-                    local TxtDraw = self.OptionDrawings[IIdx]
-                    local OptionPos = Vector2Round(self.ListPos.X + 6, self.ListPos.Y + 3 + ((IIdx - 1) * 24))
+                    local TxtDraw = self.OptionDrawings[ItemIndex]
+                    local OptionPos = Vector2Round(self.ListPos.X + 6, self.ListPos.Y + 3 + ((ItemIndex - 1) * 24))
                     local OptionSize = Vector2Round(self.ListSize.X - 12, 20)
                     local OptionBottom = OptionPos.Y + OptionSize.Y
                     local ClipBottom = self.ListPos.Y + DrawListHeight - 2
                     local OptionVisible = ListVisible and OptionPos.Y >= self.ListPos.Y + 1 and OptionBottom <= ClipBottom + 1
-                    self.OptionBounds[IIdx] = {Pos = OptionPos, Size = OptionSize, Visible = OptionVisible}
-                    if OptionVisible and IsMouseInBounds(LibraryData.Input.MousePos, OptionPos, OptionSize) then self.HoveredIndex = IIdx end
+                    self.OptionBounds[ItemIndex] = {Pos = OptionPos, Size = OptionSize, Visible = OptionVisible}
+                    if OptionVisible and IsMouseInBounds(LibraryData.Input.MousePos, OptionPos, OptionSize) then self.HoveredIndex = ItemIndex end
                     TxtDraw.Visible = OptionVisible
                     if OptionVisible then
                         TxtDraw.Text = tostring(OptionStr)
                         PositionText(TxtDraw, OptionPos.X, OptionPos.Y + 3, "DropdownOption")
-                        if SelectedIndex == IIdx then TxtDraw.Color = LibraryData.Palette.Accent
-                        elseif self.HoveredIndex == IIdx then TxtDraw.Color = LibraryData.Palette.Text
+                        if SelectedIndex == ItemIndex then TxtDraw.Color = LibraryData.Palette.Accent
+                        elseif self.HoveredIndex == ItemIndex then TxtDraw.Color = LibraryData.Palette.Text
                         else TxtDraw.Color = LibraryData.Palette.SubText
                         end
-                        TxtDraw.Transparency = FastMax(self.OpenAlpha, 0.08)
+                        TxtDraw.Transparency = Max(self.OpenAlpha, 0.08)
                     end
                 end
-                for IIdx = #self.Options + 1, #self.OptionDrawings do self.OptionDrawings[IIdx].Visible = false end
+                for ItemIndex = #self.Options + 1, #self.OptionDrawings do self.OptionDrawings[ItemIndex].Visible = false end
                 self.Height = 46 + (ListVisible and (DrawListHeight + 4) or 0)
             end
-            table.insert(self.Items, DropdownObj)
-            return DropdownObj
+            table.insert(self.Items, Dropdown)
+            return Dropdown
         end
 local PickerImageData = {
     SV = "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",
@@ -1729,12 +1701,12 @@ end
 local function MakePickerImage(Name)
     local Data = GetPickerImageData(Name)
     if not Data then return nil end
-    local Success, Obj = pcall(function()
+    local Success, DrawingElement = pcall(function()
         local Image = CreateDrawing("Image", {Visible = false, ZIndex = 46, Color = Color3.new(1, 1, 1), Transparency = 1, Rounding = Name == "SV" and 3 or 4})
         Image.Data = Data
         return Image
     end)
-    if Success then return Obj end
+    if Success then return DrawingElement end
     return nil
 end
 local function PlacePickerImage(Image, Position, Size, Visible, Tint)
@@ -1748,25 +1720,25 @@ local function PlacePickerImage(Image, Position, Size, Visible, Tint)
     end
 end
 
-        function SectionObj:CreateColorPicker(NameVal, FlagVal, DefaultColor, DefaultAlpha, CallbackFunc)
+        function Section:CreateColorPicker(DisplayName, FlagKey, DefaultColor, DefaultAlpha, Callback)
             local InitialColor = DefaultColor or LibraryData.Palette.Accent
             local InitialAlpha = DefaultAlpha == nil and 1 or DefaultAlpha
-            if type(Config[FlagVal]) ~= "table" or not Config[FlagVal].Color then
-                Config[FlagVal] = {Color = InitialColor, Alpha = MathClamp(InitialAlpha, 0, 1)}
+            if type(Config[FlagKey]) ~= "table" or not Config[FlagKey].Color then
+                Config[FlagKey] = {Color = InitialColor, Alpha = Clamp(InitialAlpha, 0, 1)}
             end
-            local HVal, SVal, VVal = Color3ToHsv(Config[FlagVal].Color)
+            local HueValue, Saturation, Brightness = Color3ToHsv(Config[FlagKey].Color)
             local ColorPicker = {
-                Type = "ColorPicker", Height = 36, Flag = FlagVal, Callback = CallbackFunc,
-                IsOpen = false, Hue = HVal, Sat = SVal, Val = VVal,
-                Alpha = MathClamp(Config[FlagVal].Alpha or 1, 0, 1),
+                Type = "ColorPicker", Height = 36, Flag = FlagKey, Callback = Callback,
+                IsOpen = false, Hue = HueValue, Saturation = Saturation, Brightness = Brightness,
+                Alpha = Clamp(Config[FlagKey].Alpha or 1, 0, 1),
                 HexEditing = false, HexBuffer = "", HexCursor = 0, HexSelectionAll = false,
                 SavedColors = {}, SavedBounds = {}, SavedCells = {},
                 GridCols = 80, GridRows = 36, HueSteps = 100, AlphaSteps = 64,
-                Label = CreateDrawing("Text", {Text = NameVal, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
+                Label = CreateDrawing("Text", {Text = DisplayName, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 Stroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
                 Background = MakeRoundedBox(LibraryData.Palette.Element, 1),
                 PreviewStroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
-                Preview = MakeRoundedBox(Config[FlagVal].Color, 1),
+                Preview = MakeRoundedBox(Config[FlagKey].Color, 1),
                 PreviewText = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 11, Font = 2, Outline = true, Visible = false}),
                 PopupShadow = MakeRoundedBox(Color3.new(0, 0, 0), 0.36),
                 PopupStroke = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
@@ -1775,7 +1747,7 @@ end
                 PopupHint = CreateDrawing("Text", {Text = "", Color = LibraryData.Palette.SubText, Font = 2, Size = 11, Visible = false}),
                 PopupRule = CreateDrawing("Square", {Filled = true, Visible = false}),
                 PopupSwatchStroke = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
-                PopupSwatch = MakeRoundedBox(Config[FlagVal].Color, 1),
+                PopupSwatch = MakeRoundedBox(Config[FlagKey].Color, 1),
                 PopupHex = CreateDrawing("Text", {Color = LibraryData.Palette.Text, Size = 11, Outline = true, Visible = false}),
                 HexStroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
                 HexBackground = MakeRoundedBox(LibraryData.Palette.Element, 1),
@@ -1834,11 +1806,11 @@ end
                 SetDrawingLayer(ColorPicker[PartName], 50)
             end
             function ColorPicker:SyncColor()
-                local StateVal = Config[self.Flag]
-                if type(StateVal) ~= "table" then StateVal = {} Config[self.Flag] = StateVal end
-                StateVal.Color = HsvToColor3(self.Hue, self.Sat, self.Val)
-                StateVal.Alpha = MathClamp(self.Alpha, 0, 1)
-                if self.Callback then self.Callback(StateVal) end
+                local CurrentState = Config[self.Flag]
+                if type(CurrentState) ~= "table" then CurrentState = {} Config[self.Flag] = CurrentState end
+                CurrentState.Color = HsvToColor3(self.Hue, self.Saturation, self.Brightness)
+                CurrentState.Alpha = Clamp(self.Alpha, 0, 1)
+                if self.Callback then self.Callback(CurrentState) end
                 QueueSaveConfig()
             end
             function ColorPicker:CommitHex()
@@ -1855,7 +1827,7 @@ end
                     local G = tonumber(Cleaned:sub(3, 4), 16)
                     local B = tonumber(Cleaned:sub(5, 6), 16)
                     if R and G and B then
-                        self.Hue, self.Sat, self.Val = Color3ToHsv(Color3.fromRGB(R, G, B))
+                        self.Hue, self.Saturation, self.Brightness = Color3ToHsv(Color3.fromRGB(R, G, B))
                         self:SyncColor()
                         self.HexEditing = false
                         self.HexBuffer = ""
@@ -1884,8 +1856,8 @@ end
                 self.HueGridPos = nil
                 self.AlphaGridPos = nil
                 for _, PartName in ipairs(RoundedParts) do
-                    local Obj = self[PartName]
-                    UpdateRoundedBox(Obj, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Background, 1, false)
+                    local DrawingElement = self[PartName]
+                    UpdateRoundedBox(DrawingElement, Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Background, 1, false)
                 end
                 for _, PartName in ipairs(TextParts) do self[PartName].Visible = false end
             for _, PartName in ipairs({"CursorOuter", "CursorInner", "HueCursor", "AlphaCursor"}) do self[PartName].Visible = false end
@@ -1897,14 +1869,14 @@ end
                 end
                 for _, PartName in ipairs({"SVBackground", "HueBackground", "AlphaBackground"}) do SetVisible(self[PartName], false) end
             end
-            function ColorPicker:Update(XVal, YVal, WVal)
-                local StateVal = Config[self.Flag]
-                local CurrentColor = StateVal and StateVal.Color or HsvToColor3(self.Hue, self.Sat, self.Val)
+            function ColorPicker:Update(XCoordinate, YCoordinate, Width)
+                local CurrentState = Config[self.Flag]
+                local CurrentColor = CurrentState and CurrentState.Color or HsvToColor3(self.Hue, self.Saturation, self.Brightness)
                 local CurrentHex = Color3ToHex(CurrentColor)
                 self.Height = 36
                 self.Label.Visible = true
-                PositionText(self.Label, XVal + 2, YVal + 4, "ColorPickerLabel")
-                self.ButtonPos = Vector2Round(XVal + WVal - 91, YVal + 4)
+                PositionText(self.Label, XCoordinate + 2, YCoordinate + 4, "ColorPickerLabel")
+                self.ButtonPos = Vector2Round(XCoordinate + Width - 91, YCoordinate + 4)
                 self.ButtonSize = Vector2.new(87, 24)
                 UpdateRoundedBox(self.Stroke, self.ButtonPos, self.ButtonSize, 5, self.IsOpen and LibraryData.Palette.Accent or LibraryData.Palette.Outline, 1, true)
                 UpdateRoundedBox(self.Background, self.ButtonPos + Vector2.new(1, 1), self.ButtonSize - Vector2.new(2, 2), 4, LibraryData.Palette.Element, 1, true)
@@ -1918,56 +1890,56 @@ end
                 local Width, Height = 276, 222
                 local PopupX = self.ButtonPos.X + self.ButtonSize.X - Width
                 local PopupY = self.ButtonPos.Y + self.ButtonSize.Y + 7
-                local CameraVal = WorkspaceService.CurrentCamera
-                local View = CameraVal and CameraVal.ViewportSize or Vector2.new(1920, 1080)
+                local Camera = WorkspaceService.CurrentCamera
+                local View = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
                 if PopupX + Width > View.X - 6 then PopupX = View.X - Width - 6 end
                 if PopupX < 6 then PopupX = 6 end
                 if PopupY + Height > View.Y - 6 then PopupY = self.ButtonPos.Y - Height - 7 end
-                PopupY = MathClamp(PopupY, 6, FastMax(6, View.Y - Height - 6))
+                PopupY = Clamp(PopupY, 6, Max(6, View.Y - Height - 6))
                 self.PopupPos = Vector2Round(PopupX, PopupY)
                 self.PopupSize = Vector2.new(Width, Height)
                 self.PopupDrawn = true
-                local PX, PY = self.PopupPos.X, self.PopupPos.Y
-                UpdateRoundedBox(self.PopupShadow, Vector2.new(PX - 3, PY - 3), Vector2.new(Width + 6, Height + 6), 8, Color3.new(0, 0, 0), 0.26, true)
+                local PopupLeft, PopupTop = self.PopupPos.X, self.PopupPos.Y
+                UpdateRoundedBox(self.PopupShadow, Vector2.new(PopupLeft - 3, PopupTop - 3), Vector2.new(Width + 6, Height + 6), 8, Color3.new(0, 0, 0), 0.26, true)
                 UpdateRoundedBox(self.PopupStroke, self.PopupPos, self.PopupSize, 8, LibraryData.Palette.OutlineLight, 1, true)
                 UpdateRoundedBox(self.PopupBackground, self.PopupPos + Vector2.new(1, 1), self.PopupSize - Vector2.new(2, 2), 8, ColorLerp(LibraryData.Palette.Background, LibraryData.Palette.Element, 0.28), 1, true)
                 self.PopupTitle.Visible = true
-                PositionText(self.PopupTitle, PX + 13, PY + 12)
+                PositionText(self.PopupTitle, PopupLeft + 13, PopupTop + 12)
                 self.PopupHint.Visible = false
                 self.PopupRule.Visible = true
                 self.PopupRule.Color = LibraryData.Palette.Outline
-                self.PopupRule.Position = Vector2.new(PX + 10, PY + 33)
+                self.PopupRule.Position = Vector2.new(PopupLeft + 10, PopupTop + 33)
                 self.PopupRule.Size = Vector2.new(Width - 20, 1)
-                self.SVPos = Vector2.new(PX + 12, PY + 44)
+                self.SVPos = Vector2.new(PopupLeft + 12, PopupTop + 44)
                 self.SVSize = Vector2.new(252, 120)
                 UpdateRoundedBox(self.SVStroke, self.SVPos - Vector2.new(1, 1), self.SVSize + Vector2.new(2, 2), 4, LibraryData.Palette.OutlineLight, 1, true)
                 UpdateRoundedBox(self.SVBackground, self.SVPos, self.SVSize, 2, HsvToColor3(self.Hue, 1, 1), 1, true)
                 PlacePickerImage(self.SVOverlay, self.SVPos, self.SVSize, true)
                 if not self.SVOverlay then
                     if #self.SVGrid == 0 then self.SVGrid = CreateGridSquares(self.GridCols * self.GridRows) end
-                    if self.SVGridHue ~= self.Hue or self.SVGridPos ~= tostring(PX) .. ":" .. tostring(PY) then
+                    if self.SVGridHue ~= self.Hue or self.SVGridPos ~= tostring(PopupLeft) .. ":" .. tostring(PopupTop) then
                         UpdateGridSquares(self.SVGrid, self.GridCols, self.GridRows, self.SVPos.X, self.SVPos.Y, self.SVSize.X, self.SVSize.Y, function(Col, Row, Cols, Rows)
                             return HsvToColor3(self.Hue, (Col - 0.5) / Cols, 1 - (Row - 0.5) / Rows)
                         end, true)
                         self.SVGridHue = self.Hue
-                        self.SVGridPos = tostring(PX) .. ":" .. tostring(PY)
+                        self.SVGridPos = tostring(PopupLeft) .. ":" .. tostring(PopupTop)
                     end
                 end
-                self.HuePos = Vector2.new(PX + 12, PY + 178)
+                self.HuePos = Vector2.new(PopupLeft + 12, PopupTop + 178)
                 self.HueSize = Vector2.new(252, 10)
                 UpdateRoundedBox(self.HueStroke, self.HuePos - Vector2.new(1, 1), self.HueSize + Vector2.new(2, 2), 3, LibraryData.Palette.Outline, 1, true)
                 UpdateRoundedBox(self.HueBackground, self.HuePos, self.HueSize, 2, LibraryData.Palette.Element, 1, true)
                 PlacePickerImage(self.HueOverlay, self.HuePos, self.HueSize, true)
                 if not self.HueOverlay then
                     if #self.HueGrid == 0 then self.HueGrid = CreateGridSquares(self.HueSteps) end
-                    if self.HueGridPos ~= tostring(PX) .. ":" .. tostring(PY) then
+                    if self.HueGridPos ~= tostring(PopupLeft) .. ":" .. tostring(PopupTop) then
                         UpdateGridSquares(self.HueGrid, self.HueSteps, 1, self.HuePos.X, self.HuePos.Y, self.HueSize.X, self.HueSize.Y, function(Col, _, Cols)
                             return HsvToColor3((Col - 0.5) / Cols, 1, 1)
                         end, true)
-                        self.HueGridPos = tostring(PX) .. ":" .. tostring(PY)
+                        self.HueGridPos = tostring(PopupLeft) .. ":" .. tostring(PopupTop)
                     end
                 end
-                self.AlphaPos = Vector2.new(PX + 12, PY + 200)
+                self.AlphaPos = Vector2.new(PopupLeft + 12, PopupTop + 200)
                 self.AlphaSize = Vector2.new(252, 10)
                 UpdateRoundedBox(self.AlphaStroke, self.AlphaPos - Vector2.new(1, 1), self.AlphaSize + Vector2.new(2, 2), 3, LibraryData.Palette.Outline, 1, true)
                 UpdateRoundedBox(self.AlphaBackground, self.AlphaPos, self.AlphaSize, 2, LibraryData.Palette.Element, 1, true)
@@ -1975,24 +1947,24 @@ end
                 PlacePickerImage(self.AlphaOverlay, self.AlphaPos, self.AlphaSize, true, CurrentColor)
                 if not self.AlphaOverlay then
                     if #self.AlphaGrid == 0 then self.AlphaGrid = CreateGridSquares(self.AlphaSteps) end
-                    if self.AlphaGridPos ~= tostring(PX) .. ":" .. tostring(PY) or self.AlphaGridHex ~= CurrentHex then
+                    if self.AlphaGridPos ~= tostring(PopupLeft) .. ":" .. tostring(PopupTop) or self.AlphaGridHex ~= CurrentHex then
                         UpdateGridSquares(self.AlphaGrid, self.AlphaSteps, 1, self.AlphaPos.X, self.AlphaPos.Y, self.AlphaSize.X, self.AlphaSize.Y, function(Col, _, Cols)
                             return ColorLerp(LibraryData.Palette.Element, CurrentColor, (Col - 0.5) / Cols)
                         end, true)
-                        self.AlphaGridPos = tostring(PX) .. ":" .. tostring(PY)
+                        self.AlphaGridPos = tostring(PopupLeft) .. ":" .. tostring(PopupTop)
                         self.AlphaGridHex = CurrentHex
                     end
                 end
                 self.CursorOuter.Visible = true
                 self.CursorOuter.Color = Color3.new(0, 0, 0)
-                self.CursorOuter.Position = Vector2Round(self.SVPos.X + self.Sat * self.SVSize.X, self.SVPos.Y + (1 - self.Val) * self.SVSize.Y)
+                self.CursorOuter.Position = Vector2Round(self.SVPos.X + self.Saturation * self.SVSize.X, self.SVPos.Y + (1 - self.Brightness) * self.SVSize.Y)
                 self.CursorOuter.Radius = 6
                 self.CursorInner.Visible = true
                 self.CursorInner.Color = Color3.new(1, 1, 1)
                 self.CursorInner.Position = self.CursorOuter.Position
                 self.CursorInner.Radius = 4
-                local HX = MathClamp(self.Hue, 0, 1) * (self.HueSize.X - 2)
-                local AX = MathClamp(self.Alpha, 0, 1) * (self.AlphaSize.X - 2)
+                local HX = Clamp(self.Hue, 0, 1) * (self.HueSize.X - 2)
+                local AX = Clamp(self.Alpha, 0, 1) * (self.AlphaSize.X - 2)
                 self.HueCursor.Visible = true
                 self.HueCursor.Position = Vector2Round(self.HuePos.X + HX, self.HuePos.Y + self.HueSize.Y / 2)
                 self.HueCursor.Radius = 5
@@ -2022,27 +1994,27 @@ end
             table.insert(self.Items, ColorPicker)
             return ColorPicker
         end
-        function SectionObj:CreateKeybind(NameVal, FlagVal, DefaultVal)
-            Config[FlagVal] = NormalizeKeybindValue(Config[FlagVal] ~= nil and Config[FlagVal] or (DefaultVal or "None"))
-            local KeybindObj = {
-                Type = "Keybind", Height = 30, Flag = FlagVal,
+        function Section:CreateKeybind(DisplayName, FlagKey, DefaultValue)
+            Config[FlagKey] = NormalizeKeybindValue(Config[FlagKey] ~= nil and Config[FlagKey] or (DefaultValue or "None"))
+            local Keybind = {
+                Type = "Keybind", Height = 30, Flag = FlagKey,
                 Icon = CreateKeybindImageIcon(18),
-                Label = CreateDrawing("Text", {Text = NameVal, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
+                Label = CreateDrawing("Text", {Text = DisplayName, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 ButtonStroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
                 ButtonBox = MakeRoundedBox(LibraryData.Palette.Element, 1),
                 ValueLabel = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 11, Font = 2, Outline = true, Visible = false}),
                 ButtonPos = Vector2.new(), ButtonSize = Vector2.new()
             }
-            function KeybindObj:Update(XVal, YVal, WVal)
+            function Keybind:Update(XCoordinate, YCoordinate, Width)
                 UpdateKeybindImageIcon(self.Icon, Vector2Round(0, 0), LibraryData.Palette.Accent, false)
                 self.Label.Visible = true
-                PositionText(self.Label, XVal + 2, YVal + 8, "KeybindLabel")
+                PositionText(self.Label, XCoordinate + 2, YCoordinate + 8, "KeybindLabel")
                 local BindValue = NormalizeKeybindValue(Config[self.Flag]) or "None"
                 local BindText = LibraryData.State.ActiveKeybind == self and "[...]" or ("[" .. BindValue .. "]")
                 self.ValueLabel.Visible = true
                 self.ValueLabel.Text = BindText
-                local BtnWidth = MathClamp(#BindText * 7 + 20, 74, 108)
-                self.ButtonPos = Vector2Round(XVal + WVal - BtnWidth - 2, YVal + 4)
+                local BtnWidth = Clamp(#BindText * 7 + 20, 74, 108)
+                self.ButtonPos = Vector2Round(XCoordinate + Width - BtnWidth - 2, YCoordinate + 4)
                 self.ButtonSize = Vector2Round(BtnWidth, 22)
                 local IsActive = LibraryData.State.ActiveKeybind == self
                 UpdateKeybindImageIcon(self.Icon, Vector2Round(0, 0), LibraryData.Palette.Accent, false)
@@ -2051,52 +2023,52 @@ end
                 self.ValueLabel.Color = IsActive and LibraryData.Palette.Text or LibraryData.Palette.SubText
                 PositionTextCentered(self.ValueLabel, self.ButtonPos, self.ButtonSize, "KeybindValue")
             end
-            table.insert(self.Items, KeybindObj)
-            return KeybindObj
+            table.insert(self.Items, Keybind)
+            return Keybind
         end
-        function SectionObj:CreateButton(NameVal, CallbackFunc)
-            local ButtonObj = {
-                Type = "Button", Height = 34, Callback = CallbackFunc,
+        function Section:CreateButton(DisplayName, Callback)
+            local Button = {
+                Type = "Button", Height = 34, Callback = Callback,
                 Stroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
                 Background = MakeRoundedBox(LibraryData.Palette.Element, 1),
                 Fill = MakeRoundedBox(LibraryData.Palette.Accent, 1),
                 HoverMix = 0,
                 Accent = CreateDrawing("Square", {Filled = true, Color = LibraryData.Palette.Accent, Visible = false}),
-                Label = CreateDrawing("Text", {Text = NameVal, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
+                Label = CreateDrawing("Text", {Text = DisplayName, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 ButtonPos = Vector2.new(), ButtonSize = Vector2.new()
             }
-            function ButtonObj:Update(XVal, YVal, WVal)
-                self.ButtonPos = Vector2Round(XVal + 2, YVal + 4)
-                self.ButtonSize = Vector2Round(WVal - 4, 24)
-                local HoveredVal = IsMouseInBounds(LibraryData.Input.MousePos, self.ButtonPos, self.ButtonSize)
-                UpdateRoundedBox(self.Stroke, self.ButtonPos, self.ButtonSize, 5, HoveredVal and ColorLerp(LibraryData.Palette.OutlineLight, LibraryData.Palette.Accent, 0.36) or LibraryData.Palette.Outline, 1, true)
-                UpdateRoundedBox(self.Background, Vector2Round(self.ButtonPos.X + 1, self.ButtonPos.Y + 1), Vector2Round(self.ButtonSize.X - 2, self.ButtonSize.Y - 2), 4, HoveredVal and ColorLerp(LibraryData.Palette.Element, LibraryData.Palette.Hover, 0.80) or ColorLerp(LibraryData.Palette.Element, LibraryData.Palette.Background, 0.12), 1, true)
+            function Button:Update(XCoordinate, YCoordinate, Width)
+                self.ButtonPos = Vector2Round(XCoordinate + 2, YCoordinate + 4)
+                self.ButtonSize = Vector2Round(Width - 4, 24)
+                local Hovered = IsMouseInBounds(LibraryData.Input.MousePos, self.ButtonPos, self.ButtonSize)
+                UpdateRoundedBox(self.Stroke, self.ButtonPos, self.ButtonSize, 5, Hovered and ColorLerp(LibraryData.Palette.OutlineLight, LibraryData.Palette.Accent, 0.36) or LibraryData.Palette.Outline, 1, true)
+                UpdateRoundedBox(self.Background, Vector2Round(self.ButtonPos.X + 1, self.ButtonPos.Y + 1), Vector2Round(self.ButtonSize.X - 2, self.ButtonSize.Y - 2), 4, Hovered and ColorLerp(LibraryData.Palette.Element, LibraryData.Palette.Hover, 0.80) or ColorLerp(LibraryData.Palette.Element, LibraryData.Palette.Background, 0.12), 1, true)
                 self.Accent.Visible = false
-                self.HoverMix = MathLerp(self.HoverMix, HoveredVal and 1 or 0, 0.23)
+                self.HoverMix = Lerp(self.HoverMix, Hovered and 1 or 0, 0.23)
                 SetVisible(self.Fill, false)
                 self.Label.Visible = true
-                self.Label.Color = HoveredVal and LibraryData.Palette.Text or ColorLerp(LibraryData.Palette.SubText, LibraryData.Palette.Text, 0.70)
+                self.Label.Color = Hovered and LibraryData.Palette.Text or ColorLerp(LibraryData.Palette.SubText, LibraryData.Palette.Text, 0.70)
                 SetDrawingLayer(self.Label, 7)
                 PositionTextCentered(self.Label, self.ButtonPos, self.ButtonSize, "ButtonLabel")
             end
-            table.insert(self.Items, ButtonObj)
-            return ButtonObj
+            table.insert(self.Items, Button)
+            return Button
         end
-        function SectionObj:CreateTextbox(NameVal, FlagVal, DefaultVal)
-            Config[FlagVal] = Config[FlagVal] ~= nil and Config[FlagVal] or (DefaultVal or "")
-            local TextboxObj = {
-                Type = "Textbox", Height = 36, Flag = FlagVal, InputBuffer = tostring(Config[FlagVal] or ""), Cursor = 0, SelectionAll = false,
-                Label = CreateDrawing("Text", {Text = NameVal, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
+        function Section:CreateTextbox(DisplayName, FlagKey, DefaultValue)
+            Config[FlagKey] = Config[FlagKey] ~= nil and Config[FlagKey] or (DefaultValue or "")
+            local Textbox = {
+                Type = "Textbox", Height = 36, Flag = FlagKey, InputBuffer = tostring(Config[FlagKey] or ""), Cursor = 0, SelectionAll = false,
+                Label = CreateDrawing("Text", {Text = DisplayName, Color = LibraryData.Palette.Text, Size = 12, Font = 2, Outline = true, Visible = false}),
                 Stroke = MakeRoundedBox(LibraryData.Palette.Outline, 1),
                 Background = MakeRoundedBox(LibraryData.Palette.Element, 1),
                 ValueLabel = CreateDrawing("Text", {Color = LibraryData.Palette.SubText, Size = 12, Font = 2, Outline = true, Visible = false}),
                 BoxPos = Vector2.new(), BoxSize = Vector2.new()
             }
-            function TextboxObj:Update(XVal, YVal, WVal)
+            function Textbox:Update(XCoordinate, YCoordinate, Width)
                 self.Label.Visible = true
-                PositionText(self.Label, XVal + 2, YVal + 4, "TextboxLabel")
+                PositionText(self.Label, XCoordinate + 2, YCoordinate + 4, "TextboxLabel")
                 local BoxWidth = 110
-                self.BoxPos = Vector2Round(XVal + WVal - BoxWidth - 2, YVal + 6)
+                self.BoxPos = Vector2Round(XCoordinate + Width - BoxWidth - 2, YCoordinate + 6)
                 self.BoxSize = Vector2Round(BoxWidth, 24)
                 local IsActive = LibraryData.State.ActiveTextbox == self
                 UpdateRoundedBox(self.Stroke, self.BoxPos, self.BoxSize, 4, IsActive and LibraryData.Palette.Accent or LibraryData.Palette.Outline, 1, true)
@@ -2104,10 +2076,10 @@ end
                 local DisplayStr = IsActive and tostring(self.InputBuffer or "") or tostring(Config[self.Flag] or "")
                 local MaxVisible = 15
                 if IsActive then
-                    local Cursor = MathClamp(self.Cursor or #DisplayStr, 0, #DisplayStr)
+                    local Cursor = Clamp(self.Cursor or #DisplayStr, 0, #DisplayStr)
                     local Scroll = math.max(0, Cursor - MaxVisible + 1)
                     DisplayStr = DisplayStr:sub(Scroll + 1, Scroll + MaxVisible)
-                    if FastTick() % 1 < 0.55 then
+                    if GetTime() % 1 < 0.55 then
                         local Relative = math.min(Cursor - Scroll, #DisplayStr)
                         DisplayStr = DisplayStr:sub(1, Relative) .. "|" .. DisplayStr:sub(Relative + 1)
                     end
@@ -2117,17 +2089,17 @@ end
                 self.ValueLabel.Visible = true
                 self.ValueLabel.Text = DisplayStr
                 self.ValueLabel.Color = IsActive and LibraryData.Palette.Text or LibraryData.Palette.SubText
-                PositionText(self.ValueLabel, XVal + WVal - BoxWidth + 3, YVal + 11, "TextboxValue")
+                PositionText(self.ValueLabel, XCoordinate + Width - BoxWidth + 3, YCoordinate + 11, "TextboxValue")
             end
-            table.insert(self.Items, TextboxObj)
-            return TextboxObj
+            table.insert(self.Items, Textbox)
+            return Textbox
         end
-        table.insert(TabObj.Sections, SectionObj)
-        return SectionObj
+        table.insert(Tab.Sections, Section)
+        return Section
     end
-    table.insert(LibraryData.Tabs, TabObj)
-    if not LibraryData.CurrentTab then LibraryData.CurrentTab = TabObj end
-    return TabObj
+    table.insert(LibraryData.Tabs, Tab)
+    if not LibraryData.CurrentTab then LibraryData.CurrentTab = Tab end
+    return Tab
 end
 
 
@@ -2179,80 +2151,81 @@ local function HideHotkeysDrawings()
     UpdateKeybindImageIcon(KeybindsDrawings.TitleIcon, Vector2Round(0, 0), LibraryData.Palette.Accent, false)
     KeybindsDrawings.Title.Visible = false
     KeybindsDrawings.Subtitle.Visible = false
-    for _, RowObj in ipairs({KeybindsDrawings.Row1, KeybindsDrawings.Row2, KeybindsDrawings.Row3, KeybindsDrawings.MenuOutline, KeybindsDrawings.MenuBackground, KeybindsDrawings.MenuOption1, KeybindsDrawings.MenuOption2}) do
-        UpdateRoundedBox(RowObj, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
+    for _, Row in ipairs({KeybindsDrawings.MenuOutline, KeybindsDrawings.MenuBackground, KeybindsDrawings.MenuOption1, KeybindsDrawings.MenuOption2}) do
+        UpdateRoundedBox(Row, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
     end
-    for _, TxtObj in ipairs({
-        KeybindsDrawings.Bind1, KeybindsDrawings.Bind2, KeybindsDrawings.Bind3,
-        KeybindsDrawings.State1, KeybindsDrawings.State2, KeybindsDrawings.State3,
-        KeybindsDrawings.Mode1, KeybindsDrawings.Mode2, KeybindsDrawings.Mode3,
-        KeybindsDrawings.MenuOption1Text, KeybindsDrawings.MenuOption2Text
-    }) do
-        TxtObj.Visible = false
+    for _, Row in ipairs(HotkeyRowsDrawings) do
+        SetVisible(Row.Background, false)
+        Row.Label.Visible = false
+        Row.State.Visible = false
+        Row.Mode.Visible = false
+    end
+    for _, TextDrawing in ipairs({KeybindsDrawings.MenuOption1Text, KeybindsDrawings.MenuOption2Text}) do
+        TextDrawing.Visible = false
     end
 end
 
-local function SafeHideDrawing(DrawObj)
-    if DrawObj then DrawObj.Visible = false end
+local function SafeHideDrawing(DrawItem)
+    if DrawItem then DrawItem.Visible = false end
 end
 
-local function HideItem(ItemObj)
-    if not ItemObj then return end
-    if ItemObj.Type == "Toggle" then
-        if ItemObj.BoxStroke then UpdateRoundedBox(ItemObj.BoxStroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.Box then UpdateRoundedBox(ItemObj.Box, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.Fill then UpdateRoundedBox(ItemObj.Fill, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        SafeHideDrawing(ItemObj.Label)
-    elseif ItemObj.Type == "Slider" then
-        if ItemObj.Stroke then UpdateRoundedBox(ItemObj.Stroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.Background then UpdateRoundedBox(ItemObj.Background, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.Fill then UpdateRoundedBox(ItemObj.Fill, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.Knob then UpdateRoundedBox(ItemObj.Knob, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        SafeHideDrawing(ItemObj.Label) SafeHideDrawing(ItemObj.ValueLabel)
-    elseif ItemObj.Type == "Dropdown" then
-        ItemObj.IsOpen = false ItemObj.ListHeight = 0 ItemObj.TargetListHeight = 0 ItemObj.OpenAlpha = 0
-        SafeHideDrawing(ItemObj.Label) SafeHideDrawing(ItemObj.ValueLabel) SafeHideDrawing(ItemObj.Icon)
-        if ItemObj.Stroke then UpdateRoundedBox(ItemObj.Stroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.Background then UpdateRoundedBox(ItemObj.Background, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.ListStroke then UpdateRoundedBox(ItemObj.ListStroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.ListBackground then UpdateRoundedBox(ItemObj.ListBackground, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        for _, DrawObj in ipairs(ItemObj.OptionDrawings or {}) do SafeHideDrawing(DrawObj) end
-    elseif ItemObj.Type == "ColorPicker" then
-        ItemObj.IsOpen = false
-        ItemObj.HexEditing = false
-        if ItemObj.HidePopup then ItemObj:HidePopup() end
-        SafeHideDrawing(ItemObj.Label)
-        SafeHideDrawing(ItemObj.PreviewText)
+local function HideItem(Item)
+    if not Item then return end
+    if Item.Type == "Toggle" then
+        if Item.BoxStroke then UpdateRoundedBox(Item.BoxStroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.Box then UpdateRoundedBox(Item.Box, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.Fill then UpdateRoundedBox(Item.Fill, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        SafeHideDrawing(Item.Label)
+    elseif Item.Type == "Slider" then
+        if Item.Stroke then UpdateRoundedBox(Item.Stroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.Background then UpdateRoundedBox(Item.Background, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.Fill then UpdateRoundedBox(Item.Fill, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.Knob then UpdateRoundedBox(Item.Knob, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        SafeHideDrawing(Item.Label) SafeHideDrawing(Item.ValueLabel)
+    elseif Item.Type == "Dropdown" then
+        Item.IsOpen = false Item.ListHeight = 0 Item.TargetListHeight = 0 Item.OpenAlpha = 0
+        SafeHideDrawing(Item.Label) SafeHideDrawing(Item.ValueLabel) SafeHideDrawing(Item.Icon)
+        if Item.Stroke then UpdateRoundedBox(Item.Stroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.Background then UpdateRoundedBox(Item.Background, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.ListStroke then UpdateRoundedBox(Item.ListStroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.ListBackground then UpdateRoundedBox(Item.ListBackground, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        for _, DrawItem in ipairs(Item.OptionDrawings or {}) do SafeHideDrawing(DrawItem) end
+    elseif Item.Type == "ColorPicker" then
+        Item.IsOpen = false
+        Item.HexEditing = false
+        if Item.HidePopup then Item:HidePopup() end
+        SafeHideDrawing(Item.Label)
+        SafeHideDrawing(Item.PreviewText)
         for _, Name in ipairs({"Stroke", "Background", "PreviewStroke", "Preview"}) do
-            if ItemObj[Name] then UpdateRoundedBox(ItemObj[Name], Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Background, 1, false) end
+            if Item[Name] then UpdateRoundedBox(Item[Name], Vector2.new(), Vector2.new(), 0, LibraryData.Palette.Background, 1, false) end
         end
-    elseif ItemObj.Type == "Keybind" then
-        if ItemObj.Icon then UpdateKeybindImageIcon(ItemObj.Icon, Vector2Round(0, 0), LibraryData.Palette.Accent, false) end
-        SafeHideDrawing(ItemObj.Label) SafeHideDrawing(ItemObj.ValueLabel)
-        if ItemObj.ButtonStroke then UpdateRoundedBox(ItemObj.ButtonStroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.ButtonBox then UpdateRoundedBox(ItemObj.ButtonBox, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-    elseif ItemObj.Type == "Textbox" then
-        SafeHideDrawing(ItemObj.Label) SafeHideDrawing(ItemObj.ValueLabel)
-        if ItemObj.Stroke then UpdateRoundedBox(ItemObj.Stroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.Background then UpdateRoundedBox(ItemObj.Background, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-    elseif ItemObj.Type == "Button" then
-        SafeHideDrawing(ItemObj.Label)
-        SafeHideDrawing(ItemObj.Accent)
-        if ItemObj.Stroke then UpdateRoundedBox(ItemObj.Stroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
-        if ItemObj.Background then UpdateRoundedBox(ItemObj.Background, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+    elseif Item.Type == "Keybind" then
+        if Item.Icon then UpdateKeybindImageIcon(Item.Icon, Vector2Round(0, 0), LibraryData.Palette.Accent, false) end
+        SafeHideDrawing(Item.Label) SafeHideDrawing(Item.ValueLabel)
+        if Item.ButtonStroke then UpdateRoundedBox(Item.ButtonStroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.ButtonBox then UpdateRoundedBox(Item.ButtonBox, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+    elseif Item.Type == "Textbox" then
+        SafeHideDrawing(Item.Label) SafeHideDrawing(Item.ValueLabel)
+        if Item.Stroke then UpdateRoundedBox(Item.Stroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.Background then UpdateRoundedBox(Item.Background, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+    elseif Item.Type == "Button" then
+        SafeHideDrawing(Item.Label)
+        SafeHideDrawing(Item.Accent)
+        if Item.Stroke then UpdateRoundedBox(Item.Stroke, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
+        if Item.Background then UpdateRoundedBox(Item.Background, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false) end
     end
 end
 
-local function HideTabContent(TabObj)
-    if not TabObj then return end
-    for _, SectionObj in ipairs(TabObj.Sections) do
-        UpdateRoundedBox(SectionObj.Outline, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-        UpdateRoundedBox(SectionObj.Background, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
-        HideStripePattern(SectionObj.PatternBack)
-        HideStripePattern(SectionObj.PatternFront)
-        SectionObj.Title.Visible = false
-        SectionObj.Line.Visible = false
-        for _, ItemObj in ipairs(SectionObj.Items) do HideItem(ItemObj) end
+local function HideTabContent(Tab)
+    if not Tab then return end
+    for _, Section in ipairs(Tab.Sections) do
+        UpdateRoundedBox(Section.Outline, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
+        UpdateRoundedBox(Section.Background, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
+        HideStripePattern(Section.PatternBack)
+        HideStripePattern(Section.PatternFront)
+        Section.Title.Visible = false
+        Section.Line.Visible = false
+        for _, Item in ipairs(Section.Items) do HideItem(Item) end
     end
 end
 
@@ -2278,25 +2251,25 @@ HideWindowDrawings = function()
     for _, Tooth in ipairs(WindowDrawings.GearTeeth) do Tooth.Visible = false end
     if WindowDrawings.GearImage then WindowDrawings.GearImage.Visible = false end
     HideProfileDrawings()
-    for _, ObjVal in pairs(OverlayMenuDrawings) do SetVisible(ObjVal, false) end
-    for _, TabObj in ipairs(LibraryData.Tabs) do
-        for _, DrawObj in ipairs({TabObj.Border, TabObj.Background, TabObj.RailGlow, TabObj.Indicator, TabObj.Detail}) do
-            UpdateRoundedBox(DrawObj, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
+    for _, ObjectValue in pairs(OverlayMenuDrawings) do SetVisible(ObjectValue, false) end
+    for _, Tab in ipairs(LibraryData.Tabs) do
+        for _, DrawItem in ipairs({Tab.Border, Tab.Background, Tab.RailGlow, Tab.Indicator, Tab.Detail}) do
+            UpdateRoundedBox(DrawItem, Vector2Round(0, 0), Vector2Round(0, 0), 0, Color3.new(0, 0, 0), 1, false)
         end
-        TabObj.Label.Visible = false
-        TabObj.IconDraw.Visible = false
-        HideTabContent(TabObj)
+        Tab.Label.Visible = false
+        Tab.IconDraw.Visible = false
+        HideTabContent(Tab)
     end
 end
 
-local function IsMouseButtonPressed(CodeVal)
-    if CodeVal == 4 then
+local function IsMouseButtonPressed(KeyCodeNumber)
+    if KeyCodeNumber == 4 then
         return iskeypressed and iskeypressed(4) or false
-    elseif CodeVal == 5 then
+    elseif KeyCodeNumber == 5 then
         return iskeypressed and iskeypressed(5) or false
-    elseif CodeVal == 6 then
+    elseif KeyCodeNumber == 6 then
         return iskeypressed and iskeypressed(6) or false
-    elseif CodeVal == 7 then
+    elseif KeyCodeNumber == 7 then
         return iskeypressed and iskeypressed(7) or false
     end
     return false
@@ -2318,10 +2291,10 @@ local function GetTypedCharacter(KeyCode)
     if KeyValue >= 65 and KeyValue <= 90 then
         return ShiftState and string.upper(KeyName) or string.lower(KeyName)
     end
-    local DigitVal = TextKeyDigits[KeyName]
-    if DigitVal then
-        if DigitVal == "-" and ShiftState then return "_" end
-        return DigitVal
+    local Digit = TextKeyDigits[KeyName]
+    if Digit then
+        if Digit == "-" and ShiftState then return "_" end
+        return Digit
     end
     if KeyValue >= 48 and KeyValue <= 57 then return tostring(KeyValue - 48) end
     if KeyValue >= 96 and KeyValue <= 105 then return tostring(KeyValue - 96) end
@@ -2355,9 +2328,9 @@ end
 
 local function EditText(Buffer, Cursor, SelectionAll, Key, Character)
     Buffer = tostring(Buffer or "")
-    Cursor = MathClamp(tonumber(Cursor) or #Buffer, 0, #Buffer)
-    if Key == "Left" then return Buffer, MathClamp(Cursor - 1, 0, #Buffer), false end
-    if Key == "Right" then return Buffer, MathClamp(Cursor + 1, 0, #Buffer), false end
+    Cursor = Clamp(tonumber(Cursor) or #Buffer, 0, #Buffer)
+    if Key == "Left" then return Buffer, Clamp(Cursor - 1, 0, #Buffer), false end
+    if Key == "Right" then return Buffer, Clamp(Cursor + 1, 0, #Buffer), false end
     if Key == "Home" then return Buffer, 0, false end
     if Key == "End" then return Buffer, #Buffer, false end
     if Key == "Backspace" or Key == "Delete" then
@@ -2441,15 +2414,15 @@ ConnectSession(UserInputService.InputBegan, function(InputObject, GameProcessed)
             return
         end
         if Ctrl then return end
-        local CharacterVal = GetTypedCharacter(KeyCode)
+        local Character = GetTypedCharacter(KeyCode)
         if EditingHex then
             local Buffer = tostring(EditingPicker.HexBuffer or "")
-            local Cursor = MathClamp(EditingPicker.HexCursor or #Buffer, 0, #Buffer)
+            local Cursor = Clamp(EditingPicker.HexCursor or #Buffer, 0, #Buffer)
             local SelectAll = EditingPicker.HexSelectionAll == true
             if KeyName == "Left" then
-                Cursor = MathClamp(Cursor - 1, 0, #Buffer)
+                Cursor = Clamp(Cursor - 1, 0, #Buffer)
             elseif KeyName == "Right" then
-                Cursor = MathClamp(Cursor + 1, 0, #Buffer)
+                Cursor = Clamp(Cursor + 1, 0, #Buffer)
             elseif KeyName == "Home" then
                 Cursor = 0
             elseif KeyName == "End" then
@@ -2464,7 +2437,7 @@ ConnectSession(UserInputService.InputBegan, function(InputObject, GameProcessed)
                     Buffer = Buffer:sub(1, Cursor) .. Buffer:sub(Cursor + 2)
                 end
             else
-                local Character = CharacterVal and CharacterVal:upper() or nil
+                local Character = Character and Character:upper() or nil
                 if Character and Character:match("^[0-9A-F]$") then
                     if SelectAll then Buffer, Cursor = "", 0 end
                     if #Buffer < 6 then
@@ -2481,12 +2454,12 @@ ConnectSession(UserInputService.InputBegan, function(InputObject, GameProcessed)
         if ActiveSlider then
             local Buffer = tostring(ActiveSlider.InputBuffer or "")
             if KeyName == "Backspace" then Buffer = Buffer:sub(1, -2)
-            elseif CharacterVal and CharacterVal:match("^[0-9%.%-]$") and #Buffer < 24 then Buffer = Buffer .. CharacterVal end
+            elseif Character and Character:match("^[0-9%.%-]$") and #Buffer < 24 then Buffer = Buffer .. Character end
             ActiveSlider.InputBuffer = Buffer
             return
         end
         if ActiveBox then
-            ActiveBox.InputBuffer, ActiveBox.Cursor, ActiveBox.SelectionAll = EditText(ActiveBox.InputBuffer, ActiveBox.Cursor, ActiveBox.SelectionAll, KeyName, CharacterVal)
+            ActiveBox.InputBuffer, ActiveBox.Cursor, ActiveBox.SelectionAll = EditText(ActiveBox.InputBuffer, ActiveBox.Cursor, ActiveBox.SelectionAll, KeyName, Character)
             return
         end
     end
@@ -2507,7 +2480,7 @@ end)
 local FrameCounter = 0
 
 ConnectSession(RunService.Heartbeat, function()
-    local Now = FastTick()
+    local Now = GetTime()
     if ConfigDirty and Config.AutoSaveConfig and Now - SaveQueueTick > 1.5 then
         SaveCurrentConfig()
     elseif SettingsDirty and Now - SettingsQueueTick > 1.5 then
@@ -2597,24 +2570,24 @@ ConnectSession(RunService.RenderStepped, function()
     if LibraryData.State.ActiveKeybind then
         if not LibraryData.CaptureLast then
             LibraryData.CaptureLast = {}
-            for CodeVal in pairs(KeyCodes) do
-                LibraryData.CaptureLast[CodeVal] = iskeypressed(CodeVal) or false
+            for KeyCodeNumber in pairs(KeyCodes) do
+                LibraryData.CaptureLast[KeyCodeNumber] = iskeypressed(KeyCodeNumber) or false
             end
         end
         local CaptureCode
-        for CodeVal in pairs(KeyCodes) do
-            local IsPressed = iskeypressed(CodeVal) or false
-            if IsPressed and not LibraryData.CaptureLast[CodeVal] and not CaptureCode then CaptureCode = CodeVal end
-            LibraryData.CaptureLast[CodeVal] = IsPressed
+        for KeyCodeNumber in pairs(KeyCodes) do
+            local IsPressed = iskeypressed(KeyCodeNumber) or false
+            if IsPressed and not LibraryData.CaptureLast[KeyCodeNumber] and not CaptureCode then CaptureCode = KeyCodeNumber end
+            LibraryData.CaptureLast[KeyCodeNumber] = IsPressed
         end
         if CaptureCode then
             local FlagName = LibraryData.State.ActiveKeybind.Flag
             if CaptureCode == 27 then
                 LibraryData.State.ActiveKeybind = nil
             else
-                local NameVal = CaptureCode == 8 and "None" or KeyCodes[CaptureCode]
-                Config[FlagName] = NameVal
-                RegisterKeybind(FlagName, NameVal, GetBindMode(FlagName))
+                local DisplayName = CaptureCode == 8 and "None" or KeyCodes[CaptureCode]
+                Config[FlagName] = DisplayName
+                RegisterKeybind(FlagName, DisplayName, GetBindMode(FlagName))
                 if FlagName == "HideKeybind" then LibraryData.SuppressHideUntilRelease = true end
                 QueueSaveConfig()
                 LibraryData.State.ActiveKeybind = nil
@@ -2625,8 +2598,8 @@ ConnectSession(RunService.RenderStepped, function()
         LibraryData.CaptureLast = nil
     end
 
-    local HotkeysSize = Vector2.new(220, 120)
-    local ShouldShowHotkeys = Config.ShowHotkeyList
+    local HotkeysSize = Vector2.new(220, 44 + #KeybindOrder * 24)
+    local ShouldShowHotkeys = Config.ShowHotkeyList and #KeybindOrder > 0
 
     if ShouldShowHotkeys then
         LibraryData.HotkeysPosition = ClampWindowPosition(LibraryData.HotkeysPosition, HotkeysSize)
@@ -2658,57 +2631,39 @@ ConnectSession(RunService.RenderStepped, function()
         PositionText(KeybindsDrawings.Title, BindsPos.X + 8, BindsPos.Y + 6, "HotkeysTitle")
         KeybindsDrawings.Subtitle.Visible = false
         
-        local HotkeyEntries = {
-            {BindFlag = "ParryKeybind", ToggleFlag = "AutoParry", Label = "Parry"},
-            {BindFlag = "SpamKeybind", ToggleFlag = "AutoSpam", Label = "Spam"},
-            {BindFlag = "TriggerKeybind", ToggleFlag = "TriggerBot", Label = "Trigger"}
-        }
         local RowX = BindsPos.X + 8
-        local RowW = BindsSize.X - 16
-        local RowH = 20
+        local RowWidth = BindsSize.X - 16
+        local RowHeight = 20
         local RowStartY = BindsPos.Y + 36
-        local RowGap = 4
-        local HotkeyRows = {
-            {X = RowX, Y = RowStartY, W = RowW, H = RowH, Entry = HotkeyEntries[1]},
-            {X = RowX, Y = RowStartY + (RowH + RowGap) * 1, W = RowW, H = RowH, Entry = HotkeyEntries[2]},
-            {X = RowX, Y = RowStartY + (RowH + RowGap) * 2, W = RowW, H = RowH, Entry = HotkeyEntries[3]}
-        }
-        local RowBoxes = {KeybindsDrawings.Row1, KeybindsDrawings.Row2, KeybindsDrawings.Row3}
-        local BindTexts = {KeybindsDrawings.Bind1, KeybindsDrawings.Bind2, KeybindsDrawings.Bind3}
-        local StateTexts = {KeybindsDrawings.State1, KeybindsDrawings.State2, KeybindsDrawings.State3}
-        local ModeTexts = {KeybindsDrawings.Mode1, KeybindsDrawings.Mode2, KeybindsDrawings.Mode3}
-        for IIdx, RowVal in ipairs(HotkeyRows) do
-            local RowBox = RowBoxes[IIdx]
-            local BindDraw = BindTexts[IIdx]
-            local StateDraw = StateTexts[IIdx]
-            local ModeDraw = ModeTexts[IIdx]
-            local BindValue = NormalizeKeybindValue(Config[RowVal.Entry.BindFlag])
-            local BindMode = GetBindMode(RowVal.Entry.BindFlag)
-            local IsEnabled = Config[RowVal.Entry.ToggleFlag] and true or false
-            local RowHovered = IsMouseInBounds(LibraryData.Input.MousePos, Vector2Round(RowVal.X, RowVal.Y), Vector2Round(RowVal.W, RowVal.H))
-            local RowColor = IsEnabled and LibraryData.Palette.Hover or (RowHovered and LibraryData.Palette.Hover or LibraryData.Palette.Element)
-            UpdateRoundedBox(RowBox, Vector2Round(RowVal.X, RowVal.Y), Vector2Round(RowVal.W, RowVal.H), 4, RowColor, 1, true)
-            BindDraw.Visible = true
-            BindDraw.Text = "[" .. string.upper(BindValue) .. "]  " .. RowVal.Entry.Label
-            BindDraw.Color = IsEnabled and LibraryData.Palette.Text or ColorLerp(LibraryData.Palette.SubText, LibraryData.Palette.Text, RowHovered and 0.35 or 0)
-            PositionText(BindDraw, RowVal.X + 8, RowVal.Y + 3, "HotkeysRow")
-            local StateColumnW = 30
-            local ModeColumnW = 48
-            local StateTextX = RowVal.X + RowVal.W - StateColumnW - 6
-            local ModeTextX = StateTextX - ModeColumnW - 6
-            StateDraw.Visible = true
-            StateDraw.Text = IsEnabled and "ON" or "OFF"
-            StateDraw.Color = IsEnabled and LibraryData.Palette.Text or LibraryData.Palette.SubText
-            PositionText(StateDraw, StateTextX, RowVal.Y + 3, "HotkeysRow")
-            ModeDraw.Visible = true
-            ModeDraw.Text = string.upper(BindMode)
-            ModeDraw.Color = BindMode == "Hold" and LibraryData.Palette.Accent2 or LibraryData.Palette.Accent
-            PositionText(ModeDraw, ModeTextX, RowVal.Y + 3, "HotkeysRow")
-            if LibraryData.Visible and LibraryData.Input.Mouse2Clicked and RowHovered then
-                local BindContext = {ButtonPos = Vector2.new(RowVal.X, RowVal.Y), ButtonSize = Vector2.new(RowVal.W, RowVal.H)}
-                LibraryData.State.KeybindContext.Open = true
-                LibraryData.State.KeybindContext.Entry = RowVal.Entry
-                LibraryData.State.KeybindContext.Position = GetContextMenuPosition(BindContext)
+        for Index, BindFlag in ipairs(KeybindOrder) do
+            local Entry = KeybindTargets[BindFlag]
+            if Entry then
+                local Row = GetHotkeyRow(Index)
+                local RowY = RowStartY + (Index - 1) * 24
+                local RowPosition = Vector2Round(RowX, RowY)
+                local RowSize = Vector2Round(RowWidth, RowHeight)
+                local Hovered = IsMouseInBounds(LibraryData.Input.MousePos, RowPosition, RowSize)
+                local Enabled = Config[Entry.ToggleFlag] == true
+                local Color = Enabled and LibraryData.Palette.Hover or (Hovered and LibraryData.Palette.Hover or LibraryData.Palette.Element)
+                UpdateRoundedBox(Row.Background, RowPosition, RowSize, 4, Color, 1, true)
+                Row.Label.Visible = true
+                Row.Label.Text = "[" .. string.upper(NormalizeKeybindValue(Config[BindFlag])) .. "]  " .. Entry.Label
+                Row.Label.Color = Enabled and LibraryData.Palette.Text or LibraryData.Palette.SubText
+                PositionText(Row.Label, RowX + 8, RowY + 3, "HotkeysRow")
+                Row.State.Visible = true
+                Row.State.Text = Enabled and "ON" or "OFF"
+                Row.State.Color = Enabled and LibraryData.Palette.Text or LibraryData.Palette.SubText
+                PositionText(Row.State, RowX + RowWidth - 36, RowY + 3, "HotkeysRow")
+                Row.Mode.Visible = true
+                local Mode = GetBindMode(BindFlag)
+                Row.Mode.Text = string.upper(Mode)
+                Row.Mode.Color = Mode == "Hold" and LibraryData.Palette.Accent2 or LibraryData.Palette.Accent
+                PositionText(Row.Mode, RowX + RowWidth - 88, RowY + 3, "HotkeysRow")
+                if LibraryData.Visible and LibraryData.Input.Mouse2Clicked and Hovered then
+                    LibraryData.State.KeybindContext.Open = true
+                    LibraryData.State.KeybindContext.Entry = Entry
+                    LibraryData.State.KeybindContext.Position = GetContextMenuPosition({ButtonPos = RowPosition, ButtonSize = RowSize})
+                end
             end
         end
     else
@@ -2764,7 +2719,7 @@ ConnectSession(RunService.RenderStepped, function()
             PreviousMainTab = LibraryData.CurrentTab
             LibraryData.CurrentTab = SettingsTab
         end
-        for _, TObj in ipairs(LibraryData.Tabs) do HideTabContent(TObj) end
+        for _, TextItem in ipairs(LibraryData.Tabs) do HideTabContent(TextItem) end
         LibraryData.Input.Mouse1Clicked = false
     end
     if LibraryData.Input.Mouse1Clicked and not LibraryData.State.ActiveColorPicker and not OverHotkeys and not LibraryData.State.OverlayHit and not LibraryData.State.HotkeysDragging and IsMouseInBounds(LibraryData.Input.MousePos, LibraryData.Position, Vector2.new(SizeX, 36)) then
@@ -2782,7 +2737,7 @@ ConnectSession(RunService.RenderStepped, function()
         LibraryData.TargetPosition = ClampWindowPosition(LibraryData.State.WindowStart + (LibraryData.Input.MousePos - LibraryData.State.DragStart), LibraryData.Size)
         LibraryData.Position = LibraryData.TargetPosition
     else
-        LibraryData.Position = Vector2.new(MathLerp(LibraryData.Position.X, LibraryData.TargetPosition.X, 0.25), MathLerp(LibraryData.Position.Y, LibraryData.TargetPosition.Y, 0.25))
+        LibraryData.Position = Vector2.new(Lerp(LibraryData.Position.X, LibraryData.TargetPosition.X, 0.25), Lerp(LibraryData.Position.Y, LibraryData.TargetPosition.Y, 0.25))
     end
     
     local PosX, PosY = LibraryData.Position.X, LibraryData.Position.Y
@@ -2850,10 +2805,10 @@ ConnectSession(RunService.RenderStepped, function()
         elseif LibraryData.State.ProfileOpen and IsMouseInBounds(LibraryData.Input.MousePos, ProfileLayout.PopupPos, ProfileLayout.PopupSize) then
             if IsMouseInBounds(LibraryData.Input.MousePos, ProfileLayout.CopyPos, ProfileLayout.CopySize) then
                 local Copied = pcall(function() setclipboard(ProfileName) end)
-                if Copied then LibraryData.State.ProfileCopiedUntil = FastTick() + 1.5 end
+                if Copied then LibraryData.State.ProfileCopiedUntil = GetTime() + 1.5 end
             elseif IsMouseInBounds(LibraryData.Input.MousePos, ProfileLayout.CopyIdPos, ProfileLayout.CopyIdSize) then
                 local Copied = pcall(function() setclipboard(tostring(ProfileUserId)) end)
-                if Copied then LibraryData.State.ProfileIdCopiedUntil = FastTick() + 1.5 end
+                if Copied then LibraryData.State.ProfileIdCopiedUntil = GetTime() + 1.5 end
             end
             ProfileClickUsed = true
         elseif LibraryData.State.ProfileOpen then
@@ -2863,13 +2818,13 @@ ConnectSession(RunService.RenderStepped, function()
     if ProfileClickUsed then LibraryData.Input.Mouse1Clicked = false end
 
     if LibraryData.Input.Mouse1Clicked and not LibraryData.State.OverlayHit and IsMouseInBounds(LibraryData.Input.MousePos, Vector2.new(PosX, PosY + 37), Vector2.new(150, SizeY - 37)) then
-        for TabIndex, TabObj in ipairs(LibraryData.Tabs) do
+        for TabIndex, Tab in ipairs(LibraryData.Tabs) do
             local TabPos, TabSize = GetTabBounds(PosX, PosY, TabIndex)
-            if not TabObj.Hidden and IsMouseInBounds(LibraryData.Input.MousePos, TabPos, TabSize) then
-                if LibraryData.CurrentTab ~= TabObj then
-                    LibraryData.CurrentTab = TabObj
+            if not Tab.Hidden and IsMouseInBounds(LibraryData.Input.MousePos, TabPos, TabSize) then
+                if LibraryData.CurrentTab ~= Tab then
+                    LibraryData.CurrentTab = Tab
                     CloseTransientUi()
-                    for _, TObj in ipairs(LibraryData.Tabs) do HideTabContent(TObj) end
+                    for _, TextItem in ipairs(LibraryData.Tabs) do HideTabContent(TextItem) end
                 end
                 break
             end
@@ -2943,25 +2898,25 @@ ConnectSession(RunService.RenderStepped, function()
     if LibraryData.CurrentTab then
         local BlockInput = LibraryData.State.Dragging or LibraryData.State.KeybindContext.Open or ContextClickConsumed
         if LibraryData.State.ActiveDropdown then
-            local DropdownObj = LibraryData.State.ActiveDropdown
+            local Dropdown = LibraryData.State.ActiveDropdown
             if LibraryData.Input.Mouse1Clicked then
                 local MousePos = LibraryData.Input.MousePos
-                local InsideCurrentButton = IsMouseInBounds(MousePos, DropdownObj.ButtonPos, DropdownObj.ButtonSize)
+                local InsideCurrentButton = IsMouseInBounds(MousePos, Dropdown.ButtonPos, Dropdown.ButtonSize)
                 local ClickedDropdown = nil
-                for _, SectionObj in ipairs(LibraryData.CurrentTab.Sections) do
-                    for _, CandidateObj in ipairs(SectionObj.Items) do
-                        if CandidateObj.Type == "Dropdown" and IsMouseInBounds(MousePos, CandidateObj.ButtonPos, CandidateObj.ButtonSize) then
-                            ClickedDropdown = CandidateObj break
+                for _, Section in ipairs(LibraryData.CurrentTab.Sections) do
+                    for _, Candidate in ipairs(Section.Items) do
+                        if Candidate.Type == "Dropdown" and IsMouseInBounds(MousePos, Candidate.ButtonPos, Candidate.ButtonSize) then
+                            ClickedDropdown = Candidate break
                         end
                     end
                     if ClickedDropdown then break end
                 end
                 if ClickedDropdown then
-                    if ClickedDropdown == DropdownObj then
-                        DropdownObj.IsOpen = false
+                    if ClickedDropdown == Dropdown then
+                        Dropdown.IsOpen = false
                         LibraryData.State.ActiveDropdown = nil
                     else
-                        DropdownObj.IsOpen = false
+                        Dropdown.IsOpen = false
                         ClickedDropdown.IsOpen = true
                         ClickedDropdown.OpenAlpha = 0
                         ClickedDropdown.ListHeight = 0
@@ -2971,75 +2926,75 @@ ConnectSession(RunService.RenderStepped, function()
                     BlockInput = true
                 else
                     local PickedOption = nil
-                    for IndexVal, BoundsVal in ipairs(DropdownObj.OptionBounds or {}) do
-                        if BoundsVal and BoundsVal.Visible and IsMouseInBounds(MousePos, BoundsVal.Pos, BoundsVal.Size) then
-                            PickedOption = IndexVal break
+                    for SelectedIndex, Bounds in ipairs(Dropdown.OptionBounds or {}) do
+                        if Bounds and Bounds.Visible and IsMouseInBounds(MousePos, Bounds.Pos, Bounds.Size) then
+                            PickedOption = SelectedIndex break
                         end
                     end
-                    if PickedOption and DropdownObj.Options[PickedOption] ~= nil then
-                        Config[DropdownObj.Flag] = DropdownObj.Options[PickedOption]
-                        if DropdownObj.Flag == "ThemePreset" then
-                            ApplyThemePreset(Config[DropdownObj.Flag], false)
-                        elseif DropdownObj.Flag == "SelectedConfig" then
-                            Config.SelectedConfig = tostring(Config[DropdownObj.Flag])
+                    if PickedOption and Dropdown.Options[PickedOption] ~= nil then
+                        Config[Dropdown.Flag] = Dropdown.Options[PickedOption]
+                        if Dropdown.Flag == "ThemePreset" then
+                            ApplyThemePreset(Config[Dropdown.Flag], false)
+                        elseif Dropdown.Flag == "SelectedConfig" then
+                            Config.SelectedConfig = tostring(Config[Dropdown.Flag])
                             Config.ConfigName = Config.SelectedConfig
                             LoadNamedConfig(Config.SelectedConfig)
                         else
                             QueueSaveConfig()
                         end
-                        DropdownObj.IsOpen = false
+                        Dropdown.IsOpen = false
                         LibraryData.State.ActiveDropdown = nil
                         BlockInput = true
                     else
-                        local InsideList = DropdownObj.IsOpen and IsMouseInBounds(MousePos, DropdownObj.ListPos, DropdownObj.ListSize)
+                        local InsideList = Dropdown.IsOpen and IsMouseInBounds(MousePos, Dropdown.ListPos, Dropdown.ListSize)
                         if not InsideCurrentButton and not InsideList then
-                            DropdownObj.IsOpen = false
+                            Dropdown.IsOpen = false
                             LibraryData.State.ActiveDropdown = nil
                             BlockInput = true
                         elseif InsideCurrentButton then
-                            DropdownObj.IsOpen = false
+                            Dropdown.IsOpen = false
                             LibraryData.State.ActiveDropdown = nil
                             BlockInput = true
                         end
                     end
                 end
             elseif LibraryData.Input.Mouse2Clicked then
-                DropdownObj.IsOpen = false
+                Dropdown.IsOpen = false
                 LibraryData.State.ActiveDropdown = nil
                 BlockInput = true
             end
         end
         if LibraryData.State.ActiveColorPicker then
-            local PickerObj = LibraryData.State.ActiveColorPicker
+            local Picker = LibraryData.State.ActiveColorPicker
             if LibraryData.Input.Mouse1Clicked then
                 local MP = LibraryData.Input.MousePos
-                local InsideButton = IsMouseInBounds(MP, PickerObj.ButtonPos, PickerObj.ButtonSize)
-                local InsidePopup = PickerObj.IsOpen and IsMouseInBounds(MP, PickerObj.PopupPos, PickerObj.PopupSize)
+                local InsideButton = IsMouseInBounds(MP, Picker.ButtonPos, Picker.ButtonSize)
+                local InsidePopup = Picker.IsOpen and IsMouseInBounds(MP, Picker.PopupPos, Picker.PopupSize)
                 if InsideButton then
-                    PickerObj.IsOpen = false
-                    PickerObj.HexEditing = false
-                    PickerObj:HidePopup()
+                    Picker.IsOpen = false
+                    Picker.HexEditing = false
+                    Picker:HidePopup()
                     LibraryData.State.ActiveColorPicker = nil
                     LibraryData.State.ActiveColorDrag = nil
                     BlockInput = true
                 elseif InsidePopup then
-                    if IsMouseInBounds(MP, PickerObj.SVPos, PickerObj.SVSize) then
+                    if IsMouseInBounds(MP, Picker.SVPos, Picker.SVSize) then
                         LibraryData.State.ActiveColorDrag = "SV"
-                    elseif IsMouseInBounds(MP, PickerObj.HuePos, PickerObj.HueSize) then
+                    elseif IsMouseInBounds(MP, Picker.HuePos, Picker.HueSize) then
                         LibraryData.State.ActiveColorDrag = "Hue"
-                    elseif IsMouseInBounds(MP, PickerObj.AlphaPos, PickerObj.AlphaSize) then
+                    elseif IsMouseInBounds(MP, Picker.AlphaPos, Picker.AlphaSize) then
                         LibraryData.State.ActiveColorDrag = "Alpha"
                     end
                     BlockInput = true
                 else
-                    PickerObj.HexEditing = false
-                    PickerObj.IsOpen = false
-                    PickerObj:HidePopup()
+                    Picker.HexEditing = false
+                    Picker.IsOpen = false
+                    Picker:HidePopup()
                     LibraryData.State.ActiveColorPicker = nil
                     LibraryData.State.ActiveColorDrag = nil
                 end
             end
-            if PickerObj.IsOpen and IsMouseInBounds(LibraryData.Input.MousePos, PickerObj.PopupPos, PickerObj.PopupSize) then
+            if Picker.IsOpen and IsMouseInBounds(LibraryData.Input.MousePos, Picker.PopupPos, Picker.PopupSize) then
                 BlockInput = true
             end
         end
@@ -3052,95 +3007,95 @@ ConnectSession(RunService.RenderStepped, function()
             end
         end
         if not BlockInput then
-            for _, SectionObj in ipairs(LibraryData.CurrentTab.Sections) do
-                for _, ItemObj in ipairs(SectionObj.Items) do
-                    if ItemObj.Type == "Toggle" then
-                        if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, ItemObj.HitboxPos, ItemObj.HitboxSize) then
+            for _, Section in ipairs(LibraryData.CurrentTab.Sections) do
+                for _, Item in ipairs(Section.Items) do
+                    if Item.Type == "Toggle" then
+                        if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, Item.HitboxPos, Item.HitboxSize) then
                             if LibraryData.State.ActiveSliderInput then CommitSliderInput(LibraryData.State.ActiveSliderInput) LibraryData.State.ActiveSliderInput = nil end
-                            Config[ItemObj.Flag] = not Config[ItemObj.Flag]
-                            if FireChange then FireChange(ItemObj) end
-                            if ItemObj.Flag == "AutoSaveConfig" or ItemObj.Flag == "AutoLoadConfig" or ItemObj.Flag == "ShowWatermark" or ItemObj.Flag == "ShowNotifications" or ItemObj.Flag == "WatermarkCompact" then
+                            Config[Item.Flag] = not Config[Item.Flag]
+                            if FireChange then FireChange(Item) end
+                            if Item.Flag == "AutoSaveConfig" or Item.Flag == "AutoLoadConfig" or Item.Flag == "ShowWatermark" or Item.Flag == "ShowNotifications" or Item.Flag == "WatermarkCompact" then
                                 SaveGlobalSettings()
                                 if Config.AutoSaveConfig then SaveCurrentConfig() end
                             else
                                 QueueSaveConfig()
                             end
                         end
-                    elseif ItemObj.Type == "Slider" then
-                        if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, ItemObj.ValuePos, ItemObj.ValueSize) then
-                            if LibraryData.State.ActiveSliderInput and LibraryData.State.ActiveSliderInput ~= ItemObj then CommitSliderInput(LibraryData.State.ActiveSliderInput) end
-                            LibraryData.State.ActiveSliderInput = ItemObj
-                            ItemObj.InputBuffer = FormatSliderValue(Config[ItemObj.Flag], ItemObj.Step)
+                    elseif Item.Type == "Slider" then
+                        if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, Item.ValuePos, Item.ValueSize) then
+                            if LibraryData.State.ActiveSliderInput and LibraryData.State.ActiveSliderInput ~= Item then CommitSliderInput(LibraryData.State.ActiveSliderInput) end
+                            LibraryData.State.ActiveSliderInput = Item
+                            Item.InputBuffer = FormatSliderValue(Config[Item.Flag], Item.Step)
                             LibraryData.State.ActiveSlider = nil
                             LibraryData.State.ActiveTextbox = nil
                             LibraryData.State.ActiveKeybind = nil
-                        elseif LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, ItemObj.BarPos - Vector2.new(0, 4), ItemObj.BarSize + Vector2.new(0, 8)) then
+                        elseif LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, Item.BarPos - Vector2.new(0, 4), Item.BarSize + Vector2.new(0, 8)) then
                             if LibraryData.State.ActiveSliderInput then CommitSliderInput(LibraryData.State.ActiveSliderInput) LibraryData.State.ActiveSliderInput = nil end
-                            LibraryData.State.ActiveSlider = ItemObj
+                            LibraryData.State.ActiveSlider = Item
                         end
-                    elseif ItemObj.Type == "Dropdown" then
-                        if LibraryData.Input.Mouse1Clicked and not LibraryData.State.ActiveDropdown and IsMouseInBounds(LibraryData.Input.MousePos, ItemObj.ButtonPos, ItemObj.ButtonSize) then
+                    elseif Item.Type == "Dropdown" then
+                        if LibraryData.Input.Mouse1Clicked and not LibraryData.State.ActiveDropdown and IsMouseInBounds(LibraryData.Input.MousePos, Item.ButtonPos, Item.ButtonSize) then
                             if LibraryData.State.ActiveSliderInput then CommitSliderInput(LibraryData.State.ActiveSliderInput) LibraryData.State.ActiveSliderInput = nil end
                             if LibraryData.State.ActiveColorPicker then LibraryData.State.ActiveColorPicker.IsOpen = false LibraryData.State.ActiveColorPicker = nil end
-                            ItemObj.IsOpen = true ItemObj.OpenAlpha = 0 ItemObj.ListHeight = 0 ItemObj.TargetListHeight = 0
-                            LibraryData.State.ActiveDropdown = ItemObj
+                            Item.IsOpen = true Item.OpenAlpha = 0 Item.ListHeight = 0 Item.TargetListHeight = 0
+                            LibraryData.State.ActiveDropdown = Item
                             BlockInput = true
                         end
-                    elseif ItemObj.Type == "ColorPicker" then
-                        if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, ItemObj.ButtonPos, ItemObj.ButtonSize) then
-                            if LibraryData.State.ActiveColorPicker and LibraryData.State.ActiveColorPicker ~= ItemObj then
+                    elseif Item.Type == "ColorPicker" then
+                        if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, Item.ButtonPos, Item.ButtonSize) then
+                            if LibraryData.State.ActiveColorPicker and LibraryData.State.ActiveColorPicker ~= Item then
                                 LibraryData.State.ActiveColorPicker.IsOpen = false
                                 LibraryData.State.ActiveColorPicker.HexEditing = false
                             end
                             if LibraryData.State.ActiveSliderInput then CommitSliderInput(LibraryData.State.ActiveSliderInput) LibraryData.State.ActiveSliderInput = nil end
-                            ItemObj.IsOpen = true
-                            ItemObj.HexEditing = false
-                            LibraryData.State.ActiveColorPicker = ItemObj
+                            Item.IsOpen = true
+                            Item.HexEditing = false
+                            LibraryData.State.ActiveColorPicker = Item
                             LibraryData.State.ActiveColorDrag = nil
                             LibraryData.State.ActiveKeybind = nil
                             LibraryData.State.ActiveTextbox = nil
                             LibraryData.State.ActiveDropdown = nil
                             BlockInput = true
                         end
-                    elseif ItemObj.Type == "Keybind" then
-                        if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, ItemObj.ButtonPos, ItemObj.ButtonSize) then
-                            LibraryData.State.ActiveKeybind = ItemObj
+                    elseif Item.Type == "Keybind" then
+                        if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, Item.ButtonPos, Item.ButtonSize) then
+                            LibraryData.State.ActiveKeybind = Item
                             LibraryData.CaptureLast = {}
-                            for CodeVal in pairs(KeyCodes) do
-                                LibraryData.CaptureLast[CodeVal] = iskeypressed(CodeVal) or false
+                            for KeyCodeNumber in pairs(KeyCodes) do
+                                LibraryData.CaptureLast[KeyCodeNumber] = iskeypressed(KeyCodeNumber) or false
                             end
                         if LibraryData.State.ActiveSliderInput then CommitSliderInput(LibraryData.State.ActiveSliderInput) LibraryData.State.ActiveSliderInput = nil end
                             LibraryData.State.ActiveTextbox = nil
                             if LibraryData.State.ActiveColorPicker then LibraryData.State.ActiveColorPicker.IsOpen = false LibraryData.State.ActiveColorPicker = nil end
                             LibraryData.State.HotkeysContext.Open = false LibraryData.State.HotkeysContext.Entry = nil
                             LibraryData.State.KeybindContext.Open = false LibraryData.State.KeybindContext.Entry = nil
-                        elseif LibraryData.Input.Mouse2Clicked and IsMouseInBounds(LibraryData.Input.MousePos, ItemObj.ButtonPos, ItemObj.ButtonSize) then
+                        elseif LibraryData.Input.Mouse2Clicked and IsMouseInBounds(LibraryData.Input.MousePos, Item.ButtonPos, Item.ButtonSize) then
                             LibraryData.State.ActiveKeybind = nil
                             if LibraryData.State.ActiveSliderInput then CommitSliderInput(LibraryData.State.ActiveSliderInput) LibraryData.State.ActiveSliderInput = nil end
                             LibraryData.State.ActiveTextbox = nil
                             LibraryData.State.KeybindContext.Open = true
-                            LibraryData.State.KeybindContext.Entry = {BindFlag = ItemObj.Flag, Label = ItemObj.Label and ItemObj.Label.Text or "Bind", Item = ItemObj}
-                            local ContextPos = GetContextMenuPosition(ItemObj)
+                            LibraryData.State.KeybindContext.Entry = {BindFlag = Item.Flag, Label = Item.Label and Item.Label.Text or "Bind", Item = Item}
+                            local ContextPos = GetContextMenuPosition(Item)
                             LibraryData.State.KeybindContext.Position = Vector2.new(ContextPos.X, ContextPos.Y)
                         end
-                    elseif ItemObj.Type == "Button" then
-                        if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, ItemObj.ButtonPos, ItemObj.ButtonSize) then
-                            if ItemObj.Callback then ItemObj.Callback() end
+                    elseif Item.Type == "Button" then
+                        if LibraryData.Input.Mouse1Clicked and IsMouseInBounds(LibraryData.Input.MousePos, Item.ButtonPos, Item.ButtonSize) then
+                            if Item.Callback then Item.Callback() end
                         end
-                    elseif ItemObj.Type == "Textbox" then
+                    elseif Item.Type == "Textbox" then
                         if LibraryData.Input.Mouse1Clicked then
-                            if IsMouseInBounds(LibraryData.Input.MousePos, ItemObj.BoxPos, ItemObj.BoxSize) then
-                                if LibraryData.State.ActiveTextbox and LibraryData.State.ActiveTextbox ~= ItemObj then CommitTextbox(LibraryData.State.ActiveTextbox, false) end
-                            LibraryData.State.ActiveTextbox = ItemObj
-                                ItemObj.InputBuffer = tostring(Config[ItemObj.Flag] or "")
-                                ItemObj.Cursor = #ItemObj.InputBuffer
-                                ItemObj.SelectionAll = false
+                            if IsMouseInBounds(LibraryData.Input.MousePos, Item.BoxPos, Item.BoxSize) then
+                                if LibraryData.State.ActiveTextbox and LibraryData.State.ActiveTextbox ~= Item then CommitTextbox(LibraryData.State.ActiveTextbox, false) end
+                            LibraryData.State.ActiveTextbox = Item
+                                Item.InputBuffer = tostring(Config[Item.Flag] or "")
+                                Item.Cursor = #Item.InputBuffer
+                                Item.SelectionAll = false
                                 LibraryData.State.ActiveKeybind = nil
                                 if LibraryData.State.ActiveSliderInput then CommitSliderInput(LibraryData.State.ActiveSliderInput) LibraryData.State.ActiveSliderInput = nil end
                                 if LibraryData.State.ActiveColorPicker then LibraryData.State.ActiveColorPicker.IsOpen = false LibraryData.State.ActiveColorPicker = nil end
                                 LibraryData.State.KeybindContext.Open = false LibraryData.State.KeybindContext.Entry = nil
-                            elseif LibraryData.State.ActiveTextbox == ItemObj then
-                                CommitTextbox(ItemObj, false)
+                            elseif LibraryData.State.ActiveTextbox == Item then
+                                CommitTextbox(Item, false)
                             end
                         end
                     end
@@ -3151,131 +3106,131 @@ ConnectSession(RunService.RenderStepped, function()
     
     if not LibraryData.Input.Mouse1Down then LibraryData.State.ActiveColorDrag = nil end
     if LibraryData.State.ActiveColorPicker and LibraryData.State.ActiveColorDrag then
-        local PickerObj = LibraryData.State.ActiveColorPicker
-        if LibraryData.State.ActiveColorDrag == "SV" and PickerObj.SVPos and PickerObj.SVSize then
-            PickerObj.Sat = MathClamp((LibraryData.Input.MousePos.X - PickerObj.SVPos.X) / PickerObj.SVSize.X, 0, 1)
-            PickerObj.Val = 1 - MathClamp((LibraryData.Input.MousePos.Y - PickerObj.SVPos.Y) / PickerObj.SVSize.Y, 0, 1)
-            PickerObj:SyncColor()
-        elseif LibraryData.State.ActiveColorDrag == "Hue" and PickerObj.HuePos and PickerObj.HueSize then
-            PickerObj.Hue = MathClamp((LibraryData.Input.MousePos.X - PickerObj.HuePos.X) / PickerObj.HueSize.X, 0, 1)
-            PickerObj:SyncColor()
-        elseif LibraryData.State.ActiveColorDrag == "Alpha" and PickerObj.AlphaPos and PickerObj.AlphaSize then
-            PickerObj.Alpha = MathClamp((LibraryData.Input.MousePos.X - PickerObj.AlphaPos.X) / PickerObj.AlphaSize.X, 0, 1)
-            PickerObj:SyncColor()
+        local Picker = LibraryData.State.ActiveColorPicker
+        if LibraryData.State.ActiveColorDrag == "SV" and Picker.SVPos and Picker.SVSize then
+            Picker.Saturation = Clamp((LibraryData.Input.MousePos.X - Picker.SVPos.X) / Picker.SVSize.X, 0, 1)
+            Picker.Brightness = 1 - Clamp((LibraryData.Input.MousePos.Y - Picker.SVPos.Y) / Picker.SVSize.Y, 0, 1)
+            Picker:SyncColor()
+        elseif LibraryData.State.ActiveColorDrag == "Hue" and Picker.HuePos and Picker.HueSize then
+            Picker.Hue = Clamp((LibraryData.Input.MousePos.X - Picker.HuePos.X) / Picker.HueSize.X, 0, 1)
+            Picker:SyncColor()
+        elseif LibraryData.State.ActiveColorDrag == "Alpha" and Picker.AlphaPos and Picker.AlphaSize then
+            Picker.Alpha = Clamp((LibraryData.Input.MousePos.X - Picker.AlphaPos.X) / Picker.AlphaSize.X, 0, 1)
+            Picker:SyncColor()
         end
     end
     
     if LibraryData.State.ActiveSlider and LibraryData.State.ActiveSlider.BarSize then
-        local SliderObj = LibraryData.State.ActiveSlider
+        local Slider = LibraryData.State.ActiveSlider
         if LibraryData.Input.Mouse1Down then
-            local LeftVal = SliderObj.BarPos.X
-            local WidthVal = FastMax(SliderObj.BarSize.X, 1)
-            local PercentageVal = MathClamp((LibraryData.Input.MousePos.X - LeftVal) / WidthVal, 0, 1)
-            Config[SliderObj.Flag] = ClampSliderValue(SliderObj.Min + (PercentageVal * (SliderObj.Max - SliderObj.Min)), SliderObj.Min, SliderObj.Max, SliderObj.Step)
+            local LeftEdge = Slider.BarPos.X
+            local Width = Max(Slider.BarSize.X, 1)
+            local Progress = Clamp((LibraryData.Input.MousePos.X - LeftEdge) / Width, 0, 1)
+            Config[Slider.Flag] = ClampSliderValue(Slider.Min + (Progress * (Slider.Max - Slider.Min)), Slider.Min, Slider.Max, Slider.Step)
             QueueSaveConfig()
         else
             LibraryData.State.ActiveSlider = nil
         end
     end
     
-    for TabIndex, TabObj in ipairs(LibraryData.Tabs) do
-        local IsCurrent = TabObj == LibraryData.CurrentTab
+    for TabIndex, Tab in ipairs(LibraryData.Tabs) do
+        local IsCurrent = Tab == LibraryData.CurrentTab
         local TabPos, TabSize = GetTabBounds(PosX, PosY, TabIndex)
-        local IsHovered = not TabObj.Hidden and IsMouseInBounds(LibraryData.Input.MousePos, TabPos, TabSize)
-        if TabObj.Hidden then
-            for _, DrawObj in ipairs({TabObj.Border, TabObj.Background, TabObj.RailGlow, TabObj.Indicator, TabObj.Detail}) do SetVisible(DrawObj, false) end
-            TabObj.Label.Visible = false
-            TabObj.IconDraw.Visible = false
+        local IsHovered = not Tab.Hidden and IsMouseInBounds(LibraryData.Input.MousePos, TabPos, TabSize)
+        if Tab.Hidden then
+            for _, DrawItem in ipairs({Tab.Border, Tab.Background, Tab.RailGlow, Tab.Indicator, Tab.Detail}) do SetVisible(DrawItem, false) end
+            Tab.Label.Visible = false
+            Tab.IconDraw.Visible = false
         end
         local AlphaTarget = IsCurrent and 1 or (IsHovered and 0.38 or 0)
-        TabObj.BgAlpha = MathLerp(TabObj.BgAlpha, AlphaTarget, 0.20)
-        local CardColor = ColorLerp(LibraryData.Palette.Sidebar, LibraryData.Palette.Hover, TabObj.BgAlpha * 0.57)
+        Tab.BgAlpha = Lerp(Tab.BgAlpha, AlphaTarget, 0.20)
+        local CardColor = ColorLerp(LibraryData.Palette.Sidebar, LibraryData.Palette.Hover, Tab.BgAlpha * 0.57)
         local BorderColor = LibraryData.Palette.Outline
-        UpdateRoundedBox(TabObj.Border, TabPos, TabSize, 6, BorderColor, IsCurrent and 0.44 or (IsHovered and 0.22 or 0), not TabObj.Hidden and (IsCurrent or IsHovered))
-        UpdateRoundedBox(TabObj.Background, Vector2Round(TabPos.X + 1, TabPos.Y + 1), Vector2Round(TabSize.X - 2, TabSize.Y - 2), 5, CardColor, 1, not TabObj.Hidden)
-        UpdateRoundedBox(TabObj.RailGlow, TabPos, Vector2Round(0, 0), 0, LibraryData.Palette.Accent, 0, false)
-        UpdateRoundedBox(TabObj.Indicator, Vector2Round(TabPos.X + 3, TabPos.Y + 9), Vector2Round(2, TabSize.Y - 18), 1, LibraryData.Palette.Accent, 1, IsCurrent and not TabObj.Hidden)
-        UpdateRoundedBox(TabObj.Detail, TabPos, Vector2Round(0, 0), 0, LibraryData.Palette.Accent2, 0, false)
-        TabObj.CurrentColor = ColorLerp(TabObj.CurrentColor, IsCurrent and LibraryData.Palette.Text or (IsHovered and ColorLerp(LibraryData.Palette.SubText, LibraryData.Palette.Text, 0.65) or LibraryData.Palette.SubText), 0.23)
-        TabObj.IconDraw.Visible = false
-        TabObj.Label.Visible = not TabObj.Hidden
-        if not TabObj.Hidden then PositionText(TabObj.Label, TabPos.X + 15, TabPos.Y + 10, "SidebarTab") end
-        TabObj.Label.Color = TabObj.CurrentColor
+        UpdateRoundedBox(Tab.Border, TabPos, TabSize, 6, BorderColor, IsCurrent and 0.44 or (IsHovered and 0.22 or 0), not Tab.Hidden and (IsCurrent or IsHovered))
+        UpdateRoundedBox(Tab.Background, Vector2Round(TabPos.X + 1, TabPos.Y + 1), Vector2Round(TabSize.X - 2, TabSize.Y - 2), 5, CardColor, 1, not Tab.Hidden)
+        UpdateRoundedBox(Tab.RailGlow, TabPos, Vector2Round(0, 0), 0, LibraryData.Palette.Accent, 0, false)
+        UpdateRoundedBox(Tab.Indicator, Vector2Round(TabPos.X + 3, TabPos.Y + 9), Vector2Round(2, TabSize.Y - 18), 1, LibraryData.Palette.Accent, 1, IsCurrent and not Tab.Hidden)
+        UpdateRoundedBox(Tab.Detail, TabPos, Vector2Round(0, 0), 0, LibraryData.Palette.Accent2, 0, false)
+        Tab.CurrentColor = ColorLerp(Tab.CurrentColor, IsCurrent and LibraryData.Palette.Text or (IsHovered and ColorLerp(LibraryData.Palette.SubText, LibraryData.Palette.Text, 0.65) or LibraryData.Palette.SubText), 0.23)
+        Tab.IconDraw.Visible = false
+        Tab.Label.Visible = not Tab.Hidden
+        if not Tab.Hidden then PositionText(Tab.Label, TabPos.X + 15, TabPos.Y + 10, "SidebarTab") end
+        Tab.Label.Color = Tab.CurrentColor
         if not IsCurrent then
-            HideTabContent(TabObj)
+            HideTabContent(Tab)
         end
         if IsCurrent and not SkipHeavyUpdate then
             local ColWidth = (SizeX - 150 - 30) / 2
             local LeftY, RightY = PosY + 46, PosY + 46
-            for _, SectionObj in ipairs(TabObj.Sections) do
-                local SectionX = SectionObj.Side == "Left" and (PosX + 160) or (PosX + 160 + ColWidth + 10)
-                local SectionY = SectionObj.Side == "Left" and LeftY or RightY
+            for _, Section in ipairs(Tab.Sections) do
+                local SectionX = Section.Side == "Left" and (PosX + 160) or (PosX + 160 + ColWidth + 10)
+                local SectionY = Section.Side == "Left" and LeftY or RightY
                 local ItemY = SectionY + 32
-                for _, ItemObj in ipairs(SectionObj.Items) do
-                    ItemObj:Update(SectionX + 8, ItemY, ColWidth - 16)
-                    ItemY = ItemY + ItemObj.Height
+                for _, Item in ipairs(Section.Items) do
+                    Item:Update(SectionX + 8, ItemY, ColWidth - 16)
+                    ItemY = ItemY + Item.Height
                 end
-                SectionObj:UpdateContainer(SectionX, SectionY, ColWidth, ItemY - SectionY + 6)
-                if SectionObj.Side == "Left" then LeftY = ItemY + 16 else RightY = ItemY + 16 end
+                Section:UpdateContainer(SectionX, SectionY, ColWidth, ItemY - SectionY + 6)
+                if Section.Side == "Left" then LeftY = ItemY + 16 else RightY = ItemY + 16 end
             end
         end
 
         if not IsCurrent then
-            for _, SectionObj in ipairs(TabObj.Sections) do
-                SetVisible(SectionObj.Outline, false)
-                SetVisible(SectionObj.Background, false)
-                HideStripePattern(SectionObj.PatternBack)
-                HideStripePattern(SectionObj.PatternFront)
-                SectionObj.Title.Visible = false
-                SectionObj.Line.Visible = false
-                for _, ItemObj in ipairs(SectionObj.Items) do
-                    if ItemObj.Label then ItemObj.Label.Visible = false end
-                    if ItemObj.ValueLabel then ItemObj.ValueLabel.Visible = false end
-                    if ItemObj.Icon then UpdateKeybindImageIcon(ItemObj.Icon, Vector2Round(-1000, -1000), LibraryData.Palette.Text, false) end
-                    if ItemObj.IconDraw then ItemObj.IconDraw.Visible = false end
-                    if ItemObj.BoxStroke then SetVisible(ItemObj.BoxStroke, false) end
-                    if ItemObj.Box then SetVisible(ItemObj.Box, false) end
-                    if ItemObj.Fill then SetVisible(ItemObj.Fill, false) end
-                    if ItemObj.Stroke then SetVisible(ItemObj.Stroke, false) end
-                    if ItemObj.Background then SetVisible(ItemObj.Background, false) end
-                    if ItemObj.Knob then SetVisible(ItemObj.Knob, false) end
-                    if ItemObj.Accent then ItemObj.Accent.Visible = false end
-                    if ItemObj.ListStroke then SetVisible(ItemObj.ListStroke, false) end
-                    if ItemObj.ListBackground then SetVisible(ItemObj.ListBackground, false) end
-                    if ItemObj.ButtonStroke then SetVisible(ItemObj.ButtonStroke, false) end
-                    if ItemObj.ButtonBox then SetVisible(ItemObj.ButtonBox, false) end
-                    if ItemObj.OptionDrawings then
-                        for _, OptionDrawing in pairs(ItemObj.OptionDrawings) do OptionDrawing.Visible = false end
+            for _, Section in ipairs(Tab.Sections) do
+                SetVisible(Section.Outline, false)
+                SetVisible(Section.Background, false)
+                HideStripePattern(Section.PatternBack)
+                HideStripePattern(Section.PatternFront)
+                Section.Title.Visible = false
+                Section.Line.Visible = false
+                for _, Item in ipairs(Section.Items) do
+                    if Item.Label then Item.Label.Visible = false end
+                    if Item.ValueLabel then Item.ValueLabel.Visible = false end
+                    if Item.Icon then UpdateKeybindImageIcon(Item.Icon, Vector2Round(-1000, -1000), LibraryData.Palette.Text, false) end
+                    if Item.IconDraw then Item.IconDraw.Visible = false end
+                    if Item.BoxStroke then SetVisible(Item.BoxStroke, false) end
+                    if Item.Box then SetVisible(Item.Box, false) end
+                    if Item.Fill then SetVisible(Item.Fill, false) end
+                    if Item.Stroke then SetVisible(Item.Stroke, false) end
+                    if Item.Background then SetVisible(Item.Background, false) end
+                    if Item.Knob then SetVisible(Item.Knob, false) end
+                    if Item.Accent then Item.Accent.Visible = false end
+                    if Item.ListStroke then SetVisible(Item.ListStroke, false) end
+                    if Item.ListBackground then SetVisible(Item.ListBackground, false) end
+                    if Item.ButtonStroke then SetVisible(Item.ButtonStroke, false) end
+                    if Item.ButtonBox then SetVisible(Item.ButtonBox, false) end
+                    if Item.OptionDrawings then
+                        for _, OptionDrawing in pairs(Item.OptionDrawings) do OptionDrawing.Visible = false end
                     end
-                    if ItemObj.PreviewStroke then SetVisible(ItemObj.PreviewStroke, false) end
-                    if ItemObj.Preview then SetVisible(ItemObj.Preview, false) end
-                    if ItemObj.PopupStroke then SetVisible(ItemObj.PopupStroke, false) end
-                    if ItemObj.SavedCells then
-                        for _, Cell in ipairs(ItemObj.SavedCells) do SetVisible(Cell.Outline, false) SetVisible(Cell.Background, false) end
+                    if Item.PreviewStroke then SetVisible(Item.PreviewStroke, false) end
+                    if Item.Preview then SetVisible(Item.Preview, false) end
+                    if Item.PopupStroke then SetVisible(Item.PopupStroke, false) end
+                    if Item.SavedCells then
+                        for _, Cell in ipairs(Item.SavedCells) do SetVisible(Cell.Outline, false) SetVisible(Cell.Background, false) end
                     end
-                    if ItemObj.SaveButton then SetVisible(ItemObj.SaveButton, false) end
-                    if ItemObj.SaveButtonBorder then SetVisible(ItemObj.SaveButtonBorder, false) end
-                    if ItemObj.SaveButtonText then ItemObj.SaveButtonText.Visible = false end
-                    if ItemObj.SavedLabel then ItemObj.SavedLabel.Visible = false end
-                    if ItemObj.PopupBackground then SetVisible(ItemObj.PopupBackground, false) end
-                    if ItemObj.PopupSwatchStroke then SetVisible(ItemObj.PopupSwatchStroke, false) end
-                    if ItemObj.PopupSwatch then SetVisible(ItemObj.PopupSwatch, false) end
-                    if ItemObj.SVStroke then SetVisible(ItemObj.SVStroke, false) end
-                    if ItemObj.HueStroke then SetVisible(ItemObj.HueStroke, false) end
-                    if ItemObj.SVGrid then HideGridSquares(ItemObj.SVGrid) end
+                    if Item.SaveButton then SetVisible(Item.SaveButton, false) end
+                    if Item.SaveButtonBorder then SetVisible(Item.SaveButtonBorder, false) end
+                    if Item.SaveButtonText then Item.SaveButtonText.Visible = false end
+                    if Item.SavedLabel then Item.SavedLabel.Visible = false end
+                    if Item.PopupBackground then SetVisible(Item.PopupBackground, false) end
+                    if Item.PopupSwatchStroke then SetVisible(Item.PopupSwatchStroke, false) end
+                    if Item.PopupSwatch then SetVisible(Item.PopupSwatch, false) end
+                    if Item.SVStroke then SetVisible(Item.SVStroke, false) end
+                    if Item.HueStroke then SetVisible(Item.HueStroke, false) end
+                    if Item.SVGrid then HideGridSquares(Item.SVGrid) end
                     for _, PickerImage in ipairs({"SVOverlay", "HueOverlay", "AlphaChecker", "AlphaOverlay"}) do
-                        if ItemObj[PickerImage] then ItemObj[PickerImage].Visible = false end
+                        if Item[PickerImage] then Item[PickerImage].Visible = false end
                     end
                     for _, PickerBox in ipairs({"SVBackground", "HueBackground", "AlphaBackground"}) do
-                        if ItemObj[PickerBox] then SetVisible(ItemObj[PickerBox], false) end
+                        if Item[PickerBox] then SetVisible(Item[PickerBox], false) end
                     end
-                    if ItemObj.HueGrid then HideGridSquares(ItemObj.HueGrid) end
-                    if ItemObj.CursorOuter then ItemObj.CursorOuter.Visible = false end
-                    if ItemObj.CursorInner then ItemObj.CursorInner.Visible = false end
-                    if ItemObj.HueLine then ItemObj.HueLine.Visible = false end
-                    if ItemObj.HueCapTop then ItemObj.HueCapTop.Visible = false end
-                    if ItemObj.HueCapBottom then ItemObj.HueCapBottom.Visible = false end
-                    if ItemObj.PopupHex then ItemObj.PopupHex.Visible = false end
+                    if Item.HueGrid then HideGridSquares(Item.HueGrid) end
+                    if Item.CursorOuter then Item.CursorOuter.Visible = false end
+                    if Item.CursorInner then Item.CursorInner.Visible = false end
+                    if Item.HueLine then Item.HueLine.Visible = false end
+                    if Item.HueCapTop then Item.HueCapTop.Visible = false end
+                    if Item.HueCapBottom then Item.HueCapBottom.Visible = false end
+                    if Item.PopupHex then Item.PopupHex.Visible = false end
                 end
             end
         end
@@ -3284,19 +3239,18 @@ ConnectSession(RunService.RenderStepped, function()
 end)
 
 
-FireChange = function(ItemObj)
-    if ItemObj and type(ItemObj.OnChanged) == "function" then
-        pcall(ItemObj.OnChanged, Config[ItemObj.Flag])
+FireChange = function(Item)
+    if Item and type(Item.OnChanged) == "function" then
+        pcall(Item.OnChanged, Config[Item.Flag])
     end
 end
 
 local NightfallLibrary = {
     Name = "Nightfall",
-    Version = "1.0.16",
+    Version = "1.0.18",
     Config = Config,
     Flags = Config,
     State = LibraryData,
-    Runtime = RuntimeState,
     Session = Session,
     TextOffsets = TextOffsets,
     Palette = LibraryData.Palette,
@@ -3309,6 +3263,7 @@ local NightfallLibrary = {
     LoadLayout = LoadLayout,
     ApplyTheme = ApplyThemePreset,
     RegisterKeybind = RegisterKeybind,
+    BindKeybind = BindKeybind,
     SetBindMode = SetBindMode,
     GetBindMode = GetBindMode
 }
@@ -3346,6 +3301,31 @@ function NightfallLibrary:RegisterKeybind(Flag, Key, Mode)
     return RegisterKeybind(Flag, Key, Mode)
 end
 
+function NightfallLibrary:BindKeybind(BindFlag, ToggleFlag, ModeFlag, Label)
+    BindKeybind(BindFlag, ToggleFlag, ModeFlag, Label)
+    return self
+end
+
+function NightfallLibrary:BindConfig(ExternalConfig)
+    if type(ExternalConfig) ~= "table" then return self end
+    local PreviousConfig = Config
+    for _, Key in ipairs(PersistentSettings) do
+        if PreviousConfig[Key] ~= nil and (SettingsLoaded or ExternalConfig[Key] == nil) then
+            ExternalConfig[Key] = PreviousConfig[Key]
+        end
+    end
+    if PreviousConfig.LibraryAccent then ExternalConfig.LibraryAccent = PreviousConfig.LibraryAccent end
+    if PreviousConfig.UiAccentColor then ExternalConfig.UiAccentColor = PreviousConfig.UiAccentColor end
+    if PreviousConfig.UiAccent2Color then ExternalConfig.UiAccent2Color = PreviousConfig.UiAccent2Color end
+    Config = ExternalConfig
+    self.Config = Config
+    self.Flags = Config
+    if WatermarkSettings then WatermarkSettings.Visible = Config.ShowWatermark == true end
+    RegisterKeybind("HideKeybind", Config.HideKeybind or "F2", "Toggle")
+    if Config.AutoLoadConfig then LoadNamedConfig(Config.SelectedConfig or Config.ConfigName) end
+    return self
+end
+
 function NightfallLibrary:SetBindMode(Flag, Mode)
     return SetBindMode(Flag, Mode)
 end
@@ -3374,7 +3354,7 @@ NightfallLibrary.Modules = {
     Layout = {Save = SaveLayout, Load = LoadLayout, ClampPosition = ClampWindowPosition},
     Drawing = {Create = CreateDrawing, RoundedBox = MakeRoundedBox, UpdateRoundedBox = UpdateRoundedBox},
     Colors = {FromHsv = HsvToColor3, ToHsv = Color3ToHsv, ToHex = Color3ToHex},
-    Keybinds = {Register = RegisterKeybind, SetMode = SetBindMode, GetMode = GetBindMode}
+    Keybinds = {Register = RegisterKeybind, Bind = BindKeybind, SetMode = SetBindMode, GetMode = GetBindMode}
 }
 
 local UiNotifications = {}
@@ -3466,7 +3446,7 @@ function NightfallLibrary:Notification(Options)
     local Entry = {
         TitleText = tostring(Options.Title or "Nightfall"):sub(1, 42),
         MessageText = tostring(Options.Description or Options.Message or ""):sub(1, 64),
-        Time = FastTick(), Duration = MathClamp(tonumber(Options.Duration) or Config.NotificationDuration or 4, 0.5, 20),
+        Time = GetTime(), Duration = Clamp(tonumber(Options.Duration) or Config.NotificationDuration or 4, 0.5, 20),
         Border = MakeRoundedBox(LibraryData.Palette.OutlineLight, 1),
         Background = MakeRoundedBox(LibraryData.Palette.Section, 1),
         Progress = MakeRoundedBox(LibraryData.Palette.Accent, 1),
@@ -3516,7 +3496,7 @@ local function UpdateNotifications()
         for _, Entry in ipairs(UiNotifications) do HideNotification(Entry) end
         return
     end
-    local Now = FastTick()
+    local Now = GetTime()
     local Camera = WorkspaceService.CurrentCamera
     local View = Camera and Camera.ViewportSize or Vector2.new(1920, 1080)
     for I = #UiNotifications, 1, -1 do
@@ -3528,9 +3508,9 @@ local function UpdateNotifications()
     local Width, Height, Gap = 258, 63, 9
     for I, Entry in ipairs(UiNotifications) do
         local Elapsed = Now - Entry.Time
-        local Remaining = MathClamp(1 - Elapsed / Entry.Duration, 0, 1)
-        local Enter = MathClamp(Elapsed / 0.20, 0, 1)
-        local Exit = MathClamp((Entry.Duration + 0.3 - Elapsed) / 0.30, 0, 1)
+        local Remaining = Clamp(1 - Elapsed / Entry.Duration, 0, 1)
+        local Enter = Clamp(Elapsed / 0.20, 0, 1)
+        local Exit = Clamp((Entry.Duration + 0.3 - Elapsed) / 0.30, 0, 1)
         local Alpha = math.min(Enter, Exit)
         local OnLeft = Config.NotificationPosition == "Top Left"
         local X = OnLeft and math.floor(16 - (1 - Alpha) * (Width + 20)) or math.floor(View.X - Width - 16 + (1 - Alpha) * (Width + 20))
@@ -3677,7 +3657,7 @@ function NightfallLibrary:Set(Flag, Value)
     if Flag == "ShowWatermark" and WatermarkSettings then WatermarkSettings.Visible = Value == true end
     if Flag == "ThemePreset" then ApplyThemePreset(Value, false) end
     if Flag == "WatermarkText" and type(Value) ~= "string" then Config.WatermarkText = tostring(Value) end
-    if Flag == "HideKeybind" or Flag == "ParryKeybind" or Flag == "SpamKeybind" or Flag == "TriggerKeybind" then
+    if Flag == "HideKeybind" or KeybindTargets[Flag] then
         RegisterKeybind(Flag, Value, GetBindMode(Flag))
     end
     QueueSaveConfig()
@@ -3689,13 +3669,13 @@ function NightfallLibrary:Get(Flag)
     return Config[Flag]
 end
 
-local function WrapControl(ControlObj, Flag, Callback)
-    if not ControlObj then return nil end
-    ControlObj.OnChanged = Callback
-    function ControlObj:Get()
+local function WrapControl(Control, Flag, Callback)
+    if not Control then return nil end
+    Control.OnChanged = Callback
+    function Control:Get()
         return Config[Flag]
     end
-    function ControlObj:Set(Value, Silent)
+    function Control:Set(Value, Silent)
         if self.Type == "Slider" then
             Value = ClampSliderValue(tonumber(Value) or self.Min, self.Min, self.Max, self.Step)
             self.InputBuffer = FormatSliderValue(Value, self.Step)
@@ -3703,8 +3683,8 @@ local function WrapControl(ControlObj, Flag, Callback)
             Value = NormalizeKeybindValue(Value)
             RegisterKeybind(Flag, Value, GetBindMode(Flag))
         elseif self.Type == "ColorPicker" and type(Value) == "table" and Value.Color then
-            self.Hue, self.Sat, self.Val = Color3ToHsv(Value.Color)
-            self.Alpha = MathClamp(Value.Alpha or 1, 0, 1)
+            self.Hue, self.Saturation, self.Brightness = Color3ToHsv(Value.Color)
+            self.Alpha = Clamp(Value.Alpha or 1, 0, 1)
         end
         Config[Flag] = Value
         if not Silent then
@@ -3713,77 +3693,83 @@ local function WrapControl(ControlObj, Flag, Callback)
         end
         return self
     end
-    if ControlObj.Type == "Keybind" then
-        function ControlObj:SetMode(Mode)
+    if Control.Type == "Keybind" then
+        function Control:SetMode(Mode)
             SetBindMode(Flag, Mode)
             return self
         end
-        function ControlObj:GetMode()
+        function Control:GetMode()
             return GetBindMode(Flag)
         end
     end
-    return ControlObj
+    return Control
 end
 
-local function WrapSection(SectionObj)
-    function SectionObj:Toggle(Options)
+local function WrapSection(Section)
+    function Section:Toggle(Options)
         Options = Options or {}
-        local F = Options.Flag or Options.Name
-        return WrapControl(self:CreateToggle(Options.Name or F, F, Options.Default), F, Options.Callback)
+        local FlagName = Options.Flag or Options.Name
+        return WrapControl(self:CreateToggle(Options.Name or FlagName, FlagName, Options.Default), FlagName, Options.Callback)
     end
-    function SectionObj:Slider(Options)
+    function Section:Slider(Options)
         Options = Options or {}
-        local F = Options.Flag or Options.Name
-        return WrapControl(self:CreateSlider(Options.Name or F, F, Options.Min or 0, Options.Max or 100, Options.Default, Options.Step or 1), F, Options.Callback)
+        local FlagName = Options.Flag or Options.Name
+        return WrapControl(self:CreateSlider(Options.Name or FlagName, FlagName, Options.Min or 0, Options.Max or 100, Options.Default, Options.Step or 1), FlagName, Options.Callback)
     end
-    function SectionObj:Dropdown(Options)
+    function Section:Dropdown(Options)
         Options = Options or {}
-        local F = Options.Flag or Options.Name
-        return WrapControl(self:CreateDropdown(Options.Name or F, F, Options.Options or {}, Options.Default), F, Options.Callback)
+        local FlagName = Options.Flag or Options.Name
+        return WrapControl(self:CreateDropdown(Options.Name or FlagName, FlagName, Options.Options or {}, Options.Default), FlagName, Options.Callback)
     end
-    function SectionObj:Keybind(Options)
+    function Section:Keybind(Options)
         Options = Options or {}
-        local F = Options.Flag or Options.Name
-        return WrapControl(self:CreateKeybind(Options.Name or F, F, Options.Default or "None"), F, Options.Callback)
+        local FlagName = Options.Flag or Options.Name
+        local Control = WrapControl(self:CreateKeybind(Options.Name or FlagName, FlagName, Options.Default or "None"), FlagName, Options.Callback)
+        if Options.TargetFlag and Options.ModeFlag then
+            BindKeybind(FlagName, Options.TargetFlag, Options.ModeFlag, Options.Label or Options.Name)
+        elseif FlagName == "HideKeybind" then
+            RegisterKeybind(FlagName, Config[FlagName], "Toggle")
+        end
+        return Control
     end
-    function SectionObj:Textbox(Options)
+    function Section:Textbox(Options)
         Options = Options or {}
-        local F = Options.Flag or Options.Name
-        return WrapControl(self:CreateTextbox(Options.Name or F, F, Options.Default or ""), F, Options.Callback)
+        local FlagName = Options.Flag or Options.Name
+        return WrapControl(self:CreateTextbox(Options.Name or FlagName, FlagName, Options.Default or ""), FlagName, Options.Callback)
     end
-    function SectionObj:Colorpicker(Options)
+    function Section:Colorpicker(Options)
         Options = Options or {}
-        local F = Options.Flag or Options.Name
+        local FlagName = Options.Flag or Options.Name
         local Callback = Options.Callback
-        local C = self:CreateColorPicker(Options.Name or F, F, Options.Default or LibraryData.Palette.Accent, Options.Alpha or 1, Callback)
-        return WrapControl(C, F, Callback)
+        local PickerControl = self:CreateColorPicker(Options.Name or FlagName, FlagName, Options.Default or LibraryData.Palette.Accent, Options.Alpha or 1, Callback)
+        return WrapControl(PickerControl, FlagName, Callback)
     end
-    SectionObj.ColorPicker = SectionObj.Colorpicker
-    function SectionObj:Button(Options)
+    Section.ColorPicker = Section.Colorpicker
+    function Section:Button(Options)
         Options = Options or {}
         return self:CreateButton(Options.Name or "Button", Options.Callback)
     end
-    return SectionObj
+    return Section
 end
 
 function NightfallLibrary:Window(Options)
     Options = Options or {}
     if Options.Size then self:Size(Options.Size) end
     if Options.Name then WindowDrawings.Title.Text = Options.Name end
-    local WindowObj = {Name = Options.Name or "Nightfall", State = LibraryData}
-    function WindowObj:Tab(TabOptions)
+    local Window = {Name = Options.Name or "Nightfall", State = LibraryData}
+    function Window:Tab(TabOptions)
         if type(TabOptions) == "string" then TabOptions = {Name = TabOptions} end
         TabOptions = TabOptions or {}
-        local TabObj = LibraryData:CreateTab(TabOptions.Name or "Tab", TabOptions.Icon)
-        TabObj.Hidden = TabOptions.Hidden == true
-        function TabObj:Section(SectionOptions)
+        local Tab = LibraryData:CreateTab(TabOptions.Name or "Tab", TabOptions.Icon)
+        Tab.Hidden = TabOptions.Hidden == true
+        function Tab:Section(SectionOptions)
             if type(SectionOptions) == "string" then SectionOptions = {Name = SectionOptions} end
             SectionOptions = SectionOptions or {}
             return WrapSection(self:CreateSection(SectionOptions.Name or "Section", SectionOptions.Side or "Left"))
         end
-        return TabObj
+        return Tab
     end
-    return WindowObj
+    return Window
 end
 
 local SettingWindow = NightfallLibrary:Window({})
@@ -3825,11 +3811,11 @@ function NightfallLibrary:Unload()
     _G.NightfallActive = false
     for _, Entry in ipairs(UiNotifications) do DeleteNotification(Entry) end
     UiNotifications = {}
-    for _, ConnectionObj in ipairs(Session.Connections) do
-        pcall(function() ConnectionObj:Disconnect() end)
+    for _, Connection in ipairs(Session.Connections) do
+        pcall(function() Connection:Disconnect() end)
     end
-    for _, DrawingObj in ipairs(_G.NightfallDrawings or {}) do
-        pcall(function() DrawingObj:Remove() end)
+    for _, DrawingItem in ipairs(_G.NightfallDrawings or {}) do
+        pcall(function() DrawingItem:Remove() end)
     end
     if _G.NightfallSession == Session then _G.NightfallSession = nil end
     if _G.NightfallLibrary == self then _G.NightfallLibrary = nil end
